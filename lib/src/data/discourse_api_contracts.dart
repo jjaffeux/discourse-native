@@ -5,11 +5,6 @@ import '../models/notification_totals.dart';
 import '../models/topic.dart';
 import '../models/user_draft.dart';
 
-export '../plugins/chat/chat_api.dart';
-export '../plugins/gifs/gifs_api.dart';
-export '../plugins/poll/polls_api.dart';
-export '../plugins/reactions/reactions_api.dart';
-
 enum SiteLookupFailure { notDiscourse, unreachable }
 
 class SiteLookupException implements Exception, DiagnosticErrorCause {
@@ -231,29 +226,6 @@ abstract interface class TopicReadsApi {
     required int topicId,
     required int postNumber,
     int milliseconds = 500,
-    String? clientId,
-  });
-}
-
-/// Narrow authenticated JSON transport used by repository-owned plugins.
-///
-/// Keeping this boundary generic prevents every optional plugin from growing
-/// the already-large core API contract while preserving the shared HTTP safety
-/// and write-error mapping.
-abstract interface class PluginApiTransport {
-  Future<Map<String, dynamic>> pluginGetJson({
-    required String siteUrl,
-    required String path,
-    required String? apiKey,
-    String? clientId,
-  });
-
-  Future<Map<String, dynamic>> pluginWriteJson({
-    required String siteUrl,
-    required String path,
-    required String method,
-    required String apiKey,
-    required Map<String, Object?> body,
     String? clientId,
   });
 }

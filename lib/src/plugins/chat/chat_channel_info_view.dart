@@ -12,6 +12,7 @@ import 'chat_channel_editor.dart';
 import 'chat_channel_status.dart';
 import 'chat_controller.dart';
 import 'chat_route.dart';
+import 'chat_shell_extension.dart';
 import 'chat_user_avatar.dart';
 
 /// Core Discourse's routed channel information surface.

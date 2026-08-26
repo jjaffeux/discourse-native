@@ -1,1 +1,1 @@
-export 'package:discourse_plugin_api/discourse_plugin_api.dart';
+export '../plugin_api/plugin_manifest.dart';

@@ -135,6 +135,13 @@ abstract base class PluginSessionLifecycle {
   FutureOr<void> close() {}
 }
 
+/// Behavior a plugin exposes to its host for one installed session.
+///
+/// Capabilities are intentionally discovered by interface type. The host can
+/// dispatch a stable extension point without knowing which plugin implements
+/// it, while plugin-private controllers remain behind the contribution.
+abstract interface class PluginSessionCapability {}
+
 final class PluginHostPortKey<T extends Object> {
   const PluginHostPortKey({required this.owner, required this.name});
 
@@ -207,10 +214,13 @@ final class PluginSessionContribution {
   PluginSessionContribution({
     required this.lifecycle,
     Iterable<PluginService<Object>> services = const [],
-  }) : services = List.unmodifiable(services);
+    Iterable<PluginSessionCapability> capabilities = const [],
+  }) : services = List.unmodifiable(services),
+       capabilities = List.unmodifiable(capabilities);
 
   final PluginSessionLifecycle lifecycle;
   final List<PluginService<Object>> services;
+  final List<PluginSessionCapability> capabilities;
 }
 
 final class PluginService<T extends Object> {

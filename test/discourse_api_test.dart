@@ -10,12 +10,15 @@ import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugins/chat/chat_api.dart';
+import 'package:discourse_native/src/plugins/chat/chat_api_client.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_api_client.dart';
 import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -2785,7 +2788,7 @@ void _feedGroups() {
         }),
       );
 
-      final post = await api.toggleReaction(
+      final post = await ReactionsApiClient(api, api.models).toggleReaction(
         siteUrl: 'https://example.com',
         apiKey: 'k',
         postId: 1,
@@ -2812,7 +2815,7 @@ void _feedGroups() {
         }),
       );
 
-      await api.toggleReaction(
+      await ReactionsApiClient(api, api.models).toggleReaction(
         siteUrl: 'https://example.com',
         apiKey: 'k',
         postId: 1,
@@ -2831,7 +2834,7 @@ void _feedGroups() {
       );
 
       await expectLater(
-        api.toggleReaction(
+        ReactionsApiClient(api, api.models).toggleReaction(
           siteUrl: 'https://example.com',
           apiKey: 'k',
           postId: 1,
@@ -2851,7 +2854,7 @@ void _feedGroups() {
       );
 
       await expectLater(
-        api.toggleReaction(
+        ReactionsApiClient(api, api.models).toggleReaction(
           siteUrl: 'https://example.com',
           apiKey: 'k',
           postId: 1,
@@ -2886,10 +2889,10 @@ void _feedGroups() {
         }),
       );
 
-      final reactors = await api.postReactors(
-        siteUrl: 'https://example.com',
-        postId: 1,
-      );
+      final reactors = await ReactionsApiClient(
+        api,
+        api.models,
+      ).postReactors(siteUrl: 'https://example.com', postId: 1);
 
       expect(
         seen.path,
@@ -2913,11 +2916,10 @@ void _feedGroups() {
         }),
       );
 
-      final reactors = await api.postReactors(
-        siteUrl: 'https://example.com',
-        postId: 1,
-        reaction: '+1',
-      );
+      final reactors = await ReactionsApiClient(
+        api,
+        api.models,
+      ).postReactors(siteUrl: 'https://example.com', postId: 1, reaction: '+1');
 
       expect(seen.queryParameters['reaction_value'], '+1');
       // Kept on the record, so the filtered list does not overwrite the whole
@@ -2951,7 +2953,7 @@ void _feedGroups() {
         }),
       );
 
-      final channel = await api.upsertChatDirectMessageChannel(
+      final channel = await ChatApiClient(api).upsertChatDirectMessageChannel(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         clientId: 'client',
@@ -3017,7 +3019,7 @@ void _feedGroups() {
         late Uri seen;
         final api = DiscourseApi(client: serving((r) => seen = r.url));
 
-        await api.chatChannels(siteUrl: 'https://example.com');
+        await ChatApiClient(api).chatChannels(siteUrl: 'https://example.com');
 
         expect(seen.path, '/chat/api/me/channels.json');
         // The route takes no parameters at all — the reader's own memberships are
@@ -3029,7 +3031,9 @@ void _feedGroups() {
     test('reads the public and the direct lists apart', () async {
       final api = DiscourseApi(client: serving((_) {}));
 
-      final channels = await api.chatChannels(siteUrl: 'https://example.com');
+      final channels = await ChatApiClient(
+        api,
+      ).chatChannels(siteUrl: 'https://example.com');
 
       expect(channels.public.single.title, 'Bugs');
       expect(channels.direct.single.isDirectMessage, isTrue);
@@ -3043,7 +3047,7 @@ void _feedGroups() {
         late Map<String, String> headers;
         final api = DiscourseApi(client: serving((r) => headers = r.headers));
 
-        await api.chatChannels(
+        await ChatApiClient(api).chatChannels(
           siteUrl: 'https://example.com',
           apiKey: 'key',
           clientId: 'client',
@@ -3063,7 +3067,7 @@ void _feedGroups() {
         }),
       );
 
-      await api.updateChatChannelStarred(
+      await ChatApiClient(api).updateChatChannelStarred(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3095,13 +3099,14 @@ void _feedGroups() {
         }),
       );
 
-      final membership = await api.updateChatChannelNotifications(
-        siteUrl: 'https://example.com',
-        apiKey: 'key',
-        channelId: 9,
-        muted: true,
-        notificationLevel: ChatChannelNotificationLevel.always,
-      );
+      final membership = await ChatApiClient(api)
+          .updateChatChannelNotifications(
+            siteUrl: 'https://example.com',
+            apiKey: 'key',
+            channelId: 9,
+            muted: true,
+            notificationLevel: ChatChannelNotificationLevel.always,
+          );
 
       expect(sent.method, 'PUT');
       expect(
@@ -3138,7 +3143,7 @@ void _feedGroups() {
         }),
       );
 
-      await api.updateChatChannelNotifications(
+      await ChatApiClient(api).updateChatChannelNotifications(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3182,7 +3187,7 @@ void _feedGroups() {
         }),
       );
 
-      final page = await api.chatChannelMembers(
+      final page = await ChatApiClient(api).chatChannelMembers(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3232,7 +3237,7 @@ void _feedGroups() {
         }),
       );
 
-      final page = await api.browseChatChannels(
+      final page = await ChatApiClient(api).browseChatChannels(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         filter: ' bugs ',
@@ -3272,12 +3277,12 @@ void _feedGroups() {
         }),
       );
 
-      final joined = await api.followChatChannel(
+      final joined = await ChatApiClient(api).followChatChannel(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
       );
-      final unfollowed = await api.unfollowChatChannel(
+      final unfollowed = await ChatApiClient(api).unfollowChatChannel(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3305,7 +3310,7 @@ void _feedGroups() {
         }),
       );
 
-      await api.editChatMessage(
+      await ChatApiClient(api).editChatMessage(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3331,13 +3336,13 @@ void _feedGroups() {
         }),
       );
 
-      await api.deleteChatMessage(
+      await ChatApiClient(api).deleteChatMessage(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
         messageId: 12,
       );
-      await api.restoreChatMessage(
+      await ChatApiClient(api).restoreChatMessage(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3364,7 +3369,7 @@ void _feedGroups() {
         }),
       );
 
-      await api.deleteChatMessages(
+      await ChatApiClient(api).deleteChatMessages(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3395,7 +3400,7 @@ void _feedGroups() {
         }),
       );
 
-      final moved = await api.moveChatMessages(
+      final moved = await ChatApiClient(api).moveChatMessages(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3424,7 +3429,7 @@ void _feedGroups() {
         }),
       );
 
-      await api.rebakeChatMessage(
+      await ChatApiClient(api).rebakeChatMessage(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3448,7 +3453,7 @@ void _feedGroups() {
         }),
       );
 
-      final markdown = await api.generateChatQuote(
+      final markdown = await ChatApiClient(api).generateChatQuote(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3472,14 +3477,14 @@ void _feedGroups() {
         }),
       );
 
-      await api.updateChatMessagePinned(
+      await ChatApiClient(api).updateChatMessagePinned(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
         messageId: 12,
         pinned: true,
       );
-      await api.updateChatMessagePinned(
+      await ChatApiClient(api).updateChatMessagePinned(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3527,12 +3532,12 @@ void _feedGroups() {
         }),
       );
 
-      final snapshot = await api.chatPinnedMessages(
+      final snapshot = await ChatApiClient(api).chatPinnedMessages(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
       );
-      await api.markChatPinsRead(
+      await ChatApiClient(api).markChatPinsRead(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3556,7 +3561,7 @@ void _feedGroups() {
         }),
       );
 
-      await api.flagChatMessage(
+      await ChatApiClient(api).flagChatMessage(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3580,7 +3585,7 @@ void _feedGroups() {
       );
 
       await expectLater(
-        api.chatChannels(siteUrl: 'https://example.com'),
+        ChatApiClient(api).chatChannels(siteUrl: 'https://example.com'),
         throwsA(isA<SiteLookupException>()),
       );
     });
@@ -3617,7 +3622,7 @@ void _feedGroups() {
         }),
       );
 
-      final page = await api.searchChatMessages(
+      final page = await ChatApiClient(api).searchChatMessages(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         clientId: 'client',
@@ -3650,7 +3655,7 @@ void _feedGroups() {
         }),
       );
 
-      await api.searchChatMessages(
+      await ChatApiClient(api).searchChatMessages(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         query: 'needle',
@@ -3673,24 +3678,24 @@ void _feedGroups() {
       );
 
       final calls = <Future<void> Function()>[
-        () => api.searchChatMessages(
+        () => ChatApiClient(api).searchChatMessages(
           siteUrl: 'https://example.com',
           apiKey: 'key',
           query: ' ',
         ),
-        () => api.searchChatMessages(
+        () => ChatApiClient(api).searchChatMessages(
           siteUrl: 'https://example.com',
           apiKey: 'key',
           query: 'needle',
           channelId: 0,
         ),
-        () => api.searchChatMessages(
+        () => ChatApiClient(api).searchChatMessages(
           siteUrl: 'https://example.com',
           apiKey: 'key',
           query: 'needle',
           offset: -1,
         ),
-        () => api.searchChatMessages(
+        () => ChatApiClient(api).searchChatMessages(
           siteUrl: 'https://example.com',
           apiKey: 'key',
           query: 'needle',
@@ -3723,7 +3728,7 @@ void _feedGroups() {
         }),
       );
 
-      final channel = await api.chatChannel(
+      final channel = await ChatApiClient(api).chatChannel(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3755,7 +3760,7 @@ void _feedGroups() {
         }),
       );
 
-      final updated = await api.updateChatChannel(
+      final updated = await ChatApiClient(api).updateChatChannel(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3797,7 +3802,7 @@ void _feedGroups() {
         }),
       );
 
-      await api.updateChatChannel(
+      await ChatApiClient(api).updateChatChannel(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3830,7 +3835,7 @@ void _feedGroups() {
         }),
       );
 
-      final updated = await api.updateChatChannel(
+      final updated = await ChatApiClient(api).updateChatChannel(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3865,7 +3870,7 @@ void _feedGroups() {
         }),
       );
 
-      final updated = await api.updateChatChannelStatus(
+      final updated = await ChatApiClient(api).updateChatChannelStatus(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -3884,7 +3889,7 @@ void _feedGroups() {
       );
 
       await expectLater(
-        api.updateChatChannelStatus(
+        ChatApiClient(api).updateChatChannelStatus(
           siteUrl: 'https://example.com',
           apiKey: 'key',
           channelId: 9,
@@ -3925,10 +3930,9 @@ void _feedGroups() {
       late Uri seen;
       final api = DiscourseApi(client: serving((r) => seen = r.url));
 
-      final page = await api.chatMessages(
-        siteUrl: 'https://example.com',
-        channelId: 9,
-      );
+      final page = await ChatApiClient(
+        api,
+      ).chatMessages(siteUrl: 'https://example.com', channelId: 9);
 
       expect(seen.path, '/chat/api/channels/9/messages.json');
       expect(seen.queryParameters['page_size'], '50');
@@ -3944,30 +3948,30 @@ void _feedGroups() {
         }),
       );
       final invalidCalls = <Future<void> Function()>[
-        () => api.chatMessages(
+        () => ChatApiClient(api).chatMessages(
           siteUrl: 'https://example.com',
           channelId: 9,
           before: 1,
           after: 2,
         ),
-        () => api.chatMessages(
+        () => ChatApiClient(api).chatMessages(
           siteUrl: 'https://example.com',
           channelId: 9,
           before: 1,
           fromLastRead: true,
         ),
-        () => api.chatMessages(siteUrl: 'https://example.com', channelId: 0),
-        () => api.chatMessages(
-          siteUrl: 'https://example.com',
-          channelId: 9,
-          before: 0,
-        ),
-        () => api.chatMessages(
+        () => ChatApiClient(
+          api,
+        ).chatMessages(siteUrl: 'https://example.com', channelId: 0),
+        () => ChatApiClient(
+          api,
+        ).chatMessages(siteUrl: 'https://example.com', channelId: 9, before: 0),
+        () => ChatApiClient(api).chatMessages(
           siteUrl: 'https://example.com',
           channelId: 9,
           pageSize: 0,
         ),
-        () => api.chatMessages(
+        () => ChatApiClient(api).chatMessages(
           siteUrl: 'https://example.com',
           channelId: 9,
           pageSize: 51,
@@ -3986,7 +3990,9 @@ void _feedGroups() {
       late Uri seen;
       final api = DiscourseApi(client: serving((r) => seen = r.url));
 
-      await api.chatMessages(siteUrl: 'https://example.com', channelId: 9);
+      await ChatApiClient(
+        api,
+      ).chatMessages(siteUrl: 'https://example.com', channelId: 9);
 
       expect(seen.queryParameters, isNot(contains('target_message_id')));
       expect(seen.queryParameters, isNot(contains('direction')));
@@ -3998,7 +4004,7 @@ void _feedGroups() {
         late Uri seen;
         final api = DiscourseApi(client: serving((r) => seen = r.url));
 
-        await api.chatMessages(
+        await ChatApiClient(api).chatMessages(
           siteUrl: 'https://example.com',
           channelId: 9,
           before: 40,
@@ -4028,7 +4034,7 @@ void _feedGroups() {
         }),
       );
 
-      final page = await api.chatMessages(
+      final page = await ChatApiClient(api).chatMessages(
         siteUrl: 'https://example.com',
         channelId: 9,
         targetMessageId: 40,
@@ -4047,7 +4053,9 @@ void _feedGroups() {
         late Uri seen;
         final api = DiscourseApi(client: serving((r) => seen = r.url));
 
-        await api.chatMessages(siteUrl: 'https://example.com', channelId: 9);
+        await ChatApiClient(
+          api,
+        ).chatMessages(siteUrl: 'https://example.com', channelId: 9);
 
         expect(seen.queryParameters, isNot(contains('fetch_from_last_read')));
       },
@@ -4059,7 +4067,7 @@ void _feedGroups() {
         late Uri seen;
         final api = DiscourseApi(client: serving((r) => seen = r.url));
 
-        await api.chatMessages(
+        await ChatApiClient(api).chatMessages(
           siteUrl: 'https://example.com',
           channelId: 9,
           pageSize: 20,
@@ -4077,10 +4085,9 @@ void _feedGroups() {
           client: serving((_) {}, canLoadMorePast: null),
         );
 
-        final page = await api.chatMessages(
-          siteUrl: 'https://example.com',
-          channelId: 9,
-        );
+        final page = await ChatApiClient(
+          api,
+        ).chatMessages(siteUrl: 'https://example.com', channelId: 9);
 
         expect(page.canLoadMorePast, isFalse);
       },
@@ -4089,10 +4096,9 @@ void _feedGroups() {
     test('reads a channel that says there is more behind it', () async {
       final api = DiscourseApi(client: serving((_) {}, canLoadMorePast: true));
 
-      final page = await api.chatMessages(
-        siteUrl: 'https://example.com',
-        channelId: 9,
-      );
+      final page = await ChatApiClient(
+        api,
+      ).chatMessages(siteUrl: 'https://example.com', channelId: 9);
 
       expect(page.canLoadMorePast, isTrue);
     });
@@ -4118,7 +4124,7 @@ void _feedGroups() {
         }),
       );
 
-      final page = await api.chatThreadMessages(
+      final page = await ChatApiClient(api).chatThreadMessages(
         siteUrl: 'https://example.com',
         channelId: 9,
         threadId: 22,
@@ -4142,37 +4148,37 @@ void _feedGroups() {
         }),
       );
       final invalidCalls = <Future<void> Function()>[
-        () => api.chatThreadMessages(
+        () => ChatApiClient(api).chatThreadMessages(
           siteUrl: 'https://example.com',
           channelId: 0,
           threadId: 2,
         ),
-        () => api.chatThreadMessages(
+        () => ChatApiClient(api).chatThreadMessages(
           siteUrl: 'https://example.com',
           channelId: 1,
           threadId: 0,
         ),
-        () => api.chatThreadMessages(
+        () => ChatApiClient(api).chatThreadMessages(
           siteUrl: 'https://example.com',
           channelId: 1,
           threadId: 2,
           before: 3,
           after: 4,
         ),
-        () => api.chatThreadMessages(
+        () => ChatApiClient(api).chatThreadMessages(
           siteUrl: 'https://example.com',
           channelId: 1,
           threadId: 2,
           after: -1,
         ),
-        () => api.chatThreadMessages(
+        () => ChatApiClient(api).chatThreadMessages(
           siteUrl: 'https://example.com',
           channelId: 1,
           threadId: 2,
           targetMessageId: 3,
           before: 4,
         ),
-        () => api.chatThreadMessages(
+        () => ChatApiClient(api).chatThreadMessages(
           siteUrl: 'https://example.com',
           channelId: 1,
           threadId: 2,
@@ -4233,7 +4239,7 @@ void _feedGroups() {
         }),
       );
 
-      final thread = await api.chatThread(
+      final thread = await ChatApiClient(api).chatThread(
         siteUrl: 'https://example.com',
         channelId: 9,
         threadId: 22,
@@ -4277,11 +4283,9 @@ void _feedGroups() {
         }),
       );
 
-      final page = await api.chatThreads(
-        siteUrl: 'https://example.com',
-        apiKey: 'key',
-        offset: 10,
-      );
+      final page = await ChatApiClient(
+        api,
+      ).chatThreads(siteUrl: 'https://example.com', apiKey: 'key', offset: 10);
 
       expect(seen.method, 'GET');
       expect(seen.url.path, '/chat/api/me/threads.json');
@@ -4312,7 +4316,7 @@ void _feedGroups() {
         }),
       );
 
-      final page = await api.chatChannelThreads(
+      final page = await ChatApiClient(api).chatChannelThreads(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -4338,7 +4342,7 @@ void _feedGroups() {
         }),
       );
 
-      final thread = await api.createChatThread(
+      final thread = await ChatApiClient(api).createChatThread(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -4375,13 +4379,14 @@ void _feedGroups() {
         }),
       );
 
-      final membership = await api.updateChatThreadNotificationLevel(
-        siteUrl: 'https://example.com',
-        apiKey: 'key',
-        channelId: 9,
-        threadId: 22,
-        notificationLevel: ChatThreadNotificationLevel.watching,
-      );
+      final membership = await ChatApiClient(api)
+          .updateChatThreadNotificationLevel(
+            siteUrl: 'https://example.com',
+            apiKey: 'key',
+            channelId: 9,
+            threadId: 22,
+            notificationLevel: ChatThreadNotificationLevel.watching,
+          );
 
       expect(seen.method, 'PUT');
       expect(
@@ -4404,7 +4409,7 @@ void _feedGroups() {
         }),
       );
 
-      await api.updateChatThreadTitle(
+      await ChatApiClient(api).updateChatThreadTitle(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 9,
@@ -4430,7 +4435,7 @@ void _feedGroups() {
         }),
       );
 
-      await api.markChatChannelRead(
+      await ChatApiClient(api).markChatChannelRead(
         siteUrl: 'https://example.com',
         apiKey: 'the-key',
         channelId: 9,
@@ -4450,7 +4455,7 @@ void _feedGroups() {
       );
 
       await expectLater(
-        api.markChatChannelRead(
+        ChatApiClient(api).markChatChannelRead(
           siteUrl: 'https://example.com',
           apiKey: 'the-key',
           channelId: 9,
@@ -4471,7 +4476,7 @@ void _feedGroups() {
         }),
       );
 
-      await api.setChatMessageReaction(
+      await ChatApiClient(api).setChatMessageReaction(
         siteUrl: 'https://example.com',
         apiKey: 'the-key',
         channelId: 9,
@@ -4479,7 +4484,7 @@ void _feedGroups() {
         emoji: '+1',
         action: ChatReactionAction.add,
       );
-      await api.setChatMessageReaction(
+      await ChatApiClient(api).setChatMessageReaction(
         siteUrl: 'https://example.com',
         apiKey: 'the-key',
         channelId: 9,
@@ -4512,7 +4517,7 @@ void _feedGroups() {
         }),
       );
       Future<void> react(int channelId, int messageId, String emoji) =>
-          api.setChatMessageReaction(
+          ChatApiClient(api).setChatMessageReaction(
             siteUrl: 'https://example.com',
             apiKey: 'the-key',
             channelId: channelId,
@@ -4540,7 +4545,7 @@ void _feedGroups() {
       );
 
       await expectLater(
-        api.setChatMessageReaction(
+        ChatApiClient(api).setChatMessageReaction(
           siteUrl: 'https://example.com',
           apiKey: 'the-key',
           channelId: 9,
@@ -4582,7 +4587,7 @@ void _feedGroups() {
         }),
       );
 
-      final page = await api.chatMessageReactors(
+      final page = await ChatApiClient(api).chatMessageReactors(
         siteUrl: 'https://example.com',
         apiKey: 'the-key',
         channelId: 9,
@@ -4619,7 +4624,7 @@ void _feedGroups() {
         String? reaction,
         int limit = ChatMessageReactors.maximumPageSize,
       }) async {
-        await api.chatMessageReactors(
+        await ChatApiClient(api).chatMessageReactors(
           siteUrl: 'https://example.com',
           apiKey: 'the-key',
           channelId: channelId,

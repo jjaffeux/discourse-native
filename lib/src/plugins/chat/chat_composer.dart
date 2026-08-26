@@ -322,9 +322,11 @@ class _ChatComposerState extends State<ChatComposer> {
     final shell = _shell;
     final composer = _composer;
     final sourceKey = _sourceKey;
+    final gifsApi = PluginScope.maybeOf(context)?.service(gifsApiService);
     if (shell == null ||
         composer == null ||
         sourceKey == null ||
+        gifsApi == null ||
         _pickingGif ||
         _pickingEmoji ||
         !shell.siteConfigFor(widget.siteUrl).gifsEnabled ||
@@ -337,7 +339,7 @@ class _ChatComposerState extends State<ChatComposer> {
       final result = await showGifPicker(
         context: context,
         siteUrl: widget.siteUrl,
-        api: shell.gifsApi,
+        api: gifsApi,
         credentials: shell.authenticator,
         lifecycle: shell.lifecycle,
         config: shell.siteConfigFor(widget.siteUrl),

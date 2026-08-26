@@ -7,6 +7,8 @@ import 'local_date.dart';
 import 'local_date_composer_editor.dart';
 import 'local_date_composer_parser.dart';
 
+export 'local_date_composer_parser.dart';
+
 const TextStyle _hiddenDateSource = TextStyle(
   color: Colors.transparent,
   fontSize: 0,

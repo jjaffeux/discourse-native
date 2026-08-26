@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -30,6 +31,7 @@ void main() {
       authenticator: authenticator,
       drafts: FakeDraftStore(),
       trackers: FakeSiteTracker.reset(),
+      plugins: installedPlugins,
     );
     addTearDown(shell.dispose);
 
@@ -104,6 +106,7 @@ void main() {
         authenticator: authenticator,
         drafts: FakeDraftStore(),
         trackers: FakeSiteTracker.reset(),
+        plugins: installedPlugins,
       );
       addTearDown(shell.dispose);
 
@@ -147,6 +150,7 @@ void main() {
         authenticator: authenticator,
         drafts: FakeDraftStore(),
         trackers: FakeSiteTracker.reset(),
+        plugins: installedPlugins,
       );
       addTearDown(shell.dispose);
 

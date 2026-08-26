@@ -10,13 +10,9 @@ import 'package:flutter/services.dart';
 import '../data/composer_geometry_store.dart';
 import '../models/composer_upload.dart';
 import '../models/topic.dart';
-import '../plugins/local_dates/local_date_composer_parser.dart';
-import '../plugins/local_dates/local_dates_plugin.dart';
-import '../plugins/plugin_scope.dart';
-import '../plugins/poll/poll_composer_editor.dart';
-import '../plugins/poll/poll_composer_parser.dart';
-import '../plugins/poll/poll_plugin.dart';
-import '../plugins/site_plugin.dart';
+import '../plugin_api/composer_syntax.dart';
+import '../plugin_api/plugin_registry.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -123,25 +119,9 @@ class ComposerPanel extends StatelessWidget {
                 control: true,
               ): () =>
                   composer.toggleMark(ComposerMark.italic),
-              // The primary modifier is required: bare Shift+. is the '>'
-              // character on US layouts, and this handler runs before the
-              // text input plugin ever sees the key.
-              if (controller
-                  .siteConfigFor(composer.target.siteUrl)
-                  .localDatesEnabled) ...{
-                const SingleActivator(
-                  LogicalKeyboardKey.period,
-                  shift: true,
-                  meta: true,
-                ): () =>
-                    insertCurrentLocalDate(context, composer),
-                const SingleActivator(
-                  LogicalKeyboardKey.period,
-                  shift: true,
-                  control: true,
-                ): () =>
-                    insertCurrentLocalDate(context, composer),
-              },
+              ...PluginScope.of(
+                context,
+              ).registry.composerShortcuts(context, composer),
             },
             child: Column(
               children: [
@@ -1034,9 +1014,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
   bool _selectionToolbarFocused = false;
   ComposerQuoteBlock? _pointerDownQuote;
   ComposerImageBlock? _pointerDownImage;
-  PollComposerBlock? _pointerDownPoll;
-  PollComposerBlock? _pointerDownAfterPoll;
-  LocalDateComposerBlock? _pointerDownLocalDate;
+  ComposerSyntaxOccurrence? _pointerDownSyntax;
+  ComposerSyntaxOccurrence? _pointerDownAfterBlockSyntax;
   Offset? _pointerDownPosition;
   int _pointerSequence = 0;
   bool _dragging = false;
@@ -1071,23 +1050,19 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (_pointerDownImage case final image?) {
       oldWidget.composer.text.releaseImagePointerEdit(image);
     }
-    if (_pointerDownPoll case final poll?) {
-      oldWidget.composer.text.releasePollPointerEdit(poll);
+    if (_pointerDownSyntax case final syntax?) {
+      oldWidget.composer.text.releaseSyntaxPointerEdit(syntax);
     }
-    if (_pointerDownAfterPoll case final poll?) {
-      oldWidget.composer.text.releasePollPointerEdit(poll);
-    }
-    if (_pointerDownLocalDate case final date?) {
-      oldWidget.composer.text.releaseLocalDatePointerEdit(date);
+    if (_pointerDownAfterBlockSyntax case final syntax?) {
+      oldWidget.composer.text.releaseSyntaxPointerEdit(syntax);
     }
     if (_selectedImage case final image?) {
       oldWidget.composer.text.releaseImagePointerEdit(image);
     }
     _pointerDownQuote = null;
     _pointerDownImage = null;
-    _pointerDownPoll = null;
-    _pointerDownAfterPoll = null;
-    _pointerDownLocalDate = null;
+    _pointerDownSyntax = null;
+    _pointerDownAfterBlockSyntax = null;
     _pointerDownPosition = null;
     _selectedImage = null;
     if (identical(oldWidget.composer.text.imageScrollController, _scroll)) {
@@ -1247,14 +1222,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
   bool get _hasPointerDownPill =>
       _pointerDownQuote != null ||
       _pointerDownImage != null ||
-      _pointerDownPoll != null ||
-      _pointerDownAfterPoll != null ||
-      _pointerDownLocalDate != null;
+      _pointerDownSyntax != null ||
+      _pointerDownAfterBlockSyntax != null;
 
   void _onEditorPointerDown(PointerDownEvent event) {
     widget.composer.text.clearKeyboardPillSelection();
     _releasePointerDownPillCollapse();
-    _pointerDownAfterPoll = null;
+    _pointerDownAfterBlockSyntax = null;
     _pointerSequence++;
     final position = event.position;
     _pointerDownPosition = position;
@@ -1264,17 +1238,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _pointerDownImage = _pointerDownQuote == null
         ? widget.composer.text.collapsedImageAtGlobalPosition(position)
         : null;
-    _pointerDownPoll = _pointerDownQuote == null && _pointerDownImage == null
-        ? widget.composer.text.collapsedPollAtGlobalPosition(position)
+    _pointerDownSyntax = _pointerDownQuote == null && _pointerDownImage == null
+        ? widget.composer.text.collapsedSyntaxAtGlobalPosition(position)
         : null;
-    _pointerDownLocalDate =
-        _pointerDownQuote == null &&
-            _pointerDownImage == null &&
-            _pointerDownPoll == null
-        ? widget.composer.text.collapsedLocalDateAtGlobalPosition(position)
-        : null;
-    _pointerDownAfterPoll = !_hasPointerDownPill
-        ? widget.composer.text.collapsedPollBeforeGlobalPosition(position)
+    _pointerDownAfterBlockSyntax = !_hasPointerDownPill
+        ? widget.composer.text.collapsedBlockSyntaxBeforeGlobalPosition(
+            position,
+          )
         : null;
     if (!_hasPointerDownPill) {
       final editable = _renderEditable;
@@ -1284,14 +1254,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _pointerDownImage = _pointerDownQuote == null
           ? widget.composer.text.collapsedImageAtOffset(offset)
           : null;
-      _pointerDownPoll = _pointerDownQuote == null && _pointerDownImage == null
-          ? widget.composer.text.collapsedPollAtOffset(offset)
-          : null;
-      _pointerDownLocalDate =
-          _pointerDownQuote == null &&
-              _pointerDownImage == null &&
-              _pointerDownPoll == null
-          ? widget.composer.text.collapsedLocalDateAtOffset(offset)
+      _pointerDownSyntax =
+          _pointerDownQuote == null && _pointerDownImage == null
+          ? widget.composer.text.collapsedSyntaxAtOffset(offset)
           : null;
     }
     _holdPointerDownPillCollapsed();
@@ -1327,10 +1292,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final text = widget.composer.text;
     if (_pointerDownImage case final image?) {
       text.keepImageCollapsedForPointerEdit(image);
-    } else if ((_pointerDownPoll ?? _pointerDownAfterPoll) case final poll?) {
-      text.keepPollCollapsedForPointerEdit(poll);
-    } else if (_pointerDownLocalDate case final date?) {
-      text.keepLocalDateCollapsedForPointerEdit(date);
+    } else if ((_pointerDownSyntax ?? _pointerDownAfterBlockSyntax)
+        case final syntax?) {
+      text.keepSyntaxCollapsedForPointerEdit(syntax);
     }
   }
 
@@ -1339,14 +1303,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (_pointerDownImage case final image?) {
       text.releaseImagePointerEdit(image);
     }
-    if (_pointerDownPoll case final poll?) {
-      text.releasePollPointerEdit(poll);
+    if (_pointerDownSyntax case final syntax?) {
+      text.releaseSyntaxPointerEdit(syntax);
     }
-    if (_pointerDownAfterPoll case final poll?) {
-      text.releasePollPointerEdit(poll);
-    }
-    if (_pointerDownLocalDate case final date?) {
-      text.releaseLocalDatePointerEdit(date);
+    if (_pointerDownAfterBlockSyntax case final syntax?) {
+      text.releaseSyntaxPointerEdit(syntax);
     }
   }
 
@@ -1354,18 +1315,16 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (releaseCollapse) _releasePointerDownPillCollapse();
     _pointerDownQuote = null;
     _pointerDownImage = null;
-    _pointerDownPoll = null;
-    _pointerDownAfterPoll = null;
-    _pointerDownLocalDate = null;
+    _pointerDownSyntax = null;
+    _pointerDownAfterBlockSyntax = null;
     _pointerDownPosition = null;
   }
 
   void _activatePointerDownPill() {
     final quote = _pointerDownQuote;
     final image = _pointerDownImage;
-    final poll = _pointerDownPoll;
-    final afterPoll = _pointerDownAfterPoll;
-    final date = _pointerDownLocalDate;
+    final syntax = _pointerDownSyntax;
+    final afterBlockSyntax = _pointerDownAfterBlockSyntax;
     final position = _pointerDownPosition;
     _clearPointerDownPill(releaseCollapse: false);
     if (quote != null) {
@@ -1391,54 +1350,40 @@ class _ComposerEditorState extends State<ComposerEditor> {
       widget.composer.text.releaseImagePointerEdit(selected);
       setState(() => _selectedImage = null);
     }
-    if (afterPoll != null) {
+    if (afterBlockSyntax != null) {
       try {
-        _moveCaretAfterPoll(afterPoll);
+        _moveCaretAfterSyntax(afterBlockSyntax);
       } finally {
-        widget.composer.text.releasePollPointerEdit(afterPoll);
+        widget.composer.text.releaseSyntaxPointerEdit(afterBlockSyntax);
       }
       return;
     }
-    if (poll != null) {
-      unawaited(_editPoll(poll));
-      return;
-    }
-    if (date != null) {
-      unawaited(_editLocalDate(date));
+    if (syntax != null) {
+      unawaited(_editSyntax(syntax));
     }
   }
 
-  Future<void> _editPoll(PollComposerBlock poll) async {
+  Future<void> _editSyntax(ComposerSyntaxOccurrence syntax) async {
     final text = widget.composer.text;
-    text.keepPollCollapsedForPointerEdit(poll);
-    text.selection = TextSelection.collapsed(offset: text.pollCaretAfter(poll));
+    text.keepSyntaxCollapsedForPointerEdit(syntax);
+    text.selection = TextSelection.collapsed(
+      offset: text.syntaxCaretAfter(syntax),
+    );
     try {
-      await openPollComposer(context, widget.composer, block: poll);
+      await syntax.plugin.editComposerSyntax(
+        context,
+        widget.composer,
+        syntax.value,
+      );
     } finally {
       if (mounted &&
           identical(widget.composer.text, text) &&
-          _stillContains(text.text, poll.start, poll.end, poll.source)) {
+          _stillContains(text.text, syntax.start, syntax.end, syntax.source)) {
         text.selection = TextSelection.collapsed(
-          offset: text.pollCaretAfter(poll),
+          offset: text.syntaxCaretAfter(syntax),
         );
       }
-      text.releasePollPointerEdit(poll);
-    }
-  }
-
-  Future<void> _editLocalDate(LocalDateComposerBlock date) async {
-    final text = widget.composer.text;
-    text.keepLocalDateCollapsedForPointerEdit(date);
-    text.selection = TextSelection.collapsed(offset: date.end);
-    try {
-      await openLocalDateComposer(context, widget.composer, block: date);
-    } finally {
-      if (mounted &&
-          identical(widget.composer.text, text) &&
-          _stillContains(text.text, date.start, date.end, date.source)) {
-        text.selection = TextSelection.collapsed(offset: date.end);
-      }
-      text.releaseLocalDatePointerEdit(date);
+      text.releaseSyntaxPointerEdit(syntax);
     }
   }
 
@@ -1515,8 +1460,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
           widget.composer.text.selection = TextSelection.collapsed(
             offset: _pillStart(selectedPill),
           );
-        } else if (selectedPill case final PollComposerBlock poll) {
-          _moveCaretAfterPoll(poll);
+        } else if (selectedPill case final ComposerSyntaxOccurrence syntax) {
+          _moveCaretAfterSyntax(syntax);
         } else {
           widget.composer.text.selection = TextSelection.collapsed(
             offset: _pillEnd(selectedPill),
@@ -1592,11 +1537,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
         event.logicalKey == LogicalKeyboardKey.backspace ||
         event.logicalKey == LogicalKeyboardKey.delete;
     if (deletes) {
-      final boundaryPoll = event.logicalKey == LogicalKeyboardKey.backspace
+      final boundarySyntax = event.logicalKey == LogicalKeyboardKey.backspace
           ? _collapsedPillEndingAt(caret)
           : _collapsedPillStartingAt(caret);
-      if (boundaryPoll is PollComposerBlock) {
-        _selectPillForKeyboard(boundaryPoll);
+      if (boundarySyntax is ComposerSyntaxOccurrence &&
+          boundarySyntax.plugin.protectsAdjacentDelete) {
+        _selectPillForKeyboard(boundarySyntax);
         return KeyEventResult.handled;
       }
     }
@@ -1630,12 +1576,21 @@ class _ComposerEditorState extends State<ComposerEditor> {
       widget.composer.removeImage(image);
       return KeyEventResult.handled;
     }
-    for (final date in widget.composer.text.localDateBlocks) {
-      if (date.end != caret ||
-          !widget.composer.text.isLocalDateCollapsed(date)) {
+    for (final syntax in widget.composer.text.syntaxBlocks) {
+      if (syntax.end != caret ||
+          syntax.plugin.protectsAdjacentDelete ||
+          !widget.composer.text.isSyntaxCollapsed(syntax)) {
         continue;
       }
-      removeLocalDateComposer(context, widget.composer, date);
+      unawaited(
+        Future.sync(
+          () => syntax.plugin.removeComposerSyntax(
+            context,
+            widget.composer,
+            syntax.value,
+          ),
+        ),
+      );
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -1643,8 +1598,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   Object? get _keyboardSelectedPill =>
       widget.composer.text.keyboardSelectedImage ??
-      widget.composer.text.keyboardSelectedPoll ??
-      widget.composer.text.keyboardSelectedLocalDate;
+      widget.composer.text.keyboardSelectedSyntax;
 
   void _selectPillForKeyboard(Object pill) {
     widget.composer.autocomplete.dismiss();
@@ -1656,14 +1610,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
     for (final image in text.imageBlocks) {
       if (image.end == caret && text.isImageCollapsed(image)) return image;
     }
-    for (final poll in text.pollBlocks) {
-      if ((poll.end == caret || text.pollCaretAfter(poll) == caret) &&
-          text.isPollCollapsed(poll)) {
-        return poll;
+    for (final syntax in text.syntaxBlocks) {
+      if ((syntax.end == caret || text.syntaxCaretAfter(syntax) == caret) &&
+          text.isSyntaxCollapsed(syntax)) {
+        return syntax;
       }
-    }
-    for (final date in text.localDateBlocks) {
-      if (date.end == caret && text.isLocalDateCollapsed(date)) return date;
     }
     return null;
   }
@@ -1673,37 +1624,29 @@ class _ComposerEditorState extends State<ComposerEditor> {
     for (final image in text.imageBlocks) {
       if (image.start == caret && text.isImageCollapsed(image)) return image;
     }
-    for (final poll in text.pollBlocks) {
-      if (poll.start == caret && text.isPollCollapsed(poll)) return poll;
-    }
-    for (final date in text.localDateBlocks) {
-      if (date.start == caret && text.isLocalDateCollapsed(date)) return date;
+    for (final syntax in text.syntaxBlocks) {
+      if (syntax.start == caret && text.isSyntaxCollapsed(syntax)) {
+        return syntax;
+      }
     }
     return null;
   }
 
   static int _pillStart(Object pill) => switch (pill) {
     ComposerImageBlock image => image.start,
-    PollComposerBlock poll => poll.start,
-    LocalDateComposerBlock date => date.start,
+    ComposerSyntaxOccurrence syntax => syntax.start,
     _ => throw ArgumentError.value(pill, 'pill'),
   };
 
   static int _pillEnd(Object pill) => switch (pill) {
     ComposerImageBlock image => image.end,
-    LocalDateComposerBlock date => date.end,
+    ComposerSyntaxOccurrence syntax => syntax.end,
     _ => throw ArgumentError.value(pill, 'pill'),
   };
 
-  void _moveCaretAfterPoll(PollComposerBlock poll) {
+  void _moveCaretAfterSyntax(ComposerSyntaxOccurrence syntax) {
     final text = widget.composer.text;
-    final mutation = replaceVerifiedPoll(
-      current: text.value,
-      expectedDocument: text.text,
-      expectedBlock: poll,
-      replacement: poll.source,
-    );
-    if (mutation.applied) text.value = mutation.value;
+    text.value = syntax.plugin.moveCaretAfter(syntax.value, text.value);
   }
 
   void _editPill(Object pill) {
@@ -1711,11 +1654,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
       case ComposerImageBlock image:
         _selectImage(image);
         return;
-      case PollComposerBlock poll:
-        unawaited(_editPoll(poll));
-        return;
-      case LocalDateComposerBlock date:
-        unawaited(_editLocalDate(date));
+      case ComposerSyntaxOccurrence syntax:
+        unawaited(_editSyntax(syntax));
         return;
     }
     throw ArgumentError.value(pill, 'pill');
@@ -1730,11 +1670,16 @@ class _ComposerEditorState extends State<ComposerEditor> {
         }
         widget.composer.removeImage(image);
         return;
-      case PollComposerBlock poll:
-        unawaited(removePollComposer(context, widget.composer, poll));
-        return;
-      case LocalDateComposerBlock date:
-        removeLocalDateComposer(context, widget.composer, date);
+      case ComposerSyntaxOccurrence syntax:
+        unawaited(
+          Future.sync(
+            () => syntax.plugin.removeComposerSyntax(
+              context,
+              widget.composer,
+              syntax.value,
+            ),
+          ),
+        );
         return;
     }
     throw ArgumentError.value(pill, 'pill');
@@ -1822,9 +1767,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
               Positioned.fill(
                 child: MouseRegion(
                   onHover: (event) => widget.composer.text
-                      .updatePollHoverAtGlobalPosition(event.position),
+                      .updateSyntaxHoverAtGlobalPosition(event.position),
                   onExit: (_) => widget.composer.text
-                      .updatePollHoverAtGlobalPosition(null),
+                      .updateSyntaxHoverAtGlobalPosition(null),
                   child: Listener(
                     behavior: HitTestBehavior.translucent,
                     onPointerDown: _onEditorPointerDown,
@@ -1857,11 +1802,16 @@ class _ComposerEditorState extends State<ComposerEditor> {
                               inputFormatters: [
                                 _selectedPillInputFormatter,
                                 const ComposerQuoteInputFormatter(),
-                                const PollComposerInputFormatter(),
+                                ...widget.composer.text.syntaxInputFormatters,
                               ],
                               showCursor:
-                                  widget.composer.text.keyboardSelectedPoll ==
-                                  null,
+                                  widget
+                                      .composer
+                                      .text
+                                      .keyboardSelectedSyntax
+                                      ?.plugin
+                                      .hidesCursorWhenSelected !=
+                                  true,
                               onTapAlwaysCalled: true,
                               onTap: _activatePointerDownPill,
                               style: widget.textStyle,
@@ -2149,22 +2099,21 @@ class _Toolbar extends StatelessWidget {
   final ComposerController composer;
 
   @override
-  Widget build(BuildContext context) => ShellSelector<(bool, bool, bool, bool)>(
+  Widget build(BuildContext context) => ShellSelector<int>(
     // Plugin creation capabilities arrive independently of composer text, so
     // select every input that can add or remove an action while this composer
     // is already open.
-    select: (controller) => (
-      controller.canCreatePollFor(composer.target.siteUrl),
-      controller.siteConfigFor(composer.target.siteUrl).localDatesEnabled,
-      controller.siteConfigFor(composer.target.siteUrl).gifsEnabled,
-      controller.siteConfigFor(composer.target.siteUrl).emojiEnabled,
+    select: (controller) => Object.hash(
+      controller.siteConfigFor(composer.target.siteUrl),
+      controller.freshCurrentUserFor(composer.target.siteUrl),
     ),
     builder: (context, _, _) => _buildToolbar(context),
   );
 
   Widget _buildToolbar(BuildContext context) {
     final theme = Theme.of(context);
-    final registry = PluginScope.maybeOf(context)?.registry ?? pluginRegistry;
+    final registry =
+        PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     final actions = registry.composerToolbar(context, composer);
     final emojiEnabled =
         !composer.target.isTagsEdit &&

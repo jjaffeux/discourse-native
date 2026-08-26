@@ -22,14 +22,17 @@ import 'resenha_room_editor.dart';
 export 'resenha_room_editor.dart' show showResenhaRoomEditor;
 
 class ResenhaRoomView extends StatelessWidget {
-  const ResenhaRoomView({super.key, required this.roomId});
+  const ResenhaRoomView({super.key, required this.roomId, this.controller});
 
   final int roomId;
+  final ResenhaController? controller;
 
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.read(context);
-    final controller = PluginScope.require(context, resenhaControllerService);
+    final controller =
+        this.controller ??
+        PluginScope.require(context, resenhaControllerService);
     final site = shell.currentInstance;
     if (site == null) return const SizedBox.shrink();
     return ListenableBuilder(

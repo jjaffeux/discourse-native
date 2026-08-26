@@ -1,4 +1,4 @@
-import '../../data/discourse_api_contracts.dart';
+import '../../data/plugin_transport.dart';
 import 'resenha_models.dart';
 
 /// Typed client for the Resenha plugin's existing JSON contract.

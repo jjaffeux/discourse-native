@@ -11,6 +11,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'assignment.dart';
+import 'assignment_shell_extension.dart';
 
 typedef AssignmentSuggestionsLoader = Future<AssignmentSuggestions> Function();
 typedef AssignmentAssigneeSearch =

@@ -13,6 +13,7 @@ import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/loading_skeleton.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -1181,6 +1182,7 @@ Future<ShellController> _controller(
     authenticator.keys[siteUrl] = 'key';
   }
   final controller = ShellController(
+    plugins: installedPlugins,
     instanceStore: FakeInstanceStore([
       for (final siteUrl in sites)
         DiscourseInstance(

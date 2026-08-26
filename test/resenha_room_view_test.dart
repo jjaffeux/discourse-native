@@ -10,6 +10,7 @@ import 'package:discourse_native/src/plugins/resenha/resenha_media.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_models.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_preferences.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_room_view.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
@@ -145,6 +146,7 @@ void main() {
       authenticator: FakeAuthenticator(),
       drafts: FakeDraftStore(),
       trackers: FakeSiteTracker.reset(),
+      plugins: installedPlugins,
     );
     addTearDown(emptyShell.dispose);
     await emptyShell.load();
@@ -163,6 +165,7 @@ void main() {
       authenticator: FakeAuthenticator(),
       drafts: FakeDraftStore(),
       trackers: FakeSiteTracker.reset(),
+      plugins: installedPlugins,
     );
     addTearDown(connectedShell.dispose);
     await connectedShell.load();
@@ -191,14 +194,16 @@ void main() {
     );
     final harness = _Harness(joinRoom: room);
     await _join(harness, room);
-    final shell = _InjectedResenhaShell(harness.controller);
+    final shell = _InjectedResenhaShell();
     addTearDown(shell.dispose);
     await shell.load();
 
     await tester.pumpWidget(
       ShellScope(
         controller: shell,
-        child: const MaterialApp(home: ResenhaRoomView(roomId: 7)),
+        child: MaterialApp(
+          home: ResenhaRoomView(roomId: 7, controller: harness.controller),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -1389,7 +1394,7 @@ final class _Harness {
 }
 
 final class _InjectedResenhaShell extends ShellController {
-  _InjectedResenhaShell(this.injectedResenha)
+  _InjectedResenhaShell()
     : super(
         instanceStore: FakeInstanceStore([instance('voice.example.com')]),
         api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
@@ -1397,11 +1402,6 @@ final class _InjectedResenhaShell extends ShellController {
         drafts: FakeDraftStore(),
         trackers: FakeSiteTracker.reset(),
       );
-
-  final ResenhaController injectedResenha;
-
-  @override
-  ResenhaController get resenha => injectedResenha;
 }
 
 final class _GatedMembershipTransport extends FakeDiscourseApi {

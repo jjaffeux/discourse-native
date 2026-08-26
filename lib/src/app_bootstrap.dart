@@ -10,10 +10,8 @@ import 'data/emoji_cache.dart';
 import 'data/media_request_coordinator.dart';
 import 'diagnostics/diagnostics.dart';
 import 'foundation/timezone_environment.dart';
-import 'plugins/bundled_plugin_manifest.dart';
-import 'plugins/plugin_manifest.dart';
-import 'plugins/resenha/resenha_diagnostics.dart';
-import 'plugins/resenha/resenha_sdk_diagnostics.dart';
+import 'plugin_api/core_plugin_manifest.dart';
+import 'plugin_api/plugin_runtime.dart';
 
 typedef AppBootstrapUnhandledErrorReporter =
     void Function(
@@ -39,7 +37,7 @@ abstract interface class AppBootstrapHost {
 
   AppBootstrapUnhandledErrorReporter installGlobalErrorHandlers();
 
-  Future<void> createResenhaDiagnostics();
+  Future<void> initializePlugins();
 
   Future<void> initializePersistentMediaCache();
 
@@ -61,7 +59,7 @@ final class AppBootstrap {
   AppBootstrap({required this._host});
 
   factory AppBootstrap.production({
-    PluginManifest manifest = bundledPluginManifest,
+    PluginManifest manifest = corePluginManifest,
   }) => AppBootstrap(host: _ProductionAppBootstrapHost(manifest));
 
   final AppBootstrapHost _host;
@@ -80,7 +78,7 @@ final class AppBootstrap {
               _host.installDiagnosticsSink();
               _host.installRecordingHttpOverrides();
               globalErrors = _host.installGlobalErrorHandlers();
-              await _host.createResenhaDiagnostics();
+              await _host.initializePlugins();
 
               try {
                 await _host.initializePersistentMediaCache();
@@ -117,11 +115,7 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
 
   final PluginManifest _manifest;
   late final DiagnosticsController _diagnostics;
-  ResenhaDiagnosticsController? _resenhaDiagnostics;
-
-  bool get _hasResenha => _manifest.modules.any(
-    (module) => module.descriptor.id == const PluginId('resenha'),
-  );
+  late final InstalledPlugins _plugins;
 
   @override
   void ensureFlutterInitialized() {
@@ -160,11 +154,9 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   }
 
   @override
-  Future<void> createResenhaDiagnostics() async {
-    if (!_hasResenha) return;
-    _resenhaDiagnostics = await ResenhaDiagnosticsController.create(
-      sdkLogBridges: [NativeResenhaDiagnosticsSdkLogBridge()],
-    );
+  Future<void> initializePlugins() async {
+    _plugins = PluginInstaller.install(_manifest);
+    await _plugins.startPhase(PluginStartupPhase.bootstrap);
   }
 
   @override
@@ -201,12 +193,6 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
 
   @override
   void launchApplication() {
-    runApp(
-      DiscourseApp(
-        diagnostics: _diagnostics,
-        resenhaDiagnostics: _resenhaDiagnostics,
-        pluginManifest: _manifest,
-      ),
-    );
+    runApp(DiscourseApp(diagnostics: _diagnostics, plugins: _plugins));
   }
 }

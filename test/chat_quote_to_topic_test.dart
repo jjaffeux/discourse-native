@@ -2,6 +2,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -22,6 +23,7 @@ void main() {
       membership: ChatMembership(following: true),
     );
     final controller = ShellController(
+      plugins: installedPlugins,
       instanceStore: FakeInstanceStore([
         instance('meta.discourse.org').copyWith(user: _user),
       ]),

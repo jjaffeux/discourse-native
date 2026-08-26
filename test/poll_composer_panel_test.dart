@@ -4,6 +4,8 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_pill.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
@@ -78,6 +80,7 @@ Future<ShellController> _openComposer({
     authenticator: authenticator,
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
+    plugins: PluginInstaller.install(bundledPluginManifest),
   );
   await shell.load();
   shell.pushContent(

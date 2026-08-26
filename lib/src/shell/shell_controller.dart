@@ -53,26 +53,11 @@ import '../models/topic_filter.dart';
 import '../models/topic_link.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
-import '../plugins/assign/assignment.dart';
-import '../plugins/assign/assignment_controller.dart';
-import '../plugins/chat/chat_channel.dart';
-import '../plugins/chat/chat_controller.dart';
-import '../plugins/chat/chat_message.dart';
-import '../plugins/chat/chat_plugin.dart';
-import '../plugins/chat/chat_route.dart';
-import '../plugins/chat/chat_stream_target.dart';
-import '../plugins/gifs/gifs_api_client.dart';
-import '../plugins/plugin_host_ports.dart';
-import '../plugins/plugin_services.dart';
-import '../plugins/poll/poll.dart';
-import '../plugins/poll/poll_api.dart';
-import '../plugins/reactions/reaction.dart';
-import '../plugins/reactions/reactions_api_client.dart';
-import '../plugins/reactions/reactions_controller.dart';
-import '../plugins/resenha/resenha_controller.dart';
-import '../plugins/resenha/resenha_diagnostics.dart';
-import '../plugins/site_plugin.dart';
-import '../theme/d_icons.dart';
+import '../plugin_api/core_plugin_host.dart';
+import '../plugin_api/core_plugin_manifest.dart';
+import '../plugin_api/plugin_data.dart';
+import '../plugin_api/plugin_runtime.dart';
+import '../plugin_api/shell_extensions.dart';
 import 'account_activity_controller.dart';
 import 'aggregate_feed_controller.dart';
 import 'composer_autocomplete.dart';
@@ -108,7 +93,6 @@ typedef TopicMoveDestinationSearchResult = ({
   String? error,
 });
 typedef TopicPostMoveResult = ({String? destinationUrl, String? error});
-typedef _WriteCredential = ({String? apiKey, WriteException? failure});
 typedef _SessionValue<T> = ({T value});
 typedef _CategorySidebarCache = ({
   List<TopicCategory> categories,
@@ -116,22 +100,6 @@ typedef _CategorySidebarCache = ({
   SiteConfig config,
   SidebarSection section,
 });
-
-/// What a native poll write learned.
-///
-/// [reconciled] means the write response was unreachable and the owning post
-/// was read again. Presentation must discard its optimistic local selection,
-/// even when the refetched saved selection happens to equal the old one.
-final class PollVoteWriteResult {
-  const PollVoteWriteResult.saved() : message = null, reconciled = false;
-
-  const PollVoteWriteResult.reconciled() : message = null, reconciled = true;
-
-  const PollVoteWriteResult.refused(this.message) : reconciled = false;
-
-  final String? message;
-  final bool reconciled;
-}
 
 /// The confirmed result of a bookmark mutation, or why it was not applied.
 final class BookmarkWriteResult {
@@ -158,7 +126,8 @@ final class BookmarkWriteResult {
 ///
 /// Uses Flutter's notifier contract directly, without a state-management
 /// dependency. [FrameSafeNotifier] only centralizes disposal and frame timing.
-class ShellController extends FrameSafeNotifier {
+class ShellController extends FrameSafeNotifier
+    implements PluginNavigationHost {
   ShellController({
     required this.instanceStore,
     required this.api,
@@ -174,7 +143,6 @@ class ShellController extends FrameSafeNotifier {
     this.trackers = SiteTracker.new,
     Updater updater = const UnsupportedUpdater(),
     UpdateStore? updateStore,
-    this.resenhaDiagnostics = const NoopResenhaDiagnosticsRecorder(),
     this.ownsApi = true,
     this.topicLoadTimeout = const Duration(seconds: 30),
     this.anchorPersistDebounce = const Duration(milliseconds: 500),
@@ -188,7 +156,8 @@ class ShellController extends FrameSafeNotifier {
        store = store ?? Store(),
        lifecycle = lifecycle ?? SiteLifecycle(),
        _providedSiteImages = siteImages,
-       plugins = plugins ?? installedPlugins,
+       _ownsPlugins = plugins == null,
+       plugins = plugins ?? PluginInstaller.install(corePluginManifest),
        updates = UpdateController(
          updater: updater,
          store: updateStore ?? UpdateStore(),
@@ -239,70 +208,59 @@ class ShellController extends FrameSafeNotifier {
   final EmojiPickerStore emojiPickerStore;
   final SiteLifecycle lifecycle;
   final SiteImageRepository? _providedSiteImages;
-  final ResenhaDiagnosticsRecorder resenhaDiagnostics;
   final InstalledPlugins plugins;
+  final bool _ownsPlugins;
 
-  late final GifsApi gifsApi = GifsApiClient(api);
-  late final PollsApi pollsApi = PollApi(api);
-  late final ReactionsWriteApi reactionsWriteApi = ReactionsApiClient(
-    api,
-    api.models,
-  );
   late final SiteImageRepository siteImages =
       _providedSiteImages ??
       SiteImageRepository(credentials: authenticator, lifecycle: lifecycle);
 
   late final PluginSession _pluginSession = plugins.openSession(
     PluginHostBindings(<PluginHostPort<Object>>[
-      PluginHostPort<Object>(discourseApiPort, api),
-      PluginHostPort<Object>(credentialReaderPort, authenticator),
-      PluginHostPort<Object>(storePort, store),
-      PluginHostPort<Object>(siteLifecyclePort, lifecycle),
       PluginHostPort<Object>(
-        currentUserReaderPort,
-        (String siteUrl) => _instanceAt(siteUrl)?.user,
+        corePluginHostPort,
+        CorePluginHost(
+          api: api,
+          credentials: authenticator,
+          store: store,
+          siteLifecycle: lifecycle,
+          currentUserFor: (siteUrl) => _instanceAt(siteUrl)?.user,
+          siteConfigFor: siteConfigFor,
+          previewEngine: plugins.registry.chatPreviewEngine,
+          applyNotificationDelta: (siteUrl, delta) {
+            accountActivity.applyCounts(
+              siteUrl,
+              (held) => held.withChatNotificationsDelta(delta),
+            );
+          },
+          markSiteUnreachable: _markForumUnavailable,
+          canPerform: (siteUrl, capability, recordPermission) =>
+              switch (capability) {
+                'assign' => canAssignForTarget(siteUrl, recordPermission),
+                _ => false,
+              },
+          dataForTarget: _pluginDataForTarget,
+          reloadTopic: (siteUrl, topicId) =>
+              _refetchTopic(siteUrl, topicId, ''),
+          invalidateFallback: (siteUrl, capability) {
+            if (capability == 'assign') {
+              _assignLegacyFallbackUnavailable.add(siteUrl);
+              _notify();
+            }
+          },
+          trackerFor: (siteUrl) => _trackers[siteUrl],
+          userIdFor: (siteUrl) => _instanceAt(siteUrl)?.user?.id,
+          capabilityEnabledFor: (siteUrl, capability) async =>
+              switch (capability) {
+                'resenha' => (await _presentation.resolveConfig(
+                  siteUrl,
+                ))?.resenha.enabled,
+                _ => null,
+              },
+          onCallSiteChanged: _syncTracking,
+          navigation: this,
+        ),
       ),
-      PluginHostPort<Object>(siteConfigReaderPort, siteConfigFor),
-      PluginHostPort<Object>(
-        chatPreviewEnginePort,
-        plugins.registry.chatPreviewEngine,
-      ),
-      PluginHostPort<Object>(chatNotificationsDeltaPort, (
-        String siteUrl,
-        int delta,
-      ) {
-        accountActivity.applyCounts(
-          siteUrl,
-          (held) => held.withChatNotificationsDelta(delta),
-        );
-      }),
-      PluginHostPort<Object>(siteUnreachablePort, _markForumUnavailable),
-      PluginHostPort<Object>(assignmentPermissionPort, _canAssignTarget),
-      PluginHostPort<Object>(
-        assignmentTopicReloaderPort,
-        (String siteUrl, int topicId) => _refetchTopic(siteUrl, topicId, ''),
-      ),
-      PluginHostPort<Object>(assignmentFallbackInvalidatorPort, (
-        String siteUrl,
-      ) {
-        _assignLegacyFallbackUnavailable.add(siteUrl);
-        _notify();
-      }),
-      PluginHostPort<Object>(
-        trackerReaderPort,
-        (String siteUrl) => _trackers[siteUrl],
-      ),
-      PluginHostPort<Object>(
-        userIdReaderPort,
-        (String siteUrl) => _instanceAt(siteUrl)?.user?.id,
-      ),
-      PluginHostPort<Object>(
-        resenhaCapabilityPort,
-        (String siteUrl) async =>
-            (await _presentation.resolveConfig(siteUrl))?.resenha.enabled,
-      ),
-      PluginHostPort<Object>(callSiteChangedPort, _syncTracking),
-      PluginHostPort<Object>(resenhaDiagnosticsPort, resenhaDiagnostics),
     ]),
   );
 
@@ -312,18 +270,44 @@ class ShellController extends FrameSafeNotifier {
   /// shell controller API.
   PluginSession get pluginSession => _pluginSession;
 
-  /// Resolves a plugin-owned service for [PluginScope].
+  String? get _pluginBackgroundSiteUrl => _pluginSession
+      .capabilities<PluginBackgroundSite>()
+      .map((capability) => capability.pluginBackgroundSiteUrl)
+      .whereType<String>()
+      .firstOrNull;
+
+  /// Neutral write coordination available to plugin-owned interaction APIs.
   ///
-  /// The named branches preserve source compatibility for embedders that
-  /// subclassed the former shell-owned controller getters. New code should
-  /// inject a manifest/session and resolve the stable key directly.
-  T pluginService<T extends Object>(PluginServiceKey<T> key) {
-    if (key == reactionsControllerService) return reactions as T;
-    if (key == assignmentControllerService) return assignments as T;
-    if (key == chatControllerService) return chat as T;
-    if (key == resenhaControllerService) return resenha as T;
-    return _pluginSession.require(key);
-  }
+  /// Core owns serialization with its own post writes and session invalidation;
+  /// plugins own their payload types, endpoints, optimistic transforms, and
+  /// typed results.
+  Future<PluginWriteCredential> pluginWriteCredential(String siteUrl) =>
+      _credentialForWrite(siteUrl);
+
+  bool beginPluginPostWrite(String siteUrl, int postId) =>
+      _beginPostWrite(_postKey(siteUrl, postId));
+
+  void endPluginPostWrite(String siteUrl, int postId) =>
+      _endPostWrite(siteUrl, postId);
+
+  bool pluginPostWriteInFlight(String siteUrl, int postId) =>
+      _postWritesInFlight.contains(_postKey(siteUrl, postId));
+
+  Future<void> refreshPluginPost(
+    String siteUrl,
+    int topicId,
+    int postId,
+    String? apiKey,
+    SiteLease lease,
+  ) => _refreshPost(siteUrl, topicId, postId, apiKey, lease);
+
+  void notifyPluginStateChanged() => _notify();
+
+  void reportPluginError(
+    Object error,
+    StackTrace stackTrace,
+    String operation,
+  ) => _reportOperationalError(error, stackTrace, operation);
 
   void _reportOperationalError(
     Object error,
@@ -356,7 +340,7 @@ class ShellController extends FrameSafeNotifier {
     );
   }
 
-  Future<_WriteCredential> _credentialForWrite(String siteUrl) async {
+  Future<PluginWriteCredential> _credentialForWrite(String siteUrl) async {
     try {
       final apiKey = await authenticator.apiKeyFor(siteUrl);
       return apiKey == null
@@ -504,50 +488,6 @@ class ShellController extends FrameSafeNotifier {
     lifecycle: lifecycle,
   );
 
-  /// Who reacted to what, on a site that has the reactions plugin.
-  ///
-  /// The same escape valve, for the same reason: opening one reactor list
-  /// should redraw that list rather than every post in the topic. `late final`
-  /// so it can be handed the [store] this constructor resolved.
-  late final ReactionsController reactions = _pluginSession.require(
-    reactionsControllerService,
-  );
-
-  /// Target-scoped Assign suggestions and writes. Its permission reader looks
-  /// at the exact topic or post serializer record, never at a site setting.
-  late final AssignmentController assignments = _pluginSession.require(
-    assignmentControllerService,
-  );
-
-  /// The chat channels a site has, and the messages in the one on screen.
-  ///
-  /// Its notifications are consumed by the chat navigation and channel view,
-  /// so paging a channel does not rebuild unrelated shell regions.
-  late final ChatController chat = _pluginSession.require(
-    chatControllerService,
-  );
-
-  ChatController? get _chatPlugin =>
-      _pluginSession.service(chatControllerService);
-
-  /// One-shot scroll/fetch intent for the Chat screen selected by navigation.
-  ///
-  /// Routes themselves remain durable presentation state. The mounted Chat
-  /// view consumes this value when it is ready, keeping message targeting out
-  /// of the shell's persistence and out of [ChatController].
-  final ChatNavigationHandoff chatNavigation = ChatNavigationHandoff();
-  int _chatUrlOpenGeneration = 0;
-
-  /// Voice/video rooms across every connected site. Unlike topic and chat
-  /// state this owns one app-global media session, so it deliberately survives
-  /// switching the selected site.
-  late final ResenhaController resenha = _pluginSession.require(
-    resenhaControllerService,
-  );
-
-  ResenhaController? get _resenhaPlugin =>
-      _pluginSession.service(resenhaControllerService);
-
   SitePresentationController? _sitePresentation;
 
   SitePresentationController get _presentation =>
@@ -680,12 +620,7 @@ class ShellController extends FrameSafeNotifier {
     _notify();
   }
 
-  /// Retries the read whose failure replaced the selected forum's workspace.
-  ///
-  /// The boundary currently comes from Chat's first window: unlike a failed
-  /// page of older messages, there is no usable destination behind it. Keep
-  /// the full-forum gate mounted while the retry runs, then reveal the saved
-  /// workspace only after a real window has arrived.
+  /// Retries the plugin-owned route whose failure replaced this workspace.
   Future<void> retryCurrentForum() async {
     final instance = currentInstance;
     final route = currentContent;
@@ -696,28 +631,15 @@ class ShellController extends FrameSafeNotifier {
       return;
     }
 
-    final chatRoute = ChatRoute.parse(route.id);
-    final chat = _chatPlugin;
-    if (chatRoute == null || chat == null) {
-      _retryingUnavailableForums.remove(instance.url);
-      return;
-    }
-
     _notify();
-    final target = chatRoute.isThread
-        ? ChatThreadTarget(
-            channelId: chatRoute.channelId,
-            threadId: chatRoute.threadId!,
-          )
-        : ChatChannelTarget(chatRoute.channelId);
     try {
-      if (target case final ChatThreadTarget thread) {
-        await chat.openThread(instance.url, thread, force: true);
-      } else {
-        await chat.openChannel(instance.url, chatRoute.channelId, force: true);
-      }
-      if (!isDisposed && chat.streamFor(instance.url, target).error == null) {
-        _unavailableForums.remove(instance.url);
+      for (final retry in _pluginSession.capabilities<PluginRouteRetry>()) {
+        final result = await retry.retryPluginRoute(instance.url, route.id);
+        if (result == PluginRouteRetryResult.notHandled) continue;
+        if (!isDisposed && result == PluginRouteRetryResult.succeeded) {
+          _unavailableForums.remove(instance.url);
+        }
+        break;
       }
     } finally {
       if (!isDisposed) {
@@ -727,7 +649,16 @@ class ShellController extends FrameSafeNotifier {
     }
   }
 
+  /// Offers [url] to installed session features in manifest order.
+  Future<bool> openPluginUrl(String url) async {
+    for (final handler in _pluginSession.capabilities<PluginLinkHandler>()) {
+      if (await handler.openPluginUrl(url)) return true;
+    }
+    return false;
+  }
+
   final List<DiscourseInstance> _instances = [];
+  @override
   List<DiscourseInstance> get instances => List.unmodifiable(_instances);
   bool get hasInstances => _instances.isNotEmpty;
 
@@ -750,6 +681,7 @@ class ShellController extends FrameSafeNotifier {
 
   int _instanceIndex = 0;
   int get instanceIndex => _instanceIndex;
+  @override
   DiscourseInstance? get currentInstance =>
       hasInstances ? _instances[_instanceIndex] : null;
 
@@ -779,7 +711,9 @@ class ShellController extends FrameSafeNotifier {
   String? get destinationId => activeTab?.rootDestinationId;
 
   /// Navigation within the active tab. Inactive tabs retain their own stack.
+  @override
   List<ContentRoute> get contentStack => activeTab?.contentStack ?? const [];
+  @override
   ContentRoute? get currentContent => activeTab?.currentContent;
   bool get canPopContent => (activeTab?.contentStack.length ?? 0) > 1;
 
@@ -1304,6 +1238,7 @@ class ShellController extends FrameSafeNotifier {
 
   /// Counters for the site on screen — what the user menu's tabs show, and
   /// what puts the dot on the avatar that opens it.
+  @override
   NotificationTotals? get currentTotals {
     final instance = currentInstance;
     return instance == null ? null : accountActivity.totalsFor(instance.url);
@@ -1457,23 +1392,27 @@ class ShellController extends FrameSafeNotifier {
   }
 
   void _onTotalsLoaded(DiscourseInstance instance, NotificationTotals totals) {
-    _hydrateSelectedChat(instance, totals);
+    _notifyPluginTotals(instance, totals);
   }
 
-  void _hydrateSelectedChat(
+  void _notifyPluginTotals(
     DiscourseInstance instance, [
     NotificationTotals? loadedTotals,
   ]) {
-    // A post arrives whether or not you care about reactions, so its payload
-    // can be the gate. A channel list arrives only if you ask, so its absence
-    // proves nothing.
     final totals = loadedTotals ?? accountActivity.totalsFor(instance.url);
-    if (totals?.hasChatEnabled == true &&
-        currentInstance?.url == instance.url) {
-      unawaited(_presentation.ensureConfig(instance.url));
-      unawaited(_presentation.ensureCustomEmojis(instance.url));
-      final chat = _chatPlugin;
-      if (chat != null) unawaited(chat.loadChannels(instance.url));
+    if (totals == null) return;
+    for (final observer
+        in _pluginSession.capabilities<PluginTotalsObserver>()) {
+      _observePluginLifecycle(
+        Future.sync(
+          () => observer.pluginTotalsLoaded(
+            instance.url,
+            totals,
+            selected: currentInstance?.url == instance.url,
+          ),
+        ),
+        'plugins.session.totalsLoaded',
+      );
     }
   }
 
@@ -2008,7 +1947,7 @@ class ShellController extends FrameSafeNotifier {
   /// off screen instead of starting over.
   void _syncTracking() {
     final instance = currentInstance;
-    final callSiteUrl = _resenhaPlugin?.activeSiteUrl;
+    final callSiteUrl = _pluginBackgroundSiteUrl;
 
     for (final entry in _trackers.entries) {
       final selectedAndVisible = _foreground && entry.key == instance?.url;
@@ -2231,7 +2170,7 @@ class ShellController extends FrameSafeNotifier {
       // remains eligible because its signalling deliberately survives both a
       // site switch and app backgrounding.
       final selectedAndVisible = _foreground && currentInstance?.url == siteUrl;
-      if (!selectedAndVisible && _resenhaPlugin?.activeSiteUrl != siteUrl) {
+      if (!selectedAndVisible && _pluginBackgroundSiteUrl != siteUrl) {
         return;
       }
 
@@ -2263,12 +2202,13 @@ class ShellController extends FrameSafeNotifier {
         return;
       }
       _trackers[siteUrl] = tracker;
-      _chatPlugin?.attachTracker(siteUrl, tracker);
-      _resenhaPlugin?.attachTracker(siteUrl);
+      for (final attachment
+          in _pluginSession.capabilities<PluginTrackerAttachment>()) {
+        attachment.attachPluginTracker(siteUrl, tracker);
+      }
       final stillSelectedAndVisible =
           _foreground && currentInstance?.url == siteUrl;
-      if (!stillSelectedAndVisible &&
-          _resenhaPlugin?.activeSiteUrl != siteUrl) {
+      if (!stillSelectedAndVisible && _pluginBackgroundSiteUrl != siteUrl) {
         tracker.stop();
       } else {
         _syncTopicWatch(siteUrl, tracker);
@@ -2403,7 +2343,7 @@ class ShellController extends FrameSafeNotifier {
 
     final instance = currentInstance;
     if (instance != null) _trackers[instance.url]?.pollNow();
-    final callSite = _resenhaPlugin?.activeSiteUrl;
+    final callSite = _pluginBackgroundSiteUrl;
     if (callSite != null && callSite != instance?.url) {
       _trackers[callSite]?.pollNow();
     }
@@ -2834,261 +2774,6 @@ class ShellController extends FrameSafeNotifier {
     }
   }
 
-  /// Opens a Discourse Chat URL natively when its site and channel are
-  /// available to a connected account.
-  ///
-  /// Channel access is confirmed after the shared channel-list request. A
-  /// missing/forbidden channel returns false so callers can preserve the
-  /// browser fallback instead of navigating to a native dead end.
-  Future<bool> openChatUrl(String url) async {
-    final chat = _chatPlugin;
-    if (chat == null) return false;
-    final generation = ++_chatUrlOpenGeneration;
-    final link = ChatLink.parse(absoluteUrl(url));
-    if (link == null) return false;
-
-    var index = _instances.indexWhere((instance) => instance.serves(link.uri));
-    if (index < 0 || !_instances[index].isConnected) return false;
-
-    final siteUrl = _instances[index].url;
-    await chat.loadChannels(siteUrl);
-    if (isDisposed || generation != _chatUrlOpenGeneration) return false;
-    if (chat.channel(siteUrl, link.route.channelId) == null) return false;
-    if (link.route.threadId case final threadId?) {
-      final detail = await chat.refreshThreadDetail(
-        siteUrl,
-        ChatThreadTarget(channelId: link.route.channelId, threadId: threadId),
-      );
-      if (isDisposed || generation != _chatUrlOpenGeneration) return false;
-      // A 403/404 or unsupported thread contract leaves navigation untouched
-      // so the caller can retain its browser fallback.
-      if (detail == null) return false;
-    }
-
-    // The rail can be reordered or a site removed while credentials/channel
-    // discovery crosses a platform or network boundary. Resolve it again
-    // before changing selection and leave the current site untouched when the
-    // original target disappeared.
-    index = _instances.indexWhere((instance) => instance.url == siteUrl);
-    if (index < 0 || !_instances[index].isConnected) return false;
-    if (index != _instanceIndex) selectInstance(index);
-
-    return _openChatRoute(siteUrl, link.route, messageId: link.messageId);
-  }
-
-  /// Opens one known thread. Message tiles can close over this method without
-  /// importing shell route strings or constructing a persisted route.
-  void openChatThread({
-    required String siteUrl,
-    required int channelId,
-    required int threadId,
-    int? messageId,
-    bool focusComposer = false,
-  }) {
-    if (channelId <= 0 ||
-        threadId <= 0 ||
-        (messageId != null && messageId <= 0)) {
-      return;
-    }
-    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
-    if (index < 0 || !_instances[index].isConnected) return;
-    if (index != _instanceIndex) selectInstance(index);
-    _openChatRoute(
-      siteUrl,
-      ChatRoute.thread(channelId: channelId, threadId: threadId),
-      messageId: messageId,
-      focusComposer: focusComposer,
-    );
-  }
-
-  /// Opens one known channel, optionally centred on a particular message.
-  bool openChatChannel(int channelId, {int? messageId}) {
-    if (channelId <= 0 || (messageId != null && messageId <= 0)) return false;
-    final instance = currentInstance;
-    if (instance == null || !instance.isConnected) return false;
-    return _openChatRoute(
-      instance.url,
-      ChatRoute.channel(channelId),
-      messageId: messageId,
-    );
-  }
-
-  /// Opens the routed channel settings or member directory.
-  ///
-  /// These are siblings under one channel-info route, as they are in core
-  /// Discourse. Moving between the tabs replaces the current sibling so Back
-  /// always returns directly to the channel.
-  bool openChatChannelInfo({
-    required String siteUrl,
-    required int channelId,
-    ChatChannelInfoTab tab = ChatChannelInfoTab.settings,
-  }) {
-    if (channelId <= 0) return false;
-    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
-    if (index < 0 || !_instances[index].isConnected) return false;
-    final channel = _chatPlugin?.channel(siteUrl, channelId);
-    if (channel == null) return false;
-    if (index != _instanceIndex) selectInstance(index);
-    return _openChatInfoRoute(
-      siteUrl,
-      channel,
-      ChatRoute.info(channelId: channelId, tab: tab),
-    );
-  }
-
-  /// Opens the web-equivalent active-thread index for one known channel.
-  bool openChatChannelThreads({
-    required String siteUrl,
-    required int channelId,
-  }) {
-    if (channelId <= 0) return false;
-    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
-    if (index < 0 || !_instances[index].isConnected) return false;
-    final chat = _chatPlugin;
-    final channel = chat?.channel(siteUrl, channelId);
-    if (channel?.threadingEnabled != true) return false;
-    if (index != _instanceIndex) selectInstance(index);
-
-    final routeId = ChatPlugin.channelThreadsRouteId(channelId);
-    if (currentContent?.id != routeId) {
-      final currentChatRoute = switch (currentContent?.id) {
-        final id? => ChatRoute.parse(id),
-        null => null,
-      };
-      if (currentChatRoute?.channelId != channelId ||
-          currentChatRoute?.isThread == true) {
-        selectDestination(ChatPlugin.destination(channel!));
-      }
-      pushContent(
-        ContentRoute(
-          id: routeId,
-          title: 'Threads',
-          subtitle: channel!.title,
-          icon: DIcons.comments,
-        ),
-      );
-    }
-    if (_mobilePane != MobilePane.content) {
-      _mobilePane = MobilePane.content;
-      _notify();
-    }
-    return true;
-  }
-
-  /// Reveals a result in a mounted channel pane without changing the durable
-  /// content route. Expanded thread workspaces keep their thread pane open.
-  bool revealChatChannelMessage({
-    required String siteUrl,
-    required int channelId,
-    required int messageId,
-  }) {
-    if (channelId <= 0 || messageId <= 0 || currentInstance?.url != siteUrl) {
-      return false;
-    }
-    final chat = _chatPlugin;
-    if (chat == null || chat.channel(siteUrl, channelId) == null) return false;
-    chatNavigation.offer(
-      ChatNavigationTarget(
-        siteUrl: siteUrl,
-        route: ChatRoute.channel(channelId),
-        messageId: messageId,
-      ),
-    );
-    return true;
-  }
-
-  bool _openChatRoute(
-    String siteUrl,
-    ChatRoute route, {
-    int? messageId,
-    bool focusComposer = false,
-  }) {
-    final chat = _chatPlugin;
-    if (chat == null) return false;
-    if (currentInstance?.url != siteUrl) return false;
-    final channel = chat.channel(siteUrl, route.channelId);
-    if (channel == null) return false;
-
-    if (route.isInfo) return _openChatInfoRoute(siteUrl, channel, route);
-
-    final currentRoute = switch (currentContent?.id) {
-      final id? => ChatRoute.parse(id),
-      null => null,
-    };
-    if (route.isThread) {
-      if (currentRoute != route) {
-        final currentThreadsChannelId = switch (currentContent?.id) {
-          final id? => ChatPlugin.channelIdFromThreadsRoute(id),
-          null => null,
-        };
-        final preservesThreadList =
-            currentContent?.id == ChatPlugin.myThreadsRouteId ||
-            currentThreadsChannelId == route.channelId;
-        // Thread-to-thread and cross-channel navigation both begin from the
-        // channel root. A deliberate thread index is the exception: opening
-        // its row should let Back return to that index, as it does on web.
-        if (currentRoute?.threadId != null ||
-            !preservesThreadList &&
-                currentRoute?.channelId != route.channelId) {
-          selectDestination(ChatPlugin.destination(channel));
-        }
-        pushContent(
-          ContentRoute(
-            id: route.routeId,
-            title: 'Thread',
-            subtitle: channel.title,
-            icon: DIcons.comments,
-          ),
-        );
-      }
-    } else if (currentRoute != route || contentStack.length != 1) {
-      selectDestination(ChatPlugin.destination(channel));
-    }
-
-    chatNavigation.offer(
-      ChatNavigationTarget(
-        siteUrl: siteUrl,
-        route: route,
-        messageId: messageId,
-        focusComposer: focusComposer,
-      ),
-    );
-    if (_mobilePane != MobilePane.content) {
-      _mobilePane = MobilePane.content;
-      _notify();
-    }
-    return true;
-  }
-
-  bool _openChatInfoRoute(
-    String siteUrl,
-    ChatChannel channel,
-    ChatRoute route,
-  ) {
-    if (currentInstance?.url != siteUrl || !route.isInfo) return false;
-
-    final currentRoute = switch (currentContent?.id) {
-      final id? => ChatRoute.parse(id),
-      null => null,
-    };
-    final content = ContentRoute(
-      id: route.routeId,
-      title: channel.title,
-      icon: DIcons.comment,
-    );
-
-    if (currentRoute?.isInfo == true && currentRoute?.channelId == channel.id) {
-      replaceCurrentContent(content);
-    } else {
-      if (currentRoute?.channelId != channel.id ||
-          currentRoute?.isThread == true) {
-        selectDestination(ChatPlugin.destination(channel));
-      }
-      pushContent(content);
-    }
-    return true;
-  }
-
   /// Opens the category or tag list [url] points at, if this is one and a site
   /// in the rail serves it.
   ///
@@ -3128,35 +2813,6 @@ class ShellController extends FrameSafeNotifier {
     // whose feed does not exist yet — that is the placeholder screen, and it
     // would flash in before the list arrived.
     unawaited(loadFeed(route.id));
-    return true;
-  }
-
-  /// Opens a Resenha room link on a connected, signed-in site.
-  Future<bool> openResenhaUrl(String url) async {
-    final resenha = _resenhaPlugin;
-    if (resenha == null) return false;
-    if (!resenha.supportedPlatform) return false;
-    final uri = Uri.tryParse(absoluteUrl(url));
-    if (uri == null) return false;
-    final match = RegExp(r'^/resenha/r/([^/]+)/?$').firstMatch(uri.path);
-    if (match == null) return false;
-    final index = _instances.indexWhere((instance) => instance.serves(uri));
-    if (index < 0 || !_instances[index].isConnected) return false;
-    if (index != _instanceIndex) selectInstance(index);
-    final instance = _instances[index];
-    await resenha.ensureLoaded(instance.url);
-    final room = await resenha.resolveRoom(
-      instance.url,
-      Uri.decodeComponent(match.group(1)!),
-    );
-    if (room == null) return false;
-    pushContent(
-      ContentRoute(
-        id: 'resenha-room-${room.id}',
-        title: room.name,
-        icon: DIcons.microphoneLines,
-      ),
-    );
     return true;
   }
 
@@ -4127,6 +3783,7 @@ class ShellController extends FrameSafeNotifier {
       pills: _composerPills(target),
       formatQuoteContents: (block) =>
           quoteContentsFor(target, block) ?? block.contents,
+      syntaxPlugins: plugins.registry.composerSyntaxPlugins,
       pollMaximumOptions: config.pollMaximumOptions,
       localDateAccountTimezone: currentUserFor(target.siteUrl)?.timezone,
       imageUploader: target.isChat && !config.chatUploadsEnabled
@@ -4377,30 +4034,25 @@ class ShellController extends FrameSafeNotifier {
     composer.focus.requestFocus();
   }
 
-  /// Inserts core's canonical chat transcript into a new-topic draft while
-  /// leaving the channel or thread workspace underneath it.
-  Future<String?> openChatQuote(
-    String siteUrl,
-    int channelId,
-    String markdown,
-  ) async {
+  @override
+  Future<String?> insertPluginTranscriptIntoNewTopic({
+    required String siteUrl,
+    required String sourceRouteId,
+    required String markdown,
+    int? initialCategoryId,
+  }) async {
     final route = currentContent;
-    final chatRoute = route == null ? null : ChatRoute.parse(route.id);
     final tabId = activeTabId;
     final feedId = currentFeedId;
-    final channel = _chatPlugin?.channel(siteUrl, channelId);
     if (markdown.trim().isEmpty ||
-        channelId <= 0 ||
         currentInstance?.url != siteUrl ||
         currentInstance?.user == null ||
-        chatRoute?.channelId != channelId ||
+        route?.id != sourceRouteId ||
         tabId == null ||
-        feedId == null ||
-        channel == null) {
+        feedId == null) {
       return 'The topic composer is no longer available here.';
     }
 
-    final routeId = route!.id;
     final lease = lifecycle.capture(siteUrl);
     await Future.wait<void>([
       loadCategories(siteUrl),
@@ -4408,19 +4060,19 @@ class ShellController extends FrameSafeNotifier {
     ]);
     if (!lease.isCurrent ||
         currentInstance?.url != siteUrl ||
-        currentContent?.id != routeId ||
+        currentContent?.id != sourceRouteId ||
         activeTabId != tabId ||
         currentFeedId != feedId) {
       return 'The topic composer is no longer available here.';
     }
 
-    final category = channel.isCategoryChannel
-        ? topicComposerCategories(siteUrl)
+    final category = initialCategoryId == null
+        ? null
+        : topicComposerCategories(siteUrl)
               .where(
-                (item) => item.id == channel.chatableId && item.canCreateTopic,
+                (item) => item.id == initialCategoryId && item.canCreateTopic,
               )
-              .firstOrNull
-        : null;
+              .firstOrNull;
     var composer = visibleComposer;
     final reusable =
         composer != null &&
@@ -4458,7 +4110,7 @@ class ShellController extends FrameSafeNotifier {
     }
     if (!lease.isCurrent ||
         !identical(_composer, composer) ||
-        currentContent?.id != routeId ||
+        currentContent?.id != sourceRouteId ||
         activeTabId != tabId) {
       return 'The topic composer is no longer available here.';
     }
@@ -5747,251 +5399,10 @@ class ShellController extends FrameSafeNotifier {
     return null;
   }
 
-  /// Gives, moves or takes back this reader's reaction. null means it went
-  /// through.
-  ///
-  /// The same bargain [toggleLike] makes and for the same reason — a reaction
-  /// is a tap made while reading, and a row that waits for a round trip reads
-  /// as broken rather than slow.
-  ///
-  /// Nothing here ever writes `/post_actions` on a post that has reactions.
-  /// Reacting with a non-excluded emoji leaves a shadow like behind it, so an
-  /// unliking `DELETE` would destroy that and orphan the reaction — a desync
-  /// only a scheduled server job repairs.
-  Future<String?> toggleReaction(
-    Post post,
-    String reaction, {
-    String? siteUrl,
-  }) async {
-    final targetSite = siteUrl ?? currentInstance?.url;
-    if (targetSite == null || !post.canReact) return null;
-
-    // Per post rather than per reaction, and shared with the like: two
-    // reactions toggled at once on one post contradict each other server side,
-    // because giving one *replaces* whatever was there. Serialising them is the
-    // correct granularity, not a simplification.
-    final key = _postKey(targetSite, post.id);
-    if (!_beginPostWrite(key)) return null;
-    final lease = lifecycle.capture(targetSite);
-
-    try {
-      return await _writeReaction(targetSite, post, reaction, lease);
-    } finally {
-      lease.commit(() => _endPostWrite(targetSite, post.id));
-    }
-  }
-
   bool postWriteInFlight(int postId, {String? siteUrl}) {
     final targetSite = siteUrl ?? currentInstance?.url;
     return targetSite != null &&
         _postWritesInFlight.contains(_postKey(targetSite, postId));
-  }
-
-  /// Casts or changes a vote in one named poll. The card owns the responsive
-  /// pending selection; only the personalized server answer is committed to
-  /// the post, so counts and confidential results are never guessed.
-  Future<PollVoteWriteResult> castPollVote(
-    Post post,
-    Poll poll,
-    List<String> optionIds, {
-    String? siteUrl,
-  }) => _writePollVote(
-    post,
-    poll,
-    options: List.unmodifiable(optionIds),
-    siteUrl: siteUrl,
-  );
-
-  Future<PollVoteWriteResult> removePollVote(
-    Post post,
-    Poll poll, {
-    String? siteUrl,
-  }) => _writePollVote(post, poll, options: null, siteUrl: siteUrl);
-
-  Future<PollVoteWriteResult> _writePollVote(
-    Post post,
-    Poll poll, {
-    required List<String>? options,
-    String? siteUrl,
-  }) async {
-    final targetSite = siteUrl ?? currentInstance?.url;
-    final topicId = currentContent?.topicId;
-    if (targetSite == null || topicId == null || !poll.isOpen) {
-      return const PollVoteWriteResult.saved();
-    }
-    final detail = store.read<TopicDetail>(targetSite, topicId);
-    if (detail?.archived == true) {
-      return const PollVoteWriteResult.refused(
-        'Voting is unavailable in archived topics.',
-      );
-    }
-
-    final key = _postKey(targetSite, post.id);
-    if (!_beginPostWrite(key)) {
-      // Another card on this post won the same-frame race before the shell
-      // could rebuild both as disabled. Tell this card to discard the local
-      // selection it already painted, without presenting an error.
-      return const PollVoteWriteResult.reconciled();
-    }
-    final lease = lifecycle.capture(targetSite);
-    try {
-      final credential = await _credentialForWrite(targetSite);
-      if (!lease.isCurrent) return const PollVoteWriteResult.saved();
-      if (credential.failure case final failure?) {
-        return PollVoteWriteResult.refused(failure.message);
-      }
-      final apiKey = credential.apiKey!;
-
-      final PollVoteResponse answer;
-      try {
-        answer = options == null
-            ? await pollsApi.removePollVote(
-                siteUrl: targetSite,
-                apiKey: apiKey,
-                postId: post.id,
-                pollName: poll.name,
-              )
-            : await pollsApi.votePoll(
-                siteUrl: targetSite,
-                apiKey: apiKey,
-                postId: post.id,
-                pollName: poll.name,
-                options: options,
-              );
-      } on WriteException catch (error) {
-        if (error.failure != WriteFailure.unreachable) {
-          return PollVoteWriteResult.refused(error.message);
-        }
-        // The vote route is idempotent for a concrete selection. If its answer
-        // was lost, a personalized post read is the only safe reconciliation.
-        await _refreshPost(targetSite, topicId, post.id, apiKey, lease);
-        return const PollVoteWriteResult.reconciled();
-      } catch (_) {
-        await _refreshPost(targetSite, topicId, post.id, apiKey, lease);
-        return const PollVoteWriteResult.reconciled();
-      }
-
-      lease.commit(() {
-        store.update<Post>(targetSite, post.id, (held) {
-          final polls = held.polls ?? const Polls();
-          return held.withPlugins(
-            held.plugins.withValue(pollsDataKey, polls.withPoll(answer.poll)),
-          );
-        });
-        _notify();
-      });
-      return const PollVoteWriteResult.saved();
-    } finally {
-      lease.commit(() => _endPostWrite(targetSite, post.id));
-    }
-  }
-
-  Future<String?> _writeReaction(
-    String siteUrl,
-    Post post,
-    String reaction,
-    SiteLease lease,
-  ) async {
-    final credential = await _credentialForWrite(siteUrl);
-    if (!lease.isCurrent) return null;
-    if (credential.failure case final failure?) return failure.message;
-    final apiKey = credential.apiKey!;
-
-    final held = post.reactions;
-    if (held == null) return null;
-
-    // A transform of whatever is held now, not a put of the tapped copy: the
-    // credential await above is a window an edit or a re-read can land in, and
-    // putting the whole stale snapshot back would undo it — and unlike a
-    // like, whose success path puts the site's full answer over the guess, a
-    // reaction's answer is merged selectively and could never heal that.
-    final applied = lease.commit(() {
-      store.update<Post>(siteUrl, post.id, (current) {
-        final reactions = current.reactions;
-        if (reactions == null) return current;
-        return current.withPlugins(
-          current.plugins.withValue(
-            reactionsDataKey,
-            reactions
-                .withToggled(reaction)
-                .withMainReaction(siteConfigFor(siteUrl).mainReaction),
-          ),
-        );
-      });
-      _notify();
-    });
-    if (!applied) return null;
-
-    /// Puts the reactions back the way they were, and nothing else — the twin
-    /// of `_writeLike`'s revert, for the same reason.
-    void revert() {
-      lease.commit(() {
-        store.update<Post>(
-          siteUrl,
-          post.id,
-          (h) => h.withPlugins(h.plugins.withValue(reactionsDataKey, held)),
-        );
-        _notify();
-      });
-    }
-
-    try {
-      final fresh = await reactionsWriteApi.toggleReaction(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        postId: post.id,
-        reaction: reaction,
-      );
-      // Only what the answer says about *this reader*, never its counts. The
-      // plugin builds `reactions` one way for a topic read and another for a
-      // write, and the second drops reactions whose emoji no longer exists — so
-      // taking its counts would bump a pill and leave it wrong until the topic
-      // was read again. The guess above is corrected by the next real read, the
-      // way a like's count is when the route answers with nothing.
-      if (fresh?.reactions case final answered?) {
-        lease.commit(() {
-          store.update<Post>(
-            siteUrl,
-            post.id,
-            (h) => h.withPlugins(
-              h.plugins.withValue(
-                reactionsDataKey,
-                h.reactions?.withMineOf(answered),
-              ),
-            ),
-          );
-          _notify();
-        });
-      }
-    } on WriteException catch (e) {
-      if (e.statusCode == 404) {
-        // Either the plugin went away or the post did — the route answers the
-        // same bytes for both, and the next read of the topic settles which.
-        // Deliberately scoped to this one post: dropping the site's reactions
-        // because a moderator deleted a post while it was being read would
-        // empty every footer in the topic.
-        lease.commit(() {
-          store.update<Post>(
-            siteUrl,
-            post.id,
-            (h) => h.withPlugins(h.plugins.withValue(reactionsDataKey, null)),
-          );
-          _notify();
-        });
-        // The row disappearing is the honest report; there is nothing a reader
-        // could do about either cause.
-        return null;
-      }
-      revert();
-      return e.message;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(error, stackTrace, 'post.toggleReaction');
-      }
-      revert();
-      return const WriteException(WriteFailure.unreachable).message;
-    }
-    return null;
   }
 
   /// One write at a time per post, whichever kind it is. Keyed by site and post
@@ -6531,7 +5942,16 @@ class ShellController extends FrameSafeNotifier {
     final targetId = bookmark.bookmarkableId;
     if (targetType == BookmarkTargetType.chatMessage) {
       if (targetId != null) {
-        _chatPlugin?.putMessageBookmark(siteUrl, targetId, bookmark);
+        for (final observer
+            in _pluginSession.capabilities<PluginBookmarkObserver>()) {
+          if (!observer.handlesPluginBookmark(
+            BookmarkTargetType.chatMessage.name,
+          )) {
+            continue;
+          }
+          observer.putPluginBookmark(siteUrl, targetId, bookmark);
+          break;
+        }
       }
       _notify();
       return;
@@ -6568,7 +5988,16 @@ class ShellController extends FrameSafeNotifier {
     final targetId = bookmark.bookmarkableId;
     if (targetType == BookmarkTargetType.chatMessage) {
       if (targetId != null) {
-        _chatPlugin?.removeMessageBookmark(siteUrl, targetId);
+        for (final observer
+            in _pluginSession.capabilities<PluginBookmarkObserver>()) {
+          if (!observer.handlesPluginBookmark(
+            BookmarkTargetType.chatMessage.name,
+          )) {
+            continue;
+          }
+          observer.removePluginBookmark(siteUrl, targetId);
+          break;
+        }
       }
       _notify();
       return;
@@ -6615,10 +6044,16 @@ class ShellController extends FrameSafeNotifier {
     int? targetId,
   }) {
     if (targetType == BookmarkTargetType.chatMessage && targetId != null) {
-      final message = store.read<ChatMessage>(instance.url, targetId);
-      final chat = _chatPlugin;
-      if (message != null && chat != null) {
-        unawaited(chat.reconcileMessageBookmark(instance.url, message));
+      for (final observer
+          in _pluginSession.capabilities<PluginBookmarkObserver>()) {
+        if (!observer.handlesPluginBookmark(targetType.name)) continue;
+        _observePluginLifecycle(
+          Future.sync(
+            () => observer.reconcilePluginBookmark(instance.url, targetId),
+          ),
+          'plugins.session.reconcileBookmark',
+        );
+        break;
       }
     } else {
       final route = currentContent;
@@ -8138,7 +7573,11 @@ class ShellController extends FrameSafeNotifier {
         term: term,
         order: [
           ...DiscourseApi.hashtagOrder,
-          if (_resenhaPlugin?.directory(siteUrl) != null) 'room',
+          if (_pluginSession.capabilities<PluginComposerTargetProvider>().any(
+            (provider) =>
+                provider.supportsPluginComposerTarget(siteUrl, 'room'),
+          ))
+            'room',
         ],
         apiKey: credential.value,
         clientId: identity.value,
@@ -8439,56 +7878,30 @@ class ShellController extends FrameSafeNotifier {
       (!_assignLegacyFallbackUnavailable.contains(siteUrl) &&
           freshCurrentUserFor(siteUrl)?.canAssign == true);
 
-  /// Candidates the backend allows for this exact topic or post.
-  Future<AssignmentSuggestions> assignmentSuggestions(
+  PluginTargetSnapshot _pluginDataForTarget(
     String siteUrl,
-    AssignmentTarget target,
-  ) => assignments.suggestions(siteUrl, target);
-
-  Future<List<AssignmentAssignee>> searchAssignmentAssignees(
-    String siteUrl,
-    AssignmentTarget target,
-    AssignmentSuggestions suggestions,
-    String term,
-  ) => assignments.search(siteUrl, target, suggestions, term);
-
-  Future<String?> assignTarget(
-    String siteUrl,
-    AssignmentTarget target,
-    AssignmentAssignee assignee, {
-    String? note,
-    String? status,
-  }) =>
-      assignments.assign(siteUrl, target, assignee, note: note, status: status);
-
-  Future<String?> unassignTarget(String siteUrl, AssignmentTarget target) =>
-      assignments.unassign(siteUrl, target);
-
-  bool assignmentWriteInFlight(String siteUrl, AssignmentTarget target) =>
-      assignments.isWriting(siteUrl, target);
-
-  bool _canAssignTarget(String siteUrl, AssignmentTarget target) {
-    switch (target.type) {
-      case AssignmentTargetType.topic:
-        if (target.id != target.topicId) return false;
-        return canAssignForTarget(
-          siteUrl,
-          store
-              .read<TopicDetail>(siteUrl, target.id)
-              ?.plugins
-              .get(assignmentsDataKey)
-              ?.canAssign,
-        );
-      case AssignmentTargetType.post:
+    PluginTarget target,
+  ) {
+    switch (target.kind) {
+      case 'topic':
+        if (target.id != target.topicId) {
+          return (valid: false, data: PluginData.none);
+        }
+        final topic = store.read<TopicDetail>(siteUrl, target.id);
+        return (valid: topic != null, data: topic?.plugins ?? PluginData.none);
+      case 'post':
         final topic = store.read<TopicDetail>(siteUrl, target.topicId);
-        if (topic == null || !topic.stream.contains(target.id)) return false;
+        if (topic == null || !topic.stream.contains(target.id)) {
+          return (valid: false, data: PluginData.none);
+        }
         final post = store.read<Post>(siteUrl, target.id);
-        // Post #1 is the topic target in Assign's data model and web UI.
-        if (post == null || post.postNumber == 1) return false;
-        return canAssignForTarget(
-          siteUrl,
-          post.plugins.get(assignmentsDataKey)?.canAssign,
-        );
+        // Post #1 is represented by the topic target in Discourse write APIs.
+        if (post == null || post.postNumber == 1) {
+          return (valid: false, data: PluginData.none);
+        }
+        return (valid: true, data: post.plugins);
+      default:
+        return (valid: false, data: PluginData.none);
     }
   }
 
@@ -9247,9 +8660,17 @@ class ShellController extends FrameSafeNotifier {
       unawaited(_presentation.warmEmojiCatalog(instance.url));
       unawaited(_ensureCategoriesFor(instance));
     }
-    final resenha = _resenhaPlugin;
-    if (instance.isConnected && resenha != null) {
-      unawaited(resenha.ensureLoaded(instance.url));
+    for (final activator
+        in _pluginSession.capabilities<PluginSiteActivator>()) {
+      _observePluginLifecycle(
+        Future.sync(
+          () => activator.activatePluginSite(
+            instance.url,
+            connected: instance.isConnected,
+          ),
+        ),
+        'plugins.session.activateSite',
+      );
     }
     _syncTracking();
     _syncTopicChannels();
@@ -9257,7 +8678,7 @@ class ShellController extends FrameSafeNotifier {
     // refresh on reselection can legitimately reuse that five-minute snapshot,
     // so activation itself must apply its chat capability instead of relying
     // on a callback which only runs after network responses.
-    _hydrateSelectedChat(instance);
+    _notifyPluginTotals(instance);
     if (canRead && hydrateActiveTab) _hydrateActiveTab(instance);
   }
 
@@ -9270,9 +8691,15 @@ class ShellController extends FrameSafeNotifier {
       loadFeed(root.feedPath == null ? tab.rootDestinationId : root.id),
     );
     final route = tab.currentContent;
-    if (ChatRoute.parse(route.id) != null) {
-      final chat = _chatPlugin;
-      if (chat != null) unawaited(chat.loadChannels(instance.url));
+    final hydrator = _pluginSession
+        .capabilities<PluginRouteHydrator>()
+        .where((candidate) => candidate.handlesPluginRoute(route.id))
+        .firstOrNull;
+    if (hydrator != null) {
+      _observePluginLifecycle(
+        Future.sync(() => hydrator.hydratePluginRoute(instance.url, route.id)),
+        'plugins.session.hydrateRoute',
+      );
     } else if (route.topicId case final topicId?) {
       final anchor = tab.anchors[route.id];
       unawaited(
@@ -9291,6 +8718,7 @@ class ShellController extends FrameSafeNotifier {
 
   /// Tapping the already-selected instance is how you get back to its sidebar
   /// on a phone, where the sidebar and the content cannot both be visible.
+  @override
   void selectInstance(int index) {
     assert(index >= 0 && index < _instances.length);
     _rootMode = ShellRootMode.forum;
@@ -9417,6 +8845,7 @@ class ShellController extends FrameSafeNotifier {
     return AggregateTopicOpenResult.opened;
   }
 
+  @override
   void selectDestination(SidebarDestination destination) {
     final instance = currentInstance;
     if (instance == null) return;
@@ -9583,33 +9012,6 @@ class ShellController extends FrameSafeNotifier {
     }
   }
 
-  /// Opens the channel core would choose when its header chat icon is clicked.
-  ///
-  /// The channel list may still be arriving when the icon first appears, so
-  /// this waits on that shared request and then verifies that the reader has
-  /// not switched sites in the meantime.
-  Future<void> openChat() async {
-    final chat = _chatPlugin;
-    if (chat == null) return;
-    final instance = currentInstance;
-    if (instance == null || !instance.isConnected) return;
-    final totals = currentTotals;
-    if (totals?.hasChatEnabled != true ||
-        instance.user?.hasChatEnabled == false) {
-      return;
-    }
-
-    final siteUrl = instance.url;
-    await chat.loadChannels(siteUrl);
-    if (currentInstance?.url != siteUrl) return;
-
-    final channel = chat.shortcutChannel(
-      siteUrl,
-      lastChannelId: currentInstance?.user?.lastChatChannelId,
-    );
-    if (channel != null) selectDestination(ChatPlugin.destination(channel));
-  }
-
   /// Restores a draft into the composer mode this client supports.
   Future<void> resumeDraft(String siteUrl, UserDraft draft) async {
     if (!draft.canResume) return;
@@ -9668,6 +9070,7 @@ class ShellController extends FrameSafeNotifier {
   }
 
   /// Replaces the main region with something deeper, keeping a way back.
+  @override
   void pushContent(ContentRoute route) {
     final tab = activeTab;
     if (tab == null) return;
@@ -9678,6 +9081,7 @@ class ShellController extends FrameSafeNotifier {
   }
 
   /// Replaces the top route without changing the content stack's Back target.
+  @override
   void replaceCurrentContent(ContentRoute route) {
     final tab = activeTab;
     if (tab == null) return;
@@ -9691,6 +9095,13 @@ class ShellController extends FrameSafeNotifier {
     );
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
+    _notify();
+  }
+
+  @override
+  void showPluginContent() {
+    if (_mobilePane == MobilePane.content) return;
+    _mobilePane = MobilePane.content;
     _notify();
   }
 
@@ -9826,8 +9237,14 @@ class ShellController extends FrameSafeNotifier {
     topicFeeds.dispose();
     aggregate.dispose();
     siteImages.dispose();
-    chatNavigation.dispose();
-    _observePluginLifecycle(_pluginSession.close(), 'plugins.session.close');
+    final closePluginSession = _pluginSession.close();
+    _observePluginLifecycle(closePluginSession, 'plugins.session.close');
+    if (_ownsPlugins) {
+      _observePluginLifecycle(
+        closePluginSession.then((_) => plugins.close()),
+        'plugins.close',
+      );
+    }
     search.dispose();
     final presentation = _sitePresentation;
     if (presentation != null) {

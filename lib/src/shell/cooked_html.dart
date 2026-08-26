@@ -3,8 +3,8 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 
 import '../models/post.dart';
-import '../plugins/plugin_scope.dart';
-import '../plugins/site_plugin.dart';
+import '../plugin_api/plugin_registry.dart';
+import '../plugin_api/plugin_scope.dart';
 import 'code_block.dart';
 import 'emoji.dart';
 import 'hashtag.dart';
@@ -35,6 +35,7 @@ class CookedHtml extends StatelessWidget {
     this.textStyle,
     this.siteUrl,
     this.post,
+    this.registry,
     this.compactParagraphs = false,
   });
 
@@ -48,6 +49,13 @@ class CookedHtml extends StatelessWidget {
   /// The owner of a top-level topic body. Recursive cooked fragments omit it,
   /// keeping quoted plugin placeholders noninteractive.
   final Post? post;
+
+  /// Plugin renderers to use when this fragment is outside a [PluginScope].
+  ///
+  /// Application content inherits the installed registry from the shell. This
+  /// explicit seam keeps standalone renderers and tests composable without a
+  /// core dependency on any concrete plugin bundle.
+  final PluginRegistry? registry;
 
   /// Uses the compact top-level paragraph rhythm of Discourse chat.
   ///
@@ -128,33 +136,40 @@ class CookedHtml extends StatelessWidget {
     // they did everywhere before [emojiWidgetBuilder] existed.
     final resolvedSiteUrl =
         siteUrl ?? ShellScope.maybeRead(context)?.currentInstance?.url;
-    final registry = PluginScope.maybeOf(context)?.registry ?? pluginRegistry;
+    final resolvedRegistry =
+        registry ??
+        PluginRegistryScope.maybeOf(context) ??
+        PluginScope.maybeOf(context)?.registry ??
+        PluginRegistry.empty;
 
-    return HtmlWidget(
-      html,
-      baseUrl: resolvedSiteUrl == null ? null : Uri.tryParse(resolvedSiteUrl),
-      textStyle: style,
-      renderMode: RenderMode.column,
-      factoryBuilder: () => SiteImageWidgetFactory(siteUrl: resolvedSiteUrl),
-      customWidgetBuilder: _customWidget(
-        style,
-        resolvedSiteUrl,
-        post,
-        registry,
+    return PluginRegistryScope(
+      registry: resolvedRegistry,
+      child: HtmlWidget(
+        html,
+        baseUrl: resolvedSiteUrl == null ? null : Uri.tryParse(resolvedSiteUrl),
+        textStyle: style,
+        renderMode: RenderMode.column,
+        factoryBuilder: () => SiteImageWidgetFactory(siteUrl: resolvedSiteUrl),
+        customWidgetBuilder: _customWidget(
+          style,
+          resolvedSiteUrl,
+          post,
+          resolvedRegistry,
+        ),
+        customStylesBuilder: (element) =>
+            _customStyles(element, compactParagraphs),
+        // The builders close over the style and resolved site, and [HtmlWidget]
+        // caches what they built — so a change to either has to say so to reach
+        // the inline code and the emoji.
+        rebuildTriggers: [
+          style,
+          resolvedSiteUrl,
+          post?.plugins,
+          resolvedRegistry,
+          compactParagraphs,
+        ],
+        onTapUrl: (url) => openLink(context, url, siteUrl: resolvedSiteUrl),
       ),
-      customStylesBuilder: (element) =>
-          _customStyles(element, compactParagraphs),
-      // The builders close over the style and resolved site, and [HtmlWidget]
-      // caches what they built — so a change to either has to say so to reach
-      // the inline code and the emoji.
-      rebuildTriggers: [
-        style,
-        resolvedSiteUrl,
-        post?.plugins,
-        registry,
-        compactParagraphs,
-      ],
-      onTapUrl: (url) => openLink(context, url, siteUrl: resolvedSiteUrl),
     );
   }
 }

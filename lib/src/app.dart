@@ -14,9 +14,9 @@ import 'data/updater.dart';
 import 'diagnostics/diagnostics.dart';
 import 'foundation/timezone_environment.dart';
 import 'models/site_appearance.dart';
-import 'plugins/bundled_plugin_manifest.dart';
-import 'plugins/plugin_runtime.dart';
-import 'plugins/resenha/resenha_diagnostics.dart';
+import 'plugin_api/core_plugin_manifest.dart';
+import 'plugin_api/plugin_runtime.dart';
+import 'plugin_api/site_plugin_api.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/platform.dart';
 import 'shell/shell_controller.dart';
@@ -40,11 +40,11 @@ class DiscourseApp extends StatefulWidget {
     this.updater,
     this.updateStore,
     this.diagnostics,
-    this.resenhaDiagnostics,
+    this.diagnosticsPlugins = const [],
     this.plugins,
-    this.pluginManifest = bundledPluginManifest,
+    this.pluginManifest = corePluginManifest,
   }) : assert(
-         plugins == null || identical(pluginManifest, bundledPluginManifest),
+         plugins == null || identical(pluginManifest, corePluginManifest),
          'Pass plugins or pluginManifest, not both.',
        );
 
@@ -57,7 +57,7 @@ class DiscourseApp extends StatefulWidget {
   final Updater? updater;
   final UpdateStore? updateStore;
   final DiagnosticsController? diagnostics;
-  final ResenhaDiagnosticsController? resenhaDiagnostics;
+  final List<DiagnosticsPlugin> diagnosticsPlugins;
   final InstalledPlugins? plugins;
   final PluginManifest pluginManifest;
 
@@ -96,8 +96,6 @@ class _DiscourseAppState extends State<DiscourseApp>
     // [UnsupportedUpdater].
     updater: _updater,
     updateStore: _updateStore,
-    resenhaDiagnostics:
-        widget.resenhaDiagnostics ?? const NoopResenhaDiagnosticsRecorder(),
     plugins: _plugins,
     ownsApi: false,
   );
@@ -116,14 +114,6 @@ class _DiscourseAppState extends State<DiscourseApp>
     _updater = widget.updater ?? const UnsupportedUpdater();
     _updateStore = widget.updateStore ?? UpdateStore();
     _foreground = _isForeground(WidgetsBinding.instance.lifecycleState);
-    widget.resenhaDiagnostics?.record(
-      'app.lifecycle.initial',
-      component: 'app',
-      data: {
-        'state': WidgetsBinding.instance.lifecycleState?.name ?? 'unknown',
-        'foreground': _foreground,
-      },
-    );
     _controller = _createController()..setForeground(_foreground);
     WidgetsBinding.instance.addObserver(this);
     unawaited(_start(_controller, _plugins));
@@ -142,12 +132,6 @@ class _DiscourseAppState extends State<DiscourseApp>
     if (pluginsChanged && _ownsPlugins) {
       _closePlugins(_plugins);
     }
-    if (!identical(widget.resenhaDiagnostics, oldWidget.resenhaDiagnostics)) {
-      // DiscourseApp owns the injected diagnostics controller for the same
-      // lifetime as the ordinary diagnostics controller. A replacement must
-      // release an active SDK bridge as well as the final widget disposal does.
-      unawaited(oldWidget.resenhaDiagnostics?.close());
-    }
     _updateDependencies(oldWidget);
     _controller = _createController()..setForeground(_foreground);
     unawaited(_start(_controller, _plugins));
@@ -162,10 +146,10 @@ class _DiscourseAppState extends State<DiscourseApp>
       !identical(widget.trackers, oldWidget.trackers) ||
       !identical(widget.updater, oldWidget.updater) ||
       !identical(widget.updateStore, oldWidget.updateStore) ||
+      !identical(widget.diagnosticsPlugins, oldWidget.diagnosticsPlugins) ||
       !identical(widget.plugins, oldWidget.plugins) ||
       (widget.plugins == null &&
-          widget.pluginManifest != oldWidget.pluginManifest) ||
-      !identical(widget.resenhaDiagnostics, oldWidget.resenhaDiagnostics);
+          widget.pluginManifest != oldWidget.pluginManifest);
 
   bool _pluginsChanged(DiscourseApp oldWidget) =>
       !identical(widget.plugins, oldWidget.plugins) ||
@@ -214,7 +198,6 @@ class _DiscourseAppState extends State<DiscourseApp>
     _api.close();
     if (_ownsPlugins) _closePlugins(_plugins);
     _releaseDiagnostics(widget.diagnostics);
-    unawaited(widget.resenhaDiagnostics?.close());
     super.dispose();
   }
 
@@ -225,6 +208,9 @@ class _DiscourseAppState extends State<DiscourseApp>
     try {
       await plugins.startPhase(PluginStartupPhase.bootstrap);
       if (!mounted || !identical(_controller, controller)) return;
+      _recordPluginLifecycle(
+        WidgetsBinding.instance.lifecycleState?.name ?? 'unknown',
+      );
       await controller.load();
       if (!mounted || !identical(_controller, controller)) return;
       await plugins.startPhase(PluginStartupPhase.appReady);
@@ -288,11 +274,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = _isForeground(state);
-    widget.resenhaDiagnostics?.record(
-      'app.lifecycle.changed',
-      component: 'app',
-      data: {'state': state.name, 'foreground': _foreground},
-    );
+    _recordPluginLifecycle(state.name);
     _controller.setForeground(_foreground);
     if (state == AppLifecycleState.resumed) {
       unawaited(
@@ -301,7 +283,9 @@ class _DiscourseAppState extends State<DiscourseApp>
     }
     if (!_foreground) {
       unawaited(widget.diagnostics?.flush());
-      unawaited(widget.resenhaDiagnostics?.flush());
+      for (final plugin in _diagnosticsPlugins) {
+        unawaited(plugin.flushDiagnostics());
+      }
     }
   }
 
@@ -356,10 +340,21 @@ class _DiscourseAppState extends State<DiscourseApp>
         ? app
         : DiagnosticsScope(
             controller: diagnostics,
-            resenhaController: widget.resenhaDiagnostics,
+            plugins: _diagnosticsPlugins,
             child: app,
           );
   }
+
+  void _recordPluginLifecycle(String state) {
+    for (final plugin in _diagnosticsPlugins) {
+      plugin.recordAppLifecycle(state, foreground: _foreground);
+    }
+  }
+
+  List<DiagnosticsPlugin> get _diagnosticsPlugins => [
+    ..._plugins.registry.diagnosticsPlugins,
+    ...widget.diagnosticsPlugins,
+  ];
 
   static Widget _materialApp({
     required ThemeData theme,

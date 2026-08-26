@@ -11,6 +11,7 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
@@ -151,6 +152,7 @@ void main() {
       ..keys[_site] = 'meta-key'
       ..keys[_otherSite] = 'other-key';
     shell = ShellController(
+      plugins: installedPlugins,
       instanceStore: FakeInstanceStore([
         instance('meta.discourse.org').copyWith(user: _user),
         instance('other.example').copyWith(user: _user),
@@ -226,6 +228,7 @@ void main() {
         },
       );
       final gated = ShellController(
+        plugins: installedPlugins,
         instanceStore: FakeInstanceStore([
           instance('meta.discourse.org').copyWith(user: _user),
         ]),
@@ -305,6 +308,7 @@ void main() {
       },
     );
     final restored = ShellController(
+      plugins: installedPlugins,
       instanceStore: FakeInstanceStore([
         instance('meta.discourse.org').copyWith(user: _user),
       ]),

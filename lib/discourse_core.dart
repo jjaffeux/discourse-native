@@ -1,6 +1,6 @@
 export 'src/app.dart' show DiscourseApp;
-export 'src/plugins/core_plugin_manifest.dart';
-export 'src/plugins/plugin_contracts.dart';
-export 'src/plugins/plugin_manifest.dart' show PluginManifest;
-export 'src/plugins/plugin_runtime.dart'
+export 'src/plugin_api/core_plugin_manifest.dart';
+export 'src/plugin_api/plugin_contracts.dart';
+export 'src/plugin_api/plugin_manifest.dart' show PluginManifest;
+export 'src/plugin_api/plugin_runtime.dart'
     show InstalledPlugins, PluginInstaller, PluginSession;

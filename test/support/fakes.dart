@@ -36,6 +36,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
+import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
@@ -44,9 +45,12 @@ import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
+import 'package:discourse_native/src/plugins/gifs/gifs_api.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
+import 'package:discourse_native/src/plugins/poll/polls_api.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
 import 'package:discourse_native/src/plugins/site_plugin.dart';
 
 /// Keeps instances in memory instead of shared_preferences, which needs a
@@ -445,7 +449,14 @@ final class _FakeSiteMessageBusSubscription
 }
 
 /// Answers lookups from a map of term to result, with no network involved.
-class FakeDiscourseApi implements DiscourseApi {
+class FakeDiscourseApi
+    implements
+        DiscourseApi,
+        ChatApi,
+        GifsApi,
+        PollsApi,
+        ReactionsApi,
+        ReactionsWriteApi {
   FakeDiscourseApi({
     DiscourseModelCodec? models,
     this.results = const {},

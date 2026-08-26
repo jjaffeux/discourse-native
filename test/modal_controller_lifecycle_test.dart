@@ -692,6 +692,7 @@ ShellController _controller({
   trackers: FakeSiteTracker.reset(),
   updater: updater ?? FakeUpdater(),
   updateStore: updateStore ?? FakeUpdateStore(),
+  plugins: installedPlugins,
 );
 
 final class _GatedCardApi extends FakeDiscourseApi {

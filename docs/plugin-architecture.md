@@ -20,7 +20,7 @@ PluginManifest ──► PluginInstaller ──► InstalledPlugins
                                            ▼
                                       PluginSession
                                            │
-                                  typed services + lifecycle
+                         typed services + host capabilities + lifecycle
 ```
 
 ## Module contract
@@ -37,6 +37,15 @@ rolls back every lifecycle already started in reverse order. A shell opens one
 session, receives only explicitly declared host ports, and dispatches
 foreground, site-forget, and close events with failure isolation.
 
+## Dependency rule
+
+Production core never imports or exports a file under `lib/src/plugins`.
+Dependencies point in one direction: plugins may use core and the stable
+`lib/src/plugin_api` surface, while core discovers optional behavior through
+registries, session capabilities, services, and host ports. Only
+`lib/main.dart`, `lib/discourse_full.dart`, and the bundled manifest compose the
+full feature set. `plugin_dependency_boundary_test.dart` enforces this rule.
+
 ## Data and APIs
 
 Core records hold immutable `PluginData` addressed by stable
@@ -44,21 +53,25 @@ Core records hold immutable `PluginData` addressed by stable
 model codec; core models no longer import the bundled plugin list. Plugin HTTP
 contracts and route/payload parsing live beside their feature (`poll`,
 `reactions`, `gifs`, and `chat`) and use the shared transport only as a narrow
-wire boundary.
+wire boundary. `DiscourseApi` exposes no typed plugin endpoint.
 
 ## UI extensions
 
 `PluginScope` resolves session services by `PluginServiceKey`, independently
-of `ShellScope`. Core still owns navigation and shared presentation commands,
-while plugin widgets obtain their own controllers through the plugin scope.
+of `ShellScope`. Core owns navigation and shared write coordination through
+plugin-neutral host APIs; plugins own their route syntax, typed commands,
+controllers, optimistic transforms, and bookmark reconciliation.
 
 The registry currently provides typed seams for:
 
 - post/topic records, cooked elements, footers, decorations, metadata, small
   actions, menus, headers, and live invalidation;
-- composer toolbar actions and optimistic Chat preview syntax;
+- composer toolbar actions, shortcuts, lossless syntax projections, and
+  optimistic Chat preview syntax;
 - sidebar sections, content routes, content chrome, shell header actions, and
-  app-global overlays.
+  app-global overlays;
+- session route handlers, restored-route hydration, tracker attachments,
+  site/totals observers, bookmark observers, and background-site ownership.
 
 The full manifest declares route and syntax ownership up front. Chat and
 Resenha own separate route namespaces; Poll and Local Dates declare their

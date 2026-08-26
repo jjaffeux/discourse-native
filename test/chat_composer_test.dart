@@ -15,6 +15,7 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -891,6 +892,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
     authenticator: authenticator,
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
+    plugins: installedPlugins,
   );
   await shell.load();
   shell.store.put(

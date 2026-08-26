@@ -8,6 +8,7 @@ import 'reaction.dart';
 import 'reaction_picker.dart';
 import 'reaction_pill.dart';
 import 'reactions_controller.dart';
+import 'reactions_shell_extension.dart';
 
 export 'reaction_pill.dart' show ReactionPill, ReactionPills;
 
