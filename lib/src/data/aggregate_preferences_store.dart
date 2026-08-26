@@ -49,17 +49,21 @@ final class AggregatePreferences {
 final class AggregateTabPreferences {
   AggregateTabPreferences({
     required this.id,
+    String? name,
     Set<String>? excludedForums,
     Map<String, String>? queries,
-  }) : excludedForums = Set.unmodifiable(excludedForums ?? const {}),
+  }) : name = AggregatePreferencesStore.normalizeTabName(name),
+       excludedForums = Set.unmodifiable(excludedForums ?? const {}),
        queries = Map.unmodifiable(queries ?? const {});
 
   final String id;
+  final String? name;
   final Set<String> excludedForums;
   final Map<String, String> queries;
 
   Map<String, Object?> toJson() => {
     'id': id,
+    if (name != null) 'name': name,
     'excluded_forums': excludedForums.toList()..sort(),
     'queries': Map.fromEntries(
       [
@@ -79,6 +83,7 @@ final class AggregateTabPreferences {
     final queries = value['queries'];
     return AggregateTabPreferences(
       id: id,
+      name: value['name'] is String ? value['name'] as String : null,
       excludedForums: {
         if (excluded is List)
           for (final siteUrl in excluded)
@@ -146,9 +151,10 @@ final class AggregatePreferencesStore {
     : _persistence = MemoryAggregatePreferencesPersistence();
 
   static const storageKey = 'discourse_native.aggregate_preferences';
-  static const formatVersion = 3;
+  static const formatVersion = 4;
   static const defaultTabId = 'aggregate-default';
   static const maximumTabs = 20;
+  static const maximumTabNameLength = 80;
   static const maximumQueryLength = 2048;
 
   final AggregatePreferencesPersistence _persistence;
@@ -166,10 +172,13 @@ final class AggregatePreferencesStore {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return AggregatePreferences();
       final version = decoded['version'];
-      if (version != 1 && version != 2 && version != formatVersion) {
+      if (version != 1 &&
+          version != 2 &&
+          version != 3 &&
+          version != formatVersion) {
         return AggregatePreferences();
       }
-      if (version == formatVersion) {
+      if (version == 3 || version == formatVersion) {
         final rawTabs = decoded['tabs'];
         if (rawTabs is! List) return AggregatePreferences();
         final tabs = <AggregateTabPreferences>[];
@@ -268,5 +277,13 @@ final class AggregatePreferencesStore {
     final trimmed = value.trim();
     if (trimmed.length <= maximumQueryLength) return trimmed;
     return trimmed.substring(0, maximumQueryLength);
+  }
+
+  static String? normalizeTabName(String? value) {
+    if (value == null) return null;
+    final normalized = value.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (normalized.isEmpty) return null;
+    if (normalized.length <= maximumTabNameLength) return normalized;
+    return normalized.substring(0, maximumTabNameLength);
   }
 }

@@ -9,6 +9,7 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/topic_filter_input.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show kDoubleTapMinTime;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -189,6 +190,26 @@ void main() {
         tester.widget<ForumTabsBar>(find.byType(ForumTabsBar)).items,
         hasLength(2),
       );
+
+      // The first click also switches away from Aggregate 2. Renaming must
+      // survive that controller-driven rebuild and still recognize the
+      // complete double click.
+      await tester.tap(find.text('Aggregate 1'));
+      await tester.pump(kDoubleTapMinTime);
+      await tester.tap(find.text('Aggregate 1'));
+      await tester.pump();
+      final renamedTab = tester
+          .widget<ForumTabsBar>(find.byType(ForumTabsBar))
+          .items
+          .first;
+      final renameField = find.byKey(
+        ValueKey('forum-tab-rename-${renamedTab.id}'),
+      );
+      await tester.enterText(renameField, 'Product triage');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Product triage'), findsOneWidget);
     } finally {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }

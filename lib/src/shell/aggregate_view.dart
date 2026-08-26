@@ -311,7 +311,7 @@ class _AggregateTabsBar extends StatelessWidget {
         for (var index = 0; index < tabs.length; index++)
           ForumTabItem(
             id: tabs[index].id,
-            title: 'Aggregate ${index + 1}',
+            title: tabs[index].name ?? 'Aggregate ${index + 1}',
             icon: DIcons.layerGroup,
           ),
       ],
@@ -321,6 +321,7 @@ class _AggregateTabsBar extends StatelessWidget {
           : null,
       onSelect: controller.selectAggregateTab,
       onClose: controller.closeAggregateTab,
+      onRename: controller.renameAggregateTab,
     );
   }
 }

@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 
 import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
@@ -66,6 +67,7 @@ class ForumTabsBar extends StatefulWidget {
     required this.onAdd,
     required this.onSelect,
     required this.onClose,
+    this.onRename,
   }) : assert(items.isNotEmpty),
        assert(items.any((item) => item.id == selectedId));
 
@@ -83,6 +85,7 @@ class ForumTabsBar extends StatefulWidget {
   final VoidCallback? onAdd;
   final ValueChanged<String> onSelect;
   final ValueChanged<String> onClose;
+  final void Function(String id, String title)? onRename;
 
   @override
   State<ForumTabsBar> createState() => _ForumTabsBarState();
@@ -197,6 +200,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                             ),
                             width: tabWidth,
                             child: _ForumTab(
+                              key: ValueKey(widget.items[index].id),
                               item: widget.items[index],
                               selected:
                                   widget.items[index].id == widget.selectedId,
@@ -204,6 +208,12 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                   widget.onSelect(widget.items[index].id),
                               onClose: () =>
                                   widget.onClose(widget.items[index].id),
+                              onRename: widget.onRename == null
+                                  ? null
+                                  : (title) => widget.onRename!(
+                                      widget.items[index].id,
+                                      title,
+                                    ),
                             ),
                           ),
                           if (index != widget.items.length - 1)
@@ -318,24 +328,47 @@ class _NewTabButtonState extends State<_NewTabButton> {
 
 class _ForumTab extends StatefulWidget {
   const _ForumTab({
+    super.key,
     required this.item,
     required this.selected,
     required this.onSelect,
     required this.onClose,
+    this.onRename,
   });
 
   final ForumTabItem item;
   final bool selected;
   final VoidCallback onSelect;
   final VoidCallback onClose;
+  final ValueChanged<String>? onRename;
 
   @override
   State<_ForumTab> createState() => _ForumTabState();
 }
 
 class _ForumTabState extends State<_ForumTab> {
+  static const _renameAction = CustomSemanticsAction(label: 'Rename');
+
   bool _hovered = false;
   bool _selectedOnPointerDown = false;
+  bool _renaming = false;
+  late final TextEditingController _renameController = TextEditingController();
+  late final FocusNode _renameFocusNode = FocusNode(
+    debugLabel: 'forum tab rename',
+  )..addListener(_handleRenameFocusChanged);
+
+  @override
+  void didUpdateWidget(_ForumTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.onRename == null) _renaming = false;
+  }
+
+  @override
+  void dispose() {
+    _renameFocusNode.dispose();
+    _renameController.dispose();
+    super.dispose();
+  }
 
   void _handleTapDown(TapDownDetails _) {
     _selectedOnPointerDown = true;
@@ -354,6 +387,54 @@ class _ForumTabState extends State<_ForumTab> {
 
   void _handleTapCancel() {
     _selectedOnPointerDown = false;
+  }
+
+  void _handleRenameFocusChanged() {
+    if (_renaming && !_renameFocusNode.hasFocus) _finishRenaming();
+  }
+
+  void _startRenaming() {
+    if (widget.onRename == null || _renaming) return;
+    _selectedOnPointerDown = false;
+    _renameController
+      ..text = widget.item.title
+      ..selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: widget.item.title.length,
+      );
+    setState(() => _renaming = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_renaming) return;
+      _renameFocusNode.requestFocus();
+    });
+  }
+
+  void _finishRenaming({bool commit = true}) {
+    if (!_renaming) return;
+    final title = _renameController.text.trim();
+    setState(() => _renaming = false);
+    _renameFocusNode.unfocus();
+    if (commit && title.isNotEmpty && title != widget.item.title) {
+      widget.onRename?.call(title);
+    }
+  }
+
+  void _submitRename(String _) {
+    // EditableText may still have caret work queued for this frame. Keeping it
+    // mounted until the frame ends avoids asking that callback to inspect an
+    // element that the submit handler has already removed.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _finishRenaming();
+    });
+  }
+
+  KeyEventResult _handleRenameKey(FocusNode _, KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape) {
+      _finishRenaming(commit: false);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   String get _selectionSemanticsLabel {
@@ -484,6 +565,64 @@ class _ForumTabState extends State<_ForumTab> {
     return selectWidth >= 36 + estimatedBadgeWidth;
   }
 
+  Widget _tabContents(
+    BuildContext context,
+    Color foreground,
+    BoxConstraints constraints,
+  ) {
+    final theme = Theme.of(context);
+    final labelStyle = theme.textTheme.labelMedium?.copyWith(
+      color: foreground,
+      fontSize: DiscourseTypography.fontDown2,
+      fontWeight: FontWeight.w400,
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(9, 0, 5, 0),
+      child: Row(
+        children: [
+          SizedBox.square(
+            dimension: 15,
+            child: Center(child: _prefix(context, foreground)),
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: _renaming
+                ? Focus(
+                    onKeyEvent: _handleRenameKey,
+                    child: TextField(
+                      key: ValueKey('forum-tab-rename-${widget.item.id}'),
+                      controller: _renameController,
+                      focusNode: _renameFocusNode,
+                      maxLines: 1,
+                      textInputAction: TextInputAction.done,
+                      style: labelStyle,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 5,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      onSubmitted: _submitRename,
+                      onTapOutside: (_) => _finishRenaming(),
+                    ),
+                  )
+                : Text(
+                    widget.item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: labelStyle,
+                  ),
+          ),
+          if (!_renaming && _badgeFits(constraints.maxWidth)) _badge(context),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -498,8 +637,11 @@ class _ForumTabState extends State<_ForumTab> {
       container: true,
       explicitChildNodes: true,
       selected: widget.selected,
-      label: _selectionSemanticsLabel,
+      label: _renaming ? null : _selectionSemanticsLabel,
       onTap: widget.onSelect,
+      customSemanticsActions: widget.onRename == null
+          ? null
+          : {_renameAction: _startRenaming},
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
@@ -519,51 +661,34 @@ class _ForumTabState extends State<_ForumTab> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(
-                    child: ExcludeSemantics(
-                      child: InkWell(
-                        // Desktop tabs conventionally activate on mouse-down.
-                        // Waiting for the full tap gesture makes a fast local
-                        // context switch feel needlessly remote.
-                        onTapDown: _handleTapDown,
-                        onTap: _handleTap,
-                        onTapCancel: _handleTapCancel,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(7),
-                        ),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) => Padding(
-                            padding: const EdgeInsets.fromLTRB(9, 0, 5, 0),
-                            child: Row(
-                              children: [
-                                SizedBox.square(
-                                  dimension: 15,
-                                  child: Center(
-                                    child: _prefix(context, foreground),
-                                  ),
+                    child: _renaming
+                        ? LayoutBuilder(
+                            builder: (context, constraints) =>
+                                _tabContents(context, foreground, constraints),
+                          )
+                        : ExcludeSemantics(
+                            child: InkWell(
+                              // Desktop tabs conventionally activate on mouse-down.
+                              // Waiting for the full tap gesture makes a fast local
+                              // context switch feel needlessly remote.
+                              onTapDown: _handleTapDown,
+                              onTap: _handleTap,
+                              onDoubleTap: widget.onRename == null
+                                  ? null
+                                  : _startRenaming,
+                              onTapCancel: _handleTapCancel,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(7),
+                              ),
+                              child: LayoutBuilder(
+                                builder: (context, constraints) => _tabContents(
+                                  context,
+                                  foreground,
+                                  constraints,
                                 ),
-                                const SizedBox(width: 7),
-                                Expanded(
-                                  child: Text(
-                                    widget.item.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.labelMedium
-                                        ?.copyWith(
-                                          color: foreground,
-                                          fontSize:
-                                              DiscourseTypography.fontDown2,
-                                          fontWeight: FontWeight.w400,
-                                        ),
-                                  ),
-                                ),
-                                if (_badgeFits(constraints.maxWidth))
-                                  _badge(context),
-                              ],
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    ),
                   ),
                   _ForumTabCloseButton(
                     tabId: widget.item.id,
