@@ -814,6 +814,7 @@ class _DestinationTileState extends State<_DestinationTile> {
       ),
       child: InkWell(
         onTap: destination.enabled ? onTap : null,
+        mouseCursor: WidgetStateMouseCursor.clickable,
         onLongPress: destination.enabled && context.isTouch
             ? switch (destination.onLongPress) {
                 final action? => () => action(context),

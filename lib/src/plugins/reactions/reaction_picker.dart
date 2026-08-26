@@ -318,6 +318,7 @@ class _ReactionCell extends StatelessWidget {
       label: id,
       child: InkWell(
         onTap: onTap,
+        mouseCursor: SystemMouseCursors.click,
         borderRadius: BorderRadius.circular(8),
         child: ExcludeSemantics(
           child: Container(

@@ -660,9 +660,13 @@ class _Button extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
+    return IconButton.filled(
       onPressed: onTap,
       tooltip: tooltip,
+      style: IconButton.styleFrom(
+        backgroundColor: const Color(0xBB000000),
+        foregroundColor: Colors.white,
+      ),
       icon: DIcon(icon, size: 18, color: Colors.white, semanticLabel: tooltip),
     );
   }

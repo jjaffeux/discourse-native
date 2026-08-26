@@ -93,6 +93,14 @@ void main() {
       expect(target, findsOneWidget);
       expect(tester.getSize(target), const Size.square(ReactionGrid.cell));
       expect(
+        tester
+            .widget<InkWell>(
+              find.descendant(of: target, matching: find.byType(InkWell)),
+            )
+            .mouseCursor,
+        SystemMouseCursors.click,
+      );
+      expect(
         tester.getSemantics(target),
         isSemantics(
           label: 'clap',
