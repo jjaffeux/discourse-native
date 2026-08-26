@@ -174,6 +174,7 @@ Future<void> pumpShell(
       // every test that is not about updating wants to see.
       updater: updater ?? FakeUpdater(),
       updateStore: updateStore ?? FakeUpdateStore(),
+      initialRootMode: ShellRootMode.forum,
     ),
   );
   if (beforeSettle != null) {
@@ -3883,6 +3884,7 @@ void main() {
         api: api,
         authenticator: FakeAuthenticator(),
         forumTabs: FakeForumTabStore(),
+        initialRootMode: ShellRootMode.forum,
       ),
     );
     // Let load() and the first feed request start, but not finish.

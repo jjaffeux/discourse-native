@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
@@ -318,6 +319,7 @@ Future<_MenuFixture> _pumpMenu(WidgetTester tester) async {
       trackers: FakeSiteTracker.reset(),
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
+      initialRootMode: ShellRootMode.forum,
     ),
   );
   await tester.pumpAndSettle();

@@ -197,6 +197,7 @@ void main() {
             trackers: FakeSiteTracker.reset(),
             updater: FakeUpdater(),
             updateStore: FakeUpdateStore(),
+            initialRootMode: ShellRootMode.forum,
           ),
         );
         expect(store.loadCount, 1);

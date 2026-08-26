@@ -39,6 +39,7 @@ void main() {
         trackers: trackers,
         updater: updater,
         updateStore: updateStore,
+        initialRootMode: ShellRootMode.forum,
       ),
     );
     await tester.pumpAndSettle();
@@ -58,6 +59,7 @@ void main() {
         trackers: trackers,
         updater: updater,
         updateStore: updateStore,
+        initialRootMode: ShellRootMode.forum,
       ),
     );
     await tester.pumpAndSettle();
@@ -118,6 +120,7 @@ void main() {
       trackers: trackers,
       updater: updater,
       updateStore: updateStore,
+      initialRootMode: ShellRootMode.forum,
     );
 
     await tester.pumpWidget(
@@ -174,6 +177,7 @@ void main() {
       trackers: trackers,
       updater: updater,
       updateStore: updateStore,
+      initialRootMode: ShellRootMode.forum,
     );
 
     await tester.pumpWidget(app(firstApi));
@@ -232,6 +236,7 @@ void main() {
       updater: updater,
       updateStore: updateStore,
       resenhaDiagnostics: diagnostics,
+      initialRootMode: ShellRootMode.forum,
     );
 
     await tester.pumpWidget(app(first));
@@ -283,6 +288,7 @@ void main() {
       updater: updater,
       updateStore: updateStore,
       diagnostics: diagnostics,
+      initialRootMode: ShellRootMode.forum,
     );
 
     await tester.pumpWidget(app(firstDiagnostics));
@@ -347,6 +353,7 @@ void main() {
       updater: updater,
       updateStore: updateStore,
       diagnostics: diagnostics,
+      initialRootMode: ShellRootMode.forum,
     );
 
     await tester.pumpWidget(app(firstDiagnostics));

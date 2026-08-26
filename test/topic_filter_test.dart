@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/topic_filter_controller.dart';
 import 'package:discourse_native/src/shell/topic_filter_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -655,6 +656,7 @@ Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
       trackers: FakeSiteTracker.reset(),
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
+      initialRootMode: ShellRootMode.forum,
     ),
   );
   await tester.pumpAndSettle();

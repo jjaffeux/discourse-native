@@ -178,6 +178,7 @@ class ShellController extends FrameSafeNotifier {
     this.ownsApi = true,
     this.topicLoadTimeout = const Duration(seconds: 30),
     this.anchorPersistDebounce = const Duration(milliseconds: 500),
+    ShellRootMode initialRootMode = ShellRootMode.forum,
     InstalledPlugins? plugins,
   }) : forumTabs = forumTabs ?? ForumTabStore.memory(),
        aggregatePreferences =
@@ -188,6 +189,7 @@ class ShellController extends FrameSafeNotifier {
        store = store ?? Store(),
        lifecycle = lifecycle ?? SiteLifecycle(),
        _providedSiteImages = siteImages,
+       _rootMode = initialRootMode,
        plugins = plugins ?? installedPlugins,
        updates = UpdateController(
          updater: updater,
@@ -786,7 +788,7 @@ class ShellController extends FrameSafeNotifier {
   MobilePane _mobilePane = MobilePane.sidebar;
   MobilePane get mobilePane => _mobilePane;
 
-  ShellRootMode _rootMode = ShellRootMode.forum;
+  ShellRootMode _rootMode;
   ShellRootMode get rootMode => _rootMode;
 
   /// A connected forum looked up by the same canonical origin used in a
@@ -1005,6 +1007,9 @@ class ShellController extends FrameSafeNotifier {
     _restoreInstanceWorkspace(
       refreshAppearance: initialInstance?.appearance == null,
     );
+    if (_rootMode == ShellRootMode.aggregate && _instances.isNotEmpty) {
+      unawaited(aggregate.open(_instances));
+    }
     _loadStatus = InstanceLoadStatus.ready;
     _notify();
 

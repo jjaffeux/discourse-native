@@ -16,7 +16,7 @@ import 'support/fakes.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('rail opens a mixed full-width feed and forum picker', (
+  testWidgets('starts with a mixed full-width feed and forum picker', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -85,10 +85,6 @@ void main() {
         updateStore: FakeUpdateStore(),
       ),
     );
-    await tester.pumpAndSettle();
-
-    expect(find.byType(InstanceSidebar), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('aggregate-rail-button')));
     await tester.pumpAndSettle();
 
     expect(find.byType(AggregateView), findsOneWidget);
