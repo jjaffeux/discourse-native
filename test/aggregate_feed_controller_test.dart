@@ -94,6 +94,49 @@ void main() {
     expect(restored.queries, isEmpty);
   });
 
+  test('migrates version two filters into the first aggregate tab', () async {
+    final persistence = MemoryAggregatePreferencesPersistence()
+      ..value =
+          '{"version":2,"excluded_forums":["$_secondUrl"],'
+          '"queries":{"$_firstUrl":"status:open"}}';
+
+    final restored = await AggregatePreferencesStore(
+      persistence: persistence,
+    ).load();
+
+    expect(restored.tabs, hasLength(1));
+    expect(restored.excludedForums, {_secondUrl});
+    expect(restored.queries, {_firstUrl: 'status:open'});
+  });
+
+  test('persists ordered aggregate tabs and their active selection', () async {
+    final persistence = MemoryAggregatePreferencesPersistence();
+    final store = AggregatePreferencesStore(persistence: persistence);
+
+    await store.save(
+      tabs: [
+        AggregateTabPreferences(
+          id: 'first',
+          queries: {_firstUrl: 'status:open'},
+        ),
+        AggregateTabPreferences(
+          id: 'second',
+          excludedForums: {_firstUrl},
+          queries: {_secondUrl: 'tag:ux'},
+        ),
+      ],
+      activeTabId: 'second',
+    );
+
+    final restored = await store.load();
+
+    expect(restored.tabs.map((tab) => tab.id), ['first', 'second']);
+    expect(restored.activeTabId, 'second');
+    expect(restored.tabs.first.queries, {_firstUrl: 'status:open'});
+    expect(restored.tabs.last.excludedForums, {_firstUrl});
+    expect(restored.tabs.last.queries, {_secondUrl: 'tag:ux'});
+  });
+
   test('forum selection and blank filters use only included forums', () async {
     final api = _AggregateApi(
       pages: {
@@ -144,6 +187,48 @@ void main() {
     expect(controller.state.topics, const [
       AggregateTopicRef(siteUrl: _firstUrl, topicId: 2),
     ]);
+  });
+
+  test('tabs keep independent filters and feed snapshots', () async {
+    const openPath = '/filter.json?per_page=30&q=status%3Aopen';
+    const uxPath = '/filter.json?per_page=30&q=tag%3Aux';
+    final api = _AggregateApi(
+      pages: {
+        '$_firstUrl|$openPath': [_topic(1, minute: 1)],
+        '$_firstUrl|$uxPath': [_topic(2, minute: 2)],
+      },
+    );
+    final credentials = FakeApiCredentialReader()..keys[_firstUrl] = 'key';
+    final controller = _controller(api, credentials);
+    addTearDown(controller.dispose);
+    final forum = _connected(_firstUrl, 'One');
+
+    await controller.setForumFilters(
+      allForums: [forum],
+      includedConnectedForums: {_firstUrl},
+      queries: {_firstUrl: 'status:open'},
+    );
+    await controller.refresh([forum]);
+    final firstTabId = controller.activeTabId;
+
+    final secondTabId = controller.createTab()!;
+    await controller.setForumFilters(
+      allForums: [forum],
+      includedConnectedForums: {_firstUrl},
+      queries: {_firstUrl: 'tag:ux'},
+    );
+    await controller.refresh([forum]);
+
+    expect(controller.state.topics.single.topicId, 2);
+    expect(controller.queryFor(_firstUrl), 'tag:ux');
+
+    controller.selectTab(firstTabId);
+    expect(controller.state.topics.single.topicId, 1);
+    expect(controller.queryFor(_firstUrl), 'status:open');
+
+    controller.selectTab(secondTabId);
+    expect(controller.state.topics.single.topicId, 2);
+    expect(api.paths, [openPath, uxPath]);
   });
 }
 

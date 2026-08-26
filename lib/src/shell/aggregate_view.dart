@@ -8,6 +8,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
 import 'aggregate_feed_controller.dart';
+import 'forum_tabs_bar.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -24,27 +25,32 @@ class AggregateView extends StatefulWidget {
 }
 
 class _AggregateViewState extends State<AggregateView> {
-  final ScrollController _scroll = ScrollController();
+  final Map<String, ScrollController> _scrolls = {};
   ShellController? _controller;
 
   @override
-  void initState() {
-    super.initState();
-    _scroll.addListener(_loadMoreNearEnd);
-  }
-
-  @override
   void dispose() {
-    _scroll
-      ..removeListener(_loadMoreNearEnd)
-      ..dispose();
+    for (final scroll in _scrolls.values) {
+      scroll.dispose();
+    }
+    _scrolls.clear();
     super.dispose();
   }
 
-  void _loadMoreNearEnd() {
+  ScrollController _scrollFor(String tabId) => _scrolls.putIfAbsent(tabId, () {
+    final scroll = ScrollController();
+    scroll.addListener(() => _loadMoreNearEnd(tabId, scroll));
+    return scroll;
+  });
+
+  void _loadMoreNearEnd(String tabId, ScrollController scroll) {
     final controller = _controller;
-    if (controller == null || !_scroll.hasClients) return;
-    if (_scroll.position.extentAfter < 640) {
+    if (controller == null ||
+        controller.activeAggregateTabId != tabId ||
+        !scroll.hasClients) {
+      return;
+    }
+    if (scroll.position.extentAfter < 640) {
       unawaited(controller.aggregate.loadMore());
     }
   }
@@ -61,8 +67,11 @@ class _AggregateViewState extends State<AggregateView> {
         listenable: controller.aggregate,
         builder: (context, _) {
           final state = controller.aggregate.state;
+          final activeTabId = controller.activeAggregateTabId;
           return Column(
             children: [
+              if (controller.forumTabsEnabled)
+                _AggregateTabsBar(controller: controller),
               _AggregateHeader(
                 state: state,
                 onFilter: () => _showForumFilter(context, controller),
@@ -71,7 +80,7 @@ class _AggregateViewState extends State<AggregateView> {
                     : () => unawaited(controller.refreshAggregate()),
               ),
               if (state.refreshing) const LinearProgressIndicator(minHeight: 2),
-              Expanded(child: _body(context, controller, state)),
+              Expanded(child: _body(context, controller, state, activeTabId)),
             ],
           );
         },
@@ -83,6 +92,7 @@ class _AggregateViewState extends State<AggregateView> {
     BuildContext context,
     ShellController controller,
     AggregateFeedState state,
+    String tabId,
   ) {
     if (state.loading && state.topics.isEmpty) {
       return Center(
@@ -110,8 +120,8 @@ class _AggregateViewState extends State<AggregateView> {
     return RefreshIndicator.adaptive(
       onRefresh: controller.refreshAggregate,
       child: ListView.separated(
-        key: const PageStorageKey('aggregate-topic-list'),
-        controller: _scroll,
+        key: PageStorageKey(('aggregate-topic-list', tabId)),
+        controller: _scrollFor(tabId),
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount:
             state.topics.length +
@@ -286,6 +296,35 @@ class _AggregateViewState extends State<AggregateView> {
   }
 }
 
+class _AggregateTabsBar extends StatelessWidget {
+  const _AggregateTabsBar({required this.controller});
+
+  final ShellController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final tabs = controller.aggregateTabs;
+    return ForumTabsBar(
+      key: const ValueKey('aggregate-tabs'),
+      forumName: 'Aggregate',
+      items: [
+        for (var index = 0; index < tabs.length; index++)
+          ForumTabItem(
+            id: tabs[index].id,
+            title: 'Aggregate ${index + 1}',
+            icon: DIcons.layerGroup,
+          ),
+      ],
+      selectedId: controller.activeAggregateTabId,
+      onAdd: controller.canCreateAggregateTab
+          ? controller.createAggregateTab
+          : null,
+      onSelect: controller.selectAggregateTab,
+      onClose: controller.closeAggregateTab,
+    );
+  }
+}
+
 class _AggregateHeader extends StatelessWidget {
   const _AggregateHeader({
     required this.state,
@@ -390,9 +429,8 @@ class _AggregateTopicRow extends StatelessWidget {
                 'That topic is no longer available.',
             };
             if (message != null) {
-              ScaffoldMessenger.maybeOf(
-                context,
-              )?.showSnackBar(SnackBar(content: Text(message)));
+              ScaffoldMessenger.maybeOf(context)
+                  ?.showSnackBar(SnackBar(content: Text(message)));
             }
           },
         );

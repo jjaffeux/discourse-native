@@ -82,6 +82,72 @@ void main() {
     expect(controller.currentContent?.topicId, topic.id);
     expect(controller.tabsForCurrentForum, hasLength(1));
   });
+
+  test('restored aggregate tabs load only when they are opened', () async {
+    const firstTabId = 'aggregate-open';
+    const secondTabId = 'aggregate-ux';
+    const openPath = '/filter.json?per_page=30&q=status%3Aopen';
+    const uxPath = '/filter.json?per_page=30&q=tag%3Aux';
+    final preferences = AggregatePreferencesStore.memory();
+    await preferences.save(
+      tabs: [
+        AggregateTabPreferences(
+          id: firstTabId,
+          queries: {_site.url: 'status:open'},
+        ),
+        AggregateTabPreferences(
+          id: secondTabId,
+          queries: {_site.url: 'tag:ux'},
+        ),
+      ],
+      activeTabId: firstTabId,
+    );
+    final api = FakeDiscourseApi(
+      feeds: const {
+        '/latest.json': [],
+        openPath: [Topic(id: 1, title: 'Open', slug: 'open')],
+        uxPath: [Topic(id: 2, title: 'UX', slug: 'ux')],
+      },
+    );
+    final authenticator = FakeAuthenticator()..keys[_site.url] = 'key';
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore(const [_site]),
+      api: api,
+      authenticator: authenticator,
+      drafts: FakeDraftStore(),
+      forumTabs: FakeForumTabStore(),
+      aggregatePreferences: preferences,
+      trackers: FakeSiteTracker.reset(),
+      initialRootMode: ShellRootMode.aggregate,
+    );
+    addTearDown(controller.dispose);
+
+    await controller.load();
+    await controller.aggregate.open(controller.instances);
+
+    expect(controller.activeAggregateTabId, firstTabId);
+    expect(api.feedPaths.where((path) => path.startsWith('/filter')), [
+      openPath,
+    ]);
+
+    controller.selectAggregateTab(secondTabId);
+    await controller.aggregate.open(controller.instances);
+
+    expect(controller.aggregate.state.topics.single.topicId, 2);
+    expect(api.feedPaths.where((path) => path.startsWith('/filter')), [
+      openPath,
+      uxPath,
+    ]);
+
+    controller.selectAggregateTab(firstTabId);
+    await controller.aggregate.open(controller.instances);
+
+    expect(controller.aggregate.state.topics.single.topicId, 1);
+    expect(api.feedPaths.where((path) => path.startsWith('/filter')), [
+      openPath,
+      uxPath,
+    ]);
+  });
 }
 
 const _site = DiscourseInstance(

@@ -132,7 +132,14 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     if (extraModifierPressed) return false;
 
     final controller = ShellScope.read(context);
-    if (controller.rootMode == ShellRootMode.aggregate) return false;
+    if (controller.rootMode == ShellRootMode.aggregate) {
+      final tabs = controller.aggregateTabs;
+      if (!controller.forumTabsEnabled || tabIndex >= tabs.length) {
+        return false;
+      }
+      controller.selectAggregateTab(tabs[tabIndex].id);
+      return true;
+    }
     final tabs = controller.tabsForCurrentForum;
     if (!controller.forumTabsEnabled || tabIndex >= tabs.length) {
       return false;

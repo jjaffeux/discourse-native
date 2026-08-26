@@ -31,6 +31,14 @@ final class AggregateTopicRef {
   int get hashCode => Object.hash(siteUrl, topicId);
 }
 
+/// A saved work context in the app-wide Aggregate surface.
+@immutable
+final class AggregateFeedTab {
+  const AggregateFeedTab({required this.id});
+
+  final String id;
+}
+
 @immutable
 final class AggregateFeedState {
   const AggregateFeedState({
@@ -108,7 +116,13 @@ final class AggregateFeedController extends FrameSafeNotifier {
   }) : assert(freshness >= Duration.zero),
        assert(batchSize > 0),
        assert(maximumConcurrentRequests > 0),
-       _requests = _AggregateRequestPool(maximumConcurrentRequests);
+       _requests = _AggregateRequestPool(maximumConcurrentRequests) {
+    final tab = _AggregateTabSession(
+      id: AggregatePreferencesStore.defaultTabId,
+    );
+    _tabs[tab.id] = tab;
+    _activeTabId = tab.id;
+  }
 
   final DiscourseApi api;
   final ApiCredentialReader credentials;
@@ -122,47 +136,66 @@ final class AggregateFeedController extends FrameSafeNotifier {
   final int maximumConcurrentRequests;
   final _AggregateRequestPool _requests;
 
-  AggregateFeedState _state = const AggregateFeedState();
-  AggregateFeedState get state => _state;
+  final Map<String, _AggregateTabSession> _tabs = {};
+  late String _activeTabId;
+  int _tabSequence = 0;
 
-  Set<String> _excludedForums = const {};
-  Set<String> get excludedForums => Set.unmodifiable(_excludedForums);
-  Map<String, String> _queries = const {};
+  _AggregateTabSession get _activeTab => _tabs[_activeTabId]!;
 
-  String queryFor(String siteUrl) => _queries[siteUrl] ?? '';
+  AggregateFeedState get state => _activeTab.state;
+  String get activeTabId => _activeTabId;
+  List<AggregateFeedTab> get tabs => List.unmodifiable([
+    for (final tab in _tabs.values) AggregateFeedTab(id: tab.id),
+  ]);
+  bool get canCreateTab => _tabs.length < AggregatePreferencesStore.maximumTabs;
+
+  Set<String> get excludedForums => Set.unmodifiable(_activeTab.excludedForums);
+
+  String queryFor(String siteUrl) => _activeTab.queries[siteUrl] ?? '';
 
   List<TopicFilterOption> filterOptionsFor(String siteUrl) =>
-      _sources[siteUrl]?.filterOptions ?? const [];
-
-  final Map<String, _AggregateSource> _sources = {};
-  final Set<AggregateTopicRef> _emitted = {};
-  Object? _revision;
-  Future<void>? _refreshRequest;
-  Future<void>? _pageRequest;
+      _activeTab.sources[siteUrl]?.filterOptions ?? const [];
 
   Future<void> loadPreferences(Iterable<DiscourseInstance> instances) async {
     final loaded = await preferences.load();
     if (isDisposed) return;
     final valid = {for (final instance in instances) instance.url};
-    _excludedForums = Set.unmodifiable(
-      loaded.excludedForums.intersection(valid),
-    );
-    _queries = Map.unmodifiable({
-      for (final MapEntry(:key, :value) in loaded.queries.entries)
-        if (valid.contains(key)) key: value,
-    });
+    _tabs.clear();
+    for (final saved in loaded.tabs.take(
+      AggregatePreferencesStore.maximumTabs,
+    )) {
+      final tab = _AggregateTabSession(
+        id: saved.id,
+        excludedForums: saved.excludedForums.intersection(valid),
+        queries: {
+          for (final MapEntry(:key, :value) in saved.queries.entries)
+            if (valid.contains(key)) key: value,
+        },
+      );
+      _tabs[tab.id] = tab;
+    }
+    if (_tabs.isEmpty) {
+      final tab = _AggregateTabSession(
+        id: AggregatePreferencesStore.defaultTabId,
+      );
+      _tabs[tab.id] = tab;
+    }
+    _activeTabId = _tabs.containsKey(loaded.activeTabId)
+        ? loaded.activeTabId
+        : _tabs.keys.first;
   }
 
   bool includes(DiscourseInstance instance) =>
-      instance.isConnected && !_excludedForums.contains(instance.url);
+      instance.isConnected && !_activeTab.excludedForums.contains(instance.url);
 
   Future<void> setForumFilters({
     required Iterable<DiscourseInstance> allForums,
     required Set<String> includedConnectedForums,
     required Map<String, String> queries,
   }) async {
+    final tab = _activeTab;
     final valid = {for (final instance in allForums) instance.url};
-    final nextExcluded = _excludedForums.intersection(valid);
+    final nextExcluded = tab.excludedForums.intersection(valid);
     for (final instance in allForums) {
       if (!instance.isConnected) continue;
       if (includedConnectedForums.contains(instance.url)) {
@@ -176,38 +209,102 @@ final class AggregateFeedController extends FrameSafeNotifier {
         if (valid.contains(key) && value.trim().isNotEmpty)
           key: _boundedQuery(value),
     };
-    if (setEquals(nextExcluded, _excludedForums) &&
-        mapEquals(nextQueries, _queries)) {
+    if (setEquals(nextExcluded, tab.excludedForums) &&
+        mapEquals(nextQueries, tab.queries)) {
       return;
     }
-    _excludedForums = Set.unmodifiable(nextExcluded);
-    _queries = Map.unmodifiable(nextQueries);
+    tab.excludedForums = Set.unmodifiable(nextExcluded);
+    tab.queries = Map.unmodifiable(nextQueries);
     notifySafely();
-    await preferences.save(excludedForums: _excludedForums, queries: _queries);
+    await _persistTabs();
   }
 
   Future<void> pruneForums(Iterable<DiscourseInstance> instances) async {
     final valid = {for (final instance in instances) instance.url};
-    final nextExcluded = _excludedForums.intersection(valid);
-    final nextQueries = {
-      for (final MapEntry(:key, :value) in _queries.entries)
-        if (valid.contains(key)) key: value,
-    };
-    if (setEquals(nextExcluded, _excludedForums) &&
-        mapEquals(nextQueries, _queries)) {
-      return;
+    var changed = false;
+    for (final tab in _tabs.values) {
+      final nextExcluded = tab.excludedForums.intersection(valid);
+      final nextQueries = {
+        for (final MapEntry(:key, :value) in tab.queries.entries)
+          if (valid.contains(key)) key: value,
+      };
+      if (setEquals(nextExcluded, tab.excludedForums) &&
+          mapEquals(nextQueries, tab.queries)) {
+        continue;
+      }
+      tab.excludedForums = Set.unmodifiable(nextExcluded);
+      tab.queries = Map.unmodifiable(nextQueries);
+      changed = true;
     }
-    _excludedForums = Set.unmodifiable(nextExcluded);
-    _queries = Map.unmodifiable(nextQueries);
+    if (!changed) return;
     notifySafely();
-    await preferences.save(excludedForums: _excludedForums, queries: _queries);
+    await _persistTabs();
   }
 
+  String? createTab() {
+    if (!canCreateTab) return null;
+    final tab = _AggregateTabSession(id: _nextTabId());
+    _tabs[tab.id] = tab;
+    _activeTabId = tab.id;
+    unawaited(_persistTabs());
+    notifySafely();
+    return tab.id;
+  }
+
+  bool selectTab(String id) {
+    if (!_tabs.containsKey(id)) return false;
+    if (_activeTabId != id) {
+      _activeTabId = id;
+      unawaited(_persistTabs());
+      notifySafely();
+    }
+    return true;
+  }
+
+  bool closeTab(String id) {
+    final closing = _tabs[id];
+    if (closing == null) return false;
+    final ids = _tabs.keys.toList();
+    final index = ids.indexOf(id);
+    final closedActive = id == _activeTabId;
+    closing.invalidate();
+    _tabs.remove(id);
+
+    if (_tabs.isEmpty) {
+      final replacement = _AggregateTabSession(id: _nextTabId());
+      _tabs[replacement.id] = replacement;
+      _activeTabId = replacement.id;
+    } else if (closedActive) {
+      final remaining = _tabs.keys.toList();
+      _activeTabId =
+          remaining[index < remaining.length ? index : remaining.length - 1];
+    }
+    unawaited(_persistTabs());
+    notifySafely();
+    return closedActive;
+  }
+
+  String _nextTabId() {
+    late String id;
+    do {
+      _tabSequence++;
+      id =
+          'aggregate-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}-'
+          '${_tabSequence.toRadixString(36)}';
+    } while (_tabs.containsKey(id));
+    return id;
+  }
+
+  Future<void> _persistTabs() => preferences.save(
+    tabs: [for (final tab in _tabs.values) tab.preferences],
+    activeTabId: _activeTabId,
+  );
+
   Future<void> open(Iterable<DiscourseInstance> instances) {
-    final updated = _state.updatedAt;
+    final updated = state.updatedAt;
     final stale =
         updated == null || DateTime.now().difference(updated) >= freshness;
-    if (_state.loaded && !stale) return Future.value();
+    if (state.loaded && !stale) return Future.value();
     return refresh(instances);
   }
 
@@ -215,18 +312,19 @@ final class AggregateFeedController extends FrameSafeNotifier {
     Iterable<DiscourseInstance> instances, {
     bool force = false,
   }) {
+    final tab = _activeTab;
     final selected = [
       for (final instance in instances)
-        if (includes(instance))
-          _ConfiguredAggregateForum(instance, queryFor(instance.url)),
+        if (instance.isConnected && !tab.excludedForums.contains(instance.url))
+          _ConfiguredAggregateForum(instance, tab.queries[instance.url] ?? ''),
     ];
-    final active = _refreshRequest;
+    final active = tab.refreshRequest;
     if (active != null && !force) return active;
 
     final revision = Object();
-    _revision = revision;
-    final held = _state;
-    _state = held.copyWith(
+    tab.revision = revision;
+    final held = tab.state;
+    tab.state = held.copyWith(
       loading: held.topics.isEmpty,
       refreshing: held.topics.isNotEmpty,
       loadingMore: false,
@@ -238,14 +336,15 @@ final class AggregateFeedController extends FrameSafeNotifier {
     notifySafely();
 
     late final Future<void> request;
-    request = _performRefresh(selected, revision).whenComplete(() {
-      if (identical(_refreshRequest, request)) _refreshRequest = null;
+    request = _performRefresh(tab, selected, revision).whenComplete(() {
+      if (identical(tab.refreshRequest, request)) tab.refreshRequest = null;
     });
-    _refreshRequest = request;
+    tab.refreshRequest = request;
     return request;
   }
 
   Future<void> _performRefresh(
+    _AggregateTabSession tab,
     List<_ConfiguredAggregateForum> forums,
     Object revision,
   ) async {
@@ -258,7 +357,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
 
     await Future.wait([
       for (var index = 0; index < forums.length; index++)
-        _primeSource(forums[index], index, pageSize, revision)
+        _primeSource(tab, forums[index], index, pageSize, revision)
             .then((source) {
               if (source != null) sources[source.instance.url] = source;
             })
@@ -269,44 +368,46 @@ final class AggregateFeedController extends FrameSafeNotifier {
             })
             .whenComplete(() {
               loadedForums++;
-              if (_isCurrent(revision)) {
-                _state = _state.copyWith(loadedForums: loadedForums);
-                notifySafely();
+              if (_isCurrent(tab, revision)) {
+                tab.state = tab.state.copyWith(loadedForums: loadedForums);
+                if (identical(tab, _activeTab)) notifySafely();
               }
             }),
     ]);
-    if (!_isCurrent(revision)) return;
+    if (!_isCurrent(tab, revision)) return;
 
     final emitted = <AggregateTopicRef>{};
     final topics = <AggregateTopicRef>[];
     await _appendBatch(
+      tab: tab,
       sources: sources,
       topics: topics,
       emitted: emitted,
       failures: failures,
       revision: revision,
     );
-    if (!_isCurrent(revision)) return;
+    if (!_isCurrent(tab, revision)) return;
 
-    _sources
+    tab.sources
       ..clear()
       ..addAll(sources);
-    _emitted
+    tab.emitted
       ..clear()
       ..addAll(emitted);
-    _state = AggregateFeedState(
+    tab.state = AggregateFeedState(
       topics: List.unmodifiable(topics),
       loaded: true,
       includedForums: forums.length,
       loadedForums: loadedForums,
       failures: Map.unmodifiable(failures),
-      hasMore: _sources.values.any((source) => source.hasMore),
+      hasMore: tab.sources.values.any((source) => source.hasMore),
       updatedAt: DateTime.now(),
     );
-    notifySafely();
+    if (identical(tab, _activeTab)) notifySafely();
   }
 
   Future<_AggregateSource?> _primeSource(
+    _AggregateTabSession tab,
     _ConfiguredAggregateForum configured,
     int order,
     int pageSize,
@@ -315,7 +416,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
     final instance = configured.instance;
     final lease = lifecycle.capture(instance.url);
     final apiKey = await credentials.apiKeyFor(instance.url);
-    if (!_isCurrent(revision) || !lease.isCurrent) {
+    if (!_isCurrent(tab, revision) || !lease.isCurrent) {
       return null;
     }
     if (apiKey == null) {
@@ -329,50 +430,58 @@ final class AggregateFeedController extends FrameSafeNotifier {
       query: configured.query,
       pageSize: pageSize,
     );
-    await _loadPage(source, source.firstPagePath, revision);
+    await _loadPage(tab, source, source.firstPagePath, revision);
     return source;
   }
 
   Future<void> loadMore() {
-    if (_state.loadingMore || !_state.hasMore || _refreshRequest != null) {
+    final tab = _activeTab;
+    if (tab.state.loadingMore ||
+        !tab.state.hasMore ||
+        tab.refreshRequest != null) {
       return Future.value();
     }
-    final active = _pageRequest;
+    final active = tab.pageRequest;
     if (active != null) return active;
-    final revision = _revision;
+    final revision = tab.revision;
     if (revision == null) return Future.value();
 
-    _state = _state.copyWith(loadingMore: true);
+    tab.state = tab.state.copyWith(loadingMore: true);
     notifySafely();
     late final Future<void> request;
-    request = _performLoadMore(revision).whenComplete(() {
-      if (identical(_pageRequest, request)) _pageRequest = null;
+    request = _performLoadMore(tab, revision).whenComplete(() {
+      if (identical(tab.pageRequest, request)) tab.pageRequest = null;
     });
-    _pageRequest = request;
+    tab.pageRequest = request;
     return request;
   }
 
-  Future<void> _performLoadMore(Object revision) async {
-    final topics = [..._state.topics];
-    final failures = {..._state.failures};
+  Future<void> _performLoadMore(
+    _AggregateTabSession tab,
+    Object revision,
+  ) async {
+    final topics = [...tab.state.topics];
+    final failures = {...tab.state.failures};
     await _appendBatch(
-      sources: _sources,
+      tab: tab,
+      sources: tab.sources,
       topics: topics,
-      emitted: _emitted,
+      emitted: tab.emitted,
       failures: failures,
       revision: revision,
     );
-    if (!_isCurrent(revision)) return;
-    _state = _state.copyWith(
+    if (!_isCurrent(tab, revision)) return;
+    tab.state = tab.state.copyWith(
       topics: List.unmodifiable(topics),
       loadingMore: false,
       failures: Map.unmodifiable(failures),
-      hasMore: _sources.values.any((source) => source.hasMore),
+      hasMore: tab.sources.values.any((source) => source.hasMore),
     );
-    notifySafely();
+    if (identical(tab, _activeTab)) notifySafely();
   }
 
   Future<void> _appendBatch({
+    required _AggregateTabSession tab,
     required Map<String, _AggregateSource> sources,
     required List<AggregateTopicRef> topics,
     required Set<AggregateTopicRef> emitted,
@@ -380,7 +489,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
     required Object revision,
   }) async {
     var added = 0;
-    while (added < batchSize && _isCurrent(revision)) {
+    while (added < batchSize && _isCurrent(tab, revision)) {
       final empty = [
         for (final source in sources.values)
           if (source.buffer.isEmpty && source.hasMore) source,
@@ -388,7 +497,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
       if (empty.isNotEmpty) {
         await Future.wait([
           for (final source in empty)
-            _ensureHead(source, revision).catchError((
+            _ensureHead(tab, source, revision).catchError((
               Object error,
               StackTrace stackTrace,
             ) {
@@ -399,7 +508,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
               _report(error, stackTrace, 'aggregate.loadPage');
             }),
         ]);
-        if (!_isCurrent(revision)) return;
+        if (!_isCurrent(tab, revision)) return;
       }
 
       _AggregateSource? best;
@@ -420,15 +529,22 @@ final class AggregateFeedController extends FrameSafeNotifier {
     }
   }
 
-  Future<void> _ensureHead(_AggregateSource source, Object revision) async {
-    while (source.buffer.isEmpty && source.hasMore && _isCurrent(revision)) {
+  Future<void> _ensureHead(
+    _AggregateTabSession tab,
+    _AggregateSource source,
+    Object revision,
+  ) async {
+    while (source.buffer.isEmpty &&
+        source.hasMore &&
+        _isCurrent(tab, revision)) {
       final path = source.nextPagePath;
       if (path == null) return;
-      await _loadPage(source, path, revision);
+      await _loadPage(tab, source, path, revision);
     }
   }
 
   Future<void> _loadPage(
+    _AggregateTabSession tab,
     _AggregateSource source,
     String path,
     Object revision,
@@ -444,7 +560,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
         apiKey: source.apiKey,
       ),
     );
-    if (!_isCurrent(revision) || !lease.isCurrent) return;
+    if (!_isCurrent(tab, revision) || !lease.isCurrent) return;
 
     final accepted = <Topic>[];
     for (final incoming in list.topics) {
@@ -484,8 +600,10 @@ final class AggregateFeedController extends FrameSafeNotifier {
     return right.id.compareTo(left.id);
   }
 
-  bool _isCurrent(Object revision) =>
-      !isDisposed && identical(_revision, revision);
+  bool _isCurrent(_AggregateTabSession tab, Object revision) =>
+      !isDisposed &&
+      identical(_tabs[tab.id], tab) &&
+      identical(tab.revision, revision);
 
   void _report(Object error, StackTrace stackTrace, String operation) {
     DiagnosticsSink.current.reportError(
@@ -501,9 +619,10 @@ final class AggregateFeedController extends FrameSafeNotifier {
 
   @override
   void dispose() {
-    _revision = null;
-    _sources.clear();
-    _emitted.clear();
+    for (final tab in _tabs.values) {
+      tab.invalidate();
+    }
+    _tabs.clear();
     _requests.close();
     super.dispose();
   }
@@ -514,6 +633,37 @@ final class AggregateFeedController extends FrameSafeNotifier {
       return trimmed;
     }
     return trimmed.substring(0, AggregatePreferencesStore.maximumQueryLength);
+  }
+}
+
+final class _AggregateTabSession {
+  _AggregateTabSession({
+    required this.id,
+    Set<String> excludedForums = const {},
+    Map<String, String> queries = const {},
+  }) : excludedForums = Set.unmodifiable(excludedForums),
+       queries = Map.unmodifiable(queries);
+
+  final String id;
+  Set<String> excludedForums;
+  Map<String, String> queries;
+  AggregateFeedState state = const AggregateFeedState();
+  final Map<String, _AggregateSource> sources = {};
+  final Set<AggregateTopicRef> emitted = {};
+  Object? revision;
+  Future<void>? refreshRequest;
+  Future<void>? pageRequest;
+
+  AggregateTabPreferences get preferences => AggregateTabPreferences(
+    id: id,
+    excludedForums: excludedForums,
+    queries: queries,
+  );
+
+  void invalidate() {
+    revision = null;
+    sources.clear();
+    emitted.clear();
   }
 }
 

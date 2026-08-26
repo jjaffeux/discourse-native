@@ -8787,6 +8787,26 @@ class ShellController extends FrameSafeNotifier
 
   Future<void> refreshAggregate() => aggregate.refresh(_instances, force: true);
 
+  List<AggregateFeedTab> get aggregateTabs => aggregate.tabs;
+  String get activeAggregateTabId => aggregate.activeTabId;
+  bool get canCreateAggregateTab => forumTabsEnabled && aggregate.canCreateTab;
+
+  void createAggregateTab() {
+    if (!forumTabsEnabled || aggregate.createTab() == null) return;
+    unawaited(aggregate.open(_instances));
+  }
+
+  void selectAggregateTab(String id) {
+    if (!forumTabsEnabled || !aggregate.selectTab(id)) return;
+    unawaited(aggregate.open(_instances));
+  }
+
+  void closeAggregateTab(String id) {
+    if (!forumTabsEnabled) return;
+    final openedAnotherTab = aggregate.closeTab(id);
+    if (openedAnotherTab) unawaited(aggregate.open(_instances));
+  }
+
   Future<void> setAggregateForumFilters({
     required Set<String> includedForums,
     required Map<String, String> queries,
