@@ -452,6 +452,7 @@ class _ContentHeader extends StatelessWidget {
                   icon: const DIcon(DIcons.upRightFromSquare, size: 18),
                   tooltip: 'Share this topic',
                   variant: DButtonVariant.flat,
+                  size: DButtonSize.small,
                 ),
               if (route.isTopic &&
                   siteUrl != null &&
@@ -477,6 +478,7 @@ class _ContentHeader extends StatelessWidget {
                     topic!.id,
                   ),
                   variant: DButtonVariant.flat,
+                  size: DButtonSize.small,
                 ),
               if (route.isTopic && siteUrl != null && topic != null)
                 _TopicStatusButton(siteUrl: siteUrl!, topic: topic!),
@@ -525,6 +527,7 @@ class _ContentHeader extends StatelessWidget {
                       : 'Bookmark this topic',
                   loading: bookmarkBusy,
                   variant: DButtonVariant.flat,
+                  size: DButtonSize.small,
                 ),
               if (route.isTopic && canReply)
                 DButton.iconOnly(
@@ -532,6 +535,7 @@ class _ContentHeader extends StatelessWidget {
                   icon: const DIcon(DIcons.reply, size: 20),
                   tooltip: 'Reply to this topic',
                   variant: DButtonVariant.flat,
+                  size: DButtonSize.small,
                 ),
               if (!route.isTopic && showCreateTopicAction)
                 _TopicCreateAction(controller: controller),
@@ -602,6 +606,7 @@ class _TopicPinButton extends StatelessWidget {
           onPressed: openMenu,
           loading: busy,
           variant: DButtonVariant.flat,
+          size: DButtonSize.small,
           icon: busy
               ? const SizedBox.square(
                   dimension: 18,
@@ -784,6 +789,7 @@ class _TopicStatusButton extends StatelessWidget {
           onPressed: openMenu,
           loading: busy,
           variant: DButtonVariant.flat,
+          size: DButtonSize.small,
           icon: busy
               ? const SizedBox.square(
                   dimension: 18,
@@ -854,6 +860,7 @@ class _TopicNotificationLevelButton extends StatelessWidget {
         onPressed: openMenu,
         icon: DIcon(_iconFor(topic.notificationLevel), size: 18),
         variant: DButtonVariant.flat,
+        size: DButtonSize.small,
       ),
     );
   }
