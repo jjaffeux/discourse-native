@@ -120,6 +120,9 @@ class ChatMessageTile extends StatelessWidget {
   static Key replyIndicatorKey(int messageId) =>
       ValueKey<String>('chat-reply-indicator-$messageId');
 
+  static Key editedIndicatorKey(int messageId) =>
+      ValueKey<String>('chat-message-edited-$messageId');
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ChatMessage?>(
@@ -993,6 +996,14 @@ class _Tile extends StatelessWidget {
                       Text(raw, style: messageTextStyle),
                     if (message.uploads.isNotEmpty)
                       ChatUploads(siteUrl: siteUrl, uploads: message.uploads),
+                    if (message.edited)
+                      Text(
+                        key: ChatMessageTile.editedIndicatorKey(message.id),
+                        '(edited)',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.discourse.whisper,
+                        ),
+                      ),
                     if (message.reactions.isNotEmpty)
                       _Reactions(siteUrl: siteUrl, message: message),
                     if (message.thread case final thread?
@@ -1128,15 +1139,6 @@ class _Header extends StatelessWidget {
             relativeTime(at),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.discourse.primaryHigh,
-            ),
-          ),
-        ],
-        if (message.edited) ...[
-          const SizedBox(width: 4),
-          Text(
-            '(edited)',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.discourse.whisper,
             ),
           ),
         ],
