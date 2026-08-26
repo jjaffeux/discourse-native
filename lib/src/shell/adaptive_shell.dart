@@ -709,7 +709,7 @@ class _ResizableDiagnosticsPanel extends StatefulWidget {
 
 class _ResizableDiagnosticsPanelState
     extends State<_ResizableDiagnosticsPanel> {
-  static const double _handleWidth = 44;
+  static const double _handleWidth = diagnosticsPanelResizeHandleWidth;
   static const double _keyboardStep = 16;
 
   final FocusNode _focus = FocusNode(debugLabel: 'diagnostics panel resize');

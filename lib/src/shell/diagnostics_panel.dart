@@ -19,6 +19,9 @@ const double diagnosticsPanelWidth = 440;
 const double diagnosticsPanelMinWidth = 320;
 const double diagnosticsPanelMaxWidth = 720;
 
+/// Pointer target reserved along the resizable panel's left edge.
+const double diagnosticsPanelResizeHandleWidth = 12;
+
 /// A live, searchable view over the app-wide diagnostics recorder.
 ///
 /// Filtering lives in the app-owned diagnostics controller, so it survives
@@ -392,15 +395,14 @@ class _PanelHeader extends StatelessWidget {
       height: 56,
       child: Row(
         children: [
+          const SizedBox(width: diagnosticsPanelResizeHandleWidth),
           if (showingDetail)
             IconButton(
               key: const ValueKey('diagnostics-detail-back'),
               tooltip: 'Back to diagnostics',
               onPressed: onBack,
               icon: const DIcon(DIcons.arrowLeft, size: 18),
-            )
-          else
-            const SizedBox(width: 12),
+            ),
           Expanded(
             child: Text(
               showingDetail ? 'Event details' : 'Diagnostics',
