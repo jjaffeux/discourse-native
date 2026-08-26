@@ -14,6 +14,7 @@ import 'emoji.dart';
 import 'forum_search.dart';
 import 'instance_actions.dart';
 import 'open_link.dart';
+import 'platform.dart';
 import 'shell_metrics.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
@@ -683,6 +684,7 @@ class _DestinationTile extends StatefulWidget {
 
 class _DestinationTileState extends State<_DestinationTile> {
   bool _hovered = false;
+  bool _hoverActionFocused = false;
 
   SidebarDestination get destination => widget.destination;
   bool get selected => widget.selected;
@@ -692,6 +694,11 @@ class _DestinationTileState extends State<_DestinationTile> {
   void _setHovered(bool hovered) {
     if (_hovered == hovered) return;
     setState(() => _hovered = hovered);
+  }
+
+  void _setHoverActionFocused(bool focused) {
+    if (_hoverActionFocused == focused) return;
+    setState(() => _hoverActionFocused = focused);
   }
 
   /// A face beats a picture beats a category badge beats a glyph. Emoji before
@@ -807,6 +814,12 @@ class _DestinationTileState extends State<_DestinationTile> {
       ),
       child: InkWell(
         onTap: destination.enabled ? onTap : null,
+        onLongPress: destination.enabled && context.isTouch
+            ? switch (destination.onLongPress) {
+                final action? => () => action(context),
+                null => null,
+              }
+            : null,
         onHover: destination.enabled ? _setHovered : null,
         borderRadius: BorderRadius.circular(4),
         child: Container(
@@ -883,6 +896,20 @@ class _DestinationTileState extends State<_DestinationTile> {
                     '${badge.count}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: foreground,
+                    ),
+                  ),
+              if (!context.isTouch)
+                if (destination.hoverActionBuilder case final builder?)
+                  Focus(
+                    onFocusChange: _setHoverActionFocused,
+                    child: AnimatedOpacity(
+                      key: ValueKey('sidebar-hover-action-${destination.id}'),
+                      opacity: _hovered || _hoverActionFocused ? 1 : 0,
+                      duration: const Duration(milliseconds: 100),
+                      child: IgnorePointer(
+                        ignoring: !_hovered && !_hoverActionFocused,
+                        child: builder(context),
+                      ),
                     ),
                   ),
             ],

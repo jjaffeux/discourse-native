@@ -12,6 +12,17 @@ abstract interface class AggregatePreferencesPersistence {
   Future<bool> write(String value);
 }
 
+final class AggregatePreferences {
+  AggregatePreferences({
+    Set<String>? excludedForums,
+    Map<String, String>? queries,
+  }) : excludedForums = Set.unmodifiable(excludedForums ?? const {}),
+       queries = Map.unmodifiable(queries ?? const {});
+
+  final Set<String> excludedForums;
+  final Map<String, String> queries;
+}
+
 final class SharedPreferencesAggregatePreferencesPersistence
     implements AggregatePreferencesPersistence {
   const SharedPreferencesAggregatePreferencesPersistence();
@@ -42,12 +53,13 @@ final class MemoryAggregatePreferencesPersistence
   }
 }
 
-/// Versioned app-wide selection for the cross-forum Aggregate feed.
+/// Versioned app-wide configuration for the cross-forum Aggregate feed.
 ///
 /// Exclusions are persisted instead of inclusions so a newly connected forum
-/// participates by default. The values are canonical site origins already
-/// owned by [DiscourseInstance]; malformed or stale entries are harmless and
-/// are pruned by the controller when it next saves.
+/// participates by default. A query is stored only when it is non-empty; an
+/// included forum without one asks Discourse for its default topic filter.
+/// Origins are already owned by [DiscourseInstance], and malformed or stale
+/// entries are pruned by the controller when it next saves.
 final class AggregatePreferencesStore {
   AggregatePreferencesStore({AggregatePreferencesPersistence? persistence})
     : _persistence =
@@ -58,7 +70,8 @@ final class AggregatePreferencesStore {
     : _persistence = MemoryAggregatePreferencesPersistence();
 
   static const storageKey = 'discourse_native.aggregate_preferences';
-  static const formatVersion = 1;
+  static const formatVersion = 2;
+  static const maximumQueryLength = 2048;
 
   final AggregatePreferencesPersistence _persistence;
   late final CoalescingSnapshotWriter<String> _snapshots =
@@ -68,30 +81,54 @@ final class AggregatePreferencesStore {
         writeSnapshot: _persist,
       );
 
-  Future<Set<String>> load() async {
+  Future<AggregatePreferences> load() async {
     try {
       final raw = await _snapshots.read(_persistence.read);
-      if (raw == null || raw.isEmpty) return const {};
+      if (raw == null || raw.isEmpty) return AggregatePreferences();
       final decoded = jsonDecode(raw);
-      if (decoded is! Map || decoded['version'] != formatVersion) {
-        return const {};
+      if (decoded is! Map) return AggregatePreferences();
+      final version = decoded['version'];
+      if (version != 1 && version != formatVersion) {
+        return AggregatePreferences();
       }
       final excluded = decoded['excluded_forums'];
-      if (excluded is! List) return const {};
-      return {
-        for (final value in excluded)
-          if (value is String && _isOrigin(value)) value,
-      };
+      final queries = decoded['queries'];
+      return AggregatePreferences(
+        excludedForums: {
+          if (excluded is List)
+            for (final value in excluded)
+              if (value is String && _isOrigin(value)) value,
+        },
+        queries: {
+          if (version == formatVersion && queries is Map)
+            for (final MapEntry(key: siteUrl, value: query) in queries.entries)
+              if (siteUrl is String &&
+                  query is String &&
+                  _isOrigin(siteUrl) &&
+                  _normalizeQuery(query).isNotEmpty)
+                siteUrl: _normalizeQuery(query),
+        },
+      );
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'aggregatePreferences.load');
-      return const {};
+      return AggregatePreferences();
     }
   }
 
-  Future<void> save(Set<String> excludedForums) {
+  Future<void> save({
+    required Set<String> excludedForums,
+    required Map<String, String> queries,
+  }) {
     final encoded = jsonEncode({
       'version': formatVersion,
       'excluded_forums': excludedForums.toList()..sort(),
+      'queries': Map.fromEntries(
+        [
+          for (final MapEntry(:key, :value) in queries.entries)
+            if (_isOrigin(key) && _normalizeQuery(value).isNotEmpty)
+              MapEntry(key, _normalizeQuery(value)),
+        ]..sort((left, right) => left.key.compareTo(right.key)),
+      ),
     });
     return _snapshots.save(encoded);
   }
@@ -115,5 +152,11 @@ final class AggregatePreferencesStore {
         (uri.path.isEmpty || uri.path == '/') &&
         !uri.hasQuery &&
         !uri.hasFragment;
+  }
+
+  static String _normalizeQuery(String value) {
+    final trimmed = value.trim();
+    if (trimmed.length <= maximumQueryLength) return trimmed;
+    return trimmed.substring(0, maximumQueryLength);
   }
 }

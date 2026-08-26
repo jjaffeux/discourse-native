@@ -76,6 +76,8 @@ class SidebarDestination {
     this.enabled = true,
     this.trailingIcon,
     this.onSecondaryTap,
+    this.hoverActionBuilder,
+    this.onLongPress,
     this.url,
     this.feedPath,
   });
@@ -148,6 +150,15 @@ class SidebarDestination {
   final bool enabled;
   final DIconData? trailingIcon;
   final VoidCallback? onSecondaryTap;
+
+  /// A compact control revealed at the trailing edge of a pointer-hovered
+  /// destination. The destination owns the action surface while the shared
+  /// sidebar owns when that surface is visible.
+  final WidgetBuilder? hoverActionBuilder;
+
+  /// The touch equivalent of [hoverActionBuilder]. A desktop pointer gets the
+  /// explicit hover control; a finger holds the row itself for the same menu.
+  final void Function(BuildContext context)? onLongPress;
 
   /// A site or external link this row opens, for destinations supplied by a
   /// custom Discourse sidebar section rather than a native app route.

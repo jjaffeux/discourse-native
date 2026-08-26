@@ -24,6 +24,7 @@ globe
 gear
 bug
 ellipsis
+ellipsis-vertical
 far-pen-to-square
 chevron-right
 chevron-left
@@ -61,6 +62,7 @@ comment
 comments
 quote-left
 reply
+share
 thumbtack
 lock
 unlock

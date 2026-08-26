@@ -563,7 +563,14 @@ class _StreamState extends State<ChatMessageStream>
   /// be a request per frame, and one that waited for the scroll to *end* would
   /// never credit a reader who keeps a channel open and idle.
   static const Duration _readInterval = Duration(milliseconds: 500);
-  static const EdgeInsets _streamPadding = EdgeInsets.symmetric(vertical: 8);
+  static const double _streamEdgeGap = 8;
+  static const EdgeInsets _streamPadding = EdgeInsets.only(
+    top: _streamEdgeGap,
+    // A shortest chained row lets its hover actions paint below its bounds.
+    // Reserve that overflow at the live edge so the following composer does
+    // not paint over the toolbar.
+    bottom: _streamEdgeGap + ChatMessageTile.hoverActionsBottomOverflow,
+  );
 
   /// Asked for the visible range, and the reason the list is measured at all.
   final ListController _list = ListController();

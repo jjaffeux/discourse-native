@@ -1,9 +1,11 @@
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/aggregate_view.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
+import 'package:discourse_native/src/shell/topic_filter_input.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,33 +34,49 @@ void main() {
       instance('one.example', title: 'One').copyWith(user: user),
       instance('two.example', title: 'Two').copyWith(user: user),
     ];
-    const aggregatePath =
-        '/unseen.json?f=tracked&no_definitions=true&per_page=15';
+    const defaultAggregatePath = '/filter.json?per_page=15';
+    const firstFilterPath = '/filter.json?per_page=15&q=status%3Aopen';
+    const secondFilterPath = '/filter.json?per_page=15&q=tag%3Aux';
+    const filterOptions = [
+      TopicFilterOption(name: 'status:', priority: 1),
+      TopicFilterOption(name: 'tag:', type: 'tag', priority: 2),
+    ];
     final authenticator = FakeAuthenticator()
       ..keys[forums[0].url] = 'one-key'
       ..keys[forums[1].url] = 'two-key';
+    final api = FakeDiscourseApi(
+      user: user,
+      feeds: {
+        '/latest.json': const [],
+        for (final path in [
+          defaultAggregatePath,
+          firstFilterPath,
+          secondFilterPath,
+        ])
+          path: [
+            Topic(
+              id: 42,
+              title: 'Fresh cross-forum topic',
+              slug: 'fresh-topic',
+              categoryId: 1,
+              seen: false,
+              bumpedAt: DateTime.utc(2026, 1, 1),
+            ),
+          ],
+      },
+      filterOptionsByPath: const {
+        defaultAggregatePath: filterOptions,
+        firstFilterPath: filterOptions,
+        secondFilterPath: filterOptions,
+      },
+      categoryList: const [
+        TopicCategory(id: 1, name: 'Followed', color: '0088CC'),
+      ],
+    );
     await tester.pumpWidget(
       DiscourseApp(
         store: FakeInstanceStore(forums),
-        api: FakeDiscourseApi(
-          user: user,
-          feeds: {
-            '/latest.json': const [],
-            aggregatePath: [
-              Topic(
-                id: 42,
-                title: 'Fresh cross-forum topic',
-                slug: 'fresh-topic',
-                categoryId: 1,
-                seen: false,
-                bumpedAt: DateTime.utc(2026, 1, 1),
-              ),
-            ],
-          },
-          categoryList: const [
-            TopicCategory(id: 1, name: 'Followed', color: '0088CC'),
-          ],
-        ),
+        api: api,
         authenticator: authenticator,
         drafts: FakeDraftStore(),
         forumTabs: FakeForumTabStore(),
@@ -83,7 +101,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Forums in Aggregate'), findsOneWidget);
+    expect(find.text('Aggregate filters'), findsOneWidget);
     expect(
       find.byKey(ValueKey('aggregate-filter-${forums[0].url}')),
       findsOneWidget,
@@ -91,6 +109,33 @@ void main() {
     expect(
       find.byKey(ValueKey('aggregate-filter-${forums[1].url}')),
       findsOneWidget,
+    );
+    expect(find.byType(TopicFilterInput), findsNWidgets(2));
+
+    await tester.enterText(
+      find.byKey(ValueKey('aggregate-query-${forums[0].url}')),
+      'status:open',
+    );
+    await tester.enterText(
+      find.byKey(ValueKey('aggregate-query-${forums[1].url}')),
+      'tag:ux',
+    );
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+
+    expect(api.feedPaths, contains(firstFilterPath));
+    expect(api.feedPaths, contains(secondFilterPath));
+
+    await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(ValueKey('aggregate-query-${forums[0].url}')),
+          )
+          .controller!
+          .text,
+      'status:open',
     );
 
     await tester.tap(find.text('None'));

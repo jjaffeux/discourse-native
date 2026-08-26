@@ -12,6 +12,7 @@ import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
+import 'topic_filter_input.dart';
 import 'topic_list_view.dart';
 
 /// The full-width, cross-forum stream selected from the top of the rail.
@@ -95,11 +96,10 @@ class _AggregateViewState extends State<AggregateView> {
       final noForums = state.includedForums == 0;
       return _AggregateEmptyState(
         icon: noForums ? DIcons.filter : DIcons.inbox,
-        title: noForums ? 'No forums selected' : "You're caught up",
+        title: noForums ? 'No forums selected' : 'No matching topics',
         message: noForums
             ? 'Choose which connected forums should contribute topics.'
-            : 'There are no unseen topics with new activity in the categories '
-                  'you follow.',
+            : 'There are no topics matching your saved forum filters.',
         actionLabel: noForums ? 'Choose forums' : 'Refresh',
         onAction: noForums
             ? () => _showForumFilter(context, controller)
@@ -157,97 +157,156 @@ class _AggregateViewState extends State<AggregateView> {
       for (final forum in forums)
         if (controller.aggregate.includes(forum)) forum.url,
     };
-    final applied = await showShellSheet<Set<String>>(
-      context: context,
-      title: 'Forums in Aggregate',
-      dialogOnDesktop: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          final connected = forums.where((forum) => forum.isConnected).toList();
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Only unseen activity from followed categories is included.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
+    final queries = {
+      for (final forum in forums)
+        forum.url: controller.aggregate.queryFor(forum.url),
+    };
+    final applied =
+        await showShellSheet<
+          ({Set<String> includedForums, Map<String, String> queries})
+        >(
+          context: context,
+          title: 'Aggregate filters',
+          dialogOnDesktop: true,
+          builder: (sheetContext) => StatefulBuilder(
+            builder: (context, setSheetState) {
+              final connected = forums
+                  .where((forum) => forum.isConnected)
+                  .toList();
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextButton(
-                    onPressed: connected.isEmpty
-                        ? null
-                        : () => setSheetState(
-                            () => selected = {
-                              for (final forum in connected) forum.url,
-                            },
-                          ),
-                    child: const Text('All'),
+                  Text(
+                    'Each included forum uses its own Discourse topic filter. '
+                    'Leave a filter empty to use that forum’s default list.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                  TextButton(
-                    onPressed: selected.isEmpty
-                        ? null
-                        : () => setSheetState(() => selected = {}),
-                    child: const Text('None'),
-                  ),
-                ],
-              ),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 360),
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    for (final forum in forums)
-                      CheckboxListTile(
-                        key: ValueKey('aggregate-filter-${forum.url}'),
-                        contentPadding: EdgeInsets.zero,
-                        value:
-                            forum.isConnected && selected.contains(forum.url),
-                        onChanged: forum.isConnected
-                            ? (checked) => setSheetState(() {
-                                selected = {...selected};
-                                if (checked ?? false) {
-                                  selected.add(forum.url);
-                                } else {
-                                  selected.remove(forum.url);
-                                }
-                              })
-                            : null,
-                        title: Text(forum.title),
-                        subtitle: Text(
-                          forum.isConnected ? forum.host : 'Sign in to include',
-                        ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: connected.isEmpty
+                            ? null
+                            : () => setSheetState(
+                                () => selected = {
+                                  for (final forum in connected) forum.url,
+                                },
+                              ),
+                        child: const Text('All'),
                       ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                    child: const Text('Cancel'),
+                      TextButton(
+                        onPressed: selected.isEmpty
+                            ? null
+                            : () => setSheetState(() => selected = {}),
+                        child: const Text('None'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: () =>
-                        Navigator.of(sheetContext).pop({...selected}),
-                    child: const Text('Apply'),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 520),
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: [
+                        for (final forum in forums)
+                          Column(
+                            key: ValueKey('aggregate-filter-row-${forum.url}'),
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              CheckboxListTile(
+                                key: ValueKey('aggregate-filter-${forum.url}'),
+                                contentPadding: EdgeInsets.zero,
+                                value:
+                                    forum.isConnected &&
+                                    selected.contains(forum.url),
+                                onChanged: forum.isConnected
+                                    ? (checked) => setSheetState(() {
+                                        selected = {...selected};
+                                        if (checked ?? false) {
+                                          selected.add(forum.url);
+                                        } else {
+                                          selected.remove(forum.url);
+                                        }
+                                      })
+                                    : null,
+                                title: Text(forum.title),
+                                subtitle: Text(
+                                  forum.isConnected
+                                      ? forum.host
+                                      : 'Sign in to include',
+                                ),
+                              ),
+                              TopicFilterInput(
+                                key: ValueKey(
+                                  'aggregate-filter-editor-${forum.url}',
+                                ),
+                                siteUrl: forum.url,
+                                initialQuery: queries[forum.url]!,
+                                options: controller.aggregate.filterOptionsFor(
+                                  forum.url,
+                                ),
+                                categories: controller.filterCategoriesFor(
+                                  forum.url,
+                                ),
+                                onSubmitted: (query) async {
+                                  queries[forum.url] = query;
+                                },
+                                onChanged: (query) =>
+                                    queries[forum.url] = query,
+                                inputKey: ValueKey(
+                                  'aggregate-query-${forum.url}',
+                                ),
+                                clearKey: ValueKey(
+                                  'aggregate-query-clear-${forum.url}',
+                                ),
+                                hintText: 'Filter this forum',
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  0,
+                                  12,
+                                ),
+                                enabled:
+                                    forum.isConnected &&
+                                    selected.contains(forum.url),
+                                preferSuggestionsAbove: true,
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: () => Navigator.of(sheetContext).pop((
+                          includedForums: {...selected},
+                          queries: {...queries},
+                        )),
+                        child: const Text('Apply'),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-            ],
-          );
-        },
-      ),
-    );
+              );
+            },
+          ),
+        );
     if (applied == null || !context.mounted) return;
     if (!identical(ShellScope.read(context), controller)) return;
-    await controller.setAggregateIncludedForums(applied);
+    await controller.setAggregateForumFilters(
+      includedForums: applied.includedForums,
+      queries: applied.queries,
+    );
   }
 }
 
@@ -269,7 +328,7 @@ class _AggregateHeader extends StatelessWidget {
         ? '${state.topics.length} ${state.topics.length == 1 ? 'topic' : 'topics'} '
               'from ${state.includedForums} '
               '${state.includedForums == 1 ? 'forum' : 'forums'}'
-        : 'Unseen activity from followed categories';
+        : 'Topics from your saved forum filters';
     return Container(
       height: shellHeaderHeight,
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -307,7 +366,7 @@ class _AggregateHeader extends StatelessWidget {
           IconButton(
             key: const ValueKey('aggregate-filter-button'),
             onPressed: onFilter,
-            tooltip: 'Choose forums',
+            tooltip: 'Configure forum filters',
             icon: const DIcon(DIcons.filter, size: 17),
           ),
           IconButton(

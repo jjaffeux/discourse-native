@@ -1893,6 +1893,37 @@ void main() {
       },
     );
 
+    test(
+      'closing a direct message unfollows and removes its sidebar row',
+      () async {
+        final direct = channel(
+          12,
+          kind: ChatChannelKind.directMessage,
+          membershipsCount: 3,
+        );
+        final subject = build(
+          channels: {
+            site: ChatChannels(direct: [direct]),
+          },
+          currentUser: currentUser,
+        );
+        await subject.chat.loadChannels(site);
+
+        expect(
+          await subject.chat.updateChannelFollowing(site, direct, false),
+          isNull,
+        );
+
+        expect(subject.api.chatChannelFollowsUpdated, const [
+          (channelId: 12, following: false),
+        ]);
+        expect(subject.chat.directChannels(site), isEmpty);
+        expect(subject.chat.channel(site, 12)?.membership.following, isFalse);
+        expect(subject.chat.channel(site, 12)?.membershipsCount, 3);
+        expect(subject.chat.shortcutChannel(site, lastChannelId: 12), isNull);
+      },
+    );
+
     test('does not join a closed or unauthorized channel', () async {
       final subject = build(currentUser: currentUser);
 

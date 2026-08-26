@@ -11,8 +11,8 @@ import '../data/store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
-import '../models/discourse_user.dart';
 import '../models/topic.dart';
+import '../models/topic_filter.dart';
 
 @immutable
 final class AggregateTopicRef {
@@ -84,12 +84,6 @@ final class AggregateFeedState {
   );
 }
 
-typedef AggregateCategoriesReader =
-    List<TopicCategory> Function(String siteUrl);
-typedef AggregateCategoriesWriter =
-    void Function(String siteUrl, Iterable<TopicCategory> categories);
-typedef AggregateUserWriter =
-    void Function(DiscourseInstance instance, DiscourseUser user);
 typedef AggregatePersonalizationVersionReader = int Function(String siteUrl);
 typedef AggregateTopicPreparer =
     Topic Function(String siteUrl, Topic topic, int versionAtDispatch);
@@ -106,9 +100,6 @@ final class AggregateFeedController extends FrameSafeNotifier {
     required this.lifecycle,
     required this.store,
     required this.preferences,
-    required this.readCategories,
-    required this.writeCategories,
-    required this.writeUser,
     required this.readPersonalizationVersion,
     required this.prepareTopic,
     this.freshness = const Duration(minutes: 1),
@@ -124,9 +115,6 @@ final class AggregateFeedController extends FrameSafeNotifier {
   final SiteLifecycle lifecycle;
   final Store store;
   final AggregatePreferencesStore preferences;
-  final AggregateCategoriesReader readCategories;
-  final AggregateCategoriesWriter writeCategories;
-  final AggregateUserWriter writeUser;
   final AggregatePersonalizationVersionReader readPersonalizationVersion;
   final AggregateTopicPreparer prepareTopic;
   final Duration freshness;
@@ -139,6 +127,12 @@ final class AggregateFeedController extends FrameSafeNotifier {
 
   Set<String> _excludedForums = const {};
   Set<String> get excludedForums => Set.unmodifiable(_excludedForums);
+  Map<String, String> _queries = const {};
+
+  String queryFor(String siteUrl) => _queries[siteUrl] ?? '';
+
+  List<TopicFilterOption> filterOptionsFor(String siteUrl) =>
+      _sources[siteUrl]?.filterOptions ?? const [];
 
   final Map<String, _AggregateSource> _sources = {};
   final Set<AggregateTopicRef> _emitted = {};
@@ -150,80 +144,71 @@ final class AggregateFeedController extends FrameSafeNotifier {
     final loaded = await preferences.load();
     if (isDisposed) return;
     final valid = {for (final instance in instances) instance.url};
-    _excludedForums = Set.unmodifiable(loaded.intersection(valid));
+    _excludedForums = Set.unmodifiable(
+      loaded.excludedForums.intersection(valid),
+    );
+    _queries = Map.unmodifiable({
+      for (final MapEntry(:key, :value) in loaded.queries.entries)
+        if (valid.contains(key)) key: value,
+    });
   }
 
   bool includes(DiscourseInstance instance) =>
       instance.isConnected && !_excludedForums.contains(instance.url);
 
-  Future<void> setIncludedForums({
+  Future<void> setForumFilters({
     required Iterable<DiscourseInstance> allForums,
     required Set<String> includedConnectedForums,
+    required Map<String, String> queries,
   }) async {
     final valid = {for (final instance in allForums) instance.url};
-    final next = _excludedForums.intersection(valid);
+    final nextExcluded = _excludedForums.intersection(valid);
     for (final instance in allForums) {
       if (!instance.isConnected) continue;
       if (includedConnectedForums.contains(instance.url)) {
-        next.remove(instance.url);
+        nextExcluded.remove(instance.url);
       } else {
-        next.add(instance.url);
+        nextExcluded.add(instance.url);
       }
     }
-    if (setEquals(next, _excludedForums)) return;
-    _excludedForums = Set.unmodifiable(next);
+    final nextQueries = {
+      for (final MapEntry(:key, :value) in queries.entries)
+        if (valid.contains(key) && value.trim().isNotEmpty)
+          key: _boundedQuery(value),
+    };
+    if (setEquals(nextExcluded, _excludedForums) &&
+        mapEquals(nextQueries, _queries)) {
+      return;
+    }
+    _excludedForums = Set.unmodifiable(nextExcluded);
+    _queries = Map.unmodifiable(nextQueries);
     notifySafely();
-    await preferences.save(_excludedForums);
+    await preferences.save(excludedForums: _excludedForums, queries: _queries);
   }
 
   Future<void> pruneForums(Iterable<DiscourseInstance> instances) async {
     final valid = {for (final instance in instances) instance.url};
-    final next = _excludedForums.intersection(valid);
-    if (setEquals(next, _excludedForums)) return;
-    _excludedForums = Set.unmodifiable(next);
+    final nextExcluded = _excludedForums.intersection(valid);
+    final nextQueries = {
+      for (final MapEntry(:key, :value) in _queries.entries)
+        if (valid.contains(key)) key: value,
+    };
+    if (setEquals(nextExcluded, _excludedForums) &&
+        mapEquals(nextQueries, _queries)) {
+      return;
+    }
+    _excludedForums = Set.unmodifiable(nextExcluded);
+    _queries = Map.unmodifiable(nextQueries);
     notifySafely();
-    await preferences.save(next);
+    await preferences.save(excludedForums: _excludedForums, queries: _queries);
   }
 
   Future<void> open(Iterable<DiscourseInstance> instances) {
-    _pruneInactiveTopics();
     final updated = _state.updatedAt;
     final stale =
         updated == null || DateTime.now().difference(updated) >= freshness;
     if (_state.loaded && !stale) return Future.value();
     return refresh(instances);
-  }
-
-  /// Removes a topic as soon as local reading state says it is caught up.
-  ///
-  /// The server is still authoritative on the next refresh, but returning to
-  /// a fresh Aggregate snapshot should not resurrect a row just read here.
-  void reconcileTopic(String siteUrl, int topicId) {
-    final reference = AggregateTopicRef(siteUrl: siteUrl, topicId: topicId);
-    if (!_state.topics.contains(reference)) return;
-    final topic = store.read<Topic>(siteUrl, topicId);
-    if (topic == null || topic.hasUnseenActivity) return;
-    _state = _state.copyWith(
-      topics: List.unmodifiable([
-        for (final held in _state.topics)
-          if (held != reference) held,
-      ]),
-    );
-    notifySafely();
-  }
-
-  void _pruneInactiveTopics() {
-    final topics = [
-      for (final reference in _state.topics)
-        if (store
-                .read<Topic>(reference.siteUrl, reference.topicId)
-                ?.hasUnseenActivity !=
-            false)
-          reference,
-    ];
-    if (topics.length == _state.topics.length) return;
-    _state = _state.copyWith(topics: List.unmodifiable(topics));
-    notifySafely();
   }
 
   Future<void> refresh(
@@ -232,7 +217,8 @@ final class AggregateFeedController extends FrameSafeNotifier {
   }) {
     final selected = [
       for (final instance in instances)
-        if (includes(instance)) instance,
+        if (includes(instance))
+          _ConfiguredAggregateForum(instance, queryFor(instance.url)),
     ];
     final active = _refreshRequest;
     if (active != null && !force) return active;
@@ -260,10 +246,10 @@ final class AggregateFeedController extends FrameSafeNotifier {
   }
 
   Future<void> _performRefresh(
-    List<DiscourseInstance> instances,
+    List<_ConfiguredAggregateForum> forums,
     Object revision,
   ) async {
-    final pageSize = (batchSize / (instances.isEmpty ? 1 : instances.length))
+    final pageSize = (batchSize / (forums.isEmpty ? 1 : forums.length))
         .ceil()
         .clamp(10, 30);
     final sources = <String, _AggregateSource>{};
@@ -271,13 +257,13 @@ final class AggregateFeedController extends FrameSafeNotifier {
     var loadedForums = 0;
 
     await Future.wait([
-      for (var index = 0; index < instances.length; index++)
-        _primeSource(instances[index], index, pageSize, revision)
+      for (var index = 0; index < forums.length; index++)
+        _primeSource(forums[index], index, pageSize, revision)
             .then((source) {
               if (source != null) sources[source.instance.url] = source;
             })
             .catchError((Object error, StackTrace stackTrace) {
-              final instance = instances[index];
+              final instance = forums[index].instance;
               failures[instance.url] = "Couldn't refresh ${instance.host}.";
               _report(error, stackTrace, 'aggregate.loadForum');
             })
@@ -311,7 +297,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
     _state = AggregateFeedState(
       topics: List.unmodifiable(topics),
       loaded: true,
-      includedForums: instances.length,
+      includedForums: forums.length,
       loadedForums: loadedForums,
       failures: Map.unmodifiable(failures),
       hasMore: _sources.values.any((source) => source.hasMore),
@@ -321,11 +307,12 @@ final class AggregateFeedController extends FrameSafeNotifier {
   }
 
   Future<_AggregateSource?> _primeSource(
-    DiscourseInstance instance,
+    _ConfiguredAggregateForum configured,
     int order,
     int pageSize,
     Object revision,
   ) async {
+    final instance = configured.instance;
     final lease = lifecycle.capture(instance.url);
     final apiKey = await credentials.apiKeyFor(instance.url);
     if (!_isCurrent(revision) || !lease.isCurrent) {
@@ -335,29 +322,13 @@ final class AggregateFeedController extends FrameSafeNotifier {
       throw StateError('Connected Aggregate forum has no credential.');
     }
 
-    final user = await _requests.run(
-      () => api.currentUser(siteUrl: instance.url, apiKey: apiKey),
-    );
-    if (!_isCurrent(revision) || !lease.isCurrent) return null;
-    writeUser(instance, user);
-
-    final followed = user.followedCategoryIds ?? const <int>{};
     final source = _AggregateSource(
-      instance: instance.copyWith(user: user),
+      instance: instance,
       order: order,
       apiKey: apiKey,
-      followedCategoryIds: followed,
-      categories: {
-        for (final category in readCategories(instance.url))
-          category.id: category,
-      },
+      query: configured.query,
       pageSize: pageSize,
     );
-    if (followed.isEmpty) {
-      source.complete = true;
-      return source;
-    }
-
     await _loadPage(source, source.firstPagePath, revision);
     return source;
   }
@@ -475,15 +446,8 @@ final class AggregateFeedController extends FrameSafeNotifier {
     );
     if (!_isCurrent(revision) || !lease.isCurrent) return;
 
-    await _resolveCategories(source, list.topics, revision);
-    if (!_isCurrent(revision) || !lease.isCurrent) return;
-
     final accepted = <Topic>[];
     for (final incoming in list.topics) {
-      if (!incoming.hasUnseenActivity ||
-          !_belongsToFollowedCategory(source, incoming.categoryId)) {
-        continue;
-      }
       final topic = prepareTopic(
         source.instance.url,
         incoming,
@@ -493,62 +457,11 @@ final class AggregateFeedController extends FrameSafeNotifier {
     }
     accepted.sort(_compareTopics);
     source.buffer.addAll(accepted);
+    if (list.filterOptions.isNotEmpty) {
+      source.filterOptions = list.filterOptions;
+    }
     source.nextPagePath = list.nextPagePath;
     source.complete = list.nextPagePath == null;
-  }
-
-  Future<void> _resolveCategories(
-    _AggregateSource source,
-    List<Topic> topics,
-    Object revision,
-  ) async {
-    bool unresolved() {
-      for (final topic in topics) {
-        final categoryId = topic.categoryId;
-        if (categoryId == null) continue;
-        if (_categoryMatch(source, categoryId) == _CategoryMatch.unknown) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    while (unresolved() && !source.categoriesComplete && _isCurrent(revision)) {
-      final result = await _requests.run(
-        () => api.loadCategories(
-          siteUrl: source.instance.url,
-          apiKey: source.apiKey,
-          page: source.nextCategoryPage,
-        ),
-      );
-      if (!_isCurrent(revision)) return;
-      source.nextCategoryPage++;
-      for (final category in result.categories) {
-        source.categories[category.id] = category;
-      }
-      writeCategories(source.instance.url, result.categories);
-      if (result.rootCategoryIds.isEmpty) source.categoriesComplete = true;
-    }
-  }
-
-  bool _belongsToFollowedCategory(_AggregateSource source, int? categoryId) =>
-      categoryId != null &&
-      _categoryMatch(source, categoryId) == _CategoryMatch.yes;
-
-  _CategoryMatch _categoryMatch(_AggregateSource source, int categoryId) {
-    var current = categoryId;
-    final visited = <int>{};
-    while (visited.add(current)) {
-      if (source.followedCategoryIds.contains(current)) {
-        return _CategoryMatch.yes;
-      }
-      final category = source.categories[current];
-      if (category == null) return _CategoryMatch.unknown;
-      final parent = category.parentCategoryId;
-      if (parent == null) return _CategoryMatch.no;
-      current = parent;
-    }
-    return _CategoryMatch.no;
   }
 
   bool _comesBefore(_AggregateSource left, _AggregateSource right) {
@@ -594,34 +507,49 @@ final class AggregateFeedController extends FrameSafeNotifier {
     _requests.close();
     super.dispose();
   }
+
+  static String _boundedQuery(String value) {
+    final trimmed = value.trim();
+    if (trimmed.length <= AggregatePreferencesStore.maximumQueryLength) {
+      return trimmed;
+    }
+    return trimmed.substring(0, AggregatePreferencesStore.maximumQueryLength);
+  }
 }
 
-enum _CategoryMatch { yes, no, unknown }
+final class _ConfiguredAggregateForum {
+  const _ConfiguredAggregateForum(this.instance, this.query);
+
+  final DiscourseInstance instance;
+  final String query;
+}
 
 final class _AggregateSource {
   _AggregateSource({
     required this.instance,
     required this.order,
     required this.apiKey,
-    required this.followedCategoryIds,
-    required this.categories,
+    required this.query,
     required this.pageSize,
   });
 
   final DiscourseInstance instance;
   final int order;
   final String apiKey;
-  final Set<int> followedCategoryIds;
-  final Map<int, TopicCategory> categories;
+  final String query;
   final int pageSize;
   final Queue<Topic> buffer = Queue();
+  List<TopicFilterOption> filterOptions = const [];
   String? nextPagePath;
   bool complete = false;
-  int nextCategoryPage = 1;
-  bool categoriesComplete = false;
 
-  String get firstPagePath =>
-      '/unseen.json?f=tracked&no_definitions=true&per_page=$pageSize';
+  String get firstPagePath => Uri(
+    path: '/filter.json',
+    queryParameters: {
+      'per_page': '$pageSize',
+      if (query.isNotEmpty) 'q': query,
+    },
+  ).toString();
 
   bool get hasMore => buffer.isNotEmpty || (!complete && nextPagePath != null);
 }

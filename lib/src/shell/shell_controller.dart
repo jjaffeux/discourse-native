@@ -435,7 +435,7 @@ class ShellController extends FrameSafeNotifier
   /// shell-owned state.
   late final TopicFeedController topicFeeds = _createTopicFeedController();
 
-  /// Unseen topics from the followed categories of every selected forum.
+  /// Topics returned by each selected forum's saved Discourse filter query.
   ///
   /// Its notifier is intentionally independent: paging this global list
   /// should not rebuild the rail, sidebar, forum tabs, or inactive topics.
@@ -445,10 +445,6 @@ class ShellController extends FrameSafeNotifier
     lifecycle: lifecycle,
     store: store,
     preferences: aggregatePreferences,
-    readCategories: (siteUrl) =>
-        _categoriesBySite[siteUrl] ?? const <TopicCategory>[],
-    writeCategories: _mergeCategories,
-    writeUser: _acceptAggregateUser,
     readPersonalizationVersion: _siteBookmarkVersion,
     prepareTopic: (siteUrl, topic, version) =>
         _prepareTopicForStore(siteUrl, topic, version),
@@ -3531,7 +3527,6 @@ class ShellController extends FrameSafeNotifier
       postNumber,
       caughtUp: caughtUp,
     );
-    aggregate.reconcileTopic(siteUrl, topicId);
     return receipt;
   }
 
@@ -8601,22 +8596,6 @@ class ShellController extends FrameSafeNotifier
     if (index >= 0) _instances[index] = updated;
   }
 
-  void _acceptAggregateUser(
-    DiscourseInstance requestedInstance,
-    DiscourseUser user,
-  ) {
-    final held = _instanceAt(requestedInstance.url);
-    if (held == null) return;
-    _sessionUsersRefreshed.add(held.url);
-    _assignLegacyFallbackUnavailable.remove(held.url);
-    if (held.user != user) {
-      _replaceInstance(held, held.copyWith(user: user));
-      _categorySidebarCache.remove(held.url);
-      unawaited(instanceStore.save(List.of(_instances)));
-      _notify();
-    }
-  }
-
   void _restoreInstanceWorkspace({
     bool refreshAppearance = true,
     bool hydrateActiveTab = true,
@@ -8771,10 +8750,14 @@ class ShellController extends FrameSafeNotifier
 
   Future<void> refreshAggregate() => aggregate.refresh(_instances, force: true);
 
-  Future<void> setAggregateIncludedForums(Set<String> includedForums) async {
-    final persisted = aggregate.setIncludedForums(
+  Future<void> setAggregateForumFilters({
+    required Set<String> includedForums,
+    required Map<String, String> queries,
+  }) async {
+    final persisted = aggregate.setForumFilters(
       allForums: _instances,
       includedConnectedForums: includedForums,
+      queries: queries,
     );
     await aggregate.refresh(_instances, force: true);
     await persisted;
