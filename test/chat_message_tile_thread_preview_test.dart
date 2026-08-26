@@ -615,9 +615,7 @@ void main() {
     expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.bookmark?.id, 1000);
   });
 
-  testWidgets('an author edits source Markdown from message actions', (
-    tester,
-  ) async {
+  testWidgets('hands an author edit to the owning composer', (tester) async {
     final api = FakeDiscourseApi(
       user: const DiscourseUser(id: 1, username: 'reader'),
     );
@@ -636,10 +634,12 @@ void main() {
       isTrue,
     );
 
+    final editing = <ChatMessage>[];
     await tester.pumpWidget(
       _TestTile(
         controller: controller,
         onOpenThread: (_) {},
+        onEdit: editing.add,
         platform: TargetPlatform.android,
       ),
     );
@@ -662,24 +662,10 @@ void main() {
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Edit message'), findsOneWidget);
-    await tester.enterText(
-      find.byKey(const ValueKey('chat-message-edit-field')),
-      '**after**',
-    );
-    await tester.tap(find.byKey(const ValueKey('chat-message-edit-save')));
-    await tester.pumpAndSettle();
-
+    expect(editing.single.id, 7);
+    expect(editing.single.raw, 'before');
     expect(find.text('Edit message'), findsNothing);
-    final request = api.chatMessagesEdited.single;
-    expect(request.channelId, 9);
-    expect(request.messageId, 7);
-    expect(request.message, '**after**');
-    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.raw, '**after**');
-    expect(
-      controller.store.read<ChatMessage>(_siteUrl, 7)?.canonicalReceived,
-      isFalse,
-    );
+    expect(api.chatMessagesEdited, isEmpty);
   });
 
   testWidgets('another author has no edit action', (tester) async {
@@ -1291,6 +1277,7 @@ class _TestTile extends StatelessWidget {
     this.messageId = 7,
     this.onJumpToMessage,
     this.onReplyInThread,
+    this.onEdit,
     this.contextThreadId,
     this.showThreadSummary = true,
     this.chained = false,
@@ -1302,6 +1289,7 @@ class _TestTile extends StatelessWidget {
   final ValueChanged<ChatThreadPreview> onOpenThread;
   final ValueChanged<int>? onJumpToMessage;
   final ValueChanged<ChatMessage>? onReplyInThread;
+  final ValueChanged<ChatMessage>? onEdit;
   final int? contextThreadId;
   final bool showThreadSummary;
   final bool chained;
@@ -1326,6 +1314,7 @@ class _TestTile extends StatelessWidget {
               onOpenThread: onOpenThread,
               onJumpToMessage: onJumpToMessage,
               onReplyInThread: onReplyInThread,
+              onEdit: onEdit,
               showThreadSummary: showThreadSummary,
             ),
           ),

@@ -2490,9 +2490,14 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Edits the canonical Markdown and projects the same safe local preview the
-  /// send path uses until MessageBus supplies authoritative cooked HTML.
-  Future<String?> editMessage(String siteUrl, int messageId, String raw) async {
+  /// Edits canonical Markdown and attachments, projecting the same safe local
+  /// preview the send path uses until MessageBus supplies authoritative data.
+  Future<String?> editMessage(
+    String siteUrl,
+    int messageId,
+    String raw, {
+    List<ChatUpload>? uploads,
+  }) async {
     final held = store.read<ChatMessage>(siteUrl, messageId);
     if (held == null || !canEditMessage(siteUrl, held)) {
       return 'This message can no longer be edited.';
@@ -2501,7 +2506,18 @@ class ChatController extends FrameSafeNotifier {
     if (raw.length > ChatMessage.maximumEditLength) {
       return 'Messages can be at most ${ChatMessage.maximumEditLength} characters.';
     }
-    if (raw == held.raw) return null;
+    final editedUploads = List<ChatUpload>.unmodifiable(
+      (uploads ?? held.uploads).take(ChatMessage.maximumUploadsPerMessage),
+    );
+    final uploadIds = [
+      for (final upload in editedUploads)
+        if (upload.id > 0) upload.id,
+    ];
+    bool hasUploadIds(List<ChatUpload> candidate) => listEquals([
+      for (final upload in candidate)
+        if (upload.id > 0) upload.id,
+    ], uploadIds);
+    if (raw == held.raw && hasUploadIds(held.uploads)) return null;
 
     final key = (siteUrl: siteUrl, messageId: messageId);
     if (_messageEditWrites.containsKey(key) ||
@@ -2523,11 +2539,16 @@ class ChatController extends FrameSafeNotifier {
     final preview = _previewEngine.project(
       ChatPreviewRequest(raw: raw, siteConfig: _siteConfigFor(siteUrl)),
     );
-    store.put(siteUrl, held.withPendingEdit(raw, preview));
+    store.put(
+      siteUrl,
+      held.withPendingEdit(raw, preview, uploads: editedUploads),
+    );
 
     bool canonicalEditArrived() {
       final current = store.read<ChatMessage>(siteUrl, messageId);
-      return current?.canonicalReceived == true && current?.raw == raw;
+      return current?.canonicalReceived == true &&
+          current?.raw == raw &&
+          hasUploadIds(current!.uploads);
     }
 
     void rollback() {
@@ -2545,7 +2566,9 @@ class ChatController extends FrameSafeNotifier {
       final clientId = await credentials.clientId();
       if (!ownsRequest()) return null;
       final current = store.read<ChatMessage>(siteUrl, messageId);
-      if (current == null || current.raw != raw) {
+      if (current == null ||
+          current.raw != raw ||
+          !hasUploadIds(current.uploads)) {
         rollback();
         return 'This message changed before the edit could be saved.';
       }
@@ -2556,10 +2579,7 @@ class ChatController extends FrameSafeNotifier {
         channelId: held.channelId,
         messageId: held.id,
         message: raw,
-        uploadIds: [
-          for (final upload in held.uploads)
-            if (upload.id > 0) upload.id,
-        ],
+        uploadIds: uploadIds,
       );
       return null;
     } on WriteException catch (error) {

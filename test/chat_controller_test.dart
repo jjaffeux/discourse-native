@@ -3004,6 +3004,56 @@ void main() {
     });
 
     test(
+      'projects and submits the attachments selected by the editor',
+      () async {
+        final gate = Completer<void>();
+        final subject = build(currentUser: currentUser, editGate: gate);
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9));
+        subject.store.put(
+          site,
+          const ChatMessage(
+            id: 12,
+            channelId: 9,
+            raw: 'before',
+            cooked: '<p>before</p>',
+            author: ChatMessageAuthor(id: 7, username: 'reader'),
+            uploads: [
+              ChatUpload(
+                id: 31,
+                url: '/uploads/old.png',
+                originalFilename: 'old.png',
+                kind: ChatUploadKind.image,
+              ),
+            ],
+          ),
+        );
+        const replacement = ChatUpload(
+          id: 44,
+          url: '/uploads/new.png',
+          originalFilename: 'new.png',
+          kind: ChatUploadKind.image,
+        );
+
+        final writing = subject.chat.editMessage(
+          site,
+          12,
+          'before',
+          uploads: const [replacement],
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(subject.store.read<ChatMessage>(site, 12)?.uploads, [
+          replacement,
+        ]);
+        expect(subject.api.chatMessagesEdited.single.uploadIds, [44]);
+
+        gate.complete();
+        expect(await writing, isNull);
+      },
+    );
+
+    test(
       'a refusal restores content without losing a concurrent reaction',
       () async {
         final gate = Completer<void>();

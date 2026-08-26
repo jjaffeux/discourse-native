@@ -1290,6 +1290,50 @@ class ComposerController extends ChangeNotifier {
     _notify();
   }
 
+  /// Replaces a compact chat composer with a message being edited.
+  ///
+  /// Chat attachments do not live in the Markdown body, so entering edit mode
+  /// has to replace both parts of the document. Retained uploads are completed
+  /// queue rows: they can be removed or sent with the edit, but never retried
+  /// because there is no local file behind them.
+  void replaceChatDocument({
+    required String raw,
+    required Iterable<ComposerUploadResult> uploads,
+  }) {
+    if (_disposed || !_target.isChat) return;
+    draftSettled();
+    _state = ComposerState.editing;
+    _error = null;
+    _notice = null;
+    _clearUploads();
+    for (final upload in uploads) {
+      _uploads.add(
+        ComposerUploadItem(
+          id: _nextUploadId++,
+          file: ComposerUploadFile(
+            name: upload.originalFilename,
+            length: () async => 0,
+            openRead: () => const Stream<List<int>>.empty(),
+          ),
+          progress: 1,
+          status: ComposerUploadStatus.completed,
+          result: upload,
+        ),
+      );
+    }
+    _replaceDocument(
+      TextEditingValue(
+        text: raw,
+        selection: TextSelection.collapsed(offset: raw.length),
+      ),
+    );
+    _recomputeCanSubmit();
+    _typing.reset();
+    _openedAt = _now();
+    _fieldGeneration++;
+    _notify();
+  }
+
   String _lastText = '';
   bool _replacingDocument = false;
 

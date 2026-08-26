@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../data/emoji_picker_store.dart';
+import '../../models/composer_upload.dart';
 import '../../shell/composer_autocomplete.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/composer_drop.dart';
@@ -161,12 +162,16 @@ class ChatComposer extends StatefulWidget {
     this.threadId,
     this.focusRequest = 0,
     this.uploadDropController,
+    this.editingMessage,
+    this.onEditFinished,
   });
 
   final String siteUrl;
   final int channelId;
   final int? threadId;
   final ChatUploadDropController? uploadDropController;
+  final ChatMessage? editingMessage;
+  final VoidCallback? onEditFinished;
 
   /// A monotonically increasing request to focus this composer.
   ///
@@ -185,6 +190,7 @@ class _ChatComposerState extends State<ChatComposer> {
   String? _sourceKey;
   bool _pickingGif = false;
   bool _pickingEmoji = false;
+  bool _savingEdit = false;
 
   void _closeDisabledEmojiAutocomplete(bool emojiEnabled) {
     final composer = _composer;
@@ -231,8 +237,12 @@ class _ChatComposerState extends State<ChatComposer> {
       _composer!,
       canAccept: () =>
           mounted &&
+          !_savingEdit &&
           (_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false),
     );
+    if (widget.editingMessage case final message?) {
+      _replaceWithMessage(_composer!, message, sourceKey);
+    }
     if (widget.focusRequest > 0) _requestFocus(sourceKey);
   }
 
@@ -257,6 +267,7 @@ class _ChatComposerState extends State<ChatComposer> {
           composer,
           canAccept: () =>
               mounted &&
+              !_savingEdit &&
               (_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false),
         );
       }
@@ -266,6 +277,13 @@ class _ChatComposerState extends State<ChatComposer> {
         oldWidget.channelId == widget.channelId &&
         oldWidget.threadId == widget.threadId;
     if (sameTarget) {
+      if (oldWidget.editingMessage?.id != widget.editingMessage?.id) {
+        if (widget.editingMessage case final message?) {
+          _replaceWithMessage(_composer!, message, _sourceKey!);
+        } else {
+          _composer?.clearDocument();
+        }
+      }
       if (oldWidget.focusRequest != widget.focusRequest &&
           widget.focusRequest > 0) {
         _requestFocus(_sourceKey!);
@@ -290,10 +308,15 @@ class _ChatComposerState extends State<ChatComposer> {
     final chat = _chat;
     if (shell == null ||
         chat == null ||
+        _savingEdit ||
         _pickingGif ||
         _pickingEmoji ||
         !composer.canSubmit ||
         composer.hasActiveUploads) {
+      return;
+    }
+    if (widget.editingMessage case final message?) {
+      unawaited(_saveEdit(composer, chat, message));
       return;
     }
     final accepted = chat.sendMessageTo(
@@ -318,6 +341,73 @@ class _ChatComposerState extends State<ChatComposer> {
     });
   }
 
+  void _replaceWithMessage(
+    ComposerController composer,
+    ChatMessage message,
+    String sourceKey,
+  ) {
+    composer.replaceChatDocument(
+      raw: message.raw,
+      uploads: [for (final upload in message.uploads) _composerUpload(upload)],
+    );
+    _requestFocus(sourceKey);
+  }
+
+  Future<void> _saveEdit(
+    ComposerController composer,
+    ChatController chat,
+    ChatMessage message,
+  ) async {
+    if (_savingEdit) return;
+    setState(() => _savingEdit = true);
+    composer.showNotice(null);
+    final originalUploads = {
+      for (final upload in message.uploads) upload.id: upload,
+    };
+    final error = await chat.editMessage(
+      widget.siteUrl,
+      message.id,
+      composer.raw,
+      uploads: [
+        for (final upload in composer.completedUploads)
+          originalUploads[upload.id] ?? ChatUpload.fromComposerUpload(upload),
+      ],
+    );
+    if (!mounted || !identical(_composer, composer)) return;
+    setState(() => _savingEdit = false);
+    if (error != null) {
+      composer.showNotice(error);
+      return;
+    }
+    final finish = widget.onEditFinished;
+    if (finish != null) {
+      finish();
+    } else {
+      composer.clearDocument();
+    }
+  }
+
+  static ComposerUploadResult _composerUpload(ChatUpload upload) =>
+      ComposerUploadResult(
+        id: upload.id,
+        originalFilename: upload.originalFilename,
+        shortUrl: upload.url,
+        url: upload.url,
+        width: upload.width,
+        height: upload.height,
+        thumbnailUrl: upload.thumbnailUrl,
+      );
+
+  void _cancelEdit() {
+    if (_savingEdit) return;
+    final finish = widget.onEditFinished;
+    if (finish != null) {
+      finish();
+    } else {
+      _composer?.clearDocument();
+    }
+  }
+
   Future<void> _pickGif() async {
     final shell = _shell;
     final composer = _composer;
@@ -329,6 +419,8 @@ class _ChatComposerState extends State<ChatComposer> {
         gifsApi == null ||
         _pickingGif ||
         _pickingEmoji ||
+        _savingEdit ||
+        widget.editingMessage != null ||
         !shell.siteConfigFor(widget.siteUrl).gifsEnabled ||
         !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
       return;
@@ -367,6 +459,7 @@ class _ChatComposerState extends State<ChatComposer> {
         sourceKey == null ||
         _pickingGif ||
         _pickingEmoji ||
+        _savingEdit ||
         !shell.siteConfigFor(widget.siteUrl).emojiEnabled ||
         !(_chat?.canSendMessage(widget.siteUrl, widget.channelId) ?? false)) {
       return;
@@ -489,6 +582,12 @@ class _ChatComposerState extends State<ChatComposer> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (widget.editingMessage case final message?)
+                  _ChatComposerEditDetails(
+                    message: message,
+                    saving: _savingEdit,
+                    onCancel: _cancelEdit,
+                  ),
                 if (composer.uploads.isNotEmpty)
                   ComposerUploadQueue(composer: composer),
                 if (composer.notice case final message?)
@@ -527,6 +626,8 @@ class _ChatComposerState extends State<ChatComposer> {
         const SingleActivator(LogicalKeyboardKey.enter): () => _send(composer),
         const SingleActivator(LogicalKeyboardKey.numpadEnter): () =>
             _send(composer),
+        if (widget.editingMessage != null)
+          const SingleActivator(LogicalKeyboardKey.escape): _cancelEdit,
       },
       child: Container(
         key: const ValueKey('chat-composer'),
@@ -591,6 +692,7 @@ class _ChatComposerState extends State<ChatComposer> {
                               onPressed:
                                   _pickingGif ||
                                       _pickingEmoji ||
+                                      _savingEdit ||
                                       !(_chat?.canSendMessage(
                                             widget.siteUrl,
                                             widget.channelId,
@@ -623,6 +725,8 @@ class _ChatComposerState extends State<ChatComposer> {
                         onPressed:
                             _pickingGif ||
                                 _pickingEmoji ||
+                                _savingEdit ||
+                                widget.editingMessage != null ||
                                 !(_chat?.canSendMessage(
                                       widget.siteUrl,
                                       widget.channelId,
@@ -645,14 +749,24 @@ class _ChatComposerState extends State<ChatComposer> {
                   onPressed:
                       _pickingGif ||
                           _pickingEmoji ||
+                          _savingEdit ||
                           !composer.canSubmit ||
                           composer.hasActiveUploads ||
                           !(_chat?.canSendMessageTo(widget.siteUrl, _target) ??
                               false)
                       ? null
                       : () => _send(composer),
-                  icon: const DIcon(DIcons.paperPlane, size: 18),
-                  tooltip: 'Send message',
+                  icon: _savingEdit
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const DIcon(DIcons.paperPlane, size: 18),
+                  tooltip: widget.editingMessage == null
+                      ? 'Send message'
+                      : 'Save edit',
                   variant: DButtonVariant.transparentPrimary,
                 ),
               ),
@@ -665,6 +779,74 @@ class _ChatComposerState extends State<ChatComposer> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ChatComposerEditDetails extends StatelessWidget {
+  const _ChatComposerEditDetails({
+    required this.message,
+    required this.saving,
+    required this.onCancel,
+  });
+
+  final ChatMessage message;
+  final bool saving;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final excerpt = message.raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final author = message.author.username.isEmpty
+        ? message.author.displayName
+        : '@${message.author.username}';
+    return Container(
+      key: const ValueKey('chat-composer-editing'),
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          const DIcon(DIcons.pencil, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Editing $author',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (excerpt.isNotEmpty)
+                  Text(
+                    excerpt,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          IconButton(
+            key: const ValueKey('chat-composer-edit-cancel'),
+            onPressed: saving ? null : onCancel,
+            icon: const DIcon(DIcons.xmark, size: 16),
+            tooltip: 'Cancel edit',
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
       ),
     );
   }

@@ -118,6 +118,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   int _highlightRequest = 0;
   bool _selectingMessages = false;
   final Set<int> _selectedMessageIds = {};
+  ChatMessage? _editingMessage;
   final ChatUploadDropController _uploadDropController =
       ChatUploadDropController();
 
@@ -243,6 +244,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         onJumpToMessage: _jumpToMessage,
         canCreateThread: canCreateThread,
         onReplyInThread: (message) => _replyInThread(context, message),
+        onEdit: _editMessage,
         selectingMessages: _selectingMessages,
         selectedMessageIds: _selectedMessageIds,
         onStartSelecting: _startSelecting,
@@ -294,6 +296,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
               siteUrl: widget.siteUrl,
               channelId: widget.channelId,
               uploadDropController: _uploadDropController,
+              editingMessage: _editingMessage,
+              onEditFinished: _finishEditing,
             ),
         ],
       ),
@@ -305,6 +309,14 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       _selectingMessages = true;
       _selectedMessageIds.add(messageId);
     });
+  }
+
+  void _editMessage(ChatMessage message) {
+    setState(() => _editingMessage = message);
+  }
+
+  void _finishEditing() {
+    if (_editingMessage != null) setState(() => _editingMessage = null);
   }
 
   void _setMessageSelected(int messageId, bool selected) {
@@ -522,6 +534,7 @@ class ChatMessageStream extends StatefulWidget {
     this.onOpenThread,
     this.onJumpToMessage,
     this.onReplyInThread,
+    this.onEdit,
     this.canCreateThread = false,
     this.showThreadSummaries = true,
     this.selectingMessages = false,
@@ -542,6 +555,7 @@ class ChatMessageStream extends StatefulWidget {
   final ValueChanged<ChatThreadPreview>? onOpenThread;
   final ValueChanged<int>? onJumpToMessage;
   final ValueChanged<ChatMessage>? onReplyInThread;
+  final ValueChanged<ChatMessage>? onEdit;
   final bool canCreateThread;
   final bool showThreadSummaries;
   final bool selectingMessages;
@@ -1324,6 +1338,7 @@ class _StreamState extends State<ChatMessageStream>
                             message?.thread != null || widget.canCreateThread
                             ? widget.onReplyInThread
                             : null,
+                        onEdit: widget.onEdit,
                         showThreadSummary: widget.showThreadSummaries,
                         onSelect: id > 0 && widget.onStartSelecting != null
                             ? () => widget.onStartSelecting!(id)

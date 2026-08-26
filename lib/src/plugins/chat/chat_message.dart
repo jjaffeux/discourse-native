@@ -1112,36 +1112,39 @@ class ChatMessage with Storable<ChatMessage> {
   );
 
   /// Projects an edit while the canonical cooked echo is in flight.
-  ChatMessage withPendingEdit(String raw, ChatPreviewResult preview) =>
-      ChatMessage(
-        id: id,
-        channelId: channelId,
-        cooked: cooked,
-        author: author,
-        raw: raw,
-        createdAt: createdAt,
-        deletedAt: deletedAt,
-        deletedById: deletedById,
-        pinned: pinned,
-        availableFlags: availableFlags,
-        userFlagStatus: userFlagStatus,
-        edited: true,
-        isWebhook: isWebhook,
-        replyTo: replyTo,
-        threadId: threadId,
-        thread: thread,
-        bookmark: bookmark,
-        reactions: reactions,
-        uploads: uploads,
-        optimisticRaw: raw,
-        preview: preview,
-        stagedId: stagedId,
-        serverId: serverId,
-        canonicalReceived: false,
-        delivery: delivery,
-        sendError: sendError,
-        deliveryUncertain: deliveryUncertain,
-      );
+  ChatMessage withPendingEdit(
+    String raw,
+    ChatPreviewResult preview, {
+    List<ChatUpload>? uploads,
+  }) => ChatMessage(
+    id: id,
+    channelId: channelId,
+    cooked: cooked,
+    author: author,
+    raw: raw,
+    createdAt: createdAt,
+    deletedAt: deletedAt,
+    deletedById: deletedById,
+    pinned: pinned,
+    availableFlags: availableFlags,
+    userFlagStatus: userFlagStatus,
+    edited: true,
+    isWebhook: isWebhook,
+    replyTo: replyTo,
+    threadId: threadId,
+    thread: thread,
+    bookmark: bookmark,
+    reactions: reactions,
+    uploads: List.unmodifiable(uploads ?? this.uploads),
+    optimisticRaw: raw,
+    preview: preview,
+    stagedId: stagedId,
+    serverId: serverId,
+    canonicalReceived: false,
+    delivery: delivery,
+    sendError: sendError,
+    deliveryUncertain: deliveryUncertain,
+  );
 
   /// Restores only editable presentation state after a rejected write.
   /// Reactions, bookmarks, deletion state and thread previews may have changed
@@ -1165,7 +1168,7 @@ class ChatMessage with Storable<ChatMessage> {
     thread: thread,
     bookmark: bookmark,
     reactions: reactions,
-    uploads: uploads,
+    uploads: source.uploads,
     optimisticRaw: source.optimisticRaw,
     preview: source.preview,
     stagedId: stagedId,

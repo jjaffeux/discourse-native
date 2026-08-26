@@ -22,6 +22,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -198,6 +199,83 @@ void main() {
       expect(fixture.api.chatMessagesSent.single.message, isEmpty);
       expect(fixture.api.chatMessagesSent.single.uploadIds, [73]);
       expect(thumbnailFinder, findsNothing);
+    },
+  );
+
+  testWidgets(
+    'editing replaces the pinned composer with message text and uploads',
+    (tester) async {
+      const thumbnail =
+          'data:image/png;base64,'
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
+          'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+      final message = ChatMessage(
+        id: 7,
+        channelId: 9,
+        raw: '**before**',
+        cooked: '<p><strong>before</strong></p>',
+        author: const ChatMessageAuthor(id: 7, username: 'reader'),
+        createdAt: DateTime.utc(2026, 8, 11),
+        uploads: const [
+          ChatUpload(
+            id: 31,
+            url: 'https://chat.example/uploads/photo.png',
+            originalFilename: 'photo.png',
+            kind: ChatUploadKind.image,
+            thumbnailUrl: thumbnail,
+            width: 640,
+            height: 480,
+          ),
+        ],
+      );
+      final fixture = await _fixture(
+        pages: {
+          FakeDiscourseApi.chatMessagesKey(9): (
+            messages: [message],
+            canLoadMorePast: false,
+            canLoadMoreFuture: false,
+            targetMessageId: null,
+          ),
+        },
+        sessionUser: const DiscourseUser(id: 7, username: 'reader'),
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(_composerField(), 'unrelated draft');
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await pointer.addPointer(location: Offset.zero);
+      addTearDown(pointer.removePointer);
+      await pointer.moveTo(
+        tester.getCenter(find.byKey(ChatMessageTile.actionsKey(7))),
+      );
+      await tester.pump();
+      await tester.tap(find.byTooltip('Edit'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit message'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('chat-composer-editing')),
+        findsOneWidget,
+      );
+      expect(find.text('Editing @reader'), findsOneWidget);
+      expect(_text(tester), '**before**');
+      expect(find.text('photo.png'), findsOneWidget);
+      expect(find.byTooltip('Save edit'), findsOneWidget);
+
+      await tester.enterText(_composerField(), '**after**');
+      await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+      await tester.pumpAndSettle();
+
+      final request = fixture.api.chatMessagesEdited.single;
+      expect(request.channelId, 9);
+      expect(request.messageId, 7);
+      expect(request.message, '**after**');
+      expect(request.uploadIds, [31]);
+      expect(find.byKey(const ValueKey('chat-composer-editing')), findsNothing);
+      expect(_text(tester), isEmpty);
+      expect(find.text('photo.png'), findsNothing);
     },
   );
 

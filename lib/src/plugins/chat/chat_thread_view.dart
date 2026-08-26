@@ -332,6 +332,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   int _highlightRequest = 0;
   bool _selectingMessages = false;
   final Set<int> _selectedMessageIds = {};
+  ChatMessage? _editingMessage;
   final ChatUploadDropController _uploadDropController =
       ChatUploadDropController();
 
@@ -418,6 +419,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
         highlightRequest: _highlightRequest,
         onHighlightComplete: _clearHighlight,
         onJumpToMessage: _jumpToMessage,
+        onEdit: _editMessage,
         showThreadSummaries: false,
         selectingMessages: _selectingMessages,
         selectedMessageIds: _selectedMessageIds,
@@ -487,6 +489,8 @@ class _ChatThreadViewState extends State<ChatThreadView> {
               threadId: widget.target.threadId,
               focusRequest: _focusComposerRequest,
               uploadDropController: _uploadDropController,
+              editingMessage: _editingMessage,
+              onEditFinished: _finishEditing,
             ),
         ],
       ),
@@ -498,6 +502,14 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       _selectingMessages = true;
       _selectedMessageIds.add(messageId);
     });
+  }
+
+  void _editMessage(ChatMessage message) {
+    setState(() => _editingMessage = message);
+  }
+
+  void _finishEditing() {
+    if (_editingMessage != null) setState(() => _editingMessage = null);
   }
 
   void _setMessageSelected(int messageId, bool selected) {

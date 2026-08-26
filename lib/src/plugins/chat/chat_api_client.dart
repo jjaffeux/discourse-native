@@ -409,7 +409,7 @@ final class ChatApiClient implements ChatApi {
     return ChatMembership.fromJson(membership);
   }
 
-  /// Replaces one message's Markdown while retaining its current uploads.
+  /// Replaces one message's Markdown and selected uploads.
   @override
   Future<void> editChatMessage({
     required String siteUrl,

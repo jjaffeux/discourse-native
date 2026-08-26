@@ -46,6 +46,7 @@ class ChatMessageTile extends StatelessWidget {
     this.onOpenThread,
     this.onJumpToMessage,
     this.onReplyInThread,
+    this.onEdit,
     this.showThreadSummary = true,
     this.onSelect,
     this.selecting = false,
@@ -81,6 +82,9 @@ class ChatMessageTile extends StatelessWidget {
 
   /// Opens or creates this message's thread from the adaptive action surface.
   final ValueChanged<ChatMessage>? onReplyInThread;
+
+  /// Hands an editable message to the channel or thread's pinned composer.
+  final ValueChanged<ChatMessage>? onEdit;
 
   /// Whether to draw the thread summary embedded on an original message.
   ///
@@ -163,7 +167,7 @@ class ChatMessageTile extends StatelessWidget {
             (message.threadId == null || message.thread != null);
         final chat = PluginScope.require(context, chatControllerService);
         final canBookmark = chat.canBookmarkMessage(siteUrl, message);
-        final canEdit = chat.canEditMessage(siteUrl, message);
+        final canEdit = onEdit != null && chat.canEditMessage(siteUrl, message);
         final canDelete = chat.canDeleteMessage(siteUrl, message);
         final canPin = chat.canPinMessage(siteUrl, message);
         final canRebake = chat.canRebakeMessage(siteUrl, message);
@@ -198,6 +202,7 @@ class ChatMessageTile extends StatelessWidget {
                 onReply: canReplyInThread
                     ? () => onReplyInThread!(message)
                     : null,
+                onEdit: onEdit,
                 canBookmark: canBookmark,
                 canCopyLink: canCopyLink,
                 canCopyText: canCopyText,
@@ -223,6 +228,7 @@ class _ChatMessageActions extends StatefulWidget {
     required this.message,
     required this.contextThreadId,
     required this.onReply,
+    required this.onEdit,
     required this.canBookmark,
     required this.canCopyLink,
     required this.canCopyText,
@@ -236,6 +242,7 @@ class _ChatMessageActions extends StatefulWidget {
   final ChatMessage message;
   final int? contextThreadId;
   final VoidCallback? onReply;
+  final ValueChanged<ChatMessage>? onEdit;
   final bool canBookmark;
   final bool canCopyLink;
   final bool canCopyText;
@@ -373,14 +380,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     }
   }
 
-  Future<void> _edit() => showDialog<void>(
-    context: context,
-    builder: (context) => _ChatMessageEditor(
-      siteUrl: widget.siteUrl,
-      message: widget.message,
-      chat: PluginScope.require(context, chatControllerService),
-    ),
-  );
+  void _edit() => widget.onEdit?.call(widget.message);
 
   Future<void> _delete() async {
     final chat = PluginScope.require(context, chatControllerService);
@@ -529,7 +529,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
               title: const Text('Edit'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
-                unawaited(_edit());
+                _edit();
               },
             ),
           if (widget.onSelect != null)
@@ -691,8 +691,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       if (widget.canCopyLink)
         const CustomSemanticsAction(label: 'Copy link'): () =>
             unawaited(_copyLink()),
-      if (canEdit)
-        const CustomSemanticsAction(label: 'Edit'): () => unawaited(_edit()),
+      if (canEdit) const CustomSemanticsAction(label: 'Edit'): _edit,
       if (widget.onSelect != null)
         const CustomSemanticsAction(label: 'Select'): widget.onSelect!,
       if (canDelete)
@@ -788,7 +787,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                             if (canEdit)
                               HoverActionButton(
                                 tooltip: 'Edit',
-                                onPressed: () => unawaited(_edit()),
+                                onPressed: _edit,
                                 icon: const DIcon(DIcons.pencil, size: 16),
                               ),
                             if (widget.onSelect != null)
@@ -878,116 +877,6 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       ),
     );
   }
-}
-
-class _ChatMessageEditor extends StatefulWidget {
-  const _ChatMessageEditor({
-    required this.siteUrl,
-    required this.message,
-    required this.chat,
-  });
-
-  final String siteUrl;
-  final ChatMessage message;
-  final ChatController chat;
-
-  @override
-  State<_ChatMessageEditor> createState() => _ChatMessageEditorState();
-}
-
-class _ChatMessageEditorState extends State<_ChatMessageEditor> {
-  late final TextEditingController _text = TextEditingController(
-    text: widget.message.raw,
-  );
-  bool _saving = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    _text.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    if (_saving) return;
-    final raw = _text.text;
-    if (raw.trim().isEmpty) {
-      setState(() => _error = 'A message cannot be empty.');
-      return;
-    }
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-    final error = await widget.chat.editMessage(
-      widget.siteUrl,
-      widget.message.id,
-      raw,
-    );
-    if (!mounted) return;
-    if (error == null) {
-      Navigator.of(context).pop();
-      return;
-    }
-    setState(() {
-      _saving = false;
-      _error = error;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Edit message'),
-    content: SizedBox(
-      width: 520,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            key: const ValueKey('chat-message-edit-field'),
-            controller: _text,
-            autofocus: true,
-            enabled: !_saving,
-            minLines: 3,
-            maxLines: 8,
-            maxLength: ChatMessage.maximumEditLength,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: InputDecoration(
-              hintText: 'Message',
-              errorText: _error,
-              border: const OutlineInputBorder(),
-            ),
-            onSubmitted: (_) => unawaited(_save()),
-          ),
-          if (widget.message.uploads.isNotEmpty)
-            Text(
-              '${widget.message.uploads.length} existing '
-              '${widget.message.uploads.length == 1 ? 'attachment' : 'attachments'} will be kept.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-        ],
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: _saving ? null : () => Navigator.of(context).pop(),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        key: const ValueKey('chat-message-edit-save'),
-        onPressed: _saving ? null : () => unawaited(_save()),
-        child: _saving
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-              )
-            : const Text('Save'),
-      ),
-    ],
-  );
 }
 
 class _Tile extends StatelessWidget {
