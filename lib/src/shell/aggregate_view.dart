@@ -309,7 +309,10 @@ class _AggregateTabsBar extends StatelessWidget {
       forumName: 'Aggregate',
       items: [
         for (var index = 0; index < tabs.length; index++)
-          ForumTabItem(id: tabs[index].id, title: 'Aggregate ${index + 1}'),
+          ForumTabItem(
+            id: tabs[index].id,
+            title: tabs[index].name ?? 'Aggregate ${index + 1}',
+          ),
       ],
       selectedId: controller.activeAggregateTabId,
       onAdd: controller.canCreateAggregateTab
@@ -318,6 +321,7 @@ class _AggregateTabsBar extends StatelessWidget {
       onSelect: controller.selectAggregateTab,
       onClose: controller.closeAggregateTab,
       onReorder: controller.moveAggregateTab,
+      onRename: controller.renameAggregateTab,
     );
   }
 }
@@ -426,8 +430,9 @@ class _AggregateTopicRow extends StatelessWidget {
                 'That topic is no longer available.',
             };
             if (message != null) {
-              ScaffoldMessenger.maybeOf(context)
-                  ?.showSnackBar(SnackBar(content: Text(message)));
+              ScaffoldMessenger.maybeOf(
+                context,
+              )?.showSnackBar(SnackBar(content: Text(message)));
             }
           },
         );

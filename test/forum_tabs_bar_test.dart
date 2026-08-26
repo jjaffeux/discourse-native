@@ -177,6 +177,36 @@ void main() {
     }
   });
 
+  testWidgets('renames a tab inline after a double click', (tester) async {
+    final renamed = <(String, String)>[];
+    await _pumpBar(
+      tester,
+      items: const [first, second],
+      selectedId: first.id,
+      onRename: (id, title) => renamed.add((id, title)),
+    );
+
+    await tester.tap(find.text(first.title));
+    await tester.pump(kDoubleTapMinTime);
+    await tester.tap(find.text(first.title));
+    await tester.pump();
+
+    final editor = find.byKey(const ValueKey('forum-tab-rename-topic-1'));
+    expect(editor, findsOneWidget);
+    expect(
+      tester.widget<TextField>(editor).controller!.selection,
+      TextSelection(baseOffset: 0, extentOffset: first.title.length),
+    );
+
+    await tester.enterText(editor, 'Release planning');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    expect(renamed, [(first.id, 'Release planning')]);
+    expect(editor, findsNothing);
+    await tester.pump(kDoubleTapTimeout);
+  });
+
   testWidgets('keeps the close hover surface compact inside its hit target', (
     tester,
   ) async {
@@ -500,6 +530,7 @@ Future<void> _pumpBar(
   ValueChanged<String>? onSelect,
   ValueChanged<String>? onClose,
   void Function(String id, int newIndex)? onReorder,
+  void Function(String id, String title)? onRename,
   double width = 500,
 }) async {
   await tester.pumpWidget(
@@ -520,6 +551,7 @@ Future<void> _pumpBar(
                   onSelect: onSelect ?? (_) {},
                   onClose: onClose ?? (_) {},
                   onReorder: onReorder ?? (_, _) {},
+                  onRename: onRename,
                 ),
               ],
             ),

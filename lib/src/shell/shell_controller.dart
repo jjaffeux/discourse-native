@@ -8801,6 +8801,11 @@ class ShellController extends FrameSafeNotifier
     unawaited(aggregate.open(_instances));
   }
 
+  void renameAggregateTab(String id, String name) {
+    if (!forumTabsEnabled) return;
+    aggregate.renameTab(id, name);
+  }
+
   void closeAggregateTab(String id) {
     if (!forumTabsEnabled) return;
     final openedAnotherTab = aggregate.closeTab(id);
