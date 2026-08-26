@@ -770,14 +770,27 @@ class _ForumTabState extends State<_ForumTab> {
                       onTapOutside: (_) => _finishRenaming(),
                     ),
                   )
-                : Text(
-                    widget.item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: labelStyle,
+                : Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          widget.item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: labelStyle,
+                        ),
+                      ),
+                      if (widget.item.badge.dot &&
+                          _badgeFits(
+                            constraints.maxWidth,
+                            hasPrefix: prefix != null,
+                          ))
+                        _badge(context),
+                    ],
                   ),
           ),
           if (!_renaming &&
+              !widget.item.badge.dot &&
               _badgeFits(constraints.maxWidth, hasPrefix: prefix != null))
             _badge(context),
         ],
