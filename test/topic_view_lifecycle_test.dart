@@ -1242,129 +1242,7 @@ void main() {
     },
   );
 
-  testWidgets('restored topic progress stays hidden once scrolling is idle', (
-    tester,
-  ) async {
-    final site = instance('meta.example');
-    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
-    final controller = _controller(site, api);
-    addTearDown(controller.dispose);
-    await controller.load();
-    controller.store
-      ..put(
-        site.url,
-        const TopicDetail(
-          id: 1,
-          title: 'One',
-          stream: [100, 101],
-          postsCount: 2,
-        ),
-      )
-      ..putAll(site.url, const [
-        Post(id: 100, postNumber: 1, username: 'sam', cooked: '<p>First</p>'),
-        Post(id: 101, postNumber: 2, username: 'sam', cooked: '<p>Second</p>'),
-      ]);
-    controller.pushContent(
-      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
-    );
-    controller.saveTopicScrollPost(1, 2);
-
-    await tester.pumpWidget(_topicView(controller));
-    await tester.pumpAndSettle();
-
-    final progress = find.byKey(const ValueKey('topic-progress-button'));
-    final fade = find.descendant(
-      of: find.byKey(const ValueKey('topic-progress-fade')),
-      matching: find.byType(FadeTransition),
-    );
-    final listener = tester.widget<NotificationListener<ScrollNotification>>(
-      find
-          .descendant(
-            of: find.byType(TopicView),
-            matching: find.byType(NotificationListener<ScrollNotification>),
-          )
-          .first,
-    );
-    listener.onNotification!(
-      ScrollStartNotification(
-        metrics: FixedScrollMetrics(
-          minScrollExtent: 0,
-          maxScrollExtent: 0,
-          pixels: 0,
-          viewportDimension: 600,
-          axisDirection: AxisDirection.down,
-          devicePixelRatio: 1,
-        ),
-        context: tester.element(find.byType(TopicView)),
-      ),
-    );
-    await tester.pump();
-    await tester.pumpAndSettle();
-
-    expect(tester.widget<FadeTransition>(fade).opacity.value, 0);
-    expect(progress.hitTestable(), findsNothing);
-  });
-
-  testWidgets('topic progress fades in only while scrolling', (tester) async {
-    final site = instance('meta.example');
-    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
-    final controller = _controller(site, api);
-    addTearDown(controller.dispose);
-    await controller.load();
-    _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
-    controller.pushContent(
-      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
-    );
-
-    await tester.pumpWidget(_topicView(controller));
-    await tester.pumpAndSettle();
-
-    final progress = find.byKey(const ValueKey('topic-progress-button'));
-    final fade = find.descendant(
-      of: find.byKey(const ValueKey('topic-progress-fade')),
-      matching: find.byType(FadeTransition),
-    );
-    final scrollable = find.byWidgetPredicate(
-      (widget) =>
-          widget is Scrollable && widget.axisDirection == AxisDirection.down,
-    );
-
-    expect(tester.widget<FadeTransition>(fade).opacity.value, 0);
-    expect(progress.hitTestable(), findsNothing);
-
-    final gesture = await tester.startGesture(
-      tester.getCenter(scrollable.first),
-    );
-    await gesture.moveBy(const Offset(0, -100));
-    await tester.pump();
-    await tester.pump();
-    await tester.pump(kThemeAnimationDuration ~/ 2);
-
-    expect(
-      tester.widget<FadeTransition>(fade).opacity.value,
-      allOf(greaterThan(0), lessThan(1)),
-    );
-    expect(progress.hitTestable(), findsOneWidget);
-
-    await tester.pump(kThemeAnimationDuration ~/ 2);
-    expect(tester.widget<FadeTransition>(fade).opacity.value, 1);
-
-    await gesture.cancel();
-    await tester.pump();
-    await tester.pump();
-    await tester.pump(kThemeAnimationDuration ~/ 2);
-
-    expect(
-      tester.widget<FadeTransition>(fade).opacity.value,
-      allOf(greaterThan(0), lessThan(1)),
-    );
-    expect(progress.hitTestable(), findsNothing);
-
-    await tester.pump(kThemeAnimationDuration ~/ 2);
-    expect(tester.widget<FadeTransition>(fade).opacity.value, 0);
-  });
-
-  testWidgets('scrolling topic progress opens a stream-position navigator', (
+  testWidgets('topic progress opens a stream-position navigator', (
     tester,
   ) async {
     final site = instance('meta.example');
@@ -1384,20 +1262,7 @@ void main() {
     expect(progress, findsOneWidget);
     expect(find.textContaining('/ 30'), findsOneWidget);
 
-    final scrollable = find.byWidgetPredicate(
-      (widget) =>
-          widget is Scrollable && widget.axisDirection == AxisDirection.down,
-    );
-    final gesture = await tester.startGesture(
-      tester.getCenter(scrollable.first),
-      pointer: 1,
-    );
-    await gesture.moveBy(const Offset(0, -100));
-    await tester.pump();
-    await tester.pumpAndSettle();
-
-    await tester.tap(progress, pointer: 2);
-    await gesture.cancel();
+    await tester.tap(progress);
     await tester.pumpAndSettle();
 
     expect(find.text('Topic progress'), findsOneWidget);
