@@ -33,6 +33,9 @@ void main() {
     final forums = [
       instance('one.example', title: 'One').copyWith(user: user),
       instance('two.example', title: 'Two').copyWith(user: user),
+      instance('signed-out-one.example', title: 'Signed out one'),
+      instance('signed-out-two.example', title: 'Signed out two'),
+      instance('signed-out-three.example', title: 'Signed out three'),
     ];
     const defaultAggregatePath = '/filter.json?per_page=15';
     const firstFilterPath = '/filter.json?per_page=15&q=status%3Aopen';
@@ -110,7 +113,8 @@ void main() {
       find.byKey(ValueKey('aggregate-filter-${forums[1].url}')),
       findsOneWidget,
     );
-    expect(find.byType(TopicFilterInput), findsNWidgets(2));
+    expect(find.byType(TopicFilterInput), findsNWidgets(5));
+    expect(find.text('Save filters').hitTestable(), findsOneWidget);
 
     await tester.enterText(
       find.byKey(ValueKey('aggregate-query-${forums[0].url}')),
@@ -120,7 +124,7 @@ void main() {
       find.byKey(ValueKey('aggregate-query-${forums[1].url}')),
       'tag:ux',
     );
-    await tester.tap(find.text('Apply'));
+    await tester.tap(find.text('Save filters'));
     await tester.pumpAndSettle();
 
     expect(api.feedPaths, contains(firstFilterPath));
@@ -139,7 +143,8 @@ void main() {
     );
 
     await tester.tap(find.text('None'));
-    await tester.tap(find.text('Apply'));
+    expect(find.text('Save filters').hitTestable(), findsOneWidget);
+    await tester.tap(find.text('Save filters'));
     await tester.pumpAndSettle();
 
     expect(find.text('No forums selected'), findsOneWidget);
