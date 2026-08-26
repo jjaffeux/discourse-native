@@ -9,10 +9,8 @@ import 'user_api_key.dart';
 
 /// Opens [url] in a web auth session and returns the callback URL the site
 /// redirects to. Injectable so the flow can be tested without a browser.
-typedef WebAuthLauncher = Future<String> Function(
-  String url,
-  String callbackScheme,
-);
+typedef WebAuthLauncher =
+    Future<String> Function(String url, String callbackScheme);
 
 typedef AuthKeyPairGenerator = Future<AuthKeyPair> Function();
 

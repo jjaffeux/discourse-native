@@ -425,8 +425,9 @@ class _AggregateTopicRow extends StatelessWidget {
                 'That topic is no longer available.',
             };
             if (message != null) {
-              ScaffoldMessenger.maybeOf(context)
-                  ?.showSnackBar(SnackBar(content: Text(message)));
+              ScaffoldMessenger.maybeOf(
+                context,
+              )?.showSnackBar(SnackBar(content: Text(message)));
             }
           },
         );
