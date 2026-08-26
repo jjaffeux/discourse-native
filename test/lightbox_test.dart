@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -337,6 +338,23 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.dIcon(DIcons.download), findsOneWidget);
+    });
+
+    testWidgets('puts top controls on dark surfaces', (tester) async {
+      await pumpCooked(tester, singleImage);
+      await tester.tap(thumbnail());
+      await tester.pumpAndSettle();
+
+      IconButton button(DIconData icon) => tester.widget<IconButton>(
+        find.ancestor(of: find.dIcon(icon), matching: find.byType(IconButton)),
+      );
+
+      for (final icon in [DIcons.download, DIcons.xmark]) {
+        expect(
+          button(icon).style?.backgroundColor?.resolve({}),
+          const Color(0xBB000000),
+        );
+      }
     });
 
     testWidgets('offers no download for an image that carries no link', (
