@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/authenticator.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
+import 'package:discourse_native/src/data/push_registration.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:flutter/services.dart';
@@ -88,6 +89,48 @@ void main() {
         'https://one.example',
         'https://two.example',
       });
+    });
+
+    test('registers a macOS push token as the user API client', () async {
+      final events = <String>[];
+      final store = _FakeSecureStore(events: events);
+      final protocol = _FakeProtocol(events: events);
+      final authenticator = Authenticator(
+        store: store,
+        protocol: protocol,
+        pushRegistrations: _FakePushRegistrationProvider(
+          const PushRegistration(
+            clientId: 'macos-apns-token',
+            pushUrl: PlatformPushRegistrationProvider.macosPushUrl,
+          ),
+          events: events,
+        ),
+        keyPairGenerator: () async {
+          events.add('generate-key-pair');
+          return _pair;
+        },
+        nonceGenerator: () => 'nonce',
+        launcher: (_, _) async {
+          events.add('launch');
+          return 'discourse://auth_redirect?payload=reply';
+        },
+      );
+
+      await authenticator.connect(_site);
+
+      expect(protocol.clientId, 'macos-apns-token');
+      expect(protocol.pushUrl, PlatformPushRegistrationProvider.macosPushUrl);
+      expect(events, [
+        'read-push-registration',
+        'generate-key-pair',
+        'auth-url',
+        'launch',
+        'callback-payload',
+        'decode-payload',
+        'write-api-key',
+      ]);
+      expect(events, isNot(contains('read-client-id')));
+      expect(await authenticator.clientId(), 'macos-apns-token');
     });
 
     test(
@@ -325,6 +368,7 @@ final class _FakeProtocol extends UserApiKeyProtocol {
   String? nonce;
   String? clientId;
   String? applicationName;
+  String? pushUrl;
 
   @override
   Uri authUrl({
@@ -333,6 +377,7 @@ final class _FakeProtocol extends UserApiKeyProtocol {
     required String nonce,
     required String clientId,
     required String applicationName,
+    String? pushUrl,
   }) {
     events?.add('auth-url');
     this.siteUrl = siteUrl;
@@ -340,6 +385,7 @@ final class _FakeProtocol extends UserApiKeyProtocol {
     this.nonce = nonce;
     this.clientId = clientId;
     this.applicationName = applicationName;
+    this.pushUrl = pushUrl;
     return Uri.parse('https://authorize.invalid');
   }
 
@@ -359,6 +405,19 @@ final class _FakeProtocol extends UserApiKeyProtocol {
     this.privateKeyPem = privateKeyPem;
     if (decodeError != null) throw decodeError!;
     return _credentials;
+  }
+}
+
+final class _FakePushRegistrationProvider implements PushRegistrationProvider {
+  _FakePushRegistrationProvider(this.value, {this.events});
+
+  final PushRegistration? value;
+  final List<String>? events;
+
+  @override
+  Future<PushRegistration?> registration() async {
+    events?.add('read-push-registration');
+    return value;
   }
 }
 

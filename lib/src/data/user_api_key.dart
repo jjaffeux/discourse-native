@@ -103,7 +103,8 @@ class UserApiKeyProtocol {
   static const int maximumCallbackUrlCodeUnits = 2048;
 
   /// `session_info` gives us the username; `read`/`write` are what a client
-  /// needs to be useful. No `push` scope — there is no push server yet.
+  /// needs to be useful. `notifications` also authorizes an allowed push URL,
+  /// so a separate `push` scope is unnecessary.
   static const String scopes = 'read,write,session_info,notifications';
 
   Uri authUrl({
@@ -112,6 +113,7 @@ class UserApiKeyProtocol {
     required String nonce,
     required String clientId,
     required String applicationName,
+    String? pushUrl,
   }) {
     final site = requireSafeHttpUrl(Uri.parse(siteUrl));
     return site.replace(
@@ -120,6 +122,7 @@ class UserApiKeyProtocol {
       queryParameters: {
         'application_name': applicationName,
         'client_id': clientId,
+        'push_url': ?pushUrl,
         'scopes': scopes,
         'public_key': publicKeyPem,
         'nonce': nonce,

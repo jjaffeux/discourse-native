@@ -58,8 +58,26 @@ void main() {
       expect(url.queryParameters['client_id'], 'client-abc');
       expect(url.queryParameters['auth_redirect'], 'discourse://auth_redirect');
       expect(url.queryParameters['scopes'], contains('session_info'));
+      expect(url.queryParameters, isNot(contains('push_url')));
       // The PEM survives being put through query encoding.
       expect(url.queryParameters['public_key'], contains('BEGIN PUBLIC KEY'));
+    });
+
+    test('registers an optional push provider with the site', () {
+      final url = protocol.authUrl(
+        siteUrl: 'https://meta.discourse.org',
+        publicKeyPem: 'public',
+        nonce: 'nonce',
+        clientId: 'macos-apns-token',
+        applicationName: 'Discourse Native',
+        pushUrl: 'https://api.discourse.org/api/publish_native_macos',
+      );
+
+      expect(url.queryParameters['client_id'], 'macos-apns-token');
+      expect(
+        url.queryParameters['push_url'],
+        'https://api.discourse.org/api/publish_native_macos',
+      );
     });
 
     test('anchors the endpoint at the site origin', () {

@@ -3,13 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 
 import 'api_credentials.dart';
+import 'push_registration.dart';
 import 'secure_store.dart';
 import 'user_api_key.dart';
 
 /// Opens [url] in a web auth session and returns the callback URL the site
 /// redirects to. Injectable so the flow can be tested without a browser.
-typedef WebAuthLauncher =
-    Future<String> Function(String url, String callbackScheme);
+typedef WebAuthLauncher = Future<String> Function(
+  String url,
+  String callbackScheme,
+);
 
 typedef AuthKeyPairGenerator = Future<AuthKeyPair> Function();
 
@@ -23,12 +26,15 @@ class Authenticator implements ApiCredentialReader {
     WebAuthLauncher? launcher,
     AuthKeyPairGenerator? keyPairGenerator,
     String Function()? nonceGenerator,
+    PushRegistrationProvider? pushRegistrations,
     this.protocol = const UserApiKeyProtocol(),
     this.applicationName = 'Discourse Native',
   }) : store = store ?? SecureStore(),
        _launch = launcher ?? _launchWebAuth,
        _generateKeyPair = keyPairGenerator ?? _generateAuthKeyPair,
-       _generateNonce = nonceGenerator ?? SecureStore.randomToken;
+       _generateNonce = nonceGenerator ?? SecureStore.randomToken,
+       _pushRegistrations =
+           pushRegistrations ?? PlatformPushRegistrationProvider();
 
   final SecureStore store;
   final UserApiKeyProtocol protocol;
@@ -36,6 +42,7 @@ class Authenticator implements ApiCredentialReader {
   final WebAuthLauncher _launch;
   final AuthKeyPairGenerator _generateKeyPair;
   final String Function() _generateNonce;
+  final PushRegistrationProvider _pushRegistrations;
   final Map<String, Object> _connectionGenerations = {};
 
   static const _supersededConnection = UserApiAuthException(
@@ -48,7 +55,9 @@ class Authenticator implements ApiCredentialReader {
     final generation = Object();
     _connectionGenerations[siteUrl] = generation;
     try {
-      final clientId = await store.readOrCreateClientId();
+      final pushRegistration = await _pushRegistrations.registration();
+      final clientId =
+          pushRegistration?.clientId ?? await store.readOrCreateClientId();
       _ensureCurrent(siteUrl, generation);
       // The private half is needed only to decrypt this callback. Keeping it
       // transient avoids persisting another secret and prevents one pair from
@@ -63,6 +72,7 @@ class Authenticator implements ApiCredentialReader {
         nonce: nonce,
         clientId: clientId,
         applicationName: applicationName,
+        pushUrl: pushRegistration?.pushUrl,
       );
 
       final String callback;
@@ -137,7 +147,11 @@ class Authenticator implements ApiCredentialReader {
   /// Exposed here rather than reached for through [store], because callers want
   /// the identity, not the storage it happens to live in.
   @override
-  Future<String> clientId() => store.readOrCreateClientId();
+  Future<String> clientId() async {
+    final pushRegistration = await _pushRegistrations.registration();
+    if (pushRegistration != null) return pushRegistration.clientId;
+    return store.readOrCreateClientId();
+  }
 
   Future<void> disconnect(String siteUrl) {
     // Invalidate before the platform delete suspends. A browser callback which

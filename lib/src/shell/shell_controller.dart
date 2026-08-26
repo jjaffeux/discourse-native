@@ -11,6 +11,7 @@ import '../data/discourse_api.dart';
 import '../data/draft_store.dart';
 import '../data/emoji_picker_store.dart';
 import '../data/forum_tab_store.dart';
+import '../data/http_transport.dart';
 import '../data/instance_store.dart';
 import '../data/site_image_repository.dart';
 import '../data/site_lifecycle.dart';
@@ -657,6 +658,37 @@ class ShellController extends FrameSafeNotifier
       if (await handler.openPluginUrl(url)) return true;
     }
     return false;
+  }
+
+  /// Opens a trusted push target only when it is a safe URL owned by a
+  /// connected forum and the app has an internal route for it.
+  ///
+  /// Notification taps never fall back to the external browser: an unknown
+  /// route or forum is ignored instead of letting server-supplied data launch
+  /// another application.
+  Future<bool> openNotificationUrl(String url) async {
+    if (!loaded || url.isEmpty || url.length > TopicLink.maximumUrlLength) {
+      return false;
+    }
+
+    final Uri target;
+    try {
+      target = requireSafeHttpUrl(Uri.parse(url));
+    } on FormatException {
+      return false;
+    } on UnsafeHttpTransportException {
+      return false;
+    }
+
+    final owned = _instances.any(
+      (instance) => instance.isConnected && instance.serves(target),
+    );
+    if (!owned) return false;
+
+    final absolute = target.toString();
+    if (await openPluginUrl(absolute)) return true;
+    if (openTopicUrl(absolute)) return true;
+    return openListUrl(absolute);
   }
 
   final List<DiscourseInstance> _instances = [];

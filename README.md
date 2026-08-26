@@ -66,8 +66,27 @@ DiscourseMobile uses (`SiteManager.generateAuthURL` / `handleAuthPayload`):
 4. We decrypt it and check the nonce matches the one we sent, which is what
    stops a reply from elsewhere being replayed at us.
 
-Scopes requested: `read,write,session_info,notifications`. No `push` — there is
-no push server.
+Scopes requested: `read,write,session_info,notifications`. The `notifications`
+scope also authorizes a site-approved push URL, so a separate `push` scope is
+not needed.
+
+On iOS and macOS, connecting an account requests notification permission and
+registers the app with APNs first. Its device token becomes the user API
+`client_id`, and the handshake includes the matching publisher URL:
+
+- iOS: `https://api.discourse.org/api/publish_native_ios`
+- macOS: `https://api.discourse.org/api/publish_native_macos`
+
+If permission is denied or APNs registration is unavailable, connection still
+succeeds with the ordinary per-install client id and without a push URL. The
+forum must include the relevant endpoint in `allowed_user_api_push_urls` before
+Discourse will forward notifications to it.
+
+Opening an Apple notification whose payload contains `discourse_url` routes
+that URL inside the app. Cold-start taps wait until the connected forums have
+loaded; URLs are accepted only when they use a safe transport, belong to a
+connected forum, and match an internal topic, category/tag, or plugin route.
+They never fall back to an external browser.
 
 Two things this depends on: `discourse` is registered as a URL scheme in both
 Info.plists, and Discourse encrypts with Ruby's `public_encrypt`, i.e. **PKCS#1
