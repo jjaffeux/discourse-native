@@ -1054,6 +1054,56 @@ void main() {
     expect(api.postPageTopics, isNot(contains(2)));
   });
 
+  testWidgets('an earlier-page header can build before scroll layout', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      postsById: const {
+        1: Post(id: 1, postNumber: 1, username: 'sam', cooked: '<p>One</p>'),
+      },
+    );
+    final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([site]),
+      api: api,
+      authenticator: authenticator,
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        const TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [1, 2, 3],
+          postsCount: 3,
+        ),
+      )
+      ..putAll(site.url, const [
+        Post(id: 2, postNumber: 2, username: 'sam', cooked: '<p>Two</p>'),
+        Post(id: 3, postNumber: 3, username: 'sam', cooked: '<p>Three</p>'),
+      ]);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    await tester.pumpWidget(_topicView(controller));
+
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpAndSettle();
+
+    expect(api.postFetches, const [
+      [1],
+    ]);
+    expect(find.byKey(const ValueKey(1)), findsOneWidget);
+  });
+
   testWidgets('a queued page request stays with its shell controller', (
     tester,
   ) async {
