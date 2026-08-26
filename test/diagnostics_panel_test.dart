@@ -12,6 +12,7 @@ import 'package:discourse_native/src/shell/diagnostics_panel.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -738,6 +739,7 @@ Future<void> _pumpApp(
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
       diagnostics: diagnostics,
+      initialRootMode: ShellRootMode.forum,
       diagnosticsPlugins: [
         if (resenhaDiagnostics != null)
           ResenhaDiagnosticsPlugin(controller: resenhaDiagnostics),

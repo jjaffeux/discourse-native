@@ -40,6 +40,7 @@ void main() {
         trackers: trackers,
         updater: updater,
         updateStore: updateStore,
+        initialRootMode: ShellRootMode.forum,
       ),
     );
     await tester.pumpAndSettle();
@@ -59,6 +60,7 @@ void main() {
         trackers: trackers,
         updater: updater,
         updateStore: updateStore,
+        initialRootMode: ShellRootMode.forum,
       ),
     );
     await tester.pumpAndSettle();
@@ -119,6 +121,7 @@ void main() {
       trackers: trackers,
       updater: updater,
       updateStore: updateStore,
+      initialRootMode: ShellRootMode.forum,
     );
 
     await tester.pumpWidget(
@@ -175,6 +178,7 @@ void main() {
       trackers: trackers,
       updater: updater,
       updateStore: updateStore,
+      initialRootMode: ShellRootMode.forum,
     );
 
     await tester.pumpWidget(app(firstApi));
@@ -232,6 +236,7 @@ void main() {
       trackers: trackers,
       updater: updater,
       updateStore: updateStore,
+      initialRootMode: ShellRootMode.forum,
       diagnosticsPlugins: [ResenhaDiagnosticsPlugin(controller: diagnostics)],
     );
 
@@ -289,6 +294,7 @@ void main() {
       updater: updater,
       updateStore: updateStore,
       diagnostics: diagnostics,
+      initialRootMode: ShellRootMode.forum,
     );
 
     await tester.pumpWidget(app(firstDiagnostics));
@@ -353,6 +359,7 @@ void main() {
       updater: updater,
       updateStore: updateStore,
       diagnostics: diagnostics,
+      initialRootMode: ShellRootMode.forum,
     );
 
     await tester.pumpWidget(app(firstDiagnostics));

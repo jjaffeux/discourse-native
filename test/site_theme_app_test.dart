@@ -412,6 +412,7 @@ Future<void> _pumpApp(
       trackers: FakeSiteTracker.reset(),
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
+      initialRootMode: ShellRootMode.forum,
     ),
   );
   if (settle) await tester.pumpAndSettle();

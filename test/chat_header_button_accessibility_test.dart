@@ -5,6 +5,7 @@ import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -143,6 +144,7 @@ Future<void> _pump(
       trackers: FakeSiteTracker.reset(),
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
+      initialRootMode: ShellRootMode.forum,
       pluginManifest: bundledPluginManifestWithoutDiagnostics,
     ),
   );

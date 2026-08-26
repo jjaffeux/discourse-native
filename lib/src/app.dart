@@ -43,6 +43,7 @@ class DiscourseApp extends StatefulWidget {
     this.diagnosticsPlugins = const [],
     this.plugins,
     this.pluginManifest = corePluginManifest,
+    this.initialRootMode = ShellRootMode.aggregate,
   }) : assert(
          plugins == null || identical(pluginManifest, corePluginManifest),
          'Pass plugins or pluginManifest, not both.',
@@ -60,6 +61,7 @@ class DiscourseApp extends StatefulWidget {
   final List<DiagnosticsPlugin> diagnosticsPlugins;
   final InstalledPlugins? plugins;
   final PluginManifest pluginManifest;
+  final ShellRootMode initialRootMode;
 
   @override
   State<DiscourseApp> createState() => _DiscourseAppState();
@@ -98,6 +100,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     updateStore: _updateStore,
     plugins: _plugins,
     ownsApi: false,
+    initialRootMode: widget.initialRootMode,
   );
 
   @override

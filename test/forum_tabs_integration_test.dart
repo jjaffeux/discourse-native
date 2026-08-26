@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
@@ -479,6 +480,7 @@ Future<void> _pumpShell(
       trackers: FakeSiteTracker.reset(),
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
+      initialRootMode: ShellRootMode.forum,
     ),
   );
   await tester.pumpAndSettle();

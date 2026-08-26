@@ -11,6 +11,7 @@ import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/draft_list.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
@@ -546,6 +547,7 @@ Future<_Fixture> _pump(
       trackers: FakeSiteTracker.reset(),
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
+      initialRootMode: ShellRootMode.forum,
     ),
   );
   await tester.pumpAndSettle();
