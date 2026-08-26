@@ -2,6 +2,8 @@ import Cocoa
 import FlutterMacOS
 
 class MainFlutterWindow: NSWindow {
+  private var windowChannel: FlutterMethodChannel?
+
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
     self.contentViewController = flutterViewController
@@ -29,11 +31,42 @@ class MainFlutterWindow: NSWindow {
     MacOSPushNotifications.shared.attach(
       to: flutterViewController.engine.binaryMessenger
     )
+    attachWindowChannel(to: flutterViewController.engine.binaryMessenger)
 
     super.awakeFromNib()
+  }
+
+  private func attachWindowChannel(to messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: "org.discourse.native/window",
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "toggleMaximized" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      guard let self else {
+        result(
+          FlutterError(
+            code: "window_unavailable",
+            message: "The app window is no longer available.",
+            details: nil
+          )
+        )
+        return
+      }
+      toggleWindowZoom(self)
+      result(nil)
+    }
+    windowChannel = channel
   }
 }
 
 func disableContentViewWindowDragging(_ window: NSWindow) {
   window.isMovableByWindowBackground = false
+}
+
+func toggleWindowZoom(_ window: NSWindow) {
+  window.zoom(nil)
 }

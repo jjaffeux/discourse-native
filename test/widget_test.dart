@@ -434,6 +434,43 @@ void main() {
       }
     });
 
+    testWidgets('double clicking the macOS title strip toggles window zoom', (
+      tester,
+    ) async {
+      final calls = <MethodCall>[];
+      const channel = MethodChannel('org.discourse.native/window');
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+        call,
+      ) async {
+        calls.add(call);
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await pumpShell(tester, desktop);
+        final titleBar = tester.getRect(find.byType(ShellTitleBar));
+        final background = find.byKey(ShellTitleBar.maximizeGestureKey);
+
+        expect(background, findsOneWidget);
+        await tester.tapAt(titleBar.centerLeft + const Offset(76, 0));
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.tapAt(titleBar.centerLeft + const Offset(76, 0));
+        await tester.pump(const Duration(milliseconds: 50));
+
+        expect(calls, [isMethodCall('toggleMaximized', arguments: null)]);
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+
     testWidgets('keeps compact sidebar identity above its search field', (
       tester,
     ) async {
