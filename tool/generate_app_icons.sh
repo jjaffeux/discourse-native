@@ -212,6 +212,10 @@ emit "$WORK/mark.png" 360 "$IOS_LAUNCH_SET/LaunchImage@3x.png"
 
 # --- macOS ------------------------------------------------------------------
 
+MACOS_LAUNCH_SET="macos/Runner/Assets.xcassets/LaunchLogo.imageset"
+emit "$WORK/mark.png" 192 "$MACOS_LAUNCH_SET/LaunchLogo.png"
+emit "$WORK/mark.png" 384 "$MACOS_LAUNCH_SET/LaunchLogo@2x.png"
+
 MACOS_SET="macos/Runner/Assets.xcassets/AppIcon.appiconset"
 
 # At 16px the plate shadow is smaller than a pixel, so it softens the silhouette
