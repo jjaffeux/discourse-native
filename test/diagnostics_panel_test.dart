@@ -185,8 +185,11 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
     await tester.pumpAndSettle();
 
-    await tester.drag(
-      find.byKey(const ValueKey('diagnostics-resize-handle')),
+    final panel = tester.getRect(
+      find.byKey(const ValueKey('diagnostics-panel')),
+    );
+    await tester.dragFrom(
+      Offset(panel.left + 1, panel.top + 28),
       // Flutter reserves the first 20 logical pixels for drag recognition.
       const Offset(-140, 0),
     );
@@ -217,6 +220,25 @@ void main() {
     );
   });
 
+  testWidgets('detail back button is not covered by the resize handle', (
+    tester,
+  ) async {
+    final diagnostics = await _controller();
+    _recordRequest(diagnostics);
+    await _pumpApp(tester, const Size(1000, 800), diagnostics);
+    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('https://example.test/t/42?token'));
+    await tester.pump();
+
+    expect(find.text('Event details'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('diagnostics-detail-back')));
+    await tester.pump();
+
+    expect(find.text('Diagnostics'), findsOneWidget);
+    expect(find.text('Event details'), findsNothing);
+  });
+
   testWidgets('resize handle is keyboard and semantics adjustable', (
     tester,
   ) async {
@@ -227,7 +249,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final handle = find.byKey(const ValueKey('diagnostics-resize-handle'));
-    expect(tester.getSize(handle).width, 44);
+    expect(tester.getSize(handle).width, diagnosticsPanelResizeHandleWidth);
     final node = tester.getSemantics(handle);
     final data = node.getSemanticsData();
     expect(data.label, 'Resize diagnostics panel');
