@@ -153,6 +153,35 @@ void main() {
     expect(restored.tabs.single.name, isNull);
   });
 
+  test(
+    'closing other aggregate tabs keeps and activates the requested tab',
+    () async {
+      final persistence = MemoryAggregatePreferencesPersistence();
+      final preferences = AggregatePreferencesStore(persistence: persistence);
+      final controller = AggregateFeedController(
+        api: FakeDiscourseApi(),
+        credentials: FakeApiCredentialReader(),
+        lifecycle: SiteLifecycle(),
+        store: Store(),
+        preferences: preferences,
+        readPersonalizationVersion: (_) => 0,
+        prepareTopic: (_, topic, _) => topic,
+      );
+      addTearDown(controller.dispose);
+      final keptId = controller.activeTabId;
+      controller.createTab();
+      controller.createTab();
+
+      expect(controller.closeOtherTabs(keptId), isTrue);
+
+      expect(controller.tabs.map((tab) => tab.id), [keptId]);
+      expect(controller.activeTabId, keptId);
+      final restored = await preferences.load();
+      expect(restored.tabs.map((tab) => tab.id), [keptId]);
+      expect(restored.activeTabId, keptId);
+    },
+  );
+
   test('forum selection and blank filters use only included forums', () async {
     final api = _AggregateApi(
       pages: {

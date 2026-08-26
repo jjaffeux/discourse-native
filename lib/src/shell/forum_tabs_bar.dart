@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/gestures.dart' show kPrimaryButton;
+import 'package:flutter/gestures.dart' show kPrimaryButton, kSecondaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -70,6 +70,7 @@ class ForumTabsBar extends StatefulWidget {
     required this.onSelect,
     required this.onClose,
     required this.onReorder,
+    required this.onCloseOthers,
     this.onRename,
   }) : assert(items.isNotEmpty),
        assert(items.any((item) => item.id == selectedId));
@@ -89,6 +90,7 @@ class ForumTabsBar extends StatefulWidget {
   final ValueChanged<String> onSelect;
   final ValueChanged<String> onClose;
   final void Function(String id, int newIndex) onReorder;
+  final ValueChanged<String> onCloseOthers;
   final void Function(String id, String title)? onRename;
 
   @override
@@ -215,6 +217,11 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                               onClose: () =>
                                   widget.onClose(widget.items[index].id),
                               onReorder: widget.onReorder,
+                              onCloseOthers: widget.items.length == 1
+                                  ? null
+                                  : () => widget.onCloseOthers(
+                                      widget.items[index].id,
+                                    ),
                               onRename: widget.onRename == null
                                   ? null
                                   : (title) => widget.onRename!(
@@ -254,6 +261,7 @@ class _ReorderableForumTab extends StatelessWidget {
     required this.onSelect,
     required this.onClose,
     required this.onReorder,
+    required this.onCloseOthers,
     this.onRename,
   });
 
@@ -265,6 +273,7 @@ class _ReorderableForumTab extends StatelessWidget {
   final VoidCallback onSelect;
   final VoidCallback onClose;
   final void Function(String id, int newIndex) onReorder;
+  final VoidCallback? onCloseOthers;
   final ValueChanged<String>? onRename;
 
   @override
@@ -275,6 +284,7 @@ class _ReorderableForumTab extends StatelessWidget {
       selected: selected,
       onSelect: onSelect,
       onClose: onClose,
+      onCloseOthers: onCloseOthers,
       onRename: onRename,
       onMoveLeft: index == 0 ? null : () => onReorder(item.id, index - 1),
       onMoveRight: index == itemCount - 1
@@ -303,6 +313,7 @@ class _ReorderableForumTab extends StatelessWidget {
             selectOnPointerDown: false,
             onSelect: onSelect,
             onClose: onClose,
+            onCloseOthers: onCloseOthers,
             onRename: onRename,
             onMoveLeft: index == 0 ? null : () => onReorder(item.id, index - 1),
             onMoveRight: index == itemCount - 1
@@ -467,6 +478,7 @@ class _ForumTab extends StatefulWidget {
     required this.selected,
     required this.onSelect,
     required this.onClose,
+    required this.onCloseOthers,
     this.dropTarget = false,
     this.selectOnPointerDown = true,
     this.onMoveLeft,
@@ -478,6 +490,7 @@ class _ForumTab extends StatefulWidget {
   final bool selected;
   final VoidCallback onSelect;
   final VoidCallback onClose;
+  final VoidCallback? onCloseOthers;
   final bool dropTarget;
   final bool selectOnPointerDown;
   final VoidCallback? onMoveLeft;
@@ -780,11 +793,8 @@ class _ForumTabState extends State<_ForumTab> {
         : theme.colorScheme.onSurfaceVariant;
     final closeLabel = 'Close ${widget.item.title}';
 
-    return Semantics(
-      key: ValueKey('forum-tab-${widget.item.id}'),
-      role: SemanticsRole.tab,
-      container: true,
-      explicitChildNodes: true,
+    return _ForumTabActions(
+      tabId: widget.item.id,
       selected: widget.selected,
       label: _renaming ? null : _selectionSemanticsLabel,
       onTap: widget.onSelect,
@@ -793,6 +803,8 @@ class _ForumTabState extends State<_ForumTab> {
         const CustomSemanticsAction(label: 'Move left'): ?widget.onMoveLeft,
         const CustomSemanticsAction(label: 'Move right'): ?widget.onMoveRight,
       },
+      onClose: widget.onClose,
+      onCloseOthers: widget.onCloseOthers,
       child: MouseRegion(
         key: ValueKey('forum-tab-pointer-${widget.item.id}'),
         cursor: SystemMouseCursors.click,
@@ -873,6 +885,98 @@ class _ForumTabState extends State<_ForumTab> {
                   ),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ForumTabActions extends StatefulWidget {
+  const _ForumTabActions({
+    required this.tabId,
+    required this.selected,
+    required this.label,
+    required this.onTap,
+    required this.onClose,
+    required this.onCloseOthers,
+    this.customSemanticsActions,
+    required this.child,
+  });
+
+  final String tabId;
+  final bool selected;
+  final String? label;
+  final VoidCallback onTap;
+  final VoidCallback onClose;
+  final VoidCallback? onCloseOthers;
+  final Map<CustomSemanticsAction, VoidCallback>? customSemanticsActions;
+  final Widget child;
+
+  @override
+  State<_ForumTabActions> createState() => _ForumTabActionsState();
+}
+
+class _ForumTabActionsState extends State<_ForumTabActions> {
+  static const _showActions = CustomSemanticsAction(label: 'Show tab actions');
+
+  final MenuController _menu = MenuController();
+
+  void _open(Offset? position) {
+    if (_menu.isOpen) return;
+    _menu.open(position: position);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      key: ValueKey('forum-tab-${widget.tabId}'),
+      role: SemanticsRole.tab,
+      container: true,
+      explicitChildNodes: true,
+      selected: widget.selected,
+      label: widget.label,
+      onTap: widget.onTap,
+      customSemanticsActions: {
+        ...?widget.customSemanticsActions,
+        _showActions: () => _open(null),
+      },
+      child: MenuAnchor(
+        controller: _menu,
+        style: MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        ),
+        menuChildren: [
+          MenuItemButton(
+            key: ValueKey('forum-tab-menu-close-${widget.tabId}'),
+            leadingIcon: const DIcon(DIcons.xmark, size: 16),
+            onPressed: widget.onClose,
+            child: const Text('Close tab'),
+          ),
+          MenuItemButton(
+            key: ValueKey('forum-tab-menu-close-others-${widget.tabId}'),
+            leadingIcon: const DIcon(DIcons.xmark, size: 16),
+            onPressed: widget.onCloseOthers,
+            child: const Text('Close other tabs'),
+          ),
+        ],
+        child: CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.contextMenu): () =>
+                _open(null),
+            const SingleActivator(LogicalKeyboardKey.f10, shift: true): () =>
+                _open(null),
+          },
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (event) {
+              if (event.buttons & kSecondaryButton != 0) {
+                _open(event.localPosition);
+              }
+            },
+            child: widget.child,
           ),
         ),
       ),
@@ -1089,6 +1193,7 @@ class CurrentForumTabsBar extends StatelessWidget {
                 onSelect: controller.selectTab,
                 onClose: controller.closeTab,
                 onReorder: controller.moveTab,
+                onCloseOthers: controller.closeOtherTabs,
               );
             },
           );

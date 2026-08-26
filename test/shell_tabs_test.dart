@@ -195,6 +195,19 @@ void main() {
     ]);
   });
 
+  test('closing other tabs keeps and activates the requested tab', () {
+    final firstTabId = controller.activeTabId!;
+    controller.pushContent(_topic(303, 'Kept topic'));
+    controller.createTab();
+    controller.createTab();
+
+    controller.closeOtherTabs(firstTabId);
+
+    expect(controller.tabsForCurrentForum.map((tab) => tab.id), [firstTabId]);
+    expect(controller.activeTabId, firstTabId);
+    expect(_routeIds(controller), ['latest', 'topic-303']);
+  });
+
   test('ordinary destination changes affect only the active tab', () {
     final firstTabId = controller.activeTabId!;
     controller.pushContent(_topic(303, 'First tab topic'));
@@ -410,6 +423,7 @@ void main() {
     disabled.selectTab(tabId);
     disabled.closeTab(tabId);
     disabled.moveTab(tabId, 3);
+    disabled.closeOtherTabs(tabId);
 
     expect(disabled.tabsForCurrentForum, hasLength(1));
     expect(disabled.activeTabId, tabId);
