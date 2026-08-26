@@ -8,6 +8,8 @@ import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/topic_filter_input.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -180,6 +182,15 @@ void main() {
       expect(
         tester.widget<ForumTabsBar>(find.byType(ForumTabsBar)).items,
         hasLength(1),
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('aggregate-tabs')),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.icon == DIcons.layerGroup,
+          ),
+        ),
+        findsNothing,
       );
 
       await tester.tap(find.byKey(const ValueKey('forum-tabs-add')));

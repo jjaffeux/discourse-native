@@ -1963,7 +1963,7 @@ void main() {
     expect(find.text('VOICE ROOMS'), findsNothing);
   });
 
-  testWidgets('sidebar destinations show a background when hovered', (
+  testWidgets('sidebar destinations show a hand cursor and hover background', (
     tester,
   ) async {
     await pumpShell(tester, desktop);
@@ -1972,12 +1972,16 @@ void main() {
     final inkWell = find
         .ancestor(of: destination, matching: find.byType(InkWell))
         .first;
+    final cursor =
+        tester.widget<InkWell>(inkWell).mouseCursor! as WidgetStateMouseCursor;
     final theme = Theme.of(tester.element(destination));
     Color? background() =>
         ((tester.widget<InkWell>(inkWell).child! as Container).decoration
                 as BoxDecoration?)
             ?.color;
 
+    expect(cursor.resolve({}), SystemMouseCursors.click);
+    expect(cursor.resolve({WidgetState.disabled}), SystemMouseCursors.basic);
     expect(background(), isNull);
 
     final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -4262,7 +4266,9 @@ void main() {
       expect(find.text('Discourse homepage'), findsOneWidget);
     });
 
-    testWidgets('shows and expands reflected post links', (tester) async {
+    testWidgets('shows a hand cursor and expands reflected post links', (
+      tester,
+    ) async {
       final links = [
         for (var index = 1; index <= 6; index++)
           PostInboundLink(
@@ -4298,6 +4304,17 @@ void main() {
       expect(find.text('Source 5'), findsOneWidget);
       expect(find.text('Source 6'), findsNothing);
       expect(find.text('1 more link'), findsOneWidget);
+      expect(
+        tester
+            .widget<InkWell>(
+              find.ancestor(
+                of: find.text('Source 1'),
+                matching: find.byType(InkWell),
+              ),
+            )
+            .mouseCursor,
+        SystemMouseCursors.click,
+      );
 
       await tester.tap(find.text('1 more link'));
       await tester.pumpAndSettle();

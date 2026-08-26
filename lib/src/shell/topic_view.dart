@@ -2646,6 +2646,7 @@ class _PostInboundLinks extends StatelessWidget {
               link: true,
               label: link.title,
               child: InkWell(
+                mouseCursor: SystemMouseCursors.click,
                 borderRadius: BorderRadius.circular(4),
                 onTap: () => unawaited(
                   openLink(
