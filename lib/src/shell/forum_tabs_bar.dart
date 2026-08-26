@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -68,6 +69,7 @@ class ForumTabsBar extends StatefulWidget {
     required this.onAdd,
     required this.onSelect,
     required this.onClose,
+    required this.onReorder,
     this.onRename,
   }) : assert(items.isNotEmpty),
        assert(items.any((item) => item.id == selectedId));
@@ -86,6 +88,7 @@ class ForumTabsBar extends StatefulWidget {
   final VoidCallback? onAdd;
   final ValueChanged<String> onSelect;
   final ValueChanged<String> onClose;
+  final void Function(String id, int newIndex) onReorder;
   final void Function(String id, String title)? onRename;
 
   @override
@@ -200,15 +203,18 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                               GlobalKey.new,
                             ),
                             width: tabWidth,
-                            child: _ForumTab(
-                              key: ValueKey(widget.items[index].id),
+                            child: _ReorderableForumTab(
                               item: widget.items[index],
+                              index: index,
+                              itemCount: widget.items.length,
+                              width: tabWidth,
                               selected:
                                   widget.items[index].id == widget.selectedId,
                               onSelect: () =>
                                   widget.onSelect(widget.items[index].id),
                               onClose: () =>
                                   widget.onClose(widget.items[index].id),
+                              onReorder: widget.onReorder,
                               onRename: widget.onRename == null
                                   ? null
                                   : (title) => widget.onRename!(
@@ -233,6 +239,133 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _ReorderableForumTab extends StatelessWidget {
+  const _ReorderableForumTab({
+    required this.item,
+    required this.index,
+    required this.itemCount,
+    required this.width,
+    required this.selected,
+    required this.onSelect,
+    required this.onClose,
+    required this.onReorder,
+    this.onRename,
+  });
+
+  final ForumTabItem item;
+  final int index;
+  final int itemCount;
+  final double width;
+  final bool selected;
+  final VoidCallback onSelect;
+  final VoidCallback onClose;
+  final void Function(String id, int newIndex) onReorder;
+  final ValueChanged<String>? onRename;
+
+  @override
+  Widget build(BuildContext context) {
+    final tab = _ForumTab(
+      key: ValueKey(item.id),
+      item: item,
+      selected: selected,
+      onSelect: onSelect,
+      onClose: onClose,
+      onRename: onRename,
+      onMoveLeft: index == 0 ? null : () => onReorder(item.id, index - 1),
+      onMoveRight: index == itemCount - 1
+          ? null
+          : () => onReorder(item.id, index + 1),
+    );
+    if (itemCount < 2) return tab;
+
+    return Listener(
+      onPointerDown: (event) {
+        if (event.buttons == kPrimaryButton &&
+            event.localPosition.dx < width - ForumTabsBar.minimumActionTarget) {
+          onSelect();
+        }
+      },
+      child: DragTarget<String>(
+        onWillAcceptWithDetails: (details) => details.data != item.id,
+        onAcceptWithDetails: (details) => onReorder(details.data, index),
+        builder: (context, candidates, rejected) {
+          final dropTarget = candidates.isNotEmpty;
+          final child = _ForumTab(
+            key: ValueKey(item.id),
+            item: item,
+            selected: selected,
+            dropTarget: dropTarget,
+            selectOnPointerDown: false,
+            onSelect: onSelect,
+            onClose: onClose,
+            onRename: onRename,
+            onMoveLeft: index == 0 ? null : () => onReorder(item.id, index - 1),
+            onMoveRight: index == itemCount - 1
+                ? null
+                : () => onReorder(item.id, index + 1),
+          );
+          return Draggable<String>(
+            data: item.id,
+            axis: Axis.horizontal,
+            dragAnchorStrategy: childDragAnchorStrategy,
+            feedback: _ForumTabDragFeedback(item: item, width: width),
+            childWhenDragging: Opacity(opacity: 0.3, child: child),
+            child: child,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ForumTabDragFeedback extends StatelessWidget {
+  const _ForumTabDragFeedback({required this.item, required this.width});
+
+  final ForumTabItem item;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      elevation: 8,
+      color: theme.shell.content,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
+      child: SizedBox(
+        width: width,
+        height: ForumTabsBar.height - 5,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              if (item.icon case final icon?) ...[
+                DIcon(
+                  icon,
+                  size: 15,
+                  color: item.iconColor ?? theme.colorScheme.onSurface,
+                ),
+                const SizedBox(width: 7),
+              ],
+              Expanded(
+                child: Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: DiscourseTypography.fontDown2,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -334,6 +467,10 @@ class _ForumTab extends StatefulWidget {
     required this.selected,
     required this.onSelect,
     required this.onClose,
+    this.dropTarget = false,
+    this.selectOnPointerDown = true,
+    this.onMoveLeft,
+    this.onMoveRight,
     this.onRename,
   });
 
@@ -341,6 +478,10 @@ class _ForumTab extends StatefulWidget {
   final bool selected;
   final VoidCallback onSelect;
   final VoidCallback onClose;
+  final bool dropTarget;
+  final bool selectOnPointerDown;
+  final VoidCallback? onMoveLeft;
+  final VoidCallback? onMoveRight;
   final ValueChanged<String>? onRename;
 
   @override
@@ -373,7 +514,7 @@ class _ForumTabState extends State<_ForumTab> {
 
   void _handleTapDown(TapDownDetails _) {
     _selectedOnPointerDown = true;
-    widget.onSelect();
+    if (widget.selectOnPointerDown) widget.onSelect();
   }
 
   void _handleTap() {
@@ -647,9 +788,11 @@ class _ForumTabState extends State<_ForumTab> {
       selected: widget.selected,
       label: _renaming ? null : _selectionSemanticsLabel,
       onTap: widget.onSelect,
-      customSemanticsActions: widget.onRename == null
-          ? null
-          : {_renameAction: _startRenaming},
+      customSemanticsActions: {
+        if (widget.onRename != null) _renameAction: _startRenaming,
+        const CustomSemanticsAction(label: 'Move left'): ?widget.onMoveLeft,
+        const CustomSemanticsAction(label: 'Move right'): ?widget.onMoveRight,
+      },
       child: MouseRegion(
         key: ValueKey('forum-tab-pointer-${widget.item.id}'),
         cursor: SystemMouseCursors.click,
@@ -663,6 +806,9 @@ class _ForumTabState extends State<_ForumTab> {
                 : _hovered
                 ? theme.shell.hover
                 : Colors.transparent,
+            border: widget.dropTarget
+                ? Border.all(color: theme.colorScheme.primary, width: 2)
+                : null,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
           ),
           child: Stack(
@@ -942,6 +1088,7 @@ class CurrentForumTabsBar extends StatelessWidget {
                 onAdd: controller.canCreateTab ? controller.createTab : null,
                 onSelect: controller.selectTab,
                 onClose: controller.closeTab,
+                onReorder: controller.moveTab,
               );
             },
           );

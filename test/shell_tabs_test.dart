@@ -171,6 +171,30 @@ void main() {
     _expectTopicsRoot(controller);
   });
 
+  test('reordering tabs preserves the active tab and persists the order', () {
+    final firstTabId = controller.activeTabId!;
+    controller.createTab();
+    final secondTabId = controller.activeTabId!;
+    controller.createTab();
+    final thirdTabId = controller.activeTabId!;
+    final savesBeforeMove = forumTabs.saveCount;
+
+    controller.moveTab(firstTabId, 2);
+
+    expect(controller.tabsForCurrentForum.map((tab) => tab.id), [
+      secondTabId,
+      thirdTabId,
+      firstTabId,
+    ]);
+    expect(controller.activeTabId, thirdTabId);
+    expect(forumTabs.saveCount, savesBeforeMove + 1);
+    expect(forumTabs.workspaces.single.tabs.map((tab) => tab.id), [
+      secondTabId,
+      thirdTabId,
+      firstTabId,
+    ]);
+  });
+
   test('ordinary destination changes affect only the active tab', () {
     final firstTabId = controller.activeTabId!;
     controller.pushContent(_topic(303, 'First tab topic'));
@@ -385,6 +409,7 @@ void main() {
     disabled.createTab();
     disabled.selectTab(tabId);
     disabled.closeTab(tabId);
+    disabled.moveTab(tabId, 3);
 
     expect(disabled.tabsForCurrentForum, hasLength(1));
     expect(disabled.activeTabId, tabId);

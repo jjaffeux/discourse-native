@@ -13474,6 +13474,22 @@ void main() {
         expect(dotColor(urgentKey), theme.discourse.success);
       });
 
+      testWidgets('keeps the unread dot beside the channel label', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9, title: 'Pulse-Inbox', unread: 1)],
+        );
+
+        final label = tester.getRect(sidebarDestination('Pulse-Inbox'));
+        final dot = tester.getRect(
+          find.byKey(const ValueKey('sidebar-badge-chat-c-9')),
+        );
+
+        expect(dot.left - label.right, inInclusiveRange(0, 8));
+      });
+
       testWidgets('an open channel tab mirrors live channel presentation', (
         tester,
       ) async {

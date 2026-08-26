@@ -845,15 +845,34 @@ class _DestinationTileState extends State<_DestinationTile> {
               ),
               const SizedBox(width: _SidebarSpacing.prefixGap),
               Expanded(
-                child: Text(
-                  destination.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: foreground,
-                    fontSize: 16,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  ),
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        destination.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: foreground,
+                          fontSize: 16,
+                          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                    if (badge.isVisible && badge.dot)
+                      Container(
+                        key: ValueKey('sidebar-badge-${destination.id}'),
+                        width: 8,
+                        height: 8,
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        decoration: BoxDecoration(
+                          color: badge.urgent
+                              ? theme.discourse.success
+                              : theme.discourse.unreadIndicator,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                  ],
                 ),
               ),
               if (destination.trailingLabel case final label?)
@@ -878,27 +897,13 @@ class _DestinationTileState extends State<_DestinationTile> {
                     color: foreground,
                   ),
                 ),
-              if (badge.isVisible)
-                if (badge.dot)
-                  Container(
-                    key: ValueKey('sidebar-badge-${destination.id}'),
-                    width: 8,
-                    height: 8,
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    decoration: BoxDecoration(
-                      color: badge.urgent
-                          ? theme.discourse.success
-                          : theme.discourse.unreadIndicator,
-                      shape: BoxShape.circle,
-                    ),
-                  )
-                else
-                  Text(
-                    '${badge.count}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: foreground,
-                    ),
+              if (badge.isVisible && !badge.dot)
+                Text(
+                  '${badge.count}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: foreground,
                   ),
+                ),
               if (!context.isTouch)
                 if (destination.hoverActionBuilder case final builder?)
                   Focus(

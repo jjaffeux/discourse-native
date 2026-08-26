@@ -247,6 +247,45 @@ void main() {
     expect(api.paths, [openPath, uxPath]);
   });
 
+  test('reorders aggregate tabs without changing the active tab', () async {
+    final persistence = MemoryAggregatePreferencesPersistence();
+    final api = _AggregateApi(pages: const {});
+    final credentials = FakeApiCredentialReader();
+    final controller = _controller(
+      api,
+      credentials,
+      preferences: AggregatePreferencesStore(persistence: persistence),
+    );
+    addTearDown(controller.dispose);
+    final firstTabId = controller.activeTabId;
+    final secondTabId = controller.createTab()!;
+    final thirdTabId = controller.createTab()!;
+
+    expect(controller.moveTab(firstTabId, 2), isTrue);
+    expect(controller.tabs.map((tab) => tab.id), [
+      secondTabId,
+      thirdTabId,
+      firstTabId,
+    ]);
+    expect(controller.activeTabId, thirdTabId);
+
+    await Future<void>.delayed(Duration.zero);
+    final restored = _controller(
+      api,
+      credentials,
+      preferences: AggregatePreferencesStore(persistence: persistence),
+    );
+    addTearDown(restored.dispose);
+    await restored.loadPreferences(const []);
+
+    expect(restored.tabs.map((tab) => tab.id), [
+      secondTabId,
+      thirdTabId,
+      firstTabId,
+    ]);
+    expect(restored.activeTabId, thirdTabId);
+  });
+
   test('renames and persists an aggregate tab', () async {
     final persistence = MemoryAggregatePreferencesPersistence();
     final preferences = AggregatePreferencesStore(persistence: persistence);
