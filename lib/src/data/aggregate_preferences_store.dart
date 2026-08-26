@@ -14,13 +14,89 @@ abstract interface class AggregatePreferencesPersistence {
 
 final class AggregatePreferences {
   AggregatePreferences({
+    List<AggregateTabPreferences>? tabs,
+    String? activeTabId,
+    Set<String>? excludedForums,
+    Map<String, String>? queries,
+  }) : tabs = List.unmodifiable(
+         (tabs == null || tabs.isEmpty)
+             ? [
+                 AggregateTabPreferences(
+                   id: AggregatePreferencesStore.defaultTabId,
+                   excludedForums: excludedForums,
+                   queries: queries,
+                 ),
+               ]
+             : tabs,
+       ),
+       activeTabId =
+           activeTabId ??
+           ((tabs?.isNotEmpty ?? false)
+               ? tabs!.first.id
+               : AggregatePreferencesStore.defaultTabId);
+
+  final List<AggregateTabPreferences> tabs;
+  final String activeTabId;
+
+  AggregateTabPreferences get activeTab =>
+      tabs.firstWhere((tab) => tab.id == activeTabId, orElse: () => tabs.first);
+
+  /// Compatibility accessors for the pre-tab preferences document.
+  Set<String> get excludedForums => activeTab.excludedForums;
+  Map<String, String> get queries => activeTab.queries;
+}
+
+final class AggregateTabPreferences {
+  AggregateTabPreferences({
+    required this.id,
     Set<String>? excludedForums,
     Map<String, String>? queries,
   }) : excludedForums = Set.unmodifiable(excludedForums ?? const {}),
        queries = Map.unmodifiable(queries ?? const {});
 
+  final String id;
   final Set<String> excludedForums;
   final Map<String, String> queries;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'excluded_forums': excludedForums.toList()..sort(),
+    'queries': Map.fromEntries(
+      [
+        for (final MapEntry(:key, :value) in queries.entries)
+          if (AggregatePreferencesStore._isOrigin(key) &&
+              AggregatePreferencesStore._normalizeQuery(value).isNotEmpty)
+            MapEntry(key, AggregatePreferencesStore._normalizeQuery(value)),
+      ]..sort((left, right) => left.key.compareTo(right.key)),
+    ),
+  };
+
+  static AggregateTabPreferences? tryFromJson(Object? value) {
+    if (value is! Map) return null;
+    final id = value['id'];
+    if (id is! String || id.isEmpty || id.length > 128) return null;
+    final excluded = value['excluded_forums'];
+    final queries = value['queries'];
+    return AggregateTabPreferences(
+      id: id,
+      excludedForums: {
+        if (excluded is List)
+          for (final siteUrl in excluded)
+            if (siteUrl is String &&
+                AggregatePreferencesStore._isOrigin(siteUrl))
+              siteUrl,
+      },
+      queries: {
+        if (queries is Map)
+          for (final MapEntry(key: siteUrl, value: query) in queries.entries)
+            if (siteUrl is String &&
+                query is String &&
+                AggregatePreferencesStore._isOrigin(siteUrl) &&
+                AggregatePreferencesStore._normalizeQuery(query).isNotEmpty)
+              siteUrl: AggregatePreferencesStore._normalizeQuery(query),
+      },
+    );
+  }
 }
 
 final class SharedPreferencesAggregatePreferencesPersistence
@@ -53,7 +129,7 @@ final class MemoryAggregatePreferencesPersistence
   }
 }
 
-/// Versioned app-wide configuration for the cross-forum Aggregate feed.
+/// Versioned app-wide configuration for cross-forum Aggregate feed tabs.
 ///
 /// Exclusions are persisted instead of inclusions so a newly connected forum
 /// participates by default. A query is stored only when it is non-empty; an
@@ -70,7 +146,9 @@ final class AggregatePreferencesStore {
     : _persistence = MemoryAggregatePreferencesPersistence();
 
   static const storageKey = 'discourse_native.aggregate_preferences';
-  static const formatVersion = 2;
+  static const formatVersion = 3;
+  static const defaultTabId = 'aggregate-default';
+  static const maximumTabs = 20;
   static const maximumQueryLength = 2048;
 
   final AggregatePreferencesPersistence _persistence;
@@ -88,8 +166,28 @@ final class AggregatePreferencesStore {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return AggregatePreferences();
       final version = decoded['version'];
-      if (version != 1 && version != formatVersion) {
+      if (version != 1 && version != 2 && version != formatVersion) {
         return AggregatePreferences();
+      }
+      if (version == formatVersion) {
+        final rawTabs = decoded['tabs'];
+        if (rawTabs is! List) return AggregatePreferences();
+        final tabs = <AggregateTabPreferences>[];
+        final seen = <String>{};
+        for (final rawTab in rawTabs) {
+          if (tabs.length >= maximumTabs) break;
+          final tab = AggregateTabPreferences.tryFromJson(rawTab);
+          if (tab != null && seen.add(tab.id)) tabs.add(tab);
+        }
+        if (tabs.isEmpty) return AggregatePreferences();
+        final requestedActive = decoded['active_tab_id'];
+        return AggregatePreferences(
+          tabs: tabs,
+          activeTabId:
+              requestedActive is String && seen.contains(requestedActive)
+              ? requestedActive
+              : tabs.first.id,
+        );
       }
       final excluded = decoded['excluded_forums'];
       final queries = decoded['queries'];
@@ -100,7 +198,7 @@ final class AggregatePreferencesStore {
               if (value is String && _isOrigin(value)) value,
         },
         queries: {
-          if (version == formatVersion && queries is Map)
+          if (version == 2 && queries is Map)
             for (final MapEntry(key: siteUrl, value: query) in queries.entries)
               if (siteUrl is String &&
                   query is String &&
@@ -116,19 +214,31 @@ final class AggregatePreferencesStore {
   }
 
   Future<void> save({
-    required Set<String> excludedForums,
-    required Map<String, String> queries,
+    Set<String>? excludedForums,
+    Map<String, String>? queries,
+    Iterable<AggregateTabPreferences>? tabs,
+    String? activeTabId,
   }) {
+    final savedTabs = List<AggregateTabPreferences>.of(
+      tabs ??
+          [
+            AggregateTabPreferences(
+              id: defaultTabId,
+              excludedForums: excludedForums,
+              queries: queries,
+            ),
+          ],
+    ).take(maximumTabs).toList();
+    if (savedTabs.isEmpty) {
+      savedTabs.add(AggregateTabPreferences(id: defaultTabId));
+    }
+    final savedIds = {for (final tab in savedTabs) tab.id};
     final encoded = jsonEncode({
       'version': formatVersion,
-      'excluded_forums': excludedForums.toList()..sort(),
-      'queries': Map.fromEntries(
-        [
-          for (final MapEntry(:key, :value) in queries.entries)
-            if (_isOrigin(key) && _normalizeQuery(value).isNotEmpty)
-              MapEntry(key, _normalizeQuery(value)),
-        ]..sort((left, right) => left.key.compareTo(right.key)),
-      ),
+      'active_tab_id': savedIds.contains(activeTabId)
+          ? activeTabId
+          : savedTabs.first.id,
+      'tabs': [for (final tab in savedTabs) tab.toJson()],
     });
     return _snapshots.save(encoded);
   }

@@ -3,10 +3,12 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/aggregate_view.dart';
+import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/topic_filter_input.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -97,7 +99,6 @@ void main() {
     expect(find.text('Fresh cross-forum topic'), findsNWidgets(2));
     expect(find.text('One'), findsOneWidget);
     expect(find.text('Two'), findsOneWidget);
-
     await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
     await tester.pumpAndSettle();
     expect(find.text('Aggregate filters'), findsOneWidget);
@@ -145,5 +146,51 @@ void main() {
 
     expect(find.text('No forums selected'), findsOneWidget);
     expect(find.byType(TopicListRow), findsNothing);
+  });
+
+  testWidgets('desktop exposes aggregate tab lifecycle', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    tester.view.physicalSize = const Size(1000, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    try {
+      const user = DiscourseUser(username: 'sam');
+      final forum = instance('one.example', title: 'One').copyWith(user: user);
+      final authenticator = FakeAuthenticator()..keys[forum.url] = 'key';
+      await tester.pumpWidget(
+        DiscourseApp(
+          store: FakeInstanceStore([forum]),
+          api: FakeDiscourseApi(
+            user: user,
+            feeds: const {'/latest.json': [], '/filter.json?per_page=30': []},
+          ),
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          forumTabs: FakeForumTabStore(),
+          trackers: FakeSiteTracker.reset(),
+          updater: FakeUpdater(),
+          updateStore: FakeUpdateStore(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<ForumTabsBar>(find.byType(ForumTabsBar)).items,
+        hasLength(1),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('forum-tabs-add')));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<ForumTabsBar>(find.byType(ForumTabsBar)).items,
+        hasLength(2),
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
   });
 }
