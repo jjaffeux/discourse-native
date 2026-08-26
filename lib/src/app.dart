@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter/material.dart';
 import 'package:relative_time/relative_time.dart';
@@ -8,6 +9,7 @@ import 'data/discourse_api.dart';
 import 'data/draft_store.dart';
 import 'data/forum_tab_store.dart';
 import 'data/instance_store.dart';
+import 'data/notification_opens.dart';
 import 'data/site_tracker.dart';
 import 'data/update_store.dart';
 import 'data/updater.dart';
@@ -44,6 +46,7 @@ class DiscourseApp extends StatefulWidget {
     this.plugins,
     this.pluginManifest = corePluginManifest,
     this.initialRootMode = ShellRootMode.aggregate,
+    this.notificationOpenUrls,
   }) : assert(
          plugins == null || identical(pluginManifest, corePluginManifest),
          'Pass plugins or pluginManifest, not both.',
@@ -62,6 +65,7 @@ class DiscourseApp extends StatefulWidget {
   final InstalledPlugins? plugins;
   final PluginManifest pluginManifest;
   final ShellRootMode initialRootMode;
+  final Stream<String>? notificationOpenUrls;
 
   @override
   State<DiscourseApp> createState() => _DiscourseAppState();
@@ -81,6 +85,13 @@ class _DiscourseAppState extends State<DiscourseApp>
   late InstalledPlugins _plugins;
   late bool _ownsPlugins;
   late bool _foreground;
+  late final PlatformNotificationOpens _platformNotificationOpens;
+  StreamSubscription<String>? _notificationOpenSubscription;
+  final Queue<String> _pendingNotificationUrls = Queue<String>();
+  ShellController? _notificationNavigationController;
+  bool _drainingNotificationUrls = false;
+
+  static const _maximumPendingNotificationUrls = 16;
 
   ShellController _createController() => ShellController(
     instanceStore: _store,
@@ -118,6 +129,10 @@ class _DiscourseAppState extends State<DiscourseApp>
     _updateStore = widget.updateStore ?? UpdateStore();
     _foreground = _isForeground(WidgetsBinding.instance.lifecycleState);
     _controller = _createController()..setForeground(_foreground);
+    _platformNotificationOpens = PlatformNotificationOpens();
+    _listenToNotificationOpens(
+      widget.notificationOpenUrls ?? _platformNotificationOpens.urls,
+    );
     WidgetsBinding.instance.addObserver(this);
     unawaited(_start(_controller, _plugins));
   }
@@ -125,11 +140,20 @@ class _DiscourseAppState extends State<DiscourseApp>
   @override
   void didUpdateWidget(DiscourseApp oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(
+      widget.notificationOpenUrls,
+      oldWidget.notificationOpenUrls,
+    )) {
+      _listenToNotificationOpens(
+        widget.notificationOpenUrls ?? _platformNotificationOpens.urls,
+      );
+    }
     if (!identical(widget.diagnostics, oldWidget.diagnostics)) {
       _releaseDiagnostics(oldWidget.diagnostics);
     }
     if (!_dependenciesChanged(oldWidget)) return;
 
+    _notificationNavigationController = null;
     _controller.dispose();
     final pluginsChanged = _pluginsChanged(oldWidget);
     if (pluginsChanged && _ownsPlugins) {
@@ -197,6 +221,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_notificationOpenSubscription?.cancel());
     _controller.dispose();
     _api.close();
     if (_ownsPlugins) _closePlugins(_plugins);
@@ -216,6 +241,8 @@ class _DiscourseAppState extends State<DiscourseApp>
       );
       await controller.load();
       if (!mounted || !identical(_controller, controller)) return;
+      _notificationNavigationController = controller;
+      _drainNotificationUrls();
       await plugins.startPhase(PluginStartupPhase.appReady);
     } catch (error, stackTrace) {
       DiagnosticsSink.current.reportError(
@@ -227,6 +254,72 @@ class _DiscourseAppState extends State<DiscourseApp>
         handled: true,
         degraded: true,
       );
+    }
+  }
+
+  void _listenToNotificationOpens(Stream<String> urls) {
+    unawaited(_notificationOpenSubscription?.cancel());
+    _notificationOpenSubscription = urls.listen(
+      _queueNotificationUrl,
+      onError: (Object error, StackTrace stackTrace) {
+        DiagnosticsSink.current.reportError(
+          error,
+          stackTrace,
+          operation: 'push.notificationOpens',
+          source: 'push',
+          severity: DiagnosticSeverity.warning,
+          handled: true,
+          degraded: false,
+        );
+      },
+    );
+  }
+
+  void _queueNotificationUrl(String url) {
+    if (url.isEmpty) return;
+    _pendingNotificationUrls.addLast(url);
+    if (_pendingNotificationUrls.length > _maximumPendingNotificationUrls) {
+      _pendingNotificationUrls.removeFirst();
+    }
+    _drainNotificationUrls();
+  }
+
+  void _drainNotificationUrls() {
+    final controller = _controller;
+    if (_drainingNotificationUrls ||
+        _pendingNotificationUrls.isEmpty ||
+        !identical(_notificationNavigationController, controller)) {
+      return;
+    }
+    _drainingNotificationUrls = true;
+    unawaited(_drainNotificationUrlsWith(controller));
+  }
+
+  Future<void> _drainNotificationUrlsWith(ShellController controller) async {
+    try {
+      while (mounted &&
+          identical(_controller, controller) &&
+          _pendingNotificationUrls.isNotEmpty) {
+        final url = _pendingNotificationUrls.first;
+        try {
+          await controller.openNotificationUrl(url);
+        } catch (error, stackTrace) {
+          DiagnosticsSink.current.reportError(
+            error,
+            stackTrace,
+            operation: 'push.openNotification',
+            source: 'push',
+            severity: DiagnosticSeverity.warning,
+            handled: true,
+            degraded: false,
+          );
+        }
+        if (!mounted || !identical(_controller, controller)) return;
+        _pendingNotificationUrls.removeFirst();
+      }
+    } finally {
+      _drainingNotificationUrls = false;
+      if (mounted) _drainNotificationUrls();
     }
   }
 

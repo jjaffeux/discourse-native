@@ -26,6 +26,9 @@ class MainFlutterWindow: NSWindow {
     disableContentViewWindowDragging(self)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    MacOSPushNotifications.shared.attach(
+      to: flutterViewController.engine.binaryMessenger
+    )
 
     super.awakeFromNib()
   }
