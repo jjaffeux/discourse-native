@@ -855,7 +855,9 @@ class _DestinationTileState extends State<_DestinationTile> {
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: foreground,
                           fontSize: 16,
-                          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w400,
                         ),
                       ),
                     ),
@@ -900,9 +902,7 @@ class _DestinationTileState extends State<_DestinationTile> {
               if (badge.isVisible && !badge.dot)
                 Text(
                   '${badge.count}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: foreground,
-                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(color: foreground),
                 ),
               if (!context.isTouch)
                 if (destination.hoverActionBuilder case final builder?)
