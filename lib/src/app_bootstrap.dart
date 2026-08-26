@@ -10,6 +10,7 @@ import 'data/emoji_cache.dart';
 import 'data/media_request_coordinator.dart';
 import 'diagnostics/diagnostics.dart';
 import 'foundation/timezone_environment.dart';
+import 'macos_launch_screen.dart';
 import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
 
@@ -194,5 +195,6 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   @override
   void launchApplication() {
     runApp(DiscourseApp(diagnostics: _diagnostics, plugins: _plugins));
+    MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
   }
 }
