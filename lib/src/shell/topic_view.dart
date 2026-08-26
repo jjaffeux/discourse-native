@@ -882,10 +882,23 @@ class _TopicViewState extends State<TopicView> {
         snapshot.loadingEarlier ||
         _restoring ||
         scroll == null ||
-        !scroll.hasClients ||
-        scroll.position.extentBefore >= TopicView._loadPostsThreshold) {
+        !scroll.hasClients) {
       return;
     }
+
+    final position = scroll.position;
+    if (!position.hasContentDimensions) {
+      // The leading row can be built after the controller attaches but before
+      // its first layout supplies scroll extents. Reading extentBefore in that
+      // gap trips ScrollPosition's null assertion. Retry after this layout so
+      // a short around-post window still fetches its preceding page.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !identical(_scroll, scroll)) return;
+        _scheduleLoadEarlier(controller, snapshot);
+      });
+      return;
+    }
+    if (position.extentBefore >= TopicView._loadPostsThreshold) return;
 
     final target = (siteUrl, topicId, snapshot.postIds.first);
     if (_loadEarlierTarget == target) return;
