@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
@@ -20,6 +23,11 @@ import 'user_menu_button.dart';
 class ShellTitleBar extends StatelessWidget {
   const ShellTitleBar({super.key, this.showControls = true});
 
+  static const _windowChannel = MethodChannel('org.discourse.native/window');
+
+  @visibleForTesting
+  static const maximizeGestureKey = ValueKey('shell-title-bar-maximize');
+
   /// Whether search, chat and account actions are drawn in the reserved strip.
   final bool showControls;
 
@@ -31,6 +39,10 @@ class ShellTitleBar extends StatelessWidget {
 
   /// Where the account avatar goes when there is no strip to hold it.
   static bool get columnsCarryUserMenu => !isSupported;
+
+  static void _toggleMaximized() {
+    unawaited(_windowChannel.invokeMethod<void>('toggleMaximized'));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,8 +56,17 @@ class ShellTitleBar extends StatelessWidget {
       height: height,
       child: ColoredBox(
         color: surface,
-        child: showControls
-            ? Row(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            GestureDetector(
+              key: maximizeGestureKey,
+              behavior: HitTestBehavior.opaque,
+              onDoubleTap: _toggleMaximized,
+              child: const SizedBox.expand(),
+            ),
+            if (showControls)
+              Row(
                 children: [
                   // The traffic lights own the left end. Keeping their width in the
                   // row also leaves draggable window background around the field.
@@ -69,8 +90,9 @@ class ShellTitleBar extends StatelessWidget {
                     child: UserMenuButton(size: 26, ringColor: surface),
                   ),
                 ],
-              )
-            : null,
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -30,4 +30,20 @@ class RunnerTests: XCTestCase {
 
     XCTAssertFalse(window.isMovableByWindowBackground)
   }
+
+  func testWindowZoomUsesAppKitZoomBehavior() {
+    let window = RecordingWindow()
+
+    toggleWindowZoom(window)
+
+    XCTAssertTrue(window.didZoom)
+  }
+}
+
+private final class RecordingWindow: NSWindow {
+  var didZoom = false
+
+  override func zoom(_ sender: Any?) {
+    didZoom = true
+  }
 }
