@@ -106,10 +106,10 @@ class ChatMessageTile extends StatelessWidget {
   /// One body line and the tighter padding used inside a speaker run.
   static const double minimumChainedHeight = 28;
 
-  /// How far the desktop hover actions extend below the shortest message.
+  /// The height a live-edge row needs to contain its desktop hover actions.
   static const double hoverActionsTop = 4;
-  static const double hoverActionsBottomOverflow =
-      hoverActionsTop + HoverActionButton.height - minimumChainedHeight;
+  static const double minimumHoverActionsHeight =
+      hoverActionsTop + HoverActionButton.height;
 
   static Key threadPreviewKey(int threadId) =>
       ValueKey<String>('chat-thread-preview-$threadId');

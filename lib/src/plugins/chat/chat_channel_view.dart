@@ -577,14 +577,7 @@ class _StreamState extends State<ChatMessageStream>
   /// be a request per frame, and one that waited for the scroll to *end* would
   /// never credit a reader who keeps a channel open and idle.
   static const Duration _readInterval = Duration(milliseconds: 500);
-  static const double _streamEdgeGap = 8;
-  static const EdgeInsets _streamPadding = EdgeInsets.only(
-    top: _streamEdgeGap,
-    // A shortest chained row lets its hover actions paint below its bounds.
-    // Reserve that overflow at the live edge so the following composer does
-    // not paint over the toolbar.
-    bottom: _streamEdgeGap + ChatMessageTile.hoverActionsBottomOverflow,
-  );
+  static const EdgeInsets _streamPadding = EdgeInsets.symmetric(vertical: 8);
 
   /// Asked for the visible range, and the reason the list is measured at all.
   final ListController _list = ListController();
@@ -1322,8 +1315,17 @@ class _StreamState extends State<ChatMessageStream>
               }
 
               return switch (_itemAt(row)) {
-                ChatStreamMessage(:final id, :final chained) =>
-                  _HighlightedChatMessage(
+                ChatStreamMessage(:final id, :final chained) => ConstrainedBox(
+                  // Only a genuinely short live-edge row needs room for
+                  // its hover actions. Reserving their worst-case overflow
+                  // in the list padding leaves the same large gap after a
+                  // tall message, where the toolbar already fits.
+                  constraints: BoxConstraints(
+                    minHeight: row == 0
+                        ? ChatMessageTile.minimumHoverActionsHeight
+                        : 0,
+                  ),
+                  child: _HighlightedChatMessage(
                     highlighted: id == _highlightMessageId,
                     child: ValueListenableBuilder<ChatMessage?>(
                       valueListenable: chat.messageRef(siteUrl, id),
@@ -1350,6 +1352,7 @@ class _StreamState extends State<ChatMessageStream>
                       ),
                     ),
                   ),
+                ),
                 ChatStreamDay(:final day) => IgnorePointer(
                   ignoring: day == _floatingDay,
                   child: Opacity(

@@ -14309,6 +14309,31 @@ void main() {
         );
       });
 
+      testWidgets('keeps an ordinary newest message close to the composer', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {
+            key(9): page([msg(1, cooked: '<p>Newest</p>')]),
+          },
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        final message = tester.getRect(
+          find.byKey(const ValueKey('chat-message-1')),
+        );
+        final composer = tester.getRect(
+          find.byKey(const ValueKey('chat-composer')),
+        );
+
+        // Eight pixels at the stream edge and six above the composer.
+        expect(composer.top - message.bottom, 14);
+      });
+
       testWidgets('hides the name on a message chained to the one above', (
         tester,
       ) async {
