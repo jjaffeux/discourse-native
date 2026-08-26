@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/color_contrast.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -48,7 +49,7 @@ class UserMenuButton extends StatefulWidget {
   static const Key signUpKey = ValueKey('user-menu-sign-up');
   static const Key signInKey = ValueKey('user-menu-sign-in');
 
-  /// The dot saying there is something waiting behind the menu.
+  /// The count saying there is something waiting behind the menu.
   static const Key unreadDotKey = ValueKey('user-menu-unread');
 
   @override
@@ -128,14 +129,24 @@ class _UserMenuButtonState extends State<UserMenuButton> {
           // notifications, messages, chat, the review queue. Kept live by the site's
           // own `/notification/` channel, so it appears without the menu being
           // opened or the app being relaunched.
-          final unread =
-              (controller.accountActivity.totalsFor(siteUrl)?.badge ?? 0) > 0;
+          final unreadCount =
+              controller.accountActivity.totalsFor(siteUrl)?.badge ?? 0;
+          final badgeBackground = theme.discourse.success;
+          final badgeForeground = contrastSafeForeground(
+            background: badgeBackground,
+            backdrop: widget.ringColor ?? theme.scaffoldBackgroundColor,
+            // Core draws high-priority counts with `--secondary` on
+            // `--success`. These are the native equivalents for the current
+            // forum's resolved palette.
+            preferred: [theme.colorScheme.surface, theme.colorScheme.onSurface],
+          );
 
           final tooltip = connecting
               ? 'Connecting…'
               : account.displayName ?? 'Not signed in';
-          final semanticLabel = unread && !connecting
-              ? '$tooltip, unread activity'
+          final semanticLabel = unreadCount > 0 && !connecting
+              ? '$tooltip, $unreadCount unread '
+                    '${unreadCount == 1 ? 'item' : 'items'}'
               : tooltip;
 
           final avatar = Padding(
@@ -149,14 +160,20 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                   connecting: connecting,
                   size: widget.size,
                 ),
-                // A dot rather than the number the web shows: the rail already
-                // carries the count for every site, and repeating it here would
-                // say the same thing twice at two different sizes.
-                if (unread && !connecting)
+                // Core puts the count in a padded badge beside the avatar.
+                // Keep the native header equally legible even though the rail
+                // repeats the same total at the cross-forum level.
+                if (unreadCount > 0 && !connecting)
                   Positioned(
-                    top: -1,
-                    right: -1,
-                    child: _UnreadDot(ringColor: widget.ringColor),
+                    top: -5,
+                    right: -7,
+                    child: _UnreadBadge(
+                      count: unreadCount,
+                      background: badgeBackground,
+                      foreground: badgeForeground,
+                      ringColor:
+                          widget.ringColor ?? theme.scaffoldBackgroundColor,
+                    ),
                   ),
               ],
             ),
@@ -294,26 +311,41 @@ class _SignedOutAccountActions extends StatelessWidget {
   }
 }
 
-/// The unread mark on the avatar. Sized and coloured like the rail's badge, so
-/// the two read as the same signal at two levels of detail.
-class _UnreadDot extends StatelessWidget {
-  const _UnreadDot({this.ringColor});
+/// The unread count on the avatar, following core's compact notification pill.
+class _UnreadBadge extends StatelessWidget {
+  const _UnreadBadge({
+    required this.count,
+    required this.background,
+    required this.foreground,
+    required this.ringColor,
+  });
 
-  final Color? ringColor;
+  final int count;
+  final Color background;
+  final Color foreground;
+  final Color ringColor;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final ring = ringColor;
 
     return Container(
       key: UserMenuButton.unreadDotKey,
-      width: 10,
-      height: 10,
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.error,
-        shape: BoxShape.circle,
-        border: ring == null ? null : Border.all(color: ring, width: 2),
+        color: background,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: ringColor, width: 2),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        textAlign: TextAlign.center,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w700,
+          height: 1.2,
+        ),
       ),
     );
   }

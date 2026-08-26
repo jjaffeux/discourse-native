@@ -58,7 +58,7 @@ void main() {
       expect(
         node,
         isSemantics(
-          label: 'Reader, unread activity',
+          label: 'Reader, 2 unread items',
           isButton: true,
           hasEnabledState: true,
           isEnabled: true,

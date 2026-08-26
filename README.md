@@ -108,7 +108,9 @@ reviewables). Unread and new topics are sidebar counts, not rail badges —
 otherwise a busy site would sit permanently at a four-digit number.
 Because the rail folds those addressed kinds into one total, its badge uses the
 site's `success` colour like core's high-priority notification badge. The
-`danger` colour remains reserved for actual error surfaces.
+current site's avatar repeats that total in core's padded count pill, using the
+same `success` colour. The `danger` colour remains reserved for actual error
+surfaces.
 
 Refreshed on launch for every connected site, after connecting, and when
 switching to a site. A failure is swallowed: counters are decoration and a site
@@ -309,8 +311,9 @@ further down.
 every time anything about the account's notifications changes — an arrival, a
 read, a dismissal. It keeps [`NotificationTotals`](lib/src/models/notification_totals.dart)
 live, which is the one thing behind the rail badge, the user menu's tab counts
-and the dot on the avatar that opens it. A dot rather than the number core's
-header shows: the rail already carries the count for every site.
+and the count pill on the avatar that opens it. The avatar repeats the current
+site's exact total, as core's header does; the rail keeps the same number visible
+while switching among sites.
 
 The arithmetic is the trap. The message carries its own `unread_notifications`,
 and it is **not** the field `/notifications/totals.json` returns under that
