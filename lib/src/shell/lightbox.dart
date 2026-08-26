@@ -13,8 +13,9 @@ import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
 import 'cooked_dom.dart';
 import 'image_decode.dart';
-import 'open_link.dart';
+import 'image_download.dart';
 import 'platform.dart';
+import 'shell_scope.dart';
 import 'site_image.dart';
 
 /// Renders Discourse's post images, and the gallery behind them.
@@ -383,11 +384,13 @@ class LightboxGallery extends StatefulWidget {
     required this.images,
     required this.initialIndex,
     this.siteUrl,
+    this.imageDownloader,
   });
 
   final List<LightboxImage> images;
   final int initialIndex;
   final String? siteUrl;
+  final LightboxImageDownloader? imageDownloader;
 
   @override
   State<LightboxGallery> createState() => _LightboxGalleryState();
@@ -399,6 +402,9 @@ class _LightboxGalleryState extends State<LightboxGallery> {
   );
   late int _index = widget.initialIndex;
   bool _chromeVisible = true;
+  bool _downloading = false;
+  late final LightboxImageDownloader _imageDownloader =
+      widget.imageDownloader ?? NativeLightboxImageDownloader();
 
   @override
   void dispose() {
@@ -407,6 +413,44 @@ class _LightboxGalleryState extends State<LightboxGallery> {
   }
 
   LightboxImage get _current => widget.images[_index];
+
+  Future<void> _download() async {
+    if (_downloading) return;
+    final image = _current;
+    final url = image.downloadHref;
+    if (url == null) return;
+
+    setState(() => _downloading = true);
+    final renderObject = context.findRenderObject();
+    final shareOrigin = renderObject is RenderBox && renderObject.hasSize
+        ? renderObject.localToGlobal(Offset.zero) & renderObject.size
+        : null;
+    try {
+      final outcome = await _imageDownloader.download(
+        url: url,
+        title: image.title,
+        siteUrl: widget.siteUrl,
+        repository: ShellScope.maybeIdentityOf(context)?.siteImages,
+        sharePositionOrigin: shareOrigin,
+      );
+      if (!mounted || outcome != ImageDownloadOutcome.saved) return;
+      final filename = imageDownloadFilename(title: image.title, url: url);
+      ScaffoldMessenger.maybeOf(context)
+        ?..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Saved $filename.')));
+    } catch (error, stackTrace) {
+      reportImageError(error, stackTrace, operation: 'lightbox.download');
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(content: Text("Couldn't download image.")),
+          );
+      }
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
+  }
 
   void _step(int delta) {
     final target = _index + delta;
@@ -444,7 +488,8 @@ class _LightboxGalleryState extends State<LightboxGallery> {
                 index: _index,
                 total: widget.images.length,
                 image: _current,
-                siteUrl: widget.siteUrl,
+                downloading: _downloading,
+                onDownload: _download,
                 onStep: _step,
                 onClose: () => Navigator.of(context).maybePop(),
               ),
@@ -523,7 +568,8 @@ class _Chrome extends StatelessWidget {
     required this.index,
     required this.total,
     required this.image,
-    required this.siteUrl,
+    required this.downloading,
+    required this.onDownload,
     required this.onStep,
     required this.onClose,
   });
@@ -532,7 +578,8 @@ class _Chrome extends StatelessWidget {
   final int index;
   final int total;
   final LightboxImage image;
-  final String? siteUrl;
+  final bool downloading;
+  final VoidCallback onDownload;
   final void Function(int delta) onStep;
   final VoidCallback onClose;
 
@@ -601,8 +648,8 @@ class _Chrome extends StatelessWidget {
             if (downloadHref != null)
               _Button(
                 icon: DIcons.download,
-                tooltip: 'Download',
-                onTap: () => openLink(context, downloadHref, siteUrl: siteUrl),
+                tooltip: downloading ? 'Downloading…' : 'Download',
+                onTap: downloading ? null : onDownload,
               ),
             _Button(icon: DIcons.xmark, tooltip: 'Close', onTap: onClose),
           ],
@@ -656,7 +703,7 @@ class _Button extends StatelessWidget {
 
   final DIconData icon;
   final String tooltip;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
