@@ -13,10 +13,6 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     _ application: NSApplication,
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
   ) {
-    super.application(
-      application,
-      didRegisterForRemoteNotificationsWithDeviceToken: deviceToken
-    )
     MacOSPushNotifications.shared.didRegister(deviceToken)
   }
 
@@ -24,10 +20,6 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     _ application: NSApplication,
     didFailToRegisterForRemoteNotificationsWithError error: Error
   ) {
-    super.application(
-      application,
-      didFailToRegisterForRemoteNotificationsWithError: error
-    )
     MacOSPushNotifications.shared.didFailToRegister()
   }
 
