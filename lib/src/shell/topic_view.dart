@@ -95,7 +95,6 @@ class _TopicViewState extends State<TopicView> {
   static const Duration _readInterval = Duration(milliseconds: 500);
 
   ScrollController? _scroll;
-  ScrollPosition? _scrollPosition;
   ListController? _list;
   (String, int, int)? _topicIdentity;
   String? _tabId;
@@ -125,9 +124,6 @@ class _TopicViewState extends State<TopicView> {
   Timer? _readTimer;
   ({String siteUrl, int topicId, int postNumber, bool caughtUp})? _seen;
   int? _progressPosition;
-  bool _scrolling = false;
-  bool _pendingScrolling = false;
-  bool _scrollingUpdateScheduled = false;
   TopicPostIndexProjection? _postIndexProjection;
 
   TopicPostIndexProjection _postIndexes(List<int> postIds) {
@@ -175,12 +171,7 @@ class _TopicViewState extends State<TopicView> {
     _dayJumpToken = null;
     _seen = null;
     _progressPosition = null;
-    _scrolling = false;
-    _pendingScrolling = false;
-    _scroll = ScrollController(
-      onAttach: _attachScrollPosition,
-      onDetach: _detachScrollPosition,
-    );
+    _scroll = ScrollController();
     _list = ListController()..addListener(_noteExtentsChanged);
     _noteExtentsChanged();
   }
@@ -285,9 +276,6 @@ class _TopicViewState extends State<TopicView> {
   void _disposeControllers() {
     final scroll = _scroll;
     final list = _list;
-    final position = _scrollPosition;
-    position?.isScrollingNotifier.removeListener(_onScrollActivityChanged);
-    _scrollPosition = null;
     if (scroll == null && list == null) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -671,36 +659,6 @@ class _TopicViewState extends State<TopicView> {
   void _setProgressPosition(int position) {
     if (_progressPosition == position || !mounted) return;
     setState(() => _progressPosition = position);
-  }
-
-  void _attachScrollPosition(ScrollPosition position) {
-    final previous = _scrollPosition;
-    previous?.isScrollingNotifier.removeListener(_onScrollActivityChanged);
-    _scrollPosition = position;
-    position.isScrollingNotifier.addListener(_onScrollActivityChanged);
-    _onScrollActivityChanged();
-  }
-
-  void _detachScrollPosition(ScrollPosition position) {
-    position.isScrollingNotifier.removeListener(_onScrollActivityChanged);
-    if (!identical(_scrollPosition, position)) return;
-    _scrollPosition = null;
-    _setScrolling(false);
-  }
-
-  void _onScrollActivityChanged() {
-    _setScrolling(_scrollPosition?.isScrollingNotifier.value ?? false);
-  }
-
-  void _setScrolling(bool scrolling) {
-    _pendingScrolling = scrolling;
-    if (_scrollingUpdateScheduled || !mounted) return;
-    _scrollingUpdateScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollingUpdateScheduled = false;
-      if (!mounted || _scrolling == _pendingScrolling) return;
-      setState(() => _scrolling = _pendingScrolling);
-    });
   }
 
   void _creditReaderNow() {
@@ -1229,7 +1187,6 @@ class _TopicViewState extends State<TopicView> {
                         child: TopicProgressButton(
                           position: position,
                           total: snapshot.streamIds.length,
-                          visible: _scrolling,
                           onPressed: () => unawaited(
                             showTopicProgress(
                               context: context,
