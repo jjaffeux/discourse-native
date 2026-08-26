@@ -106,6 +106,9 @@ actually reads.
 The rail badge counts only things *addressed to you* (notifications, PMs, chat,
 reviewables). Unread and new topics are sidebar counts, not rail badges —
 otherwise a busy site would sit permanently at a four-digit number.
+Because the rail folds those addressed kinds into one total, its badge uses the
+site's `success` colour like core's high-priority notification badge. The
+`danger` colour remains reserved for actual error surfaces.
 
 Refreshed on launch for every connected site, after connecting, and when
 switching to a site. A failure is swallowed: counters are decoration and a site
@@ -936,7 +939,7 @@ so channel 9 is looked up as `'9'`; reading it as an int finds nothing and
 reports "all read". They are folded onto the channel record at parse time so a
 sidebar row watches one thing. The row draws a **dot**, not a number, which is
 what Discourse draws: the count in a busy channel moves faster than it is worth
-reading. Red for anything addressed to the reader — a mention, or any unread
+reading. Green for anything addressed to the reader — a mention, or any unread
 message in a direct channel, which is addressed to them by construction — and
 the quieter colour for an unread public channel they merely follow. A muted
 channel says nothing at all, which is what muting means.

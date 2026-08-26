@@ -489,7 +489,12 @@ class _DiagnosticsButton extends StatelessWidget {
                       // visually capped badge from adding a contradictory
                       // second number to the accessible label.
                       child: ExcludeSemantics(
-                        child: _UnreadBadge(count: unseen),
+                        child: _CountBadge(
+                          key: const ValueKey('diagnostics-rail-badge'),
+                          count: unseen,
+                          background: theme.colorScheme.error,
+                          foreground: theme.colorScheme.onError,
+                        ),
                       ),
                     ),
                   if (recordingLabels.isNotEmpty)
@@ -571,8 +576,8 @@ class _UpdateButton extends StatelessWidget {
         };
 
         // An update waiting is not a problem, so the dot is the primary colour
-        // rather than the error red _UnreadBadge uses. Same position and the
-        // same 2px ring against the rail, so the two read as one family.
+        // rather than borrowing the diagnostics badge's error role. Same
+        // position and the same 2px ring against the rail make them one family.
         final wants =
             updates.status == UpdateStatus.available ||
             updates.status == UpdateStatus.readyToInstall;
@@ -745,6 +750,15 @@ class _RailItemState extends State<_RailItem> {
         if (widget.selected) theme.shell.railForeground,
       ],
     );
+    final badgeBackground = palette?.success ?? theme.discourse.success;
+    final badgeForeground = contrastSafeForeground(
+      background: badgeBackground,
+      backdrop: railSurface,
+      // Core draws high-priority notification counts with `--secondary` on
+      // `--success`. Preserve that pairing when the forum's palette keeps it
+      // readable, then fall back safely for custom colour schemes.
+      preferred: [palette?.secondary, theme.colorScheme.surface],
+    );
     final indicatorHeight = widget.selected ? 40.0 : (_hovered ? 20.0 : 8.0);
 
     return Padding(
@@ -796,7 +810,14 @@ class _RailItemState extends State<_RailItem> {
                         Positioned(
                           right: -2,
                           bottom: -2,
-                          child: _UnreadBadge(count: widget.badgeCount),
+                          child: _CountBadge(
+                            key: ValueKey(
+                              'instance-rail-badge-${widget.instance.url}',
+                            ),
+                            count: widget.badgeCount,
+                            background: badgeBackground,
+                            foreground: badgeForeground,
+                          ),
                         ),
                     ],
                   ),
@@ -1238,10 +1259,17 @@ class _AddInstanceButton extends StatelessWidget {
   }
 }
 
-class _UnreadBadge extends StatelessWidget {
-  const _UnreadBadge({required this.count});
+class _CountBadge extends StatelessWidget {
+  const _CountBadge({
+    super.key,
+    required this.count,
+    required this.background,
+    required this.foreground,
+  });
 
   final int count;
+  final Color background;
+  final Color foreground;
 
   @override
   Widget build(BuildContext context) {
@@ -1251,7 +1279,7 @@ class _UnreadBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       constraints: const BoxConstraints(minWidth: 18),
       decoration: BoxDecoration(
-        color: theme.colorScheme.error,
+        color: background,
         borderRadius: BorderRadius.circular(9),
         border: Border.all(color: theme.shell.rail, width: 2),
       ),
@@ -1259,7 +1287,7 @@ class _UnreadBadge extends StatelessWidget {
         count > 99 ? '99+' : '$count',
         textAlign: TextAlign.center,
         style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.onError,
+          color: foreground,
           fontWeight: FontWeight.w700,
           height: 1.2,
         ),

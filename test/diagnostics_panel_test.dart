@@ -384,6 +384,16 @@ void main() {
       find.descendant(of: button, matching: find.text('99+')),
       findsOneWidget,
     );
+    final badge = find.byKey(const ValueKey('diagnostics-rail-badge'));
+    final badgeContainer = find.descendant(
+      of: badge,
+      matching: find.byType(Container),
+    );
+    final decoration = tester.widget<Container>(badgeContainer).decoration;
+    expect(
+      (decoration! as BoxDecoration).color,
+      Theme.of(tester.element(badge)).colorScheme.error,
+    );
     final node = tester.getSemantics(button);
     expect(node.label, 'Diagnostics, 105 unseen errors');
     expect(node.getSemanticsData().flagsCollection.isButton, isTrue);
