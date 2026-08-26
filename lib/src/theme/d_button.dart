@@ -17,7 +17,7 @@ enum DButtonVariant {
   link,
 }
 
-/// The three type scales used by Discourse buttons.
+/// The three type and icon-button geometry scales used by Discourse buttons.
 enum DButtonSize { small, regular, large }
 
 /// Resolved colors and border for one interaction state of a button variant.
@@ -351,12 +351,19 @@ class DButton extends StatelessWidget {
     DButtonSize.large => 18.3792,
   };
 
+  static double iconOnlyDimensionFor(DButtonSize size) => switch (size) {
+    DButtonSize.small => 40,
+    DButtonSize.regular => minimumDimension,
+    DButtonSize.large => 56,
+  };
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final buttons = theme.discourseButtons;
     final variantStyle = buttons.styleFor(variant);
     final fontSize = fontSizeFor(size);
+    final iconOnlyDimension = iconOnlyDimensionFor(size);
     final enabled = onPressed != null && !loading;
     final radius = BorderRadius.circular(buttons.borderRadius);
 
@@ -372,13 +379,13 @@ class DButton extends StatelessWidget {
 
     final style = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(
-        _iconOnly ? const Size(minimumDimension, minimumDimension) : Size.zero,
+        _iconOnly ? Size.square(iconOnlyDimension) : Size.zero,
       ),
       fixedSize: _iconOnly
-          ? const WidgetStatePropertyAll(Size.square(minimumDimension))
+          ? WidgetStatePropertyAll(Size.square(iconOnlyDimension))
           : null,
       maximumSize: _iconOnly
-          ? const WidgetStatePropertyAll(Size.square(minimumDimension))
+          ? WidgetStatePropertyAll(Size.square(iconOnlyDimension))
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(
         _iconOnly

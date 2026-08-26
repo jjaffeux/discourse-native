@@ -4117,7 +4117,7 @@ void main() {
         expect(button, findsOneWidget, reason: tooltip);
         expect(
           tester.getSize(button),
-          const Size.square(DButton.minimumDimension),
+          Size.square(DButton.iconOnlyDimensionFor(DButtonSize.small)),
           reason: tooltip,
         );
       }

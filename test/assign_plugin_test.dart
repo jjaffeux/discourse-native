@@ -215,10 +215,10 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(
-      tester.widget(find.byKey(const Key('assign-topic-header'))),
-      isA<DButton>(),
+    final button = tester.widget<DButton>(
+      find.byKey(const Key('assign-topic-header')),
     );
+    expect(button.size, DButtonSize.small);
   });
 
   testWidgets('topic header has a concise actionable semantic label', (

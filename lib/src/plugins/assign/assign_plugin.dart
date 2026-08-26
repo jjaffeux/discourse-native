@@ -141,10 +141,11 @@ final class AssignPlugin
         child: ExcludeSemantics(
           child: DButton.iconOnly(
             key: const Key('assign-topic-header'),
-            icon: const DIcon(DIcons.userPlus),
+            icon: const DIcon(DIcons.userPlus, size: 18),
             tooltip: hasAssignments ? 'View assignments' : 'Assign topic',
             onPressed: openAssignments,
             variant: DButtonVariant.flat,
+            size: DButtonSize.small,
           ),
         ),
       ),

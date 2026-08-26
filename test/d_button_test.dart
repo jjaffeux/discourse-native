@@ -44,7 +44,11 @@ void main() {
   testWidgets('icon-only buttons stay square and follow the site radius', (
     tester,
   ) async {
-    for (final radius in [0.0, 13.0]) {
+    for (final (radius, size) in [
+      (0.0, DButtonSize.small),
+      (13.0, DButtonSize.regular),
+      (0.0, DButtonSize.large),
+    ]) {
       final base = AppTheme.light;
       final buttons = base.discourseButtons.copyWith(borderRadius: radius);
       final theme = base.copyWith(
@@ -55,13 +59,14 @@ void main() {
         MaterialApp(
           theme: theme,
           themeAnimationDuration: Duration.zero,
-          home: const Scaffold(
+          home: Scaffold(
             body: Center(
               child: DButton.iconOnly(
                 tooltip: 'Action',
                 onPressed: _noop,
                 variant: DButtonVariant.flat,
-                icon: Icon(Icons.add),
+                size: size,
+                icon: const Icon(Icons.add),
               ),
             ),
           ),
@@ -72,7 +77,10 @@ void main() {
       final style = tester.widget<FilledButton>(rendered).style!;
       final shape = style.shape!.resolve({WidgetState.hovered});
 
-      expect(tester.getSize(rendered), const Size.square(48));
+      expect(
+        tester.getSize(rendered),
+        Size.square(DButton.iconOnlyDimensionFor(size)),
+      );
       expect(shape, isA<RoundedRectangleBorder>());
       expect(
         (shape! as RoundedRectangleBorder).borderRadius,
