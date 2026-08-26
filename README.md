@@ -1691,7 +1691,8 @@ and closing its tab flushes the draft before disposal.
 Forum tabs are a native-desktop capability, independent of window width. On a
 compact desktop layout, the strip stays with the main content pane and scrolls
 horizontally when its tabs no longer fit; the add action follows the final tab
-in that strip and no opened-tab count is shown. Command+1 through Command+9
+in that strip and no opened-tab count is shown. Right-clicking a tab exposes
+commands to close it or close every other tab. Command+1 through Command+9
 select those ordered tab positions on macOS; Linux and Windows use Control+1
 through Control+9. Back unwinds the active tab's stack before returning to the
 sidebar. iOS, Android, Fuchsia, and web do not show any forum-tab controls; each

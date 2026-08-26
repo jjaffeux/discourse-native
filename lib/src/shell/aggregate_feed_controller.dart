@@ -316,6 +316,21 @@ final class AggregateFeedController extends FrameSafeNotifier {
     return closedActive;
   }
 
+  bool closeOtherTabs(String id) {
+    final kept = _tabs[id];
+    if (kept == null || _tabs.length == 1) return false;
+    for (final tab in _tabs.values) {
+      if (!identical(tab, kept)) tab.invalidate();
+    }
+    _tabs
+      ..clear()
+      ..[id] = kept;
+    _activeTabId = id;
+    unawaited(_persistTabs());
+    notifySafely();
+    return true;
+  }
+
   String _nextTabId() {
     late String id;
     do {
