@@ -51,6 +51,7 @@ class DiscourseUser {
     this.hasChatEnabled,
     this.chatHeaderIndicatorPreference = ChatHeaderIndicatorPreference.allNew,
     this.doNotDisturbUntil,
+    this.doNotDisturbChannelPosition,
     this.lastChatChannelId,
     this.timezone,
     this.bookmarkAutoDeletePreference =
@@ -97,6 +98,9 @@ class DiscourseUser {
       json['chatHeaderIndicatorPreference'],
     ),
     doNotDisturbUntil: jsonDate(json['doNotDisturbUntil']),
+    doNotDisturbChannelPosition: jsonIntOrNull(
+      json['doNotDisturbChannelPosition'],
+    ),
     lastChatChannelId: jsonIntOrNull(json['lastChatChannelId']),
     timezone: json['timezone'] as String?,
     bookmarkAutoDeletePreference: BookmarkAutoDeletePreference.read(
@@ -178,6 +182,9 @@ class DiscourseUser {
   /// While this lies in the future Discourse suppresses the header indicator.
   final DateTime? doNotDisturbUntil;
 
+  /// Snapshot cursor for the account's private Do Not Disturb channel.
+  final int? doNotDisturbChannelPosition;
+
   /// The channel Discourse last served to this account, used by `/chat` on
   /// desktop and by the native shortcut as its first destination.
   final int? lastChatChannelId;
@@ -216,6 +223,7 @@ class DiscourseUser {
     'hasChatEnabled': hasChatEnabled,
     'chatHeaderIndicatorPreference': chatHeaderIndicatorPreference.wireName,
     'doNotDisturbUntil': doNotDisturbUntil?.toIso8601String(),
+    'doNotDisturbChannelPosition': doNotDisturbChannelPosition,
     'lastChatChannelId': lastChatChannelId,
     'timezone': timezone,
     'bookmarkAutoDeletePreference': bookmarkAutoDeletePreference.wireValue,
@@ -245,6 +253,34 @@ class DiscourseUser {
     hasChatEnabled: hasChatEnabled,
     chatHeaderIndicatorPreference: chatHeaderIndicatorPreference,
     doNotDisturbUntil: doNotDisturbUntil,
+    doNotDisturbChannelPosition: doNotDisturbChannelPosition,
+    lastChatChannelId: lastChatChannelId,
+    timezone: timezone,
+    bookmarkAutoDeletePreference: bookmarkAutoDeletePreference,
+  );
+
+  DiscourseUser withDoNotDisturbUntil(DateTime? until) => DiscourseUser(
+    username: username,
+    id: id,
+    name: name,
+    avatarUrl: avatarUrl,
+    status: status,
+    draftCount: draftCount,
+    canCreatePoll: canCreatePoll,
+    canAssign: canAssign,
+    canAssignGlobally: canAssignGlobally,
+    canChangePostOwner: canChangePostOwner,
+    staff: staff,
+    groups: groups,
+    ignoredUsernames: ignoredUsernames,
+    sidebarCategoryIds: sidebarCategoryIds,
+    trackedCategoryIds: trackedCategoryIds,
+    watchedCategoryIds: watchedCategoryIds,
+    watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
+    hasChatEnabled: hasChatEnabled,
+    chatHeaderIndicatorPreference: chatHeaderIndicatorPreference,
+    doNotDisturbUntil: until,
+    doNotDisturbChannelPosition: doNotDisturbChannelPosition,
     lastChatChannelId: lastChatChannelId,
     timezone: timezone,
     bookmarkAutoDeletePreference: bookmarkAutoDeletePreference,
@@ -276,6 +312,7 @@ class DiscourseUser {
       other.hasChatEnabled == hasChatEnabled &&
       other.chatHeaderIndicatorPreference == chatHeaderIndicatorPreference &&
       other.doNotDisturbUntil == doNotDisturbUntil &&
+      other.doNotDisturbChannelPosition == doNotDisturbChannelPosition &&
       other.lastChatChannelId == lastChatChannelId &&
       other.timezone == timezone &&
       other.bookmarkAutoDeletePreference == bookmarkAutoDeletePreference;
@@ -302,6 +339,7 @@ class DiscourseUser {
     hasChatEnabled,
     chatHeaderIndicatorPreference,
     doNotDisturbUntil,
+    doNotDisturbChannelPosition,
     lastChatChannelId,
     timezone,
     bookmarkAutoDeletePreference,

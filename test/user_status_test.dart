@@ -36,15 +36,17 @@ void main() {
     );
   });
 
-  test('retains status in connected-account persistence', () {
-    const user = DiscourseUser(
+  test('retains status and DND state in connected-account persistence', () {
+    final user = DiscourseUser(
       id: 7,
       username: 'sam',
-      status: UserStatus(
+      status: const UserStatus(
         description: 'Heads down',
         emoji: 'technologist',
         messageBusLastId: 17,
       ),
+      doNotDisturbUntil: DateTime.utc(2030, 2, 3, 12, 30),
+      doNotDisturbChannelPosition: 23,
     );
 
     final restored = DiscourseUser.fromJson(user.toJson());
@@ -108,7 +110,12 @@ void main() {
       emoji: 'spiral_calendar',
       messageBusLastId: 77,
     );
-    const user = DiscourseUser(id: 7, username: 'reader', status: initial);
+    const user = DiscourseUser(
+      id: 7,
+      username: 'reader',
+      status: initial,
+      doNotDisturbChannelPosition: 88,
+    );
     final authenticator = FakeAuthenticator()..keys[siteUrl] = 'key';
     final api = FakeDiscourseApi(
       user: user,
@@ -135,6 +142,7 @@ void main() {
     final tracker = FakeSiteTracker.built.single;
 
     expect(tracker.pluginChannelLastIds['/user-status'], 77);
+    expect(tracker.pluginChannelLastIds['/do-not-disturb/7'], 88);
     final savesBeforeLiveStatus = instanceStore.saveCount;
     tracker.deliverPluginMessage('/user-status', const {
       '42': {'description': 'At lunch', 'emoji': 'sandwich'},
@@ -164,19 +172,39 @@ void main() {
       isNull,
     );
 
+    tracker.deliverPluginMessage('/do-not-disturb/7', const {
+      'ends_at': 'Wed, 28 Aug 2030 12:00:00 GMT',
+    });
+    expect(
+      shell.doNotDisturb.stateFor(siteUrl).until,
+      DateTime.utc(2030, 8, 28, 12),
+    );
+    expect(
+      shell.currentInstance?.user?.doNotDisturbUntil,
+      DateTime.utc(2030, 8, 28, 12),
+    );
+
+    final statusEndsAt = DateTime.now().add(const Duration(hours: 2));
     expect(
       await shell.setUserStatus(
         siteUrl,
         description: 'Pairing',
         emoji: 'busts_in_silhouette',
+        endsAt: statusEndsAt,
+        pauseNotifications: true,
       ),
       isNull,
     );
     expect(api.userStatusesSet.single.description, 'Pairing');
+    expect(
+      api.doNotDisturbDurations.single.minutes,
+      inInclusiveRange(119, 120),
+    );
     expect(shell.currentInstance?.user?.status?.description, 'Pairing');
 
     expect(await shell.clearUserStatus(siteUrl), isNull);
     expect(api.userStatusesCleared, [siteUrl]);
+    expect(api.doNotDisturbResumes, [siteUrl]);
     expect(shell.currentInstance?.user?.status, isNull);
   });
 }

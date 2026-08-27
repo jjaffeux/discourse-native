@@ -9,6 +9,7 @@ import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
+import '../models/do_not_disturb.dart';
 import '../models/found_group.dart';
 import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
@@ -97,6 +98,7 @@ class DiscourseApi
     implements
         AccountActivityApi,
         BookmarksWriteApi,
+        DoNotDisturbApi,
         DraftsApi,
         TopicFeedsApi,
         TopicReadsApi,
@@ -386,6 +388,9 @@ class DiscourseApi
         jsonObject(user['user_option'])['bookmark_auto_delete_preference'],
       ),
       doNotDisturbUntil: jsonDate(user['do_not_disturb_until']),
+      doNotDisturbChannelPosition: jsonIntOrNull(
+        user['do_not_disturb_channel_position'],
+      ),
       lastChatChannelId: jsonIntOrNull(
         jsonObject(user['custom_fields'])['last_chat_channel_id'],
       ),
@@ -1218,6 +1223,46 @@ class DiscourseApi
   }) async {
     await _write(
       Uri.parse('$siteUrl/user-status.json'),
+      siteUrl: siteUrl,
+      method: 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+  }
+
+  /// Pauses the connected account's notifications for a core duration.
+  @override
+  Future<DateTime> enterDoNotDisturb({
+    required String siteUrl,
+    required String apiKey,
+    required DoNotDisturbDuration duration,
+    String? clientId,
+  }) async {
+    final body = await _write(
+      Uri.parse('$siteUrl/do-not-disturb.json'),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'duration': duration.wireValue},
+    );
+    final endsAt = jsonDate(body['ends_at']);
+    if (endsAt == null) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    return endsAt.toUtc();
+  }
+
+  /// Resumes notifications and releases anything shelved during the pause.
+  @override
+  Future<void> leaveDoNotDisturb({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    await _write(
+      Uri.parse('$siteUrl/do-not-disturb.json'),
       siteUrl: siteUrl,
       method: 'DELETE',
       apiKey: apiKey,

@@ -16,6 +16,7 @@ import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/do_not_disturb.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/found_group.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
@@ -462,6 +463,9 @@ class FakeDiscourseApi
     this.results = const {},
     this.failure,
     this.user,
+    this.doNotDisturbUntil,
+    this.doNotDisturbGate,
+    this.doNotDisturbFailure,
     this.totals,
     this.notificationList,
     this.replyNotificationList,
@@ -632,6 +636,10 @@ class FakeDiscourseApi
   /// Returned by [currentUser]; defaults to a plausible account.
   final DiscourseUser? user;
 
+  final DateTime? doNotDisturbUntil;
+  final Completer<void>? doNotDisturbGate;
+  final WriteException? doNotDisturbFailure;
+
   /// Returned by [notificationTotals]; null means the call fails.
   final NotificationTotals? totals;
 
@@ -773,6 +781,8 @@ class FakeDiscourseApi
   final List<({String description, String emoji, DateTime? endsAt})>
   userStatusesSet = [];
   final List<String> userStatusesCleared = [];
+  final List<DoNotDisturbDuration> doNotDisturbDurations = [];
+  final List<String> doNotDisturbResumes = [];
   final List<List<int>> postFetches = [];
 
   final List<String> feedPaths = [];
@@ -1602,6 +1612,38 @@ class FakeDiscourseApi
   }) async {
     userStatusesCleared.add(siteUrl);
     final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<DateTime> enterDoNotDisturb({
+    required String siteUrl,
+    required String apiKey,
+    required DoNotDisturbDuration duration,
+    String? clientId,
+  }) async {
+    doNotDisturbDurations.add(duration);
+    await doNotDisturbGate?.future;
+    final failure = doNotDisturbFailure;
+    if (failure != null) throw failure;
+    final configured = doNotDisturbUntil;
+    if (configured != null) return configured;
+    final now = DateTime.now();
+    final minutes = duration.minutes;
+    return minutes != null
+        ? now.add(Duration(minutes: minutes))
+        : DateTime(now.year, now.month, now.day, 23, 59, 59).toUtc();
+  }
+
+  @override
+  Future<void> leaveDoNotDisturb({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    doNotDisturbResumes.add(siteUrl);
+    await doNotDisturbGate?.future;
+    final failure = doNotDisturbFailure;
     if (failure != null) throw failure;
   }
 

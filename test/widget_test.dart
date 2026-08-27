@@ -12866,12 +12866,12 @@ void main() {
           user: DiscourseUser(
             id: 7,
             username: 'joffreyj',
-            doNotDisturbUntil: DateTime.now().add(const Duration(seconds: 1)),
+            doNotDisturbUntil: DateTime.now().add(const Duration(minutes: 1)),
           ),
         );
         expect(urgent, findsNothing);
 
-        await tester.pump(const Duration(seconds: 2));
+        await tester.pump(const Duration(minutes: 1, seconds: 1));
 
         expect(urgent, findsOneWidget);
         expect(find.text('3'), findsOneWidget);

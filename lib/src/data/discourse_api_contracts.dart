@@ -1,5 +1,6 @@
 import '../diagnostics/diagnostic_error_cause.dart';
 import '../models/bookmark.dart';
+import '../models/do_not_disturb.dart';
 import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../models/topic.dart';
@@ -118,6 +119,21 @@ class WriteException implements Exception, DiagnosticErrorCause {
   String toString() =>
       'WriteException($failure, statusCode: $statusCode, '
       'retryAfter: $retryAfter)';
+}
+
+abstract interface class DoNotDisturbApi {
+  Future<DateTime> enterDoNotDisturb({
+    required String siteUrl,
+    required String apiKey,
+    required DoNotDisturbDuration duration,
+    String? clientId,
+  });
+
+  Future<void> leaveDoNotDisturb({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  });
 }
 
 abstract interface class AccountActivityApi {

@@ -186,6 +186,29 @@ state over the confirmed result. An ambiguous create is never repeated: the
 topic is read again because a timed-out first request may already have created
 the one bookmark the target permits.
 
+### Pausing notifications
+
+The profile tab's **Pause notifications** row is the native Do Not Disturb
+control. It offers core's four durations — 30 minutes, one hour, two hours and
+until tomorrow — through `POST /do-not-disturb.json`; an active row shows its
+remaining time and resumes immediately through `DELETE` on the same route.
+Core's UTC `3000-01-01` sentinel remains active without showing a meaningless
+expiration, and the modal links to the account's web notification schedule
+until that preferences screen has a native counterpart.
+
+Each connected account subscribes to `/do-not-disturb/{user_id}` from the
+cursor in `CurrentUserSerializer`, so another client and a server notification
+schedule update the native state without a session refresh. The per-site
+controller owns expiry timers, write serialization and lifecycle leases: an
+old response cannot cross a disconnect/reconnect boundary or overwrite a newer
+live event. Its notifier is separate from shell navigation so minute ticks do
+not rebuild the app frame.
+
+The custom-status editor uses that same state. Selecting **Pause
+notifications** enters DND until the status expires, or until core's eternal
+sentinel when the status has no end; unselecting it and clearing a status leave
+DND through the normal endpoint, matching the web status service.
+
 ### Topic lists
 
 `latest`, `new`, `unread`, `top` and `messages` all share one envelope

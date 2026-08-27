@@ -32,6 +32,7 @@ import '../models/composer_upload.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
+import '../models/do_not_disturb.dart';
 import '../models/forum_workspace.dart';
 import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
@@ -67,6 +68,7 @@ import 'composer_controller.dart';
 import 'composer_pills.dart';
 import 'composer_quotes.dart';
 import 'composer_triggers.dart';
+import 'do_not_disturb_controller.dart';
 import 'draft_list_controller.dart';
 import 'post_quote.dart';
 import 'shell_search_controller.dart';
@@ -424,6 +426,14 @@ class ShellController extends FrameSafeNotifier
         lifecycle: lifecycle,
         onTotalsLoaded: _onTotalsLoaded,
       );
+
+  /// Per-site notification pauses, isolated from shell navigation rebuilds.
+  late final DoNotDisturbController doNotDisturb = DoNotDisturbController(
+    api: api,
+    credentials: authenticator,
+    lifecycle: lifecycle,
+    onCommitted: _commitDoNotDisturb,
+  );
 
   /// The connected account's server-side drafts for the full-page destination.
   late final DraftListController draftList = DraftListController(
@@ -950,6 +960,12 @@ class ShellController extends FrameSafeNotifier
     _instances
       ..clear()
       ..addAll(stored);
+    for (final instance in stored) {
+      doNotDisturb.restoreSnapshot(
+        instance.url,
+        instance.user?.doNotDisturbUntil,
+      );
+    }
     await aggregate.loadPreferences(stored);
     if (isDisposed) return;
     _durableInstanceOrder = [for (final instance in stored) instance.url];
@@ -2278,6 +2294,23 @@ class ShellController extends FrameSafeNotifier
             severity: DiagnosticSeverity.warning,
           );
         }
+        if (userId != null) {
+          try {
+            final user = _instanceAt(siteUrl)?.user;
+            tracker.watchPluginChannel(
+              '/do-not-disturb/$userId',
+              (data) => commit(() => doNotDisturb.applyMessage(siteUrl, data)),
+              lastId: user?.doNotDisturbChannelPosition,
+            );
+          } catch (error, stackTrace) {
+            _reportOperationalError(
+              error,
+              stackTrace,
+              'messageBus.subscribeDoNotDisturb',
+              severity: DiagnosticSeverity.warning,
+            );
+          }
+        }
       }
       for (final attachment
           in _pluginSession.capabilities<PluginTrackerAttachment>()) {
@@ -2355,9 +2388,9 @@ class ShellController extends FrameSafeNotifier
   ) async {
     if (!lease.isCurrent || _connectingSiteUrl == siteUrl) return null;
 
-    final DiscourseUser user;
+    final DiscourseUser responseUser;
     try {
-      user = await api.currentUser(siteUrl: siteUrl, apiKey: apiKey);
+      responseUser = await api.currentUser(siteUrl: siteUrl, apiKey: apiKey);
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return null;
       _reportOperationalError(
@@ -2369,6 +2402,8 @@ class ShellController extends FrameSafeNotifier
       // The connection is still worth opening for `/latest`.
       return null;
     }
+    if (isDisposed || !lease.isCurrent) return null;
+    final user = _acceptDoNotDisturbSnapshot(siteUrl, responseUser);
 
     var changed = false;
     final accepted = lease.commit(() {
@@ -2458,6 +2493,30 @@ class ShellController extends FrameSafeNotifier
     return true;
   }
 
+  DiscourseUser _acceptDoNotDisturbSnapshot(
+    String siteUrl,
+    DiscourseUser user,
+  ) {
+    final until = doNotDisturb.acceptSnapshot(siteUrl, user.doNotDisturbUntil);
+    return until == user.doNotDisturbUntil
+        ? user
+        : user.withDoNotDisturbUntil(until);
+  }
+
+  void _commitDoNotDisturb(String siteUrl, DateTime? until) {
+    if (isDisposed) return;
+    final instance = _instanceAt(siteUrl);
+    final user = instance?.user;
+    if (instance == null || user == null || user.doNotDisturbUntil == until) {
+      return;
+    }
+    _replaceInstance(
+      instance,
+      instance.copyWith(user: user.withDoNotDisturbUntil(until)),
+    );
+    instanceStore.save(List.of(_instances)).ignore();
+  }
+
   bool userStatusWriteInFlight(String siteUrl) =>
       _userStatusWrites.contains(siteUrl);
 
@@ -2466,6 +2525,7 @@ class ShellController extends FrameSafeNotifier
     required String description,
     required String emoji,
     DateTime? endsAt,
+    bool? pauseNotifications,
   }) async {
     final instance = _instanceAt(siteUrl);
     final user = instance?.user;
@@ -2508,6 +2568,19 @@ class ShellController extends FrameSafeNotifier
         _notify();
         instanceStore.save(List.of(_instances)).ignore();
       });
+      if (!lease.isCurrent || isDisposed) return null;
+      if (pauseNotifications case final pause?) {
+        final error = pause
+            ? await doNotDisturb.pause(
+                siteUrl,
+                endsAt == null
+                    ? doNotDisturbDurationUntil(eternalDoNotDisturbUntil)
+                    : doNotDisturbDurationUntil(endsAt),
+              )
+            : await doNotDisturb.resume(siteUrl);
+        if (!lease.isCurrent || isDisposed) return null;
+        if (error != null) return error;
+      }
       return null;
     } on WriteException catch (error) {
       return error.message;
@@ -2553,6 +2626,10 @@ class ShellController extends FrameSafeNotifier
         _notify();
         instanceStore.save(List.of(_instances)).ignore();
       });
+      if (!lease.isCurrent || isDisposed) return null;
+      final doNotDisturbError = await doNotDisturb.resume(siteUrl);
+      if (!lease.isCurrent || isDisposed) return null;
+      if (doNotDisturbError != null) return doNotDisturbError;
       return null;
     } on WriteException catch (error) {
       return error.message;
@@ -2593,6 +2670,7 @@ class ShellController extends FrameSafeNotifier
     );
     _syncTracking();
     if (!foreground) return;
+    doNotDisturb.checkExpirations();
 
     final instance = currentInstance;
     final callSite = _pluginBackgroundSiteUrl;
@@ -8464,7 +8542,7 @@ class ShellController extends FrameSafeNotifier
       }
       if (!lease.isCurrent) return;
 
-      final user = await api.currentUser(
+      final responseUser = await api.currentUser(
         siteUrl: instance.url,
         apiKey: connectedCredentials.key,
       );
@@ -8478,6 +8556,7 @@ class ShellController extends FrameSafeNotifier
       // response cannot overwrite the authenticated refresh started below.
       _forgetSiteState(instance.url);
       lease = lifecycle.capture(instance.url);
+      final user = _acceptDoNotDisturbSnapshot(instance.url, responseUser);
 
       DiscourseInstance? connected;
       final accepted = lease.commit(() {
@@ -8862,6 +8941,7 @@ class ShellController extends FrameSafeNotifier
     _sessionUsersRefreshed.remove(siteUrl);
     _assignLegacyFallbackUnavailable.remove(siteUrl);
     _sessionUserRequests.remove(siteUrl)?.ignore();
+    doNotDisturb.forget(siteUrl);
     _userStatusOverrides.remove(siteUrl);
     _userStatusWrites.remove(siteUrl);
     _disposeTracking(siteUrl);
@@ -9588,6 +9668,7 @@ class ShellController extends FrameSafeNotifier
     }
     updates.dispose();
     accountActivity.dispose();
+    doNotDisturb.dispose();
     draftList.dispose();
     topicFeeds.dispose();
     aggregate.dispose();
