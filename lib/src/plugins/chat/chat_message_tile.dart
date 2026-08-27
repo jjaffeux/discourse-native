@@ -1157,6 +1157,7 @@ class _Header extends StatelessWidget {
           child: UserCardTarget(
             username: message.author.username,
             siteUrl: siteUrl,
+            hoverColor: Colors.transparent,
             child: Text(
               message.author.displayName,
               maxLines: 1,

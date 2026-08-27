@@ -36,6 +36,31 @@ const _replyInThreadAction = CustomSemanticsAction(label: 'Reply in thread');
 const _copyLinkAction = CustomSemanticsAction(label: 'Copy link');
 
 void main() {
+  testWidgets('author name uses only a pointer cursor on hover', (
+    tester,
+  ) async {
+    final controller = await _controller(
+      _message(null, authorUsername: 'root-author'),
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+
+    final ink = find.ancestor(
+      of: find.text('Root author'),
+      matching: find.byType(InkWell),
+    );
+    final inkWell = tester.widget<InkWell>(ink);
+    final theme = Theme.of(tester.element(ink));
+
+    expect(inkWell.mouseCursor, SystemMouseCursors.click);
+    expect(inkWell.hoverColor, Colors.transparent);
+    expect(inkWell.focusColor, theme.shell.hover);
+  });
+
   testWidgets(
     'direct-reply indicator matches core and jumps to the referenced message',
     (tester) async {
@@ -1297,6 +1322,7 @@ ChatMessage _message(
   ChatThreadPreview? thread, {
   String raw = '',
   int authorId = 99,
+  String authorUsername = '',
   int? threadId,
   DateTime? deletedAt,
   bool edited = false,
@@ -1310,7 +1336,11 @@ ChatMessage _message(
   channelId: 9,
   raw: raw,
   cooked: '<p>Root message</p>',
-  author: ChatMessageAuthor(id: authorId, username: '', name: 'Root author'),
+  author: ChatMessageAuthor(
+    id: authorId,
+    username: authorUsername,
+    name: 'Root author',
+  ),
   deletedAt: deletedAt,
   edited: edited,
   pinned: pinned,

@@ -29,11 +29,13 @@ class UserCardTarget extends StatelessWidget {
     required this.username,
     required this.child,
     this.siteUrl,
+    this.hoverColor,
   });
 
   final String username;
   final Widget child;
   final String? siteUrl;
+  final Color? hoverColor;
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +55,7 @@ class UserCardTarget extends StatelessWidget {
         child: InkWell(
           mouseCursor: SystemMouseCursors.click,
           borderRadius: BorderRadius.circular(4),
-          hoverColor: theme.shell.hover,
+          hoverColor: hoverColor ?? theme.shell.hover,
           focusColor: theme.shell.hover,
           onTap: open,
           child: ExcludeSemantics(child: child),
