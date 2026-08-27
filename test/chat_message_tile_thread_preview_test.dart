@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -14,10 +16,12 @@ import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_pill.dart';
 import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
+import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/emoji_picker.dart';
 import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
@@ -27,6 +31,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 
@@ -205,6 +211,47 @@ void main() {
       }
     },
   );
+
+  testWidgets('draws emoji in the latest reply excerpt', (tester) async {
+    EmojiCache.instance = EmojiCache(
+      client: MockClient((_) async => http.Response.bytes(_emojiPng, 200)),
+    );
+    addTearDown(EmojiCache.instance.clear);
+    final thread = _thread(lastReplyExcerpt: 'That works :stuck_out_tongue:');
+    final controller = await _controller(
+      _message(thread),
+      api: FakeDiscourseApi(
+        emojisBySite: {
+          _siteUrl: const [
+            SiteEmoji(
+              name: 'stuck_out_tongue',
+              url: '/images/emoji/twitter/stuck_out_tongue.png',
+            ),
+          ],
+        },
+      ),
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+
+    final emoji = tester.widget<SiteEmojiImage>(find.byType(SiteEmojiImage));
+    expect(emoji.name, 'stuck_out_tongue');
+    expect(
+      tester.widget<EmojiImage>(find.byType(EmojiImage)).url,
+      'https://meta.example/images/emoji/twitter/stuck_out_tongue.png',
+    );
+    expect(find.byType(Image), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(
+        RegExp(r'Latest reply from Kris, now: That works :stuck_out_tongue:'),
+      ),
+      findsOneWidget,
+    );
+  });
 
   for (final activation in [
     (name: 'Enter', key: LogicalKeyboardKey.enter),
@@ -1297,12 +1344,15 @@ void main() {
   });
 }
 
-ChatThreadPreview _thread({int replyCount = 5}) => ChatThreadPreview(
+ChatThreadPreview _thread({
+  int replyCount = 5,
+  String lastReplyExcerpt = 'It works',
+}) => ChatThreadPreview(
   threadId: 3,
   replyCount: replyCount,
   lastReplyId: 42,
   lastReplyAt: DateTime.now().add(const Duration(seconds: 1)),
-  lastReplyExcerpt: 'It works',
+  lastReplyExcerpt: lastReplyExcerpt,
   lastReplyUser: const ChatMessageAuthor(
     id: 10,
     username: 'kris',
@@ -1457,6 +1507,11 @@ class _TestTile extends StatelessWidget {
     ),
   );
 }
+
+final _emojiPng = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
+  'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+);
 
 Future<void> _hoverMessage(WidgetTester tester) async {
   final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
