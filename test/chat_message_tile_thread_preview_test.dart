@@ -355,6 +355,53 @@ void main() {
     );
   }
 
+  testWidgets('selects and copies rendered chat message text', (tester) async {
+    final message = _message(null);
+    final controller = await _controller(message);
+    final copied = _watchClipboard(tester);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+
+    final selection = find.byKey(ChatMessageTile.bodySelectionKey(message.id));
+    expect(selection, findsOneWidget);
+
+    final region = tester.state<SelectionAreaState>(selection).selectableRegion;
+    region.selectAll(SelectionChangedCause.toolbar);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Copy'));
+    await tester.pumpAndSettle();
+
+    expect(copied, ['Root message']);
+  });
+
+  testWidgets('a touch long press selects the rendered message body', (
+    tester,
+  ) async {
+    final message = _message(null);
+    final controller = await _controller(message);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(
+        controller: controller,
+        onOpenThread: (_) {},
+        platform: TargetPlatform.android,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.byType(CookedHtml));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Copy'), findsOneWidget);
+    expect(find.text('Message actions'), findsNothing);
+  });
+
   testWidgets('does not show an edited marker for an unedited message', (
     tester,
   ) async {

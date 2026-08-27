@@ -123,6 +123,9 @@ class ChatMessageTile extends StatelessWidget {
   static Key editedIndicatorKey(int messageId) =>
       ValueKey<String>('chat-message-edited-$messageId');
 
+  static Key bodySelectionKey(int messageId) =>
+      ValueKey<String>('chat-message-body-selection-$messageId');
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ChatMessage?>(
@@ -903,6 +906,29 @@ class _Tile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final messageTextStyle = theme.textTheme.bodyLarge?.copyWith(height: 1.4);
+    final messageBody = switch (message) {
+      ChatMessage(canonicalReceived: true, cooked: final cooked)
+          when cooked.isNotEmpty =>
+        CookedHtml(
+          html: cooked,
+          textStyle: messageTextStyle,
+          siteUrl: siteUrl,
+          compactParagraphs: true,
+        ),
+      ChatMessage(
+        canonicalReceived: false,
+        preview: ProjectedPreview(:final document),
+      ) =>
+        ChatPreviewBody(document: document, textStyle: messageTextStyle),
+      ChatMessage(
+        canonicalReceived: false,
+        optimisticRaw: final raw?,
+        preview: final preview,
+      )
+          when preview is! ProjectedPreview =>
+        Text(raw, style: messageTextStyle),
+      _ => null,
+    };
 
     final tile = Padding(
       key: ValueKey('chat-message-${message.id}'),
@@ -976,24 +1002,13 @@ class _Tile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (!chained) _Header(siteUrl: siteUrl, message: message),
-                    if (message.canonicalReceived && message.cooked.isNotEmpty)
-                      CookedHtml(
-                        html: message.cooked,
-                        textStyle: messageTextStyle,
-                        siteUrl: siteUrl,
-                        compactParagraphs: true,
+                    if (messageBody != null)
+                      _MessageBodySelection(
+                        selectionKey: ChatMessageTile.bodySelectionKey(
+                          message.id,
+                        ),
+                        child: messageBody,
                       ),
-                    if (message.preview case ProjectedPreview(
-                      :final document,
-                    ) when !message.canonicalReceived)
-                      ChatPreviewBody(
-                        document: document,
-                        textStyle: messageTextStyle,
-                      ),
-                    if (message.optimisticRaw case final raw?
-                        when !message.canonicalReceived &&
-                            message.preview is! ProjectedPreview)
-                      Text(raw, style: messageTextStyle),
                     if (message.uploads.isNotEmpty)
                       ChatUploads(siteUrl: siteUrl, uploads: message.uploads),
                     if (message.edited)
@@ -1092,6 +1107,38 @@ class _DeliveryStatus extends StatelessWidget {
       ChatMessageDelivery.sent => const SizedBox.shrink(),
     };
   }
+}
+
+/// Keeps message text selectable without inserting an otherwise invisible
+/// stop into the row's keyboard traversal order.
+class _MessageBodySelection extends StatefulWidget {
+  const _MessageBodySelection({
+    required this.selectionKey,
+    required this.child,
+  });
+
+  final Key selectionKey;
+  final Widget child;
+
+  @override
+  State<_MessageBodySelection> createState() => _MessageBodySelectionState();
+}
+
+class _MessageBodySelectionState extends State<_MessageBodySelection> {
+  late final FocusNode _focusNode = FocusNode(skipTraversal: true);
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SelectionArea(
+    key: widget.selectionKey,
+    focusNode: _focusNode,
+    child: widget.child,
+  );
 }
 
 class _Header extends StatelessWidget {
