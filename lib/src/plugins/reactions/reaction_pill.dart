@@ -81,22 +81,20 @@ class _ReactionPickerButtonState extends State<ReactionPickerButton> {
               dimension: ReactionPill.minTarget,
               child: Material(
                 type: MaterialType.transparency,
-                child: MouseRegion(
-                  cursor: enabled
+                child: InkWell(
+                  mouseCursor: enabled
                       ? SystemMouseCursors.click
                       : SystemMouseCursors.basic,
-                  child: InkWell(
-                    onTap: enabled ? () => _open(buttonContext) : null,
-                    borderRadius: BorderRadius.circular(14),
-                    child: AnimatedOpacity(
-                      opacity: enabled ? 1 : 0.5,
-                      duration: const Duration(milliseconds: 100),
-                      child: Center(
-                        child: DIcon(
-                          DIcons.farFaceSmile,
-                          size: 18,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                  onTap: enabled ? () => _open(buttonContext) : null,
+                  borderRadius: BorderRadius.circular(14),
+                  child: AnimatedOpacity(
+                    opacity: enabled ? 1 : 0.5,
+                    duration: const Duration(milliseconds: 100),
+                    child: Center(
+                      child: DIcon(
+                        DIcons.farFaceSmile,
+                        size: 18,
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -256,12 +254,12 @@ class _ReactionPillState extends State<ReactionPill> {
             child: Material(
               type: MaterialType.transparency,
               child: MouseRegion(
-                cursor: enabled
-                    ? SystemMouseCursors.click
-                    : SystemMouseCursors.basic,
                 onEnter: enabled ? (_) => _setHovered(true) : null,
                 onExit: enabled ? (_) => _setHovered(false) : null,
                 child: InkWell(
+                  mouseCursor: enabled
+                      ? SystemMouseCursors.click
+                      : SystemMouseCursors.basic,
                   onTap: enabled ? _toggle : null,
                   onLongPress: enabled && context.isTouch ? _openSheet : null,
                   onFocusChange: _setFocused,
