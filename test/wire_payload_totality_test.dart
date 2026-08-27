@@ -21,6 +21,7 @@ import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/models/topic_link.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
+import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -143,6 +144,8 @@ const _keys = [
   'related_topics',
   'emoji',
   'status',
+  'ends_at',
+  'message_bus_last_id',
   'assigned_to_user',
   'ranked_choice',
   'link_counts',
@@ -264,6 +267,7 @@ void main() {
       );
       probe('UserCard', () => UserCard.fromJson(json, site), json);
       probe('UserDraft', () => UserDraft.fromJson(json), json);
+      probe('UserStatus', () => UserStatus.fromJson(json), json);
       probe('Topic', () => Topic.fromJson(json, const {}, site), json);
       probe(
         'TopicParticipant',

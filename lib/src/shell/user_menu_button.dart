@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../models/user_status.dart';
 import '../theme/app_theme.dart';
 import '../theme/color_contrast.dart';
 import '../theme/d_button.dart';
@@ -12,6 +13,7 @@ import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_menu.dart';
+import 'user_status.dart';
 
 typedef _AccountAvatarSnapshot = ({
   bool showAccountControls,
@@ -19,6 +21,8 @@ typedef _AccountAvatarSnapshot = ({
   String? avatarUrl,
   String? username,
   String? displayName,
+  int? userId,
+  UserStatus? userStatus,
   bool connecting,
 });
 
@@ -102,6 +106,8 @@ class _UserMenuButtonState extends State<UserMenuButton> {
         avatarUrl: user?.avatarUrl,
         username: user?.username,
         displayName: user?.displayName,
+        userId: user?.id,
+        userStatus: user?.status,
         connecting: controller.connecting,
       );
     },
@@ -160,6 +166,20 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                   connecting: connecting,
                   size: widget.size,
                 ),
+                if (account.userStatus != null && !connecting)
+                  Positioned(
+                    right: -5,
+                    bottom: -4,
+                    child: UserStatusMessage(
+                      siteUrl: siteUrl,
+                      userId: account.userId,
+                      status: account.userStatus,
+                      size: 13,
+                      badgeBackgroundColor:
+                          widget.ringColor ?? theme.scaffoldBackgroundColor,
+                      badgePadding: 2,
+                    ),
+                  ),
                 // Core puts the count in a padded badge beside the avatar.
                 // Keep the native header equally legible even though the rail
                 // repeats the same total at the cross-forum level.

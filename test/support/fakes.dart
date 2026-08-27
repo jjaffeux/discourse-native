@@ -770,6 +770,9 @@ class FakeDiscourseApi
   final List<int> topicsRecovered = [];
   final List<int> topicsPermanentlyDeleted = [];
   final List<({int topicId, bool pinned})> topicPinPreferencesUpdated = [];
+  final List<({String description, String emoji, DateTime? endsAt})>
+  userStatusesSet = [];
+  final List<String> userStatusesCleared = [];
   final List<List<int>> postFetches = [];
 
   final List<String> feedPaths = [];
@@ -1569,6 +1572,35 @@ class FakeDiscourseApi
   }) async {
     topicPinPreferencesUpdated.add((topicId: topicId, pinned: pinned));
     await topicPinGate?.future;
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> setUserStatus({
+    required String siteUrl,
+    required String apiKey,
+    required String description,
+    required String emoji,
+    DateTime? endsAt,
+    String? clientId,
+  }) async {
+    userStatusesSet.add((
+      description: description,
+      emoji: emoji,
+      endsAt: endsAt,
+    ));
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> clearUserStatus({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    userStatusesCleared.add(siteUrl);
     final failure = writeFailure;
     if (failure != null) throw failure;
   }

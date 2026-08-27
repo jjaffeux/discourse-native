@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'bookmark.dart';
 import 'json.dart';
+import 'user_status.dart';
 
 /// Which chat activity the account wants called out on the header shortcut.
 ///
@@ -34,6 +35,7 @@ class DiscourseUser {
     this.id,
     this.name,
     this.avatarUrl,
+    this.status,
     this.draftCount = 0,
     this.canCreatePoll,
     this.canAssign,
@@ -63,6 +65,7 @@ class DiscourseUser {
     id: jsonIntOrNull(json['id']),
     name: json['name'] as String?,
     avatarUrl: json['avatarUrl'] as String?,
+    status: _storedStatus(json['status']),
     draftCount: jsonInt(json['draftCount']),
     // Optional so accounts persisted before Poll support remain readable. A
     // stored value is display state only; ShellController requires a fresh
@@ -109,6 +112,7 @@ class DiscourseUser {
 
   final String? name;
   final String? avatarUrl;
+  final UserStatus? status;
   final int draftCount;
 
   /// The Poll plugin's session capability. Null means the plugin did not add
@@ -195,6 +199,7 @@ class DiscourseUser {
     'id': id,
     'name': name,
     'avatarUrl': avatarUrl,
+    'status': status?.toJson(),
     'draftCount': draftCount,
     'canCreatePoll': canCreatePoll,
     'canAssign': canAssign,
@@ -219,6 +224,32 @@ class DiscourseUser {
   /// Display name if the site has one, otherwise the username.
   String get displayName => (name?.isNotEmpty ?? false) ? name! : username;
 
+  DiscourseUser withStatus(UserStatus? status) => DiscourseUser(
+    username: username,
+    id: id,
+    name: name,
+    avatarUrl: avatarUrl,
+    status: status,
+    draftCount: draftCount,
+    canCreatePoll: canCreatePoll,
+    canAssign: canAssign,
+    canAssignGlobally: canAssignGlobally,
+    canChangePostOwner: canChangePostOwner,
+    staff: staff,
+    groups: groups,
+    ignoredUsernames: ignoredUsernames,
+    sidebarCategoryIds: sidebarCategoryIds,
+    trackedCategoryIds: trackedCategoryIds,
+    watchedCategoryIds: watchedCategoryIds,
+    watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
+    hasChatEnabled: hasChatEnabled,
+    chatHeaderIndicatorPreference: chatHeaderIndicatorPreference,
+    doNotDisturbUntil: doNotDisturbUntil,
+    lastChatChannelId: lastChatChannelId,
+    timezone: timezone,
+    bookmarkAutoDeletePreference: bookmarkAutoDeletePreference,
+  );
+
   @override
   bool operator ==(Object other) =>
       other is DiscourseUser &&
@@ -226,6 +257,7 @@ class DiscourseUser {
       other.id == id &&
       other.name == name &&
       other.avatarUrl == avatarUrl &&
+      other.status == status &&
       other.draftCount == draftCount &&
       other.canCreatePoll == canCreatePoll &&
       other.canAssign == canAssign &&
@@ -254,6 +286,7 @@ class DiscourseUser {
     id,
     name,
     avatarUrl,
+    status,
     draftCount,
     canCreatePoll,
     canAssign,
@@ -280,4 +313,27 @@ List<int>? _storedCategoryIds(Map<String, dynamic> json, String key) {
   return List.unmodifiable([
     for (final value in jsonArray(json[key])) ?jsonIntOrNull(value),
   ]);
+}
+
+UserStatus? _storedStatus(Object? value) {
+  if (value is! Map) return null;
+  try {
+    final json = Map<String, dynamic>.from(value);
+    final description = jsonText(json['description']);
+    final emoji = jsonText(json['emoji']);
+    if (description == null ||
+        description.isEmpty ||
+        emoji == null ||
+        emoji.isEmpty) {
+      return null;
+    }
+    return UserStatus(
+      description: description,
+      emoji: emoji,
+      endsAt: jsonDate(json['endsAt']),
+      messageBusLastId: jsonIntOrNull(json['messageBusLastId']),
+    );
+  } catch (_) {
+    return null;
+  }
 }

@@ -4996,6 +4996,37 @@ void _feedGroups() {
       ]);
     });
 
+    test('sets and clears the connected account custom status', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response('', 200);
+        }),
+      );
+
+      await api.setUserStatus(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        description: 'Pairing',
+        emoji: ':wave:t3:',
+        endsAt: DateTime.utc(2030, 2, 3, 12, 30),
+      );
+      await api.clearUserStatus(siteUrl: 'https://example.com', apiKey: 'key');
+
+      expect(sent.map((request) => request.method), ['PUT', 'DELETE']);
+      expect(sent.map((request) => request.url.path), [
+        '/user-status.json',
+        '/user-status.json',
+      ]);
+      expect(jsonDecode(sent.first.body), {
+        'description': 'Pairing',
+        'emoji': 'wave:t3',
+        'ends_at': '2030-02-03T12:30:00.000Z',
+      });
+      expect(jsonDecode(sent.last.body), <String, dynamic>{});
+    });
+
     test('preserves a failed response status for diagnostics', () async {
       final api = DiscourseApi(
         client: MockClient((_) async => http.Response('', 503)),

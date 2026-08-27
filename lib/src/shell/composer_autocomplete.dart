@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../models/user_status.dart';
 import 'composer_triggers.dart';
 
 /// What a suggestion row draws on its left.
@@ -59,6 +60,9 @@ class ComposerSuggestion {
     this.detail,
     this.art,
     this.action,
+    this.siteUrl,
+    this.userId,
+    this.userStatus,
   });
 
   /// Which trigger this answers, which is what accepting it writes the sigils
@@ -81,6 +85,11 @@ class ComposerSuggestion {
   /// write [value]. For [ComposerSuggestionAction.openEmojiPicker], [value]
   /// carries the current filter into that surface.
   final ComposerSuggestionAction? action;
+
+  /// Identity metadata used only by user suggestions.
+  final String? siteUrl;
+  final int? userId;
+  final UserStatus? userStatus;
 }
 
 /// Where the composer's completions come from.

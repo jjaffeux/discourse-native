@@ -16,6 +16,7 @@ import 'external_link.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_menu_message.dart';
+import 'user_status.dart';
 
 final _userCardTransitionCurve = CurveTween(curve: Curves.easeOutCubic);
 
@@ -355,9 +356,8 @@ class _CardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final pluginActions = PluginScope.of(
-      context,
-    ).registry.userCardActions(context, siteUrl, card, close);
+    final pluginActions = PluginScope.of(context).registry
+        .userCardActions(context, siteUrl, card, close);
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -382,7 +382,12 @@ class _CardContent extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (narrow) ...[
-                  _CardIdentity(card: card, avatarSize: 88, compact: true),
+                  _CardIdentity(
+                    card: card,
+                    siteUrl: siteUrl,
+                    avatarSize: 88,
+                    compact: true,
+                  ),
                   const SizedBox(height: 12),
                   _CardActions(actions: actions, horizontal: true),
                 ] else
@@ -392,6 +397,7 @@ class _CardContent extends StatelessWidget {
                       Expanded(
                         child: _CardIdentity(
                           card: card,
+                          siteUrl: siteUrl,
                           avatarSize: 112,
                           compact: false,
                         ),
@@ -505,11 +511,13 @@ class _CardContent extends StatelessWidget {
 class _CardIdentity extends StatelessWidget {
   const _CardIdentity({
     required this.card,
+    required this.siteUrl,
     required this.avatarSize,
     required this.compact,
   });
 
   final UserCard card;
+  final String siteUrl;
   final double avatarSize;
   final bool compact;
 
@@ -563,6 +571,14 @@ class _CardIdentity extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleMedium,
+              ),
+              UserStatusMessage(
+                siteUrl: siteUrl,
+                userId: card.id,
+                status: card.status,
+                showDescription: true,
+                size: 17,
+                style: theme.textTheme.bodyMedium,
               ),
               if (card.title case final title?)
                 Text(

@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 
 import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
+import '../models/user_status.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -16,6 +17,7 @@ import 'avatar_image.dart';
 import 'emoji.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
+import 'user_status.dart';
 
 /// Presentation data for one tab in a forum's horizontal tab bar.
 ///
@@ -37,6 +39,8 @@ class ForumTabItem {
     this.emojiUrl,
     this.emojiName,
     this.badge = SidebarBadge.none,
+    this.userStatus,
+    this.statusUserId,
   }) : assert(
          (emojiUrl == null) == (emojiName == null),
          'emojiUrl and emojiName must be provided together',
@@ -53,6 +57,8 @@ class ForumTabItem {
   final String? emojiUrl;
   final String? emojiName;
   final SidebarBadge badge;
+  final UserStatus? userStatus;
+  final int? statusUserId;
 }
 
 /// The horizontal, forum-scoped tab bar shown above the main content header.
@@ -595,12 +601,16 @@ class _ForumTabState extends State<_ForumTab> {
 
   String get _selectionSemanticsLabel {
     final badge = widget.item.badge;
-    if (!badge.isVisible) return widget.item.title;
+    final status = widget.item.userStatus;
+    final title = status == null
+        ? widget.item.title
+        : '${widget.item.title}, ${status.description}';
+    if (!badge.isVisible) return title;
     if (badge.dot) {
-      return '${widget.item.title}, '
+      return '$title, '
           '${badge.urgent ? 'urgent unread activity' : 'unread activity'}';
     }
-    return '${widget.item.title}, ${badge.count} '
+    return '$title, ${badge.count} '
         '${badge.count == 1 ? 'unread item' : 'unread items'}';
   }
 
@@ -781,6 +791,18 @@ class _ForumTabState extends State<_ForumTab> {
                           style: labelStyle,
                         ),
                       ),
+                      if ((
+                            ShellScope.maybeRead(context)?.currentInstance?.url,
+                            widget.item.userStatus,
+                          )
+                          case (final siteUrl?, final status?))
+                        UserStatusMessage(
+                          siteUrl: siteUrl,
+                          userId: widget.item.statusUserId,
+                          status: status,
+                          size: 13,
+                          leadingGap: 4,
+                        ),
                       if (widget.item.badge.dot &&
                           _badgeFits(
                             constraints.maxWidth,
@@ -1189,6 +1211,8 @@ class CurrentForumTabsBar extends StatelessWidget {
                         : controller.emojiUrlFor(siteUrl, emoji),
                     emojiName: emoji,
                     badge: destination.badge ?? SidebarBadge.none,
+                    userStatus: destination.userStatus,
+                    statusUserId: destination.avatarUserId,
                   );
                 }
 
