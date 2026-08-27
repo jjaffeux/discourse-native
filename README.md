@@ -1032,14 +1032,17 @@ Sidebar activity follows each channel's `/chat/{id}/new-messages` stream from
 the cursor captured with the channel-list response. That updates last-message
 and immediate unread state in the same turn, and the direct-message section
 uses the web client's urgent/thread/activity ordering rather than blindly
-moving an event to the front. `/chat/new-channel` brings in conversations first
-followed on another client, while the single and bulk user-tracking streams
-reconcile reads and counts from the account's other sessions. A mounted channel
-or thread also reference-counts `/chat/{id}` from the cursor in the same HTTP
-snapshot; an active thread additionally follows
-`/chat/{id}/thread/{thread_id}` from its detail cursor. Sent, processed, edit,
-refresh, reaction, pin, unpin, delete, bulk-delete and restore events are deduplicated
-across replay/reconnect. `update_thread_original_message` is authoritative for
+moving an event to the front. The sender's canonical `/chat/{id}` echo also
+advances that channel's activity, so its guaranteed optimistic-row
+reconciliation cannot leave the sidebar waiting on the sibling stream.
+`/chat/new-channel` brings in conversations first followed on another client,
+while the single and bulk user-tracking streams reconcile reads and counts from
+the account's other sessions. A mounted channel or thread also
+reference-counts `/chat/{id}` from the cursor in the same HTTP snapshot; an
+active thread additionally follows `/chat/{id}/thread/{thread_id}` from its
+detail cursor. Sent, processed, edit, refresh, reaction, pin, unpin, delete,
+bulk-delete and restore events are deduplicated across replay/reconnect.
+`update_thread_original_message` is authoritative for
 reply count, latest reply and participants; the active detail is coalesced and
 refetched because core's event does not carry cross-client title changes.
 

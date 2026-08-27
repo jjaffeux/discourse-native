@@ -4902,6 +4902,23 @@ class ChatController extends FrameSafeNotifier {
       if (currentUserId != null && canonical.author.id != currentUserId) return;
 
       _putLiveMessage(siteUrl, canonical);
+      final sentAt = canonical.createdAt ?? local!.createdAt;
+      final heldChannel = channel(siteUrl, target.channelId);
+      if (target is ChatChannelTarget &&
+          sentAt != null &&
+          heldChannel != null &&
+          (heldChannel.lastMessageId == null ||
+              canonical.id > heldChannel.lastMessageId!)) {
+        final updated = heldChannel.withNewMessage(
+          canonical.id,
+          sentAt,
+          markRead: true,
+          incrementUnread: false,
+        );
+        store.put(siteUrl, updated);
+        _publishNotificationChange(siteUrl, heldChannel, updated);
+        notifySafely();
+      }
       if (window.messageIds.contains(canonical.id)) {
         _removeLocalMessage(siteUrl, target, id);
       } else {
