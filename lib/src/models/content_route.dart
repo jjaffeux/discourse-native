@@ -62,6 +62,10 @@ class ContentRoute {
     );
   }
 
+  /// The connected account's contribution stream from its profile menu.
+  factory ContentRoute.userActivity() =>
+      const ContentRoute(id: 'activity', title: 'Activity', icon: DIcons.list);
+
   /// The route a sidebar entry opens.
   ContentRoute.fromDestination(SidebarDestination destination)
     : id = destination.id,

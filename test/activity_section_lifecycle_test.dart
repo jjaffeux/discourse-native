@@ -5,10 +5,12 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
+import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/user_activity.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -139,13 +141,15 @@ enum _Activity {
   notifications,
   replies,
   chat,
-  bookmarks;
+  bookmarks,
+  userActivity;
 
   String get label => switch (this) {
     notifications => 'notifications',
     replies => 'replies',
     chat => 'chat notifications',
     bookmarks => 'bookmarks',
+    userActivity => 'user activity',
   };
 
   Widget section(String siteUrl) => switch (this) {
@@ -153,6 +157,7 @@ enum _Activity {
     replies => RepliesSection(siteUrl: siteUrl, onOpened: _ignore),
     chat => ChatNotificationsSection(siteUrl: siteUrl, onOpened: _ignore),
     bookmarks => BookmarkSection(siteUrl: siteUrl, onOpened: _ignore),
+    userActivity => UserActivityView(siteUrl: siteUrl),
   };
 
   List<String> requests(_RecordingActivityApi api) => switch (this) {
@@ -160,6 +165,7 @@ enum _Activity {
     replies => api.replySites,
     chat => api.chatSites,
     bookmarks => api.bookmarkSites,
+    userActivity => api.userActivitySites,
   };
 }
 
@@ -177,6 +183,7 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
   final List<String> replySites = [];
   final List<String> chatSites = [];
   final List<String> bookmarkSites = [];
+  final List<String> userActivitySites = [];
 
   @override
   Future<List<DiscourseNotification>> notifications({
@@ -216,6 +223,26 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
       siteUrl: siteUrl,
       apiKey: apiKey,
       username: username,
+      clientId: clientId,
+    );
+  }
+
+  @override
+  Future<UserActivityPage> userActivity({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int offset = 0,
+    int limit = 30,
+    String? clientId,
+  }) {
+    userActivitySites.add(siteUrl);
+    return super.userActivity(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      username: username,
+      offset: offset,
+      limit: limit,
       clientId: clientId,
     );
   }

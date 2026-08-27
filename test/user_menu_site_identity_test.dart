@@ -3,10 +3,12 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
+import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/user_activity.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:flutter/foundation.dart';
@@ -258,6 +260,28 @@ void main() {
       expect(shell.currentInstance?.user, isNotNull);
     }),
   );
+
+  testWidgets(
+    'profile Activity returns to and loads its source account',
+    (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
+      final api = fixture.api;
+
+      await _openNestedSection(tester, 'Profile');
+      final shell = ShellScope.read(tester.element(find.text('Disconnect')));
+      shell.selectInstance(1);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('user-menu-row-activity')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(UserMenuPanel), findsNothing);
+      expect(find.byType(UserActivityView), findsOneWidget);
+      expect(shell.currentInstance?.url, _metaUrl);
+      expect(shell.currentContent?.id, 'activity');
+      expect(api.userActivitySites, [_metaUrl]);
+      expect(api.userActivityUsers, ['meta-user']);
+    }),
+  );
 }
 
 Future<void> _focusTab(WidgetTester tester, Finder tab) async {
@@ -293,8 +317,16 @@ Future<_MenuFixture> _pumpMenu(WidgetTester tester) async {
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
-  const metaUser = DiscourseUser(username: 'meta-user', name: 'Meta User');
-  const teamUser = DiscourseUser(username: 'team-user', name: 'Team User');
+  const metaUser = DiscourseUser(
+    id: 1,
+    username: 'meta-user',
+    name: 'Meta User',
+  );
+  const teamUser = DiscourseUser(
+    id: 2,
+    username: 'team-user',
+    name: 'Team User',
+  );
   final instances = <DiscourseInstance>[
     instance(
       'meta.discourse.org',
@@ -351,7 +383,18 @@ final class _SiteMenuApi extends FakeDiscourseApi {
   final List<String> notificationSites = [];
   final List<String> replySites = [];
   final List<String> bookmarkSites = [];
+  final List<String> userActivitySites = [];
+  final List<String> userActivityUsers = [];
   final List<({String siteUrl, int id})> readSites = [];
+
+  @override
+  Future<DiscourseUser> currentUser({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async => siteUrl == _metaUrl
+      ? const DiscourseUser(id: 1, username: 'meta-user', name: 'Meta User')
+      : const DiscourseUser(id: 2, username: 'team-user', name: 'Team User');
 
   @override
   Future<List<DiscourseNotification>> notifications({
@@ -391,5 +434,19 @@ final class _SiteMenuApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     readSites.add((siteUrl: siteUrl, id: id));
+  }
+
+  @override
+  Future<UserActivityPage> userActivity({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int offset = 0,
+    int limit = 30,
+    String? clientId,
+  }) async {
+    userActivitySites.add(siteUrl);
+    userActivityUsers.add(username);
+    return const UserActivityPage();
   }
 }

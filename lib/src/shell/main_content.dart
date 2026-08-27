@@ -38,6 +38,7 @@ import 'topic_list_view.dart';
 import 'topic_share.dart';
 import 'topic_title.dart';
 import 'topic_view.dart';
+import 'user_activity.dart';
 import 'user_menu_button.dart';
 
 /// The main region. There is only ever one of these on screen; navigating
@@ -177,6 +178,9 @@ class _ContentViewport extends StatelessWidget {
     }
     if (!route.isTopic && route.id == 'drafts' && siteUrl != null) {
       return DraftListView(siteUrl: siteUrl!);
+    }
+    if (!route.isTopic && route.id == 'activity' && siteUrl != null) {
+      return UserActivityView(siteUrl: siteUrl!);
     }
     if (!route.isTopic &&
         route.id == 'all-categories' &&

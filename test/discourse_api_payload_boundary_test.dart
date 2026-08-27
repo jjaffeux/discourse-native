@@ -175,6 +175,77 @@ void main() {
     expect(requestCount, 1, reason: 'invalid pages fail before transport');
   });
 
+  test(
+    'activity pages keep their raw server budget and validate bounds',
+    () async {
+      var requestCount = 0;
+      final api = DiscourseApi(
+        client: serving((request) {
+          requestCount += 1;
+          expect(request.url.queryParameters, {
+            'offset': '0',
+            'username': 'sam',
+            'filter': '4,5',
+            'limit': '${DiscourseApi.maximumUserActivityPageSize}',
+          });
+          return {
+            'user_actions': [
+              for (
+                var id = 1;
+                id <= DiscourseApi.maximumUserActivityPageSize + 5;
+                id++
+              )
+                {
+                  'action_type': id.isEven ? 5 : 4,
+                  'topic_id': id,
+                  'post_number': id.isEven ? 2 : 1,
+                  'title': 'Activity $id',
+                },
+            ],
+          };
+        }),
+      );
+
+      final page = await api.userActivity(
+        siteUrl: siteUrl,
+        apiKey: 'key',
+        username: 'sam',
+        limit: DiscourseApi.maximumUserActivityPageSize,
+      );
+
+      expect(page.items, hasLength(DiscourseApi.maximumUserActivityPageSize));
+      expect(page.rawItemCount, DiscourseApi.maximumUserActivityPageSize);
+      await expectLater(
+        api.userActivity(
+          siteUrl: siteUrl,
+          apiKey: 'key',
+          username: 'sam',
+          offset: -1,
+        ),
+        throwsRangeError,
+      );
+      await expectLater(
+        api.userActivity(
+          siteUrl: siteUrl,
+          apiKey: 'key',
+          username: 'sam',
+          limit: 0,
+        ),
+        throwsRangeError,
+      );
+      await expectLater(
+        api.userActivity(
+          siteUrl: siteUrl,
+          apiKey: 'key',
+          username: 'sam',
+          limit: DiscourseApi.maximumUserActivityPageSize + 1,
+        ),
+        throwsRangeError,
+      );
+      expect(requestCount, 1, reason: 'invalid pages fail before transport');
+    },
+  );
+
   test('optional mention and chat envelopes default or skip safely', () async {
     final api = DiscourseApi(
       client: serving(

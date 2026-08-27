@@ -14,6 +14,7 @@ import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
@@ -27,6 +28,7 @@ import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -74,6 +76,7 @@ import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
+import 'package:discourse_native/src/shell/user_activity.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -289,6 +292,23 @@ final class _GatedUserCardApi extends FakeDiscourseApi {
       name: 'First-site profile',
       title: 'From Meta',
     );
+  }
+}
+
+final class _FailingUserActivityApi extends FakeDiscourseApi {
+  int calls = 0;
+
+  @override
+  Future<UserActivityPage> userActivity({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int offset = 0,
+    int limit = 30,
+    String? clientId,
+  }) async {
+    calls++;
+    throw StateError('offline');
   }
 }
 
@@ -6649,6 +6669,259 @@ void main() {
         tester.widget<Text>(find.text('Disconnect')).style?.color,
         isNot(placeholder),
       );
+    });
+
+    testWidgets(
+      'profile Activity opens an accessible native stream and preserves Back',
+      (tester) async {
+        const activity = UserActivityItem(
+          actionType: UserActivityItem.replyActionType,
+          topicId: 7,
+          postNumber: 4,
+          postId: 74,
+          title: 'A useful discussion',
+          slug: 'a-useful-discussion',
+          username: 'joffreyj',
+          excerpt: '<p>A useful reply &amp; follow-up</p>',
+          categoryId: 5,
+        );
+        final api = FakeDiscourseApi(
+          userActivityItems: const [activity],
+          userActivityCategories: const [
+            TopicCategory(id: 5, name: 'Support', color: '0088CC'),
+          ],
+          topics: {
+            7: topicPayload(
+              id: 7,
+              title: 'A useful discussion',
+              posts: const [
+                Post(
+                  id: 74,
+                  postNumber: 4,
+                  username: 'joffreyj',
+                  cooked: '<p>A useful reply &amp; follow-up</p>',
+                ),
+              ],
+              stream: const [74],
+            ),
+          },
+        );
+        await pumpShell(
+          tester,
+          phone,
+          instances: connected,
+          api: api,
+          authenticator: signedIn(),
+        );
+
+        await openProfileSection(tester);
+        final activityAction = find.byKey(
+          const ValueKey('user-menu-row-activity'),
+        );
+        expect(activityAction, findsOneWidget);
+        final menuSemantics = tester.ensureSemantics();
+        try {
+          expect(
+            tester.getSemantics(activityAction),
+            isSemantics(label: 'Activity', isButton: true, hasTapAction: true),
+          );
+          expect(
+            tester.getSize(activityAction).height,
+            greaterThanOrEqualTo(44),
+          );
+        } finally {
+          menuSemantics.dispose();
+        }
+        expect(
+          tester.widget<Text>(find.text('Activity').last).style?.color,
+          isNot(
+            Theme.of(
+              tester.element(find.text('Preferences')),
+            ).shell.placeholder,
+          ),
+        );
+
+        await tester.tap(activityAction);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(UserMenuPanel), findsNothing);
+        expect(find.byType(UserActivityView), findsOneWidget);
+        expect(api.userActivityRequests, [
+          (
+            siteUrl: 'https://meta.discourse.org',
+            username: 'joffreyj',
+            offset: 0,
+            limit: 30,
+          ),
+        ]);
+        final shell = ShellScope.read(
+          tester.element(find.byType(UserActivityView)),
+        );
+        expect(shell.currentContent?.id, 'activity');
+        expect(shell.contentStack.last.title, 'Activity');
+
+        final row = find.byKey(const ValueKey('user-activity-row-7/4'));
+        final target = find.byKey(
+          const ValueKey('user-activity-row-target-7/4'),
+        );
+        expect(row, findsOneWidget);
+        expect(tester.getSize(target).height, greaterThanOrEqualTo(44));
+        final semantics = tester.ensureSemantics();
+        try {
+          final node = tester.getSemantics(row);
+          expect(node.label, contains('A useful discussion'));
+          expect(node.label, contains('Reply by joffreyj'));
+          expect(node.label, contains('Support'));
+          expect(node.label, contains('A useful reply & follow-up'));
+          final data = node.getSemanticsData();
+          expect(data.flagsCollection.isButton, isTrue);
+          expect(data.hasAction(SemanticsAction.tap), isTrue);
+
+          final inkWell = find.descendant(
+            of: row,
+            matching: find.byType(InkWell),
+          );
+          final focusChild = find
+              .descendant(of: inkWell, matching: find.byType(MouseRegion))
+              .first;
+          final focus = Focus.of(tester.element(focusChild));
+          focus.requestFocus();
+          await tester.pumpAndSettle();
+          expect(focus.hasPrimaryFocus, isTrue);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+        } finally {
+          semantics.dispose();
+        }
+
+        expect(api.topicsOpened, [7]);
+        expect(api.topicPostNumbersOpened, [4]);
+        expect(shell.currentContent?.topicId, 7);
+
+        expect(shell.handleBack(canReturnToSidebar: false), isTrue);
+        await tester.pumpAndSettle();
+        expect(find.byType(UserActivityView), findsOneWidget);
+        expect(shell.handleBack(canReturnToSidebar: false), isTrue);
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.id, isNot('activity'));
+      },
+    );
+
+    testWidgets('Activity exposes loading, refresh, and empty states', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final api = FakeDiscourseApi(userActivityGate: gate);
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+
+      await openProfileSection(tester);
+      await tester.tap(find.byKey(const ValueKey('user-menu-row-activity')));
+      // Let both sheets dismiss and the loader cross its asynchronous shell
+      // and credential boundaries. Do not settle: the skeleton intentionally
+      // animates until the gated request returns.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+
+      final semantics = tester.ensureSemantics();
+      try {
+        expect(find.bySemanticsLabel('Loading activity'), findsOneWidget);
+      } finally {
+        semantics.dispose();
+      }
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.text('No activity yet'), findsOneWidget);
+      expect(
+        find.textContaining('Topics you create and replies you post'),
+        findsOneWidget,
+      );
+
+      await tester.drag(find.byType(ListView).last, const Offset(0, 320));
+      await tester.pumpAndSettle();
+      expect(api.userActivityRequests, hasLength(2));
+    });
+
+    testWidgets('Activity failure remains a retryable native page', (
+      tester,
+    ) async {
+      final api = _FailingUserActivityApi();
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+
+      await openProfileSection(tester);
+      await tester.tap(find.byKey(const ValueKey('user-menu-row-activity')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining("Couldn't load activity from"),
+        findsOneWidget,
+      );
+      expect(find.text('Try again'), findsOneWidget);
+
+      await tester.tap(find.text('Try again'));
+      await tester.pumpAndSettle();
+
+      expect(api.calls, 2);
+      expect(find.byType(UserActivityView), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a persisted Activity route restores in the wide shell', (
+      tester,
+    ) async {
+      final forumTabs = FakeForumTabStore([
+        ForumWorkspace(
+          siteUrl: 'https://meta.discourse.org',
+          accountIdentity: 'user:joffreyj',
+          activeTabId: 'restored-tab',
+          tabs: [
+            ForumTab(
+              id: 'restored-tab',
+              rootDestinationId: 'latest',
+              contentStack: [
+                const ContentRoute(
+                  id: 'latest',
+                  title: 'Latest',
+                  icon: DIcons.layerGroup,
+                ),
+                ContentRoute.userActivity(),
+              ],
+            ),
+          ],
+        ),
+      ]);
+      final api = FakeDiscourseApi(userActivityItems: const []);
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+        forumTabs: forumTabs,
+      );
+
+      expect(find.byType(UserActivityView), findsOneWidget);
+      expect(find.text('No activity yet'), findsOneWidget);
+      final shell = ShellScope.read(
+        tester.element(find.byType(UserActivityView)),
+      );
+      expect(shell.currentContent?.id, 'activity');
+      expect(shell.canPopContent, isTrue);
+      expect(api.userActivityRequests, hasLength(1));
     });
 
     testWidgets('the notifications tab reads what the site sent', (

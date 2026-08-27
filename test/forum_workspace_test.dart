@@ -34,6 +34,18 @@ void main() {
       expect(restored.feedPath, route.feedPath);
     });
 
+    test('the native Activity destination is durable', () {
+      final route = ContentRoute.userActivity();
+
+      final restored = ContentRoute.fromJson(_jsonMap(route.toJson()));
+
+      expect(restored, route);
+      expect(restored.id, 'activity');
+      expect(restored.title, 'Activity');
+      expect(restored.topicId, isNull);
+      expect(restored.feedPath, isNull);
+    });
+
     test('rejects persisted routes that could build unsafe requests', () {
       final ordinary = _routeJson(id: 'latest', title: 'Topics');
 

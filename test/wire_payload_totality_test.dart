@@ -19,6 +19,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/models/topic_link.dart';
+import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/models/user_status.dart';
@@ -59,6 +60,7 @@ const _keys = [
   'cooked',
   'raw',
   'post_number',
+  'post_id',
   'topic_id',
   'category_id',
   'tags',
@@ -113,6 +115,13 @@ const _keys = [
   'grouped_search_result',
   'posts',
   'categories',
+  'user_actions',
+  'action_type',
+  'excerpt',
+  'closed',
+  'archived',
+  'deleted',
+  'hidden',
   'sequence',
   'draft_key',
   'results',
@@ -266,6 +275,16 @@ void main() {
         json,
       );
       probe('UserCard', () => UserCard.fromJson(json, site), json);
+      probe(
+        'UserActivityItem',
+        () => UserActivityItem.fromJson(json, site),
+        json,
+      );
+      probe(
+        'UserActivityPage',
+        () => UserActivityPage.fromJson(json, site),
+        json,
+      );
       probe('UserDraft', () => UserDraft.fromJson(json), json);
       probe('UserStatus', () => UserStatus.fromJson(json), json);
       probe('Topic', () => Topic.fromJson(json, const {}, site), json);

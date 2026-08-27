@@ -99,8 +99,8 @@ class UserMenuSection {
       !isProfile;
 }
 
-/// One line inside a section. Purely presentational: nothing here is wired to
-/// anything, which is why it carries no callback.
+/// One line inside a section. Stable ids let implemented profile actions share
+/// the same presentation as the remaining placeholders.
 @immutable
 class UserMenuRow {
   const UserMenuRow(
@@ -122,6 +122,7 @@ class UserMenuRow {
   final int? userId;
 
   bool get isDrafts => id == 'drafts';
+  bool get isActivity => id == 'activity';
   bool get isUserStatus => id == 'user-status';
 }
 
@@ -214,7 +215,7 @@ List<UserMenuSection> userMenuSections(
         const UserMenuRow(DIcons.toggleOn, 'Online'),
         const UserMenuRow(DIcons.toggleOff, 'Pause notifications'),
         const UserMenuRow(DIcons.user, 'Summary'),
-        const UserMenuRow(DIcons.list, 'Activity'),
+        const UserMenuRow(DIcons.list, 'Activity', id: 'activity'),
         const UserMenuRow(DIcons.pencil, 'Drafts', id: 'drafts'),
         const UserMenuRow(DIcons.gear, 'Preferences'),
       ],
@@ -506,6 +507,11 @@ class _SectionBody extends StatelessWidget {
             onTap: row.isUserStatus && siteUrl != null
                 ? () =>
                       unawaited(showUserStatusEditor(context, siteUrl: siteUrl))
+                : row.isActivity && siteUrl != null
+                ? () {
+                    onDismiss();
+                    controller.openUserActivity(siteUrl);
+                  }
                 : row.isDrafts && siteUrl != null
                 ? () {
                     onDismiss();
@@ -573,8 +579,7 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// A stand-in row. Nothing happens when it is tapped, and it says so by being
-/// the one color in the shell reserved for what is not built yet.
+/// A profile row. Rows without an action retain the placeholder colour.
 class _RowTile extends StatelessWidget {
   const _RowTile({required this.row, this.detail, this.onTap, this.leading});
 
@@ -590,34 +595,46 @@ class _RowTile extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      child: InkWell(
+      child: Semantics(
+        key: row.id == null ? null : ValueKey('user-menu-row-${row.id}'),
+        label: [row.title, ?detail].join(', '),
+        button: onTap != null,
         onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            children: [
-              leading ??
-                  DIcon(
-                    row.icon,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
+        excludeSemantics: true,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(6),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 44),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                children: [
+                  leading ??
+                      DIcon(
+                        row.icon,
+                        size: 18,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      row.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(color: color),
+                    ),
                   ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  row.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: color),
-                ),
+                  if (detail case final detail?)
+                    Text(
+                      detail,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: color,
+                      ),
+                    ),
+                ],
               ),
-              if (detail case final detail?)
-                Text(
-                  detail,
-                  style: theme.textTheme.labelMedium?.copyWith(color: color),
-                ),
-            ],
+            ),
           ),
         ),
       ),
