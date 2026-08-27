@@ -55,6 +55,7 @@ import '../models/topic_link.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_status.dart';
+import '../models/user_summary.dart';
 import '../plugin_api/core_plugin_host.dart';
 import '../plugin_api/core_plugin_manifest.dart';
 import '../plugin_api/plugin_data.dart';
@@ -75,6 +76,7 @@ import 'site_url.dart';
 import 'topic_feed_controller.dart';
 import 'topic_read_controller.dart';
 import 'update_controller.dart';
+import 'user_summary_controller.dart';
 
 /// Which pane occupies the space next to the rail when the shell is compact.
 ///
@@ -427,6 +429,13 @@ class ShellController extends FrameSafeNotifier
 
   /// The connected account's server-side drafts for the full-page destination.
   late final DraftListController draftList = DraftListController(
+    api: api,
+    credentials: authenticator,
+    lifecycle: lifecycle,
+  );
+
+  /// Profile summaries cached independently for each connected account.
+  late final UserSummaryController userSummaries = UserSummaryController(
     api: api,
     credentials: authenticator,
     lifecycle: lifecycle,
@@ -2814,6 +2823,10 @@ class ShellController extends FrameSafeNotifier
     topic.title,
     postNumber: topic.lastUnreadPostNumber,
   );
+
+  /// Opens a topic or exact reply from the connected account's summary.
+  void openUserSummaryTopic(UserSummaryTopic topic, {int? postNumber}) =>
+      _openTopic(topic.id, topic.slug, topic.title, postNumber: postNumber);
 
   /// Opens a featured topic from the categories page.
   ///
@@ -8787,6 +8800,7 @@ class ShellController extends FrameSafeNotifier
 
     accountActivity.forget(siteUrl);
     draftList.forget(siteUrl);
+    userSummaries.forget(siteUrl);
     store.forget(siteUrl);
 
     _likersLoading.removeWhere((key) => key.startsWith('$siteUrl~'));
@@ -9365,6 +9379,26 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
+  /// Opens the connected user's restorable native summary route.
+  ///
+  /// The source site is explicit because a touch menu can remain open while a
+  /// different forum becomes selected underneath it.
+  void openUserSummary(String siteUrl) {
+    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0 || !_instances[index].isConnected) return;
+    if (index != _instanceIndex) selectInstance(index);
+
+    final instance = currentInstance;
+    if (instance == null || instance.url != siteUrl) return;
+    if (currentContent?.isUserSummary == true) {
+      _mobilePane = MobilePane.content;
+      unawaited(userSummaries.load(instance, refresh: true));
+      _notify();
+      return;
+    }
+    pushContent(ContentRoute.userSummary());
+  }
+
   /// Restores a draft into the composer mode this client supports.
   Future<void> resumeDraft(String siteUrl, UserDraft draft) async {
     if (!draft.canResume) return;
@@ -9589,6 +9623,7 @@ class ShellController extends FrameSafeNotifier
     updates.dispose();
     accountActivity.dispose();
     draftList.dispose();
+    userSummaries.dispose();
     topicFeeds.dispose();
     aggregate.dispose();
     siteImages.dispose();

@@ -37,10 +37,9 @@ typedef _SectionListSnapshot = ({
 ///
 /// The sections are Discourse's own user menu tabs. Notifications, Replies,
 /// Bookmarks and Chat are backed by the site, Messages leaves the menu for the
-/// full inbox, and the account has its own actions. The rest carry stand-in
-/// rows so the shape of the menu can be built and navigated before their
-/// screens exist. Every one of those stand-ins is drawn in
-/// [ShellColors.placeholder], so what is orange is what is still to do.
+/// full inbox, and the account has its own actions. Rows without a native
+/// action remain stand-ins and are drawn in [ShellColors.placeholder], so what
+/// is orange is what is still to do.
 @immutable
 class UserMenuSection {
   const UserMenuSection({
@@ -73,8 +72,8 @@ class UserMenuSection {
   final DIconData icon;
   final String label;
 
-  /// Placeholder contents. Always rendered in the placeholder color, and empty
-  /// for the sections whose contents come from the site.
+  /// Rows for this section. A row without a native action is rendered in the
+  /// placeholder color; live account actions are supplied by [_SectionBody].
   final List<UserMenuRow> rows;
 
   /// Real count from `/notifications/totals.json` where we have one, so the
@@ -99,8 +98,8 @@ class UserMenuSection {
       !isProfile;
 }
 
-/// One line inside a section. Purely presentational: nothing here is wired to
-/// anything, which is why it carries no callback.
+/// One line inside a section. Actions stay in [_SectionBody], where they can
+/// close the pointer popover or both touch sheets before navigating.
 @immutable
 class UserMenuRow {
   const UserMenuRow(
@@ -122,6 +121,7 @@ class UserMenuRow {
   final int? userId;
 
   bool get isDrafts => id == 'drafts';
+  bool get isSummary => id == 'summary';
   bool get isUserStatus => id == 'user-status';
 }
 
@@ -213,7 +213,7 @@ List<UserMenuSection> userMenuSections(
           ),
         const UserMenuRow(DIcons.toggleOn, 'Online'),
         const UserMenuRow(DIcons.toggleOff, 'Pause notifications'),
-        const UserMenuRow(DIcons.user, 'Summary'),
+        const UserMenuRow(DIcons.user, 'Summary', id: 'summary'),
         const UserMenuRow(DIcons.list, 'Activity'),
         const UserMenuRow(DIcons.pencil, 'Drafts', id: 'drafts'),
         const UserMenuRow(DIcons.gear, 'Preferences'),
@@ -506,6 +506,11 @@ class _SectionBody extends StatelessWidget {
             onTap: row.isUserStatus && siteUrl != null
                 ? () =>
                       unawaited(showUserStatusEditor(context, siteUrl: siteUrl))
+                : row.isSummary && siteUrl != null
+                ? () {
+                    onDismiss();
+                    controller.openUserSummary(siteUrl);
+                  }
                 : row.isDrafts && siteUrl != null
                 ? () {
                     onDismiss();
@@ -573,8 +578,7 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// A stand-in row. Nothing happens when it is tapped, and it says so by being
-/// the one color in the shell reserved for what is not built yet.
+/// A section row. Rows without [onTap] use the shell's not-built-yet color.
 class _RowTile extends StatelessWidget {
   const _RowTile({required this.row, this.detail, this.onTap, this.leading});
 
@@ -590,34 +594,50 @@ class _RowTile extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      child: InkWell(
+      child: Semantics(
+        key: row.id == null ? null : ValueKey('user-menu-row-${row.id}'),
+        button: onTap != null,
+        enabled: onTap != null,
+        label: detail == null ? row.title : '${row.title}, $detail',
         onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            children: [
-              leading ??
-                  DIcon(
-                    row.icon,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  row.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: color),
+        child: ExcludeSemantics(
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(6),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Row(
+                  children: [
+                    leading ??
+                        DIcon(
+                          row.icon,
+                          size: 18,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        row.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: color,
+                        ),
+                      ),
+                    ),
+                    if (detail case final detail?)
+                      Text(
+                        detail,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: color,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              if (detail case final detail?)
-                Text(
-                  detail,
-                  style: theme.textTheme.labelMedium?.copyWith(color: color),
-                ),
-            ],
+            ),
           ),
         ),
       ),

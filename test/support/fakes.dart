@@ -36,6 +36,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
+import 'package:discourse_native/src/models/user_summary.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -481,6 +482,8 @@ class FakeDiscourseApi
     this.serverDrafts = const {},
     this.userDraftList = const [],
     this.userDraftGate,
+    this.userSummaryValue = const UserSummary(canSeeSummaryStats: true),
+    this.userSummaryGate,
     this.nextPages = const {},
     this.gate,
     this.feedGates = const {},
@@ -712,6 +715,9 @@ class FakeDiscourseApi
   final List<({String siteUrl, int offset, int limit})> userDraftRequests = [];
   final List<({String siteUrl, String draftKey, int sequence})>
   userDraftsDeleted = [];
+  final UserSummary? userSummaryValue;
+  final Completer<void>? userSummaryGate;
+  final List<({String siteUrl, String username})> userSummariesRequested = [];
 
   /// `more_topics_url` to report for a given path, driving pagination.
   final Map<String, String> nextPages;
@@ -3433,6 +3439,22 @@ class FakeDiscourseApi
       draftKey: draftKey,
       sequence: sequence,
     ));
+  }
+
+  @override
+  Future<UserSummary> userSummary({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    userSummariesRequested.add((siteUrl: siteUrl, username: username));
+    await userSummaryGate?.future;
+    final result = userSummaryValue;
+    if (result == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return result;
   }
 
   @override

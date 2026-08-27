@@ -200,12 +200,14 @@ class InstanceSidebar extends StatelessWidget {
                       ),
                       ListenableBuilder(
                         listenable: Listenable.merge(
-                          PluginScope.of(context).registry
-                              .sidebarListenables(context),
+                          PluginScope.of(
+                            context,
+                          ).registry.sidebarListenables(context),
                         ),
                         builder: (context, _) {
-                          final sections = PluginScope.of(context).registry
-                              .sidebarSections(context);
+                          final sections = PluginScope.of(
+                            context,
+                          ).registry.sidebarSections(context);
                           return SliverMainAxisGroup(
                             slivers: [
                               // Optional features contribute below the routes

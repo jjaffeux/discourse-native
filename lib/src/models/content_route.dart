@@ -62,6 +62,15 @@ class ContentRoute {
     );
   }
 
+  /// The connected account's profile summary.
+  factory ContentRoute.userSummary() => const ContentRoute(
+    id: userSummaryId,
+    title: 'Summary',
+    icon: DIcons.user,
+  );
+
+  static const String userSummaryId = 'user-summary';
+
   /// The route a sidebar entry opens.
   ContentRoute.fromDestination(SidebarDestination destination)
     : id = destination.id,
@@ -101,6 +110,7 @@ class ContentRoute {
   static const int maximumFeedPathLength = 2048;
 
   bool get isTopic => topicId != null;
+  bool get isUserSummary => !isTopic && id == userSummaryId;
 
   /// A durable, presentation-only snapshot of this route.
   ///

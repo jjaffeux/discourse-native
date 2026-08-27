@@ -186,6 +186,29 @@ state over the confirmed result. An ambiguous create is never repeated: the
 topic is read again because a timed-out first request may already have created
 the one bookmark the target permits.
 
+### Profile summary
+
+The Profile tab's **Summary** row opens a restorable native content route for
+the connected account. It reads `/u/{username}/summary.json` with the user API
+key and joins the envelope's root topic and badge definitions to the id-based
+rows in `user_summary`, just as the web model does. Core ranks and caps every
+collection at six; there is no summary cursor. Web's “more” links enter separate
+activity routes, so the native page does not present those links until it has
+equivalent destinations.
+
+The page follows the response's visibility fields, including the summary-stats
+guardian, and presents top replies, topics, links, people, categories and
+badges with the same section-level empty behavior as web. Topics and exact
+reply posts, user cards and categories reuse native navigation. Category counts
+open the corresponding author/category search (`in:first` for topics), while a
+top link itself stays an external URL and its source post remains native.
+
+Summary state is isolated by forum and username and is discarded at the site
+account lifecycle boundary. Refresh keeps a successfully loaded page visible
+behind progress or a recoverable error; request identity and lifecycle leases
+prevent a disconnected account's late credential or response from reaching a
+replacement session on the same origin.
+
 ### Topic lists
 
 `latest`, `new`, `unread`, `top` and `messages` all share one envelope

@@ -1287,8 +1287,9 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
     if (!confirmed || !context.mounted) return;
     final error = await controller.deleteSelectedTopicPosts(siteUrl, topic.id);
     if (error != null && context.mounted) {
-      ScaffoldMessenger.maybeOf(context)
-          ?.showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -1306,8 +1307,9 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
     if (!confirmed || !context.mounted) return;
     final error = await controller.mergeSelectedTopicPosts(siteUrl, topic.id);
     if (error != null && context.mounted) {
-      ScaffoldMessenger.maybeOf(context)
-          ?.showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -2756,8 +2758,9 @@ class _TopicMap extends StatelessWidget {
   Future<void> _toggleSummary(BuildContext context) async {
     final error = await ShellScope.read(context).toggleTopicSummary();
     if (!context.mounted || error == null) return;
-    ScaffoldMessenger.maybeOf(context)
-        ?.showSnackBar(SnackBar(content: Text(error)));
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(error)));
   }
 
   List<Widget> _stats(BuildContext context) => [
