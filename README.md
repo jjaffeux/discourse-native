@@ -1433,7 +1433,10 @@ claims both the default lazy-video container and core Onebox's older iframe
 fallback. Posts and canonical chat messages already share `CookedHtml`, so both
 show the same full-width native thumbnail, title, play action and external link.
 The platform WebView does not exist until Play is pressed; after that the state
-is kept alive while the item scrolls offscreen so playback is not reset.
+is kept alive while the item scrolls offscreen so playback is not reset. Once
+active, the WebView claims its pointer sequences ahead of the surrounding text
+selection and timeline gestures, keeping the iframe's pause, seek, volume and
+fullscreen controls interactive.
 
 Playback uses YouTube's official iframe, never an extracted media stream. The
 wrapper supplies the source forum's origin as the referrer/client identity,
