@@ -966,7 +966,7 @@ class _Tile extends StatelessWidget {
                         alignment: Alignment.topLeft,
                         child: Padding(
                           padding: const EdgeInsets.only(top: 2),
-                          child: UserCardTarget(
+                          child: UserCardTarget.avatar(
                             username: message.author.username,
                             siteUrl: siteUrl,
                             child: ChatUserAvatar(

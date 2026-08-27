@@ -181,6 +181,30 @@ void main() {
     },
   );
 
+  testWidgets('author avatar only uses the hand cursor under a pointer', (
+    tester,
+  ) async {
+    final controller = await _controller(
+      _message(null, authorUsername: 'root'),
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+
+    final avatar = find.byType(ChatUserAvatar);
+    final ink = tester.widget<InkWell>(
+      find.ancestor(of: avatar, matching: find.byType(InkWell)).first,
+    );
+
+    expect(ink.mouseCursor, SystemMouseCursors.click);
+    expect(ink.hoverColor, Colors.transparent);
+    expect(ink.highlightColor, Colors.transparent);
+    expect(ink.splashColor, Colors.transparent);
+  });
+
   for (final activation in [
     (name: 'Enter', key: LogicalKeyboardKey.enter),
     (name: 'Space', key: LogicalKeyboardKey.space),
@@ -1297,6 +1321,7 @@ ChatMessage _message(
   ChatThreadPreview? thread, {
   String raw = '',
   int authorId = 99,
+  String authorUsername = '',
   int? threadId,
   DateTime? deletedAt,
   bool edited = false,
@@ -1310,7 +1335,11 @@ ChatMessage _message(
   channelId: 9,
   raw: raw,
   cooked: '<p>Root message</p>',
-  author: ChatMessageAuthor(id: authorId, username: '', name: 'Root author'),
+  author: ChatMessageAuthor(
+    id: authorId,
+    username: authorUsername,
+    name: 'Root author',
+  ),
   deletedAt: deletedAt,
   edited: edited,
   pinned: pinned,
