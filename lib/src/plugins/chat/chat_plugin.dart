@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:html/dom.dart' as dom;
 
 import '../../models/content_route.dart';
 import '../../models/forum_workspace.dart';
@@ -27,6 +28,7 @@ import 'chat_route.dart';
 import 'chat_search_view.dart';
 import 'chat_shell_extension.dart';
 import 'chat_thread_view.dart';
+import 'chat_transcript.dart';
 import 'chat_user_avatar.dart';
 import 'chat_user_card.dart';
 
@@ -73,7 +75,8 @@ class ChatPlugin
         ShellHeaderPlugin,
         UserAvatarPlugin,
         UserCardRecordPlugin<ChatUserCardData>,
-        UserCardActionPlugin {
+        UserCardActionPlugin,
+        CookedElementPlugin {
   const ChatPlugin();
 
   static const String searchRouteId = 'chat-search';
@@ -90,6 +93,10 @@ class ChatPlugin
 
   @override
   String get name => 'chat';
+
+  @override
+  Widget? cookedElement(String? siteUrl, dom.Element element) =>
+      chatTranscriptWidgetBuilder(element, siteUrl: siteUrl);
 
   @override
   PluginDataKey<ChatUserCardData> get record => chatUserCardKey;

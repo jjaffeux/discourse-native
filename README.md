@@ -1129,6 +1129,13 @@ transcript after any restored draft. Allowed selections can be soft-deleted in o
 `DELETE /chat/api/channels/{channel}/messages` request after confirmation; the
 same per-message guardian checks and 200-message limit as the web client are
 enforced before anything changes locally.
+Core cooks that canonical `[chat]` source into `div.chat-transcript`, whose
+avatar, attribution, timestamp, channel, body and nested thread messages are
+arranged entirely by the Chat stylesheet. `ChatPlugin` therefore claims that
+element through the record-independent cooked-element capability and draws it
+as a native quote panel in either a topic post or another chat message. Source
+links retain the site that cooked them, and the raw UTC timestamp is formatted
+in the reader's local time just as the web decorator does.
 Moderators in public channels also get Move: a destination chooser lists the
 other followed public channels, posts core's nested `move` payload, projects
 the source rows as deleted, and opens the first newly-created message in the
