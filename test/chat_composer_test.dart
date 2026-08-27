@@ -251,7 +251,9 @@ void main() {
         tester.getCenter(find.byKey(ChatMessageTile.actionsKey(7))),
       );
       await tester.pump();
-      await tester.tap(find.byTooltip('Edit'));
+      await tester.tap(find.byTooltip('More message actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(MenuItemButton, 'Edit'));
       await tester.pumpAndSettle();
 
       expect(find.text('Edit message'), findsNothing);

@@ -620,6 +620,85 @@ void main() {
     expect(replies, [same(message)]);
   });
 
+  testWidgets('hover matches core primary and secondary message actions', (
+    tester,
+  ) async {
+    final controller = await _controller(_message(null), signedIn: true);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(
+        controller: controller,
+        onOpenThread: (_) {},
+        onReplyInThread: (_) {},
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _hoverMessage(tester);
+
+    final toolbar = find.byType(HoverActionToolbar);
+    expect(
+      tester
+          .widgetList<HoverActionButton>(
+            find.descendant(
+              of: toolbar,
+              matching: find.byType(HoverActionButton),
+            ),
+          )
+          .map((button) => button.tooltip),
+      ['Add reaction', 'Bookmark', 'Reply in thread', 'More message actions'],
+    );
+    expect(
+      tester.getSize(toolbar),
+      const Size(HoverActionButton.width * 4, HoverActionButton.height),
+    );
+    expect(find.byTooltip('Copy link'), findsNothing);
+
+    final more = find.byTooltip('More message actions');
+    expect(
+      tester
+          .widget<DIcon>(
+            find.descendant(of: more, matching: find.byType(DIcon)),
+          )
+          .icon,
+      DIcons.ellipsisVertical,
+    );
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(MenuItemButton, 'Copy link'), findsOneWidget);
+    expect(find.widgetWithText(MenuItemButton, 'Bookmark'), findsNothing);
+    expect(
+      find.widgetWithText(MenuItemButton, 'Reply in thread'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('the secondary action menu stays open after mouseleave', (
+    tester,
+  ) async {
+    final controller = await _controller(_message(null));
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(find.byKey(_messageTileKey)));
+    await tester.pump();
+    await tester.tap(find.byTooltip('More message actions'));
+    await tester.pumpAndSettle();
+
+    await mouse.moveTo(Offset.zero);
+    await tester.pump();
+
+    expect(find.byType(HoverActionToolbar), findsOneWidget);
+    expect(find.widgetWithText(MenuItemButton, 'Copy link'), findsOneWidget);
+  });
+
   testWidgets('hover actions are not clipped by a short chained message', (
     tester,
   ) async {
@@ -665,9 +744,14 @@ void main() {
     await tester.pumpAndSettle();
     await _hoverMessage(tester);
 
-    final action = find.byTooltip('Copy link');
+    expect(find.byTooltip('Copy link'), findsNothing);
+    final more = find.byTooltip('More message actions');
+    expect(tester.getSize(more), HoverActionButton.size);
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+
+    final action = find.widgetWithText(MenuItemButton, 'Copy link');
     expect(action, findsOneWidget);
-    expect(tester.getSize(action), HoverActionButton.size);
 
     await tester.tap(action);
     await tester.pumpAndSettle();
@@ -896,6 +980,36 @@ void main() {
     expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.isDeleted, isTrue);
   });
 
+  testWidgets('an author deletes from the desktop secondary actions', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      user: const DiscourseUser(id: 1, username: 'reader'),
+    );
+    final controller = await _controller(
+      _message(null, raw: 'mine', authorId: 1),
+      signedIn: true,
+      canDeleteSelf: true,
+      api: api,
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+    await _hoverMessage(tester);
+
+    expect(find.byTooltip('Delete'), findsNothing);
+    await tester.tap(find.byTooltip('More message actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(MenuItemButton, 'Delete'));
+    await tester.pumpAndSettle();
+
+    expect(api.chatMessagesDeleted, [(channelId: 9, messageId: 7)]);
+    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.isDeleted, isTrue);
+  });
+
   testWidgets('a channel pin manager pins and unpins from message actions', (
     tester,
   ) async {
@@ -916,8 +1030,10 @@ void main() {
     await tester.pumpAndSettle();
     await _hoverMessage(tester);
 
-    expect(find.byTooltip('Pin'), findsOneWidget);
-    await tester.tap(find.byTooltip('Pin'));
+    expect(find.byTooltip('Pin'), findsNothing);
+    await tester.tap(find.byTooltip('More message actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(MenuItemButton, 'Pin'));
     await tester.pumpAndSettle();
 
     expect(api.chatMessagePinsUpdated, [
@@ -925,9 +1041,10 @@ void main() {
     ]);
     expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.pinned, isTrue);
     expect(_pinnedBadge(), findsOneWidget);
-    expect(find.byTooltip('Unpin'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Unpin'));
+    await tester.tap(find.byTooltip('More message actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(MenuItemButton, 'Unpin'));
     await tester.pumpAndSettle();
     expect(api.chatMessagePinsUpdated.last, (
       channelId: 9,
@@ -974,8 +1091,10 @@ void main() {
     await tester.pumpAndSettle();
     await _hoverMessage(tester);
 
-    expect(find.byTooltip('Rebuild HTML'), findsOneWidget);
-    await tester.tap(find.byTooltip('Rebuild HTML'));
+    expect(find.byTooltip('Rebuild HTML'), findsNothing);
+    await tester.tap(find.byTooltip('More message actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(MenuItemButton, 'Rebuild HTML'));
     await tester.pumpAndSettle();
 
     expect(api.chatMessagesRebaked, [(channelId: 9, messageId: 7)]);
@@ -1012,8 +1131,10 @@ void main() {
     await tester.pumpAndSettle();
     await _hoverMessage(tester);
 
-    expect(find.byTooltip('Flag'), findsOneWidget);
-    await tester.tap(find.byTooltip('Flag'));
+    expect(find.byTooltip('Flag'), findsNothing);
+    await tester.tap(find.byTooltip('More message actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(MenuItemButton, 'Flag'));
     await tester.pumpAndSettle();
     expect(find.text('Spam'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('post-flag-submit')));

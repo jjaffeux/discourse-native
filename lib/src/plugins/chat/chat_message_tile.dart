@@ -264,6 +264,8 @@ class _ChatMessageActions extends StatefulWidget {
 class _ChatMessageActionsState extends State<_ChatMessageActions> {
   bool _hovered = false;
   bool _hoverSuppressed = false;
+  bool _pointerInside = false;
+  bool _moreActionsOpen = false;
   bool _pinning = false;
   bool _rebaking = false;
   bool _reactionPickerOpening = false;
@@ -295,22 +297,36 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
 
   void _hideHoverForScroll() {
     _hoverSuppressed = true;
+    _moreActionsOpen = false;
     if (_hovered) setState(() => _hovered = false);
   }
 
   void _pointerEntered() {
+    _pointerInside = true;
     if (_hoverSuppressed || _hovered) return;
     setState(() => _hovered = true);
   }
 
   void _pointerMoved() {
+    _pointerInside = true;
     if (_scroll?.isScrollingNotifier.value == true) return;
     _hoverSuppressed = false;
     if (!_hovered) setState(() => _hovered = true);
   }
 
   void _pointerExited() {
+    _pointerInside = false;
+    if (_moreActionsOpen) return;
     if (_hovered) setState(() => _hovered = false);
+  }
+
+  void _moreActionsOpened() {
+    _moreActionsOpen = true;
+  }
+
+  void _moreActionsClosed() {
+    _moreActionsOpen = false;
+    if (!_pointerInside && _hovered) setState(() => _hovered = false);
   }
 
   @override
@@ -689,6 +705,14 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       widget.siteUrl,
       widget.message,
     );
+    final hasSecondaryActions =
+        widget.canCopyLink ||
+        canEdit ||
+        widget.onSelect != null ||
+        canPin ||
+        flagTypes.isNotEmpty ||
+        canDelete ||
+        canRebake;
     final semanticsActions = <CustomSemanticsAction, VoidCallback>{
       if (canAddReaction && !_reactionPickerOpening)
         const CustomSemanticsAction(label: 'Add reaction'): () =>
@@ -779,30 +803,6 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                                   ),
                                 ),
                               ),
-                            if (widget.onReply != null)
-                              HoverActionButton(
-                                tooltip: 'Reply in thread',
-                                onPressed: _reply,
-                                icon: const DIcon(DIcons.reply, size: 16),
-                              ),
-                            if (widget.canCopyLink)
-                              HoverActionButton(
-                                tooltip: 'Copy link',
-                                onPressed: () => unawaited(_copyLink()),
-                                icon: const DIcon(DIcons.link, size: 16),
-                              ),
-                            if (canEdit)
-                              HoverActionButton(
-                                tooltip: 'Edit',
-                                onPressed: _edit,
-                                icon: const DIcon(DIcons.pencil, size: 16),
-                              ),
-                            if (widget.onSelect != null)
-                              HoverActionButton(
-                                tooltip: 'Select',
-                                onPressed: widget.onSelect,
-                                icon: const DIcon(DIcons.list, size: 16),
-                              ),
                             if (widget.canBookmark)
                               HoverActionButton(
                                 tooltip: bookmarkLabel,
@@ -822,55 +822,160 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                                         size: 16,
                                       ),
                               ),
-                            if (canPin)
+                            if (widget.onReply != null)
                               HoverActionButton(
-                                tooltip: widget.message.pinned
-                                    ? 'Unpin'
-                                    : 'Pin',
-                                onPressed: _pinning
-                                    ? null
-                                    : () => unawaited(_togglePin()),
-                                icon: _pinning
-                                    ? const SizedBox.square(
-                                        dimension: 16,
-                                        child:
-                                            CircularProgressIndicator.adaptive(
-                                              strokeWidth: 2,
-                                            ),
-                                      )
-                                    : const DIcon(DIcons.thumbtack, size: 16),
+                                tooltip: 'Reply in thread',
+                                onPressed: _reply,
+                                icon: const DIcon(DIcons.reply, size: 16),
                               ),
-                            if (flagTypes.isNotEmpty)
-                              HoverActionButton(
-                                tooltip: 'Flag',
-                                onPressed: () => unawaited(_flag(flagTypes)),
-                                icon: const DIcon(DIcons.flag, size: 16),
-                              ),
-                            if (canDelete)
-                              HoverActionButton(
-                                tooltip: 'Delete',
-                                color: Theme.of(context).colorScheme.error,
-                                onPressed: () => unawaited(_delete()),
-                                icon: const DIcon(DIcons.trashCan, size: 16),
-                              ),
-                            if (canRebake)
-                              HoverActionButton(
-                                tooltip: 'Rebuild HTML',
-                                onPressed: _rebaking
-                                    ? null
-                                    : () => unawaited(_rebake()),
-                                icon: _rebaking
-                                    ? const SizedBox.square(
-                                        dimension: 16,
-                                        child:
-                                            CircularProgressIndicator.adaptive(
-                                              strokeWidth: 2,
-                                            ),
-                                      )
-                                    : const DIcon(
-                                        DIcons.arrowsRotate,
+                            if (hasSecondaryActions)
+                              MenuAnchor(
+                                alignmentOffset: const Offset(0, 4),
+                                onOpen: _moreActionsOpened,
+                                onClose: _moreActionsClosed,
+                                style: MenuStyle(
+                                  backgroundColor: WidgetStatePropertyAll(
+                                    Theme.of(context).shell.floating,
+                                  ),
+                                  surfaceTintColor:
+                                      const WidgetStatePropertyAll(
+                                        Colors.transparent,
+                                      ),
+                                  maximumSize: const WidgetStatePropertyAll(
+                                    Size(300, 440),
+                                  ),
+                                ),
+                                menuChildren: [
+                                  if (widget.canCopyLink)
+                                    MenuItemButton(
+                                      key: ValueKey(
+                                        'chat-message-copy-link-${widget.message.id}',
+                                      ),
+                                      onPressed: () => unawaited(_copyLink()),
+                                      leadingIcon: const DIcon(
+                                        DIcons.link,
                                         size: 16,
                                       ),
+                                      child: const Text('Copy link'),
+                                    ),
+                                  if (canEdit)
+                                    MenuItemButton(
+                                      key: ValueKey(
+                                        'chat-message-edit-${widget.message.id}',
+                                      ),
+                                      onPressed: _edit,
+                                      leadingIcon: const DIcon(
+                                        DIcons.pencil,
+                                        size: 16,
+                                      ),
+                                      child: const Text('Edit'),
+                                    ),
+                                  if (widget.onSelect != null)
+                                    MenuItemButton(
+                                      key: ValueKey(
+                                        'chat-message-select-${widget.message.id}',
+                                      ),
+                                      onPressed: widget.onSelect,
+                                      leadingIcon: const DIcon(
+                                        DIcons.list,
+                                        size: 16,
+                                      ),
+                                      child: const Text('Select'),
+                                    ),
+                                  if (canPin)
+                                    MenuItemButton(
+                                      key: ValueKey(
+                                        'chat-message-pin-${widget.message.id}',
+                                      ),
+                                      onPressed: _pinning
+                                          ? null
+                                          : () => unawaited(_togglePin()),
+                                      leadingIcon: _pinning
+                                          ? const SizedBox.square(
+                                              dimension: 16,
+                                              child:
+                                                  CircularProgressIndicator.adaptive(
+                                                    strokeWidth: 2,
+                                                  ),
+                                            )
+                                          : const DIcon(
+                                              DIcons.thumbtack,
+                                              size: 16,
+                                            ),
+                                      child: Text(
+                                        widget.message.pinned ? 'Unpin' : 'Pin',
+                                      ),
+                                    ),
+                                  if (flagTypes.isNotEmpty)
+                                    MenuItemButton(
+                                      key: ValueKey(
+                                        'chat-message-flag-${widget.message.id}',
+                                      ),
+                                      onPressed: () =>
+                                          unawaited(_flag(flagTypes)),
+                                      leadingIcon: const DIcon(
+                                        DIcons.flag,
+                                        size: 16,
+                                      ),
+                                      child: const Text('Flag'),
+                                    ),
+                                  if (canDelete)
+                                    MenuItemButton(
+                                      key: ValueKey(
+                                        'chat-message-delete-${widget.message.id}',
+                                      ),
+                                      onPressed: () => unawaited(_delete()),
+                                      leadingIcon: const DIcon(
+                                        DIcons.trashCan,
+                                        size: 16,
+                                      ),
+                                      style: MenuItemButton.styleFrom(
+                                        foregroundColor: Theme.of(
+                                          context,
+                                        ).colorScheme.error,
+                                        iconColor: Theme.of(
+                                          context,
+                                        ).colorScheme.error,
+                                      ),
+                                      child: const Text('Delete'),
+                                    ),
+                                  if (canRebake)
+                                    MenuItemButton(
+                                      key: ValueKey(
+                                        'chat-message-rebake-${widget.message.id}',
+                                      ),
+                                      onPressed: _rebaking
+                                          ? null
+                                          : () => unawaited(_rebake()),
+                                      leadingIcon: _rebaking
+                                          ? const SizedBox.square(
+                                              dimension: 16,
+                                              child:
+                                                  CircularProgressIndicator.adaptive(
+                                                    strokeWidth: 2,
+                                                  ),
+                                            )
+                                          : const DIcon(
+                                              DIcons.arrowsRotate,
+                                              size: 16,
+                                            ),
+                                      child: const Text('Rebuild HTML'),
+                                    ),
+                                ],
+                                builder: (context, menu, child) =>
+                                    HoverActionButton(
+                                      key: ValueKey(
+                                        'chat-message-more-actions-${widget.message.id}',
+                                      ),
+                                      tooltip: 'More message actions',
+                                      onPressed: menu.isOpen
+                                          ? menu.close
+                                          : menu.open,
+                                      icon: const DIcon(
+                                        DIcons.ellipsisVertical,
+                                        size: 16,
+                                      ),
+                                    ),
                               ),
                           ],
                         ),
