@@ -503,6 +503,7 @@ class _ForumTab extends StatefulWidget {
 
 class _ForumTabState extends State<_ForumTab> {
   static const _renameAction = CustomSemanticsAction(label: 'Rename');
+  static const _dotGap = 3.0;
 
   bool _hovered = false;
   bool _selectedOnPointerDown = false;
@@ -717,7 +718,7 @@ class _ForumTabState extends State<_ForumTab> {
     if (!badge.isVisible) return false;
     // Select padding consumes 14px. A prefix and its gap consume another 22px.
     final leadingWidth = hasPrefix ? 36 : 14;
-    if (badge.dot) return selectWidth >= leadingWidth + 8;
+    if (badge.dot) return selectWidth >= leadingWidth + _dotGap + 8;
     final estimatedBadgeWidth = math.max(
       19,
       badge.count.toString().length * 6 + 10,
@@ -784,8 +785,10 @@ class _ForumTabState extends State<_ForumTab> {
                           _badgeFits(
                             constraints.maxWidth,
                             hasPrefix: prefix != null,
-                          ))
+                          )) ...[
+                        const SizedBox(width: _dotGap),
                         _badge(context),
+                      ],
                     ],
                   ),
           ),
