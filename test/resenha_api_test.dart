@@ -31,12 +31,22 @@ void main() {
       slug: 'conf-room-1',
       apiKey: key,
     );
-    final join = await api.join(siteUrl: site, roomId: 7, apiKey: key);
+    final join = await api.join(
+      siteUrl: site,
+      roomId: 7,
+      apiKey: key,
+      participantSessionId: 'existing-participant-session',
+    );
 
     expect(directory.messageBusLastId, 144);
     expect(room.slug, 'conf-room-1');
     expect(join.transport, ResenhaTransport.mesh);
+    expect(join.participantSessionId, 'mesh-participant-session');
     expect(fake.pluginWrites.single.path, '/resenha/rooms/7/join.json');
+    expect(
+      fake.pluginWrites.single.body['participant_session_id'],
+      'existing-participant-session',
+    );
   });
 
   test(
@@ -70,6 +80,7 @@ void main() {
         roomId: 7,
         apiKey: key,
         payload: {'recipient_id': 2, 'events': const []},
+        participantSessionId: 'participant-session',
       );
       await api.state(
         siteUrl: site,
@@ -77,14 +88,21 @@ void main() {
         apiKey: key,
         muted: true,
         screen: false,
+        participantSessionId: 'participant-session',
       );
-      await api.requestToSpeak(siteUrl: site, roomId: 7, apiKey: key);
+      await api.requestToSpeak(
+        siteUrl: site,
+        roomId: 7,
+        apiKey: key,
+        participantSessionId: 'participant-session',
+      );
       await api.requestToSpeak(
         siteUrl: site,
         roomId: 7,
         apiKey: key,
         raised: false,
         userId: 2,
+        participantSessionId: 'participant-session',
       );
       await api.kick(siteUrl: site, roomId: 7, apiKey: key, userId: 2);
       await api.flag(
@@ -123,6 +141,13 @@ void main() {
         ],
       );
       expect(recording?.active, isTrue);
+      for (final write in fake.pluginWrites.take(4)) {
+        expect(
+          write.body['participant_session_id'],
+          'participant-session',
+          reason: write.path,
+        );
+      }
     },
   );
 
@@ -133,8 +158,10 @@ void main() {
       final responses = <String, Map<String, dynamic>>{
         'POST /resenha/rooms/7/heartbeat.json': {},
         'DELETE /resenha/rooms/7/leave.json': {},
-        'POST /resenha/rooms/7/livekit_token.json':
-            fixture('join_livekit')['livekit'] as Map<String, dynamic>,
+        'POST /resenha/rooms/7/livekit_token.json': {
+          ...(fixture('join_livekit')['livekit'] as Map<String, dynamic>),
+          'participant_session_id': 'rotated-participant-session',
+        },
         'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
         'POST /resenha/rooms/7/chat_session.json': fixture('chat'),
         'POST /resenha/rooms/7/chat_message.json': fixture('chat'),
@@ -155,12 +182,25 @@ void main() {
         maxQualityProfile: ResenhaQualityProfile.high,
       );
 
-      await api.heartbeat(siteUrl: site, roomId: 7, apiKey: key);
-      await api.leave(siteUrl: site, roomId: 7, apiKey: key);
-      expect(
-        (await api.livekitToken(siteUrl: site, roomId: 7, apiKey: key)).token,
-        'redacted-fixture-token',
+      await api.heartbeat(
+        siteUrl: site,
+        roomId: 7,
+        apiKey: key,
+        participantSessionId: 'participant-session',
       );
+      await api.leave(
+        siteUrl: site,
+        roomId: 7,
+        apiKey: key,
+        participantSessionId: 'participant-session',
+      );
+      final livekit = await api.livekitToken(
+        siteUrl: site,
+        roomId: 7,
+        apiKey: key,
+      );
+      expect(livekit.token, 'redacted-fixture-token');
+      expect(livekit.participantSessionId, 'rotated-participant-session');
       expect(
         (await api.chatSession(siteUrl: site, roomId: 7, apiKey: key)).threadId,
         99,
@@ -207,6 +247,18 @@ void main() {
         membershipId: 8,
         apiKey: key,
       );
+
+      for (final path in [
+        '/resenha/rooms/7/heartbeat.json',
+        '/resenha/rooms/7/leave.json',
+      ]) {
+        expect(
+          fake.pluginWrites
+              .singleWhere((write) => write.path == path)
+              .body['participant_session_id'],
+          'participant-session',
+        );
+      }
 
       final create = fake.pluginWrites.firstWhere(
         (write) => write.path == '/resenha/rooms.json',

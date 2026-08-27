@@ -130,7 +130,7 @@ void main() {
         ]);
         expect(
           peer.createdTransceivers.map((value) => value.direction),
-          everyElement(rtc.TransceiverDirection.SendRecv),
+          everyElement(rtc.TransceiverDirection.RecvOnly),
         );
         expect(peer.addedTracks, isEmpty);
         await media.dispose();
@@ -411,6 +411,113 @@ void main() {
       await media.dispose();
     });
 
+    test('rejects media published by a stage listener', () async {
+      final peer = _FakePeerConnection();
+      final response = _meshJoin(
+        localUserId: 10,
+        remoteUserId: 20,
+        roomType: ResenhaRoomType.stage,
+        localRole: ResenhaRole.speaker,
+      );
+      final media = MeshResenhaMediaSession(
+        join: response,
+        localUserId: 10,
+        sendSignal: (_, _) async {},
+        audioPublishingAllowed: true,
+        createPeerConnection: (_) async => peer,
+        getUserMedia: (_) async =>
+            _FakeStream('local-stream', [_FakeTrack('local-mic', 'audio')]),
+      );
+      await media.connect();
+      final track = _FakeTrack('untrusted-listener-mic', 'audio');
+
+      peer.onTrack?.call(
+        rtc.RTCTrackEvent(
+          streams: [
+            _FakeStream('untrusted-stream', [track]),
+          ],
+          track: track,
+        ),
+      );
+      await _pumpEventQueue();
+
+      expect(track.stopped, isTrue);
+      await media.dispose();
+    });
+
+    test('rejects video and screen audio when video is disabled', () async {
+      final peer = _FakePeerConnection();
+      final response = _meshJoin(
+        localUserId: 10,
+        remoteUserId: 20,
+        videoAllowed: false,
+      );
+      final media = MeshResenhaMediaSession(
+        join: response,
+        localUserId: 10,
+        sendSignal: (_, _) async {},
+        audioPublishingAllowed: true,
+        createPeerConnection: (_) async => peer,
+        getUserMedia: (_) async =>
+            _FakeStream('local-stream', [_FakeTrack('local-mic', 'audio')]),
+      );
+      await media.connect();
+      final video = _FakeTrack('untrusted-video', 'video');
+      final screenAudio = _FakeTrack('untrusted-screen-audio', 'audio');
+
+      peer.onTrack?.call(rtc.RTCTrackEvent(streams: const [], track: video));
+      peer.onTrack?.call(
+        rtc.RTCTrackEvent(streams: const [], track: screenAudio),
+      );
+      await _pumpEventQueue();
+
+      expect(video.stopped, isTrue);
+      expect(screenAudio.stopped, isTrue);
+      expect(media.videoTrackFor(20), isNull);
+      await media.dispose();
+    });
+
+    test('stops already received media after a stage demotion', () async {
+      final firstPeer = _FakePeerConnection();
+      final rebuiltPeer = _FakePeerConnection();
+      final peers = [firstPeer, rebuiltPeer];
+      final response = _meshJoin(
+        localUserId: 10,
+        remoteUserId: 20,
+        roomType: ResenhaRoomType.stage,
+        localRole: ResenhaRole.speaker,
+        remoteRole: ResenhaRole.speaker,
+      );
+      final media = MeshResenhaMediaSession(
+        join: response,
+        localUserId: 10,
+        sendSignal: (_, _) async {},
+        audioPublishingAllowed: true,
+        createPeerConnection: (_) async => peers.removeAt(0),
+        getUserMedia: (_) async =>
+            _FakeStream('local-stream', [_FakeTrack('local-mic', 'audio')]),
+      );
+      await media.connect();
+      final remoteVideo = _FakeTrack('speaker-video', 'video');
+      firstPeer.onTrack?.call(
+        rtc.RTCTrackEvent(streams: const [], track: remoteVideo),
+      );
+      expect(media.videoTrackFor(20), same(remoteVideo));
+
+      await media.syncParticipants([
+        response.room.participants.first,
+        const ResenhaParticipant(
+          id: 20,
+          username: 'remote',
+          role: ResenhaRole.participant,
+        ),
+      ]);
+
+      expect(remoteVideo.stopped, isTrue);
+      expect(media.videoTrackFor(20), isNull);
+      await media.dispose();
+    });
+
     test(
       'ignores signals from self and participants outside the roster',
       () async {
@@ -588,6 +695,36 @@ void main() {
       expect(peer.createdAnswers, 1);
       await media.dispose();
     });
+
+    test(
+      'keeps answer transceivers receive-only for stage listeners',
+      () async {
+        final peer = _FakePeerConnection();
+        final response = _meshJoin(
+          localUserId: 20,
+          remoteUserId: 10,
+          roomType: ResenhaRoomType.stage,
+          remoteRole: ResenhaRole.speaker,
+        );
+        final media = MeshResenhaMediaSession(
+          join: response,
+          localUserId: 20,
+          sendSignal: (_, _) async {},
+          audioPublishingAllowed: false,
+          createPeerConnection: (_) async => peer,
+        );
+        await media.connect();
+        final associated = peer.prepareAssociatedTransceivers();
+
+        await media.handleSignal(10, {'type': 'offer', 'sdp': 'remote-offer'});
+
+        expect(
+          associated.map((value) => value.direction),
+          everyElement(rtc.TransceiverDirection.RecvOnly),
+        );
+        await media.dispose();
+      },
+    );
 
     test(
       'accepts a first offer before the cached signaling state is set',
@@ -1633,6 +1770,7 @@ ResenhaJoinResponse _meshJoin({
   ResenhaRoomType roomType = ResenhaRoomType.open,
   ResenhaRole localRole = ResenhaRole.participant,
   ResenhaRole remoteRole = ResenhaRole.participant,
+  bool videoAllowed = true,
 }) => ResenhaJoinResponse(
   transport: ResenhaTransport.mesh,
   ice: const ResenhaIceConfiguration(servers: [], relayOnly: false),
@@ -1655,7 +1793,7 @@ ResenhaJoinResponse _meshJoin({
         role: remoteRole,
       ),
     ],
-    videoAllowed: true,
+    videoAllowed: videoAllowed,
   ),
 );
 

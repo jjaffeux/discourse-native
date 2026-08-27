@@ -44,10 +44,12 @@ final class ResenhaApi {
     required int roomId,
     required String apiKey,
     bool skipStatus = false,
+    String? participantSessionId,
     String? clientId,
   }) async => ResenhaJoinResponse.fromJson(
     await _write(siteUrl, '/resenha/rooms/$roomId/join.json', 'POST', apiKey, {
       'skip_status': skipStatus ? true : null,
+      'participant_session_id': participantSessionId,
     }, clientId),
   );
 
@@ -56,13 +58,17 @@ final class ResenhaApi {
     required int roomId,
     required String apiKey,
     ResenhaIdleState idle = ResenhaIdleState.active,
+    String? participantSessionId,
     String? clientId,
   }) => _voidWrite(
     siteUrl,
     '/resenha/rooms/$roomId/heartbeat.json',
     'POST',
     apiKey,
-    {'idle_state': idle.wireName},
+    {
+      'idle_state': idle.wireName,
+      'participant_session_id': participantSessionId,
+    },
     clientId,
   );
 
@@ -70,13 +76,14 @@ final class ResenhaApi {
     required String siteUrl,
     required int roomId,
     required String apiKey,
+    String? participantSessionId,
     String? clientId,
   }) => _voidWrite(
     siteUrl,
     '/resenha/rooms/$roomId/leave.json',
     'DELETE',
     apiKey,
-    const {},
+    {'participant_session_id': participantSessionId},
     clientId,
   );
 
@@ -105,13 +112,14 @@ final class ResenhaApi {
     required int roomId,
     required String apiKey,
     required Map<String, Object?> payload,
+    String? participantSessionId,
     String? clientId,
   }) => _voidWrite(
     siteUrl,
     '/resenha/rooms/$roomId/signal.json',
     'POST',
     apiKey,
-    {'payload': payload},
+    {'payload': payload, 'participant_session_id': participantSessionId},
     clientId,
   );
 
@@ -124,6 +132,7 @@ final class ResenhaApi {
     bool? video,
     bool? screen,
     bool? watching,
+    String? participantSessionId,
     String? clientId,
   }) =>
       _voidWrite(siteUrl, '/resenha/rooms/$roomId/state.json', 'POST', apiKey, {
@@ -132,6 +141,7 @@ final class ResenhaApi {
         'video': video,
         'screen': screen,
         'watching': watching,
+        'participant_session_id': participantSessionId,
       }, clientId);
 
   Future<ResenhaLiveKitCredentials> livekitToken({
@@ -302,13 +312,14 @@ final class ResenhaApi {
     required String apiKey,
     bool raised = true,
     int? userId,
+    String? participantSessionId,
     String? clientId,
   }) => _voidWrite(
     siteUrl,
     '/resenha/rooms/$roomId/request_to_speak.json',
     raised ? 'POST' : 'DELETE',
     apiKey,
-    {'user_id': userId},
+    {'user_id': userId, 'participant_session_id': participantSessionId},
     clientId,
   );
 

@@ -1,5 +1,6 @@
 {
   "transport": "mesh",
+  "participant_session_id": "mesh-participant-session",
   "ice": {
     "servers": [
       { "urls": ["stun:stun.example.com:3478"] },

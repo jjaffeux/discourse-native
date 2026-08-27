@@ -108,6 +108,7 @@ void main() {
             'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.'
             'abcdefghijklmnop\n'
             'a=ice-ufrag:sdp-ufrag-secret\n'
+            'participant_session_id=inline-participant-session-secret\n'
             'LiveKit kALL iceServers: [urls: turn:turn.example\n'
             'username: inline-turn-username-secret\n'
             'credential: inline-turn-credential-secret\n'
@@ -129,6 +130,7 @@ void main() {
           'deviceId': 'microphone-stable-id',
           'deviceLabel': "Alice's AirPods",
           'clientId': 'discourse-client-id-secret',
+          'participantSessionId': 'participant-session-secret',
           'icePwd': 'structured-ice-pwd-secret',
           'ice_ufrag': 'structured-ice-ufrag-secret',
           'rawJson':
@@ -164,6 +166,8 @@ void main() {
         'quoted-credential-secret',
         'sdp-ufrag-secret',
         'discourse-client-id-secret',
+        'participant-session-secret',
+        'inline-participant-session-secret',
         'structured-ice-pwd-secret',
         'structured-ice-ufrag-secret',
         'escaped-ice-secret',

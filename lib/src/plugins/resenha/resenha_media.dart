@@ -324,9 +324,10 @@ abstract base class _ResenhaMediaNotifier extends ChangeNotifier
 
 enum _MeshSource { microphone, video, screenAudio }
 
-const int _maxMeshSdpCodeUnits = 256 * 1024;
-const int _maxMeshCandidateCodeUnits = 8 * 1024;
+const int _maxMeshSdpCodeUnits = 32 * 1024;
+const int _maxMeshCandidateCodeUnits = 2 * 1024;
 const int _maxMeshSdpMidCodeUnits = 256;
+const int _meshSignalFlushEventThreshold = 20;
 
 // ICE agents normally produce far fewer candidates. This still leaves ample
 // room for multiple interfaces and TURN transports while bounding queued text
@@ -451,6 +452,11 @@ final class _MeshRemoteSlots {
   Iterable<rtc.MediaStreamTrack> get audioTracks sync* {
     if (microphone case final track?) yield track;
     if (screenAudio case final track?) yield track;
+  }
+
+  Iterable<rtc.MediaStreamTrack> get tracks sync* {
+    yield* audioTracks;
+    if (video case final track?) yield track;
   }
 
   void accept(rtc.RTCTrackEvent event) {
@@ -909,9 +915,10 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
           (participant) => MapEntry(participant.id, participant.role),
         ),
       );
-    for (final id in wanted) {
-      if (!_peers.containsKey(id)) await _createPeer(id);
-    }
+    await Future.wait([
+      for (final id in wanted)
+        if (!_peers.containsKey(id)) _createPeer(id),
+    ]);
   }
 
   Future<void> _createPeer(int peerId) {
@@ -1013,6 +1020,22 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
             'streamIds': [for (final stream in event.streams) stream.id],
           },
         );
+        if (!_remoteTrackAllowed(peerId, event)) {
+          _recordDiagnostic(
+            diagnostics,
+            'mesh.track.rejected',
+            component: 'webrtc',
+            correlationId: correlationId,
+            severity: DiagnosticSeverity.warning,
+            data: {
+              'peerAlias': peerAlias,
+              'trackAlias': trackAlias,
+              'kind': event.track.kind,
+            },
+          );
+          unawaited(_stopRemoteTrackBestEffort(event.track));
+          return;
+        }
         final slots = _remoteTracks[peerId] ??= _MeshRemoteSlots();
         slots.accept(event);
         event.track.onEnded = () {
@@ -1084,25 +1107,22 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       };
 
       final microphone = _microphoneTrack;
+      final publishingDirection = audioPublishingAllowed
+          ? rtc.TransceiverDirection.SendRecv
+          : rtc.TransceiverDirection.RecvOnly;
       final microphoneSender = microphone != null && _localStream != null
           ? await peer.addTrack(microphone, _localStream!)
           : (await peer.addTransceiver(
               kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
-              init: rtc.RTCRtpTransceiverInit(
-                direction: rtc.TransceiverDirection.SendRecv,
-              ),
+              init: rtc.RTCRtpTransceiverInit(direction: publishingDirection),
             )).sender;
       final video = await peer.addTransceiver(
         kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeVideo,
-        init: rtc.RTCRtpTransceiverInit(
-          direction: rtc.TransceiverDirection.SendRecv,
-        ),
+        init: rtc.RTCRtpTransceiverInit(direction: publishingDirection),
       );
       final screenAudio = await peer.addTransceiver(
         kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
-        init: rtc.RTCRtpTransceiverInit(
-          direction: rtc.TransceiverDirection.SendRecv,
-        ),
+        init: rtc.RTCRtpTransceiverInit(direction: publishingDirection),
       );
       if (_publishedVideoTrack case final track?) {
         await video.sender.replaceTrack(track);
@@ -1179,10 +1199,13 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   }
 
   void _queueCandidate(int peerId, rtc.RTCIceCandidate candidate) {
-    (_outgoingCandidates[peerId] ??= []).add({
-      'type': 'candidate',
-      'candidate': candidate.toMap(),
-    });
+    final queued = _outgoingCandidates[peerId] ??= [];
+    queued.add({'type': 'candidate', 'candidate': candidate.toMap()});
+    if (queued.length >= _meshSignalFlushEventThreshold) {
+      _candidateTimers.remove(peerId)?.cancel();
+      unawaited(_flushOutgoingCandidatesAtTerminal(peerId));
+      return;
+    }
     _candidateTimers.putIfAbsent(
       peerId,
       () => Timer(
@@ -1419,6 +1442,30 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
     }
   }
 
+  bool _remoteTrackAllowed(int peerId, rtc.RTCTrackEvent event) {
+    if (!_currentRemoteParticipantIds.contains(peerId)) return false;
+    final role = _participantRoles[peerId];
+    if (join.room.type == ResenhaRoomType.stage &&
+        role != ResenhaRole.moderator &&
+        role != ResenhaRole.speaker) {
+      return false;
+    }
+    final isScreenAudio = event.track.kind == 'audio' && event.streams.isEmpty;
+    if ((event.track.kind == 'video' || isScreenAudio) &&
+        !join.room.videoAllowed) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _stopRemoteTrackBestEffort(rtc.MediaStreamTrack track) async {
+    try {
+      await track.stop();
+    } catch (_) {
+      // A remote track may already have ended while the policy check runs.
+    }
+  }
+
   Future<void> _alignSendSlotsForAnswer(
     int peerId,
     rtc.RTCPeerConnection peer,
@@ -1463,7 +1510,11 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
     rtc.RTCRtpSender oldSender,
     rtc.RTCRtpTransceiver associated,
   ) async {
-    await associated.setDirection(rtc.TransceiverDirection.SendRecv);
+    await associated.setDirection(
+      audioPublishingAllowed
+          ? rtc.TransceiverDirection.SendRecv
+          : rtc.TransceiverDirection.RecvOnly,
+    );
     final sender = associated.sender;
     if (sender.senderId == oldSender.senderId) return sender;
     final track = oldSender.track;
@@ -1579,13 +1630,13 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
     if (previous == allowed && sourceIsConsistent) return;
     final peerIds = _peers.keys.toList();
     try {
+      audioPublishingAllowed = allowed;
       if (allowed) {
         await _ensureAudioTrack(syncPeers: false);
       } else {
         await _detachAndStopMicrophone();
       }
       await _replacePeers(peerIds);
-      audioPublishingAllowed = allowed;
     } catch (error, stackTrace) {
       audioPublishingAllowed = previous;
       await _restoreAudioPublishingBestEffort(previous, peerIds);
@@ -1942,7 +1993,12 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   Future<void> _closePeer(int id) async {
     final peer = _peers.remove(id);
     _sendSlots.remove(id);
-    _remoteTracks.remove(id);
+    final remote = _remoteTracks.remove(id);
+    if (remote != null) {
+      for (final track in remote.tracks) {
+        await _stopRemoteTrackBestEffort(track);
+      }
+    }
     _pendingCandidates.remove(id);
     _candidateTimers.remove(id)?.cancel();
     _outgoingCandidates.remove(id);

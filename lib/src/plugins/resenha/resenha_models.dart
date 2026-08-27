@@ -388,16 +388,22 @@ class ResenhaIceConfiguration {
 
 @immutable
 class ResenhaLiveKitCredentials {
-  const ResenhaLiveKitCredentials({required this.url, required this.token});
+  const ResenhaLiveKitCredentials({
+    required this.url,
+    required this.token,
+    this.participantSessionId,
+  });
 
   factory ResenhaLiveKitCredentials.fromJson(Map<String, dynamic> json) =>
       ResenhaLiveKitCredentials(
         url: jsonText(json['url']) ?? '',
         token: jsonText(json['token']) ?? '',
+        participantSessionId: jsonText(json['participant_session_id']),
       );
 
   final String url;
   final String token;
+  final String? participantSessionId;
 }
 
 @immutable
@@ -406,6 +412,7 @@ class ResenhaJoinResponse {
     required this.transport,
     required this.ice,
     required this.room,
+    this.participantSessionId,
     this.livekit,
   });
 
@@ -421,6 +428,7 @@ class ResenhaJoinResponse {
       transport: transport,
       ice: ResenhaIceConfiguration.fromJson(jsonObject(json['ice'])),
       room: ResenhaRoom.fromJson(roomJson),
+      participantSessionId: jsonText(json['participant_session_id']),
       livekit: livekitJson.isEmpty
           ? null
           : ResenhaLiveKitCredentials.fromJson(livekitJson),
@@ -430,6 +438,7 @@ class ResenhaJoinResponse {
   final ResenhaTransport transport;
   final ResenhaIceConfiguration ice;
   final ResenhaRoom room;
+  final String? participantSessionId;
   final ResenhaLiveKitCredentials? livekit;
 }
 

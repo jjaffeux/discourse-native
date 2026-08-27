@@ -302,7 +302,7 @@ abstract final class ResenhaDiagnosticsRedactor {
     caseSensitive: false,
   );
   static final RegExp _sensitiveAssignment = RegExp(
-    r'''["']?\b(authorization|proxy[-_ ]?authorization|cookie|set[-_ ]?cookie|x[-_ ]?api[-_ ]?key|api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|auth[-_ ]?token|token|password|passwd|secret|credential|client[-_ ]?(?:id|secret)|ice[-_ ]?(?:pwd|password|ufrag)|livekit[-_ ]?(?:token|jwt|key|secret|credential|password)|turn[-_ ]?(?:username|token|key|secret|credential|password))\b["']?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;]+)''',
+    r'''["']?\b(authorization|proxy[-_ ]?authorization|cookie|set[-_ ]?cookie|x[-_ ]?api[-_ ]?key|api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|auth[-_ ]?token|token|password|passwd|secret|credential|client[-_ ]?(?:id|secret)|participant[-_ ]?session[-_ ]?id|ice[-_ ]?(?:pwd|password|ufrag)|livekit[-_ ]?(?:token|jwt|key|secret|credential|password)|turn[-_ ]?(?:username|token|key|secret|credential|password))\b["']?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;]+)''',
     caseSensitive: false,
   );
   static final RegExp _authorization = RegExp(
@@ -473,6 +473,7 @@ abstract final class ResenhaDiagnosticsRedactor {
   static bool _sensitiveKey(String key) {
     final normalized = key.toLowerCase().replaceAll(RegExp('[^a-z0-9]'), '');
     if (normalized == 'clientid' ||
+        normalized == 'participantsessionid' ||
         normalized.contains('icepwd') ||
         normalized.contains('icepassword') ||
         normalized.contains('iceufrag')) {
