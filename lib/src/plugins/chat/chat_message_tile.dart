@@ -16,6 +16,7 @@ import '../../shell/post_flag_editor.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
+import '../../shell/site_emoji_text.dart';
 import '../../shell/user_card.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
@@ -1623,8 +1624,9 @@ class _ThreadSummaryContents extends StatelessWidget {
               ),
               if (_nonEmpty(thread.lastReplyExcerpt) case final excerpt?) ...[
                 const SizedBox(height: 2),
-                Text(
+                SiteEmojiText.plain(
                   excerpt,
+                  siteUrl: siteUrl,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium,
