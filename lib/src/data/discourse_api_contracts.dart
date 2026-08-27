@@ -4,6 +4,7 @@ import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../models/topic.dart';
 import '../models/user_draft.dart';
+import '../models/user_preferences.dart';
 
 enum SiteLookupFailure { notDiscourse, unreachable }
 
@@ -146,6 +147,25 @@ abstract interface class AccountActivityApi {
     required String siteUrl,
     required String apiKey,
     required int id,
+    String? clientId,
+  });
+}
+
+/// The authenticated user record used by the native Preferences destination.
+abstract interface class UserPreferencesApi {
+  Future<UserPreferences> loadUserPreferences({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  });
+
+  Future<UserPreferences> updateUserPreferences({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required UserPreferences fallback,
+    required Map<String, Object?> values,
     String? clientId,
   });
 }

@@ -54,6 +54,7 @@ import '../models/topic_filter.dart';
 import '../models/topic_link.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
+import '../models/user_preferences.dart';
 import '../models/user_status.dart';
 import '../plugin_api/core_plugin_host.dart';
 import '../plugin_api/core_plugin_manifest.dart';
@@ -69,6 +70,7 @@ import 'composer_quotes.dart';
 import 'composer_triggers.dart';
 import 'draft_list_controller.dart';
 import 'post_quote.dart';
+import 'preferences_controller.dart';
 import 'shell_search_controller.dart';
 import 'site_presentation_controller.dart';
 import 'site_url.dart';
@@ -430,6 +432,17 @@ class ShellController extends FrameSafeNotifier
     api: api,
     credentials: authenticator,
     lifecycle: lifecycle,
+  );
+
+  /// The connected account's server-owned preferences.
+  ///
+  /// Form edits and network progress remain on this independent notifier so
+  /// typing in Preferences cannot rebuild the rail, sidebar, or topic view.
+  late final PreferencesController preferences = PreferencesController(
+    api: api,
+    credentials: authenticator,
+    lifecycle: lifecycle,
+    onSaved: _onPreferencesSaved,
   );
 
   /// Topic-list snapshots and their competing refresh/page requests.
@@ -1431,6 +1444,44 @@ class ShellController extends FrameSafeNotifier
 
   void _onTotalsLoaded(DiscourseInstance instance, NotificationTotals totals) {
     _notifyPluginTotals(instance, totals);
+  }
+
+  void _onPreferencesSaved(
+    String siteUrl,
+    PreferenceSection section,
+    UserPreferences preferences,
+  ) {
+    if (section != PreferenceSection.datesAndReminders) return;
+    final instance = _instanceAt(siteUrl);
+    final user = instance?.user;
+    if (instance == null ||
+        user == null ||
+        user.username.toLowerCase() != preferences.username.toLowerCase()) {
+      return;
+    }
+    final updated = user.withPreferences(
+      timezone: preferences.timezone,
+      bookmarkAutoDeletePreference: preferences.bookmarkAutoDeletePreference,
+    );
+    if (updated == user) return;
+    _replaceInstance(instance, instance.copyWith(user: updated));
+    _notify();
+    unawaited(_persistPreferencesMirror(List.of(_instances)));
+  }
+
+  Future<void> _persistPreferencesMirror(
+    List<DiscourseInstance> instances,
+  ) async {
+    try {
+      await instanceStore.save(instances);
+    } catch (error, stackTrace) {
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'preferences.persistMirror',
+        severity: DiagnosticSeverity.warning,
+      );
+    }
   }
 
   void _notifyPluginTotals(
@@ -8787,6 +8838,7 @@ class ShellController extends FrameSafeNotifier
 
     accountActivity.forget(siteUrl);
     draftList.forget(siteUrl);
+    preferences.forget(siteUrl);
     store.forget(siteUrl);
 
     _likersLoading.removeWhere((key) => key.startsWith('$siteUrl~'));
@@ -9365,6 +9417,22 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
+  /// Opens the native Preferences page for the account which owned the menu.
+  ///
+  /// A touch sheet can remain alive while another forum becomes selected, so
+  /// the source URL is resolved again instead of assuming the current forum.
+  void openPreferences(String siteUrl) {
+    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0 || !_instances[index].isConnected) return;
+    if (index != _instanceIndex) selectInstance(index);
+    if (currentContent?.isPreferences == true) {
+      _mobilePane = MobilePane.content;
+      _notify();
+      return;
+    }
+    pushContent(ContentRoute.preferences());
+  }
+
   /// Restores a draft into the composer mode this client supports.
   Future<void> resumeDraft(String siteUrl, UserDraft draft) async {
     if (!draft.canResume) return;
@@ -9589,6 +9657,7 @@ class ShellController extends FrameSafeNotifier
     updates.dispose();
     accountActivity.dispose();
     draftList.dispose();
+    preferences.dispose();
     topicFeeds.dispose();
     aggregate.dispose();
     siteImages.dispose();

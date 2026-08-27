@@ -3,8 +3,10 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
+import 'package:discourse_native/src/shell/preferences_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
@@ -258,6 +260,92 @@ void main() {
       expect(shell.currentInstance?.user, isNotNull);
     }),
   );
+
+  testWidgets(
+    'pointer Preferences closes the menu and Back restores prior content',
+    (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
+      await tester.tap(find.byKey(UserMenuButton.avatarKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Profile'));
+      await tester.pumpAndSettle();
+
+      final panel = find.byType(UserMenuPanel);
+      final drafts = find.descendant(
+        of: panel,
+        matching: find.byKey(const ValueKey('user-menu-row-drafts')),
+      );
+      final status = find.descendant(
+        of: panel,
+        matching: find.byKey(const ValueKey('user-menu-row-user-status')),
+      );
+      final preferences = find.descendant(
+        of: panel,
+        matching: find.byKey(const ValueKey('user-menu-row-preferences')),
+      );
+      expect(drafts, findsOneWidget);
+      expect(status, findsOneWidget);
+      expect(tester.widget<InkWell>(drafts).onTap, isNotNull);
+      expect(tester.widget<InkWell>(status).onTap, isNotNull);
+
+      final shell = ShellScope.read(tester.element(panel));
+      final priorRoute = shell.currentContent;
+      final sourceUsername = shell.currentInstance!.user!.username;
+      await tester.tap(preferences);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(UserMenuPanel), findsNothing);
+      expect(find.byType(PreferencesPage), findsOneWidget);
+      expect(
+        tester.widget<PreferencesPage>(find.byType(PreferencesPage)).siteUrl,
+        _metaUrl,
+      );
+      expect(shell.currentInstance?.url, _metaUrl);
+      expect(shell.currentContent?.isPreferences, isTrue);
+      expect(fixture.api.userPreferenceLoads.single.siteUrl, _metaUrl);
+      expect(fixture.api.userPreferenceLoads.single.username, sourceUsername);
+      expect(fixture.api.userPreferenceLoads.single.clientId, 'test-client');
+
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PreferencesPage), findsNothing);
+      expect(shell.currentContent, priorRoute);
+    }),
+  );
+
+  testWidgets(
+    'touch Preferences closes both sheets and keeps its source account',
+    (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
+      await _openNestedSection(tester, 'Profile');
+      final preferences = find.byKey(
+        const ValueKey('user-menu-row-preferences'),
+      );
+      final shell = ShellScope.read(tester.element(preferences));
+      final sourceUsername = shell.instanceFor(_metaUrl)!.user!.username;
+
+      shell.selectInstance(1);
+      await tester.pumpAndSettle();
+      expect(shell.currentInstance?.url, _teamUrl);
+
+      await tester.tap(preferences);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('shell-sheet-keyboard-inset')),
+        findsNothing,
+      );
+      expect(find.byType(PreferencesPage), findsOneWidget);
+      expect(
+        tester.widget<PreferencesPage>(find.byType(PreferencesPage)).siteUrl,
+        _metaUrl,
+      );
+      expect(shell.currentInstance?.url, _metaUrl);
+      expect(shell.currentContent?.isPreferences, isTrue);
+      expect(fixture.api.userPreferenceLoads.single.siteUrl, _metaUrl);
+      expect(fixture.api.userPreferenceLoads.single.username, sourceUsername);
+      expect(fixture.api.userPreferenceLoads.single.clientId, 'test-client');
+    }),
+  );
 }
 
 Future<void> _focusTab(WidgetTester tester, Finder tab) async {
@@ -296,14 +384,14 @@ Future<_MenuFixture> _pumpMenu(WidgetTester tester) async {
   const metaUser = DiscourseUser(username: 'meta-user', name: 'Meta User');
   const teamUser = DiscourseUser(username: 'team-user', name: 'Team User');
   final instances = <DiscourseInstance>[
-    instance(
-      'meta.discourse.org',
-      title: 'Discourse Meta',
-    ).copyWith(user: metaUser),
-    instance(
-      'team.discourse.org',
-      title: 'Discourse Team',
-    ).copyWith(user: teamUser),
+    instance('meta.discourse.org', title: 'Discourse Meta').copyWith(
+      user: metaUser,
+      config: const SiteConfig(userStatusEnabled: true),
+    ),
+    instance('team.discourse.org', title: 'Discourse Team').copyWith(
+      user: teamUser,
+      config: const SiteConfig(userStatusEnabled: true),
+    ),
   ];
   final api = _SiteMenuApi();
   final auth = FakeAuthenticator()
@@ -348,6 +436,14 @@ List<String> _watchBrowser(WidgetTester tester) {
 }
 
 final class _SiteMenuApi extends FakeDiscourseApi {
+  _SiteMenuApi()
+    : super(
+        siteConfigs: const {
+          _metaUrl: SiteConfig(userStatusEnabled: true),
+          _teamUrl: SiteConfig(userStatusEnabled: true),
+        },
+      );
+
   final List<String> notificationSites = [];
   final List<String> replySites = [];
   final List<String> bookmarkSites = [];

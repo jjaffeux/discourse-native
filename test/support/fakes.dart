@@ -36,6 +36,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
+import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -468,6 +469,10 @@ class FakeDiscourseApi
     this.chatNotificationList,
     this.bookmarkList,
     this.reminderList = const [],
+    this.userPreferences,
+    this.userPreferencesGate,
+    this.userPreferencesWriteGate,
+    this.userPreferencesFailure,
     this.feeds = const {},
     this.filterOptionsByPath = const {},
     this.creatableFeedPaths = const {},
@@ -649,6 +654,22 @@ class FakeDiscourseApi
 
   /// The reminders [bookmarks] answers with, alongside [bookmarkList].
   final List<DiscourseNotification> reminderList;
+
+  UserPreferences? userPreferences;
+  final Completer<void>? userPreferencesGate;
+  final Completer<void>? userPreferencesWriteGate;
+  final Object? userPreferencesFailure;
+  final List<({String siteUrl, String username, String? clientId})>
+  userPreferenceLoads = [];
+  final List<
+    ({
+      String siteUrl,
+      String username,
+      String? clientId,
+      Map<String, Object?> values,
+    })
+  >
+  userPreferenceUpdates = [];
 
   final List<String> revoked = [];
   int totalsCalls = 0;
@@ -1322,6 +1343,56 @@ class FakeDiscourseApi
       // With an id, because that is what names the account's message_bus
       // channels — a user without one gets no live counters.
       const DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+
+  @override
+  Future<UserPreferences> loadUserPreferences({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    userPreferenceLoads.add((
+      siteUrl: siteUrl,
+      username: username,
+      clientId: clientId,
+    ));
+    final gate = userPreferencesGate;
+    if (gate != null) await gate.future;
+    final failure = userPreferencesFailure;
+    if (failure != null) throw failure;
+    return userPreferences ??
+        UserPreferences(
+          username: username,
+          canEdit: true,
+          canChangeTrackingPreferences: true,
+        );
+  }
+
+  @override
+  Future<UserPreferences> updateUserPreferences({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required UserPreferences fallback,
+    required Map<String, Object?> values,
+    String? clientId,
+  }) async {
+    userPreferenceUpdates.add((
+      siteUrl: siteUrl,
+      username: username,
+      clientId: clientId,
+      values: Map.unmodifiable(values),
+    ));
+    final gate = userPreferencesWriteGate;
+    if (gate != null) await gate.future;
+    final failure = userPreferencesFailure ?? writeFailure;
+    if (failure != null) throw failure;
+    final updated = UserPreferences.fromJson({
+      'user_option': values,
+    }, fallback: fallback);
+    userPreferences = updated;
+    return updated;
+  }
 
   @override
   Future<List<SidebarSection>> customSidebarSections({

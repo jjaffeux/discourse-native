@@ -28,6 +28,7 @@ import '../models/topic.dart';
 import '../models/topic_filter.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
+import '../models/user_preferences.dart';
 import '../models/user_status.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import 'discourse_api_contracts.dart';
@@ -100,6 +101,7 @@ class DiscourseApi
         DraftsApi,
         TopicFeedsApi,
         TopicReadsApi,
+        UserPreferencesApi,
         PluginApiTransport {
   DiscourseApi({
     http.Client? client,
@@ -392,6 +394,71 @@ class DiscourseApi
     );
   }
 
+  @override
+  Future<UserPreferences> loadUserPreferences({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    final body = await _getObject(
+      Uri.parse('$siteUrl/u/${Uri.encodeComponent(username)}.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return UserPreferences.fromJson(jsonObject(body['user']));
+  }
+
+  @override
+  Future<UserPreferences> updateUserPreferences({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required UserPreferences fallback,
+    required Map<String, Object?> values,
+    String? clientId,
+  }) async {
+    _validateUserPreferenceValues(values);
+    final body = await _write(
+      Uri.parse(
+        '$siteUrl/u/${Uri.encodeComponent(username.toLowerCase())}.json',
+      ),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: values,
+    );
+    return UserPreferences.fromJson(
+      jsonObject(body['user']),
+      fallback: fallback,
+    );
+  }
+
+  static const Set<String> _userPreferenceFields = {
+    'timezone',
+    'like_notification_frequency',
+    'notify_on_linked_posts',
+    'new_topic_duration_minutes',
+    'auto_track_topics_after_msecs',
+    'notification_level_when_replying',
+    'bookmark_auto_delete_preference',
+  };
+
+  static void _validateUserPreferenceValues(Map<String, Object?> values) {
+    final unsupported = values.keys.where(
+      (key) => !_userPreferenceFields.contains(key),
+    );
+    if (unsupported.isNotEmpty) {
+      throw ArgumentError.value(
+        unsupported.first,
+        'values',
+        'Unsupported user preference field',
+      );
+    }
+  }
+
   /// Custom sidebar sections visible to the connected account.
   ///
   /// Discourse returns private sections owned by the user and public sections
@@ -545,9 +612,9 @@ class DiscourseApi
     // Core gives this menu route one twenty-row budget, with due reminders
     // first. Keep that boundary locally too: a broken serializer response must
     // not turn opening the user menu into an arbitrary eager list build.
-    final reminderEntries = jsonObjects(body['notifications'])
-        .take(maximumUserMenuBookmarkRows)
-        .toList(growable: false);
+    final reminderEntries = jsonObjects(
+      body['notifications'],
+    ).take(maximumUserMenuBookmarkRows).toList(growable: false);
     final bookmarkBudget = maximumUserMenuBookmarkRows - reminderEntries.length;
 
     return (
@@ -832,10 +899,9 @@ class DiscourseApi
       clientId: clientId,
     );
     return List.unmodifiable(
-      jsonArray(body['recent_searches'])
-          .map(jsonText)
-          .whereType<String>()
-          .take(5),
+      jsonArray(
+        body['recent_searches'],
+      ).map(jsonText).whereType<String>().take(5),
     );
   }
 
@@ -904,8 +970,9 @@ class DiscourseApi
       // refuses automatic redirects. Its id-only JSON route skips that
       // canonicalization, and `post_number` keeps the numbered form
       // unambiguous with `/t/{slug}/{id}`.
-      Uri.parse('$siteUrl/t/$id.json')
-          .replace(queryParameters: query.isEmpty ? null : query),
+      Uri.parse(
+        '$siteUrl/t/$id.json',
+      ).replace(queryParameters: query.isEmpty ? null : query),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
@@ -1368,8 +1435,9 @@ class DiscourseApi
   }) async {
     _validateAutocompleteRequest(term: term, limit: limit);
     final response = await _get(
-      Uri.parse('$siteUrl/tags/filter/search.json')
-          .replace(queryParameters: {'q': term, 'limit': '$limit'}),
+      Uri.parse(
+        '$siteUrl/tags/filter/search.json',
+      ).replace(queryParameters: {'q': term, 'limit': '$limit'}),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
@@ -1407,8 +1475,9 @@ class DiscourseApi
   }) async {
     _validateAutocompleteRequest(term: term, limit: limit);
     final response = await _get(
-      Uri.parse('$siteUrl/tag_groups/filter/search.json')
-          .replace(queryParameters: {'q': term, 'limit': '$limit'}),
+      Uri.parse(
+        '$siteUrl/tag_groups/filter/search.json',
+      ).replace(queryParameters: {'q': term, 'limit': '$limit'}),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
@@ -2798,8 +2867,9 @@ class DiscourseApi
     if (limit < 1 || limit > maximumUserDraftPageSize) {
       throw RangeError.range(limit, 1, maximumUserDraftPageSize, 'limit');
     }
-    final url = Uri.parse('$siteUrl/drafts.json')
-        .replace(queryParameters: {'offset': '$offset', 'limit': '$limit'});
+    final url = Uri.parse(
+      '$siteUrl/drafts.json',
+    ).replace(queryParameters: {'offset': '$offset', 'limit': '$limit'});
     final body = await _getObject(
       url,
       siteUrl: siteUrl,

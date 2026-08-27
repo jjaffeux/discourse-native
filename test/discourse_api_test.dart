@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
@@ -10,6 +11,7 @@ import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api_client.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -68,6 +70,190 @@ MockClient discourseServing({
 }
 
 void main() {
+  group('user preferences', () {
+    test('loads the full user serializer for the encoded username', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'user': {
+                'username': 'Sam Name/One',
+                'can_edit': true,
+                'can_change_tracking_preferences': true,
+                'user_option': {
+                  'timezone': 'Europe/Paris',
+                  'like_notification_frequency': 2,
+                  'notify_on_linked_posts': false,
+                  'new_topic_duration_minutes': 10080,
+                  'auto_track_topics_after_msecs': 120000,
+                  'notification_level_when_replying': 3,
+                  'bookmark_auto_delete_preference': 1,
+                },
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final result = await api.loadUserPreferences(
+        siteUrl: 'https://forum.example',
+        apiKey: 'secret',
+        clientId: 'client',
+        username: 'Sam Name/One',
+      );
+
+      expect(sent.method, 'GET');
+      expect(
+        sent.url.toString(),
+        'https://forum.example/u/Sam%20Name%2FOne.json',
+      );
+      expect(sent.headers['User-Api-Key'], 'secret');
+      expect(sent.headers['User-Api-Client-Id'], 'client');
+      expect(
+        result,
+        const UserPreferences(
+          username: 'Sam Name/One',
+          timezone: 'Europe/Paris',
+          likeNotificationFrequency: 2,
+          notifyOnLinkedPosts: false,
+          newTopicDurationMinutes: 10080,
+          autoTrackTopicsAfterMsecs: 120000,
+          notificationLevelWhenReplying: 3,
+          bookmarkAutoDeletePreference:
+              BookmarkAutoDeletePreference.whenReminderSent,
+          canEdit: true,
+          canChangeTrackingPreferences: true,
+        ),
+      );
+    });
+
+    test('puts selected values flat and merges a partial response', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'success': 'OK',
+              'user': {
+                'user_option': {'notify_on_linked_posts': false},
+              },
+            }),
+            200,
+          );
+        }),
+      );
+      const fallback = UserPreferences(
+        username: 'Sam Name',
+        timezone: 'UTC',
+        // The controller passes the complete draft as fallback. The response
+        // may omit a field it just accepted, so that value must survive.
+        likeNotificationFrequency: 2,
+        notifyOnLinkedPosts: true,
+        canEdit: true,
+      );
+
+      final result = await api.updateUserPreferences(
+        siteUrl: 'https://forum.example',
+        apiKey: 'secret',
+        username: 'Sam Name',
+        fallback: fallback,
+        values: const {
+          'like_notification_frequency': 2,
+          'notify_on_linked_posts': false,
+        },
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.toString(), 'https://forum.example/u/sam%20name.json');
+      expect(jsonDecode(sent.body), {
+        'like_notification_frequency': 2,
+        'notify_on_linked_posts': false,
+      });
+      expect(result, fallback.copyWith(notifyOnLinkedPosts: false));
+    });
+
+    test('keeps the fallback when a successful response omits user', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(jsonEncode({'success': 'OK'}), 200),
+        ),
+      );
+      const fallback = UserPreferences(username: 'sam', canEdit: true);
+
+      final result = await api.updateUserPreferences(
+        siteUrl: 'https://forum.example',
+        apiKey: 'secret',
+        username: 'sam',
+        fallback: fallback,
+        values: const {'timezone': 'UTC'},
+      );
+
+      expect(result, fallback);
+    });
+
+    test('does not send fields outside the supported native slice', () async {
+      var calls = 0;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          calls++;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      await expectLater(
+        api.updateUserPreferences(
+          siteUrl: 'https://forum.example',
+          apiKey: 'secret',
+          username: 'sam',
+          fallback: const UserPreferences(),
+          values: const {'push_notification_level': 'none'},
+        ),
+        throwsArgumentError,
+      );
+      expect(calls, 0);
+    });
+
+    test('preserves server validation messages', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'errors': ['Timezone is not a valid timezone'],
+            }),
+            422,
+          ),
+        ),
+      );
+
+      await expectLater(
+        api.updateUserPreferences(
+          siteUrl: 'https://forum.example',
+          apiKey: 'secret',
+          username: 'sam',
+          fallback: const UserPreferences(),
+          values: const {'timezone': 'Mars/Olympus'},
+        ),
+        throwsA(
+          isA<WriteException>()
+              .having(
+                (error) => error.failure,
+                'failure',
+                WriteFailure.validation,
+              )
+              .having(
+                (error) => error.message,
+                'message',
+                'Timezone is not a valid timezone',
+              ),
+        ),
+      );
+    });
+  });
+
   group('custom sidebar sections', () {
     test(
       'reads custom links and excludes Discourse built-in sections',
