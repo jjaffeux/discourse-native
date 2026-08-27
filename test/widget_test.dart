@@ -3797,6 +3797,46 @@ void main() {
       expect(find.text('2'), findsOneWidget);
     });
 
+    testWidgets('an inactive connected forum keeps its rail count live', (
+      tester,
+    ) async {
+      const firstUrl = 'https://meta.discourse.org';
+      const secondUrl = 'https://team.discourse.org';
+      final authenticator = FakeAuthenticator()
+        ..keys[firstUrl] = 'meta-key'
+        ..keys[secondUrl] = 'team-key';
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: me),
+          instance('team.discourse.org', title: 'Team').copyWith(user: me),
+        ],
+        authenticator: authenticator,
+      );
+
+      final inactive = FakeSiteTracker.built.singleWhere(
+        (tracker) => tracker.siteUrl == secondUrl,
+      );
+      expect(inactive.polling, isTrue);
+      expect(avatarBadge, findsNothing);
+
+      inactive.deliverNotification(const {
+        'all_unread_notifications_count': 2,
+        'new_personal_messages_notifications_count': 0,
+      });
+      await tester.pumpAndSettle();
+
+      final railBadge = find.byKey(
+        const ValueKey('instance-rail-badge-$secondUrl'),
+      );
+      expect(
+        find.descendant(of: railBadge, matching: find.text('2')),
+        findsOneWidget,
+      );
+      expect(avatarBadge, findsNothing);
+    });
+
     testWidgets('a filling review queue marks it too', (tester) async {
       final tracker = await pumpConnected(tester);
 

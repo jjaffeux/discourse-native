@@ -1938,8 +1938,8 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _sessionUsersRefreshed = {};
   final Set<String> _assignLegacyFallbackUnavailable = {};
 
-  /// Deduplicates the selected site's tracker startup with the all-sites
-  /// session refresh kicked off during load.
+  /// Deduplicates tracker startup with account refreshes and rapid lifecycle
+  /// changes.
   final Map<String, Future<DiscourseUser?>> _sessionUserRequests = {};
 
   bool _foreground = true;
@@ -1975,40 +1975,56 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Points the one live connection at the site on screen.
+  /// Keeps every connected site's account counters live while the app is in
+  /// front, plus the selected public site for topic-list updates.
   ///
-  /// Trackers are kept for every site the user has visited but only the current
-  /// one polls, so there is a single long poll open at any moment — the same as
-  /// the web, which only ever has one site. Their cursors survive being
-  /// stopped, so coming back to a site asks for what it published while it was
-  /// off screen instead of starting over.
+  /// Each forum is a different MessageBus origin, so its rail badge needs its
+  /// own poll. Signed-out forums stay lazy unless selected because they have no
+  /// private counters to update. All ordinary polls stop with the app lifecycle;
+  /// their cursors survive, so foregrounding asks for what was missed.
   void _syncTracking() {
     final instance = currentInstance;
     final callSiteUrl = _pluginBackgroundSiteUrl;
 
     for (final entry in _trackers.entries) {
+      if (entry.key != instance?.url) entry.value.unwatchTopic();
       final selectedAndVisible = _foreground && entry.key == instance?.url;
-      if (!selectedAndVisible && entry.key != callSiteUrl) {
+      final connectedAndVisible =
+          _foreground && (_instanceAt(entry.key)?.isConnected ?? false);
+      if (selectedAndVisible ||
+          connectedAndVisible ||
+          entry.key == callSiteUrl) {
+        entry.value.start();
+      } else {
         entry.value.stop();
       }
     }
     if (callSiteUrl != null && callSiteUrl != instance?.url) {
       _trackers[callSiteUrl]?.start();
     }
-    if (!_foreground || instance == null) return;
+    if (!_foreground) return;
 
-    // Core never starts MessageBus for an anonymous reader on a private site.
-    // Such a poll can only be refused, and retrying that refusal adds traffic
-    // without a channel the reader is allowed to consume.
-    if (instance.loginRequired && !instance.isConnected) return;
+    for (final candidate in _instances) {
+      final selected = candidate.url == instance?.url;
+      if (!selected && !candidate.isConnected) continue;
 
-    final tracker = _trackers[instance.url];
-    if (tracker == null) {
-      unawaited(_startTracking(instance));
-      return;
+      // Core never starts MessageBus for an anonymous reader on a private site.
+      // Such a poll can only be refused, and retrying that refusal adds traffic
+      // without a channel the reader is allowed to consume.
+      if (candidate.loginRequired && !candidate.isConnected) continue;
+
+      final tracker = _trackers[candidate.url];
+      if (tracker == null) {
+        unawaited(_startTracking(candidate));
+      } else {
+        tracker.start();
+      }
     }
-    tracker.start();
-    _syncTopicWatch(instance.url, tracker);
+
+    if (instance case final selected?) {
+      final tracker = _trackers[selected.url];
+      if (tracker != null) _syncTopicWatch(selected.url, tracker);
+    }
   }
 
   /// Points the topic-scoped channels at whatever is on screen now.
@@ -2200,14 +2216,17 @@ class ShellController extends FrameSafeNotifier
       _trackersStarting.remove(siteUrl);
       if (isDisposed || _instanceAt(siteUrl) == null) return;
 
-      // Credentials and the current-user lookup can outlive the navigation or
-      // lifecycle state that asked for this tracker. SiteTracker starts its
-      // message bus in the constructor, so checking only after construction
-      // still spends one poll for a site that is already hidden. A voice call
-      // remains eligible because its signalling deliberately survives both a
-      // site switch and app backgrounding.
+      // Credential lookup can outlive the lifecycle state that asked for this
+      // tracker. SiteTracker starts its message bus in the constructor, so
+      // checking only after construction still spends one poll for a hidden
+      // app. A voice call remains eligible because its signalling deliberately
+      // survives app backgrounding.
       final selectedAndVisible = _foreground && currentInstance?.url == siteUrl;
-      if (!selectedAndVisible && _pluginBackgroundSiteUrl != siteUrl) {
+      final connectedAndVisible =
+          _foreground && (_instanceAt(siteUrl)?.isConnected ?? false);
+      if (!selectedAndVisible &&
+          !connectedAndVisible &&
+          _pluginBackgroundSiteUrl != siteUrl) {
         return;
       }
 
@@ -2223,7 +2242,9 @@ class ShellController extends FrameSafeNotifier
           apiKey: apiKey,
           clientId: clientId,
           shouldLongPoll: () => _foreground,
-          onIncomingTopics: () => commit(_notify),
+          onIncomingTopics: () => commit(() {
+            if (currentInstance?.url == siteUrl) _notify();
+          }),
           onNotifications: (data) => commit(
             () => _applyCounts(siteUrl, (held) => held.withNotification(data)),
           ),
@@ -2245,9 +2266,13 @@ class ShellController extends FrameSafeNotifier
       }
       final stillSelectedAndVisible =
           _foreground && currentInstance?.url == siteUrl;
-      if (!stillSelectedAndVisible && _pluginBackgroundSiteUrl != siteUrl) {
+      final stillConnectedAndVisible =
+          _foreground && (_instanceAt(siteUrl)?.isConnected ?? false);
+      if (!stillSelectedAndVisible &&
+          !stillConnectedAndVisible &&
+          _pluginBackgroundSiteUrl != siteUrl) {
         tracker.stop();
-      } else {
+      } else if (stillSelectedAndVisible) {
         _syncTopicWatch(siteUrl, tracker);
       }
     });
@@ -2268,6 +2293,9 @@ class ShellController extends FrameSafeNotifier
     if (!lease.isCurrent) return null;
     final held = _instanceAt(siteUrl);
     if (held == null) return null;
+    final storedId = held.user?.id;
+    if (storedId != null) return storedId;
+
     final user = await _sessionUser(siteUrl, apiKey, lease: lease);
     if (!lease.isCurrent) return null;
     // A stored id is stable enough to keep this account's private counters
@@ -2379,10 +2407,13 @@ class ShellController extends FrameSafeNotifier
     if (!foreground) return;
 
     final instance = currentInstance;
-    if (instance != null) _trackers[instance.url]?.pollNow();
     final callSite = _pluginBackgroundSiteUrl;
-    if (callSite != null && callSite != instance?.url) {
-      _trackers[callSite]?.pollNow();
+    for (final entry in _trackers.entries) {
+      final selected = entry.key == instance?.url;
+      final connected = _instanceAt(entry.key)?.isConnected ?? false;
+      if (selected || connected || entry.key == callSite) {
+        entry.value.pollNow();
+      }
     }
   }
 

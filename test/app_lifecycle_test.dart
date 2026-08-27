@@ -423,57 +423,81 @@ void main() {
     },
   );
 
-  test(
-    'switching sites while tracker credentials resolve starts only selected poll',
-    () async {
-      const firstUrl = 'https://first.example';
-      const secondUrl = 'https://second.example';
-      const user = DiscourseUser(id: 7, username: 'reader');
-      final api = FakeDiscourseApi(user: user);
-      final authenticator = _GatedAuthenticator(firstUrl)
-        ..keys[firstUrl] = 'first-key'
-        ..keys[secondUrl] = 'second-key';
-      final shell = ShellController(
-        instanceStore: FakeInstanceStore([
-          instance('first.example').copyWith(user: user),
-          instance('second.example').copyWith(user: user),
-        ]),
-        api: api,
-        authenticator: authenticator,
-        drafts: FakeDraftStore(),
-        trackers: FakeSiteTracker.reset(),
-        updateStore: FakeUpdateStore(),
-      );
-      addTearDown(shell.dispose);
+  test('connected tracker startup survives a site switch', () async {
+    const firstUrl = 'https://first.example';
+    const secondUrl = 'https://second.example';
+    const user = DiscourseUser(id: 7, username: 'reader');
+    final api = FakeDiscourseApi(user: user);
+    final authenticator = _GatedAuthenticator(firstUrl)
+      ..keys[firstUrl] = 'first-key'
+      ..keys[secondUrl] = 'second-key';
+    final shell = ShellController(
+      instanceStore: FakeInstanceStore([
+        instance('first.example').copyWith(user: user),
+        instance('second.example').copyWith(user: user),
+      ]),
+      api: api,
+      authenticator: authenticator,
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updateStore: FakeUpdateStore(),
+    );
+    addTearDown(shell.dispose);
 
-      await shell.load();
-      await authenticator.started.future;
+    await shell.load();
+    await authenticator.started.future;
 
-      shell.selectInstance(1);
-      await pumpEventQueue();
-      expect(FakeSiteTracker.built.map((tracker) => tracker.siteUrl), [
-        secondUrl,
-      ]);
+    shell.selectInstance(1);
+    await pumpEventQueue();
+    expect(FakeSiteTracker.built.map((tracker) => tracker.siteUrl), [
+      secondUrl,
+    ]);
 
-      authenticator.release();
-      await pumpEventQueue();
+    authenticator.release();
+    await pumpEventQueue();
 
-      expect(FakeSiteTracker.built.map((tracker) => tracker.siteUrl), [
-        secondUrl,
-      ], reason: 'the deselected pending site must not spend a poll');
+    expect(FakeSiteTracker.built.map((tracker) => tracker.siteUrl), [
+      secondUrl,
+      firstUrl,
+    ], reason: 'connected forum badges need both polls while visible');
+    expect(FakeSiteTracker.built.every((tracker) => tracker.polling), isTrue);
+  });
 
-      shell.selectInstance(0);
-      await pumpEventQueue();
+  test('the app lifecycle controls every connected forum poll', () async {
+    const firstUrl = 'https://first.example';
+    const secondUrl = 'https://second.example';
+    const user = DiscourseUser(id: 7, username: 'reader');
+    final authenticator = FakeAuthenticator()
+      ..keys[firstUrl] = 'first-key'
+      ..keys[secondUrl] = 'second-key';
+    final shell = ShellController(
+      instanceStore: FakeInstanceStore([
+        instance('first.example').copyWith(user: user),
+        instance('second.example').copyWith(user: user),
+      ]),
+      api: FakeDiscourseApi(user: user),
+      authenticator: authenticator,
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updateStore: FakeUpdateStore(),
+    );
+    addTearDown(shell.dispose);
 
-      expect(
-        FakeSiteTracker.built.map((tracker) => tracker.siteUrl),
-        [secondUrl, firstUrl],
-        reason: 'deselection must leave tracker startup retryable on reselect',
-      );
-      expect(FakeSiteTracker.built.first.polling, isFalse);
-      expect(FakeSiteTracker.built.last.polling, isTrue);
-    },
-  );
+    await shell.load();
+    await pumpEventQueue();
+    expect(FakeSiteTracker.built, hasLength(2));
+    expect(FakeSiteTracker.built.every((tracker) => tracker.polling), isTrue);
+
+    shell.setForeground(false);
+    expect(FakeSiteTracker.built.every((tracker) => !tracker.polling), isTrue);
+
+    shell.setForeground(true);
+    expect(FakeSiteTracker.built.every((tracker) => tracker.polling), isTrue);
+    expect(
+      FakeSiteTracker.built.map((tracker) => tracker.pollNowCalls),
+      everyElement(1),
+    );
+  });
 
   test('a disposed controller ignores a pending initial load', () async {
     final gate = Completer<List<DiscourseInstance>>();

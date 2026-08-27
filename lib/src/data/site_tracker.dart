@@ -57,10 +57,11 @@ abstract interface class SiteMessageBusSubscription {
 
 /// One site's live connection: everything it pushes at us without being asked.
 ///
-/// One of these per site, and only the site on screen is polling — see [start]
-/// and [stop]. Every channel rides the same poll, which is the reason this is
-/// one object rather than one per concern: message_bus multiplexes, so a second
-/// client would mean a second connection held open for the same site.
+/// One of these per site. Connected sites poll while the app is in front so
+/// their account badges stay live; a signed-out site polls only while selected.
+/// Every channel rides the same poll, which is the reason this is one object
+/// rather than one per concern: message_bus multiplexes, so a second client
+/// would mean a second connection held open for the same site.
 ///
 /// The channels and their starting positions mirror core's
 /// `TopicTrackingState.establishChannels` and its
