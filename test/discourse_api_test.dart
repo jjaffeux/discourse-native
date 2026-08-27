@@ -4670,25 +4670,60 @@ void _feedGroups() {
       );
     });
 
-    test('reads the topic by slug and id', () async {
+    test('reads the topic by its immutable id', () async {
       final paths = <String>[];
       final topic = await DiscourseApi(
         client: serving(paths),
       ).topic(siteUrl: 'https://example.com', slug: 'a-real-topic', id: 12);
 
-      expect(paths, ['/t/a-real-topic/12.json']);
+      expect(paths, ['/t/12.json']);
       expect(topic.detail.title, 'A real topic');
     });
 
-    test('encodes a slug that would otherwise end the path', () async {
-      final paths = <String>[];
-      await DiscourseApi(
-        client: serving(paths),
-      ).topic(siteUrl: 'https://example.com', slug: 'we?ird', id: 12);
+    test('does not send a stale slug that Discourse would redirect', () async {
+      final requested = <Uri>[];
+      final topic =
+          await DiscourseApi(
+            client: MockClient((request) async {
+              requested.add(request.url);
+              if (request.url.path != '/t/12.json') {
+                return http.Response(
+                  '',
+                  301,
+                  headers: {'location': '/t/current-title/12.json'},
+                );
+              }
+              return http.Response(
+                jsonEncode({
+                  'id': 12,
+                  'title': 'Current title',
+                  'post_stream': {'posts': <Object?>[], 'stream': <Object?>[]},
+                }),
+                200,
+              );
+            }),
+          ).topic(
+            siteUrl: 'https://example.com',
+            slug: 'old-title',
+            id: 12,
+            apiKey: 'secret',
+          );
 
-      // Unencoded this asks for `/t/we` with the id stranded in a query.
-      expect(paths, ['/t/we%3Fird/12.json']);
+      expect(requested, [Uri.parse('https://example.com/t/12.json')]);
+      expect(topic.detail.title, 'Current title');
     });
+
+    test(
+      'does not put URL metacharacters from a slug into the request',
+      () async {
+        final paths = <String>[];
+        await DiscourseApi(
+          client: serving(paths),
+        ).topic(siteUrl: 'https://example.com', slug: 'we?ird', id: 12);
+
+        expect(paths, ['/t/12.json']);
+      },
+    );
 
     test('asks by id alone when the link carried no slug', () async {
       final paths = <String>[];
@@ -4699,16 +4734,30 @@ void _feedGroups() {
       expect(paths, ['/t/12.json']);
     });
 
-    test('asks for the window around a requested post', () async {
-      final paths = <String>[];
-      await DiscourseApi(client: serving(paths)).topic(
+    test('asks for the window around a requested post by id', () async {
+      late Uri asked;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          asked = request.url;
+          return http.Response(
+            jsonEncode({
+              'id': 12,
+              'post_stream': {'posts': <Object?>[], 'stream': <Object?>[]},
+            }),
+            200,
+          );
+        }),
+      );
+
+      await api.topic(
         siteUrl: 'https://example.com',
         slug: 'a-real-topic',
         id: 12,
         postNumber: 37,
       );
 
-      expect(paths, ['/t/a-real-topic/12/37.json']);
+      expect(asked.path, '/t/12.json');
+      expect(asked.queryParameters['post_number'], '37');
     });
 
     test('uses an unambiguous query for a slugless requested post', () async {

@@ -890,28 +890,19 @@ class DiscourseApi
     if (postNumber != null) {
       _requirePositiveId(postNumber, 'postNumber');
     }
-    final path = [
-      siteUrl,
-      't',
-      // A slug reaches here decoded, straight out of `Uri.pathSegments`, so a
-      // `?` or `#` in one would end the path and take the topic id with it
-      // into a query or fragment — the request would ask for `/t/we` and no
-      // topic at all.
-      if (slug.isNotEmpty) Uri.encodeComponent(slug),
-      '$id',
-      if (slug.isNotEmpty && postNumber != null) '$postNumber',
-    ].join('/');
     final query = <String, String>{
-      if (slug.isEmpty && postNumber != null) 'post_number': '$postNumber',
+      if (postNumber != null) 'post_number': '$postNumber',
       if (summary) 'summary': 'true',
     };
     final body = await _getObject(
-      // A link can arrive without a slug — `/t/123` — and Discourse routes
-      // that too, so there is nothing to invent here.
-      // The slugless numbered shape is ambiguous with `/t/{slug}/{id}`, so it
-      // names its target in the query, as Discourse's own reload does.
+      // Topic ids are stable; slugs are presentation metadata and can become
+      // stale after a title change. Discourse redirects `/t/{old-slug}/{id}`
+      // to the current slug, while the authenticated transport deliberately
+      // refuses automatic redirects. Its id-only JSON route skips that
+      // canonicalization, and `post_number` keeps the numbered form
+      // unambiguous with `/t/{slug}/{id}`.
       Uri.parse(
-        '$path.json',
+        '$siteUrl/t/$id.json',
       ).replace(queryParameters: query.isEmpty ? null : query),
       siteUrl: siteUrl,
       apiKey: apiKey,
