@@ -17,6 +17,7 @@ import 'resenha_diagnostics.dart';
 import 'resenha_media.dart';
 import 'resenha_models.dart';
 import 'resenha_preferences.dart';
+import 'resenha_signaling.dart';
 
 enum ResenhaCallStatus { joining, connected, reconnecting, leaving, failed }
 
@@ -43,6 +44,12 @@ final class _ResenhaDiagnosticFailure implements Exception {
 
   @override
   String toString() => 'Resenha operation $operation failed ($errorType).';
+}
+
+final class _ResenhaParticipantSession {
+  _ResenhaParticipantSession(this.id);
+
+  String? id;
 }
 
 String _resenhaSignalingDiagnosticType(Object? value) => switch (value) {
@@ -167,6 +174,7 @@ final class ResenhaController extends ChangeNotifier {
     ResenhaDiagnosticsRecorder? diagnostics,
     ResenhaPreferences? preferences,
     this.heartbeatInterval = const Duration(seconds: 10),
+    this.signalBatchDelay = const Duration(milliseconds: 200),
   }) : capabilityEnabledFor = capabilityEnabledFor ?? _unknownResenhaCapability,
        diagnostics = diagnostics ?? const NoopResenhaDiagnosticsRecorder(),
        systemCall =
@@ -192,6 +200,7 @@ final class ResenhaController extends ChangeNotifier {
   final ResenhaDiagnosticsRecorder diagnostics;
   final ResenhaPreferences _preferences;
   final Duration heartbeatInterval;
+  final Duration signalBatchDelay;
   late final StreamSubscription<ResenhaSystemCallAction> _systemActions;
 
   final Map<String, ResenhaDirectory> _directories = {};
@@ -221,6 +230,10 @@ final class ResenhaController extends ChangeNotifier {
   ResenhaMediaSession? _leavingMedia;
   final Expando<Future<void>> _mediaDisposals = Expando<Future<void>>();
   final Expando<String> _mediaCorrelations = Expando<String>();
+  final Expando<_ResenhaParticipantSession> _participantSessions =
+      Expando<_ResenhaParticipantSession>();
+  final Expando<ResenhaSignalBatcher> _signalBatchers =
+      Expando<ResenhaSignalBatcher>();
   Timer? _heartbeat;
   Future<void>? _heartbeatRequest;
   bool _heartbeatPending = false;
@@ -534,45 +547,10 @@ final class ResenhaController extends ChangeNotifier {
   void _onRoomEvent(String siteUrl, int roomId, Object? data) {
     if (_disposed || data is! Map<String, dynamic>) return;
     if (data['type'] == 'signal') {
-      final senderId = data['sender_id'];
-      final signal = data['data'];
-      final call = _call;
-      final correlationId = call?.siteUrl == siteUrl && call?.room.id == roomId
-          ? _correlationFor(call)
-          : null;
-      _record(
-        'signaling.received',
-        component: 'signaling',
-        correlationId: correlationId,
-        data: {
-          'roomId': roomId,
-          'senderPresent': senderId is num,
-          if (signal is Map)
-            'type': _resenhaSignalingDiagnosticType(signal['type']),
-        },
+      _observe(
+        () => _handleSignalEnvelope(siteUrl, roomId, data),
+        'resenha.media.signal',
       );
-      if (signal is Map<String, dynamic>) {
-        _recordRaw(
-          'signaling.received.raw',
-          component: 'signaling',
-          correlationId: correlationId,
-          data: {
-            'siteUrl': siteUrl,
-            'roomId': roomId,
-            if (senderId is num) 'senderId': senderId.toInt(),
-            'signal': signal,
-          },
-        );
-      }
-      if (senderId is num &&
-          signal is Map<String, dynamic> &&
-          call?.siteUrl == siteUrl &&
-          call?.room.id == roomId) {
-        _observe(
-          () => call!.media.handleSignal(senderId.toInt(), signal),
-          'resenha.media.signal',
-        );
-      }
       return;
     }
     final event = ResenhaRoomEvent.fromJson(data);
@@ -645,6 +623,109 @@ final class ResenhaController extends ChangeNotifier {
         data: {'roomId': roomId, 'active': event.recording?.active ?? false},
       );
       _replaceRecording(siteUrl, roomId, event.recording);
+    }
+  }
+
+  Future<void> _handleSignalEnvelope(
+    String siteUrl,
+    int roomId,
+    Map<String, dynamic> envelope,
+  ) async {
+    final sender = envelope['sender_id'];
+    final events = <Map<String, dynamic>>[];
+    final rawEvents = envelope['events'];
+    if (rawEvents is Iterable) {
+      for (final value in rawEvents.take(25)) {
+        if (value is Map) events.add(Map<String, dynamic>.from(value));
+      }
+    } else {
+      final legacyEvent = envelope['data'];
+      if (legacyEvent is Map) {
+        events.add(Map<String, dynamic>.from(legacyEvent));
+      }
+    }
+    final call = _call;
+    final isActiveCall =
+        call != null && call.siteUrl == siteUrl && call.room.id == roomId;
+    final correlationId = isActiveCall ? _correlationFor(call) : null;
+    _record(
+      'signaling.received',
+      component: 'signaling',
+      correlationId: correlationId,
+      data: {
+        'roomId': roomId,
+        'senderPresent': sender is num,
+        'eventCount': events.length,
+        if (events.firstOrNull case final first?)
+          'type': _resenhaSignalingDiagnosticType(first['type']),
+      },
+    );
+    if (events.isNotEmpty) {
+      _recordRaw(
+        'signaling.received.raw',
+        component: 'signaling',
+        correlationId: correlationId,
+        data: {
+          'siteUrl': siteUrl,
+          'roomId': roomId,
+          if (sender is num) 'senderId': sender.toInt(),
+          'signals': events,
+        },
+      );
+    }
+    if (call == null ||
+        sender is! num ||
+        call.siteUrl != siteUrl ||
+        call.room.id != roomId ||
+        events.isEmpty) {
+      return;
+    }
+    final activeCall = call;
+    final senderId = sender.toInt();
+
+    // Resenha attests the sender and includes their basic serialization so an
+    // offer can beat the asynchronous roster broadcast without creating an
+    // invisible peer. Stage rooms still wait for the authoritative roster,
+    // because the basic serialization does not carry the sender's stage role.
+    if (activeCall.room.type == ResenhaRoomType.open &&
+        events.any((event) => event['type'] == 'offer') &&
+        !activeCall.room.participants.any(
+          (participant) => participant.id == senderId,
+        )) {
+      final rawSender = envelope['sender'];
+      if (rawSender is Map) {
+        final participant = ResenhaParticipant.fromJson(
+          Map<String, dynamic>.from(rawSender),
+        );
+        if (participant.id == senderId) {
+          final participants = [...activeCall.room.participants, participant];
+          final held = _directories[siteUrl];
+          if (held != null) {
+            _directories[siteUrl] = ResenhaDirectory(
+              rooms: [
+                for (final room in held.rooms)
+                  room.id == roomId
+                      ? room.withParticipants(participants)
+                      : room,
+              ],
+              canCreateRoom: held.canCreateRoom,
+              messageBusLastId: held.messageBusLastId,
+            );
+          }
+          if (identical(_call?.media, activeCall.media)) {
+            _call = activeCall.copyWith(
+              room: activeCall.room.withParticipants(participants),
+            );
+            notifyListeners();
+            await activeCall.media.syncParticipants(participants);
+          }
+        }
+      }
+    }
+
+    if (!identical(_call?.media, activeCall.media)) return;
+    for (final event in events) {
+      await activeCall.media.handleSignal(senderId, event);
     }
   }
 
@@ -947,7 +1028,19 @@ final class ResenhaController extends ChangeNotifier {
           clientId: clientId,
         );
       }
-      if (!isCurrent()) return;
+      if (!isCurrent()) {
+        await _runHandled(
+          () => api.leave(
+            siteUrl: siteUrl,
+            roomId: room.id,
+            apiKey: apiKey,
+            participantSessionId: response.participantSessionId,
+            clientId: clientId,
+          ),
+          'resenha.leaveSupersededJoin',
+        );
+        return;
+      }
       _record(
         'call.join.server_request.completed',
         correlationId: correlationId,
@@ -962,6 +1055,26 @@ final class ResenhaController extends ChangeNotifier {
         room.id,
         response.room.participants,
         correlationId: correlationId,
+      );
+      final participantSession = _ResenhaParticipantSession(
+        response.participantSessionId,
+      );
+      final signalBatcher = ResenhaSignalBatcher(
+        batchDelay: signalBatchDelay,
+        sendBatch: (payload) async {
+          await DiagnosticsSink.runOperation(
+            'resenha.signal',
+            () => api.signal(
+              siteUrl: siteUrl,
+              roomId: room.id,
+              apiKey: apiKey,
+              payload: payload,
+              participantSessionId: participantSession.id,
+              clientId: clientId,
+            ),
+            correlationId: correlationId,
+          );
+        },
       );
       ResenhaMediaSession? callbackMedia;
       bool mediaIsCurrent() =>
@@ -995,16 +1108,7 @@ final class ResenhaController extends ChangeNotifier {
             },
           );
           try {
-            await DiagnosticsSink.runOperation(
-              'resenha.signal',
-              () => api.signal(
-                siteUrl: siteUrl,
-                roomId: room.id,
-                apiKey: apiKey,
-                payload: {'recipient_id': recipientId, ...event},
-              ),
-              correlationId: correlationId,
-            );
+            await signalBatcher.send(recipientId, event);
             _record(
               'signaling.send.completed',
               component: 'signaling',
@@ -1056,6 +1160,9 @@ final class ResenhaController extends ChangeNotifier {
             ),
             correlationId: correlationId,
           );
+          if (refreshed.participantSessionId case final renewed?) {
+            participantSession.id = renewed;
+          }
           _record(
             'livekit.credentials.refresh.received',
             component: 'livekit',
@@ -1068,6 +1175,8 @@ final class ResenhaController extends ChangeNotifier {
       );
       callbackMedia = media;
       _mediaCorrelations[media] = correlationId;
+      _participantSessions[media] = participantSession;
+      _signalBatchers[media] = signalBatcher;
       _record(
         'media.session.created',
         component: 'media',
@@ -1085,6 +1194,16 @@ final class ResenhaController extends ChangeNotifier {
           'call.join.cancelled',
           correlationId: correlationId,
           data: {'reason': 'cancelled_after_media_creation'},
+        );
+        await _runHandled(
+          () => api.leave(
+            siteUrl: siteUrl,
+            roomId: room.id,
+            apiKey: apiKey,
+            participantSessionId: participantSession.id,
+            clientId: clientId,
+          ),
+          'resenha.leaveCancelledJoin',
         );
         await _disposeMedia(media, 'resenha.media.disposeAfterCancelledJoin');
         return;
@@ -1319,6 +1438,7 @@ final class ResenhaController extends ChangeNotifier {
           roomId: call.room.id,
           apiKey: apiKey,
           idle: _idleState,
+          participantSessionId: _participantSessions[call.media]?.id,
         ),
         correlationId: correlationId,
       );
@@ -1823,6 +1943,7 @@ final class ResenhaController extends ChangeNotifier {
             video: call.cameraEnabled,
             screen: call.screenSharing,
             watching: _isWatching(call),
+            participantSessionId: _participantSessions[call.media]?.id,
           ),
           correlationId: correlationId,
         );
@@ -1893,6 +2014,7 @@ final class ResenhaController extends ChangeNotifier {
     _leavingMedia = call.media;
     _leaveOperation = operation;
     _joinRevision = Object();
+    _signalBatchers[call.media]?.close();
     _heartbeat?.cancel();
     _heartbeat = null;
     _heartbeatPending = false;
@@ -1974,6 +2096,7 @@ final class ResenhaController extends ChangeNotifier {
               siteUrl: call.siteUrl,
               roomId: call.room.id,
               apiKey: apiKey,
+              participantSessionId: _participantSessions[call.media]?.id,
             ),
             correlationId: correlationId,
           );
@@ -2362,6 +2485,7 @@ final class ResenhaController extends ChangeNotifier {
       apiKey: apiKey,
       userId: userId,
       raised: raised,
+      participantSessionId: _participantSessions[call.media]?.id,
     );
   }
 
@@ -2880,6 +3004,7 @@ final class ResenhaController extends ChangeNotifier {
     final active = _mediaDisposals[media];
     if (active != null) return active;
 
+    _signalBatchers[media]?.close();
     final completion = Completer<void>();
     final result = completion.future;
     _mediaDisposals[media] = result;

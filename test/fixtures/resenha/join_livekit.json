@@ -1,5 +1,6 @@
 {
   "transport": "livekit",
+  "participant_session_id": "livekit-participant-session",
   "ice": { "servers": [], "transport_policy": "all" },
   "livekit": {
     "url": "wss://livekit.example.com",

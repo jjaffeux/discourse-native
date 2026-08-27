@@ -53,7 +53,12 @@ final class FakeResenhaMediaFactory implements ResenhaMediaFactory {
     String correlationId = 'uncorrelated',
   }) {
     final session =
-        FakeResenhaMediaSession(join.transport, connectGate: nextConnectGate)
+        FakeResenhaMediaSession(
+            join.transport,
+            sendSignal: sendSignal,
+            refreshLiveKitCredentials: refreshLiveKitCredentials,
+            connectGate: nextConnectGate,
+          )
           ..audioInputFailure = nextAudioInputFailure
           ..audioOutputFailure = nextAudioOutputFailure
           ..cameraFailure = nextCameraFailure;
@@ -125,10 +130,17 @@ final class FakeResenhaDiagnosticsRecorder
 
 final class FakeResenhaMediaSession extends ChangeNotifier
     implements ResenhaMediaSession {
-  FakeResenhaMediaSession(this.transport, {this.connectGate});
+  FakeResenhaMediaSession(
+    this.transport, {
+    required this.sendSignal,
+    required this.refreshLiveKitCredentials,
+    this.connectGate,
+  });
 
   @override
   final ResenhaTransport transport;
+  final ResenhaSignalSender sendSignal;
+  final ResenhaLiveKitCredentialRefresher refreshLiveKitCredentials;
   final Completer<void>? connectGate;
 
   @override
@@ -155,6 +167,7 @@ final class FakeResenhaMediaSession extends ChangeNotifier
   String? selectedCamera;
   final Map<int, double> participantVolumes = {};
   List<ResenhaParticipant> participants = const [];
+  final List<(int, Map<String, dynamic>)> signals = [];
 
   @override
   Object? get localVideoTrack => null;
@@ -179,6 +192,7 @@ final class FakeResenhaMediaSession extends ChangeNotifier
 
   @override
   Future<void> handleSignal(int senderId, Map<String, dynamic> data) async {
+    signals.add((senderId, data));
     if (signalFailure case final failure?) throw failure;
   }
 
@@ -601,6 +615,7 @@ void main() {
       diagnostics: diagnostics,
       preferences: preferences,
       heartbeatInterval: const Duration(milliseconds: 15),
+      signalBatchDelay: Duration.zero,
     );
   }
 
@@ -670,6 +685,7 @@ void main() {
       diagnostics: diagnostics,
       preferences: preferences,
       heartbeatInterval: const Duration(milliseconds: 15),
+      signalBatchDelay: Duration.zero,
     );
   });
 
@@ -1880,6 +1896,145 @@ void main() {
     );
   });
 
+  test(
+    'handles ordered signal batches and an early open-room sender',
+    () async {
+      final joinPayload = fixture('join_mesh');
+      final room = joinPayload['room']! as Map<String, dynamic>;
+      room['room_type'] = 'open';
+      room['active_participants'] = [
+        {'id': 1, 'username': 'sam', 'role': 'participant'},
+      ];
+      useTransport(
+        FakeDiscourseApi(
+          pluginResponses: {
+            'GET /resenha/rooms.json': fixture('directory'),
+            'POST /resenha/rooms/7/join.json': joinPayload,
+            'POST /resenha/rooms/7/state.json': <String, dynamic>{},
+            'POST /resenha/rooms/7/heartbeat.json': <String, dynamic>{},
+            'DELETE /resenha/rooms/7/leave.json': <String, dynamic>{},
+          },
+        ),
+      );
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+
+      firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+        'type': 'signal',
+        'sender_id': 2,
+        'sender': {'id': 2, 'username': 'early'},
+        'events': [
+          {'type': 'offer', 'sdp': 'offer'},
+          {
+            'type': 'candidate',
+            'candidate': {'candidate': 'candidate:first'},
+          },
+        ],
+      });
+      await pumpEventQueue();
+
+      final media = mediaFactory.sessions.single;
+      expect(media.participants.map((participant) => participant.id), [1, 2]);
+      expect(media.signals.map((signal) => signal.$2['type']), [
+        'offer',
+        'candidate',
+      ]);
+      expect(controller.call?.room.participants.last.username, 'early');
+    },
+  );
+
+  test('sends the joined participant session on protected writes', () async {
+    transport.pluginResponses.addAll({
+      'POST /resenha/rooms/7/signal.json': <String, dynamic>{},
+      'POST /resenha/rooms/7/request_to_speak.json': <String, dynamic>{},
+    });
+    await controller.ensureLoaded(firstSite);
+    await controller.join(
+      siteUrl: firstSite,
+      siteName: 'One',
+      room: controller.room(firstSite, 7)!,
+    );
+    final media = mediaFactory.sessions.single;
+
+    await media.sendSignal(2, {'type': 'offer', 'sdp': 'offer'});
+    await controller.requestToSpeak();
+    await controller.setMuted(true);
+    await controller.leave();
+
+    final protected = transport.pluginWrites.where(
+      (write) => {
+        '/resenha/rooms/7/signal.json',
+        '/resenha/rooms/7/request_to_speak.json',
+        '/resenha/rooms/7/state.json',
+        '/resenha/rooms/7/heartbeat.json',
+        '/resenha/rooms/7/leave.json',
+      }.contains(write.path),
+    );
+    expect(protected, isNotEmpty);
+    expect(
+      protected.every(
+        (write) =>
+            write.body['participant_session_id'] == 'mesh-participant-session',
+      ),
+      isTrue,
+    );
+    final signal = protected.singleWhere(
+      (write) => write.path.endsWith('/signal.json'),
+    );
+    expect(
+      (signal.body['payload']! as Map<String, Object?>)['messages'],
+      isNotEmpty,
+    );
+  });
+
+  test(
+    'adopts a participant session rotated by LiveKit token refresh',
+    () async {
+      final tokenResponse = <String, dynamic>{
+        ...(fixture('join_livekit')['livekit'] as Map<String, dynamic>),
+        'participant_session_id': 'rotated-livekit-session',
+      };
+      useTransport(
+        FakeDiscourseApi(
+          pluginResponses: {
+            'GET /resenha/rooms.json': fixture('directory'),
+            'POST /resenha/rooms/7/join.json': fixture('join_livekit'),
+            'POST /resenha/rooms/7/livekit_token.json': tokenResponse,
+            'POST /resenha/rooms/7/state.json': <String, dynamic>{},
+            'POST /resenha/rooms/7/heartbeat.json': <String, dynamic>{},
+            'DELETE /resenha/rooms/7/leave.json': <String, dynamic>{},
+          },
+        ),
+      );
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+
+      final refreshed = await mediaFactory.sessions.single
+          .refreshLiveKitCredentials();
+      expect(refreshed.participantSessionId, 'rotated-livekit-session');
+      await controller.setMuted(true);
+      await controller.leave();
+
+      final stateAndLeave = transport.pluginWrites.where(
+        (write) =>
+            write.path.endsWith('/state.json') ||
+            write.path.endsWith('/leave.json'),
+      );
+      expect(
+        stateAndLeave.last.body['participant_session_id'],
+        'rotated-livekit-session',
+      );
+    },
+  );
+
   test('loads and pages the associated Discourse Chat thread', () async {
     await controller.openChat(firstSite, 7);
     expect(
@@ -2095,8 +2250,9 @@ void main() {
     final rawSignal = diagnostics.rawRecords.singleWhere(
       (record) => record.event == 'signaling.received.raw',
     );
+    final capturedSignals = rawSignal.data['signals']! as List<Object?>;
     expect(
-      (rawSignal.data['signal']! as Map<String, dynamic>)['sdp'],
+      (capturedSignals.single! as Map<String, dynamic>)['sdp'],
       'capture-on',
     );
   });
