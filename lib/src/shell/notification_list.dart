@@ -276,15 +276,11 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
     if (path == null) return;
 
     final url = controller.absoluteUrl(path, siteUrl: widget.siteUrl);
-    if (await controller.openPluginUrl(url)) {
+    if (await controller.openNotificationUrl(url)) {
       if (mounted) widget.onOpened();
       return;
     }
     if (!mounted) return;
-    if (controller.openTopicUrl(url)) {
-      widget.onOpened();
-      return;
-    }
     if (await openExternalLink(url) && mounted) widget.onOpened();
   }
 

@@ -5,6 +5,9 @@ import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/notification_opens.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
@@ -54,6 +57,45 @@ void main() {
       expect(api.topicPostNumbersOpened, contains(3));
     },
   );
+
+  test('a reaction notification refreshes its cached target post', () async {
+    final topics = <int, TopicPayload>{42: _reactionTopic()};
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      topics: topics,
+    );
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([_connected('one.example')]),
+      api: api,
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      forumTabs: FakeForumTabStore(),
+      trackers: FakeSiteTracker.reset(),
+      plugins: installedPlugins,
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    const target = 'https://one.example/t/reactions/42/1';
+    expect(await controller.openNotificationUrl(target), isTrue);
+    await _waitForTopic(controller);
+    expect(
+      controller.store.read<Post>('https://one.example', 1)?.reactions?.entries,
+      isEmpty,
+    );
+
+    topics[42] = _reactionTopic(
+      reactions: const [Reaction(id: 'clap', count: 1)],
+    );
+    expect(await controller.openNotificationUrl(target), isTrue);
+    await _waitForTopic(controller);
+
+    expect(api.topicsOpened, [42, 42]);
+    expect(
+      controller.store.read<Post>('https://one.example', 1)?.reactions?.entries,
+      const [Reaction(id: 'clap', count: 1)],
+    );
+  });
 
   test('notification navigation rejects unsafe and unowned URLs', () async {
     final controller = ShellController(
@@ -127,6 +169,32 @@ void main() {
 DiscourseInstance _connected(String host) => instance(
   host,
 ).copyWith(user: const DiscourseUser(id: 1, username: 'reader'));
+
+TopicPayload _reactionTopic({List<Reaction> reactions = const []}) =>
+    topicPayload(
+      id: 42,
+      title: 'Reactions',
+      posts: [
+        Post(
+          id: 1,
+          postNumber: 1,
+          username: 'author',
+          cooked: '<p>Post body</p>',
+          plugins: PluginData.none.withValue(
+            reactionsDataKey,
+            Reactions(entries: reactions, userCount: reactions.length),
+          ),
+        ),
+      ],
+    );
+
+Future<void> _waitForTopic(ShellController controller) async {
+  for (var attempt = 0; attempt < 20; attempt++) {
+    await Future<void>.delayed(Duration.zero);
+    if (!controller.currentTopicLoading) return;
+  }
+  fail('Topic did not finish loading');
+}
 
 final class _GatedInstanceStore implements InstanceStore {
   const _GatedInstanceStore(this.instances);

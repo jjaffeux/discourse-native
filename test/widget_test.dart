@@ -42,6 +42,7 @@ import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_pill.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
@@ -6192,6 +6193,89 @@ void main() {
       expect(api.markedRead, [1]);
       expect(find.byType(RepliesSection), findsNothing);
       expect(renderedText('First post body'), findsOneWidget);
+    });
+
+    testWidgets('a reaction notification refreshes a post already open', (
+      tester,
+    ) async {
+      const notification = DiscourseNotification(
+        id: 5,
+        kind: NotificationKind.reaction,
+        actor: 'david',
+        title: 'Better image handling',
+        topicId: 7,
+        postNumber: 1,
+        path: '/t/better-image-handling/7',
+      );
+      Post reactionPost(List<Reaction> reactions) => Post(
+        id: 1,
+        postNumber: 1,
+        username: 'sam',
+        cooked: '<p>First post body</p>',
+        plugins: PluginData.none.withValue(
+          reactionsDataKey,
+          Reactions(entries: reactions, userCount: reactions.length),
+        ),
+      );
+      final topics = <int, TopicPayload>{
+        7: topicPayload(
+          id: 7,
+          title: 'Better image handling',
+          posts: [reactionPost(const [])],
+        ),
+      };
+      final api = FakeDiscourseApi(
+        notificationList: const [notification],
+        feeds: const {
+          '/latest.json': [
+            Topic(
+              id: 7,
+              title: 'Better image handling',
+              slug: 'better-image-handling',
+            ),
+          ],
+        },
+        topics: topics,
+      );
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      final controller = tester
+          .widget<ShellScope>(find.byType(ShellScope))
+          .notifier!;
+      controller.pushContent(
+        ContentRoute.topic(
+          topicId: 7,
+          slug: 'better-image-handling',
+          title: 'Better image handling',
+        ),
+      );
+      await controller.loadTopic(7, 'better-image-handling');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('post-reaction-1-clap')), findsNothing);
+
+      topics[7] = topicPayload(
+        id: 7,
+        title: 'Better image handling',
+        posts: [
+          reactionPost(const [Reaction(id: 'clap', count: 1)]),
+        ],
+      );
+      await openNotifications(tester);
+      await tester.tap(find.textContaining('david reacted to your post in'));
+      await tester.pumpAndSettle();
+
+      expect(api.topicsOpened, [7, 7]);
+      expect(api.markedRead, [5]);
+      expect(
+        find.byKey(const ValueKey('post-reaction-1-clap')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('Replies can retry a failed filtered request', (tester) async {

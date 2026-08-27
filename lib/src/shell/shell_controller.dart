@@ -660,7 +660,7 @@ class ShellController extends FrameSafeNotifier
     return false;
   }
 
-  /// Opens a trusted push target only when it is a safe URL owned by a
+  /// Opens a trusted notification target only when it is a safe URL owned by a
   /// connected forum and the app has an internal route for it.
   ///
   /// Notification taps never fall back to the external browser: an unknown
@@ -687,7 +687,7 @@ class ShellController extends FrameSafeNotifier
 
     final absolute = target.toString();
     if (await openPluginUrl(absolute)) return true;
-    if (openTopicUrl(absolute)) return true;
+    if (_openTopicUrl(absolute, refresh: true)) return true;
     return openListUrl(absolute);
   }
 
@@ -2666,7 +2666,13 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  void _openTopic(int topicId, String slug, String title, {int? postNumber}) {
+  void _openTopic(
+    int topicId,
+    String slug,
+    String title, {
+    int? postNumber,
+    bool force = false,
+  }) {
     // A fast double tap on a row pushes the same topic twice — the fetch is
     // deduped below, but the second route still costs a back tap.
     if (currentContent?.topicId == topicId) return;
@@ -2681,7 +2687,7 @@ class ShellController extends FrameSafeNotifier
         postNumber: postNumber,
       ),
     );
-    unawaited(loadTopic(topicId, slug, postNumber: postNumber));
+    unawaited(loadTopic(topicId, slug, force: force, postNumber: postNumber));
   }
 
   /// Absolute form of [url].
@@ -2699,7 +2705,9 @@ class ShellController extends FrameSafeNotifier
   /// Returns false for everything else — a topic on a site the user has not
   /// connected is a page this app has no view for — which is the caller's
   /// signal to hand the link to the browser.
-  bool openTopicUrl(String url) {
+  bool openTopicUrl(String url) => _openTopicUrl(url);
+
+  bool _openTopicUrl(String url, {bool refresh = false}) {
     final link = TopicLink.parse(absoluteUrl(url));
     if (link == null) return false;
 
@@ -2710,13 +2718,21 @@ class ShellController extends FrameSafeNotifier
 
     // Posts link to the topic they are already in — every cross-post quote
     // does — and stacking a second copy of it only costs the user a back tap.
-    if (currentContent?.topicId == link.topicId) return true;
+    // A notification is different: it reports a change that happened after
+    // the post may have entered the store, so its target has to be read again.
+    if (currentContent?.topicId == link.topicId) {
+      if (refresh) {
+        openCurrentTopicPost(link.postNumber ?? 1, loadAroundPost: true);
+      }
+      return true;
+    }
 
     _openTopic(
       link.topicId,
       link.slug,
       link.placeholderTitle,
       postNumber: link.postNumber,
+      force: refresh,
     );
     return true;
   }
