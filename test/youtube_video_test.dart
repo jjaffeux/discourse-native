@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
+import 'package:flutter/gestures.dart' show EagerGestureRecognizer;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html_parser;
@@ -153,6 +154,15 @@ void main() {
   });
 
   group('YouTube embed document', () {
+    test('claims pointer sequences for the activated iframe player', () {
+      const factories = youtubePlayerGestureRecognizers;
+
+      expect(factories, hasLength(1));
+      final recognizer = factories.single.constructor();
+      addTearDown(recognizer.dispose);
+      expect(recognizer, isA<EagerGestureRecognizer>());
+    });
+
     test('builds encoded playback parameters and forum origin', () {
       final origin = youtubeForumOrigin(
         'https://meta.discourse.org:443/t/a-topic/1?ignored=true#ignored',

@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show Factory;
+import 'package:flutter/gestures.dart'
+    show EagerGestureRecognizer, OneSequenceGestureRecognizer;
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:webview_all/webview_all.dart';
@@ -618,10 +621,24 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
 
     return Semantics(
       label: 'YouTube player: ${widget.data.title}',
-      child: WebViewWidget(controller: controller),
+      child: WebViewWidget(
+        controller: controller,
+        gestureRecognizers: youtubePlayerGestureRecognizers,
+      ),
     );
   }
 }
+
+/// Gives the activated platform view ownership of its pointer sequences.
+///
+/// YouTube players live inside both a selectable message body and a scrollable
+/// timeline. With the platform-view default, those ancestors can win the
+/// gesture arena and leave the iframe visible but unable to receive its own
+/// pause, seek, volume, or fullscreen interactions.
+const Set<Factory<OneSequenceGestureRecognizer>>
+youtubePlayerGestureRecognizers = <Factory<OneSequenceGestureRecognizer>>{
+  Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new),
+};
 
 /// Opts into the playback behavior promised by the native Play action before
 /// the platform WebView is created. In particular, WKWebView defaults inline
