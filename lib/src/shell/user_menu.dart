@@ -73,8 +73,8 @@ class UserMenuSection {
   final DIconData icon;
   final String label;
 
-  /// Placeholder contents. Always rendered in the placeholder color, and empty
-  /// for the sections whose contents come from the site.
+  /// Declarative contents for sections whose rows are assembled locally.
+  /// Rows with a known id are replaced by their live account control.
   final List<UserMenuRow> rows;
 
   /// Real count from `/notifications/totals.json` where we have one, so the
@@ -99,8 +99,8 @@ class UserMenuSection {
       !isProfile;
 }
 
-/// One line inside a section. Purely presentational: nothing here is wired to
-/// anything, which is why it carries no callback.
+/// One line inside a section. Known ids select account actions while rows with
+/// no action remain clearly marked stand-ins.
 @immutable
 class UserMenuRow {
   const UserMenuRow(
@@ -123,6 +123,7 @@ class UserMenuRow {
 
   bool get isDrafts => id == 'drafts';
   bool get isUserStatus => id == 'user-status';
+  bool get isHidePresence => id == 'hide-presence';
 }
 
 /// Results a section can hand back to whatever opened it.
@@ -211,7 +212,7 @@ List<UserMenuSection> userMenuSections(
             status: user?.status,
             userId: user?.id,
           ),
-        const UserMenuRow(DIcons.toggleOn, 'Online'),
+        const UserMenuRow(DIcons.toggleOn, 'Online', id: 'hide-presence'),
         const UserMenuRow(DIcons.toggleOff, 'Pause notifications'),
         const UserMenuRow(DIcons.user, 'Summary'),
         const UserMenuRow(DIcons.list, 'Activity'),
@@ -487,32 +488,36 @@ class _SectionBody extends StatelessWidget {
         BookmarkSection(siteUrl: siteUrl, onOpened: onDismiss)
       else
         for (final row in section.rows)
-          _RowTile(
-            row: row,
-            leading: row.isUserStatus && siteUrl != null && row.status != null
-                ? UserStatusMessage(
-                    siteUrl: siteUrl,
-                    userId: row.userId,
-                    status: row.status,
-                    size: 18,
-                  )
-                : null,
-            detail: row.isDrafts && siteUrl != null
-                ? switch (controller.draftCountFor(siteUrl)) {
-                    final count when count > 0 => '$count',
-                    _ => null,
-                  }
-                : row.detail,
-            onTap: row.isUserStatus && siteUrl != null
-                ? () =>
-                      unawaited(showUserStatusEditor(context, siteUrl: siteUrl))
-                : row.isDrafts && siteUrl != null
-                ? () {
-                    onDismiss();
-                    controller.openDrafts(siteUrl);
-                  }
-                : null,
-          ),
+          if (row.isHidePresence && siteUrl != null)
+            _HidePresenceTile(siteUrl: siteUrl)
+          else
+            _RowTile(
+              row: row,
+              leading: row.isUserStatus && siteUrl != null && row.status != null
+                  ? UserStatusMessage(
+                      siteUrl: siteUrl,
+                      userId: row.userId,
+                      status: row.status,
+                      size: 18,
+                    )
+                  : null,
+              detail: row.isDrafts && siteUrl != null
+                  ? switch (controller.draftCountFor(siteUrl)) {
+                      final count when count > 0 => '$count',
+                      _ => null,
+                    }
+                  : row.detail,
+              onTap: row.isUserStatus && siteUrl != null
+                  ? () => unawaited(
+                      showUserStatusEditor(context, siteUrl: siteUrl),
+                    )
+                  : row.isDrafts && siteUrl != null
+                  ? () {
+                      onDismiss();
+                      controller.openDrafts(siteUrl);
+                    }
+                  : null,
+            ),
       if (section.isProfile) ...[
         Divider(color: theme.shell.divider, height: 17),
         _DisconnectTile(host: host, onTap: onDisconnect),
@@ -573,8 +578,149 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// A stand-in row. Nothing happens when it is tapped, and it says so by being
-/// the one color in the shell reserved for what is not built yet.
+typedef _HidePresenceSnapshot = ({bool? hidden, bool saving, String? error});
+
+/// The current account's presence preference, shared by the pointer panel and
+/// the nested touch sheet.
+class _HidePresenceTile extends StatelessWidget {
+  const _HidePresenceTile({required this.siteUrl});
+
+  static const semanticsKey = ValueKey('user-menu-hide-presence');
+
+  final String siteUrl;
+
+  @override
+  Widget build(BuildContext context) => ShellSelector<_HidePresenceSnapshot>(
+    select: (controller) => (
+      hidden: controller.hidePresenceFor(siteUrl),
+      saving: controller.hidePresenceWriteInFlight(siteUrl),
+      error: controller.hidePresenceErrorFor(siteUrl),
+    ),
+    builder: (context, state, _) {
+      final controller = ShellScope.read(context);
+      final theme = Theme.of(context);
+      final hidden = state.hidden;
+      final loading = hidden == null && state.error == null;
+      final title = switch ((hidden, state.error)) {
+        (true, _) => 'Offline',
+        (false, _) => 'Online',
+        (null, null) => 'Loading presence…',
+        (null, _) => 'Presence unavailable',
+      };
+      final VoidCallback? onTap = state.saving || loading
+          ? null
+          : hidden == null
+          ? () => unawaited(controller.retryHidePresence(siteUrl))
+          : () => unawaited(controller.toggleHidePresence(siteUrl));
+      final semanticsLabel = hidden == null ? 'Presence' : title;
+      final semanticsValue = state.saving
+          ? 'Saving'
+          : loading
+          ? 'Loading'
+          : null;
+      final semanticsHint = hidden == null && state.error != null
+          ? 'Retry loading the presence setting'
+          : 'Toggle presence features';
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              key: semanticsKey,
+              container: true,
+              button: true,
+              enabled: onTap != null,
+              toggled: hidden == null ? null : !hidden,
+              label: semanticsLabel,
+              value: semanticsValue,
+              hint: semanticsHint,
+              liveRegion: state.saving || loading,
+              onTap: onTap,
+              child: ExcludeSemantics(
+                child: Tooltip(
+                  message: 'Toggle presence features',
+                  excludeFromSemantics: true,
+                  child: InkWell(
+                    onTap: onTap,
+                    borderRadius: BorderRadius.circular(6),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Row(
+                          children: [
+                            DIcon(
+                              hidden == false
+                                  ? DIcons.toggleOn
+                                  : DIcons.toggleOff,
+                              size: 18,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                            ),
+                            if (state.saving)
+                              const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator.adaptive(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            else if (loading)
+                              DIcon(
+                                DIcons.farClock,
+                                size: 16,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              )
+                            else if (hidden == null)
+                              Text(
+                                'Retry',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (state.error case final error?)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(36, 1, 8, 7),
+                child: Semantics(
+                  container: true,
+                  liveRegion: true,
+                  label: error,
+                  child: ExcludeSemantics(
+                    child: Text(
+                      error,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+/// A local row. Rows without an action use the shell's explicit placeholder
+/// color; working account actions use the ordinary foreground.
 class _RowTile extends StatelessWidget {
   const _RowTile({required this.row, this.detail, this.onTap, this.leading});
 

@@ -331,6 +331,7 @@ class DiscourseApi
     if (user == null || username == null) {
       throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
     }
+    final userOption = jsonObject(user['user_option']);
 
     return DiscourseUser(
       username: username,
@@ -379,11 +380,14 @@ class DiscourseApi
       // an authoritative false rather than an unknown capability.
       hasChatEnabled: user['has_chat_enabled'] == true,
       chatHeaderIndicatorPreference: ChatHeaderIndicatorPreference.read(
-        jsonObject(user['user_option'])['chat_header_indicator_preference'],
+        userOption['chat_header_indicator_preference'],
       ),
-      timezone: jsonText(jsonObject(user['user_option'])['timezone']),
+      timezone: jsonText(userOption['timezone']),
+      hidePresence: userOption['hide_presence'] is bool
+          ? userOption['hide_presence'] as bool
+          : null,
       bookmarkAutoDeletePreference: BookmarkAutoDeletePreference.read(
-        jsonObject(user['user_option'])['bookmark_auto_delete_preference'],
+        userOption['bookmark_auto_delete_preference'],
       ),
       doNotDisturbUntil: jsonDate(user['do_not_disturb_until']),
       lastChatChannelId: jsonIntOrNull(
@@ -1223,6 +1227,27 @@ class DiscourseApi
       apiKey: apiKey,
       clientId: clientId,
       body: const {},
+    );
+  }
+
+  /// Changes whether the connected account publishes presence features.
+  ///
+  /// Core's `User.save(["hide_presence"])` sends this option at the top level
+  /// of the ordinary user update, rather than nesting it under `user_option`.
+  Future<void> updateHidePresence({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required bool hidePresence,
+    String? clientId,
+  }) async {
+    await _write(
+      Uri.parse('$siteUrl/u/${Uri.encodeComponent(username)}.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'hide_presence': hidePresence},
     );
   }
 
