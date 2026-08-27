@@ -967,7 +967,7 @@ class _Tile extends StatelessWidget {
                         alignment: Alignment.topLeft,
                         child: Padding(
                           padding: const EdgeInsets.only(top: 2),
-                          child: UserCardTarget(
+                          child: UserCardTarget.avatar(
                             username: message.author.username,
                             siteUrl: siteUrl,
                             child: ChatUserAvatar(
@@ -1158,7 +1158,6 @@ class _Header extends StatelessWidget {
           child: UserCardTarget(
             username: message.author.username,
             siteUrl: siteUrl,
-            hoverColor: Colors.transparent,
             child: Text(
               message.author.displayName,
               maxLines: 1,

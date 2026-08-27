@@ -42,31 +42,6 @@ const _replyInThreadAction = CustomSemanticsAction(label: 'Reply in thread');
 const _copyLinkAction = CustomSemanticsAction(label: 'Copy link');
 
 void main() {
-  testWidgets('author name uses only a pointer cursor on hover', (
-    tester,
-  ) async {
-    final controller = await _controller(
-      _message(null, authorUsername: 'root-author'),
-    );
-    addTearDown(controller.dispose);
-
-    await tester.pumpWidget(
-      _TestTile(controller: controller, onOpenThread: (_) {}),
-    );
-    await tester.pumpAndSettle();
-
-    final ink = find.ancestor(
-      of: find.text('Root author'),
-      matching: find.byType(InkWell),
-    );
-    final inkWell = tester.widget<InkWell>(ink);
-    final theme = Theme.of(tester.element(ink));
-
-    expect(inkWell.mouseCursor, SystemMouseCursors.click);
-    expect(inkWell.hoverColor, Colors.transparent);
-    expect(inkWell.focusColor, theme.shell.hover);
-  });
-
   testWidgets(
     'direct-reply indicator matches core and jumps to the referenced message',
     (tester) async {
@@ -251,6 +226,30 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('author avatar only uses the hand cursor under a pointer', (
+    tester,
+  ) async {
+    final controller = await _controller(
+      _message(null, authorUsername: 'root'),
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+
+    final avatar = find.byType(ChatUserAvatar);
+    final ink = tester.widget<InkWell>(
+      find.ancestor(of: avatar, matching: find.byType(InkWell)).first,
+    );
+
+    expect(ink.mouseCursor, SystemMouseCursors.click);
+    expect(ink.hoverColor, Colors.transparent);
+    expect(ink.highlightColor, Colors.transparent);
+    expect(ink.splashColor, Colors.transparent);
   });
 
   for (final activation in [
