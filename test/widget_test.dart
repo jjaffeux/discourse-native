@@ -13889,6 +13889,21 @@ void main() {
       testWidgets('shows and filters the channel member directory', (
         tester,
       ) async {
+        final memberPages = <String, ChatChannelMembersPage>{
+          FakeDiscourseApi.chatChannelMembersKey(9): (
+            members: const [
+              ChatUser(id: 2, username: 'sam', name: 'Sam'),
+              ChatUser(id: 3, username: 'hawk', name: 'Hawk'),
+            ],
+            totalRows: 2,
+            canLoadMore: false,
+          ),
+          FakeDiscourseApi.chatChannelMembersKey(9, username: 'ha'): (
+            members: const [ChatUser(id: 3, username: 'hawk', name: 'Hawk')],
+            totalRows: 3,
+            canLoadMore: false,
+          ),
+        };
         final api = FakeDiscourseApi(
           totals: withChat,
           user: me,
@@ -13902,24 +13917,11 @@ void main() {
                 ),
               ],
               direct: const [],
+              channelMetadataBusLastId: 80,
             ),
           },
           chatMessagesByKey: {key(9): page(const [])},
-          chatChannelMemberPagesByKey: {
-            FakeDiscourseApi.chatChannelMembersKey(9): (
-              members: const [
-                ChatUser(id: 2, username: 'sam', name: 'Sam'),
-                ChatUser(id: 3, username: 'hawk', name: 'Hawk'),
-              ],
-              totalRows: 2,
-              canLoadMore: false,
-            ),
-            FakeDiscourseApi.chatChannelMembersKey(9, username: 'ha'): (
-              members: const [ChatUser(id: 3, username: 'hawk', name: 'Hawk')],
-              totalRows: 2,
-              canLoadMore: false,
-            ),
-          },
+          chatChannelMemberPagesByKey: memberPages,
         );
         await pumpChat(tester, api: api);
         await tester.tap(sidebarDestination('Bugs'));
@@ -13953,6 +13955,24 @@ void main() {
         expect(find.text('Sam'), findsOneWidget);
         expect(find.text('Hawk'), findsOneWidget);
 
+        memberPages[FakeDiscourseApi.chatChannelMembersKey(9)] = (
+          members: const [
+            ChatUser(id: 2, username: 'sam', name: 'Sam'),
+            ChatUser(id: 3, username: 'hawk', name: 'Hawk'),
+            ChatUser(id: 4, username: 'kris', name: 'Kris'),
+          ],
+          totalRows: 3,
+          canLoadMore: false,
+        );
+        FakeSiteTracker.built.single.deliverPluginMessage(
+          '/chat/channel-metadata',
+          {'chat_channel_id': 9, 'memberships_count': 3},
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Members (3)'), findsOneWidget);
+        expect(find.text('Kris'), findsOneWidget);
+
         await tester.enterText(
           find.byKey(const ValueKey('chat-channel-member-filter')),
           'ha',
@@ -13963,6 +13983,7 @@ void main() {
         expect(find.text('Sam'), findsNothing);
         expect(find.text('Hawk'), findsOneWidget);
         expect(api.chatChannelMembersRequested, const [
+          (channelId: 9, username: '', offset: 0, limit: 20),
           (channelId: 9, username: '', offset: 0, limit: 20),
           (channelId: 9, username: 'ha', offset: 0, limit: 20),
         ]);

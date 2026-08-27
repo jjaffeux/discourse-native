@@ -16,6 +16,7 @@ import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -37,6 +38,7 @@ ChatMessage message(
   bool pinned = false,
   List<String> availableFlags = const [],
   int? userFlagStatus,
+  int? reviewableId,
 }) => ChatMessage(
   id: id,
   channelId: 9,
@@ -49,6 +51,7 @@ ChatMessage message(
   pinned: pinned,
   availableFlags: availableFlags,
   userFlagStatus: userFlagStatus,
+  reviewableId: reviewableId,
   reactions: reactions,
   bookmark: bookmark,
 );
@@ -94,6 +97,7 @@ ChatChannel channel(
   Map<int, DateTime>? unreadThreadOverview,
   int? lastMessageId,
   DateTime? lastMessageAt,
+  ChatChannelMessageBusState messageBus = const ChatChannelMessageBusState(),
 }) => ChatChannel(
   id: id,
   title: title,
@@ -130,6 +134,7 @@ ChatChannel channel(
   threadingEnabled: threadingEnabled || unreadThreads > 0,
   lastMessageId: lastMessageId,
   lastMessageAt: lastMessageAt,
+  messageBus: messageBus,
 );
 
 /// A controller wired to a fake site the reader is already signed in to.
@@ -402,6 +407,9 @@ Map<String, dynamic> newDirectChannelEvent({
   required int channelId,
   required int messageId,
   required int newMessagesLastId,
+  int? newMentionsLastId,
+  int? channelMessageBusLastId,
+  bool following = true,
   String title = 'New conversation',
   String createdAt = '2026-08-08T13:00:00.000Z',
 }) => {
@@ -416,13 +424,17 @@ Map<String, dynamic> newDirectChannelEvent({
       ],
     },
     'current_user_membership': {
-      'following': true,
+      'following': following,
       'muted': false,
       'starred': false,
     },
     'last_message': {'id': messageId, 'created_at': createdAt},
     'meta': {
-      'message_bus_last_ids': {'new_messages': newMessagesLastId},
+      'message_bus_last_ids': {
+        'new_messages': newMessagesLastId,
+        'new_mentions': ?newMentionsLastId,
+        'channel_message_bus_last_id': ?channelMessageBusLastId,
+      },
     },
   },
 };
@@ -493,7 +505,15 @@ void main() {
     test(
       'coalesces and stores a full channel needed by search navigation',
       () async {
-        final subject = build(channelDetails: {9: channel(9)});
+        final subject = build(
+          channelDetails: {
+            9: channel(
+              9,
+              messageBus: const ChatChannelMessageBusState(channel: 95),
+            ),
+          },
+        );
+        final tracker = attachTracker(subject.chat);
 
         final first = subject.chat.ensureChannel(site, 9);
         final second = subject.chat.ensureChannel(site, 9);
@@ -506,6 +526,10 @@ void main() {
 
         expect(await subject.chat.ensureChannel(site, 9), isNotNull);
         expect(subject.api.chatChannelDetailsRequested, [9]);
+
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+        expect(tracker.pluginChannelLastIds['/chat/9'], 95);
       },
     );
 
@@ -1016,6 +1040,167 @@ void main() {
       },
     );
 
+    test('applies remote channel edits from the snapshot cursor', () async {
+      final subject = build(
+        currentUser: currentUser,
+        channels: {
+          site: ChatChannels(
+            public: [channel(9, slug: 'bugs', description: 'Old')],
+            channelEditsBusLastId: 83,
+          ),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+
+      expect(tracker.pluginChannelLastIds['/chat/channel-edits'], 83);
+      tracker.deliverPluginMessage('/chat/channel-edits', {
+        'chat_channel_id': 9,
+        'name': 'Support',
+        'slug': 'support',
+        'description': 'Ask for help',
+      });
+
+      final updated = subject.chat.channel(site, 9)!;
+      expect(updated.title, 'Support');
+      expect(updated.slug, 'support');
+      expect(updated.description, 'Ask for help');
+    });
+
+    test('applies remote status and clears archived unread state', () async {
+      final subject = build(
+        currentUser: currentUser,
+        channels: {
+          site: ChatChannels(
+            public: [
+              channel(
+                9,
+                unread: 3,
+                mentions: 2,
+                watchedThreads: 1,
+                unreadThreads: 1,
+              ),
+            ],
+            channelStatusBusLastId: 84,
+          ),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+
+      expect(tracker.pluginChannelLastIds['/chat/channel-status'], 84);
+      tracker.deliverPluginMessage('/chat/channel-status', {
+        'chat_channel_id': 9,
+        'status': 'archived',
+      });
+
+      expect(subject.chat.channel(site, 9)?.status, ChatChannelStatus.archived);
+      expect(subject.chat.channel(site, 9)?.tracking, ChatTracking.none);
+      expect(subject.chat.channel(site, 9)?.badge.dot, isFalse);
+    });
+
+    test('applies remote channel membership counts', () async {
+      final subject = build(
+        currentUser: currentUser,
+        channels: {
+          site: ChatChannels(
+            public: [channel(9, membershipsCount: 3)],
+            channelMetadataBusLastId: 85,
+          ),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+
+      expect(tracker.pluginChannelLastIds['/chat/channel-metadata'], 85);
+      tracker.deliverPluginMessage('/chat/channel-metadata', {
+        'chat_channel_id': 9,
+        'memberships_count': 4,
+      });
+
+      expect(subject.chat.channel(site, 9)?.membershipsCount, 4);
+    });
+
+    test('makes a new mention urgent in the same bus turn', () async {
+      final deltas = <int>[];
+      final subject = build(
+        currentUser: currentUser,
+        onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+        channels: {
+          site: ChatChannels(
+            public: [channel(9, lastRead: 10)],
+            newMentionMessageBusLastIds: const {9: 86},
+          ),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+
+      expect(tracker.pluginChannelLastIds['/chat/9/new-mentions'], 86);
+      tracker.deliverPluginMessage('/chat/9/new-mentions', {
+        'channel_id': 9,
+        'message_id': 11,
+      });
+
+      expect(subject.chat.channel(site, 9)?.tracking.mentionCount, 1);
+      expect(subject.chat.channel(site, 9)?.badge.urgent, isTrue);
+      expect(deltas, [1]);
+    });
+
+    test('removes a channel when this account is kicked', () async {
+      final subject = build(
+        currentUser: currentUser,
+        channels: {
+          site: ChatChannels(
+            public: [channel(9)],
+            newMessageBusLastIds: const {9: 70},
+            newMentionMessageBusLastIds: const {9: 71},
+            kickMessageBusLastIds: const {9: 72},
+          ),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+
+      expect(tracker.pluginChannelLastIds['/chat/9/kick'], 72);
+      tracker.deliverPluginMessage('/chat/9/kick', {'channel_id': 9});
+
+      expect(subject.chat.publicChannels(site), isEmpty);
+      expect(subject.chat.channel(site, 9), isNull);
+      expect(tracker.pluginChannelCallbacks['/chat/9/new-messages'], isEmpty);
+      expect(tracker.pluginChannelCallbacks['/chat/9/new-mentions'], isEmpty);
+      expect(tracker.pluginChannelCallbacks['/chat/9/kick'], isEmpty);
+    });
+
+    test(
+      'a kick clears an active channel instead of leaving stale rows',
+      () async {
+        final subject = build(
+          currentUser: currentUser,
+          channels: {
+            site: ChatChannels(
+              public: [channel(9)],
+              kickMessageBusLastIds: const {9: 72},
+            ),
+          },
+          messages: {
+            key(9): page([message(1)]),
+          },
+        );
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+        tracker.deliverPluginMessage('/chat/9/kick', {'channel_id': 9});
+
+        final stream = subject.chat.stream(site, 9);
+        expect(stream.messageIds, isEmpty);
+        expect(stream.error, 'You no longer have access to this channel.');
+      },
+    );
+
     test('reorders direct messages when a new-message event arrives', () async {
       final deltas = <int>[];
       final subject = build(
@@ -1435,11 +1620,17 @@ void main() {
           channelId: 13,
           messageId: 60,
           newMessagesLastId: 81,
+          newMentionsLastId: 82,
+          channelMessageBusLastId: 83,
         ),
       );
 
       expect(subject.chat.directChannels(site).map((c) => c.id), [13]);
       expect(tracker.pluginChannelLastIds['/chat/13/new-messages'], 81);
+      expect(tracker.pluginChannelLastIds['/chat/13/new-mentions'], 82);
+      final view = subject.chat.beginViewingChannel(site, 13);
+      addTearDown(() => subject.chat.endViewingChannel(site, 13, view));
+      expect(tracker.pluginChannelLastIds['/chat/13'], 83);
 
       // The channel snapshot already contains this message, but its cursor is
       // from immediately before publication. Accept the matching event once
@@ -1455,6 +1646,42 @@ void main() {
       );
       expect(subject.chat.channel(site, 13)?.tracking.unreadCount, 1);
     });
+
+    test(
+      'reopens an unfollowed DM when its new-channel event arrives',
+      () async {
+        final subject = build(
+          currentUser: currentUser,
+          channels: {site: const ChatChannels(newChannelBusLastId: 80)},
+        );
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+
+        tracker.deliverPluginMessage(
+          '/chat/new-channel',
+          newDirectChannelEvent(
+            channelId: 13,
+            messageId: 60,
+            newMessagesLastId: 81,
+            newMentionsLastId: 82,
+            following: false,
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(subject.api.chatChannelFollowsUpdated, const [
+          (channelId: 13, following: true),
+        ]);
+        expect(subject.chat.directChannels(site).map((channel) => channel.id), [
+          13,
+        ]);
+        final reopened = subject.chat.channel(site, 13)!;
+        expect(reopened.membership.following, isTrue);
+        expect(reopened.tracking.unreadCount, 1);
+        expect(tracker.pluginChannelLastIds['/chat/13/new-messages'], 81);
+        expect(tracker.pluginChannelLastIds['/chat/13/new-mentions'], 82);
+      },
+    );
 
     test(
       'a user thread event reveals My Threads from its snapshot cursor',
@@ -1509,6 +1736,7 @@ void main() {
             authorId: 2,
             createdAt: '2026-08-08T13:00:00.000Z',
           ),
+          messageId: 91,
         );
         expect(subject.chat.channel(site, 12)?.tracking.unreadCount, 1);
 
@@ -1517,7 +1745,7 @@ void main() {
         expect(first.pluginChannelCallbacks['/presence/chat/online'], isEmpty);
         expect(first.pluginChannelCallbacks['/chat/12/new-messages'], isEmpty);
         expect(replacement.pluginChannelLastIds['/presence/chat/online'], 47);
-        expect(replacement.pluginChannelLastIds['/chat/12/new-messages'], 70);
+        expect(replacement.pluginChannelLastIds['/chat/12/new-messages'], 91);
         expect(replacement.pluginChannelLastIds['/chat/new-channel'], 80);
 
         // A replacement starts from the HTTP cursor, so creation and message
@@ -1609,6 +1837,51 @@ void main() {
       expect(deltas, [-2, -3]);
     });
 
+    test('does not make a quiet thread unread from tracking state', () async {
+      final subject = build(
+        currentUser: currentUser,
+        channels: {
+          site: ChatChannels(
+            public: [channel(9, threadingEnabled: true)],
+            userTrackingBusLastId: 90,
+          ),
+        },
+      );
+      subject.store.put(
+        site,
+        const ChatThread(
+          id: 31,
+          channelId: 9,
+          status: 'open',
+          replyCount: 2,
+          membership: ChatThreadMembership(
+            threadId: 31,
+            notificationLevel: ChatThreadNotificationLevel.normal,
+            lastReadMessageId: 10,
+          ),
+        ),
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+
+      tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
+        'channel_id': 9,
+        'thread_id': 31,
+        'last_read_message_id': 11,
+        'unread_count': 0,
+        'mention_count': 0,
+        'watched_threads_unread_count': 0,
+        'thread_tracking': {
+          'unread_count': 2,
+          'mention_count': 1,
+          'watched_threads_unread_count': 0,
+        },
+      });
+
+      expect(subject.chat.thread(site, 31)?.tracking, ChatTracking.none);
+      expect(subject.chat.thread(site, 31)?.membership?.lastReadMessageId, 10);
+    });
+
     test(
       'reconciles notification totals on a forced channel refresh',
       () async {
@@ -1680,11 +1953,14 @@ void main() {
           {'id': 3, 'username': 'kris'},
         ],
         'leaving_user_ids': [2],
-      });
+      }, messageId: 48);
 
       expect(subject.chat.isOnline(site, 2), isFalse);
       expect(subject.chat.isOnline(site, 3), isTrue);
       expect(subject.chat.onlineUserIdsListenable(site).value, {3});
+
+      final replacement = attachTracker(subject.chat);
+      expect(replacement.pluginChannelLastIds['/presence/chat/online'], 48);
     });
 
     test('stops applying presence after the site is forgotten', () async {
@@ -3518,6 +3794,37 @@ void main() {
         isFalse,
       );
     });
+
+    test('a staff flag event removes the action from every held row', () async {
+      const staff = DiscourseUser(id: 7, username: 'reader', staff: true);
+      final held = message(
+        12,
+        authorId: 2,
+        availableFlags: const ['notify_moderators'],
+      );
+      final subject = build(
+        currentUser: staff,
+        messages: {
+          key(9): page([held]),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9, canFlag: true));
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+      tracker.deliverPluginMessage('/chat/9', {
+        'type': 'flag',
+        'chat_message_id': 12,
+        'reviewable_id': 44,
+      });
+
+      final flagged = subject.store.read<ChatMessage>(site, 12)!;
+      expect(flagged.reviewableId, 44);
+      expect(subject.chat.canFlagMessage(site, flagged), isFalse);
+    });
   });
 
   group('deleting and restoring a message', () {
@@ -4749,6 +5056,100 @@ void main() {
     });
   });
 
+  group('live message metadata', () {
+    test('shows server notice text for the active channel', () async {
+      final subject = build(
+        messages: {
+          key(9): page([message(1)]),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9));
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+      tracker.deliverPluginMessage('/chat/9', {
+        'type': 'notice',
+        'channel_id': 9,
+        'text_content': 'Some mentioned users cannot see this channel.',
+      });
+
+      expect(
+        subject.chat.stream(site, 9).notice,
+        'Some mentioned users cannot see this channel.',
+      );
+    });
+
+    test(
+      'anonymous edit payload preserves personalized message state',
+      () async {
+        const bookmark = Bookmark(
+          id: 81,
+          bookmarkableId: 1,
+          bookmarkableType: 'Chat::Message',
+        );
+        final held = message(
+          1,
+          bookmark: bookmark,
+          availableFlags: const ['notify_moderators'],
+          userFlagStatus: 2,
+          reactions: const [
+            ChatReaction(
+              emoji: 'heart',
+              count: 2,
+              reacted: true,
+              reactorIds: [7, 8],
+            ),
+          ],
+        );
+        final subject = build(
+          currentUser: currentUser,
+          messages: {
+            key(9): page([held]),
+          },
+        );
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9, canFlag: true));
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+        tracker.deliverPluginMessage('/chat/9', {
+          'type': 'edit',
+          'chat_message': {
+            'id': 1,
+            'chat_channel_id': 9,
+            'message': 'edited',
+            'cooked': '<p>edited</p>',
+            'created_at': '2026-05-05T10:00:00.000Z',
+            'edited': true,
+            'user': {'id': 2, 'username': 'sam'},
+            'reactions': [
+              {
+                'emoji': 'heart',
+                'count': 2,
+                'reacted': false,
+                'users': [
+                  {'id': 8, 'username': 'other'},
+                ],
+              },
+            ],
+          },
+        });
+
+        final updated = subject.store.read<ChatMessage>(site, 1)!;
+        expect(updated.raw, 'edited');
+        expect(updated.bookmark, bookmark);
+        expect(updated.availableFlags, ['notify_moderators']);
+        expect(updated.userFlagStatus, 2);
+        expect(updated.reactions.single.reacted, isTrue);
+      },
+    );
+  });
+
   group('ordering the stream', () {
     testWidgets(
       'a live arrival lands in the same place whichever channel brings it',
@@ -4902,12 +5303,14 @@ void main() {
       },
     };
 
-    test('a delete reaching a held window reprojects it', () async {
+    test('an ordinary reader no longer sees a remotely deleted row', () async {
       final subject = build(
+        currentUser: currentUser,
         messages: {
           key(9): page([message(1), message(2, minute: 1)]),
         },
       );
+      subject.store.put(site, channel(9));
       final tracker = attachTracker(subject.chat);
       await subject.chat.openChannel(site, 9);
       final view = subject.chat.beginViewingChannel(site, 9);
@@ -4921,22 +5324,25 @@ void main() {
 
       tracker.deliverPluginMessage('/chat/9', deleteEvent(2));
 
-      // The id list is untouched — deletes collapse in the projection, they
-      // do not open a hole — but the stream must still announce the change,
-      // or a mounted pane keeps rendering the deleted body.
+      // Keep the canonical id in the contiguous transport window, but remove
+      // the record just as the web client does for a reader who cannot inspect
+      // deleted chat. The stream revision reprojects that now-hidden slot.
       final after = subject.chat.stream(site, 9);
-      expect(subject.store.read<ChatMessage>(site, 2)!.isDeleted, isTrue);
+      expect(subject.store.read<ChatMessage>(site, 2), isNull);
+      expect(subject.chat.messages(site, 9).map((message) => message.id), [1]);
       expect(after.messageIds, before.messageIds);
       expect(after.revision, isNot(before.revision));
       expect(emitted, isNotEmpty);
     });
 
-    test('a restore reaching a held window reprojects it again', () async {
+    test('a restore returns a row hidden from an ordinary reader', () async {
       final subject = build(
+        currentUser: currentUser,
         messages: {
           key(9): page([message(1), message(2, minute: 1)]),
         },
       );
+      subject.store.put(site, channel(9));
       final tracker = attachTracker(subject.chat);
       await subject.chat.openChannel(site, 9);
       final view = subject.chat.beginViewingChannel(site, 9);
@@ -4947,15 +5353,68 @@ void main() {
       tracker.deliverPluginMessage('/chat/9', restoreEvent(2));
 
       expect(subject.store.read<ChatMessage>(site, 2)!.isDeleted, isFalse);
+      expect(subject.chat.messages(site, 9).map((message) => message.id), [
+        1,
+        2,
+      ]);
       expect(subject.chat.stream(site, 9).revision, isNot(deleted.revision));
     });
 
-    test('a delete outside every held window changes no stream', () async {
+    test('a moderator retains the remotely deleted row for restore', () async {
+      const moderator = DiscourseUser(id: 7, username: 'reader', staff: true);
       final subject = build(
+        currentUser: moderator,
         messages: {
           key(9): page([message(1), message(2, minute: 1)]),
         },
       );
+      subject.store.put(site, channel(9));
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+      tracker.deliverPluginMessage('/chat/9', deleteEvent(2));
+
+      expect(subject.store.read<ChatMessage>(site, 2)?.isDeleted, isTrue);
+      expect(subject.chat.messages(site, 9).map((message) => message.id), [
+        1,
+        2,
+      ]);
+    });
+
+    test(
+      'deleting the channel read position adopts the server fallback',
+      () async {
+        final subject = build(
+          currentUser: currentUser,
+          messages: {
+            key(9): page([message(1), message(2, minute: 1)]),
+          },
+        );
+        subject.store.put(site, channel(9, lastRead: 2));
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+        tracker.deliverPluginMessage('/chat/9', {
+          ...deleteEvent(2),
+          'latest_not_deleted_message_id': 1,
+        });
+
+        expect(subject.chat.channel(site, 9)?.membership.lastReadMessageId, 1);
+      },
+    );
+
+    test('a delete outside every held window changes no stream', () async {
+      final subject = build(
+        currentUser: currentUser,
+        messages: {
+          key(9): page([message(1), message(2, minute: 1)]),
+        },
+      );
+      subject.store.put(site, channel(9));
       final tracker = attachTracker(subject.chat);
       await subject.chat.openChannel(site, 9);
       final view = subject.chat.beginViewingChannel(site, 9);
@@ -4965,7 +5424,7 @@ void main() {
 
       tracker.deliverPluginMessage('/chat/9', deleteEvent(50));
 
-      expect(subject.store.read<ChatMessage>(site, 50)!.isDeleted, isTrue);
+      expect(subject.store.read<ChatMessage>(site, 50), isNull);
       expect(subject.chat.stream(site, 9), same(before));
     });
   });
@@ -5111,7 +5570,11 @@ void main() {
         subject.chat.beginViewingChannel(site, 9);
 
         final random = Random(seed);
-        final busChannels = tracker.pluginChannelCallbacks.keys.toList();
+        // A kick is a terminal account event, not malformed message input:
+        // once valid it intentionally removes the channel and its transports.
+        final busChannels = tracker.pluginChannelCallbacks.keys
+            .where((channel) => channel != '/chat/9/kick')
+            .toList();
         final failures = <String, Object>{};
         var admitted = 0;
 

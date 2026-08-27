@@ -74,6 +74,7 @@ class ChatChannelInfoView extends StatelessWidget {
                 ChatChannelInfoTab.members => _ChannelMembers(
                   siteUrl: siteUrl,
                   channelId: channelId,
+                  membershipsCount: channel.membershipsCount,
                   chat: chat,
                 ),
               },
@@ -590,11 +591,13 @@ class _ChannelMembers extends StatefulWidget {
   const _ChannelMembers({
     required this.siteUrl,
     required this.channelId,
+    required this.membershipsCount,
     required this.chat,
   });
 
   final String siteUrl;
   final int channelId;
+  final int membershipsCount;
   final ChatController chat;
 
   @override
@@ -619,6 +622,15 @@ class _ChannelMembersState extends State<_ChannelMembers> {
     super.initState();
     _scroll.addListener(_maybeLoadMore);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load(reset: true));
+  }
+
+  @override
+  void didUpdateWidget(covariant _ChannelMembers oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.membershipsCount != widget.membershipsCount) {
+      _generation = Object();
+      unawaited(_load(reset: true));
+    }
   }
 
   @override

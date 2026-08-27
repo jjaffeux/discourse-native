@@ -209,6 +209,20 @@ class ChatReaction {
     );
   }
 
+  /// Restores reader-specific state omitted by anonymous MessageBus payloads.
+  ChatReaction withPersonalizationOf(
+    ChatReaction held, {
+    required int? userId,
+  }) {
+    if (!held.reacted) return this;
+    return ChatReaction(
+      emoji: emoji,
+      count: count,
+      reacted: true,
+      reactorIds: reactorIdsWith(userId, reacted: true),
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       other is ChatReaction &&
@@ -581,6 +595,7 @@ class ChatMessage with Storable<ChatMessage> {
     this.pinned = false,
     this.availableFlags = const [],
     this.userFlagStatus,
+    this.reviewableId,
     this.edited = false,
     this.isWebhook = false,
     this.replyTo,
@@ -682,6 +697,7 @@ class ChatMessage with Storable<ChatMessage> {
           ?jsonText(value),
       ]),
       userFlagStatus: jsonIntOrNull(json['user_flag_status']),
+      reviewableId: jsonIntOrNull(json['reviewable_id']),
       // The key is written only when it is true and dropped otherwise, so
       // absence is the answer rather than a missing field. Same shape as
       // `actions_summary`.
@@ -815,6 +831,7 @@ class ChatMessage with Storable<ChatMessage> {
   final bool pinned;
   final List<String> availableFlags;
   final int? userFlagStatus;
+  final int? reviewableId;
 
   final bool edited;
 
@@ -928,6 +945,7 @@ class ChatMessage with Storable<ChatMessage> {
     pinned: pinned,
     availableFlags: availableFlags,
     userFlagStatus: userFlagStatus,
+    reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -963,6 +981,7 @@ class ChatMessage with Storable<ChatMessage> {
     pinned: pinned,
     availableFlags: availableFlags,
     userFlagStatus: userFlagStatus,
+    reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -998,6 +1017,7 @@ class ChatMessage with Storable<ChatMessage> {
     pinned: canonical.pinned,
     availableFlags: canonical.availableFlags,
     userFlagStatus: canonical.userFlagStatus,
+    reviewableId: canonical.reviewableId,
     edited: canonical.edited,
     isWebhook: canonical.isWebhook,
     replyTo: canonical.replyTo,
@@ -1027,6 +1047,7 @@ class ChatMessage with Storable<ChatMessage> {
     pinned: pinned,
     availableFlags: availableFlags,
     userFlagStatus: userFlagStatus,
+    reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -1058,6 +1079,7 @@ class ChatMessage with Storable<ChatMessage> {
     pinned: pinned,
     availableFlags: availableFlags,
     userFlagStatus: userFlagStatus,
+    reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -1093,6 +1115,7 @@ class ChatMessage with Storable<ChatMessage> {
     pinned: pinned,
     availableFlags: availableFlags,
     userFlagStatus: userFlagStatus,
+    reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -1128,6 +1151,7 @@ class ChatMessage with Storable<ChatMessage> {
     pinned: pinned,
     availableFlags: availableFlags,
     userFlagStatus: userFlagStatus,
+    reviewableId: reviewableId,
     edited: true,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -1161,6 +1185,7 @@ class ChatMessage with Storable<ChatMessage> {
     pinned: pinned,
     availableFlags: availableFlags,
     userFlagStatus: userFlagStatus,
+    reviewableId: reviewableId,
     edited: source.edited,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -1191,6 +1216,7 @@ class ChatMessage with Storable<ChatMessage> {
     pinned: pinned,
     availableFlags: availableFlags,
     userFlagStatus: userFlagStatus,
+    reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -1225,6 +1251,7 @@ class ChatMessage with Storable<ChatMessage> {
     pinned: pinned,
     availableFlags: availableFlags,
     userFlagStatus: userFlagStatus,
+    reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -1255,6 +1282,7 @@ class ChatMessage with Storable<ChatMessage> {
     pinned: pinned,
     availableFlags: availableFlags,
     userFlagStatus: status,
+    reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -1272,6 +1300,83 @@ class ChatMessage with Storable<ChatMessage> {
     sendError: sendError,
     deliveryUncertain: deliveryUncertain,
   );
+
+  ChatMessage withReviewableId(int reviewableId) => ChatMessage(
+    id: id,
+    channelId: channelId,
+    cooked: cooked,
+    author: author,
+    raw: raw,
+    createdAt: createdAt,
+    deletedAt: deletedAt,
+    deletedById: deletedById,
+    pinned: pinned,
+    availableFlags: availableFlags,
+    userFlagStatus: userFlagStatus,
+    reviewableId: reviewableId,
+    edited: edited,
+    isWebhook: isWebhook,
+    replyTo: replyTo,
+    threadId: threadId,
+    thread: thread,
+    bookmark: bookmark,
+    reactions: reactions,
+    uploads: uploads,
+    optimisticRaw: optimisticRaw,
+    preview: preview,
+    stagedId: stagedId,
+    serverId: serverId,
+    canonicalReceived: canonicalReceived,
+    delivery: delivery,
+    sendError: sendError,
+    deliveryUncertain: deliveryUncertain,
+  );
+
+  /// Restores state deliberately absent from anonymous live serializers.
+  ChatMessage withPersonalizedStateOf(
+    ChatMessage held, {
+    required int? currentUserId,
+  }) {
+    final heldReactions = {
+      for (final reaction in held.reactions) reaction.emoji: reaction,
+    };
+    return ChatMessage(
+      id: id,
+      channelId: channelId,
+      cooked: cooked,
+      author: author,
+      raw: raw,
+      createdAt: createdAt,
+      deletedAt: deletedAt,
+      deletedById: deletedById,
+      pinned: pinned,
+      availableFlags: held.availableFlags,
+      userFlagStatus: held.userFlagStatus,
+      reviewableId: held.reviewableId,
+      edited: edited,
+      isWebhook: isWebhook,
+      replyTo: replyTo,
+      threadId: threadId,
+      thread: thread,
+      bookmark: held.bookmark,
+      reactions: List.unmodifiable([
+        for (final reaction in reactions)
+          if (heldReactions[reaction.emoji] case final personalized?)
+            reaction.withPersonalizationOf(personalized, userId: currentUserId)
+          else
+            reaction,
+      ]),
+      uploads: uploads,
+      optimisticRaw: optimisticRaw,
+      preview: preview,
+      stagedId: stagedId,
+      serverId: serverId,
+      canonicalReceived: canonicalReceived,
+      delivery: delivery,
+      sendError: sendError,
+      deliveryUncertain: deliveryUncertain,
+    );
+  }
 
   /// Paging windows overlap at their boundary; an unchanged copy should not
   /// wake the row already drawing this record.
@@ -1293,6 +1398,7 @@ class ChatMessage with Storable<ChatMessage> {
           other.pinned == pinned &&
           listEquals(other.availableFlags, availableFlags) &&
           other.userFlagStatus == userFlagStatus &&
+          other.reviewableId == reviewableId &&
           other.edited == edited &&
           other.isWebhook == isWebhook &&
           other.replyTo == replyTo &&
@@ -1324,6 +1430,7 @@ class ChatMessage with Storable<ChatMessage> {
       pinned,
       Object.hashAll(availableFlags),
       userFlagStatus,
+      reviewableId,
     ),
     edited,
     isWebhook,

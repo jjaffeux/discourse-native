@@ -60,6 +60,7 @@ ChatThread listedThread(
   DateTime? lastReplyAt,
   DateTime? deletedAt,
   ChatTracking tracking = ChatTracking.none,
+  ChatThreadMembership? membership,
   bool hasReplies = true,
 }) {
   final originalId = originalMessageId ?? id * 10;
@@ -71,6 +72,7 @@ ChatThread listedThread(
     replyCount: hasReplies ? 1 : 0,
     title: 'Thread $id',
     tracking: tracking,
+    membership: membership,
     lastMessageId: lastMessageId,
     preview: ChatThreadPreview(
       threadId: id,
@@ -548,6 +550,10 @@ void main() {
                 22,
                 originalMessageId: 100,
                 lastReplyAt: DateTime.utc(2026, 8, 12, 9),
+                membership: const ChatThreadMembership(
+                  threadId: 22,
+                  notificationLevel: ChatThreadNotificationLevel.tracking,
+                ),
               ),
               listedThread(
                 23,
@@ -1538,7 +1544,7 @@ void main() {
 
     expect(subject.chat.thread(site, 22)?.membership?.lastReadMessageId, 29);
     expect(subject.chat.thread(site, 22)?.lastMessageId, 29);
-    expect(subject.store.read<ChatMessage>(site, 30)?.isDeleted, isTrue);
+    expect(subject.store.read<ChatMessage>(site, 30), isNull);
   });
 
   test(
