@@ -805,23 +805,23 @@ void main() {
     final pointerPosition = tester.getCenter(hoveredMessage);
     await mouse.moveTo(pointerPosition);
     await tester.pump();
-    expect(find.byTooltip('Copy link'), findsOneWidget);
+    expect(find.byTooltip('More message actions'), findsOneWidget);
 
     final scroll = await tester.startGesture(pointerPosition);
     await scroll.moveBy(const Offset(0, 200));
     await tester.pump();
-    expect(find.byTooltip('Copy link'), findsNothing);
+    expect(find.byTooltip('More message actions'), findsNothing);
     await mouse.moveBy(const Offset(0, 1));
     await tester.pump();
-    expect(find.byTooltip('Copy link'), findsNothing);
+    expect(find.byTooltip('More message actions'), findsNothing);
 
     await scroll.up();
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Copy link'), findsNothing);
+    expect(find.byTooltip('More message actions'), findsNothing);
 
     await mouse.moveBy(const Offset(0, 1));
     await tester.pump();
-    expect(find.byTooltip('Copy link'), findsOneWidget);
+    expect(find.byTooltip('More message actions'), findsOneWidget);
   });
 
   testWidgets('a failed thread creation is explained', (tester) async {
@@ -1175,7 +1175,9 @@ Future<void> _startSelectingNewestMessage(WidgetTester tester) async {
     tester.getCenter(find.byKey(const ValueKey('chat-message-2'))),
   );
   await tester.pump();
-  await tester.tap(find.byTooltip('Select'));
+  await tester.tap(find.byTooltip('More message actions'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.widgetWithText(MenuItemButton, 'Select'));
   await tester.pumpAndSettle();
   await mouse.removePointer();
 }
