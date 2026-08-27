@@ -4,7 +4,9 @@ import UserNotifications
 
 @main
 class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
-  override func applicationDidFinishLaunching(_ notification: Notification) {
+  override func applicationWillFinishLaunching(_ notification: Notification) {
+    // A notification activation can be the first event of a cold launch, so
+    // its delegate must exist before AppKit finishes launching the process.
     UNUserNotificationCenter.current().delegate = self
   }
 

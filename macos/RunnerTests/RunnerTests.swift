@@ -1,4 +1,5 @@
 import Cocoa
+import UserNotifications
 import XCTest
 @testable import Discourse
 
@@ -15,6 +16,20 @@ class RunnerTests: XCTestCase {
     XCTAssertNil(
       discourseUrl(in: ["discourse_url": String(repeating: "x", count: 2049)])
     )
+  }
+
+  func testNotificationDelegateIsInstalledBeforeLaunchFinishes() {
+    let center = UNUserNotificationCenter.current()
+    let previousDelegate = center.delegate
+    let appDelegate = AppDelegate()
+    defer { center.delegate = previousDelegate }
+    center.delegate = nil
+
+    appDelegate.applicationWillFinishLaunching(
+      Notification(name: NSApplication.willFinishLaunchingNotification)
+    )
+
+    XCTAssertTrue(center.delegate === appDelegate)
   }
 
   func testContentViewCannotConsumeClicksAsWindowDrags() {
