@@ -31,6 +31,10 @@ Map<String, dynamic> categoryChannel({
   bool canJoin = false,
   bool hasUnseenPins = false,
   String? lastViewedPinsAt,
+  int? newMessagesLastId,
+  int? newMentionsLastId,
+  int? kickLastId,
+  int? channelMessageBusLastId,
 }) => {
   'id': id,
   'title': title,
@@ -50,6 +54,12 @@ Map<String, dynamic> categoryChannel({
   'memberships_count': membershipsCount,
   'status': ?status,
   'meta': {
+    'message_bus_last_ids': {
+      'new_messages': ?newMessagesLastId,
+      'new_mentions': ?newMentionsLastId,
+      'kick': ?kickLastId,
+      'channel_message_bus_last_id': ?channelMessageBusLastId,
+    },
     if (userSilenced) 'user_silenced': true,
     'can_moderate': canModerate,
     'can_delete_self': canDeleteSelf,
@@ -79,6 +89,7 @@ Map<String, dynamic> directChannel({
   int lastMessageId = 40,
   String? lastMessageAt,
   int? newMessagesLastId,
+  int? newMentionsLastId,
   int? channelMessageBusLastId,
   bool? starred,
 }) => {
@@ -103,6 +114,7 @@ Map<String, dynamic> directChannel({
   'meta': {
     'message_bus_last_ids': {
       'new_messages': ?newMessagesLastId,
+      'new_mentions': ?newMentionsLastId,
       'channel_message_bus_last_id': ?channelMessageBusLastId,
     },
   },
@@ -122,6 +134,9 @@ Map<String, dynamic> payload({
   int? newChannelLastId,
   int? userTrackingLastId,
   int? userHasThreadsLastId,
+  int? channelMetadataLastId,
+  int? channelEditsLastId,
+  int? channelStatusLastId,
   bool hasThreads = false,
 }) => {
   'public_channels': public,
@@ -138,6 +153,9 @@ Map<String, dynamic> payload({
       'new_channel': ?newChannelLastId,
       'user_tracking_state': ?userTrackingLastId,
       'user_has_threads': ?userHasThreadsLastId,
+      'channel_metadata': ?channelMetadataLastId,
+      'channel_edits': ?channelEditsLastId,
+      'channel_status': ?channelStatusLastId,
     },
   },
 };
@@ -658,7 +676,7 @@ void main() {
       );
     });
 
-    test('keeps the last message and live cursor beside each channel', () {
+    test('keeps every per-channel live cursor beside its snapshot', () {
       final channels = ChatChannel.parse(
         payload(
           direct: [
@@ -666,9 +684,11 @@ void main() {
               lastMessageId: 51,
               lastMessageAt: '2026-08-08T12:00:00.000Z',
               newMessagesLastId: 73,
+              newMentionsLastId: 75,
               channelMessageBusLastId: 74,
             ),
           ],
+          public: [categoryChannel(id: 9, kickLastId: 76)],
         ),
         site,
       );
@@ -676,14 +696,22 @@ void main() {
       expect(channels.direct.single.lastMessageId, 51);
       expect(channels.newMessageBusLastIds, {12: 73});
       expect(channels.channelMessageBusLastIds, {12: 74});
+      expect(channels.newMentionMessageBusLastIds, {9: null, 12: 75});
+      expect(channels.kickMessageBusLastIds, {9: 76});
+      expect(channels.direct.single.messageBus.channel, 74);
+      expect(channels.direct.single.messageBus.newMessages, 73);
+      expect(channels.direct.single.messageBus.newMentions, 75);
     });
 
-    test('keeps the global chat cursors from the same snapshot', () {
+    test('keeps every account-level chat cursor from the same snapshot', () {
       final channels = ChatChannel.parse(
         payload(
           newChannelLastId: 80,
           userTrackingLastId: 81,
           userHasThreadsLastId: 82,
+          channelMetadataLastId: 83,
+          channelEditsLastId: 84,
+          channelStatusLastId: 85,
           hasThreads: true,
         ),
         site,
@@ -692,6 +720,9 @@ void main() {
       expect(channels.newChannelBusLastId, 80);
       expect(channels.userTrackingBusLastId, 81);
       expect(channels.userHasThreadsBusLastId, 82);
+      expect(channels.channelMetadataBusLastId, 83);
+      expect(channels.channelEditsBusLastId, 84);
+      expect(channels.channelStatusBusLastId, 85);
       expect(channels.hasThreads, isTrue);
     });
 

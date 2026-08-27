@@ -923,6 +923,27 @@ opens the ordinary native thread workspace. The snapshot's
 the web client, so joining a first thread elsewhere reveals the destination
 without waiting for another channel-list fetch.
 
+**Live subscriptions follow the web Chat managers.** The channel snapshot
+seeds account streams for channel creation, edits, status, member counts,
+tracking, and thread discovery; every followed, unmuted channel also owns its
+`new-messages` and `new-mentions` streams, while public channels watch `kick`.
+Channel detail, Browse, direct-message creation, and `new-channel` payloads
+retain their own root/activity cursors, so opening a channel discovered outside
+the capped sidebar cannot miss events published between its HTTP response and
+subscription. Presence advances its cursor after every delivery as well, which
+makes tracker replacement resume from applied state rather than replaying from
+the original snapshot. A new message also reopens and follows a previously
+closed direct-message membership, as web Chat does. The separate
+channel-archive workflow remains outside native Chat; its archive-progress
+stream is therefore deliberately not registered.
+
+Root and thread events keep reader-specific bookmark, flag, and reaction state
+when the anonymous live serializer refreshes message content. Notices appear
+on the active stream, staff flag events remove the action immediately, and
+delete visibility matches web: staff, channel moderators, and the author keep
+the deleted record, while other readers retain only its paging slot until a
+restore supplies the row again.
+
 The two hooks are `sidebarSections` and `content`. The first returns **models**
 rather than a widget — unlike `postFooter`, because the sidebar is a list of
 peers rather than a canvas, and a row a plugin drew itself would drift from

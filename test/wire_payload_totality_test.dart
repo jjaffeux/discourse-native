@@ -301,6 +301,11 @@ void main() {
       probe('ChatMembership', () => ChatMembership.fromJson(loose), loose);
       probe('ChatTracking', () => ChatTracking.fromJson(json), json);
       probe('ChatPresence', () => ChatPresence.fromJson(loose), loose);
+      probe(
+        'ChatChannelMessageBusState',
+        () => ChatChannelMessageBusState.fromJson(loose),
+        loose,
+      );
       probe('ChatChannel', () => ChatChannel.fromJson(json, site), json);
       probe(
         'ChatChannelBrowsePage',

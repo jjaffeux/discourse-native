@@ -178,6 +178,19 @@ class ChatMembership {
     hasUnseenPins: hasUnseenPins,
   );
 
+  /// Adopts the replacement read position published with a delete event.
+  /// Null is meaningful when no earlier visible message remains.
+  ChatMembership withLastReadAfterDelete(int? messageId) => ChatMembership(
+    following: following,
+    muted: muted,
+    notificationLevel: notificationLevel,
+    starred: starred,
+    lastReadMessageId: messageId,
+    lastViewedAt: lastViewedAt,
+    lastViewedPinsAt: lastViewedPinsAt,
+    hasUnseenPins: hasUnseenPins,
+  );
+
   /// This membership after the channel pane was in front of the reader.
   ChatMembership withLastViewedAt(DateTime viewedAt) => ChatMembership(
     following: following,
@@ -331,8 +344,12 @@ class ChatPresence {
   /// Entering users carry their basic user objects; leaving users carry only
   /// ids. An unfamiliar payload leaves the snapshot alone so a future server
   /// addition cannot make everyone appear offline.
-  ChatPresence withMessage(Object? value) {
-    if (value is! Map<String, dynamic>) return this;
+  ChatPresence withMessage(Object? value, {int? lastMessageId}) {
+    if (value is! Map<String, dynamic>) {
+      return lastMessageId == null
+          ? this
+          : ChatPresence(userIds: userIds, lastMessageId: lastMessageId);
+    }
     final entered = <int>{
       for (final user in jsonObjects(value['entering_users']))
         if (jsonIntOrNull(user['id']) case final id? when id > 0) id,
@@ -341,11 +358,11 @@ class ChatPresence {
       for (final id in jsonArray(value['leaving_user_ids']))
         if (jsonIntOrNull(id) case final userId? when userId > 0) userId,
     };
-    if (entered.isEmpty && left.isEmpty) return this;
+    if (entered.isEmpty && left.isEmpty && lastMessageId == null) return this;
 
     return ChatPresence(
       userIds: Set.unmodifiable({...userIds, ...entered}..removeAll(left)),
-      lastMessageId: lastMessageId,
+      lastMessageId: lastMessageId ?? this.lastMessageId,
     );
   }
 
@@ -358,6 +375,48 @@ class ChatPresence {
   @override
   int get hashCode =>
       Object.hash(Object.hashAllUnordered(userIds), lastMessageId);
+}
+
+/// The MessageBus positions serialized with one channel snapshot.
+///
+/// Unlike presentation fields, these positions are only seeds: the controller
+/// advances its owned cursors after every live event. Keeping the seeds on the
+/// record matters for channels arriving outside the main list snapshot — from
+/// Browse, search/detail, direct-message creation, or `/chat/new-channel`.
+@immutable
+class ChatChannelMessageBusState {
+  const ChatChannelMessageBusState({
+    this.channel,
+    this.newMessages,
+    this.newMentions,
+    this.kick,
+  });
+
+  factory ChatChannelMessageBusState.fromJson(Object? value) {
+    final json = jsonObject(value);
+    return ChatChannelMessageBusState(
+      channel: jsonIntOrNull(json['channel_message_bus_last_id']),
+      newMessages: jsonIntOrNull(json['new_messages']),
+      newMentions: jsonIntOrNull(json['new_mentions']),
+      kick: jsonIntOrNull(json['kick']),
+    );
+  }
+
+  final int? channel;
+  final int? newMessages;
+  final int? newMentions;
+  final int? kick;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ChatChannelMessageBusState &&
+      other.channel == channel &&
+      other.newMessages == newMessages &&
+      other.newMentions == newMentions &&
+      other.kick == kick;
+
+  @override
+  int get hashCode => Object.hash(channel, newMessages, newMentions, kick);
 }
 
 /// Everything `/chat/api/me/channels` answers with.
@@ -373,10 +432,15 @@ class ChatChannels {
     this.hasThreads = false,
     this.presence = const ChatPresence(),
     this.newMessageBusLastIds = const {},
+    this.newMentionMessageBusLastIds = const {},
+    this.kickMessageBusLastIds = const {},
     this.channelMessageBusLastIds = const {},
     this.newChannelBusLastId,
     this.userTrackingBusLastId,
     this.userHasThreadsBusLastId,
+    this.channelMetadataBusLastId,
+    this.channelEditsBusLastId,
+    this.channelStatusBusLastId,
   });
 
   final List<ChatChannel> public;
@@ -393,10 +457,16 @@ class ChatChannels {
 
   /// The `/chat/{id}/new-messages` position captured with each channel.
   ///
-  /// These are transport cursors rather than channel state, so they stay on
-  /// the HTTP envelope and are retained by [ChatController] only while it owns
-  /// the corresponding subscriptions.
+  /// These are transport cursors rather than presentation state. The envelope
+  /// makes the bounded list convenient to adopt in one pass; each record also
+  /// keeps its seed for channels discovered through another endpoint.
   final Map<int, int?> newMessageBusLastIds;
+
+  /// The personalized `/chat/{id}/new-mentions` position per followed channel.
+  final Map<int, int?> newMentionMessageBusLastIds;
+
+  /// The personalized `/chat/{id}/kick` position for public channels.
+  final Map<int, int?> kickMessageBusLastIds;
 
   /// The `/chat/{id}` position captured with each channel.
   ///
@@ -409,6 +479,9 @@ class ChatChannels {
   final int? newChannelBusLastId;
   final int? userTrackingBusLastId;
   final int? userHasThreadsBusLastId;
+  final int? channelMetadataBusLastId;
+  final int? channelEditsBusLastId;
+  final int? channelStatusBusLastId;
 }
 
 /// One page from `/chat/api/channels`, including the server's continuation.
@@ -491,6 +564,7 @@ class ChatChannel with Storable<ChatChannel> {
     this.threadingEnabled = false,
     this.lastMessageId,
     this.lastMessageAt,
+    this.messageBus = const ChatChannelMessageBusState(),
   });
 
   /// Enough resolved users to distinguish a one-to-one direct message from a
@@ -569,6 +643,9 @@ class ChatChannel with Storable<ChatChannel> {
       threadingEnabled: json['threading_enabled'] == true,
       lastMessageId: jsonIntOrNull(lastMessage['id']),
       lastMessageAt: jsonDate(lastMessage['created_at']),
+      messageBus: ChatChannelMessageBusState.fromJson(
+        metadata['message_bus_last_ids'],
+      ),
     );
   }
 
@@ -602,6 +679,8 @@ class ChatChannel with Storable<ChatChannel> {
     }
 
     final newMessageBusLastIds = <int, int?>{};
+    final newMentionMessageBusLastIds = <int, int?>{};
+    final kickMessageBusLastIds = <int, int?>{};
     final channelMessageBusLastIds = <int, int?>{};
 
     ChatChannel readChannel(Map<String, dynamic> entry) {
@@ -609,10 +688,19 @@ class ChatChannel with Storable<ChatChannel> {
       final lastIds = jsonObject(
         jsonObject(entry['meta'])['message_bus_last_ids'],
       );
-      newMessageBusLastIds[id] = jsonIntOrNull(lastIds['new_messages']);
-      channelMessageBusLastIds[id] = jsonIntOrNull(
-        lastIds['channel_message_bus_last_id'],
-      );
+      if (lastIds.containsKey('new_messages')) {
+        newMessageBusLastIds[id] = jsonIntOrNull(lastIds['new_messages']);
+      }
+      newMentionMessageBusLastIds[id] = jsonIntOrNull(lastIds['new_mentions']);
+      if (ChatChannelKind.read(entry['chatable_type']) ==
+          ChatChannelKind.category) {
+        kickMessageBusLastIds[id] = jsonIntOrNull(lastIds['kick']);
+      }
+      if (lastIds.containsKey('channel_message_bus_last_id')) {
+        channelMessageBusLastIds[id] = jsonIntOrNull(
+          lastIds['channel_message_bus_last_id'],
+        );
+      }
       final threadOverview = <int, DateTime>{};
       for (final overviewEntry in jsonObject(
         unreadThreadOverview['$id'],
@@ -659,6 +747,10 @@ class ChatChannel with Storable<ChatChannel> {
       hasThreads: json['has_threads'] == true,
       presence: ChatPresence.fromJson(json['global_presence_channel_state']),
       newMessageBusLastIds: Map.unmodifiable(newMessageBusLastIds),
+      newMentionMessageBusLastIds: Map.unmodifiable(
+        newMentionMessageBusLastIds,
+      ),
+      kickMessageBusLastIds: Map.unmodifiable(kickMessageBusLastIds),
       channelMessageBusLastIds: Map.unmodifiable(channelMessageBusLastIds),
       newChannelBusLastId: jsonIntOrNull(envelopeLastIds['new_channel']),
       userTrackingBusLastId: jsonIntOrNull(
@@ -667,6 +759,11 @@ class ChatChannel with Storable<ChatChannel> {
       userHasThreadsBusLastId: jsonIntOrNull(
         envelopeLastIds['user_has_threads'],
       ),
+      channelMetadataBusLastId: jsonIntOrNull(
+        envelopeLastIds['channel_metadata'],
+      ),
+      channelEditsBusLastId: jsonIntOrNull(envelopeLastIds['channel_edits']),
+      channelStatusBusLastId: jsonIntOrNull(envelopeLastIds['channel_status']),
     );
   }
 
@@ -763,6 +860,10 @@ class ChatChannel with Storable<ChatChannel> {
   final int? lastMessageId;
   final DateTime? lastMessageAt;
 
+  /// Snapshot positions used when this channel is first adopted by a live
+  /// controller. They do not change as events arrive.
+  final ChatChannelMessageBusState messageBus;
+
   bool get isDirectMessage => kind == ChatChannelKind.directMessage;
   bool get isCategoryChannel => kind == ChatChannelKind.category;
 
@@ -836,6 +937,145 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    messageBus: messageBus,
+  );
+
+  /// Applies the complete public metadata event published by core.
+  ChatChannel withRemoteMetadata({
+    required String title,
+    required String slug,
+    required String? description,
+  }) => ChatChannel(
+    id: id,
+    title: title,
+    kind: kind,
+    chatableId: chatableId,
+    slug: slug,
+    emoji: emoji,
+    description: description,
+    categoryName: categoryName,
+    categoryColor: categoryColor,
+    readRestricted: readRestricted,
+    status: status,
+    userSilenced: userSilenced,
+    canModerate: canModerate,
+    canDeleteSelf: canDeleteSelf,
+    canDeleteOthers: canDeleteOthers,
+    canManagePins: canManagePins,
+    canFlag: canFlag,
+    pinnedMessagesCount: pinnedMessagesCount,
+    membershipsCount: membershipsCount,
+    canJoin: canJoin,
+    isGroup: isGroup,
+    users: users,
+    membership: membership,
+    tracking: tracking,
+    unreadThreadOverview: unreadThreadOverview,
+    threadingEnabled: threadingEnabled,
+    lastMessageId: lastMessageId,
+    lastMessageAt: lastMessageAt,
+    messageBus: messageBus,
+  );
+
+  /// Applies core's account-wide channel-status event.
+  ChatChannel withRemoteStatus(ChatChannelStatus status) => ChatChannel(
+    id: id,
+    title: title,
+    kind: kind,
+    chatableId: chatableId,
+    slug: slug,
+    emoji: emoji,
+    description: description,
+    categoryName: categoryName,
+    categoryColor: categoryColor,
+    readRestricted: readRestricted,
+    status: status,
+    userSilenced: userSilenced,
+    canModerate: canModerate,
+    canDeleteSelf: canDeleteSelf,
+    canDeleteOthers: canDeleteOthers,
+    canManagePins: canManagePins,
+    canFlag: canFlag,
+    pinnedMessagesCount: pinnedMessagesCount,
+    membershipsCount: membershipsCount,
+    canJoin: canJoin,
+    isGroup: isGroup,
+    users: users,
+    membership: membership,
+    tracking: status == ChatChannelStatus.archived
+        ? ChatTracking.none
+        : tracking,
+    unreadThreadOverview: status == ChatChannelStatus.archived
+        ? const {}
+        : unreadThreadOverview,
+    threadingEnabled: threadingEnabled,
+    lastMessageId: lastMessageId,
+    lastMessageAt: lastMessageAt,
+    messageBus: messageBus,
+  );
+
+  ChatChannel withMembershipsCount(int count) => ChatChannel(
+    id: id,
+    title: title,
+    kind: kind,
+    chatableId: chatableId,
+    slug: slug,
+    emoji: emoji,
+    description: description,
+    categoryName: categoryName,
+    categoryColor: categoryColor,
+    readRestricted: readRestricted,
+    status: status,
+    userSilenced: userSilenced,
+    canModerate: canModerate,
+    canDeleteSelf: canDeleteSelf,
+    canDeleteOthers: canDeleteOthers,
+    canManagePins: canManagePins,
+    canFlag: canFlag,
+    pinnedMessagesCount: pinnedMessagesCount,
+    membershipsCount: count < 0 ? 0 : count,
+    canJoin: canJoin,
+    isGroup: isGroup,
+    users: users,
+    membership: membership,
+    tracking: tracking,
+    unreadThreadOverview: unreadThreadOverview,
+    threadingEnabled: threadingEnabled,
+    lastMessageId: lastMessageId,
+    lastMessageAt: lastMessageAt,
+    messageBus: messageBus,
+  );
+
+  ChatChannel withLastReadAfterDelete(int? messageId) => ChatChannel(
+    id: id,
+    title: title,
+    kind: kind,
+    chatableId: chatableId,
+    slug: slug,
+    emoji: emoji,
+    description: description,
+    categoryName: categoryName,
+    categoryColor: categoryColor,
+    readRestricted: readRestricted,
+    status: status,
+    userSilenced: userSilenced,
+    canModerate: canModerate,
+    canDeleteSelf: canDeleteSelf,
+    canDeleteOthers: canDeleteOthers,
+    canManagePins: canManagePins,
+    canFlag: canFlag,
+    pinnedMessagesCount: pinnedMessagesCount,
+    membershipsCount: membershipsCount,
+    canJoin: canJoin,
+    isGroup: isGroup,
+    users: users,
+    membership: membership.withLastReadAfterDelete(messageId),
+    tracking: tracking,
+    unreadThreadOverview: unreadThreadOverview,
+    threadingEnabled: threadingEnabled,
+    lastMessageId: lastMessageId,
+    lastMessageAt: lastMessageAt,
+    messageBus: messageBus,
   );
 
   /// Moves this channel into or out of the account's starred sidebar bucket.
@@ -868,6 +1108,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    messageBus: messageBus,
   );
 
   /// Optimistically exposes or hides the channel's separate thread timeline.
@@ -900,6 +1141,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: enabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    messageBus: messageBus,
   );
 
   /// This channel with the site's authoritative current-user membership.
@@ -939,6 +1181,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    messageBus: messageBus,
   );
 
   ChatChannel withPinnedMessagesCount(int count, {bool? hasUnseenPins}) =>
@@ -973,6 +1216,7 @@ class ChatChannel with Storable<ChatChannel> {
         threadingEnabled: threadingEnabled,
         lastMessageId: lastMessageId,
         lastMessageAt: lastMessageAt,
+        messageBus: messageBus,
       );
 
   ChatChannel withPinsViewed(DateTime viewedAt) => ChatChannel(
@@ -1004,6 +1248,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    messageBus: messageBus,
   );
 
   ChatChannel withPinSnapshot({
@@ -1038,6 +1283,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    messageBus: messageBus,
   );
 
   /// This channel with the reader credited up to [messageId].
@@ -1086,6 +1332,7 @@ class ChatChannel with Storable<ChatChannel> {
         threadingEnabled: threadingEnabled,
         lastMessageId: lastMessageId,
         lastMessageAt: lastMessageAt,
+        messageBus: messageBus,
       );
 
   /// Applies the authoritative per-user tracking stream. The channel event is
@@ -1126,6 +1373,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    messageBus: messageBus,
   );
 
   /// Applies the activity and immediate unread projection from one live
@@ -1205,6 +1453,7 @@ class ChatChannel with Storable<ChatChannel> {
       threadingEnabled: threadingEnabled,
       lastMessageId: messageId,
       lastMessageAt: createdAt,
+      messageBus: messageBus,
     );
   }
 
@@ -1247,6 +1496,7 @@ class ChatChannel with Storable<ChatChannel> {
       threadingEnabled: incoming.threadingEnabled,
       lastMessageId: incoming.lastMessageId ?? lastMessageId,
       lastMessageAt: incoming.lastMessageAt ?? lastMessageAt,
+      messageBus: messageBus,
     );
   }
 
@@ -1312,7 +1562,8 @@ class ChatChannel with Storable<ChatChannel> {
           mapEquals(other.unreadThreadOverview, unreadThreadOverview) &&
           other.threadingEnabled == threadingEnabled &&
           other.lastMessageId == lastMessageId &&
-          other.lastMessageAt == lastMessageAt;
+          other.lastMessageAt == lastMessageAt &&
+          other.messageBus == messageBus;
 
   @override
   int get hashCode => Object.hashAll([
@@ -1348,6 +1599,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled,
     lastMessageId,
     lastMessageAt,
+    messageBus,
   ]);
 
   @override

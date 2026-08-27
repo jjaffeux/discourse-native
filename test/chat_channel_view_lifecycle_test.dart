@@ -193,10 +193,7 @@ void main() {
 
     await tester.pumpWidget(_TestView(controller: controller));
     await tester.pumpAndSettle();
-    await tester.longPress(find.byKey(const ValueKey('chat-message-2')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Select'));
-    await tester.pumpAndSettle();
+    await _startSelectingNewestMessage(tester);
 
     expect(
       tester
@@ -252,10 +249,7 @@ void main() {
 
     await tester.pumpWidget(_TestView(controller: controller));
     await tester.pumpAndSettle();
-    await tester.longPress(find.byKey(const ValueKey('chat-message-2')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Select'));
-    await tester.pumpAndSettle();
+    await _startSelectingNewestMessage(tester);
     await tester.tap(find.byKey(const ValueKey('chat-message-selector-1')));
     await tester.pump();
 
@@ -315,10 +309,7 @@ void main() {
 
     await tester.pumpWidget(_TestView(controller: controller));
     await tester.pumpAndSettle();
-    await tester.longPress(find.byKey(const ValueKey('chat-message-2')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Select'));
-    await tester.pumpAndSettle();
+    await _startSelectingNewestMessage(tester);
     await tester.tap(find.byKey(const ValueKey('chat-message-selector-1')));
     await tester.pump();
 
@@ -898,12 +889,18 @@ void main() {
   testWidgets('a live delete collapses the message in a mounted pane', (
     tester,
   ) async {
+    const author = DiscourseUser(id: 2, username: 'sam');
     final api = _ChatApi(
+      user: author,
       openPages: {
         firstSite: [_messagesPage(1, 3)],
       },
     );
-    final controller = await _controller(api, sites: const [firstSite]);
+    final controller = await _controller(
+      api,
+      sites: const [firstSite],
+      user: author,
+    );
     addTearDown(controller.dispose);
     controller.store.put(firstSite, _channel(lastRead: 3));
 
@@ -1170,6 +1167,18 @@ void _resumeLifecycle(WidgetTester tester) {
 Finder _verticalChatScroll() => find.byWidgetPredicate(
   (widget) => widget is Scrollable && widget.axisDirection == AxisDirection.up,
 );
+
+Future<void> _startSelectingNewestMessage(WidgetTester tester) async {
+  final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+  await mouse.addPointer(location: Offset.zero);
+  await mouse.moveTo(
+    tester.getCenter(find.byKey(const ValueKey('chat-message-2'))),
+  );
+  await tester.pump();
+  await tester.tap(find.byTooltip('Select'));
+  await tester.pumpAndSettle();
+  await mouse.removePointer();
+}
 
 Future<ShellController> _controller(
   _ChatApi api, {
