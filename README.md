@@ -186,6 +186,23 @@ state over the confirmed result. An ambiguous create is never repeated: the
 topic is read again because a timed-out first request may already have created
 the one bookmark the target permits.
 
+### User summary
+
+Profile → Summary opens a restorable native content route for the connected
+account. It reads `/u/{username}/summary.json`, preserving core's side-loaded
+topic and badge contract, visibility flags, and server-ranked six-row limits.
+There is no client pagination: the page presents the complete bounded summary
+payload — stats, top replies, topics and links, user rankings, categories and
+badges — with section-specific empty states. Topic and reply rows open native
+topic routes, ranked users use native user cards, and category counts reproduce
+the web summary's author/category searches (including `in:first` for topics).
+
+Summary state is cached independently per site and survives a topic round trip.
+Pull-to-refresh retains the previous content while it reloads. Disconnect,
+account rotation and site removal invalidate both pending requests and cached
+private data through the site's lifecycle generation, so a response from a
+former session cannot enter the replacement account's summary.
+
 ### Topic lists
 
 `latest`, `new`, `unread`, `top` and `messages` all share one envelope

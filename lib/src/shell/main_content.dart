@@ -39,6 +39,7 @@ import 'topic_share.dart';
 import 'topic_title.dart';
 import 'topic_view.dart';
 import 'user_menu_button.dart';
+import 'user_summary.dart';
 
 /// The main region. There is only ever one of these on screen; navigating
 /// deeper replaces what it shows rather than opening beside it.
@@ -177,6 +178,9 @@ class _ContentViewport extends StatelessWidget {
     }
     if (!route.isTopic && route.id == 'drafts' && siteUrl != null) {
       return DraftListView(siteUrl: siteUrl!);
+    }
+    if (!route.isTopic && route.id == 'summary' && siteUrl != null) {
+      return UserSummaryView(siteUrl: siteUrl!);
     }
     if (!route.isTopic &&
         route.id == 'all-categories' &&

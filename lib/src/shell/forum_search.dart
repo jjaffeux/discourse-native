@@ -216,8 +216,9 @@ class _ForumSearchState extends State<ForumSearch> {
     final siteUrl = search?.siteUrl;
     if (search == null || siteUrl == null) return;
     search.recordSelection(result);
-    final url = ShellScope.read(context)
-        .absoluteUrl(result.path, siteUrl: siteUrl);
+    final url = ShellScope.read(
+      context,
+    ).absoluteUrl(result.path, siteUrl: siteUrl);
     search.closePanel();
     _focus.unfocus();
     unawaited(openExternalLink(url));
@@ -1312,8 +1313,9 @@ class _SearchHitRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final category = ShellScope.read(context)
-        .categoryFor(hit.categoryId, siteUrl: siteUrl);
+    final category = ShellScope.read(
+      context,
+    ).categoryFor(hit.categoryId, siteUrl: siteUrl);
     final title = !useTopicHeadline || hit.topicTitleExcerpt.segments.isEmpty
         ? [SiteEmojiTextRun(hit.topicTitle)]
         : [

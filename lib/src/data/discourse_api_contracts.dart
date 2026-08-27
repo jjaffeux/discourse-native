@@ -4,6 +4,7 @@ import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../models/topic.dart';
 import '../models/user_draft.dart';
+import '../models/user_summary.dart';
 
 enum SiteLookupFailure { notDiscourse, unreachable }
 
@@ -204,6 +205,16 @@ abstract interface class DraftsApi {
     required String apiKey,
     required String draftKey,
     required int sequence,
+    String? clientId,
+  });
+}
+
+/// The connected account's bounded profile summary.
+abstract interface class UserSummariesApi {
+  Future<UserSummary> userSummary({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
     String? clientId,
   });
 }

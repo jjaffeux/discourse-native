@@ -5664,6 +5664,48 @@ void _writeGroups() {
     });
   });
 
+  group('user summary', () {
+    test('reads the authenticated side-loaded summary contract', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'topics': [
+                {'id': 12, 'title': 'Native summary', 'slug': 'native-summary'},
+              ],
+              'user_summary': {
+                'can_see_summary_stats': true,
+                'days_visited': 8,
+                'topic_ids': [12],
+                'replies': <Object?>[],
+                'links': <Object?>[],
+                'most_replied_to_users': <Object?>[],
+                'most_liked_by_users': <Object?>[],
+                'most_liked_users': <Object?>[],
+                'top_categories': <Object?>[],
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final summary = await api.userSummary(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        username: 'sam.reader',
+      );
+
+      expect(sent.method, 'GET');
+      expect(sent.url.path, '/u/sam.reader/summary.json');
+      expect(sent.headers['User-Api-Key'], 'the-key');
+      expect(summary.daysVisited, 8);
+      expect(summary.topics.single.title, 'Native summary');
+    });
+  });
+
   group('createPost', () {
     test('sends raw to /posts.json and reads the created post back', () async {
       late http.Request sent;

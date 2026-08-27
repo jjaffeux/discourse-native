@@ -138,7 +138,7 @@ void main() {
       addTearDown(() => server.close(force: true));
       final requestReceived = Completer<HttpRequest>();
       final serverSubscription = server.listen((request) async {
-        if (request.uri.path == '/t/diagnostics-timeout/7.json') {
+        if (request.uri.path == '/t/7.json') {
           if (!requestReceived.isCompleted) requestReceived.complete(request);
           return;
         }
@@ -199,7 +199,7 @@ void main() {
         }
       });
       expect(heldRequest.method, 'GET');
-      expect(heldRequest.uri.path, '/t/diagnostics-timeout/7.json');
+      expect(heldRequest.uri.path, '/t/7.json');
       await loading.timeout(const Duration(seconds: 2));
 
       expect(shell.currentTopic, isNull);
@@ -207,7 +207,7 @@ void main() {
 
       final request = await _waitForTerminalRequest(
         diagnostics,
-        path: '/t/diagnostics-timeout/7.json',
+        path: '/t/7.json',
       );
       final errors = diagnostics.events
           .whereType<ErrorDiagnosticEvent>()

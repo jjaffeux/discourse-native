@@ -30,6 +30,7 @@ class UserCardTarget extends StatelessWidget {
     required this.username,
     required this.child,
     this.siteUrl,
+    this.semanticLabel,
   }) : _backgroundFeedback = true;
 
   /// An avatar target that only switches to the hand cursor under a pointer.
@@ -40,11 +41,13 @@ class UserCardTarget extends StatelessWidget {
     required this.username,
     required this.child,
     this.siteUrl,
+    this.semanticLabel,
   }) : _backgroundFeedback = false;
 
   final String username;
   final Widget child;
   final String? siteUrl;
+  final String? semanticLabel;
   final bool _backgroundFeedback;
 
   @override
@@ -59,7 +62,7 @@ class UserCardTarget extends StatelessWidget {
     return Semantics(
       container: true,
       button: true,
-      label: 'View profile for @$username',
+      label: semanticLabel ?? 'View profile for @$username',
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
@@ -356,8 +359,9 @@ class _CardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final pluginActions = PluginScope.of(context).registry
-        .userCardActions(context, siteUrl, card, close);
+    final pluginActions = PluginScope.of(
+      context,
+    ).registry.userCardActions(context, siteUrl, card, close);
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(12),
