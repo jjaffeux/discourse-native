@@ -409,7 +409,7 @@ void main() {
       find.byKey(const ValueKey('forum-tab-badge-chat-2')),
     );
 
-    expect(dot.left - titleEnd, inInclusiveRange(0, 8));
+    expect(dot.left - titleEnd, moreOrLessEquals(3, epsilon: 0.5));
   });
 
   testWidgets('does not render an OPEN label or opened-tab totals', (
