@@ -54,6 +54,7 @@ import '../models/topic_filter.dart';
 import '../models/topic_link.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
+import '../models/user_status.dart';
 import '../plugin_api/core_plugin_host.dart';
 import '../plugin_api/core_plugin_manifest.dart';
 import '../plugin_api/plugin_data.dart';
@@ -1932,6 +1933,8 @@ class ShellController extends FrameSafeNotifier
 
   final Map<String, SiteTracker> _trackers = {};
   final Set<String> _trackersStarting = {};
+  final Map<String, Map<int, UserStatus?>> _userStatusOverrides = {};
+  final Set<String> _userStatusWrites = {};
 
   /// Sites whose account was read from `/session/current.json` during this
   /// process. Persisted capabilities are intentionally never put in this set.
@@ -2260,6 +2263,22 @@ class ShellController extends FrameSafeNotifier
         return;
       }
       _trackers[siteUrl] = tracker;
+      if (apiKey != null) {
+        try {
+          tracker.watchPluginChannel(
+            '/user-status',
+            (data) => commit(() => _applyUserStatusMessage(siteUrl, data)),
+            lastId: _instanceAt(siteUrl)?.user?.status?.messageBusLastId,
+          );
+        } catch (error, stackTrace) {
+          _reportOperationalError(
+            error,
+            stackTrace,
+            'messageBus.subscribeUserStatus',
+            severity: DiagnosticSeverity.warning,
+          );
+        }
+      }
       for (final attachment
           in _pluginSession.capabilities<PluginTrackerAttachment>()) {
         attachment.attachPluginTracker(siteUrl, tracker);
@@ -2378,6 +2397,175 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     NotificationTotals Function(NotificationTotals held) fold,
   ) => accountActivity.applyCounts(siteUrl, fold);
+
+  /// The freshest status known for an account, including live MessageBus
+  /// changes which arrived after the model carrying [snapshot] was fetched.
+  UserStatus? userStatusFor(String siteUrl, int? userId, UserStatus? snapshot) {
+    final overrides = _userStatusOverrides[siteUrl];
+    final status = userId != null && (overrides?.containsKey(userId) ?? false)
+        ? overrides![userId]
+        : snapshot;
+    return status?.isActiveAt(DateTime.now()) == true ? status : null;
+  }
+
+  void _applyUserStatusMessage(String siteUrl, Object? data) {
+    if (data is! Map<Object?, Object?>) return;
+    var changed = false;
+    var ownStatusChanged = false;
+    for (final entry in data.entries) {
+      final userId = switch (entry.key) {
+        final int value => value,
+        final String value => int.tryParse(value),
+        _ => null,
+      };
+      if (userId == null || userId <= 0) continue;
+
+      final UserStatus? status;
+      if (entry.value == null) {
+        status = null;
+      } else if (entry.value case final Map<Object?, Object?> value) {
+        status = UserStatus.fromJson(Map<String, dynamic>.from(value));
+        if (status == null) continue;
+      } else {
+        continue;
+      }
+      _userStatusOverrides.putIfAbsent(siteUrl, () => {})[userId] = status;
+      ownStatusChanged =
+          _applyOwnUserStatus(siteUrl, userId, status) || ownStatusChanged;
+      changed = true;
+    }
+    if (changed) {
+      _notify();
+      if (ownStatusChanged) {
+        instanceStore.save(List.of(_instances)).ignore();
+      }
+    }
+  }
+
+  bool _applyOwnUserStatus(String siteUrl, int userId, UserStatus? status) {
+    final instance = _instanceAt(siteUrl);
+    final user = instance?.user;
+    if (instance == null ||
+        user == null ||
+        user.id != userId ||
+        user.status == status) {
+      return false;
+    }
+    _replaceInstance(
+      instance,
+      instance.copyWith(user: user.withStatus(status)),
+    );
+    return true;
+  }
+
+  bool userStatusWriteInFlight(String siteUrl) =>
+      _userStatusWrites.contains(siteUrl);
+
+  Future<String?> setUserStatus(
+    String siteUrl, {
+    required String description,
+    required String emoji,
+    DateTime? endsAt,
+  }) async {
+    final instance = _instanceAt(siteUrl);
+    final user = instance?.user;
+    if (instance == null ||
+        user?.id == null ||
+        !instance.config.userStatusEnabled) {
+      return 'Custom status is not available for this account.';
+    }
+    if (!_userStatusWrites.add(siteUrl)) {
+      return 'Another status change is still finishing.';
+    }
+    final lease = lifecycle.capture(siteUrl);
+    _notify();
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent || isDisposed) return null;
+      if (credential.failure case final failure?) return failure.message;
+      final clientId = await authenticator.clientId();
+      if (!lease.isCurrent || isDisposed) return null;
+      await api.setUserStatus(
+        siteUrl: siteUrl,
+        apiKey: credential.apiKey!,
+        description: description,
+        emoji: emoji,
+        endsAt: endsAt,
+        clientId: clientId,
+      );
+      if (!lease.isCurrent || isDisposed) return null;
+      final status = UserStatus(
+        description: description.trim(),
+        emoji: emoji
+            .trim()
+            .replaceFirst(RegExp(r'^:'), '')
+            .replaceFirst(RegExp(r':$'), ''),
+        endsAt: endsAt?.toUtc(),
+      );
+      lease.commit(() {
+        _userStatusOverrides.putIfAbsent(siteUrl, () => {})[user!.id!] = status;
+        _applyOwnUserStatus(siteUrl, user.id!, status);
+        _notify();
+        instanceStore.save(List.of(_instances)).ignore();
+      });
+      return null;
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent && !isDisposed) {
+        _reportOperationalError(error, stackTrace, 'userStatus.set');
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      _userStatusWrites.remove(siteUrl);
+      if (!isDisposed) _notify();
+    }
+  }
+
+  Future<String?> clearUserStatus(String siteUrl) async {
+    final instance = _instanceAt(siteUrl);
+    final user = instance?.user;
+    if (instance == null ||
+        user?.id == null ||
+        !instance.config.userStatusEnabled) {
+      return 'Custom status is not available for this account.';
+    }
+    if (!_userStatusWrites.add(siteUrl)) {
+      return 'Another status change is still finishing.';
+    }
+    final lease = lifecycle.capture(siteUrl);
+    _notify();
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent || isDisposed) return null;
+      if (credential.failure case final failure?) return failure.message;
+      final clientId = await authenticator.clientId();
+      if (!lease.isCurrent || isDisposed) return null;
+      await api.clearUserStatus(
+        siteUrl: siteUrl,
+        apiKey: credential.apiKey!,
+        clientId: clientId,
+      );
+      if (!lease.isCurrent || isDisposed) return null;
+      lease.commit(() {
+        _userStatusOverrides.putIfAbsent(siteUrl, () => {})[user!.id!] = null;
+        _applyOwnUserStatus(siteUrl, user.id!, null);
+        _notify();
+        instanceStore.save(List.of(_instances)).ignore();
+      });
+      return null;
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent && !isDisposed) {
+        _reportOperationalError(error, stackTrace, 'userStatus.clear');
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      _userStatusWrites.remove(siteUrl);
+      if (!isDisposed) _notify();
+    }
+  }
 
   void _disposeTracking(String siteUrl) {
     final tracker = _trackers.remove(siteUrl);
@@ -4520,6 +4708,9 @@ class ShellController extends FrameSafeNotifier
               label: user.username,
               detail: user.name,
               art: ArtAvatar(user.avatarUrl),
+              siteUrl: target.siteUrl,
+              userId: user.id,
+              userStatus: user.status,
             ),
         ];
       },
@@ -8671,6 +8862,8 @@ class ShellController extends FrameSafeNotifier
     _sessionUsersRefreshed.remove(siteUrl);
     _assignLegacyFallbackUnavailable.remove(siteUrl);
     _sessionUserRequests.remove(siteUrl)?.ignore();
+    _userStatusOverrides.remove(siteUrl);
+    _userStatusWrites.remove(siteUrl);
     _disposeTracking(siteUrl);
     _notify();
   }
@@ -9382,6 +9575,8 @@ class ShellController extends FrameSafeNotifier
     _topicNotificationConfirmed.clear();
     _topicPinWrites.clear();
     _topicStatusWrites.clear();
+    _userStatusOverrides.clear();
+    _userStatusWrites.clear();
     _topicDeletionWrites.clear();
     _topicPostSelections.clear();
     _topicPostSelectionWrites.clear();

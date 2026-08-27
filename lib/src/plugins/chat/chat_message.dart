@@ -4,6 +4,7 @@ import '../../data/store.dart';
 import '../../models/bookmark.dart';
 import '../../models/composer_upload.dart';
 import '../../models/json.dart';
+import '../../models/user_status.dart';
 import 'chat_preview.dart';
 
 /// One message accepted by the optimistic send boundary.
@@ -85,6 +86,7 @@ class ChatMessageAuthor {
     required this.username,
     this.name,
     this.avatarUrl,
+    this.status,
     this.isStaff = false,
   });
 
@@ -97,6 +99,7 @@ class ChatMessageAuthor {
       username: jsonString(value['username']),
       name: jsonText(value['name']),
       avatarUrl: resolveAvatarUrl(jsonText(value['avatar_template']), siteUrl),
+      status: UserStatus.fromJson(value['status']),
       // `staff` is the union of the other two server side and is serialised
       // beside them, so any of the three is an answer.
       isStaff:
@@ -110,6 +113,7 @@ class ChatMessageAuthor {
   final String username;
   final String? name;
   final String? avatarUrl;
+  final UserStatus? status;
   final bool isStaff;
 
   String get displayName => name ?? username;
@@ -121,10 +125,12 @@ class ChatMessageAuthor {
       other.username == username &&
       other.name == name &&
       other.avatarUrl == avatarUrl &&
+      other.status == status &&
       other.isStaff == isStaff;
 
   @override
-  int get hashCode => Object.hash(id, username, name, avatarUrl, isStaff);
+  int get hashCode =>
+      Object.hash(id, username, name, avatarUrl, status, isStaff);
 }
 
 /// One emoji on a message, and how many gave it.
@@ -588,6 +594,7 @@ class ChatMessage with Storable<ChatMessage> {
     required this.channelId,
     required this.cooked,
     required this.author,
+    this.mentionedUserStatuses = const {},
     this.raw = '',
     this.createdAt,
     this.deletedAt,
@@ -683,6 +690,7 @@ class ChatMessage with Storable<ChatMessage> {
       // markdown, the mentions, the oneboxes and the emoji.
       cooked: jsonString(json['cooked']),
       author: ChatMessageAuthor.fromJson(json['user'], siteUrl),
+      mentionedUserStatuses: userStatusesByUsername(json['mentioned_users']),
       // Core keeps the source alongside cooked HTML so an edit starts from
       // Markdown rather than trying to reverse rendered output.
       raw: jsonString(json['message']),
@@ -822,6 +830,7 @@ class ChatMessage with Storable<ChatMessage> {
   final int channelId;
   final String cooked;
   final ChatMessageAuthor author;
+  final Map<String, UserStatusReference> mentionedUserStatuses;
   final String raw;
   final DateTime? createdAt;
 
@@ -938,6 +947,7 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: channelId,
     cooked: cooked,
     author: author,
+    mentionedUserStatuses: mentionedUserStatuses,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -974,6 +984,7 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: channelId,
     cooked: cooked,
     author: author,
+    mentionedUserStatuses: mentionedUserStatuses,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1010,6 +1021,7 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: canonical.channelId,
     cooked: canonical.cooked,
     author: canonical.author,
+    mentionedUserStatuses: canonical.mentionedUserStatuses,
     raw: canonical.raw,
     createdAt: canonical.createdAt,
     deletedAt: canonical.deletedAt,
@@ -1040,6 +1052,7 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: channelId,
     cooked: cooked,
     author: author,
+    mentionedUserStatuses: mentionedUserStatuses,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1072,6 +1085,7 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: channelId,
     cooked: cooked,
     author: author,
+    mentionedUserStatuses: mentionedUserStatuses,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1108,6 +1122,7 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: channelId,
     cooked: cooked,
     author: author,
+    mentionedUserStatuses: mentionedUserStatuses,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1144,6 +1159,7 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: channelId,
     cooked: cooked,
     author: author,
+    mentionedUserStatuses: mentionedUserStatuses,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1178,6 +1194,7 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: channelId,
     cooked: source.cooked,
     author: author,
+    mentionedUserStatuses: source.mentionedUserStatuses,
     raw: source.raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1209,6 +1226,7 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: channelId,
     cooked: cooked,
     author: author,
+    mentionedUserStatuses: mentionedUserStatuses,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1244,6 +1262,7 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: channelId,
     cooked: cooked,
     author: author,
+    mentionedUserStatuses: mentionedUserStatuses,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1275,6 +1294,7 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: channelId,
     cooked: cooked,
     author: author,
+    mentionedUserStatuses: mentionedUserStatuses,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1306,6 +1326,7 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: channelId,
     cooked: cooked,
     author: author,
+    mentionedUserStatuses: mentionedUserStatuses,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1345,6 +1366,7 @@ class ChatMessage with Storable<ChatMessage> {
       channelId: channelId,
       cooked: cooked,
       author: author,
+      mentionedUserStatuses: mentionedUserStatuses,
       raw: raw,
       createdAt: createdAt,
       deletedAt: deletedAt,
@@ -1391,6 +1413,7 @@ class ChatMessage with Storable<ChatMessage> {
           other.channelId == channelId &&
           other.cooked == cooked &&
           other.author == author &&
+          mapEquals(other.mentionedUserStatuses, mentionedUserStatuses) &&
           other.raw == raw &&
           other.createdAt == createdAt &&
           other.deletedAt == deletedAt &&
@@ -1417,11 +1440,12 @@ class ChatMessage with Storable<ChatMessage> {
           other.deliveryUncertain == deliveryUncertain;
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     channelId,
     cooked,
     author,
+    Object.hashAllUnordered(mentionedUserStatuses.entries),
     raw,
     createdAt,
     Object.hash(
@@ -1445,7 +1469,7 @@ class ChatMessage with Storable<ChatMessage> {
     stagedId,
     serverId,
     Object.hash(canonicalReceived, delivery, sendError, deliveryUncertain),
-  );
+  ]);
 
   @override
   Object get storeId => id;

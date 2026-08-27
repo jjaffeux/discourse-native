@@ -19,6 +19,7 @@ import 'shell_metrics.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'user_menu_button.dart';
+import 'user_status.dart';
 
 @immutable
 final class _SidebarSnapshot {
@@ -199,14 +200,12 @@ class InstanceSidebar extends StatelessWidget {
                       ),
                       ListenableBuilder(
                         listenable: Listenable.merge(
-                          PluginScope.of(
-                            context,
-                          ).registry.sidebarListenables(context),
+                          PluginScope.of(context).registry
+                              .sidebarListenables(context),
                         ),
                         builder: (context, _) {
-                          final sections = PluginScope.of(
-                            context,
-                          ).registry.sidebarSections(context);
+                          final sections = PluginScope.of(context).registry
+                              .sidebarSections(context);
                           return SliverMainAxisGroup(
                             slivers: [
                               // Optional features contribute below the routes
@@ -795,6 +794,7 @@ class _DestinationTileState extends State<_DestinationTile> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final siteUrl = ShellScope.read(context).currentInstance?.url;
     final foreground = selected
         ? theme.shell.selectedForeground
         : destination.enabled
@@ -861,6 +861,17 @@ class _DestinationTileState extends State<_DestinationTile> {
                         ),
                       ),
                     ),
+                    if ((siteUrl, destination.userStatus) case (
+                      final siteUrl?,
+                      final status?,
+                    ))
+                      UserStatusMessage(
+                        siteUrl: siteUrl,
+                        userId: destination.avatarUserId,
+                        status: status,
+                        size: 14,
+                        leadingGap: 5,
+                      ),
                     if (badge.isVisible && badge.dot)
                       Container(
                         key: ValueKey('sidebar-badge-${destination.id}'),

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../data/store.dart';
 import '../plugin_api/plugin_data.dart';
 import 'json.dart';
+import 'user_status.dart';
 
 /// The summary of an account behind `/u/{username}/card.json`.
 ///
@@ -12,10 +13,12 @@ import 'json.dart';
 class UserCard with Storable<UserCard> {
   const UserCard({
     required this.username,
+    this.id,
     this.name,
     this.title,
     this.bioExcerpt,
     this.avatarUrl,
+    this.status,
     this.location,
     this.website,
     this.websiteName,
@@ -36,6 +39,7 @@ class UserCard with Storable<UserCard> {
   }) {
     return UserCard(
       username: jsonString(json['username']),
+      id: jsonIntOrNull(json['id']),
       name: jsonText(json['name']),
       title: jsonText(json['title']),
       // HTML, like a post's `cooked` — Discourse resolves mentions and emoji
@@ -46,6 +50,7 @@ class UserCard with Storable<UserCard> {
         siteUrl,
         size: 240,
       ),
+      status: UserStatus.fromJson(json['status']),
       location: jsonText(json['location']),
       website: jsonText(json['website']),
       websiteName: jsonText(json['website_name']),
@@ -63,6 +68,7 @@ class UserCard with Storable<UserCard> {
   }
 
   final String username;
+  final int? id;
   final String? name;
 
   /// The user's title, as shown beside their name on a post.
@@ -72,6 +78,7 @@ class UserCard with Storable<UserCard> {
   final String? bioExcerpt;
 
   final String? avatarUrl;
+  final UserStatus? status;
   final String? location;
   final String? website;
   final String? websiteName;
@@ -109,10 +116,12 @@ class UserCard with Storable<UserCard> {
       identical(this, other) ||
       other is UserCard &&
           other.username == username &&
+          other.id == id &&
           other.name == name &&
           other.title == title &&
           other.bioExcerpt == bioExcerpt &&
           other.avatarUrl == avatarUrl &&
+          other.status == status &&
           other.location == location &&
           other.website == website &&
           other.websiteName == websiteName &&
@@ -127,10 +136,12 @@ class UserCard with Storable<UserCard> {
   @override
   int get hashCode => Object.hash(
     username,
+    id,
     name,
     title,
     bioExcerpt,
     avatarUrl,
+    status,
     location,
     website,
     websiteName,

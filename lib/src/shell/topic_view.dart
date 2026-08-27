@@ -34,6 +34,7 @@ import 'topic_list_view.dart';
 import 'topic_move_posts.dart';
 import 'topic_progress.dart';
 import 'user_card.dart';
+import 'user_status.dart';
 
 /// A topic and its posts.
 class TopicView extends StatefulWidget {
@@ -1286,9 +1287,8 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
     if (!confirmed || !context.mounted) return;
     final error = await controller.deleteSelectedTopicPosts(siteUrl, topic.id);
     if (error != null && context.mounted) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.maybeOf(context)
+          ?.showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -1306,9 +1306,8 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
     if (!confirmed || !context.mounted) return;
     final error = await controller.mergeSelectedTopicPosts(siteUrl, topic.id);
     if (error != null && context.mounted) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.maybeOf(context)
+          ?.showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -2417,6 +2416,13 @@ class _PostTileState extends State<_PostTile> {
                               ),
                             ),
                           ),
+                          UserStatusMessage(
+                            siteUrl: widget.siteUrl,
+                            userId: post.userId,
+                            status: post.userStatus,
+                            size: 15,
+                            leadingGap: 6,
+                          ),
                           if (post.isStaff) ...[
                             const SizedBox(width: 6),
                             _Tag(
@@ -2522,6 +2528,7 @@ class _PostTileState extends State<_PostTile> {
                           ),
                     siteUrl: widget.siteUrl,
                     post: post,
+                    mentionedUserStatuses: post.mentionedUserStatuses,
                   ),
                 ),
                 ...(PluginScope.maybeOf(context)?.registry ??
@@ -2749,9 +2756,8 @@ class _TopicMap extends StatelessWidget {
   Future<void> _toggleSummary(BuildContext context) async {
     final error = await ShellScope.read(context).toggleTopicSummary();
     if (!context.mounted || error == null) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
+    ScaffoldMessenger.maybeOf(context)
+        ?.showSnackBar(SnackBar(content: Text(error)));
   }
 
   List<Widget> _stats(BuildContext context) => [

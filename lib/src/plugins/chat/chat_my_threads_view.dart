@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../shell/relative_time.dart';
 import '../../shell/shell_scope.dart';
+import '../../shell/user_status.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
@@ -216,9 +217,25 @@ class ChatThreadListRow extends StatelessWidget {
               ),
             ],
           ),
-          subtitle: latest.isEmpty
-              ? Text('${thread.replyCount} replies')
-              : Text(latest, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Row(
+            children: [
+              UserStatusMessage(
+                siteUrl: siteUrl,
+                userId: preview?.lastReplyUser?.id,
+                status: preview?.lastReplyUser?.status,
+                size: 14,
+              ),
+              if (preview?.lastReplyUser?.status != null)
+                const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  latest.isEmpty ? '${thread.replyCount} replies' : latest,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
           trailing: unread
               ? Semantics(
                   label: 'Unread',

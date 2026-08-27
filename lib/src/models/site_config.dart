@@ -18,6 +18,7 @@ import 'json.dart';
 class SiteConfig {
   const SiteConfig({
     this.emojiEnabled = true,
+    this.userStatusEnabled = false,
     this.emojiSet = defaultEmojiSet,
     this.externalEmojiUrl,
     this.mainReaction,
@@ -136,6 +137,7 @@ class SiteConfig {
 
     return SiteConfig(
       emojiEnabled: json['enable_emoji'] != false,
+      userStatusEnabled: json['enable_user_status'] == true,
       emojiSet: jsonText(json['emoji_set']) ?? defaultEmojiSet,
       externalEmojiUrl: _trimSlash(jsonText(json['external_emoji_url'])),
       mainReaction: main,
@@ -231,6 +233,7 @@ class SiteConfig {
   /// user had.
   factory SiteConfig.fromJson(Map<String, dynamic> json) => SiteConfig(
     emojiEnabled: json['emojiEnabled'] != false,
+    userStatusEnabled: json['userStatusEnabled'] == true,
     emojiSet: jsonText(json['emojiSet']) ?? defaultEmojiSet,
     externalEmojiUrl: jsonText(json['externalEmojiUrl']),
     mainReaction: jsonText(json['mainReaction']),
@@ -312,6 +315,7 @@ class SiteConfig {
 
   Map<String, dynamic> toJson() => {
     'emojiEnabled': emojiEnabled,
+    'userStatusEnabled': userStatusEnabled,
     'emojiSet': emojiSet,
     'externalEmojiUrl': externalEmojiUrl,
     'mainReaction': mainReaction,
@@ -363,6 +367,9 @@ class SiteConfig {
   /// Existing shortcode content remains renderable when this is false; this
   /// setting only gates authoring surfaces such as autocomplete and the picker.
   final bool emojiEnabled;
+
+  /// Whether core exposes custom user statuses on this site.
+  final bool userStatusEnabled;
 
   /// Which set of artwork the site draws its emoji from — `twitter`, `apple`,
   /// `google`, `facebook`. Part of the URL, so it cannot be guessed.
@@ -558,6 +565,7 @@ class SiteConfig {
   bool operator ==(Object other) =>
       other is SiteConfig &&
       other.emojiEnabled == emojiEnabled &&
+      other.userStatusEnabled == userStatusEnabled &&
       other.emojiSet == emojiSet &&
       other.externalEmojiUrl == externalEmojiUrl &&
       other.mainReaction == mainReaction &&
@@ -613,6 +621,7 @@ class SiteConfig {
   @override
   int get hashCode => Object.hashAll([
     emojiEnabled,
+    userStatusEnabled,
     emojiSet,
     externalEmojiUrl,
     mainReaction,

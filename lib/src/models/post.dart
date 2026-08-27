@@ -7,6 +7,7 @@ import 'composer_draft.dart';
 import 'json.dart';
 import 'post_flag.dart';
 import 'topic.dart';
+import 'user_status.dart';
 
 @immutable
 class PostNotice {
@@ -49,6 +50,8 @@ class Post with Storable<Post> {
     this.userId,
     this.name,
     this.avatarUrl,
+    this.userStatus,
+    this.mentionedUserStatuses = const {},
     this.createdAt,
     this.userTitle,
     this.replyCount = 0,
@@ -110,6 +113,8 @@ class Post with Storable<Post> {
       // and mention rendering, which is far too much to redo client side.
       cooked: jsonString(json['cooked']),
       avatarUrl: resolveAvatarUrl(jsonText(json['avatar_template']), siteUrl),
+      userStatus: UserStatus.fromJson(json['user_status']),
+      mentionedUserStatuses: userStatusesByUsername(json['mentioned_users']),
       createdAt: jsonDate(json['created_at']),
       userTitle: jsonText(json['user_title']),
       replyCount: jsonInt(json['reply_count']),
@@ -198,6 +203,10 @@ class Post with Storable<Post> {
   final String cooked;
 
   final String? avatarUrl;
+  final UserStatus? userStatus;
+
+  /// Statuses for the people linked from cooked `@mentions` in this post.
+  final Map<String, UserStatusReference> mentionedUserStatuses;
   final DateTime? createdAt;
   final String? userTitle;
   final int replyCount;
@@ -417,6 +426,8 @@ class Post with Storable<Post> {
     cooked: cooked,
     name: name,
     avatarUrl: avatarUrl,
+    userStatus: userStatus,
+    mentionedUserStatuses: mentionedUserStatuses,
     createdAt: createdAt,
     userTitle: userTitle,
     replyCount: replyCount,
@@ -461,6 +472,8 @@ class Post with Storable<Post> {
           other.name == name &&
           other.cooked == cooked &&
           other.avatarUrl == avatarUrl &&
+          other.userStatus == userStatus &&
+          mapEquals(other.mentionedUserStatuses, mentionedUserStatuses) &&
           other.createdAt == createdAt &&
           other.userTitle == userTitle &&
           other.replyCount == replyCount &&
@@ -498,6 +511,8 @@ class Post with Storable<Post> {
     name,
     cooked,
     avatarUrl,
+    userStatus,
+    Object.hashAllUnordered(mentionedUserStatuses.entries),
     createdAt,
     userTitle,
     replyCount,

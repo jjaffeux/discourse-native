@@ -18,6 +18,7 @@ import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
 import '../../shell/site_emoji_text.dart';
 import '../../shell/user_card.dart';
+import '../../shell/user_status.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -1020,6 +1021,7 @@ class _Tile extends StatelessWidget {
           textStyle: messageTextStyle,
           siteUrl: siteUrl,
           compactParagraphs: true,
+          mentionedUserStatuses: message.mentionedUserStatuses,
         ),
       ChatMessage(
         canonicalReceived: false,
@@ -1273,6 +1275,13 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
+        ),
+        UserStatusMessage(
+          siteUrl: siteUrl,
+          userId: message.author.id,
+          status: message.author.status,
+          size: 15,
+          leadingGap: 4,
         ),
         if (message.author.isStaff) ...[
           const SizedBox(width: 4),
@@ -1698,6 +1707,13 @@ class _ThreadSummaryContents extends StatelessWidget {
                               ),
                             ),
                           ),
+                        UserStatusMessage(
+                          siteUrl: siteUrl,
+                          userId: user?.id,
+                          status: user?.status,
+                          size: 14,
+                          leadingGap: 4,
+                        ),
                         if (name != null && thread.lastReplyAt != null)
                           const SizedBox(width: 4),
                         if (thread.lastReplyAt case final at?)

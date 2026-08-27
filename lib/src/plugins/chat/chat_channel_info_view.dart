@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../models/sidebar.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/user_card.dart';
+import '../../shell/user_status.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
@@ -778,6 +779,15 @@ class _ChannelMembersState extends State<_ChannelMembers> {
             ),
             title: Text(member.displayName),
             subtitle: member.name == null ? null : Text('@${member.username}'),
+            trailing: UserStatusMessage(
+              siteUrl: widget.siteUrl,
+              userId: member.id,
+              status: member.status,
+              showDescription: true,
+              size: 16,
+              style: Theme.of(context).textTheme.bodySmall,
+              descriptionMaxWidth: 120,
+            ),
           ),
         );
       },

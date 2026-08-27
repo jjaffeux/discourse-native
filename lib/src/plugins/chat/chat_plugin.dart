@@ -8,6 +8,7 @@ import '../../models/forum_workspace.dart';
 import '../../models/sidebar.dart';
 import '../../models/user_card.dart';
 import '../../shell/shell_scope.dart';
+import '../../shell/user_status.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -349,6 +350,10 @@ class ChatPlugin
       ];
     }
     return [
+      _ChatChannelHeaderStatus(
+        siteUrl: siteUrl,
+        channelId: chatRoute.channelId,
+      ),
       ChatChannelStarButton(siteUrl: siteUrl, channelId: chatRoute.channelId),
       _ChatChannelThreadsButton(
         siteUrl: siteUrl,
@@ -435,6 +440,9 @@ class ChatPlugin
     avatarUserId: channel.isDirectMessage && channel.users.length == 1
         ? channel.users.first.id
         : null,
+    userStatus: channel.isDirectMessage && channel.users.length == 1
+        ? channel.users.first.status
+        : null,
     iconColor: channel.categoryColor,
     prefixBadgeIcon: channel.isCategoryChannel && channel.readRestricted
         ? DIcons.lock
@@ -454,6 +462,39 @@ class ChatPlugin
             ),
           ),
   );
+}
+
+class _ChatChannelHeaderStatus extends StatelessWidget {
+  const _ChatChannelHeaderStatus({
+    required this.siteUrl,
+    required this.channelId,
+  });
+
+  final String siteUrl;
+  final int channelId;
+
+  @override
+  Widget build(BuildContext context) {
+    final chat = PluginScope.require(context, chatControllerService);
+    return ValueListenableBuilder<ChatChannel?>(
+      valueListenable: chat.channelRef(siteUrl, channelId),
+      builder: (context, channel, _) {
+        final user =
+            channel?.isDirectMessage == true && channel!.users.length == 1
+            ? channel.users.single
+            : null;
+        return UserStatusMessage(
+          siteUrl: siteUrl,
+          userId: user?.id,
+          status: user?.status,
+          showDescription: true,
+          size: 16,
+          style: Theme.of(context).textTheme.bodySmall,
+          descriptionMaxWidth: 100,
+        );
+      },
+    );
+  }
 }
 
 class _ChatChannelHeaderAvatar extends StatelessWidget {

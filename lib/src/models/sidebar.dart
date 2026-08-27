@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'json.dart';
+import 'user_status.dart';
 
 /// What a sidebar row says about what has not been read.
 ///
@@ -65,6 +66,7 @@ class SidebarDestination {
     this.emoji,
     this.avatarUrl,
     this.avatarUserId,
+    this.userStatus,
     this.iconColor,
     this.routeColor,
     this.prefixBadgeIcon,
@@ -113,6 +115,9 @@ class SidebarDestination {
   /// shared chat avatar can watch live presence itself. Other avatar-backed
   /// destinations leave this null and keep their ordinary static rendering.
   final int? avatarUserId;
+
+  /// The one-to-one chat partner's status, shown after the channel label.
+  final UserStatus? userStatus;
 
   /// What tints [icon], for an entry the site gave a colour but not a badge.
   ///

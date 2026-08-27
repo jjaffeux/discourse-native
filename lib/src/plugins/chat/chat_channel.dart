@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../data/store.dart';
 import '../../models/json.dart';
 import '../../models/sidebar.dart';
+import '../../models/user_status.dart';
 
 /// What a channel is attached to, which is what decides how it is drawn.
 ///
@@ -53,6 +54,7 @@ class ChatUser {
     required this.username,
     this.name,
     this.avatarUrl,
+    this.status,
   });
 
   factory ChatUser.fromJson(Map<String, dynamic> json, String siteUrl) {
@@ -63,6 +65,7 @@ class ChatUser {
       // only name anyone has.
       name: jsonText(json['name']),
       avatarUrl: resolveAvatarUrl(jsonText(json['avatar_template']), siteUrl),
+      status: UserStatus.fromJson(json['status']),
     );
   }
 
@@ -70,6 +73,7 @@ class ChatUser {
   final String username;
   final String? name;
   final String? avatarUrl;
+  final UserStatus? status;
 
   String get displayName => name ?? username;
 
@@ -79,10 +83,11 @@ class ChatUser {
       other.id == id &&
       other.username == username &&
       other.name == name &&
-      other.avatarUrl == avatarUrl;
+      other.avatarUrl == avatarUrl &&
+      other.status == status;
 
   @override
-  int get hashCode => Object.hash(id, username, name, avatarUrl);
+  int get hashCode => Object.hash(id, username, name, avatarUrl, status);
 }
 
 /// This account's standing in one channel.

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/discourse_user.dart';
 import '../models/notification_totals.dart';
+import '../models/user_status.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -14,18 +15,22 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
 import 'user_menu_message.dart';
+import 'user_status.dart';
+import 'user_status_editor.dart';
 
 typedef _UserMenuPanelSnapshot = ({
   String? siteUrl,
   String? host,
   DiscourseUser? user,
   int draftCount,
+  bool userStatusEnabled,
 });
 typedef _SectionListSnapshot = ({
   ShellController controller,
   String? siteUrl,
   String? host,
   DiscourseUser? user,
+  bool userStatusEnabled,
 });
 
 /// Everything the avatar in the top right leads to.
@@ -98,7 +103,14 @@ class UserMenuSection {
 /// anything, which is why it carries no callback.
 @immutable
 class UserMenuRow {
-  const UserMenuRow(this.icon, this.title, {this.id, this.detail});
+  const UserMenuRow(
+    this.icon,
+    this.title, {
+    this.id,
+    this.detail,
+    this.status,
+    this.userId,
+  });
 
   final DIconData icon;
   final String title;
@@ -106,8 +118,11 @@ class UserMenuRow {
 
   /// Trailing text, such as a count.
   final String? detail;
+  final UserStatus? status;
+  final int? userId;
 
   bool get isDrafts => id == 'drafts';
+  bool get isUserStatus => id == 'user-status';
 }
 
 /// Results a section can hand back to whatever opened it.
@@ -123,6 +138,7 @@ enum UserMenuAction {
 List<UserMenuSection> userMenuSections(
   NotificationTotals? totals, {
   DiscourseUser? user,
+  bool userStatusEnabled = false,
 }) {
   return [
     UserMenuSection(
@@ -182,18 +198,25 @@ List<UserMenuSection> userMenuSections(
         UserMenuRow(DIcons.certificate, 'You earned the Nice Reply badge'),
       ],
     ),
-    const UserMenuSection(
+    UserMenuSection(
       id: UserMenuSection.profileId,
       icon: DIcons.user,
       label: 'Profile',
       rows: [
-        UserMenuRow(DIcons.farFaceSmile, 'Set a custom status'),
-        UserMenuRow(DIcons.toggleOn, 'Online'),
-        UserMenuRow(DIcons.toggleOff, 'Pause notifications'),
-        UserMenuRow(DIcons.user, 'Summary'),
-        UserMenuRow(DIcons.list, 'Activity'),
-        UserMenuRow(DIcons.pencil, 'Drafts', id: 'drafts'),
-        UserMenuRow(DIcons.gear, 'Preferences'),
+        if (userStatusEnabled)
+          UserMenuRow(
+            DIcons.farFaceSmile,
+            user?.status?.description ?? 'Set a custom status',
+            id: 'user-status',
+            status: user?.status,
+            userId: user?.id,
+          ),
+        const UserMenuRow(DIcons.toggleOn, 'Online'),
+        const UserMenuRow(DIcons.toggleOff, 'Pause notifications'),
+        const UserMenuRow(DIcons.user, 'Summary'),
+        const UserMenuRow(DIcons.list, 'Activity'),
+        const UserMenuRow(DIcons.pencil, 'Drafts', id: 'drafts'),
+        const UserMenuRow(DIcons.gear, 'Preferences'),
       ],
     ),
   ];
@@ -236,6 +259,7 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
         host: instance?.host,
         user: instance?.user,
         draftCount: instance?.user?.draftCount ?? 0,
+        userStatusEnabled: instance?.config.userStatusEnabled ?? false,
       );
     },
     builder: (context, menu, _) {
@@ -251,6 +275,7 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
                 ? null
                 : controller.accountActivity.totalsFor(siteUrl),
             user: menu.user,
+            userStatusEnabled: menu.userStatusEnabled,
           );
           final section = sections.firstWhere(
             (candidate) => candidate.id == _sectionId,
@@ -464,13 +489,24 @@ class _SectionBody extends StatelessWidget {
         for (final row in section.rows)
           _RowTile(
             row: row,
+            leading: row.isUserStatus && siteUrl != null && row.status != null
+                ? UserStatusMessage(
+                    siteUrl: siteUrl,
+                    userId: row.userId,
+                    status: row.status,
+                    size: 18,
+                  )
+                : null,
             detail: row.isDrafts && siteUrl != null
                 ? switch (controller.draftCountFor(siteUrl)) {
                     final count when count > 0 => '$count',
                     _ => null,
                   }
                 : row.detail,
-            onTap: row.isDrafts && siteUrl != null
+            onTap: row.isUserStatus && siteUrl != null
+                ? () =>
+                      unawaited(showUserStatusEditor(context, siteUrl: siteUrl))
+                : row.isDrafts && siteUrl != null
                 ? () {
                     onDismiss();
                     controller.openDrafts(siteUrl);
@@ -540,11 +576,12 @@ class _SectionHeader extends StatelessWidget {
 /// A stand-in row. Nothing happens when it is tapped, and it says so by being
 /// the one color in the shell reserved for what is not built yet.
 class _RowTile extends StatelessWidget {
-  const _RowTile({required this.row, this.detail, this.onTap});
+  const _RowTile({required this.row, this.detail, this.onTap, this.leading});
 
   final UserMenuRow row;
   final String? detail;
   final VoidCallback? onTap;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
@@ -560,11 +597,12 @@ class _RowTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
             children: [
-              DIcon(
-                row.icon,
-                size: 18,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              leading ??
+                  DIcon(
+                    row.icon,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -734,6 +772,7 @@ class _SectionList extends StatelessWidget {
         siteUrl: instance?.url,
         host: instance?.host,
         user: instance?.user,
+        userStatusEnabled: instance?.config.userStatusEnabled ?? false,
       );
     },
     builder: (context, state, _) {
@@ -759,6 +798,7 @@ class _SectionList extends StatelessWidget {
           final sections = userMenuSections(
             controller.accountActivity.totalsFor(currentSiteUrl),
             user: user,
+            userStatusEnabled: state.userStatusEnabled,
           );
           return Column(
             mainAxisSize: MainAxisSize.min,

@@ -11,14 +11,14 @@ import 'composer_controller.dart';
 import 'emoji.dart';
 import 'emoji_picker.dart';
 import 'shell_metrics.dart';
+import 'user_status.dart';
 
-typedef ComposerSuggestionActionHandler =
-    Future<void> Function({
-      required BuildContext context,
-      required ComposerController composer,
-      required ComposerSuggestion suggestion,
-      Rect? anchor,
-    });
+typedef ComposerSuggestionActionHandler = Future<void> Function({
+  required BuildContext context,
+  required ComposerController composer,
+  required ComposerSuggestion suggestion,
+  Rect? anchor,
+});
 
 /// The composer's text field, with the completion list over it.
 ///
@@ -325,25 +325,48 @@ class _SuggestionRow extends StatelessWidget {
                   },
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  suggestion.label,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                Expanded(
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          suggestion.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (suggestion.detail case final detail?) ...[
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            detail,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                if (suggestion.detail case final detail?) ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      detail,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
+                if ((suggestion.siteUrl, suggestion.userStatus) case (
+                  final siteUrl?,
+                  final status?,
+                ))
+                  UserStatusMessage(
+                    siteUrl: siteUrl,
+                    userId: suggestion.userId,
+                    status: status,
+                    showDescription: true,
+                    size: 15,
+                    style: theme.textTheme.bodySmall,
+                    leadingGap: 8,
                   ),
-                ],
               ],
             ),
           ),

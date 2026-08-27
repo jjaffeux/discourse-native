@@ -28,6 +28,7 @@ import '../models/topic.dart';
 import '../models/topic_filter.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
+import '../models/user_status.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import 'discourse_api_contracts.dart';
 import 'discourse_transport.dart';
@@ -336,6 +337,7 @@ class DiscourseApi
       id: jsonIntOrNull(user['id']),
       name: jsonText(user['name']),
       avatarUrl: _avatarUrl(jsonText(user['avatar_template']), siteUrl),
+      status: UserStatus.fromJson(user['status']),
       draftCount: jsonInt(user['draft_count']),
       // Plugin serializers omit can_create_poll when Poll is unavailable.
       // Preserve that distinction so the composer never guesses capability.
@@ -543,9 +545,9 @@ class DiscourseApi
     // Core gives this menu route one twenty-row budget, with due reminders
     // first. Keep that boundary locally too: a broken serializer response must
     // not turn opening the user menu into an arbitrary eager list build.
-    final reminderEntries = jsonObjects(
-      body['notifications'],
-    ).take(maximumUserMenuBookmarkRows).toList(growable: false);
+    final reminderEntries = jsonObjects(body['notifications'])
+        .take(maximumUserMenuBookmarkRows)
+        .toList(growable: false);
     final bookmarkBudget = maximumUserMenuBookmarkRows - reminderEntries.length;
 
     return (
@@ -830,9 +832,10 @@ class DiscourseApi
       clientId: clientId,
     );
     return List.unmodifiable(
-      jsonArray(
-        body['recent_searches'],
-      ).map(jsonText).whereType<String>().take(5),
+      jsonArray(body['recent_searches'])
+          .map(jsonText)
+          .whereType<String>()
+          .take(5),
     );
   }
 
@@ -901,9 +904,8 @@ class DiscourseApi
       // refuses automatic redirects. Its id-only JSON route skips that
       // canonicalization, and `post_number` keeps the numbered form
       // unambiguous with `/t/{slug}/{id}`.
-      Uri.parse(
-        '$siteUrl/t/$id.json',
-      ).replace(queryParameters: query.isEmpty ? null : query),
+      Uri.parse('$siteUrl/t/$id.json')
+          .replace(queryParameters: query.isEmpty ? null : query),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
@@ -1170,6 +1172,60 @@ class DiscourseApi
     return models.userCard(user, siteUrl);
   }
 
+  /// Sets the connected account's custom status.
+  Future<void> setUserStatus({
+    required String siteUrl,
+    required String apiKey,
+    required String description,
+    required String emoji,
+    DateTime? endsAt,
+    String? clientId,
+  }) async {
+    final normalizedDescription = description.trim();
+    final normalizedEmoji = emoji
+        .trim()
+        .replaceFirst(RegExp(r'^:'), '')
+        .replaceFirst(RegExp(r':$'), '');
+    if (normalizedDescription.isEmpty || normalizedDescription.length > 100) {
+      throw ArgumentError.value(
+        description,
+        'description',
+        'must contain between 1 and 100 characters',
+      );
+    }
+    if (normalizedEmoji.isEmpty || normalizedEmoji.length > 100) {
+      throw ArgumentError.value(emoji, 'emoji', 'must name one emoji');
+    }
+    await _write(
+      Uri.parse('$siteUrl/user-status.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'description': normalizedDescription,
+        'emoji': normalizedEmoji,
+        if (endsAt != null) 'ends_at': endsAt.toUtc().toIso8601String(),
+      },
+    );
+  }
+
+  /// Clears the connected account's custom status.
+  Future<void> clearUserStatus({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    await _write(
+      Uri.parse('$siteUrl/user-status.json'),
+      siteUrl: siteUrl,
+      method: 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+  }
+
   /// The site's client settings — every setting Discourse marks `client: true`,
   /// core's and its plugins' alike.
   ///
@@ -1312,9 +1368,8 @@ class DiscourseApi
   }) async {
     _validateAutocompleteRequest(term: term, limit: limit);
     final response = await _get(
-      Uri.parse(
-        '$siteUrl/tags/filter/search.json',
-      ).replace(queryParameters: {'q': term, 'limit': '$limit'}),
+      Uri.parse('$siteUrl/tags/filter/search.json')
+          .replace(queryParameters: {'q': term, 'limit': '$limit'}),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
@@ -1352,9 +1407,8 @@ class DiscourseApi
   }) async {
     _validateAutocompleteRequest(term: term, limit: limit);
     final response = await _get(
-      Uri.parse(
-        '$siteUrl/tag_groups/filter/search.json',
-      ).replace(queryParameters: {'q': term, 'limit': '$limit'}),
+      Uri.parse('$siteUrl/tag_groups/filter/search.json')
+          .replace(queryParameters: {'q': term, 'limit': '$limit'}),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
@@ -2744,9 +2798,8 @@ class DiscourseApi
     if (limit < 1 || limit > maximumUserDraftPageSize) {
       throw RangeError.range(limit, 1, maximumUserDraftPageSize, 'limit');
     }
-    final url = Uri.parse(
-      '$siteUrl/drafts.json',
-    ).replace(queryParameters: {'offset': '$offset', 'limit': '$limit'});
+    final url = Uri.parse('$siteUrl/drafts.json')
+        .replace(queryParameters: {'offset': '$offset', 'limit': '$limit'});
     final body = await _getObject(
       url,
       siteUrl: siteUrl,

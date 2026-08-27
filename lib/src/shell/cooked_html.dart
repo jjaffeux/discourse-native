@@ -3,6 +3,7 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 
 import '../models/post.dart';
+import '../models/user_status.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import 'code_block.dart';
@@ -37,6 +38,7 @@ class CookedHtml extends StatelessWidget {
     this.post,
     this.registry,
     this.compactParagraphs = false,
+    this.mentionedUserStatuses = const {},
   });
 
   final String html;
@@ -65,6 +67,9 @@ class CookedHtml extends StatelessWidget {
   /// instead of looking detached from it.
   final bool compactParagraphs;
 
+  /// Statuses embedded beside the resolved mentions in this cooked fragment.
+  final Map<String, UserStatusReference> mentionedUserStatuses;
+
   /// Inline code and emoji size themselves against the prose around them, so
   /// unlike the other builders those two need the style the widget was given.
   /// Emoji additionally need the site, to resolve their root-relative `src`.
@@ -73,12 +78,18 @@ class CookedHtml extends StatelessWidget {
     String? siteUrl,
     Post? post,
     PluginRegistry registry,
+    Map<String, UserStatusReference> mentionedUserStatuses,
   ) =>
       (element) =>
           _pluginWidget(element, siteUrl, post, registry) ??
           registry.cookedElement(siteUrl, element) ??
           emojiWidgetBuilder(element, siteUrl, textStyle) ??
-          mentionWidgetBuilder(element, textStyle, siteUrl: siteUrl) ??
+          mentionWidgetBuilder(
+            element,
+            textStyle,
+            siteUrl: siteUrl,
+            userStatuses: mentionedUserStatuses,
+          ) ??
           hashtagWidgetBuilder(element, textStyle, siteUrl: siteUrl) ??
           imageGridWidgetBuilder(element, siteUrl: siteUrl) ??
           lightboxWidgetBuilder(element, siteUrl: siteUrl) ??
@@ -155,6 +166,7 @@ class CookedHtml extends StatelessWidget {
           resolvedSiteUrl,
           post,
           resolvedRegistry,
+          mentionedUserStatuses,
         ),
         customStylesBuilder: (element) =>
             _customStyles(element, compactParagraphs),
@@ -167,6 +179,7 @@ class CookedHtml extends StatelessWidget {
           post?.plugins,
           resolvedRegistry,
           compactParagraphs,
+          mentionedUserStatuses,
         ],
         onTapUrl: (url) => openLink(context, url, siteUrl: resolvedSiteUrl),
       ),

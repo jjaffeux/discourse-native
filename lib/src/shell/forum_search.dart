@@ -17,6 +17,7 @@ import 'open_link.dart';
 import 'shell_scope.dart';
 import 'shell_search_controller.dart';
 import 'site_emoji_text.dart';
+import 'user_status.dart';
 
 /// The global forum search input and the result panel anchored to it.
 class ForumSearch extends StatefulWidget {
@@ -215,9 +216,8 @@ class _ForumSearchState extends State<ForumSearch> {
     final siteUrl = search?.siteUrl;
     if (search == null || siteUrl == null) return;
     search.recordSelection(result);
-    final url = ShellScope.read(
-      context,
-    ).absoluteUrl(result.path, siteUrl: siteUrl);
+    final url = ShellScope.read(context)
+        .absoluteUrl(result.path, siteUrl: siteUrl);
     search.closePanel();
     _focus.unfocus();
     unawaited(openExternalLink(url));
@@ -687,6 +687,19 @@ class _CompactSuggestionRow extends StatelessWidget {
                     ],
                   ),
                 ),
+                if ((suggestion.siteUrl, suggestion.userStatus) case (
+                  final siteUrl?,
+                  final status?,
+                ))
+                  UserStatusMessage(
+                    siteUrl: siteUrl,
+                    userId: suggestion.userId,
+                    status: status,
+                    showDescription: true,
+                    size: 15,
+                    style: theme.textTheme.bodySmall,
+                    leadingGap: 8,
+                  ),
               ],
             ),
           ),
@@ -1299,9 +1312,8 @@ class _SearchHitRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final category = ShellScope.read(
-      context,
-    ).categoryFor(hit.categoryId, siteUrl: siteUrl);
+    final category = ShellScope.read(context)
+        .categoryFor(hit.categoryId, siteUrl: siteUrl);
     final title = !useTopicHeadline || hit.topicTitleExcerpt.segments.isEmpty
         ? [SiteEmojiTextRun(hit.topicTitle)]
         : [

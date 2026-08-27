@@ -10,6 +10,7 @@ import '../models/found_group.dart';
 import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
 import '../models/search_results.dart';
+import '../models/user_status.dart';
 
 enum SearchSessionPhase {
   idle,
@@ -36,6 +37,9 @@ class SearchSuggestion {
     this.detail,
     this.avatarUrl,
     this.colorValues = const [],
+    this.siteUrl,
+    this.userId,
+    this.userStatus,
   });
 
   final SearchSuggestionKind kind;
@@ -44,6 +48,9 @@ class SearchSuggestion {
   final String? detail;
   final String? avatarUrl;
   final List<int> colorValues;
+  final String? siteUrl;
+  final int? userId;
+  final UserStatus? userStatus;
 }
 
 typedef SearchQuickTip = ({String label, String description, bool clickable});
@@ -535,6 +542,7 @@ class ShellSearchController extends ChangeNotifier {
           apiKey: apiKey,
           clientId: clientId,
         ),
+        siteUrl: request.siteUrl,
       ),
     };
   }
@@ -591,8 +599,9 @@ class ShellSearchController extends ChangeNotifier {
   List<SearchSuggestion> _userSuggestions(
     String term,
     _SuggestionMatch match,
-    FoundUsersAndGroups found,
-  ) {
+    FoundUsersAndGroups found, {
+    required String siteUrl,
+  }) {
     final query = match.query.toLowerCase();
     bool contains(String? value) =>
         query.isNotEmpty && (value?.toLowerCase().contains(query) ?? false);
@@ -644,6 +653,9 @@ class ShellSearchController extends ChangeNotifier {
             ),
             label: result.username,
             avatarUrl: result.avatarUrl,
+            siteUrl: siteUrl,
+            userId: result.id,
+            userStatus: result.status,
           ),
     ];
   }
