@@ -258,9 +258,12 @@ pure Dart. It is a git dependency because it is not on pub.dev yet; the commit
 is pinned by `pubspec.lock`.
 
 One [`SiteTracker`](lib/src/data/site_tracker.dart) per site owns the
-connection, and every channel rides the same poll — which is why it is one
-object rather than one per feature. message_bus multiplexes; a second client
-would mean a second connection held open for the same site.
+connection, and every channel for that site rides the same poll — which is why
+it is one object rather than one per feature. Connected sites keep polling
+while the app is in front so every forum's rail badge stays live; signed-out
+sites poll only while selected because they have no private counters.
+message_bus multiplexes channels on one origin, but separate forums still need
+separate connections.
 
 | Channel                     | Carries                          | Drives                     |
 | --------------------------- | -------------------------------- | -------------------------- |
@@ -344,10 +347,11 @@ once and writes the answer back.
 
 Three things about the connection:
 
-- **One at a time.** A tracker is kept for every site visited, but only the one
-  on screen is polling — the web only ever has one site, and a long poll per
-  site in the rail is a held connection per site. Cursors survive being
-  stopped, so returning to a site asks for what it published while it was away.
+- **Every connected forum stays live.** Each forum is a separate MessageBus
+  origin, so every connected rail entry keeps one poll while the app is in the
+  foreground. Otherwise an inactive forum's badge cannot change until it is
+  selected. Signed-out forums remain lazy because they have no account counts.
+  Cursors survive lifecycle stops, so foregrounding asks for what was missed.
 - **It is paced off the app lifecycle.** `DiscourseApp` maps `hidden`,
   `paused` and `detached` onto `ShellController.setForeground`, which is
   wired to the client's `shouldLongPoll` and `pollNow`. `inactive` is left
