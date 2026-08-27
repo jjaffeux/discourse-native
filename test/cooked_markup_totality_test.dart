@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:discourse_native/src/plugins/chat/chat_transcript.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_widget.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -165,6 +166,14 @@ const _skeletons = [
       '<div class="title"><img class="avatar" src="@SRC">@V</div>'
       '<blockquote>@V</blockquote></aside>',
   '<blockquote>@V</blockquote>',
+  '<div class="chat-transcript" data-username="@V" data-datetime="@V">'
+      '<div class="chat-transcript-user">'
+      '<div class="chat-transcript-user-avatar">'
+      '<img class="avatar" src="@SRC"></div>'
+      '<div class="chat-transcript-username">@V</div>'
+      '<div class="chat-transcript-datetime"><a href="@SRC" title="@V">'
+      '</a></div><a class="chat-transcript-channel" href="@SRC">@V</a>'
+      '</div><div class="chat-transcript-messages"><p>@V</p></div></div>',
   '<aside class="onebox @V"><header class="source">'
       '<img class="site-icon" src="@SRC"><a href="@SRC" target="_blank">@V</a>'
       '</header><article class="onebox-body"><img class="thumbnail" src="@SRC">'
@@ -276,6 +285,7 @@ Iterable<dom.Element> _descendants(dom.Element root) sync* {
 const _builders = [
   'onebox',
   'quote',
+  'chatTranscript',
   'imageGrid',
   'lightbox',
   'codeBlock',
@@ -321,6 +331,11 @@ void main() {
           probe(
             'quote',
             () => quoteWidgetBuilder(element, siteUrl: site),
+            element,
+          );
+          probe(
+            'chatTranscript',
+            () => chatTranscriptWidgetBuilder(element, siteUrl: site),
             element,
           );
           probe(
