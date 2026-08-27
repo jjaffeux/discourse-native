@@ -28,13 +28,13 @@ void main() {
 
     final outcome = await downloader.download(
       url: '/uploads/short-url/image.png?dl=1',
-      title: 'screenshot.png',
+      title: 'screenshot 100%.png',
       siteUrl: siteUrl,
       repository: repository,
     );
 
     expect(outcome, ImageDownloadOutcome.cancelled);
-    expect(environment.suggestedName, 'screenshot.png');
+    expect(environment.suggestedName, 'screenshot 100%.png');
     expect(requests, 0);
   });
 
@@ -143,6 +143,26 @@ void main() {
           url: '$siteUrl/a/my%20photo.jpeg?dl=1',
         ),
         'my photo.jpeg',
+      );
+    });
+
+    test('preserves a literal percent sign in the upload title', () {
+      expect(
+        imageDownloadFilename(
+          title: '100% complete.png',
+          url: '$siteUrl/a/fallback.png?dl=1',
+        ),
+        '100% complete.png',
+      );
+    });
+
+    test('decodes an escaped percent in the URL filename exactly once', () {
+      expect(
+        imageDownloadFilename(
+          title: null,
+          url: '$siteUrl/a/100%2520-complete.png?dl=1',
+        ),
+        '100%20-complete.png',
       );
     });
 

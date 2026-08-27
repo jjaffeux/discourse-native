@@ -168,7 +168,14 @@ final class ImageDownloadException implements Exception {
 String imageDownloadFilename({required String? title, required String url}) {
   final uri = Uri.tryParse(url);
   final urlName = uri?.pathSegments.lastOrNull;
-  var filename = _decoded(title?.trim()) ?? _decoded(urlName) ?? 'image';
+  final trimmedTitle = title?.trim();
+  // HTML parsing has already decoded the title, and Uri.pathSegments has
+  // already decoded the URL component. Decoding either again turns a valid
+  // literal percent sign into an illegal percent escape.
+  var filename = switch (trimmedTitle) {
+    final title? when title.isNotEmpty => title,
+    _ => urlName ?? 'image',
+  };
   filename = filename
       .replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1f]'), '_')
       .replaceAll(RegExp(r'\s+'), ' ')
@@ -205,15 +212,6 @@ String imageMimeType(String filename, {required bool isSvg}) {
     'webp' => 'image/webp',
     _ => 'application/octet-stream',
   };
-}
-
-String? _decoded(String? value) {
-  if (value == null || value.isEmpty) return null;
-  try {
-    return Uri.decodeComponent(value);
-  } on FormatException {
-    return value;
-  }
 }
 
 String? _extension(String filename) {
