@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction_pill.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
 import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -69,6 +70,9 @@ void main() {
       );
 
       final reaction = find.bySemanticsLabel('2 clap reactions');
+      InkWell control() => tester.widget<InkWell>(
+        find.descendant(of: reaction, matching: find.byType(InkWell)),
+      );
       expect(
         tester.getSemantics(reaction),
         isSemantics(
@@ -79,6 +83,7 @@ void main() {
           hasTapAction: true,
         ),
       );
+      expect(control().mouseCursor, SystemMouseCursors.click);
 
       await tester.tap(reaction);
       await tester.pump();
@@ -94,6 +99,7 @@ void main() {
           hasTapAction: false,
         ),
       );
+      expect(control().mouseCursor, SystemMouseCursors.basic);
 
       await tester.tap(reaction);
       await tester.pump();
@@ -105,9 +111,26 @@ void main() {
         tester.getSemantics(reaction),
         isSemantics(isEnabled: true, hasTapAction: true),
       );
+      expect(control().mouseCursor, SystemMouseCursors.click);
     } finally {
       semantics.dispose();
     }
+  });
+
+  testWidgets('reaction picker button uses the pointer cursor', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(body: ReactionPickerButton(onOpenPicker: (_) async {})),
+      ),
+    );
+
+    final target = find.bySemanticsLabel('Add reaction');
+    final control = tester.widget<InkWell>(
+      find.descendant(of: target, matching: find.byType(InkWell)),
+    );
+
+    expect(control.mouseCursor, SystemMouseCursors.click);
   });
 
   testWidgets('reactor failure is announced and keyboard retryable', (
