@@ -356,16 +356,18 @@ FakeSiteTracker attachTracker(ChatController chat) {
 
 Map<String, dynamic> sentEvent({
   required String stagedId,
+  int channelId = 9,
   int serverId = 42,
   String cooked = '<p>hello chat</p>',
+  String createdAt = '2026-05-05T10:01:00.000Z',
 }) => {
   'type': 'sent',
   'staged_id': stagedId,
   'chat_message': {
     'id': serverId,
-    'chat_channel_id': 9,
+    'chat_channel_id': channelId,
     'cooked': cooked,
-    'created_at': '2026-05-05T10:01:00.000Z',
+    'created_at': createdAt,
     'user': {
       'id': currentUser.id,
       'username': currentUser.username,
@@ -2693,6 +2695,67 @@ void main() {
       ]);
       expect(subject.store.read<ChatMessage>(site, 42), isNotNull);
       expect(tracker.pluginChannelCallbacks['/chat/9'], isEmpty);
+    });
+
+    test('a sent echo moves its direct message by activity', () async {
+      final sentAt = DateTime.utc(2026, 8, 8, 13);
+      final subject = build(
+        channels: {
+          site: ChatChannels(
+            direct: [
+              channel(
+                12,
+                title: 'First',
+                kind: ChatChannelKind.directMessage,
+                lastMessageId: 50,
+                lastMessageAt: DateTime.utc(2026, 8, 8, 12),
+              ),
+              channel(
+                13,
+                title: 'Second',
+                kind: ChatChannelKind.directMessage,
+                lastMessageId: 40,
+                lastMessageAt: DateTime.utc(2026, 8, 8, 10),
+              ),
+            ],
+          ),
+        },
+        currentUser: currentUser,
+        clock: () => sentAt,
+        sentMessageId: 60,
+      );
+      addTearDown(subject.chat.dispose);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+
+      final handle = subject.chat.sendMessage(
+        site,
+        13,
+        OutgoingChatMessage.text('hello'),
+      )!;
+      await handle.settled;
+      final localId = subject.chat.stream(site, 13).localMessageIds.single;
+      final stagedId = subject.store
+          .read<ChatMessage>(site, localId)!
+          .stagedId!;
+
+      tracker.deliverPluginMessage(
+        '/chat/13',
+        sentEvent(
+          stagedId: stagedId,
+          channelId: 13,
+          serverId: 60,
+          createdAt: sentAt.toIso8601String(),
+        ),
+      );
+
+      expect(subject.chat.unstarredDirectChannels(site).map((c) => c.id), [
+        13,
+        12,
+      ]);
+      expect(subject.chat.channel(site, 13)?.lastMessageId, 60);
+      expect(subject.chat.channel(site, 13)?.lastMessageAt, sentAt);
+      expect(subject.chat.channel(site, 13)?.membership.lastReadMessageId, 60);
     });
 
     test('tracker replacement rebinds an in-flight send echo', () async {
