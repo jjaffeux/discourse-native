@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/user_status.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_scope.dart';
 import 'chat_controller.dart';
 import 'chat_services.dart';
 import 'chat_shell_extension.dart';

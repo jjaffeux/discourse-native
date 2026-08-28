@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../diagnostics/diagnostics_controller.dart';
-import '../../diagnostics/resenha_report_exporter.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import '../../plugin_api/site_plugin_api.dart';
-import '../../shell/resenha_diagnostics_view.dart';
 import 'resenha_diagnostics.dart';
 import 'resenha_diagnostics_report.dart';
+import 'resenha_diagnostics_view.dart';
+import 'resenha_report_exporter.dart';
 import 'resenha_sdk_diagnostics.dart';
 
 /// Resenha's complete app-level diagnostics integration.

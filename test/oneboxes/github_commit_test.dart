@@ -1,7 +1,7 @@
+import 'package:discourse_native/src/plugins/discourse_github/discourse_github_plugin.dart';
+import 'package:discourse_native/src/plugins/discourse_github/oneboxes/commit/block.dart';
+import 'package:discourse_native/src/plugins/discourse_github/oneboxes/github.dart';
 import 'package:discourse_native/src/shell/cooked_dom.dart';
-import 'package:discourse_native/src/shell/oneboxes/github/commit/block.dart';
-import 'package:discourse_native/src/shell/oneboxes/github/github.dart';
-import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/shell/relative_time.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -109,7 +109,9 @@ void main() {
         MaterialApp(
           theme: theme,
           home: Scaffold(
-            body: SingleChildScrollView(child: oneboxWidgetBuilder(aside)!),
+            body: SingleChildScrollView(
+              child: const DiscourseGithubPlugin().cookedElement(null, aside)!,
+            ),
           ),
         ),
       );

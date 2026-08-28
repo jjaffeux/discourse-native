@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'serial_operation_queue.dart';
-import 'store_diagnostics.dart';
+import '../../data/serial_operation_queue.dart';
+import '../../data/store_diagnostics.dart';
 
 abstract interface class ChatThreadPanelWidthPersistence {
   Future<double?> readWidth();

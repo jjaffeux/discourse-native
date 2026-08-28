@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../models/post.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/shell_scope.dart';
-import '../plugin_scope.dart';
 import 'reaction.dart';
 import 'reaction_picker.dart';
 import 'reaction_pill.dart';

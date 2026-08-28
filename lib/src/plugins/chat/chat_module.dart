@@ -1,12 +1,12 @@
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
-import '../gifs/gifs_api.dart';
-import '../gifs/gifs_services.dart';
-import '../reactions/reactions_services.dart';
+import '../gifs/gifs_contract.dart';
+import '../reactions/reactions_contract.dart';
 import 'chat_api.dart';
 import 'chat_api_client.dart';
 import 'chat_controller.dart';
 import 'chat_plugin.dart';
+import 'chat_preview.dart';
 import 'chat_search_controller.dart';
 import 'chat_services.dart';
 import 'chat_shell_extension.dart';
@@ -44,7 +44,7 @@ final class ChatModule implements PluginModule {
         lifecycle: host.siteLifecycle,
         currentUserFor: host.currentUserFor,
         siteConfigFor: host.siteConfigFor,
-        previewEngine: host.previewEngine,
+        previewEngine: ChatPreviewEngine(plugins: host.chatPreviewPlugins),
         onChatNotificationsDelta: host.applyNotificationDelta,
         onSiteUnreachable: host.markSiteUnreachable,
       );

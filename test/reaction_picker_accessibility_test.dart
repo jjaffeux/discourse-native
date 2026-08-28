@@ -3,7 +3,6 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -13,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.example';

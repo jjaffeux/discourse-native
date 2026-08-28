@@ -1,5 +1,5 @@
 import '../../plugin_api/plugin_manifest.dart';
-import '../gifs/gifs_api.dart';
+import '../gifs/gifs_contract.dart';
 import 'chat_api.dart';
 import 'chat_controller.dart';
 import 'chat_search_controller.dart';

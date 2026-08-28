@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
@@ -12,6 +11,7 @@ import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
@@ -62,9 +62,11 @@ void main() {
           ),
         );
         expect(
-          tester.widget<DIcon>(
-            find.descendant(of: toggle, matching: find.byType(DIcon)),
-          ).color,
+          tester
+              .widget<DIcon>(
+                find.descendant(of: toggle, matching: find.byType(DIcon)),
+              )
+              .color,
           Theme.of(tester.element(toggle)).colorScheme.primary,
         );
 
@@ -87,9 +89,11 @@ void main() {
           ),
         );
         expect(
-          tester.widget<DIcon>(
-            find.descendant(of: toggle, matching: find.byType(DIcon)),
-          ).color,
+          tester
+              .widget<DIcon>(
+                find.descendant(of: toggle, matching: find.byType(DIcon)),
+              )
+              .color,
           Theme.of(tester.element(toggle)).colorScheme.onSurfaceVariant,
         );
 
@@ -98,9 +102,11 @@ void main() {
 
         expect(find.text('Online'), findsOneWidget);
         expect(
-          tester.widget<DIcon>(
-            find.descendant(of: toggle, matching: find.byType(DIcon)),
-          ).color,
+          tester
+              .widget<DIcon>(
+                find.descendant(of: toggle, matching: find.byType(DIcon)),
+              )
+              .color,
           Theme.of(tester.element(toggle)).colorScheme.primary,
         );
         final error = find.bySemanticsLabel(

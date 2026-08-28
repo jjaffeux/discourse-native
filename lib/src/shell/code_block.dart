@@ -264,8 +264,9 @@ class _CodeBlockState extends State<CodeBlock> {
   }
 
   void _notice(String message) {
-    ScaffoldMessenger.maybeOf(context)
-        ?.showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _openFullscreen() {

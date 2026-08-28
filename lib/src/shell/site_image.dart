@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
+import 'package:html/dom.dart' as dom;
 
 import '../data/site_image_repository.dart';
-import 'oneboxes/inline.dart';
+import '../plugin_api/plugin_registry.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
 
@@ -296,11 +298,54 @@ final class SiteImageUnavailableException implements Exception {
 }
 
 /// Preserves the cooked renderer's sizing and fallback policy while replacing
-/// anonymous HTTP image requests with [SiteImage].
-final class SiteImageWidgetFactory extends InlineOneboxWidgetFactory {
-  SiteImageWidgetFactory({required this.siteUrl});
+/// anonymous HTTP image requests with [SiteImage]. It also applies inline
+/// cooked decorations contributed by the active plugin registry without
+/// replacing the element's wrapping text.
+final class SiteImageWidgetFactory extends WidgetFactory {
+  SiteImageWidgetFactory({
+    required this.siteUrl,
+    this.registry = PluginRegistry.empty,
+  });
 
   final String? siteUrl;
+  final PluginRegistry registry;
+  final Set<dom.Element> _excludeLinkSemantics = Set.identity();
+
+  @override
+  void parse(BuildTree tree) {
+    super.parse(tree);
+
+    final prefix = registry.cookedInlinePrefix(tree.element);
+    if (prefix == null) return;
+    if (prefix.excludeLinkSemantics) {
+      _excludeLinkSemantics.add(tree.element);
+    }
+
+    tree.register(
+      BuildOp(
+        alwaysRenderBlock: false,
+        debugLabel: 'plugin-cooked-inline-prefix',
+        onRenderInline: (tree) {
+          tree.prepend(
+            WidgetBit.inline(tree, prefix.child, alignment: prefix.alignment),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget? buildGestureDetector(
+    BuildTree tree,
+    Widget child,
+    GestureRecognizer recognizer,
+  ) {
+    final detector = super.buildGestureDetector(tree, child, recognizer);
+    if (detector == null || !_excludeLinkSemantics.contains(tree.element)) {
+      return detector;
+    }
+    return ExcludeSemantics(child: detector);
+  }
 
   @override
   Widget? buildImageWidget(BuildTree tree, ImageSource src) {

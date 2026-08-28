@@ -6,7 +6,6 @@ import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_pill.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_pills.dart';
@@ -21,6 +20,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+import 'support/bundled_plugins.dart';
 
 /// The composer draws markdown but posts it unchanged, and the two are the same
 /// string. Everything Flutter does with an editable — placing the caret, hit

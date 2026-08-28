@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../models/content_route.dart';
 import '../../models/sidebar.dart';
+import '../../plugin_api/plugin_scope.dart';
+import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_scope.dart';
-import '../site_plugin_api.dart';
 import 'resenha_call_widget.dart';
 import 'resenha_models.dart';
 import 'resenha_room_view.dart';

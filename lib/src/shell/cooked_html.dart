@@ -160,7 +160,10 @@ class CookedHtml extends StatelessWidget {
         baseUrl: resolvedSiteUrl == null ? null : Uri.tryParse(resolvedSiteUrl),
         textStyle: style,
         renderMode: RenderMode.column,
-        factoryBuilder: () => SiteImageWidgetFactory(siteUrl: resolvedSiteUrl),
+        factoryBuilder: () => SiteImageWidgetFactory(
+          siteUrl: resolvedSiteUrl,
+          registry: resolvedRegistry,
+        ),
         customWidgetBuilder: _customWidget(
           style,
           resolvedSiteUrl,

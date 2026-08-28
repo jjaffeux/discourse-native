@@ -14,8 +14,8 @@ import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -26,6 +26,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _site = 'https://chat.example';

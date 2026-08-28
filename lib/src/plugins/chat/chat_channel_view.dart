@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../../models/site_config.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/adaptive_dialog_action.dart';
 import '../../shell/loading_skeleton.dart';
 import '../../shell/shell_scope.dart';
@@ -15,7 +16,6 @@ import '../../shell/time_gap.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_scope.dart';
 import 'chat_channel.dart';
 import 'chat_channel_search.dart';
 import 'chat_composer.dart';

@@ -3,13 +3,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../diagnostics/diagnostic_event.dart';
-import '../diagnostics/resenha_report_exporter.dart';
-import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
-import 'adaptive_dialog_action.dart';
-import 'diagnostics_text.dart';
+import '../../diagnostics/diagnostic_event.dart';
+import '../../shell/adaptive_dialog_action.dart';
+import '../../shell/diagnostics_text.dart';
+import '../../theme/app_theme.dart';
+import '../../theme/d_icon.dart';
+import '../../theme/d_icons.dart';
+import 'resenha_report_exporter.dart';
 
 const int resenhaDiagnosticsClipboardByteLimit = 10 * 1024 * 1024;
 

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics_report.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_report_exporter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

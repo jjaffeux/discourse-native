@@ -30,7 +30,9 @@ import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
+import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
@@ -40,6 +42,7 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
@@ -49,7 +52,6 @@ import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_pill.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/categories_page.dart';
@@ -98,6 +100,7 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 import 'support/finders.dart';
 
@@ -5717,8 +5720,7 @@ void main() {
       expect(find.text('Suggested'), findsOneWidget);
       expect(find.text('Related'), findsOneWidget);
       final earth = find.byWidgetPredicate(
-        (widget) =>
-            widget is SiteEmojiImage && widget.name == 'earth_africa',
+        (widget) => widget is SiteEmojiImage && widget.name == 'earth_africa',
       );
       final sparkles = find.byWidgetPredicate(
         (widget) => widget is SiteEmojiImage && widget.name == 'sparkles',
@@ -7064,7 +7066,16 @@ void main() {
     });
 
     testWidgets('only unfinished profile rows are orange', (tester) async {
-      await pumpShell(tester, phone, instances: connected);
+      await pumpShell(
+        tester,
+        phone,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: me.withHidePresence(false)),
+        ],
+      );
       await openMenu(tester);
       await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
@@ -7087,7 +7098,7 @@ void main() {
       );
       expect(
         tester.widget<Text>(find.text('Online')).style?.color,
-        placeholder,
+        isNot(placeholder),
       );
       expect(
         tester.widget<Text>(find.text('Disconnect')).style?.color,

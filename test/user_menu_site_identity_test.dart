@@ -176,9 +176,11 @@ void main() {
           ),
         );
         expect(
-          tester.widget<DIcon>(
-            find.descendant(of: row, matching: find.byType(DIcon)),
-          ).color,
+          tester
+              .widget<DIcon>(
+                find.descendant(of: row, matching: find.byType(DIcon)),
+              )
+              .color,
           Theme.of(tester.element(row)).colorScheme.onSurfaceVariant,
         );
 
@@ -230,9 +232,11 @@ void main() {
           ),
         );
         expect(
-          tester.widget<DIcon>(
-            find.descendant(of: row, matching: find.byType(DIcon)),
-          ).color,
+          tester
+              .widget<DIcon>(
+                find.descendant(of: row, matching: find.byType(DIcon)),
+              )
+              .color,
           Theme.of(tester.element(row)).colorScheme.primary,
         );
         expect(find.text('30m'), findsOneWidget);
@@ -245,9 +249,11 @@ void main() {
           isSemantics(hasToggledState: true, isToggled: false),
         );
         expect(
-          tester.widget<DIcon>(
-            find.descendant(of: row, matching: find.byType(DIcon)),
-          ).color,
+          tester
+              .widget<DIcon>(
+                find.descendant(of: row, matching: find.byType(DIcon)),
+              )
+              .color,
           Theme.of(tester.element(row)).colorScheme.onSurfaceVariant,
         );
       } finally {

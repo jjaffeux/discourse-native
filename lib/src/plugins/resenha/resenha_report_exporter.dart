@@ -9,7 +9,7 @@ import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart' as sharing;
 
-import '../foundation/private_file_permissions.dart';
+import '../../foundation/private_file_permissions.dart';
 
 enum ResenhaReportExportOutcome { shared, saved, cancelled }
 

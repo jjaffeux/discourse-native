@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../data/discourse_api_contracts.dart';
 import '../../models/user_card.dart';
+import '../../plugin_api/plugin_data.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_data.dart';
-import '../plugin_scope.dart';
 import 'chat_services.dart';
 import 'chat_shell_extension.dart';
 

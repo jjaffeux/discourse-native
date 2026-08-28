@@ -7,11 +7,11 @@ import 'package:html/dom.dart' as dom;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../plugin_api/chat_preview.dart';
+import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/markdown_highlight.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
-import '../site_plugin_api.dart';
 import 'local_date.dart';
 import 'local_date_composer_editor.dart';
 import 'local_date_composer_pill.dart';

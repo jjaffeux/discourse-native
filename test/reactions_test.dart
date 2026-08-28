@@ -1,7 +1,8 @@
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/bundled_plugins.dart';
 
 /// A post payload as a reactions site serializes one.
 Map<String, dynamic> payload({

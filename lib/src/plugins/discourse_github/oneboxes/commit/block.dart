@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../../../shell/cooked_dom.dart';
+import '../../../../shell/oneboxes/onebox.dart';
+import '../../../../shell/relative_time.dart';
 import '../../../../theme/app_theme.dart';
-import '../../../cooked_dom.dart';
-import '../../../relative_time.dart';
-import '../../onebox.dart';
 import '../github.dart';
 
 /// The commit engine: `aside.onebox.githubcommit`.

@@ -143,6 +143,35 @@ abstract interface class CookedElementPlugin {
   Widget? cookedElement(String? siteUrl, dom.Element element);
 }
 
+/// Adds a small widget ahead of an inline cooked element without replacing
+/// the element's flowing text.
+///
+/// A normal cooked-element replacement becomes one indivisible [WidgetSpan].
+/// Provider decorations such as a pull-request status icon need the linked
+/// title to remain real text so it can wrap with the surrounding paragraph.
+/// The cooked renderer owns that low-level text-tree integration; plugins only
+/// contribute the widget and its alignment.
+abstract interface class CookedInlinePlugin {
+  CookedInlinePrefix? cookedInlinePrefix(dom.Element element);
+}
+
+@immutable
+final class CookedInlinePrefix {
+  const CookedInlinePrefix({
+    required this.child,
+    this.alignment = PlaceholderAlignment.middle,
+    this.excludeLinkSemantics = false,
+  });
+
+  final Widget child;
+  final PlaceholderAlignment alignment;
+
+  /// Whether the link recognizer around [child] should be hidden from the
+  /// semantics tree. Set this when the element's text already exposes the
+  /// same named link and the prefix is only visual decoration.
+  final bool excludeLinkSemantics;
+}
+
 /// Claims the footer under a post.
 abstract interface class PostFooterPlugin {
   /// What to draw under a post in place of the core footer, or null to leave it

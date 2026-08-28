@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../../shell/avatar_image.dart';
+import '../../../shell/code_block.dart' show monospaceTextStyle;
+import '../../../shell/cooked_dom.dart';
+import '../../../shell/oneboxes/markup.dart';
+import '../../../shell/open_link.dart';
+import '../../../shell/site_url.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/d_icon.dart';
-import '../../avatar_image.dart';
-import '../../code_block.dart' show monospaceTextStyle;
-import '../../cooked_dom.dart';
-import '../../open_link.dart';
-import '../../site_url.dart';
-import '../markup.dart';
 
 /// The shared visual language of GitHub's oneboxes.
 ///

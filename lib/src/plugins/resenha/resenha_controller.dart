@@ -9,8 +9,7 @@ import '../../data/discourse_api_contracts.dart'
     show SiteLookupException, SiteLookupFailure, WriteException, WriteFailure;
 import '../../data/site_tracker.dart';
 import '../../diagnostics/diagnostics_controller.dart';
-import '../chat/chat_api.dart';
-import '../chat/chat_message.dart';
+import '../chat/chat_contract.dart';
 import 'resenha_api.dart';
 import 'resenha_callkit.dart';
 import 'resenha_diagnostics.dart';

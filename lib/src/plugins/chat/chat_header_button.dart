@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/discourse_user.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/shell_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_scope.dart';
 import 'chat_controller.dart';
 import 'chat_route.dart';
 import 'chat_services.dart';

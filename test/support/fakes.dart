@@ -40,6 +40,8 @@ import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
+import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -47,7 +49,6 @@ import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
-import 'package:discourse_native/src/plugins/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_api.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
@@ -55,7 +56,7 @@ import 'package:discourse_native/src/plugins/poll/polls_api.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
+import 'bundled_plugins.dart';
 
 /// Keeps instances in memory instead of shared_preferences, which needs a
 /// platform channel.

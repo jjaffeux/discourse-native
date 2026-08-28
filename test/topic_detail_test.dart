@@ -1,7 +1,7 @@
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const site = 'https://meta.discourse.org';

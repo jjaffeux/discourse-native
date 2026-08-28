@@ -1,9 +1,6 @@
 import 'package:discourse_native/src/shell/oneboxes/discourse/category/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/discourse/topic/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/discourse/user/block.dart';
-import 'package:discourse_native/src/shell/oneboxes/github/commit/block.dart';
-import 'package:discourse_native/src/shell/oneboxes/github/issue/block.dart';
-import 'package:discourse_native/src/shell/oneboxes/github/pr/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -155,22 +152,10 @@ void main() {
       expect(oneboxWidgetBuilder(element('<p>hello</p>')), isNull);
     });
 
-    test('hands engines the asides they claim', () {
+    test('hands core engines the asides they claim', () {
       Widget body(Widget widget) =>
           (widget as OneboxCard).child ?? const SizedBox();
 
-      expect(
-        body(oneboxWidgetBuilder(aside(prOnebox))!),
-        isA<GithubPullRequestOnebox>(),
-      );
-      expect(
-        body(oneboxWidgetBuilder(aside(issueOnebox))!),
-        isA<GithubIssueOnebox>(),
-      );
-      expect(
-        body(oneboxWidgetBuilder(aside(commitOnebox))!),
-        isA<GithubCommitOnebox>(),
-      );
       expect(
         body(oneboxWidgetBuilder(aside(discourseTopicOnebox))!),
         isA<DiscourseTopicOnebox>(),
@@ -188,6 +173,14 @@ void main() {
         (oneboxWidgetBuilder(aside(genericOnebox))! as OneboxCard).child,
         isNull,
       );
+      // Provider engines are optional. Without their registry contribution,
+      // their envelopes still use the generic core card.
+      for (final source in [prOnebox, issueOnebox, commitOnebox]) {
+        expect(
+          (oneboxWidgetBuilder(aside(source))! as OneboxCard).child,
+          isNull,
+        );
+      }
     });
   });
 

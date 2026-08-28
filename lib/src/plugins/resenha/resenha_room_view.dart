@@ -7,13 +7,13 @@ import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
 
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/select.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_scope.dart';
 import 'resenha_controller.dart';
 import 'resenha_models.dart';
 import 'resenha_room_editor.dart';

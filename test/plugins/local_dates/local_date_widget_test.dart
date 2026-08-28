@@ -2,13 +2,14 @@ import 'dart:ui' show SemanticsAction;
 
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_widget.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:relative_time/relative_time.dart';
+
+import '../../support/bundled_plugins.dart';
 
 void main() {
   setUpAll(() {

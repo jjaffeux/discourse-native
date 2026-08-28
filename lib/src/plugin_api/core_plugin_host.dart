@@ -54,7 +54,7 @@ final class CorePluginHost {
     required this.siteLifecycle,
     required this.currentUserFor,
     required this.siteConfigFor,
-    required this.previewEngine,
+    required this.chatPreviewPlugins,
     required this.applyNotificationDelta,
     required this.markSiteUnreachable,
     required this.canPerform,
@@ -74,7 +74,7 @@ final class CorePluginHost {
   final SiteLifecycle siteLifecycle;
   final PluginCurrentUserReader currentUserFor;
   final PluginSiteConfigReader siteConfigFor;
-  final ChatPreviewEngine previewEngine;
+  final List<ChatPreviewPluginAdapter> chatPreviewPlugins;
   final PluginCountDelta applyNotificationDelta;
   final PluginSiteCallback markSiteUnreachable;
   final PluginTargetPermissionReader canPerform;

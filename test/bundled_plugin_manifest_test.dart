@@ -17,6 +17,8 @@ void main() {
     addTearDown(installed.close);
 
     expect(installed.descriptors.map((descriptor) => descriptor.id.value), [
+      'discourse-github',
+      'discourse-lazy-videos',
       'discourse-reactions',
       'discourse-local-dates',
       'poll',

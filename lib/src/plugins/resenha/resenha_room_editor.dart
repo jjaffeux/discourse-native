@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/select.dart';
-import '../plugin_scope.dart';
 import 'resenha_controller.dart';
 import 'resenha_models.dart';
 import 'resenha_services.dart';

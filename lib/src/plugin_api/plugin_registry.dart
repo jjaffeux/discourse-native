@@ -44,8 +44,12 @@ final class PluginRegistry implements PluginDataDecoder {
     }
   }
 
-  ChatPreviewEngine get chatPreviewEngine =>
-      ChatPreviewEngine(plugins: plugins.whereType<ChatMessagePreviewPlugin>());
+  /// Installed preview contributions in deterministic manifest order.
+  ///
+  /// Projection belongs to Chat; core only carries these stable adapters to
+  /// the Chat session factory.
+  List<ChatPreviewPluginAdapter> get chatPreviewPlugins =>
+      List.unmodifiable(plugins.whereType<ChatMessagePreviewPlugin>());
 
   Widget? buildChatPreviewNode(BuildContext context, PluginPreviewNode node) {
     ChatMessagePreviewPlugin? owner;
@@ -129,6 +133,14 @@ final class PluginRegistry implements PluginDataDecoder {
     for (final plugin in plugins.whereType<CookedElementPlugin>()) {
       final widget = plugin.cookedElement(siteUrl, element);
       if (widget != null) return widget;
+    }
+    return null;
+  }
+
+  CookedInlinePrefix? cookedInlinePrefix(dom.Element element) {
+    for (final plugin in plugins.whereType<CookedInlinePlugin>()) {
+      final prefix = plugin.cookedInlinePrefix(element);
+      if (prefix != null) return prefix;
     }
     return null;
   }

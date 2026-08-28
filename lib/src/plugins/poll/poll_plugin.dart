@@ -5,12 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../models/post.dart';
+import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/external_link.dart';
 import '../../shell/shell_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
-import '../site_plugin_api.dart';
 import 'poll.dart';
 import 'poll_card.dart';
 import 'poll_composer_editor.dart';

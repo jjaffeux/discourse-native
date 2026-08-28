@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../models/post.dart';
-import '../plugin_data.dart';
+import '../../plugin_api/plugin_data.dart';
 
 const reactionsDataKey = PluginDataKey<Reactions>(
   owner: 'discourse-reactions',

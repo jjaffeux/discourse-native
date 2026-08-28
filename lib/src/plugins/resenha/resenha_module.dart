@@ -1,6 +1,6 @@
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
-import '../chat/chat_services.dart';
+import '../chat/chat_contract.dart';
 import 'resenha_api.dart';
 import 'resenha_controller.dart';
 import 'resenha_diagnostics.dart';

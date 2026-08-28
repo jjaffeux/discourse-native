@@ -12,9 +12,6 @@ import '../site_image.dart';
 import 'discourse/category/block.dart';
 import 'discourse/topic/block.dart';
 import 'discourse/user/block.dart';
-import 'github/commit/block.dart';
-import 'github/issue/block.dart';
-import 'github/pr/block.dart';
 import 'markup.dart';
 
 /// Renders Discourse oneboxes natively instead of as styled HTML.
@@ -26,13 +23,13 @@ import 'markup.dart';
 ///
 /// Every onebox arrives in the envelope the `_layout` template writes —
 /// `aside.onebox`, `header.source`, `article.onebox-body` — which
-/// [OneboxData] reads. The engines under this directory claim the asides
-/// whose body they know how to draw (the GitHub ones, the links to Discourse
-/// itself); everything else falls back to the generic [OneboxCard], which
+/// [OneboxData] reads. Core engines claim links to Discourse itself. Provider
+/// plugins may claim their own asides through the cooked-element API before
+/// this generic fallback runs. Everything else lands on [OneboxCard], which
 /// hands the body it did not claim back to [HtmlWidget]. New and unknown
-/// engines therefore still show their content, inside native chrome.
+/// engines therefore still show their content inside native chrome.
 ///
-/// `tool/onebox_contract.dart` checks the envelope and the engines' markup
+/// `tool/markup_contract.dart` checks the envelope and the engines' markup
 /// for drift against discourse/discourse.
 class OneboxData {
   const OneboxData({
@@ -202,9 +199,6 @@ class OneboxEngine {
 /// The engines this app draws natively, first claim wins. Anything none of
 /// them recognises lands on the generic [OneboxCard].
 final List<OneboxEngine> _engines = [
-  githubPullRequestBlock,
-  githubIssueBlock,
-  githubCommitBlock,
   discourseTopicBlock,
   discourseUserBlock,
   discourseCategoryBlock,

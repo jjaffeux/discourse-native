@@ -13,20 +13,21 @@ import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
+import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api_client.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
-import 'package:discourse_native/src/plugins/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api_client.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+import 'support/bundled_plugins.dart';
 
 /// Stands in for a Discourse: answers the probe with an API version, then the
 /// basic-info payload.

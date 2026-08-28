@@ -1,5 +1,5 @@
-import 'package:discourse_native/src/plugins/plugin_runtime.dart';
-import 'package:discourse_native/src/plugins/site_plugin_api.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _hostValuePort = PluginHostPortKey<String>(

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../../../shell/code_block.dart' show monospaceTextStyle;
+import '../../../../shell/cooked_dom.dart';
+import '../../../../shell/oneboxes/markup.dart';
+import '../../../../shell/oneboxes/onebox.dart';
+import '../../../../shell/relative_time.dart';
 import '../../../../theme/app_theme.dart';
 import '../../../../theme/d_icon.dart';
-import '../../../code_block.dart' show monospaceTextStyle;
-import '../../../cooked_dom.dart';
-import '../../../relative_time.dart';
-import '../../markup.dart';
-import '../../onebox.dart';
 import '../github.dart';
 
 /// The pull request engine: `aside.onebox.githubpullrequest`.

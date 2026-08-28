@@ -8,12 +8,13 @@ import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/poll/poll_card.dart';
 import 'package:discourse_native/src/plugins/poll/poll_plugin.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+import 'support/bundled_plugins.dart';
 
 const _site = 'https://meta.discourse.org';
 

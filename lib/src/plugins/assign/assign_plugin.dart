@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../models/json.dart';
 import '../../models/post.dart';
 import '../../models/topic.dart';
+import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/pill.dart';
 import '../../shell/post_action.dart';
 import '../../shell/shell_scope.dart';
@@ -12,7 +13,6 @@ import '../../shell/shell_sheet.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../site_plugin_api.dart';
 import 'assignment.dart';
 import 'assignment_sheet.dart';
 

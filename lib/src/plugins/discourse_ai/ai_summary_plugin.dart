@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/post.dart';
+import '../../plugin_api/plugin_scope.dart';
+import '../../plugin_api/site_plugin_api.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_scope.dart';
-import '../site_plugin_api.dart';
 import 'ai_summary.dart';
 import 'ai_summary_controller.dart';
 import 'discourse_ai_services.dart';

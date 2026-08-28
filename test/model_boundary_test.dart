@@ -11,8 +11,9 @@ import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_card.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/bundled_plugins.dart';
 
 const siteUrl = 'https://meta.discourse.org';
 
