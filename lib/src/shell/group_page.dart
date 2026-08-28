@@ -453,8 +453,6 @@ class _GroupHeader extends StatelessWidget {
                   spacing: 12,
                   runSpacing: 4,
                   children: [
-                    if (group.userCount case final count?)
-                      _HeaderFact(icon: DIcons.users, label: '$count members'),
                     if (group.isGroupOwner)
                       const _HeaderFact(
                         icon: DIcons.certificate,

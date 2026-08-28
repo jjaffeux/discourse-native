@@ -67,6 +67,14 @@ void main() {
     expect(find.byKey(const ValueKey('group-tab-messages')), findsOneWidget);
     expect(find.byKey(const ValueKey('group-tab-manage')), findsOneWidget);
     expect(find.byKey(const ValueKey('group-tab-permissions')), findsOneWidget);
+    expect(find.text('2 members'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('group-tab-members')),
+        matching: find.text('2'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const ValueKey('group-join')));
     await tester.pump();
