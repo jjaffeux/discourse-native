@@ -456,6 +456,47 @@ void main() {
       }
     });
 
+    testWidgets('is unavailable on Aggregate', (tester) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await pumpShell(tester, desktop);
+        final controller = ShellScope.read(
+          tester.element(find.byType(ShellTitleBar)),
+        );
+
+        expect(find.byType(ForumSearch), findsOneWidget);
+
+        controller.selectAggregate();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ForumSearch), findsNothing);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyK), isFalse);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pump();
+        expect(find.byKey(ForumSearch.panelKey), findsNothing);
+
+        controller.selectInstance(0);
+        await tester.pump();
+
+        expect(find.byType(ForumSearch), findsOneWidget);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyK), isTrue);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pump();
+        expect(
+          tester
+              .widget<EditableText>(find.byKey(ForumSearch.inputKey))
+              .focusNode
+              .hasFocus,
+          isTrue,
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+
     testWidgets('double clicking the macOS title strip toggles window zoom', (
       tester,
     ) async {

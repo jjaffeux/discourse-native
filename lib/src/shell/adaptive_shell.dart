@@ -118,8 +118,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         : keyboard.isControlPressed;
     if (!modifierPressed) return false;
 
+    final controller = ShellScope.read(context);
     if (event.logicalKey == LogicalKeyboardKey.keyK) {
-      ShellScope.read(context).search.requestFocus();
+      if (controller.rootMode != ShellRootMode.forum) return false;
+      controller.search.requestFocus();
       return true;
     }
 
@@ -131,7 +133,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         (usesMetaModifier ? keyboard.isControlPressed : keyboard.isMetaPressed);
     if (extraModifierPressed) return false;
 
-    final controller = ShellScope.read(context);
     if (controller.rootMode == ShellRootMode.aggregate) {
       final tabs = controller.aggregateTabs;
       if (!controller.forumTabsEnabled || tabIndex >= tabs.length) {

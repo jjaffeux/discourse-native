@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import 'forum_search.dart';
+import 'shell_controller.dart';
+import 'shell_scope.dart';
 import 'user_menu_button.dart';
 
 /// The strip across the very top of the window, spanning every column.
@@ -75,7 +77,15 @@ class ShellTitleBar extends StatelessWidget {
                     child: Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 520),
-                        child: const ForumSearch(dense: true),
+                        child: ShellSelector<ShellRootMode>(
+                          select: (controller) => controller.rootMode,
+                          builder: (context, rootMode, _) => switch (rootMode) {
+                            ShellRootMode.forum => const ForumSearch(
+                              dense: true,
+                            ),
+                            ShellRootMode.aggregate => const SizedBox.shrink(),
+                          },
+                        ),
                       ),
                     ),
                   ),
