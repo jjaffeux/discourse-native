@@ -24,6 +24,8 @@ Future<void> showPostReactionPicker(
 ) async {
   final session = controller.beginPicker(siteUrl, post);
   final messenger = ScaffoldMessenger.maybeOf(context);
+  bool stillOwnsUi() =>
+      !context.mounted || _stillOwnsUi(context, controller);
   final allowAnyEmoji = await controller.allowsAnyEmoji(siteUrl);
   if (!context.mounted ||
       !controller.isPickerCurrent(session) ||
@@ -53,10 +55,7 @@ Future<void> showPostReactionPicker(
     loadSearchAliases: ({refresh = false}) =>
         emoji.loadSearchAliases(siteUrl, refresh: refresh),
   );
-  if (picked == null ||
-      !controller.isPickerCurrent(session) ||
-      !context.mounted ||
-      !_stillOwnsUi(context, controller)) {
+  if (picked == null || !controller.isPickerCurrent(session)) {
     return;
   }
 
@@ -72,7 +71,7 @@ Future<void> showPostReactionPicker(
     controller,
     session,
     controller.toggleFromPicker(session, current, picked),
-    ownerContext: context,
+    stillOwnsUi: stillOwnsUi,
   );
 }
 
@@ -196,7 +195,8 @@ class ReactionGrid extends StatelessWidget {
               final ownerContext = _ownerContext ?? context;
               final canAct =
                   controller.isPickerCurrent(_session) &&
-                  _stillOwnsUi(ownerContext, controller);
+                  (!ownerContext.mounted ||
+                      _stillOwnsUi(ownerContext, controller));
               onPicked();
               if (!canAct) return;
               final target = controller.pickerPost(_session, post);
@@ -206,7 +206,9 @@ class ReactionGrid extends StatelessWidget {
                 controller,
                 _session,
                 controller.toggleFromPicker(_session, target, id),
-                ownerContext: ownerContext,
+                stillOwnsUi: () =>
+                    !ownerContext.mounted ||
+                    _stillOwnsUi(ownerContext, controller),
               );
             },
           ),
@@ -239,7 +241,7 @@ void _report(
   ReactionsController controller,
   ReactionPickerSession session,
   Future<String?> work, {
-  required BuildContext ownerContext,
+  required bool Function() stillOwnsUi,
 }) {
   unawaited(
     work.then((error) {
@@ -247,8 +249,7 @@ void _report(
           !controller.isPickerCurrent(session) ||
           messenger == null ||
           !messenger.mounted ||
-          !ownerContext.mounted ||
-          !_stillOwnsUi(ownerContext, controller)) {
+          !stillOwnsUi()) {
         return;
       }
       messenger.showSnackBar(SnackBar(content: Text(error)));

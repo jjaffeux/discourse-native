@@ -25,14 +25,12 @@ final class ReactionPickerSession {
   const ReactionPickerSession._({
     required this.siteUrl,
     required this.postId,
-    required this.storeBacked,
     required this._owner,
     required this._lease,
   });
 
   final String siteUrl;
   final int postId;
-  final bool storeBacked;
   final ReactionsController _owner;
   final PluginSiteLease _lease;
 }
@@ -132,7 +130,6 @@ class ReactionsController extends FrameSafeNotifier {
       ReactionPickerSession._(
         siteUrl: siteUrl,
         postId: post.id,
-        storeBacked: _posts.readPost(siteUrl, post.id) != null,
         owner: this,
         lease: _requestHost.capture(siteUrl),
       );
@@ -145,7 +142,7 @@ class ReactionsController extends FrameSafeNotifier {
   Post? pickerPost(ReactionPickerSession session, Post fallback) {
     if (!isPickerCurrent(session)) return null;
     final latest = _posts.readPost(session.siteUrl, session.postId);
-    return latest ?? (session.storeBacked ? null : fallback);
+    return latest ?? fallback;
   }
 
   Future<String?> toggleFromPicker(
@@ -155,7 +152,11 @@ class ReactionsController extends FrameSafeNotifier {
   ) {
     final latest = pickerPost(session, fallback);
     if (latest == null || !latest.canReact) return Future.value(null);
-    return toggle(latest, reaction, siteUrl: session.siteUrl);
+    return toggle(
+      latest.reactions == null ? fallback : latest,
+      reaction,
+      siteUrl: session.siteUrl,
+    );
   }
 
   /// Fetches who reacted to a post, or who gave it one particular emoji.
@@ -228,7 +229,11 @@ class ReactionsController extends FrameSafeNotifier {
       final apiKey = credential.apiKey!;
       final current = _posts.readPost(siteUrl, post.id) ?? post;
       if (!current.canReact) return null;
-      final held = current.reactions;
+      // An open picker retains the last rendered reaction state even if the
+      // final pill disappears before a selection is made. The current core
+      // post still owns permission, while the picker snapshot supplies the
+      // plugin record needed to apply and, if necessary, roll back the write.
+      final held = current.reactions ?? post.reactions;
       if (held == null) return null;
 
       final applied = lease.commit(() {
@@ -236,8 +241,8 @@ class ReactionsController extends FrameSafeNotifier {
           siteUrl,
           post.id,
           reactionsDataKey,
-          (stored) => stored
-              ?.withToggled(reaction)
+          (stored) => (stored ?? held)
+              .withToggled(reaction)
               .withMainReaction(
                 siteConfigFor(siteUrl).reactionsSettings.mainReaction,
               ),

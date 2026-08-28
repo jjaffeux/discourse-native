@@ -6,7 +6,6 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -680,53 +679,6 @@ void main() {
         reason: 'a decoded copy must equal what it was encoded from',
       );
       expect(full == const SiteConfig.unknown(), isFalse);
-    });
-  });
-
-  group('Resenha client settings', () {
-    test('parses enabled capabilities and native quality caps', () {
-      final resenha = pluginSettings(const {
-        'resenha_enabled': true,
-        'resenha_video_enabled': true,
-        'resenha_video_max_publishers': 12,
-        'resenha_livekit_recording_enabled': true,
-        'resenha_max_voice_quality': 'high',
-        'resenha_max_camera_quality': 'standard',
-        'resenha_max_screen_share_quality': 'maximum',
-        'resenha_idle_threshold_minutes': 7,
-        'resenha_afk_auto_mute_threshold_minutes': 17,
-        'resenha_afk_disconnect_threshold_minutes': 37,
-        'resenha_auto_status_enabled': false,
-        'resenha_chat_enabled': false,
-      }).resenha;
-
-      expect(resenha.enabled, isTrue);
-      expect(resenha.videoEnabled, isTrue);
-      expect(resenha.videoMaxPublishers, 12);
-      expect(resenha.recordingEnabled, isTrue);
-      expect(resenha.maxVoiceQuality, 'high');
-      expect(resenha.maxCameraQuality, 'standard');
-      expect(resenha.maxScreenShareQuality, 'maximum');
-      expect(resenha.idleThresholdMinutes, 7);
-      expect(resenha.afkAutoMuteThresholdMinutes, 17);
-      expect(resenha.afkDisconnectThresholdMinutes, 37);
-      expect(resenha.autoStatusEnabled, isFalse);
-      expect(resenha.chatEnabled, isFalse);
-    });
-
-    test('defaults unknown values defensively and survives storage', () {
-      final config = pluginSettings(const {
-        'resenha_enabled': true,
-        'resenha_video_max_publishers': 1000,
-        'resenha_max_voice_quality': 'future-ultra',
-        'resenha_idle_threshold_minutes': -1,
-      });
-      final decoded = restorePluginSettings(config);
-
-      expect(config.resenha.videoMaxPublishers, 8);
-      expect(config.resenha.maxVoiceQuality, 'maximum');
-      expect(config.resenha.idleThresholdMinutes, 5);
-      expect(decoded, config);
     });
   });
 }

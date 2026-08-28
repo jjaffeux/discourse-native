@@ -7,7 +7,6 @@ import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_plugin.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
@@ -526,7 +525,7 @@ void main() {
           styleType: 'icon',
           text: 'Town Hall',
         ),
-        registry: PluginRegistry.validated(const [ResenhaPlugin()]),
+        registry: PluginRegistry.validated(const [_RoomHashtagPlugin()]),
       );
 
       final pill = tester.widget<HashtagPill>(find.byType(HashtagPill));
@@ -550,7 +549,7 @@ void main() {
             icon: 'not-an-icon-this-app-has',
             text: 'Town Hall',
           ),
-          registry: PluginRegistry.validated(const [ResenhaPlugin()]),
+          registry: PluginRegistry.validated(const [_RoomHashtagPlugin()]),
         );
 
         expect(find.dIcon(DIcons.microphoneLines), findsOneWidget);
@@ -596,7 +595,7 @@ void main() {
           styleType: 'icon',
           text: 'Launch party',
         ),
-        registry: PluginRegistry.validated(const [ResenhaPlugin()]),
+        registry: PluginRegistry.validated(const [_RoomHashtagPlugin()]),
       );
 
       final pill = tester.widget<HashtagPill>(find.byType(HashtagPill));
@@ -621,7 +620,7 @@ void main() {
           styleType: 'icon',
           text: 'Town Hall',
         ),
-        registry: PluginRegistry.validated(const [ResenhaPlugin()]),
+        registry: PluginRegistry.validated(const [_RoomHashtagPlugin()]),
       );
 
       final pill = tester.widget<HashtagPill>(find.byType(HashtagPill));
@@ -633,7 +632,7 @@ void main() {
     testWidgets('an installed hashtag plugin leaves core kinds unchanged', (
       tester,
     ) async {
-      final registry = PluginRegistry.validated(const [ResenhaPlugin()]);
+      final registry = PluginRegistry.validated(const [_RoomHashtagPlugin()]);
       await pumpCooked(
         tester,
         cooked(
@@ -913,3 +912,22 @@ Finder renderedText(String text) => find.byWidgetPredicate(
   (widget) => widget is RichText && widget.text.toPlainText().contains(text),
   description: 'rendered text containing "$text"',
 );
+
+final class _RoomHashtagPlugin implements SitePlugin, HashtagKindPlugin {
+  const _RoomHashtagPlugin();
+
+  @override
+  String get name => 'room-hashtag-test';
+
+  @override
+  List<PluginHashtagKind> get hashtagKinds => const [
+    PluginHashtagKind('room', _presentRoomHashtag),
+  ];
+}
+
+HashtagPresentation _presentRoomHashtag(HashtagPresentationRequest request) =>
+    HashtagPresentation.fromRequest(
+      request,
+      fallbackIcon: DIcons.microphoneLines,
+      colorPolicy: HashtagColorPolicy.none,
+    );

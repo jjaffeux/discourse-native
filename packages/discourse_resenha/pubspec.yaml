@@ -1,0 +1,43 @@
+name: discourse_resenha
+description: Resenha voice-room integration for the Discourse native client.
+publish_to: "none"
+version: 1.0.0
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  discourse_native:
+    path: ../..
+  file_selector: ^1.1.0
+  flutter:
+    sdk: flutter
+  flutter_webrtc: 1.6.0
+  flutter_widget_from_html_core: ^0.17.2
+  livekit_client: 2.10.0
+  logger: ^2.7.0
+  logging: ^1.3.0
+  path_provider: ^2.1.6
+  share_plus: ^12.0.2
+  shared_preferences: ^2.5.5
+
+# Pub intentionally ignores dependency overrides declared by transitive
+# packages. Keep this override here for Resenha's own tests, and mirror it in
+# every application composition which enables Resenha (currently
+# ../../profiles/full/pubspec.yaml).
+dependency_overrides:
+  flutter_webrtc:
+    path: third_party/flutter_webrtc
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+  pointycastle: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  plugin:
+    platforms:
+      ios:
+        pluginClass: DiscourseResenhaPlugin

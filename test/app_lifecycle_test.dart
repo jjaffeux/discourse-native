@@ -8,8 +8,6 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics_plugin.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
@@ -195,73 +193,6 @@ void main() {
     expect(secondApi.closeCalls, 1);
   });
 
-  testWidgets('leaves injected installed plugins caller-owned', (tester) async {
-    final key = GlobalKey();
-    final bridgeReleased = Completer<void>();
-    final first = await ResenhaDiagnosticsController.create(
-      persistence: MemoryResenhaDiagnosticsPersistence(),
-      sdkLogBridges: [
-        CallbackResenhaDiagnosticsSdkLogBridge(
-          install: (_) {},
-          uninstall: () {
-            if (!bridgeReleased.isCompleted) bridgeReleased.complete();
-          },
-        ),
-      ],
-    );
-    final second = await ResenhaDiagnosticsController.create(
-      persistence: MemoryResenhaDiagnosticsPersistence(),
-    );
-    await first.startCapture();
-    final firstPlugins = PluginInstaller.install(
-      PluginManifest([_DiagnosticsTestModule(first)]),
-    );
-    final secondPlugins = PluginInstaller.install(
-      PluginManifest([_DiagnosticsTestModule(second)]),
-    );
-    addTearDown(firstPlugins.close);
-    addTearDown(secondPlugins.close);
-
-    final store = FakeInstanceStore();
-    final api = FakeDiscourseApi();
-    final authenticator = FakeAuthenticator();
-    final drafts = FakeDraftStore();
-    final forumTabs = FakeForumTabStore();
-    final trackers = FakeSiteTracker.reset();
-    final updater = FakeUpdater();
-    final updateStore = FakeUpdateStore();
-
-    Widget app(InstalledPlugins plugins) => DiscourseApp(
-      key: key,
-      store: store,
-      api: api,
-      authenticator: authenticator,
-      drafts: drafts,
-      forumTabs: forumTabs,
-      trackers: trackers,
-      updater: updater,
-      updateStore: updateStore,
-      initialRootMode: ShellRootMode.forum,
-      plugins: plugins,
-    );
-
-    await tester.pumpWidget(app(firstPlugins));
-    await tester.pump();
-    expect(first.captureEnabled, isTrue);
-
-    await tester.pumpWidget(app(secondPlugins));
-    await tester.pump();
-
-    expect(bridgeReleased.isCompleted, isFalse);
-    expect(first.captureEnabled, isTrue);
-    expect(second.captureEnabled, isFalse);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await firstPlugins.close();
-    await secondPlugins.close();
-    expect(bridgeReleased.isCompleted, isTrue);
-  });
-
   testWidgets(
     'dispatches app state and background flush to every registered lifecycle',
     (tester) async {
@@ -313,7 +244,6 @@ void main() {
       await diagnostics.close();
     },
   );
-
   testWidgets('releases replaced diagnostics without replacing the shell', (
     tester,
   ) async {
@@ -645,26 +575,6 @@ final class _GatedInstanceStore implements InstanceStore {
 
   @override
   Future<void> save(List<DiscourseInstance> instances) async {}
-}
-
-final class _DiagnosticsTestModule implements PluginModule {
-  const _DiagnosticsTestModule(this.controller);
-
-  final ResenhaDiagnosticsController controller;
-
-  @override
-  PluginDescriptor get descriptor =>
-      const PluginDescriptor(id: PluginId('resenha'));
-
-  @override
-  void register(PluginRegistrar registrar) {
-    final plugin = ResenhaDiagnosticsPlugin(controller: controller);
-    registrar.addCapability(plugin);
-    registrar.addAppLifecycle(
-      plugin,
-      requires: const [pluginDiagnosticsReporterPort],
-    );
-  }
 }
 
 final class _LifecycleTestModule implements PluginModule {

@@ -8,9 +8,11 @@ import 'gifs/gifs_module.dart';
 import 'local_dates/local_dates_module.dart';
 import 'poll/poll_module.dart';
 import 'reactions/reactions_module.dart';
-import 'resenha/resenha_module.dart';
 
-/// The one deterministic composition root for the full application build.
+/// The deterministic composition of plugins which ship in the core package.
+///
+/// Resenha is a separately packaged native plugin. The full application adds
+/// it from its outer composition root under `profiles/full`.
 final PluginManifest bundledPluginManifest = PluginManifest([
   localDatesModule,
   discourseGithubModule,
@@ -21,22 +23,11 @@ final PluginManifest bundledPluginManifest = PluginManifest([
   discourseAiModule,
   assignModule,
   chatModule,
-  resenhaModule,
 ]);
 
-/// The full feature graph with app-global diagnostics ownership omitted.
+/// Compatibility name for widget hosts which own their diagnostics lifecycle.
 ///
-/// Widget hosts which provide their own diagnostics lifecycle can use this
-/// profile while retaining every forum feature and session capability.
-final PluginManifest bundledPluginManifestWithoutDiagnostics = PluginManifest([
-  localDatesModule,
-  discourseGithubModule,
-  discourseLazyVideosModule,
-  reactionsModule,
-  pollModule,
-  gifsModule,
-  discourseAiModule,
-  assignModule,
-  chatModule,
-  const ResenhaModule.withoutDiagnostics(),
-]);
+/// The package-owned bundle has no app-global diagnostics plugin now that
+/// Resenha is composed only by the full application.
+final PluginManifest bundledPluginManifestWithoutDiagnostics =
+    bundledPluginManifest;

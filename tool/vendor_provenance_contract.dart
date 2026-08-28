@@ -15,7 +15,7 @@ import 'dart:typed_data';
 import 'package:pointycastle/digests/sha256.dart';
 
 const int vendorContractSchemaVersion = 1;
-const String _pluginRoot = 'lib/src/plugins';
+const List<String> _vendorOwnerRoots = ['lib/src/plugins', 'packages'];
 const int _tarBlockSize = 512;
 const int _maximumMetadataBytes = 1024 * 1024;
 const int _maximumArchiveBytes = 64 * 1024 * 1024;
@@ -74,14 +74,18 @@ Future<List<VendorProvenanceContract>> loadVendorProvenanceContracts({
   Directory? repository,
 }) async {
   final root = repository ?? Directory.current;
-  final plugins = Directory.fromUri(root.uri.resolve('$_pluginRoot/'));
-  if (!await plugins.exists()) return const [];
-
-  final owners = await plugins
-      .list(followLinks: false)
-      .where((entity) => entity is Directory)
-      .cast<Directory>()
-      .toList();
+  final owners = <Directory>[];
+  for (final ownerRootPath in _vendorOwnerRoots) {
+    final ownerRoot = Directory.fromUri(root.uri.resolve('$ownerRootPath/'));
+    if (!await ownerRoot.exists()) continue;
+    owners.addAll(
+      await ownerRoot
+          .list(followLinks: false)
+          .where((entity) => entity is Directory)
+          .cast<Directory>()
+          .toList(),
+    );
+  }
   owners.sort((left, right) => left.path.compareTo(right.path));
   final contracts = <VendorProvenanceContract>[];
   final names = <String>{};

@@ -54,7 +54,6 @@ import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_settings.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/categories_page.dart';
@@ -2024,135 +2023,6 @@ void main() {
     expect(sidebar.right - tile.right, closeTo(8, 0.01));
     expect(tile.height, closeTo(35.2, 0.01));
     expect(tester.getRect(topics).left - sidebar.left, closeTo(44, 0.01));
-  });
-
-  testWidgets('sidebar section header controls align and highlight on hover', (
-    tester,
-  ) async {
-    const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
-    final site = instance(
-      'meta.discourse.org',
-      title: 'Discourse Meta',
-    ).copyWith(user: me);
-    final auth = FakeAuthenticator()..keys[site.url] = 'api-key';
-    final api = FakeDiscourseApi(
-      siteConfigs: {
-        site.url: SiteConfig(
-          plugins: PluginData.none.withValue(
-            resenhaSettingsDataKey,
-            const ResenhaClientConfig(enabled: true),
-          ),
-        ),
-      },
-      pluginResponses: {
-        'GET /resenha/rooms.json': {
-          'rooms': [
-            {
-              'id': 7,
-              'name': 'Conf Room 1',
-              'slug': 'conf-room-1',
-              'public': false,
-              'ephemeral': false,
-              'room_type': 'stage',
-              'member_count': 0,
-              'message_bus_last_id': 91,
-              'active_participants': <Object?>[],
-              'video_enabled': false,
-              'video_allowed': false,
-              'max_quality_profile': 'standard',
-            },
-          ],
-          'can_create_room': true,
-          'index_message_bus_last_id': 144,
-        },
-      },
-    );
-
-    await pumpShell(
-      tester,
-      desktop,
-      instances: [site],
-      api: api,
-      authenticator: auth,
-    );
-
-    final action = find.byTooltip('Create voice room');
-    final chevron = find.byTooltip('Collapse Voice rooms');
-    expect(action, findsOneWidget);
-    expect(chevron, findsOneWidget);
-    expect(api.pluginReadPaths, ['/resenha/rooms.json']);
-    expect(tester.getCenter(action).dx, lessThan(tester.getCenter(chevron).dx));
-    expect(tester.getSize(action), tester.getSize(chevron));
-    expect(tester.getSize(action), const Size.square(24));
-    final roomAction = find.byTooltip('Open Conf Room 1');
-    expect(roomAction, findsOneWidget);
-    expect(tester.getSize(roomAction), const Size(24, 35.2));
-
-    final title = find.text('VOICE ROOMS');
-    final theme = Theme.of(tester.element(title));
-    Color titleColor() => tester.widget<Text>(title).style!.color!;
-    Color iconColor(Finder control) {
-      final icon = find.descendant(of: control, matching: find.byType(DIcon));
-      final explicitColor = tester.widget<DIcon>(icon).color;
-      return explicitColor ?? IconTheme.of(tester.element(icon)).color!;
-    }
-
-    expect(titleColor(), theme.colorScheme.onSurfaceVariant);
-    expect(iconColor(action), theme.colorScheme.onSurfaceVariant);
-    expect(iconColor(chevron), theme.colorScheme.onSurfaceVariant);
-
-    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await gesture.addPointer(location: Offset.zero);
-    addTearDown(gesture.removePointer);
-
-    await gesture.moveTo(tester.getCenter(title));
-    await tester.pumpAndSettle();
-    expect(titleColor(), theme.colorScheme.onSurface);
-    expect(iconColor(action), theme.colorScheme.onSurfaceVariant);
-
-    await gesture.moveTo(tester.getCenter(action));
-    await tester.pumpAndSettle();
-    expect(titleColor(), theme.colorScheme.onSurfaceVariant);
-    expect(iconColor(action), theme.colorScheme.onSurface);
-    expect(iconColor(chevron), theme.colorScheme.onSurfaceVariant);
-
-    await gesture.moveTo(tester.getCenter(chevron));
-    await tester.pumpAndSettle();
-    expect(iconColor(action), theme.colorScheme.onSurfaceVariant);
-    expect(iconColor(chevron), theme.colorScheme.onSurface);
-
-    await gesture.moveTo(Offset.zero);
-    await tester.pumpAndSettle();
-    expect(iconColor(chevron), theme.colorScheme.onSurfaceVariant);
-  });
-
-  testWidgets('known disabled Resenha does not probe its room directory', (
-    tester,
-  ) async {
-    const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
-    final site = instance(
-      'meta.discourse.org',
-      title: 'Discourse Meta',
-    ).copyWith(user: me);
-    final auth = FakeAuthenticator()..keys[site.url] = 'api-key';
-    final api = FakeDiscourseApi(
-      siteConfigs: {site.url: const SiteConfig()},
-      pluginResponses: {
-        'GET /resenha/rooms.json': {'rooms': <Object?>[]},
-      },
-    );
-
-    await pumpShell(
-      tester,
-      desktop,
-      instances: [site],
-      api: api,
-      authenticator: auth,
-    );
-
-    expect(api.siteConfigsRequested, [site.url]);
-    expect(api.pluginReadPaths, isEmpty);
-    expect(find.text('VOICE ROOMS'), findsNothing);
   });
 
   testWidgets('sidebar destinations show a hand cursor and hover background', (
@@ -15755,7 +15625,7 @@ void main() {
 
         await tester.tap(find.bySemanticsLabel('Add reaction'));
         await tester.pumpAndSettle();
-        controller.store.put(site, msg(1));
+        controller.chat.putRecordForTesting(site, msg(1));
         await tester.pumpAndSettle();
 
         expect(find.byType(ReactionPickerButton), findsNothing);

@@ -1,5 +1,5 @@
 import 'package:discourse_native/src/models/content_route.dart';
-import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -15,27 +15,10 @@ import 'support/fakes.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  late ShellController shell;
-
-  setUp(() async {
-    shell = ShellController(
-      instanceStore: FakeInstanceStore([instance('meta.discourse.org')]),
-      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
-      authenticator: FakeAuthenticator(),
-      drafts: FakeDraftStore(),
-      forumTabsEnabled: false,
-      trackers: FakeSiteTracker.reset(),
-      updater: FakeUpdater(),
-      updateStore: FakeUpdateStore(),
-      ownsApi: false,
-    );
-    addTearDown(shell.dispose);
-    await shell.load();
-  });
-
   testWidgets('existing content plugins keep the shell header by default', (
     tester,
   ) async {
+    final shell = await _shellWith(const _StandardPlugin());
     const route = ContentRoute(
       id: 'test-standard',
       title: 'Standard route',
@@ -43,7 +26,7 @@ void main() {
     );
     shell.pushContent(route);
 
-    await _pump(tester, shell, const PluginRegistry([_StandardPlugin()]));
+    await _pump(tester, shell);
 
     expect(find.text('Standard route'), findsOneWidget);
     expect(find.byKey(const ValueKey('standard-body')), findsOneWidget);
@@ -52,6 +35,7 @@ void main() {
   testWidgets('a chrome owner keeps its body and suppresses only the header', (
     tester,
   ) async {
+    final shell = await _shellWith(const _ChromeOwnerPlugin());
     const route = ContentRoute(
       id: 'test-owned',
       title: 'Shell title must be hidden',
@@ -59,7 +43,7 @@ void main() {
     );
     shell.pushContent(route);
 
-    await _pump(tester, shell, const PluginRegistry([_ChromeOwnerPlugin()]));
+    await _pump(tester, shell);
 
     expect(find.text('Shell title must be hidden'), findsNothing);
     expect(find.byKey(const ValueKey('owned-body')), findsOneWidget);
@@ -69,6 +53,7 @@ void main() {
   testWidgets('a content-header plugin adds an action to standard chrome', (
     tester,
   ) async {
+    final shell = await _shellWith(const _HeaderActionPlugin());
     const route = ContentRoute(
       id: 'test-standard',
       title: 'Standard route',
@@ -76,18 +61,14 @@ void main() {
     );
     shell.pushContent(route);
 
-    await _pump(tester, shell, const PluginRegistry([_HeaderActionPlugin()]));
+    await _pump(tester, shell);
 
     expect(find.byKey(const ValueKey('plugin-header-action')), findsOneWidget);
     expect(find.text('Standard route'), findsOneWidget);
   });
 }
 
-Future<void> _pump(
-  WidgetTester tester,
-  ShellController shell,
-  PluginRegistry registry,
-) async {
+Future<void> _pump(WidgetTester tester, ShellController shell) async {
   tester.view.physicalSize = const Size(1200, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -97,12 +78,52 @@ Future<void> _pump(
       child: MaterialApp(
         theme: AppTheme.light,
         home: Scaffold(
-          body: MainContent(layout: ShellLayout.expanded, registry: registry),
+          body: MainContent(
+            layout: ShellLayout.expanded,
+            registry: shell.plugins.registry,
+          ),
         ),
       ),
     ),
   );
   await tester.pumpAndSettle();
+}
+
+Future<ShellController> _shellWith(SitePlugin plugin) async {
+  final installed = PluginInstaller.install(
+    PluginManifest([_ContentTestModule(plugin)]),
+  );
+  final shell = ShellController(
+    instanceStore: FakeInstanceStore([instance('meta.discourse.org')]),
+    api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+    authenticator: FakeAuthenticator(),
+    drafts: FakeDraftStore(),
+    forumTabsEnabled: false,
+    trackers: FakeSiteTracker.reset(),
+    updater: FakeUpdater(),
+    updateStore: FakeUpdateStore(),
+    plugins: installed,
+    ownsApi: false,
+  );
+  addTearDown(() async {
+    shell.dispose();
+    await installed.close();
+  });
+  await shell.load();
+  return shell;
+}
+
+final class _ContentTestModule implements PluginModule {
+  const _ContentTestModule(this.plugin);
+
+  final SitePlugin plugin;
+
+  @override
+  PluginDescriptor get descriptor =>
+      PluginDescriptor(id: PluginId(plugin.name));
+
+  @override
+  void register(PluginRegistrar registrar) => registrar.addCapability(plugin);
 }
 
 class _StandardPlugin implements SitePlugin, ContentPlugin {

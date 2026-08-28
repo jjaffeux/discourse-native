@@ -1,8 +1,0 @@
-{
-  "schemaVersion": 1,
-  "name": "Resenha flutter_webrtc",
-  "package": "flutter_webrtc",
-  "version": "1.6.0",
-  "vendorPath": "third_party/flutter_webrtc",
-  "patchManifest": "lib/src/plugins/resenha/tool/flutter_webrtc/PATCHES.md"
-}

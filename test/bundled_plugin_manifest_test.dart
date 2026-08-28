@@ -9,8 +9,6 @@ import 'package:discourse_native/src/plugins/gifs/gif_picker_session.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_services.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_contract.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_module.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_module.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_services.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,7 +16,7 @@ import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 void main() {
-  test('full manifest installs the deterministic feature graph', () async {
+  test('bundled manifest installs the deterministic feature graph', () async {
     final installed = PluginInstaller.install(bundledPluginManifest);
     addTearDown(installed.close);
 
@@ -32,7 +30,6 @@ void main() {
       'discourse-ai',
       'discourse-assign',
       'chat',
-      'resenha',
     ]);
 
     final localDates = installed.descriptors.singleWhere(
@@ -50,9 +47,6 @@ void main() {
     final discourseAi = installed.descriptors.singleWhere(
       (descriptor) => descriptor.id.value == 'discourse-ai',
     );
-    final resenha = installed.descriptors.singleWhere(
-      (descriptor) => descriptor.id.value == 'resenha',
-    );
 
     expect(localDates.syntaxIds, {'discourse-local-dates/local-date'});
     expect(poll.syntaxIds, {'poll/poll'});
@@ -69,12 +63,6 @@ void main() {
       [('gifs', true)],
     );
     expect(chat.routeNamespaces, {'chat'});
-    expect(
-      resenha.dependencies.map(
-        (dependency) => (dependency.id.value, dependency.optional),
-      ),
-      [('chat', false)],
-    );
     expect(chat.liveChannelScopes.map((scope) => scope.path), {
       '/chat',
       '/presence/chat',
@@ -82,15 +70,7 @@ void main() {
     expect(discourseAi.liveChannelScopes.map((scope) => scope.path), {
       '/discourse-ai',
     });
-    expect(resenha.routeNamespaces, {'resenha'});
-    expect(resenha.exclusiveClaims, {'app-global-media-session'});
-    expect(resenha.liveChannelScopes.map((scope) => scope.path), {'/resenha'});
-    expect(
-      installed.registry.diagnosticsPlugins.map(
-        (plugin) => plugin.diagnosticsId,
-      ),
-      ['resenha'],
-    );
+    expect(installed.registry.diagnosticsPlugins, isEmpty);
   });
 
   test('core manifest installs without optional features', () async {
@@ -112,7 +92,7 @@ void main() {
     expect(installed.registry.diagnosticsPlugins, isEmpty);
   });
 
-  test('full production sessions resolve the declared dependency chain', () {
+  test('bundled production sessions resolve the dependency chain', () {
     final installed = PluginInstaller.install(bundledPluginManifest);
     final api = FakeDiscourseApi();
     final shell = _shell(installed, api);
@@ -130,7 +110,6 @@ void main() {
     );
     expect(session.require(chatConversationService), isNotNull);
     expect(session.require(localDatesCookedTimeParserService), isNotNull);
-    expect(session.require(resenhaControllerService), isNotNull);
   });
 
   test('production Chat works without optional GIFs or Reactions', () {
@@ -181,13 +160,6 @@ void main() {
     expect(
       withLocalDatesSession.require(discourseGithubCookedTimeParserService),
       same(withLocalDatesSession.require(localDatesCookedTimeParserService)),
-    );
-  });
-
-  test('Resenha keeps Chat as a required conversation provider', () {
-    expect(
-      () => PluginInstaller.install(const PluginManifest([resenhaModule])),
-      throwsA(isA<PluginInstallationException>()),
     );
   });
 }

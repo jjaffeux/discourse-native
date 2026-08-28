@@ -2892,6 +2892,7 @@ class ShellController extends FrameSafeNotifier
       instance,
       instance.copyWith(user: user.withDoNotDisturbUntil(until)),
     );
+    _notify();
     instanceStore.save(List.of(_instances)).ignore();
   }
 

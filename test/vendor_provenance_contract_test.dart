@@ -16,13 +16,18 @@ void main() {
     expect(contract.version, '1.6.0');
     expect(
       contract.catalog,
-      'lib/src/plugins/resenha/tool/vendor_contract.json',
+      'packages/discourse_resenha/tool/vendor_contract.json',
     );
     expect(
       contract.patchManifest,
-      endsWith('lib/src/plugins/resenha/tool/flutter_webrtc/PATCHES.md'),
+      endsWith(
+        'packages/discourse_resenha/third_party/flutter_webrtc/PATCHES.md',
+      ),
     );
-    expect(contract.vendorPath, endsWith('third_party/flutter_webrtc'));
+    expect(
+      contract.vendorPath,
+      endsWith('packages/discourse_resenha/third_party/flutter_webrtc'),
+    );
   });
 
   test('rejects vendor paths which resolve outside the repository', () async {
@@ -34,9 +39,9 @@ void main() {
     );
     addTearDown(() => repository.delete(recursive: true));
     addTearDown(() => outside.delete(recursive: true));
-    final tool = Directory('${repository.path}/lib/src/plugins/owner/tool');
+    final tool = Directory('${repository.path}/packages/owner/tool');
     await tool.create(recursive: true);
-    final vendor = Link('${repository.path}/third_party/vendor');
+    final vendor = Link('${repository.path}/packages/owner/third_party/vendor');
     await vendor.create(outside.path, recursive: true);
     final patches = File('${tool.path}/PATCHES.md');
     await patches.writeAsString('- `lib/file.dart`\n');
@@ -46,8 +51,8 @@ void main() {
         'name': 'escaped vendor',
         'package': 'escaped_vendor',
         'version': '1.0.0',
-        'vendorPath': 'third_party/vendor',
-        'patchManifest': 'lib/src/plugins/owner/tool/PATCHES.md',
+        'vendorPath': 'packages/owner/third_party/vendor',
+        'patchManifest': 'packages/owner/tool/PATCHES.md',
       }),
     );
 

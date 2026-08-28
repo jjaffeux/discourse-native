@@ -83,6 +83,7 @@ void main() {
     final shell = await _loadShell(api);
     addTearDown(shell.dispose);
     _putChatFixture(shell);
+    final chat = shell.pluginSession.require(chatControllerService);
     final host = shell.pluginSession.require(chatBookmarkHostService);
 
     final created = await host.createBookmark(
@@ -95,7 +96,7 @@ void main() {
     await pumpEventQueue();
 
     expect(created.saved, isTrue);
-    final heldBookmark = shell.store.read<ChatMessage>(_site, 42)?.bookmark;
+    final heldBookmark = chat.message(_site, 42)?.bookmark;
     expect(heldBookmark?.id, created.bookmark?.id);
     expect(heldBookmark?.name, 'Follow up');
     expect(heldBookmark?.reminderAt, created.bookmark?.reminderAt?.toUtc());
@@ -111,14 +112,8 @@ void main() {
     await pumpEventQueue();
 
     expect(updated.saved, isTrue);
-    expect(
-      shell.store.read<ChatMessage>(_site, 42)?.bookmark?.name,
-      'Keep this',
-    );
-    expect(
-      shell.store.read<ChatMessage>(_site, 42)?.bookmark?.reminderAt,
-      isNull,
-    );
+    expect(chat.message(_site, 42)?.bookmark?.name, 'Keep this');
+    expect(chat.message(_site, 42)?.bookmark?.reminderAt, isNull);
 
     final deleted = await host.deleteBookmark(
       siteUrl: _site,
@@ -127,7 +122,7 @@ void main() {
     await pumpEventQueue();
 
     expect(deleted.saved, isTrue);
-    expect(shell.store.read<ChatMessage>(_site, 42)?.bookmark, isNull);
+    expect(chat.message(_site, 42)?.bookmark, isNull);
     expect(api.deletedBookmarks, [created.bookmark!.id]);
   });
 
@@ -157,6 +152,7 @@ void main() {
       await shell.load();
       _putChatFixture(shell);
 
+      final chat = shell.pluginSession.require(chatControllerService);
       final host = shell.pluginSession.require(chatBookmarkHostService);
       expect(host, isA<PluginBookmarkHost>());
       expect(host, isNot(isA<BookmarkHost>()));
@@ -188,11 +184,8 @@ void main() {
       expect(created.saved, isTrue);
       expect(api.createdAtSites, [_site]);
       expect(shell.currentInstance?.url, _otherSite);
-      expect(
-        shell.store.read<ChatMessage>(_site, 42)?.bookmark?.name,
-        'First forum',
-      );
-      expect(shell.store.read<ChatMessage>(_otherSite, 42), isNull);
+      expect(chat.message(_site, 42)?.bookmark?.name, 'First forum');
+      expect(chat.message(_otherSite, 42), isNull);
     },
   );
 
@@ -514,7 +507,8 @@ ChatMessage _chatMessage([Bookmark? bookmark]) => ChatMessage(
 );
 
 void _putChatFixture(ShellController shell) {
-  shell.store.put(
+  final chat = shell.pluginSession.require(chatControllerService);
+  chat.putRecordForTesting(
     _site,
     const ChatChannel(
       id: 9,
@@ -523,7 +517,7 @@ void _putChatFixture(ShellController shell) {
       membership: ChatMembership(following: true),
     ),
   );
-  shell.store.put(_site, _chatMessage());
+  chat.putRecordForTesting(_site, _chatMessage());
 }
 
 TopicPayload _payloadWithTarget() {

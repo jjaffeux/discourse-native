@@ -150,32 +150,43 @@ jobs:
             echo "prerelease=$PRERELEASE"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Resolve dependencies
-        run: flutter pub get --enforce-lockfile
+      - name: Resolve independent package graphs
+        run: |
+          flutter pub get --enforce-lockfile
+          (cd packages/discourse_resenha && flutter pub get --enforce-lockfile)
+          (cd profiles/full && flutter pub get --enforce-lockfile)
 
       # A broken canary that installs itself is worse than no canary.
       - name: Analyze and test
         run: |
           flutter analyze
           flutter test
+          (cd packages/discourse_resenha && flutter analyze)
+          (cd packages/discourse_resenha && flutter test)
+          (cd profiles/full && flutter analyze)
 
       - name: Build
         run: |
           set -eux
-          flutter build linux --release \
-            --build-name "${{ steps.v.outputs.version }}" \
-            --build-number "${{ steps.v.outputs.build }}" \
-            --dart-define=DISCOURSE_NATIVE_VERSION=${{ steps.v.outputs.version }} \
-            --dart-define=DISCOURSE_NATIVE_CHANNEL=${{ steps.v.outputs.channel }}
+          (
+            cd profiles/full
+            flutter build linux --release \
+              --build-name "${{ steps.v.outputs.version }}" \
+              --build-number "${{ steps.v.outputs.build }}" \
+              --dart-define=DISCOURSE_NATIVE_VERSION=${{ steps.v.outputs.version }} \
+              --dart-define=DISCOURSE_NATIVE_CHANNEL=${{ steps.v.outputs.channel }}
+          )
 
       - name: Check the bundle
-        working-directory: build/linux/x64/release/bundle
+        working-directory: profiles/full/build/linux/x64/release/bundle
         run: |
           set -eux
           test -x "${{ env.BINARY_NAME }}"
           test -x install-desktop-entry.sh
           test -f "data/desktop/${{ env.PACKAGE_ID }}.desktop"
           test -d data/desktop/icons/hicolor/scalable/apps
+          LC_ALL=C grep -aFq 'FlutterWebRTCPlugin' "${{ env.BINARY_NAME }}"
+          LC_ALL=C grep -aFq 'LiveKitPlugin' "${{ env.BINARY_NAME }}"
           # Catches a dependency change silently dropping onto the 4.0/libsoup2
           # branch, which aborts at runtime rather than at build time.
           ldd "${{ env.BINARY_NAME }}" | grep -q libwebkit2gtk-4.1
@@ -199,7 +210,7 @@ jobs:
           mkdir -p "$APP" "$ROOT/usr/bin" "$ROOT/usr/share/applications" \
                    "$ROOT/usr/share/icons" "$ROOT/DEBIAN"
 
-          cp -r build/linux/x64/release/bundle/. "$APP/"
+          cp -r profiles/full/build/linux/x64/release/bundle/. "$APP/"
 
           # Scaffolding for the relocatable archive, which a package does not
           # want: dpkg owns the launcher and the icon tree, and Exec= is a

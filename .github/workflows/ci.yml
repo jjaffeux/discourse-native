@@ -26,17 +26,31 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Resolve dependencies
-        run: flutter pub get --enforce-lockfile
+      - name: Resolve independent package graphs
+        run: |
+          flutter pub get --enforce-lockfile
+          (cd packages/discourse_resenha && flutter pub get --enforce-lockfile)
+          (cd profiles/full && flutter pub get --enforce-lockfile)
 
       - name: Check formatting
-        run: dart format --output=none --set-exit-if-changed lib test integration_test tool
+        run: |
+          dart format --output=none --set-exit-if-changed \
+            lib test integration_test tool \
+            packages/discourse_resenha/lib \
+            packages/discourse_resenha/test \
+            packages/discourse_resenha/tool \
+            profiles/full/lib
 
       - name: Analyze
-        run: flutter analyze
+        run: |
+          flutter analyze
+          (cd packages/discourse_resenha && flutter analyze)
+          (cd profiles/full && flutter analyze)
 
       - name: Test
-        run: flutter test
+        run: |
+          flutter test
+          (cd packages/discourse_resenha && flutter test)
 
   linux-bundle:
     # Keep the native plugin graph buildable between releases without turning
@@ -65,27 +79,42 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Resolve dependencies
-        run: flutter pub get --enforce-lockfile
-
-      - name: Build Linux bundle
-        run: flutter build linux --debug
-
-      - name: Smoke-check the bundle
-        working-directory: build/linux/x64/debug/bundle
+      - name: Resolve core and full package graphs
         run: |
-          set -euo pipefail
-          test -x discourse_native
-          dependencies="$(ldd discourse_native)"
-          printf '%s\n' "$dependencies"
-          if grep -q 'not found' <<< "$dependencies"; then
-            exit 1
-          fi
+          flutter pub get --enforce-lockfile
+          (cd profiles/full && flutter pub get --enforce-lockfile)
+
+      - name: Build core and full Linux bundles
+        run: |
+          flutter build linux --debug
+          (cd profiles/full && flutter build linux --debug)
+
+      - name: Smoke-check the core and full artifacts
+        run: |
+          set -euxo pipefail
+          core=build/linux/x64/debug/bundle/discourse_native
+          full=profiles/full/build/linux/x64/debug/bundle/discourse_native
+          test -x "$core"
+          test -x "$full"
+          core_dependencies="$(ldd "$core")"
+          full_dependencies="$(ldd "$full")"
+          printf '%s\n' "$core_dependencies"
+          printf '%s\n' "$full_dependencies"
+          ! grep -q 'not found' <<< "$core_dependencies"
+          ! grep -q 'not found' <<< "$full_dependencies"
+
+          # This is the artifact-level half of the package/registrant tests:
+          # the core executable must contain neither native plugin, while the
+          # independently resolved full executable must contain both.
+          ! LC_ALL=C grep -aFq 'FlutterWebRTCPlugin' "$core"
+          ! LC_ALL=C grep -aFq 'LiveKitPlugin' "$core"
+          LC_ALL=C grep -aFq 'FlutterWebRTCPlugin' "$full"
+          LC_ALL=C grep -aFq 'LiveKitPlugin' "$full"
 
   apple-bundles:
-    # Compile both native entrypoints on every change. The iOS target includes
-    # CallKit and audio-session lifecycle code which Dart tests cannot parse or
-    # type-check; the macOS target has its own generated plugin graph.
+    # Compile both package graphs on Apple. The full iOS target includes the
+    # Resenha-owned CallKit plugin; each macOS target has its own generated
+    # registrant and therefore needs an independent build.
     needs: checks
     runs-on: macos-15
     timeout-minutes: 45
@@ -102,10 +131,12 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Resolve dependencies
-        run: flutter pub get --enforce-lockfile
+      - name: Resolve core and full package graphs
+        run: |
+          flutter pub get --enforce-lockfile
+          (cd profiles/full && flutter pub get --enforce-lockfile)
 
-      - name: Build macOS bundle
+      - name: Build core macOS bundle
         # `flutter build macos` has no --no-codesign, and the Xcode project now
         # names the TestFlight team, which the runner has no certificate for.
         # Generate the Xcode configuration, then drive xcodebuild directly with
@@ -117,11 +148,27 @@ jobs:
             -workspace macos/Runner.xcworkspace \
             -scheme Runner \
             -configuration Debug \
-            -derivedDataPath build/macos-ci \
+            -derivedDataPath build/macos-core-ci \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Build iOS simulator bundle
+      - name: Build core iOS simulator bundle
         run: flutter build ios --simulator --debug --no-codesign
+
+      - name: Build full macOS bundle
+        run: |
+          set -euo pipefail
+          (cd profiles/full && flutter build macos --debug --config-only)
+          xcodebuild build \
+            -workspace profiles/full/macos/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Debug \
+            -derivedDataPath build/macos-full-ci \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Build full iOS simulator bundle
+        run: |
+          cd profiles/full
+          flutter build ios --simulator --debug --no-codesign
 
       - name: Test iOS native coordinator
         run: |
@@ -132,7 +179,7 @@ jobs:
           )"
           test -n "$destination_id"
           xcodebuild test \
-            -workspace ios/Runner.xcworkspace \
+            -workspace profiles/full/ios/Runner.xcworkspace \
             -scheme Runner \
             -sdk iphonesimulator \
             -destination "platform=iOS Simulator,id=$destination_id" \
@@ -143,5 +190,13 @@ jobs:
       - name: Smoke-check native bundles
         run: |
           set -euo pipefail
-          test -x build/macos-ci/Build/Products/Debug/Discourse.app/Contents/MacOS/Discourse
+          test -x build/macos-core-ci/Build/Products/Debug/Discourse.app/Contents/MacOS/Discourse
+          test -x build/macos-full-ci/Build/Products/Debug/Discourse.app/Contents/MacOS/Discourse
           test -d build/ios/iphonesimulator/Runner.app
+          test -d profiles/full/build/ios/iphonesimulator/Runner.app
+
+          # The package-owned channel is compiled into the full app only.
+          ! LC_ALL=C grep -aRqsF 'org.discourse.native/resenha_callkit' \
+            build/ios/iphonesimulator/Runner.app
+          LC_ALL=C grep -aRqsF 'org.discourse.native/resenha_callkit' \
+            profiles/full/build/ios/iphonesimulator/Runner.app

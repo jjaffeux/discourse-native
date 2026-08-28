@@ -5,7 +5,6 @@ import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_plugin.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
@@ -541,7 +540,7 @@ void main() {
     );
 
     test('suggestion art shares installed and fallback kind policies', () {
-      const registry = PluginRegistry([ResenhaPlugin()]);
+      const registry = PluginRegistry([_RoomHashtagPlugin()]);
       final request = HashtagPresentationRequest(
         type: 'room',
         style: HashtagStyle.square,
@@ -632,7 +631,7 @@ void main() {
       );
     });
 
-    testWidgets('an installed Resenha room uses its microphone policy', (
+    testWidgets('an installed room plugin uses its microphone policy', (
       tester,
     ) async {
       known['lounge'] = const FoundHashtag(
@@ -642,7 +641,7 @@ void main() {
         text: 'Lounge',
         id: 9,
       );
-      const registry = PluginRegistry([ResenhaPlugin()]);
+      const registry = PluginRegistry([_RoomHashtagPlugin()]);
 
       await pumpAway(
         tester,
@@ -657,7 +656,7 @@ void main() {
       expect(find.dIcon(DIcons.tag), findsNothing);
     });
 
-    testWidgets('an absent Resenha room keeps its unknown identity', (
+    testWidgets('an absent room plugin keeps its unknown identity', (
       tester,
     ) async {
       known['lounge'] = const FoundHashtag(
@@ -1149,6 +1148,25 @@ final class _FakeSyntaxPolicy implements ComposerSyntaxPolicy {
       _FakeSyntaxProjection(match.start, match.end, match.group(0)!),
   ];
 }
+
+final class _RoomHashtagPlugin implements SitePlugin, HashtagKindPlugin {
+  const _RoomHashtagPlugin();
+
+  @override
+  String get name => 'room-hashtag-test';
+
+  @override
+  List<PluginHashtagKind> get hashtagKinds => const [
+    PluginHashtagKind('room', _presentRoomHashtag),
+  ];
+}
+
+HashtagPresentation _presentRoomHashtag(HashtagPresentationRequest request) =>
+    HashtagPresentation.fromRequest(
+      request,
+      fallbackIcon: DIcons.microphoneLines,
+      colorPolicy: HashtagColorPolicy.none,
+    );
 
 final class _FakeSyntaxProjection implements ComposerSyntaxProjection {
   const _FakeSyntaxProjection(this.start, this.end, this.source);

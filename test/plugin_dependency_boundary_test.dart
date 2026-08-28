@@ -13,7 +13,6 @@ const _pluginIdsByDirectory = <String, String>{
   'local_dates': 'discourse-local-dates',
   'poll': 'poll',
   'reactions': 'discourse-reactions',
-  'resenha': 'resenha',
 };
 
 const _approvedCrossFeatureContracts = <String, String>{
@@ -21,7 +20,6 @@ const _approvedCrossFeatureContracts = <String, String>{
   'local_dates->chat': 'lib/src/plugins/chat/chat_preview_contract.dart',
   'discourse_github->local_dates':
       'lib/src/plugins/local_dates/local_dates_contract.dart',
-  'resenha->chat': 'lib/src/plugins/chat/chat_contract.dart',
 };
 
 const _removedCompatibilityFiles = <String>{
@@ -69,7 +67,12 @@ const _featureModuleEntrypoints = <String>{
   'local_dates/local_dates_module.dart',
   'poll/poll_module.dart',
   'reactions/reactions_module.dart',
-  'resenha/resenha_module.dart',
+};
+
+/// Public, contract-only plugin surfaces intentionally re-exported by the
+/// host SDK for separately packaged plugins.
+const _publicPluginContractExports = <String>{
+  'lib/discourse_plugin_sdk.dart->lib/src/plugins/chat/chat_contract.dart',
 };
 
 final _directiveStatements = RegExp(
@@ -80,6 +83,25 @@ final _directiveStatements = RegExp(
 final _quotedUris = RegExp(r'''['"]([^'"]+)['"]''');
 
 void main() {
+  test('external plugin packages consume only the public host SDK', () {
+    final violations = <String>[];
+
+    for (final file in _dartFilesUnder('packages/discourse_resenha/lib')) {
+      final source = file.readAsStringSync();
+      if (source.contains('package:discourse_native/src/')) {
+        violations.add(_workspacePath(file));
+      }
+    }
+
+    expect(
+      violations,
+      isEmpty,
+      reason:
+          'Plugin packages must use discourse_plugin_sdk.dart instead of '
+          'depending on core implementation paths.\n${violations.join('\n')}',
+    );
+  });
+
   test('core never imports or exports a plugin implementation', () {
     final violations = <String>[];
 
@@ -87,13 +109,18 @@ void main() {
       final path = _workspacePath(file);
       if (path.startsWith('lib/src/plugins/') ||
           path == 'lib/main.dart' ||
-          path == 'lib/discourse_full.dart') {
+          path == 'lib/discourse_bundled.dart') {
         continue;
       }
 
       for (final directive in _localDirectives(file)) {
         if (!directive.target.startsWith('lib/src/plugins/') &&
-            directive.target != 'lib/discourse_full.dart') {
+            directive.target != 'lib/discourse_bundled.dart') {
+          continue;
+        }
+        if (_publicPluginContractExports.contains(
+          '$path->${directive.target}',
+        )) {
           continue;
         }
         violations.add('$path:${directive.line} imports ${directive.uri}');
@@ -563,10 +590,9 @@ void main() {
       isNot(contains('on ShellController')),
     );
     expect(
-      File(
-        'lib/src/plugins/resenha/resenha_shell_service.dart',
-      ).readAsStringSync(),
-      isNot(contains('on ShellController')),
+      Directory('lib/src/plugins/resenha').existsSync(),
+      isFalse,
+      reason: 'Resenha is owned by packages/discourse_resenha.',
     );
   });
 }

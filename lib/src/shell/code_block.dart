@@ -142,7 +142,17 @@ class CodeLine {
 const String monospaceFontFamily = 'JetBrains Mono';
 
 /// Discourse's fallback stack, for glyphs JetBrains Mono does not contain.
-const List<String> monospaceFallback = ['Consolas', 'Monaco', 'monospace'];
+///
+/// Flutter prefixes fonts contributed by a dependency package. The full app
+/// consumes core as `discourse_native`, while the core app is the root package,
+/// so keeping both family names here makes the same text style correct in both
+/// build compositions without copying font assets into the full profile.
+const List<String> monospaceFallback = [
+  'packages/discourse_native/JetBrains Mono',
+  'Consolas',
+  'Monaco',
+  'monospace',
+];
 
 /// `font-variant-ligatures: none`, as set by Discourse for JetBrains Mono.
 ///
