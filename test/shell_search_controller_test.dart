@@ -96,6 +96,33 @@ void main() {
     expect(search.selectedResult, isNull);
   });
 
+  testWidgets('topic focus searches immediately inside only that topic', (
+    tester,
+  ) async {
+    final api = _SearchApi();
+    final search = _controller(api)..selectSite(site);
+    addTearDown(search.dispose);
+
+    search.requestTopicFocus(42);
+    search.setQuery('needle');
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(search.topicId, 42);
+    expect(search.mode, SearchMode.topics);
+    expect(api.terms, ['needle']);
+    expect(api.typeFilters, [null]);
+    expect(api.topicIds, [42]);
+
+    search.requestFocus();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(search.topicId, isNull);
+    expect(search.mode, SearchMode.facets);
+    expect(api.terms, ['needle', 'needle']);
+    expect(api.typeFilters, [null, 'exclude_topics']);
+    expect(api.topicIds, [42, null]);
+  });
+
   testWidgets('uses core assistants for trailing search modifiers', (
     tester,
   ) async {
@@ -536,6 +563,7 @@ const _facetedResults = SearchResults(
 class _SearchApi extends FakeDiscourseApi {
   final List<String> terms = [];
   final List<String?> typeFilters = [];
+  final List<int?> topicIds = [];
   final Map<String, Completer<SearchResults>> _answers = {};
   final List<String> hashtagTerms = [];
   final List<List<String>> hashtagOrders = [];
@@ -552,6 +580,7 @@ class _SearchApi extends FakeDiscourseApi {
     required String siteUrl,
     required String term,
     String? typeFilter,
+    int? topicId,
     bool searchForId = false,
     String? restrictToArchetype,
     String? apiKey,
@@ -559,6 +588,7 @@ class _SearchApi extends FakeDiscourseApi {
   }) {
     terms.add(term);
     typeFilters.add(typeFilter);
+    topicIds.add(topicId);
     return (_answers[term] ??= Completer<SearchResults>()).future;
   }
 

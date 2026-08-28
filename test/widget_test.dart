@@ -953,6 +953,72 @@ void main() {
       );
     });
 
+    testWidgets('Command F opens search scoped to the current topic', (
+      tester,
+    ) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final api = FakeDiscourseApi(
+          topics: {7: topicPayload(id: 7, title: 'Scoped topic')},
+          searchResults: const {'needle': SearchResults()},
+        );
+        final launched = watchBrowser(tester);
+        await pumpShell(tester, laptop, api: api);
+        final controller = ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        );
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isFalse);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+        controller.pushContent(
+          ContentRoute.topic(
+            topicId: 7,
+            slug: 'scoped-topic',
+            title: 'Scoped topic',
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isTrue);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pumpAndSettle();
+
+        expect(controller.search.topicId, 7);
+        expect(find.text('Search this topic'), findsOneWidget);
+        expect(
+          tester
+              .widget<EditableText>(find.byKey(ForumSearch.inputKey))
+              .focusNode
+              .hasFocus,
+          isTrue,
+        );
+
+        await tester.enterText(find.byKey(ForumSearch.inputKey), 'needle');
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+
+        expect(api.searchesRequested.single.term, 'needle');
+        expect(api.searchesRequested.single.typeFilter, isNull);
+        expect(api.searchesRequested.single.topicId, 7);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(launched, [
+          'https://meta.discourse.org/search?q=needle+topic%3A7',
+        ]);
+        expect(controller.search.topicId, isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+
     testWidgets('Ctrl Enter opens the selected result externally', (
       tester,
     ) async {

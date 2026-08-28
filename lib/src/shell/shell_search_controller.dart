@@ -67,6 +67,7 @@ typedef _SearchRequest = ({
   String siteUrl,
   String term,
   SearchMode mode,
+  int? topicId,
   _SuggestionMatch? suggestion,
   int revision,
 });
@@ -162,6 +163,7 @@ class ShellSearchController extends ChangeNotifier {
   bool _logSearchQueries = true;
   bool _taggingEnabled = true;
   bool _usePgHeadlinesForExcerpt = false;
+  int? _topicId;
   String _query = '';
   bool _panelOpen = false;
   SearchMode _mode = SearchMode.facets;
@@ -190,6 +192,7 @@ class ShellSearchController extends ChangeNotifier {
   bool _disposed = false;
 
   String? get siteUrl => _siteUrl;
+  int? get topicId => _topicId;
   String get query => _query;
   bool get panelOpen => _panelOpen;
   SearchMode get mode => _mode;
@@ -302,9 +305,9 @@ class ShellSearchController extends ChangeNotifier {
     final parsed = value.replaceAll(_zeroWidthCharacters, '');
     if (_query == parsed) return;
     _query = parsed;
-    // Input edits always reset core's `typeFilter` to `exclude_topics`. Topic
-    // mode is entered only by accepting an assistant row or pressing Enter.
-    _mode = SearchMode.facets;
+    // Global input edits reset core's `typeFilter` to `exclude_topics`. A
+    // topic-scoped field already searches posts, so it stays in topic mode.
+    _mode = _topicId == null ? SearchMode.facets : SearchMode.topics;
     _panelOpen = _activeField != null || parsed.trim().isNotEmpty;
     _schedule(parsed);
   }
@@ -354,6 +357,7 @@ class ShellSearchController extends ChangeNotifier {
       siteUrl: siteUrl,
       term: value,
       mode: _mode,
+      topicId: _topicId,
       suggestion: suggestion,
       revision: _revision,
     );
@@ -464,6 +468,7 @@ class ShellSearchController extends ChangeNotifier {
         siteUrl: request.siteUrl,
         term: request.term,
         typeFilter: request.mode == SearchMode.facets ? 'exclude_topics' : null,
+        topicId: request.topicId,
         apiKey: apiKey,
         clientId: clientId,
       );
@@ -678,7 +683,8 @@ class ShellSearchController extends ChangeNotifier {
       request.revision == _revision &&
       request.siteUrl == _siteUrl &&
       request.term == _query &&
-      request.mode == _mode;
+      request.mode == _mode &&
+      request.topicId == _topicId;
 
   void openPanel() {
     if (_siteUrl == null) return;
@@ -691,6 +697,10 @@ class ShellSearchController extends ChangeNotifier {
 
   void closePanel() {
     if (!_panelOpen) return;
+    if (_topicId != null) {
+      clear();
+      return;
+    }
     _panelOpen = false;
     _clearSelection();
     _notify();
@@ -716,12 +726,13 @@ class ShellSearchController extends ChangeNotifier {
     _revision++;
     _query = '';
     _panelOpen = false;
+    _topicId = null;
     _resetResultState();
     if (notify) _notify();
   }
 
   void _resetResultState() {
-    _mode = SearchMode.facets;
+    _mode = _topicId == null ? SearchMode.facets : SearchMode.topics;
     _phase = SearchSessionPhase.idle;
     _hits = const [];
     _sections = const [];
@@ -1001,6 +1012,27 @@ class ShellSearchController extends ChangeNotifier {
 
   void requestFocus() {
     if (_siteUrl == null) return;
+    _setTopicScope(null);
+    _focusSearchField();
+  }
+
+  void requestTopicFocus(int topicId) {
+    if (topicId <= 0) {
+      throw ArgumentError.value(topicId, 'topicId', 'must be positive');
+    }
+    if (_siteUrl == null) return;
+    _setTopicScope(topicId);
+    _focusSearchField();
+  }
+
+  void _setTopicScope(int? topicId) {
+    if (_topicId == topicId) return;
+    _topicId = topicId;
+    _mode = topicId == null ? SearchMode.facets : SearchMode.topics;
+    _schedule(_query, immediate: topicId != null && _query.trim().isNotEmpty);
+  }
+
+  void _focusSearchField() {
     _focusField?.call();
     openPanel();
   }

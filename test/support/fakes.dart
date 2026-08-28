@@ -940,7 +940,7 @@ class FakeDiscourseApi
   final Map<String, SearchResults> searchResults;
   final Completer<void>? searchGate;
   final SiteLookupFailure? searchFailure;
-  final List<({String siteUrl, String term, String? typeFilter})>
+  final List<({String siteUrl, String term, String? typeFilter, int? topicId})>
   searchesRequested = [];
   final List<({int searchLogId, Object resultId, SearchResultKind resultKind})>
   searchClicks = [];
@@ -1972,6 +1972,7 @@ class FakeDiscourseApi
     required String siteUrl,
     required String term,
     String? typeFilter,
+    int? topicId,
     bool searchForId = false,
     String? restrictToArchetype,
     String? apiKey,
@@ -1981,6 +1982,7 @@ class FakeDiscourseApi
       siteUrl: siteUrl,
       term: term,
       typeFilter: typeFilter,
+      topicId: topicId,
     ));
     await searchGate?.future;
     if (searchFailure case final failure?) {
