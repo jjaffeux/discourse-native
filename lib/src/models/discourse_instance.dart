@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../plugin_api/plugin_data.dart';
 import '../theme/d_icons.dart';
 import 'discourse_user.dart';
 import 'sidebar.dart';
@@ -26,7 +27,10 @@ class DiscourseInstance {
     this.config = const SiteConfig.unknown(),
   });
 
-  factory DiscourseInstance.fromJson(Map<String, dynamic> json) {
+  factory DiscourseInstance.fromJson(
+    Map<String, dynamic> json, {
+    PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+  }) {
     return DiscourseInstance(
       url: json['url'] as String,
       title: json['title'] as String,
@@ -36,7 +40,10 @@ class DiscourseInstance {
       loginRequired: json['loginRequired'] as bool? ?? false,
       user: json['user'] == null
           ? null
-          : DiscourseUser.fromJson(json['user'] as Map<String, dynamic>),
+          : DiscourseUser.fromJson(
+              json['user'] as Map<String, dynamic>,
+              extensions: extensions,
+            ),
       // Appearance is optional presentation metadata. An old, partial, or
       // malformed value must not make the whole site disappear from the rail.
       appearance: _appearanceFromJson(json['appearance']),
@@ -45,7 +52,10 @@ class DiscourseInstance {
       // stored entry unreadable; `InstanceStore` preserves the other sites.
       config: json['config'] == null
           ? const SiteConfig.unknown()
-          : SiteConfig.fromJson(json['config'] as Map<String, dynamic>),
+          : SiteConfig.fromJson(
+              json['config'] as Map<String, dynamic>,
+              extensions: extensions,
+            ),
     );
   }
 
@@ -105,16 +115,18 @@ class DiscourseInstance {
 
   bool get isConnected => user != null;
 
-  Map<String, dynamic> toJson() => {
+  Map<String, dynamic> toJson({
+    PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+  }) => {
     'url': url,
     'title': title,
     'description': description,
     'iconUrl': iconUrl,
     'apiVersion': apiVersion,
     'loginRequired': loginRequired,
-    'user': user?.toJson(),
+    'user': user?.toJson(extensions: extensions),
     'appearance': appearance?.toJson(),
-    'config': config.toJson(),
+    'config': config.toJson(extensions: extensions),
   };
 
   static SiteAppearance? _appearanceFromJson(Object? value) {

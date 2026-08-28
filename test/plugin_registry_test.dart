@@ -2,14 +2,18 @@ import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
-import 'package:discourse_native/src/plugins/site_plugin_api.dart' as api;
 import 'package:discourse_native/src/shell/post_action.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/bundled_plugins.dart';
 
 const _post = Post(id: 1, postNumber: 1, username: 'sam', cooked: '');
 const _topic = TopicDetail(id: 42, title: 'A topic', stream: [1]);
@@ -370,7 +374,9 @@ void main() {
       siteConfig: SiteConfig.unknown(),
     );
 
-    final result = registry.chatPreviewEngine.project(request);
+    final result = ChatPreviewEngine(
+      plugins: registry.chatPreviewPlugins,
+    ).project(request);
     final nodes = (result as ProjectedPreview).document.nodes
         .whereType<PluginPreviewNode>();
     expect(nodes.map((node) => node.featureId), ['first', 'second']);
@@ -380,7 +386,7 @@ void main() {
       _PreviewPlugin('same', '[two]'),
     ]);
     expect(
-      duplicate.chatPreviewEngine.project(request),
+      ChatPreviewEngine(plugins: duplicate.chatPreviewPlugins).project(request),
       isA<SourceFallback>().having(
         (fallback) => fallback.reason,
         'reason',
@@ -399,7 +405,8 @@ void main() {
       siteConfig: SiteConfig.unknown(),
     );
     final projected =
-        registry.chatPreviewEngine.project(request) as ProjectedPreview;
+        ChatPreviewEngine(plugins: registry.chatPreviewPlugins).project(request)
+            as ProjectedPreview;
     final node = projected.document.nodes.whereType<PluginPreviewNode>().single;
     Widget? built;
 
@@ -459,7 +466,8 @@ void main() {
       siteConfig: SiteConfig.unknown(),
     );
     final projected =
-        registry.chatPreviewEngine.project(request) as ProjectedPreview;
+        ChatPreviewEngine(plugins: registry.chatPreviewPlugins).project(request)
+            as ProjectedPreview;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -476,9 +484,59 @@ void main() {
     expect(find.text(raw), findsOneWidget);
     expect(find.text('before'), findsNothing);
   });
+
+  testWidgets(
+    'a non-bundled manifest preview contribution renders from active scopes',
+    (tester) async {
+      final installed = PluginInstaller.install(
+        const PluginManifest([_PreviewManifestModule()]),
+      );
+      final session = installed.openSession(const PluginHostBindings.empty());
+      addTearDown(() async {
+        await session.close();
+        await installed.close();
+      });
+
+      const request = ChatPreviewRequest(
+        raw: '[custom]',
+        siteConfig: SiteConfig.unknown(),
+      );
+      final projected =
+          ChatPreviewEngine(
+                plugins: installed.registry.chatPreviewPlugins,
+              ).project(request)
+              as ProjectedPreview;
+      Widget previewBody() => Scaffold(
+        body: ChatPreviewBody(document: projected.document, textStyle: null),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PluginScope(
+            session: session,
+            registry: installed.registry,
+            child: previewBody(),
+          ),
+        ),
+      );
+      expect(find.text('custom-preview'), findsOneWidget);
+      expect(find.text(request.raw), findsNothing);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PluginRegistryScope(
+            registry: installed.registry,
+            child: previewBody(),
+          ),
+        ),
+      );
+      expect(find.text('custom-preview'), findsOneWidget);
+      expect(find.text(request.raw), findsNothing);
+    },
+  );
 }
 
-final class _ApiFooterPlugin implements api.SitePlugin, api.PostFooterPlugin {
+final class _ApiFooterPlugin implements SitePlugin, PostFooterPlugin {
   const _ApiFooterPlugin();
 
   @override
@@ -548,6 +606,19 @@ final class _PreviewPlugin implements ChatMessagePreviewPlugin {
   Widget? buildPreviewNode(BuildContext context, PluginPreviewNode node) {
     if (throwsWhileBuilding) throw StateError('test renderer failed');
     return Text(previewFeatureId);
+  }
+}
+
+final class _PreviewManifestModule implements PluginModule {
+  const _PreviewManifestModule();
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('custom-preview'));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addCapability(const _PreviewPlugin('custom-preview', '[custom]'));
   }
 }
 

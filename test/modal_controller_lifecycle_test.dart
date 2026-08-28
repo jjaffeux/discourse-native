@@ -12,7 +12,7 @@ import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_shell_extension.dart';
 import 'package:discourse_native/src/shell/instance_actions.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
@@ -30,6 +30,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.example';
@@ -433,11 +434,11 @@ void main() {
       EmojiCache.instance = previousEmojiCache;
     });
 
-    final config = SiteConfig.fromSettings(const {
+    final config = installedPlugins.models.siteConfig(const {
       'discourse_reactions_enabled': true,
       'discourse_reactions_reaction_for_like': 'heart',
       'discourse_reactions_enabled_reactions': 'heart',
-    });
+    }, _siteUrl);
     final site = instance('meta.example').copyWith(config: config);
     final post = Post.fromJson(
       const {
@@ -644,11 +645,11 @@ Widget _contentHost(ShellController controller, Widget child) => ShellScope(
   ),
 );
 
-SiteConfig _reactionConfig() => SiteConfig.fromSettings(const {
+SiteConfig _reactionConfig() => installedPlugins.models.siteConfig(const {
   'discourse_reactions_enabled': true,
   'discourse_reactions_reaction_for_like': 'heart',
   'discourse_reactions_enabled_reactions': 'heart',
-});
+}, _siteUrl);
 
 Post _reactablePost() => Post.fromJson(
   const {

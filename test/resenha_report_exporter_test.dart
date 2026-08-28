@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:discourse_native/src/diagnostics/resenha_report_exporter.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_report_exporter.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 

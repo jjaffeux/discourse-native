@@ -30,10 +30,10 @@ final RegExp _youtubeTime = RegExp(r'^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$');
 
 /// The YouTube fields Discourse preserves in cooked HTML.
 ///
-/// This parser deliberately understands both the lazy-video plugin's `div`
-/// and core Onebox's iframe fallback. The renderer never has to trust an
-/// arbitrary cooked iframe: only exact YouTube hosts, paths and identifiers
-/// reach [YoutubePlayerSurface].
+/// Core understands Onebox's iframe fallback. Bundled provider plugins can
+/// construct the same data from their own cooked markup, so the renderer never
+/// has to trust an arbitrary iframe: only validated YouTube hosts, paths and
+/// identifiers reach [YoutubePlayerSurface].
 @immutable
 final class YoutubeVideoData {
   const YoutubeVideoData({
@@ -73,12 +73,9 @@ final class YoutubeVideoData {
     return Uri.https('www.youtube.com', path, query);
   }
 
-  /// Claims a cooked lazy-video container or core YouTube iframe.
-  static YoutubeVideoData? tryParse(dom.Element element) {
-    if (_isLazyYoutube(element)) return _fromLazyContainer(element);
-    if (_isCoreYoutubeIframe(element)) return _fromCoreIframe(element);
-    return null;
-  }
+  /// Claims core Onebox's legacy YouTube iframe fallback.
+  static YoutubeVideoData? tryParseCoreIframe(dom.Element element) =>
+      _isCoreYoutubeIframe(element) ? _fromCoreIframe(element) : null;
 
   /// Parses the URL forms accepted by Discourse's YouTube onebox engine.
   static YoutubeVideoData? tryParseUrl(String value) {
@@ -86,31 +83,31 @@ final class YoutubeVideoData {
     if (uri == null || !_isSafeYoutubeUri(uri)) return null;
 
     String? videoId;
-    String? listId = _sanitizeId(_firstQuery(uri, 'list'));
+    String? listId = sanitizeYoutubeId(_firstQuery(uri, 'list'));
     final segments = uri.pathSegments.where((part) => part.isNotEmpty).toList();
 
     if (uri.host == 'youtu.be') {
-      if (segments.isNotEmpty) videoId = _sanitizeId(segments.first);
+      if (segments.isNotEmpty) videoId = sanitizeYoutubeId(segments.first);
     } else if (segments.length >= 2 && segments.first == 'embed') {
       if (segments[1] == 'videoseries') {
         // A playlist-only iframe has no video id.
       } else {
-        videoId = _sanitizeId(segments[1]);
+        videoId = sanitizeYoutubeId(segments[1]);
       }
     } else if (segments.length >= 2 &&
         const {'shorts', 'live'}.contains(segments.first)) {
-      videoId = _sanitizeId(segments[1]);
+      videoId = sanitizeYoutubeId(segments[1]);
     } else if (segments.length == 1 && segments.first == 'watch') {
-      videoId = _sanitizeId(_firstQuery(uri, 'v'));
+      videoId = sanitizeYoutubeId(_firstQuery(uri, 'v'));
     }
 
     if (videoId == null && listId == null) return null;
 
     final start =
-        _parseYoutubeTime(_firstQuery(uri, 'start')) ??
-        _parseYoutubeTime(_firstQuery(uri, 't')) ??
+        parseYoutubeTime(_firstQuery(uri, 'start')) ??
+        parseYoutubeTime(_firstQuery(uri, 't')) ??
         _fragmentStart(uri.fragment);
-    final end = _parseYoutubeTime(_firstQuery(uri, 'end'));
+    final end = parseYoutubeTime(_firstQuery(uri, 'end'));
     final title = videoId == null ? 'YouTube playlist' : 'YouTube video';
 
     return YoutubeVideoData(
@@ -123,41 +120,6 @@ final class YoutubeVideoData {
       startSeconds: start,
       endSeconds: end,
       loop: uri.queryParametersAll.containsKey('loop'),
-    );
-  }
-
-  static YoutubeVideoData? _fromLazyContainer(dom.Element element) {
-    final link = element.querySelector('a[href]');
-    final fromUrl = link == null
-        ? null
-        : YoutubeVideoData.tryParseUrl(link.attributes['href'] ?? '');
-    final videoId =
-        _sanitizeId(element.attributes['data-video-id']) ?? fromUrl?.videoId;
-    final listId =
-        _sanitizeId(element.attributes['data-video-list-id']) ??
-        fromUrl?.listId;
-    if (videoId == null && listId == null) return null;
-
-    final image = element.querySelector('img.youtube-thumbnail');
-    final title =
-        element.attributes['data-video-title']?.trim().nullIfEmpty ??
-        image?.attributes['title']?.trim().nullIfEmpty ??
-        (videoId == null ? 'YouTube playlist' : 'YouTube video');
-
-    return YoutubeVideoData(
-      videoId: videoId,
-      listId: listId,
-      title: title,
-      thumbnailUrl:
-          image?.attributes['src']?.trim().nullIfEmpty ??
-          (videoId == null
-              ? null
-              : 'https://img.youtube.com/vi/$videoId/maxresdefault.jpg'),
-      startSeconds:
-          _parseYoutubeTime(element.attributes['data-video-start-time']) ??
-          fromUrl?.startSeconds,
-      endSeconds: fromUrl?.endSeconds,
-      loop: fromUrl?.loop ?? false,
     );
   }
 
@@ -192,12 +154,6 @@ final class YoutubeVideoData {
     );
   }
 
-  static bool _isLazyYoutube(dom.Element element) =>
-      element.localName == 'div' &&
-      element.classes.contains('lazy-video-container') &&
-      element.classes.contains('youtube-onebox') &&
-      element.attributes['data-provider-name'] == 'youtube';
-
   static bool _isCoreYoutubeIframe(dom.Element element) =>
       element.localName == 'iframe' &&
       element.classes.contains('youtube-onebox');
@@ -207,7 +163,7 @@ final class YoutubeVideoData {
 /// YouTube preview/player for markup this client recognises.
 Widget? youtubeVideoWidgetBuilder(dom.Element element, {String? siteUrl}) {
   if (_isHiddenCoreThumbnail(element)) return const SizedBox.shrink();
-  final data = YoutubeVideoData.tryParse(element);
+  final data = YoutubeVideoData.tryParseCoreIframe(element);
   if (data == null) return null;
   return YoutubeVideo(data: data, siteUrl: siteUrl);
 }
@@ -219,7 +175,7 @@ bool _isHiddenCoreThumbnail(dom.Element element) {
     return false;
   }
   final next = element.nextElementSibling;
-  return next != null && YoutubeVideoData.tryParse(next) != null;
+  return next != null && YoutubeVideoData.tryParseCoreIframe(next) != null;
 }
 
 bool _isSafeYoutubeUri(Uri uri) {
@@ -233,7 +189,9 @@ bool _isSafeYoutubeUri(Uri uri) {
       (uri.scheme == 'http' && uri.port == 80);
 }
 
-String? _sanitizeId(String? value) {
+/// Validates an identifier before provider-owned cooked markup can feed it to
+/// the shared YouTube player.
+String? sanitizeYoutubeId(String? value) {
   final candidate = value?.trim();
   if (candidate == null ||
       candidate.isEmpty ||
@@ -249,10 +207,12 @@ String? _firstQuery(Uri uri, String key) =>
 
 int? _fragmentStart(String fragment) {
   if (!fragment.startsWith('t=')) return null;
-  return _parseYoutubeTime(fragment.substring(2));
+  return parseYoutubeTime(fragment.substring(2));
 }
 
-int? _parseYoutubeTime(String? value) {
+/// Parses the plain-second and `1h2m3s` forms used by YouTube URLs and cooked
+/// provider attributes.
+int? parseYoutubeTime(String? value) {
   final candidate = value?.trim();
   if (candidate == null || candidate.isEmpty) return null;
   final seconds = int.tryParse(candidate);

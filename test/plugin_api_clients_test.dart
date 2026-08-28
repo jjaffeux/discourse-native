@@ -1,11 +1,12 @@
 import 'package:discourse_native/src/data/plugin_transport.dart';
-import 'package:discourse_native/src/plugins/discourse_model_codec.dart';
+import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_api_client.dart';
 import 'package:discourse_native/src/plugins/poll/poll_api.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api_client.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/bundled_plugins.dart';
 
 void main() {
   test(

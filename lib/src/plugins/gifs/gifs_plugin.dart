@@ -2,20 +2,35 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../plugin_api/plugin_scope.dart';
+import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_scope.dart';
-import '../plugin_services.dart';
-import '../site_plugin_api.dart';
 import 'gif_picker.dart';
+import 'gifs_services.dart';
+import 'gifs_settings.dart';
+
+export 'gifs_settings.dart';
 
 /// Discourse core's authenticated Klipy picker contribution.
-class GifsPlugin implements SitePlugin, ComposerToolbarPlugin {
+class GifsPlugin
+    implements
+        SitePlugin,
+        SiteSettingsPlugin<GifsSettings>,
+        ComposerToolbarPlugin {
   const GifsPlugin();
 
   @override
   String get name => 'gifs';
+
+  @override
+  PluginDataPersistenceCodec<GifsSettings> get siteSettingsCodec =>
+      gifsSettingsPersistenceCodec;
+
+  @override
+  GifsSettings readSiteSettings(Map<String, dynamic> json, String siteUrl) =>
+      GifsSettings.fromSiteSettings(json);
 
   @override
   List<ComposerToolbarContribution> composerToolbar(
@@ -26,7 +41,7 @@ class GifsPlugin implements SitePlugin, ComposerToolbarPlugin {
     if (shell == null ||
         composer.target.isPlugin ||
         composer.loadingBody ||
-        !shell.siteConfigFor(composer.target.siteUrl).gifsEnabled) {
+        !shell.siteConfigFor(composer.target.siteUrl).gifsSettings.enabled) {
       return const [];
     }
     return [
@@ -48,14 +63,14 @@ Future<void> openGifPickerForComposer(
   final shell = ShellScope.maybeRead(context);
   if (shell == null ||
       !identical(shell.visibleComposer, composer) ||
-      !shell.siteConfigFor(composer.target.siteUrl).gifsEnabled) {
+      !shell.siteConfigFor(composer.target.siteUrl).gifsSettings.enabled) {
     return;
   }
 
   final expectedDocument = composer.text.text;
   final expectedSelection = composer.text.selection;
   final siteUrl = composer.target.siteUrl;
-  final api = PluginScope.maybeOf(context)?.service(gifsApiService);
+  final api = PluginScope.maybeOf(context)?.maybeService(gifsApiService);
   if (api == null) return;
   final result = await showGifPicker(
     context: context,
@@ -63,7 +78,7 @@ Future<void> openGifPickerForComposer(
     api: api,
     credentials: shell.authenticator,
     lifecycle: shell.lifecycle,
-    config: shell.siteConfigFor(siteUrl),
+    settings: shell.siteConfigFor(siteUrl).gifsSettings,
   );
   if (result == null || !context.mounted) return;
 
@@ -71,7 +86,7 @@ Future<void> openGifPickerForComposer(
       identical(ShellScope.maybeRead(context), shell) &&
       identical(shell.visibleComposer, composer) &&
       composer.text.text == expectedDocument &&
-      shell.siteConfigFor(siteUrl).gifsEnabled;
+      shell.siteConfigFor(siteUrl).gifsSettings.enabled;
   if (!stillCurrent) {
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       const SnackBar(

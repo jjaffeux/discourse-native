@@ -74,6 +74,63 @@ abstract interface class PluginRecord<T extends Object> {
   PluginDataKey<T> get record;
 }
 
+/// Decodes one installed plugin's contribution to `/site/settings.json`.
+///
+/// The same capability supplies the codec for the namespaced warm-start copy.
+/// Core never learns the wire or stored keys owned by the feature.
+abstract interface class SiteSettingsPlugin<T extends Object> {
+  PluginDataPersistenceCodec<T> get siteSettingsCodec;
+
+  T? readSiteSettings(Map<String, dynamic> json, String siteUrl);
+}
+
+/// Decodes one installed plugin's contribution to `/session/current.json`.
+///
+/// Presence-sensitive fields (for example Assign's nullable permissions) are
+/// interpreted here rather than flattened by [DiscourseUser].
+abstract interface class CurrentUserPlugin<T extends Object> {
+  PluginDataPersistenceCodec<T> get currentUserCodec;
+
+  T? readCurrentUser(Map<String, dynamic> json, String siteUrl);
+}
+
+/// Resolves a named write permission without exposing a feature's typed
+/// current-user value to the shell compatibility layer.
+///
+/// Target-specific payload permission remains authoritative when present.
+abstract interface class PluginPermissionPlugin {
+  String get permissionId;
+
+  bool allowsPermission(PluginData currentUser, bool? recordPermission);
+}
+
+/// Resolves a top-level capability which still has a core-owned navigation
+/// host. This is a narrow compatibility seam until those surfaces become UI
+/// contributions in their own right.
+abstract interface class PluginSiteFeature {
+  bool siteFeatureEnabled(PluginData siteSettings);
+}
+
+/// Resolves a top-level capability still mounted by a core-owned account UI.
+///
+/// This is the current-user counterpart to [PluginSiteFeature]. It keeps the
+/// compatibility host opaque to the feature's typed session value until that
+/// UI becomes a plugin contribution of its own.
+abstract interface class PluginCurrentUserFeature {
+  bool currentUserFeatureEnabled(PluginData currentUser);
+}
+
+/// Supplies the generic composer projection limit currently shared by every
+/// syntax contribution. Poll is its only provider today.
+abstract interface class ComposerMaximumOptionsPlugin {
+  int composerMaximumOptions(PluginData siteSettings);
+}
+
+/// Narrows core's shared upload service for a plugin-owned composer target.
+abstract interface class ComposerUploadPolicyPlugin {
+  bool allowsComposerUploads(PluginData siteSettings, {required bool isChat});
+}
+
 /// A feature record embedded in a post payload.
 abstract interface class PostRecordPlugin<T extends Object>
     implements PluginRecord<T> {
@@ -216,6 +273,35 @@ abstract interface class PostBodyPlugin {
 /// fragments. The first plugin to recognize an element owns it.
 abstract interface class CookedElementPlugin {
   Widget? cookedElement(String? siteUrl, dom.Element element);
+}
+
+/// Adds a small widget ahead of an inline cooked element without replacing
+/// the element's flowing text.
+///
+/// A normal cooked-element replacement becomes one indivisible [WidgetSpan].
+/// Provider decorations such as a pull-request status icon need the linked
+/// title to remain real text so it can wrap with the surrounding paragraph.
+/// The cooked renderer owns that low-level text-tree integration; plugins only
+/// contribute the widget and its alignment.
+abstract interface class CookedInlinePlugin {
+  CookedInlinePrefix? cookedInlinePrefix(dom.Element element);
+}
+
+@immutable
+final class CookedInlinePrefix {
+  const CookedInlinePrefix({
+    required this.child,
+    this.alignment = PlaceholderAlignment.middle,
+    this.excludeLinkSemantics = false,
+  });
+
+  final Widget child;
+  final PlaceholderAlignment alignment;
+
+  /// Whether the link recognizer around [child] should be hidden from the
+  /// semantics tree. Set this when the element's text already exposes the
+  /// same named link and the prefix is only visual decoration.
+  final bool excludeLinkSemantics;
 }
 
 /// Claims the footer under a post.

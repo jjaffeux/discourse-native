@@ -6,11 +6,8 @@ import 'package:flutter/foundation.dart';
 import '../../diagnostics/diagnostic_event.dart';
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../diagnostics/diagnostics_persistence.dart';
-import '../../diagnostics/resenha_report_exporter.dart';
 import 'resenha_diagnostics.dart';
-
-export '../../diagnostics/resenha_report_exporter.dart'
-    show ResenhaClipboardReport, boundResenhaReportForClipboard;
+import 'resenha_report_exporter.dart';
 
 /// Builds the combined ordinary and deep-capture Resenha diagnostics surface.
 ///

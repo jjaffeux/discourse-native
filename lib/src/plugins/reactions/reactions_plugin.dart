@@ -3,15 +3,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/post.dart';
+import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/post_action.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
-import '../site_plugin_api.dart';
 import 'reaction.dart';
 import 'reaction_picker.dart';
 import 'reactions_row.dart';
+import 'reactions_settings.dart';
 import 'reactions_shell_extension.dart';
+
+export 'reactions_settings.dart';
 
 /// `discourse-reactions`, as this app knows it.
 ///
@@ -29,6 +32,7 @@ import 'reactions_shell_extension.dart';
 class ReactionsPlugin
     implements
         SitePlugin,
+        SiteSettingsPlugin<ReactionsSettings>,
         PostRecordPlugin<Reactions>,
         PostFooterPlugin,
         PostMenuPlugin,
@@ -37,6 +41,16 @@ class ReactionsPlugin
 
   @override
   String get name => 'discourse-reactions';
+
+  @override
+  PluginDataPersistenceCodec<ReactionsSettings> get siteSettingsCodec =>
+      reactionsSettingsPersistenceCodec;
+
+  @override
+  ReactionsSettings readSiteSettings(
+    Map<String, dynamic> json,
+    String siteUrl,
+  ) => ReactionsSettings.fromSiteSettings(json);
 
   @override
   PluginDataKey<Reactions> get record => reactionsDataKey;
@@ -74,11 +88,11 @@ class ReactionsPlugin
   /// on a tap that would destroy their clap and replace it. Discourse's own
   /// client labels from the held reaction for exactly this reason.
   ///
-  /// The third row is why `SiteConfig.mainReaction` is nullable: the setting
-  /// behind it is enum-constrained to the reactions a site allows, and `heart`
-  /// is not in the default enabled list — so guessing it on a site whose admin
-  /// chose `+1` earns a 422 whose body says only "Sorry, an error has
-  /// occurred." A slower first interaction is better than a wrong write.
+  /// The third row is why [ReactionsSettings.mainReaction] is nullable: the
+  /// setting behind it is enum-constrained to the reactions a site allows, and
+  /// `heart` is not in the default enabled list — so guessing it on a site
+  /// whose admin chose `+1` earns a 422 whose body says only "Sorry, an error
+  /// has occurred." A slower first interaction is better than a wrong write.
   static String _channelFor(int topicId) => '/topic/$topicId/reactions';
 
   /// The plugin publishes here whenever anyone reacts to a post in the topic.
@@ -120,7 +134,8 @@ class ReactionsPlugin
     final controller = ShellScope.read(context);
     final config = controller.siteConfigFor(siteUrl);
     final held = post.reactions!.mine;
-    final target = held?.id ?? config.mainReaction;
+    final settings = config.reactionsSettings;
+    final target = held?.id ?? settings.mainReaction;
     final writeInFlight = controller.postWriteInFlight(
       post.id,
       siteUrl: siteUrl,
@@ -170,7 +185,7 @@ class ReactionsPlugin
             report(controller.toggleReaction(post, target, siteUrl: siteUrl));
           },
         ),
-        if (target != null && config.offeredReactions.isNotEmpty)
+        if (target != null && settings.offeredReactions.isNotEmpty)
           PostAction(
             icon: DIcons.farFaceSmile,
             placement: PostActionPlacement.toolbar,

@@ -1,6 +1,6 @@
 import '../../models/bookmark.dart';
 import '../../models/json.dart';
-import '../plugin_manifest.dart';
+import '../../plugin_api/plugin_manifest.dart';
 
 const chatMessageBookmarkTarget = BookmarkTargetType(
   owner: PluginId('chat'),

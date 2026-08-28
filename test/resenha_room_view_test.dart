@@ -10,7 +10,6 @@ import 'package:discourse_native/src/plugins/resenha/resenha_media.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_models.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_preferences.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_room_view.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +20,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 // ignore: implementation_imports
 import 'package:flutter_webrtc/src/native/media_stream_track_impl.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://voice.example.com';

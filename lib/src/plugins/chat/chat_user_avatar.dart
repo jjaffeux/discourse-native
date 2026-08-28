@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/avatar_image.dart';
 import '../../theme/app_theme.dart';
-import '../plugin_scope.dart';
-import '../plugin_services.dart';
+import 'chat_services.dart';
 
 /// A chat avatar with Discourse's live online treatment.
 ///

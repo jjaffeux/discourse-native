@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_scope.dart';
-import '../plugin_services.dart';
+import 'chat_plugin_data.dart';
 import 'chat_search_controller.dart';
+import 'chat_services.dart';
 import 'chat_shell_extension.dart';
 
 class ChatChannelSearchButton extends StatelessWidget {
@@ -27,8 +28,8 @@ class ChatChannelSearchButton extends StatelessWidget {
         final instance = shell.currentInstance;
         return instance?.url == siteUrl &&
             instance!.isConnected &&
-            instance.config.chatSearchEnabled &&
-            instance.user?.hasChatEnabled != false &&
+            instance.config.chatSettings.searchEnabled &&
+            instance.user?.chatCurrentUser?.hasChatEnabled != false &&
             shell.currentTotals?.hasChatEnabled == true;
       },
       builder: (context, available, _) {

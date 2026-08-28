@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../models/json.dart';
-import '../plugin_data.dart';
+import '../../plugin_api/plugin_data.dart';
 
 const aiSummaryAvailabilityDataKey = PluginDataKey<AiSummaryAvailability>(
   owner: 'discourse-ai',

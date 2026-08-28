@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../models/bookmark.dart';
 import '../../models/post_flag.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/cooked_html.dart';
 import '../../shell/emoji_picker.dart';
 import '../../shell/hover_action_toolbar.dart';
@@ -20,9 +21,7 @@ import '../../shell/user_status.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_scope.dart';
-import '../plugin_services.dart';
-import '../reactions/reaction_pill.dart';
+import '../reactions/reactions_contract.dart';
 import 'chat_bookmark_ui.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
@@ -30,6 +29,7 @@ import 'chat_emoji_usage.dart';
 import 'chat_message.dart';
 import 'chat_preview.dart';
 import 'chat_preview_body.dart';
+import 'chat_services.dart';
 import 'chat_uploads.dart';
 import 'chat_user_avatar.dart';
 

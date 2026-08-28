@@ -7,17 +7,18 @@ import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
 
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/select.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_scope.dart';
-import '../plugin_services.dart';
 import 'resenha_controller.dart';
 import 'resenha_models.dart';
 import 'resenha_room_editor.dart';
+import 'resenha_services.dart';
+import 'resenha_settings.dart';
 
 export 'resenha_room_editor.dart' show showResenhaRoomEditor;
 
@@ -48,7 +49,7 @@ class ResenhaRoomView extends StatelessWidget {
             inRoom &&
             call!.room.canManage &&
             call.media.transport == ResenhaTransport.livekit &&
-            shell.siteConfigFor(site.url).resenha.recordingEnabled;
+            shell.siteConfigFor(site.url).resenhaSettings.recordingEnabled;
         return Focus(
           autofocus: true,
           onKeyEvent: (_, event) {
@@ -1046,7 +1047,7 @@ ResenhaController _resolveController(
   ResenhaController Function()? resolver,
 ) =>
     resolver?.call() ??
-    PluginScope.maybeOf(context)?.service(resenhaControllerService) ??
+    PluginScope.maybeOf(context)?.maybeService(resenhaControllerService) ??
     fallback;
 
 Future<void> showResenhaChat(

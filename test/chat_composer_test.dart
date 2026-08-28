@@ -8,17 +8,22 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
-import 'package:discourse_native/src/plugins/plugin_scope.dart';
-import 'package:discourse_native/src/plugins/plugin_services.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
+import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
+import 'package:discourse_native/src/plugins/poll/poll_data.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -29,11 +34,26 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _site = 'https://chat.example';
-const _gifsConfig = SiteConfig(gifsEnabled: true, localDatesEnabled: true);
-const _pollUser = DiscourseUser(id: 7, username: 'reader', canCreatePoll: true);
+final _gifsConfig = SiteConfig(
+  plugins: PluginData.none
+      .withValue(gifsSettingsDataKey, const GifsSettings(enabled: true))
+      .withValue(
+        localDatesSettingsDataKey,
+        const LocalDatesSettings(enabled: true),
+      ),
+);
+final _pollUser = DiscourseUser(
+  id: 7,
+  username: 'reader',
+  plugins: PluginData.none.withValue(
+    pollCurrentUserDataKey,
+    const PollCurrentUser(canCreatePoll: true),
+  ),
+);
 const _gif = GifResult(
   title: 'Party parrot',
   url: 'https://cdn.example/party.webp',
@@ -46,7 +66,7 @@ void main() {
     'site config listenable is narrow and ignores another site changes',
     (tester) async {
       const otherSite = 'https://other.example';
-      const otherConfig = SiteConfig(gifsEnabled: true);
+      const otherConfig = SiteConfig(userStatusEnabled: true);
       final fixture = await _fixture(
         pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
         additionalInstances: const [
@@ -323,7 +343,12 @@ void main() {
   ) async {
     final fixture = await _fixture(
       pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
-      config: const SiteConfig(chatUploadsEnabled: false),
+      config: SiteConfig(
+        plugins: PluginData.none.withValue(
+          chatSettingsDataKey,
+          const ChatSettings(uploadsEnabled: false),
+        ),
+      ),
     );
     addTearDown(fixture.shell.dispose);
     await tester.pumpWidget(_TestView(shell: fixture.shell));

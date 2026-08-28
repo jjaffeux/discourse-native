@@ -1,5 +1,5 @@
 import 'package:discourse_native/src/models/post.dart';
-import 'package:discourse_native/src/plugins/plugin_data.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

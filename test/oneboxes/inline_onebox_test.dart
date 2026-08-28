@@ -1,5 +1,7 @@
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugins/discourse_github/discourse_github_plugin.dart';
+import 'package:discourse_native/src/plugins/discourse_github/oneboxes/github.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
-import 'package:discourse_native/src/shell/oneboxes/github/github.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
@@ -33,7 +35,12 @@ Future<void> pumpCooked(WidgetTester tester, String html) async {
     MaterialApp(
       theme: AppTheme.dark,
       home: Scaffold(
-        body: SingleChildScrollView(child: CookedHtml(html: html)),
+        body: SingleChildScrollView(
+          child: CookedHtml(
+            html: html,
+            registry: const PluginRegistry([DiscourseGithubPlugin()]),
+          ),
+        ),
       ),
     ),
   );

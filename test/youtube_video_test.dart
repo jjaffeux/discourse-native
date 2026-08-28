@@ -1,3 +1,6 @@
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugins/discourse_lazy_videos/discourse_lazy_videos_plugin.dart';
+import 'package:discourse_native/src/plugins/discourse_lazy_videos/lazy_youtube.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
@@ -37,7 +40,7 @@ void main() {
 ''')
           .querySelector('div')!;
 
-      final data = YoutubeVideoData.tryParse(element);
+      final data = parseLazyYoutubeVideo(element);
 
       expect(data, isNotNull);
       expect(data!.videoId, 'dQw4w9WgXcQ');
@@ -62,7 +65,9 @@ void main() {
 </iframe>
 ''');
 
-      final data = YoutubeVideoData.tryParse(document.querySelector('iframe')!);
+      final data = YoutubeVideoData.tryParseCoreIframe(
+        document.querySelector('iframe')!,
+      );
 
       expect(data, isNotNull);
       expect(data!.videoId, 'dQw4w9WgXcQ');
@@ -82,7 +87,7 @@ void main() {
 ''')
           .querySelector('iframe')!;
 
-      final data = YoutubeVideoData.tryParse(iframe);
+      final data = YoutubeVideoData.tryParseCoreIframe(iframe);
 
       expect(data, isNotNull);
       expect(data!.videoId, isNull);
@@ -150,8 +155,8 @@ void main() {
 ''')
           .querySelector('iframe')!;
 
-      expect(YoutubeVideoData.tryParse(wrongProvider), isNull);
-      expect(YoutubeVideoData.tryParse(badIframe), isNull);
+      expect(parseLazyYoutubeVideo(wrongProvider), isNull);
+      expect(YoutubeVideoData.tryParseCoreIframe(badIframe), isNull);
     });
   });
 
@@ -496,6 +501,7 @@ void main() {
                 child: CookedHtml(
                   html: lazyMarkup,
                   siteUrl: 'https://meta.discourse.org',
+                  registry: const PluginRegistry([DiscourseLazyVideosPlugin()]),
                   compactParagraphs: compact,
                 ),
               ),
@@ -507,6 +513,24 @@ void main() {
         expect(find.byType(YoutubeVideo), findsOneWidget);
         expect(tester.getSize(find.byType(YoutubeVideo)).width, 600);
       }
+    });
+
+    testWidgets('requires the lazy-video provider contribution', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: CookedHtml(
+              html: lazyMarkup,
+              siteUrl: 'https://meta.discourse.org',
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(YoutubeVideo), findsNothing);
     });
 
     testWidgets('claims the legacy core iframe fallback', (tester) async {

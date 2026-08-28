@@ -115,6 +115,12 @@ abstract interface class PluginRegistrar {
 
   void addAppLifecycle(PluginAppLifecycle lifecycle);
 
+  void addRouteNamespace(String namespace);
+
+  void addSyntaxId(String syntaxId);
+
+  void addExclusiveClaim(String claim);
+
   void addSession(
     PluginSessionFactory factory, {
     Iterable<PluginHostPortKey<Object>> requires,
@@ -248,8 +254,22 @@ final class PluginHostPort<T extends Object> {
   final T Function(PluginId consumer)? scopeToConsumer;
 }
 
+/// Services exposed by modules this module explicitly depends on.
+///
+/// The runtime supplies an immutable snapshot containing only services that
+/// were created before the consumer's session factory ran. Both lookup methods
+/// reject keys owned by modules absent from the consumer's descriptor.
+abstract interface class PluginDependencies {
+  T require<T extends Object>(PluginServiceKey<T> key);
+
+  T? maybe<T extends Object>(PluginServiceKey<T> key);
+}
+
 typedef PluginSessionFactory =
-    PluginSessionContribution Function(PluginHostBindings bindings);
+    PluginSessionContribution Function(
+      PluginHostBindings bindings,
+      PluginDependencies dependencies,
+    );
 
 final class PluginSessionContribution {
   PluginSessionContribution({

@@ -44,7 +44,9 @@ const List<Contract> contracts = [
   Contract(
     name: 'onebox',
     snapshot: 'tool/onebox_snapshot',
-    readers: 'lib/src/shell/oneboxes/',
+    readers:
+        'lib/src/shell/oneboxes/, lib/src/plugins/discourse_github/, and '
+        'lib/src/plugins/discourse_lazy_videos/',
     watched: oneboxWatched,
   ),
   Contract(
@@ -149,7 +151,7 @@ const List<String> oneboxWatched = [
   'lib/onebox/templates/twitterstatus.mustache',
   // The `<pre><code><ol class="lines">` shape CodeBlock reads.
   'lib/onebox/templates/githubblob.mustache',
-  // The GitHub engines with native bodies under oneboxes/github/.
+  // The GitHub engines with native bodies under plugins/discourse_github/.
   'lib/onebox/templates/githubissue.mustache',
   'lib/onebox/templates/githubpullrequest.mustache',
   'lib/onebox/templates/githubcommit.mustache',
@@ -163,9 +165,9 @@ const List<String> oneboxWatched = [
   // The `--gh-status-*` classes and their colors, read by the pull request
   // oneboxes and their inline variants.
   'plugins/discourse-github/assets/stylesheets/common/github-pr-status.scss',
-  // Core's direct iframe fallback and the default lazy-video replacement are
-  // both parsed by youtube_video.dart. The component files define the data
-  // attributes, time conversion and iframe parameters mirrored natively.
+  // Core's direct iframe fallback is parsed by youtube_video.dart. The bundled
+  // lazy-video provider owns its replacement parser. These sources define the
+  // data attributes, time conversion and iframe parameters mirrored natively.
   'lib/onebox/engine/youtube_onebox.rb',
   'plugins/discourse-lazy-videos/lib/discourse_lazy_videos/lazy_youtube.rb',
   'plugins/discourse-lazy-videos/assets/javascripts/lib/'

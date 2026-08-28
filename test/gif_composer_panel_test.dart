@@ -4,8 +4,9 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
+import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/shell/composer_images.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -14,6 +15,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _site = 'https://meta.discourse.org';
@@ -22,6 +24,13 @@ const _gif = GifResult(
   url: 'https://media.klipy.example/dance.webp',
   width: 320,
   height: 180,
+);
+
+SiteConfig _gifConfig({required bool enabled}) => SiteConfig(
+  plugins: PluginData.none.withValue(
+    gifsSettingsDataKey,
+    GifsSettings(enabled: enabled),
+  ),
 );
 
 final class _GatedSiteConfigApi extends FakeDiscourseApi {
@@ -69,7 +78,7 @@ FakeDiscourseApi _api({required bool enabled}) => FakeDiscourseApi(
   user: const DiscourseUser(id: 7, username: 'reader'),
   feeds: const {'/latest.json': <Topic>[]},
   topics: {7: topicPayload(id: 7, title: 'GIFs', canCreatePost: true)},
-  siteConfigs: {_site: SiteConfig(gifsEnabled: enabled, gifFileDetail: 'webp')},
+  siteConfigs: {_site: _gifConfig(enabled: enabled)},
   gifSearchPages: {
     FakeDiscourseApi.gifSearchKey('dance'): GifSearchPage(
       results: const [_gif],
@@ -130,7 +139,7 @@ void main() {
     await _pumpComposer(tester, shell);
     expect(find.byTooltip('Search GIFs'), findsNothing);
 
-    api.response.complete(const SiteConfig(gifsEnabled: true));
+    api.response.complete(_gifConfig(enabled: true));
     for (var frame = 0; frame < 6; frame++) {
       await tester.pump(const Duration(milliseconds: 1));
     }

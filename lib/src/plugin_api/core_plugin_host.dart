@@ -167,7 +167,7 @@ const corePluginSiteStatePort = PluginHostPortKey<PluginSiteStateHost>(
   name: 'site-state',
 );
 
-const corePluginPreviewPort = PluginHostPortKey<ChatPreviewEngine>(
+const corePluginPreviewPort = PluginHostPortKey<List<ChatPreviewPluginAdapter>>(
   owner: PluginId('core'),
   name: 'preview',
 );

@@ -4,6 +4,8 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugins/discourse_lazy_videos/discourse_lazy_videos_plugin.dart';
 import 'package:discourse_native/src/shell/loading_skeleton.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -149,14 +151,19 @@ void main() {
       final site = instance('meta.example');
       final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
       final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+      final plugins = PluginInstaller.install(
+        const PluginManifest([_LazyVideosTestModule()]),
+      );
       final controller = ShellController(
         instanceStore: FakeInstanceStore([site]),
         api: api,
         authenticator: authenticator,
         drafts: FakeDraftStore(),
         trackers: FakeSiteTracker.reset(),
+        plugins: plugins,
       );
       addTearDown(controller.dispose);
+      addTearDown(plugins.close);
       addTearDown(() => _resumeLifecycle(tester));
       await controller.load();
       controller.store
@@ -1416,6 +1423,19 @@ Widget _topicView(ShellController controller) => ShellScope(
     home: const Scaffold(body: TopicView()),
   ),
 );
+
+final class _LazyVideosTestModule implements PluginModule {
+  const _LazyVideosTestModule();
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('discourse-lazy-videos'));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addCapability(const DiscourseLazyVideosPlugin());
+  }
+}
 
 void _storeFullTopic(
   ShellController controller,

@@ -119,7 +119,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     super.initState();
     _plugins = widget.plugins ?? PluginInstaller.install(widget.pluginManifest);
     _ownsPlugins = widget.plugins == null;
-    _store = widget.store ?? InstanceStore();
+    _store = widget.store ?? InstanceStore(models: _plugins.models);
     _api = widget.api ?? DiscourseApi(models: _plugins.models);
     _authenticator = widget.authenticator ?? Authenticator();
     _drafts = widget.drafts ?? DraftStore();
@@ -190,8 +190,9 @@ class _DiscourseAppState extends State<DiscourseApp>
           widget.plugins ?? PluginInstaller.install(widget.pluginManifest);
       _ownsPlugins = widget.plugins == null;
     }
-    if (!identical(widget.store, oldWidget.store)) {
-      _store = widget.store ?? InstanceStore();
+    if (!identical(widget.store, oldWidget.store) ||
+        (pluginsChanged && widget.store == null)) {
+      _store = widget.store ?? InstanceStore(models: _plugins.models);
     }
     if (!identical(widget.api, oldWidget.api) ||
         (pluginsChanged && widget.api == null)) {

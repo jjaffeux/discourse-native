@@ -1,12 +1,15 @@
 import 'package:discourse_native/src/data/emoji_picker_store.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
+import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/chat/chat_emoji_usage.dart';
-import 'package:discourse_native/src/plugins/plugin_services.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_emoji_usage.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_services.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _site = 'https://meta.example';

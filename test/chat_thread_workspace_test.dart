@@ -1,6 +1,5 @@
 import 'dart:ui' show CheckedState, PointerDeviceKind;
 
-import 'package:discourse_native/src/data/chat_thread_panel_width_store.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -11,9 +10,10 @@ import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread_panel_width_store.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread_view.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -28,6 +28,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const String _siteUrl = 'https://meta.discourse.org';

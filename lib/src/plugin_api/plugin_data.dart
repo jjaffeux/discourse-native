@@ -28,21 +28,71 @@ final class PluginDataKey<T extends Object> {
   String toString() => 'PluginDataKey<$T>($id)';
 }
 
+/// Reads and writes one plugin-owned value in the instance-store snapshot.
+///
+/// The persisted namespace is [key.id]. A codec also understands the flat
+/// fields written by releases which predate namespaced plugin data, keeping
+/// that migration knowledge beside the feature which owns it.
+abstract base class PluginDataPersistenceCodec<T extends Object> {
+  const PluginDataPersistenceCodec();
+
+  PluginDataKey<T> get key;
+
+  T? decode(Object? value);
+
+  Object? encode(T value);
+
+  T? decodeLegacy(Map<String, dynamic> json) => null;
+}
+
 /// What installed plugins had to say about one core record.
 ///
 /// Values are parsed once with the record and remain opaque to core. A stable
 /// typed key makes ownership explicit while preserving type-safe reads.
 @immutable
 final class PluginData {
-  const PluginData._(this._values);
+  const PluginData._(this._values, this._preservedNamespaces);
 
   static const PluginData none = PluginData._(
     <PluginDataKey<Object>, Object>{},
+    <String, Object?>{},
   );
 
   final Map<PluginDataKey<Object>, Object> _values;
+  final Map<String, Object?> _preservedNamespaces;
+
+  /// Retains namespaces for plugins which are not installed in this build.
+  ///
+  /// Values cross an untrusted persistence boundary, so malformed namespace
+  /// names are ignored and nested collections are copied into immutable JSON
+  /// values before the model keeps them.
+  factory PluginData.preserveNamespaces(Object? value) {
+    if (value is! Map) return none;
+    final namespaces = <String, Object?>{};
+    for (final entry in value.entries) {
+      final name = entry.key;
+      if (name is! String || name.isEmpty) continue;
+      final preserved = _freezeJson(entry.value);
+      if (!preserved.valid) continue;
+      namespaces[name] = preserved.value;
+    }
+    return namespaces.isEmpty
+        ? none
+        : PluginData._(
+            const <PluginDataKey<Object>, Object>{},
+            Map.unmodifiable(namespaces),
+          );
+  }
 
   T? get<T extends Object>(PluginDataKey<T> key) => _values[key] as T?;
+
+  bool contains<T extends Object>(PluginDataKey<T> key) =>
+      _values.containsKey(key);
+
+  bool get isEmpty => _values.isEmpty && _preservedNamespaces.isEmpty;
+
+  /// An immutable JSON map ready to seed a persistence encoder.
+  Map<String, Object?> get preservedNamespaces => _preservedNamespaces;
 
   PluginData withValue<T extends Object>(PluginDataKey<T> key, T? value) {
     final next = Map<PluginDataKey<Object>, Object>.of(_values);
@@ -51,7 +101,7 @@ final class PluginData {
     } else {
       next[key] = value;
     }
-    return next.isEmpty ? none : PluginData._(Map.unmodifiable(next));
+    return _from(next, _preservedNamespaces);
   }
 
   PluginData withValueFor(PluginDataKey<Object> key, Object? value) {
@@ -61,18 +111,54 @@ final class PluginData {
     } else {
       next[key] = value;
     }
-    return next.isEmpty ? none : PluginData._(Map.unmodifiable(next));
+    return _from(next, _preservedNamespaces);
+  }
+
+  /// Marks one installed namespace as consumed before retaining its typed
+  /// value. A malformed value is consumed too: an installed codec owns its
+  /// recovery policy and an invalid old payload must not be emitted forever.
+  PluginData withoutPreservedNamespace(String name) {
+    if (!_preservedNamespaces.containsKey(name)) return this;
+    final next = Map<String, Object?>.of(_preservedNamespaces)..remove(name);
+    return _from(_values, next);
+  }
+
+  /// Carries uninstalled namespaces through a live settings/current-user
+  /// refresh. Typed installed values in this instance remain authoritative.
+  PluginData preservingUnknownFrom(PluginData held) {
+    if (held._preservedNamespaces.isEmpty) return this;
+    final next = <String, Object?>{
+      ...held._preservedNamespaces,
+      ..._preservedNamespaces,
+    };
+    return _from(_values, next);
+  }
+
+  static PluginData _from(
+    Map<PluginDataKey<Object>, Object> values,
+    Map<String, Object?> preservedNamespaces,
+  ) {
+    if (values.isEmpty && preservedNamespaces.isEmpty) return none;
+    return PluginData._(
+      Map.unmodifiable(values),
+      Map.unmodifiable(preservedNamespaces),
+    );
   }
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is PluginData && mapEquals(other._values, _values);
+      other is PluginData &&
+          mapEquals(other._values, _values) &&
+          _deepEquals(other._preservedNamespaces, _preservedNamespaces);
 
   @override
-  int get hashCode => Object.hashAllUnordered(
-    _values.entries.map((entry) => Object.hash(entry.key, entry.value)),
-  );
+  int get hashCode => Object.hashAllUnordered([
+    ..._values.entries.map((entry) => Object.hash(entry.key, entry.value)),
+    ..._preservedNamespaces.entries.map(
+      (entry) => Object.hash(entry.key, _deepHash(entry.value)),
+    ),
+  ]);
 }
 
 /// Supplies installed model extensions without making core import a manifest.
@@ -85,6 +171,18 @@ abstract interface class PluginDataDecoder {
   PluginData readTopic(Map<String, dynamic> json, String siteUrl);
 
   PluginData readUserCard(Map<String, dynamic> json, String siteUrl);
+
+  PluginData readCurrentUser(Map<String, dynamic> json, String siteUrl);
+
+  PluginData readSiteSettings(Map<String, dynamic> json, String siteUrl);
+
+  PluginData readStoredCurrentUser(Map<String, dynamic> json);
+
+  PluginData readStoredSiteSettings(Map<String, dynamic> json);
+
+  Map<String, Object?> writeStoredCurrentUser(PluginData data);
+
+  Map<String, Object?> writeStoredSiteSettings(PluginData data);
 
   PluginData mergeAfterPostEdit({
     required PluginData held,
@@ -113,8 +211,97 @@ final class EmptyPluginDataDecoder implements PluginDataDecoder {
       PluginData.none;
 
   @override
+  PluginData readCurrentUser(Map<String, dynamic> json, String siteUrl) =>
+      PluginData.none;
+
+  @override
+  PluginData readSiteSettings(Map<String, dynamic> json, String siteUrl) =>
+      PluginData.none;
+
+  @override
+  PluginData readStoredCurrentUser(Map<String, dynamic> json) =>
+      PluginData.preserveNamespaces(json['plugins']);
+
+  @override
+  PluginData readStoredSiteSettings(Map<String, dynamic> json) =>
+      PluginData.preserveNamespaces(json['plugins']);
+
+  @override
+  Map<String, Object?> writeStoredCurrentUser(PluginData data) =>
+      data.preservedNamespaces;
+
+  @override
+  Map<String, Object?> writeStoredSiteSettings(PluginData data) =>
+      data.preservedNamespaces;
+
+  @override
   PluginData mergeAfterPostEdit({
     required PluginData held,
     required PluginData incoming,
   }) => incoming;
 }
+
+typedef _FrozenJson = ({bool valid, Object? value});
+
+_FrozenJson _freezeJson(Object? value) {
+  if (value == null || value is String || value is bool) {
+    return (valid: true, value: value);
+  }
+  if (value is num) {
+    return value.isFinite
+        ? (valid: true, value: value)
+        : (valid: false, value: null);
+  }
+  if (value is List) {
+    final result = <Object?>[];
+    for (final item in value) {
+      final frozen = _freezeJson(item);
+      if (!frozen.valid) return (valid: false, value: null);
+      result.add(frozen.value);
+    }
+    return (valid: true, value: List<Object?>.unmodifiable(result));
+  }
+  if (value is Map) {
+    final result = <String, Object?>{};
+    for (final entry in value.entries) {
+      if (entry.key is! String) return (valid: false, value: null);
+      final frozen = _freezeJson(entry.value);
+      if (!frozen.valid) return (valid: false, value: null);
+      result[entry.key as String] = frozen.value;
+    }
+    return (valid: true, value: Map<String, Object?>.unmodifiable(result));
+  }
+  return (valid: false, value: null);
+}
+
+bool _deepEquals(Object? left, Object? right) {
+  if (identical(left, right)) return true;
+  if (left is List && right is List) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index++) {
+      if (!_deepEquals(left[index], right[index])) return false;
+    }
+    return true;
+  }
+  if (left is Map && right is Map) {
+    if (left.length != right.length) return false;
+    for (final entry in left.entries) {
+      if (!right.containsKey(entry.key) ||
+          !_deepEquals(entry.value, right[entry.key])) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return left == right;
+}
+
+int _deepHash(Object? value) => switch (value) {
+  final List<Object?> values => Object.hashAll(values.map(_deepHash)),
+  final Map<Object?, Object?> values => Object.hashAllUnordered(
+    values.entries.map(
+      (entry) => Object.hash(entry.key, _deepHash(entry.value)),
+    ),
+  ),
+  _ => value.hashCode,
+};

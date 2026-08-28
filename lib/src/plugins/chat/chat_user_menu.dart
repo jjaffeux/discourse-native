@@ -2,10 +2,10 @@ import 'package:flutter/widgets.dart';
 
 import '../../models/notification.dart';
 import '../../plugin_api/notification_feed_host.dart';
+import '../../plugin_api/plugin_manifest.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/notification_list.dart';
-import '../plugin_manifest.dart';
-import '../plugin_scope.dart';
-import '../plugin_services.dart';
+import 'chat_services.dart';
 
 const chatNotificationFeed = PluginNotificationFeedSource(
   id: PluginNotificationFeedId(owner: PluginId('chat'), name: 'notifications'),

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../models/composer_upload.dart';
 import '../../models/site_config.dart';
 import '../../plugin_api/core_plugin_host.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/composer_autocomplete.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/composer_drop.dart';
@@ -18,15 +19,13 @@ import '../../theme/app_theme.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../gifs/gif.dart';
-import '../gifs/gif_picker.dart';
-import '../plugin_scope.dart';
-import '../plugin_services.dart';
+import '../gifs/gifs_contract.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_emoji_usage.dart';
 import 'chat_message.dart';
 import 'chat_plugin.dart';
+import 'chat_services.dart';
 import 'chat_stream_target.dart';
 
 /// Connects the pane-sized desktop drop target to whichever compact composer
@@ -429,7 +428,9 @@ class _ChatComposerState extends State<ChatComposer> {
     final host = _host;
     final composer = _composer;
     final sourceKey = _sourceKey;
-    final gifsApi = PluginScope.maybeOf(context)?.service(gifsApiService);
+    final gifsApi = PluginScope.maybeOf(
+      context,
+    )?.maybeService(chatGifsApiService);
     if (host == null ||
         composer == null ||
         sourceKey == null ||
@@ -438,7 +439,7 @@ class _ChatComposerState extends State<ChatComposer> {
         _pickingEmoji ||
         _savingEdit ||
         widget.editingMessage != null ||
-        !host.siteConfigFor(widget.siteUrl).gifsEnabled ||
+        !host.siteConfigFor(widget.siteUrl).gifsSettings.enabled ||
         !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
       return;
     }
@@ -451,7 +452,7 @@ class _ChatComposerState extends State<ChatComposer> {
         api: gifsApi,
         credentials: host.credentials,
         lifecycle: host.lifecycle,
-        config: host.siteConfigFor(widget.siteUrl),
+        settings: host.siteConfigFor(widget.siteUrl).gifsSettings,
       );
       if (result == null || !_ownsComposer(host, composer, sourceKey)) {
         return;
@@ -745,7 +746,12 @@ class _ChatComposerState extends State<ChatComposer> {
               valueListenable: host.siteConfigListenableFor(
                 composer.target.siteUrl,
               ),
-              builder: (context, config, _) => config.gifsEnabled
+              builder: (context, config, _) =>
+                  config.gifsSettings.enabled &&
+                      PluginScope.maybeOf(
+                            context,
+                          )?.maybeService(chatGifsApiService) !=
+                          null
                   ? Center(
                       child: DButton.iconOnly(
                         key: const ValueKey('chat-composer-gif'),

@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:discourse_native/src/diagnostics/resenha_report_exporter.dart';
-import 'package:discourse_native/src/shell/resenha_diagnostics_view.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics_view.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_report_exporter.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

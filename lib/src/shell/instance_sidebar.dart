@@ -211,8 +211,7 @@ class InstanceSidebar extends StatelessWidget {
                           return SliverMainAxisGroup(
                             slivers: [
                               // Optional features contribute below the routes
-                              // every site has, in the order `sitePlugins`
-                              // lists them.
+                              // every site has, in installed-registry order.
                               for (final (index, section) in sections.indexed)
                                 _Section(
                                   key: ValueKey((sidebar.siteUrl, section.id)),

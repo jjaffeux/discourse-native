@@ -4,16 +4,18 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/poll/poll_card.dart';
 import 'package:discourse_native/src/plugins/poll/poll_plugin.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+import 'support/bundled_plugins.dart';
 
 const _site = 'https://meta.discourse.org';
 
@@ -65,6 +67,7 @@ void main() {
       'current user reads fresh poll capability, staff, and group names',
       () async {
         final api = DiscourseApi(
+          models: DiscourseModelCodec(extensions: pluginRegistry),
           client: MockClient(
             (_) async => http.Response(
               jsonEncode({
@@ -98,6 +101,7 @@ void main() {
       'an absent plugin capability remains unknown, including in old storage',
       () async {
         final api = DiscourseApi(
+          models: DiscourseModelCodec(extensions: pluginRegistry),
           client: MockClient(
             (_) async => http.Response(
               jsonEncode({
@@ -109,7 +113,9 @@ void main() {
         );
 
         final live = await api.currentUser(siteUrl: _site, apiKey: 'key');
-        final stored = DiscourseUser.fromJson(const {'username': 'sam'});
+        final stored = DiscourseUser.fromJson(const {
+          'username': 'sam',
+        }, extensions: pluginRegistry);
 
         expect(live.canCreatePoll, isNull);
         expect(stored.canCreatePoll, isNull);
@@ -121,10 +127,13 @@ void main() {
 
   group('poll site settings', () {
     test('uses upstream defaults when settings are absent or unusable', () {
-      final absent = SiteConfig.fromSettings(const {});
+      final absent = SiteConfig.fromSettings(
+        const {},
+        extensions: pluginRegistry,
+      );
       final invalid = SiteConfig.fromSettings(const {
         'poll_maximum_options': 1,
-      });
+      }, extensions: pluginRegistry);
 
       expect(absent.pollMaximumOptions, 20);
       expect(absent.pollDefaultPublic, isTrue);
@@ -135,9 +144,11 @@ void main() {
       final configured = SiteConfig.fromSettings(const {
         'poll_maximum_options': 37,
         'poll_default_public': false,
-      });
+      }, extensions: pluginRegistry);
       final restored = SiteConfig.fromJson(
-        jsonDecode(jsonEncode(configured.toJson())) as Map<String, dynamic>,
+        jsonDecode(jsonEncode(configured.toJson(extensions: pluginRegistry)))
+            as Map<String, dynamic>,
+        extensions: pluginRegistry,
       );
 
       expect(configured.pollMaximumOptions, 37);
@@ -146,10 +157,23 @@ void main() {
     });
 
     test('stored site settings predating Poll remain readable', () {
-      final restored = SiteConfig.fromJson(const {});
+      final restored = SiteConfig.fromJson(
+        const {},
+        extensions: pluginRegistry,
+      );
 
       expect(restored.pollMaximumOptions, 20);
       expect(restored.pollDefaultPublic, isTrue);
+    });
+
+    test('legacy storage preserves a previously accepted Poll limit', () {
+      final restored = SiteConfig.fromJson(const {
+        'pollMaximumOptions': 1,
+        'pollDefaultPublic': false,
+      }, extensions: pluginRegistry);
+
+      expect(restored.pollMaximumOptions, 1);
+      expect(restored.pollDefaultPublic, isFalse);
     });
   });
 

@@ -9,14 +9,15 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/bookmark_host.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/chat/chat_bookmark.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
-import 'package:discourse_native/src/plugins/plugin_services.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _site = 'https://meta.example';
@@ -915,7 +916,7 @@ final class _BookmarkAuthorityProbeModule implements PluginModule {
 
   @override
   void register(PluginRegistrar registrar) {
-    registrar.addSession((bindings) {
+    registrar.addSession((bindings, _) {
       final factory = bindings.require(corePluginBookmarkPort);
       for (final target in const [
         BookmarkTargetType.post,

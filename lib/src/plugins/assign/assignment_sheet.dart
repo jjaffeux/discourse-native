@@ -3,14 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../data/discourse_api_contracts.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/select.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_scope.dart';
-import '../plugin_services.dart';
+import 'assign_services.dart';
 import 'assignment.dart';
 
 typedef AssignmentSuggestionsLoader = Future<AssignmentSuggestions> Function();

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../data/chat_thread_panel_width_store.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/adaptive_shell.dart';
 import '../../shell/choice_menu.dart';
 import '../../shell/forum_search.dart';
@@ -15,8 +15,6 @@ import '../../theme/app_theme.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_scope.dart';
-import '../plugin_services.dart';
 import 'chat_channel_search.dart';
 import 'chat_channel_star_button.dart';
 import 'chat_channel_view.dart';
@@ -25,10 +23,12 @@ import 'chat_controller.dart';
 import 'chat_header_button.dart';
 import 'chat_message.dart';
 import 'chat_route.dart';
+import 'chat_services.dart';
 import 'chat_shell_extension.dart';
 import 'chat_stream.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread.dart';
+import 'chat_thread_panel_width_store.dart';
 import 'chat_thread_settings.dart';
 
 /// A routed thread and, when the shell is wide enough, its parent channel.

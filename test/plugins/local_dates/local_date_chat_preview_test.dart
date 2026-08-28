@@ -1,12 +1,14 @@
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_widget.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_plugin.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+
+import '../../support/bundled_plugins.dart';
 
 void main() {
   setUpAll(() async {
@@ -16,11 +18,21 @@ void main() {
   });
 
   const plugin = LocalDatesPlugin();
-  const enabled = SiteConfig(localDatesEnabled: true);
-  const disabled = SiteConfig(localDatesEnabled: false);
+  final enabled = SiteConfig(
+    plugins: PluginData.none.withValue(
+      localDatesSettingsDataKey,
+      const LocalDatesSettings(enabled: true),
+    ),
+  );
+  final disabled = SiteConfig(
+    plugins: PluginData.none.withValue(
+      localDatesSettingsDataKey,
+      const LocalDatesSettings(),
+    ),
+  );
 
-  ChatPreviewRequest request(String raw, {SiteConfig config = enabled}) =>
-      ChatPreviewRequest(raw: raw, siteConfig: config);
+  ChatPreviewRequest request(String raw, {SiteConfig? config}) =>
+      ChatPreviewRequest(raw: raw, siteConfig: config ?? enabled);
 
   test(
     'claims safely projectable syntax when the cached setting is enabled',
@@ -88,7 +100,9 @@ void main() {
     (tester) async {
       const raw = '[date=2026-08-12 time=09:30 timezone=Etc/UTC]';
       final result =
-          pluginRegistry.chatPreviewEngine.project(request(raw))
+          ChatPreviewEngine(
+                plugins: pluginRegistry.chatPreviewPlugins,
+              ).project(request(raw))
               as ProjectedPreview;
       final node = result.document.nodes.whereType<PluginPreviewNode>().single;
 

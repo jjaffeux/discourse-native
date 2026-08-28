@@ -8,16 +8,15 @@ import '../../models/content_route.dart';
 import '../../models/forum_workspace.dart';
 import '../../models/sidebar.dart';
 import '../../models/user_card.dart';
+import '../../plugin_api/plugin_manifest.dart';
+import '../../plugin_api/plugin_scope.dart';
+import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/user_status.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_manifest.dart';
-import '../plugin_scope.dart';
-import '../plugin_services.dart';
-import '../site_plugin_api.dart';
 import 'chat_browse_channels_view.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
@@ -29,8 +28,10 @@ import 'chat_channel_view.dart';
 import 'chat_emoji_usage.dart';
 import 'chat_header_button.dart';
 import 'chat_my_threads_view.dart';
+import 'chat_plugin_data.dart';
 import 'chat_route.dart';
 import 'chat_search_view.dart';
+import 'chat_services.dart';
 import 'chat_shell_extension.dart';
 import 'chat_thread_view.dart';
 import 'chat_transcript.dart';
@@ -85,7 +86,11 @@ class ChatPlugin
         CookedElementPlugin,
         ComposerTargetPlugin,
         UserMenuSectionPlugin,
-        NotificationFeedPlugin {
+        NotificationFeedPlugin,
+        SiteSettingsPlugin<ChatSettings>,
+        CurrentUserPlugin<ChatCurrentUser>,
+        PluginCurrentUserFeature,
+        ComposerUploadPolicyPlugin {
   const ChatPlugin();
 
   static const ComposerTargetKind messageComposerTarget = ComposerTargetKind(
@@ -172,6 +177,30 @@ class ChatPlugin
           ),
         ]
       : const [];
+
+  @override
+  PluginDataPersistenceCodec<ChatSettings> get siteSettingsCodec =>
+      chatSettingsPersistenceCodec;
+
+  @override
+  ChatSettings readSiteSettings(Map<String, dynamic> json, String siteUrl) =>
+      ChatSettings.fromSettings(json);
+
+  @override
+  PluginDataPersistenceCodec<ChatCurrentUser> get currentUserCodec =>
+      chatCurrentUserPersistenceCodec;
+
+  @override
+  ChatCurrentUser readCurrentUser(Map<String, dynamic> json, String siteUrl) =>
+      ChatCurrentUser.fromCurrentUser(json);
+
+  @override
+  bool currentUserFeatureEnabled(PluginData currentUser) =>
+      currentUser.chatCurrentUser?.hasChatEnabled != false;
+
+  @override
+  bool allowsComposerUploads(PluginData siteSettings, {required bool isChat}) =>
+      !isChat || siteSettings.chatSettings.uploadsEnabled;
 
   @override
   Widget? cookedElement(String? siteUrl, dom.Element element) =>

@@ -25,19 +25,26 @@ import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
+import 'package:discourse_native/src/plugins/assign/assign_data.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
+import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
+import 'package:discourse_native/src/plugins/poll/poll_data.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics_models.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_models.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keys taken from the payloads these parsers actually read, so the generator
@@ -293,9 +300,35 @@ void main() {
       probe('SearchGroupHit', () => SearchGroupHit.fromJson(json, site), json);
       probe('SiteAppearance', () => SiteAppearance.fromJson(json), json);
       probe('SiteConfig', () => SiteConfig.fromJson(json), json);
+      probe('AssignSettings', () => AssignSettings.fromWire(json), json);
+      probe('AssignCurrentUser', () => AssignCurrentUser.fromWire(json), json);
+      probe('ChatSettings', () => ChatSettings.fromSettings(json), json);
+      probe(
+        'ChatCurrentUser',
+        () => ChatCurrentUser.fromCurrentUser(json),
+        json,
+      );
+      probe('GifsSettings', () => GifsSettings.fromSiteSettings(json), json);
+      probe(
+        'LocalDatesSettings',
+        () => LocalDatesSettings.fromSiteSettings(json),
+        json,
+      );
+      probe('PollSettings', () => PollSettings.fromWire(json), json);
+      probe('PollCurrentUser', () => PollCurrentUser.fromWire(json), json);
+      probe(
+        'ReactionsSettings',
+        () => ReactionsSettings.fromSiteSettings(json),
+        json,
+      );
       probe(
         'ResenhaClientConfig',
         () => ResenhaClientConfig.fromJson(json),
+        json,
+      );
+      probe(
+        'ResenhaClientSettings',
+        () => ResenhaClientConfig.fromSettings(json),
         json,
       );
       probe(

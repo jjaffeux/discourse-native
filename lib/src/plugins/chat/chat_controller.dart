@@ -21,6 +21,7 @@ import 'chat_channel.dart';
 import 'chat_message.dart';
 import 'chat_message_timeline.dart';
 import 'chat_pin.dart';
+import 'chat_plugin_data.dart';
 import 'chat_preview.dart';
 import 'chat_reactors.dart';
 import 'chat_stream_target.dart';

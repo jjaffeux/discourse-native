@@ -31,7 +31,6 @@ import '../models/user_activity.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
-import '../models/user_status.dart';
 import '../models/user_summary.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import 'discourse_api_contracts.dart';
@@ -339,72 +338,7 @@ class DiscourseApi
     if (user == null || username == null) {
       throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
     }
-    final userOption = jsonObject(user['user_option']);
-
-    return DiscourseUser(
-      username: username,
-      id: jsonIntOrNull(user['id']),
-      name: jsonText(user['name']),
-      avatarUrl: _avatarUrl(jsonText(user['avatar_template']), siteUrl),
-      status: UserStatus.fromJson(user['status']),
-      draftCount: jsonInt(user['draft_count']),
-      // Plugin serializers omit can_create_poll when Poll is unavailable.
-      // Preserve that distinction so the composer never guesses capability.
-      canCreatePoll: user.containsKey('can_create_poll')
-          ? user['can_create_poll'] == true
-          : null,
-      // Assign deliberately omits these serializer fields when the plugin is
-      // absent or disabled. Preserve key presence so a fresh false is a real
-      // denial and absence never turns into permission.
-      canAssign: user.containsKey('can_assign')
-          ? user['can_assign'] == true
-          : null,
-      canAssignGlobally: user.containsKey('can_assign_globally')
-          ? user['can_assign_globally'] == true
-          : null,
-      canChangePostOwner: user['can_change_post_owner'] == true,
-      staff:
-          user['staff'] == true ||
-          user['admin'] == true ||
-          user['moderator'] == true,
-      groups: List.unmodifiable([
-        for (final group in jsonObjects(user['groups']))
-          ?jsonText(group['name']),
-      ]),
-      ignoredUsernames: List.unmodifiable(
-        jsonArray(user['ignored_users']).map(jsonText).whereType<String>(),
-      ),
-      sidebarCategoryIds: List.unmodifiable([
-        for (final value in jsonArray(user['sidebar_category_ids']))
-          ?jsonIntOrNull(value),
-      ]),
-      trackedCategoryIds: _categoryIds(user['tracked_category_ids']),
-      watchedCategoryIds: _categoryIds(user['watched_category_ids']),
-      watchedFirstPostCategoryIds: _categoryIds(
-        user['watched_first_post_category_ids'],
-      ),
-      // Chat registers these on CurrentUserSerializer. `has_chat_enabled` is
-      // emitted only when true, so an absent key in a fresh session answer is
-      // an authoritative false rather than an unknown capability.
-      hasChatEnabled: user['has_chat_enabled'] == true,
-      chatHeaderIndicatorPreference: ChatHeaderIndicatorPreference.read(
-        userOption['chat_header_indicator_preference'],
-      ),
-      timezone: jsonText(userOption['timezone']),
-      hidePresence: userOption['hide_presence'] is bool
-          ? userOption['hide_presence'] as bool
-          : null,
-      bookmarkAutoDeletePreference: BookmarkAutoDeletePreference.read(
-        userOption['bookmark_auto_delete_preference'],
-      ),
-      doNotDisturbUntil: jsonDate(user['do_not_disturb_until']),
-      doNotDisturbChannelPosition: jsonIntOrNull(
-        user['do_not_disturb_channel_position'],
-      ),
-      lastChatChannelId: jsonIntOrNull(
-        jsonObject(user['custom_fields'])['last_chat_channel_id'],
-      ),
-    );
+    return models.currentUser(user, siteUrl);
   }
 
   @override
@@ -1436,7 +1370,7 @@ class DiscourseApi
     );
 
     try {
-      return SiteConfig.fromSettings(body);
+      return models.siteConfig(body, siteUrl);
     } catch (error, stackTrace) {
       // A payload this cannot read is an answer it cannot use: report it the
       // way every other failure here is reported, rather than letting a decode
@@ -3238,13 +3172,6 @@ class DiscourseApi
   static Map<String, String> authHeaders(String apiKey, {String? clientId}) =>
       DiscourseTransport.authHeaders(apiKey, clientId: clientId);
 
-  /// Avatar templates carry a `{size}` placeholder and may be site-relative.
-  static String? _avatarUrl(String? template, String baseUrl) {
-    if (template == null || template.isEmpty) return null;
-    final sized = template.replaceAll('{size}', '120');
-    return _absoluteIcon(sized, baseUrl);
-  }
-
   /// Icons come back protocol-relative or site-relative depending on the site's
   /// CDN setup.
   static String? _absoluteIcon(String? icon, String baseUrl) {
@@ -3262,10 +3189,6 @@ class DiscourseApi
     _client.close();
   }
 }
-
-List<int> _categoryIds(Object? value) => List.unmodifiable([
-  for (final item in jsonArray(value)) ?jsonIntOrNull(item),
-]);
 
 Iterable<Map<String, dynamic>> _flattenCategories(Object? categories) sync* {
   // Category nesting is site-controlled. Keep preorder without recursively

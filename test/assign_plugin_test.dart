@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';

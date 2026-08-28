@@ -4,7 +4,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_pill.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_shell_extension.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.example';

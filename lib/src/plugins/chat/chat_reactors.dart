@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/store.dart';
 import '../../models/json.dart';
-import '../reactions/post_reactors.dart';
+import '../reactions/reactions_contract.dart';
 
 /// Who reacted to one chat message, as returned by chat's own lazy endpoint.
 ///

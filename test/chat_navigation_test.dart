@@ -6,14 +6,16 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
+import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
+import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
-import 'package:discourse_native/src/plugins/plugin_services.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -26,6 +28,7 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const String _site = 'https://meta.discourse.org';

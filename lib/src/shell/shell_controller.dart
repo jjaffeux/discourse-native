@@ -226,7 +226,7 @@ class ShellController extends FrameSafeNotifier
       ),
       PluginHostPort<Object>(
         corePluginPreviewPort,
-        plugins.registry.chatPreviewEngine,
+        plugins.registry.chatPreviewPlugins,
       ),
       PluginHostPort<Object>(
         corePluginAccountEventsPort,
@@ -2613,12 +2613,16 @@ class ShellController extends FrameSafeNotifier
     final accepted = lease.commit(() {
       final fresh = _instanceAt(siteUrl);
       if (fresh == null) return;
+      final withPreservedPlugins = plugins.models.preserveUnknownCurrentUser(
+        fresh.user,
+        user,
+      );
       final preserveConfirmedPresence =
           _hidePresenceWrites.containsKey(siteUrl) ||
           (_hidePresenceVersions[siteUrl] ?? 0) != hidePresenceVersion;
       committedUser = preserveConfirmedPresence
-          ? user.withHidePresence(fresh.user?.hidePresence)
-          : user;
+          ? withPreservedPlugins.withHidePresence(fresh.user?.hidePresence)
+          : withPreservedPlugins;
       _sessionUsersRefreshed.add(siteUrl);
       _hidePresenceErrors.remove(siteUrl);
       if (fresh.user != committedUser) {
@@ -4573,9 +4577,16 @@ class ShellController extends FrameSafeNotifier
       formatQuoteContents: (block) =>
           quoteContentsFor(target, block) ?? block.contents,
       syntaxPlugins: plugins.registry.composerSyntaxPlugins,
-      pollMaximumOptions: config.pollMaximumOptions,
+      pollMaximumOptions: plugins.registry.composerMaximumOptions(
+        config.plugins,
+      ),
       localDateAccountTimezone: currentUserFor(target.siteUrl)?.timezone,
-      imageUploader: target.policy?.uploadsEnabled == false
+      imageUploader:
+          !(target.policy?.uploadsEnabled ??
+              plugins.registry.allowsComposerUploads(
+                config.plugins,
+                isChat: false,
+              ))
           ? null
           : (file, {required onProgress, required abortTrigger}) =>
                 _uploadComposerImage(
@@ -8687,7 +8698,11 @@ class ShellController extends FrameSafeNotifier
   /// the site. An old persisted `true` is deliberately treated as unknown.
   bool canCreatePollFor(String siteUrl) =>
       _sessionUsersRefreshed.contains(siteUrl) &&
-      _instanceAt(siteUrl)?.user?.canCreatePoll == true;
+      plugins.registry.allowsPermission(
+        'create-poll',
+        _instanceAt(siteUrl)?.user?.plugins ?? PluginData.none,
+        null,
+      );
 
   bool get canCreatePoll {
     final siteUrl = currentInstance?.url;
@@ -8742,8 +8757,13 @@ class ShellController extends FrameSafeNotifier
       _composer?.closeEmojiAutocomplete();
     }
     final held = _instanceAt(siteUrl);
-    if (held == null || held.config == config) return;
-    _replaceInstance(held, held.copyWith(config: config));
+    if (held == null) return;
+    final persisted = plugins.models.preserveUnknownSiteSettings(
+      held.config,
+      config,
+    );
+    if (held.config == persisted) return;
+    _replaceInstance(held, held.copyWith(config: persisted));
     await instanceStore.save(List.of(_instances));
   }
 

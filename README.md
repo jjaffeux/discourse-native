@@ -870,15 +870,19 @@ this", and everything keys off that — including which route a write goes down,
 which is why the rule is worth stating rather than assuming. A gate that is
 wrong for one frame produces a wrong *write*, not merely a missing button.
 
-The other half is [`SiteConfig`](lib/src/models/site_config.dart), from
-`GET /site/settings.json` — the only public payload carrying a plugin's own
-configuration. `/site.json` does **not** have it: `SiteSerializer` is categories,
-groups, archetypes and themes, with no `site_settings` key and no `plugins` key
-at all. Config answers the question no record can — what may be *offered* that
-has not happened yet, like a picker's emoji list — and nothing else. Every field
-has a default, every default is core's own, so a site that will not answer is
-drawn as core rather than drawn as broken; there is no loading state and no
-error state because there is nothing worth telling a reader about.
+The other half comes from `GET /site/settings.json` — the only public payload
+carrying a plugin's own configuration. `/site.json` does **not** have it:
+`SiteSerializer` is categories, groups, archetypes and themes, with no
+`site_settings` key and no `plugins` key at all. Installed manifest readers put
+their typed settings in [`SiteConfig.plugins`](lib/src/models/site_config.dart),
+so each plugin owns its wire keys and defaults while the core model stays
+schema-free. Those settings answer the question no record can — what may be
+*offered* that has not happened yet, like a picker's emoji list — and nothing
+else. A core-only build ignores optional schemas entirely.
+
+The warm-start snapshot uses namespaced plugin codecs. Installed modules decode
+their own values and migrate the old flat fields; namespaces belonging to
+modules absent from this build remain opaque and survive load/save unchanged.
 
 It is fetched from `loadTopic`, **before** its early returns, and remembered on
 the instance across launches. Before the guards, deliberately: both of them
@@ -893,7 +897,11 @@ Adding the next one is a module under `lib/src/plugins/<name>/` owning its
 models, state, widgets, typed HTTP contract, and the narrow capability
 interfaces it actually contributes, plus an entry in
 `bundledPluginManifest`. `PluginRegistry` owns ordered UI dispatch, while
-`PluginSession` owns typed services and host-facing capabilities.
+`PluginSession` owns typed services and host-facing capabilities. A session
+factory can resolve only services from dependencies declared by its module,
+and optional integrations use nullable lookup rather than a global service
+locator. Service and record keys stay beside their owning feature; the bundled
+manifest itself contains only the deterministic list of module entrypoints.
 `DiscourseApi` contains only core endpoints; plugins adapt the shared
 `PluginApiTransport` themselves. Production core never imports
 `lib/src/plugins`, and an architecture test enforces that dependency direction.
@@ -942,12 +950,13 @@ answers the same bytes for both — so it drops that one post's reactions and
 nothing else. Emptying every footer in the topic because a moderator deleted one
 post would be the wrong guess.
 
-The main reaction is **not guessed**. `SiteConfig.mainReaction` is nullable, and
-where it is unknown the React entry opens the picker instead of sending
-`heart` — the setting is enum-constrained to what a site allows, and `heart` is
-not even in the default enabled list, so a guess on a site whose admin chose
-`+1` earns a 422 whose body says only "Sorry, an error has occurred." The menu
-also labels from the reaction the reader *holds*, not from
+The main reaction is **not guessed**.
+`SiteConfig.plugins.reactionsSettings.mainReaction` is nullable, and where it
+is unknown the React entry opens the picker instead of sending `heart` — the
+setting is enum-constrained to what a site allows, and `heart` is not even in
+the default enabled list, so a guess on a site whose admin chose `+1` earns a
+422 whose body says only "Sorry, an error has occurred." The menu also labels
+from the reaction the reader *holds*, not from
 `current_user_used_main_reaction`: someone who clapped has a shadow like, so the
 naive label reads "Like this post" on a tap that would replace their clap.
 
@@ -1495,28 +1504,31 @@ elements, and treats a `<style>` tag as non-rendering. So none of Discourse's
 `onebox.scss` can be reused here, at any price, and an untouched onebox arrives
 as an unstyled pile of text and images.
 
-[`oneboxes/`](lib/src/shell/oneboxes/) draws them natively instead. One file
-per onebox, laid out by what the onebox is:
+Core's [`oneboxes/`](lib/src/shell/oneboxes/) owns the shared envelope, generic
+card, and Discourse's own engines. Provider-specific engines live with their
+bundled plugins:
 
 ```
-oneboxes/
+shell/oneboxes/
   onebox.dart                  the envelope, the generic card, the dispatch
-  inline.dart                  a.inline-onebox stays text; PR glyph injection
-  github/
+  discourse/
+    topic/block.dart           aside.onebox.discoursetopic, a topic elsewhere
+    user/block.dart            a profile on the site the post was written on
+    category/block.dart        a category on the site the post was written on
+plugins/discourse_github/
+  discourse_github_plugin.dart  block and inline cooked contributions
+  oneboxes/
     github.dart                octicons, status colors, shared body parts
     pr/block.dart              aside.onebox.githubpullrequest
     pr/inline.dart             an inline PR link, with its status glyph
     issue/block.dart           aside.onebox.githubissue
     commit/block.dart          aside.onebox.githubcommit
-  discourse/
-    topic/block.dart           aside.onebox.discoursetopic, a topic elsewhere
-    user/block.dart            a profile on the site the post was written on
-    category/block.dart        a category on the site the post was written on
 ```
 
 Not every onebox gets a file — there are dozens of engines and they churn.
 [`onebox.dart`](lib/src/shell/oneboxes/onebox.dart) reads the envelope every
-engine shares, which is `_layout.mustache` upstream, and whatever no engine
+engine shares, which is `_layout.mustache` upstream. Installed provider
+contributions get first refusal; whatever neither a provider nor a core engine
 claims is handed back to `HtmlWidget` inside the native card:
 
 | Markup                    | Drawn as                                    |
@@ -1545,13 +1557,17 @@ and a same-site profile or category. A same-site *topic* link arrives as an
 Inline oneboxes are the other shape: a link that did not sit alone on its line
 keeps its anchor and gets its title fetched instead —
 `<a class="inline-onebox">`. The title remains ordinary anchor text so it can
-share a line with the prose around it and wrap at word boundaries. A custom
-widget factory injects the pull request's status glyph ahead of that text.
+share a line with the prose around it and wrap at word boundaries. The generic
+cooked factory applies `CookedInlinePlugin` prefixes without replacing that
+text; discourse-github contributes the pull request's status glyph.
 
-YouTube is the media exception. [`youtube_video.dart`](lib/src/shell/youtube_video.dart)
-claims both the default lazy-video container and core Onebox's older iframe
-fallback. Posts and canonical chat messages already share `CookedHtml`, so both
-show the same full-width native thumbnail, title, play action and external link.
+YouTube is the media exception. Core's
+[`youtube_video.dart`](lib/src/shell/youtube_video.dart) owns the validated data,
+native player, and Onebox's older iframe fallback; the
+[`discourse-lazy-videos` contribution](lib/src/plugins/discourse_lazy_videos/lazy_youtube.dart)
+owns that plugin's container attributes. Posts and canonical chat messages
+already share `CookedHtml`, so both show the same full-width native thumbnail,
+title, play action and external link.
 The platform WebView does not exist until Play is pressed; after that the state
 is kept alive while the item scrolls offscreen so playback is not reset. Once
 active, the WebView claims its pointer sequences ahead of the surrounding text
@@ -1926,6 +1942,8 @@ lib/
     plugins/
       bundled_plugin_manifest.dart  full-build composition root
       reactions/               plugin-owned models, API, state and widgets
+      discourse_github/        GitHub block and inline onebox presentation
+      discourse_lazy_videos/   lazy-video cooked markup adapters
     shell/
       adaptive_shell.dart      breakpoints and column assembly
       instance_rail.dart       far-left instance column
@@ -1933,15 +1951,14 @@ lib/
       instance_sidebar.dart    per-instance navigation
       main_content.dart        the single main region
       cooked_html.dart         renders a post's cooked HTML
-      youtube_video.dart       lazy native preview + inline iframe player
+      youtube_video.dart       shared YouTube preview/player + core fallback
       emoji.dart               draws img.emoji, and resolves its src
       post_footer.dart         picks what a post's footer is, per plugin
       post_likes.dart          the like count under a post, and who liked it
       post_action.dart         one entry in the post menu, core's or a plugin's
       hover_panel.dart         opens a panel when a pointer rests on something
       anchored_layout.dart     places a floating panel against what it is about
-      oneboxes/                native rendering of aside.onebox, one file per
-                               onebox: github/, discourse/, inline
+      oneboxes/                generic onebox card and Discourse-owned engines
       code_block.dart          native rendering of pre
       syntax.dart              tokenizes code via package:highlight
       external_link.dart       opens links in the platform browser

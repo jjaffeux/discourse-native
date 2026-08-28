@@ -1,7 +1,7 @@
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
-import 'package:discourse_native/src/diagnostics/resenha_report_exporter.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics_plugin.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_report_exporter.dart';
 import 'package:discourse_native/src/shell/diagnostics_panel.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';

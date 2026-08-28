@@ -1,7 +1,24 @@
 import 'dart:convert';
 
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/plugins/assign/assign_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/bundled_plugins.dart';
+
+SiteConfig pluginSettings(Map<String, dynamic> json) =>
+    installedPlugins.models.siteConfig(json, 'https://example.com');
+
+SiteConfig restorePluginSettings(SiteConfig config) => SiteConfig.fromJson(
+  jsonDecode(jsonEncode(config.toJson(extensions: pluginRegistry)))
+      as Map<String, dynamic>,
+  extensions: pluginRegistry,
+);
 
 /// The shape `/site/settings.json` answers with, trimmed to what is read.
 Map<String, dynamic> settings({
@@ -119,13 +136,31 @@ void main() {
       expect(unknown.usePgHeadlinesForExcerpt, isFalse);
       expect(unknown.showTimeGapDays, SiteConfig.defaultShowTimeGapDays);
       expect(unknown.gifsEnabled, isFalse);
-      expect(unknown.gifFileDetail, SiteConfig.defaultGifFileDetail);
+      expect(unknown.gifFileDetail, GifsSettings.defaultFileDetail);
       expect(unknown.gifResultLimitEnabled, isFalse);
-      expect(unknown.gifMaxResults, SiteConfig.defaultGifMaxResults);
+      expect(unknown.gifMaxResults, GifsSettings.defaultMaxResults);
       expect(unknown.readTimeWordCount, SiteConfig.defaultReadTimeWordCount);
       expect(unknown.minPersonalMessagePostLength, 10);
       expect(unknown.allowAllUsersToFlagIllegalContent, isFalse);
       expect(unknown.anonymousFlagReportEmail, isNull);
+    });
+
+    test('a core-only decoder ignores optional plugin schemas', () {
+      final core = SiteConfig.fromSettings({
+        ...settings(
+          reactionsEnabled: true,
+          reactionForLike: 'heart',
+          chatSearchEnabled: true,
+          localDatesEnabled: true,
+          gifsEnabled: true,
+          enableAssignStatus: true,
+        ),
+        'poll_maximum_options': 37,
+        'resenha_enabled': true,
+      });
+
+      expect(core.plugins.isEmpty, isTrue);
+      expect(core.toJson(), isNot(contains('plugins')));
     });
 
     test('reads the topic-map reading speed and rejects invalid values', () {
@@ -198,34 +233,30 @@ void main() {
     });
 
     test('enables chat search only from an explicit true setting', () {
-      expect(SiteConfig.fromSettings(const {}).chatSearchEnabled, isFalse);
+      expect(pluginSettings(const {}).chatSearchEnabled, isFalse);
       expect(
-        SiteConfig.fromSettings(
-          settings(chatSearchEnabled: true),
-        ).chatSearchEnabled,
+        pluginSettings(settings(chatSearchEnabled: true)).chatSearchEnabled,
         isTrue,
       );
       expect(
-        SiteConfig.fromSettings(
-          settings(chatSearchEnabled: false),
-        ).chatSearchEnabled,
+        pluginSettings(settings(chatSearchEnabled: false)).chatSearchEnabled,
         isFalse,
       );
-      const enabled = SiteConfig(chatSearchEnabled: true);
-      expect(SiteConfig.fromJson(enabled.toJson()), enabled);
+      final enabled = pluginSettings(settings(chatSearchEnabled: true));
+      expect(restorePluginSettings(enabled), enabled);
     });
 
     test('retains the chat history periods shown in channel settings', () {
-      final config = SiteConfig.fromSettings(
+      final config = pluginSettings(
         settings(chatChannelRetentionDays: 180, chatDmRetentionDays: 30),
       );
 
       expect(config.chatChannelRetentionDays, 180);
       expect(config.chatDmRetentionDays, 30);
-      expect(SiteConfig.fromJson(config.toJson()), config);
-      expect(SiteConfig.fromSettings(const {}).chatChannelRetentionDays, 0);
+      expect(restorePluginSettings(config), config);
+      expect(pluginSettings(const {}).chatChannelRetentionDays, 0);
       expect(
-        SiteConfig.fromSettings(
+        pluginSettings(
           settings(chatChannelRetentionDays: -1),
         ).chatChannelRetentionDays,
         0,
@@ -298,7 +329,7 @@ void main() {
     });
 
     test('splits the offered reactions on the pipe the setting uses', () {
-      final config = SiteConfig.fromSettings(
+      final config = pluginSettings(
         settings(
           reactionsEnabled: true,
           reactionForLike: 'heart',
@@ -310,7 +341,7 @@ void main() {
     });
 
     test('does not offer the main reaction twice', () {
-      final config = SiteConfig.fromSettings(
+      final config = pluginSettings(
         settings(
           reactionsEnabled: true,
           reactionForLike: 'clap',
@@ -325,7 +356,7 @@ void main() {
       // The settings are registered whether or not the plugin is enabled, so
       // they are in the payload either way. Reading them regardless would offer
       // a picker on a site that has switched reactions off.
-      final config = SiteConfig.fromSettings(
+      final config = pluginSettings(
         settings(
           reactionsEnabled: false,
           reactionForLike: 'heart',
@@ -345,7 +376,7 @@ void main() {
       // `heart` is not in the default enabled list, and the setting is enum
       // constrained to what a site allows — so a guess earns a 422 whose body
       // says only "Sorry, an error has occurred."
-      final config = SiteConfig.fromSettings(
+      final config = pluginSettings(
         settings(reactionsEnabled: true, enabledReactions: '+1|clap'),
       );
 
@@ -353,13 +384,13 @@ void main() {
     });
 
     test('reads optional Assign statuses without claiming capability', () {
-      final enabled = SiteConfig.fromSettings(
+      final enabled = pluginSettings(
         settings(
           enableAssignStatus: true,
           assignStatuses: 'New|In Progress|Done',
         ),
       );
-      final disabled = SiteConfig.fromSettings(
+      final disabled = pluginSettings(
         settings(enableAssignStatus: false, assignStatuses: 'New|Done'),
       );
 
@@ -370,7 +401,7 @@ void main() {
     });
 
     test('reads local-date authoring and preview defaults', () {
-      final config = SiteConfig.fromSettings(
+      final config = pluginSettings(
         settings(
           localDatesEnabled: true,
           localDateFormats: 'LLL|YYYY-MM-DD [at] HH:mm',
@@ -386,16 +417,16 @@ void main() {
     test(
       'missing local-date enablement disables authoring but keeps defaults',
       () {
-        final config = SiteConfig.fromSettings(const {});
+        final config = pluginSettings(const {});
 
         expect(config.localDatesEnabled, isFalse);
-        expect(config.localDateFormats, SiteConfig.defaultLocalDateFormats);
-        expect(config.localDateTimezones, SiteConfig.defaultLocalDateTimezones);
+        expect(config.localDateFormats, LocalDatesSettings.defaultFormats);
+        expect(config.localDateTimezones, LocalDatesSettings.defaultTimezones);
       },
     );
 
     test('reads GIF proxy presentation and result-limit settings', () {
-      final config = SiteConfig.fromSettings(
+      final config = pluginSettings(
         settings(
           gifsEnabled: true,
           gifFileDetail: 'gif',
@@ -411,16 +442,13 @@ void main() {
     });
 
     test('bounds unknown GIF format and result-limit values', () {
-      final config = SiteConfig.fromSettings(
+      final config = pluginSettings(
         settings(gifFileDetail: 'future-format', gifMaxResults: 23),
       );
 
-      expect(config.gifFileDetail, SiteConfig.defaultGifFileDetail);
-      expect(config.gifMaxResults, SiteConfig.defaultGifMaxResults);
-      expect(
-        SiteConfig.fromSettings(settings(gifMaxResults: '48')).gifMaxResults,
-        48,
-      );
+      expect(config.gifFileDetail, GifsSettings.defaultFileDetail);
+      expect(config.gifMaxResults, GifsSettings.defaultMaxResults);
+      expect(pluginSettings(settings(gifMaxResults: '48')).gifMaxResults, 48);
     });
   });
 
@@ -551,12 +579,10 @@ void main() {
     });
 
     test('reads and persists the chat upload gate', () {
-      final disabled = SiteConfig.fromSettings(
-        settings(chatUploadsEnabled: false),
-      );
+      final disabled = pluginSettings(settings(chatUploadsEnabled: false));
 
       expect(disabled.chatUploadsEnabled, isFalse);
-      expect(SiteConfig.fromJson(disabled.toJson()), disabled);
+      expect(restorePluginSettings(disabled), disabled);
     });
   });
 
@@ -582,7 +608,7 @@ void main() {
   });
 
   group('storage', () {
-    final full = SiteConfig.fromSettings(
+    final full = pluginSettings(
       settings(
         emojiEnabled: false,
         emojiSet: 'google',
@@ -615,9 +641,7 @@ void main() {
     );
 
     test('survives a round trip through preferences', () {
-      final decoded = SiteConfig.fromJson(
-        jsonDecode(jsonEncode(full.toJson())) as Map<String, dynamic>,
-      );
+      final decoded = restorePluginSettings(full);
 
       expect(decoded, full);
     });
@@ -647,7 +671,11 @@ void main() {
       // Without this the persist-if-changed guard is identity comparison, and
       // preferences get rewritten on every launch.
       expect(
-        SiteConfig.fromJson(full.toJson()) == full,
+        SiteConfig.fromJson(
+              full.toJson(extensions: pluginRegistry),
+              extensions: pluginRegistry,
+            ) ==
+            full,
         isTrue,
         reason: 'a decoded copy must equal what it was encoded from',
       );
@@ -657,7 +685,7 @@ void main() {
 
   group('Resenha client settings', () {
     test('parses enabled capabilities and native quality caps', () {
-      final resenha = SiteConfig.fromSettings(const {
+      final resenha = pluginSettings(const {
         'resenha_enabled': true,
         'resenha_video_enabled': true,
         'resenha_video_max_publishers': 12,
@@ -687,15 +715,13 @@ void main() {
     });
 
     test('defaults unknown values defensively and survives storage', () {
-      final config = SiteConfig.fromSettings(const {
+      final config = pluginSettings(const {
         'resenha_enabled': true,
         'resenha_video_max_publishers': 1000,
         'resenha_max_voice_quality': 'future-ultra',
         'resenha_idle_threshold_minutes': -1,
       });
-      final decoded = SiteConfig.fromJson(
-        jsonDecode(jsonEncode(config.toJson())) as Map<String, dynamic>,
-      );
+      final decoded = restorePluginSettings(config);
 
       expect(config.resenha.videoMaxPublishers, 8);
       expect(config.resenha.maxVoiceQuality, 'maximum');

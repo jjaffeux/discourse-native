@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../plugin_api/plugin_scope.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_scope.dart';
-import '../plugin_services.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
+import 'chat_services.dart';
 
 /// Stars the current account's membership in one followed channel.
 class ChatChannelStarButton extends StatelessWidget {
