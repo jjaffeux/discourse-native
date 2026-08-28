@@ -35,6 +35,7 @@ Future<bool> openLink(
 
   if (showUserCardForUrl(context, target, siteUrl: siteUrl)) return true;
   if (await controller?.openPluginUrl(target) ?? false) return true;
+  if (controller?.openGroupUrl(target) ?? false) return true;
   if (controller?.openTopicUrl(target) ?? false) return true;
   if (controller?.openListUrl(target, title: title) ?? false) return true;
   return openExternalLink(target);

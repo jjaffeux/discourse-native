@@ -37,6 +37,9 @@ Map<String, dynamic> settings({
   int? maxImageHeight,
   int? minSearchTermLength,
   bool? logSearchQueries,
+  bool? groupDirectoryEnabled,
+  bool? mentionsEnabled,
+  bool? smtpEnabled,
   bool? chatSearchEnabled,
   int? chatChannelRetentionDays,
   int? chatDmRetentionDays,
@@ -76,6 +79,9 @@ Map<String, dynamic> settings({
   'max_image_height': ?maxImageHeight,
   'min_search_term_length': ?minSearchTermLength,
   'log_search_queries': ?logSearchQueries,
+  'enable_group_directory': ?groupDirectoryEnabled,
+  'enable_mentions': ?mentionsEnabled,
+  'enable_smtp': ?smtpEnabled,
   'chat_search_enabled': ?chatSearchEnabled,
   'chat_channel_retention_days': ?chatChannelRetentionDays,
   'chat_dm_retention_days': ?chatDmRetentionDays,
@@ -115,6 +121,24 @@ void main() {
         SiteConfig.fromSettings(settings(emojiEnabled: false)).emojiEnabled,
         isFalse,
       );
+    });
+
+    test('reads and persists the core group surface settings', () {
+      final config = SiteConfig.fromSettings(
+        settings(
+          groupDirectoryEnabled: false,
+          mentionsEnabled: false,
+          smtpEnabled: true,
+        ),
+      );
+
+      expect(config.groupDirectoryEnabled, isFalse);
+      expect(config.mentionsEnabled, isFalse);
+      expect(config.smtpEnabled, isTrue);
+      final restored = SiteConfig.fromJson(config.toJson());
+      expect(restored.groupDirectoryEnabled, isFalse);
+      expect(restored.mentionsEnabled, isFalse);
+      expect(restored.smtpEnabled, isTrue);
     });
 
     test('falls back to core defaults for everything absent', () {

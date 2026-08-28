@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import '../data/bounded_http_overrides.dart';
 import 'diagnostics_redactor.dart';
 
 /// The lifecycle states emitted for one HTTP transaction.
@@ -96,8 +95,7 @@ abstract interface class HttpDiagnosticsRecorder {
 
 /// A process-wide [HttpOverrides] that records clients created through
 /// `HttpClient()` while preserving an override that was already installed.
-final class RecordingHttpOverrides extends HttpOverrides
-    implements AppHttpOverridesLayer {
+final class RecordingHttpOverrides extends HttpOverrides {
   RecordingHttpOverrides(
     this.recorder, {
     HttpOverrides? previous,
@@ -107,7 +105,6 @@ final class RecordingHttpOverrides extends HttpOverrides
 
   final HttpDiagnosticsRecorder recorder;
 
-  @override
   final HttpOverrides? previous;
   final DateTime Function() _clock;
 

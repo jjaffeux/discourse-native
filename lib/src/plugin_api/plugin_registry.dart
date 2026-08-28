@@ -63,6 +63,10 @@ final class PluginRegistry
       'diagnostics id',
       (plugin) => plugin.diagnosticsId,
     );
+    _validateUniqueKeys<GroupTabPlugin>(
+      'group tab owner',
+      (plugin) => _ownerOf(plugin),
+    );
   }
 
   void _validateUniqueKeys<T extends Object>(
@@ -273,6 +277,65 @@ final class PluginRegistry
         onAction: section.onAction,
       );
 
+  List<PluginGroupTab> groupTabs(PluginGroupContext group) =>
+      List.unmodifiable([
+        for (final plugin in plugins.whereType<GroupTabPlugin>())
+          if (plugin.groupTab(group) case final tab?)
+            _validateGroupTab(plugin, tab),
+      ]);
+
+  /// Resolves each contribution once so stateful feature gates cannot disagree
+  /// with the owner used to construct the selected route.
+  List<OwnedPluginGroupTab> ownedGroupTabs(PluginGroupContext group) =>
+      List.unmodifiable([
+        for (final plugin in plugins.whereType<GroupTabPlugin>())
+          if (plugin.groupTab(group) case final tab?)
+            OwnedPluginGroupTab(
+              owner: _owner(plugin),
+              tab: _validateGroupTab(plugin, tab),
+            ),
+      ]);
+
+  Widget? groupContent(BuildContext context, PluginGroupContext group) {
+    if (!group.route.isPlugin) return null;
+    for (final plugin in plugins.whereType<GroupTabPlugin>()) {
+      if ((plugin as SitePlugin).name != group.route.pluginOwner) continue;
+      final content = plugin.groupContent(_uiContext(context, plugin), group);
+      return content == null ? null : _owned(plugin, content);
+    }
+    return null;
+  }
+
+  Listenable? groupListenable(BuildContext context, PluginGroupContext group) {
+    if (!group.route.isPlugin) return null;
+    for (final plugin in plugins.whereType<GroupTabPlugin>()) {
+      if ((plugin as SitePlugin).name != group.route.pluginOwner) continue;
+      return plugin.groupListenable(_uiContext(context, plugin), group);
+    }
+    return null;
+  }
+
+  static PluginGroupTab _validateGroupTab(
+    GroupTabPlugin plugin,
+    PluginGroupTab tab,
+  ) {
+    final section = tab.section;
+    if (section.isEmpty ||
+        section.trim() != section ||
+        section.contains('/') ||
+        section.contains('\\')) {
+      throw StateError(
+        '${(plugin as SitePlugin).name} returned invalid group tab $section.',
+      );
+    }
+    if (tab.label.trim().isEmpty || (tab.count != null && tab.count! < 0)) {
+      throw StateError(
+        '${(plugin as SitePlugin).name} returned invalid group tab metadata.',
+      );
+    }
+    return tab;
+  }
+
   @override
   List<TopicRecommendationSourceDefinition> get topicRecommendationSources =>
       List.unmodifiable([
@@ -365,6 +428,10 @@ final class PluginRegistry
       if (plugin is PluginRecord<Object>) {
         final capability = plugin as PluginRecord<Object>;
         _claimRecordOwner(owners, capability.record, plugin.name);
+      }
+      if (plugin is GroupRecordPlugin<Object>) {
+        final capability = plugin as GroupRecordPlugin<Object>;
+        _claimRecordOwner(owners, capability.groupRecord, plugin.name);
       }
       if (plugin is SiteSettingsPlugin<Object>) {
         final capability = plugin as SiteSettingsPlugin<Object>;
@@ -659,6 +726,18 @@ final class PluginRegistry
       );
     }
     owners[key] = owner;
+  }
+
+  @override
+  PluginData readGroup(Map<String, dynamic> json, String siteUrl) {
+    var values = PluginData.none;
+    for (final plugin in plugins.whereType<GroupRecordPlugin<Object>>()) {
+      final value = plugin.readGroup(json, siteUrl);
+      if (value != null) {
+        values = values.withValueFor(plugin.groupRecord, value);
+      }
+    }
+    return values;
   }
 
   @override

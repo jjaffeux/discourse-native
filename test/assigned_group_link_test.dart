@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/plugins/assign/assigned_group.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group_link.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -26,11 +27,27 @@ void main() {
       expect(link.uri.host, 'meta.discourse.org');
     });
 
-    test('does not claim other Assign group filters or nearby pages', () {
+    test('reads everyone, direct-group, and member filters', () {
+      expect(
+        AssignedGroupLink.parse('/g/support/assigned')!.filter,
+        const AssignedGroupFilter.everyone(),
+      );
+      expect(
+        AssignedGroupLink.parse('/g/support/assigned/everyone')!.filter,
+        const AssignedGroupFilter.everyone(),
+      );
+      expect(
+        AssignedGroupLink.parse('/g/support/assigned/support')!.filter,
+        const AssignedGroupFilter.directGroup(),
+      );
+      expect(
+        AssignedGroupLink.parse('/g/support/assigned/Sam')!.filter,
+        AssignedGroupFilter.member('sam'),
+      );
+    });
+
+    test('does not claim nearby pages', () {
       for (final url in const [
-        '/g/support/assigned/everyone',
-        '/g/support/assigned/sam',
-        '/g/support/assigned',
         '/g/support/members',
         '/g/support/assigned/support/preferences',
         '/topics/group-topics-assigned/support',

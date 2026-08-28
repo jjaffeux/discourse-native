@@ -1,21 +1,24 @@
 import 'package:flutter/foundation.dart';
 
+import 'assigned_group.dart';
+
 /// The Assign group-tab URL which represents assignments made directly to the
 /// group named by the route.
 @immutable
 final class AssignedGroupLink {
-  const AssignedGroupLink({required this.uri, required this.groupName});
+  const AssignedGroupLink({
+    required this.uri,
+    required this.groupName,
+    required this.filter,
+  });
 
   final Uri uri;
   final String groupName;
+  final AssignedGroupFilter filter;
 
   static const int maximumUrlLength = 2048;
 
-  /// Parses only `/g/:group/assigned/:group`.
-  ///
-  /// Assign also owns `/everyone` and member-name filters. Those have
-  /// different query semantics, so they stay in the browser until native
-  /// screens explicitly support them.
+  /// Parses `/g/:group/assigned` and each Assign-owned filter below it.
   static AssignedGroupLink? parse(String url) {
     if (url.isEmpty || url.length > maximumUrlLength) return null;
     final uri = Uri.tryParse(url);
@@ -25,14 +28,29 @@ final class AssignedGroupLink {
     while (segments.isNotEmpty && segments.last.isEmpty) {
       segments.removeLast();
     }
-    if (segments.length != 4 || segments.any((segment) => segment.isEmpty)) {
+    if (segments.length < 3 ||
+        segments.length > 4 ||
+        segments.any((segment) => segment.isEmpty)) {
       return null;
     }
     if (segments[0] != 'g' || segments[2] != 'assigned') return null;
 
     final groupName = segments[1];
-    if (groupName != segments[3] || groupName.contains('/')) return null;
-    return AssignedGroupLink(uri: uri, groupName: groupName);
+    if (groupName.contains('/') || groupName.contains('\\')) return null;
+    final segment = segments.length == 3 ? 'everyone' : segments[3];
+    final AssignedGroupFilter filter;
+    if (segment == 'everyone') {
+      filter = const AssignedGroupFilter.everyone();
+    } else if (segment == groupName) {
+      filter = const AssignedGroupFilter.directGroup();
+    } else {
+      try {
+        filter = AssignedGroupFilter.member(segment);
+      } on ArgumentError {
+        return null;
+      }
+    }
+    return AssignedGroupLink(uri: uri, groupName: groupName, filter: filter);
   }
 
   /// Assign's topic-list endpoint for the group's direct assignments.

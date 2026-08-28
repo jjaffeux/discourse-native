@@ -11,22 +11,23 @@ import 'discourse_api.dart';
 import 'http_transport.dart';
 import 'media_request_coordinator.dart';
 
-/// Deduplicates image fetches and keeps their concurrency bounded.
+/// Deduplicates image fetches, caches failures, and optionally bounds work.
 ///
 /// Two problems make a plain `NetworkImage` the wrong tool for anything this
 /// app draws off a site:
 ///
-/// * A first render asks for three avatars per topic across thirty topics, or
-///   thirty emoji across six posts. Fired at once that earns an HTTP 429 from
-///   the site, and `NetworkImage` then retries the failures on every rebuild.
+/// * A first render can ask for three avatars per topic across thirty topics.
+///   Callers serving forum-origin media may opt into a concurrency limit, while
+///   CDN-backed static assets can leave [maxConcurrent] null and fan out.
 /// * The format is not always what the URL says, so the bytes have to be looked
 ///   at rather than the extension trusted.
 ///
-/// So: cache by URL *including failures*, and cap how many are in flight.
+/// So: cache by URL *including failures*, and let each media owner decide
+/// whether its transport needs an application-level concurrency cap.
 ///
 /// Subclasses say what a successful response decodes to and nothing else; the
-/// caching, the cooldown and the semaphore are the same problem whatever is
-/// being fetched, and were worth solving once rather than twice.
+/// caching and optional cooldown/semaphore are shared here rather than copied
+/// by each media owner.
 abstract class ByteCache<T extends Object> {
   ByteCache({
     http.Client? client,
@@ -39,25 +40,33 @@ abstract class ByteCache<T extends Object> {
     this.maxRedirects = 5,
     MediaRequestCoordinator? coordinator,
     this.store,
-  }) : assert(maxConcurrent > 0),
+  }) : assert(maxConcurrent == null || maxConcurrent > 0),
+       assert(
+         maxConcurrent != null || coordinator == null,
+         'An unbounded cache cannot use a bounded media coordinator.',
+       ),
        assert(maxEntries > 0),
        assert(maxResponseBytes > 0),
        assert(maxCachedBytes > 0),
        assert(maxRedirects >= 0),
-       _coordinator =
-           coordinator ??
-           MediaRequestCoordinator(
-             maxConcurrentPerOrigin: maxConcurrent,
-             defaultRateLimitCooldown: retryAfter,
-           ),
+       _coordinator = maxConcurrent == null
+           ? null
+           : coordinator ??
+                 MediaRequestCoordinator(
+                   maxConcurrentPerOrigin: maxConcurrent,
+                   defaultRateLimitCooldown: retryAfter,
+                 ),
        _client = client == null
            ? SafeHttpClient.create()
            : SafeHttpClient.borrowed(client);
 
   final http.Client _client;
-  final MediaRequestCoordinator _coordinator;
+  final MediaRequestCoordinator? _coordinator;
   final ByteCacheStore? store;
-  final int maxConcurrent;
+
+  /// Null leaves concurrency to the HTTP stack, which is appropriate for
+  /// small immutable assets normally served by a CDN.
+  final int? maxConcurrent;
 
   /// How many results or unique pending loads are held.
   ///
@@ -202,9 +211,9 @@ abstract class ByteCache<T extends Object> {
   }
 
   Future<T?> _fetch(String url, Object generation) async {
-    // Disk misses can fan out just as aggressively as network misses. Take the
-    // cache's work slot before either one so a cold screen cannot start one
-    // filesystem read per visible avatar while HTTP is correctly bounded.
+    // When this cache opts into work limiting, take its slot before disk too;
+    // otherwise a cold screen could bypass the intended bound with one
+    // filesystem read per visible image.
     if (!await _acquire(generation)) return null;
     try {
       final persistent = store;
@@ -405,7 +414,7 @@ abstract class ByteCache<T extends Object> {
           persistable: persistable,
         );
       } finally {
-        sent.lease.release();
+        sent.lease?.release();
       }
     }
   }
@@ -414,16 +423,16 @@ abstract class ByteCache<T extends Object> {
     ({
       http.StreamedResponse response,
       Completer<void> timeoutAbort,
-      MediaRequestLease lease,
+      MediaRequestLease? lease,
     })
   >
   _send(Uri url, Uri original, Stopwatch elapsed) async {
-    final lease = await _coordinator.acquire(url, relatedUrl: original);
+    final lease = await _coordinator?.acquire(url, relatedUrl: original);
     final timeoutAbort = Completer<void>();
     Future<http.StreamedResponse>? response;
     try {
-      // A request may have waited behind the shared avatar/emoji gate. Do not
-      // start it after this load's complete timeout budget has elapsed.
+      // A bounded request may have waited for admission. Do not start it after
+      // this load's complete timeout budget has elapsed.
       final remaining = _remaining(elapsed);
       final request =
           http.AbortableRequest('GET', url, abortTrigger: timeoutAbort.future)
@@ -433,7 +442,7 @@ abstract class ByteCache<T extends Object> {
       request.headers.addAll(requestHeaders(url, original));
       response = _client.send(request);
       final streamed = await response.timeout(remaining);
-      if (streamed.statusCode == 429) {
+      if (streamed.statusCode == 429 && lease != null) {
         // A CDN 429 also gates the source forum. Otherwise queued forum avatar
         // URLs would all continue producing redirects into the blocked CDN.
         lease.rateLimited(streamed.headers);
@@ -447,10 +456,10 @@ abstract class ByteCache<T extends Object> {
             onError: (Object _, StackTrace _) {},
           )
           .ignore();
-      lease.release();
+      lease?.release();
       rethrow;
     } catch (_) {
-      lease.release();
+      lease?.release();
       rethrow;
     }
   }
@@ -536,7 +545,9 @@ abstract class ByteCache<T extends Object> {
 
   Future<bool> _acquire(Object generation) {
     if (!identical(_generation, generation)) return Future.value(false);
-    if (_active < maxConcurrent) {
+    final limit = maxConcurrent;
+    if (limit == null) return Future.value(true);
+    if (_active < limit) {
       _active++;
       return Future.value(true);
     }
@@ -546,6 +557,7 @@ abstract class ByteCache<T extends Object> {
   }
 
   void _release() {
+    if (maxConcurrent == null) return;
     while (_waiting.isNotEmpty) {
       final waiter = _waiting.removeFirst();
       if (!identical(waiter.generation, _generation)) {

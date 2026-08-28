@@ -348,6 +348,29 @@ Two things the payload makes you handle:
   resolves those shortcodes through the site's emoji set without asking an
   HTML renderer to interpret the rest of the title.
 
+### Groups
+
+`/g` and `/g/:name` are native, restorable routes. The directory owns its
+search, type, order, direction, and pagination state. A group detail owns
+independent caches for members, membership requests, posts/mentions,
+permissions, and audit logs; the activity Topics and group-message
+Inbox/Archive subtabs reuse the ordinary topic-list controller so pagination
+and topic navigation behave exactly like the rest of the app. Public group
+directory, detail, member, activity, and permission reads work without an API
+key, while the server-authored capability fields on the group guard every
+authenticated mutation and management surface.
+
+Core parses only the built-in group namespace: Members, Activity
+(Posts/Topics/Mentions), Requests, Messages (Inbox/Archive), Permissions, and
+Manage (Profile/Membership/Interaction/Email/Categories/Tags/Logs). Optional
+features register owner-scoped group tabs through `GroupTabPlugin`; their group
+serializer fields remain typed `PluginData`, and their paths fall through to
+the feature's link handler. Assign uses that seam for `/g/:name/assigned`: it is
+shown only when the installed plugin's group record allows the tab, the group
+member list is visible, and the current-user record grants global assignment.
+Its Everyone, direct-group, and individual-member filters and paging remain in
+the Assign module rather than leaking plugin vocabulary into core.
+
 ### Scrolling
 
 The list is lazy already: `ListView.separated` with an `itemBuilder` is backed
@@ -1421,11 +1444,13 @@ base URL to resolve a root-relative `src` against, so `TagImg` fell back to the
 `:slight_smile:`.
 
 Setting `HtmlWidget.baseUrl` would have fixed the URL in one line and routed
-*every* `<img>` in every post through `NetworkImage` — unbounded concurrency, no
-failure caching, one request per glyph. That is the exact 429 story
-`AvatarLoader` exists to prevent, so emoji go through a sibling of it,
-[`EmojiCache`](lib/src/data/emoji_cache.dart), and the caching and concurrency
-cap they share live in [`ByteCache`](lib/src/data/byte_cache.dart).
+*every* `<img>` in every post through `NetworkImage` — no failure caching and
+one request per glyph. Emoji instead go through
+[`EmojiCache`](lib/src/data/emoji_cache.dart), which uses
+[`ByteCache`](lib/src/data/byte_cache.dart) to deduplicate URLs, retain failures,
+bound response sizes, and persist reusable bytes. Picker emoji are small,
+immutable CDN assets, so that cache deliberately leaves their concurrency to
+the HTTP stack; JSON API requests retain their per-origin backpressure.
 
 Reactions need the other direction — a name, not a `src` — which is
 `SiteConfig.emojiUrl`, mirroring `Emoji.url_for`: `{external_emoji_url or

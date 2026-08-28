@@ -41,43 +41,39 @@ DiscourseUser _assignUser({
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('Assign group URL opens its direct assignment feed natively', () async {
-    const assignedPath =
-        '/topics/group-topics-assigned/support.json?direct=true';
+  test('Assign group URL opens its group tab natively', () async {
     final api = FakeDiscourseApi(
-      user: _assignUser(),
-      feeds: const {
-        '/latest.json': <Topic>[],
-        assignedPath: [
-          Topic(id: 42, title: 'Assigned topic', slug: 'assigned-topic'),
-        ],
-      },
-      siteConfigs: const {_site: SiteConfig.unknown()},
-    );
-    final shell = await _loadListShell(api, user: _assignUser());
-    addTearDown(shell.dispose);
-
-    expect(await shell.openPluginUrl('/g/support/assigned/support'), isTrue);
-    await pumpEventQueue();
-
-    expect(shell.currentContent?.id, 'assign-group-support');
-    expect(shell.currentContent?.title, 'Assigned to support');
-    expect(shell.currentContent?.feedPath, assignedPath);
-    expect(api.feedPaths, contains(assignedPath));
-    expect(shell.currentFeed?.topicIds, [42]);
-  });
-
-  test('Assign group URL stays external without Assign permission', () async {
-    const assignedPath =
-        '/topics/group-topics-assigned/support.json?direct=true';
-    final api = FakeDiscourseApi(
-      user: _assignUser(canAssign: false),
+      user: _assignUser(canAssignGlobally: true),
       feeds: const {'/latest.json': <Topic>[]},
       siteConfigs: const {_site: SiteConfig.unknown()},
     );
     final shell = await _loadListShell(
       api,
-      user: _assignUser(canAssign: false),
+      user: _assignUser(canAssignGlobally: true),
+    );
+    addTearDown(shell.dispose);
+
+    expect(await shell.openPluginUrl('/g/support/assigned/support'), isTrue);
+    await pumpEventQueue();
+
+    expect(shell.currentContent?.groupRoute?.groupName, 'support');
+    expect(shell.currentContent?.groupRoute?.pluginOwner, 'discourse-assign');
+    expect(shell.currentContent?.groupRoute?.section, 'assigned');
+    expect(shell.currentContent?.groupRoute?.subsection, 'support');
+    expect(shell.currentContent?.feedPath, isNull);
+  });
+
+  test('Assign group URL requires the global Assign permission', () async {
+    const assignedPath =
+        '/topics/group-topics-assigned/support.json?direct=true';
+    final api = FakeDiscourseApi(
+      user: _assignUser(canAssign: true, canAssignGlobally: false),
+      feeds: const {'/latest.json': <Topic>[]},
+      siteConfigs: const {_site: SiteConfig.unknown()},
+    );
+    final shell = await _loadListShell(
+      api,
+      user: _assignUser(canAssign: true, canAssignGlobally: false),
     );
     addTearDown(shell.dispose);
 

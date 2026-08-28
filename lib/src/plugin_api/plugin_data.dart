@@ -173,6 +173,8 @@ final class PluginData {
 
 /// Supplies installed model extensions without making core import a manifest.
 abstract interface class PluginDataDecoder {
+  PluginData readGroup(Map<String, dynamic> json, String siteUrl);
+
   PluginData readPost(Map<String, dynamic> json, String siteUrl);
 
   PluginData readTopic(Map<String, dynamic> json, String siteUrl);
@@ -200,6 +202,10 @@ abstract interface class PluginDataDecoder {
 /// The decoder used by a core-only manifest.
 final class EmptyPluginDataDecoder implements PluginDataDecoder {
   const EmptyPluginDataDecoder();
+
+  @override
+  PluginData readGroup(Map<String, dynamic> json, String siteUrl) =>
+      PluginData.none;
 
   @override
   PluginData readPost(Map<String, dynamic> json, String siteUrl) =>

@@ -27,6 +27,7 @@ import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
 import 'package:discourse_native/src/plugins/assign/assign_data.dart';
+import 'package:discourse_native/src/plugins/assign/assigned_group.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -332,6 +333,17 @@ void main() {
       probe('SiteConfig', () => SiteConfig.fromJson(json), json);
       probe('AssignSettings', () => AssignSettings.fromWire(json), json);
       probe('AssignCurrentUser', () => AssignCurrentUser.fromWire(json), json);
+      probe(
+        'AssignedGroupMember',
+        () => AssignedGroupMember.fromJson(json, site),
+        json,
+      );
+      probe(
+        'AssignedGroupMembersPage',
+        () =>
+            AssignedGroupMembersPage.fromJson(json, site, offset: 0, limit: 50),
+        json,
+      );
       probe('ChatSettings', () => ChatSettings.fromSettings(json), json);
       probe(
         'ChatCurrentUser',
@@ -518,6 +530,7 @@ void main() {
       // `InstanceStore` catches per entry so one damaged site cannot erase
       // the rail, and a workspace with an unreadable anchor keeps its tabs.
       'ContentRoute',
+      'GroupRoute',
       'DiscourseInstance',
       'DiscourseUser',
       'ForumTabAnchor',

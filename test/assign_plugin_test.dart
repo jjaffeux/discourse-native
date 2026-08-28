@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
@@ -31,6 +32,48 @@ void main() {
     expect(assignments.direct?.assignee.displayName, 'Sam Example');
     expect(assignments.direct?.status, 'In progress');
     expect(assignments.direct?.note, 'Follow up tomorrow');
+  });
+
+  test('the group tab requires every server-authored Assign guardian', () {
+    const registry = PluginRegistry([AssignPlugin()]);
+    final route = GroupRoute.plugin(
+      groupName: 'support',
+      owner: _plugin.name,
+      section: 'assigned',
+    );
+
+    PluginGroupTab? tab({
+      Map<String, dynamic> group = const {
+        'assignable_level': 1,
+        'can_show_assigned_tab': true,
+        'assignment_count': 4,
+      },
+      Map<String, dynamic> user = const {'can_assign_globally': true},
+      bool canSeeMembers = true,
+    }) => _plugin.groupTab(
+      PluginGroupContext(
+        siteUrl: _siteUrl,
+        route: route,
+        groupName: 'support',
+        canSeeMembers: canSeeMembers,
+        groupData: registry.readGroup(group, _siteUrl),
+        currentUserData: registry.readCurrentUser(user, _siteUrl),
+      ),
+    );
+
+    expect(tab()?.count, 4);
+    expect(tab(group: const {}), isNull);
+    expect(
+      tab(group: const {'assignable_level': 0, 'can_show_assigned_tab': true}),
+      isNull,
+    );
+    expect(
+      tab(group: const {'assignable_level': 1, 'can_show_assigned_tab': false}),
+      isNull,
+    );
+    expect(tab(canSeeMembers: false), isNull);
+    expect(tab(user: const {'can_assign_globally': false}), isNull);
+    expect(tab(user: const {}), isNull);
   });
 
   test('only matching assignment messages invalidate the open topic', () {

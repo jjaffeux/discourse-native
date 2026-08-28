@@ -24,6 +24,9 @@ class SiteConfig {
     this.maxImageHeight = 500,
     this.minSearchTermLength = defaultMinSearchTermLength,
     this.logSearchQueries = true,
+    this.groupDirectoryEnabled = true,
+    this.mentionsEnabled = true,
+    this.smtpEnabled = false,
     this.taggingEnabled = true,
     this.maxTagSearchResults = defaultMaxTagSearchResults,
     this.usePgHeadlinesForExcerpt = false,
@@ -116,6 +119,9 @@ class SiteConfig {
           jsonIntOrNull(json['min_search_term_length'])?.clamp(1, 100) ??
           defaultMinSearchTermLength,
       logSearchQueries: json['log_search_queries'] != false,
+      groupDirectoryEnabled: json['enable_group_directory'] != false,
+      mentionsEnabled: json['enable_mentions'] != false,
+      smtpEnabled: json['enable_smtp'] == true,
       taggingEnabled: json['tagging_enabled'] != false,
       maxTagSearchResults: _positiveInt(
         json['max_tag_search_results'],
@@ -177,6 +183,9 @@ class SiteConfig {
         jsonIntOrNull(json['minSearchTermLength'])?.clamp(1, 100) ??
         defaultMinSearchTermLength,
     logSearchQueries: json['logSearchQueries'] != false,
+    groupDirectoryEnabled: json['groupDirectoryEnabled'] != false,
+    mentionsEnabled: json['mentionsEnabled'] != false,
+    smtpEnabled: json['smtpEnabled'] == true,
     taggingEnabled: json['taggingEnabled'] != false,
     maxTagSearchResults: _positiveInt(
       json['maxTagSearchResults'],
@@ -223,6 +232,9 @@ class SiteConfig {
       'maxImageHeight': maxImageHeight,
       'minSearchTermLength': minSearchTermLength,
       'logSearchQueries': logSearchQueries,
+      'groupDirectoryEnabled': groupDirectoryEnabled,
+      'mentionsEnabled': mentionsEnabled,
+      'smtpEnabled': smtpEnabled,
       'taggingEnabled': taggingEnabled,
       'maxTagSearchResults': maxTagSearchResults,
       'usePgHeadlinesForExcerpt': usePgHeadlinesForExcerpt,
@@ -266,6 +278,9 @@ class SiteConfig {
   final int maxImageHeight;
   final int minSearchTermLength;
   final bool logSearchQueries;
+  final bool groupDirectoryEnabled;
+  final bool mentionsEnabled;
+  final bool smtpEnabled;
   final bool taggingEnabled;
 
   /// The largest tag page `/tags/filter/search.json` will accept.
@@ -374,6 +389,9 @@ class SiteConfig {
     maxImageHeight: maxImageHeight,
     minSearchTermLength: minSearchTermLength,
     logSearchQueries: logSearchQueries,
+    groupDirectoryEnabled: groupDirectoryEnabled,
+    mentionsEnabled: mentionsEnabled,
+    smtpEnabled: smtpEnabled,
     taggingEnabled: taggingEnabled,
     maxTagSearchResults: maxTagSearchResults,
     usePgHeadlinesForExcerpt: usePgHeadlinesForExcerpt,
@@ -412,6 +430,9 @@ class SiteConfig {
       other.maxImageHeight == maxImageHeight &&
       other.minSearchTermLength == minSearchTermLength &&
       other.logSearchQueries == logSearchQueries &&
+      other.groupDirectoryEnabled == groupDirectoryEnabled &&
+      other.mentionsEnabled == mentionsEnabled &&
+      other.smtpEnabled == smtpEnabled &&
       other.taggingEnabled == taggingEnabled &&
       other.maxTagSearchResults == maxTagSearchResults &&
       other.usePgHeadlinesForExcerpt == usePgHeadlinesForExcerpt &&
@@ -446,6 +467,9 @@ class SiteConfig {
     maxImageHeight,
     minSearchTermLength,
     logSearchQueries,
+    groupDirectoryEnabled,
+    mentionsEnabled,
+    smtpEnabled,
     taggingEnabled,
     maxTagSearchResults,
     usePgHeadlinesForExcerpt,

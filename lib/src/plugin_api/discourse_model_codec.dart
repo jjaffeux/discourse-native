@@ -89,11 +89,13 @@ final class DiscourseModelCodec {
       status: UserStatus.fromJson(json['status']),
       draftCount: jsonInt(json['draft_count']),
       canChangePostOwner: json['can_change_post_owner'] == true,
+      admin: json['admin'] == true,
       staff:
           json['staff'] == true ||
           json['admin'] == true ||
           json['moderator'] == true,
       whisperer: json['whisperer'] == true,
+      canSendPrivateMessages: json['can_send_private_messages'] == true,
       groups: List.unmodifiable([
         for (final group in jsonObjects(json['groups']))
           ?jsonText(group['name']),

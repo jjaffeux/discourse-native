@@ -646,6 +646,7 @@ class FakeDiscourseApi
     this.chatReactorGate,
     this.customSidebarSectionsBySite = const {},
     this.pluginResponses = const {},
+    this.pluginListResponses = const {},
     Map<String, WriteException>? pluginWriteFailures,
   }) : models =
            models ??
@@ -662,6 +663,7 @@ class FakeDiscourseApi
   final Map<String, DiscourseInstance> results;
   final Map<String, List<SidebarSection>> customSidebarSectionsBySite;
   final Map<String, Map<String, dynamic>> pluginResponses;
+  final Map<String, List<Map<String, dynamic>>> pluginListResponses;
   final Map<String, WriteException> pluginWriteFailures;
   final List<
     ({String siteUrl, String method, String path, Map<String, Object?> body})
@@ -3524,6 +3526,21 @@ class FakeDiscourseApi
     }
     pluginReadPaths.add(path);
     final response = pluginResponses['GET $path'];
+    if (response == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return response;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> pluginGetJsonList({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) async {
+    pluginReadPaths.add(path);
+    final response = pluginListResponses['GET $path'];
     if (response == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
