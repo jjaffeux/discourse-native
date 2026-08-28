@@ -100,7 +100,7 @@ class GroupPage extends StatefulWidget {
     this.onSelectRoute,
     this.onMembershipAction,
     this.onMessageGroup,
-    this.onOpenMember,
+    required this.onOpenMember,
     this.onOpenActivityPost,
     this.onRequestAction,
     this.onSaveManage,
@@ -118,7 +118,7 @@ class GroupPage extends StatefulWidget {
   final ValueChanged<GroupRoute>? onSelectRoute;
   final Future<void> Function(GroupMembershipAction action)? onMembershipAction;
   final VoidCallback? onMessageGroup;
-  final ValueChanged<GroupMember>? onOpenMember;
+  final void Function(BuildContext context, GroupMember member) onOpenMember;
   final ValueChanged<GroupActivityPost>? onOpenActivityPost;
   final Future<void> Function(
     GroupRequester requester,
@@ -719,7 +719,7 @@ class _MembersSection extends StatelessWidget {
   final bool loadingMore;
   final bool hasMore;
   final String? error;
-  final ValueChanged<GroupMember>? onOpenMember;
+  final void Function(BuildContext context, GroupMember member) onOpenMember;
   final VoidCallback? onLoadMore;
 
   @override
@@ -755,7 +755,7 @@ class _MembersSection extends StatelessWidget {
         final member = page!.members[index];
         return _MemberCard(
           member: member,
-          onTap: () => onOpenMember?.call(member),
+          onTap: () => onOpenMember(context, member),
         );
       },
     );

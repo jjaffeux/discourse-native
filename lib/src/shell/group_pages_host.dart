@@ -14,6 +14,7 @@ import 'message_inbox_page.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_list_view.dart';
+import 'user_card.dart';
 
 /// Connects the presentation-only directory widget to the shell's independent
 /// group cache.
@@ -421,6 +422,13 @@ class _GroupPageHostState extends State<GroupPageHost> {
                   ),
                 )
               : null,
+          onOpenMember: (memberContext, member) => unawaited(
+            showUserCard(
+              context: memberContext,
+              username: member.username,
+              siteUrl: widget.siteUrl,
+            ),
+          ),
           onOpenActivityPost: (post) => shell.openTopicPost(
             siteUrl: widget.siteUrl,
             topicId: post.topicId,
