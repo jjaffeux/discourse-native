@@ -74,6 +74,7 @@ import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
+import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/user_activity.dart';
@@ -6739,6 +6740,8 @@ void main() {
           categoryId: 5,
         );
         final api = FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          creatableFeedPaths: const {'/latest.json'},
           userActivityItems: const [activity],
           userActivityCategories: const [
             TopicCategory(id: 5, name: 'Support', color: '0088CC'),
@@ -6799,6 +6802,7 @@ void main() {
 
         expect(find.byType(UserMenuPanel), findsNothing);
         expect(find.byType(UserActivityView), findsOneWidget);
+        expect(find.byType(TopicCreateButton), findsNothing);
         expect(api.userActivityRequests, [
           (
             siteUrl: 'https://meta.discourse.org',

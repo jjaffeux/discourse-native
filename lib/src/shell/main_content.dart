@@ -549,7 +549,9 @@ class _ContentHeader extends StatelessWidget {
                   variant: DButtonVariant.flat,
                   size: DButtonSize.small,
                 ),
-              if (!route.isTopic && showCreateTopicAction)
+              if (!route.isTopic &&
+                  route.id != 'activity' &&
+                  showCreateTopicAction)
                 _TopicCreateAction(controller: controller),
               // Only where there is no title bar above to hold it: this is the
               // furthest right the shell goes once the strip is gone.
