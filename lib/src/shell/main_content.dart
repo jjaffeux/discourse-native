@@ -123,7 +123,6 @@ class _MainContentBody extends StatelessWidget {
                         bookmarkBusy: state.bookmarkBusy,
                         registry: registry,
                         pluginContent: pluginContent,
-                        registry: registry,
                         filterCategories: state.filterCategories,
                         categoryFeed: state.categoryFeed,
                       ),
@@ -162,7 +161,6 @@ class _ContentViewport extends StatelessWidget {
     required this.bookmarkBusy,
     required this.registry,
     required this.pluginContent,
-    required this.registry,
     required this.filterCategories,
     required this.categoryFeed,
   });
@@ -175,7 +173,6 @@ class _ContentViewport extends StatelessWidget {
   final bool bookmarkBusy;
   final PluginRegistry registry;
   final Widget? pluginContent;
-  final PluginRegistry registry;
   final List<TopicCategory> filterCategories;
   final CategoryFeed? categoryFeed;
 
