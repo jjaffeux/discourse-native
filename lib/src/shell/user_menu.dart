@@ -599,6 +599,7 @@ class _DoNotDisturbTile extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller.doNotDisturb,
       builder: (context, _) {
+        final theme = Theme.of(context);
         final state = controller.doNotDisturb.stateFor(siteUrl);
         final active = state.isActiveAt(DateTime.now());
         final until = state.until;
@@ -661,9 +662,9 @@ class _DoNotDisturbTile extends StatelessWidget {
                           DIcon(
                             active ? DIcons.toggleOn : DIcons.toggleOff,
                             size: 18,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
+                            color: active
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.onSurfaceVariant,
                           ),
                         const SizedBox(width: 10),
                         const Expanded(
@@ -805,7 +806,9 @@ class _HidePresenceTile extends StatelessWidget {
                                   ? DIcons.toggleOn
                                   : DIcons.toggleOff,
                               size: 18,
-                              color: theme.colorScheme.onSurfaceVariant,
+                              color: hidden == false
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurfaceVariant,
                             ),
                             const SizedBox(width: 10),
                             Expanded(
