@@ -6,6 +6,7 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../models/content_route.dart';
 import '../models/discourse_user.dart';
 import '../models/forum_workspace.dart';
+import '../models/group_route.dart';
 import '../models/notification_totals.dart';
 import '../models/post.dart';
 import '../models/sidebar.dart';
@@ -122,6 +123,17 @@ abstract interface class PluginSiteFeature {
 /// UI becomes a plugin contribution of its own.
 abstract interface class PluginCurrentUserFeature {
   bool currentUserFeatureEnabled(PluginData currentUser);
+}
+
+/// A feature record embedded in a group directory or group detail payload.
+///
+/// Group serializers are extensible in the same way as posts and topics. Core
+/// keeps these fields opaque so a plugin remains the sole owner of both the
+/// wire contract and the feature gate derived from its presence.
+abstract interface class GroupRecordPlugin<T extends Object> {
+  PluginDataKey<T> get groupRecord;
+
+  T? readGroup(Map<String, dynamic> json, String siteUrl);
 }
 
 /// A feature record embedded in a post payload.
@@ -542,6 +554,67 @@ abstract interface class ForumTabPlugin {
   );
 
   Listenable? forumTabListenable(BuildContext context, String siteUrl);
+}
+
+/// The core-owned facts an optional group tab may use to decide its presence.
+///
+/// [groupData] and [currentUserData] stay opaque to core. A plugin reads only
+/// its own typed keys and therefore cannot accidentally depend on another
+/// extension's wire fields.
+@immutable
+final class PluginGroupContext {
+  const PluginGroupContext({
+    required this.siteUrl,
+    required this.route,
+    required this.groupName,
+    required this.canSeeMembers,
+    required this.groupData,
+    required this.currentUserData,
+  });
+
+  final String siteUrl;
+  final GroupRoute route;
+  final String groupName;
+  final bool canSeeMembers;
+  final PluginData groupData;
+  final PluginData currentUserData;
+}
+
+/// One primary group tab contributed by an installed server feature.
+@immutable
+final class PluginGroupTab {
+  const PluginGroupTab({
+    required this.section,
+    required this.label,
+    required this.icon,
+    this.count,
+  });
+
+  final String section;
+  final String label;
+  final DIconData icon;
+  final int? count;
+}
+
+/// A validated group tab paired with the installed feature that owns it.
+@immutable
+final class OwnedPluginGroupTab {
+  const OwnedPluginGroupTab({required this.owner, required this.tab});
+
+  final PluginId owner;
+  final PluginGroupTab tab;
+}
+
+/// Extends the native group shell without putting plugin vocabulary in core.
+abstract interface class GroupTabPlugin {
+  /// Null means the feature is absent or unavailable for this exact group.
+  PluginGroupTab? groupTab(PluginGroupContext group);
+
+  /// Draws this plugin's route inside the group shell.
+  Widget? groupContent(BuildContext context, PluginGroupContext group);
+
+  /// Feature-owned state which changes the tab or its body.
+  Listenable? groupListenable(BuildContext context, PluginGroupContext group);
 }
 
 /// Claims a content route.

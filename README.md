@@ -348,6 +348,29 @@ Two things the payload makes you handle:
   resolves those shortcodes through the site's emoji set without asking an
   HTML renderer to interpret the rest of the title.
 
+### Groups
+
+`/g` and `/g/:name` are native, restorable routes. The directory owns its
+search, type, order, direction, and pagination state. A group detail owns
+independent caches for members, membership requests, posts/mentions,
+permissions, and audit logs; the activity Topics and group-message
+Inbox/Archive subtabs reuse the ordinary topic-list controller so pagination
+and topic navigation behave exactly like the rest of the app. Public group
+directory, detail, member, activity, and permission reads work without an API
+key, while the server-authored capability fields on the group guard every
+authenticated mutation and management surface.
+
+Core parses only the built-in group namespace: Members, Activity
+(Posts/Topics/Mentions), Requests, Messages (Inbox/Archive), Permissions, and
+Manage (Profile/Membership/Interaction/Email/Categories/Tags/Logs). Optional
+features register owner-scoped group tabs through `GroupTabPlugin`; their group
+serializer fields remain typed `PluginData`, and their paths fall through to
+the feature's link handler. Assign uses that seam for `/g/:name/assigned`: it is
+shown only when the installed plugin's group record allows the tab, the group
+member list is visible, and the current-user record grants global assignment.
+Its Everyone, direct-group, and individual-member filters and paging remain in
+the Assign module rather than leaking plugin vocabulary into core.
+
 ### Scrolling
 
 The list is lazy already: `ListView.separated` with an `itemBuilder` is backed

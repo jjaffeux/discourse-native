@@ -1,9 +1,11 @@
 // ignore_for_file: prefer_initializing_formals
 
 import '../../models/content_route.dart';
+import '../../models/group_route.dart';
+import '../../models/topic.dart';
 import '../../plugin_api/shell_extensions.dart';
 import '../../shell/site_url.dart';
-import '../../theme/d_icons.dart';
+import 'assigned_group.dart';
 import 'assigned_group_link.dart';
 
 typedef AssignGroupRoutePermission = bool Function(String siteUrl);
@@ -12,15 +14,38 @@ typedef AssignGroupRoutePermission = bool Function(String siteUrl);
 final class AssignShellService implements PluginLinkHandler {
   const AssignShellService({
     required PluginRouteNavigationHost host,
-    required PluginTopicListNavigationHost topicLists,
     required AssignGroupRoutePermission canOpenGroupAssignments,
   }) : _host = host,
-       _topicLists = topicLists,
        _canOpenGroupAssignments = canOpenGroupAssignments;
 
   final PluginRouteNavigationHost _host;
-  final PluginTopicListNavigationHost _topicLists;
   final AssignGroupRoutePermission _canOpenGroupAssignments;
+
+  void selectGroupFilter(String groupName, AssignedGroupFilter filter) {
+    final route = ContentRoute.group(
+      GroupRoute.plugin(
+        groupName: groupName,
+        owner: 'discourse-assign',
+        section: 'assigned',
+        subsection: filter.routeSegment(groupName),
+      ),
+      title: groupName,
+    );
+    if (_host.currentContent?.id != route.id) {
+      _host.replaceCurrentContent(route);
+    }
+  }
+
+  void openTopic(Topic topic) {
+    _host.pushContent(
+      ContentRoute.topic(
+        topicId: topic.id,
+        slug: topic.slug,
+        title: topic.title,
+        postNumber: topic.lastUnreadPostNumber,
+      ),
+    );
+  }
 
   @override
   Future<bool> openPluginUrl(String url) async {
@@ -34,14 +59,17 @@ final class AssignShellService implements PluginLinkHandler {
     if (!_canOpenGroupAssignments(site.url)) return false;
 
     if (_host.currentSite?.url != site.url) _host.selectInstance(index);
-    _topicLists.openTopicList(
-      ContentRoute(
-        id: 'assign-group-${Uri.encodeComponent(link.groupName)}',
-        title: 'Assigned to ${link.groupName}',
-        icon: DIcons.userPlus,
-        feedPath: link.feedPath,
+    final route = ContentRoute.group(
+      GroupRoute.plugin(
+        groupName: link.groupName,
+        owner: 'discourse-assign',
+        section: 'assigned',
+        subsection: link.filter.routeSegment(link.groupName),
       ),
+      title: link.groupName,
     );
+    if (_host.currentContent?.id == route.id) return true;
+    _host.pushContent(route);
     return true;
   }
 }

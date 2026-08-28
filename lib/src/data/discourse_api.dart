@@ -106,7 +106,8 @@ class DiscourseApi
         TopicFeedsApi,
         TopicReadsApi,
         UserPreferencesApi,
-        PluginApiTransport {
+        PluginApiTransport,
+        PluginJsonListTransport {
   DiscourseApi({
     http.Client? client,
     this.models = const DiscourseModelCodec.core(),
@@ -3045,6 +3046,36 @@ class DiscourseApi
     apiKey: apiKey,
     clientId: clientId,
   );
+
+  @override
+  Future<List<Map<String, dynamic>>> pluginGetJsonList({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      _resolvePluginPath(siteUrl, path),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) throw const FormatException('Expected a JSON list');
+      return List.unmodifiable([
+        for (final value in decoded)
+          if (value is Map<String, dynamic>) value,
+      ]);
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
+    }
+  }
 
   @override
   Future<Map<String, dynamic>> pluginWriteJson({

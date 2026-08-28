@@ -26,6 +26,7 @@ import 'composer_panel.dart';
 import 'draft_list.dart';
 import 'forum_search.dart';
 import 'forum_tabs_bar.dart';
+import 'group_pages_host.dart';
 import 'message_inbox_page.dart';
 import 'post_flag_editor.dart';
 import 'preferences_page.dart';
@@ -127,6 +128,7 @@ class _MainContentBody extends StatelessWidget {
                         siteUrl: state.siteUrl,
                         isConnected: state.isConnected,
                         pluginContent: pluginContent,
+                        registry: registry,
                         filterCategories: state.filterCategories,
                         categoryFeed: state.categoryFeed,
                       ),
@@ -162,6 +164,7 @@ class _ContentViewport extends StatelessWidget {
     required this.siteUrl,
     required this.isConnected,
     required this.pluginContent,
+    required this.registry,
     required this.filterCategories,
     required this.categoryFeed,
   });
@@ -171,6 +174,7 @@ class _ContentViewport extends StatelessWidget {
   final String? siteUrl;
   final bool isConnected;
   final Widget? pluginContent;
+  final PluginRegistry registry;
   final List<TopicCategory> filterCategories;
   final CategoryFeed? categoryFeed;
 
@@ -190,6 +194,16 @@ class _ContentViewport extends StatelessWidget {
     }
     if (!route.isTopic && route.id == 'activity' && siteUrl != null) {
       return UserActivityView(siteUrl: siteUrl!);
+    }
+    if (route.isGroups && siteUrl != null) {
+      return GroupsDirectoryHost(siteUrl: siteUrl!);
+    }
+    if (route.isGroup && siteUrl != null) {
+      return GroupPageHost(
+        siteUrl: siteUrl!,
+        route: route.groupRoute!,
+        registry: registry,
+      );
     }
     if (!route.isTopic &&
         route.id == 'all-categories' &&

@@ -13,6 +13,7 @@ import '../data/discourse_api.dart';
 import '../data/draft_store.dart';
 import '../data/emoji_picker_store.dart';
 import '../data/forum_tab_store.dart';
+import '../data/groups_api.dart';
 import '../data/http_transport.dart';
 import '../data/instance_store.dart';
 import '../data/site_image_repository.dart';
@@ -38,6 +39,7 @@ import '../models/do_not_disturb.dart';
 import '../models/forum_workspace.dart';
 import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
+import '../models/group_route.dart';
 import '../models/list_link.dart';
 import '../models/notification.dart';
 import '../models/notification_feed.dart';
@@ -77,6 +79,7 @@ import 'composer_quotes.dart';
 import 'composer_triggers.dart';
 import 'do_not_disturb_controller.dart';
 import 'draft_list_controller.dart';
+import 'groups_controller.dart';
 import 'hashtag.dart';
 import 'plugin_background_retention.dart';
 import 'post_quote.dart';
@@ -645,6 +648,14 @@ class ShellController extends FrameSafeNotifier
     lifecycle: lifecycle,
   );
 
+  /// Group directory, detail, and subpage state changes independently from
+  /// shell navigation and topic feeds.
+  late final GroupsController groups = GroupsController(
+    api: GroupsApi(api, api.models),
+    credentials: authenticator,
+    lifecycle: lifecycle,
+  );
+
   /// The connected account's server-owned preferences.
   ///
   /// Form edits and network progress remain on this independent notifier so
@@ -923,6 +934,7 @@ class ShellController extends FrameSafeNotifier
 
     final absolute = target.toString();
     if (await openPluginUrl(absolute)) return true;
+    if (openGroupUrl(absolute)) return true;
     if (_openTopicUrl(absolute, refresh: true)) return true;
     return openListUrl(absolute);
   }
@@ -3582,6 +3594,30 @@ class ShellController extends FrameSafeNotifier
   /// connected is a page this app has no view for — which is the caller's
   /// signal to hand the link to the browser.
   bool openTopicUrl(String url) => _openTopicUrl(url);
+
+  /// Opens the group directory or one built-in group section on a forum in
+  /// the rail. Plugin-owned paths are offered to their link handlers first and
+  /// deliberately do not parse here.
+  bool openGroupUrl(String url) {
+    final absolute = absoluteUrl(url);
+    final route = GroupRoute.parse(absolute);
+    if (route == null) return false;
+    final target = Uri.tryParse(absolute);
+    if (target == null) return false;
+    final index = _instances.indexWhere((instance) => instance.serves(target));
+    if (index < 0) return false;
+    if (index != _instanceIndex) selectInstance(index);
+    if (currentContent?.groupRoute == route) return true;
+
+    final instance = _instances[index];
+    final content = ContentRoute.group(
+      route,
+      feedPath: route.topicFeedPath(instance.user?.username),
+    );
+    pushContent(content);
+    if (content.feedPath != null) unawaited(loadFeed(content.id));
+    return true;
+  }
 
   bool _openTopicUrl(String url, {bool refresh = false}) {
     final link = TopicLink.parse(absoluteUrl(url));
@@ -9717,6 +9753,7 @@ class ShellController extends FrameSafeNotifier
     accountActivity.forget(siteUrl);
     draftList.forget(siteUrl);
     userSummary.forget(siteUrl);
+    groups.forget(siteUrl);
     preferences.forget(siteUrl);
     store.forget(siteUrl);
 
@@ -10109,17 +10146,36 @@ class ShellController extends FrameSafeNotifier
     final refresh =
         destination.id == tab.rootDestinationId && tab.contentStack.length <= 1;
 
+    final content = destination.id == 'groups'
+        ? ContentRoute.group(const GroupRoute.directory())
+        : ContentRoute.fromDestination(destination);
     _replaceActiveTab(
-      tab.copyWith(
-        rootDestinationId: destination.id,
-        contentStack: [ContentRoute.fromDestination(destination)],
-      ),
+      tab.copyWith(rootDestinationId: destination.id, contentStack: [content]),
     );
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();
 
     unawaited(loadFeed(destination.id, force: refresh));
+  }
+
+  /// Switches laterally between sections of the group currently on screen.
+  void selectGroupRoute(GroupRoute route, {String? feedPath}) {
+    final instance = currentInstance;
+    final current = currentContent?.groupRoute;
+    if (instance == null ||
+        current?.isDetail != true ||
+        route.groupName != current!.groupName ||
+        route == current) {
+      return;
+    }
+    final content = ContentRoute.group(
+      route,
+      title: currentContent?.title,
+      feedPath: feedPath ?? route.topicFeedPath(instance.user?.username),
+    );
+    replaceCurrentContent(content);
+    if (content.feedPath != null) unawaited(loadFeed(content.id));
   }
 
   /// Adds a fresh Topics work context to the selected forum and opens it.
@@ -10527,6 +10583,7 @@ class ShellController extends FrameSafeNotifier
     doNotDisturb.dispose();
     draftList.dispose();
     userSummary.dispose();
+    groups.dispose();
     preferences.dispose();
     topicFeeds.dispose();
     aggregate.dispose();

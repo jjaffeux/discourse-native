@@ -5,6 +5,8 @@ import 'assign_api.dart';
 import 'assign_plugin.dart';
 import 'assign_services.dart';
 import 'assign_shell_service.dart';
+import 'assigned_group_api.dart';
+import 'assigned_group_controller.dart';
 import 'assignment.dart';
 import 'assignment_controller.dart';
 
@@ -65,30 +67,42 @@ final class AssignModule implements PluginModule {
         );
         final shell = AssignShellService(
           host: bindings.require(corePluginRouteNavigationPort),
-          topicLists: bindings.require(corePluginTopicListNavigationPort),
           canOpenGroupAssignments: (siteUrl) =>
               freshAccount
                   .recordFor(siteUrl, assignCurrentUserDataKey)
-                  ?.canAssign ==
+                  ?.canAssignGlobally ==
               true,
         );
+        final assignedGroups = AssignedGroupController(
+          api: AssignedGroupApiClient(
+            bindings.require(corePluginTransportPort),
+            bindings.require(corePluginModelCodecPort),
+          ),
+          requests: bindings.require(corePluginRequestPort),
+          diagnostics: bindings.require(pluginDiagnosticsReporterPort),
+        );
         return PluginSessionContribution(
-          lifecycle: _AssignSessionLifecycle(controller),
+          lifecycle: _AssignSessionLifecycle(controller, assignedGroups),
           services: [
             PluginService<Object>(assignmentControllerService, controller),
+            PluginService<Object>(
+              assignedGroupControllerService,
+              assignedGroups,
+            ),
+            PluginService<Object>(assignGroupNavigationService, shell),
           ],
           capabilities: [controller, shell],
         );
       },
       requires: const [
         corePluginTransportPort,
+        corePluginModelCodecPort,
         corePluginRequestPort,
         corePluginTargetPort,
         corePluginFreshAccountPort,
         corePluginTopicRefreshPort,
         corePluginSiteStatePort,
         corePluginRouteNavigationPort,
-        corePluginTopicListNavigationPort,
         pluginDiagnosticsReporterPort,
       ],
     );
@@ -96,13 +110,20 @@ final class AssignModule implements PluginModule {
 }
 
 final class _AssignSessionLifecycle extends PluginSessionLifecycle {
-  _AssignSessionLifecycle(this.controller);
+  _AssignSessionLifecycle(this.controller, this.assignedGroups);
 
   final AssignmentController controller;
+  final AssignedGroupController assignedGroups;
 
   @override
-  void forget(String siteUrl) => controller.forget(siteUrl);
+  void forget(String siteUrl) {
+    controller.forget(siteUrl);
+    assignedGroups.forget(siteUrl);
+  }
 
   @override
-  void close() => controller.dispose();
+  void close() {
+    controller.dispose();
+    assignedGroups.dispose();
+  }
 }

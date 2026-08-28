@@ -228,8 +228,36 @@ class DiscourseInstance {
   ///
   /// Messages and drafts belong to an account rather than the public forum, so
   /// anonymous readers do not get destinations that cannot resolve their data.
-  List<SidebarSection> get sections =>
-      isConnected ? _connectedSections : _anonymousSections;
+  List<SidebarSection> get sections {
+    final base = isConnected ? _connectedSections : _anonymousSections;
+    if (config.groupDirectoryEnabled || user?.staff == true) return base;
+    return isConnected
+        ? _connectedSectionsWithoutGroups
+        : _anonymousSectionsWithoutGroups;
+  }
+
+  static final List<SidebarSection> _anonymousSectionsWithoutGroups =
+      _withoutGroups(_anonymousSections);
+  static final List<SidebarSection> _connectedSectionsWithoutGroups =
+      _withoutGroups(_connectedSections);
+
+  static List<SidebarSection> _withoutGroups(List<SidebarSection> sections) =>
+      List.unmodifiable([
+        for (final section in sections)
+          SidebarSection(
+            id: section.id,
+            title: section.title,
+            destinations: [
+              for (final destination in section.destinations)
+                if (destination.id != 'groups') destination,
+            ],
+            showHeader: section.showHeader,
+            collapsible: section.collapsible,
+            actionIcon: section.actionIcon,
+            actionLabel: section.actionLabel,
+            onAction: section.onAction,
+          ),
+      ]);
 
   static const List<SidebarSection> _anonymousSections = [
     SidebarSection(
@@ -245,6 +273,7 @@ class DiscourseInstance {
           label: 'Topics',
           icon: DIcons.layerGroup,
         ),
+        SidebarDestination(id: 'groups', label: 'Groups', icon: DIcons.users),
         // Core keeps Filter in the secondary Community links. Native has no
         // More drawer, so its equivalent is the final visible row.
         SidebarDestination(id: 'filter', label: 'Filter', icon: DIcons.filter),
@@ -266,6 +295,7 @@ class DiscourseInstance {
           label: 'Topics',
           icon: DIcons.layerGroup,
         ),
+        SidebarDestination(id: 'groups', label: 'Groups', icon: DIcons.users),
         SidebarDestination(
           id: 'messages',
           label: 'Messages',
