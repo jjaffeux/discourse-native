@@ -159,6 +159,9 @@ final class AssignPlugin
     return [
       for (var index = 0; index < visibleAssignments.length; index++)
         Semantics(
+          key: index == 0
+              ? const Key('assign-topic-header')
+              : Key('assign-topic-header-$index'),
           button: true,
           label: index == 0
               ? summary
@@ -166,21 +169,42 @@ final class AssignPlugin
                     '${visibleAssignments[index].assignee.displayName}',
           onTap: openAssignments,
           child: ExcludeSemantics(
-            child: DButton(
-              key: index == 0
-                  ? const Key('assign-topic-header')
-                  : Key('assign-topic-header-$index'),
-              label: Text(_headerAssignmentLabel(visibleAssignments[index])),
-              icon: DIcon(
-                visibleAssignments[index].assignee.isGroup
-                    ? DIcons.users
-                    : DIcons.userPlus,
-                size: 18,
+            child: Tooltip(
+              message: 'View assignments',
+              child: Builder(
+                builder: (context) {
+                  final theme = Theme.of(context);
+                  return InkWell(
+                    onTap: openAssignments,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 2,
+                        vertical: 3,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          DIcon(
+                            visibleAssignments[index].assignee.isGroup
+                                ? DIcons.users
+                                : DIcons.userPlus,
+                            size: 14,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _headerAssignmentLabel(visibleAssignments[index]),
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
-              tooltip: 'View assignments',
-              onPressed: openAssignments,
-              variant: DButtonVariant.link,
-              size: DButtonSize.small,
             ),
           ),
         ),

@@ -479,6 +479,12 @@ class _TopicContentHeader extends StatelessWidget {
     final controller = ShellScope.read(context);
     final category = controller.categoryFor(topic.categoryId, siteUrl: siteUrl);
     final pluginMetadata = registry.topicHeader(context, siteUrl, topic);
+    final fallbackCategory = category == null ? route.subtitle : null;
+    final hasMetadata =
+        category != null ||
+        fallbackCategory != null ||
+        topic.tags.isNotEmpty ||
+        pluginMetadata.isNotEmpty;
     final topicFlags = controller.availableTopicFlagTypes(siteUrl, topic);
     final showBack = layout.isCompact || canPop;
     final carriesSearch =
@@ -578,65 +584,50 @@ class _TopicContentHeader extends StatelessWidget {
             ],
           );
 
-          final topicIdentity = _TopicHeaderIdentity(
-            route: route,
-            siteUrl: siteUrl,
-            topic: topic,
-            category: category,
-            pluginMetadata: pluginMetadata,
+          final topicTitle = _TopicHeaderTitle(siteUrl: siteUrl, topic: topic);
+
+          final contentIndent = showBack ? 44.0 : 12.0;
+          final titleRow = Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showBack)
+                DButton.iconOnly(
+                  onPressed: () => controller.handleBack(
+                    canReturnToSidebar: layout.isCompact,
+                  ),
+                  icon: const DIcon(DIcons.arrowLeft, size: 20),
+                  tooltip: 'Back',
+                  variant: DButtonVariant.flat,
+                )
+              else
+                const SizedBox(width: 8),
+              const SizedBox(width: 4),
+              Expanded(child: topicTitle),
+              if (!compact) ...[const SizedBox(width: 8), actions()],
+            ],
           );
 
-          final header = compact
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (showBack)
-                          DButton.iconOnly(
-                            onPressed: () => controller.handleBack(
-                              canReturnToSidebar: layout.isCompact,
-                            ),
-                            icon: const DIcon(DIcons.arrowLeft, size: 20),
-                            tooltip: 'Back',
-                            variant: DButtonVariant.flat,
-                          )
-                        else
-                          const SizedBox(width: 8),
-                        const SizedBox(width: 4),
-                        Expanded(child: topicIdentity),
-                      ],
-                    ),
-                    Padding(
-                      padding: EdgeInsets.only(
-                        left: showBack ? 44 : 12,
-                        top: 8,
-                      ),
-                      child: actions(),
-                    ),
-                  ],
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (showBack)
-                      DButton.iconOnly(
-                        onPressed: () => controller.handleBack(
-                          canReturnToSidebar: layout.isCompact,
-                        ),
-                        icon: const DIcon(DIcons.arrowLeft, size: 20),
-                        tooltip: 'Back',
-                        variant: DButtonVariant.flat,
-                      )
-                    else
-                      const SizedBox(width: 8),
-                    const SizedBox(width: 4),
-                    Expanded(child: topicIdentity),
-                    const SizedBox(width: 8),
-                    actions(),
-                  ],
-                );
+          final header = Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              titleRow,
+              if (compact)
+                Padding(
+                  padding: EdgeInsets.only(left: contentIndent, top: 8),
+                  child: actions(),
+                ),
+              if (hasMetadata)
+                Padding(
+                  padding: EdgeInsets.only(left: contentIndent, top: 6),
+                  child: _TopicHeaderMetadata(
+                    route: route,
+                    topic: topic,
+                    category: category,
+                    pluginMetadata: pluginMetadata,
+                  ),
+                ),
+            ],
+          );
 
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -657,67 +648,57 @@ class _TopicContentHeader extends StatelessWidget {
   }
 }
 
-class _TopicHeaderIdentity extends StatelessWidget {
-  const _TopicHeaderIdentity({
+class _TopicHeaderTitle extends StatelessWidget {
+  const _TopicHeaderTitle({required this.siteUrl, required this.topic});
+
+  final String siteUrl;
+  final TopicDetail topic;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return TopicTitle(
+      topic.title,
+      key: const ValueKey('topic-header-title'),
+      siteUrl: siteUrl,
+      maxLines: 4,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+    );
+  }
+}
+
+class _TopicHeaderMetadata extends StatelessWidget {
+  const _TopicHeaderMetadata({
     required this.route,
-    required this.siteUrl,
     required this.topic,
     required this.category,
     required this.pluginMetadata,
   });
 
   final ContentRoute route;
-  final String siteUrl;
   final TopicDetail topic;
   final TopicCategory? category;
   final List<Widget> pluginMetadata;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final fallbackCategory = category == null ? route.subtitle : null;
-    final hasMetadata =
-        category != null ||
-        fallbackCategory != null ||
-        topic.tags.isNotEmpty ||
-        pluginMetadata.isNotEmpty;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Wrap(
+      key: const ValueKey('topic-header-metadata'),
+      spacing: 12,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        TopicTitle(
-          topic.title,
-          key: const ValueKey('topic-header-title'),
-          siteUrl: siteUrl,
-          maxLines: 4,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (hasMetadata) ...[
-          const SizedBox(height: 6),
-          Wrap(
-            key: const ValueKey('topic-header-metadata'),
-            spacing: 10,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              if (category case final category?)
-                _TopicHeaderCategory(
-                  label: category.name,
-                  color: Color(category.colorValue),
-                )
-              else if (fallbackCategory case final fallbackCategory?)
-                _TopicHeaderCategory(
-                  label: fallbackCategory,
-                  color: route.color,
-                ),
-              for (final tag in topic.tags) _TopicHeaderTag(tag: tag),
-              ...pluginMetadata,
-            ],
-          ),
-        ],
+        if (category case final category?)
+          _TopicHeaderCategory(
+            label: category.name,
+            color: Color(category.colorValue),
+          )
+        else if (fallbackCategory case final fallbackCategory?)
+          _TopicHeaderCategory(label: fallbackCategory, color: route.color),
+        for (final tag in topic.tags) _TopicHeaderTag(tag: tag),
+        ...pluginMetadata,
       ],
     );
   }
@@ -733,14 +714,14 @@ class _TopicHeaderCategory extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 200, minHeight: 26),
+      constraints: const BoxConstraints(maxWidth: 200, minHeight: 24),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             key: const ValueKey('topic-header-category-color'),
-            width: 7,
-            height: 18,
+            width: 9,
+            height: 9,
             decoration: BoxDecoration(
               color: color ?? theme.colorScheme.outline,
               borderRadius: BorderRadius.circular(2),
@@ -755,7 +736,7 @@ class _TopicHeaderCategory extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelMedium?.copyWith(
                 color: theme.colorScheme.onSurface,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -775,7 +756,7 @@ class _TopicHeaderTag extends StatelessWidget {
     final theme = Theme.of(context);
     return ConstrainedBox(
       key: ValueKey(('topic-header-tag', tag.name)),
-      constraints: const BoxConstraints(maxWidth: 200, minHeight: 26),
+      constraints: const BoxConstraints(maxWidth: 200, minHeight: 24),
       child: Text(
         '#${tag.name}',
         maxLines: 1,

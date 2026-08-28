@@ -265,6 +265,19 @@ void main() {
         hasTapAction: true,
       ),
     );
+    final assignmentHeader = find.byKey(const Key('assign-topic-header'));
+    expect(
+      find.descendant(of: assignmentHeader, matching: find.byType(DButton)),
+      findsNothing,
+    );
+    final icon = tester.widget<DIcon>(
+      find.descendant(of: assignmentHeader, matching: find.byType(DIcon)),
+    );
+    expect(icon.size, 14);
+    expect(
+      icon.color,
+      Theme.of(tester.element(assignmentHeader)).colorScheme.onSurfaceVariant,
+    );
     expect(find.bySemanticsLabel(RegExp('long')), findsNothing);
     semanticsHandle.dispose();
   });
