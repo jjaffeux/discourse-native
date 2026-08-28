@@ -8,7 +8,6 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
-import 'package:discourse_native/src/plugins/poll/poll_data.dart';
 import 'package:discourse_native/src/plugins/poll/poll_shell_extension.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_shell_extension.dart';
@@ -21,22 +20,12 @@ import 'support/fakes.dart';
 const _site = 'https://meta.discourse.org';
 const _site2 = 'https://community.example.com';
 
-DiscourseUser _pollUser({
+DiscourseUser _sessionUser({
   required int id,
   required String username,
-  bool canCreatePoll = true,
   bool staff = false,
   List<String> groups = const [],
-}) => DiscourseUser(
-  id: id,
-  username: username,
-  staff: staff,
-  groups: groups,
-  plugins: PluginData.none.withValue(
-    pollCurrentUserDataKey,
-    PollCurrentUser(canCreatePoll: canCreatePoll),
-  ),
-);
+}) => DiscourseUser(id: id, username: username, staff: staff, groups: groups);
 
 final class _GatedCurrentUserApi extends FakeDiscourseApi {
   _GatedCurrentUserApi()
@@ -71,7 +60,7 @@ final class _PerSiteCurrentUserApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     calls.add(siteUrl);
-    return _pollUser(
+    return _sessionUser(
       id: siteUrl == _site ? 1 : 2,
       username: siteUrl == _site ? 'reader' : 'reader2',
       groups: [siteUrl == _site ? 'meta-builders' : 'community-builders'],
@@ -183,7 +172,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
-    'a persisted poll capability stays unauthorized until this session refreshes it',
+    'persisted account data is not exposed as this session fresh user',
     () async {
       final api = _GatedCurrentUserApi();
       final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
@@ -192,7 +181,7 @@ void main() {
         instanceStore: FakeInstanceStore([
           instance(
             'meta.discourse.org',
-          ).copyWith(user: _pollUser(id: 1, username: 'reader')),
+          ).copyWith(user: _sessionUser(id: 1, username: 'reader')),
         ]),
         api: api,
         authenticator: authenticator,
@@ -206,11 +195,10 @@ void main() {
         await Future<void>.delayed(Duration.zero);
       }
 
-      expect(shell.canCreatePollFor(_site), isFalse);
       expect(shell.freshCurrentUserFor(_site), isNull);
 
       api.response.complete(
-        _pollUser(
+        _sessionUser(
           id: 1,
           username: 'reader',
           staff: true,
@@ -220,57 +208,52 @@ void main() {
       await pumpEventQueue();
 
       expect(api.calls, 1);
-      expect(shell.canCreatePollFor(_site), isTrue);
       expect(shell.freshCurrentUserFor(_site)?.groups, ['builders']);
     },
   );
 
-  test(
-    'session poll capabilities hydrate once when each site is selected',
-    () async {
-      final api = _PerSiteCurrentUserApi();
-      final authenticator = FakeAuthenticator()
-        ..keys[_site] = 'meta-key'
-        ..keys[_site2] = 'community-key';
-      final shell = ShellController(
-        plugins: installedPlugins,
-        instanceStore: FakeInstanceStore([
-          instance('meta.discourse.org').copyWith(
-            user: const DiscourseUser(id: 1, username: 'stored-reader'),
-          ),
-          instance('community.example.com').copyWith(
-            user: const DiscourseUser(id: 2, username: 'stored-reader2'),
-          ),
-        ]),
-        api: api,
-        authenticator: authenticator,
-        drafts: FakeDraftStore(),
-        trackers: FakeSiteTracker.reset(),
-      );
-      addTearDown(shell.dispose);
+  test('session accounts hydrate once when each site is selected', () async {
+    final api = _PerSiteCurrentUserApi();
+    final authenticator = FakeAuthenticator()
+      ..keys[_site] = 'meta-key'
+      ..keys[_site2] = 'community-key';
+    final shell = ShellController(
+      plugins: installedPlugins,
+      instanceStore: FakeInstanceStore([
+        instance(
+          'meta.discourse.org',
+        ).copyWith(user: const DiscourseUser(id: 1, username: 'stored-reader')),
+        instance('community.example.com').copyWith(
+          user: const DiscourseUser(id: 2, username: 'stored-reader2'),
+        ),
+      ]),
+      api: api,
+      authenticator: authenticator,
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(shell.dispose);
 
-      await shell.load();
-      while (api.calls.isEmpty) {
-        await pumpEventQueue();
-      }
+    await shell.load();
+    while (api.calls.isEmpty) {
       await pumpEventQueue();
+    }
+    await pumpEventQueue();
 
-      expect(api.calls.where((site) => site == _site), hasLength(1));
-      expect(api.calls.where((site) => site == _site2), isEmpty);
-      expect(shell.canCreatePollFor(_site), isTrue);
-      expect(shell.canCreatePollFor(_site2), isFalse);
+    expect(api.calls.where((site) => site == _site), hasLength(1));
+    expect(api.calls.where((site) => site == _site2), isEmpty);
+    expect(shell.freshCurrentUserFor(_site)?.groups, ['meta-builders']);
+    expect(shell.freshCurrentUserFor(_site2), isNull);
 
-      shell.selectInstance(1);
-      while (api.calls.length < 2) {
-        await pumpEventQueue();
-      }
+    shell.selectInstance(1);
+    while (api.calls.length < 2) {
       await pumpEventQueue();
+    }
+    await pumpEventQueue();
 
-      expect(api.calls.where((site) => site == _site2), hasLength(1));
-      expect(shell.canCreatePollFor(_site2), isTrue);
-      expect(shell.freshCurrentUserFor(_site2)?.groups, ['community-builders']);
-    },
-  );
+    expect(api.calls.where((site) => site == _site2), hasLength(1));
+    expect(shell.freshCurrentUserFor(_site2)?.groups, ['community-builders']);
+  });
 
   test('a successful vote merges only the named personalized poll', () async {
     final initialPoll = _poll();

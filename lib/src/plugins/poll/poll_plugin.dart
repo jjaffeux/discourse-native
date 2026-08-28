@@ -6,7 +6,6 @@ import 'package:html/dom.dart' as dom;
 
 import '../../models/post.dart';
 import '../../plugin_api/site_plugin_api.dart';
-import '../../shell/composer_controller.dart';
 import '../../shell/external_link.dart';
 import '../../shell/shell_controller.dart';
 import '../../shell/shell_scope.dart';
@@ -22,6 +21,11 @@ import 'poll_shell_extension.dart';
 
 export 'poll_data.dart';
 
+const pollComposerSyntaxKind = ComposerSyntaxKind(
+  owner: PluginId('poll'),
+  name: 'poll',
+);
+
 /// Discourse's bundled Poll plugin as an optional, payload-gated feature.
 class PollPlugin
     implements
@@ -29,8 +33,6 @@ class PollPlugin
         IconCatalogPlugin,
         SiteSettingsPlugin<PollSettings>,
         CurrentUserPlugin<PollCurrentUser>,
-        PluginPermissionPlugin,
-        ComposerMaximumOptionsPlugin,
         PostRecordPlugin<Polls>,
         PostBodyPlugin,
         ComposerSyntaxPlugin,
@@ -45,7 +47,7 @@ class PollPlugin
   PluginIconCatalog get iconCatalog => pollIconCatalog;
 
   @override
-  String get syntaxId => 'poll';
+  ComposerSyntaxKind get composerSyntaxKind => pollComposerSyntaxKind;
 
   @override
   PluginDataPersistenceCodec<PollSettings> get siteSettingsCodec =>
@@ -64,111 +66,19 @@ class PollPlugin
       PollCurrentUser.fromWire(json);
 
   @override
-  String get permissionId => 'create-poll';
-
-  @override
-  bool allowsPermission(PluginData currentUser, bool? recordPermission) =>
-      currentUser.get(pollCurrentUserDataKey)?.canCreatePoll == true;
-
-  @override
-  int composerMaximumOptions(PluginData siteSettings) =>
-      siteSettings.get(pollSettingsDataKey)?.maximumOptions ??
-      PollSettings.defaultMaximumOptions;
-
-  @override
-  List<Object> parseComposerSyntax(String source) =>
-      parsePollComposerBlocks(source);
-
-  @override
-  int startOf(Object value) => (value as PollComposerBlock).start;
-
-  @override
-  int endOf(Object value) => (value as PollComposerBlock).end;
-
-  @override
-  String sourceOf(Object value) => (value as PollComposerBlock).source;
-
-  @override
-  bool needsRawSource(
-    Object value,
-    TextEditingValue document, {
-    required bool suppressCollapsedCaret,
-  }) => pollBlockNeedsRawSource(
-    block: value as PollComposerBlock,
-    value: document,
-    suppressCollapsedCaret: suppressCollapsedCaret,
-  );
-
-  @override
-  int caretAfter(Object value, String document) {
-    final end = (value as PollComposerBlock).end;
-    if (end >= document.length) return end;
-    if (document.codeUnitAt(end) == 0x0D &&
-        end + 1 < document.length &&
-        document.codeUnitAt(end + 1) == 0x0A) {
-      return end + 2;
-    }
-    return document.codeUnitAt(end) == 0x0A ? end + 1 : end;
-  }
-
-  @override
-  TextEditingValue moveCaretAfter(Object value, TextEditingValue document) {
-    final block = value as PollComposerBlock;
-    final mutation = replaceVerifiedPoll(
-      current: document,
-      expectedDocument: document.text,
-      expectedBlock: block,
-      replacement: block.source,
+  ComposerSyntaxPolicy createComposerSyntaxPolicy(
+    ComposerSyntaxPolicyContext context,
+  ) {
+    final initial = context.initialState;
+    return PollComposerSyntaxPolicy(
+      settings: initial.siteSettings.pollSettings,
+      settingsReader: () => context.readState().siteSettings.pollSettings,
+      freshUserReader: () =>
+          context.readState().freshCurrentUser.pollCurrentUser,
+      freshUserIsStaffReader: () => context.readState().freshCurrentUserIsStaff,
+      editingPollsReader: () => context.readState().editingPost.polls,
     );
-    return mutation.applied ? mutation.value : document;
   }
-
-  @override
-  bool get supportsHover => true;
-
-  @override
-  bool get protectsAdjacentDelete => true;
-
-  @override
-  bool get hidesCursorWhenSelected => true;
-
-  @override
-  List<InlineSpan> buildCollapsedSpans({
-    required Object value,
-    required TextStyle baseStyle,
-    required Locale locale,
-    required String? accountTimezone,
-    required int maximumOptions,
-    required GlobalKey pillKey,
-    required bool highlighted,
-    required bool hovered,
-    required bool followedByLineBreak,
-  }) => buildCollapsedPollSpans(
-    block: value as PollComposerBlock,
-    baseStyle: baseStyle,
-    pillKey: pillKey,
-    maximumOptions: maximumOptions,
-    highlighted: highlighted,
-    hovered: hovered,
-    followedByLineBreak: followedByLineBreak,
-  );
-
-  @override
-  Future<void> editComposerSyntax(
-    BuildContext context,
-    ComposerController composer,
-    Object value,
-  ) => openPollComposer(context, composer, block: value as PollComposerBlock);
-
-  @override
-  Future<void> removeComposerSyntax(
-    BuildContext context,
-    ComposerController composer,
-    Object value,
-  ) => removePollComposer(context, composer, value as PollComposerBlock);
-
-  @override
-  TextInputFormatter get inputFormatter => const PollComposerInputFormatter();
 
   @override
   PluginDataKey<Polls> get record => pollsDataKey;
@@ -193,19 +103,19 @@ class PollPlugin
   @override
   List<ComposerToolbarContribution> composerToolbar(
     BuildContext context,
-    ComposerController composer,
+    ComposerEditorHost editor,
   ) {
-    final controller = ShellScope.maybeRead(context);
-    if (controller == null ||
-        !controller.canCreatePollFor(composer.target.siteUrl) ||
-        composer.loadingBody) {
+    final policy = editor.syntaxPolicy<PollComposerSyntaxPolicy>(
+      pollComposerSyntaxKind,
+    );
+    if (policy == null || editor.loadingBody || !policy.canCreate(editor)) {
       return const [];
     }
     return [
       ComposerToolbarContribution(
         icon: DIcons.list,
         label: 'Add poll',
-        onInvoke: () => unawaited(openPollComposer(context, composer)),
+        onInvoke: () => unawaited(openPollComposer(context, editor, policy)),
       ),
     ];
   }
@@ -234,61 +144,180 @@ class PollPlugin
   }
 }
 
+/// Poll's complete parser, projection configuration, and authoring policy for
+/// one open composer.
+final class PollComposerSyntaxPolicy implements ComposerSyntaxPolicy {
+  const PollComposerSyntaxPolicy({
+    this.settings = const PollSettings(),
+    this.settingsReader,
+    this.freshUserReader,
+    this.freshUserIsStaffReader,
+    this.editingPollsReader,
+  });
+
+  final PollSettings settings;
+  final PollSettings Function()? settingsReader;
+  final PollCurrentUser? Function()? freshUserReader;
+  final bool Function()? freshUserIsStaffReader;
+  final Polls? Function()? editingPollsReader;
+
+  @override
+  ComposerSyntaxKind get kind => pollComposerSyntaxKind;
+
+  @override
+  List<ComposerSyntaxProjection> parse(String source) => [
+    for (final block in parsePollComposerBlocks(source))
+      PollComposerSyntaxProjection(policy: this, block: block),
+  ];
+
+  @override
+  Object get projectionState => settings.maximumOptions;
+
+  @override
+  TextInputFormatter get inputFormatter => const PollComposerInputFormatter();
+
+  PollSettings get currentSettings => settingsReader?.call() ?? settings;
+
+  /// Creation is intentionally based on the refreshed session. A persisted
+  /// permission must never authorize a new poll while current.json is pending.
+  bool canCreate(ComposerEditorHost editor) =>
+      editor.isCurrent && freshUserReader?.call()?.canCreatePoll == true;
+
+  bool get freshUserIsStaff => freshUserIsStaffReader?.call() == true;
+
+  int? voterCount(ComposerEditorHost editor, PollComposerBlock block) =>
+      editingPollsReader?.call()?[block.name]?.voters;
+}
+
+/// One lossless Poll occurrence. The typed parsed block never enters core.
+final class PollComposerSyntaxProjection
+    implements ComposerSyntaxProjection, PollComposerProjectionData {
+  const PollComposerSyntaxProjection({
+    required this.policy,
+    required this.block,
+  });
+
+  final PollComposerSyntaxPolicy policy;
+  final PollComposerBlock block;
+
+  @override
+  PollComposerBlock get pollBlock => block;
+
+  @override
+  int get start => block.start;
+
+  @override
+  int get end => block.end;
+
+  @override
+  String get source => block.source;
+
+  @override
+  bool needsRawSource(
+    TextEditingValue document, {
+    required bool suppressCollapsedCaret,
+  }) => pollBlockNeedsRawSource(
+    block: block,
+    value: document,
+    suppressCollapsedCaret: suppressCollapsedCaret,
+  );
+
+  @override
+  int caretAfter(String document) {
+    if (end >= document.length) return end;
+    if (document.codeUnitAt(end) == 0x0D &&
+        end + 1 < document.length &&
+        document.codeUnitAt(end + 1) == 0x0A) {
+      return end + 2;
+    }
+    return document.codeUnitAt(end) == 0x0A ? end + 1 : end;
+  }
+
+  @override
+  TextEditingValue moveCaretAfter(TextEditingValue document) {
+    final mutation = replaceVerifiedPoll(
+      current: document,
+      expectedDocument: document.text,
+      expectedBlock: block,
+      replacement: block.source,
+    );
+    return mutation.applied ? mutation.value : document;
+  }
+
+  @override
+  bool get supportsHover => true;
+
+  @override
+  bool get protectsAdjacentDelete => true;
+
+  @override
+  bool get hidesCursorWhenSelected => true;
+
+  @override
+  List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context) =>
+      buildCollapsedPollSpans(
+        block: block,
+        baseStyle: context.baseStyle,
+        pillKey: context.pillKey,
+        maximumOptions: policy.settings.maximumOptions,
+        highlighted: context.highlighted,
+        hovered: context.hovered,
+        followedByLineBreak: context.followedByLineBreak,
+      );
+
+  @override
+  Future<void> edit(BuildContext context, ComposerEditorHost editor) =>
+      openPollComposer(context, editor, policy, block: block);
+
+  @override
+  Future<void> remove(BuildContext context, ComposerEditorHost editor) =>
+      removePollComposer(context, editor, policy, block);
+}
+
 /// Opens Poll's composer projection for a new block or one existing occurrence.
 Future<void> openPollComposer(
   BuildContext context,
-  ComposerController composer, {
+  ComposerEditorHost editor,
+  PollComposerSyntaxPolicy policy, {
   PollComposerBlock? block,
 }) async {
-  final controller = ShellScope.maybeRead(context);
-  if (controller == null ||
-      !identical(controller.visibleComposer, composer) ||
-      (block == null &&
-          !controller.canCreatePollFor(composer.target.siteUrl))) {
+  if (!editor.isCurrent || (block == null && !policy.canCreate(editor))) {
     return;
   }
 
-  final expectedDocument = composer.text.text;
-  final expectedSelection = composer.text.selection;
-  final config = controller.siteConfigFor(composer.target.siteUrl);
-  final freshUser = controller.freshCurrentUserFor(composer.target.siteUrl);
+  final expectedValue = editor.value;
+  final expectedDocument = expectedValue.text;
+  final expectedSelection = expectedValue.selection;
+  final settings = policy.currentSettings;
   final draft = block == null
       ? PollComposerDraft.newPoll(
           name: nextPollName(expectedDocument),
-          defaultPublic: config.pollDefaultPublic,
+          defaultPublic: settings.defaultPublic,
         )
       : PollComposerDraft.fromBlock(
           block,
-          maximumOptions: config.pollMaximumOptions,
+          maximumOptions: settings.maximumOptions,
         );
 
   final originalPollNames = {
-    for (final original in parsePollComposerBlocks(composer.originalRaw ?? ''))
+    for (final original in parsePollComposerBlocks(editor.originalRaw ?? ''))
       original.name,
   };
   final published =
-      block != null &&
-      composer.target.isEdit &&
-      originalPollNames.contains(block.name);
-  final editingPostId = composer.target.editingPostId;
-  final voters = block == null || editingPostId == null
-      ? null
-      : controller.store
-            .read<Post>(composer.target.siteUrl, editingPostId)
-            ?.polls?[block.name]
-            ?.voters;
+      block != null && editor.isEdit && originalPollNames.contains(block.name);
+  final voters = block == null ? null : policy.voterCount(editor, block);
 
   bool stillCurrent() =>
       context.mounted &&
-      identical(ShellScope.maybeRead(context), controller) &&
-      identical(controller.visibleComposer, composer) &&
-      composer.text.text == expectedDocument;
+      editor.isCurrent &&
+      editor.value.text == expectedDocument &&
+      (block != null || policy.canCreate(editor));
 
   final action = await showPollComposerSheet(
     context: context,
     draft: draft,
-    maximumOptions: config.pollMaximumOptions,
-    isStaff: freshUser?.staff == true,
+    maximumOptions: settings.maximumOptions,
+    isStaff: policy.freshUserIsStaff,
     isPublished: published,
     voterCount: voters,
     isCurrent: stillCurrent,
@@ -307,18 +336,18 @@ Future<void> openPollComposer(
     case PollComposerSheetActionType.apply:
       final replacement = action.draft!.serialize();
       if (block != null && replacement == block.source) {
-        composer.focus.requestFocus();
+        editor.requestFocus();
         return;
       }
       mutation = block == null
           ? insertVerifiedPoll(
-              current: composer.text.value,
+              current: editor.value,
               expectedDocument: expectedDocument,
               expectedSelection: expectedSelection,
               markup: replacement,
             )
           : replaceVerifiedPoll(
-              current: composer.text.value,
+              current: editor.value,
               expectedDocument: expectedDocument,
               expectedBlock: block,
               replacement: replacement,
@@ -326,7 +355,7 @@ Future<void> openPollComposer(
     case PollComposerSheetActionType.remove:
       if (block == null) return;
       mutation = removeVerifiedPoll(
-        current: composer.text.value,
+        current: editor.value,
         expectedDocument: expectedDocument,
         expectedBlock: block,
       );
@@ -336,42 +365,39 @@ Future<void> openPollComposer(
     _pollComposerMessage(context, mutation.message!);
     return;
   }
-  composer.text.value = mutation.value;
-  composer.focus.requestFocus();
+  if (!editor.commit(expectedValue: expectedValue, value: mutation.value)) {
+    _pollComposerMessage(
+      context,
+      'The composer changed while this poll was open. Nothing was changed.',
+    );
+    return;
+  }
+  editor.requestFocus();
 }
 
 /// Removes one poll occurrence from the composer through the same verified
 /// source mutation used by the editor sheet.
 Future<void> removePollComposer(
   BuildContext context,
-  ComposerController composer,
+  ComposerEditorHost editor,
+  PollComposerSyntaxPolicy policy,
   PollComposerBlock block,
 ) async {
-  final controller = ShellScope.maybeRead(context);
-  if (controller == null || !identical(controller.visibleComposer, composer)) {
-    return;
-  }
+  if (!editor.isCurrent) return;
 
-  final expectedDocument = composer.text.text;
+  final expectedValue = editor.value;
+  final expectedDocument = expectedValue.text;
   final originalPollNames = {
-    for (final original in parsePollComposerBlocks(composer.originalRaw ?? ''))
+    for (final original in parsePollComposerBlocks(editor.originalRaw ?? ''))
       original.name,
   };
-  final published =
-      composer.target.isEdit && originalPollNames.contains(block.name);
-  final editingPostId = composer.target.editingPostId;
-  final voters = editingPostId == null
-      ? null
-      : controller.store
-            .read<Post>(composer.target.siteUrl, editingPostId)
-            ?.polls?[block.name]
-            ?.voters;
+  final published = editor.isEdit && originalPollNames.contains(block.name);
+  final voters = policy.voterCount(editor, block);
 
   bool stillCurrent() =>
       context.mounted &&
-      identical(ShellScope.maybeRead(context), controller) &&
-      identical(controller.visibleComposer, composer) &&
-      composer.text.text == expectedDocument;
+      editor.isCurrent &&
+      editor.value.text == expectedDocument;
 
   if (published) {
     final confirmed = await confirmPublishedPollRemoval(
@@ -392,7 +418,7 @@ Future<void> removePollComposer(
   if (!context.mounted) return;
 
   final mutation = removeVerifiedPoll(
-    current: composer.text.value,
+    current: editor.value,
     expectedDocument: expectedDocument,
     expectedBlock: block,
   );
@@ -400,8 +426,14 @@ Future<void> removePollComposer(
     _pollComposerMessage(context, mutation.message!);
     return;
   }
-  composer.text.value = mutation.value;
-  composer.focus.requestFocus();
+  if (!editor.commit(expectedValue: expectedValue, value: mutation.value)) {
+    _pollComposerMessage(
+      context,
+      'The composer changed before this poll could be removed. Nothing was changed.',
+    );
+    return;
+  }
+  editor.requestFocus();
 }
 
 void _pollComposerMessage(BuildContext context, String message) {

@@ -914,11 +914,15 @@ Adding the next one is a module under `lib/src/plugins/<name>/` owning its
 models, state, widgets, typed HTTP contract, and the narrow capability
 interfaces it actually contributes, plus an entry in
 `bundledPluginManifest`. `PluginRegistry` owns ordered UI dispatch, while
-`PluginSession` owns typed services and host-facing capabilities. A session
-factory can resolve only services from dependencies declared by its module,
-and optional integrations use nullable lookup rather than a global service
-locator. Service and record keys stay beside their owning feature; the bundled
-manifest itself contains only the deterministic list of module entrypoints.
+`PluginSession` owns typed services and host-facing capabilities. Immutable
+cross-plugin extensions use typed, owner-scoped static contribution points;
+their ids, value types, cardinality, and authority are validated at install
+time. Static targets do not grant runtime services or reorder sessions. A
+session factory can resolve only services from dependencies declared by its
+module, and optional integrations use nullable lookup rather than a global
+service locator. Service and record keys stay beside their owning feature; the
+bundled manifest itself contains only the deterministic list of module
+entrypoints.
 `DiscourseApi` contains only core endpoints; plugins adapt the shared
 `PluginApiTransport` themselves. Production core never imports
 `lib/src/plugins`, and an architecture test enforces that dependency direction.
@@ -1268,14 +1272,17 @@ text action and places the original Markdown source on the clipboard rather
 than flattening cooked HTML.
 Persisted channel and thread rows also expose the web client's Select action.
 Selection is scoped to its pane, replaces the composer with a bulk-action bar,
-and asks core's `/chat/{channel}/quote` transcript service for canonical
-`[chat]` Markdown before copying. Quote opens or reuses a topic draft over the
-chat workspace, prefilling a public channel's category and inserting the
-transcript after any restored draft. Allowed selections can be soft-deleted in one
+and asks Chat's `/chat/{channel}/quote` service for canonical `[chat]` Markdown
+before copying. Quote hands that source to core as an opaque composer seed;
+core opens or reuses a topic draft over the chat workspace, prefilling a public
+channel's category and inserting the seed after any restored draft. Chat owns
+the transcript semantics and unavailable-composer wording. Allowed selections
+can be soft-deleted in one
 `DELETE /chat/api/channels/{channel}/messages` request after confirmation; the
 same per-message guardian checks and 200-message limit as the web client are
 enforced before anything changes locally.
-Core cooks that canonical `[chat]` source into `div.chat-transcript`, whose
+Chat's cooked-element contribution renders canonical `[chat]` source emitted
+by Discourse as `div.chat-transcript`, whose
 avatar, attribution, timestamp, channel, body and nested thread messages are
 arranged entirely by the Chat stylesheet. `ChatPlugin` therefore claims that
 element through the record-independent cooked-element capability and draws it
@@ -1331,7 +1338,7 @@ levels; Muted remains out of scope.
 
 ### GIFs
 
-Core's GIF picker is an authored remote image, not an upload and not a native
+The GIF plugin's picker authors a remote image; it is not an upload or a native
 provider integration. On Discourse `v2026.7.0` and newer the app reads
 `enable_gifs` and the Klipy presentation limits from `/site/settings.json`, then
 uses the connected account's user API key for `GET /gifs/categories.json` and
@@ -1339,11 +1346,13 @@ uses the connected account's user API key for `GET /gifs/categories.json` and
 never leaves the server and this client never talks to Klipy directly.
 
 The picker shares categories, debounced search, cursor paging, result limits and
-Klipy attribution across composer surfaces. A topic selection is inserted as
-the same `![title|widthxheight](url)` block the web composer writes. Chat keeps
-its compact composer: a selection is staged as its own optimistic message, and
-an unchanged draft is cleared only after the send succeeds. A failed send or a
-draft edited while it is in flight is retained.
+Klipy attribution across composer surfaces. A topic selection uses the generic
+editor host to insert the same `![title|widthxheight](url)` block the web
+composer writes. Chat keeps its compact composer: its own preview contract
+attaches a trusted GIF seed to a staged optimistic message, and an unchanged
+draft is cleared only after the send succeeds. A failed send or a draft edited
+while it is in flight is retained. Generic composer and preview APIs contain no
+GIF- or Chat-specific switch.
 
 The older `discourse-gifs` theme component is deliberately unsupported. It has
 no authenticated server route or reliable capability contract and would require

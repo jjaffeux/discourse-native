@@ -8,7 +8,6 @@ import '../../models/content_route.dart';
 import '../../models/forum_workspace.dart';
 import '../../models/sidebar.dart';
 import '../../models/user_card.dart';
-import '../../plugin_api/plugin_manifest.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/composer_controller.dart';
@@ -100,8 +99,7 @@ class ChatPlugin
         NotificationCounterPlugin,
         SiteSettingsPlugin<ChatSettings>,
         CurrentUserPlugin<ChatCurrentUser>,
-        PluginCurrentUserFeature,
-        ComposerUploadPolicyPlugin {
+        PluginCurrentUserFeature {
   const ChatPlugin();
 
   static const ComposerTargetKind messageComposerTarget = ComposerTargetKind(
@@ -173,7 +171,7 @@ class ChatPlugin
           : 'chat_${channelId}_thread_$threadId',
       uploadType: messageUploadType,
       uploadDisposition: ComposerUploadDisposition.retainAttachment,
-      uploadsEnabled: context.config.chatUploadsEnabled,
+      uploadsEnabled: context.siteSettings.chatSettings.uploadsEnabled,
       supportsEditing: true,
       emojiUsageContext: chatEmojiUsageContext,
       mentionTopicId: null,
@@ -219,10 +217,6 @@ class ChatPlugin
   @override
   bool currentUserFeatureEnabled(PluginData currentUser) =>
       currentUser.chatCurrentUser?.hasChatEnabled != false;
-
-  @override
-  bool allowsComposerUploads(PluginData siteSettings, {required bool isChat}) =>
-      !isChat || siteSettings.chatSettings.uploadsEnabled;
 
   @override
   Widget? cookedElement(String? siteUrl, dom.Element element) =>

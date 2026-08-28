@@ -13,6 +13,7 @@ import '../models/topic_tag.dart';
 import '../plugin_api/composer_syntax.dart';
 import '../plugin_api/emoji_usage.dart';
 import '../plugin_api/hashtag_kind.dart';
+import '../plugin_api/plugin_data.dart';
 import 'composer_autocomplete.dart';
 import 'composer_images.dart';
 import 'composer_marks.dart';
@@ -320,7 +321,7 @@ enum DraftStatus {
 /// Its own notifier rather than state on `ShellController`: a keystroke changes
 /// nothing outside this panel, and the shell's notifier rebuilds the rail, the
 /// sidebar and the whole post list along with it.
-class ComposerController extends ChangeNotifier {
+class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   ComposerController(
     this._target, {
     this.onSaveDraft,
@@ -330,15 +331,15 @@ class ComposerController extends ChangeNotifier {
     ComposerPills? pills,
     PluginHashtagPresentationResolver? pluginHashtagPresentation,
     ComposerQuoteContentsFormatter? formatQuoteContents,
-    List<ComposerSyntaxPlugin> syntaxPlugins = const [],
+    List<ComposerSyntaxPolicy> syntaxPolicies = const [],
+    this.pluginStateReader,
+    this.isCurrentComposer,
     this.imageUploader,
     ComposerUploadUrlResolver? resolveUploadUrls,
     this.canUploadImage,
     this.simultaneousUploads = 15,
     int maxImageWidth = 690,
     int maxImageHeight = 500,
-    int pollMaximumOptions = 20,
-    String? localDateAccountTimezone,
     int minimumRequiredTags = 0,
     DateTime Function()? now,
   }) : text = MarkdownEditingController(
@@ -347,9 +348,7 @@ class ComposerController extends ChangeNotifier {
          pills: pills,
          pluginHashtagPresentation: pluginHashtagPresentation,
          formatQuoteContents: formatQuoteContents,
-         syntaxPlugins: syntaxPlugins,
-         pollMaximumOptions: pollMaximumOptions,
-         localDateAccountTimezone: localDateAccountTimezone,
+         syntaxPolicies: syntaxPolicies,
          resolveUploadUrls: resolveUploadUrls,
          maxImageWidth: maxImageWidth,
          maxImageHeight: maxImageHeight,
@@ -411,6 +410,8 @@ class ComposerController extends ChangeNotifier {
   final ComposerImageUploader? imageUploader;
   final bool Function(String filename)? canUploadImage;
   final int simultaneousUploads;
+  final ComposerPluginStateReader? pluginStateReader;
+  final bool Function()? isCurrentComposer;
 
   /// What will be posted, and what is typed into.
   ///
@@ -496,6 +497,46 @@ class ComposerController extends ChangeNotifier {
 
   ComposerTarget _target;
   ComposerTarget get target => _target;
+
+  @override
+  String get siteUrl => _target.siteUrl;
+
+  @override
+  bool get isPluginTarget => _target.isPlugin;
+
+  @override
+  TextEditingValue get value => text.value;
+
+  @override
+  bool get isCurrent => !_disposed && (isCurrentComposer?.call() ?? true);
+
+  @override
+  bool get isEdit => _target.isEdit;
+
+  @override
+  PluginData get siteSettings =>
+      pluginStateReader?.call().siteSettings ?? PluginData.none;
+
+  @override
+  T? syntaxPolicy<T extends ComposerSyntaxPolicy>(ComposerSyntaxKind kind) {
+    for (final policy in text.syntaxPolicies) {
+      if (policy.kind == kind && policy is T) return policy;
+    }
+    return null;
+  }
+
+  @override
+  bool commit({
+    required TextEditingValue expectedValue,
+    required TextEditingValue value,
+  }) {
+    if (!isCurrent || text.value != expectedValue) return false;
+    text.value = value;
+    return true;
+  }
+
+  @override
+  void requestFocus() => focus.requestFocus();
 
   ComposerState _state = ComposerState.editing;
   ComposerState get state => _state;
@@ -774,7 +815,7 @@ class ComposerController extends ChangeNotifier {
   /// Inserts [insertion] over the current selection and leaves the caret after
   /// it.
   ///
-  /// Chat's compact add-actions use this for mention and emoji triggers. It is
+  /// Compact plugin add-actions use this for mention and emoji triggers. It is
   /// kept here rather than manipulating the field from the widget so the same
   /// notification path drives autocomplete, uploads, and undo history.
   void insertText(String insertion) {
@@ -843,8 +884,19 @@ class ComposerController extends ChangeNotifier {
   /// Post quotes arrive through this path. Keeping block spacing here makes a
   /// quote safe at the beginning, middle, or end of an existing draft instead
   /// of making the selection toolbar reason about composer text.
-  void insertBlock(String markdown) {
-    if (_disposed || markdown.trim().isEmpty) return;
+  @override
+  bool insertBlock({
+    required TextEditingValue expectedValue,
+    required String markdown,
+  }) {
+    if (!isCurrent || text.value != expectedValue || markdown.trim().isEmpty) {
+      return false;
+    }
+    _insertBlock(markdown);
+    return true;
+  }
+
+  void _insertBlock(String markdown) {
     final old = text.value;
     final selection = old.selection.isValid
         ? old.selection
@@ -868,7 +920,7 @@ class ComposerController extends ChangeNotifier {
   void prependBlock(String markdown) {
     if (_disposed || markdown.trim().isEmpty) return;
     text.selection = const TextSelection.collapsed(offset: 0);
-    insertBlock(markdown);
+    _insertBlock(markdown);
   }
 
   static String _separatorAfter(String before) {
@@ -982,6 +1034,7 @@ class ComposerController extends ChangeNotifier {
   ///
   /// The stream carries cooked HTML only, so an edit composer opens empty and
   /// fills in once the markdown arrives.
+  @override
   bool get loadingBody => _loadingBody;
 
   String? _originalRaw;
@@ -989,6 +1042,7 @@ class ComposerController extends ChangeNotifier {
   /// The body an edit opened with: the baseline changes are measured against,
   /// and what the site checks for edit conflicts as `original_text`. Null
   /// until [loadedBody] supplies it — including after a failed fetch.
+  @override
   String? get originalRaw => _originalRaw;
 
   /// Latched by [bodyLoadFailed], cleared only when [loadedBody] supplies the
@@ -1403,7 +1457,7 @@ class ComposerController extends ChangeNotifier {
 
   /// Replaces a plugin composer with a record being edited.
   ///
-  /// Chat attachments do not live in the Markdown body, so entering edit mode
+  /// Retained attachments do not live in the Markdown body, so entering edit mode
   /// has to replace both parts of the document. Retained uploads are completed
   /// queue rows: they can be removed or sent with the edit, but never retried
   /// because there is no local file behind them.

@@ -33,6 +33,9 @@ void main() {
     final localDates = installed.descriptors.singleWhere(
       (descriptor) => descriptor.id.value == 'discourse-local-dates',
     );
+    final poll = installed.descriptors.singleWhere(
+      (descriptor) => descriptor.id.value == 'poll',
+    );
     final chat = installed.descriptors.singleWhere(
       (descriptor) => descriptor.id.value == 'chat',
     );
@@ -40,7 +43,8 @@ void main() {
       (descriptor) => descriptor.id.value == 'resenha',
     );
 
-    expect(localDates.syntaxIds, {'local-dates'});
+    expect(localDates.syntaxIds, {'discourse-local-dates/local-date'});
+    expect(poll.syntaxIds, {'poll/poll'});
     expect(
       chat.dependencies.map(
         (dependency) => (dependency.id.value, dependency.optional),

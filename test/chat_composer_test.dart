@@ -22,7 +22,6 @@ import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
-import 'package:discourse_native/src/plugins/poll/poll_data.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -45,14 +44,6 @@ final _gifsConfig = SiteConfig(
         localDatesSettingsDataKey,
         const LocalDatesSettings(enabled: true),
       ),
-);
-final _pollUser = DiscourseUser(
-  id: 7,
-  username: 'reader',
-  plugins: PluginData.none.withValue(
-    pollCurrentUserDataKey,
-    const PollCurrentUser(canCreatePoll: true),
-  ),
 );
 const _gif = GifResult(
   title: 'Party parrot',
@@ -389,17 +380,14 @@ void main() {
     final fixture = await _fixture(
       pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
       config: _gifsConfig,
-      sessionUser: _pollUser,
     );
     addTearDown(fixture.shell.dispose);
     await tester.pumpWidget(_TestView(shell: fixture.shell));
     await tester.pumpAndSettle();
 
-    expect(fixture.shell.canCreatePollFor(_site), isTrue);
     expect(find.byTooltip('Send GIF'), findsOneWidget);
     expect(find.byTooltip('Insert GIF'), findsNothing);
     expect(find.byTooltip('Search GIFs'), findsNothing);
-    expect(find.byTooltip('Add poll'), findsNothing);
     expect(find.byTooltip('Insert date/time  Ctrl Shift .'), findsNothing);
     expect(find.byTooltip('Add to message'), findsNothing);
     expect(find.byTooltip('Add emoji'), findsOneWidget);

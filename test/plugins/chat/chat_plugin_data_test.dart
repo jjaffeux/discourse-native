@@ -2,8 +2,10 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _registry = PluginRegistry([ChatPlugin()]);
@@ -240,7 +242,7 @@ void main() {
     expect(restored.ignoredUsernames, ['hawk']);
   });
 
-  test('compatibility interfaces use typed Chat data', () {
+  test('Chat-owned policies use typed Chat data', () {
     final disabledSettings = SiteConfig(
       plugins: SiteConfig.fromSettings(const {
         'chat_allow_uploads': false,
@@ -251,14 +253,20 @@ void main() {
       'hasChatEnabled': false,
     }, extensions: _registry);
 
-    expect(
-      _registry.allowsComposerUploads(disabledSettings.plugins, isChat: true),
-      isFalse,
+    final composerPolicy = const ChatPlugin().createComposerTarget(
+      const ComposerTargetRequest(
+        kind: ChatPlugin.messageComposerTarget,
+        siteUrl: 'https://forum.example',
+        title: 'Chat',
+        data: {ChatPlugin.composerChannelId: 9},
+      ),
+      ComposerTargetContext(
+        siteSettings: disabledSettings.plugins,
+        currentUser: PluginData.none,
+      ),
     );
-    expect(
-      _registry.allowsComposerUploads(disabledSettings.plugins, isChat: false),
-      isTrue,
-    );
+
+    expect(composerPolicy.uploadsEnabled, isFalse);
     expect(
       _registry.currentUserFeatureEnabled('chat', disabledUser.plugins),
       isFalse,

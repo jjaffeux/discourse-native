@@ -972,7 +972,7 @@ class _SelectedPillInputFormatter extends TextInputFormatter {
   ) => isSelected() ? oldValue : newValue;
 }
 
-/// The shared markdown editor used by topic and chat composers.
+/// The shared markdown editor used by supported composer surfaces.
 ///
 /// The surrounding composer decides its geometry and submission behavior. The
 /// field keeps the writing technology in one place: markdown highlighting,
@@ -1370,11 +1370,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       offset: text.syntaxCaretAfter(syntax),
     );
     try {
-      await syntax.plugin.editComposerSyntax(
-        context,
-        widget.composer,
-        syntax.value,
-      );
+      await syntax.projection.edit(context, widget.composer);
     } finally {
       if (mounted &&
           identical(widget.composer.text, text) &&
@@ -1541,7 +1537,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
           ? _collapsedPillEndingAt(caret)
           : _collapsedPillStartingAt(caret);
       if (boundarySyntax is ComposerSyntaxOccurrence &&
-          boundarySyntax.plugin.protectsAdjacentDelete) {
+          boundarySyntax.projection.protectsAdjacentDelete) {
         _selectPillForKeyboard(boundarySyntax);
         return KeyEventResult.handled;
       }
@@ -1578,18 +1574,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
     for (final syntax in widget.composer.text.syntaxBlocks) {
       if (syntax.end != caret ||
-          syntax.plugin.protectsAdjacentDelete ||
+          syntax.projection.protectsAdjacentDelete ||
           !widget.composer.text.isSyntaxCollapsed(syntax)) {
         continue;
       }
       unawaited(
-        Future.sync(
-          () => syntax.plugin.removeComposerSyntax(
-            context,
-            widget.composer,
-            syntax.value,
-          ),
-        ),
+        Future.sync(() => syntax.projection.remove(context, widget.composer)),
       );
       return KeyEventResult.handled;
     }
@@ -1646,7 +1636,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   void _moveCaretAfterSyntax(ComposerSyntaxOccurrence syntax) {
     final text = widget.composer.text;
-    text.value = syntax.plugin.moveCaretAfter(syntax.value, text.value);
+    text.value = syntax.projection.moveCaretAfter(text.value);
   }
 
   void _editPill(Object pill) {
@@ -1672,13 +1662,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
         return;
       case ComposerSyntaxOccurrence syntax:
         unawaited(
-          Future.sync(
-            () => syntax.plugin.removeComposerSyntax(
-              context,
-              widget.composer,
-              syntax.value,
-            ),
-          ),
+          Future.sync(() => syntax.projection.remove(context, widget.composer)),
         );
         return;
     }
@@ -1809,7 +1793,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                                       .composer
                                       .text
                                       .keyboardSelectedSyntax
-                                      ?.plugin
+                                      ?.projection
                                       .hidesCursorWhenSelected !=
                                   true,
                               onTapAlwaysCalled: true,

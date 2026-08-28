@@ -3,14 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../foundation/diagnostic_errors.dart';
-import '../../plugin_api/chat_preview.dart';
-import '../../plugin_api/plugin_registry.dart';
-import '../../plugin_api/plugin_scope.dart';
 import '../../shell/code_block.dart';
 import '../../shell/image_decode.dart';
 import '../../shell/inline_code.dart';
 import '../../shell/syntax.dart';
 import '../../theme/app_theme.dart';
+import 'chat_preview.dart';
 
 /// Native presentation of an app-owned provisional chat document.
 ///
@@ -21,27 +19,22 @@ class ChatPreviewBody extends StatelessWidget {
     super.key,
     required this.document,
     required this.textStyle,
-    this.registry,
+    required this.previewEngine,
   });
 
   final PreviewDocument document;
   final TextStyle? textStyle;
-  final PluginRegistry? registry;
+  final ChatPreviewEngine previewEngine;
 
   @override
   Widget build(BuildContext context) {
-    final registry =
-        this.registry ??
-        PluginRegistryScope.maybeOf(context) ??
-        PluginScope.maybeOf(context)?.registry ??
-        PluginRegistry.empty;
     // Widget construction is intentionally after pure inspection, but it is
     // still part of the provisional pipeline. A missing, ambiguous, or broken
     // renderer invalidates the whole projection rather than producing a mixed
     // interpretation of one message.
     final pluginWidgets = <PluginPreviewNode, Widget>{};
     for (final node in document.nodes.whereType<PluginPreviewNode>()) {
-      final widget = registry.buildChatPreviewNode(context, node);
+      final widget = previewEngine.buildPreviewNode(context, node);
       if (widget == null) return Text(document.source, style: textStyle);
       pluginWidgets[node] = widget;
     }

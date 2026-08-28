@@ -2,6 +2,7 @@ import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
 import 'package:discourse_native/src/plugins/poll/poll_icons.dart';
 import 'package:discourse_native/src/plugins/poll/poll_plugin.dart';
+import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
@@ -31,6 +32,40 @@ void main() {
       pollComposerSummary(parsePollComposerBlocks(number).single),
       'Poll · Score · 6 options',
     );
+  });
+
+  test('Poll policy fails closed until the session permission is fresh', () {
+    PollCurrentUser? freshUser;
+    final controller = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://example.com',
+        topicId: 1,
+        slug: 'topic',
+        topicTitle: 'Topic',
+      ),
+      syntaxPolicies: [
+        PollComposerSyntaxPolicy(
+          settings: const PollSettings(
+            maximumOptions: 37,
+            defaultPublic: false,
+          ),
+          freshUserReader: () => freshUser,
+        ),
+      ],
+    );
+    addTearDown(controller.dispose);
+    final policy = controller.syntaxPolicy<PollComposerSyntaxPolicy>(
+      pollComposerSyntaxKind,
+    )!;
+
+    expect(policy.projectionState, 37);
+    expect(policy.canCreate(controller), isFalse);
+
+    freshUser = const PollCurrentUser(canCreatePoll: true);
+    expect(policy.canCreate(controller), isTrue);
+
+    freshUser = const PollCurrentUser(canCreatePoll: false);
+    expect(policy.canCreate(controller), isFalse);
   });
 
   testWidgets('collapsed spans retain offsets and end with a visual line', (
@@ -92,7 +127,7 @@ void main() {
   ) async {
     final controller = MarkdownEditingController(
       text: source,
-      syntaxPlugins: const [PollPlugin()],
+      syntaxPolicies: const [PollComposerSyntaxPolicy()],
     );
     addTearDown(controller.dispose);
     await tester.pumpWidget(
@@ -147,7 +182,7 @@ void main() {
       final text = '$source$trailing';
       final controller = MarkdownEditingController(
         text: text,
-        syntaxPlugins: const [PollPlugin()],
+        syntaxPolicies: const [PollComposerSyntaxPolicy()],
       );
       addTearDown(controller.dispose);
       await tester.pumpWidget(
@@ -249,7 +284,7 @@ void main() {
     (tester) async {
       final controller = MarkdownEditingController(
         text: source,
-        syntaxPlugins: const [PollPlugin()],
+        syntaxPolicies: const [PollComposerSyntaxPolicy()],
       );
       addTearDown(controller.dispose);
       await tester.pumpWidget(
@@ -300,7 +335,7 @@ void main() {
     tester,
   ) async {
     final controller = MarkdownEditingController(
-      syntaxPlugins: const [PollPlugin()],
+      syntaxPolicies: const [PollComposerSyntaxPolicy()],
     );
     addTearDown(controller.dispose);
     await tester.pumpWidget(
@@ -353,7 +388,7 @@ void main() {
     ]) {
       final controller = MarkdownEditingController(
         text: document,
-        syntaxPlugins: const [PollPlugin()],
+        syntaxPolicies: const [PollComposerSyntaxPolicy()],
       );
       final projected = controller.pollBlocks.single;
       expect(
@@ -369,7 +404,7 @@ void main() {
   ) async {
     final controller = MarkdownEditingController(
       text: source,
-      syntaxPlugins: const [PollPlugin()],
+      syntaxPolicies: const [PollComposerSyntaxPolicy()],
     );
     addTearDown(controller.dispose);
     await tester.pumpWidget(
@@ -439,7 +474,7 @@ void main() {
   test('a pointer-held poll clamps native range selection to its end', () {
     final controller = MarkdownEditingController(
       text: source,
-      syntaxPlugins: const [PollPlugin()],
+      syntaxPolicies: const [PollComposerSyntaxPolicy()],
     );
     addTearDown(controller.dispose);
     final projected = controller.pollBlocks.single;
@@ -467,10 +502,10 @@ void main() {
   test('a source edit cannot revive a stale keyboard pill selection', () {
     final controller = MarkdownEditingController(
       text: source,
-      syntaxPlugins: const [PollPlugin()],
+      syntaxPolicies: const [PollComposerSyntaxPolicy()],
     );
     addTearDown(controller.dispose);
-    controller.selectPillForKeyboard(controller.pollBlocks.single);
+    controller.selectPillForKeyboard(controller.syntaxBlocks.single);
 
     controller.value = const TextEditingValue(
       text: '$source!',

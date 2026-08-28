@@ -1,14 +1,9 @@
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/json.dart';
 import 'package:discourse_native/src/models/post.dart';
-import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
-import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
-import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
-import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
-import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
 import 'package:discourse_native/src/shell/post_action.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -566,178 +561,6 @@ void main() {
       expect(registry.isSmallAction(ordinary), isFalse);
     },
   );
-
-  test('chat preview capabilities preserve registry order and reject ids', () {
-    const registry = PluginRegistry([
-      _PreviewPlugin('first', '[one]'),
-      _NamedPlugin('unrelated'),
-      _PreviewPlugin('second', '[two]'),
-    ]);
-    const request = ChatPreviewRequest(
-      raw: '[one] then [two]',
-      siteConfig: SiteConfig.unknown(),
-    );
-
-    final result = ChatPreviewEngine(
-      plugins: registry.chatPreviewPlugins,
-    ).project(request);
-    final nodes = (result as ProjectedPreview).document.nodes
-        .whereType<PluginPreviewNode>();
-    expect(nodes.map((node) => node.featureId), ['first', 'second']);
-
-    const duplicate = PluginRegistry([
-      _PreviewPlugin('same', '[one]'),
-      _PreviewPlugin('same', '[two]'),
-    ]);
-    expect(
-      ChatPreviewEngine(plugins: duplicate.chatPreviewPlugins).project(request),
-      isA<SourceFallback>().having(
-        (fallback) => fallback.reason,
-        'reason',
-        ChatPreviewFallbackReason.duplicatePluginId,
-      ),
-    );
-  });
-
-  testWidgets('chat preview node rendering has an unambiguous safe fallback', (
-    tester,
-  ) async {
-    final diagnostics = await _installDiagnostics('chat-preview-plugin');
-    const registry = PluginRegistry([_PreviewPlugin('date', '[date]')]);
-    const request = ChatPreviewRequest(
-      raw: '[date]',
-      siteConfig: SiteConfig.unknown(),
-    );
-    final projected =
-        ChatPreviewEngine(plugins: registry.chatPreviewPlugins).project(request)
-            as ProjectedPreview;
-    final node = projected.document.nodes.whereType<PluginPreviewNode>().single;
-    Widget? built;
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) {
-            built = registry.buildChatPreviewNode(context, node);
-            return built!;
-          },
-        ),
-      ),
-    );
-
-    expect((built as Text).data, 'date');
-
-    const duplicate = PluginRegistry([
-      _PreviewPlugin('date', '[date]'),
-      _PreviewPlugin('date', '[date]'),
-    ]);
-    const throwing = PluginRegistry([
-      _PreviewPlugin('date', '[date]', throwsWhileBuilding: true),
-    ]);
-    final context = tester.element(find.text('date'));
-    expect(duplicate.buildChatPreviewNode(context, node), isNull);
-    expect(diagnostics.events.whereType<ErrorDiagnosticEvent>(), isEmpty);
-    expect(throwing.buildChatPreviewNode(context, node), isNull);
-    expect(
-      diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-      isA<ErrorDiagnosticEvent>()
-          .having(
-            (event) => event.operation,
-            'operation',
-            'chat.previewPlugin.render',
-          )
-          .having((event) => event.source, 'source', 'chat')
-          .having(
-            (event) => event.severity,
-            'severity',
-            DiagnosticSeverity.warning,
-          )
-          .having((event) => event.handled, 'handled', isTrue)
-          .having((event) => event.degraded, 'degraded', isTrue),
-    );
-    await diagnostics.close();
-  });
-
-  testWidgets('a broken plugin renderer falls back the whole message to raw', (
-    tester,
-  ) async {
-    const raw = '**before** [date] after';
-    const registry = PluginRegistry([
-      _PreviewPlugin('date', '[date]', throwsWhileBuilding: true),
-    ]);
-    const request = ChatPreviewRequest(
-      raw: raw,
-      siteConfig: SiteConfig.unknown(),
-    );
-    final projected =
-        ChatPreviewEngine(plugins: registry.chatPreviewPlugins).project(request)
-            as ProjectedPreview;
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: ChatPreviewBody(
-            document: projected.document,
-            textStyle: null,
-            registry: registry,
-          ),
-        ),
-      ),
-    );
-
-    expect(find.text(raw), findsOneWidget);
-    expect(find.text('before'), findsNothing);
-  });
-
-  testWidgets(
-    'a non-bundled manifest preview contribution renders from active scopes',
-    (tester) async {
-      final installed = PluginInstaller.install(
-        const PluginManifest([_PreviewManifestModule()]),
-      );
-      final session = installed.openSession(const PluginHostBindings.empty());
-      addTearDown(() async {
-        await session.close();
-        await installed.close();
-      });
-
-      const request = ChatPreviewRequest(
-        raw: '[custom]',
-        siteConfig: SiteConfig.unknown(),
-      );
-      final projected =
-          ChatPreviewEngine(
-                plugins: installed.registry.chatPreviewPlugins,
-              ).project(request)
-              as ProjectedPreview;
-      Widget previewBody() => Scaffold(
-        body: ChatPreviewBody(document: projected.document, textStyle: null),
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: PluginScope(
-            session: session,
-            registry: installed.registry,
-            child: previewBody(),
-          ),
-        ),
-      );
-      expect(find.text('custom-preview'), findsOneWidget);
-      expect(find.text(request.raw), findsNothing);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: PluginRegistryScope(
-            registry: installed.registry,
-            child: previewBody(),
-          ),
-        ),
-      );
-      expect(find.text('custom-preview'), findsOneWidget);
-      expect(find.text(request.raw), findsNothing);
-    },
-  );
 }
 
 final class _ApiFooterPlugin implements SitePlugin, PostFooterPlugin {
@@ -748,19 +571,6 @@ final class _ApiFooterPlugin implements SitePlugin, PostFooterPlugin {
 
   @override
   Widget? postFooter(String siteUrl, Post post) => const Text('api-only');
-}
-
-Future<DiagnosticsController> _installDiagnostics(String sessionId) async {
-  final diagnostics = await DiagnosticsController.create(
-    persistence: MemoryDiagnosticsPersistence(),
-    sessionId: sessionId,
-  );
-  final binding = DiagnosticsSink.install(diagnostics);
-  addTearDown(() async {
-    binding.close();
-    await diagnostics.close();
-  });
-  return diagnostics;
 }
 
 class _NamedPlugin implements SitePlugin {
@@ -786,63 +596,6 @@ final class _IconPlugin extends _NamedPlugin implements IconCatalogPlugin {
     entries: {iconName: _pluginOnlyIcon},
   );
 }
-
-final class _PreviewPlugin implements ChatMessagePreviewPlugin {
-  const _PreviewPlugin(
-    this.previewFeatureId,
-    this.markup, {
-    this.throwsWhileBuilding = false,
-  });
-
-  @override
-  String get name => previewFeatureId;
-
-  @override
-  final String previewFeatureId;
-
-  final String markup;
-  final bool throwsWhileBuilding;
-
-  @override
-  ChatPreviewInspection inspect(ChatPreviewRequest request) {
-    final start = request.raw.indexOf(markup);
-    if (start < 0) return ChatPreviewInspection();
-    final range = SourceRange(start, start + markup.length);
-    return ChatPreviewInspection(
-      claims: [
-        ChatPreviewClaim(
-          range: range,
-          node: PluginPreviewNode(
-            range: range,
-            featureId: previewFeatureId,
-            kind: 'test',
-            fallbackText: markup,
-          ),
-        ),
-      ],
-    );
-  }
-
-  @override
-  Widget? buildPreviewNode(BuildContext context, PluginPreviewNode node) {
-    if (throwsWhileBuilding) throw StateError('test renderer failed');
-    return Text(previewFeatureId);
-  }
-}
-
-final class _PreviewManifestModule implements PluginModule {
-  const _PreviewManifestModule();
-
-  @override
-  PluginDescriptor get descriptor =>
-      const PluginDescriptor(id: PluginId('custom-preview'));
-
-  @override
-  void register(PluginRegistrar registrar) {
-    registrar.addCapability(const _PreviewPlugin('custom-preview', '[custom]'));
-  }
-}
-
 final class _FooterPlugin extends _NamedPlugin implements PostFooterPlugin {
   const _FooterPlugin(super.name, {required this.claims});
 

@@ -343,6 +343,8 @@ class ChatController extends FrameSafeNotifier {
   final ValueChanged<String>? onSiteUnreachable;
   final DateTime Function() _clock;
 
+  ChatPreviewEngine get previewEngine => _previewEngine;
+
   static DiscourseUser? _noCurrentUser(String _) => null;
   static SiteConfig _unknownSiteConfig(String _) => const SiteConfig.unknown();
 

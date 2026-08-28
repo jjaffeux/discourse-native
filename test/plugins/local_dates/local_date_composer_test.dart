@@ -207,7 +207,10 @@ void main() {
     ) async {
       final controller = MarkdownEditingController(
         text: date,
-        syntaxPlugins: const [LocalDatesPlugin(), PollPlugin()],
+        syntaxPolicies: const [
+          LocalDateComposerSyntaxPolicy(),
+          PollComposerSyntaxPolicy(),
+        ],
       );
       addTearDown(controller.dispose);
       await tester.pumpWidget(
@@ -239,7 +242,7 @@ void main() {
         isFalse,
       );
 
-      controller.selectPillForKeyboard(controller.localDateBlocks.single);
+      controller.selectPillForKeyboard(controller.syntaxBlocks.single);
       await tester.pump();
       expect(
         tester
@@ -268,7 +271,10 @@ void main() {
       const source = '$date\n\n$poll';
       final controller = MarkdownEditingController(
         text: source,
-        syntaxPlugins: const [LocalDatesPlugin(), PollPlugin()],
+        syntaxPolicies: const [
+          LocalDateComposerSyntaxPolicy(),
+          PollComposerSyntaxPolicy(),
+        ],
       );
       addTearDown(controller.dispose);
       await tester.pumpWidget(

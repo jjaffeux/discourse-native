@@ -1,8 +1,20 @@
 import 'dart:collection';
 
-import 'package:flutter/foundation.dart';
+import 'package:discourse_plugin_api/discourse_plugin_api.dart';
+import 'package:flutter/widgets.dart';
 
-import '../models/site_config.dart';
+import '../../models/site_config.dart';
+
+/// Optional syntax projectors installed into Chat's provisional preview.
+///
+/// This is an additive point: independently installed features may each own a
+/// conservative source claim and renderer without making core learn Chat's
+/// document vocabulary.
+const chatPreviewContributions =
+    PluginStaticContributionPoint<ChatPreviewContribution>(
+      owner: PluginId('chat'),
+      name: 'message-preview',
+    );
 
 /// The stable request presented to optimistic chat-preview contributions.
 @immutable
@@ -204,12 +216,22 @@ final class TrustedGifPreviewSeed extends TrustedPreviewSeed {
 
 /// Pure inspection contract implemented by optional preview contributors.
 ///
-/// Widget construction is intentionally a separate concern owned by the
-/// registry so the projected document never stores locally generated HTML or
-/// a widget instance.
+/// Widget construction is intentionally a separate concern so the projected
+/// document never stores locally generated HTML or a widget instance.
 abstract interface class ChatPreviewPluginAdapter {
   String get previewFeatureId;
   ChatPreviewInspection inspect(ChatPreviewRequest request);
+}
+
+/// A complete optional contribution to Chat's provisional message preview.
+///
+/// The contribution owns both its conservative source inspection and the
+/// native renderer for the opaque nodes it emits. Chat validates and projects
+/// those nodes, and falls the complete message back to source if rendering is
+/// missing or fails.
+abstract interface class ChatPreviewContribution
+    implements ChatPreviewPluginAdapter {
+  Widget? buildPreviewNode(BuildContext context, PluginPreviewNode node);
 }
 
 @immutable

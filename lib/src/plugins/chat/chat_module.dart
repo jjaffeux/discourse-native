@@ -31,6 +31,7 @@ final class ChatModule implements PluginModule {
 
   @override
   void register(PluginRegistrar registrar) {
+    registrar.addStaticContributionPoint(chatPreviewContributions);
     registrar.addCapability(const ChatPlugin());
     registrar.addRouteNamespace('chat');
     registrar.addSession(
@@ -41,6 +42,7 @@ final class ChatModule implements PluginModule {
         final lifecycle = bindings.require(corePluginSiteLifecyclePort);
         final siteState = bindings.require(corePluginSiteStatePort);
         final accountEvents = bindings.require(corePluginAccountEventsPort);
+        final composerHost = bindings.require(corePluginComposerPort);
         final chatApi = transport is ChatApi
             ? transport as ChatApi
             : ChatApiClient(transport);
@@ -53,7 +55,9 @@ final class ChatModule implements PluginModule {
           currentUserFor: siteState.currentUserFor,
           siteConfigFor: siteState.siteConfigFor,
           previewEngine: ChatPreviewEngine(
-            plugins: bindings.require(corePluginPreviewPort),
+            plugins: bindings
+                .require(corePluginStaticContributionsPort)
+                .contributions(chatPreviewContributions),
           ),
           onChatNotificationsDelta: (siteUrl, delta) =>
               accountEvents.updateNotificationCounter(
@@ -72,6 +76,7 @@ final class ChatModule implements PluginModule {
         final shell = ChatShellService(
           chat: controller,
           host: bindings.require(corePluginNavigationPort),
+          composerHost: composerHost,
           store: store,
         );
         return PluginSessionContribution(
@@ -94,10 +99,7 @@ final class ChatModule implements PluginModule {
                   .require(corePluginBookmarkPort)
                   .forTarget(chatMessageBookmarkTarget),
             ),
-            PluginService<Object>(
-              chatComposerHostService,
-              bindings.require(corePluginComposerPort),
-            ),
+            PluginService<Object>(chatComposerHostService, composerHost),
             PluginService<Object>(
               chatEmojiHostService,
               bindings.require(corePluginEmojiPort),
@@ -118,7 +120,7 @@ final class ChatModule implements PluginModule {
         corePluginStorePort,
         corePluginSiteLifecyclePort,
         corePluginSiteStatePort,
-        corePluginPreviewPort,
+        corePluginStaticContributionsPort,
         corePluginAccountEventsPort,
         corePluginNavigationPort,
         corePluginBookmarkPort,

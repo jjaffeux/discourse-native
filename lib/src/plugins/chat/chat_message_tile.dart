@@ -1023,7 +1023,14 @@ class _Tile extends StatelessWidget {
         canonicalReceived: false,
         preview: ProjectedPreview(:final document),
       ) =>
-        ChatPreviewBody(document: document, textStyle: messageTextStyle),
+        ChatPreviewBody(
+          document: document,
+          textStyle: messageTextStyle,
+          previewEngine: PluginScope.require(
+            context,
+            chatControllerService,
+          ).previewEngine,
+        ),
       ChatMessage(
         canonicalReceived: false,
         optimisticRaw: final raw?,

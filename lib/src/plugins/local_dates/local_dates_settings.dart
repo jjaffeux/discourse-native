@@ -107,9 +107,13 @@ final class LocalDatesSettingsPersistenceCodec
 
 const localDatesSettingsPersistenceCodec = LocalDatesSettingsPersistenceCodec();
 
-extension SiteConfigLocalDatesSettings on SiteConfig {
+extension LocalDatesPluginDataRead on PluginData {
   LocalDatesSettings get localDatesSettings =>
-      plugins.get(localDatesSettingsDataKey) ?? const LocalDatesSettings();
+      get(localDatesSettingsDataKey) ?? const LocalDatesSettings();
+}
+
+extension SiteConfigLocalDatesSettings on SiteConfig {
+  LocalDatesSettings get localDatesSettings => plugins.localDatesSettings;
 
   bool get localDatesEnabled => localDatesSettings.enabled;
 

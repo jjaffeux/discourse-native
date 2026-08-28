@@ -9,12 +9,12 @@ final class PollModule implements PluginModule {
 
   @override
   PluginDescriptor get descriptor =>
-      const PluginDescriptor(id: pollPluginId, syntaxIds: {'poll'});
+      const PluginDescriptor(id: pollPluginId, syntaxIds: {'poll/poll'});
 
   @override
   void register(PluginRegistrar registrar) {
     const plugin = PollPlugin();
     registrar.addCapability(plugin);
-    registrar.addSyntaxId(plugin.syntaxId);
+    registrar.addSyntaxId(plugin.composerSyntaxKind.id);
   }
 }

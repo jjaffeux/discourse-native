@@ -1,7 +1,10 @@
 import 'dart:math';
 
+import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
+import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -280,6 +283,82 @@ void main() {
     });
   });
 
+  group('Chat-owned contribution rendering', () {
+    testWidgets('renders the contribution which projected an opaque node', (
+      tester,
+    ) async {
+      const plugin = _RenderingPlugin('date', '[date]');
+      final renderer = ChatPreviewEngine(plugins: const [plugin]);
+      final projected =
+          project('[date]', withEngine: renderer) as ProjectedPreview;
+      final node = projected.document.nodes
+          .whereType<PluginPreviewNode>()
+          .single;
+      Widget? built;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              built = renderer.buildPreviewNode(context, node);
+              return built!;
+            },
+          ),
+        ),
+      );
+
+      expect((built as Text).data, 'date');
+    });
+
+    testWidgets(
+      'a broken contribution renderer logs and falls back the whole source',
+      (tester) async {
+        final diagnostics = await _installDiagnostics('chat-preview-plugin');
+        const raw = '**before** [date] after';
+        final renderer = ChatPreviewEngine(
+          plugins: const [
+            _RenderingPlugin('date', '[date]', throwsWhileBuilding: true),
+          ],
+        );
+        final projected =
+            project(raw, withEngine: renderer) as ProjectedPreview;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ChatPreviewBody(
+                document: projected.document,
+                textStyle: null,
+                previewEngine: renderer,
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text(raw), findsOneWidget);
+        expect(find.text('before'), findsNothing);
+        expect(
+          diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
+          isA<ErrorDiagnosticEvent>()
+              .having(
+                (event) => event.operation,
+                'operation',
+                'chat.previewPlugin.render',
+              )
+              .having((event) => event.source, 'source', 'chat')
+              .having(
+                (event) => event.severity,
+                'severity',
+                DiagnosticSeverity.warning,
+              )
+              .having((event) => event.handled, 'handled', isTrue)
+              .having((event) => event.degraded, 'degraded', isTrue),
+        );
+        await diagnostics.close();
+      },
+    );
+  });
+
   group('trusted GIF seed', () {
     test('bypasses image-Markdown fallback with a typed image node', () {
       const raw = '![party](https://media.example/party.gif)';
@@ -481,4 +560,57 @@ final class _ThrowingPlugin implements ChatPreviewPluginAdapter {
   @override
   ChatPreviewInspection inspect(ChatPreviewRequest request) =>
       throw StateError('plugin bug');
+}
+
+final class _RenderingPlugin implements ChatPreviewContribution {
+  const _RenderingPlugin(
+    this.previewFeatureId,
+    this.markup, {
+    this.throwsWhileBuilding = false,
+  });
+
+  @override
+  final String previewFeatureId;
+
+  final String markup;
+  final bool throwsWhileBuilding;
+
+  @override
+  ChatPreviewInspection inspect(ChatPreviewRequest request) {
+    final start = request.raw.indexOf(markup);
+    if (start < 0) return ChatPreviewInspection();
+    final range = SourceRange(start, start + markup.length);
+    return ChatPreviewInspection(
+      claims: [
+        ChatPreviewClaim(
+          range: range,
+          node: PluginPreviewNode(
+            range: range,
+            featureId: previewFeatureId,
+            kind: 'test',
+            fallbackText: markup,
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget? buildPreviewNode(BuildContext context, PluginPreviewNode node) {
+    if (throwsWhileBuilding) throw StateError('test renderer failed');
+    return Text(previewFeatureId);
+  }
+}
+
+Future<DiagnosticsController> _installDiagnostics(String sessionId) async {
+  final diagnostics = await DiagnosticsController.create(
+    persistence: MemoryDiagnosticsPersistence(),
+    sessionId: sessionId,
+  );
+  final binding = DiagnosticsSink.install(diagnostics);
+  addTearDown(() async {
+    binding.close();
+    await diagnostics.close();
+  });
+  return diagnostics;
 }

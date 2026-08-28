@@ -243,8 +243,9 @@ class ShellController extends FrameSafeNotifier
         ),
       ),
       PluginHostPort<Object>(
-        corePluginPreviewPort,
-        plugins.registry.chatPreviewPlugins,
+        corePluginStaticContributionsPort,
+        plugins.staticContributionsFor(const PluginId('core')),
+        scopeToConsumer: plugins.staticContributionsFor,
       ),
       _pluginAccountEventsHostPort(),
       PluginHostPort<Object>(
@@ -337,6 +338,7 @@ class ShellController extends FrameSafeNotifier
   PluginHostPort<Object> _pluginComposerHostPort() {
     final host = PluginComposerHost(
       buildComposer: buildPluginComposer,
+      openNewTopic: openNewTopicFromPlugin,
       credentials: authenticator,
       lifecycle: lifecycle,
       siteConfigFor: siteConfigFor,
@@ -355,6 +357,7 @@ class ShellController extends FrameSafeNotifier
           }
           return host.buildComposer(request);
         },
+        openNewTopic: host.openNewTopic,
         credentials: host.credentials,
         lifecycle: host.lifecycle,
         siteConfigFor: host.siteConfigFor,
@@ -1518,8 +1521,8 @@ class ShellController extends FrameSafeNotifier
         await _refreshCustomSidebarSections(instance.url, apiKey, lease: lease);
       }
     } catch (_) {
-      // Capabilities remain unknown. Persisted values never authorize a poll
-      // creation or a group-restricted vote in their place.
+      // Freshness-sensitive plugin capabilities remain unknown. Persisted
+      // extension state must not authorize them in their place.
     }
   }
 
@@ -4627,7 +4630,26 @@ class ShellController extends FrameSafeNotifier
     int minimumRequiredTags = 0,
   }) {
     final config = siteConfigFor(target.siteUrl);
-    final composer = ComposerController(
+    ComposerPluginState readPluginState() {
+      final currentUser = currentUserFor(target.siteUrl);
+      final freshCurrentUser = freshCurrentUserFor(target.siteUrl);
+      final editingPostId = target.editingPostId;
+      final editingPost = editingPostId == null
+          ? null
+          : store.read<Post>(target.siteUrl, editingPostId);
+      return ComposerPluginState(
+        siteSettings: siteConfigFor(target.siteUrl).plugins,
+        currentUser: currentUser?.plugins ?? PluginData.none,
+        freshCurrentUser: freshCurrentUser?.plugins ?? PluginData.none,
+        editingPost: editingPost?.plugins ?? PluginData.none,
+        accountTimezone: currentUser?.timezone,
+        freshCurrentUserIsStaff: freshCurrentUser?.staff == true,
+      );
+    }
+
+    final initialPluginState = readPluginState();
+    late final ComposerController composer;
+    composer = ComposerController(
       target,
       onSaveDraft: persistsDraft ? _saveDraft : null,
       search: _composerSearch(target),
@@ -4644,17 +4666,18 @@ class ShellController extends FrameSafeNotifier
       pluginHashtagPresentation: plugins.registry.pluginHashtagPresentation,
       formatQuoteContents: (block) =>
           quoteContentsFor(target, block) ?? block.contents,
-      syntaxPlugins: plugins.registry.composerSyntaxPlugins,
-      pollMaximumOptions: plugins.registry.composerMaximumOptions(
-        config.plugins,
+      syntaxPolicies: plugins.registry.composerSyntaxPolicies(
+        ComposerSyntaxPolicyContext(
+          siteUrl: target.siteUrl,
+          isPluginTarget: target.isPlugin,
+          isEdit: target.isEdit,
+          initialState: initialPluginState,
+          readState: readPluginState,
+        ),
       ),
-      localDateAccountTimezone: currentUserFor(target.siteUrl)?.timezone,
-      imageUploader:
-          !(target.policy?.uploadsEnabled ??
-              plugins.registry.allowsComposerUploads(
-                config.plugins,
-                isChat: false,
-              ))
+      pluginStateReader: readPluginState,
+      isCurrentComposer: () => identical(_composer, composer),
+      imageUploader: !(target.policy?.uploadsEnabled ?? true)
           ? null
           : (file, {required onProgress, required abortTrigger}) =>
                 _uploadComposerImage(
@@ -4698,8 +4721,9 @@ class ShellController extends FrameSafeNotifier
     final policy = plugins.registry.composerTarget(
       request,
       ComposerTargetContext(
-        config: siteConfigFor(request.siteUrl),
-        currentUser: currentUserFor(request.siteUrl),
+        siteSettings: siteConfigFor(request.siteUrl).plugins,
+        currentUser:
+            currentUserFor(request.siteUrl)?.plugins ?? PluginData.none,
       ),
     );
     if (policy == null) return null;
@@ -4901,23 +4925,23 @@ class ShellController extends FrameSafeNotifier
     composer.focus.requestFocus();
   }
 
-  @override
-  Future<String?> insertPluginTranscriptIntoNewTopic({
-    required String siteUrl,
-    required String sourceRouteId,
-    required String markdown,
-    int? initialCategoryId,
-  }) async {
+  Future<OpenComposerResult> openNewTopicFromPlugin(
+    OpenNewTopicComposerRequest request,
+  ) async {
+    final siteUrl = request.siteUrl;
+    final sourceRouteId = request.sourceRouteId;
     final route = currentContent;
     final tabId = activeTabId;
     final feedId = currentFeedId;
-    if (markdown.trim().isEmpty ||
+    if (route?.id != sourceRouteId) {
+      return OpenComposerResult.sourceChanged;
+    }
+    if (request.seed.raw.trim().isEmpty ||
         currentInstance?.url != siteUrl ||
         currentInstance?.user == null ||
-        route?.id != sourceRouteId ||
         tabId == null ||
         feedId == null) {
-      return 'The topic composer is no longer available here.';
+      return OpenComposerResult.unavailable;
     }
 
     final lease = lifecycle.capture(siteUrl);
@@ -4930,14 +4954,15 @@ class ShellController extends FrameSafeNotifier
         currentContent?.id != sourceRouteId ||
         activeTabId != tabId ||
         currentFeedId != feedId) {
-      return 'The topic composer is no longer available here.';
+      return OpenComposerResult.sourceChanged;
     }
 
-    final category = initialCategoryId == null
+    final category = request.initialCategoryId == null
         ? null
         : topicComposerCategories(siteUrl)
               .where(
-                (item) => item.id == initialCategoryId && item.canCreateTopic,
+                (item) =>
+                    item.id == request.initialCategoryId && item.canCreateTopic,
               )
               .firstOrNull;
     var composer = visibleComposer;
@@ -4972,18 +4997,25 @@ class ShellController extends FrameSafeNotifier
     try {
       await _composerDraftRestore;
     } catch (_) {
-      // A local draft failure must not turn a canonical transcript into a
-      // dead action.
+      // A local draft failure must not discard an otherwise valid seed.
     }
     if (!lease.isCurrent ||
         !identical(_composer, composer) ||
         currentContent?.id != sourceRouteId ||
         activeTabId != tabId) {
-      return 'The topic composer is no longer available here.';
+      return OpenComposerResult.sourceChanged;
     }
-    composer.insertBlock(markdown);
-    composer.focus.requestFocus();
-    return null;
+    switch (request.seed.placement) {
+      case ComposerSeedPlacement.block:
+        if (!composer.insertBlock(
+          expectedValue: composer.value,
+          markdown: request.seed.raw,
+        )) {
+          return OpenComposerResult.sourceChanged;
+        }
+    }
+    composer.requestFocus();
+    return OpenComposerResult.opened;
   }
 
   Future<TopicTagSearch> searchComposerTags(
@@ -5162,7 +5194,9 @@ class ShellController extends FrameSafeNotifier
         activeTabId != composer.target.tabId) {
       return;
     }
-    composer.insertBlock(quote);
+    if (!composer.insertBlock(expectedValue: composer.value, markdown: quote)) {
+      return;
+    }
     composer.focus.requestFocus();
   }
 
@@ -8893,21 +8927,6 @@ class ShellController extends FrameSafeNotifier
     await instanceStore.save(List.of(_instances));
   }
 
-  /// A creation capability is useful only after this app session has asked
-  /// the site. An old persisted `true` is deliberately treated as unknown.
-  bool canCreatePollFor(String siteUrl) =>
-      _sessionUsersRefreshed.contains(siteUrl) &&
-      plugins.registry.allowsPermission(
-        'create-poll',
-        _instanceAt(siteUrl)?.user?.plugins ?? PluginData.none,
-        null,
-      );
-
-  bool get canCreatePoll {
-    final siteUrl = currentInstance?.url;
-    return siteUrl != null && canCreatePollFor(siteUrl);
-  }
-
   DiscourseUser? currentUserFor(String siteUrl) => _instanceAt(siteUrl)?.user;
 
   DiscourseUser? freshCurrentUserFor(String siteUrl) =>
@@ -10543,19 +10562,6 @@ final class _ShellPluginNavigationHost implements PluginNavigationHost {
 
   @override
   void showPluginContent() => _shell.showPluginContent();
-
-  @override
-  Future<String?> insertPluginTranscriptIntoNewTopic({
-    required String siteUrl,
-    required String sourceRouteId,
-    required String markdown,
-    int? initialCategoryId,
-  }) => _shell.insertPluginTranscriptIntoNewTopic(
-    siteUrl: siteUrl,
-    sourceRouteId: sourceRouteId,
-    markdown: markdown,
-    initialCategoryId: initialCategoryId,
-  );
 }
 
 /// Route-only navigation is a separate runtime object from the full port.

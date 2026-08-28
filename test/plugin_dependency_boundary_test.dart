@@ -19,10 +19,12 @@ const _pluginIdsByDirectory = <String, String>{
 const _approvedCrossFeatureContracts = <String, String>{
   'chat->gifs': 'lib/src/plugins/gifs/gifs_contract.dart',
   'chat->reactions': 'lib/src/plugins/reactions/reactions_contract.dart',
+  'local_dates->chat': 'lib/src/plugins/chat/chat_preview_contract.dart',
   'resenha->chat': 'lib/src/plugins/chat/chat_contract.dart',
 };
 
 const _removedCompatibilityFiles = <String>{
+  'lib/src/plugin_api/chat_preview.dart',
   'lib/src/plugins/core_plugin_manifest.dart',
   'lib/src/plugins/discourse_model_codec.dart',
   'lib/src/plugins/plugin_contracts.dart',
@@ -180,17 +182,6 @@ void main() {
       }
     }
 
-    final previewApi = File(
-      'lib/src/plugin_api/chat_preview.dart',
-    ).readAsStringSync();
-    if (previewApi.contains('ChatPreviewEngine') ||
-        previewApi.contains('scanMarkdown(') ||
-        previewApi.contains('markdown_highlight.dart')) {
-      misplacedImplementations.add(
-        'lib/src/plugin_api/chat_preview.dart contains Chat implementation',
-      );
-    }
-
     expect(
       compatibilityFiles,
       isEmpty,
@@ -263,13 +254,22 @@ void main() {
               'approved contract for $edge is ${approvedTarget ?? 'none'}',
             );
           }
-          final dependencies = descriptors[sourceId]?.dependencies ?? const [];
-          if (!dependencies.any(
-            (dependency) => dependency.id.value == targetId,
-          )) {
+          final descriptor = descriptors[sourceId];
+          final hasRuntimeDependency =
+              descriptor?.dependencies.any(
+                (dependency) => dependency.id.value == targetId,
+              ) ??
+              false;
+          final hasStaticContributionAuthority =
+              descriptor?.staticContributionTargets.any(
+                (target) => target.id.value == targetId,
+              ) ??
+              false;
+          if (!hasRuntimeDependency && !hasStaticContributionAuthority) {
             violations.add(
-              '$sourcePath:${directive.line} imports $targetId without '
-              'declaring it in $sourceId dependencies',
+              '$sourcePath:${directive.line} imports $targetId without a '
+              'runtime dependency or static contribution authority in '
+              '$sourceId',
             );
           }
         }
@@ -287,7 +287,8 @@ void main() {
         isEmpty,
         reason:
             'Cross-feature source dependencies must pass through a named '
-            'contract and have a matching manifest dependency.\n'
+            'contract and have matching runtime dependency or static '
+            'contribution authority.\n'
             '${violations.join('\n')}',
       );
     },

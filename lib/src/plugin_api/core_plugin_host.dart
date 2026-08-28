@@ -11,7 +11,6 @@ import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../shell/composer_controller.dart';
 import 'bookmark_host.dart';
-import 'chat_preview.dart';
 import 'discourse_model_codec.dart';
 import 'emoji_preferences.dart';
 import 'notification_counters.dart';
@@ -44,10 +43,44 @@ typedef PluginTrackingSync = void Function();
 typedef PluginWriteCredential = ({String? apiKey, WriteException? failure});
 typedef PluginComposerBuilder =
     ComposerController? Function(ComposerTargetRequest request);
+typedef PluginNewTopicComposerOpener =
+    Future<OpenComposerResult> Function(OpenNewTopicComposerRequest request);
 typedef PluginEmojiCatalogLoader =
     Future<SiteEmojiCatalog?> Function(String siteUrl, {bool refresh});
 typedef PluginEmojiSearchAliasLoader =
     Future<Map<String, List<String>>?> Function(String siteUrl, {bool refresh});
+
+enum ComposerSeedPlacement { block }
+
+/// Plugin-neutral source to place in a composer opened by the host.
+@immutable
+final class ComposerSeed {
+  const ComposerSeed({
+    required this.raw,
+    this.placement = ComposerSeedPlacement.block,
+  });
+
+  final String raw;
+  final ComposerSeedPlacement placement;
+}
+
+/// Opens or reuses a new-topic composer while a source route remains current.
+@immutable
+final class OpenNewTopicComposerRequest {
+  const OpenNewTopicComposerRequest({
+    required this.siteUrl,
+    required this.sourceRouteId,
+    required this.seed,
+    this.initialCategoryId,
+  });
+
+  final String siteUrl;
+  final String sourceRouteId;
+  final ComposerSeed seed;
+  final int? initialCategoryId;
+}
+
+enum OpenComposerResult { opened, unavailable, sourceChanged }
 
 /// A plugin-neutral reference to a serializer-backed topic or post target.
 final class PluginTarget {
@@ -60,7 +93,7 @@ final class PluginTarget {
   final int topicId;
 }
 
-/// Read-only account and presentation state used by Chat's session services.
+/// Read-only account and presentation state used by plugin session services.
 final class PluginSiteStateHost {
   const PluginSiteStateHost({
     required this.currentUserFor,
@@ -112,6 +145,7 @@ final class PluginTopicRefreshHost {
 final class PluginComposerHost {
   const PluginComposerHost({
     required this.buildComposer,
+    required this.openNewTopic,
     required this.credentials,
     required this.lifecycle,
     required this.siteConfigFor,
@@ -119,6 +153,7 @@ final class PluginComposerHost {
   });
 
   final PluginComposerBuilder buildComposer;
+  final PluginNewTopicComposerOpener openNewTopic;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
   final PluginSiteConfigReader siteConfigFor;
@@ -170,10 +205,11 @@ const corePluginSiteStatePort = PluginHostPortKey<PluginSiteStateHost>(
   name: 'site-state',
 );
 
-const corePluginPreviewPort = PluginHostPortKey<List<ChatPreviewPluginAdapter>>(
-  owner: PluginId('core'),
-  name: 'preview',
-);
+const corePluginStaticContributionsPort =
+    PluginHostPortKey<PluginStaticContributionCatalog>(
+      owner: PluginId('core'),
+      name: 'static-contributions',
+    );
 
 const corePluginAccountEventsPort = PluginHostPortKey<PluginAccountEventsHost>(
   owner: PluginId('core'),

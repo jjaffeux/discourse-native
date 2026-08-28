@@ -6,12 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:timezone/timezone.dart' as tz;
 
-import '../../plugin_api/chat_preview.dart';
 import '../../plugin_api/site_plugin_api.dart';
-import '../../shell/composer_controller.dart';
 import '../../shell/markdown_highlight.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
+import '../chat/chat_preview_contract.dart';
 import 'local_date.dart';
 import 'local_date_composer_editor.dart';
 import 'local_date_composer_pill.dart';
@@ -22,9 +20,15 @@ import 'local_dates_settings.dart';
 
 export 'local_dates_settings.dart';
 
+const localDateComposerSyntaxKind = ComposerSyntaxKind(
+  owner: PluginId('discourse-local-dates'),
+  name: 'local-date',
+);
+
 class LocalDatesPlugin
     implements
-        ChatMessagePreviewPlugin,
+        SitePlugin,
+        ChatPreviewContribution,
         BookmarkReminderPlugin,
         ComposerShortcutPlugin,
         ComposerSyntaxPlugin,
@@ -50,108 +54,30 @@ class LocalDatesPlugin
   String get previewFeatureId => 'discourse-local-dates';
 
   @override
-  String get syntaxId => 'local-dates';
+  ComposerSyntaxKind get composerSyntaxKind => localDateComposerSyntaxKind;
 
   @override
-  List<Object> parseComposerSyntax(String source) =>
-      parseLocalDateComposerBlocks(source);
-
-  @override
-  int startOf(Object value) => (value as LocalDateComposerBlock).start;
-
-  @override
-  int endOf(Object value) => (value as LocalDateComposerBlock).end;
-
-  @override
-  String sourceOf(Object value) => (value as LocalDateComposerBlock).source;
-
-  @override
-  int caretAfter(Object value, String document) =>
-      (value as LocalDateComposerBlock).end;
-
-  @override
-  TextEditingValue moveCaretAfter(Object value, TextEditingValue document) =>
-      document.copyWith(
-        selection: TextSelection.collapsed(offset: endOf(value)),
-        composing: TextRange.empty,
-      );
-
-  @override
-  bool get supportsHover => false;
-
-  @override
-  bool get protectsAdjacentDelete => false;
-
-  @override
-  bool get hidesCursorWhenSelected => false;
-
-  @override
-  TextInputFormatter? get inputFormatter => null;
-
-  @override
-  bool needsRawSource(
-    Object value,
-    TextEditingValue document, {
-    required bool suppressCollapsedCaret,
-  }) => localDateBlockNeedsRawSource(
-    block: value as LocalDateComposerBlock,
-    value: document,
-    suppressCollapsedCaret: suppressCollapsedCaret,
-  );
-
-  @override
-  List<InlineSpan> buildCollapsedSpans({
-    required Object value,
-    required TextStyle baseStyle,
-    required Locale locale,
-    required String? accountTimezone,
-    required int maximumOptions,
-    required GlobalKey pillKey,
-    required bool highlighted,
-    required bool hovered,
-    required bool followedByLineBreak,
-  }) => buildCollapsedLocalDateSpans(
-    block: value as LocalDateComposerBlock,
-    baseStyle: baseStyle,
-    locale: locale,
-    accountTimezone: accountTimezone,
-    pillKey: pillKey,
-    highlighted: highlighted,
-  );
-
-  @override
-  Future<void> editComposerSyntax(
-    BuildContext context,
-    ComposerController composer,
-    Object value,
-  ) => openLocalDateComposer(
-    context,
-    composer,
-    block: value as LocalDateComposerBlock,
-  );
-
-  @override
-  void removeComposerSyntax(
-    BuildContext context,
-    ComposerController composer,
-    Object value,
-  ) => removeLocalDateComposer(
-    context,
-    composer,
-    value as LocalDateComposerBlock,
-  );
+  ComposerSyntaxPolicy createComposerSyntaxPolicy(
+    ComposerSyntaxPolicyContext context,
+  ) {
+    final initial = context.initialState;
+    return LocalDateComposerSyntaxPolicy(
+      settings: initial.siteSettings.localDatesSettings,
+      accountTimezone: initial.accountTimezone,
+      settingsReader: () => context.readState().siteSettings.localDatesSettings,
+      accountTimezoneReader: () => context.readState().accountTimezone,
+    );
+  }
 
   @override
   Map<ShortcutActivator, VoidCallback> composerShortcuts(
     BuildContext context,
-    ComposerController composer,
+    ComposerEditorHost editor,
   ) {
-    final controller = ShellScope.maybeRead(context);
-    if (controller == null ||
-        !controller
-            .siteConfigFor(composer.target.siteUrl)
-            .localDatesSettings
-            .enabled) {
+    final policy = editor.syntaxPolicy<LocalDateComposerSyntaxPolicy>(
+      localDateComposerSyntaxKind,
+    );
+    if (policy == null || !policy.isEnabled(editor)) {
       return const {};
     }
     return {
@@ -160,13 +86,13 @@ class LocalDatesPlugin
         shift: true,
         meta: true,
       ): () =>
-          insertCurrentLocalDate(context, composer),
+          insertCurrentLocalDate(context, editor, policy),
       const SingleActivator(
         LogicalKeyboardKey.period,
         shift: true,
         control: true,
       ): () =>
-          insertCurrentLocalDate(context, composer),
+          insertCurrentLocalDate(context, editor, policy),
     };
   }
 
@@ -288,15 +214,12 @@ class LocalDatesPlugin
   @override
   List<ComposerToolbarContribution> composerToolbar(
     BuildContext context,
-    ComposerController composer,
+    ComposerEditorHost editor,
   ) {
-    final controller = ShellScope.maybeRead(context);
-    if (controller == null ||
-        composer.loadingBody ||
-        !controller
-            .siteConfigFor(composer.target.siteUrl)
-            .localDatesSettings
-            .enabled) {
+    final policy = editor.syntaxPolicy<LocalDateComposerSyntaxPolicy>(
+      localDateComposerSyntaxKind,
+    );
+    if (policy == null || editor.loadingBody || !policy.isEnabled(editor)) {
       return const [];
     }
     return [
@@ -305,10 +228,123 @@ class LocalDatesPlugin
         label: defaultTargetPlatform == TargetPlatform.macOS
             ? 'Insert date/time  ⌘⇧.'
             : 'Insert date/time  Ctrl Shift .',
-        onInvoke: () => unawaited(openLocalDateComposer(context, composer)),
+        onInvoke: () =>
+            unawaited(openLocalDateComposer(context, editor, policy)),
       ),
     ];
   }
+}
+
+/// Local Dates' parser, projection state, validation inputs, and authoring
+/// permissions for one open composer.
+final class LocalDateComposerSyntaxPolicy implements ComposerSyntaxPolicy {
+  const LocalDateComposerSyntaxPolicy({
+    this.settings = const LocalDatesSettings(),
+    this.accountTimezone,
+    this.settingsReader,
+    this.accountTimezoneReader,
+  });
+
+  final LocalDatesSettings settings;
+  final String? accountTimezone;
+  final LocalDatesSettings Function()? settingsReader;
+  final String? Function()? accountTimezoneReader;
+
+  @override
+  ComposerSyntaxKind get kind => localDateComposerSyntaxKind;
+
+  @override
+  List<ComposerSyntaxProjection> parse(String source) => [
+    for (final block in parseLocalDateComposerBlocks(source))
+      LocalDateComposerSyntaxProjection(policy: this, block: block),
+  ];
+
+  @override
+  Object? get projectionState => accountTimezone;
+
+  @override
+  TextInputFormatter? get inputFormatter => null;
+
+  LocalDatesSettings get currentSettings => settingsReader?.call() ?? settings;
+
+  bool isEnabled(ComposerEditorHost editor) =>
+      editor.isCurrent && currentSettings.enabled;
+
+  String? get currentAccountTimezone =>
+      accountTimezoneReader?.call() ?? accountTimezone;
+}
+
+/// One lossless Local Dates occurrence. Core sees only its neutral projection
+/// interface; Local Dates retains the parsed block and formatting state.
+final class LocalDateComposerSyntaxProjection
+    implements ComposerSyntaxProjection, LocalDateComposerProjectionData {
+  const LocalDateComposerSyntaxProjection({
+    required this.policy,
+    required this.block,
+  });
+
+  final LocalDateComposerSyntaxPolicy policy;
+  final LocalDateComposerBlock block;
+
+  @override
+  LocalDateComposerBlock get localDateBlock => block;
+
+  @override
+  int get start => block.start;
+
+  @override
+  int get end => block.end;
+
+  @override
+  String get source => block.source;
+
+  @override
+  bool needsRawSource(
+    TextEditingValue document, {
+    required bool suppressCollapsedCaret,
+  }) => localDateBlockNeedsRawSource(
+    block: block,
+    value: document,
+    suppressCollapsedCaret: suppressCollapsedCaret,
+  );
+
+  @override
+  int caretAfter(String document) => end;
+
+  @override
+  TextEditingValue moveCaretAfter(TextEditingValue document) =>
+      document.copyWith(
+        selection: TextSelection.collapsed(offset: end),
+        composing: TextRange.empty,
+      );
+
+  @override
+  bool get supportsHover => false;
+
+  @override
+  bool get protectsAdjacentDelete => false;
+
+  @override
+  bool get hidesCursorWhenSelected => false;
+
+  @override
+  List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context) =>
+      buildCollapsedLocalDateSpans(
+        block: block,
+        baseStyle: context.baseStyle,
+        locale: context.locale,
+        accountTimezone: policy.accountTimezone,
+        pillKey: context.pillKey,
+        highlighted: context.highlighted,
+      );
+
+  @override
+  Future<void> edit(BuildContext context, ComposerEditorHost editor) =>
+      openLocalDateComposer(context, editor, policy, block: block);
+
+  @override
+  void remove(BuildContext context, ComposerEditorHost editor) =>
+      removeLocalDateComposer(context, editor, block);
 }
 
 /// The app-bundled Local Dates claim, rendered from the same conservative
@@ -369,25 +405,18 @@ final RegExp _localDateOpening = RegExp(
 
 Future<void> openLocalDateComposer(
   BuildContext context,
-  ComposerController composer, {
+  ComposerEditorHost editor,
+  LocalDateComposerSyntaxPolicy policy, {
   LocalDateComposerBlock? block,
 }) async {
-  final controller = ShellScope.maybeRead(context);
-  if (controller == null ||
-      !identical(controller.visibleComposer, composer) ||
-      (block == null &&
-          !controller
-              .siteConfigFor(composer.target.siteUrl)
-              .localDatesSettings
-              .enabled)) {
+  if (!editor.isCurrent || (block == null && !policy.isEnabled(editor))) {
     return;
   }
-  final expectedDocument = composer.text.text;
-  final expectedSelection = composer.text.selection;
+  final expectedValue = editor.value;
+  final expectedDocument = expectedValue.text;
+  final expectedSelection = expectedValue.selection;
   final environment = LocalDateEnvironment.instance;
-  final accountTimezone = controller
-      .currentUserFor(composer.target.siteUrl)
-      ?.timezone;
+  final accountTimezone = policy.currentAccountTimezone;
   final sourceTimezone = environment.readerTimezone(accountTimezone);
   final location = environment.location(sourceTimezone)!;
   final wallNow = tz.TZDateTime.from(DateTime.now(), location);
@@ -397,17 +426,14 @@ Future<void> openLocalDateComposer(
 
   bool stillCurrent() =>
       context.mounted &&
-      identical(ShellScope.maybeRead(context), controller) &&
-      identical(controller.visibleComposer, composer) &&
-      composer.text.text == expectedDocument;
+      editor.isCurrent &&
+      editor.value.text == expectedDocument &&
+      (block != null || policy.isEnabled(editor));
 
   final action = await showLocalDateComposerSheet(
     context: context,
     draft: draft,
-    siteFormats: controller
-        .siteConfigFor(composer.target.siteUrl)
-        .localDatesSettings
-        .formats,
+    siteFormats: policy.currentSettings.formats,
     isCurrent: stillCurrent,
   );
   if (action == null || !context.mounted) return;
@@ -423,18 +449,18 @@ Future<void> openLocalDateComposer(
     case LocalDateComposerSheetActionType.apply:
       final replacement = action.draft!.serialize();
       if (block != null && replacement == block.source) {
-        composer.focus.requestFocus();
+        editor.requestFocus();
         return;
       }
       mutation = block == null
           ? insertVerifiedLocalDate(
-              current: composer.text.value,
+              current: editor.value,
               expectedDocument: expectedDocument,
               expectedSelection: expectedSelection,
               markup: replacement,
             )
           : replaceVerifiedLocalDate(
-              current: composer.text.value,
+              current: editor.value,
               expectedDocument: expectedDocument,
               expectedBlock: block,
               replacement: replacement,
@@ -442,7 +468,7 @@ Future<void> openLocalDateComposer(
     case LocalDateComposerSheetActionType.remove:
       if (block == null) return;
       mutation = removeVerifiedLocalDate(
-        current: composer.text.value,
+        current: editor.value,
         expectedDocument: expectedDocument,
         expectedBlock: block,
       );
@@ -451,22 +477,26 @@ Future<void> openLocalDateComposer(
     _message(context, mutation.message!);
     return;
   }
-  composer.text.value = mutation.value;
-  composer.focus.requestFocus();
+  if (!editor.commit(expectedValue: expectedValue, value: mutation.value)) {
+    _message(
+      context,
+      'The composer changed while this date was open. Nothing was changed.',
+    );
+    return;
+  }
+  editor.requestFocus();
 }
 
 void removeLocalDateComposer(
   BuildContext context,
-  ComposerController composer,
+  ComposerEditorHost editor,
   LocalDateComposerBlock block,
 ) {
-  final controller = ShellScope.maybeRead(context);
-  if (controller == null || !identical(controller.visibleComposer, composer)) {
-    return;
-  }
-  final expectedDocument = composer.text.text;
+  if (!editor.isCurrent) return;
+  final expectedValue = editor.value;
+  final expectedDocument = expectedValue.text;
   final mutation = removeVerifiedLocalDate(
-    current: composer.text.value,
+    current: editor.value,
     expectedDocument: expectedDocument,
     expectedBlock: block,
   );
@@ -474,28 +504,26 @@ void removeLocalDateComposer(
     _message(context, mutation.message!);
     return;
   }
-  composer.text.value = mutation.value;
-  composer.focus.requestFocus();
+  if (!editor.commit(expectedValue: expectedValue, value: mutation.value)) {
+    _message(
+      context,
+      'The composer changed before this date could be removed. Nothing was changed.',
+    );
+    return;
+  }
+  editor.requestFocus();
 }
 
 void insertCurrentLocalDate(
   BuildContext context,
-  ComposerController composer, {
+  ComposerEditorHost editor,
+  LocalDateComposerSyntaxPolicy policy, {
   DateTime? now,
 }) {
-  final controller = ShellScope.maybeRead(context);
-  if (controller == null ||
-      !identical(controller.visibleComposer, composer) ||
-      !controller
-          .siteConfigFor(composer.target.siteUrl)
-          .localDatesSettings
-          .enabled) {
-    return;
-  }
+  if (!policy.isEnabled(editor)) return;
+  final expectedValue = editor.value;
   final environment = LocalDateEnvironment.instance;
-  final timezone = environment.readerTimezone(
-    controller.currentUserFor(composer.target.siteUrl)?.timezone,
-  );
+  final timezone = environment.readerTimezone(policy.currentAccountTimezone);
   final wall = tz.TZDateTime.from(
     now ?? DateTime.now(),
     environment.location(timezone)!,
@@ -508,14 +536,17 @@ void insertCurrentLocalDate(
             '${wall.second.toString().padLeft(2, '0')}',
       );
   final mutation = insertVerifiedLocalDate(
-    current: composer.text.value,
-    expectedDocument: composer.text.text,
-    expectedSelection: composer.text.selection,
+    current: expectedValue,
+    expectedDocument: expectedValue.text,
+    expectedSelection: expectedValue.selection,
     markup: draft.serialize(),
   );
   if (!mutation.applied) return;
-  composer.text.value = mutation.value;
-  composer.focus.requestFocus();
+  if (!policy.isEnabled(editor) ||
+      !editor.commit(expectedValue: expectedValue, value: mutation.value)) {
+    return;
+  }
+  editor.requestFocus();
 }
 
 void _message(BuildContext context, String message) {

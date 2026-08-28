@@ -10,11 +10,8 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
-import 'package:discourse_native/src/plugins/poll/poll_data.dart';
-import 'package:discourse_native/src/plugins/poll/poll_module.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -626,21 +623,13 @@ void main() {
       final recordingObserver = _RecordingCurrentUserObserver(calls);
       final plugins = PluginInstaller.install(
         PluginManifest([
-          pollModule,
           _CurrentUserObserverModule([
             _ThrowingCurrentUserObserver(calls),
             recordingObserver,
           ]),
         ]),
       );
-      final freshUser = DiscourseUser(
-        id: 42,
-        username: 'fresh-account',
-        plugins: PluginData.none.withValue(
-          pollCurrentUserDataKey,
-          const PollCurrentUser(canCreatePoll: true),
-        ),
-      );
+      const freshUser = DiscourseUser(id: 42, username: 'fresh-account');
       final shell = ShellController(
         instanceStore: FakeInstanceStore([
           instance('meta.discourse.org').copyWith(
@@ -669,7 +658,6 @@ void main() {
       await Future<void>.delayed(Duration.zero);
 
       expect(shell.freshCurrentUserFor(_siteUrl)?.username, 'fresh-account');
-      expect(shell.canCreatePollFor(_siteUrl), isTrue);
       expect(calls, ['throwing:$_siteUrl', 'recording:$_siteUrl']);
       final event = diagnostics.events
           .whereType<ErrorDiagnosticEvent>()

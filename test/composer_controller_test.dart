@@ -3,15 +3,12 @@ import 'dart:async';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
-import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
-import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
-import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
-import 'package:discourse_native/src/plugins/poll/poll_composer_parser.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_triggers.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,6 +18,26 @@ void main() {
     addTearDown(composer.dispose);
 
     expect(composer.text.imageSiteUrl, _target.siteUrl);
+  });
+
+  test('plugin edits reject a stale selection as well as stale text', () {
+    final composer = ComposerController(_target);
+    addTearDown(composer.dispose);
+    composer.text.value = _typed('draft');
+    final expected = composer.text.value;
+    composer.text.selection = const TextSelection.collapsed(offset: 0);
+
+    expect(
+      composer.commit(expectedValue: expected, value: _typed('replacement')),
+      isFalse,
+    );
+    expect(composer.text.text, 'draft');
+    expect(composer.text.selection.extentOffset, 0);
+    expect(
+      composer.insertBlock(expectedValue: expected, markdown: 'opaque block'),
+      isFalse,
+    );
+    expect(composer.text.text, 'draft');
   });
 
   testWidgets('serializes draft saves and keeps only the newest queued text', (
@@ -215,7 +232,7 @@ void main() {
   });
 
   testWidgets(
-    'verified poll replacements keep composer submission, timing, and drafts intact',
+    'plugin-owned replacements keep submission, timing, and drafts intact',
     (tester) async {
       var now = DateTime.utc(2026, 8, 8, 12);
       final saves = <ComposerDraftSave>[];
@@ -226,48 +243,33 @@ void main() {
           saves.add(save);
           return 1;
         },
+        syntaxPolicies: const [_TokenSyntaxPolicy()],
       );
       addTearDown(composer.dispose);
-      composer.text.selection = const TextSelection.collapsed(offset: 0);
+      composer.text.value = _typed('[[choice:Soup|Salad]]\n');
 
-      final markup = PollComposerDraft.newPoll(
-        name: 'poll',
-        defaultPublic: true,
-      ).copyWith(options: ['Soup', 'Salad']).serialize();
-      final inserted = insertVerifiedPoll(
-        current: composer.text.value,
-        expectedDocument: '',
-        expectedSelection: composer.text.selection,
-        markup: markup,
-      );
-      composer.text.value = inserted.value;
-
-      expect(composer.text.text, '$markup\n');
-      expect(composer.raw, markup);
+      expect(composer.raw, '[[choice:Soup|Salad]]');
       expect(composer.canSubmit, isTrue);
       expect(composer.draftPending, isTrue);
 
       now = now.add(const Duration(seconds: 1));
-      final block = parsePollComposerBlocks(composer.raw).single;
-      final replacement = PollComposerDraft.fromBlock(
-        block,
-      ).copyWith(title: 'Lunch').serialize();
-      final edited = replaceVerifiedPoll(
-        current: composer.text.value,
-        expectedDocument: composer.text.text,
-        expectedBlock: block,
-        replacement: replacement,
+      final occurrence = composer.text.syntaxBlocks.single;
+      final replacement = (occurrence.projection as _TokenProjection).replace(
+        composer.text.value,
+        '[[choice:Lunch|Soup|Salad]]',
       );
-      composer.text.value = edited.value;
+      expect(
+        composer.commit(expectedValue: composer.text.value, value: replacement),
+        isTrue,
+      );
 
-      expect(composer.text.text, '$replacement\n');
-      expect(composer.raw, replacement);
+      expect(composer.raw, '[[choice:Lunch|Soup|Salad]]');
       expect(composer.typingDuration, const Duration(seconds: 1));
 
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
       expect(saves, hasLength(1));
-      expect(saves.single.draft.reply, '$replacement\n');
+      expect(saves.single.draft.reply, '[[choice:Lunch|Soup|Salad]]\n');
     },
   );
 
@@ -542,11 +544,11 @@ void main() {
     );
 
     testWidgets(
-      'chat retains completed uploads as attachments without inserting markdown',
+      'attachment targets retain uploads without inserting markdown',
       (tester) async {
         final calls = <_UploadCall>[];
         final composer = ComposerController(
-          _chatTarget,
+          _attachmentTarget,
           imageUploader: _recordingUploader(calls),
         );
         addTearDown(composer.dispose);
@@ -765,19 +767,115 @@ const _target = ComposerTarget(
   topicTitle: 'A topic',
 );
 
-final _chatTarget = ComposerTarget.plugin(
+const _tokenSyntaxKind = ComposerSyntaxKind(
+  owner: PluginId('fake-syntax'),
+  name: 'token',
+);
+
+final class _TokenSyntaxPolicy implements ComposerSyntaxPolicy {
+  const _TokenSyntaxPolicy();
+
+  @override
+  ComposerSyntaxKind get kind => _tokenSyntaxKind;
+
+  @override
+  Object? get projectionState => null;
+
+  @override
+  TextInputFormatter? get inputFormatter => null;
+
+  @override
+  List<ComposerSyntaxProjection> parse(String source) => [
+    for (final match in RegExp(r'\[\[[^\]\n]+\]\]').allMatches(source))
+      _TokenProjection(match.start, match.end, match.group(0)!),
+  ];
+}
+
+final class _TokenProjection implements ComposerSyntaxProjection {
+  const _TokenProjection(this.start, this.end, this.source);
+
+  @override
+  final int start;
+  @override
+  final int end;
+  @override
+  final String source;
+
+  TextEditingValue replace(TextEditingValue document, String replacement) {
+    if (start < 0 ||
+        end > document.text.length ||
+        document.text.substring(start, end) != source) {
+      return document;
+    }
+    return document.copyWith(
+      text: document.text.replaceRange(start, end, replacement),
+      selection: TextSelection.collapsed(offset: start + replacement.length),
+      composing: TextRange.empty,
+    );
+  }
+
+  @override
+  bool needsRawSource(
+    TextEditingValue document, {
+    required bool suppressCollapsedCaret,
+  }) =>
+      !suppressCollapsedCaret &&
+      document.selection.extentOffset > start &&
+      document.selection.extentOffset < end;
+
+  @override
+  int caretAfter(String document) => end;
+
+  @override
+  TextEditingValue moveCaretAfter(TextEditingValue document) =>
+      document.copyWith(
+        selection: TextSelection.collapsed(offset: end),
+        composing: TextRange.empty,
+      );
+
+  @override
+  bool get supportsHover => false;
+
+  @override
+  bool get protectsAdjacentDelete => false;
+
+  @override
+  bool get hidesCursorWhenSelected => false;
+
+  @override
+  List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context) => [
+    TextSpan(text: source, style: context.baseStyle),
+  ];
+
+  @override
+  FutureOr<void> edit(BuildContext context, ComposerEditorHost editor) {}
+
+  @override
+  FutureOr<void> remove(BuildContext context, ComposerEditorHost editor) {}
+}
+
+const _attachmentTargetKind = ComposerTargetKind(
+  owner: PluginId('attachments'),
+  name: 'message',
+);
+
+final _attachmentTarget = ComposerTarget.plugin(
   siteUrl: 'https://meta.discourse.org',
-  topicTitle: 'Chat',
-  policy: const ChatPlugin().createComposerTarget(
-    const ComposerTargetRequest(
-      kind: ChatPlugin.messageComposerTarget,
-      siteUrl: 'https://meta.discourse.org',
-      title: 'Chat',
-      data: {ChatPlugin.composerChannelId: 9},
+  topicTitle: 'Attachment message',
+  policy: ComposerTargetPolicy(
+    kind: _attachmentTargetKind,
+    draftKey: 'attachments/message',
+    uploadType: const ComposerUploadType('attachment'),
+    uploadDisposition: ComposerUploadDisposition.retainAttachment,
+    uploadsEnabled: true,
+    supportsEditing: true,
+    validate: (context) =>
+        context.raw.trim().isNotEmpty || context.completedUploadCount > 0,
+    emojiUsageContext: const EmojiUsageContext(
+      owner: PluginId('attachments'),
+      name: 'message',
     ),
-    const ComposerTargetContext(config: SiteConfig(), currentUser: null),
   ),
-  data: const {ChatPlugin.composerChannelId: 9},
 );
 
 TextEditingValue _typed(String text) => TextEditingValue(

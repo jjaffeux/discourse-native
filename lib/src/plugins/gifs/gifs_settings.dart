@@ -99,9 +99,13 @@ final class GifsSettingsPersistenceCodec
 
 const gifsSettingsPersistenceCodec = GifsSettingsPersistenceCodec();
 
-extension SiteConfigGifsSettings on SiteConfig {
+extension GifsPluginDataRead on PluginData {
   GifsSettings get gifsSettings =>
-      plugins.get(gifsSettingsDataKey) ?? const GifsSettings();
+      get(gifsSettingsDataKey) ?? const GifsSettings();
+}
+
+extension SiteConfigGifsSettings on SiteConfig {
+  GifsSettings get gifsSettings => plugins.gifsSettings;
 
   bool get gifsEnabled => gifsSettings.enabled;
 

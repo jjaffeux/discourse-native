@@ -1,21 +1,18 @@
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
-import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
-import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader');
 const _targetContext = ComposerTargetContext(
-  config: SiteConfig(),
-  currentUser: _user,
+  siteSettings: PluginData.none,
+  currentUser: PluginData.none,
 );
 const _menuContext = PluginUserMenuContext(
   siteUrl: _siteUrl,
@@ -523,8 +520,7 @@ final class _ComposerPlugin implements SitePlugin, ComposerTargetPlugin {
     draftKey: draftKey ?? '$name/${request.title}',
     uploadType: uploadType,
     uploadDisposition: uploadDisposition,
-    uploadsEnabled:
-        uploadsEnabled ?? context.config.chatSettings.uploadsEnabled,
+    uploadsEnabled: uploadsEnabled ?? true,
     supportsEditing: supportsEditing,
     emojiUsageContext: EmojiUsageContext(
       owner: PluginId(emojiOwner ?? name),
