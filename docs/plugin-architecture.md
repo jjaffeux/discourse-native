@@ -30,17 +30,25 @@ the capabilities and lifecycles it owns. Installation validates all module
 ids, semantic-version requirements, dependency cycles, record keys, route
 namespaces, syntax ids, exclusive claims, and service ownership before the app
 uses the graph. Registered route, syntax, and exclusive claims must exactly
-match the descriptor, and contributed record and service keys must name that
-module as their owner. Registration order is deterministic and dependencies
-always precede their consumers. Descriptors and their collections are
-snapshotted once before validation, so registration cannot mutate the graph
-being installed.
+match the descriptor, as must declared `PluginLiveChannelScope` values, and
+contributed record and service keys must name that module as their owner.
+Registration order is deterministic and dependencies always precede their
+consumers. Descriptors and their collections are snapshotted once before
+validation, so registration cannot mutate the graph being installed.
 
 App startup has idempotent `bootstrap` and `appReady` phases. A failed phase
 rolls back every lifecycle already started in reverse order. A shell opens one
 session, receives only explicitly declared host ports, and dispatches
 foreground, site-forget, and close events with failure isolation. Session
 teardown awaits each module in reverse dependency order.
+
+App lifecycles use the same authority model as sessions. An
+`addAppLifecycle` registration declares its required host ports, and
+`startPhase` receives an owner-scoped `PluginHostBindings` view containing only
+those ports. Once started, app-state observation and flushing are dispatched
+through `InstalledPlugins.observeAppState` and `InstalledPlugins.flush`; one
+failing contributor does not prevent the remaining contributors from being
+invoked, and failures are reported together.
 
 Session factories receive a restricted binding view containing exactly their
 declared ports, so the declaration is an authority boundary rather than only a
@@ -53,6 +61,27 @@ already-created modules named in their descriptor dependencies. `require`
 fails for a missing dependency service; `maybe` returns null for a declared
 optional integration that is absent. Both reject undeclared owners, so this
 boundary cannot become a global service locator.
+
+## Capability contract and composition
+
+`PluginRegistrar.addCapability` accepts the public package's complete
+`PluginCapability` contract. The installer retains every such capability in
+manifest order, and hosts can discover a public capability with
+`InstalledPlugins.capabilities<T>()`. The Flutter application registry is a
+separate projection: only capabilities that implement the app-specific
+`SitePlugin` contract enter `PluginRegistry`. A valid public capability is
+therefore retained and queryable rather than being rejected merely because it
+does not depend on the app runtime.
+
+Plural contribution seams compose in deterministic registry order. Singular
+and keyed seams are validated instead of resolving ambiguity with a
+first-match lookup. Installation permits at most one
+`ComposerMaximumOptionsPlugin` and requires unique, nonempty keys for
+`PluginPermissionPlugin.permissionId`, `PluginSiteFeature` and
+`PluginCurrentUserFeature` owners, `ChatMessagePreviewPlugin.previewFeatureId`,
+and `DiagnosticsPlugin.diagnosticsId`. Existing namespaced composer targets,
+notification feeds, records, recommendation sources, and declared claims are
+validated at the same boundary.
 
 ## Dependency rule
 
@@ -126,8 +155,9 @@ The registry currently provides typed seams for:
   strategies, and ordered topic recommendation sources;
 - sidebar sections, content routes, content chrome, shell header actions, and
   app-global overlays;
-- session route handlers, restored-route hydration, tracker attachments,
-  site/totals observers, bookmark strategies, and background-site ownership.
+- session route handlers, restored-route hydration, scoped tracker
+  attachments, site/totals observers, bookmark strategies, and background
+  retention leases.
 
 Shared emoji history is keyed by a namespaced `EmojiUsageContext`; unknown
 contexts remain in the persisted document so a temporarily absent plugin does
@@ -147,6 +177,44 @@ Resenha own separate route namespaces; Poll and Local Dates declare their
 composer syntax ids. Local Dates owns cooked date markup, Chat owns its header
 action, and Resenha owns its global call overlay rather than being imported by
 core shell widgets.
+
+## Least-privilege runtime facilities
+
+Live message-bus access is declared before installation with segment-aware
+`PluginLiveChannelScope.prefix` values. For example, `/chat` authorizes `/chat`
+and `/chat/42`, but not `/chatty`. The descriptor and registrar declarations
+must agree, malformed scopes and overlaps with core-owned namespaces are
+rejected, and each tracker attachment receives a per-consumer, per-site
+`PluginLiveChannelHandle`. That handle can only subscribe within the module's
+declared scopes and returns a cancellable `PluginLiveChannelSubscription`; it
+does not expose tracker startup, polling, disposal, another plugin's
+subscriptions, or core channels.
+
+Background connectivity is an additive claim rather than a singular plugin
+owner. A module that declares `corePluginBackgroundRetentionPort` receives an
+owner-scoped `PluginBackgroundRetentionHost` and may retain configured sites
+with revocable `PluginBackgroundRetentionLease` values. The shell composes all
+outstanding leases across modules, sites, and multiple claims for the same
+site. Releasing or tearing down one owner's lease cannot revoke another
+owner's claim. Session rollback and teardown synchronously revoke retained
+owner-scoped hosts, and forgetting a site invalidates every lease for that site
+even if a plugin hook fails. Resenha alone translates its voice-call state
+into a lease; core understands only generic background retention and does not
+acquire Resenha call semantics.
+
+Diagnostics follows normal plugin registration as well. A diagnostics
+contributor registers a `DiagnosticsPlugin` capability for UI discovery and a
+`PluginAppLifecycle` for initialization, app-state observation, flushing, and
+teardown. The lifecycle declares `pluginDiagnosticsReporterPort`, so plugin
+controllers receive a fixed `PluginDiagnosticsReporter` while preserving
+operation and correlation context without reading `DiagnosticsSink.current`.
+Diagnostics UI receives a wrapper `PluginDiagnosticsReadExportHost`, which
+allows immutable event reads, formatting, and report construction but cannot
+be cast back to the mutable `DiagnosticsController` to clear, report, flush,
+or close it. Local Dates follows the same explicit-facility rule: the
+production feature-module entrypoint injects `LocalDateEnvironment` into
+`LocalDatesModule`, and its formatter, parser, and UI use that instance rather
+than resolving an ambient timezone singleton.
 
 ## Deferred UI contribution seams
 

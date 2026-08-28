@@ -31,7 +31,11 @@ class LocalDatesPlugin
         ComposerToolbarPlugin,
         CookedElementPlugin,
         SiteSettingsPlugin<LocalDatesSettings> {
-  const LocalDatesPlugin();
+  LocalDatesPlugin({required this.environment})
+    : formatter = LocalDateFormatter(environment: environment);
+
+  final LocalDateEnvironment environment;
+  final LocalDateFormatter formatter;
 
   @override
   String get name => 'discourse-local-dates';
@@ -54,7 +58,7 @@ class LocalDatesPlugin
 
   @override
   List<Object> parseComposerSyntax(String source) =>
-      parseLocalDateComposerBlocks(source);
+      parseLocalDateComposerBlocks(source, environment: environment);
 
   @override
   int startOf(Object value) => (value as LocalDateComposerBlock).start;
@@ -112,6 +116,7 @@ class LocalDatesPlugin
     required bool followedByLineBreak,
   }) => buildCollapsedLocalDateSpans(
     block: value as LocalDateComposerBlock,
+    formatter: formatter,
     baseStyle: baseStyle,
     locale: locale,
     accountTimezone: accountTimezone,
@@ -127,6 +132,7 @@ class LocalDatesPlugin
   ) => openLocalDateComposer(
     context,
     composer,
+    environment: environment,
     block: value as LocalDateComposerBlock,
   );
 
@@ -160,19 +166,19 @@ class LocalDatesPlugin
         shift: true,
         meta: true,
       ): () =>
-          insertCurrentLocalDate(context, composer),
+          insertCurrentLocalDate(context, composer, environment: environment),
       const SingleActivator(
         LogicalKeyboardKey.period,
         shift: true,
         control: true,
       ): () =>
-          insertCurrentLocalDate(context, composer),
+          insertCurrentLocalDate(context, composer, environment: environment),
     };
   }
 
   @override
   Widget? cookedElement(String? siteUrl, dom.Element element) =>
-      localDateWidgetBuilder(element, siteUrl: siteUrl);
+      localDateWidgetBuilder(element, siteUrl: siteUrl, formatter: formatter);
 
   @override
   DateTime? futureBookmarkReminder(
@@ -187,7 +193,7 @@ class LocalDatesPlugin
         element.attributes.map((key, value) => MapEntry('$key', value)),
         fallbackText: element.text,
       );
-      final resolved = const LocalDateFormatter().resolve(
+      final resolved = formatter.resolve(
         spec,
         locale: locale,
         accountTimezone: accountTimezone,
@@ -212,7 +218,10 @@ class LocalDatesPlugin
       );
     }
 
-    final blocks = parseLocalDateComposerBlocks(request.raw);
+    final blocks = parseLocalDateComposerBlocks(
+      request.raw,
+      environment: environment,
+    );
     final forwardIncompatible = blocks.where(
       (block) => block.attributes.any(
         (attribute) =>
@@ -272,7 +281,10 @@ class LocalDatesPlugin
   @override
   Widget? buildPreviewNode(BuildContext context, PluginPreviewNode node) {
     if (node.featureId != previewFeatureId) return null;
-    final blocks = parseLocalDateComposerBlocks(node.fallbackText);
+    final blocks = parseLocalDateComposerBlocks(
+      node.fallbackText,
+      environment: environment,
+    );
     if (blocks.length != 1 ||
         blocks.single.start != 0 ||
         blocks.single.end != node.fallbackText.length) {
@@ -282,7 +294,7 @@ class LocalDatesPlugin
     if ((node.kind == 'date') != (block.kind == LocalDateComposerKind.date)) {
       return null;
     }
-    return _OptimisticLocalDate(block: block);
+    return _OptimisticLocalDate(block: block, formatter: formatter);
   }
 
   @override
@@ -305,7 +317,9 @@ class LocalDatesPlugin
         label: defaultTargetPlatform == TargetPlatform.macOS
             ? 'Insert date/time  ⌘⇧.'
             : 'Insert date/time  Ctrl Shift .',
-        onInvoke: () => unawaited(openLocalDateComposer(context, composer)),
+        onInvoke: () => unawaited(
+          openLocalDateComposer(context, composer, environment: environment),
+        ),
       ),
     ];
   }
@@ -314,9 +328,10 @@ class LocalDatesPlugin
 /// The app-bundled Local Dates claim, rendered from the same conservative
 /// composer model and formatter as canonical cooked Local Dates.
 class _OptimisticLocalDate extends StatelessWidget {
-  const _OptimisticLocalDate({required this.block});
+  const _OptimisticLocalDate({required this.block, required this.formatter});
 
   final LocalDateComposerBlock block;
+  final LocalDateFormatter formatter;
 
   @override
   Widget build(BuildContext context) {
@@ -341,14 +356,16 @@ class _OptimisticLocalDate extends StatelessWidget {
       time: draft.startTime,
       range: draft.isRange ? 'from' : null,
     );
-    if (!draft.isRange) return LocalDateInline(spec: start);
+    if (!draft.isRange) {
+      return LocalDateInline(spec: start, formatter: formatter);
+    }
     final end = spec(date: draft.endDate!, time: draft.endTime, range: 'to');
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        LocalDateInline(spec: start, to: end),
+        LocalDateInline(spec: start, to: end, formatter: formatter),
         const Text(' → '),
-        LocalDateInline(spec: end, from: start),
+        LocalDateInline(spec: end, from: start, formatter: formatter),
       ],
     );
   }
@@ -370,6 +387,7 @@ final RegExp _localDateOpening = RegExp(
 Future<void> openLocalDateComposer(
   BuildContext context,
   ComposerController composer, {
+  required LocalDateEnvironment environment,
   LocalDateComposerBlock? block,
 }) async {
   final controller = ShellScope.maybeRead(context);
@@ -384,7 +402,6 @@ Future<void> openLocalDateComposer(
   }
   final expectedDocument = composer.text.text;
   final expectedSelection = composer.text.selection;
-  final environment = LocalDateEnvironment.instance;
   final accountTimezone = controller
       .currentUserFor(composer.target.siteUrl)
       ?.timezone;
@@ -392,7 +409,11 @@ Future<void> openLocalDateComposer(
   final location = environment.location(sourceTimezone)!;
   final wallNow = tz.TZDateTime.from(DateTime.now(), location);
   final draft = block == null
-      ? LocalDateComposerDraft.newDate(now: wallNow, timezone: sourceTimezone)
+      ? LocalDateComposerDraft.newDate(
+          now: wallNow,
+          timezone: sourceTimezone,
+          environment: environment,
+        )
       : LocalDateComposerDraft.fromBlock(block);
 
   bool stillCurrent() =>
@@ -481,6 +502,7 @@ void removeLocalDateComposer(
 void insertCurrentLocalDate(
   BuildContext context,
   ComposerController composer, {
+  required LocalDateEnvironment environment,
   DateTime? now,
 }) {
   final controller = ShellScope.maybeRead(context);
@@ -492,7 +514,6 @@ void insertCurrentLocalDate(
           .enabled) {
     return;
   }
-  final environment = LocalDateEnvironment.instance;
   final timezone = environment.readerTimezone(
     controller.currentUserFor(composer.target.siteUrl)?.timezone,
   );
@@ -500,8 +521,12 @@ void insertCurrentLocalDate(
     now ?? DateTime.now(),
     environment.location(timezone)!,
   );
-  final draft = LocalDateComposerDraft.newDate(now: wall, timezone: timezone)
-      .copyWith(
+  final draft =
+      LocalDateComposerDraft.newDate(
+        now: wall,
+        timezone: timezone,
+        environment: environment,
+      ).copyWith(
         startTime:
             '${wall.hour.toString().padLeft(2, '0')}:'
             '${wall.minute.toString().padLeft(2, '0')}:'

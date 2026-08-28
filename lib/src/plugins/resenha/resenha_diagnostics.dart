@@ -110,6 +110,7 @@ final class CallbackResenhaDiagnosticsSdkLogBridge
 /// App-global, default-off recorder for one bounded Resenha deep-capture file.
 final class ResenhaDiagnosticsController implements ResenhaDiagnosticsRecorder {
   ResenhaDiagnosticsController._({
+    required this._reporter,
     required this._persistence,
     required this._clock,
     required this._timerFactory,
@@ -164,6 +165,7 @@ final class ResenhaDiagnosticsController implements ResenhaDiagnosticsRecorder {
   static const Duration ordinaryUiPublishDelay = Duration(milliseconds: 100);
   static const Duration retentionRetryDelay = Duration(minutes: 1);
 
+  final PluginDiagnosticsReporter _reporter;
   final ResenhaDiagnosticsPersistence _persistence;
   final DateTime Function() _clock;
   final ResenhaDiagnosticsTimerFactory _timerFactory;
@@ -200,6 +202,7 @@ final class ResenhaDiagnosticsController implements ResenhaDiagnosticsRecorder {
   DateTime? _lastRecordTimestampUtc;
 
   static Future<ResenhaDiagnosticsController> create({
+    PluginDiagnosticsReporter reporter = const PluginDiagnosticsReporter.noop(),
     ResenhaDiagnosticsPersistence? persistence,
     Future<ResenhaDiagnosticsPersistence> Function()? persistenceFactory,
     DateTime Function()? clock,
@@ -264,6 +267,7 @@ final class ResenhaDiagnosticsController implements ResenhaDiagnosticsRecorder {
       persistenceErrorOperation = 'resenha.deep_capture.load';
     }
     final controller = ResenhaDiagnosticsController._(
+      reporter: reporter,
       persistence: resolvedPersistence,
       clock: resolvedClock,
       timerFactory: timerFactory ?? Timer.new,
@@ -449,13 +453,13 @@ final class ResenhaDiagnosticsController implements ResenhaDiagnosticsRecorder {
       data,
       homeDirectory: _homeDirectory,
     );
-    final eventId = DiagnosticsSink.newCorrelationId('resenha-event');
+    final eventId = _reporter.newCorrelationId('resenha-event');
     final attributedData = <String, Object?>{
       ...safeData,
       resenhaDiagnosticsEventIdField: eventId,
     };
     try {
-      DiagnosticsSink.current.recordLog(
+      _reporter.recordLog(
         name: safeEvent,
         source: 'resenha',
         component: safeComponent,
@@ -986,7 +990,7 @@ final class ResenhaDiagnosticsController implements ResenhaDiagnosticsRecorder {
 
   void _reportPersistenceError(Object error, {required String operation}) {
     try {
-      DiagnosticsSink.current.reportError(
+      _reporter.reportError(
         _SafeResenhaDiagnosticsFailure(
           operation: operation,
           originalType: '${error.runtimeType}',

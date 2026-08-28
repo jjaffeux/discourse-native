@@ -1,12 +1,15 @@
 import 'dart:async';
 
-import '../data/site_tracker.dart';
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
 import '../models/notification_totals.dart';
 import '../models/sidebar.dart';
+import 'live_channels.dart';
 import 'plugin_manifest.dart';
+
+export 'background_retention.dart';
+export 'live_channels.dart';
 
 /// Route-safe information about one configured forum.
 ///
@@ -103,7 +106,7 @@ abstract interface class PluginTotalsObserver
 
 abstract interface class PluginTrackerAttachment
     implements PluginSessionCapability {
-  void attachPluginTracker(String siteUrl, SiteTracker tracker);
+  void attachPluginTracker(String siteUrl, PluginLiveChannelHandle channels);
 }
 
 /// Observes a freshly fetched `/session/current.json` account snapshot.
@@ -113,11 +116,6 @@ abstract interface class PluginTrackerAttachment
 abstract interface class PluginCurrentUserObserver
     implements PluginSessionCapability {
   void pluginCurrentUserRefreshed(String siteUrl);
-}
-
-abstract interface class PluginBackgroundSite
-    implements PluginSessionCapability {
-  String? get pluginBackgroundSiteUrl;
 }
 
 /// Adds server-owned hashtag target types to composer autocomplete.

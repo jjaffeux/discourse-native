@@ -293,6 +293,60 @@ void main() {
     },
   );
 
+  test('plugins cannot import the concrete site tracker', () {
+    final violations = <String>[];
+
+    for (final file in _dartFilesUnder('lib/src/plugins')) {
+      final path = _workspacePath(file);
+      for (final directive in _localDirectives(file)) {
+        if (directive.target != 'lib/src/data/site_tracker.dart') continue;
+        violations.add('$path:${directive.line} imports ${directive.uri}');
+      }
+    }
+
+    expect(
+      violations,
+      isEmpty,
+      reason:
+          'Plugins receive scoped live-channel handles from the host and must '
+          'not import SiteTracker, which also exposes core-channel, polling, '
+          'and lifecycle controls.\n${violations.join('\n')}',
+    );
+  });
+
+  test('plugin controllers do not resolve ambient runtime facilities', () {
+    final violations = <String>[];
+
+    for (final file in _dartFilesUnder('lib/src/plugins')) {
+      final path = _workspacePath(file);
+      final source = file.readAsStringSync();
+      for (final token in const [
+        'DiagnosticsSink.current',
+        'PluginDiagnosticsReporter.ambient',
+      ]) {
+        if (source.contains(token)) violations.add('$path uses $token');
+      }
+      if (path != 'lib/src/plugins/local_dates/local_dates_module.dart') {
+        for (final token in const [
+          'LocalDateEnvironment.instance',
+          'TimezoneEnvironment.instance',
+        ]) {
+          if (source.contains(token)) violations.add('$path uses $token');
+        }
+      }
+    }
+
+    expect(
+      violations,
+      isEmpty,
+      reason:
+          'Plugin controllers receive diagnostics and timezone facilities '
+          'through module/session construction. Only the Local Dates module '
+          'entrypoint may choose the production timezone environment.\n'
+          '${violations.join('\n')}',
+    );
+  });
+
   test('core site and current-user models do not own optional schemas', () {
     final siteConfig = File(
       'lib/src/models/site_config.dart',

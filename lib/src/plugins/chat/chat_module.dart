@@ -1,3 +1,4 @@
+import '../../diagnostics/diagnostics_controller.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import '../gifs/gifs_contract.dart';
@@ -19,19 +20,27 @@ final class ChatModule implements PluginModule {
   const ChatModule();
 
   @override
-  PluginDescriptor get descriptor => const PluginDescriptor(
+  PluginDescriptor get descriptor => PluginDescriptor(
     id: chatPluginId,
     dependencies: [
-      PluginDependency(reactionsPluginId),
-      PluginDependency(gifsPluginId, optional: true),
+      const PluginDependency(reactionsPluginId),
+      const PluginDependency(gifsPluginId, optional: true),
     ],
     routeNamespaces: {'chat'},
+    liveChannelScopes: {
+      const PluginLiveChannelScope.prefix('/chat'),
+      const PluginLiveChannelScope.prefix('/presence/chat'),
+    },
   );
 
   @override
   void register(PluginRegistrar registrar) {
     registrar.addCapability(const ChatPlugin());
     registrar.addRouteNamespace('chat');
+    registrar.addLiveChannelScope(const PluginLiveChannelScope.prefix('/chat'));
+    registrar.addLiveChannelScope(
+      const PluginLiveChannelScope.prefix('/presence/chat'),
+    );
     registrar.addSession(
       (bindings, dependencies) {
         final transport = bindings.require(corePluginTransportPort);
@@ -51,9 +60,10 @@ final class ChatModule implements PluginModule {
           lifecycle: lifecycle,
           currentUserFor: siteState.currentUserFor,
           siteConfigFor: siteState.siteConfigFor,
-        previewEngine: ChatPreviewEngine(
-          plugins: bindings.require(corePluginPreviewPort),
-        ),
+          previewEngine: ChatPreviewEngine(
+            plugins: bindings.require(corePluginPreviewPort),
+          ),
+          reporter: bindings.require(pluginDiagnosticsReporterPort),
           onChatNotificationsDelta: (siteUrl, delta) =>
               accountEvents.updateTotals(
                 siteUrl,
@@ -66,6 +76,7 @@ final class ChatModule implements PluginModule {
           credentials: credentials,
           store: store,
           lifecycle: lifecycle,
+          reporter: bindings.require(pluginDiagnosticsReporterPort),
         );
         final shell = ChatShellService(
           chat: controller,
@@ -123,6 +134,7 @@ final class ChatModule implements PluginModule {
         corePluginComposerPort,
         corePluginEmojiPort,
         corePluginNotificationFeedPort,
+        pluginDiagnosticsReporterPort,
       ],
     );
   }

@@ -315,6 +315,128 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test('singular and keyed providers reject ambiguous contributions', () {
+    for (final capabilities in <List<SitePlugin>>[
+      const [_MaximumPlugin('first'), _MaximumPlugin('second')],
+      const [
+        _PermissionPlugin('first', 'edit'),
+        _PermissionPlugin('second', 'edit'),
+      ],
+      const [_SiteFeaturePlugin('same'), _SiteFeaturePlugin('same')],
+      const [_UserFeaturePlugin('same'), _UserFeaturePlugin('same')],
+      const [
+        _PreviewCapability('first', 'shared'),
+        _PreviewCapability('second', 'shared'),
+      ],
+      const [
+        _DiagnosticsCapability('first', 'shared'),
+        _DiagnosticsCapability('second', 'shared'),
+      ],
+    ]) {
+      expect(() => PluginRegistry.validated(capabilities), throwsArgumentError);
+    }
+  });
+
+  test('keyed providers require nonempty keys', () {
+    for (final capability in <SitePlugin>[
+      const _PermissionPlugin('permission', ' '),
+      const _SiteFeaturePlugin(''),
+      const _UserFeaturePlugin(''),
+      const _PreviewCapability('preview', ' '),
+      const _DiagnosticsCapability('diagnostics', ' '),
+    ]) {
+      expect(() => PluginRegistry.validated([capability]), throwsArgumentError);
+    }
+  });
+
+  test('distinct keyed providers compose', () {
+    expect(
+      () => PluginRegistry.validated(const [
+        _MaximumPlugin('maximum'),
+        _PermissionPlugin('first', 'edit'),
+        _PermissionPlugin('second', 'delete'),
+        _SiteFeaturePlugin('site-one'),
+        _SiteFeaturePlugin('site-two'),
+        _UserFeaturePlugin('user-one'),
+        _UserFeaturePlugin('user-two'),
+        _PreviewCapability('preview-one', 'one'),
+        _PreviewCapability('preview-two', 'two'),
+        _DiagnosticsCapability('diagnostics-one', 'one'),
+        _DiagnosticsCapability('diagnostics-two', 'two'),
+      ]),
+      returnsNormally,
+    );
+  });
+}
+
+final class _MaximumPlugin implements SitePlugin, ComposerMaximumOptionsPlugin {
+  const _MaximumPlugin(this.name);
+
+  @override
+  final String name;
+
+  @override
+  int composerMaximumOptions(PluginData siteSettings) => 20;
+}
+
+final class _PermissionPlugin implements SitePlugin, PluginPermissionPlugin {
+  const _PermissionPlugin(this.name, this.permissionId);
+
+  @override
+  final String name;
+
+  @override
+  final String permissionId;
+
+  @override
+  bool allowsPermission(PluginData currentUser, bool? recordPermission) => true;
+}
+
+final class _SiteFeaturePlugin implements SitePlugin, PluginSiteFeature {
+  const _SiteFeaturePlugin(this.name);
+
+  @override
+  final String name;
+
+  @override
+  bool siteFeatureEnabled(PluginData siteSettings) => true;
+}
+
+final class _UserFeaturePlugin implements SitePlugin, PluginCurrentUserFeature {
+  const _UserFeaturePlugin(this.name);
+
+  @override
+  final String name;
+
+  @override
+  bool currentUserFeatureEnabled(PluginData currentUser) => true;
+}
+
+final class _PreviewCapability implements ChatMessagePreviewPlugin {
+  const _PreviewCapability(this.name, this.previewFeatureId);
+
+  @override
+  final String name;
+
+  @override
+  final String previewFeatureId;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _DiagnosticsCapability implements SitePlugin, DiagnosticsPlugin {
+  const _DiagnosticsCapability(this.name, this.diagnosticsId);
+
+  @override
+  final String name;
+
+  @override
+  final String diagnosticsId;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 final class _ComposerPlugin implements SitePlugin, ComposerTargetPlugin {

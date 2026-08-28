@@ -17,7 +17,7 @@ void main() {
     await initializeDateFormatting('en');
   });
 
-  const plugin = LocalDatesPlugin();
+  final plugin = LocalDatesPlugin(environment: LocalDateEnvironment.instance);
   final enabled = SiteConfig(
     plugins: PluginData.none.withValue(
       localDatesSettingsDataKey,
@@ -46,7 +46,7 @@ void main() {
       expect(inspection.claims.single.node.fallbackText, contains('[date='));
 
       final projected =
-          ChatPreviewEngine(plugins: const [plugin]).project(request(raw))
+          ChatPreviewEngine(plugins: [plugin]).project(request(raw))
               as ProjectedPreview;
       expect(
         projected.document.nodes.whereType<PluginPreviewNode>(),
@@ -59,7 +59,7 @@ void main() {
     const raw = '[date=2026-08-12 timezone=Etc/UTC]';
     final inspection = plugin.inspect(request(raw, config: disabled));
     final result = ChatPreviewEngine(
-      plugins: const [plugin],
+      plugins: [plugin],
     ).project(request(raw, config: disabled));
 
     expect(inspection.claims, isEmpty);
@@ -85,9 +85,7 @@ void main() {
       '```\n[date=2026-08-12]\n```',
     ]) {
       final inspection = plugin.inspect(request(raw));
-      final result = ChatPreviewEngine(
-        plugins: const [plugin],
-      ).project(request(raw));
+      final result = ChatPreviewEngine(plugins: [plugin]).project(request(raw));
 
       expect(inspection.claims, isEmpty, reason: raw);
       expect(inspection.blockers, isEmpty, reason: raw);

@@ -7,6 +7,7 @@ import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics_plugin.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -194,9 +195,7 @@ void main() {
     expect(secondApi.closeCalls, 1);
   });
 
-  testWidgets('leaves an injected plugin diagnostics capability caller-owned', (
-    tester,
-  ) async {
+  testWidgets('leaves injected installed plugins caller-owned', (tester) async {
     final key = GlobalKey();
     final bridgeReleased = Completer<void>();
     final first = await ResenhaDiagnosticsController.create(
@@ -213,9 +212,15 @@ void main() {
     final second = await ResenhaDiagnosticsController.create(
       persistence: MemoryResenhaDiagnosticsPersistence(),
     );
-    addTearDown(first.close);
-    addTearDown(second.close);
     await first.startCapture();
+    final firstPlugins = PluginInstaller.install(
+      PluginManifest([_DiagnosticsTestModule(first)]),
+    );
+    final secondPlugins = PluginInstaller.install(
+      PluginManifest([_DiagnosticsTestModule(second)]),
+    );
+    addTearDown(firstPlugins.close);
+    addTearDown(secondPlugins.close);
 
     final store = FakeInstanceStore();
     final api = FakeDiscourseApi();
@@ -226,7 +231,7 @@ void main() {
     final updater = FakeUpdater();
     final updateStore = FakeUpdateStore();
 
-    Widget app(ResenhaDiagnosticsController diagnostics) => DiscourseApp(
+    Widget app(InstalledPlugins plugins) => DiscourseApp(
       key: key,
       store: store,
       api: api,
@@ -237,14 +242,14 @@ void main() {
       updater: updater,
       updateStore: updateStore,
       initialRootMode: ShellRootMode.forum,
-      diagnosticsPlugins: [ResenhaDiagnosticsPlugin(controller: diagnostics)],
+      plugins: plugins,
     );
 
-    await tester.pumpWidget(app(first));
+    await tester.pumpWidget(app(firstPlugins));
     await tester.pump();
     expect(first.captureEnabled, isTrue);
 
-    await tester.pumpWidget(app(second));
+    await tester.pumpWidget(app(secondPlugins));
     await tester.pump();
 
     expect(bridgeReleased.isCompleted, isFalse);
@@ -252,10 +257,62 @@ void main() {
     expect(second.captureEnabled, isFalse);
 
     await tester.pumpWidget(const SizedBox.shrink());
-    await first.close();
-    await second.close();
+    await firstPlugins.close();
+    await secondPlugins.close();
     expect(bridgeReleased.isCompleted, isTrue);
   });
+
+  testWidgets(
+    'dispatches app state and background flush to every registered lifecycle',
+    (tester) async {
+      final persistence = _TrackingDiagnosticsPersistence();
+      final diagnostics = await DiagnosticsController.create(
+        persistence: persistence,
+        sessionId: 'app-lifecycle-dispatch',
+      );
+      addTearDown(diagnostics.close);
+      final first = _LifecycleProbe();
+      final second = _LifecycleProbe();
+      final manifest = PluginManifest([
+        _LifecycleTestModule('lifecycle-one', first),
+        _LifecycleTestModule('lifecycle-two', second),
+      ]);
+
+      await tester.pumpWidget(
+        DiscourseApp(
+          store: FakeInstanceStore(),
+          api: FakeDiscourseApi(),
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          forumTabs: FakeForumTabStore(),
+          trackers: FakeSiteTracker.reset(),
+          updater: FakeUpdater(),
+          updateStore: FakeUpdateStore(),
+          diagnostics: diagnostics,
+          pluginManifest: manifest,
+          initialRootMode: ShellRootMode.forum,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final appendCallsBeforeBackground = persistence.appendCalls;
+      diagnostics.recordLog(name: 'before.background', source: 'test');
+      expect(persistence.appendCalls, appendCallsBeforeBackground);
+
+      final observer =
+          tester.state(find.byType(DiscourseApp)) as WidgetsBindingObserver;
+      observer.didChangeAppLifecycleState(AppLifecycleState.paused);
+      await tester.pump();
+      await tester.pump();
+
+      for (final probe in [first, second]) {
+        expect(probe.states.last, ('paused', false));
+        expect(probe.flushCalls, 1);
+      }
+      expect(persistence.appendCalls, appendCallsBeforeBackground + 1);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await diagnostics.close();
+    },
+  );
 
   testWidgets('releases replaced diagnostics without replacing the shell', (
     tester,
@@ -282,6 +339,8 @@ void main() {
     final trackers = FakeSiteTracker.reset();
     final updater = FakeUpdater();
     final updateStore = FakeUpdateStore();
+    final reporterProbe = _ReporterProbe();
+    final manifest = PluginManifest([_ReporterTestModule(reporterProbe)]);
 
     Widget app(DiagnosticsController diagnostics) => DiscourseApp(
       key: key,
@@ -294,21 +353,42 @@ void main() {
       updater: updater,
       updateStore: updateStore,
       diagnostics: diagnostics,
+      pluginManifest: manifest,
       initialRootMode: ShellRootMode.forum,
     );
 
     await tester.pumpWidget(app(firstDiagnostics));
     await tester.pumpAndSettle();
     final shell = _controller(tester);
+    reporterProbe.record('before-replacement');
+    expect(
+      firstDiagnostics.events.whereType<DiagnosticLogEvent>().map(
+        (event) => event.name,
+      ),
+      contains('before-replacement'),
+    );
 
     await tester.pumpWidget(app(secondDiagnostics));
     await tester.pumpAndSettle();
     await firstPersistence.closed.future;
+    reporterProbe.record('after-replacement');
 
     expect(_controller(tester), same(shell));
     expect(api.closeCalls, 0);
     expect(firstPersistence.closeCalls, 1);
     expect(secondPersistence.closeCalls, 0);
+    expect(
+      secondDiagnostics.events.whereType<DiagnosticLogEvent>().map(
+        (event) => event.name,
+      ),
+      contains('after-replacement'),
+    );
+    expect(
+      firstDiagnostics.events.whereType<DiagnosticLogEvent>().map(
+        (event) => event.name,
+      ),
+      isNot(contains('after-replacement')),
+    );
 
     await tester.pumpWidget(const SizedBox.shrink());
     await secondPersistence.closed.future;
@@ -567,12 +647,94 @@ final class _GatedInstanceStore implements InstanceStore {
   Future<void> save(List<DiscourseInstance> instances) async {}
 }
 
+final class _DiagnosticsTestModule implements PluginModule {
+  const _DiagnosticsTestModule(this.controller);
+
+  final ResenhaDiagnosticsController controller;
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('resenha'));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    final plugin = ResenhaDiagnosticsPlugin(controller: controller);
+    registrar.addCapability(plugin);
+    registrar.addAppLifecycle(
+      plugin,
+      requires: const [pluginDiagnosticsReporterPort],
+    );
+  }
+}
+
+final class _LifecycleTestModule implements PluginModule {
+  const _LifecycleTestModule(this.id, this.lifecycle);
+
+  final String id;
+  final PluginAppLifecycle lifecycle;
+
+  @override
+  PluginDescriptor get descriptor => PluginDescriptor(id: PluginId(id));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addAppLifecycle(lifecycle);
+  }
+}
+
+final class _LifecycleProbe extends PluginAppLifecycle {
+  final List<(String, bool)> states = [];
+  int flushCalls = 0;
+
+  @override
+  void observeAppState(String state, {required bool foreground}) {
+    states.add((state, foreground));
+  }
+
+  @override
+  void flush() {
+    flushCalls++;
+  }
+}
+
+final class _ReporterTestModule implements PluginModule {
+  const _ReporterTestModule(this.lifecycle);
+
+  final _ReporterProbe lifecycle;
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('diagnostics-probe'));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addAppLifecycle(
+      lifecycle,
+      requires: const [pluginDiagnosticsReporterPort],
+    );
+  }
+}
+
+final class _ReporterProbe extends PluginAppLifecycle {
+  PluginDiagnosticsReporter? _reporter;
+
+  @override
+  void startPhase(PluginStartupPhase phase, PluginHostBindings bindings) {
+    _reporter ??= bindings.require(pluginDiagnosticsReporterPort);
+  }
+
+  void record(String name) {
+    _reporter!.recordLog(name: name, source: 'diagnostics-probe');
+  }
+}
+
 final class _TrackingDiagnosticsPersistence implements DiagnosticsPersistence {
   _TrackingDiagnosticsPersistence({this.closeError});
 
   final MemoryDiagnosticsPersistence _delegate = MemoryDiagnosticsPersistence();
   final Completer<void> closed = Completer<void>();
   final Object? closeError;
+  int appendCalls = 0;
   int closeCalls = 0;
 
   @override
@@ -583,7 +745,10 @@ final class _TrackingDiagnosticsPersistence implements DiagnosticsPersistence {
   Future<void> appendEvents(
     List<DiagnosticEvent> events, {
     required DateTime nowUtc,
-  }) => _delegate.appendEvents(events, nowUtc: nowUtc);
+  }) {
+    appendCalls++;
+    return _delegate.appendEvents(events, nowUtc: nowUtc);
+  }
 
   @override
   Future<void> writeLastSeenSequence(int sequence) =>

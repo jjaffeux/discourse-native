@@ -8,6 +8,7 @@ import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_redactor.dart';
 import 'package:discourse_native/src/diagnostics/recording_http.dart';
 import 'package:discourse_native/src/foundation/frame_safe_notifier.dart';
+import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart';
 
 export 'diagnostic_event.dart' show DiagnosticSeverity;
@@ -107,6 +108,171 @@ final Object _correlationZoneKey = Object();
 final Object _generationZoneKey = Object();
 int _correlationSequence = 0;
 
+typedef _DiagnosticsGeneration = ({
+  DiagnosticsController controller,
+  int generation,
+});
+
+/// The app-owned diagnostics authority made available to plugin lifecycles.
+///
+/// Keeping this key beside the capability avoids making the generic plugin host
+/// API depend on diagnostics implementation details. App lifecycles must still
+/// declare the port through `addAppLifecycle(..., requires: ...)`; the runtime
+/// supplies a consumer-restricted binding before startup.
+const pluginDiagnosticsReporterPort =
+    PluginHostPortKey<PluginDiagnosticsReporter>(
+      owner: PluginId('core'),
+      name: 'diagnostics-reporter',
+    );
+
+/// Diagnostics operations which plugin code may perform.
+///
+/// A fixed reporter always writes to the sink it was constructed with, even if
+/// the process-wide compatibility sink later changes. Its operation zones also
+/// carry that controller's identity and generation, so work begun before a
+/// clear cannot reappear afterward and cannot leak into another controller
+/// whose numeric generation happens to match. A resolving reporter gives a
+/// composition root the same stable capability while it replaces its owned
+/// recorder, without consulting the ambient compatibility sink.
+final class PluginDiagnosticsReporter {
+  PluginDiagnosticsReporter.fixed(DiagnosticsSink sink)
+    : _fixedSink = sink,
+      _sinkResolver = null,
+      _usesAmbientSink = false;
+
+  const PluginDiagnosticsReporter.ambient()
+    : _fixedSink = null,
+      _sinkResolver = null,
+      _usesAmbientSink = true;
+
+  const PluginDiagnosticsReporter.noop()
+    : _fixedSink = null,
+      _sinkResolver = null,
+      _usesAmbientSink = false;
+
+  PluginDiagnosticsReporter.resolving(DiagnosticsSink? Function() sinkResolver)
+    : _fixedSink = null,
+      _sinkResolver = sinkResolver,
+      _usesAmbientSink = false;
+
+  final DiagnosticsSink? _fixedSink;
+  final DiagnosticsSink? Function()? _sinkResolver;
+  final bool _usesAmbientSink;
+
+  DiagnosticsSink? get _sink =>
+      _sinkResolver?.call() ??
+      (_usesAmbientSink ? DiagnosticsSink.current : _fixedSink);
+
+  String? get currentOperation => DiagnosticsSink.currentOperation;
+
+  String? get currentCorrelationId => DiagnosticsSink.currentCorrelationId;
+
+  String newCorrelationId([String prefix = 'operation']) =>
+      _newDiagnosticCorrelationId(prefix);
+
+  T runOperation<T>(
+    String operation,
+    T Function() body, {
+    String? correlationId,
+  }) => _runDiagnosticOperation(
+    _sink,
+    operation,
+    body,
+    correlationId: correlationId,
+  );
+
+  void reportError(
+    Object error,
+    StackTrace stackTrace, {
+    String? operation,
+    String source = 'application',
+    DiagnosticSeverity severity = DiagnosticSeverity.error,
+    bool handled = true,
+    bool degraded = true,
+    String? correlationId,
+  }) => _sink?.reportError(
+    error,
+    stackTrace,
+    operation: operation,
+    source: source,
+    severity: severity,
+    handled: handled,
+    degraded: degraded,
+    correlationId: correlationId,
+  );
+
+  void recordLog({
+    required String name,
+    String source = 'application',
+    String? component,
+    String? message,
+    Map<String, Object?> attributes = const {},
+    DiagnosticSeverity severity = DiagnosticSeverity.info,
+    String? operation,
+    String? correlationId,
+    bool handled = true,
+    bool degraded = false,
+  }) => _sink?.recordLog(
+    name: name,
+    source: source,
+    component: component,
+    message: message,
+    attributes: attributes,
+    severity: severity,
+    operation: operation,
+    correlationId: correlationId,
+    handled: handled,
+    degraded: degraded,
+  );
+}
+
+/// Immutable diagnostics history and export operations exposed to plugin UI.
+///
+/// This is deliberately a wrapper rather than the controller typed as an
+/// interface. A plugin therefore cannot cast the value back to
+/// [DiagnosticsController] and clear history, mutate panel state, report new
+/// events, flush persistence, or close the app-owned recorder.
+final class PluginDiagnosticsReadExportHost {
+  PluginDiagnosticsReadExportHost(this._controller)
+    : _eventsListenable = _PluginDiagnosticsEventsListenable(
+        _controller.eventsListenable,
+      );
+
+  final DiagnosticsController _controller;
+  final ValueListenable<List<DiagnosticEvent>> _eventsListenable;
+
+  ValueListenable<List<DiagnosticEvent>> get eventsListenable =>
+      _eventsListenable;
+
+  List<DiagnosticEvent> get events => _controller.events;
+
+  String formatEvent(DiagnosticEvent event) => _controller.formatEvent(event);
+
+  String buildJsonReport([Iterable<DiagnosticEvent>? events]) =>
+      _controller.buildJsonReport(events);
+}
+
+/// A deliberately shallow forwarding view over the controller's notifier.
+///
+/// The plugin can subscribe and read, but cannot downcast this object to the
+/// controller-owned ChangeNotifier and dispose or otherwise mutate it.
+final class _PluginDiagnosticsEventsListenable
+    implements ValueListenable<List<DiagnosticEvent>> {
+  const _PluginDiagnosticsEventsListenable(this._source);
+
+  final ValueListenable<List<DiagnosticEvent>> _source;
+
+  @override
+  List<DiagnosticEvent> get value => _source.value;
+
+  @override
+  void addListener(VoidCallback listener) => _source.addListener(listener);
+
+  @override
+  void removeListener(VoidCallback listener) =>
+      _source.removeListener(listener);
+}
+
 /// Nonthrowing, process-wide entry point for operational error reporting.
 abstract class DiagnosticsSink {
   static DiagnosticsSink _current = const _NoopDiagnosticsSink();
@@ -134,33 +300,20 @@ abstract class DiagnosticsSink {
   static String? get currentCorrelationId =>
       Zone.current[_correlationZoneKey] as String?;
 
-  static String newCorrelationId([String prefix = 'operation']) {
-    _correlationSequence += 1;
-    return '$prefix-${DateTime.now().toUtc().microsecondsSinceEpoch}-'
-        '$_correlationSequence';
-  }
+  static String newCorrelationId([String prefix = 'operation']) =>
+      _newDiagnosticCorrelationId(prefix);
 
   /// Runs [body] in a zone inherited by all asynchronous work it starts.
   static T runOperation<T>(
     String operation,
     T Function() body, {
     String? correlationId,
-  }) {
-    final inheritedGeneration = Zone.current[_generationZoneKey] as int?;
-    final installed = _current;
-    final generation =
-        inheritedGeneration ??
-        (installed is DiagnosticsController ? installed._generation : null);
-    final zoneValues = <Object?, Object?>{
-      _operationZoneKey: operation,
-      _correlationZoneKey:
-          correlationId ?? newCorrelationId(_safeIdentifier(operation)),
-    };
-    if (generation != null) {
-      zoneValues[_generationZoneKey] = generation;
-    }
-    return runZoned(body, zoneValues: zoneValues);
-  }
+  }) => _runDiagnosticOperation(
+    _current,
+    operation,
+    body,
+    correlationId: correlationId,
+  );
 
   void reportError(
     Object error,
@@ -248,6 +401,39 @@ final class _NoopDiagnosticsSink implements DiagnosticsSink {
     bool handled = true,
     bool degraded = false,
   }) {}
+}
+
+String _newDiagnosticCorrelationId(String prefix) {
+  _correlationSequence += 1;
+  return '$prefix-${DateTime.now().toUtc().microsecondsSinceEpoch}-'
+      '$_correlationSequence';
+}
+
+T _runDiagnosticOperation<T>(
+  DiagnosticsSink? sink,
+  String operation,
+  T Function() body, {
+  String? correlationId,
+}) {
+  final inherited = Zone.current[_generationZoneKey] as _DiagnosticsGeneration?;
+  final generation = switch (sink) {
+    final DiagnosticsController controller
+        when identical(inherited?.controller, controller) =>
+      inherited,
+    final DiagnosticsController controller => (
+      controller: controller,
+      generation: controller._generation,
+    ),
+    _ => null,
+  };
+  final zoneValues = <Object?, Object?>{
+    _operationZoneKey: operation,
+    _correlationZoneKey:
+        correlationId ??
+        _newDiagnosticCorrelationId(_safeIdentifier(operation)),
+  };
+  if (generation != null) zoneValues[_generationZoneKey] = generation;
+  return runZoned(body, zoneValues: zoneValues);
 }
 
 /// App-owned diagnostics state. It is independent of any connected site.
@@ -517,8 +703,11 @@ final class DiagnosticsController
   }) {
     if (_closed) return;
     try {
-      final operationGeneration = Zone.current[_generationZoneKey] as int?;
-      if (operationGeneration != null && operationGeneration != _generation) {
+      final operationGeneration =
+          Zone.current[_generationZoneKey] as _DiagnosticsGeneration?;
+      if (operationGeneration != null &&
+          (!identical(operationGeneration.controller, this) ||
+              operationGeneration.generation != _generation)) {
         return;
       }
       final now = _clock().toUtc();
@@ -575,8 +764,11 @@ final class DiagnosticsController
   }) {
     if (_closed) return;
     try {
-      final operationGeneration = Zone.current[_generationZoneKey] as int?;
-      if (operationGeneration != null && operationGeneration != _generation) {
+      final operationGeneration =
+          Zone.current[_generationZoneKey] as _DiagnosticsGeneration?;
+      if (operationGeneration != null &&
+          (!identical(operationGeneration.controller, this) ||
+              operationGeneration.generation != _generation)) {
         return;
       }
       final now = _clock().toUtc();

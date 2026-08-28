@@ -113,6 +113,7 @@ final class ChatSearchController {
     required this.credentials,
     required this.store,
     required this.lifecycle,
+    this.reporter = const PluginDiagnosticsReporter.noop(),
     this.debounceDuration = const Duration(milliseconds: 400),
   }) : assert(debounceDuration >= Duration.zero);
 
@@ -120,6 +121,7 @@ final class ChatSearchController {
   final ApiCredentialReader credentials;
   final Store store;
   final SiteLifecycle lifecycle;
+  final PluginDiagnosticsReporter reporter;
   final Duration debounceDuration;
 
   static const int maximumQueryLength = 2048;
@@ -581,7 +583,7 @@ final class ChatSearchController {
   }
 
   void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
+    reporter.reportError(
       error,
       stackTrace,
       operation: operation,

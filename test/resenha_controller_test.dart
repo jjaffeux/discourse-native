@@ -612,6 +612,7 @@ void main() {
       onCallSiteChanged: () {},
       mediaFactory: mediaFactory,
       systemCall: systemCall,
+      reporter: const PluginDiagnosticsReporter.ambient(),
       diagnostics: diagnostics,
       preferences: preferences,
       heartbeatInterval: const Duration(milliseconds: 15),
@@ -682,6 +683,7 @@ void main() {
       onCallSiteChanged: () {},
       mediaFactory: mediaFactory,
       systemCall: systemCall,
+      reporter: const PluginDiagnosticsReporter.ambient(),
       diagnostics: diagnostics,
       preferences: preferences,
       heartbeatInterval: const Duration(milliseconds: 15),
@@ -1740,6 +1742,53 @@ void main() {
         },
       });
       expect(controller.room(firstSite, 7)?.name, 'Renamed Room');
+    },
+  );
+
+  test(
+    'tracker replacement transfers directory, room, and chat watches',
+    () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.openChat(firstSite, 7);
+      final replacement = tracker(firstSite);
+
+      controller.attachTracker(firstSite, replacement);
+
+      for (final channel in const [
+        '/resenha/rooms/index',
+        '/resenha/rooms/7',
+        '/chat/42',
+      ]) {
+        expect(firstTracker.pluginChannelCallbacks[channel], isEmpty);
+        expect(replacement.pluginChannelCallbacks[channel], isNotEmpty);
+      }
+      expect(replacement.pluginChannelLastIds['/resenha/rooms/index'], 144);
+      expect(replacement.pluginChannelLastIds['/resenha/rooms/7'], 91);
+
+      firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+        'type': 'participants',
+        'participants': [
+          {'id': 2, 'username': 'old', 'role': 'speaker'},
+        ],
+      });
+      expect(
+        controller
+            .room(firstSite, 7)
+            ?.participants
+            .map((participant) => participant.username),
+        ['sam'],
+      );
+
+      replacement.deliverPluginMessage('/resenha/rooms/7', {
+        'type': 'participants',
+        'participants': [
+          {'id': 3, 'username': 'new', 'role': 'speaker'},
+        ],
+      });
+      expect(
+        controller.room(firstSite, 7)?.participants.single.username,
+        'new',
+      );
     },
   );
 

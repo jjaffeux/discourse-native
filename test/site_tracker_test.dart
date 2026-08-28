@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -284,6 +285,92 @@ void main() {
       expect(bus.activeSubscriptionCount('/resenha/rooms/index'), 0);
     },
   );
+
+  test('scoped plugin handles expose only declared live channels', () async {
+    final bus = _FakeMessageBusSession();
+    final tracker = _tracker(bus);
+    addTearDown(tracker.dispose);
+    final messages = <(Object?, int)>[];
+    final handle = tracker.pluginLiveChannels(const [
+      PluginLiveChannelScope.prefix('/chat'),
+    ]);
+
+    expect(handle, isNot(isA<SiteTracker>()));
+    final subscription = handle.subscribe(
+      '/chat/42',
+      (data, messageId) => messages.add((data, messageId)),
+      lastId: 144,
+    );
+    final retainedCallback = bus.retainedCallback('/chat/42');
+    bus.deliver('/chat/42', 'first', messageId: 145);
+    subscription.cancel();
+    bus.deliver('/chat/42', 'late', messageId: 146);
+    retainedCallback('already queued');
+
+    expect(bus.lastIds['/chat/42'], 144);
+    expect(messages, [('first', 145)]);
+    expect(bus.activeSubscriptionCount('/chat/42'), 0);
+  });
+
+  test('scoped plugin handles expose no tracker control surface', () {
+    final tracker = _tracker(_FakeMessageBusSession());
+    addTearDown(tracker.dispose);
+    final dynamic handle = tracker.pluginLiveChannels(const [
+      PluginLiveChannelScope.prefix('/chat'),
+    ]);
+
+    for (final control in <void Function()>[
+      // Deliberately probe the concrete wrapper as hostile dynamic code.
+      // ignore: avoid_dynamic_calls
+      () => handle.start(),
+      // ignore: avoid_dynamic_calls
+      () => handle.stop(),
+      // ignore: avoid_dynamic_calls
+      () => handle.pollNow(),
+      // ignore: avoid_dynamic_calls
+      () => handle.dispose(),
+      // ignore: avoid_dynamic_calls
+      () => handle.watchPluginChannel('/chat/42', (_) {}),
+      // ignore: avoid_dynamic_calls
+      () => handle.watchTopic(42, const ['/chat/42'], (_, _) {}),
+    ]) {
+      expect(control, throwsA(isA<NoSuchMethodError>()));
+    }
+  });
+
+  test('scoped plugin handles reject core, foreign, and spoofed channels', () {
+    final bus = _FakeMessageBusSession();
+    final tracker = _tracker(bus);
+    addTearDown(tracker.dispose);
+    final handle = tracker.pluginLiveChannels(const [
+      PluginLiveChannelScope.prefix('/chat'),
+      // The adapter remains fail-closed even if host validation is bypassed.
+      PluginLiveChannelScope.prefix('/latest'),
+      PluginLiveChannelScope.prefix('/notification'),
+      PluginLiveChannelScope.prefix('/topic'),
+    ]);
+
+    for (final channel in const [
+      '/latest',
+      '/latest/private',
+      '/new',
+      '/notification/42',
+      '/reviewable_counts/42',
+      '/user-status',
+      '/do-not-disturb/42',
+      '/topic/7/reactions',
+      '/resenha/rooms/7',
+      '/chatty/42',
+    ]) {
+      expect(
+        () => handle.subscribe(channel, (_, _) {}),
+        throwsArgumentError,
+        reason: channel,
+      );
+    }
+
+    expect(bus.channels, {'/latest'});
+  });
 
   test(
     'reports a failed topic unsubscribe while the tracker is active',

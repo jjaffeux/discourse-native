@@ -102,6 +102,7 @@ class LocalDateComposerBlock {
     required this.tagName,
     required this.attributes,
     required this.trailingWhitespace,
+    required this.environment,
   });
 
   final int start;
@@ -111,6 +112,7 @@ class LocalDateComposerBlock {
   final String tagName;
   final List<LocalDateMarkupAttribute> attributes;
   final String trailingWhitespace;
+  final LocalDateEnvironment environment;
 
   int get length => end - start;
 
@@ -123,7 +125,7 @@ class LocalDateComposerBlock {
   }
 
   bool get canProject =>
-      _supportedOptions(this) &&
+      _supportedOptions(this, environment) &&
       switch (kind) {
         LocalDateComposerKind.date =>
           attribute('from') == null &&
@@ -149,6 +151,7 @@ class LocalDateComposerBlock {
 /// answer over rather than have the scan repeated here.
 List<LocalDateComposerBlock> parseLocalDateComposerBlocks(
   String source, {
+  required LocalDateEnvironment environment,
   CodeRanges? knownCodeRanges,
 }) {
   if (source.isEmpty) return const [];
@@ -203,6 +206,7 @@ List<LocalDateComposerBlock> parseLocalDateComposerBlocks(
         tagName: header.tagName,
         attributes: List.unmodifiable(parsed.attributes),
         trailingWhitespace: parsed.trailingWhitespace,
+        environment: environment,
       );
       if (block.canProject) blocks.add(block);
     }
@@ -457,14 +461,16 @@ bool _validDate(String? value) {
       day <= DateTime.utc(year, month + 1, 0).day;
 }
 
-bool _supportedOptions(LocalDateComposerBlock block) {
+bool _supportedOptions(
+  LocalDateComposerBlock block,
+  LocalDateEnvironment environment,
+) {
   final calendar = block.attribute('calendar');
   if (calendar != null && calendar != 'on' && calendar != 'off') return false;
   final recurring = block.attribute('recurring');
   if (recurring != null && !_recurringPattern.hasMatch(recurring)) {
     return false;
   }
-  final environment = LocalDateEnvironment.instance;
   final previewZones = (block.attribute('timezones') ?? '')
       .split('|')
       .where((zone) => zone.isNotEmpty)

@@ -18,7 +18,7 @@ import 'resenha_report_exporter.dart';
 /// or ordering rules.
 final class ResenhaDiagnosticsReport {
   ResenhaDiagnosticsReport({
-    required DiagnosticsController diagnostics,
+    required PluginDiagnosticsReadExportHost diagnostics,
     required ResenhaDiagnosticsController resenha,
     @visibleForTesting ValueChanged<String>? onEventProjected,
   }) : this._(diagnostics, resenha, onEventProjected);
@@ -31,7 +31,7 @@ final class ResenhaDiagnosticsReport {
         onEventProjected: onEventProjected,
       );
 
-  final DiagnosticsController _diagnostics;
+  final PluginDiagnosticsReadExportHost _diagnostics;
   final ResenhaDiagnosticsController _resenha;
   final _ResenhaDiagnosticsTimelineProjection _timeline;
 

@@ -14,10 +14,13 @@ import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'local_date.dart';
-import 'local_date_environment.dart';
 import 'local_dates_settings.dart';
 
-Widget? localDateWidgetBuilder(dom.Element element, {String? siteUrl}) {
+Widget? localDateWidgetBuilder(
+  dom.Element element, {
+  required LocalDateFormatter formatter,
+  String? siteUrl,
+}) {
   if (element.localName != 'span' ||
       !element.classes.contains('discourse-local-date')) {
     return null;
@@ -52,7 +55,13 @@ Widget? localDateWidgetBuilder(dom.Element element, {String? siteUrl}) {
     }
   }
   return InlineCustomWidget(
-    child: LocalDateInline(spec: spec, siteUrl: siteUrl, from: from, to: to),
+    child: LocalDateInline(
+      spec: spec,
+      siteUrl: siteUrl,
+      from: from,
+      to: to,
+      formatter: formatter,
+    ),
   );
 }
 
@@ -62,10 +71,10 @@ class LocalDateInline extends StatefulWidget {
   const LocalDateInline({
     super.key,
     required this.spec,
+    required this.formatter,
     this.siteUrl,
     this.from,
     this.to,
-    this.formatter = const LocalDateFormatter(),
     this.now,
   });
 
@@ -101,7 +110,7 @@ class _LocalDateInlineState extends State<LocalDateInline> {
         : shell?.currentUserFor(siteUrl)?.timezone;
     final locale = Localizations.localeOf(context);
     return ListenableBuilder(
-      listenable: LocalDateEnvironment.instance,
+      listenable: widget.formatter.environment,
       builder: (context, _) {
         final now = _now;
         final resolved = widget.formatter.resolve(
@@ -179,7 +188,7 @@ class _LocalDateInlineState extends State<LocalDateInline> {
       .join(', ');
 
   void _scheduleRefresh(LocalDateResolved resolved, DateTime now) {
-    final readerLocation = LocalDateEnvironment.instance.location(
+    final readerLocation = widget.formatter.environment.location(
       resolved.readerTimezone,
     )!;
     final readerNow = tz.TZDateTime.from(now, readerLocation);

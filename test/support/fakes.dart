@@ -41,6 +41,7 @@ import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
+import 'package:discourse_native/src/plugin_api/live_channels.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -58,6 +59,7 @@ import 'package:discourse_native/src/plugins/poll/polls_api.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
+
 import 'bundled_plugins.dart';
 
 /// Keeps instances in memory instead of shared_preferences, which needs a
@@ -271,7 +273,7 @@ class FakeDraftStore implements DraftStore {
 /// message coming off the bus. Real ones hold a long poll open, which a widget
 /// test must not, and which the test binding fails outright on: the poll's
 /// backoff timer outlives the tree.
-class FakeSiteTracker implements SiteTracker {
+class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
   FakeSiteTracker({
     required this.siteUrl,
     required this.onIncomingTopics,
@@ -416,6 +418,15 @@ class FakeSiteTracker implements SiteTracker {
     });
   }
 
+  @override
+  PluginLiveChannelSubscription subscribe(
+    String channel,
+    void Function(Object? data, int messageId) onMessage, {
+    int? lastId,
+  }) =>
+      watchPluginChannelWithPosition(channel, onMessage, lastId: lastId)
+          as PluginLiveChannelSubscription;
+
   void deliverPluginMessage(String channel, Object? data, {int messageId = 1}) {
     _deliveredPluginMessageId = messageId;
     for (final callback in List.of(
@@ -442,7 +453,7 @@ class FakeSiteTracker implements SiteTracker {
 }
 
 final class _FakeSiteMessageBusSubscription
-    implements SiteMessageBusSubscription {
+    implements SiteMessageBusSubscription, PluginLiveChannelSubscription {
   _FakeSiteMessageBusSubscription(this._cancel);
   final void Function() _cancel;
   bool _cancelled = false;

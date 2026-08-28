@@ -1,3 +1,4 @@
+import '../../diagnostics/diagnostics_controller.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import 'reactions_api.dart';
@@ -32,6 +33,7 @@ final class ReactionsModule implements PluginModule {
           credentials: bindings.require(corePluginCredentialsPort),
           store: bindings.require(corePluginStorePort),
           lifecycle: bindings.require(corePluginSiteLifecyclePort),
+          diagnostics: bindings.require(pluginDiagnosticsReporterPort),
         );
         return PluginSessionContribution(
           lifecycle: _ReactionsSessionLifecycle(controller),
@@ -51,6 +53,7 @@ final class ReactionsModule implements PluginModule {
         corePluginStorePort,
         corePluginSiteLifecyclePort,
         corePluginEmojiPort,
+        pluginDiagnosticsReporterPort,
       ],
     );
   }

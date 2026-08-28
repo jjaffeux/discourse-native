@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics_plugin.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_report_exporter.dart';
@@ -39,6 +40,7 @@ void main() {
       clock: () => now,
     );
     final resenha = await ResenhaDiagnosticsController.create(
+      reporter: PluginDiagnosticsReporter.fixed(diagnostics),
       persistence: MemoryResenhaDiagnosticsPersistence(),
       captureIdFactory: () => 'capture-panel-test',
       clock: () => now,
@@ -188,6 +190,7 @@ void main() {
       clock: () => now,
     );
     final replacementResenha = await ResenhaDiagnosticsController.create(
+      reporter: PluginDiagnosticsReporter.fixed(replacementDiagnostics),
       persistence: MemoryResenhaDiagnosticsPersistence(),
       captureIdFactory: () => 'replacement-capture',
       clock: () => now,
@@ -232,6 +235,107 @@ void main() {
     await diagnostics.close();
     await resenha.close();
   });
+
+  testWidgets('plugin diagnostics receive only an immutable read/export host', (
+    tester,
+  ) async {
+    final diagnostics = await DiagnosticsController.create(
+      persistence: MemoryDiagnosticsPersistence(),
+      sessionId: 'hostile-diagnostics-plugin',
+    );
+    addTearDown(diagnostics.close);
+    diagnostics.recordLog(name: 'visible.event', source: 'host');
+    final plugin = _HostileDiagnosticsPlugin();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: DiagnosticsPanel(
+            controller: diagnostics,
+            plugins: [plugin],
+            onClose: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Hostile'));
+    await tester.pump();
+
+    final host = plugin.host!;
+    expect(host, isNot(isA<DiagnosticsController>()));
+    final eventsListenable = host.eventsListenable;
+    expect(eventsListenable, same(host.eventsListenable));
+    expect(eventsListenable, isNot(isA<ChangeNotifier>()));
+    expect(
+      () => (eventsListenable as dynamic).dispose(),
+      throwsA(isA<NoSuchMethodError>()),
+    );
+    var notifications = 0;
+    void notified() => notifications++;
+    eventsListenable.addListener(notified);
+    diagnostics.recordLog(name: 'listener.event', source: 'host');
+    expect(notifications, 1);
+    eventsListenable.removeListener(notified);
+    diagnostics.recordLog(name: 'removed.listener.event', source: 'host');
+    expect(notifications, 1);
+    expect(host.events.whereType<DiagnosticLogEvent>(), hasLength(3));
+    expect(() => host.events.clear(), throwsUnsupportedError);
+    expect(host.buildJsonReport(), contains('visible.event'));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await diagnostics.close();
+  });
+
+  test('keeps one status listenable across controller teardown', () async {
+    final controller = await ResenhaDiagnosticsController.create(
+      persistence: MemoryResenhaDiagnosticsPersistence(),
+      captureIdFactory: () => 'stable-status',
+    );
+    final plugin = ResenhaDiagnosticsPlugin(controller: controller);
+    final status = plugin.diagnosticsStatusListenable;
+    var notifications = 0;
+    void notified() => notifications++;
+    status.addListener(notified);
+
+    await controller.startCapture();
+    expect(plugin.diagnosticsStatusListenable, same(status));
+    expect(notifications, greaterThan(0));
+
+    final beforeClose = notifications;
+    await plugin.close();
+    expect(plugin.diagnosticsStatusListenable, same(status));
+    expect(notifications, greaterThan(beforeClose));
+    status.removeListener(notified);
+  });
+}
+
+final class _HostileDiagnosticsPlugin implements DiagnosticsPlugin {
+  final ValueNotifier<bool> _status = ValueNotifier(false);
+  PluginDiagnosticsReadExportHost? host;
+
+  @override
+  String get diagnosticsId => 'hostile';
+
+  @override
+  String get diagnosticsLabel => 'Hostile';
+
+  @override
+  Listenable get diagnosticsStatusListenable => _status;
+
+  @override
+  bool get isDiagnosticsRecording => false;
+
+  @override
+  String? get diagnosticsRecordingLabel => null;
+
+  @override
+  Widget buildDiagnostics(
+    BuildContext context,
+    PluginDiagnosticsReadExportHost diagnostics,
+  ) {
+    host = diagnostics;
+    return const Text('restricted diagnostics host');
+  }
 }
 
 final class _NoopExporter

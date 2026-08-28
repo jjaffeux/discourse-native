@@ -60,7 +60,7 @@ void main() {
   });
 
   group('resolution', () {
-    const formatter = LocalDateFormatter();
+    final formatter = LocalDateFormatter(environment: environment);
 
     test(
       'rejects invalid zones and DST gaps instead of inventing instants',

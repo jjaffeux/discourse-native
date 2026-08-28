@@ -69,6 +69,7 @@ void main() {
                 draft: LocalDateComposerDraft.newDate(
                   now: DateTime(2026, 8, 12),
                   timezone: 'Etc/UTC',
+                  environment: LocalDateEnvironment.instance,
                 ),
                 siteFormats: const [],
               ),
@@ -152,6 +153,7 @@ class _PickerHostState extends State<_PickerHost> {
               draft: LocalDateComposerDraft.newDate(
                 now: DateTime(2026, 8, 12),
                 timezone: 'Etc/UTC',
+                environment: LocalDateEnvironment.instance,
               ).copyWith(startTime: '09:00:00'),
               siteFormats: const [],
             ),

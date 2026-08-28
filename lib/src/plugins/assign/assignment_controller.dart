@@ -43,6 +43,7 @@ class AssignmentController extends FrameSafeNotifier
     AssignmentPermissionSnapshotReader? permissionSnapshot,
     this.statusOptionsReader,
     required this.reloadTopic,
+    this.diagnostics = const PluginDiagnosticsReporter.noop(),
     AssignmentFallbackInvalidator? invalidateLegacyFallback,
   }) : assert(canAssign != null || permissionSnapshot != null),
        _legacyCanAssign = canAssign,
@@ -56,6 +57,7 @@ class AssignmentController extends FrameSafeNotifier
   final AssignmentPermissionSnapshotReader? _permissionSnapshot;
   final AssignmentStatusOptionsReader? statusOptionsReader;
   final AssignmentTopicReloader reloadTopic;
+  final PluginDiagnosticsReporter diagnostics;
   final AssignmentFallbackInvalidator? _legacyInvalidator;
 
   final Set<({String siteUrl, AssignmentTarget target})> _writes = {};
@@ -196,7 +198,7 @@ class AssignmentController extends FrameSafeNotifier
       return error.message;
     } catch (error, stackTrace) {
       if (_isCurrent(lease)) {
-        DiagnosticsSink.current.reportError(
+        diagnostics.reportError(
           error,
           stackTrace,
           operation: 'assign.write',
@@ -253,7 +255,7 @@ class AssignmentController extends FrameSafeNotifier
     try {
       await reloadTopic(siteUrl, topicId);
     } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
+      diagnostics.reportError(
         error,
         stackTrace,
         operation: 'assign.reconcileUnavailable',

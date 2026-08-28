@@ -20,6 +20,41 @@ final class PluginLifecycleException implements Exception {
       'Plugin lifecycle $operation failed ${failures.length} time(s).';
 }
 
+void _revokeConsumers(
+  Iterable<void Function()> revocations,
+  List<Object> failures,
+) {
+  for (final revoke in revocations.toList(growable: false).reversed) {
+    try {
+      revoke();
+    } catch (error) {
+      failures.add(error);
+    }
+  }
+}
+
+/// Serializes lifecycle operations while allowing each caller to observe its
+/// own failure. A failed operation is absorbed only by the internal tail, so
+/// teardown always advances after earlier hook failures.
+final class _PluginLifecycleOperationQueue {
+  Future<void>? _tail;
+
+  Future<void> run(FutureOr<void> Function() operation) {
+    final previous = _tail;
+    final next = previous == null
+        ? Future<void>.sync(operation)
+        : previous.then((_) => Future<void>.sync(operation));
+    final absorbed = next.then<void>((_) {}, onError: (_, _) {});
+    _tail = absorbed;
+    unawaited(
+      absorbed.whenComplete(() {
+        if (identical(_tail, absorbed)) _tail = null;
+      }),
+    );
+    return next;
+  }
+}
+
 final class PluginInstaller {
   const PluginInstaller._();
 
@@ -41,12 +76,12 @@ final class PluginInstaller {
       registrations.add(registrar.freeze());
     }
 
-    final capabilities = <SitePlugin>[
+    final capabilities = <PluginCapability>[
       for (final registration in registrations) ...registration.capabilities,
     ];
     late final PluginRegistry registry;
     try {
-      registry = PluginRegistry.validated(capabilities);
+      registry = PluginRegistry.validated(capabilities.whereType<SitePlugin>());
     } catch (error) {
       throw PluginInstallationException('Capability validation failed.', error);
     }
@@ -161,6 +196,7 @@ final class PluginInstaller {
       routeNamespaces: Set.unmodifiable(descriptor.routeNamespaces),
       syntaxIds: Set.unmodifiable(descriptor.syntaxIds),
       exclusiveClaims: Set.unmodifiable(descriptor.exclusiveClaims),
+      liveChannelScopes: Set.unmodifiable(descriptor.liveChannelScopes),
     );
   }
 
@@ -178,6 +214,39 @@ final class PluginInstaller {
       throw PluginInstallationException(
         'Invalid version ${descriptor.version} for ${descriptor.id}.',
       );
+    }
+    for (final scope in descriptor.liveChannelScopes) {
+      _validateLiveChannelScope(descriptor.id, scope);
+    }
+  }
+
+  static const _reservedLiveChannelScopes = <PluginLiveChannelScope>[
+    PluginLiveChannelScope.prefix('/latest'),
+    PluginLiveChannelScope.prefix('/new'),
+    PluginLiveChannelScope.prefix('/notification'),
+    PluginLiveChannelScope.prefix('/reviewable_counts'),
+    PluginLiveChannelScope.prefix('/user-status'),
+    PluginLiveChannelScope.prefix('/do-not-disturb'),
+    PluginLiveChannelScope.prefix('/topic'),
+  ];
+
+  static void _validateLiveChannelScope(
+    PluginId owner,
+    PluginLiveChannelScope scope,
+  ) {
+    final path = scope.path;
+    if (!RegExp(r'^/[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*$').hasMatch(path)) {
+      throw PluginInstallationException(
+        '$owner declares invalid live-channel scope $path.',
+      );
+    }
+    for (final reserved in _reservedLiveChannelScopes) {
+      if (scope.allows(reserved.path) || reserved.allows(scope.path)) {
+        throw PluginInstallationException(
+          '$owner declares live-channel scope $path, which overlaps reserved '
+          'core scope ${reserved.path}.',
+        );
+      }
     }
   }
 
@@ -217,33 +286,147 @@ final class InstalledPlugins {
   final PluginRegistry registry;
   final DiscourseModelCodec models;
 
-  final Set<PluginAppLifecycle> _started = {};
-  final Map<PluginAppLifecycle, Set<PluginStartupPhase>> _completedPhases = {};
+  final Set<_AppLifecycleRegistration> _started = {};
+  final Map<_AppLifecycleRegistration, Set<PluginStartupPhase>>
+  _completedPhases = {};
+  final Map<_AppLifecycleRegistration, PluginHostBindings>
+  _appLifecycleBindings = {};
+  final Map<_AppLifecycleRegistration, List<void Function()>>
+  _appLifecycleRevocations = {};
+  final _appLifecycleOperations = _PluginLifecycleOperationQueue();
+  PluginHostBindings _appBindings = const PluginHostBindings.empty();
+  bool _closing = false;
   bool _closed = false;
+  Future<void>? _closeFuture;
 
-  Future<void> startPhase(PluginStartupPhase phase) async {
-    if (_closed) throw StateError('Installed plugins are closed.');
+  /// Every installed capability implementing [T], in manifest order.
+  Iterable<T> capabilities<T extends PluginCapability>() sync* {
+    for (final registration in _registrations) {
+      yield* registration.capabilities.whereType<T>();
+    }
+  }
+
+  Set<PluginLiveChannelScope> liveChannelScopesFor(PluginId owner) {
+    for (final registration in _registrations) {
+      if (registration.descriptor.id == owner) {
+        return registration.descriptor.liveChannelScopes;
+      }
+    }
+    return const {};
+  }
+
+  Future<void> startPhase(
+    PluginStartupPhase phase, {
+    PluginHostBindings? bindings,
+  }) {
+    if (_closing || _closed) {
+      return Future<void>.error(StateError('Installed plugins are closed.'));
+    }
+    return _appLifecycleOperations.run(
+      () => _startPhase(phase, bindings: bindings),
+    );
+  }
+
+  Future<void> _startPhase(
+    PluginStartupPhase phase, {
+    PluginHostBindings? bindings,
+  }) async {
+    if (bindings != null) _appBindings = bindings;
     try {
       for (final registration in _registrations) {
-        for (final lifecycle in registration.appLifecycles) {
-          final completed = _completedPhases[lifecycle];
+        for (final appLifecycle in registration.appLifecycles) {
+          final completed = _completedPhases[appLifecycle];
           if (completed?.contains(phase) ?? false) continue;
-          await lifecycle.startPhase(phase);
-          _started.add(lifecycle);
-          (_completedPhases[lifecycle] ??= {}).add(phase);
+          final restrictedBindings = _appLifecycleBindings.putIfAbsent(
+            appLifecycle,
+            () {
+              _appLifecycleRevocations[appLifecycle] = _appBindings
+                  .consumerRevocations(
+                    appLifecycle.requiredPorts,
+                    consumer: registration.descriptor.id,
+                  )
+                  .toList(growable: false);
+              return _appBindings.restrictedTo(
+                appLifecycle.requiredPorts,
+                consumer: registration.descriptor.id,
+              );
+            },
+          );
+          await appLifecycle.lifecycle.startPhase(phase, restrictedBindings);
+          _started.add(appLifecycle);
+          (_completedPhases[appLifecycle] ??= {}).add(phase);
         }
       }
     } catch (error) {
       final failures = <Object>[error];
       await _closeAppLifecycles(failures);
+      _closing = true;
       _closed = true;
       throw PluginLifecycleException('startPhase(${phase.name})', failures);
     }
   }
 
+  Future<void> observeAppState(String state, {required bool foreground}) {
+    if (_closing || _closed) return Future<void>.value();
+    return _appLifecycleOperations.run(
+      () => _dispatchAppLifecycles(
+        'observeAppState',
+        (lifecycle) => lifecycle.observeAppState(state, foreground: foreground),
+      ),
+    );
+  }
+
+  Future<void> flush() {
+    if (_closing || _closed) return Future<void>.value();
+    return _appLifecycleOperations.run(
+      () => _dispatchAppLifecycles('flush', (lifecycle) => lifecycle.flush()),
+    );
+  }
+
+  Future<void> _dispatchAppLifecycles(
+    String operation,
+    FutureOr<void> Function(PluginAppLifecycle lifecycle) invoke,
+  ) {
+    if (_closed) return Future<void>.value();
+    final failures = <Object>[];
+    final pending = <Future<void>>[];
+    for (final registration in _registrations) {
+      for (final appLifecycle in registration.appLifecycles) {
+        if (!_started.contains(appLifecycle)) continue;
+        try {
+          final result = invoke(appLifecycle.lifecycle);
+          if (result is Future<void>) {
+            pending.add(
+              result.onError((error, _) {
+                failures.add(error ?? StateError('Unknown plugin failure.'));
+              }),
+            );
+          }
+        } catch (error) {
+          failures.add(error);
+        }
+      }
+    }
+    return _finishAppDispatch(operation, pending, failures);
+  }
+
+  static Future<void> _finishAppDispatch(
+    String operation,
+    List<Future<void>> pending,
+    List<Object> failures,
+  ) async {
+    await Future.wait(pending);
+    if (failures.isNotEmpty) {
+      throw PluginLifecycleException(operation, failures);
+    }
+  }
+
   PluginSession openSession(PluginHostBindings bindings) {
-    if (_closed) throw StateError('Installed plugins are closed.');
+    if (_closing || _closed) {
+      throw StateError('Installed plugins are closed.');
+    }
     final contributions = <_OwnedSessionContribution>[];
+    final consumerRevocations = <void Function()>[];
     final services = <PluginServiceKey<Object>, Object>{};
     final serviceOwners = <PluginServiceKey<Object>, PluginId>{};
     try {
@@ -261,6 +444,12 @@ final class InstalledPlugins {
               );
             }
           }
+          consumerRevocations.addAll(
+            bindings.consumerRevocations(
+              session.requiredPorts,
+              consumer: registration.descriptor.id,
+            ),
+          );
           final contribution = _OwnedSessionContribution(
             registration.descriptor.id,
             session.factory(
@@ -275,8 +464,9 @@ final class InstalledPlugins {
           _collectServices(contribution, services, serviceOwners);
         }
       }
-      return PluginSession._(contributions, services);
+      return PluginSession._(contributions, services, consumerRevocations);
     } catch (error) {
+      _revokeConsumers(consumerRevocations, <Object>[]);
       unawaited(_rollbackSessionContributions(contributions));
       rethrow;
     }
@@ -318,7 +508,17 @@ final class InstalledPlugins {
     }
   }
 
-  Future<void> close() async {
+  Future<void> close() {
+    if (_closed) return Future<void>.value();
+    final pending = _closeFuture;
+    if (pending != null) return pending;
+    _closing = true;
+    final close = _appLifecycleOperations.run(_close);
+    _closeFuture = close;
+    return close;
+  }
+
+  Future<void> _close() async {
     if (_closed) return;
     _closed = true;
     final failures = <Object>[];
@@ -330,16 +530,22 @@ final class InstalledPlugins {
 
   Future<void> _closeAppLifecycles(List<Object> failures) async {
     for (final registration in _registrations.reversed) {
-      for (final lifecycle in registration.appLifecycles.reversed) {
-        if (!_started.remove(lifecycle)) continue;
+      for (final appLifecycle in registration.appLifecycles.reversed) {
+        _revokeConsumers(
+          _appLifecycleRevocations.remove(appLifecycle) ?? const [],
+          failures,
+        );
+        if (!_started.remove(appLifecycle)) continue;
         try {
-          await lifecycle.close();
+          await appLifecycle.lifecycle.close();
         } catch (error) {
           failures.add(error);
         }
       }
     }
     _completedPhases.clear();
+    _appLifecycleBindings.clear();
+    _appLifecycleRevocations.clear();
   }
 }
 
@@ -347,8 +553,10 @@ final class PluginSession {
   PluginSession._(
     List<_OwnedSessionContribution> contributions,
     Map<PluginServiceKey<Object>, Object> services,
+    List<void Function()> consumerRevocations,
   ) : _contributions = List.unmodifiable(contributions),
       _services = Map.unmodifiable(services),
+      _consumerRevocations = List.of(consumerRevocations),
       _capabilities = List.unmodifiable([
         for (final contribution in contributions)
           ...contribution.value.capabilities,
@@ -358,8 +566,12 @@ final class PluginSession {
 
   final List<_OwnedSessionContribution> _contributions;
   final Map<PluginServiceKey<Object>, Object> _services;
+  final List<void Function()> _consumerRevocations;
   final List<PluginSessionCapability> _capabilities;
+  final _lifecycleOperations = _PluginLifecycleOperationQueue();
+  bool _closing = false;
   bool _closed = false;
+  Future<void>? _closeFuture;
 
   static void _validateBookmarkTargets(
     List<_OwnedSessionContribution> contributions,
@@ -422,18 +634,51 @@ final class PluginSession {
   Iterable<T> capabilities<T extends PluginSessionCapability>() =>
       _capabilities.whereType<T>();
 
-  Future<void> setForeground(bool foreground) =>
-      _dispatch('setForeground', (lifecycle) {
+  /// Every installed session capability implementing [T], with its owner.
+  ///
+  /// Shell adapters use ownership to scope host authority without requiring a
+  /// capability to repeat or spoof its module id.
+  Iterable<({PluginId owner, T capability})>
+  ownedCapabilities<T extends PluginSessionCapability>() sync* {
+    for (final contribution in _contributions) {
+      for (final capability in contribution.value.capabilities.whereType<T>()) {
+        yield (owner: contribution.owner, capability: capability);
+      }
+    }
+  }
+
+  Future<void> setForeground(bool foreground) {
+    if (_closing || _closed) return Future<void>.value();
+    return _lifecycleOperations.run(
+      () => _dispatch('setForeground', (lifecycle) {
         return lifecycle.setForeground(foreground);
-      });
+      }),
+    );
+  }
 
-  Future<void> forget(String siteUrl) =>
-      _dispatch('forget', (lifecycle) => lifecycle.forget(siteUrl));
+  Future<void> forget(String siteUrl) {
+    if (_closing || _closed) return Future<void>.value();
+    return _lifecycleOperations.run(
+      () => _dispatch('forget', (lifecycle) => lifecycle.forget(siteUrl)),
+    );
+  }
 
-  Future<void> close() async {
+  Future<void> close() {
+    if (_closed) return Future<void>.value();
+    final pending = _closeFuture;
+    if (pending != null) return pending;
+    _closing = true;
+    final failures = <Object>[];
+    _revokeConsumers(_consumerRevocations, failures);
+    _consumerRevocations.clear();
+    final close = _lifecycleOperations.run(() => _close(failures));
+    _closeFuture = close;
+    return close;
+  }
+
+  Future<void> _close(List<Object> failures) async {
     if (_closed) return;
     _closed = true;
-    final failures = <Object>[];
     for (final contribution in _contributions.reversed) {
       try {
         await contribution.value.lifecycle.close();
@@ -540,20 +785,16 @@ final class _PluginRegistrar implements PluginRegistrar {
   _PluginRegistrar(this.descriptor);
 
   final PluginDescriptor descriptor;
-  final List<SitePlugin> _capabilities = [];
-  final List<PluginAppLifecycle> _appLifecycles = [];
+  final List<PluginCapability> _capabilities = [];
+  final List<_AppLifecycleRegistration> _appLifecycles = [];
   final List<_SessionRegistration> _sessions = [];
   final Set<String> _routeNamespaces = {};
   final Set<String> _syntaxIds = {};
   final Set<String> _exclusiveClaims = {};
+  final Set<PluginLiveChannelScope> _liveChannelScopes = {};
 
   @override
   void addCapability(PluginCapability capability) {
-    if (capability is! SitePlugin) {
-      throw PluginInstallationException(
-        '${descriptor.id} registered a capability outside the app API.',
-      );
-    }
     if (capability.name != descriptor.id.value) {
       throw PluginInstallationException(
         '${descriptor.id} registered capability ${capability.name}.',
@@ -570,8 +811,13 @@ final class _PluginRegistrar implements PluginRegistrar {
   }
 
   @override
-  void addAppLifecycle(PluginAppLifecycle lifecycle) {
-    _appLifecycles.add(lifecycle);
+  void addAppLifecycle(
+    PluginAppLifecycle lifecycle, {
+    Iterable<PluginHostPortKey<Object>> requires = const [],
+  }) {
+    _appLifecycles.add(
+      _AppLifecycleRegistration(lifecycle, List.unmodifiable(requires)),
+    );
   }
 
   @override
@@ -587,6 +833,16 @@ final class _PluginRegistrar implements PluginRegistrar {
   @override
   void addExclusiveClaim(String claim) {
     _addClaim(_exclusiveClaims, claim, 'exclusive claim');
+  }
+
+  @override
+  void addLiveChannelScope(PluginLiveChannelScope scope) {
+    if (!_liveChannelScopes.add(scope)) {
+      throw PluginInstallationException(
+        '${descriptor.id} registered duplicate live-channel scope '
+        '${scope.path}.',
+      );
+    }
   }
 
   @override
@@ -612,6 +868,11 @@ final class _PluginRegistrar implements PluginRegistrar {
       kind: 'exclusive claims',
       declared: descriptor.exclusiveClaims,
       registered: _exclusiveClaims,
+    );
+    _validateClaims(
+      kind: 'live-channel scopes',
+      declared: descriptor.liveChannelScopes,
+      registered: _liveChannelScopes,
     );
 
     final capabilitySyntaxIds = <String>{};
@@ -640,10 +901,10 @@ final class _PluginRegistrar implements PluginRegistrar {
     }
   }
 
-  void _validateClaims({
+  void _validateClaims<T>({
     required String kind,
-    required Set<String> declared,
-    required Set<String> registered,
+    required Set<T> declared,
+    required Set<T> registered,
   }) {
     if (declared.length == registered.length &&
         declared.containsAll(registered)) {
@@ -655,8 +916,8 @@ final class _PluginRegistrar implements PluginRegistrar {
     );
   }
 
-  static String _formatClaims(Set<String> claims) {
-    final sorted = claims.toList()..sort();
+  static String _formatClaims(Set<Object?> claims) {
+    final sorted = claims.map((claim) => claim.toString()).toList()..sort();
     return '{${sorted.join(', ')}}';
   }
 }
@@ -670,8 +931,8 @@ final class _PluginRegistration {
   );
 
   final PluginDescriptor descriptor;
-  final List<SitePlugin> capabilities;
-  final List<PluginAppLifecycle> appLifecycles;
+  final List<PluginCapability> capabilities;
+  final List<_AppLifecycleRegistration> appLifecycles;
   final List<_SessionRegistration> sessions;
 }
 
@@ -686,6 +947,13 @@ final class _SessionRegistration {
   const _SessionRegistration(this.factory, this.requiredPorts);
 
   final PluginSessionFactory factory;
+  final List<PluginHostPortKey<Object>> requiredPorts;
+}
+
+final class _AppLifecycleRegistration {
+  const _AppLifecycleRegistration(this.lifecycle, this.requiredPorts);
+
+  final PluginAppLifecycle lifecycle;
   final List<PluginHostPortKey<Object>> requiredPorts;
 }
 

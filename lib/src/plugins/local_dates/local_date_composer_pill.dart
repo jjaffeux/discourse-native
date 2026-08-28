@@ -21,26 +21,29 @@ String localDateComposerSummary(
   LocalDateComposerBlock block, {
   required Locale locale,
   String? accountTimezone,
-  LocalDateFormatter formatter = const LocalDateFormatter(),
+  LocalDateFormatter? formatter,
 }) {
   try {
     final draft = LocalDateComposerDraft.fromBlock(block);
-    LocalDateResolved? resolve(String date, String? time) => formatter.resolve(
-      LocalDateSpec(
-        date: date,
-        time: time,
-        timezone: draft.timezone,
-        format: draft.format,
-        calendar: draft.calendar,
-        recurring: draft.recurring,
-        countdown: draft.countdown,
-        displayedTimezone: draft.displayedTimezone,
-        timezones: draft.previewTimezones,
-        fallbackText: block.source,
-      ),
-      locale: locale,
-      accountTimezone: accountTimezone,
-    );
+    final resolvedFormatter =
+        formatter ?? LocalDateFormatter(environment: block.environment);
+    LocalDateResolved? resolve(String date, String? time) =>
+        resolvedFormatter.resolve(
+          LocalDateSpec(
+            date: date,
+            time: time,
+            timezone: draft.timezone,
+            format: draft.format,
+            calendar: draft.calendar,
+            recurring: draft.recurring,
+            countdown: draft.countdown,
+            displayedTimezone: draft.displayedTimezone,
+            timezones: draft.previewTimezones,
+            fallbackText: block.source,
+          ),
+          locale: locale,
+          accountTimezone: accountTimezone,
+        );
 
     final start = resolve(draft.startDate, draft.startTime);
     if (start == null) return block.source;
@@ -62,6 +65,7 @@ String localDateComposerSummary(
 
 List<InlineSpan> buildCollapsedLocalDateSpans({
   required LocalDateComposerBlock block,
+  required LocalDateFormatter formatter,
   required TextStyle baseStyle,
   required Locale locale,
   String? accountTimezone,
@@ -104,6 +108,7 @@ List<InlineSpan> buildCollapsedLocalDateSpans({
     block,
     locale: locale,
     accountTimezone: accountTimezone,
+    formatter: formatter,
   );
   spans.add(
     WidgetSpan(

@@ -1,6 +1,8 @@
 import 'dart:math';
 
 import 'package:discourse_native/src/plugins/chat/chat_transcript.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_widget.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -297,6 +299,10 @@ const _builders = [
 ];
 
 void main() {
+  final localDateFormatter = LocalDateFormatter(
+    environment: LocalDateEnvironment.instance,
+  );
+
   // Cooked HTML is the site's, not this client's, and a builder that throws
   // while reading it does not lose one onebox — `HtmlWidget` calls these from
   // inside `build`, so the exception replaces the whole post, and in a topic
@@ -371,7 +377,11 @@ void main() {
           );
           probe(
             'localDate',
-            () => localDateWidgetBuilder(element, siteUrl: site),
+            () => localDateWidgetBuilder(
+              element,
+              siteUrl: site,
+              formatter: localDateFormatter,
+            ),
             element,
           );
         }

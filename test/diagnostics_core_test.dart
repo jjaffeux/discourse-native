@@ -442,6 +442,55 @@ void main() {
       },
     );
 
+    test(
+      'a fixed plugin reporter keeps its sink and operation correlation',
+      () async {
+        final ambient = await DiagnosticsController.create(
+          persistence: MemoryDiagnosticsPersistence(),
+          sessionId: 'ambient-plugin-reporter',
+        );
+        final binding = DiagnosticsSink.install(ambient);
+        addTearDown(() async {
+          binding.close();
+          await ambient.close();
+        });
+        final reporter = PluginDiagnosticsReporter.fixed(controller);
+
+        await reporter.runOperation('plugin.refresh', () async {
+          await Future<void>.delayed(Duration.zero);
+          expect(reporter.currentOperation, 'plugin.refresh');
+          expect(reporter.currentCorrelationId, 'plugin-correlation');
+          reporter.recordLog(name: 'plugin.refreshed', source: 'test-plugin');
+        }, correlationId: 'plugin-correlation');
+
+        final event = controller.events.whereType<DiagnosticLogEvent>().single;
+        expect(event.operation, 'plugin.refresh');
+        expect(event.correlationId, 'plugin-correlation');
+        expect(ambient.events.whereType<DiagnosticLogEvent>(), isEmpty);
+      },
+    );
+
+    test(
+      'a fixed plugin reporter preserves clear generation isolation',
+      () async {
+        final reporter = PluginDiagnosticsReporter.fixed(controller);
+        final started = Completer<void>();
+        final release = Completer<void>();
+        final oldOperation = reporter.runOperation('plugin.old-work', () async {
+          started.complete();
+          await release.future;
+          reporter.reportError(StateError('stale failure'), StackTrace.current);
+        });
+        await started.future;
+
+        await controller.clear();
+        release.complete();
+        await oldOperation;
+
+        expect(controller.events, isEmpty);
+      },
+    );
+
     test('folds HTTP updates by id and classifies HTTP failures as errors', () {
       controller.recordHttp(_httpRecord(now, HttpDiagnosticPhase.started));
       now = now.add(const Duration(milliseconds: 125));

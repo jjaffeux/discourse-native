@@ -1,11 +1,20 @@
 import '../../plugin_api/plugin_manifest.dart';
+import 'local_date_environment.dart';
 import 'local_dates_plugin.dart';
 
 const localDatesPluginId = PluginId('discourse-local-dates');
-const localDatesModule = LocalDatesModule();
+
+/// Production composition injects the process-owned timezone facility here;
+/// tests and alternate hosts can construct [LocalDatesModule] with an isolated
+/// environment instead.
+final localDatesModule = LocalDatesModule(
+  environment: LocalDateEnvironment.instance,
+);
 
 final class LocalDatesModule implements PluginModule {
-  const LocalDatesModule();
+  const LocalDatesModule({required this.environment});
+
+  final LocalDateEnvironment environment;
 
   @override
   PluginDescriptor get descriptor => const PluginDescriptor(
@@ -15,7 +24,7 @@ final class LocalDatesModule implements PluginModule {
 
   @override
   void register(PluginRegistrar registrar) {
-    const plugin = LocalDatesPlugin();
+    final plugin = LocalDatesPlugin(environment: environment);
     registrar.addCapability(plugin);
     registrar.addSyntaxId(plugin.syntaxId);
   }

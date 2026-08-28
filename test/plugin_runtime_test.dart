@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
+import 'package:discourse_plugin_api/discourse_plugin_api.dart' as public_api;
 import 'package:flutter_test/flutter_test.dart';
 
 const _hostValuePort = PluginHostPortKey<String>(
@@ -14,6 +17,10 @@ const _undeclaredHostValuePort = PluginHostPortKey<String>(
 const _scopedHostValuePort = PluginHostPortKey<String>(
   owner: PluginId('core'),
   name: 'scoped-value',
+);
+const _revocableHostPort = PluginHostPortKey<_RevocableHost>(
+  owner: PluginId('core'),
+  name: 'revocable-host',
 );
 const _serviceKey = PluginServiceKey<String>(
   owner: PluginId('feature'),
@@ -67,6 +74,30 @@ void main() {
       );
     },
   );
+
+  test('registrar retains capabilities declared against the pure API', () {
+    final installed = PluginInstaller.install(
+      const PluginManifest([
+        _Module(
+          'public-only',
+          capabilities: [_PublicCapability('public-only')],
+        ),
+      ]),
+    );
+
+    expect(installed.capabilities<_PublicCapability>(), [
+      const _PublicCapability('public-only'),
+    ]);
+    expect(installed.registry.plugins, isEmpty);
+    expect(
+      () => PluginInstaller.install(
+        const PluginManifest([
+          _Module('owner', capabilities: [_PublicCapability('someone-else')]),
+        ]),
+      ),
+      throwsA(isA<PluginInstallationException>()),
+    );
+  });
 
   test('installation snapshots each descriptor exactly once', () {
     final dependencies = <PluginDependency>[
@@ -334,6 +365,72 @@ void main() {
     }
   });
 
+  test('live-channel scopes are segment safe and may overlap', () {
+    const chat = PluginLiveChannelScope.prefix('/chat');
+    expect(chat.allows('/chat'), isTrue);
+    expect(chat.allows('/chat/42'), isTrue);
+    expect(chat.allows('/chatty'), isFalse);
+
+    final installed = PluginInstaller.install(
+      PluginManifest([
+        _Module('chat', liveChannelScopes: {chat}),
+        _Module('resenha', liveChannelScopes: {chat}),
+      ]),
+    );
+
+    expect(installed.liveChannelScopesFor(const PluginId('chat')), {chat});
+    expect(installed.liveChannelScopesFor(const PluginId('resenha')), {chat});
+    expect(installed.liveChannelScopesFor(const PluginId('missing')), isEmpty);
+  });
+
+  test('live-channel declarations must be exact, valid, and non-core', () {
+    for (final module in <PluginModule>[
+      _Module(
+        'mismatch',
+        liveChannelScopes: {const PluginLiveChannelScope.prefix('/declared')},
+        registeredLiveChannelScopes: const [
+          PluginLiveChannelScope.prefix('/actual'),
+        ],
+      ),
+      _Module(
+        'invalid',
+        liveChannelScopes: {const PluginLiveChannelScope.prefix('/invalid/')},
+      ),
+      _Module(
+        'core-child',
+        liveChannelScopes: {
+          const PluginLiveChannelScope.prefix('/notification/plugin'),
+        },
+      ),
+    ]) {
+      expect(
+        () => PluginInstaller.install(PluginManifest([module])),
+        throwsA(isA<PluginInstallationException>()),
+      );
+    }
+
+    const reserved = [
+      '/latest',
+      '/new',
+      '/notification',
+      '/reviewable_counts',
+      '/user-status',
+      '/do-not-disturb',
+      '/topic',
+    ];
+    for (var index = 0; index < reserved.length; index++) {
+      final scope = PluginLiveChannelScope.prefix(reserved[index]);
+      expect(
+        () => PluginInstaller.install(
+          PluginManifest([
+            _Module('reserved-$index', liveChannelScopes: {scope}),
+          ]),
+        ),
+        throwsA(isA<PluginInstallationException>()),
+      );
+    }
+  });
+
   test('registered claims must exactly match descriptors and syntax', () {
     expect(
       () => PluginInstaller.install(
@@ -564,6 +661,241 @@ void main() {
   });
 
   test(
+    'app lifecycles receive only owner-scoped declared host ports',
+    () async {
+      final received = <String>[];
+      var materializations = 0;
+      final installed = PluginInstaller.install(
+        PluginManifest([
+          for (final id in const ['first', 'second'])
+            _Module(
+              id,
+              appLifecycle: _AppLifecycle(
+                id,
+                [],
+                inspectBindings: (bindings) {
+                  received.add('$id:${bindings.require(_scopedHostValuePort)}');
+                  received.add(
+                    '$id:undeclared:${bindings.contains(_hostValuePort)}',
+                  );
+                },
+              ),
+              requiredAppPorts: const [_scopedHostValuePort],
+            ),
+        ]),
+      );
+      final rootBindings = PluginHostBindings([
+        PluginHostPort<Object>(
+          _scopedHostValuePort,
+          'root',
+          scopeToConsumer: (owner) {
+            materializations += 1;
+            return 'scoped:${owner.value}';
+          },
+        ),
+        const PluginHostPort<Object>(_hostValuePort, 'private'),
+      ]);
+
+      await installed.startPhase(
+        PluginStartupPhase.bootstrap,
+        bindings: rootBindings,
+      );
+      await installed.startPhase(PluginStartupPhase.appReady);
+
+      expect(received, [
+        'first:scoped:first',
+        'first:undeclared:false',
+        'second:scoped:second',
+        'second:undeclared:false',
+        'first:scoped:first',
+        'first:undeclared:false',
+        'second:scoped:second',
+        'second:undeclared:false',
+      ]);
+      expect(materializations, 2);
+    },
+  );
+
+  test('app lifecycle rollback and close revoke scoped authority', () async {
+    for (final failStart in [true, false]) {
+      late _RevocableHost retained;
+      final hosts = <PluginId, _RevocableHost>{};
+      final installed = PluginInstaller.install(
+        PluginManifest([
+          _Module(
+            'feature',
+            appLifecycle: _AppLifecycle(
+              'feature',
+              [],
+              failStart: failStart,
+              inspectBindings: (bindings) {
+                retained = bindings.require(_revocableHostPort);
+              },
+            ),
+            requiredAppPorts: const [_revocableHostPort],
+          ),
+        ]),
+      );
+      final bindings = PluginHostBindings([
+        PluginHostPort<Object>(
+          _revocableHostPort,
+          _RevocableHost(),
+          scopeToConsumer: (consumer) =>
+              hosts.putIfAbsent(consumer, _RevocableHost.new),
+          revokeConsumer: (consumer) => hosts[consumer]?.revoke(),
+        ),
+      ]);
+
+      if (failStart) {
+        await expectLater(
+          installed.startPhase(
+            PluginStartupPhase.bootstrap,
+            bindings: bindings,
+          ),
+          throwsA(isA<PluginLifecycleException>()),
+        );
+      } else {
+        await installed.startPhase(
+          PluginStartupPhase.bootstrap,
+          bindings: bindings,
+        );
+        expect(retained.read(), 'available');
+        await installed.close();
+      }
+      expect(retained.read, throwsStateError);
+    }
+  });
+
+  test('app lifecycle startup rejects missing declared host ports', () async {
+    final installed = PluginInstaller.install(
+      PluginManifest([
+        _Module(
+          'feature',
+          appLifecycle: _AppLifecycle('feature', []),
+          requiredAppPorts: const [_hostValuePort],
+        ),
+      ]),
+    );
+
+    await expectLater(
+      installed.startPhase(PluginStartupPhase.bootstrap),
+      throwsA(
+        isA<PluginLifecycleException>().having(
+          (error) => error.failures,
+          'failures',
+          contains(isA<PluginInstallationException>()),
+        ),
+      ),
+    );
+  });
+
+  test(
+    'app lifecycle hooks isolate failures and dispatch every contributor',
+    () async {
+      final events = <String>[];
+      final installed = PluginInstaller.install(
+        PluginManifest([
+          _Module('first', appLifecycle: _AppLifecycle('first', events)),
+          _Module(
+            'sync-failure',
+            appLifecycle: _AppLifecycle(
+              'sync-failure',
+              events,
+              failObserve: true,
+              failFlush: true,
+            ),
+          ),
+          _Module(
+            'async-failure',
+            appLifecycle: _AppLifecycle(
+              'async-failure',
+              events,
+              failObserve: true,
+              failFlush: true,
+              asyncHookFailures: true,
+            ),
+          ),
+          _Module('last', appLifecycle: _AppLifecycle('last', events)),
+        ]),
+      );
+      await installed.startPhase(PluginStartupPhase.bootstrap);
+      events.clear();
+
+      await expectLater(
+        installed.observeAppState('paused', foreground: false),
+        throwsA(
+          isA<PluginLifecycleException>()
+              .having(
+                (error) => error.operation,
+                'operation',
+                'observeAppState',
+              )
+              .having((error) => error.failures, 'failures', hasLength(2)),
+        ),
+      );
+      expect(events, [
+        'first:state:paused:false',
+        'sync-failure:state:paused:false',
+        'async-failure:state:paused:false',
+        'last:state:paused:false',
+      ]);
+
+      events.clear();
+      await expectLater(
+        installed.flush(),
+        throwsA(
+          isA<PluginLifecycleException>()
+              .having((error) => error.operation, 'operation', 'flush')
+              .having((error) => error.failures, 'failures', hasLength(2)),
+        ),
+      );
+      expect(events, [
+        'first:flush',
+        'sync-failure:flush',
+        'async-failure:flush',
+        'last:flush',
+      ]);
+    },
+  );
+
+  test(
+    'app lifecycle close drains an in-flight hook before teardown',
+    () async {
+      final events = <String>[];
+      final hookStarted = Completer<void>();
+      final releaseHook = Completer<void>();
+      final installed = PluginInstaller.install(
+        PluginManifest([
+          _Module(
+            'feature',
+            appLifecycle: _GatedAppLifecycle(
+              events,
+              hookStarted: hookStarted,
+              releaseHook: releaseHook,
+            ),
+          ),
+        ]),
+      );
+      await installed.startPhase(PluginStartupPhase.bootstrap);
+      events.clear();
+
+      final observing = installed.observeAppState('paused', foreground: false);
+      await hookStarted.future;
+      final closing = installed.close();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(events, ['observe:start']);
+      await installed.flush();
+      expect(events, ['observe:start']);
+
+      releaseHook.complete();
+      await observing;
+      await closing;
+      expect(events, ['observe:start', 'observe:end', 'close']);
+    },
+  );
+
+  test(
     'sessions require declared host ports and expose typed services',
     () async {
       final events = <String>[];
@@ -665,6 +997,102 @@ void main() {
       'second:scoped:second',
       'second:rebound:scoped:second',
     ]);
+  });
+
+  test('factory rollback revokes hostile retained scoped authority', () {
+    late _RevocableHost retained;
+    final hosts = <PluginId, _RevocableHost>{};
+    final installed = PluginInstaller.install(
+      PluginManifest([
+        _Module(
+          'feature',
+          sessionFactory: (bindings, _) {
+            retained = bindings.require(_revocableHostPort);
+            throw StateError('hostile factory failure');
+          },
+          requiredPorts: const [_revocableHostPort],
+        ),
+      ]),
+    );
+    final bindings = PluginHostBindings([
+      PluginHostPort<Object>(
+        _revocableHostPort,
+        _RevocableHost(),
+        scopeToConsumer: (consumer) =>
+            hosts.putIfAbsent(consumer, _RevocableHost.new),
+        revokeConsumer: (consumer) => hosts[consumer]?.revoke(),
+      ),
+    ]);
+
+    expect(() => installed.openSession(bindings), throwsStateError);
+    expect(retained.read, throwsStateError);
+  });
+
+  test('session close revokes retained scoped authority', () async {
+    late _RevocableHost retained;
+    final hosts = <PluginId, _RevocableHost>{};
+    final installed = PluginInstaller.install(
+      PluginManifest([
+        _Module(
+          'feature',
+          sessionFactory: (bindings, _) {
+            retained = bindings.require(_revocableHostPort);
+            return PluginSessionContribution(lifecycle: _SessionLifecycle([]));
+          },
+          requiredPorts: const [_revocableHostPort],
+        ),
+      ]),
+    );
+    final session = installed.openSession(
+      PluginHostBindings([
+        PluginHostPort<Object>(
+          _revocableHostPort,
+          _RevocableHost(),
+          scopeToConsumer: (consumer) =>
+              hosts.putIfAbsent(consumer, _RevocableHost.new),
+          revokeConsumer: (consumer) => hosts[consumer]?.revoke(),
+        ),
+      ]),
+    );
+
+    expect(retained.read(), 'available');
+    await session.close();
+    expect(retained.read, throwsStateError);
+  });
+
+  test('session close drains an in-flight hook before teardown', () async {
+    final events = <String>[];
+    final hookStarted = Completer<void>();
+    final releaseHook = Completer<void>();
+    final installed = PluginInstaller.install(
+      PluginManifest([
+        _Module(
+          'feature',
+          sessionFactory: (_, _) => PluginSessionContribution(
+            lifecycle: _GatedSessionLifecycle(
+              events,
+              hookStarted: hookStarted,
+              releaseHook: releaseHook,
+            ),
+          ),
+        ),
+      ]),
+    );
+    final session = installed.openSession(const PluginHostBindings.empty());
+
+    final foregrounding = session.setForeground(false);
+    await hookStarted.future;
+    final closing = session.close();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(events, ['foreground:start']);
+    await session.forget('https://ignored.example');
+    expect(events, ['foreground:start']);
+
+    releaseHook.complete();
+    await foregrounding;
+    await closing;
+    expect(events, ['foreground:start', 'foreground:end', 'close']);
   });
 
   test('session contributions cannot provide another plugin service', () {
@@ -816,6 +1244,34 @@ void main() {
     }
   });
 
+  test('session capability lookup preserves contributing owners', () async {
+    final installed = PluginInstaller.install(
+      PluginManifest([
+        for (final id in const ['first', 'second'])
+          _Module(
+            id,
+            sessionFactory: (_, _) => PluginSessionContribution(
+              lifecycle: _SessionLifecycle([]),
+              capabilities: [_SessionProbe(id)],
+            ),
+          ),
+      ]),
+    );
+    final session = installed.openSession(const PluginHostBindings.empty());
+
+    expect(
+      session.ownedCapabilities<_SessionProbe>().map(
+        (entry) => '${entry.owner.value}:${entry.capability.value}',
+      ),
+      ['first:first', 'second:second'],
+    );
+    expect(session.capabilities<_SessionProbe>().map((item) => item.value), [
+      'first',
+      'second',
+    ]);
+    await session.close();
+  });
+
   test(
     'async session teardown completes in reverse dependency order',
     () async {
@@ -900,13 +1356,16 @@ final class _Module implements PluginModule {
     this.routeNamespaces = const {},
     this.syntaxIds = const {},
     this.exclusiveClaims = const {},
+    this.liveChannelScopes = const {},
     this.registeredRouteNamespaces,
     this.registeredSyntaxIds,
     this.registeredExclusiveClaims,
+    this.registeredLiveChannelScopes,
     this.capabilities,
     this.onRegister,
     this.appLifecycle,
     this.sessionFactory,
+    this.requiredAppPorts = const [],
     this.requiredPorts = const [],
   });
 
@@ -915,13 +1374,16 @@ final class _Module implements PluginModule {
   final Set<String> routeNamespaces;
   final Set<String> syntaxIds;
   final Set<String> exclusiveClaims;
+  final Set<PluginLiveChannelScope> liveChannelScopes;
   final List<String>? registeredRouteNamespaces;
   final List<String>? registeredSyntaxIds;
   final List<String>? registeredExclusiveClaims;
+  final List<PluginLiveChannelScope>? registeredLiveChannelScopes;
   final List<PluginCapability>? capabilities;
   final void Function(String)? onRegister;
   final PluginAppLifecycle? appLifecycle;
   final PluginSessionFactory? sessionFactory;
+  final List<PluginHostPortKey<Object>> requiredAppPorts;
   final List<PluginHostPortKey<Object>> requiredPorts;
 
   @override
@@ -931,6 +1393,7 @@ final class _Module implements PluginModule {
     routeNamespaces: routeNamespaces,
     syntaxIds: syntaxIds,
     exclusiveClaims: exclusiveClaims,
+    liveChannelScopes: liveChannelScopes,
   );
 
   @override
@@ -949,8 +1412,11 @@ final class _Module implements PluginModule {
     for (final claim in registeredExclusiveClaims ?? exclusiveClaims) {
       registrar.addExclusiveClaim(claim);
     }
+    for (final scope in registeredLiveChannelScopes ?? liveChannelScopes) {
+      registrar.addLiveChannelScope(scope);
+    }
     if (appLifecycle case final lifecycle?) {
-      registrar.addAppLifecycle(lifecycle);
+      registrar.addAppLifecycle(lifecycle, requires: requiredAppPorts);
     }
     if (sessionFactory case final factory?) {
       registrar.addSession(factory, requires: requiredPorts);
@@ -963,6 +1429,19 @@ final class _Capability implements SitePlugin {
 
   @override
   final String name;
+}
+
+final class _PublicCapability implements public_api.PluginCapability {
+  const _PublicCapability(this.name);
+
+  @override
+  final String name;
+}
+
+final class _SessionProbe implements PluginSessionCapability {
+  const _SessionProbe(this.value);
+
+  final String value;
 }
 
 final class _BookmarkStrategy implements PluginBookmarkTargetStrategy {
@@ -1011,20 +1490,74 @@ final class _RecordCapability implements SitePlugin, PluginRecord<String> {
 }
 
 final class _AppLifecycle extends PluginAppLifecycle {
-  _AppLifecycle(this.name, this.events, {this.failStart = false});
+  _AppLifecycle(
+    this.name,
+    this.events, {
+    this.failStart = false,
+    this.failObserve = false,
+    this.failFlush = false,
+    this.asyncHookFailures = false,
+    this.inspectBindings,
+  });
 
   final String name;
   final List<String> events;
   final bool failStart;
+  final bool failObserve;
+  final bool failFlush;
+  final bool asyncHookFailures;
+  final void Function(PluginHostBindings bindings)? inspectBindings;
 
   @override
-  void startPhase(PluginStartupPhase phase) {
+  void startPhase(PluginStartupPhase phase, PluginHostBindings bindings) {
     events.add('$name:start:${phase.name}');
+    inspectBindings?.call(bindings);
     if (failStart) throw StateError(name);
   }
 
   @override
+  FutureOr<void> observeAppState(String state, {required bool foreground}) {
+    events.add('$name:state:$state:$foreground');
+    if (failObserve) {
+      if (asyncHookFailures) return Future<void>.error(StateError(name));
+      throw StateError(name);
+    }
+  }
+
+  @override
+  FutureOr<void> flush() {
+    events.add('$name:flush');
+    if (failFlush) {
+      if (asyncHookFailures) return Future<void>.error(StateError(name));
+      throw StateError(name);
+    }
+  }
+
+  @override
   void close() => events.add('$name:close');
+}
+
+final class _GatedAppLifecycle extends PluginAppLifecycle {
+  _GatedAppLifecycle(
+    this.events, {
+    required this.hookStarted,
+    required this.releaseHook,
+  });
+
+  final List<String> events;
+  final Completer<void> hookStarted;
+  final Completer<void> releaseHook;
+
+  @override
+  Future<void> observeAppState(String state, {required bool foreground}) async {
+    events.add('observe:start');
+    hookStarted.complete();
+    await releaseHook.future;
+    events.add('observe:end');
+  }
+
+  @override
+  void close() => events.add('close');
 }
 
 final class _SessionLifecycle extends PluginSessionLifecycle {
@@ -1047,6 +1580,40 @@ final class _SessionLifecycle extends PluginSessionLifecycle {
     events.add(name == null ? 'close' : '$name:close');
     if (failClose) throw StateError(name ?? 'session');
   }
+}
+
+final class _GatedSessionLifecycle extends PluginSessionLifecycle {
+  _GatedSessionLifecycle(
+    this.events, {
+    required this.hookStarted,
+    required this.releaseHook,
+  });
+
+  final List<String> events;
+  final Completer<void> hookStarted;
+  final Completer<void> releaseHook;
+
+  @override
+  Future<void> setForeground(bool foreground) async {
+    events.add('foreground:start');
+    hookStarted.complete();
+    await releaseHook.future;
+    events.add('foreground:end');
+  }
+
+  @override
+  void close() => events.add('close');
+}
+
+final class _RevocableHost {
+  bool _revoked = false;
+
+  String read() {
+    if (_revoked) throw StateError('Scoped authority was revoked.');
+    return 'available';
+  }
+
+  void revoke() => _revoked = true;
 }
 
 final class _AsyncSessionLifecycle extends PluginSessionLifecycle {

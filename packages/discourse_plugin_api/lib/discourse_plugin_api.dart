@@ -78,6 +78,30 @@ final class PluginDependency {
   final bool optional;
 }
 
+/// One message-bus namespace a plugin may subscribe to at runtime.
+///
+/// Prefixes are path-segment aware: `/chat` permits `/chat` and
+/// `/chat/42`, but never `/chatty`. The runtime validates declarations before
+/// installation, including rejecting namespaces reserved for core.
+final class PluginLiveChannelScope {
+  const PluginLiveChannelScope.prefix(this.path);
+
+  final String path;
+
+  bool allows(String channel) =>
+      channel == path || channel.startsWith('$path/');
+
+  @override
+  bool operator ==(Object other) =>
+      other is PluginLiveChannelScope && other.path == path;
+
+  @override
+  int get hashCode => path.hashCode;
+
+  @override
+  String toString() => path;
+}
+
 final class PluginDescriptor {
   const PluginDescriptor({
     required this.id,
@@ -86,6 +110,7 @@ final class PluginDescriptor {
     this.routeNamespaces = const {},
     this.syntaxIds = const {},
     this.exclusiveClaims = const {},
+    this.liveChannelScopes = const {},
   });
 
   final PluginId id;
@@ -94,6 +119,7 @@ final class PluginDescriptor {
   final Set<String> routeNamespaces;
   final Set<String> syntaxIds;
   final Set<String> exclusiveClaims;
+  final Set<PluginLiveChannelScope> liveChannelScopes;
 }
 
 final class PluginManifest {
@@ -113,13 +139,18 @@ abstract interface class PluginModule {
 abstract interface class PluginRegistrar {
   void addCapability(PluginCapability capability);
 
-  void addAppLifecycle(PluginAppLifecycle lifecycle);
+  void addAppLifecycle(
+    PluginAppLifecycle lifecycle, {
+    Iterable<PluginHostPortKey<Object>> requires,
+  });
 
   void addRouteNamespace(String namespace);
 
   void addSyntaxId(String syntaxId);
 
   void addExclusiveClaim(String claim);
+
+  void addLiveChannelScope(PluginLiveChannelScope scope);
 
   void addSession(
     PluginSessionFactory factory, {
@@ -128,7 +159,14 @@ abstract interface class PluginRegistrar {
 }
 
 abstract base class PluginAppLifecycle {
-  FutureOr<void> startPhase(PluginStartupPhase phase) {}
+  FutureOr<void> startPhase(
+    PluginStartupPhase phase,
+    PluginHostBindings bindings,
+  ) {}
+
+  FutureOr<void> observeAppState(String state, {required bool foreground}) {}
+
+  FutureOr<void> flush() {}
 
   FutureOr<void> close() {}
 }
@@ -213,6 +251,22 @@ final class PluginHostBindings {
     for (final key in keys) _restrictedPort(key, consumer: consumer),
   ]);
 
+  /// Revocations attached to root ports for one materialized consumer.
+  ///
+  /// Restricted bindings never carry revocation callbacks, so a plugin cannot
+  /// revoke another consumer or retain a callback to its root binding. The
+  /// runtime collects these closures before invoking a lifecycle or factory
+  /// and owns their execution during rollback and teardown.
+  Iterable<void Function()> consumerRevocations(
+    Iterable<PluginHostPortKey<Object>> keys, {
+    required PluginId consumer,
+  }) sync* {
+    for (final key in keys) {
+      final revoke = _ports[key]?.revokeConsumer;
+      if (revoke != null) yield () => revoke(consumer);
+    }
+  }
+
   PluginHostPort<Object> _restrictedPort(
     PluginHostPortKey<Object> key, {
     required PluginId? consumer,
@@ -241,7 +295,12 @@ final class PluginHostBindings {
 }
 
 final class PluginHostPort<T extends Object> {
-  const PluginHostPort(this.key, this.value, {this.scopeToConsumer});
+  const PluginHostPort(
+    this.key,
+    this.value, {
+    this.scopeToConsumer,
+    this.revokeConsumer,
+  });
 
   final PluginHostPortKey<T> key;
   final T value;
@@ -252,6 +311,13 @@ final class PluginHostPort<T extends Object> {
   /// Scoped ports are materialized by [PluginHostBindings.restrictedTo] before
   /// a plugin session factory can observe them.
   final T Function(PluginId consumer)? scopeToConsumer;
+
+  /// Revokes stateful authority previously materialized for one consumer.
+  ///
+  /// This callback exists only on a root binding. Restricted plugin bindings
+  /// strip it alongside [scopeToConsumer]. It must synchronously make retained
+  /// handles unusable; asynchronous cleanup belongs to plugin lifecycle close.
+  final void Function(PluginId consumer)? revokeConsumer;
 }
 
 /// Services exposed by modules this module explicitly depends on.

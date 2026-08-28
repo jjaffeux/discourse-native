@@ -2,11 +2,12 @@ import 'dart:async';
 
 import '../../data/api_credentials.dart';
 import '../../data/site_lifecycle.dart';
-import '../../data/site_tracker.dart';
+import '../../plugin_api/live_channels.dart';
 import 'ai_summary.dart';
 import 'ai_summary_api.dart';
 
-typedef AiSummaryTrackerReader = SiteTracker? Function(String siteUrl);
+typedef AiSummaryTrackerReader =
+    PluginLiveChannelHandle? Function(String siteUrl);
 
 /// Coordinates cached and newly streamed Discourse AI topic summaries.
 final class AiSummaryController {
@@ -57,9 +58,9 @@ final class AiSummaryController {
     }
 
     final completed = Completer<AiTopicSummary>();
-    final subscription = tracker.watchPluginChannel(
+    final subscription = tracker.subscribe(
       '/discourse-ai/summaries/topic/$topicId',
-      (data) {
+      (data, _) {
         if (data is! Map<String, dynamic>) return;
         final body = data;
         final summary = AiTopicSummary.fromJson(body);

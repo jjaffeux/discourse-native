@@ -28,8 +28,71 @@ final class PluginRegistry implements PluginDataDecoder {
     registry._validateComposerTargetOwners();
     registry._validateTopicRecommendationSources();
     registry._validateNotificationFeeds();
+    registry._validateCapabilityCardinality();
     return registry;
   }
+
+  void _validateCapabilityCardinality() {
+    _validateAtMostOne<ComposerMaximumOptionsPlugin>(
+      'composer maximum-options provider',
+    );
+    _validateUniqueKeys<PluginPermissionPlugin>(
+      'permission id',
+      (plugin) => plugin.permissionId,
+    );
+    _validateUniqueKeys<PluginSiteFeature>(
+      'site-feature owner',
+      (plugin) => _ownerOf(plugin),
+    );
+    _validateUniqueKeys<PluginCurrentUserFeature>(
+      'current-user feature owner',
+      (plugin) => _ownerOf(plugin),
+    );
+    _validateUniqueKeys<ChatMessagePreviewPlugin>(
+      'chat preview feature id',
+      (plugin) => plugin.previewFeatureId,
+    );
+    _validateUniqueKeys<DiagnosticsPlugin>(
+      'diagnostics id',
+      (plugin) => plugin.diagnosticsId,
+    );
+  }
+
+  void _validateAtMostOne<T extends Object>(String kind) {
+    String? firstOwner;
+    for (final capability in plugins.whereType<T>()) {
+      final owner = _ownerOf(capability);
+      if (firstOwner != null) {
+        throw ArgumentError(
+          '$kind is provided by both $firstOwner and $owner.',
+        );
+      }
+      firstOwner = owner;
+    }
+  }
+
+  void _validateUniqueKeys<T extends Object>(
+    String kind,
+    String Function(T capability) readKey,
+  ) {
+    final owners = <String, String>{};
+    for (final capability in plugins.whereType<T>()) {
+      final owner = _ownerOf(capability);
+      final key = readKey(capability);
+      if (key.trim().isEmpty) {
+        throw ArgumentError('$kind registered by $owner must not be empty.');
+      }
+      final previous = owners[key];
+      if (previous != null) {
+        throw ArgumentError(
+          '$kind $key is provided by both $previous and $owner.',
+        );
+      }
+      owners[key] = owner;
+    }
+  }
+
+  static String _ownerOf(Object capability) => (capability as SitePlugin).name;
 
   void _validateComposerTargetOwners() {
     final owners = <ComposerTargetKind, String>{};

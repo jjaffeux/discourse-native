@@ -157,7 +157,15 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   @override
   Future<void> initializePlugins() async {
     _plugins = PluginInstaller.install(_manifest);
-    await _plugins.startPhase(PluginStartupPhase.bootstrap);
+    await _plugins.startPhase(
+      PluginStartupPhase.bootstrap,
+      bindings: PluginHostBindings([
+        PluginHostPort<Object>(
+          pluginDiagnosticsReporterPort,
+          PluginDiagnosticsReporter.fixed(_diagnostics),
+        ),
+      ]),
+    );
   }
 
   @override
