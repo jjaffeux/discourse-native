@@ -11,6 +11,7 @@ import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_controller.dart';
+import 'chat_plugin_data.dart';
 import 'chat_route.dart';
 import 'chat_services.dart';
 import 'chat_shell_extension.dart';
@@ -87,16 +88,16 @@ class ChatHeaderButton extends StatelessWidget {
               // keeps an account stored by an older app usable until its
               // session refresh.
               if (totals?.hasChatEnabled != true ||
-                  user.hasChatEnabled == false) {
+                  user.chatCurrentUser?.hasChatEnabled == false) {
                 return const SizedBox.shrink();
               }
 
+              final preference =
+                  user.chatCurrentUser?.headerIndicatorPreference ??
+                  ChatHeaderIndicatorPreference.allNew;
               final indicator = isInDoNotDisturb
                   ? ChatHeaderIndicator.none
-                  : chat.headerIndicator(
-                      siteUrl,
-                      user.chatHeaderIndicatorPreference,
-                    );
+                  : chat.headerIndicator(siteUrl, preference);
               final urgentCount = indicator.urgentCount;
               final tooltip = urgentCount != null
                   ? 'Chat, $urgentCount urgent ${urgentCount == 1 ? 'message' : 'messages'}'

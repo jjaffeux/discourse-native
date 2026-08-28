@@ -2,9 +2,14 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+import 'support/bundled_plugins.dart';
 
 void main() {
   group('Assign session capabilities', () {
@@ -12,6 +17,7 @@ void main() {
       'preserves present true and false values from a fresh session',
       () async {
         final api = DiscourseApi(
+          models: DiscourseModelCodec(extensions: pluginRegistry),
           client: MockClient(
             (_) async => http.Response(
               jsonEncode({
@@ -40,6 +46,7 @@ void main() {
       'keeps absent capabilities unknown for optional plugin safety',
       () async {
         final api = DiscourseApi(
+          models: DiscourseModelCodec(extensions: pluginRegistry),
           client: MockClient(
             (_) async => http.Response(
               jsonEncode({
@@ -54,7 +61,9 @@ void main() {
           siteUrl: 'https://example.com',
           apiKey: 'key',
         );
-        final stored = DiscourseUser.fromJson(const {'username': 'sam'});
+        final stored = DiscourseUser.fromJson(const {
+          'username': 'sam',
+        }, extensions: pluginRegistry);
 
         expect(live.canAssign, isNull);
         expect(live.canAssignGlobally, isNull);
@@ -64,14 +73,18 @@ void main() {
     );
 
     test('round trips capabilities through persisted account JSON', () {
-      const user = DiscourseUser(
+      final user = DiscourseUser(
         username: 'sam',
-        canAssign: false,
-        canAssignGlobally: true,
+        plugins: PluginData.none.withValue(
+          assignCurrentUserDataKey,
+          const AssignCurrentUser(canAssign: false, canAssignGlobally: true),
+        ),
       );
 
       final restored = DiscourseUser.fromJson(
-        jsonDecode(jsonEncode(user.toJson())) as Map<String, dynamic>,
+        jsonDecode(jsonEncode(user.toJson(extensions: pluginRegistry)))
+            as Map<String, dynamic>,
+        extensions: pluginRegistry,
       );
 
       expect(restored, user);

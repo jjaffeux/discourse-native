@@ -11,6 +11,7 @@ import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_card.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -329,7 +330,8 @@ void main() {
       }, siteUrl).detail;
       final config = SiteConfig.fromJson(const {
         'offeredReactions': ['heart'],
-      });
+      }, extensions: pluginRegistry);
+      final reactions = config.plugins.get(reactionsSettingsDataKey)!;
       final hashtag = FoundHashtag.fromJson(const {
         'type': 'category',
         'ref': 'support',
@@ -373,7 +375,10 @@ void main() {
         throwsUnsupportedError,
       );
       expect(() => detail.stream.add(2), throwsUnsupportedError);
-      expect(() => config.offeredReactions.add('clap'), throwsUnsupportedError);
+      expect(
+        () => reactions.offeredReactions.add('clap'),
+        throwsUnsupportedError,
+      );
       expect(() => hashtag.colors.add('FFFFFF'), throwsUnsupportedError);
       expect(() => likers.likers.clear(), throwsUnsupportedError);
       expect(() => reactors.reactors.clear(), throwsUnsupportedError);

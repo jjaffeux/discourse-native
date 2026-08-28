@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugins/assign/assign_data.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_shell_extension.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -15,6 +16,21 @@ import 'support/fakes.dart';
 
 const _site = 'https://meta.discourse.org';
 
+DiscourseUser _assignUser({
+  String username = 'reader',
+  bool canAssign = true,
+  bool? canAssignGlobally,
+}) => DiscourseUser(
+  username: username,
+  plugins: PluginData.none.withValue(
+    assignCurrentUserDataKey,
+    AssignCurrentUser(
+      canAssign: canAssign,
+      canAssignGlobally: canAssignGlobally,
+    ),
+  ),
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -22,7 +38,7 @@ void main() {
     'Shell writes only an exact assignable target and reloads its topic',
     () async {
       final api = FakeDiscourseApi(
-        user: const DiscourseUser(username: 'reader', canAssign: true),
+        user: _assignUser(),
         feeds: const {'/latest.json': <Topic>[]},
         topics: {7: _payload(canAssignPost: true)},
         siteConfigs: const {_site: SiteConfig.unknown()},
@@ -57,7 +73,7 @@ void main() {
     'Shell rejects post #1 even if its post serializer says assignable',
     () async {
       final api = FakeDiscourseApi(
-        user: const DiscourseUser(username: 'reader', canAssign: true),
+        user: _assignUser(),
         feeds: const {'/latest.json': <Topic>[]},
         topics: {7: _payload(canAssignPost: true)},
         siteConfigs: const {_site: SiteConfig.unknown()},
@@ -84,11 +100,7 @@ void main() {
     'Shell never substitutes a global capability for target denial',
     () async {
       final api = FakeDiscourseApi(
-        user: const DiscourseUser(
-          username: 'reader',
-          canAssign: true,
-          canAssignGlobally: true,
-        ),
+        user: _assignUser(canAssignGlobally: true),
         feeds: const {'/latest.json': <Topic>[]},
         topics: {7: _payload(canAssignPost: false)},
         siteConfigs: const {_site: SiteConfig.unknown()},
@@ -112,7 +124,7 @@ void main() {
 
   test('a fresh session capability supports older target payloads', () async {
     final api = FakeDiscourseApi(
-      user: const DiscourseUser(username: 'reader', canAssign: true),
+      user: _assignUser(),
       feeds: const {'/latest.json': <Topic>[]},
       topics: {7: _payload(canAssignPost: null)},
       siteConfigs: const {_site: SiteConfig.unknown()},
@@ -149,9 +161,7 @@ void main() {
       final shell = ShellController(
         plugins: installedPlugins,
         instanceStore: FakeInstanceStore([
-          instance('meta.discourse.org').copyWith(
-            user: const DiscourseUser(username: 'reader', canAssign: true),
-          ),
+          instance('meta.discourse.org').copyWith(user: _assignUser()),
         ]),
         api: api,
         authenticator: authenticator,
@@ -179,7 +189,7 @@ void main() {
 
   test('a plugin-route 404 disables only the legacy fallback', () async {
     final api = FakeDiscourseApi(
-      user: const DiscourseUser(username: 'reader', canAssign: true),
+      user: _assignUser(),
       feeds: const {'/latest.json': <Topic>[]},
       topics: {7: _payload(canAssignPost: null)},
       siteConfigs: const {_site: SiteConfig.unknown()},
@@ -288,7 +298,7 @@ TopicPayload _payload({required bool? canAssignPost}) {
 class _OneFailedRefreshApi extends FakeDiscourseApi {
   _OneFailedRefreshApi()
     : super(
-        user: const DiscourseUser(username: 'reader', canAssign: true),
+        user: _assignUser(),
         feeds: const {'/latest.json': <Topic>[]},
         topics: {7: _payload(canAssignPost: true)},
         siteConfigs: const {_site: SiteConfig.unknown()},

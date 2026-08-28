@@ -24,6 +24,7 @@ import 'chat_channel_threads_view.dart';
 import 'chat_channel_view.dart';
 import 'chat_header_button.dart';
 import 'chat_my_threads_view.dart';
+import 'chat_plugin_data.dart';
 import 'chat_route.dart';
 import 'chat_search_view.dart';
 import 'chat_services.dart';
@@ -77,7 +78,11 @@ class ChatPlugin
         UserAvatarPlugin,
         UserCardRecordPlugin<ChatUserCardData>,
         UserCardActionPlugin,
-        CookedElementPlugin {
+        CookedElementPlugin,
+        SiteSettingsPlugin<ChatSettings>,
+        CurrentUserPlugin<ChatCurrentUser>,
+        PluginCurrentUserFeature,
+        ComposerUploadPolicyPlugin {
   const ChatPlugin();
 
   static const String searchRouteId = 'chat-search';
@@ -94,6 +99,30 @@ class ChatPlugin
 
   @override
   String get name => 'chat';
+
+  @override
+  PluginDataPersistenceCodec<ChatSettings> get siteSettingsCodec =>
+      chatSettingsPersistenceCodec;
+
+  @override
+  ChatSettings readSiteSettings(Map<String, dynamic> json, String siteUrl) =>
+      ChatSettings.fromSettings(json);
+
+  @override
+  PluginDataPersistenceCodec<ChatCurrentUser> get currentUserCodec =>
+      chatCurrentUserPersistenceCodec;
+
+  @override
+  ChatCurrentUser readCurrentUser(Map<String, dynamic> json, String siteUrl) =>
+      ChatCurrentUser.fromCurrentUser(json);
+
+  @override
+  bool currentUserFeatureEnabled(PluginData currentUser) =>
+      currentUser.chatCurrentUser?.hasChatEnabled != false;
+
+  @override
+  bool allowsComposerUploads(PluginData siteSettings, {required bool isChat}) =>
+      !isChat || siteSettings.chatSettings.uploadsEnabled;
 
   @override
   Widget? cookedElement(String? siteUrl, dom.Element element) =>
@@ -130,11 +159,12 @@ class ChatPlugin
     final direct = chat.unstarredDirectChannels(siteUrl);
     final chatAvailable =
         controller.currentInstance?.isConnected == true &&
-        controller.currentInstance?.user?.hasChatEnabled != false &&
+        controller.currentInstance?.user?.chatCurrentUser?.hasChatEnabled !=
+            false &&
         controller.currentTotals?.hasChatEnabled == true;
     final searchEnabled =
         chatAvailable &&
-        controller.currentInstance?.config.chatSearchEnabled == true;
+        controller.currentInstance?.config.chatSettings.searchEnabled == true;
     final myThreadsEnabled = chatAvailable && chat.hasThreads(siteUrl);
 
     // Nothing before the answer, and nothing after an answer with no channels
@@ -259,7 +289,7 @@ class ChatPlugin
       final siteUrl = instance?.url;
       final available =
           instance?.isConnected == true &&
-          instance?.user?.hasChatEnabled != false &&
+          instance?.user?.chatCurrentUser?.hasChatEnabled != false &&
           controller.currentTotals?.hasChatEnabled == true;
       return siteUrl == null
           ? const SizedBox.shrink()
@@ -274,7 +304,7 @@ class ChatPlugin
       final chat = PluginScope.require(context, chatControllerService);
       final available =
           instance?.isConnected == true &&
-          instance?.user?.hasChatEnabled != false &&
+          instance?.user?.chatCurrentUser?.hasChatEnabled != false &&
           controller.currentTotals?.hasChatEnabled == true &&
           siteUrl != null &&
           chat.channel(siteUrl, channelId)?.threadingEnabled == true;
@@ -292,7 +322,7 @@ class ChatPlugin
       final siteUrl = instance?.url;
       final available =
           instance?.isConnected == true &&
-          instance?.user?.hasChatEnabled != false &&
+          instance?.user?.chatCurrentUser?.hasChatEnabled != false &&
           controller.currentTotals?.hasChatEnabled == true;
       return siteUrl == null
           ? const SizedBox.shrink()
@@ -306,8 +336,8 @@ class ChatPlugin
       final siteUrl = instance?.url;
       final available =
           instance?.isConnected == true &&
-          instance?.config.chatSearchEnabled == true &&
-          instance?.user?.hasChatEnabled != false &&
+          instance?.config.chatSettings.searchEnabled == true &&
+          instance?.user?.chatCurrentUser?.hasChatEnabled != false &&
           controller.currentTotals?.hasChatEnabled == true;
       return siteUrl == null
           ? const SizedBox.shrink()

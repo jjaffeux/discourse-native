@@ -18,6 +18,9 @@ import 'local_date_composer_pill.dart';
 import 'local_date_composer_sheet.dart';
 import 'local_date_environment.dart';
 import 'local_date_widget.dart';
+import 'local_dates_settings.dart';
+
+export 'local_dates_settings.dart';
 
 class LocalDatesPlugin
     implements
@@ -26,11 +29,22 @@ class LocalDatesPlugin
         ComposerShortcutPlugin,
         ComposerSyntaxPlugin,
         ComposerToolbarPlugin,
-        CookedElementPlugin {
+        CookedElementPlugin,
+        SiteSettingsPlugin<LocalDatesSettings> {
   const LocalDatesPlugin();
 
   @override
   String get name => 'discourse-local-dates';
+
+  @override
+  PluginDataPersistenceCodec<LocalDatesSettings> get siteSettingsCodec =>
+      localDatesSettingsPersistenceCodec;
+
+  @override
+  LocalDatesSettings readSiteSettings(
+    Map<String, dynamic> json,
+    String siteUrl,
+  ) => LocalDatesSettings.fromSiteSettings(json);
 
   @override
   String get previewFeatureId => 'discourse-local-dates';
@@ -134,7 +148,10 @@ class LocalDatesPlugin
   ) {
     final controller = ShellScope.maybeRead(context);
     if (controller == null ||
-        !controller.siteConfigFor(composer.target.siteUrl).localDatesEnabled) {
+        !controller
+            .siteConfigFor(composer.target.siteUrl)
+            .localDatesSettings
+            .enabled) {
       return const {};
     }
     return {
@@ -187,7 +204,7 @@ class LocalDatesPlugin
   ChatPreviewInspection inspect(ChatPreviewRequest request) {
     final syntax = _localDateSyntaxRanges(request.raw);
     if (syntax.isEmpty) return ChatPreviewInspection();
-    if (!request.siteConfig.localDatesEnabled) {
+    if (!request.siteConfig.localDatesSettings.enabled) {
       return ChatPreviewInspection(
         blockers: [
           ChatPreviewBlocker('local dates disabled', range: syntax.first),
@@ -276,7 +293,10 @@ class LocalDatesPlugin
     final controller = ShellScope.maybeRead(context);
     if (controller == null ||
         composer.loadingBody ||
-        !controller.siteConfigFor(composer.target.siteUrl).localDatesEnabled) {
+        !controller
+            .siteConfigFor(composer.target.siteUrl)
+            .localDatesSettings
+            .enabled) {
       return const [];
     }
     return [
@@ -358,7 +378,8 @@ Future<void> openLocalDateComposer(
       (block == null &&
           !controller
               .siteConfigFor(composer.target.siteUrl)
-              .localDatesEnabled)) {
+              .localDatesSettings
+              .enabled)) {
     return;
   }
   final expectedDocument = composer.text.text;
@@ -385,7 +406,8 @@ Future<void> openLocalDateComposer(
     draft: draft,
     siteFormats: controller
         .siteConfigFor(composer.target.siteUrl)
-        .localDateFormats,
+        .localDatesSettings
+        .formats,
     isCurrent: stillCurrent,
   );
   if (action == null || !context.mounted) return;
@@ -464,7 +486,10 @@ void insertCurrentLocalDate(
   final controller = ShellScope.maybeRead(context);
   if (controller == null ||
       !identical(controller.visibleComposer, composer) ||
-      !controller.siteConfigFor(composer.target.siteUrl).localDatesEnabled) {
+      !controller
+          .siteConfigFor(composer.target.siteUrl)
+          .localDatesSettings
+          .enabled) {
     return;
   }
   final environment = LocalDateEnvironment.instance;

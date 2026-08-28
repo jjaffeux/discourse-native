@@ -264,9 +264,15 @@ class ShellController extends FrameSafeNotifier
           userIdFor: (siteUrl) => _instanceAt(siteUrl)?.user?.id,
           capabilityEnabledFor: (siteUrl, capability) async =>
               switch (capability) {
-                'resenha' => (await _presentation.resolveConfig(
+                'resenha' => switch (await _presentation.resolveConfig(
                   siteUrl,
-                ))?.resenha.enabled,
+                )) {
+                  final config? => plugins.registry.siteFeatureEnabled(
+                    'resenha',
+                    config.plugins,
+                  ),
+                  null => null,
+                },
                 _ => null,
               },
           onCallSiteChanged: _syncTracking,
@@ -2504,12 +2510,16 @@ class ShellController extends FrameSafeNotifier
     final accepted = lease.commit(() {
       final fresh = _instanceAt(siteUrl);
       if (fresh == null) return;
+      final withPreservedPlugins = plugins.models.preserveUnknownCurrentUser(
+        fresh.user,
+        user,
+      );
       final preserveConfirmedPresence =
           _hidePresenceWrites.containsKey(siteUrl) ||
           (_hidePresenceVersions[siteUrl] ?? 0) != hidePresenceVersion;
       committedUser = preserveConfirmedPresence
-          ? user.withHidePresence(fresh.user?.hidePresence)
-          : user;
+          ? withPreservedPlugins.withHidePresence(fresh.user?.hidePresence)
+          : withPreservedPlugins;
       _sessionUsersRefreshed.add(siteUrl);
       _assignLegacyFallbackUnavailable.remove(siteUrl);
       _hidePresenceErrors.remove(siteUrl);
@@ -4433,9 +4443,15 @@ class ShellController extends FrameSafeNotifier
       formatQuoteContents: (block) =>
           quoteContentsFor(target, block) ?? block.contents,
       syntaxPlugins: plugins.registry.composerSyntaxPlugins,
-      pollMaximumOptions: config.pollMaximumOptions,
+      pollMaximumOptions: plugins.registry.composerMaximumOptions(
+        config.plugins,
+      ),
       localDateAccountTimezone: currentUserFor(target.siteUrl)?.timezone,
-      imageUploader: target.isChat && !config.chatUploadsEnabled
+      imageUploader:
+          !plugins.registry.allowsComposerUploads(
+            config.plugins,
+            isChat: target.isChat,
+          )
           ? null
           : (file, {required onProgress, required abortTrigger}) =>
                 _uploadComposerImage(
@@ -8507,7 +8523,11 @@ class ShellController extends FrameSafeNotifier
   /// the site. An old persisted `true` is deliberately treated as unknown.
   bool canCreatePollFor(String siteUrl) =>
       _sessionUsersRefreshed.contains(siteUrl) &&
-      _instanceAt(siteUrl)?.user?.canCreatePoll == true;
+      plugins.registry.allowsPermission(
+        'create-poll',
+        _instanceAt(siteUrl)?.user?.plugins ?? PluginData.none,
+        null,
+      );
 
   bool get canCreatePoll {
     final siteUrl = currentInstance?.url;
@@ -8526,9 +8546,13 @@ class ShellController extends FrameSafeNotifier
   /// freshly fetched session value. Persisted capabilities are never enough
   /// to authorize a write, and absent/disabled plugins serialize neither.
   bool canAssignForTarget(String siteUrl, bool? targetCanAssign) =>
-      targetCanAssign ??
-      (!_assignLegacyFallbackUnavailable.contains(siteUrl) &&
-          freshCurrentUserFor(siteUrl)?.canAssign == true);
+      plugins.registry.allowsPermission(
+        'assign',
+        _assignLegacyFallbackUnavailable.contains(siteUrl)
+            ? PluginData.none
+            : (freshCurrentUserFor(siteUrl)?.plugins ?? PluginData.none),
+        targetCanAssign,
+      );
 
   PluginTargetSnapshot _pluginDataForTarget(
     String siteUrl,
@@ -8571,8 +8595,13 @@ class ShellController extends FrameSafeNotifier
       _composer?.closeEmojiAutocomplete();
     }
     final held = _instanceAt(siteUrl);
-    if (held == null || held.config == config) return;
-    _replaceInstance(held, held.copyWith(config: config));
+    if (held == null) return;
+    final persisted = plugins.models.preserveUnknownSiteSettings(
+      held.config,
+      config,
+    );
+    if (held.config == persisted) return;
+    _replaceInstance(held, held.copyWith(config: persisted));
     await instanceStore.save(List.of(_instances));
   }
 

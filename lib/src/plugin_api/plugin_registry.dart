@@ -31,17 +31,50 @@ final class PluginRegistry implements PluginDataDecoder {
   void _validateRecordOwners() {
     final owners = <PluginDataKey<Object>, String>{};
     for (final plugin in plugins) {
-      if (plugin is! PluginRecord<Object>) continue;
-      final recordPlugin = plugin as PluginRecord<Object>;
-      final previous = owners[recordPlugin.record];
-      if (previous != null) {
-        throw ArgumentError(
-          'Plugin data key ${recordPlugin.record.id} is claimed by both '
-          '$previous and ${plugin.name}.',
+      if (plugin is PluginRecord<Object>) {
+        final capability = plugin as PluginRecord<Object>;
+        _claimRecordOwner(owners, capability.record, plugin.name);
+      }
+      if (plugin is SiteSettingsPlugin<Object>) {
+        final capability = plugin as SiteSettingsPlugin<Object>;
+        _validateCodecOwner(capability.siteSettingsCodec, plugin.name);
+        _claimRecordOwner(
+          owners,
+          capability.siteSettingsCodec.key,
+          plugin.name,
         );
       }
-      owners[recordPlugin.record] = plugin.name;
+      if (plugin is CurrentUserPlugin<Object>) {
+        final capability = plugin as CurrentUserPlugin<Object>;
+        _validateCodecOwner(capability.currentUserCodec, plugin.name);
+        _claimRecordOwner(owners, capability.currentUserCodec.key, plugin.name);
+      }
     }
+  }
+
+  static void _validateCodecOwner(
+    PluginDataPersistenceCodec<Object> codec,
+    String owner,
+  ) {
+    if (codec.key.owner != owner) {
+      throw ArgumentError(
+        'Plugin data key ${codec.key.id} is registered by $owner.',
+      );
+    }
+  }
+
+  static void _claimRecordOwner(
+    Map<PluginDataKey<Object>, String> owners,
+    PluginDataKey<Object> key,
+    String owner,
+  ) {
+    final previous = owners[key];
+    if (previous != null) {
+      throw ArgumentError(
+        'Plugin data key ${key.id} is claimed by both $previous and $owner.',
+      );
+    }
+    owners[key] = owner;
   }
 
   /// Installed preview contributions in deterministic manifest order.
@@ -103,6 +136,145 @@ final class PluginRegistry implements PluginDataDecoder {
       if (value != null) values = values.withValueFor(plugin.record, value);
     }
     return values;
+  }
+
+  @override
+  PluginData readCurrentUser(Map<String, dynamic> json, String siteUrl) {
+    var values = PluginData.none;
+    for (final plugin in plugins.whereType<CurrentUserPlugin<Object>>()) {
+      final value = plugin.readCurrentUser(json, siteUrl);
+      if (value != null) {
+        values = values.withValueFor(plugin.currentUserCodec.key, value);
+      }
+    }
+    return values;
+  }
+
+  @override
+  PluginData readSiteSettings(Map<String, dynamic> json, String siteUrl) {
+    var values = PluginData.none;
+    for (final plugin in plugins.whereType<SiteSettingsPlugin<Object>>()) {
+      final value = plugin.readSiteSettings(json, siteUrl);
+      if (value != null) {
+        values = values.withValueFor(plugin.siteSettingsCodec.key, value);
+      }
+    }
+    return values;
+  }
+
+  @override
+  PluginData readStoredCurrentUser(Map<String, dynamic> json) => _readStored(
+    json,
+    plugins.whereType<CurrentUserPlugin<Object>>().map(
+      (plugin) => plugin.currentUserCodec,
+    ),
+  );
+
+  @override
+  PluginData readStoredSiteSettings(Map<String, dynamic> json) => _readStored(
+    json,
+    plugins.whereType<SiteSettingsPlugin<Object>>().map(
+      (plugin) => plugin.siteSettingsCodec,
+    ),
+  );
+
+  static PluginData _readStored(
+    Map<String, dynamic> json,
+    Iterable<PluginDataPersistenceCodec<Object>> codecs,
+  ) {
+    var values = PluginData.preserveNamespaces(json['plugins']);
+    for (final codec in codecs) {
+      final namespaces = values.preservedNamespaces;
+      final hasNamespacedValue = namespaces.containsKey(codec.key.id);
+      final stored = namespaces[codec.key.id];
+      values = values.withoutPreservedNamespace(codec.key.id);
+      try {
+        final value = hasNamespacedValue
+            ? codec.decode(stored)
+            : codec.decodeLegacy(json);
+        if (value != null) values = values.withValueFor(codec.key, value);
+      } catch (_) {
+        // One stale plugin payload must not make the core instance unreadable.
+      }
+    }
+    return values;
+  }
+
+  @override
+  Map<String, Object?> writeStoredCurrentUser(PluginData data) => _writeStored(
+    data,
+    plugins.whereType<CurrentUserPlugin<Object>>().map(
+      (plugin) => plugin.currentUserCodec,
+    ),
+  );
+
+  @override
+  Map<String, Object?> writeStoredSiteSettings(PluginData data) => _writeStored(
+    data,
+    plugins.whereType<SiteSettingsPlugin<Object>>().map(
+      (plugin) => plugin.siteSettingsCodec,
+    ),
+  );
+
+  static Map<String, Object?> _writeStored(
+    PluginData data,
+    Iterable<PluginDataPersistenceCodec<Object>> codecs,
+  ) {
+    final namespaces = Map<String, Object?>.of(data.preservedNamespaces);
+    for (final codec in codecs) {
+      final value = data.get(codec.key);
+      if (value == null) {
+        namespaces.remove(codec.key.id);
+      } else {
+        namespaces[codec.key.id] = codec.encode(value);
+      }
+    }
+    return Map.unmodifiable(namespaces);
+  }
+
+  int composerMaximumOptions(PluginData siteSettings, {int fallback = 20}) {
+    for (final plugin in plugins.whereType<ComposerMaximumOptionsPlugin>()) {
+      return plugin.composerMaximumOptions(siteSettings);
+    }
+    return fallback;
+  }
+
+  bool allowsComposerUploads(PluginData siteSettings, {required bool isChat}) =>
+      plugins.whereType<ComposerUploadPolicyPlugin>().every(
+        (plugin) => plugin.allowsComposerUploads(siteSettings, isChat: isChat),
+      );
+
+  bool siteFeatureEnabled(String pluginId, PluginData siteSettings) {
+    for (final plugin in plugins) {
+      if (plugin.name == pluginId && plugin is PluginSiteFeature) {
+        return (plugin as PluginSiteFeature).siteFeatureEnabled(siteSettings);
+      }
+    }
+    return false;
+  }
+
+  bool currentUserFeatureEnabled(String pluginId, PluginData currentUser) {
+    for (final plugin in plugins) {
+      if (plugin.name == pluginId && plugin is PluginCurrentUserFeature) {
+        return (plugin as PluginCurrentUserFeature).currentUserFeatureEnabled(
+          currentUser,
+        );
+      }
+    }
+    return false;
+  }
+
+  bool allowsPermission(
+    String permissionId,
+    PluginData currentUser,
+    bool? recordPermission,
+  ) {
+    for (final plugin in plugins.whereType<PluginPermissionPlugin>()) {
+      if (plugin.permissionId == permissionId) {
+        return plugin.allowsPermission(currentUser, recordPermission);
+      }
+    }
+    return recordPermission ?? false;
   }
 
   @override

@@ -64,10 +64,42 @@ this rule.
 
 Core records hold immutable `PluginData` addressed by stable
 `PluginDataKey(owner, name)` values. `DiscourseApi` receives the installed
-model codec; core models no longer import the bundled plugin list. Plugin HTTP
-contracts and route/payload parsing live beside their feature (`poll`,
-`reactions`, `gifs`, and `chat`) and use the shared transport only as a narrow
-wire boundary. `DiscourseApi` exposes no typed plugin endpoint.
+model codec; `SiteConfig` and `DiscourseUser` contain only core fields plus that
+opaque bag. Installed `SiteSettingsPlugin<T>` and `CurrentUserPlugin<T>`
+readers own their feature's wire keys and defaults. Poll, Assign, Chat,
+Reactions, GIFs, Local Dates, and Resenha therefore decode only when their
+modules are in the selected manifest. A core-only manifest ignores those live
+schemas rather than silently growing optional model fields.
+
+Plugin HTTP contracts and route/payload parsing live beside their feature
+(`poll`, `reactions`, `gifs`, and `chat`) and use the shared transport only as a
+narrow wire boundary. `DiscourseApi` exposes no typed plugin endpoint.
+
+## Persistence and compatibility
+
+The instance snapshot stores plugin values under a `plugins` object keyed by
+the stable `owner/name` id. Each settings/current-user reader also registers a
+`PluginDataPersistenceCodec<T>` which owns that namespace and the migration
+from its pre-codec flat fields. `InstanceStore` uses the same installed model
+codec as `DiscourseApi`, so live and stored data cannot disagree about which
+manifest is active.
+
+On load, installed codecs claim and type their namespaces. Every unclaimed
+JSON namespace remains opaque in `PluginData` and is emitted unchanged on the
+next save. This makes a snapshot safe to open and rewrite with a core-only or
+otherwise smaller build. A successful live settings/current-user refresh
+replaces installed typed values while carrying those opaque namespaces
+forward; current-user data is carried only when the stable user id still
+matches (with a case-insensitive username fallback for legacy snapshots that
+lack ids), so a rename retains data but another account cannot inherit it.
+Migration from the old flat snapshot fields requires the owning module to be
+installed: a smaller manifest deliberately has no schema with which to claim
+those legacy keys. Once data has been written under `plugins`, every manifest
+can preserve it losslessly without decoding it.
+
+Malformed data in one installed namespace is isolated to that codec and does
+not make the connected site unreadable. Once claimed, malformed data is not
+re-emitted indefinitely.
 
 ## UI extensions
 
@@ -93,6 +125,16 @@ Resenha own separate route namespaces; Poll and Local Dates declare their
 composer syntax ids. Local Dates owns cooked date markup, Chat owns its header
 action, and Resenha owns its global call overlay rather than being imported by
 core shell widgets.
+
+## Deferred UI contribution seams
+
+This workstream moves model ownership and persistence, not every host UI.
+`NotificationTotals` still carries Chat's total/presence fields and core still
+parses notification kinds used by the shared user menu. The user menu, shared
+composer limit, upload gate, and Resenha top-level capability currently query
+plugin-neutral registry interfaces. Moving those remaining surfaces to full UI
+contributions is intentionally deferred; core does not import a plugin type or
+wire key through these compatibility seams.
 
 ## Build profiles
 

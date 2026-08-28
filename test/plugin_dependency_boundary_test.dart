@@ -292,6 +292,44 @@ void main() {
       );
     },
   );
+
+  test('core site and current-user models do not own optional schemas', () {
+    final siteConfig = File(
+      'lib/src/models/site_config.dart',
+    ).readAsStringSync();
+    final discourseUser = File(
+      'lib/src/models/discourse_user.dart',
+    ).readAsStringSync();
+
+    for (final identifier in const [
+      'mainReaction',
+      'pollMaximumOptions',
+      'localDatesEnabled',
+      'gifsEnabled',
+      'assignStatusesEnabled',
+      'chatUploadsEnabled',
+      'ResenhaClientConfig',
+    ]) {
+      expect(
+        siteConfig,
+        isNot(contains(identifier)),
+        reason: '$identifier belongs in its plugin-owned settings model.',
+      );
+    }
+    for (final identifier in const [
+      'canCreatePoll',
+      'canAssignGlobally',
+      'hasChatEnabled',
+      'ChatHeaderIndicatorPreference',
+      'lastChatChannelId',
+    ]) {
+      expect(
+        discourseUser,
+        isNot(contains(identifier)),
+        reason: '$identifier belongs in its plugin-owned current-user model.',
+      );
+    }
+  });
 }
 
 Iterable<File> _dartFilesUnder(String path) sync* {

@@ -422,7 +422,7 @@ class _ChatComposerState extends State<ChatComposer> {
         _pickingEmoji ||
         _savingEdit ||
         widget.editingMessage != null ||
-        !shell.siteConfigFor(widget.siteUrl).gifsEnabled ||
+        !shell.siteConfigFor(widget.siteUrl).gifsSettings.enabled ||
         !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
       return;
     }
@@ -435,7 +435,7 @@ class _ChatComposerState extends State<ChatComposer> {
         api: gifsApi,
         credentials: shell.authenticator,
         lifecycle: shell.lifecycle,
-        config: shell.siteConfigFor(widget.siteUrl),
+        settings: shell.siteConfigFor(widget.siteUrl).gifsSettings,
       );
       if (result == null || !_ownsComposer(shell, composer, sourceKey)) {
         return;
@@ -717,8 +717,10 @@ class _ChatComposerState extends State<ChatComposer> {
               },
             ),
             ShellSelector<bool>(
-              select: (shell) =>
-                  shell.siteConfigFor(composer.target.siteUrl).gifsEnabled,
+              select: (shell) => shell
+                  .siteConfigFor(composer.target.siteUrl)
+                  .gifsSettings
+                  .enabled,
               builder: (context, gifsEnabled, _) =>
                   gifsEnabled &&
                       PluginScope.maybeOf(

@@ -2,7 +2,9 @@ import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -30,7 +32,15 @@ void main() {
       EmojiCache.instance = previousEmojiCache;
     });
 
-    const config = SiteConfig(mainReaction: 'clap', offeredReactions: ['clap']);
+    final config = SiteConfig(
+      plugins: PluginData.none.withValue(
+        reactionsSettingsDataKey,
+        const ReactionsSettings(
+          mainReaction: 'clap',
+          offeredReactions: ['clap'],
+        ),
+      ),
+    );
     final site = instance('meta.example').copyWith(
       user: const DiscourseUser(username: 'reader'),
       config: config,

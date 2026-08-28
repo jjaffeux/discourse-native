@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/discourse_instance.dart';
+import '../plugin_api/discourse_model_codec.dart';
 import 'coalescing_snapshot_writer.dart';
 import 'http_transport.dart';
 import 'store_diagnostics.dart';
@@ -39,11 +40,13 @@ final class SharedPreferencesInstancePersistence
 /// Site metadata and the connected account's public profile live here. API
 /// keys and other credentials live in platform-private storage.
 class InstanceStore {
-  InstanceStore({InstancePersistence? persistence})
+  InstanceStore({InstancePersistence? persistence, DiscourseModelCodec? models})
     : _persistence =
-          persistence ?? const SharedPreferencesInstancePersistence();
+          persistence ?? const SharedPreferencesInstancePersistence(),
+      _models = models ?? const DiscourseModelCodec.core();
 
   final InstancePersistence _persistence;
+  final DiscourseModelCodec _models;
   late final CoalescingSnapshotWriter<String> _snapshots =
       CoalescingSnapshotWriter(
         owner: _persistence,
@@ -72,7 +75,7 @@ class InstanceStore {
         // Persistence is an untrusted boundary: old or damaged preferences
         // must not revive a plaintext remote endpoint or leave a relative URL
         // that crashes a later `DiscourseInstance.host` read during startup.
-        final instance = DiscourseInstance.fromJson({
+        final instance = _models.storedInstance({
           ...entry,
           'url': _safeStoredOrigin(entry['url']),
         });
@@ -112,7 +115,7 @@ class InstanceStore {
   }
 
   Future<void> save(List<DiscourseInstance> instances) {
-    final encoded = jsonEncode(instances.map((i) => i.toJson()).toList());
+    final encoded = jsonEncode(instances.map(_models.storeInstance).toList());
     return _snapshots.save(encoded);
   }
 

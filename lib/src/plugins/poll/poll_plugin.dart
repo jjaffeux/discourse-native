@@ -16,12 +16,19 @@ import 'poll_card.dart';
 import 'poll_composer_editor.dart';
 import 'poll_composer_pill.dart';
 import 'poll_composer_sheet.dart';
+import 'poll_data.dart';
 import 'poll_shell_extension.dart';
+
+export 'poll_data.dart';
 
 /// Discourse's bundled Poll plugin as an optional, payload-gated feature.
 class PollPlugin
     implements
         SitePlugin,
+        SiteSettingsPlugin<PollSettings>,
+        CurrentUserPlugin<PollCurrentUser>,
+        PluginPermissionPlugin,
+        ComposerMaximumOptionsPlugin,
         PostRecordPlugin<Polls>,
         PostBodyPlugin,
         ComposerSyntaxPlugin,
@@ -34,6 +41,34 @@ class PollPlugin
 
   @override
   String get syntaxId => 'poll';
+
+  @override
+  PluginDataPersistenceCodec<PollSettings> get siteSettingsCodec =>
+      pollSettingsPersistenceCodec;
+
+  @override
+  PollSettings readSiteSettings(Map<String, dynamic> json, String siteUrl) =>
+      PollSettings.fromWire(json);
+
+  @override
+  PluginDataPersistenceCodec<PollCurrentUser> get currentUserCodec =>
+      pollCurrentUserPersistenceCodec;
+
+  @override
+  PollCurrentUser? readCurrentUser(Map<String, dynamic> json, String siteUrl) =>
+      PollCurrentUser.fromWire(json);
+
+  @override
+  String get permissionId => 'create-poll';
+
+  @override
+  bool allowsPermission(PluginData currentUser, bool? recordPermission) =>
+      currentUser.get(pollCurrentUserDataKey)?.canCreatePoll == true;
+
+  @override
+  int composerMaximumOptions(PluginData siteSettings) =>
+      siteSettings.get(pollSettingsDataKey)?.maximumOptions ??
+      PollSettings.defaultMaximumOptions;
 
   @override
   List<Object> parseComposerSyntax(String source) =>

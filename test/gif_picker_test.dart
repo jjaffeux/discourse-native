@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
-import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/gifs/gif_picker.dart';
 import 'package:discourse_native/src/plugins/gifs/gif_picker_controller.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_api.dart';
+import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -46,7 +46,7 @@ void main() {
                   api: api,
                   credentials: credentials,
                   lifecycle: SiteLifecycle(),
-                  config: const SiteConfig(gifsEnabled: true),
+                  settings: const GifsSettings(enabled: true),
                 ),
               ),
               child: const Text('Open GIF picker'),
@@ -123,7 +123,7 @@ void main() {
                     api: api,
                     credentials: credentials,
                     lifecycle: lifecycle,
-                    config: const SiteConfig(gifsEnabled: true),
+                    settings: const GifsSettings(enabled: true),
                   );
                 },
                 child: const Text('Open categories'),

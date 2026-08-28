@@ -149,6 +149,7 @@ List<UserMenuSection> userMenuSections(
   NotificationTotals? totals, {
   DiscourseUser? user,
   bool userStatusEnabled = false,
+  bool chatCurrentUserEnabled = false,
 }) {
   return [
     UserMenuSection(
@@ -191,7 +192,7 @@ List<UserMenuSection> userMenuSections(
       label: 'Invites',
       rows: [UserMenuRow(DIcons.paperPlane, 'No pending invites')],
     ),
-    if (totals?.hasChatEnabled == true && user?.hasChatEnabled != false)
+    if (totals?.hasChatEnabled == true && chatCurrentUserEnabled)
       UserMenuSection(
         id: UserMenuSection.chatId,
         icon: DIcons.comment,
@@ -290,6 +291,14 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
                 : controller.accountActivity.totalsFor(siteUrl),
             user: menu.user,
             userStatusEnabled: menu.userStatusEnabled,
+            chatCurrentUserEnabled: switch (menu.user) {
+              final user? =>
+                controller.plugins.registry.currentUserFeatureEnabled(
+                  'chat',
+                  user.plugins,
+                ),
+              null => false,
+            },
           );
           final section = sections.firstWhere(
             (candidate) => candidate.id == _sectionId,
@@ -1124,6 +1133,8 @@ class _SectionList extends StatelessWidget {
             controller.accountActivity.totalsFor(currentSiteUrl),
             user: user,
             userStatusEnabled: state.userStatusEnabled,
+            chatCurrentUserEnabled: controller.plugins.registry
+                .currentUserFeatureEnabled('chat', user.plugins),
           );
           return Column(
             mainAxisSize: MainAxisSize.min,

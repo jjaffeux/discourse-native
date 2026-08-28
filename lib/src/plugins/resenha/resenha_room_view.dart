@@ -18,6 +18,7 @@ import 'resenha_controller.dart';
 import 'resenha_models.dart';
 import 'resenha_room_editor.dart';
 import 'resenha_services.dart';
+import 'resenha_settings.dart';
 
 export 'resenha_room_editor.dart' show showResenhaRoomEditor;
 
@@ -48,7 +49,7 @@ class ResenhaRoomView extends StatelessWidget {
             inRoom &&
             call!.room.canManage &&
             call.media.transport == ResenhaTransport.livekit &&
-            shell.siteConfigFor(site.url).resenha.recordingEnabled;
+            shell.siteConfigFor(site.url).resenhaSettings.recordingEnabled;
         return Focus(
           autofocus: true,
           onKeyEvent: (_, event) {

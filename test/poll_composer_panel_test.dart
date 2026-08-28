@@ -4,12 +4,15 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_pill.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
+import 'package:discourse_native/src/plugins/poll/poll_data.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/pill.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -23,6 +26,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 const _site = 'https://meta.discourse.org';
+final _localDatesConfig = SiteConfig(
+  plugins: PluginData.none.withValue(
+    localDatesSettingsDataKey,
+    const LocalDatesSettings(enabled: true),
+  ),
+);
+final _pollUser = DiscourseUser(
+  id: 7,
+  username: 'reader',
+  plugins: PluginData.none.withValue(
+    pollCurrentUserDataKey,
+    const PollCurrentUser(canCreatePoll: true),
+  ),
+);
 const _source =
     'Before the poll.\n\n'
     '[poll name=lunch]\n# Lunch\n* Soup\n* Salad\n[/poll]\n\n'
@@ -63,11 +80,7 @@ Future<ShellController> _openComposer({
   final discourseApi =
       api ??
       FakeDiscourseApi(
-        user: const DiscourseUser(
-          id: 7,
-          username: 'reader',
-          canCreatePoll: true,
-        ),
+        user: _pollUser,
         feeds: const {'/latest.json': <Topic>[]},
         topics: {7: topicPayload(id: 7, title: 'Lunch', canCreatePost: true)},
         siteConfigs: const {_site: SiteConfig.unknown()},
@@ -209,7 +222,7 @@ void main() {
           user: const DiscourseUser(id: 7, username: 'reader'),
           feeds: const {'/latest.json': <Topic>[]},
           topics: {7: topicPayload(id: 7, title: 'Lunch', canCreatePost: true)},
-          siteConfigs: const {_site: SiteConfig(localDatesEnabled: true)},
+          siteConfigs: {_site: _localDatesConfig},
         ),
       );
       addTearDown(enabled.dispose);
@@ -273,14 +286,7 @@ void main() {
     'the Add poll action waits for and reacts to a fresh session capability',
     (tester) async {
       final api = _GatedCurrentUserApi();
-      final shell = await _openComposer(
-        api: api,
-        storedUser: const DiscourseUser(
-          id: 7,
-          username: 'reader',
-          canCreatePoll: true,
-        ),
-      );
+      final shell = await _openComposer(api: api, storedUser: _pollUser);
       addTearDown(shell.dispose);
       final composer = shell.visibleComposer!;
 
@@ -297,9 +303,7 @@ void main() {
 
       expect(find.byTooltip('Add poll'), findsNothing);
 
-      api.response.complete(
-        const DiscourseUser(id: 7, username: 'reader', canCreatePoll: true),
-      );
+      api.response.complete(_pollUser);
       for (var frame = 0; frame < 4; frame++) {
         await tester.pump(const Duration(milliseconds: 1));
       }
@@ -993,7 +997,7 @@ void main() {
     tester,
   ) async {
     final api = FakeDiscourseApi(
-      user: const DiscourseUser(id: 7, username: 'reader', canCreatePoll: true),
+      user: _pollUser,
       feeds: const {'/latest.json': <Topic>[]},
       topics: {7: topicPayload(id: 7, title: 'Lunch', canCreatePost: true)},
       siteConfigs: const {_site: SiteConfig.unknown()},

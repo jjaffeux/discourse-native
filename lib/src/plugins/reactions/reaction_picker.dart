@@ -11,6 +11,7 @@ import '../../shell/shell_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
 import 'reaction.dart';
+import 'reactions_settings.dart';
 import 'reactions_shell_extension.dart';
 
 /// Opens the policy-aware chooser for a post reaction affordance.
@@ -32,7 +33,7 @@ Future<void> showPostReactionPicker(
   if (!identical(ShellScope.maybeRead(context), controller)) return;
   final current = controller.store.read<Post>(siteUrl, post.id);
   if (current == null || !current.canReact) return;
-  if (config?.allowAnyEmoji != true) {
+  if (config?.reactionsSettings.allowAnyEmoji != true) {
     return showReactionPicker(context, siteUrl, current, nested: false);
   }
 
@@ -185,7 +186,8 @@ class ReactionGrid extends StatelessWidget {
     // Empty until the site's settings have landed, and on a site that would not
     // answer for them. Saying so is better than an empty box that reads as a
     // site with no reactions configured at all.
-    if (config.offeredReactions.isEmpty) {
+    final settings = config.reactionsSettings;
+    if (settings.offeredReactions.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Text(
@@ -200,7 +202,7 @@ class ReactionGrid extends StatelessWidget {
 
     final grid = Wrap(
       children: [
-        for (final id in config.offeredReactions)
+        for (final id in settings.offeredReactions)
           _ReactionCell(
             id: id,
             url: presentationController.emojiUrlFor(siteUrl, id),
@@ -245,7 +247,7 @@ class ReactionGrid extends StatelessWidget {
     // The site draws its own picker desaturated when it is asked to; matching
     // that is the difference between the app looking like the site and looking
     // like something else pointed at it.
-    if (!config.desaturatedReactionPanel) return grid;
+    if (!settings.desaturatedPanel) return grid;
     return ColorFiltered(
       colorFilter: const ColorFilter.matrix(<double>[
         0.2126, 0.7152, 0.0722, 0, 0, //

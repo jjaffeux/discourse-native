@@ -17,11 +17,13 @@ import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api_client.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api_client.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -2521,6 +2523,7 @@ void _feedGroups() {
       // through.
       final paths = <String>[];
       final api = DiscourseApi(
+        models: installedPlugins.models,
         client: MockClient((request) async {
           paths.add(request.url.path);
           return http.Response(
@@ -2537,11 +2540,12 @@ void _feedGroups() {
       );
 
       final config = await api.siteConfig(siteUrl: 'https://example.com');
+      final reactions = config.plugins.get(reactionsSettingsDataKey)!;
 
       expect(paths, ['/site/settings.json']);
       expect(config.emojiSet, 'apple');
-      expect(config.mainReaction, 'heart');
-      expect(config.offeredReactions, ['heart', '+1', 'clap']);
+      expect(reactions.mainReaction, 'heart');
+      expect(reactions.offeredReactions, ['heart', '+1', 'clap']);
     });
 
     test(
@@ -6037,6 +6041,7 @@ void _writeGroups() {
 
     test('reads the current account’s chat header state', () async {
       final api = DiscourseApi(
+        models: DiscourseModelCodec(extensions: pluginRegistry),
         client: MockClient(
           (_) async => http.Response(
             jsonEncode({
@@ -6062,14 +6067,14 @@ void _writeGroups() {
         apiKey: 'the-key',
       );
 
-      expect(user.hasChatEnabled, isTrue);
+      expect(user.chatCurrentUser?.hasChatEnabled, isTrue);
       expect(
-        user.chatHeaderIndicatorPreference,
+        user.chatCurrentUser?.headerIndicatorPreference,
         ChatHeaderIndicatorPreference.onlyMentions,
       );
       expect(user.doNotDisturbUntil, DateTime.utc(2027, 1, 2, 3, 4, 5));
       expect(user.doNotDisturbChannelPosition, 91);
-      expect(user.lastChatChannelId, 42);
+      expect(user.chatCurrentUser?.lastChannelId, 42);
     });
 
     test('reads a page of portable composer drafts', () async {

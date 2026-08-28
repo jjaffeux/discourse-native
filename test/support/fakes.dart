@@ -51,6 +51,7 @@ import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_api.dart';
+import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/poll/polls_api.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
@@ -3435,7 +3436,7 @@ class FakeDiscourseApi
         query: uri.queryParameters['q'] ?? '',
         fileDetail:
             siteConfigs[siteUrl]?.gifFileDetail ??
-            SiteConfig.defaultGifFileDetail,
+            GifsSettings.defaultFileDetail,
         position: uri.queryParameters['pos'] ?? '0',
         clientId: clientId,
       );

@@ -434,11 +434,11 @@ void main() {
       EmojiCache.instance = previousEmojiCache;
     });
 
-    final config = SiteConfig.fromSettings(const {
+    final config = installedPlugins.models.siteConfig(const {
       'discourse_reactions_enabled': true,
       'discourse_reactions_reaction_for_like': 'heart',
       'discourse_reactions_enabled_reactions': 'heart',
-    });
+    }, _siteUrl);
     final site = instance('meta.example').copyWith(config: config);
     final post = Post.fromJson(
       const {
@@ -645,11 +645,11 @@ Widget _contentHost(ShellController controller, Widget child) => ShellScope(
   ),
 );
 
-SiteConfig _reactionConfig() => SiteConfig.fromSettings(const {
+SiteConfig _reactionConfig() => installedPlugins.models.siteConfig(const {
   'discourse_reactions_enabled': true,
   'discourse_reactions_reaction_for_like': 'heart',
   'discourse_reactions_enabled_reactions': 'heart',
-});
+}, _siteUrl);
 
 Post _reactablePost() => Post.fromJson(
   const {

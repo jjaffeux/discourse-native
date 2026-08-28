@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 
 import '../../data/api_credentials.dart';
 import '../../data/site_lifecycle.dart';
-import '../../models/site_config.dart';
 import '../../shell/image_decode.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/d_icon.dart';
@@ -13,6 +12,7 @@ import '../../theme/d_icons.dart';
 import 'gif.dart';
 import 'gif_picker_controller.dart';
 import 'gifs_api.dart';
+import 'gifs_settings.dart';
 
 /// Opens the shared GIF browser and returns the chosen remote image.
 ///
@@ -25,15 +25,15 @@ Future<GifResult?> showGifPicker({
   required GifsApi api,
   required ApiCredentialReader credentials,
   required SiteLifecycle lifecycle,
-  required SiteConfig config,
+  required GifsSettings settings,
 }) async {
   final controller = GifPickerController(
     siteUrl: siteUrl,
     api: api,
     credentials: credentials,
     lifecycle: lifecycle,
-    fileDetail: config.gifFileDetail,
-    maxResults: config.gifResultLimitEnabled ? config.gifMaxResults : null,
+    fileDetail: settings.fileDetail,
+    maxResults: settings.resultLimitEnabled ? settings.maxResults : null,
   );
   unawaited(controller.loadCategories());
 

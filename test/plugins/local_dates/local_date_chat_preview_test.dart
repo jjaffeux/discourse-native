@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_widget.dart';
@@ -17,11 +18,21 @@ void main() {
   });
 
   const plugin = LocalDatesPlugin();
-  const enabled = SiteConfig(localDatesEnabled: true);
-  const disabled = SiteConfig(localDatesEnabled: false);
+  final enabled = SiteConfig(
+    plugins: PluginData.none.withValue(
+      localDatesSettingsDataKey,
+      const LocalDatesSettings(enabled: true),
+    ),
+  );
+  final disabled = SiteConfig(
+    plugins: PluginData.none.withValue(
+      localDatesSettingsDataKey,
+      const LocalDatesSettings(),
+    ),
+  );
 
-  ChatPreviewRequest request(String raw, {SiteConfig config = enabled}) =>
-      ChatPreviewRequest(raw: raw, siteConfig: config);
+  ChatPreviewRequest request(String raw, {SiteConfig? config}) =>
+      ChatPreviewRequest(raw: raw, siteConfig: config ?? enabled);
 
   test(
     'claims safely projectable syntax when the cached setting is enabled',

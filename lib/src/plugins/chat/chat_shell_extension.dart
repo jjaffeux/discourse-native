@@ -15,6 +15,7 @@ import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
 import 'chat_plugin.dart';
+import 'chat_plugin_data.dart';
 import 'chat_route.dart';
 import 'chat_services.dart';
 import 'chat_stream_target.dart';
@@ -274,7 +275,7 @@ final class ChatShellService
     if (instance == null || !instance.isConnected) return;
     final totals = host.currentTotals;
     if (totals?.hasChatEnabled != true ||
-        instance.user?.hasChatEnabled == false) {
+        instance.user?.chatCurrentUser?.hasChatEnabled == false) {
       return;
     }
     final siteUrl = instance.url;
@@ -282,7 +283,7 @@ final class ChatShellService
     if (host.currentInstance?.url != siteUrl) return;
     final channel = chat.shortcutChannel(
       siteUrl,
-      lastChannelId: host.currentInstance?.user?.lastChatChannelId,
+      lastChannelId: host.currentInstance?.user?.chatCurrentUser?.lastChannelId,
     );
     if (channel != null) {
       host.selectDestination(ChatPlugin.destination(channel));

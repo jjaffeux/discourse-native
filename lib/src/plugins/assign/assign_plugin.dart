@@ -13,8 +13,11 @@ import '../../shell/shell_sheet.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import 'assign_data.dart';
 import 'assignment.dart';
 import 'assignment_sheet.dart';
+
+export 'assign_data.dart';
 
 /// Native presentation and mutation affordances for `discourse-assign`.
 ///
@@ -24,6 +27,9 @@ import 'assignment_sheet.dart';
 final class AssignPlugin
     implements
         SitePlugin,
+        SiteSettingsPlugin<AssignSettings>,
+        CurrentUserPlugin<AssignCurrentUser>,
+        PluginPermissionPlugin,
         PostRecordPlugin<Assignments>,
         TopicRecordPlugin<Assignments>,
         PostDecorationPlugin,
@@ -39,6 +45,32 @@ final class AssignPlugin
 
   @override
   String get name => 'discourse-assign';
+
+  @override
+  PluginDataPersistenceCodec<AssignSettings> get siteSettingsCodec =>
+      assignSettingsPersistenceCodec;
+
+  @override
+  AssignSettings readSiteSettings(Map<String, dynamic> json, String siteUrl) =>
+      AssignSettings.fromWire(json);
+
+  @override
+  PluginDataPersistenceCodec<AssignCurrentUser> get currentUserCodec =>
+      assignCurrentUserPersistenceCodec;
+
+  @override
+  AssignCurrentUser? readCurrentUser(
+    Map<String, dynamic> json,
+    String siteUrl,
+  ) => AssignCurrentUser.fromWire(json);
+
+  @override
+  String get permissionId => 'assign';
+
+  @override
+  bool allowsPermission(PluginData currentUser, bool? recordPermission) =>
+      recordPermission ??
+      currentUser.get(assignCurrentUserDataKey)?.canAssign == true;
 
   @override
   PluginDataKey<Assignments> get record => assignmentsDataKey;

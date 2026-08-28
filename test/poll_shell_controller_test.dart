@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
+import 'package:discourse_native/src/plugins/poll/poll_data.dart';
 import 'package:discourse_native/src/plugins/poll/poll_shell_extension.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_shell_extension.dart';
@@ -19,6 +20,23 @@ import 'support/fakes.dart';
 
 const _site = 'https://meta.discourse.org';
 const _site2 = 'https://community.example.com';
+
+DiscourseUser _pollUser({
+  required int id,
+  required String username,
+  bool canCreatePoll = true,
+  bool staff = false,
+  List<String> groups = const [],
+}) => DiscourseUser(
+  id: id,
+  username: username,
+  staff: staff,
+  groups: groups,
+  plugins: PluginData.none.withValue(
+    pollCurrentUserDataKey,
+    PollCurrentUser(canCreatePoll: canCreatePoll),
+  ),
+);
 
 final class _GatedCurrentUserApi extends FakeDiscourseApi {
   _GatedCurrentUserApi()
@@ -53,10 +71,9 @@ final class _PerSiteCurrentUserApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     calls.add(siteUrl);
-    return DiscourseUser(
+    return _pollUser(
       id: siteUrl == _site ? 1 : 2,
       username: siteUrl == _site ? 'reader' : 'reader2',
-      canCreatePoll: true,
       groups: [siteUrl == _site ? 'meta-builders' : 'community-builders'],
     );
   }
@@ -173,13 +190,9 @@ void main() {
       final shell = ShellController(
         plugins: installedPlugins,
         instanceStore: FakeInstanceStore([
-          instance('meta.discourse.org').copyWith(
-            user: const DiscourseUser(
-              id: 1,
-              username: 'reader',
-              canCreatePoll: true,
-            ),
-          ),
+          instance(
+            'meta.discourse.org',
+          ).copyWith(user: _pollUser(id: 1, username: 'reader')),
         ]),
         api: api,
         authenticator: authenticator,
@@ -197,12 +210,11 @@ void main() {
       expect(shell.freshCurrentUserFor(_site), isNull);
 
       api.response.complete(
-        const DiscourseUser(
+        _pollUser(
           id: 1,
           username: 'reader',
-          canCreatePoll: true,
           staff: true,
-          groups: ['builders'],
+          groups: const ['builders'],
         ),
       );
       await pumpEventQueue();

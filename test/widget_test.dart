@@ -40,6 +40,7 @@ import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
@@ -52,6 +53,8 @@ import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_pill.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_settings.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/categories_page.dart';
@@ -2032,7 +2035,12 @@ void main() {
     final auth = FakeAuthenticator()..keys[site.url] = 'api-key';
     final api = FakeDiscourseApi(
       siteConfigs: {
-        site.url: const SiteConfig(resenha: ResenhaClientConfig(enabled: true)),
+        site.url: SiteConfig(
+          plugins: PluginData.none.withValue(
+            resenhaSettingsDataKey,
+            const ResenhaClientConfig(enabled: true),
+          ),
+        ),
       },
       pluginResponses: {
         'GET /resenha/rooms.json': {
@@ -6376,7 +6384,11 @@ void main() {
   });
 
   group('the user menu', () {
-    const me = DiscourseUser(username: 'joffreyj', name: 'Joffrey');
+    const me = DiscourseUser(
+      username: 'joffreyj',
+      name: 'Joffrey',
+      hidePresence: false,
+    );
     final connected = [
       instance(
         'meta.discourse.org',
@@ -6873,10 +6885,13 @@ void main() {
     testWidgets('Chat is hidden when the current user disabled it', (
       tester,
     ) async {
-      const userWithoutChat = DiscourseUser(
+      final userWithoutChat = DiscourseUser(
         username: 'joffreyj',
         name: 'Joffrey',
-        hasChatEnabled: false,
+        plugins: PluginData.none.withValue(
+          chatCurrentUserDataKey,
+          const ChatCurrentUser(hasChatEnabled: false),
+        ),
       );
       final api = FakeDiscourseApi(
         user: userWithoutChat,
@@ -8078,10 +8093,13 @@ void main() {
     testWidgets('Chat contributes a card action and opens a direct message', (
       tester,
     ) async {
-      const reader = DiscourseUser(
+      final reader = DiscourseUser(
         id: 7,
         username: 'reader',
-        hasChatEnabled: true,
+        plugins: PluginData.none.withValue(
+          chatCurrentUserDataKey,
+          const ChatCurrentUser(hasChatEnabled: true),
+        ),
       );
       final chatCard = UserCard.fromJson(
         const {
@@ -10528,12 +10546,12 @@ void main() {
   group('optional site features', () {
     const site = 'https://meta.discourse.org';
 
-    final reactionsOn = SiteConfig.fromSettings(const {
+    final reactionsOn = installedPlugins.models.siteConfig(const {
       'emoji_set': 'apple',
       'discourse_reactions_enabled': true,
       'discourse_reactions_reaction_for_like': 'heart',
       'discourse_reactions_enabled_reactions': '+1|clap',
-    });
+    }, site);
 
     ShellController controllerWith(
       WidgetTester tester,
@@ -11148,11 +11166,11 @@ void main() {
       const Topic(id: 7, title: 'A real topic', slug: 'a-real-topic'),
     ];
 
-    final configured = SiteConfig.fromSettings(const {
+    final configured = installedPlugins.models.siteConfig(const {
       'discourse_reactions_enabled': true,
       'discourse_reactions_reaction_for_like': 'heart',
       'discourse_reactions_enabled_reactions': '+1|clap',
-    });
+    }, site);
 
     /// A post as a reactions site serializes one. Built through [Post.fromJson]
     /// rather than the constructor deliberately: there is no way to hand a post
@@ -11319,12 +11337,12 @@ void main() {
     ) async {
       final api = await openTopic(
         tester,
-        config: SiteConfig.fromSettings(const {
+        config: installedPlugins.models.siteConfig(const {
           'discourse_reactions_enabled': true,
           'discourse_reactions_reaction_for_like': 'heart',
           'discourse_reactions_enabled_reactions': 'clap',
           'discourse_reactions_allow_any_emoji': true,
-        }),
+        }, site),
         emojis: const [
           SiteEmoji(name: 'wave', url: 'https://meta.discourse.org/wave.png'),
         ],
@@ -11350,12 +11368,12 @@ void main() {
       final gate = Completer<void>();
       await openTopic(
         tester,
-        config: SiteConfig.fromSettings(const {
+        config: installedPlugins.models.siteConfig(const {
           'discourse_reactions_enabled': true,
           'discourse_reactions_reaction_for_like': 'heart',
           'discourse_reactions_enabled_reactions': 'clap',
           'discourse_reactions_allow_any_emoji': true,
-        }),
+        }, site),
         emojis: const [
           SiteEmoji(name: 'wave', url: 'https://meta.discourse.org/wave.png'),
         ],
@@ -11383,12 +11401,12 @@ void main() {
     ) async {
       final api = await openTopic(
         tester,
-        config: SiteConfig.fromSettings(const {
+        config: installedPlugins.models.siteConfig(const {
           'discourse_reactions_enabled': true,
           'discourse_reactions_reaction_for_like': 'heart',
           'discourse_reactions_enabled_reactions': 'clap',
           'discourse_reactions_allow_any_emoji': true,
-        }),
+        }, site),
         emojis: const [
           SiteEmoji(name: 'wave', url: 'https://meta.discourse.org/wave.png'),
         ],
@@ -11421,12 +11439,12 @@ void main() {
     ) async {
       final api = await openTopic(
         tester,
-        config: SiteConfig.fromSettings(const {
+        config: installedPlugins.models.siteConfig(const {
           'discourse_reactions_enabled': true,
           'discourse_reactions_reaction_for_like': 'heart',
           'discourse_reactions_enabled_reactions': 'clap',
           'discourse_reactions_allow_any_emoji': true,
-        }),
+        }, site),
         emojis: const [
           SiteEmoji(name: 'wave', url: 'https://meta.discourse.org/wave.png'),
         ],
@@ -11872,12 +11890,12 @@ void main() {
     ) async {
       final api = await openTopic(
         tester,
-        config: SiteConfig.fromSettings(const {
+        config: installedPlugins.models.siteConfig(const {
           'discourse_reactions_enabled': true,
           'discourse_reactions_reaction_for_like': 'heart',
           'discourse_reactions_enabled_reactions': 'clap',
           'discourse_reactions_allow_any_emoji': true,
-        }),
+        }, site),
         emojis: const [
           SiteEmoji(name: 'wave', url: 'https://meta.discourse.org/wave.png'),
         ],
@@ -13306,6 +13324,37 @@ void main() {
     );
     const withoutChat = NotificationTotals();
 
+    SiteConfig chatConfig({
+      bool searchEnabled = false,
+      int channelRetentionDays = 0,
+    }) => SiteConfig(
+      plugins: PluginData.none.withValue(
+        chatSettingsDataKey,
+        ChatSettings(
+          searchEnabled: searchEnabled,
+          channelRetentionDays: channelRetentionDays,
+        ),
+      ),
+    );
+
+    DiscourseUser chatUser({
+      bool? hasChatEnabled,
+      ChatHeaderIndicatorPreference headerIndicatorPreference =
+          ChatHeaderIndicatorPreference.allNew,
+      int? lastChannelId,
+    }) => DiscourseUser(
+      id: 7,
+      username: 'joffreyj',
+      plugins: PluginData.none.withValue(
+        chatCurrentUserDataKey,
+        ChatCurrentUser(
+          hasChatEnabled: hasChatEnabled,
+          headerIndicatorPreference: headerIndicatorPreference,
+          lastChannelId: lastChannelId,
+        ),
+      ),
+    );
+
     ChatChannel channel(
       int id, {
       String title = 'Bugs',
@@ -13454,7 +13503,9 @@ void main() {
               },
               chatChannelGate: channelGate,
               chatMessagesByKey: messages,
-              siteConfigs: config.chatSearchEnabled ? {site: config} : const {},
+              siteConfigs: config.chatSettings.searchEnabled
+                  ? {site: config}
+                  : const {},
             ),
         instances: [
           instance(
@@ -13493,14 +13544,7 @@ void main() {
         await pumpChat(tester, totals: withoutChat);
         expect(shortcut, findsNothing);
 
-        await pumpChat(
-          tester,
-          user: const DiscourseUser(
-            id: 7,
-            username: 'joffreyj',
-            hasChatEnabled: false,
-          ),
-        );
+        await pumpChat(tester, user: chatUser(hasChatEnabled: false));
         expect(shortcut, findsNothing);
       });
 
@@ -13550,10 +13594,8 @@ void main() {
         await pumpChat(
           tester,
           public: [channel(9, unread: 4)],
-          user: const DiscourseUser(
-            id: 7,
-            username: 'joffreyj',
-            chatHeaderIndicatorPreference:
+          user: chatUser(
+            headerIndicatorPreference:
                 ChatHeaderIndicatorPreference.directMessagesAndMentions,
           ),
         );
@@ -13607,11 +13649,7 @@ void main() {
           public: [channel(9)],
           direct: [dm(12)],
           messages: {key(9): page(const [])},
-          user: const DiscourseUser(
-            id: 7,
-            username: 'joffreyj',
-            lastChatChannelId: 9,
-          ),
+          user: chatUser(lastChannelId: 9),
         );
 
         await tester.tap(shortcut);
@@ -13719,10 +13757,7 @@ void main() {
         await pumpChat(tester);
         expect(sidebarDestination('Search'), findsNothing);
 
-        await pumpChat(
-          tester,
-          config: const SiteConfig(chatSearchEnabled: true),
-        );
+        await pumpChat(tester, config: chatConfig(searchEnabled: true));
         expect(sidebarDestination('Search'), findsOneWidget);
 
         await tester.tap(sidebarDestination('Search'));
@@ -13736,10 +13771,7 @@ void main() {
         final previous = debugDefaultTargetPlatformOverride;
         debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
         try {
-          await pumpChat(
-            tester,
-            config: const SiteConfig(chatSearchEnabled: true),
-          );
+          await pumpChat(tester, config: chatConfig(searchEnabled: true));
 
           await tester.tap(sidebarDestination('Search'));
           await tester.pumpAndSettle();
@@ -13784,7 +13816,7 @@ void main() {
           tester,
           public: [channel(9)],
           messages: {key(9): page(const [])},
-          config: const SiteConfig(chatSearchEnabled: true),
+          config: chatConfig(searchEnabled: true),
         );
 
         await tester.tap(sidebarDestination('Bugs'));
@@ -13808,11 +13840,11 @@ void main() {
         tester,
       ) async {
         final searchMessage = msg(40, cooked: '<p>needle</p>');
-        const config = SiteConfig(chatSearchEnabled: true);
+        final config = chatConfig(searchEnabled: true);
         final api = FakeDiscourseApi(
           totals: withChat,
           user: me,
-          siteConfigs: const {site: config},
+          siteConfigs: {site: config},
           chatChannelsBySite: {
             site: ChatChannels(public: [channel(9)], direct: const []),
           },
@@ -14580,7 +14612,7 @@ void main() {
             ),
           ],
           messages: {key(9): page(const [])},
-          config: const SiteConfig(chatChannelRetentionDays: 180),
+          config: chatConfig(channelRetentionDays: 180),
         );
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();

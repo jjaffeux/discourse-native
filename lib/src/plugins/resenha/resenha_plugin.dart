@@ -10,9 +10,16 @@ import 'resenha_call_widget.dart';
 import 'resenha_models.dart';
 import 'resenha_room_view.dart';
 import 'resenha_services.dart';
+import 'resenha_settings.dart';
 
 final class ResenhaPlugin
-    implements SitePlugin, SidebarPlugin, ContentPlugin, ShellOverlayPlugin {
+    implements
+        SitePlugin,
+        SidebarPlugin,
+        ContentPlugin,
+        ShellOverlayPlugin,
+        SiteSettingsPlugin<ResenhaClientConfig>,
+        PluginSiteFeature {
   const ResenhaPlugin();
 
   static String routeId(int roomId) => 'resenha-room-$roomId';
@@ -26,6 +33,20 @@ final class ResenhaPlugin
 
   @override
   String get name => 'resenha';
+
+  @override
+  PluginDataPersistenceCodec<ResenhaClientConfig> get siteSettingsCodec =>
+      resenhaSettingsPersistenceCodec;
+
+  @override
+  ResenhaClientConfig readSiteSettings(
+    Map<String, dynamic> json,
+    String siteUrl,
+  ) => ResenhaClientConfig.fromSettings(json);
+
+  @override
+  bool siteFeatureEnabled(PluginData siteSettings) =>
+      siteSettings.resenhaSettings.enabled;
 
   @override
   List<SidebarSection> sidebarSections(BuildContext context) {

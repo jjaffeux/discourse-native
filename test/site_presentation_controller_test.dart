@@ -180,7 +180,7 @@ void main() {
     final api = _PresentationApi();
     final credentials = _Credentials();
     const stored = SiteConfig(emojiSet: 'apple');
-    const fetched = SiteConfig(emojiSet: 'google', mainReaction: '+1');
+    const fetched = SiteConfig(emojiEnabled: false, emojiSet: 'google');
     api.config = fetched;
     final persisted = <(String, SiteConfig)>[];
     final controller = _controller(

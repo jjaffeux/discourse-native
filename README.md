@@ -870,15 +870,19 @@ this", and everything keys off that — including which route a write goes down,
 which is why the rule is worth stating rather than assuming. A gate that is
 wrong for one frame produces a wrong *write*, not merely a missing button.
 
-The other half is [`SiteConfig`](lib/src/models/site_config.dart), from
-`GET /site/settings.json` — the only public payload carrying a plugin's own
-configuration. `/site.json` does **not** have it: `SiteSerializer` is categories,
-groups, archetypes and themes, with no `site_settings` key and no `plugins` key
-at all. Config answers the question no record can — what may be *offered* that
-has not happened yet, like a picker's emoji list — and nothing else. Every field
-has a default, every default is core's own, so a site that will not answer is
-drawn as core rather than drawn as broken; there is no loading state and no
-error state because there is nothing worth telling a reader about.
+The other half comes from `GET /site/settings.json` — the only public payload
+carrying a plugin's own configuration. `/site.json` does **not** have it:
+`SiteSerializer` is categories, groups, archetypes and themes, with no
+`site_settings` key and no `plugins` key at all. Installed manifest readers put
+their typed settings in [`SiteConfig.plugins`](lib/src/models/site_config.dart),
+so each plugin owns its wire keys and defaults while the core model stays
+schema-free. Those settings answer the question no record can — what may be
+*offered* that has not happened yet, like a picker's emoji list — and nothing
+else. A core-only build ignores optional schemas entirely.
+
+The warm-start snapshot uses namespaced plugin codecs. Installed modules decode
+their own values and migrate the old flat fields; namespaces belonging to
+modules absent from this build remain opaque and survive load/save unchanged.
 
 It is fetched from `loadTopic`, **before** its early returns, and remembered on
 the instance across launches. Before the guards, deliberately: both of them
@@ -946,12 +950,13 @@ answers the same bytes for both — so it drops that one post's reactions and
 nothing else. Emptying every footer in the topic because a moderator deleted one
 post would be the wrong guess.
 
-The main reaction is **not guessed**. `SiteConfig.mainReaction` is nullable, and
-where it is unknown the React entry opens the picker instead of sending
-`heart` — the setting is enum-constrained to what a site allows, and `heart` is
-not even in the default enabled list, so a guess on a site whose admin chose
-`+1` earns a 422 whose body says only "Sorry, an error has occurred." The menu
-also labels from the reaction the reader *holds*, not from
+The main reaction is **not guessed**.
+`SiteConfig.plugins.reactionsSettings.mainReaction` is nullable, and where it
+is unknown the React entry opens the picker instead of sending `heart` — the
+setting is enum-constrained to what a site allows, and `heart` is not even in
+the default enabled list, so a guess on a site whose admin chose `+1` earns a
+422 whose body says only "Sorry, an error has occurred." The menu also labels
+from the reaction the reader *holds*, not from
 `current_user_used_main_reaction`: someone who clapped has a shadow like, so the
 naive label reads "Like this post" on a tap that would replace their clap.
 

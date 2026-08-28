@@ -5,10 +5,13 @@ import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/site_appearance_fixtures.dart';
 
 void main() {
@@ -147,14 +150,15 @@ void main() {
 
   group('round trip', () {
     test('brings back everything save() was given', () async {
-      const instance = DiscourseInstance(
+      final pluginStore = InstanceStore(models: installedPlugins.models);
+      final instance = DiscourseInstance(
         url: 'https://meta.discourse.org',
         title: 'Meta',
         description: 'About Discourse',
         iconUrl: 'https://meta.discourse.org/uploads/default/icon.png',
         apiVersion: 20250101,
         loginRequired: true,
-        user: DiscourseUser(
+        user: const DiscourseUser(
           username: 'sam',
           id: 3,
           name: 'Sam Saffron',
@@ -164,15 +168,20 @@ void main() {
         config: SiteConfig(
           emojiSet: 'apple_classic',
           externalEmojiUrl: 'https://cdn.example.com/emoji',
-          mainReaction: 'heart',
-          offeredReactions: ['heart', '+1'],
-          allowAnyEmoji: true,
-          desaturatedReactionPanel: true,
+          plugins: PluginData.none.withValue(
+            reactionsSettingsDataKey,
+            const ReactionsSettings(
+              mainReaction: 'heart',
+              offeredReactions: ['heart', '+1'],
+              allowAnyEmoji: true,
+              desaturatedPanel: true,
+            ),
+          ),
         ),
       );
 
-      await store.save([instance]);
-      final loaded = await store.load();
+      await pluginStore.save([instance]);
+      final loaded = await pluginStore.load();
 
       expect(loaded, hasLength(1));
       final back = loaded.single;
@@ -184,6 +193,133 @@ void main() {
       expect(back.loginRequired, instance.loginRequired);
       expect(back.user, instance.user);
       expect(back.config, instance.config);
+    });
+
+    test(
+      'preserves uninstalled plugin namespaces through load and save',
+      () async {
+        const siteNamespaces = {
+          'future-plugin/site-settings': {
+            'enabled': true,
+            'nested': [1, 'two', null],
+          },
+        };
+        const userNamespaces = {
+          'future-plugin/current-user': {'permission': 'maybe'},
+        };
+        SharedPreferences.setMockInitialValues({
+          SharedPreferencesInstancePersistence.storageKey: jsonEncode([
+            {
+              'url': 'https://future.example',
+              'title': 'Future',
+              'config': {'plugins': siteNamespaces},
+              'user': {'username': 'sam', 'plugins': userNamespaces},
+            },
+          ]),
+        });
+        final coreStore = InstanceStore();
+
+        final loaded = await coreStore.load();
+        await coreStore.save(loaded);
+
+        final raw = SharedPreferences.getInstance().then(
+          (preferences) => preferences.getString(
+            SharedPreferencesInstancePersistence.storageKey,
+          ),
+        );
+        final saved = jsonDecode((await raw)!) as List<dynamic>;
+        final entry = saved.single as Map<String, dynamic>;
+        expect(
+          (entry['config'] as Map<String, dynamic>)['plugins'],
+          siteNamespaces,
+        );
+        expect(
+          (entry['user'] as Map<String, dynamic>)['plugins'],
+          userNamespaces,
+        );
+      },
+    );
+
+    test('migrates flat plugin fields into installed namespaces', () async {
+      SharedPreferences.setMockInitialValues({
+        SharedPreferencesInstancePersistence.storageKey: jsonEncode([
+          {
+            'url': 'https://legacy.example',
+            'title': 'Legacy',
+            'config': {
+              'mainReaction': 'clap',
+              'offeredReactions': ['clap', '+1'],
+              'allowAnyEmoji': true,
+              'desaturatedReactionPanel': true,
+              'pollMaximumOptions': 1,
+              'pollDefaultPublic': false,
+              'localDatesEnabled': true,
+              'localDateFormats': ['LLL'],
+              'localDateTimezones': ['Etc/UTC'],
+              'gifsEnabled': true,
+              'gifFileDetail': 'gif',
+              'gifResultLimitEnabled': true,
+              'gifMaxResults': 48,
+              'assignStatusesEnabled': true,
+              'assignStatuses': ['New', 'Done'],
+              'chatUploadsEnabled': false,
+              'chatSearchEnabled': true,
+              'chatChannelRetentionDays': 30,
+              'chatDmRetentionDays': 7,
+              'resenha': {'enabled': true},
+            },
+            'user': {
+              'username': 'sam',
+              'canCreatePoll': true,
+              'canAssign': false,
+              'canAssignGlobally': true,
+              'hasChatEnabled': true,
+              'chatHeaderIndicatorPreference': 'only_mentions',
+              'lastChatChannelId': 42,
+            },
+          },
+        ]),
+      });
+      final pluginStore = InstanceStore(models: installedPlugins.models);
+
+      final loaded = await pluginStore.load();
+      await pluginStore.save(loaded);
+
+      final preferences = await SharedPreferences.getInstance();
+      final saved =
+          jsonDecode(
+                preferences.getString(
+                  SharedPreferencesInstancePersistence.storageKey,
+                )!,
+              )
+              as List<dynamic>;
+      final entry = saved.single as Map<String, dynamic>;
+      final config = entry['config'] as Map<String, dynamic>;
+      final user = entry['user'] as Map<String, dynamic>;
+      expect((config['plugins'] as Map<String, dynamic>).keys, {
+        'discourse-reactions/site-settings',
+        'poll/site-settings',
+        'discourse-local-dates/site-settings',
+        'gifs/site-settings',
+        'discourse-assign/site-settings',
+        'chat/site-settings',
+        'resenha/site-settings',
+      });
+      expect((user['plugins'] as Map<String, dynamic>).keys, {
+        'poll/current-user',
+        'discourse-assign/current-user',
+        'chat/current-user',
+      });
+      expect(config, isNot(contains('mainReaction')));
+      expect(config, isNot(contains('pollMaximumOptions')));
+      expect(config, isNot(contains('resenha')));
+      expect(user, isNot(contains('canCreatePoll')));
+      expect(user, isNot(contains('hasChatEnabled')));
+      expect(
+        ((config['plugins'] as Map<String, dynamic>)['poll/site-settings']
+            as Map<String, dynamic>)['maximumOptions'],
+        1,
+      );
     });
 
     test('keeps the rail in order, and keeps a signed-out site', () async {

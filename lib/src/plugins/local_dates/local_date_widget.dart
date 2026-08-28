@@ -15,6 +15,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'local_date.dart';
 import 'local_date_environment.dart';
+import 'local_dates_settings.dart';
 
 Widget? localDateWidgetBuilder(dom.Element element, {String? siteUrl}) {
   if (element.localName != 'span' ||
@@ -121,7 +122,8 @@ class _LocalDateInlineState extends State<LocalDateInline> {
             accountTimezone,
             siteUrl == null
                 ? const []
-                : shell?.siteConfigFor(siteUrl).localDateTimezones ?? const [],
+                : shell?.siteConfigFor(siteUrl).localDatesSettings.timezones ??
+                      const [],
           ),
           onPressed: (anchor) => _showPreviews(
             context,
@@ -223,7 +225,7 @@ class _LocalDateInlineState extends State<LocalDateInline> {
       widget.spec,
       locale: locale,
       accountTimezone: accountTimezone,
-      defaultTimezones: config.localDateTimezones,
+      defaultTimezones: config.localDatesSettings.timezones,
       now: _now,
     );
     if (previews.isEmpty) return;
