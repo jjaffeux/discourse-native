@@ -206,8 +206,8 @@ Finder renderedText(String text) => find.byWidgetPredicate(
   description: 'rendered text containing "$text"',
 );
 
-/// The surface the first post paints for itself, which is what hovering it
-/// changes. The innermost [ColoredBox] above the body is the post's own.
+/// The surface the first post paints for itself. The innermost [ColoredBox]
+/// above the body is the post's own.
 Color postBackground(WidgetTester tester) => tester
     .widget<ColoredBox>(
       find
@@ -5967,7 +5967,7 @@ void main() {
       expect(api.topicsOpened, [7]);
     });
 
-    testWidgets('the post under the pointer is picked out', (tester) async {
+    testWidgets('hovering a post leaves its surface unchanged', (tester) async {
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
@@ -5977,15 +5977,11 @@ void main() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
-      final hover = Theme.of(
-        tester.element(find.byType(TopicView)),
-      ).shell.hover;
-
       // Idle posts take the column's own surface rather than painting one.
       expect(postBackground(tester), Colors.transparent);
 
       final gesture = await hoverPost(tester);
-      expect(postBackground(tester), hover);
+      expect(postBackground(tester), Colors.transparent);
 
       await gesture.moveTo(Offset.zero);
       await tester.pumpAndSettle();
