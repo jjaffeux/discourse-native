@@ -23,7 +23,7 @@ class ChatChannelStarButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     return ValueListenableBuilder<ChatChannel?>(
       valueListenable: chat.channelRef(siteUrl, channelId),
       builder: (context, channel, _) {

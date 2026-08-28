@@ -214,9 +214,15 @@ class ShellController extends FrameSafeNotifier
     PluginHostBindings(<PluginHostPort<Object>>[
       PluginHostPort<Object>(corePluginTransportPort, api),
       PluginHostPort<Object>(corePluginModelCodecPort, api.models),
-      PluginHostPort<Object>(corePluginCredentialsPort, authenticator),
-      PluginHostPort<Object>(corePluginStorePort, store),
-      PluginHostPort<Object>(corePluginSiteLifecyclePort, lifecycle),
+      PluginHostPort<Object>(
+        corePluginRequestPort,
+        _ShellPluginRequestHost(this),
+      ),
+      _pluginPostHostPort(),
+      PluginHostPort<Object>(
+        corePluginAccountConnectionPort,
+        _ShellPluginAccountConnectionHost(this),
+      ),
       PluginHostPort<Object>(
         corePluginSiteStatePort,
         PluginSiteStateHost(
@@ -225,8 +231,16 @@ class ShellController extends FrameSafeNotifier
         ),
       ),
       PluginHostPort<Object>(
+        corePluginCurrentSitePort,
+        () => currentInstance?.url,
+      ),
+      PluginHostPort<Object>(corePluginPostFlagCatalogPort, postFlagTypesFor),
+      PluginHostPort<Object>(
         corePluginPreviewPort,
-        plugins.registry.chatPreviewPlugins,
+        PluginPreviewHost(
+          plugins: plugins.registry.chatPreviewPlugins,
+          buildNode: plugins.registry.buildChatPreviewNode,
+        ),
       ),
       PluginHostPort<Object>(
         corePluginAccountEventsPort,
@@ -235,13 +249,8 @@ class ShellController extends FrameSafeNotifier
           markSiteUnreachable: _markForumUnavailable,
         ),
       ),
-      PluginHostPort<Object>(
-        corePluginTargetPort,
-        PluginTargetHost(
-          dataForTarget: _pluginDataForTarget,
-          freshCurrentUserFor: freshCurrentUserFor,
-        ),
-      ),
+      _pluginTargetHostPort(),
+      _pluginFreshAccountHostPort(),
       PluginHostPort<Object>(
         corePluginTopicRefreshPort,
         PluginTopicRefreshHost(
@@ -250,8 +259,11 @@ class ShellController extends FrameSafeNotifier
         ),
       ),
       PluginHostPort<Object>(
-        corePluginTrackerPort,
-        (String siteUrl) => _trackers[siteUrl],
+        corePluginChannelPort,
+        (String siteUrl) => switch (_trackers[siteUrl]) {
+          final tracker? => _ShellPluginChannelHost(tracker),
+          null => null,
+        },
       ),
       PluginHostPort<Object>(
         corePluginUserPort,
@@ -292,11 +304,31 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  PluginHostPort<Object> _pluginPostHostPort() => PluginHostPort<Object>(
+    corePluginPostPort,
+    _ShellPluginPostHost(this, const PluginId('core')),
+    scopeToConsumer: (consumer) => _ShellPluginPostHost(this, consumer),
+  );
+
+  PluginHostPort<Object> _pluginTargetHostPort() => PluginHostPort<Object>(
+    corePluginTargetPort,
+    _ShellPluginTargetHost(this, const PluginId('core')),
+    scopeToConsumer: (consumer) => _ShellPluginTargetHost(this, consumer),
+  );
+
+  PluginHostPort<Object> _pluginFreshAccountHostPort() =>
+      PluginHostPort<Object>(
+        corePluginFreshAccountPort,
+        _ShellPluginFreshAccountHost(this, const PluginId('core')),
+        scopeToConsumer: (consumer) =>
+            _ShellPluginFreshAccountHost(this, consumer),
+      );
+
   PluginHostPort<Object> _pluginComposerHostPort() {
     final host = PluginComposerHost(
       buildComposer: buildPluginComposer,
-      credentials: authenticator,
-      lifecycle: lifecycle,
+      isActive: (composer) =>
+          !isDisposed && identical(visibleComposer, composer),
       siteConfigFor: siteConfigFor,
       siteConfigListenableFor: _pluginSiteConfigListenableFor,
     );
@@ -313,8 +345,7 @@ class ShellController extends FrameSafeNotifier
           }
           return host.buildComposer(request);
         },
-        credentials: host.credentials,
-        lifecycle: host.lifecycle,
+        isActive: host.isActive,
         siteConfigFor: host.siteConfigFor,
         siteConfigListenableFor: host.siteConfigListenableFor,
       ),
@@ -877,6 +908,12 @@ class ShellController extends FrameSafeNotifier
 
   ShellRootMode _rootMode;
   ShellRootMode get rootMode => _rootMode;
+
+  @override
+  Listenable get changes => this;
+
+  @override
+  bool get forumActive => _rootMode == ShellRootMode.forum;
 
   /// A connected forum looked up by the same canonical origin used in a
   /// cross-forum topic reference.
@@ -2505,8 +2542,11 @@ class ShellController extends FrameSafeNotifier
         }
       }
       for (final attachment
-          in _pluginSession.capabilities<PluginTrackerAttachment>()) {
-        attachment.attachPluginTracker(siteUrl, tracker);
+          in _pluginSession.capabilities<PluginChannelAttachment>()) {
+        attachment.attachPluginChannels(
+          siteUrl,
+          _ShellPluginChannelHost(tracker),
+        );
       }
       final stillSelectedAndVisible =
           _foreground && currentInstance?.url == siteUrl;
@@ -8716,7 +8756,7 @@ class ShellController extends FrameSafeNotifier
       ? _instanceAt(siteUrl)?.user
       : null;
 
-  PluginTargetSnapshot _pluginDataForTarget(
+  ({bool valid, PluginData data}) _pluginDataForTarget(
     String siteUrl,
     PluginTarget target,
   ) {
@@ -10299,6 +10339,202 @@ final class _ScopedEmojiPreferenceStore implements EmojiPreferenceStore {
   }
 }
 
+final class _ShellPluginSiteLease implements PluginSiteLease {
+  const _ShellPluginSiteLease(this.value);
+
+  final SiteLease value;
+
+  @override
+  bool get isCurrent => value.isCurrent;
+
+  @override
+  bool commit(VoidCallback mutation) => value.commit(mutation);
+}
+
+final class _ShellPluginChannelSubscription
+    implements PluginChannelSubscription {
+  const _ShellPluginChannelSubscription(this._subscription);
+
+  final SiteMessageBusSubscription _subscription;
+
+  @override
+  void cancel() => _subscription.cancel();
+}
+
+final class _ShellPluginChannelHost implements PluginChannelHost {
+  const _ShellPluginChannelHost(this._tracker);
+
+  final SiteTracker _tracker;
+
+  @override
+  PluginChannelSubscription subscribe(
+    String channel,
+    void Function(Object? data, int messageId) onMessage, {
+    int? lastId,
+  }) => _ShellPluginChannelSubscription(
+    _tracker.watchPluginChannelWithPosition(channel, onMessage, lastId: lastId),
+  );
+}
+
+final class _ShellPluginRequestHost implements PluginRequestHost {
+  const _ShellPluginRequestHost(this._shell);
+
+  final ShellController _shell;
+
+  @override
+  PluginSiteLease capture(String siteUrl) =>
+      _ShellPluginSiteLease(_shell.lifecycle.capture(siteUrl));
+
+  @override
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) async =>
+      PluginRequestCredentials(
+        apiKey: await _shell.authenticator.apiKeyFor(siteUrl),
+        clientId: await _shell.authenticator.clientId(),
+      );
+
+  @override
+  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) =>
+      _shell.pluginWriteCredential(siteUrl);
+}
+
+final class _ShellPluginAccountConnectionHost
+    implements PluginAccountConnectionHost {
+  const _ShellPluginAccountConnectionHost(this._shell);
+
+  final ShellController _shell;
+
+  @override
+  bool isConnected(String siteUrl) =>
+      _shell._instanceAt(siteUrl)?.isConnected == true;
+
+  @override
+  Future<String?> connect(String siteUrl) async {
+    if (_shell.currentInstance?.url != siteUrl) return null;
+    await _shell.connectCurrentInstance();
+    return _shell._connectErrors[siteUrl];
+  }
+}
+
+final class _ShellPluginTargetHost implements PluginTargetHost {
+  const _ShellPluginTargetHost(this._shell, this._consumer);
+
+  final ShellController _shell;
+  final PluginId _consumer;
+
+  @override
+  PluginTargetSnapshot<T> recordFor<T extends Object>(
+    String siteUrl,
+    PluginTarget target,
+    PluginDataKey<T> key,
+  ) {
+    if (key.owner != _consumer.value) {
+      throw PluginInstallationException(
+        'Plugin $_consumer cannot inspect plugin data owned by ${key.owner}.',
+      );
+    }
+    final snapshot = _shell._pluginDataForTarget(siteUrl, target);
+    return (valid: snapshot.valid, value: snapshot.data.get(key));
+  }
+}
+
+final class _ShellPluginFreshAccountHost implements PluginFreshAccountHost {
+  const _ShellPluginFreshAccountHost(this._shell, this._consumer);
+
+  final ShellController _shell;
+  final PluginId _consumer;
+
+  DiscourseUser? _user(String siteUrl) => _shell.freshCurrentUserFor(siteUrl);
+
+  @override
+  PluginFreshAccountProfile? profileFor(String siteUrl) {
+    final user = _user(siteUrl);
+    return user == null
+        ? null
+        : PluginFreshAccountProfile(staff: user.staff, groups: user.groups);
+  }
+
+  @override
+  T? recordFor<T extends Object>(String siteUrl, PluginDataKey<T> key) {
+    if (key.owner != _consumer.value) {
+      throw PluginInstallationException(
+        'Plugin $_consumer cannot inspect current-user data owned by '
+        '${key.owner}.',
+      );
+    }
+    return _user(siteUrl)?.plugins.get(key);
+  }
+}
+
+final class _ShellPluginPostHost implements PluginPostHost {
+  const _ShellPluginPostHost(this._shell, this._consumer);
+
+  final ShellController _shell;
+  final PluginId _consumer;
+
+  @override
+  Post? readPost(String siteUrl, int postId) =>
+      _shell.store.read<Post>(siteUrl, postId);
+
+  @override
+  bool topicArchived(String siteUrl, int topicId) =>
+      _shell.store.read<TopicDetail>(siteUrl, topicId)?.archived == true;
+
+  @override
+  void updatePluginRecord<T extends Object>(
+    String siteUrl,
+    int postId,
+    PluginDataKey<T> key,
+    T? Function(T? held) update,
+  ) {
+    if (key.owner != _consumer.value) {
+      throw PluginInstallationException(
+        'Plugin $_consumer cannot update plugin data owned by ${key.owner}.',
+      );
+    }
+    _shell.store.update<Post>(siteUrl, postId, (held) {
+      final next = update(held.plugins.get(key));
+      return held.withPlugins(held.plugins.withValue(key, next));
+    });
+    _shell.notifyPluginStateChanged();
+  }
+
+  @override
+  bool beginWrite(String siteUrl, int postId) =>
+      _shell.beginPluginPostWrite(siteUrl, postId);
+
+  @override
+  void endWrite(String siteUrl, int postId) =>
+      _shell.endPluginPostWrite(siteUrl, postId);
+
+  @override
+  bool writeInFlight(String siteUrl, int postId) =>
+      _shell.pluginPostWriteInFlight(siteUrl, postId);
+
+  @override
+  Future<void> refreshPost({
+    required String siteUrl,
+    required int topicId,
+    required int postId,
+    required String? apiKey,
+    required PluginSiteLease lease,
+  }) {
+    if (lease is! _ShellPluginSiteLease) {
+      throw ArgumentError.value(
+        lease,
+        'lease',
+        'Lease belongs to another host.',
+      );
+    }
+    return _shell.refreshPluginPost(
+      siteUrl,
+      topicId,
+      postId,
+      apiKey,
+      lease.value,
+    );
+  }
+}
+
 /// Full plugin navigation without exposing the concrete shell object.
 final class _ShellPluginNavigationHost implements PluginNavigationHost {
   const _ShellPluginNavigationHost(this._shell, this._isDisposed);
@@ -10307,10 +10543,16 @@ final class _ShellPluginNavigationHost implements PluginNavigationHost {
   final bool Function() _isDisposed;
 
   @override
+  Listenable get changes => _shell;
+
+  @override
   List<DiscourseInstance> get instances => _shell.instances;
 
   @override
   DiscourseInstance? get currentInstance => _shell.currentInstance;
+
+  @override
+  bool get forumActive => _shell.rootMode == ShellRootMode.forum;
 
   @override
   bool get isDisposed => _isDisposed();

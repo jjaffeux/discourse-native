@@ -2,26 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../models/discourse_user.dart';
 import '../../plugin_api/plugin_scope.dart';
-import '../../shell/shell_controller.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_controller.dart';
 import 'chat_plugin_data.dart';
-import 'chat_route.dart';
 import 'chat_services.dart';
 import 'chat_shell_extension.dart';
-
-typedef _ChatHeaderSnapshot = ({
-  bool showShortcut,
-  String? siteUrl,
-  DiscourseUser? user,
-  bool chatActive,
-});
 
 /// The Chat plugin's shortcut beside the account avatar.
 ///
@@ -48,98 +37,75 @@ class ChatHeaderButton extends StatelessWidget {
   static const Key urgentBadgeKey = ValueKey('chat-header-urgent-badge');
 
   @override
-  Widget build(BuildContext context) => ShellSelector<_ChatHeaderSnapshot>(
-    select: (controller) {
-      final instance = controller.currentInstance;
-      return (
-        showShortcut: controller.rootMode == ShellRootMode.forum,
-        siteUrl: instance?.url,
-        user: instance?.user,
-        chatActive:
-            ChatRoute.parse(controller.currentContent?.id ?? '') != null,
-      );
-    },
-    builder: (context, account, _) {
-      if (!account.showShortcut) return const SizedBox.shrink();
-      final siteUrl = account.siteUrl;
-      final user = account.user;
-      if (siteUrl == null || user == null) return const SizedBox.shrink();
-      if (hideWhenChatActive && account.chatActive) {
-        return const SizedBox.shrink();
-      }
+  Widget build(BuildContext context) {
+    final shell = PluginUiScope.require(context, chatShellService);
+    final chat = PluginUiScope.require(context, chatControllerService);
+    return ListenableBuilder(
+      listenable: Listenable.merge([shell, chat]),
+      builder: (context, _) {
+        final siteUrl = shell.currentSiteUrl;
+        final user = shell.currentUser;
+        if (!shell.showHeaderShortcut || siteUrl == null || user == null) {
+          return const SizedBox.shrink();
+        }
+        if (hideWhenChatActive && shell.chatActive) {
+          return const SizedBox.shrink();
+        }
+        final totals = shell.currentTotals;
+        // The totals key and CurrentUser#has_chat_enabled are guarded by
+        // the same three conditions in core. The nullable user value
+        // keeps an account stored by an older app usable until its
+        // session refresh.
+        if (totals?.hasChatEnabled != true ||
+            user.chatCurrentUser?.hasChatEnabled == false) {
+          return const SizedBox.shrink();
+        }
 
-      final controller = ShellScope.read(context);
-      return ListenableBuilder(
-        listenable: controller.doNotDisturb,
-        builder: (context, _) {
-          final isInDoNotDisturb = controller.doNotDisturb
-              .stateFor(siteUrl)
-              .isActiveAt(DateTime.now());
-          final chat = PluginScope.require(context, chatControllerService);
-          return ListenableBuilder(
-            listenable: Listenable.merge([
-              controller.accountActivity.totalsListenable,
-              chat,
-            ]),
-            builder: (context, _) {
-              final totals = controller.accountActivity.totalsFor(siteUrl);
-              // The totals key and CurrentUser#has_chat_enabled are guarded by
-              // the same three conditions in core. The nullable user value
-              // keeps an account stored by an older app usable until its
-              // session refresh.
-              if (totals?.hasChatEnabled != true ||
-                  user.chatCurrentUser?.hasChatEnabled == false) {
-                return const SizedBox.shrink();
-              }
+        final preference =
+            user.chatCurrentUser?.headerIndicatorPreference ??
+            ChatHeaderIndicatorPreference.allNew;
+        final indicator = shell.doNotDisturbActive(siteUrl)
+            ? ChatHeaderIndicator.none
+            : chat.headerIndicator(siteUrl, preference);
+        final urgentCount = indicator.urgentCount;
+        final tooltip = urgentCount != null
+            ? 'Chat, $urgentCount urgent ${urgentCount == 1 ? 'message' : 'messages'}'
+            : indicator.unread
+            ? 'Chat, unread messages'
+            : 'Chat';
 
-              final preference =
-                  user.chatCurrentUser?.headerIndicatorPreference ??
-                  ChatHeaderIndicatorPreference.allNew;
-              final indicator = isInDoNotDisturb
-                  ? ChatHeaderIndicator.none
-                  : chat.headerIndicator(siteUrl, preference);
-              final urgentCount = indicator.urgentCount;
-              final tooltip = urgentCount != null
-                  ? 'Chat, $urgentCount urgent ${urgentCount == 1 ? 'message' : 'messages'}'
-                  : indicator.unread
-                  ? 'Chat, unread messages'
-                  : 'Chat';
-
-              return DButton.iconOnly(
-                key: buttonKey,
-                tooltip: tooltip,
-                onPressed: () => unawaited(controller.openChat()),
-                variant: DButtonVariant.flat,
-                icon: ExcludeSemantics(
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const DIcon(DIcons.comment, size: 22),
-                      if (urgentCount != null)
-                        Positioned(
-                          top: -8,
-                          right: -12,
-                          child: _UrgentBadge(
-                            label: indicator.label!,
-                            ringColor: ringColor,
-                          ),
-                        )
-                      else if (indicator.unread)
-                        Positioned(
-                          top: -5,
-                          right: -6,
-                          child: _UnreadDot(ringColor: ringColor),
-                        ),
-                    ],
+        return DButton.iconOnly(
+          key: buttonKey,
+          tooltip: tooltip,
+          onPressed: () => unawaited(shell.openShortcut()),
+          variant: DButtonVariant.flat,
+          icon: ExcludeSemantics(
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const DIcon(DIcons.comment, size: 22),
+                if (urgentCount != null)
+                  Positioned(
+                    top: -8,
+                    right: -12,
+                    child: _UrgentBadge(
+                      label: indicator.label!,
+                      ringColor: ringColor,
+                    ),
+                  )
+                else if (indicator.unread)
+                  Positioned(
+                    top: -5,
+                    right: -6,
+                    child: _UnreadDot(ringColor: ringColor),
                   ),
-                ),
-              );
-            },
-          );
-        },
-      );
-    },
-  );
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _UnreadDot extends StatelessWidget {

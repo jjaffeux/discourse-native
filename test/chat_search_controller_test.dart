@@ -63,9 +63,11 @@ void main() {
     );
     final search = ChatSearchController(
       api: api,
-      credentials: credentials,
+      requests: FakePluginRequestHost(
+        credentials: credentials,
+        lifecycle: lifecycle,
+      ),
       store: store,
-      lifecycle: lifecycle,
       debounceDuration: Duration.zero,
     );
     addTearDown(search.dispose);
@@ -102,9 +104,11 @@ void main() {
     );
     final search = ChatSearchController(
       api: api,
-      credentials: credentials,
+      requests: FakePluginRequestHost(
+        credentials: credentials,
+        lifecycle: lifecycle,
+      ),
       store: store,
-      lifecycle: lifecycle,
       debounceDuration: Duration.zero,
     );
     addTearDown(search.dispose);
@@ -138,9 +142,11 @@ void main() {
       );
       final search = ChatSearchController(
         api: api,
-        credentials: credentials,
+        requests: FakePluginRequestHost(
+          credentials: credentials,
+          lifecycle: lifecycle,
+        ),
         store: store,
-        lifecycle: lifecycle,
         debounceDuration: Duration.zero,
       );
       addTearDown(search.dispose);
@@ -180,9 +186,11 @@ void main() {
     );
     final search = ChatSearchController(
       api: api,
-      credentials: credentials,
+      requests: FakePluginRequestHost(
+        credentials: credentials,
+        lifecycle: lifecycle,
+      ),
       store: store,
-      lifecycle: lifecycle,
       debounceDuration: Duration.zero,
     );
     addTearDown(search.dispose);

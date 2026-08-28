@@ -1,8 +1,9 @@
-import '../../data/api_credentials.dart';
+// ignore_for_file: prefer_initializing_formals
+
 import '../../data/discourse_api_contracts.dart';
-import '../../data/site_lifecycle.dart';
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/frame_safe_notifier.dart';
+import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/shell_extensions.dart';
 import 'assign_api.dart';
 import 'assignment.dart';
@@ -37,25 +38,26 @@ class AssignmentController extends FrameSafeNotifier
     implements PluginCurrentUserObserver {
   AssignmentController({
     required this.api,
-    required this.credentials,
-    required this.lifecycle,
+    required PluginRequestHost requests,
     AssignmentPermissionReader? canAssign,
     AssignmentPermissionSnapshotReader? permissionSnapshot,
-    this.statusOptionsReader,
-    required this.reloadTopic,
+    AssignmentStatusOptionsReader? statusOptionsReader,
+    required AssignmentTopicReloader reloadTopic,
     AssignmentFallbackInvalidator? invalidateLegacyFallback,
   }) : assert(canAssign != null || permissionSnapshot != null),
+       _requests = requests,
        _legacyCanAssign = canAssign,
        _permissionSnapshot = permissionSnapshot,
+       _statusOptionsReader = statusOptionsReader,
+       _reloadTopic = reloadTopic,
        _legacyInvalidator = invalidateLegacyFallback;
 
   final AssignApi api;
-  final ApiCredentialReader credentials;
-  final SiteLifecycle lifecycle;
+  final PluginRequestHost _requests;
   final AssignmentPermissionReader? _legacyCanAssign;
   final AssignmentPermissionSnapshotReader? _permissionSnapshot;
-  final AssignmentStatusOptionsReader? statusOptionsReader;
-  final AssignmentTopicReloader reloadTopic;
+  final AssignmentStatusOptionsReader? _statusOptionsReader;
+  final AssignmentTopicReloader _reloadTopic;
   final AssignmentFallbackInvalidator? _legacyInvalidator;
 
   final Set<({String siteUrl, AssignmentTarget target})> _writes = {};
@@ -81,7 +83,7 @@ class AssignmentController extends FrameSafeNotifier
   }
 
   AssignmentStatusOptions statusOptions(String siteUrl) =>
-      statusOptionsReader?.call(siteUrl) ?? (enabled: false, values: const []);
+      _statusOptionsReader?.call(siteUrl) ?? (enabled: false, values: const []);
 
   void _invalidateLegacyFallback(String siteUrl) {
     final changed = _legacyFallbackUnavailable.add(siteUrl);
@@ -172,7 +174,7 @@ class AssignmentController extends FrameSafeNotifier
     final key = (siteUrl: siteUrl, target: target);
     if (!_writes.add(key)) return _writeAlreadyInProgress;
     notifySafely();
-    final lease = lifecycle.capture(siteUrl);
+    final lease = _requests.capture(siteUrl);
 
     try {
       final session = await _session(siteUrl, lease: lease);
@@ -182,7 +184,7 @@ class AssignmentController extends FrameSafeNotifier
 
       // The write response has no assignment record, and the tracking action
       // it creates may also change the post stream. Reconcile the full topic.
-      await reloadTopic(siteUrl, target.topicId);
+      await _reloadTopic(siteUrl, target.topicId);
       return null;
     } on WriteException catch (error) {
       if (_isCurrent(lease) && error.statusCode == 404) {
@@ -224,7 +226,7 @@ class AssignmentController extends FrameSafeNotifier
     Future<T> Function(_AssignmentSession session) read,
   ) async {
     _requirePermission(siteUrl, target);
-    final lease = lifecycle.capture(siteUrl);
+    final lease = _requests.capture(siteUrl);
     try {
       final session = await _session(siteUrl, lease: lease);
       if (!_isCurrent(lease)) {
@@ -251,7 +253,7 @@ class AssignmentController extends FrameSafeNotifier
 
   Future<void> _reconcileUnavailable(String siteUrl, int topicId) async {
     try {
-      await reloadTopic(siteUrl, topicId);
+      await _reloadTopic(siteUrl, topicId);
     } catch (error, stackTrace) {
       DiagnosticsSink.current.reportError(
         error,
@@ -266,21 +268,18 @@ class AssignmentController extends FrameSafeNotifier
 
   Future<_AssignmentSession> _session(
     String siteUrl, {
-    SiteLease? lease,
+    PluginSiteLease? lease,
   }) async {
     try {
-      final apiKey = await credentials.apiKeyFor(siteUrl);
+      final credentials = await _requests.credentialsFor(siteUrl);
       if (lease != null && !_isCurrent(lease)) {
         throw const WriteException(WriteFailure.forbidden);
       }
+      final apiKey = credentials.apiKey;
       if (apiKey == null) {
         throw const WriteException(WriteFailure.forbidden);
       }
-      final clientId = await credentials.clientId();
-      if (lease != null && !_isCurrent(lease)) {
-        throw const WriteException(WriteFailure.forbidden);
-      }
-      return (apiKey: apiKey, clientId: clientId);
+      return (apiKey: apiKey, clientId: credentials.clientId);
     } on WriteException {
       rethrow;
     } catch (error, stackTrace) {
@@ -292,7 +291,7 @@ class AssignmentController extends FrameSafeNotifier
     }
   }
 
-  bool _isCurrent(SiteLease lease) => !isDisposed && lease.isCurrent;
+  bool _isCurrent(PluginSiteLease lease) => !isDisposed && lease.isCurrent;
 
   @override
   void dispose() {

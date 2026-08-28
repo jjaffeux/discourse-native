@@ -39,11 +39,12 @@ final class ResenhaModule implements PluginModule {
     registrar.addSession(
       (bindings, dependencies) {
         final transport = bindings.require(corePluginTransportPort);
+        final siteState = bindings.require(corePluginSiteStatePort);
         final controller = ResenhaController(
           api: ResenhaApi(transport),
           chatApi: dependencies.require(chatApiService),
-          credentials: bindings.require(corePluginCredentialsPort),
-          trackerFor: bindings.require(corePluginTrackerPort),
+          requests: bindings.require(corePluginRequestPort),
+          channelsFor: bindings.require(corePluginChannelPort),
           userIdFor: bindings.require(corePluginUserPort),
           capabilityEnabledFor: (siteUrl) async => (await bindings.require(
             corePluginPresentationPort,
@@ -54,6 +55,8 @@ final class ResenhaModule implements PluginModule {
         final shell = ResenhaShellService(
           controller: controller,
           host: bindings.require(corePluginRouteNavigationPort),
+          recordingEnabled: (siteUrl) =>
+              siteState.siteConfigFor(siteUrl).resenhaSettings.recordingEnabled,
         );
         return PluginSessionContribution(
           lifecycle: _ResenhaSessionLifecycle(controller: controller),
@@ -66,10 +69,11 @@ final class ResenhaModule implements PluginModule {
       },
       requires: const [
         corePluginTransportPort,
-        corePluginCredentialsPort,
-        corePluginTrackerPort,
+        corePluginRequestPort,
+        corePluginChannelPort,
         corePluginUserPort,
         corePluginPresentationPort,
+        corePluginSiteStatePort,
         corePluginTrackingSyncPort,
         corePluginRouteNavigationPort,
       ],

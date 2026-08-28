@@ -241,24 +241,23 @@ void main() {
     },
   );
 
-  test(
-    'dispose during API key lookup stops remaining credential and API work',
-    () async {
-      final credentials = _GatedCredentials();
-      final api = FakeDiscourseApi();
-      final controller = _controller(api, credentials: credentials);
+  test('dispose during credential lookup stops API work', () async {
+    final credentials = _GatedCredentials();
+    final api = FakeDiscourseApi();
+    final controller = _controller(api, credentials: credentials);
 
-      final loading = controller.loadCategories();
-      await credentials.started.future;
-      controller.dispose();
-      credentials.result.complete('stale-key');
-      await loading;
+    final loading = controller.loadCategories();
+    await credentials.started.future;
+    controller.dispose();
+    credentials.result.complete('stale-key');
+    await loading;
 
-      expect(credentials.clientIdCalls, 0);
-      expect(api.gifCategoryRequests, isEmpty);
-      expect(controller.error, isNull);
-    },
-  );
+    // The host returns one atomic credential snapshot, so it may complete
+    // both private-store reads even though the picker was disposed midway.
+    expect(credentials.clientIdCalls, 1);
+    expect(api.gifCategoryRequests, isEmpty);
+    expect(controller.error, isNull);
+  });
 }
 
 GifPickerController _controller(
@@ -273,8 +272,10 @@ GifPickerController _controller(
   return GifPickerController(
     siteUrl: _siteUrl,
     api: api,
-    credentials: resolvedCredentials,
-    lifecycle: lifecycle ?? SiteLifecycle(),
+    requests: FakePluginRequestHost(
+      credentials: resolvedCredentials,
+      lifecycle: lifecycle ?? SiteLifecycle(),
+    ),
     fileDetail: 'webp',
     searchDebounce: searchDebounce,
     maxResults: maxResults,

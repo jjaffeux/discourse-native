@@ -4,7 +4,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_pill.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
-import 'package:discourse_native/src/plugins/reactions/reactions_shell_extension.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_services.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -152,6 +152,9 @@ void main() {
     );
     await controller.load();
     addTearDown(controller.dispose);
+    final reactions = controller.pluginSession.require(
+      reactionsControllerService,
+    );
 
     final semantics = tester.ensureSemantics();
     try {
@@ -160,9 +163,10 @@ void main() {
           controller: controller,
           child: MaterialApp(
             theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-            home: const Scaffold(
+            home: Scaffold(
               body: Center(
                 child: ReactorList(
+                  controller: reactions,
                   siteUrl: _siteUrl,
                   post: _post,
                   filter: 'clap',
@@ -174,11 +178,7 @@ void main() {
       );
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
-      await controller.reactions.load(
-        siteUrl: _siteUrl,
-        postId: _post.id,
-        filter: 'clap',
-      );
+      await reactions.load(siteUrl: _siteUrl, postId: _post.id, filter: 'clap');
       await tester.pumpAndSettle();
 
       final error = find.byKey(const ValueKey('reactor-list-error'));

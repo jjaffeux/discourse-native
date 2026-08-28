@@ -39,7 +39,10 @@ Future<void> showAssignmentEditor({
   Assignment? existing,
   bool nested = false,
 }) {
-  final controller = PluginScope.require(context, assignmentControllerService);
+  final controller = PluginUiScope.require(
+    context,
+    assignmentControllerService,
+  );
   final statusOptions = controller.statusOptions(siteUrl);
   final targetName = target.type == AssignmentTargetType.topic
       ? 'topic'

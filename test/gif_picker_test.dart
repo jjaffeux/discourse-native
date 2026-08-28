@@ -44,8 +44,10 @@ void main() {
                   context: context,
                   siteUrl: siteUrl,
                   api: api,
-                  credentials: credentials,
-                  lifecycle: SiteLifecycle(),
+                  requests: FakePluginRequestHost(
+                    credentials: credentials,
+                    lifecycle: SiteLifecycle(),
+                  ),
                   settings: const GifsSettings(enabled: true),
                 ),
               ),
@@ -121,8 +123,10 @@ void main() {
                     context: context,
                     siteUrl: siteUrl,
                     api: api,
-                    credentials: credentials,
-                    lifecycle: lifecycle,
+                    requests: FakePluginRequestHost(
+                      credentials: credentials,
+                      lifecycle: lifecycle,
+                    ),
                     settings: const GifsSettings(enabled: true),
                   );
                 },
@@ -271,8 +275,10 @@ void main() {
 GifPickerController _controller(GifsApi api) => GifPickerController(
   siteUrl: _siteUrl,
   api: api,
-  credentials: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
-  lifecycle: SiteLifecycle(),
+  requests: FakePluginRequestHost(
+    credentials: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+    lifecycle: SiteLifecycle(),
+  ),
   fileDetail: 'webp',
   searchDebounce: Duration.zero,
 );

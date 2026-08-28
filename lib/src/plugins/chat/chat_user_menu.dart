@@ -36,7 +36,7 @@ class ChatUserMenuNotifications extends StatelessWidget {
   Widget build(BuildContext context) => PluginNotificationsSection(
     siteUrl: siteUrl,
     onOpened: onOpened,
-    host: PluginScope.require(context, chatNotificationHostService),
+    host: PluginUiScope.require(context, chatNotificationHostService),
     source: chatNotificationFeed,
   );
 }

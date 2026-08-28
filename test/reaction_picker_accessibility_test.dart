@@ -4,6 +4,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_services.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -47,6 +48,7 @@ void main() {
     );
     final api = FakeDiscourseApi();
     final controller = ShellController(
+      plugins: installedPlugins,
       instanceStore: FakeInstanceStore([site]),
       api: api,
       authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
@@ -57,6 +59,9 @@ void main() {
     );
     await controller.load();
     addTearDown(controller.dispose);
+    final reactions = controller.pluginSession.require(
+      reactionsControllerService,
+    );
 
     final post = Post.fromJson(
       const {
@@ -86,6 +91,7 @@ void main() {
             theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
             home: Scaffold(
               body: ReactionGrid(
+                controller: reactions,
                 siteUrl: _siteUrl,
                 post: post,
                 onPicked: () {},

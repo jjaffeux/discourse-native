@@ -257,6 +257,36 @@ abstract interface class NotificationFeedPlugin {
 }
 
 /// Replaces a top-level element inside a post's cooked body.
+@immutable
+final class PluginContainingTopic {
+  const PluginContainingTopic({
+    required this.id,
+    required this.slug,
+    required this.archived,
+  });
+
+  final int id;
+  final String slug;
+  final bool archived;
+}
+
+/// Owner-scoped rendering state for a plugin marker in a post body.
+@immutable
+final class PluginPostBodyContext {
+  const PluginPostBodyContext({
+    required this.buildContext,
+    required this.siteUrl,
+    required this.post,
+    this.topic,
+  });
+
+  /// A context stamped with the contribution owner's service view.
+  final BuildContext buildContext;
+  final String siteUrl;
+  final Post post;
+  final PluginContainingTopic? topic;
+}
+
 abstract interface class PostBodyPlugin {
   /// A top-level element inside a post body this feature can replace.
   ///
@@ -264,7 +294,7 @@ abstract interface class PostBodyPlugin {
   /// often only a placeholder, while the personalized serializer record is
   /// authoritative. Recursive CookedHtml instances (quotes/oneboxes) receive
   /// no post and therefore never invoke this hook.
-  Widget? postBodyElement(String siteUrl, Post post, dom.Element element);
+  Widget? postBodyElement(PluginPostBodyContext context, dom.Element element);
 }
 
 /// Replaces plugin-owned cooked markup regardless of the containing record.
@@ -414,7 +444,7 @@ abstract interface class PostMenuPlugin {
   ///
   /// Takes a [BuildContext] rather than the controller so that this interface
   /// stays out of the shell's way; an implementation reaches its narrow,
-  /// plugin-owned services through `PluginScope` and selects only the state
+  /// plugin-owned services through `PluginUiScope` and selects only the state
   /// that must repaint.
   PostMenuContribution postMenu(PostMenuContext context);
 }

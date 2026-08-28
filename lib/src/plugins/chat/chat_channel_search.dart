@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../plugin_api/plugin_scope.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -23,21 +22,17 @@ class ChatChannelSearchButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ShellSelector<bool>(
-      select: (shell) {
-        final instance = shell.currentInstance;
-        return instance?.url == siteUrl &&
-            instance!.isConnected &&
-            instance.config.chatSettings.searchEnabled &&
-            instance.user?.chatCurrentUser?.hasChatEnabled != false &&
+    final shell = PluginUiScope.require(context, chatShellService);
+    final search = PluginUiScope.require(context, chatSearchControllerService);
+    return ListenableBuilder(
+      listenable: shell,
+      builder: (context, _) {
+        final available =
+            shell.isConnected(siteUrl) &&
+            shell.chat.siteConfigFor(siteUrl).chatSettings.searchEnabled &&
+            shell.currentUser?.chatCurrentUser?.hasChatEnabled != false &&
             shell.currentTotals?.hasChatEnabled == true;
-      },
-      builder: (context, available, _) {
         if (!available) return const SizedBox.shrink();
-        final search = PluginScope.require(
-          context,
-          chatSearchControllerService,
-        );
         return ValueListenableBuilder<ScopedChatSearchState>(
           valueListenable: search.scopedRef(siteUrl, channelId),
           builder: (context, state, _) => DButton.iconOnly(
@@ -83,7 +78,7 @@ class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_ready) return;
-    _search = PluginScope.require(context, chatSearchControllerService);
+    _search = PluginUiScope.require(context, chatSearchControllerService);
     final state = _search.scopedState(widget.siteUrl, widget.channelId);
     _query = TextEditingController(text: state.query);
     _seenSelectionRevision = state.selectionRevision;
@@ -224,7 +219,7 @@ class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
     if (hit == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ShellScope.read(context).revealChatChannelMessage(
+      PluginUiScope.require(context, chatShellService).revealChannelMessage(
         siteUrl: widget.siteUrl,
         channelId: widget.channelId,
         messageId: hit.message.id,

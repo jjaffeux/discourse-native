@@ -1,4 +1,3 @@
-import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_api.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_controller.dart';
@@ -44,9 +43,8 @@ void main() {
       );
       final controller = AiSummaryController(
         api: AiSummaryApi(transport),
-        credentials: FakeApiCredentialReader(),
-        lifecycle: SiteLifecycle(),
-        trackerFor: (_) => null,
+        requests: FakePluginRequestHost(),
+        channelsFor: (_) => null,
       );
 
       final summary = await controller.load(
@@ -76,9 +74,8 @@ void main() {
     );
     final controller = AiSummaryController(
       api: AiSummaryApi(transport),
-      credentials: credentials,
-      lifecycle: SiteLifecycle(),
-      trackerFor: (_) => tracker,
+      requests: FakePluginRequestHost(credentials: credentials),
+      channelsFor: (_) => tracker,
     );
 
     final pending = controller.load(

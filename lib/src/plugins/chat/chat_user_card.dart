@@ -4,7 +4,6 @@ import '../../data/discourse_api_contracts.dart';
 import '../../models/user_card.dart';
 import '../../plugin_api/plugin_data.dart';
 import '../../plugin_api/plugin_scope.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_services.dart';
@@ -54,15 +53,15 @@ class _ChatUserCardButtonState extends State<ChatUserCardButton> {
     if (_opening) return;
     setState(() => _opening = true);
     try {
-      final chat = PluginScope.require(context, chatControllerService);
+      final chat = PluginUiScope.require(context, chatControllerService);
       final channel = await chat.upsertDirectMessageChannel(
         widget.siteUrl,
         widget.user.username,
       );
       if (!mounted || channel == null) return;
 
-      final shell = ShellScope.read(context);
-      if (shell.openChatChannel(channel.id)) widget.close();
+      final shell = PluginUiScope.require(context, chatShellService);
+      if (shell.openChannel(channel.id)) widget.close();
     } catch (error) {
       if (!mounted) return;
       final message = switch (error) {

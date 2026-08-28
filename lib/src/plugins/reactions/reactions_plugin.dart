@@ -3,16 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/post.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/post_action.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
 import 'reaction.dart';
 import 'reaction_picker.dart';
 import 'reactions_row.dart';
+import 'reactions_services.dart';
 import 'reactions_settings.dart';
-import 'reactions_shell_extension.dart';
 
 export 'reactions_settings.dart';
 
@@ -131,22 +131,31 @@ class ReactionsPlugin
     // react to must not fall back to a Like that writes to the wrong table.
     if (!post.canReact) return const PostMenuContribution(replacesLike: true);
 
-    final controller = ShellScope.read(context);
+    final controller = PluginUiScope.require(
+      context,
+      reactionsControllerService,
+    );
+    final emoji = PluginUiScope.require(context, reactionsEmojiHostService);
     final config = controller.siteConfigFor(siteUrl);
     final held = post.reactions!.mine;
     final settings = config.reactionsSettings;
     final target = held?.id ?? settings.mainReaction;
-    final writeInFlight = controller.postWriteInFlight(
-      post.id,
-      siteUrl: siteUrl,
-    );
+    final writeInFlight = controller.writeInFlight(siteUrl, post.id);
 
     void report(Future<String?> work) {
       final messenger = ScaffoldMessenger.maybeOf(context);
       unawaited(
         work.then((error) {
-          if (error == null || messenger == null || !messenger.mounted) return;
-          if (!identical(ShellScope.maybeRead(messenger.context), controller)) {
+          if (error == null ||
+              messenger == null ||
+              !messenger.mounted ||
+              !context.mounted) {
+            return;
+          }
+          if (!identical(
+            PluginUiScope.maybe(context, reactionsControllerService),
+            controller,
+          )) {
             return;
           }
           messenger.showSnackBar(SnackBar(content: Text(error)));
@@ -179,10 +188,18 @@ class ReactionsPlugin
             if (target == null) {
               // Nothing known to send. The picker is where a reader chooses,
               // and this is the one path that does not need the setting.
-              unawaited(showPostReactionPicker(context, siteUrl, post));
+              unawaited(
+                showPostReactionPicker(
+                  context,
+                  controller,
+                  emoji,
+                  siteUrl,
+                  post,
+                ),
+              );
               return;
             }
-            report(controller.toggleReaction(post, target, siteUrl: siteUrl));
+            report(controller.toggle(post, target, siteUrl: siteUrl));
           },
         ),
         if (target != null && settings.offeredReactions.isNotEmpty)
@@ -192,10 +209,12 @@ class ReactionsPlugin
             label: 'React',
             tooltip: 'Pick a reaction',
             enabled: !writeInFlight,
-            onInvoke: () =>
-                unawaited(showPostReactionPicker(context, siteUrl, post)),
+            onInvoke: () => unawaited(
+              showPostReactionPicker(context, controller, emoji, siteUrl, post),
+            ),
           ),
       ],
+      rebuildOn: controller,
     );
   }
 }

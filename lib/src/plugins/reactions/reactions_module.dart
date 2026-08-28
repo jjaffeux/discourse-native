@@ -21,35 +21,45 @@ final class ReactionsModule implements PluginModule {
     registrar.addSession(
       (bindings, _) {
         final transport = bindings.require(corePluginTransportPort);
-        final api = transport is ReactionsApi
-            ? transport as ReactionsApi
-            : ReactionsApiClient(
-                transport,
-                bindings.require(corePluginModelCodecPort),
-              );
+        final ReactionsApi api;
+        final ReactionsWriteApi writes;
+        if (transport case final ReactionsApi reactionsApi
+            when transport is ReactionsWriteApi) {
+          api = reactionsApi;
+          writes = transport as ReactionsWriteApi;
+        } else {
+          final client = ReactionsApiClient(
+            transport,
+            bindings.require(corePluginModelCodecPort),
+          );
+          api = client;
+          writes = client;
+        }
+        final emoji = bindings.require(corePluginEmojiPort);
         final controller = ReactionsController(
           api: api,
-          credentials: bindings.require(corePluginCredentialsPort),
-          store: bindings.require(corePluginStorePort),
-          lifecycle: bindings.require(corePluginSiteLifecyclePort),
+          writes: writes,
+          requests: bindings.require(corePluginRequestPort),
+          posts: bindings.require(corePluginPostPort),
+          siteState: bindings.require(corePluginSiteStatePort),
+          resolveSiteConfig: bindings.require(corePluginPresentationPort),
+          emoji: emoji,
         );
         return PluginSessionContribution(
           lifecycle: _ReactionsSessionLifecycle(controller),
           services: [
             PluginService<Object>(reactionsControllerService, controller),
-            PluginService<Object>(
-              reactionsEmojiHostService,
-              bindings.require(corePluginEmojiPort),
-            ),
+            PluginService<Object>(reactionsEmojiHostService, emoji),
           ],
         );
       },
       requires: const [
         corePluginTransportPort,
         corePluginModelCodecPort,
-        corePluginCredentialsPort,
-        corePluginStorePort,
-        corePluginSiteLifecyclePort,
+        corePluginRequestPort,
+        corePluginPostPort,
+        corePluginSiteStatePort,
+        corePluginPresentationPort,
         corePluginEmojiPort,
       ],
     );

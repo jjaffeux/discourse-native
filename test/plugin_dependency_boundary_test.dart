@@ -38,6 +38,25 @@ const _removedCompatibilityFiles = <String>{
   'lib/src/shell/oneboxes/inline.dart',
 };
 
+const _forbiddenPluginShellTargets = <String>{
+  'lib/src/shell/shell_controller.dart',
+  'lib/src/shell/shell_scope.dart',
+};
+
+const _forbiddenRawHostAuthorityTargets = <String>{
+  'lib/src/data/api_credentials.dart',
+  'lib/src/data/authenticator.dart',
+  'lib/src/data/site_lifecycle.dart',
+  'lib/src/data/site_tracker.dart',
+};
+
+const _retiredBroadHostPorts = <String>{
+  'corePluginCredentialsPort',
+  'corePluginStorePort',
+  'corePluginSiteLifecyclePort',
+  'corePluginTrackerPort',
+};
+
 const _featureModuleEntrypoints = <String>{
   'assign/assign_module.dart',
   'chat/chat_module.dart',
@@ -205,6 +224,66 @@ void main() {
       reason:
           'Feature-owned implementation files must live below their plugin '
           'directory.\n${misplacedImplementations.join('\n')}',
+    );
+  });
+
+  test('plugin production code cannot recover the concrete shell', () {
+    final violations = <String>[];
+    for (final file in _dartFilesUnder('lib/src/plugins')) {
+      final path = _workspacePath(file);
+      final source = file.readAsStringSync();
+      for (final directive in _localDirectives(file)) {
+        if (_forbiddenPluginShellTargets.contains(directive.target)) {
+          violations.add('$path:${directive.line} imports ${directive.uri}');
+        }
+      }
+      for (final dispatcher in const [
+        'PluginUiScope.contextFor(',
+        'PluginUiScope.own(',
+        'PluginScope.of(',
+        'PluginScope.maybeOf(',
+        'PluginRegistryScope.maybeOf(',
+      ]) {
+        if (source.contains(dispatcher)) {
+          violations.add('$path calls host-only $dispatcher');
+        }
+      }
+    }
+
+    expect(
+      violations,
+      isEmpty,
+      reason:
+          'Plugin UI must use owner-scoped PluginUiScope services backed by '
+          'declared host ports; global scopes and the concrete shell are not '
+          'plugin APIs.\n'
+          '${violations.join('\n')}',
+    );
+  });
+
+  test('bundled modules do not request retired broad host authority', () {
+    final violations = <String>[];
+    for (final file in _dartFilesUnder('lib/src/plugins')) {
+      final path = _workspacePath(file);
+      final source = file.readAsStringSync();
+      for (final directive in _localDirectives(file)) {
+        if (_forbiddenRawHostAuthorityTargets.contains(directive.target)) {
+          violations.add('$path:${directive.line} imports ${directive.uri}');
+        }
+      }
+      for (final port in _retiredBroadHostPorts) {
+        if (source.contains(port)) violations.add('$path references $port');
+      }
+    }
+
+    expect(
+      violations,
+      isEmpty,
+      reason:
+          'Plugins must receive least-privilege request, record, lifecycle, '
+          'and channel facades rather than core credentials, Store, '
+          'SiteLifecycle, or SiteTracker authority.\n'
+          '${violations.join('\n')}',
     );
   });
 

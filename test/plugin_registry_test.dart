@@ -2,12 +2,14 @@ import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/shell/post_action.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -17,17 +19,26 @@ import 'support/bundled_plugins.dart';
 
 const _post = Post(id: 1, postNumber: 1, username: 'sam', cooked: '');
 const _topic = TopicDetail(id: 42, title: 'A topic', stream: [1]);
+const _scopedPreviewService = PluginServiceKey<String>(
+  owner: PluginId('scoped-preview'),
+  name: 'label',
+);
 
 void main() {
-  test('registry accepts a capability declared against the API seam', () {
+  testWidgets('registry accepts a capability declared against the API seam', (
+    tester,
+  ) async {
     const registry = PluginRegistry([_ApiFooterPlugin()]);
 
     final footer = registry.postFooter('https://example.com', _post);
+    await tester.pumpWidget(MaterialApp(home: footer));
 
-    expect((footer as Text).data, 'api-only');
+    expect(find.text('api-only'), findsOneWidget);
   });
 
-  test('dispatches only implemented capabilities and preserves order', () {
+  testWidgets('dispatches only implemented capabilities and preserves order', (
+    tester,
+  ) async {
     const registry = PluginRegistry([
       _NamedPlugin('metadata-only'),
       _FooterPlugin('first', claims: false),
@@ -39,8 +50,9 @@ void main() {
     ]);
 
     final footer = registry.postFooter('https://example.com', _post);
+    await tester.pumpWidget(MaterialApp(home: footer));
 
-    expect((footer as Text).data, 'second');
+    expect(find.text('second'), findsOneWidget);
     expect(registry.topicChannels(42), [
       '/topic/42/one',
       '/topic/42/two',
@@ -282,24 +294,23 @@ void main() {
               const Topic(id: 42, title: 'A topic', slug: 'a-topic'),
             );
             header = registry.topicHeader(context, 'site', _topic);
-            return const SizedBox.shrink();
+            return Column(children: [...decorations, ...metadata, ...header]);
           },
         ),
       ),
     );
 
-    expect(decorations.map((widget) => (widget as Text).data), [
-      'first-post',
-      'second-post',
-    ]);
-    expect(metadata.map((widget) => (widget as Text).data), [
-      'first-list',
-      'second-list',
-    ]);
-    expect(header.map((widget) => (widget as Text).data), [
-      'first-header',
-      'second-header',
-    ]);
+    expect(
+      tester.widgetList<Text>(find.byType(Text)).map((widget) => widget.data),
+      [
+        'first-post',
+        'second-post',
+        'first-list',
+        'second-list',
+        'first-header',
+        'second-header',
+      ],
+    );
   });
 
   testWidgets('aggregates topic-header rebuild signals', (tester) async {
@@ -421,7 +432,7 @@ void main() {
       ),
     );
 
-    expect((built as Text).data, 'date');
+    expect(find.text('date'), findsOneWidget);
 
     const duplicate = PluginRegistry([
       _PreviewPlugin('date', '[date]'),
@@ -475,7 +486,7 @@ void main() {
           body: ChatPreviewBody(
             document: projected.document,
             textStyle: null,
-            registry: registry,
+            buildPluginNode: registry.buildChatPreviewNode,
           ),
         ),
       ),
@@ -486,7 +497,7 @@ void main() {
   });
 
   testWidgets(
-    'a non-bundled manifest preview contribution renders from active scopes',
+    'a non-bundled preview renders from explicit and render-only scopes',
     (tester) async {
       final installed = PluginInstaller.install(
         const PluginManifest([_PreviewManifestModule()]),
@@ -506,16 +517,23 @@ void main() {
                 plugins: installed.registry.chatPreviewPlugins,
               ).project(request)
               as ProjectedPreview;
-      Widget previewBody() => Scaffold(
-        body: ChatPreviewBody(document: projected.document, textStyle: null),
-      );
+      Widget previewBody({PluginPreviewNodeBuilder? buildPluginNode}) =>
+          Scaffold(
+            body: ChatPreviewBody(
+              document: projected.document,
+              textStyle: null,
+              buildPluginNode: buildPluginNode,
+            ),
+          );
 
       await tester.pumpWidget(
         MaterialApp(
           home: PluginScope(
             session: session,
             registry: installed.registry,
-            child: previewBody(),
+            child: previewBody(
+              buildPluginNode: installed.registry.buildChatPreviewNode,
+            ),
           ),
         ),
       );
@@ -526,7 +544,9 @@ void main() {
         MaterialApp(
           home: PluginRegistryScope(
             registry: installed.registry,
-            child: previewBody(),
+            child: previewBody(
+              buildPluginNode: installed.registry.buildChatPreviewNode,
+            ),
           ),
         ),
       );
@@ -534,6 +554,142 @@ void main() {
       expect(find.text(request.raw), findsNothing);
     },
   );
+
+  testWidgets('registry UI dispatch carries only the contribution owner view', (
+    tester,
+  ) async {
+    final installed = PluginInstaller.install(
+      const PluginManifest([_ScopedPreviewManifestModule()]),
+    );
+    final session = installed.openSession(const PluginHostBindings.empty());
+    addTearDown(() async {
+      await session.close();
+      await installed.close();
+    });
+    const request = ChatPreviewRequest(
+      raw: '[scoped]',
+      siteConfig: SiteConfig.unknown(),
+    );
+    final projected =
+        ChatPreviewEngine(
+              plugins: installed.registry.chatPreviewPlugins,
+            ).project(request)
+            as ProjectedPreview;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PluginScope(
+          session: session,
+          registry: installed.registry,
+          child: Scaffold(
+            body: ChatPreviewBody(
+              document: projected.document,
+              textStyle: null,
+              buildPluginNode: installed.registry.buildChatPreviewNode,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('owner-only'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('owner-scoped UI follows a replaced plugin session', (
+    tester,
+  ) async {
+    final first = PluginInstaller.install(
+      const PluginManifest([_ScopedPreviewManifestModule('first-session')]),
+    );
+    final second = PluginInstaller.install(
+      const PluginManifest([_ScopedPreviewManifestModule('second-session')]),
+    );
+    final firstSession = first.openSession(const PluginHostBindings.empty());
+    final secondSession = second.openSession(const PluginHostBindings.empty());
+    addTearDown(() async {
+      await firstSession.close();
+      await secondSession.close();
+      await first.close();
+      await second.close();
+    });
+    const request = ChatPreviewRequest(
+      raw: '[scoped]',
+      siteConfig: SiteConfig.unknown(),
+    );
+    final projected =
+        ChatPreviewEngine(
+              plugins: first.registry.chatPreviewPlugins,
+            ).project(request)
+            as ProjectedPreview;
+
+    Widget app(InstalledPlugins installed, PluginSession session) =>
+        MaterialApp(
+          home: PluginScope(
+            session: session,
+            registry: installed.registry,
+            child: ChatPreviewBody(
+              document: projected.document,
+              textStyle: null,
+              buildPluginNode: installed.registry.buildChatPreviewNode,
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(app(first, firstSession));
+    expect(find.text('first-session'), findsOneWidget);
+
+    await tester.pumpWidget(app(second, secondSession));
+    expect(find.text('second-session'), findsOneWidget);
+  });
+
+  testWidgets('a narrow preview host preserves nested renderer ownership', (
+    tester,
+  ) async {
+    final installed = PluginInstaller.install(
+      const PluginManifest([
+        _ScopedPreviewManifestModule(),
+        _PreviewConsumerManifestModule(),
+      ]),
+    );
+    final previewHost = PluginPreviewHost(
+      plugins: installed.registry.chatPreviewPlugins,
+      buildNode: installed.registry.buildChatPreviewNode,
+    );
+    expect(previewHost.plugins.clear, throwsUnsupportedError);
+    final session = installed.openSession(
+      PluginHostBindings([
+        PluginHostPort<Object>(corePluginPreviewPort, previewHost),
+      ]),
+    );
+    addTearDown(() async {
+      await session.close();
+      await installed.close();
+    });
+    const request = ChatPreviewRequest(
+      raw: '[scoped]',
+      siteConfig: SiteConfig.unknown(),
+    );
+    final projected =
+        ChatPreviewEngine(plugins: previewHost.plugins).project(request)
+            as ProjectedPreview;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PluginScope(
+          session: session,
+          registry: installed.registry,
+          child: PluginUiScope.own(
+            chatPluginId,
+            ChatPreviewBody(document: projected.document, textStyle: null),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('owner-only'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 final class _ApiFooterPlugin implements SitePlugin, PostFooterPlugin {
@@ -566,7 +722,7 @@ class _NamedPlugin implements SitePlugin {
   final String name;
 }
 
-final class _PreviewPlugin implements ChatMessagePreviewPlugin {
+class _PreviewPlugin implements ChatMessagePreviewPlugin {
   const _PreviewPlugin(
     this.previewFeatureId,
     this.markup, {
@@ -621,6 +777,60 @@ final class _PreviewManifestModule implements PluginModule {
     registrar.addCapability(const _PreviewPlugin('custom-preview', '[custom]'));
   }
 }
+
+final class _ScopedPreviewPlugin extends _PreviewPlugin {
+  const _ScopedPreviewPlugin() : super('scoped-preview', '[scoped]');
+
+  @override
+  Widget? buildPreviewNode(BuildContext context, PluginPreviewNode node) =>
+      Text(PluginUiScope.require(context, _scopedPreviewService));
+}
+
+final class _ScopedPreviewManifestModule implements PluginModule {
+  const _ScopedPreviewManifestModule([this.label = 'owner-only']);
+
+  final String label;
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('scoped-preview'));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addCapability(const _ScopedPreviewPlugin());
+    registrar.addSession(
+      (_, _) => PluginSessionContribution(
+        lifecycle: _RegistrySessionLifecycle(),
+        services: [PluginService<Object>(_scopedPreviewService, label)],
+      ),
+    );
+  }
+}
+
+final class _PreviewConsumerManifestModule implements PluginModule {
+  const _PreviewConsumerManifestModule();
+
+  @override
+  PluginDescriptor get descriptor => const PluginDescriptor(id: chatPluginId);
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addSession(
+      (bindings, _) => PluginSessionContribution(
+        lifecycle: _RegistrySessionLifecycle(),
+        services: [
+          PluginService<Object>(
+            chatPreviewHostService,
+            bindings.require(corePluginPreviewPort),
+          ),
+        ],
+      ),
+      requires: const [corePluginPreviewPort],
+    );
+  }
+}
+
+final class _RegistrySessionLifecycle extends PluginSessionLifecycle {}
 
 final class _FooterPlugin extends _NamedPlugin implements PostFooterPlugin {
   const _FooterPlugin(super.name, {required this.claims});

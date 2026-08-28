@@ -2,8 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../models/sidebar.dart';
-import '../../shell/shell_scope.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/user_card.dart';
 import '../../shell/user_status.dart';
 import '../../theme/d_icon.dart';
@@ -51,9 +50,10 @@ class ChatChannelInfoView extends StatelessWidget {
             channel.status != ChatChannelStatus.open) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!context.mounted) return;
-            ShellScope.read(
+            PluginUiScope.require(
               context,
-            ).openChatChannelInfo(siteUrl: siteUrl, channelId: channelId);
+              chatShellService,
+            ).openChannelInfo(siteUrl: siteUrl, channelId: channelId);
           });
           return const Center(child: CircularProgressIndicator.adaptive());
         }
@@ -128,11 +128,12 @@ class _ChannelInfoTabs extends StatelessWidget {
       key: ValueKey('chat-channel-info-${tab.name}-tab'),
       onTap: active
           ? null
-          : () => ShellScope.read(context).openChatChannelInfo(
-              siteUrl: siteUrl,
-              channelId: channel.id,
-              tab: tab,
-            ),
+          : () => PluginUiScope.require(context, chatShellService)
+                .openChannelInfo(
+                  siteUrl: siteUrl,
+                  channelId: channel.id,
+                  tab: tab,
+                ),
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
         decoration: BoxDecoration(
@@ -204,13 +205,7 @@ class _ChannelSettings extends StatelessWidget {
       _notice(context, error);
       return;
     }
-    ShellScope.read(context).selectDestination(
-      const SidebarDestination(
-        id: 'chat-browse',
-        label: 'Browse channels',
-        icon: DIcons.list,
-      ),
-    );
+    PluginUiScope.require(context, chatShellService).openBrowseChannels();
   }
 
   @override
@@ -225,7 +220,7 @@ class _ChannelSettings extends StatelessWidget {
         }
         final canEdit = chat.canEditChannelMetadata(siteUrl, channelId);
         final canChangeStatus = chat.canChangeChannelStatus(siteUrl, channelId);
-        final config = ShellScope.read(context).siteConfigFor(siteUrl);
+        final config = chat.siteConfigFor(siteUrl);
 
         return ListenableBuilder(
           listenable: chat,
@@ -267,9 +262,10 @@ class _ChannelSettings extends StatelessWidget {
                                       key: const ValueKey(
                                         'chat-channel-settings-channel-link',
                                       ),
-                                      onTap: () => ShellScope.read(
+                                      onTap: () => PluginUiScope.require(
                                         context,
-                                      ).openChatChannel(channel.id),
+                                        chatShellService,
+                                      ).openChannel(channel.id),
                                       child: Text(
                                         '/chat/c/${channel.slug ?? '-'}/${channel.id}',
                                         style: TextStyle(

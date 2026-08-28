@@ -389,7 +389,7 @@ final class _SequencedNotificationApi extends FakeDiscourseApi {
   final resolvedStore = store ?? Store();
   final chat = ChatController(
     api: api,
-    credentials: credentials,
+    requests: FakePluginRequestHost(credentials: credentials),
     store: resolvedStore,
     currentUserFor: (_) => user,
     minimumWindowRefreshInterval: Duration.zero,
@@ -408,7 +408,7 @@ FakeSiteTracker attachTracker(ChatController chat) {
     userId: currentUser.id,
     apiKey: 'key',
   );
-  chat.attachTracker(site, tracker);
+  chat.attachChannels(site, tracker);
   return tracker;
 }
 

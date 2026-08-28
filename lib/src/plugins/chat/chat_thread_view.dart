@@ -8,7 +8,6 @@ import '../../shell/adaptive_shell.dart';
 import '../../shell/choice_menu.dart';
 import '../../shell/forum_search.dart';
 import '../../shell/shell_metrics.dart';
-import '../../shell/shell_scope.dart';
 import '../../shell/title_bar.dart';
 import '../../shell/user_menu_button.dart';
 import '../../theme/app_theme.dart';
@@ -44,11 +43,13 @@ class ChatThreadWorkspace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ShellSelector<String?>(
-      select: (shell) => shell.currentInstance?.url,
-      builder: (context, siteUrl, _) {
+    final shell = PluginUiScope.require(context, chatShellService);
+    return ListenableBuilder(
+      listenable: shell,
+      builder: (context, _) {
+        final siteUrl = shell.currentSiteUrl;
         if (siteUrl == null) return const SizedBox.shrink();
-        final chat = PluginScope.require(context, chatControllerService);
+        final chat = PluginUiScope.require(context, chatControllerService);
         final target = ChatThreadTarget(
           channelId: route.channelId,
           threadId: route.threadId!,
@@ -345,7 +346,10 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final navigation = ShellScope.read(context).chatNavigation;
+    final navigation = PluginUiScope.require(
+      context,
+      chatShellService,
+    ).navigation;
     if (identical(navigation, _navigation)) return;
     _navigation?.removeListener(_consumeNavigation);
     _navigation = navigation;
@@ -357,8 +361,8 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   }
 
   bool _consumeNavigation() {
-    final shell = ShellScope.read(context);
-    final pending = shell.chatNavigation.take(
+    final shell = PluginUiScope.require(context, chatShellService);
+    final pending = shell.navigation.take(
       siteUrl: widget.siteUrl,
       route: ChatRoute.thread(
         channelId: widget.target.channelId,
@@ -534,8 +538,8 @@ class _ChatThreadViewState extends State<ChatThreadView> {
     _handledUnavailable = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final shell = ShellScope.read(context);
-      shell.handleBack(canReturnToSidebar: false);
+      final shell = PluginUiScope.require(context, chatShellService);
+      shell.returnToChannel(widget.target.channelId);
       if (!context.mounted) return;
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         const SnackBar(content: Text('This thread is no longer available.')),
@@ -564,9 +568,10 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   }
 
   void _syncProjection(ChatStreamState stream) {
-    final showTimeGapDays = ShellScope.read(
+    final showTimeGapDays = PluginUiScope.require(
       context,
-    ).siteConfigFor(widget.siteUrl).showTimeGapDays;
+      chatShellService,
+    ).showTimeGapDaysFor(widget.siteUrl);
     if (identical(_projectedMessageIds, stream.messageIds) &&
         identical(_projectedLocalMessageIds, stream.localMessageIds) &&
         _projectedLastRead == stream.lastReadOnOpen &&
@@ -598,7 +603,7 @@ class _ChannelPaneHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     return ValueListenableBuilder(
       valueListenable: chat.channelRef(siteUrl, channelId),
       builder: (context, channel, _) => _PaneHeaderShell(
@@ -663,8 +668,8 @@ class _ThreadHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shell = ShellScope.read(context);
-    final chat = PluginScope.require(context, chatControllerService);
+    final shell = PluginUiScope.require(context, chatShellService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     return ValueListenableBuilder<ChatThread?>(
       valueListenable: chat.threadRef(siteUrl, target.threadId),
       builder: (context, thread, _) => _PaneHeaderShell(
@@ -673,11 +678,7 @@ class _ThreadHeader extends StatelessWidget {
             if (leading == _HeaderAction.back)
               DButton.iconOnly(
                 tooltip: 'Back',
-                onPressed: () => shell.handleBack(
-                  canReturnToSidebar: ShellLayout.forWidth(
-                    MediaQuery.sizeOf(context).width,
-                  ).isCompact,
-                ),
+                onPressed: () => shell.returnToChannel(target.channelId),
                 icon: const DIcon(DIcons.arrowLeft, size: 20),
                 variant: DButtonVariant.flat,
               )
@@ -718,7 +719,7 @@ class _ThreadHeader extends StatelessWidget {
             if (showClose)
               DButton.iconOnly(
                 tooltip: 'Close thread',
-                onPressed: () => shell.handleBack(canReturnToSidebar: false),
+                onPressed: () => shell.returnToChannel(target.channelId),
                 icon: const DIcon(DIcons.xmark, size: 18),
                 variant: DButtonVariant.flatClose,
               ),
@@ -782,7 +783,7 @@ class _NotificationLevelButton extends StatelessWidget {
       options: _options,
       enabled: thread != null,
       onSelected: (level) => unawaited(
-        PluginScope.require(
+        PluginUiScope.require(
           context,
           chatControllerService,
         ).updateThreadNotificationLevel(siteUrl, target, level),

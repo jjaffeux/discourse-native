@@ -90,7 +90,10 @@ void main() {
     final session = shell.pluginSession;
     expect(session.require(gifsApiService), same(api));
     expect(session.require(chatApiService), same(api));
-    expect(session.require(chatGifsApiService), same(api));
+    expect(
+      session.require(chatGifsService),
+      same(session.require(gifsSessionService)),
+    );
     expect(session.require(resenhaControllerService), isNotNull);
   });
 
@@ -109,7 +112,7 @@ void main() {
     final session = shell.pluginSession;
     expect(session.require(chatApiService), same(api));
     expect(session.maybeService(gifsApiService), isNull);
-    expect(session.maybeService(chatGifsApiService), isNull);
+    expect(session.maybeService(chatGifsService), isNull);
   });
 }
 

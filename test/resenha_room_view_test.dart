@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_api.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_callkit.dart';
@@ -10,8 +12,7 @@ import 'package:discourse_native/src/plugins/resenha/resenha_media.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_models.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_preferences.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_room_view.dart';
-import 'package:discourse_native/src/shell/shell_controller.dart';
-import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_shell_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,7 +21,6 @@ import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 // ignore: implementation_imports
 import 'package:flutter_webrtc/src/native/media_stream_track_impl.dart';
 
-import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://voice.example.com';
@@ -140,39 +140,33 @@ void main() {
   testWidgets('top-level room view handles a missing site and room', (
     tester,
   ) async {
-    final emptyShell = ShellController(
-      instanceStore: FakeInstanceStore(),
-      api: FakeDiscourseApi(),
-      authenticator: FakeAuthenticator(),
-      drafts: FakeDraftStore(),
-      trackers: FakeSiteTracker.reset(),
-      plugins: installedPlugins,
-    );
-    addTearDown(emptyShell.dispose);
-    await emptyShell.load();
+    final harness = _Harness();
+    addTearDown(harness.dispose);
     await tester.pumpWidget(
-      ShellScope(
-        controller: emptyShell,
-        child: const MaterialApp(home: ResenhaRoomView(roomId: 7)),
+      MaterialApp(
+        home: ResenhaRoomView(
+          roomId: 7,
+          controller: harness.controller,
+          shell: _resenhaShell(harness.controller),
+        ),
       ),
     );
     expect(find.byType(ResenhaRoomContent), findsNothing);
 
-    final site = instance('voice.example.com');
-    final connectedShell = ShellController(
-      instanceStore: FakeInstanceStore([site]),
-      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
-      authenticator: FakeAuthenticator(),
-      drafts: FakeDraftStore(),
-      trackers: FakeSiteTracker.reset(),
-      plugins: installedPlugins,
-    );
-    addTearDown(connectedShell.dispose);
-    await connectedShell.load();
     await tester.pumpWidget(
-      ShellScope(
-        controller: connectedShell,
-        child: const MaterialApp(home: ResenhaRoomView(roomId: 7)),
+      MaterialApp(
+        home: ResenhaRoomView(
+          roomId: 7,
+          controller: harness.controller,
+          shell: _resenhaShell(
+            harness.controller,
+            site: const PluginRouteSite(
+              url: _siteUrl,
+              title: 'Voice',
+              isConnected: true,
+            ),
+          ),
+        ),
       ),
     );
     await tester.pump();
@@ -193,16 +187,23 @@ void main() {
       ],
     );
     final harness = _Harness(joinRoom: room);
+    addTearDown(harness.dispose);
     await _join(harness, room);
-    final shell = _InjectedResenhaShell();
-    addTearDown(shell.dispose);
-    await shell.load();
+    final shell = _resenhaShell(
+      harness.controller,
+      site: const PluginRouteSite(
+        url: _siteUrl,
+        title: 'Voice',
+        isConnected: true,
+      ),
+    );
 
     await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          home: ResenhaRoomView(roomId: 7, controller: harness.controller),
+      MaterialApp(
+        home: ResenhaRoomView(
+          roomId: 7,
+          controller: harness.controller,
+          shell: shell,
         ),
       ),
     );
@@ -1374,8 +1375,8 @@ final class _Harness {
     controller = ResenhaController(
       api: ResenhaApi(transport),
       chatApi: transport,
-      credentials: credentials,
-      trackerFor: (_) => null,
+      requests: FakePluginRequestHost(credentials: credentials),
+      channelsFor: (_) => null,
       userIdFor: (_) => 1,
       onCallSiteChanged: () {},
       mediaFactory: media,
@@ -1393,15 +1394,37 @@ final class _Harness {
   void dispose() => controller.dispose();
 }
 
-final class _InjectedResenhaShell extends ShellController {
-  _InjectedResenhaShell()
-    : super(
-        instanceStore: FakeInstanceStore([instance('voice.example.com')]),
-        api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
-        authenticator: FakeAuthenticator(),
-        drafts: FakeDraftStore(),
-        trackers: FakeSiteTracker.reset(),
-      );
+ResenhaShellService _resenhaShell(
+  ResenhaController controller, {
+  PluginRouteSite? site,
+  bool recordingEnabled = false,
+}) => ResenhaShellService(
+  controller: controller,
+  host: _RouteHost(site),
+  recordingEnabled: (_) => recordingEnabled,
+);
+
+final class _RouteHost implements PluginRouteNavigationHost {
+  _RouteHost(this.currentSite)
+    : sites = currentSite == null ? const [] : [currentSite];
+
+  @override
+  final List<PluginRouteSite> sites;
+
+  @override
+  PluginRouteSite? currentSite;
+
+  @override
+  ContentRoute? currentContent;
+
+  @override
+  void pushContent(ContentRoute route) => currentContent = route;
+
+  @override
+  void replaceCurrentContent(ContentRoute route) => currentContent = route;
+
+  @override
+  void selectInstance(int index) => currentSite = sites[index];
 }
 
 final class _GatedMembershipTransport extends FakeDiscourseApi {

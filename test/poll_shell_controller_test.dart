@@ -8,10 +8,12 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
+import 'package:discourse_native/src/plugins/poll/poll_controller.dart';
 import 'package:discourse_native/src/plugins/poll/poll_data.dart';
-import 'package:discourse_native/src/plugins/poll/poll_shell_extension.dart';
+import 'package:discourse_native/src/plugins/poll/poll_services.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
-import 'package:discourse_native/src/plugins/reactions/reactions_shell_extension.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_controller.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_services.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -179,6 +181,38 @@ FakeDiscourseApi _api({
 PollVoteResponse _answer(Poll poll) =>
     PollVoteResponse(poll: poll, selection: poll.selection);
 
+PollController _polls(ShellController shell) =>
+    shell.pluginSession.require(pollControllerService);
+
+ReactionsController _reactions(ShellController shell) =>
+    shell.pluginSession.require(reactionsControllerService);
+
+Future<PollVoteWriteResult> _castPollVote(
+  ShellController shell,
+  Post post,
+  Poll poll,
+  List<String> optionIds,
+) => _polls(shell).castVote(
+  siteUrl: _site,
+  topicId: 7,
+  archived: false,
+  post: post,
+  poll: poll,
+  optionIds: optionIds,
+);
+
+Future<PollVoteWriteResult> _removePollVote(
+  ShellController shell,
+  Post post,
+  Poll poll,
+) => _polls(shell).removeVote(
+  siteUrl: _site,
+  topicId: 7,
+  archived: false,
+  post: post,
+  poll: poll,
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -206,8 +240,8 @@ void main() {
         await Future<void>.delayed(Duration.zero);
       }
 
-      expect(shell.canCreatePollFor(_site), isFalse);
-      expect(shell.freshCurrentUserFor(_site), isNull);
+      expect(_polls(shell).canCreatePollFor(_site), isFalse);
+      expect(_polls(shell).freshCurrentUserFor(_site), isNull);
 
       api.response.complete(
         _pollUser(
@@ -220,8 +254,8 @@ void main() {
       await pumpEventQueue();
 
       expect(api.calls, 1);
-      expect(shell.canCreatePollFor(_site), isTrue);
-      expect(shell.freshCurrentUserFor(_site)?.groups, ['builders']);
+      expect(_polls(shell).canCreatePollFor(_site), isTrue);
+      expect(_polls(shell).freshCurrentUserFor(_site)?.groups, ['builders']);
     },
   );
 
@@ -257,8 +291,8 @@ void main() {
 
       expect(api.calls.where((site) => site == _site), hasLength(1));
       expect(api.calls.where((site) => site == _site2), isEmpty);
-      expect(shell.canCreatePollFor(_site), isTrue);
-      expect(shell.canCreatePollFor(_site2), isFalse);
+      expect(_polls(shell).canCreatePollFor(_site), isTrue);
+      expect(_polls(shell).canCreatePollFor(_site2), isFalse);
 
       shell.selectInstance(1);
       while (api.calls.length < 2) {
@@ -267,8 +301,10 @@ void main() {
       await pumpEventQueue();
 
       expect(api.calls.where((site) => site == _site2), hasLength(1));
-      expect(shell.canCreatePollFor(_site2), isTrue);
-      expect(shell.freshCurrentUserFor(_site2)?.groups, ['community-builders']);
+      expect(_polls(shell).canCreatePollFor(_site2), isTrue);
+      expect(_polls(shell).freshCurrentUserFor(_site2)?.groups, [
+        'community-builders',
+      ]);
     },
   );
 
@@ -293,7 +329,8 @@ void main() {
     final (:shell, :tracker) = await _loadShell(api);
     addTearDown(shell.dispose);
 
-    final result = await shell.castPollVote(
+    final result = await _castPollVote(
+      shell,
       shell.store.read<Post>(_site, 11)!,
       initialPoll,
       const ['b'],
@@ -323,7 +360,8 @@ void main() {
     final (:shell, :tracker) = await _loadShell(api);
     addTearDown(shell.dispose);
 
-    final result = await shell.removePollVote(
+    final result = await _removePollVote(
+      shell,
       shell.store.read<Post>(_site, 11)!,
       initialPoll,
     );
@@ -351,7 +389,8 @@ void main() {
       final (:shell, :tracker) = await _loadShell(api);
       addTearDown(shell.dispose);
 
-      final result = await shell.castPollVote(
+      final result = await _castPollVote(
+        shell,
         shell.store.read<Post>(_site, 11)!,
         initialPoll,
         const ['b'],
@@ -380,7 +419,8 @@ void main() {
       final (:shell, :tracker) = await _loadShell(api);
       addTearDown(shell.dispose);
 
-      final result = await shell.castPollVote(
+      final result = await _castPollVote(
+        shell,
         shell.store.read<Post>(_site, 11)!,
         initialPoll,
         const ['b'],
@@ -416,7 +456,8 @@ void main() {
       final (:shell, :tracker) = await _loadShell(api);
       addTearDown(shell.dispose);
 
-      final voting = shell.castPollVote(
+      final voting = _castPollVote(
+        shell,
         shell.store.read<Post>(_site, 11)!,
         initialPoll,
         const ['b'],
@@ -431,7 +472,8 @@ void main() {
       expect(api.postFetches, isEmpty);
 
       // A second action on the same post is serialized behind the active one.
-      final serialized = await shell.removePollVote(
+      final serialized = await _removePollVote(
+        shell,
         shell.store.read<Post>(_site, 11)!,
         initialPoll,
       );
@@ -473,7 +515,8 @@ void main() {
         await pumpEventQueue();
       }
 
-      await shell.castPollVote(
+      await _castPollVote(
+        shell,
         shell.store.read<Post>(_site, 11)!,
         initialPoll,
         const ['b'],
@@ -509,7 +552,8 @@ void main() {
         (detail) => detail.copyWith(archived: true),
       );
 
-      final result = await shell.castPollVote(
+      final result = await _castPollVote(
+        shell,
         shell.store.read<Post>(_site, 11)!,
         initialPoll,
         const ['b'],
@@ -543,7 +587,7 @@ void main() {
       addTearDown(shell.dispose);
       final post = shell.store.read<Post>(_site, 11)!;
 
-      final reacting = shell.toggleReaction(post, 'clap');
+      final reacting = _reactions(shell).toggle(post, 'clap', siteUrl: _site);
       while (api.reacted.isEmpty) {
         await pumpEventQueue();
       }

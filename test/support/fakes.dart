@@ -7,7 +7,9 @@ import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/forum_tab_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
+import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/data/update_store.dart';
 import 'package:discourse_native/src/data/updater.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
@@ -40,14 +42,20 @@ import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
+import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
+import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
@@ -58,7 +66,80 @@ import 'package:discourse_native/src/plugins/poll/polls_api.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'bundled_plugins.dart';
+
+/// Test-only access to Chat's owner service from shell integration fixtures.
+///
+/// Production Chat UI resolves [ChatShellService] through `PluginUiScope` and
+/// deliberately has no `ShellController` extension.
+extension TestChatShellAccess on ShellController {
+  ChatShellService get testChatShell => pluginSession.require(chatShellService);
+
+  ChatController get chat => pluginSession.require(chatControllerService);
+  TestChatRecords get chatRecords => TestChatRecords(chat);
+  ChatNavigationHandoff get chatNavigation => testChatShell.navigation;
+  Future<bool> openChatUrl(String url) => testChatShell.openPluginUrl(url);
+  void openChatThread({
+    required String siteUrl,
+    required int channelId,
+    required int threadId,
+    int? messageId,
+    bool focusComposer = false,
+  }) => testChatShell.openThread(
+    siteUrl: siteUrl,
+    channelId: channelId,
+    threadId: threadId,
+    messageId: messageId,
+    focusComposer: focusComposer,
+  );
+  bool openChatChannel(int channelId, {int? messageId}) =>
+      testChatShell.openChannel(channelId, messageId: messageId);
+  bool openChatChannelInfo({
+    required String siteUrl,
+    required int channelId,
+    ChatChannelInfoTab tab = ChatChannelInfoTab.settings,
+  }) => testChatShell.openChannelInfo(
+    siteUrl: siteUrl,
+    channelId: channelId,
+    tab: tab,
+  );
+  bool openChatChannelThreads({
+    required String siteUrl,
+    required int channelId,
+  }) =>
+      testChatShell.openChannelThreads(siteUrl: siteUrl, channelId: channelId);
+  bool revealChatChannelMessage({
+    required String siteUrl,
+    required int channelId,
+    required int messageId,
+  }) => testChatShell.revealChannelMessage(
+    siteUrl: siteUrl,
+    channelId: channelId,
+    messageId: messageId,
+  );
+  Future<String?> openChatQuote(
+    String siteUrl,
+    int channelId,
+    String markdown,
+  ) => testChatShell.openQuote(siteUrl, channelId, markdown);
+  Future<void> openChat() => testChatShell.openShortcut();
+}
+
+final class TestChatRecords {
+  const TestChatRecords(this._chat);
+
+  final ChatController _chat;
+
+  T put<T extends Storable<T>>(String siteUrl, T record) =>
+      _chat.putRecordForTesting(siteUrl, record);
+
+  List<T> putAll<T extends Storable<T>>(String siteUrl, Iterable<T> records) =>
+      _chat.putRecordsForTesting(siteUrl, records);
+
+  T? read<T extends Storable<T>>(String siteUrl, Object id) =>
+      _chat.readRecordForTesting<T>(siteUrl, id);
+}
 
 /// Keeps instances in memory instead of shared_preferences, which needs a
 /// platform channel.
@@ -271,7 +352,7 @@ class FakeDraftStore implements DraftStore {
 /// message coming off the bus. Real ones hold a long poll open, which a widget
 /// test must not, and which the test binding fails outright on: the poll's
 /// backoff timer outlives the tree.
-class FakeSiteTracker implements SiteTracker {
+class FakeSiteTracker implements SiteTracker, PluginChannelHost {
   FakeSiteTracker({
     required this.siteUrl,
     required this.onIncomingTopics,
@@ -416,6 +497,15 @@ class FakeSiteTracker implements SiteTracker {
     });
   }
 
+  @override
+  PluginChannelSubscription subscribe(
+    String channel,
+    void Function(Object? data, int messageId) onMessage, {
+    int? lastId,
+  }) =>
+      watchPluginChannelWithPosition(channel, onMessage, lastId: lastId)
+          as PluginChannelSubscription;
+
   void deliverPluginMessage(String channel, Object? data, {int messageId = 1}) {
     _deliveredPluginMessageId = messageId;
     for (final callback in List.of(
@@ -442,7 +532,7 @@ class FakeSiteTracker implements SiteTracker {
 }
 
 final class _FakeSiteMessageBusSubscription
-    implements SiteMessageBusSubscription {
+    implements SiteMessageBusSubscription, PluginChannelSubscription {
   _FakeSiteMessageBusSubscription(this._cancel);
   final void Function() _cancel;
   bool _cancelled = false;
@@ -3776,6 +3866,52 @@ class FakeApiCredentialReader implements ApiCredentialReader {
 
   @override
   Future<String> clientId() async => clientIdValue;
+}
+
+/// Test adapter for the request/session authority exposed to plugins.
+final class FakePluginRequestHost implements PluginRequestHost {
+  FakePluginRequestHost({
+    ApiCredentialReader? credentials,
+    SiteLifecycle? lifecycle,
+  }) : credentials = credentials ?? FakeApiCredentialReader(),
+       lifecycle = lifecycle ?? SiteLifecycle();
+
+  final ApiCredentialReader credentials;
+  final SiteLifecycle lifecycle;
+
+  @override
+  PluginSiteLease capture(String siteUrl) =>
+      _FakePluginSiteLease(lifecycle.capture(siteUrl));
+
+  @override
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) async =>
+      PluginRequestCredentials(
+        apiKey: await credentials.apiKeyFor(siteUrl),
+        clientId: await credentials.clientId(),
+      );
+
+  @override
+  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async {
+    final apiKey = await credentials.apiKeyFor(siteUrl);
+    return (
+      apiKey: apiKey,
+      failure: apiKey == null
+          ? const WriteException(WriteFailure.forbidden)
+          : null,
+    );
+  }
+}
+
+final class _FakePluginSiteLease implements PluginSiteLease {
+  const _FakePluginSiteLease(this.lease);
+
+  final SiteLease lease;
+
+  @override
+  bool get isCurrent => lease.isCurrent;
+
+  @override
+  bool commit(void Function() mutation) => lease.commit(mutation);
 }
 
 /// Runs the handshake without a browser or a keychain.

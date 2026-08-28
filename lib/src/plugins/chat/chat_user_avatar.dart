@@ -32,7 +32,7 @@ class ChatUserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onlineUsers = PluginScope.require(
+    final onlineUsers = PluginUiScope.require(
       context,
       chatControllerService,
     ).onlineUserIdsListenable(siteUrl);

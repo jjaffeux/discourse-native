@@ -19,7 +19,6 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
-import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
@@ -79,7 +78,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final context = tester.element(find.byType(ChatComposer));
-      final host = PluginScope.require(context, chatComposerHostService);
+      final host = PluginUiScope.require(context, chatComposerHostService);
       final config = host.siteConfigListenableFor(_site);
       expect(config, isNot(isA<ShellController>()));
       expect(host.siteConfigListenableFor(_site), same(config));
@@ -761,12 +760,12 @@ void main() {
     await tester.pumpAndSettle();
 
     final localId = fixture.shell.chat.stream(_site, 9).localMessageIds.single;
-    final local = fixture.shell.store.read<ChatMessage>(_site, localId)!;
+    final local = fixture.shell.chatRecords.read<ChatMessage>(_site, localId)!;
     expect(find.text('provisional'), findsOneWidget);
     expect(find.byType(ChatPreviewBody), findsOneWidget);
     expect(find.byType(ChatMessageTile), findsOneWidget);
 
-    fixture.shell.store.put(
+    fixture.shell.chatRecords.put(
       _site,
       local.withCanonical(
         ChatMessage(
@@ -804,10 +803,10 @@ void main() {
     await tester.pumpAndSettle();
 
     final localId = fixture.shell.chat.stream(_site, 9).localMessageIds.single;
-    final local = fixture.shell.store.read<ChatMessage>(_site, localId)!;
+    final local = fixture.shell.chatRecords.read<ChatMessage>(_site, localId)!;
     expect(find.byType(ChatPreviewBody), findsOneWidget);
 
-    fixture.shell.store.put(
+    fixture.shell.chatRecords.put(
       _site,
       local.withCanonical(
         ChatMessage(
@@ -848,7 +847,7 @@ void main() {
     expect(_text(tester), 'second');
     expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
     _button(tester, 'chat-composer-send').onPressed!();
-    expect(fixture.shell.store.read<ChatMessage>(_site, -2), isNotNull);
+    expect(fixture.shell.chatRecords.read<ChatMessage>(_site, -2), isNotNull);
     expect(fixture.shell.chat.stream(_site, 9).localMessageIds, hasLength(2));
     await tester.pump();
 
@@ -1041,7 +1040,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
     plugins: installedPlugins,
   );
   await shell.load();
-  shell.store.put(
+  shell.chatRecords.put(
     _site,
     ChatChannel(
       id: 9,
@@ -1051,7 +1050,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
       membership: const ChatMembership(following: true),
     ),
   );
-  shell.store.put(
+  shell.chatRecords.put(
     _site,
     const ChatChannel(
       id: 10,
@@ -1096,9 +1095,12 @@ final class _TestView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ShellScope(
     controller: shell,
-    child: MaterialApp(
-      theme: AppTheme.light,
-      home: const Scaffold(body: ChatChannelView(channelId: 9)),
+    child: PluginUiScope.own(
+      chatPluginId,
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const Scaffold(body: ChatChannelView(channelId: 9)),
+      ),
     ),
   );
 }
@@ -1112,10 +1114,13 @@ final class _ComposerView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ShellScope(
     controller: shell,
-    child: MaterialApp(
-      theme: AppTheme.light,
-      home: Scaffold(
-        body: ChatComposer(siteUrl: _site, channelId: channelId),
+    child: PluginUiScope.own(
+      chatPluginId,
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: ChatComposer(siteUrl: _site, channelId: channelId),
+        ),
       ),
     ),
   );

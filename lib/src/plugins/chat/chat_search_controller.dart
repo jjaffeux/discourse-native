@@ -1,12 +1,13 @@
+// ignore_for_file: prefer_initializing_formals
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../../data/api_credentials.dart';
-import '../../data/site_lifecycle.dart';
 import '../../data/store.dart';
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/frame_safe_notifier.dart';
+import '../../plugin_api/core_plugin_host.dart';
 import 'chat_api.dart';
 import 'chat_search.dart';
 
@@ -110,16 +111,16 @@ final class ScopedChatSearchState {
 final class ChatSearchController {
   ChatSearchController({
     required this.api,
-    required this.credentials,
-    required this.store,
-    required this.lifecycle,
+    required PluginRequestHost requests,
+    required Store store,
     this.debounceDuration = const Duration(milliseconds: 400),
-  }) : assert(debounceDuration >= Duration.zero);
+  }) : assert(debounceDuration >= Duration.zero),
+       _requests = requests,
+       _store = store;
 
   final ChatApi api;
-  final ApiCredentialReader credentials;
-  final Store store;
-  final SiteLifecycle lifecycle;
+  final PluginRequestHost _requests;
+  final Store _store;
   final Duration debounceDuration;
 
   static const int maximumQueryLength = 2048;
@@ -270,17 +271,18 @@ final class ChatSearchController {
     }
     final run = Object();
     _globalRequests[siteUrl] = run;
-    final lease = lifecycle.capture(siteUrl);
+    final lease = _requests.capture(siteUrl);
     bool current() =>
         !_disposed &&
         lease.isCurrent &&
         identical(_globalRequests[siteUrl], run);
 
     try {
-      final apiKey = await credentials.apiKeyFor(siteUrl);
+      final requestCredentials = await _requests.credentialsFor(siteUrl);
+      final apiKey = requestCredentials.apiKey;
       if (!current()) return;
       if (apiKey == null) throw StateError('Chat search requires an account.');
-      final clientId = await credentials.clientId();
+      final clientId = requestCredentials.clientId;
       if (!current()) return;
       final page = await api.searchChatMessages(
         siteUrl: siteUrl,
@@ -292,7 +294,7 @@ final class ChatSearchController {
       );
       if (!current()) return;
       lease.commit(() {
-        store.putAll(siteUrl, page.hits.map((hit) => hit.message));
+        _store.putAll(siteUrl, page.hits.map((hit) => hit.message));
         final hits = append ? _appendUnique(held.hits, page.hits) : page.hits;
         _setGlobal(
           siteUrl,
@@ -470,7 +472,7 @@ final class ChatSearchController {
     );
     final run = Object();
     _scopedRequests[key] = run;
-    final lease = lifecycle.capture(siteUrl);
+    final lease = _requests.capture(siteUrl);
     bool current() =>
         !_disposed &&
         lease.isCurrent &&
@@ -478,10 +480,11 @@ final class ChatSearchController {
         scopedState(siteUrl, channelId).open;
 
     try {
-      final apiKey = await credentials.apiKeyFor(siteUrl);
+      final requestCredentials = await _requests.credentialsFor(siteUrl);
+      final apiKey = requestCredentials.apiKey;
       if (!current()) return;
       if (apiKey == null) throw StateError('Chat search requires an account.');
-      final clientId = await credentials.clientId();
+      final clientId = requestCredentials.clientId;
       if (!current()) return;
       final page = await api.searchChatMessages(
         siteUrl: siteUrl,
@@ -494,7 +497,7 @@ final class ChatSearchController {
       );
       if (!current()) return;
       lease.commit(() {
-        store.putAll(siteUrl, page.hits.map((hit) => hit.message));
+        _store.putAll(siteUrl, page.hits.map((hit) => hit.message));
         _setScoped(
           siteUrl,
           channelId,

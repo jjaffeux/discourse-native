@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/choice_menu.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -39,7 +38,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_ready) return;
-    _search = PluginScope.require(context, chatSearchControllerService);
+    _search = PluginUiScope.require(context, chatSearchControllerService);
     _query = TextEditingController(
       text: _search.globalState(widget.siteUrl).query,
     );
@@ -148,20 +147,20 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   }
 
   Future<void> _open(ChatSearchHit hit) async {
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     try {
       final channel = await chat.ensureChannel(widget.siteUrl, hit.channel.id);
       if (!mounted || channel == null) throw StateError('Channel unavailable');
-      final shell = ShellScope.read(context);
+      final shell = PluginUiScope.require(context, chatShellService);
       if (hit.message.threadId case final threadId?) {
-        shell.openChatThread(
+        shell.openThread(
           siteUrl: widget.siteUrl,
           channelId: channel.id,
           threadId: threadId,
           messageId: hit.message.id,
         );
       } else {
-        shell.openChatChannel(channel.id, messageId: hit.message.id);
+        shell.openChannel(channel.id, messageId: hit.message.id);
       }
     } catch (_) {
       if (!mounted) return;

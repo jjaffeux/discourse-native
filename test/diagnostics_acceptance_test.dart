@@ -268,7 +268,7 @@ void main() {
       final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'api-key';
       final chat = ChatController(
         api: _TimeoutApi(),
-        credentials: credentials,
+        requests: FakePluginRequestHost(credentials: credentials),
         store: Store(),
       );
       addTearDown(chat.dispose);
@@ -324,7 +324,7 @@ void main() {
       final credentials = FakeApiCredentialReader()..keys[siteUrl] = 'api-key';
       final chat = ChatController(
         api: ChatApiClient(api),
-        credentials: credentials,
+        requests: FakePluginRequestHost(credentials: credentials),
         store: Store(),
       );
       addTearDown(chat.dispose);
@@ -418,7 +418,7 @@ void main() {
       final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'api-key';
       final chat = ChatController(
         api: api,
-        credentials: credentials,
+        requests: FakePluginRequestHost(credentials: credentials),
         store: Store(),
       );
 
@@ -445,9 +445,11 @@ void main() {
       final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'api-key';
       final chat = ChatController(
         api: api,
-        credentials: credentials,
+        requests: FakePluginRequestHost(
+          credentials: credentials,
+          lifecycle: lifecycle,
+        ),
         store: Store(),
-        lifecycle: lifecycle,
       );
       addTearDown(chat.dispose);
 

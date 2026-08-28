@@ -4,6 +4,6 @@ export 'chat_services.dart'
     show
         chatApiService,
         chatControllerService,
-        chatGifsApiService,
+        chatGifsService,
         chatPluginId,
         chatSearchControllerService;

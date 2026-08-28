@@ -80,7 +80,7 @@ class _AiSummaryButton extends StatelessWidget {
   Widget build(BuildContext context) => OutlinedButton.icon(
     key: const ValueKey('ai-topic-summary-button'),
     onPressed: () {
-      final controller = PluginScope.require(
+      final controller = PluginUiScope.require(
         context,
         aiSummaryControllerService,
       );

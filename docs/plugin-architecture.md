@@ -54,6 +54,13 @@ fails for a missing dependency service; `maybe` returns null for a declared
 optional integration that is absent. Both reject undeclared owners, so this
 boundary cannot become a global service locator.
 
+The same ownership rule continues after construction. `PluginSession` keeps
+the complete service graph private to the host and produces an immutable
+`PluginOwnedServices` view for one installed owner. That view rejects every
+foreign service key before lookup. A plugin dependency must therefore be
+adapted and republished under the consumer's own key during session creation;
+UI code cannot walk the session graph.
+
 ## Dependency rule
 
 Production core never imports or exports a file under `lib/src/plugins`.
@@ -109,11 +116,51 @@ re-emitted indefinitely.
 
 ## UI extensions
 
-`PluginScope` resolves required session services by `PluginServiceKey` and
-exposes `maybeService` for genuinely optional UI integrations, independently
-of `ShellScope`. Core owns navigation and shared write coordination through
-plugin-neutral host APIs; plugins own their route syntax, typed commands,
-controllers, optimistic transforms, and bookmark reconciliation.
+`PluginScope` is a host-only root which carries the installed registry and
+private session. It exposes neither the session nor a global service lookup.
+Every registry dispatch stamps the contribution owner onto the callback
+context and wraps returned widgets in `PluginUiScope`. Plugin widgets resolve
+only their owner's keys through `PluginUiScope.require`, `optional`, or
+`maybe`; resolving another owner's key fails even when that service is
+installed. Late builders—including composer syntax, diagnostics, sidebar
+hover and long-press actions, user-menu sections, previews, and nested cooked
+widgets—are adapted along with immediately returned widgets.
+
+A standalone `PluginRegistryScope` still supports pure cooked rendering. Its
+contributions receive a detached owner view: widgets which need no session
+service render normally, while a service request fails instead of falling
+through to unrelated application state.
+
+Core owns navigation and cross-feature coordination through narrow host ports;
+plugins own their route syntax, typed commands, controllers, optimistic
+transforms, and reconciliation. The runtime ports are capability-shaped:
+
+- `PluginRequestHost` returns credentials only for an explicit site request
+  and issues a commit-only `PluginSiteLease`; it exposes neither the
+  authenticator nor lifecycle invalidation.
+- `PluginPostHost` grants Poll and Reactions only post/topic reads, scoped post
+  mutation, the shared per-post write lane, and post reconciliation.
+- `PluginTargetHost` and `PluginFreshAccountHost` are materialized per
+  consumer; target and current-user reads accept only that plugin's
+  namespaced record key, while Poll receives only staff/group presentation
+  fields in addition to its own current-user record.
+- `PluginChannelHost` subscribes to a named plugin channel and returns only a
+  cancel handle; tracker start, stop, polling, topic watches, and disposal stay
+  host-owned.
+- `PluginPreviewHost` gives Chat an immutable list of typed preview adapters
+  and a single render callback; owner stamping and the application-wide
+  registry stay host-owned.
+- Account connection, current-site identity, post-flag catalog, composer
+  activity, navigation, emoji, bookmarks, notifications, and presentation are
+  separate ports, so receiving one does not imply the others.
+
+Chat and Reactions keep private stores inside their sessions. Poll and
+Reactions keep writes, optimistic state, credentials, and lifecycle guards in
+their plugin-owned controllers. Assign, Chat, Discourse AI, GIFs, and Resenha
+likewise use `PluginRequestHost`; Chat, Discourse AI, and Resenha subscribe
+through `PluginChannelHost`. No plugin receives core's `Store`,
+`SiteLifecycle`, `SiteTracker`, credential reader, or concrete
+`ShellController`.
 
 The registry currently provides typed seams for:
 
@@ -126,7 +173,7 @@ The registry currently provides typed seams for:
   strategies, and ordered topic recommendation sources;
 - sidebar sections, content routes, content chrome, shell header actions, and
   app-global overlays;
-- session route handlers, restored-route hydration, tracker attachments,
+- session route handlers, restored-route hydration, channel attachments,
   site/totals observers, bookmark strategies, and background-site ownership.
 
 Shared emoji history is keyed by a namespaced `EmojiUsageContext`; unknown
@@ -148,15 +195,21 @@ composer syntax ids. Local Dates owns cooked date markup, Chat owns its header
 action, and Resenha owns its global call overlay rather than being imported by
 core shell widgets.
 
-## Deferred UI contribution seams
+`plugin_dependency_boundary_test.dart` makes the UI boundary executable. It
+rejects plugin imports or exports of `shell_scope.dart` and
+`shell_controller.dart`, registry-only owner-stamping and global-scope lookups
+from plugin code, and the retired broad credential, store, lifecycle, and
+tracker host ports. There is no migration allowlist.
 
-This workstream moves model ownership and persistence, not every host UI.
+## Remaining shared presentation seams
+
 `NotificationTotals` still carries Chat's total/presence fields and core still
 parses notification kinds used by the shared user menu. The user menu, shared
-composer limit, upload gate, and Resenha top-level capability currently query
-plugin-neutral registry interfaces. Moving those remaining surfaces to full UI
-contributions is intentionally deferred; core does not import a plugin type or
-wire key through these compatibility seams.
+composer limit, upload gate, and Resenha top-level capability query
+remain plugin-neutral registry contracts. These are typed shared presentation
+models, not escape hatches to shell state: core imports no plugin
+implementation or wire key through them, and plugin UI still runs inside its
+owner service view.
 
 ## Build profiles
 

@@ -5,16 +5,16 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 import 'package:timezone/timezone.dart' as tz;
 
-import '../../models/site_config.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/anchored_layout.dart';
 import '../../shell/platform.dart';
-import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'local_date.dart';
 import 'local_date_environment.dart';
+import 'local_dates_services.dart';
 import 'local_dates_settings.dart';
 
 Widget? localDateWidgetBuilder(dom.Element element, {String? siteUrl}) {
@@ -94,11 +94,11 @@ class _LocalDateInlineState extends State<LocalDateInline> {
 
   @override
   Widget build(BuildContext context) {
-    final shell = ShellScope.maybeRead(context);
-    final siteUrl = widget.siteUrl ?? shell?.currentInstance?.url;
+    final service = PluginUiScope.maybe(context, localDatesUiService);
+    final siteUrl = widget.siteUrl ?? service?.currentSiteUrl;
     final accountTimezone = siteUrl == null
         ? null
-        : shell?.currentUserFor(siteUrl)?.timezone;
+        : service?.accountTimezoneFor(siteUrl);
     final locale = Localizations.localeOf(context);
     return ListenableBuilder(
       listenable: LocalDateEnvironment.instance,
@@ -122,7 +122,7 @@ class _LocalDateInlineState extends State<LocalDateInline> {
             accountTimezone,
             siteUrl == null
                 ? const []
-                : shell?.siteConfigFor(siteUrl).localDatesSettings.timezones ??
+                : service?.configFor(siteUrl).localDatesSettings.timezones ??
                       const [],
           ),
           onPressed: (anchor) => _showPreviews(
@@ -217,15 +217,16 @@ class _LocalDateInlineState extends State<LocalDateInline> {
     required String? accountTimezone,
   }) async {
     final locale = Localizations.localeOf(context);
-    final shell = ShellScope.maybeRead(context);
-    final config = siteUrl == null
-        ? const SiteConfig()
-        : shell?.siteConfigFor(siteUrl) ?? const SiteConfig();
+    final service = PluginUiScope.maybe(context, localDatesUiService);
+    final defaultTimezones = siteUrl == null
+        ? const <String>[]
+        : service?.configFor(siteUrl).localDatesSettings.timezones ??
+              const <String>[];
     final previews = widget.formatter.previews(
       widget.spec,
       locale: locale,
       accountTimezone: accountTimezone,
-      defaultTimezones: config.localDatesSettings.timezones,
+      defaultTimezones: defaultTimezones,
       now: _now,
     );
     if (previews.isEmpty) return;

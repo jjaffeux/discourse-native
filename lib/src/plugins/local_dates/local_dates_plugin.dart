@@ -7,10 +7,10 @@ import 'package:html/dom.dart' as dom;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../plugin_api/chat_preview.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/markdown_highlight.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
 import 'local_date.dart';
 import 'local_date_composer_editor.dart';
@@ -18,6 +18,7 @@ import 'local_date_composer_pill.dart';
 import 'local_date_composer_sheet.dart';
 import 'local_date_environment.dart';
 import 'local_date_widget.dart';
+import 'local_dates_services.dart';
 import 'local_dates_settings.dart';
 
 export 'local_dates_settings.dart';
@@ -146,10 +147,10 @@ class LocalDatesPlugin
     BuildContext context,
     ComposerController composer,
   ) {
-    final controller = ShellScope.maybeRead(context);
-    if (controller == null ||
-        !controller
-            .siteConfigFor(composer.target.siteUrl)
+    final service = PluginUiScope.maybe(context, localDatesUiService);
+    if (service == null ||
+        !service
+            .configFor(composer.target.siteUrl)
             .localDatesSettings
             .enabled) {
       return const {};
@@ -290,11 +291,11 @@ class LocalDatesPlugin
     BuildContext context,
     ComposerController composer,
   ) {
-    final controller = ShellScope.maybeRead(context);
-    if (controller == null ||
+    final service = PluginUiScope.maybe(context, localDatesUiService);
+    if (service == null ||
         composer.loadingBody ||
-        !controller
-            .siteConfigFor(composer.target.siteUrl)
+        !service
+            .configFor(composer.target.siteUrl)
             .localDatesSettings
             .enabled) {
       return const [];
@@ -372,12 +373,12 @@ Future<void> openLocalDateComposer(
   ComposerController composer, {
   LocalDateComposerBlock? block,
 }) async {
-  final controller = ShellScope.maybeRead(context);
-  if (controller == null ||
-      !identical(controller.visibleComposer, composer) ||
+  final service = PluginUiScope.maybe(context, localDatesUiService);
+  if (service == null ||
+      !service.isActive(composer) ||
       (block == null &&
-          !controller
-              .siteConfigFor(composer.target.siteUrl)
+          !service
+              .configFor(composer.target.siteUrl)
               .localDatesSettings
               .enabled)) {
     return;
@@ -385,9 +386,7 @@ Future<void> openLocalDateComposer(
   final expectedDocument = composer.text.text;
   final expectedSelection = composer.text.selection;
   final environment = LocalDateEnvironment.instance;
-  final accountTimezone = controller
-      .currentUserFor(composer.target.siteUrl)
-      ?.timezone;
+  final accountTimezone = service.accountTimezoneFor(composer.target.siteUrl);
   final sourceTimezone = environment.readerTimezone(accountTimezone);
   final location = environment.location(sourceTimezone)!;
   final wallNow = tz.TZDateTime.from(DateTime.now(), location);
@@ -397,15 +396,14 @@ Future<void> openLocalDateComposer(
 
   bool stillCurrent() =>
       context.mounted &&
-      identical(ShellScope.maybeRead(context), controller) &&
-      identical(controller.visibleComposer, composer) &&
+      service.isActive(composer) &&
       composer.text.text == expectedDocument;
 
   final action = await showLocalDateComposerSheet(
     context: context,
     draft: draft,
-    siteFormats: controller
-        .siteConfigFor(composer.target.siteUrl)
+    siteFormats: service
+        .configFor(composer.target.siteUrl)
         .localDatesSettings
         .formats,
     isCurrent: stillCurrent,
@@ -460,8 +458,8 @@ void removeLocalDateComposer(
   ComposerController composer,
   LocalDateComposerBlock block,
 ) {
-  final controller = ShellScope.maybeRead(context);
-  if (controller == null || !identical(controller.visibleComposer, composer)) {
+  final service = PluginUiScope.maybe(context, localDatesUiService);
+  if (service == null || !service.isActive(composer)) {
     return;
   }
   final expectedDocument = composer.text.text;
@@ -483,18 +481,15 @@ void insertCurrentLocalDate(
   ComposerController composer, {
   DateTime? now,
 }) {
-  final controller = ShellScope.maybeRead(context);
-  if (controller == null ||
-      !identical(controller.visibleComposer, composer) ||
-      !controller
-          .siteConfigFor(composer.target.siteUrl)
-          .localDatesSettings
-          .enabled) {
+  final service = PluginUiScope.maybe(context, localDatesUiService);
+  if (service == null ||
+      !service.isActive(composer) ||
+      !service.configFor(composer.target.siteUrl).localDatesSettings.enabled) {
     return;
   }
   final environment = LocalDateEnvironment.instance;
   final timezone = environment.readerTimezone(
-    controller.currentUserFor(composer.target.siteUrl)?.timezone,
+    service.accountTimezoneFor(composer.target.siteUrl),
   );
   final wall = tz.TZDateTime.from(
     now ?? DateTime.now(),

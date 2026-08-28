@@ -5,9 +5,7 @@ import 'package:flutter/material.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/composer_controller.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
-import 'gif_picker.dart';
 import 'gifs_services.dart';
 import 'gifs_settings.dart';
 
@@ -37,11 +35,11 @@ class GifsPlugin
     BuildContext context,
     ComposerController composer,
   ) {
-    final shell = ShellScope.maybeRead(context);
-    if (shell == null ||
+    final session = PluginUiScope.maybe(context, gifsSessionService);
+    if (session == null ||
         composer.target.isPlugin ||
         composer.loadingBody ||
-        !shell.siteConfigFor(composer.target.siteUrl).gifsSettings.enabled) {
+        !session.settingsFor(composer.target.siteUrl).enabled) {
       return const [];
     }
     return [
@@ -60,33 +58,28 @@ Future<void> openGifPickerForComposer(
   BuildContext context,
   ComposerController composer,
 ) async {
-  final shell = ShellScope.maybeRead(context);
-  if (shell == null ||
-      !identical(shell.visibleComposer, composer) ||
-      !shell.siteConfigFor(composer.target.siteUrl).gifsSettings.enabled) {
+  final session = PluginUiScope.maybe(context, gifsSessionService);
+  if (session == null ||
+      !session.isActive(composer) ||
+      !session.settingsFor(composer.target.siteUrl).enabled) {
     return;
   }
 
   final expectedDocument = composer.text.text;
   final expectedSelection = composer.text.selection;
   final siteUrl = composer.target.siteUrl;
-  final api = PluginScope.maybeOf(context)?.maybeService(gifsApiService);
-  if (api == null) return;
-  final result = await showGifPicker(
+  final settings = session.settingsFor(siteUrl);
+  final result = await session.openPicker(
     context: context,
     siteUrl: siteUrl,
-    api: api,
-    credentials: shell.authenticator,
-    lifecycle: shell.lifecycle,
-    settings: shell.siteConfigFor(siteUrl).gifsSettings,
+    settings: settings,
   );
   if (result == null || !context.mounted) return;
 
   final stillCurrent =
-      identical(ShellScope.maybeRead(context), shell) &&
-      identical(shell.visibleComposer, composer) &&
+      session.isActive(composer) &&
       composer.text.text == expectedDocument &&
-      shell.siteConfigFor(siteUrl).gifsSettings.enabled;
+      session.settingsFor(siteUrl).enabled;
   if (!stillCurrent) {
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       const SnackBar(

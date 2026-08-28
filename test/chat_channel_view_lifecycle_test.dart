@@ -4,6 +4,7 @@ import 'dart:ui' show Tristate;
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
@@ -11,7 +12,7 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
-import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/shell/loading_skeleton.dart';
@@ -51,7 +52,7 @@ void main() {
     );
     final controller = await _controller(api);
     addTearDown(controller.dispose);
-    controller.store
+    controller.chatRecords
       ..put(firstSite, _channel(lastRead: 5))
       ..put(secondSite, _channel(lastRead: 40));
 
@@ -91,7 +92,7 @@ void main() {
     );
     final controller = await _controller(api);
     addTearDown(controller.dispose);
-    controller.store
+    controller.chatRecords
       ..put(firstSite, _channel(lastRead: 3))
       ..put(secondSite, _channel(lastRead: 3));
 
@@ -137,7 +138,7 @@ void main() {
     );
     final controller = await _controller(api, sites: const [firstSite]);
     addTearDown(controller.dispose);
-    controller.store.put(firstSite, _channel(lastRead: 80));
+    controller.chatRecords.put(firstSite, _channel(lastRead: 80));
     await controller.chat.openChannel(firstSite, 9);
 
     final depths = <int>[];
@@ -190,7 +191,7 @@ void main() {
     );
     final controller = await _controller(api, sites: const [firstSite]);
     addTearDown(controller.dispose);
-    controller.store.put(firstSite, _channel(lastRead: 2));
+    controller.chatRecords.put(firstSite, _channel(lastRead: 2));
 
     await tester.pumpWidget(_TestView(controller: controller));
     await tester.pumpAndSettle();
@@ -246,7 +247,10 @@ void main() {
       user: user,
     );
     addTearDown(controller.dispose);
-    controller.store.put(firstSite, _channel(lastRead: 2, canDeleteSelf: true));
+    controller.chatRecords.put(
+      firstSite,
+      _channel(lastRead: 2, canDeleteSelf: true),
+    );
 
     await tester.pumpWidget(_TestView(controller: controller));
     await tester.pumpAndSettle();
@@ -351,7 +355,7 @@ void main() {
     );
     final controller = await _controller(api, sites: const [firstSite]);
     addTearDown(controller.dispose);
-    controller.store.put(firstSite, _channel(lastRead: 1));
+    controller.chatRecords.put(firstSite, _channel(lastRead: 1));
     await controller.chat.openChannel(firstSite, 9);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -382,7 +386,7 @@ void main() {
       store: store,
     );
     addTearDown(controller.dispose);
-    controller.store.put(firstSite, _channel(lastRead: 50));
+    controller.chatRecords.put(firstSite, _channel(lastRead: 50));
 
     await tester.pumpWidget(_TestView(controller: controller));
     await tester.pumpAndSettle();
@@ -411,7 +415,7 @@ void main() {
     final controller = await _controller(api, sites: const [firstSite]);
     addTearDown(controller.dispose);
     final message = _message(1);
-    controller.store
+    controller.chatRecords
       ..put(firstSite, _channel(lastRead: 1))
       ..put(firstSite, message);
     final semantics = tester.ensureSemantics();
@@ -466,7 +470,7 @@ void main() {
     );
     final controller = await _controller(api, sites: const [firstSite]);
     addTearDown(controller.dispose);
-    controller.store.put(firstSite, _channel(lastRead: 1));
+    controller.chatRecords.put(firstSite, _channel(lastRead: 1));
     final semantics = tester.ensureSemantics();
 
     try {
@@ -532,7 +536,7 @@ void main() {
       );
       final controller = await _controller(api, sites: const [firstSite]);
       addTearDown(controller.dispose);
-      controller.store.put(firstSite, _channel(lastRead: 40));
+      controller.chatRecords.put(firstSite, _channel(lastRead: 40));
       controller.chatNavigation.offer(
         ChatNavigationTarget(
           siteUrl: 'https://one.example',
@@ -585,7 +589,7 @@ void main() {
     );
     final controller = await _controller(api, sites: const [firstSite]);
     addTearDown(controller.dispose);
-    controller.store.put(firstSite, _channel(lastRead: 2));
+    controller.chatRecords.put(firstSite, _channel(lastRead: 2));
 
     await tester.pumpWidget(_TestView(controller: controller));
     await tester.pumpAndSettle();
@@ -644,7 +648,7 @@ void main() {
       user: const DiscourseUser(id: 7, username: 'reader'),
     );
     addTearDown(controller.dispose);
-    controller.store.put(
+    controller.chatRecords.put(
       firstSite,
       _channel(lastRead: 3, pinnedMessagesCount: 2, hasUnseenPins: true),
     );
@@ -680,7 +684,7 @@ void main() {
     );
     final controller = await _controller(api, sites: const [firstSite]);
     addTearDown(controller.dispose);
-    controller.store.put(firstSite, _channel(lastRead: 42));
+    controller.chatRecords.put(firstSite, _channel(lastRead: 42));
 
     await tester.pumpWidget(_TestView(controller: controller));
     await tester.pumpAndSettle();
@@ -700,7 +704,7 @@ void main() {
     final controller = await _controller(api, sites: const [firstSite]);
     addTearDown(controller.dispose);
     addTearDown(() => _resumeLifecycle(tester));
-    controller.store.put(firstSite, _channel(lastRead: 0));
+    controller.chatRecords.put(firstSite, _channel(lastRead: 0));
 
     await tester.pumpWidget(_TestView(controller: controller));
     await tester.pump();
@@ -748,14 +752,14 @@ void main() {
       );
       final controller = await _controller(api, sites: const [firstSite]);
       addTearDown(controller.dispose);
-      controller.store.put(firstSite, _channel(lastRead: 0));
+      controller.chatRecords.put(firstSite, _channel(lastRead: 0));
 
       await tester.pumpWidget(_TestView(controller: controller));
       await tester.pumpAndSettle();
       expect(find.byKey(ChatMessageTile.actionsKey(1)), findsOneWidget);
       expect(find.byKey(ChatMessageTile.actionsKey(2)), findsOneWidget);
 
-      controller.store.put(
+      controller.chatRecords.put(
         firstSite,
         const ChatChannel(
           id: 9,
@@ -782,7 +786,7 @@ void main() {
     final controller = await _controller(api, sites: const [firstSite]);
     addTearDown(controller.dispose);
     final messages = [for (var id = 1; id <= 40; id++) _message(id)];
-    controller.store
+    controller.chatRecords
       ..put(firstSite, _channel(lastRead: 40))
       ..putAll(firstSite, messages);
 
@@ -833,7 +837,7 @@ void main() {
     );
     final controller = await _controller(api, sites: const [firstSite]);
     addTearDown(controller.dispose);
-    controller.store.put(firstSite, _channel(lastRead: 0));
+    controller.chatRecords.put(firstSite, _channel(lastRead: 0));
 
     await tester.pumpWidget(_TestView(controller: controller));
     await tester.pumpAndSettle();
@@ -856,7 +860,7 @@ void main() {
     final controller = await _controller(api, sites: const [firstSite]);
     addTearDown(controller.dispose);
     final message = _message(1);
-    controller.store
+    controller.chatRecords
       ..put(firstSite, _channel(lastRead: 0))
       ..put(firstSite, message);
 
@@ -903,7 +907,7 @@ void main() {
       user: author,
     );
     addTearDown(controller.dispose);
-    controller.store.put(firstSite, _channel(lastRead: 3));
+    controller.chatRecords.put(firstSite, _channel(lastRead: 3));
 
     await controller.chat.openChannel(firstSite, 9);
     await tester.pumpWidget(_TestView(controller: controller));
@@ -957,7 +961,10 @@ void main() {
       user: reader,
     );
     addTearDown(controller.dispose);
-    controller.store.put(firstSite, _channel(lastRead: 2, canDeleteSelf: true));
+    controller.chatRecords.put(
+      firstSite,
+      _channel(lastRead: 2, canDeleteSelf: true),
+    );
 
     await controller.chat.openChannel(firstSite, 9);
     await tester.pumpWidget(_TestView(controller: controller));
@@ -983,7 +990,7 @@ void main() {
     final controller = await _controller(api, sites: const [firstSite]);
     addTearDown(controller.dispose);
     final messages = [for (var id = 1; id <= 40; id++) _message(id)];
-    controller.store
+    controller.chatRecords
       ..put(firstSite, _channel(lastRead: 40))
       ..putAll(firstSite, messages);
 
@@ -1012,7 +1019,7 @@ void main() {
     // generation, no future to load, one more newest id. The reversed
     // viewport keeps the reader in place on its own; nothing may reposition.
     final live = _message(41);
-    controller.store.put(firstSite, live);
+    controller.chatRecords.put(firstSite, live);
     await tester.pumpWidget(
       _TestStreamView(
         controller: controller,
@@ -1048,7 +1055,7 @@ void main() {
           ),
         ),
     ];
-    controller.store
+    controller.chatRecords
       ..put(firstSite, _channel(lastRead: 48))
       ..putAll(firstSite, messages);
 
@@ -1127,7 +1134,7 @@ void main() {
         _message(1, createdAt: DateTime.utc(2026, 1, 1)),
         _message(2, createdAt: DateTime.utc(2026, 1, 9)),
       ];
-      controller.store
+      controller.chatRecords
         ..put(firstSite, _channel(lastRead: 2))
         ..putAll(firstSite, messages);
 
@@ -1223,12 +1230,15 @@ final class _TestView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ShellScope(
     controller: controller,
-    child: MaterialApp(
-      theme: AppTheme.light,
-      home: Scaffold(
-        body: NotificationListener<ScrollNotification>(
-          onNotification: onScroll ?? (_) => false,
-          child: const ChatChannelView(channelId: 9),
+    child: PluginUiScope.own(
+      chatPluginId,
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: NotificationListener<ScrollNotification>(
+            onNotification: onScroll ?? (_) => false,
+            child: const ChatChannelView(channelId: 9),
+          ),
         ),
       ),
     ),
@@ -1251,14 +1261,17 @@ final class _TestStreamView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ShellScope(
     controller: controller,
-    child: MaterialApp(
-      theme: theme ?? AppTheme.light,
-      home: Scaffold(
-        body: ChatMessageStream(
-          siteUrl: 'https://one.example',
-          target: const ChatChannelTarget(9),
-          items: buildChatStream(messages),
-          stream: stream,
+    child: PluginUiScope.own(
+      chatPluginId,
+      MaterialApp(
+        theme: theme ?? AppTheme.light,
+        home: Scaffold(
+          body: ChatMessageStream(
+            siteUrl: 'https://one.example',
+            target: const ChatChannelTarget(9),
+            items: buildChatStream(messages),
+            stream: stream,
+          ),
         ),
       ),
     ),

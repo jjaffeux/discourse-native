@@ -191,6 +191,7 @@ ChatChannel channel(
   Map<String, ChatMessageReactors> chatReactors = const {},
   Completer<void>? reactorReadGate,
   FakeApiCredentialReader? credentialReader,
+  SiteLifecycle? lifecycle,
   DiscourseUser? currentUser,
   ChatNotificationsDelta? onChatNotificationsDelta,
   void Function(String)? onSiteUnreachable,
@@ -251,7 +252,10 @@ ChatChannel channel(
   return (
     chat: ChatController(
       api: api,
-      credentials: credentials,
+      requests: FakePluginRequestHost(
+        credentials: credentials,
+        lifecycle: lifecycle,
+      ),
       store: store,
       currentUserFor: (_) => currentUser,
       onChatNotificationsDelta: onChatNotificationsDelta,
@@ -356,7 +360,7 @@ FakeSiteTracker attachTracker(ChatController chat) {
     userId: currentUser.id,
     apiKey: 'key',
   );
-  chat.attachTracker(site, tracker);
+  chat.attachChannels(site, tracker);
   return tracker;
 }
 
@@ -455,7 +459,7 @@ void main() {
         ..put(site, message(42));
       final chat = ChatController(
         api: api,
-        credentials: credentials,
+        requests: FakePluginRequestHost(credentials: credentials),
         store: store,
       );
       addTearDown(chat.dispose);
@@ -1941,7 +1945,7 @@ void main() {
         onNotifications: (_) {},
         onReviewableCounts: (_) {},
       );
-      subject.chat.attachTracker(site, tracker);
+      subject.chat.attachChannels(site, tracker);
 
       await subject.chat.loadChannels(site);
 
@@ -1978,7 +1982,7 @@ void main() {
         onNotifications: (_) {},
         onReviewableCounts: (_) {},
       );
-      subject.chat.attachTracker(site, tracker);
+      subject.chat.attachChannels(site, tracker);
       await subject.chat.loadChannels(site);
       final online = subject.chat.onlineUserIdsListenable(site);
 
@@ -2020,7 +2024,7 @@ void main() {
         final credentials = _ControllableCredentials()..keys[site] = 'key';
         final chat = ChatController(
           api: api,
-          credentials: credentials,
+          requests: FakePluginRequestHost(credentials: credentials),
           store: Store(),
         );
         addTearDown(chat.dispose);
@@ -2033,7 +2037,9 @@ void main() {
         await loading;
 
         expect(api.chatChannelsRequested, isEmpty);
-        expect(credentials.clientIdCalls, 0);
+        // The request port returns one atomic credential snapshot. Invalidating
+        // the lease still prevents the plugin from reaching the API.
+        expect(credentials.clientIdCalls, 1);
       },
     );
 
@@ -2444,7 +2450,7 @@ void main() {
         final credentials = _ControllableCredentials()..keys[site] = 'key';
         final chat = ChatController(
           api: api,
-          credentials: credentials,
+          requests: FakePluginRequestHost(credentials: credentials),
           store: Store(),
         );
         final clientIdStarted = credentials.blockClientId();
@@ -4767,38 +4773,37 @@ void main() {
       expect(subject.chat.messages(site, 9).map((m) => m.id), [5, 6, 42]);
     });
 
-    test(
-      'an invalidated lease stops a newer page before client-id and API work',
-      () async {
-        final api = FakeDiscourseApi(
-          chatMessagesByKey: {
-            key(9): page([message(5)], canLoadMoreFuture: true),
-            key(9, after: 5): page([message(6, minute: 1)]),
-          },
-        );
-        final credentials = _ControllableCredentials()..keys[site] = 'key';
-        final lifecycle = SiteLifecycle();
-        final chat = ChatController(
-          api: api,
+    test('an invalidated lease stops a newer page before API work', () async {
+      final api = FakeDiscourseApi(
+        chatMessagesByKey: {
+          key(9): page([message(5)], canLoadMoreFuture: true),
+          key(9, after: 5): page([message(6, minute: 1)]),
+        },
+      );
+      final credentials = _ControllableCredentials()..keys[site] = 'key';
+      final lifecycle = SiteLifecycle();
+      final chat = ChatController(
+        api: api,
+        requests: FakePluginRequestHost(
           credentials: credentials,
-          store: Store(),
           lifecycle: lifecycle,
-        );
-        addTearDown(chat.dispose);
-        await chat.openChannel(site, 9);
-        final initialClientIdCalls = credentials.clientIdCalls;
-        final credentialsStarted = credentials.blockApiKey();
+        ),
+        store: Store(),
+      );
+      addTearDown(chat.dispose);
+      await chat.openChannel(site, 9);
+      final initialClientIdCalls = credentials.clientIdCalls;
+      final credentialsStarted = credentials.blockApiKey();
 
-        final loading = chat.loadNewer(site, 9);
-        await credentialsStarted;
-        lifecycle.invalidate(site);
-        credentials.releaseApiKey();
-        await loading;
+      final loading = chat.loadNewer(site, 9);
+      await credentialsStarted;
+      lifecycle.invalidate(site);
+      credentials.releaseApiKey();
+      await loading;
 
-        expect(api.chatMessagesRequested, hasLength(1));
-        expect(credentials.clientIdCalls, initialClientIdCalls);
-      },
-    );
+      expect(api.chatMessagesRequested, hasLength(1));
+      expect(credentials.clientIdCalls, initialClientIdCalls + 1);
+    });
 
     test('does not ask at all from a window already at the present', () async {
       // Which is every window fetched at the live edge, so this is the common
@@ -4899,7 +4904,7 @@ void main() {
       final credentials = FakeApiCredentialReader()..keys[site] = 'key';
       final chat = ChatController(
         api: api,
-        credentials: credentials,
+        requests: FakePluginRequestHost(credentials: credentials),
         store: store,
       );
       addTearDown(chat.dispose);
@@ -4936,7 +4941,7 @@ void main() {
         final credentials = _ControllableCredentials()..keys[site] = 'key';
         final chat = ChatController(
           api: api,
-          credentials: credentials,
+          requests: FakePluginRequestHost(credentials: credentials),
           store: Store(),
         );
         addTearDown(chat.dispose);
@@ -5651,15 +5656,17 @@ void main() {
       'puts nothing back after the site it was fetched for went away',
       () async {
         final gate = Completer<void>();
+        final lifecycle = SiteLifecycle();
         final subject = build(
           messages: {
             key(9): page([message(1)]),
           },
           messageGate: gate,
+          lifecycle: lifecycle,
         );
 
         final open = subject.chat.openChannel(site, 9);
-        subject.chat.lifecycle.invalidate(site);
+        lifecycle.invalidate(site);
         subject.chat.forget(site);
         gate.complete();
         await open;
@@ -5747,9 +5754,11 @@ void main() {
       final lifecycle = SiteLifecycle();
       final chat = ChatController(
         api: api,
-        credentials: credentials,
+        requests: FakePluginRequestHost(
+          credentials: credentials,
+          lifecycle: lifecycle,
+        ),
         store: store,
-        lifecycle: lifecycle,
       );
       addTearDown(chat.dispose);
 
@@ -5771,7 +5780,7 @@ void main() {
         final store = Store()..put(site, channel(9, lastRead: 1));
         final chat = ChatController(
           api: api,
-          credentials: credentials,
+          requests: FakePluginRequestHost(credentials: credentials),
           store: store,
         );
         addTearDown(chat.dispose);
@@ -5784,7 +5793,9 @@ void main() {
         await marking;
 
         expect(api.chatReadsMarked, isEmpty);
-        expect(credentials.clientIdCalls, 0);
+        // The request port returns one atomic credential snapshot. Forgetting
+        // the site still prevents the plugin from delegating a write.
+        expect(credentials.clientIdCalls, 1);
       },
     );
 
@@ -6089,7 +6100,7 @@ void main() {
         final store = Store()..put(site, channel(9, lastRead: 1));
         final chat = ChatController(
           api: api,
-          credentials: credentials,
+          requests: FakePluginRequestHost(credentials: credentials),
           store: store,
         );
         addTearDown(chat.dispose);
@@ -6119,9 +6130,11 @@ void main() {
       final store = Store()..put(site, channel(9, lastRead: 1));
       final chat = ChatController(
         api: api,
-        credentials: credentials,
+        requests: FakePluginRequestHost(
+          credentials: credentials,
+          lifecycle: lifecycle,
+        ),
         store: store,
-        lifecycle: lifecycle,
       );
       addTearDown(chat.dispose);
 

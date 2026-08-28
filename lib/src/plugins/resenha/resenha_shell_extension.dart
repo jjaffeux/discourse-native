@@ -1,9 +1,9 @@
-import '../../data/site_tracker.dart';
+// ignore_for_file: prefer_initializing_formals
+
 import '../../models/content_route.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import '../../plugin_api/plugin_runtime.dart';
 import '../../plugin_api/shell_extensions.dart';
-import '../../shell/shell_controller.dart';
 import '../../shell/site_url.dart';
 import '../../theme/d_icons.dart';
 import 'resenha_controller.dart';
@@ -14,39 +14,51 @@ const resenhaShellService = PluginServiceKey<ResenhaShellService>(
   name: 'shell',
 );
 
+typedef ResenhaRecordingEnabledReader = bool Function(String siteUrl);
+
 final class ResenhaShellService
     implements
         PluginLinkHandler,
         PluginSiteActivator,
-        PluginTrackerAttachment,
+        PluginChannelAttachment,
         PluginBackgroundSite,
         PluginComposerHashtagProvider {
-  const ResenhaShellService({required this.controller, required this.host});
+  const ResenhaShellService({
+    required this.controller,
+    required PluginRouteNavigationHost host,
+    required ResenhaRecordingEnabledReader recordingEnabled,
+  }) : _host = host,
+       _recordingEnabled = recordingEnabled;
 
   final ResenhaController controller;
-  final PluginRouteNavigationHost host;
+  final PluginRouteNavigationHost _host;
+  final ResenhaRecordingEnabledReader _recordingEnabled;
 
-  PluginRouteSite? get currentInstance => host.currentSite;
-  ContentRoute? get currentContent => host.currentContent;
+  PluginRouteSite? get currentInstance => _host.currentSite;
+  ContentRoute? get currentContent => _host.currentContent;
+
+  int? currentUserIdFor(String siteUrl) => controller.currentUserIdFor(siteUrl);
+
+  bool recordingEnabledFor(String siteUrl) => _recordingEnabled(siteUrl);
 
   void openRoom({
     required String siteUrl,
     required ContentRoute route,
     bool replaceCurrent = false,
   }) {
-    final index = host.sites.indexWhere((instance) => instance.url == siteUrl);
+    final index = _host.sites.indexWhere((instance) => instance.url == siteUrl);
     if (index < 0) return;
-    final sameInstance = host.currentSite?.url == siteUrl;
-    if (!sameInstance) host.selectInstance(index);
-    if (sameInstance && host.currentContent?.id == route.id) {
-      host.replaceCurrentContent(route);
+    final sameInstance = _host.currentSite?.url == siteUrl;
+    if (!sameInstance) _host.selectInstance(index);
+    if (sameInstance && _host.currentContent?.id == route.id) {
+      _host.replaceCurrentContent(route);
       return;
     }
-    if (sameInstance && replaceCurrent && host.currentContent != null) {
-      host.replaceCurrentContent(route);
+    if (sameInstance && replaceCurrent && _host.currentContent != null) {
+      _host.replaceCurrentContent(route);
       return;
     }
-    host.pushContent(route);
+    _host.pushContent(route);
   }
 
   @override
@@ -55,24 +67,24 @@ final class ResenhaShellService
   @override
   Future<bool> openPluginUrl(String url) async {
     if (!controller.supportedPlatform) return false;
-    final absolute = resolveSiteUrl(url, host.currentSite?.url);
+    final absolute = resolveSiteUrl(url, _host.currentSite?.url);
     final uri = Uri.tryParse(absolute);
     if (uri == null) return false;
     final match = RegExp(r'^/resenha/r/([^/]+)/?$').firstMatch(uri.path);
     if (match == null) return false;
-    final index = host.sites.indexWhere((instance) => instance.serves(uri));
-    if (index < 0 || !host.sites[index].isConnected) return false;
-    if (host.currentSite?.url != host.sites[index].url) {
-      host.selectInstance(index);
+    final index = _host.sites.indexWhere((instance) => instance.serves(uri));
+    if (index < 0 || !_host.sites[index].isConnected) return false;
+    if (_host.currentSite?.url != _host.sites[index].url) {
+      _host.selectInstance(index);
     }
-    final instance = host.sites[index];
+    final instance = _host.sites[index];
     await controller.ensureLoaded(instance.url);
     final room = await controller.resolveRoom(
       instance.url,
       Uri.decodeComponent(match.group(1)!),
     );
     if (room == null) return false;
-    host.pushContent(
+    _host.pushContent(
       ContentRoute(
         id: 'resenha-room-${room.id}',
         title: room.name,
@@ -91,20 +103,10 @@ final class ResenhaShellService
   }
 
   @override
-  void attachPluginTracker(String siteUrl, SiteTracker tracker) =>
-      controller.attachTracker(siteUrl);
+  void attachPluginChannels(String siteUrl, PluginChannelHost channels) =>
+      controller.attachChannels(siteUrl, channels);
 
   @override
   Iterable<String> composerHashtagTypes(String siteUrl) =>
       controller.directory(siteUrl) == null ? const [] : const ['room'];
-}
-
-extension ResenhaShellExtension on ShellController {
-  ResenhaShellService get _resenhaShell =>
-      pluginSession.require(resenhaShellService);
-
-  ResenhaController get resenha =>
-      pluginSession.require(resenhaControllerService);
-
-  Future<bool> openResenhaUrl(String url) => _resenhaShell.openPluginUrl(url);
 }

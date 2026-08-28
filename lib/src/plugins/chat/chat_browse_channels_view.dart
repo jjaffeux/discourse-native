@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
@@ -48,7 +47,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_request != null) return;
-    _chat = PluginScope.require(context, chatControllerService);
+    _chat = PluginUiScope.require(context, chatControllerService);
     unawaited(_load(reset: true));
   }
 
@@ -319,7 +318,10 @@ class _ChannelCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 5),
       child: InkWell(
         onTap: following
-            ? () => ShellScope.read(context).openChatChannel(channel.id)
+            ? () => PluginUiScope.require(
+                context,
+                chatShellService,
+              ).openChannel(channel.id)
             : null,
         borderRadius: BorderRadius.circular(12),
         child: Padding(

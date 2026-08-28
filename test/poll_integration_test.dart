@@ -236,16 +236,29 @@ void main() {
             '<div class="poll" data-poll-name="second">cooked skeleton</div>',
           )
           .querySelector('.poll')!;
-      final body = plugin.postBodyElement(_site, post, element)!;
-
-      await tester.pumpWidget(MaterialApp(home: Scaffold(body: body)));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: pluginRegistry.postBodyElement(
+                context,
+                _site,
+                post,
+                element,
+              ),
+            ),
+          ),
+        ),
+      );
 
       final card = tester.widget<PollCard>(find.byType(PollCard));
       expect(card.poll.name, 'second');
       expect(card.poll.title, 'Second title');
     });
 
-    test('unmatched cooked polls fall back instead of inventing state', () {
+    testWidgets('unmatched cooked polls fall back instead of inventing state', (
+      tester,
+    ) async {
       final post = Post.fromJson(
         _postJson(polls: [_pollJson(name: 'known')]),
         _site,
@@ -261,10 +274,22 @@ void main() {
           ''')
           .querySelector('.poll')!;
 
-      expect(
-        plugin.postBodyElement(_site, post, element),
-        isA<PollFallbackCard>(),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: pluginRegistry.postBodyElement(
+                context,
+                _site,
+                post,
+                element,
+              ),
+            ),
+          ),
+        ),
       );
+
+      expect(find.byType(PollFallbackCard), findsOneWidget);
     });
 
     test(

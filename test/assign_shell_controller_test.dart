@@ -9,7 +9,6 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_data.dart';
 import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
-import 'package:discourse_native/src/plugins/assign/assignment_shell_extension.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -56,13 +55,15 @@ void main() {
       final shell = await _loadShell(api);
       addTearDown(shell.dispose);
 
-      final error = await shell.assignTarget(
-        _site,
-        const AssignmentTarget.post(12, topicId: 7),
-        const AssignmentGroup(name: 'triage'),
-        note: 'Please investigate',
-        status: 'New',
-      );
+      final error = await shell.pluginSession
+          .require(assignmentControllerService)
+          .assign(
+            _site,
+            const AssignmentTarget.post(12, topicId: 7),
+            const AssignmentGroup(name: 'triage'),
+            note: 'Please investigate',
+            status: 'New',
+          );
 
       expect(error, isNull);
       expect(api.pluginWrites.single.body, {
@@ -91,11 +92,13 @@ void main() {
       final shell = await _loadShell(api);
       addTearDown(shell.dispose);
 
-      final error = await shell.assignTarget(
-        _site,
-        const AssignmentTarget.post(11, topicId: 7),
-        const AssignmentUser(username: 'sam'),
-      );
+      final error = await shell.pluginSession
+          .require(assignmentControllerService)
+          .assign(
+            _site,
+            const AssignmentTarget.post(11, topicId: 7),
+            const AssignmentUser(username: 'sam'),
+          );
 
       expect(error, contains("can't post"));
       expect(api.pluginWrites, isEmpty);
@@ -118,11 +121,13 @@ void main() {
       final shell = await _loadShell(api);
       addTearDown(shell.dispose);
 
-      final error = await shell.assignTarget(
-        _site,
-        const AssignmentTarget.post(12, topicId: 7),
-        const AssignmentUser(username: 'sam'),
-      );
+      final error = await shell.pluginSession
+          .require(assignmentControllerService)
+          .assign(
+            _site,
+            const AssignmentTarget.post(12, topicId: 7),
+            const AssignmentUser(username: 'sam'),
+          );
 
       expect(error, contains("can't post"));
       expect(api.pluginWrites, isEmpty);
@@ -142,11 +147,13 @@ void main() {
     final shell = await _loadShell(api);
     addTearDown(shell.dispose);
 
-    final error = await shell.assignTarget(
-      _site,
-      const AssignmentTarget.post(12, topicId: 7),
-      const AssignmentUser(username: 'sam'),
-    );
+    final error = await shell.pluginSession
+        .require(assignmentControllerService)
+        .assign(
+          _site,
+          const AssignmentTarget.post(12, topicId: 7),
+          const AssignmentUser(username: 'sam'),
+        );
 
     expect(error, isNull);
     expect(api.pluginWrites, hasLength(1));
@@ -183,11 +190,13 @@ void main() {
       );
       await shell.loadTopic(7, 'topic');
 
-      final error = await shell.assignTarget(
-        _site,
-        const AssignmentTarget.post(12, topicId: 7),
-        const AssignmentUser(username: 'sam'),
-      );
+      final error = await shell.pluginSession
+          .require(assignmentControllerService)
+          .assign(
+            _site,
+            const AssignmentTarget.post(12, topicId: 7),
+            const AssignmentUser(username: 'sam'),
+          );
 
       expect(error, isNotNull);
       expect(api.pluginWrites, isEmpty);
@@ -218,7 +227,7 @@ void main() {
     const legacyTarget = AssignmentTarget.post(12, topicId: 7);
     expect(assignments.canAssign(_site, legacyTarget), isTrue);
 
-    final error = await shell.assignTarget(
+    final error = await assignments.assign(
       _site,
       const AssignmentTarget.post(12, topicId: 7),
       const AssignmentUser(username: 'sam'),
@@ -374,7 +383,7 @@ void main() {
       final initialTopicHeaderBuilds = topicHeaderBuilds;
       final initialPostMenuBuilds = postMenuBuilds;
 
-      final error = await shell.assignTarget(
+      final error = await assignments.assign(
         _site,
         const AssignmentTarget.post(12, topicId: 7),
         const AssignmentUser(username: 'sam'),
@@ -452,11 +461,13 @@ void main() {
     expect(assignmentRow, findsOneWidget);
     expect(editIcon(), findsOneWidget);
 
-    final error = await shell.assignTarget(
-      _site,
-      const AssignmentTarget.post(12, topicId: 7),
-      const AssignmentUser(username: 'other'),
-    );
+    final error = await shell.pluginSession
+        .require(assignmentControllerService)
+        .assign(
+          _site,
+          const AssignmentTarget.post(12, topicId: 7),
+          const AssignmentUser(username: 'other'),
+        );
     await tester.pumpAndSettle();
 
     expect(error, 'This assignment target is no longer available.');
@@ -470,11 +481,13 @@ void main() {
     final shell = await _loadShell(api);
     addTearDown(shell.dispose);
 
-    final error = await shell.assignTarget(
-      _site,
-      const AssignmentTarget.post(12, topicId: 7),
-      const AssignmentUser(username: 'sam'),
-    );
+    final error = await shell.pluginSession
+        .require(assignmentControllerService)
+        .assign(
+          _site,
+          const AssignmentTarget.post(12, topicId: 7),
+          const AssignmentUser(username: 'sam'),
+        );
 
     expect(error, isNull);
     expect(api.topicsOpened, [7, 7]);

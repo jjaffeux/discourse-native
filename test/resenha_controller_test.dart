@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_api.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_callkit.dart';
@@ -305,67 +305,86 @@ final class FakeResenhaPreferences implements ResenhaPreferences {
   }
 }
 
-final class _GatedCredentialReader implements ApiCredentialReader {
-  _GatedCredentialReader({required this.apiKeyGate});
-
-  final Completer<void> apiKeyGate;
+abstract class _RequestHostBase implements PluginRequestHost {
+  @override
+  PluginSiteLease capture(String siteUrl) => const _CurrentSiteLease();
 
   @override
-  Future<String?> apiKeyFor(String siteUrl) async {
-    await apiKeyGate.future;
-    return 'key';
+  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async {
+    final credentials = await credentialsFor(siteUrl);
+    return (
+      apiKey: credentials.apiKey,
+      failure: credentials.apiKey == null
+          ? const WriteException(WriteFailure.forbidden)
+          : null,
+    );
   }
-
-  @override
-  Future<String> clientId() async => 'client';
 }
 
-final class _NextGatedCredentialReader implements ApiCredentialReader {
+final class _StaticRequestHost extends _RequestHostBase {
+  @override
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) async =>
+      const PluginRequestCredentials(apiKey: 'key', clientId: 'client');
+}
+
+final class _GatedRequestHost extends _RequestHostBase {
+  _GatedRequestHost({required this.credentialsGate});
+
+  final Completer<void> credentialsGate;
+
+  @override
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) async {
+    await credentialsGate.future;
+    return const PluginRequestCredentials(apiKey: 'key', clientId: 'client');
+  }
+}
+
+final class _NextGatedRequestHost extends _RequestHostBase {
   bool gateNextRead = false;
   Completer<void> readStarted = Completer<void>();
   Completer<void> readGate = Completer<void>();
 
   @override
-  Future<String?> apiKeyFor(String siteUrl) async {
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) async {
     if (gateNextRead) {
       gateNextRead = false;
       if (!readStarted.isCompleted) readStarted.complete();
       await readGate.future;
     }
-    return 'key';
+    return const PluginRequestCredentials(apiKey: 'key', clientId: 'client');
   }
-
-  @override
-  Future<String> clientId() async => 'client';
 }
 
-final class _FailingCredentialReader implements ApiCredentialReader {
+final class _FailingRequestHost extends _RequestHostBase {
   Object? failure;
 
   @override
-  Future<String?> apiKeyFor(String siteUrl) async {
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) async {
     if (failure case final failure?) throw failure;
-    return 'key';
+    return const PluginRequestCredentials(apiKey: 'key', clientId: 'client');
   }
-
-  @override
-  Future<String> clientId() async => 'client';
 }
 
-final class _CountingCredentialReader implements ApiCredentialReader {
-  int apiKeyCalls = 0;
-  int clientIdCalls = 0;
+final class _CountingRequestHost extends _RequestHostBase {
+  int credentialCalls = 0;
 
   @override
-  Future<String?> apiKeyFor(String siteUrl) async {
-    apiKeyCalls++;
-    return 'key';
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) async {
+    credentialCalls++;
+    return const PluginRequestCredentials(apiKey: 'key', clientId: 'client');
   }
+}
+
+final class _CurrentSiteLease implements PluginSiteLease {
+  const _CurrentSiteLease();
 
   @override
-  Future<String> clientId() async {
-    clientIdCalls++;
-    return 'client';
+  bool get isCurrent => true;
+
+  @override
+  bool commit(void Function() mutation) {
+    mutation();
+    return true;
   }
 }
 
@@ -581,7 +600,7 @@ void main() {
   const firstSite = 'https://one.example.com';
   const secondSite = 'https://two.example.com';
   late FakeDiscourseApi transport;
-  late ApiCredentialReader credentials;
+  late PluginRequestHost requests;
   late FakeResenhaPreferences preferences;
   late FakeResenhaMediaFactory mediaFactory;
   late FakeResenhaSystemCall systemCall;
@@ -601,8 +620,8 @@ void main() {
     controller = ResenhaController(
       api: ResenhaApi(transport),
       chatApi: transport,
-      credentials: credentials,
-      trackerFor: (siteUrl) => siteUrl == firstSite
+      requests: requests,
+      channelsFor: (siteUrl) => siteUrl == firstSite
           ? firstTracker
           : siteUrl == secondSite
           ? secondTracker
@@ -660,9 +679,7 @@ void main() {
         ),
       },
     );
-    credentials = FakeApiCredentialReader()
-      ..keys[firstSite] = 'first-key'
-      ..keys[secondSite] = 'second-key';
+    requests = _StaticRequestHost();
     preferences = FakeResenhaPreferences();
     mediaFactory = FakeResenhaMediaFactory();
     systemCall = FakeResenhaSystemCall();
@@ -672,8 +689,8 @@ void main() {
     controller = ResenhaController(
       api: ResenhaApi(transport),
       chatApi: transport,
-      credentials: credentials,
-      trackerFor: (siteUrl) => siteUrl == firstSite
+      requests: requests,
+      channelsFor: (siteUrl) => siteUrl == firstSite
           ? firstTracker
           : siteUrl == secondSite
           ? secondTracker
@@ -821,11 +838,11 @@ void main() {
   test(
     'directory publication rechecks ownership before credential work',
     () async {
-      final counting = _CountingCredentialReader();
+      final counting = _CountingRequestHost();
       final controlled = _ControlledResenhaTransport(
         pluginResponses: {'GET /resenha/rooms.json': fixture('directory')},
       );
-      credentials = counting;
+      requests = counting;
       useTransport(controlled);
       controller.addListener(() {
         if (controller.isLoading(firstSite)) controller.forget(firstSite);
@@ -833,8 +850,7 @@ void main() {
 
       await controller.ensureLoaded(firstSite);
 
-      expect(counting.apiKeyCalls, 1);
-      expect(counting.clientIdCalls, 0);
+      expect(counting.credentialCalls, 1);
       expect(controlled.pluginGets, isEmpty);
     },
   );
@@ -843,7 +859,7 @@ void main() {
     'forget prevents a credential-gated join from reaching the server',
     () async {
       final gate = Completer<void>();
-      credentials = _GatedCredentialReader(apiKeyGate: gate);
+      requests = _GatedRequestHost(credentialsGate: gate);
       final controlled = _ControlledResenhaTransport();
       useTransport(controlled);
 
@@ -957,8 +973,8 @@ void main() {
         ),
       ]) {
     test('forget during credentials prevents stale ${action.name}', () async {
-      final gated = _NextGatedCredentialReader();
-      credentials = gated;
+      final gated = _NextGatedRequestHost();
+      requests = gated;
       final controlled = privilegedTransport();
       useTransport(controlled);
       await controller.join(
@@ -1024,8 +1040,8 @@ void main() {
         ),
       ]) {
     test('forget during credentials prevents stale ${action.name}', () async {
-      final gated = _NextGatedCredentialReader()..gateNextRead = true;
-      credentials = gated;
+      final gated = _NextGatedRequestHost()..gateNextRead = true;
+      requests = gated;
       final controlled = privilegedTransport();
       useTransport(controlled);
 
@@ -1051,8 +1067,8 @@ void main() {
     () async {
       const privateCause =
           'credential-private-user device-private 203.0.113.130';
-      final failingCredentials = _FailingCredentialReader();
-      credentials = failingCredentials;
+      final failingRequests = _FailingRequestHost();
+      requests = failingRequests;
       useTransport(transport);
       await controller.openChat(firstSite, 7);
       final ordinaryDiagnostics = await DiagnosticsController.create(
@@ -1064,7 +1080,7 @@ void main() {
         binding.close();
         await ordinaryDiagnostics.close();
       });
-      failingCredentials.failure = PlatformException(
+      failingRequests.failure = PlatformException(
         code: 'secure_store_read',
         message: privateCause,
         details: {'account': 'credential-private-user'},
