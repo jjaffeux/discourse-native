@@ -8805,13 +8805,17 @@ void main() {
       expect(replyOptions, findsOneWidget);
       expect(
         find.descendant(of: replyOptions, matching: find.text('Topic')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: replyOptions, matching: find.dIcon(DIcons.reply)),
         findsOneWidget,
       );
       expect(
         tester.getTopRight(replyOptions).dx,
         lessThan(tester.getTopLeft(composerTitle).dx),
       );
-      expect(tester.widget<Text>(composerTitle).data, 'A real topic');
+      expect(tester.widget<Text>(composerTitle).data, 'Reply to A real topic');
 
       await tester.tap(replyOptions);
       await tester.pumpAndSettle();
