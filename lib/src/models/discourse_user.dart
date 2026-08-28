@@ -17,6 +17,7 @@ class DiscourseUser {
     this.draftCount = 0,
     this.canChangePostOwner = false,
     this.staff = false,
+    this.whisperer = false,
     this.groups = const [],
     this.sidebarCategoryIds = const [],
     this.trackedCategoryIds,
@@ -46,6 +47,7 @@ class DiscourseUser {
     draftCount: jsonInt(json['draftCount']),
     canChangePostOwner: json['canChangePostOwner'] == true,
     staff: json['staff'] == true,
+    whisperer: json['whisperer'] == true,
     groups: List.unmodifiable(
       jsonArray(json['groups']).map(jsonText).whereType<String>(),
     ),
@@ -89,6 +91,12 @@ class DiscourseUser {
 
   /// Whether the current account is an administrator or moderator.
   final bool staff;
+
+  /// Core's guardian-approved capability for creating staff-only replies.
+  ///
+  /// This is intentionally not inferred from [staff]: sites may grant whisper
+  /// access to any configured group through `whispers_allowed_groups`.
+  final bool whisperer;
 
   /// Group names from the freshly loaded current-user payload.
   final List<String> groups;
@@ -162,6 +170,7 @@ class DiscourseUser {
       'draftCount': draftCount,
       'canChangePostOwner': canChangePostOwner,
       'staff': staff,
+      'whisperer': whisperer,
       'groups': groups,
       'sidebarCategoryIds': sidebarCategoryIds,
       if (trackedCategoryIds != null) 'trackedCategoryIds': trackedCategoryIds,
@@ -189,6 +198,7 @@ class DiscourseUser {
     draftCount: draftCount,
     canChangePostOwner: canChangePostOwner,
     staff: staff,
+    whisperer: whisperer,
     groups: groups,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
@@ -211,6 +221,7 @@ class DiscourseUser {
     draftCount: draftCount,
     canChangePostOwner: canChangePostOwner,
     staff: staff,
+    whisperer: whisperer,
     groups: groups,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
@@ -241,6 +252,7 @@ class DiscourseUser {
     draftCount: draftCount,
     canChangePostOwner: canChangePostOwner,
     staff: staff,
+    whisperer: whisperer,
     groups: groups,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
@@ -266,6 +278,7 @@ class DiscourseUser {
     draftCount: draftCount,
     canChangePostOwner: canChangePostOwner,
     staff: staff,
+    whisperer: whisperer,
     groups: groups,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
@@ -288,6 +301,7 @@ class DiscourseUser {
     draftCount: draftCount,
     canChangePostOwner: canChangePostOwner,
     staff: staff,
+    whisperer: whisperer,
     groups: groups,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
@@ -312,6 +326,7 @@ class DiscourseUser {
       other.draftCount == draftCount &&
       other.canChangePostOwner == canChangePostOwner &&
       other.staff == staff &&
+      other.whisperer == whisperer &&
       listEquals(other.groups, groups) &&
       listEquals(other.sidebarCategoryIds, sidebarCategoryIds) &&
       listEquals(other.trackedCategoryIds, trackedCategoryIds) &&
@@ -337,6 +352,7 @@ class DiscourseUser {
     draftCount,
     canChangePostOwner,
     staff,
+    whisperer,
     Object.hashAll(groups),
     Object.hashAll(sidebarCategoryIds),
     Object.hashAll(trackedCategoryIds ?? const <int>[]),

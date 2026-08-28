@@ -22,6 +22,7 @@ class ComposerDraft {
     this.tags = const [],
     this.replyToPostNumber,
     this.replyToUsername,
+    this.whisper = false,
     this.typingTime = Duration.zero,
     this.composerTime = Duration.zero,
   });
@@ -50,6 +51,7 @@ class ComposerDraft {
       final String username => jsonText(username),
       _ => null,
     },
+    whisper: json['whisper'] == true,
     typingTime: Duration(milliseconds: jsonInt(json['typingTime'])),
     composerTime: Duration(milliseconds: jsonInt(json['composerTime'])),
   );
@@ -97,6 +99,7 @@ class ComposerDraft {
   final List<TopicTag> tags;
   final int? replyToPostNumber;
   final String? replyToUsername;
+  final bool whisper;
 
   /// Time spent typing, which is what the fast-typer check measures.
   final Duration typingTime;
@@ -115,6 +118,7 @@ class ComposerDraft {
     'reply_to_user': replyToUsername == null
         ? null
         : {'username': replyToUsername},
+    'whisper': whisper,
     'typingTime': typingTime.inMilliseconds,
     'composerTime': composerTime.inMilliseconds,
   };
@@ -132,6 +136,7 @@ class ComposerDraft {
           listEquals(other.tags, tags) &&
           other.replyToPostNumber == replyToPostNumber &&
           other.replyToUsername == replyToUsername &&
+          other.whisper == whisper &&
           other.typingTime == typingTime &&
           other.composerTime == composerTime;
 
@@ -144,6 +149,7 @@ class ComposerDraft {
     Object.hashAll(tags),
     replyToPostNumber,
     replyToUsername,
+    whisper,
     typingTime,
     composerTime,
   );
