@@ -348,6 +348,7 @@ class _PostActionsState extends State<PostActions> {
             onInvoke: () => controller.openReply(
               replyToPostNumber: post.postNumber,
               replyToUsername: post.username,
+              replyingToWhisper: post.isWhisper,
             ),
           ),
         if (post.canEdit)

@@ -17,7 +17,9 @@ class DiscourseUser {
     this.draftCount = 0,
     this.canChangePostOwner = false,
     this.staff = false,
+    this.whisperer = false,
     this.groups = const [],
+    this.messageGroupNames = const [],
     this.sidebarCategoryIds = const [],
     this.trackedCategoryIds,
     this.watchedCategoryIds,
@@ -46,8 +48,12 @@ class DiscourseUser {
     draftCount: jsonInt(json['draftCount']),
     canChangePostOwner: json['canChangePostOwner'] == true,
     staff: json['staff'] == true,
+    whisperer: json['whisperer'] == true,
     groups: List.unmodifiable(
       jsonArray(json['groups']).map(jsonText).whereType<String>(),
+    ),
+    messageGroupNames: List.unmodifiable(
+      jsonArray(json['messageGroupNames']).map(jsonText).whereType<String>(),
     ),
     sidebarCategoryIds: List.unmodifiable([
       for (final value in jsonArray(json['sidebarCategoryIds']))
@@ -90,8 +96,21 @@ class DiscourseUser {
   /// Whether the current account is an administrator or moderator.
   final bool staff;
 
+  /// Core's guardian-approved capability for creating staff-only replies.
+  ///
+  /// This is intentionally not inferred from [staff]: sites may grant whisper
+  /// access to any configured group through `whispers_allowed_groups`.
+  final bool whisperer;
+
   /// Group names from the freshly loaded current-user payload.
   final List<String> groups;
+
+  /// Groups whose private-message inboxes this account may enter.
+  ///
+  /// Discourse marks these with `has_messages` in the current-user payload.
+  /// Keeping the narrower list separate prevents ordinary group membership
+  /// from being presented as an inbox the server will refuse.
+  final List<String> messageGroupNames;
 
   /// The categories this account chose for its sidebar. Core derives display
   /// order from the site's category ordering rather than this list's order.
@@ -162,7 +181,9 @@ class DiscourseUser {
       'draftCount': draftCount,
       'canChangePostOwner': canChangePostOwner,
       'staff': staff,
+      'whisperer': whisperer,
       'groups': groups,
+      'messageGroupNames': messageGroupNames,
       'sidebarCategoryIds': sidebarCategoryIds,
       if (trackedCategoryIds != null) 'trackedCategoryIds': trackedCategoryIds,
       if (watchedCategoryIds != null) 'watchedCategoryIds': watchedCategoryIds,
@@ -189,7 +210,9 @@ class DiscourseUser {
     draftCount: draftCount,
     canChangePostOwner: canChangePostOwner,
     staff: staff,
+    whisperer: whisperer,
     groups: groups,
+    messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
@@ -211,7 +234,9 @@ class DiscourseUser {
     draftCount: draftCount,
     canChangePostOwner: canChangePostOwner,
     staff: staff,
+    whisperer: whisperer,
     groups: groups,
+    messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
@@ -241,7 +266,9 @@ class DiscourseUser {
     draftCount: draftCount,
     canChangePostOwner: canChangePostOwner,
     staff: staff,
+    whisperer: whisperer,
     groups: groups,
+    messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
@@ -266,7 +293,9 @@ class DiscourseUser {
     draftCount: draftCount,
     canChangePostOwner: canChangePostOwner,
     staff: staff,
+    whisperer: whisperer,
     groups: groups,
+    messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
@@ -288,7 +317,9 @@ class DiscourseUser {
     draftCount: draftCount,
     canChangePostOwner: canChangePostOwner,
     staff: staff,
+    whisperer: whisperer,
     groups: groups,
+    messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
@@ -312,7 +343,9 @@ class DiscourseUser {
       other.draftCount == draftCount &&
       other.canChangePostOwner == canChangePostOwner &&
       other.staff == staff &&
+      other.whisperer == whisperer &&
       listEquals(other.groups, groups) &&
+      listEquals(other.messageGroupNames, messageGroupNames) &&
       listEquals(other.sidebarCategoryIds, sidebarCategoryIds) &&
       listEquals(other.trackedCategoryIds, trackedCategoryIds) &&
       listEquals(other.watchedCategoryIds, watchedCategoryIds) &&
@@ -337,7 +370,9 @@ class DiscourseUser {
     draftCount,
     canChangePostOwner,
     staff,
+    whisperer,
     Object.hashAll(groups),
+    Object.hashAll(messageGroupNames),
     Object.hashAll(sidebarCategoryIds),
     Object.hashAll(trackedCategoryIds ?? const <int>[]),
     Object.hashAll(watchedCategoryIds ?? const <int>[]),

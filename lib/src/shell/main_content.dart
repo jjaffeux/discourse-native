@@ -26,6 +26,7 @@ import 'composer_panel.dart';
 import 'draft_list.dart';
 import 'forum_search.dart';
 import 'forum_tabs_bar.dart';
+import 'message_inbox_page.dart';
 import 'post_flag_editor.dart';
 import 'preferences_page.dart';
 import 'shell_controller.dart';
@@ -175,7 +176,7 @@ class _ContentViewport extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!route.isTopic && route.id == 'messages' && !isConnected) {
+    if (route.isMessages && !isConnected) {
       return const _SignedOutMessagesState();
     }
     if (!route.isTopic && route.id == 'drafts' && siteUrl != null) {
@@ -246,6 +247,7 @@ class _FeedBackedContent extends StatelessWidget {
             categories: filterCategories,
           );
         }
+        if (route.isMessages) return MessageInboxPage(feed: feed);
         return TopicListView(feed: feed);
       },
     );

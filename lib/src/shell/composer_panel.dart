@@ -126,7 +126,7 @@ class ComposerPanel extends StatelessWidget {
             child: Column(
               children: [
                 _Header(
-                  target: target,
+                  composer: composer,
                   onClose: controller.closeComposer,
                   onMove: onMove,
                   onMoveEnd: onMoveEnd,
@@ -2002,21 +2002,41 @@ class _ImageComposerMenu extends StatelessWidget {
 
 class _Header extends StatelessWidget {
   const _Header({
-    required this.target,
+    required this.composer,
     required this.onClose,
     this.onMove,
     this.onMoveEnd,
   });
 
-  final ComposerTarget target;
+  final ComposerController composer;
   final VoidCallback onClose;
   final ValueChanged<Offset>? onMove;
   final VoidCallback? onMoveEnd;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ShellSelector<bool>(
+    select: (controller) =>
+        controller.currentUserFor(composer.target.siteUrl)?.whisperer == true,
+    builder: (context, whisperer, _) => _buildHeader(context, whisperer),
+  );
+
+  Widget _buildHeader(BuildContext context, bool whisperer) {
     final theme = Theme.of(context);
+    final target = composer.target;
     final replyTo = target.replyToUsername;
+    final label = switch ((target.editingPostNumber, replyTo)) {
+      _ when target.isNewTopic => 'Create a new topic',
+      _ when target.isTagsEdit => 'Edit topic tags',
+      (final number?, _) => 'Edit post #$number',
+      (_, final username?) => 'Reply to @$username',
+      _ => 'Reply to ${target.topicTitle}',
+    };
+    final canToggleWhisper =
+        whisperer &&
+        target.mode == ComposerMode.reply &&
+        !target.replyingToWhisper;
+    final replyActionLabel = replyTo == null ? 'Topic' : '@$replyTo';
+    final titleLabel = canToggleWhisper ? target.topicTitle : label;
 
     final header = SizedBox(
       key: const ValueKey('composer-drag-handle'),
@@ -2025,25 +2045,120 @@ class _Header extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
         child: Row(
           children: [
-            DIcon(
-              target.isNewTopic
-                  ? DIcons.plus
-                  : target.isEdit
-                  ? DIcons.pencil
-                  : DIcons.reply,
-              size: 16,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            if (canToggleWhisper)
+              MenuAnchor(
+                alignmentOffset: const Offset(0, 4),
+                menuChildren: [
+                  ListenableBuilder(
+                    listenable: composer,
+                    builder: (context, _) => Semantics(
+                      toggled: composer.whisper,
+                      child: MenuItemButton(
+                        key: const ValueKey('composer-toggle-whisper'),
+                        closeOnActivate: false,
+                        onPressed: composer.toggleWhisper,
+                        child: SizedBox(
+                          width: 300,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Switch.adaptive(
+                                key: const ValueKey('composer-whisper-switch'),
+                                value: composer.whisper,
+                                onChanged: composer.setWhisper,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Toggle whisper',
+                                        style: theme.textTheme.labelLarge
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Whispers are only visible to allowed groups',
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                builder: (context, menuController, _) => Semantics(
+                  button: true,
+                  label: 'Reply options',
+                  expanded: menuController.isOpen,
+                  child: InkWell(
+                    key: const ValueKey('composer-reply-options'),
+                    onTap: menuController.isOpen
+                        ? menuController.close
+                        : menuController.open,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DIcon(
+                          composer.whisper ? DIcons.farEyeSlash : DIcons.reply,
+                          size: 16,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          replyActionLabel,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        DIcon(
+                          DIcons.chevronDown,
+                          size: 12,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else
+              DIcon(
+                composer.whisper
+                    ? DIcons.farEyeSlash
+                    : target.isNewTopic
+                    ? DIcons.plus
+                    : target.isEdit
+                    ? DIcons.pencil
+                    : DIcons.reply,
+                size: 16,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                switch ((target.editingPostNumber, replyTo)) {
-                  _ when target.isNewTopic => 'Create a new topic',
-                  _ when target.isTagsEdit => 'Edit topic tags',
-                  (final number?, _) => 'Edit post #$number',
-                  (_, final username?) => 'Reply to @$username',
-                  _ => 'Reply to ${target.topicTitle}',
-                },
+                titleLabel,
+                key: const ValueKey('composer-title'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelLarge?.copyWith(

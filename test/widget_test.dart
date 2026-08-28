@@ -206,8 +206,8 @@ Finder renderedText(String text) => find.byWidgetPredicate(
   description: 'rendered text containing "$text"',
 );
 
-/// The surface the first post paints for itself, which is what hovering it
-/// changes. The innermost [ColoredBox] above the body is the post's own.
+/// The surface the first post paints for itself. The innermost [ColoredBox]
+/// above the body is the post's own.
 Color postBackground(WidgetTester tester) => tester
     .widget<ColoredBox>(
       find
@@ -2944,6 +2944,130 @@ void main() {
 
       expect(api.feedPaths, contains(inbox));
       expect(find.text('A private message'), findsOneWidget);
+    });
+
+    testWidgets('switches between personal and eligible group inboxes', (
+      tester,
+    ) async {
+      const teamInbox = '/topics/private-messages-group/joffreyj/team.json';
+      final api = FakeDiscourseApi(
+        user: const DiscourseUser(
+          id: 7,
+          username: 'joffreyj',
+          name: 'Joffrey',
+          messageGroupNames: ['team', 'tech-advocates'],
+        ),
+        feeds: {
+          '/latest.json': latest,
+          inbox: [const Topic(id: 9, title: 'A private message', slug: 'a-pm')],
+          teamInbox: [
+            const Topic(id: 10, title: 'Team escalation', slug: 'team-pm'),
+          ],
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(userMenu);
+      await tester.pumpAndSettle();
+      await tester.tap(sidebarDestination('Messages'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('message-inbox-picker')),
+        findsOneWidget,
+      );
+      expect(find.text('Personal'), findsOneWidget);
+      expect(find.text('A private message'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('message-inbox-selector')));
+      await tester.pumpAndSettle();
+      expect(find.text('team'), findsOneWidget);
+      expect(find.text('tech-advocates'), findsOneWidget);
+      await tester.tap(find.text('team'));
+      await tester.pumpAndSettle();
+
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      expect(api.feedPaths, contains(teamInbox));
+      expect(find.text('Team escalation'), findsOneWidget);
+      expect(find.text('A private message'), findsNothing);
+      expect(controller.currentContent?.messageGroupName, 'team');
+      expect(controller.currentFeedId, 'messages-group-team');
+      expect(controller.canCreateTopicHere, isFalse);
+
+      await tester.tap(find.byKey(const ValueKey('message-inbox-selector')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Personal'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('A private message'), findsOneWidget);
+      expect(controller.currentContent?.id, 'messages');
+      expect(api.feedPaths.where((path) => path == inbox), hasLength(1));
+    });
+
+    testWidgets('restores the selected group inbox', (tester) async {
+      const groupInbox =
+          '/topics/private-messages-group/joffreyj/tech-advocates.json';
+      const user = DiscourseUser(
+        id: 7,
+        username: 'joffreyj',
+        messageGroupNames: ['tech-advocates'],
+      );
+      final forumTabs = FakeForumTabStore([
+        ForumWorkspace(
+          siteUrl: 'https://meta.discourse.org',
+          accountIdentity: 'user:joffreyj',
+          activeTabId: 'group-inbox-tab',
+          tabs: [
+            ForumTab(
+              id: 'group-inbox-tab',
+              rootDestinationId: 'messages',
+              contentStack: [
+                ContentRoute.messages(groupName: 'tech-advocates'),
+              ],
+            ),
+          ],
+        ),
+      ]);
+      final api = FakeDiscourseApi(
+        user: user,
+        feeds: {
+          groupInbox: [
+            const Topic(
+              id: 10,
+              title: 'Restored group message',
+              slug: 'restored-group-pm',
+            ),
+          ],
+        },
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: user),
+        ],
+        api: api,
+        authenticator: authenticator,
+        forumTabs: forumTabs,
+      );
+
+      expect(api.feedPaths, [groupInbox]);
+      expect(find.text('tech-advocates'), findsOneWidget);
+      expect(find.text('Restored group message'), findsOneWidget);
+      expect(
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).currentContent?.messageGroupName,
+        'tech-advocates',
+      );
     });
 
     testWidgets('messages uses a topic-row skeleton while loading', (
@@ -5967,7 +6091,7 @@ void main() {
       expect(api.topicsOpened, [7]);
     });
 
-    testWidgets('the post under the pointer is picked out', (tester) async {
+    testWidgets('hovering a post leaves its surface unchanged', (tester) async {
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
@@ -5977,15 +6101,11 @@ void main() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
-      final hover = Theme.of(
-        tester.element(find.byType(TopicView)),
-      ).shell.hover;
-
       // Idle posts take the column's own surface rather than painting one.
       expect(postBackground(tester), Colors.transparent);
 
       final gesture = await hoverPost(tester);
-      expect(postBackground(tester), hover);
+      expect(postBackground(tester), Colors.transparent);
 
       await gesture.moveTo(Offset.zero);
       await tester.pumpAndSettle();
@@ -8548,15 +8668,15 @@ void main() {
   group('replying', () {
     const me = DiscourseUser(username: 'joffreyj', name: 'Joffrey');
 
-    List<DiscourseInstance> connectedSites() => [
+    List<DiscourseInstance> connectedSites({DiscourseUser user = me}) => [
       instance(
         'meta.discourse.org',
         title: 'Discourse Meta',
-      ).copyWith(user: me),
+      ).copyWith(user: user),
       instance(
         'team.discourse.org',
         title: 'Discourse Team',
-      ).copyWith(user: me),
+      ).copyWith(user: user),
     ];
 
     FakeAuthenticator signedIn() => FakeAuthenticator()
@@ -8584,12 +8704,16 @@ void main() {
     );
 
     /// Opens the topic, which is where every reply starts.
-    Future<void> openTopic(WidgetTester tester, FakeDiscourseApi api) async {
+    Future<void> openTopic(
+      WidgetTester tester,
+      FakeDiscourseApi api, {
+      DiscourseUser user = me,
+    }) async {
       await pumpShell(
         tester,
         desktop,
         api: api,
-        instances: connectedSites(),
+        instances: connectedSites(user: user),
         authenticator: signedIn(),
       );
       await tester.tap(contentText('A real topic'));
@@ -8629,6 +8753,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('composer-reply-options')),
+        findsNothing,
+      );
       // The topic is still readable underneath, which is the point of docking
       // it rather than opening a sheet.
       expect(renderedText('First post body'), findsOneWidget);
@@ -8649,6 +8777,63 @@ void main() {
       // Posted, so the composer is done and the reply is in the stream.
       expect(find.byType(ComposerPanel), findsNothing);
       expect(renderedText('Sounds good to me.'), findsOneWidget);
+    });
+
+    testWidgets('a whisperer can toggle and submit a whispered reply', (
+      tester,
+    ) async {
+      const whisperer = DiscourseUser(
+        username: 'joffreyj',
+        name: 'Joffrey',
+        whisperer: true,
+      );
+      final api = FakeDiscourseApi(
+        user: whisperer,
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+      );
+
+      await openTopic(tester, api, user: whisperer);
+      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'For the team only.');
+      await tester.pump();
+      final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
+
+      final replyOptions = find.byKey(const ValueKey('composer-reply-options'));
+      final composerTitle = find.byKey(const ValueKey('composer-title'));
+      expect(replyOptions, findsOneWidget);
+      expect(
+        find.descendant(of: replyOptions, matching: find.text('Topic')),
+        findsOneWidget,
+      );
+      expect(
+        tester.getTopRight(replyOptions).dx,
+        lessThan(tester.getTopLeft(composerTitle).dx),
+      );
+      expect(tester.widget<Text>(composerTitle).data, 'A real topic');
+
+      await tester.tap(replyOptions);
+      await tester.pumpAndSettle();
+
+      final toggle = find.byKey(const ValueKey('composer-toggle-whisper'));
+      final whisperSwitch = find.byKey(
+        const ValueKey('composer-whisper-switch'),
+      );
+      expect(toggle, findsOneWidget);
+      expect(tester.widget<Switch>(whisperSwitch).value, isFalse);
+
+      await tester.tap(whisperSwitch);
+      await tester.pump();
+
+      expect(toggle, findsOneWidget);
+      expect(tester.widget<Switch>(whisperSwitch).value, isTrue);
+      expect(shell.visibleComposer?.whisper, isTrue);
+
+      await shell.submitComposer();
+      await tester.pumpAndSettle();
+
+      expect(api.created.single['whisper'], isTrue);
     });
 
     testWidgets('replying to a post addresses it by post number', (
@@ -8672,6 +8857,57 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(api.created.single['replyToPostNumber'], 1);
+    });
+
+    testWidgets('a reply to a whisper stays whispered without a toggle', (
+      tester,
+    ) async {
+      const whisperer = DiscourseUser(username: 'joffreyj', whisperer: true);
+      final api = FakeDiscourseApi(
+        user: whisperer,
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: const [
+              Post(
+                id: 1,
+                postNumber: 1,
+                username: 'sam',
+                cooked: '<p>First post body</p>',
+              ),
+              Post(
+                id: 2,
+                postNumber: 2,
+                username: 'moderator',
+                cooked: '<p>Whisper body</p>',
+                postType: Post.whisperPostType,
+              ),
+            ],
+            stream: const [1, 2],
+            postsCount: 2,
+            canCreatePost: true,
+          ),
+        },
+      );
+
+      await openTopic(tester, api, user: whisperer);
+      await hoverPost(tester, body: 'Whisper body');
+      await tester.tap(find.byTooltip('Reply to this post'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('composer-reply-options')),
+        findsNothing,
+      );
+      await tester.enterText(find.byType(TextField), 'Following up privately.');
+      await tester.pumpAndSettle();
+      await tester.tap(sendButton());
+      await tester.pumpAndSettle();
+
+      expect(api.created.single['replyToPostNumber'], 2);
+      expect(api.created.single['whisper'], isTrue);
     });
 
     testWidgets('always reports how long the reply took to type', (

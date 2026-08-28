@@ -59,6 +59,22 @@ void main() {
       expect(restored.feedPath, isNull);
     });
 
+    test('group message inboxes have distinct durable route identities', () {
+      final personal = ContentRoute.messages();
+      final group = ContentRoute.messages(groupName: 'tech-advocates');
+      final restored = ContentRoute.fromJson(_jsonMap(group.toJson()));
+
+      expect(personal.id, 'messages');
+      expect(personal.isMessages, isTrue);
+      expect(personal.messageGroupName, isNull);
+      expect(group.id, 'messages-group-tech-advocates');
+      expect(group.isMessages, isTrue);
+      expect(group.messageGroupName, 'tech-advocates');
+      expect(restored, group);
+      expect(restored.messageGroupName, 'tech-advocates');
+      expect(restored.feedPath, isNull);
+    });
+
     test('rejects persisted routes that could build unsafe requests', () {
       final ordinary = _routeJson(id: 'latest', title: 'Topics');
 
@@ -72,6 +88,9 @@ void main() {
         {...ordinary, 'feed_path': '//other.example/latest.json'},
         {...ordinary, 'feed_path': '/latest.json#private'},
         {...ordinary, 'feed_path': '/latest'},
+        {...ordinary, 'message_group_name': ''},
+        {...ordinary, 'message_group_name': ' team '},
+        {...ordinary, 'message_group_name': 'team'},
         {
           ...ordinary,
           'feed_path': '/${'a' * ContentRoute.maximumFeedPathLength}.json',

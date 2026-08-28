@@ -128,6 +128,7 @@ class ComposerTarget {
     this.tabId,
     this.replyToPostNumber,
     this.replyToUsername,
+    this.replyingToWhisper = false,
     this.editingPostId,
     this.editingPostNumber,
     ComposerMode? mode,
@@ -157,6 +158,7 @@ class ComposerTarget {
        initialTags = const [],
        replyToPostNumber = null,
        replyToUsername = null,
+       replyingToWhisper = false,
        editingPostId = null,
        editingPostNumber = null;
 
@@ -177,6 +179,12 @@ class ComposerTarget {
   final int? replyToPostNumber;
 
   final String? replyToUsername;
+
+  /// Whether the addressed post is itself a whisper.
+  ///
+  /// Core forces replies to whispers to remain whispers and removes the
+  /// public/whisper toggle for that reply target.
+  final bool replyingToWhisper;
 
   /// The post being rewritten, when this composer is editing rather than
   /// replying. Null for a reply.
@@ -203,7 +211,11 @@ class ComposerTarget {
     _ => 'topic_$topicId',
   };
 
-  ComposerTarget replyingTo(int? postNumber, String? username) {
+  ComposerTarget replyingTo(
+    int? postNumber,
+    String? username, {
+    bool replyingToWhisper = false,
+  }) {
     if (isPlugin) return this;
     return ComposerTarget(
       siteUrl: siteUrl,
@@ -213,6 +225,7 @@ class ComposerTarget {
       topicTitle: topicTitle,
       replyToPostNumber: postNumber,
       replyToUsername: username,
+      replyingToWhisper: replyingToWhisper,
       mode: mode,
       originFeedId: originFeedId,
       originTopicId: originTopicId,
@@ -365,6 +378,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
        _originalTitle = _target.editsTopicMetadata ? _target.topicTitle : '',
        _originalCategoryId = _target.initialCategoryId,
        _originalTags = List.unmodifiable(_target.initialTags),
+       _whisper = _target.replyingToWhisper,
        // Named publicly for callers; the backing field stays encapsulated.
        // ignore: prefer_initializing_formals
        _minimumRequiredTags = minimumRequiredTags {
@@ -426,6 +440,27 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   List<TopicTag> _tags;
   List<TopicTag> get tags => _tags;
+
+  bool _whisper;
+  bool get whisper => _whisper;
+
+  /// Changes whether this reply is visible only to the site's whisper groups.
+  ///
+  /// This is draft state, not typing: retain it across browser/native handoff
+  /// without adding time to Discourse's fast-typer measurement.
+  void setWhisper(bool value) {
+    if (_disposed || _target.isNewTopic || _target.isEdit || _target.isPlugin) {
+      return;
+    }
+    if (_target.replyingToWhisper) value = true;
+    if (_whisper == value) return;
+    _whisper = value;
+    _draftRevision++;
+    _scheduleDraft();
+    _notify();
+  }
+
+  void toggleWhisper() => setWhisper(!_whisper);
 
   String _originalTitle;
   int? _originalCategoryId;
@@ -1152,6 +1187,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     tags: _target.isNewTopic ? _tags : const [],
     replyToPostNumber: _target.replyToPostNumber,
     replyToUsername: _target.replyToUsername,
+    whisper: _whisper,
     typingTime: typingDuration,
     composerTime: openDuration,
   );
@@ -1175,6 +1211,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         tags: draft.tags,
       );
     }
+    _whisper = draft.whisper || _target.replyingToWhisper;
     _draftStatus = DraftStatus.clean;
     _localDraftFailed = false;
     _notify();
@@ -1337,8 +1374,17 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   /// Points an already-open composer at a different post in the same topic,
   /// instead of throwing away what has been written.
-  void retarget({int? replyToPostNumber, String? replyToUsername}) {
-    _target = _target.replyingTo(replyToPostNumber, replyToUsername);
+  void retarget({
+    int? replyToPostNumber,
+    String? replyToUsername,
+    bool replyingToWhisper = false,
+  }) {
+    _target = _target.replyingTo(
+      replyToPostNumber,
+      replyToUsername,
+      replyingToWhisper: replyingToWhisper,
+    );
+    if (replyingToWhisper) _whisper = true;
     _notify();
   }
 

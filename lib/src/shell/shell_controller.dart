@@ -312,6 +312,10 @@ class ShellController extends FrameSafeNotifier
         corePluginRouteNavigationPort,
         _ShellPluginRouteNavigationHost(this),
       ),
+      PluginHostPort<Object>(
+        corePluginTopicListNavigationPort,
+        _ShellPluginTopicListNavigationHost(this),
+      ),
       _pluginBookmarkHostPort(),
       _pluginComposerHostPort(),
       _pluginEmojiHostPort(),
@@ -1927,6 +1931,7 @@ class ShellController extends FrameSafeNotifier
   /// selected in the sidebar so back still means something.
   String? get currentFeedId {
     final route = currentContent;
+    if (route?.isMessages == true) return route!.id;
     if (route != null && route.feedPath != null) return route.id;
     return destinationId;
   }
@@ -1941,7 +1946,7 @@ class ShellController extends FrameSafeNotifier
   bool get canCreateTopicHere {
     if (currentContent?.isTopic != false ||
         currentContent?.isPreferences == true ||
-        currentFeedId == 'messages') {
+        currentContent?.isMessages == true) {
       return false;
     }
     final instance = currentInstance;
@@ -2024,7 +2029,15 @@ class ShellController extends FrameSafeNotifier
   /// be one more thing to keep in step with the back button.
   String? _feedPath(String feedId, DiscourseInstance instance) {
     for (final route in contentStack.reversed) {
-      if (route.id == feedId && route.feedPath != null) return route.feedPath;
+      if (route.id != feedId) continue;
+      if (route.feedPath != null) return route.feedPath;
+      if (route.messageGroupName case final groupName?) {
+        final username = instance.user?.username;
+        if (username == null) return null;
+        return '/topics/private-messages-group/'
+            '${Uri.encodeComponent(username)}/'
+            '${Uri.encodeComponent(groupName)}.json';
+      }
     }
 
     final username = instance.user?.username;
@@ -2038,9 +2051,30 @@ class ShellController extends FrameSafeNotifier
         },
       ).toString(),
       'messages' when username != null =>
-        '/topics/private-messages/$username.json',
+        '/topics/private-messages/${Uri.encodeComponent(username)}.json',
       _ => null,
     };
+  }
+
+  /// Enters one of the connected account's private-message inboxes.
+  ///
+  /// Group choices come only from `groups[].has_messages` in the current-user
+  /// payload. The route is replaced rather than pushed: switching inboxes is
+  /// lateral navigation, while opening a message still pushes a topic and Back
+  /// returns to the chosen inbox.
+  void selectMessageInbox(String? groupName) {
+    final instance = currentInstance;
+    final route = currentContent;
+    final user = instance?.user;
+    if (instance == null || user == null || route?.isMessages != true) return;
+
+    final group = groupName?.trim();
+    if (group != null && !user.messageGroupNames.contains(group)) return;
+
+    final replacement = ContentRoute.messages(groupName: group);
+    if (route!.id == replacement.id) return;
+    replaceCurrentContent(replacement);
+    unawaited(loadFeed(replacement.id));
   }
 
   /// Fetches the list for [destinationId] unless it is already in hand.
@@ -5188,11 +5222,17 @@ class ShellController extends FrameSafeNotifier
   /// composer at the new post rather than discarding it — unless that composer
   /// is editing a post, which is a different piece of writing altogether and
   /// cannot be retargeted into a reply.
-  void openReply({int? replyToPostNumber, String? replyToUsername}) {
+  void openReply({
+    int? replyToPostNumber,
+    String? replyToUsername,
+    bool? replyingToWhisper,
+  }) {
     final instance = currentInstance;
     final route = currentContent;
     final topicId = route?.topicId;
     if (instance == null || topicId == null || !canReplyHere) return;
+    final targetsWhisper =
+        replyingToWhisper ?? _replyTargetsWhisper(replyToPostNumber);
 
     final existing = _composer;
     if (existing != null &&
@@ -5203,6 +5243,7 @@ class ShellController extends FrameSafeNotifier
       existing.retarget(
         replyToPostNumber: replyToPostNumber,
         replyToUsername: replyToUsername,
+        replyingToWhisper: targetsWhisper,
       );
       existing.focus.requestFocus();
       return;
@@ -5217,12 +5258,25 @@ class ShellController extends FrameSafeNotifier
       topicTitle: route?.title ?? '',
       replyToPostNumber: replyToPostNumber,
       replyToUsername: replyToUsername,
+      replyingToWhisper: targetsWhisper,
     );
     final composer = _buildTextComposer(target, persistsDraft: true);
     _composer = composer;
     _notify();
 
     _startComposerDraftRestore(composer);
+  }
+
+  bool _replyTargetsWhisper(int? postNumber) {
+    if (postNumber == null) return false;
+    final instance = currentInstance;
+    final topic = currentTopic;
+    if (instance == null || topic == null) return false;
+    for (final postId in topic.stream) {
+      final post = store.read<Post>(instance.url, postId);
+      if (post?.postNumber == postNumber) return post!.isWhisper;
+    }
+    return false;
   }
 
   /// Opens a reply composer and inserts a selected post quote into it.
@@ -5257,6 +5311,7 @@ class ShellController extends FrameSafeNotifier
       openReply(
         replyToPostNumber: post.postNumber == 1 ? null : post.postNumber,
         replyToUsername: post.postNumber == 1 ? null : post.username,
+        replyingToWhisper: post.postNumber != 1 && post.isWhisper,
       );
       composer = _composer;
     }
@@ -7896,6 +7951,7 @@ class ShellController extends FrameSafeNotifier
               topicId: target.topicId,
               raw: raw,
               replyToPostNumber: target.replyToPostNumber,
+              whisper: composer.whisper,
               typingDuration: composer.typingDuration,
               composerOpenDuration: composer.openDuration,
               draftKey: target.draftKey,
@@ -9885,7 +9941,11 @@ class ShellController extends FrameSafeNotifier
 
     final root = tab.contentStack.first;
     unawaited(
-      loadFeed(root.feedPath == null ? tab.rootDestinationId : root.id),
+      loadFeed(
+        root.feedPath == null && !root.isMessages
+            ? tab.rootDestinationId
+            : root.id,
+      ),
     );
     final route = tab.currentContent;
     final hydrator = _pluginSession
@@ -10913,6 +10973,20 @@ final class _ShellPluginRouteNavigationHost
   @override
   void replaceCurrentContent(ContentRoute route) =>
       _shell.replaceCurrentContent(route);
+}
+
+final class _ShellPluginTopicListNavigationHost
+    implements PluginTopicListNavigationHost {
+  const _ShellPluginTopicListNavigationHost(this._shell);
+
+  final ShellController _shell;
+
+  @override
+  void openTopicList(ContentRoute route) {
+    if (route.feedPath == null || _shell.currentContent?.id == route.id) return;
+    _shell.pushContent(route);
+    unawaited(_shell.loadFeed(route.id));
+  }
 }
 
 /// Creates target-bound bookmark ports without exposing the core bookmark UI.

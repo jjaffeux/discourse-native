@@ -12,6 +12,7 @@ void main() {
                   reply: 'Half a thought',
                   replyToPostNumber: 4,
                   replyToUsername: 'sam',
+                  whisper: true,
                   typingTime: Duration(seconds: 9),
                   composerTime: Duration(seconds: 30),
                 ).encode(),
@@ -23,6 +24,7 @@ void main() {
       expect(json['archetypeId'], 'regular');
       expect(json['reply_to_post_number'], 4);
       expect(json['reply_to_user'], {'username': 'sam'});
+      expect(json['whisper'], isTrue);
       // Milliseconds, which is what the create call reports too.
       expect(json['typingTime'], 9000);
       expect(json['composerTime'], 30000);
@@ -36,12 +38,14 @@ void main() {
           reply: 'Round trip',
           replyToPostNumber: 2,
           replyToUsername: 'sam',
+          whisper: true,
         ).encode(),
       );
 
       expect(draft?.reply, 'Round trip');
       expect(draft?.replyToPostNumber, 2);
       expect(draft?.replyToUsername, 'sam');
+      expect(draft?.whisper, isTrue);
     });
 
     test('accepts a bare username, which is how some payloads write it', () {
@@ -50,6 +54,7 @@ void main() {
       );
 
       expect(draft?.replyToUsername, 'sam');
+      expect(draft?.whisper, isFalse);
     });
 
     test('treats an empty reply as no draft at all', () {

@@ -2081,6 +2081,7 @@ class DiscourseApi
     required Duration typingDuration,
     required Duration composerOpenDuration,
     int? replyToPostNumber,
+    bool whisper = false,
     String? draftKey,
     String? clientId,
   }) async {
@@ -2101,6 +2102,7 @@ class DiscourseApi
         // Discourse permits, and sending it is silently ignored — the reply
         // lands in the topic addressed to nobody.
         'reply_to_post_number': replyToPostNumber,
+        'whisper': whisper ? true : null,
         'typing_duration_msecs': typingDuration.inMilliseconds,
         'composer_open_duration_msecs': composerOpenDuration.inMilliseconds,
         'draft_key': draftKey,

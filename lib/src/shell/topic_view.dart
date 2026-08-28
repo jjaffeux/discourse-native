@@ -2327,13 +2327,7 @@ class _PostTile extends StatefulWidget {
 }
 
 class _PostTileState extends State<_PostTile> {
-  bool _hovered = false;
   bool _linksExpanded = false;
-
-  void _setHovered(bool value) {
-    if (_hovered == value) return;
-    setState(() => _hovered = value);
-  }
 
   @override
   Widget build(BuildContext context) =>
@@ -2361,264 +2355,245 @@ class _PostTileState extends State<_PostTile> {
     final theme = Theme.of(context);
     final post = widget.post;
 
-    // Transparent rather than [ShellColors.content] when idle, so the tile
-    // takes whichever surface the column it is in happens to paint.
-    final tile = MouseRegion(
-      onEnter: (_) => _setHovered(true),
-      onExit: (_) => _setHovered(false),
-      child: ColoredBox(
-        color: switch ((post.isDeleted, _hovered)) {
-          (true, final hovered) => theme.colorScheme.error.withValues(
-            alpha: hovered ? 0.12 : 0.07,
-          ),
-          (false, true) => theme.shell.hover,
-          (false, false) => Colors.transparent,
-        },
-        child: PostActions(
-          siteUrl: widget.siteUrl,
-          post: post,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    if (selection.enabled) ...[
-                      Checkbox(
-                        key: ValueKey('topic-post-select-${post.id}'),
-                        value: selection.selected,
-                        onChanged: selection.busy
-                            ? null
-                            : (_) => ShellScope.read(context)
-                                  .toggleTopicPostSelected(
-                                    widget.siteUrl,
-                                    widget.topic.id,
-                                    post.id,
-                                  ),
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                    UserCardTarget(
-                      username: post.username,
-                      siteUrl: widget.siteUrl,
-                      child: ClipOval(
-                        child: SizedBox(
-                          width: 32,
-                          height: 32,
-                          child: AvatarImage(
-                            url: post.avatarUrl,
-                            size: 32,
-                            fallback: ColoredBox(
-                              color: theme.shell.floating,
-                              child: Center(
-                                child: Text(
-                                  post.username.isEmpty
-                                      ? '?'
-                                      : post.username.characters.first
-                                            .toUpperCase(),
-                                  style: theme.textTheme.labelMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
+    // Transparent rather than [ShellColors.content] for ordinary posts, so the
+    // tile takes whichever surface the column it is in happens to paint.
+    final tile = ColoredBox(
+      color: post.isDeleted
+          ? theme.colorScheme.error.withValues(alpha: 0.07)
+          : Colors.transparent,
+      child: PostActions(
+        siteUrl: widget.siteUrl,
+        post: post,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  if (selection.enabled) ...[
+                    Checkbox(
+                      key: ValueKey('topic-post-select-${post.id}'),
+                      value: selection.selected,
+                      onChanged: selection.busy
+                          ? null
+                          : (_) => ShellScope.read(context)
+                                .toggleTopicPostSelected(
+                                  widget.siteUrl,
+                                  widget.topic.id,
+                                  post.id,
                                 ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Flexible(
-                            child: UserCardTarget(
-                              username: post.username,
-                              siteUrl: widget.siteUrl,
+                    const SizedBox(width: 4),
+                  ],
+                  UserCardTarget(
+                    username: post.username,
+                    siteUrl: widget.siteUrl,
+                    child: ClipOval(
+                      child: SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: AvatarImage(
+                          url: post.avatarUrl,
+                          size: 32,
+                          fallback: ColoredBox(
+                            color: theme.shell.floating,
+                            child: Center(
                               child: Text(
-                                post.displayName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium?.copyWith(
+                                post.username.isEmpty
+                                    ? '?'
+                                    : post.username.characters.first
+                                          .toUpperCase(),
+                                style: theme.textTheme.labelMedium?.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
                           ),
-                          UserStatusMessage(
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: UserCardTarget(
+                            username: post.username,
                             siteUrl: widget.siteUrl,
-                            userId: post.userId,
-                            status: post.userStatus,
-                            size: 15,
-                            leadingGap: 6,
-                          ),
-                          if (post.isStaff) ...[
-                            const SizedBox(width: 6),
-                            _Tag(
-                              label: 'staff',
-                              color: theme.colorScheme.primary,
-                            ),
-                          ] else if (post.userTitle case final title?) ...[
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
+                            child: Text(
+                              post.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                          ],
-                          // Only the people who can undo a deletion are shown
-                          // one at all, so saying so is worth the room.
-                          if (post.isDeleted) ...[
-                            const SizedBox(width: 6),
-                            _Tag(
-                              label: 'deleted',
-                              color: theme.colorScheme.error,
-                            ),
-                          ],
-                          if (post.wiki) ...[
-                            const SizedBox(width: 6),
-                            _Tag(
-                              label: 'wiki',
-                              color: theme.colorScheme.primary,
-                            ),
-                          ],
-                          if (post.locked) ...[
-                            const SizedBox(width: 6),
-                            _Tag(
-                              label: 'locked',
-                              color: theme.colorScheme.secondary,
-                            ),
-                          ],
-                          if (post.hidden) ...[
-                            const SizedBox(width: 6),
-                            _Tag(
-                              label: 'hidden',
-                              color: theme.colorScheme.error,
-                            ),
-                          ],
-                          if (post.isModeratorAction) ...[
-                            const SizedBox(width: 6),
-                            _Tag(
-                              label: 'moderator',
-                              color: theme.colorScheme.primary,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    if (post.isWhisper) ...[
-                      const SizedBox(width: 8),
-                      Tooltip(
-                        message: 'This post is a private whisper',
-                        child: DIcon(
-                          DIcons.farEyeSlash,
-                          size: 14,
-                          color: theme.discourse.whisper,
-                        ),
-                      ),
-                      if (post.createdAt != null) const SizedBox(width: 8),
-                    ],
-                    if (post.editCount > 0) ...[
-                      PostRevisionIndicator(
-                        post: post,
-                        onPressed: post.canViewEditHistory
-                            ? () {
-                                final controller = ShellScope.read(context);
-                                unawaited(
-                                  showPostRevisionHistory(
-                                    context: context,
-                                    siteUrl: widget.siteUrl,
-                                    post: post,
-                                    loadRevision: (revision) =>
-                                        controller.loadPostRevision(
-                                          siteUrl: widget.siteUrl,
-                                          postId: post.id,
-                                          revision: revision,
-                                        ),
-                                    categoryLabel: (id) {
-                                      if (id == null) return 'Uncategorized';
-                                      return controller
-                                              .categoryFor(
-                                                id,
-                                                siteUrl: widget.siteUrl,
-                                              )
-                                              ?.name ??
-                                          'Category $id';
-                                    },
-                                  ),
-                                );
-                              }
-                            : null,
-                      ),
-                      if (post.createdAt != null) const SizedBox(width: 4),
-                    ],
-                    if (post.createdAt case final createdAt?)
-                      Text(
-                        relativeTime(createdAt),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
-                ),
-                if (post.notice case final notice?) ...[
-                  const SizedBox(height: 10),
-                  _PostNoticeBanner(
-                    siteUrl: widget.siteUrl,
-                    post: post,
-                    notice: notice,
-                  ),
-                ],
-                const SizedBox(height: 10),
-                PostTextSelection(
-                  post: post,
-                  topicId: widget.topic.id,
-                  child: CookedHtml(
-                    html: post.cooked,
-                    textStyle: post.isWhisper
-                        ? theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.discourse.whisper,
-                            fontStyle: FontStyle.italic,
-                            height: DiscourseTypography.lineHeightCooked,
-                          )
-                        : theme.textTheme.bodyMedium?.copyWith(
-                            height: DiscourseTypography.lineHeightCooked,
                           ),
-                    siteUrl: widget.siteUrl,
-                    post: post,
-                    containingTopic: PluginContainingTopic(
-                      id: widget.topic.id,
-                      slug:
-                          ShellScope.read(context).currentContent?.slug ??
-                          'topic',
-                      archived: widget.topic.archived,
+                        ),
+                        UserStatusMessage(
+                          siteUrl: widget.siteUrl,
+                          userId: post.userId,
+                          status: post.userStatus,
+                          size: 15,
+                          leadingGap: 6,
+                        ),
+                        if (post.isStaff) ...[
+                          const SizedBox(width: 6),
+                          _Tag(
+                            label: 'staff',
+                            color: theme.colorScheme.primary,
+                          ),
+                        ] else if (post.userTitle case final title?) ...[
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                        // Only the people who can undo a deletion are shown
+                        // one at all, so saying so is worth the room.
+                        if (post.isDeleted) ...[
+                          const SizedBox(width: 6),
+                          _Tag(
+                            label: 'deleted',
+                            color: theme.colorScheme.error,
+                          ),
+                        ],
+                        if (post.wiki) ...[
+                          const SizedBox(width: 6),
+                          _Tag(label: 'wiki', color: theme.colorScheme.primary),
+                        ],
+                        if (post.locked) ...[
+                          const SizedBox(width: 6),
+                          _Tag(
+                            label: 'locked',
+                            color: theme.colorScheme.secondary,
+                          ),
+                        ],
+                        if (post.hidden) ...[
+                          const SizedBox(width: 6),
+                          _Tag(label: 'hidden', color: theme.colorScheme.error),
+                        ],
+                        if (post.isModeratorAction) ...[
+                          const SizedBox(width: 6),
+                          _Tag(
+                            label: 'moderator',
+                            color: theme.colorScheme.primary,
+                          ),
+                        ],
+                      ],
                     ),
-                    mentionedUserStatuses: post.mentionedUserStatuses,
                   ),
+                  if (post.isWhisper) ...[
+                    const SizedBox(width: 8),
+                    Tooltip(
+                      message: 'This post is a private whisper',
+                      child: DIcon(
+                        DIcons.farEyeSlash,
+                        size: 14,
+                        color: theme.discourse.whisper,
+                      ),
+                    ),
+                    if (post.createdAt != null) const SizedBox(width: 8),
+                  ],
+                  if (post.editCount > 0) ...[
+                    PostRevisionIndicator(
+                      post: post,
+                      onPressed: post.canViewEditHistory
+                          ? () {
+                              final controller = ShellScope.read(context);
+                              unawaited(
+                                showPostRevisionHistory(
+                                  context: context,
+                                  siteUrl: widget.siteUrl,
+                                  post: post,
+                                  loadRevision: (revision) =>
+                                      controller.loadPostRevision(
+                                        siteUrl: widget.siteUrl,
+                                        postId: post.id,
+                                        revision: revision,
+                                      ),
+                                  categoryLabel: (id) {
+                                    if (id == null) return 'Uncategorized';
+                                    return controller
+                                            .categoryFor(
+                                              id,
+                                              siteUrl: widget.siteUrl,
+                                            )
+                                            ?.name ??
+                                        'Category $id';
+                                  },
+                                ),
+                              );
+                            }
+                          : null,
+                    ),
+                    if (post.createdAt != null) const SizedBox(width: 4),
+                  ],
+                  if (post.createdAt case final createdAt?)
+                    Text(
+                      relativeTime(createdAt),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
+              if (post.notice case final notice?) ...[
+                const SizedBox(height: 10),
+                _PostNoticeBanner(
+                  siteUrl: widget.siteUrl,
+                  post: post,
+                  notice: notice,
                 ),
-                ...(PluginScope.maybeOf(context)?.registry ??
-                        PluginRegistry.empty)
-                    .postDecorations(
-                      context,
-                      widget.siteUrl,
-                      widget.topic,
-                      post,
-                    ),
-                PostFooter(siteUrl: widget.siteUrl, post: post),
-                if (post.inboundLinks.isNotEmpty)
-                  _PostInboundLinks(
-                    siteUrl: widget.siteUrl,
-                    links: post.inboundLinks,
-                    expanded: _linksExpanded,
-                    onExpand: () => setState(() => _linksExpanded = true),
-                  ),
               ],
-            ),
+              const SizedBox(height: 10),
+              PostTextSelection(
+                post: post,
+                topicId: widget.topic.id,
+                child: CookedHtml(
+                  html: post.cooked,
+                  textStyle: post.isWhisper
+                      ? theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.discourse.whisper,
+                          fontStyle: FontStyle.italic,
+                          height: DiscourseTypography.lineHeightCooked,
+                        )
+                      : theme.textTheme.bodyMedium?.copyWith(
+                          height: DiscourseTypography.lineHeightCooked,
+                        ),
+                  siteUrl: widget.siteUrl,
+                  post: post,
+                  containingTopic: PluginContainingTopic(
+                    id: widget.topic.id,
+                    slug:
+                        ShellScope.read(context).currentContent?.slug ??
+                        'topic',
+                    archived: widget.topic.archived,
+                  ),
+                  mentionedUserStatuses: post.mentionedUserStatuses,
+                ),
+              ),
+              ...(PluginScope.maybeOf(context)?.registry ??
+                      PluginRegistry.empty)
+                  .postDecorations(context, widget.siteUrl, widget.topic, post),
+              PostFooter(siteUrl: widget.siteUrl, post: post),
+              if (post.inboundLinks.isNotEmpty)
+                _PostInboundLinks(
+                  siteUrl: widget.siteUrl,
+                  links: post.inboundLinks,
+                  expanded: _linksExpanded,
+                  onExpand: () => setState(() => _linksExpanded = true),
+                ),
+            ],
           ),
         ),
       ),

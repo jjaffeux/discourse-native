@@ -354,11 +354,15 @@ class _TopicListLoadingSkeleton extends StatelessWidget {
 
   final String destination;
 
-  String get _semanticsLabel => switch (destination) {
-    'messages' => 'Loading messages',
-    'filter' => 'Loading filtered topics',
-    _ => 'Loading topics',
-  };
+  String get _semanticsLabel {
+    if (destination == 'messages' ||
+        destination.startsWith('messages-group-')) {
+      return 'Loading messages';
+    }
+    return destination == 'filter'
+        ? 'Loading filtered topics'
+        : 'Loading topics';
+  }
 
   @override
   Widget build(BuildContext context) {

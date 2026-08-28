@@ -5,12 +5,14 @@ import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
+import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 
 import 'cooked_html_test.dart' show pumpCooked, renderedText;
@@ -416,6 +418,50 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(PhotoViewGallery), findsNothing);
+    });
+
+    testWidgets('reveals hidden controls when the pointer moves', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+          home: LightboxGallery(images: [parse(singleImage)], initialIndex: 0),
+        ),
+      );
+      await tester.pump();
+
+      final chrome = find.ancestor(
+        of: find.dIcon(DIcons.xmark),
+        matching: find.byType(AnimatedOpacity),
+      );
+      expect(tester.widget<AnimatedOpacity>(chrome).opacity, 1);
+
+      final photoView = find.byType(PhotoView);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      final center = tester.getCenter(photoView);
+      await mouse.moveTo(center);
+      await tester.pump();
+
+      tester.widget<PhotoView>(photoView).onTapUp!(
+        tester.element(photoView),
+        TapUpDetails(kind: PointerDeviceKind.mouse),
+        const PhotoViewControllerValue(
+          position: Offset.zero,
+          scale: 1,
+          rotation: 0,
+          rotationFocusPoint: null,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<AnimatedOpacity>(chrome).opacity, 0);
+
+      await mouse.moveTo(center + const Offset(10, 0));
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<AnimatedOpacity>(chrome).opacity, 1);
     });
 
     testWidgets('closes on Escape, which is what the web client binds', (
