@@ -203,6 +203,61 @@ account rotation and site removal invalidate both pending requests and cached
 private data through the site's lifecycle generation, so a response from a
 former session cannot enter the replacement account's summary.
 
+### Preferences
+
+The **Preferences** row in the profile section of the user menu is a native,
+restorable content route. Opening it closes either form of the menu, preserves
+the forum and account which owned that menu, and pushes onto the active forum
+tab so Back returns to the previous content. The same route document restores
+after relaunch; it contains only presentation identity, never preference data
+or credentials. Compact layouts replace the sidebar with the page, while wider
+layouts keep the ordinary shell columns and add a section rail inside the
+content region.
+
+Discourse's web preferences are much larger than a safe first native surface.
+They span Account, Security, Profile, Emails, Notifications, Tracking, Users,
+Interface, Navigation menu and Calendar subscriptions, and plugin outlets can
+add fields or entire sections. The native parity slice is the set which is
+server-authoritative, cross-device, and already affects behavior implemented
+here:
+
+- **Notifications:** how often likes notify, and whether linked posts notify.
+- **Topic tracking:** what counts as new, when reading starts tracking, and
+  whether replying watches, tracks, or leaves a topic alone. This section is
+  absent when the detailed user serializer says
+  `can_change_tracking_preferences: false`.
+- **Dates and reminders:** the account's IANA timezone and the default bookmark
+  auto-delete behavior. These immediately become the confirmed warm-start
+  values used by Local Dates and the bookmark editor.
+
+The page names the deliberately unsupported web-only areas rather than drawing
+disabled or fake controls: account/security changes, profile fields and
+uploads, email delivery, notification schedules, category/tag/user tracking
+lists, browser theme and interface overrides, navigation-menu configuration,
+calendar feeds, and plugin-contributed preferences. Push delivery is included
+in that disclosure on purpose. The web selector also subscribes or
+unsubscribes that browser's push publisher; merely writing
+`push_notification_level` would not perform the equivalent lifecycle for a
+native user-API push registration.
+
+`/session/current.json` carries only a sparse option subset, so the editor reads
+`GET /u/{username}.json`. It writes changed fields only to
+`PUT /u/{username}.json`, with user-option attributes flattened at the request
+root exactly as the web `User.save()` model sends them. Values remain owned by
+the site; there is no `shared_preferences` copy. The persisted `DiscourseUser`
+record is updated only after a confirmed write for the two values other native
+surfaces consume.
+
+Preference state has its own notifier, keeping form edits and request progress
+out of shell-wide rebuilds. Reads and writes use a per-site, per-account
+read-after-write queue; writes are never retried because user API requests have
+no idempotency guarantee. Local revisions prevent an older read or response
+from replacing newer form input, and every credential read, request and commit
+is guarded by the site's lifecycle lease. Disconnecting, removing a forum, or
+rotating the account forgets the controller state and invalidates late work.
+Discourse's validation messages are shown as returned, while permission,
+network and rate-limit failures remain retryable without discarding edits.
+
 ### Topic lists
 
 `latest`, `new`, `unread`, `top` and `messages` all share one envelope

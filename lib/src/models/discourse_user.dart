@@ -250,6 +250,40 @@ class DiscourseUser {
     bookmarkAutoDeletePreference: bookmarkAutoDeletePreference,
   );
 
+  /// Applies the server-confirmed preference values consumed outside the
+  /// Preferences page while preserving every capability from this session.
+  ///
+  /// This stored user is a warm-start mirror, not the owner of the values;
+  /// Preferences writes always go to Discourse before this copy changes.
+  DiscourseUser withPreferences({
+    required String timezone,
+    required BookmarkAutoDeletePreference bookmarkAutoDeletePreference,
+  }) => DiscourseUser(
+    username: username,
+    id: id,
+    name: name,
+    avatarUrl: avatarUrl,
+    status: status,
+    draftCount: draftCount,
+    canCreatePoll: canCreatePoll,
+    canAssign: canAssign,
+    canAssignGlobally: canAssignGlobally,
+    canChangePostOwner: canChangePostOwner,
+    staff: staff,
+    groups: groups,
+    ignoredUsernames: ignoredUsernames,
+    sidebarCategoryIds: sidebarCategoryIds,
+    trackedCategoryIds: trackedCategoryIds,
+    watchedCategoryIds: watchedCategoryIds,
+    watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
+    hasChatEnabled: hasChatEnabled,
+    chatHeaderIndicatorPreference: chatHeaderIndicatorPreference,
+    doNotDisturbUntil: doNotDisturbUntil,
+    lastChatChannelId: lastChatChannelId,
+    timezone: timezone,
+    bookmarkAutoDeletePreference: bookmarkAutoDeletePreference,
+  );
+
   @override
   bool operator ==(Object other) =>
       other is DiscourseUser &&

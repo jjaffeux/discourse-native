@@ -28,6 +28,7 @@ import '../models/topic.dart';
 import '../models/topic_filter.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
+import '../models/user_preferences.dart';
 import '../models/user_status.dart';
 import '../models/user_summary.dart';
 import '../plugin_api/discourse_model_codec.dart';
@@ -102,6 +103,7 @@ class DiscourseApi
         UserSummariesApi,
         TopicFeedsApi,
         TopicReadsApi,
+        UserPreferencesApi,
         PluginApiTransport {
   DiscourseApi({
     http.Client? client,
@@ -392,6 +394,71 @@ class DiscourseApi
         jsonObject(user['custom_fields'])['last_chat_channel_id'],
       ),
     );
+  }
+
+  @override
+  Future<UserPreferences> loadUserPreferences({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    final body = await _getObject(
+      Uri.parse('$siteUrl/u/${Uri.encodeComponent(username)}.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return UserPreferences.fromJson(jsonObject(body['user']));
+  }
+
+  @override
+  Future<UserPreferences> updateUserPreferences({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required UserPreferences fallback,
+    required Map<String, Object?> values,
+    String? clientId,
+  }) async {
+    _validateUserPreferenceValues(values);
+    final body = await _write(
+      Uri.parse(
+        '$siteUrl/u/${Uri.encodeComponent(username.toLowerCase())}.json',
+      ),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: values,
+    );
+    return UserPreferences.fromJson(
+      jsonObject(body['user']),
+      fallback: fallback,
+    );
+  }
+
+  static const Set<String> _userPreferenceFields = {
+    'timezone',
+    'like_notification_frequency',
+    'notify_on_linked_posts',
+    'new_topic_duration_minutes',
+    'auto_track_topics_after_msecs',
+    'notification_level_when_replying',
+    'bookmark_auto_delete_preference',
+  };
+
+  static void _validateUserPreferenceValues(Map<String, Object?> values) {
+    final unsupported = values.keys.where(
+      (key) => !_userPreferenceFields.contains(key),
+    );
+    if (unsupported.isNotEmpty) {
+      throw ArgumentError.value(
+        unsupported.first,
+        'values',
+        'Unsupported user preference field',
+      );
+    }
   }
 
   /// Custom sidebar sections visible to the connected account.

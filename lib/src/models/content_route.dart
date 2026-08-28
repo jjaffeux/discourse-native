@@ -62,6 +62,18 @@ class ContentRoute {
     );
   }
 
+  /// The connected account's native preferences editor.
+  ///
+  /// Preference values stay server-owned and are hydrated by the page. The
+  /// route therefore carries presentation identity only, which makes it safe
+  /// to persist beside the rest of a forum workspace without caching account
+  /// data in the tab document.
+  factory ContentRoute.preferences() => const ContentRoute(
+    id: 'preferences',
+    title: 'Preferences',
+    icon: DIcons.gear,
+  );
+
   /// The route a sidebar entry opens.
   ContentRoute.fromDestination(SidebarDestination destination)
     : id = destination.id,
@@ -101,6 +113,8 @@ class ContentRoute {
   static const int maximumFeedPathLength = 2048;
 
   bool get isTopic => topicId != null;
+
+  bool get isPreferences => !isTopic && id == 'preferences';
 
   /// A durable, presentation-only snapshot of this route.
   ///

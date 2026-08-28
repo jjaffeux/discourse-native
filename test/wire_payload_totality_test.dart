@@ -21,6 +21,7 @@ import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/models/topic_link.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
+import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
@@ -174,6 +175,16 @@ const _keys = [
   'bookmark_count',
   'can_see_summary_stats',
   'can_see_user_actions',
+  'user_option',
+  'timezone',
+  'like_notification_frequency',
+  'notify_on_linked_posts',
+  'new_topic_duration_minutes',
+  'auto_track_topics_after_msecs',
+  'notification_level_when_replying',
+  'bookmark_auto_delete_preference',
+  'can_edit',
+  'can_change_tracking_preferences',
 ];
 
 Object? _value(Random random, int depth) => switch (random.nextInt(
@@ -285,6 +296,7 @@ void main() {
       );
       probe('UserCard', () => UserCard.fromJson(json, site), json);
       probe('UserDraft', () => UserDraft.fromJson(json), json);
+      probe('UserPreferences', () => UserPreferences.fromJson(json), json);
       probe('UserStatus', () => UserStatus.fromJson(json), json);
       probe('UserSummary', () => UserSummary.fromJson(json, site), json);
       probe('Topic', () => Topic.fromJson(json, const {}, site), json);

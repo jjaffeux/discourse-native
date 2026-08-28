@@ -6630,7 +6630,7 @@ void main() {
       expect(find.text('Disconnect'), findsOneWidget);
     });
 
-    testWidgets('everything not built yet is orange', (tester) async {
+    testWidgets('only unfinished profile rows are orange', (tester) async {
       await pumpShell(tester, phone, instances: connected);
       await openMenu(tester);
       await tester.tap(find.text('Profile'));
@@ -6642,9 +6642,12 @@ void main() {
 
       expect(
         tester.widget<Text>(find.text('Preferences')).style?.color,
+        isNot(placeholder),
+      );
+      expect(
+        tester.widget<Text>(find.text('Summary')).style?.color,
         placeholder,
       );
-      // ...and the one thing that works is not.
       expect(
         tester.widget<Text>(find.text('Disconnect')).style?.color,
         isNot(placeholder),

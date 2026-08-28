@@ -27,6 +27,7 @@ import 'draft_list.dart';
 import 'forum_search.dart';
 import 'forum_tabs_bar.dart';
 import 'post_flag_editor.dart';
+import 'preferences_page.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -181,6 +182,9 @@ class _ContentViewport extends StatelessWidget {
     }
     if (!route.isTopic && route.id == 'summary' && siteUrl != null) {
       return UserSummaryView(siteUrl: siteUrl!);
+    }
+    if (route.isPreferences && siteUrl != null) {
+      return PreferencesPage(siteUrl: siteUrl!);
     }
     if (!route.isTopic &&
         route.id == 'all-categories' &&

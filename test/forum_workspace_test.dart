@@ -34,6 +34,19 @@ void main() {
       expect(restored.feedPath, route.feedPath);
     });
 
+    test(
+      'restores the native preferences destination without account data',
+      () {
+        final route = ContentRoute.preferences();
+
+        final restored = ContentRoute.fromJson(_jsonMap(route.toJson()));
+
+        expect(restored, route);
+        expect(restored.isPreferences, isTrue);
+        expect(restored.toJson().keys, ['id', 'title', 'icon']);
+      },
+    );
+
     test('rejects persisted routes that could build unsafe requests', () {
       final ordinary = _routeJson(id: 'latest', title: 'Topics');
 

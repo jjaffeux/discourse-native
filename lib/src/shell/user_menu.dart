@@ -72,8 +72,9 @@ class UserMenuSection {
   final DIconData icon;
   final String label;
 
-  /// Static rows. A row stays in the placeholder color until its native action
-  /// is supplied by [_SectionBody].
+  /// Static contents for sections which are not hydrated as server lists.
+  /// Rows with a recognized [UserMenuRow.id] become native actions; the
+  /// remaining rows keep the placeholder color.
   final List<UserMenuRow> rows;
 
   /// Real count from `/notifications/totals.json` where we have one, so the
@@ -98,8 +99,10 @@ class UserMenuSection {
       !isProfile;
 }
 
-/// One line inside a section. Wiring stays in [_SectionBody] so this remains a
-/// small description of the server-independent menu shape.
+/// One line inside a section.
+///
+/// Built-in row identities are resolved by the menu body so the data model
+/// stays presentation-only and is shared by the pointer and touch surfaces.
 @immutable
 class UserMenuRow {
   const UserMenuRow(
@@ -123,6 +126,7 @@ class UserMenuRow {
   bool get isDrafts => id == 'drafts';
   bool get isSummary => id == 'summary';
   bool get isUserStatus => id == 'user-status';
+  bool get isPreferences => id == 'preferences';
 }
 
 /// Results a section can hand back to whatever opened it.
@@ -216,7 +220,7 @@ List<UserMenuSection> userMenuSections(
         const UserMenuRow(DIcons.user, 'Summary', id: 'summary'),
         const UserMenuRow(DIcons.list, 'Activity'),
         const UserMenuRow(DIcons.pencil, 'Drafts', id: 'drafts'),
-        const UserMenuRow(DIcons.gear, 'Preferences'),
+        const UserMenuRow(DIcons.gear, 'Preferences', id: 'preferences'),
       ],
     ),
   ];
@@ -516,6 +520,11 @@ class _SectionBody extends StatelessWidget {
                     onDismiss();
                     controller.openDrafts(siteUrl);
                   }
+                : row.isPreferences && siteUrl != null
+                ? () {
+                    onDismiss();
+                    controller.openPreferences(siteUrl);
+                  }
                 : null,
           ),
       if (section.isProfile) ...[
@@ -596,31 +605,34 @@ class _RowTile extends StatelessWidget {
       key: ValueKey('user-menu-row-${row.id ?? row.title}'),
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: Row(
-          children: [
-            leading ??
-                DIcon(
-                  row.icon,
-                  size: 18,
-                  color: theme.colorScheme.onSurfaceVariant,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            children: [
+              leading ??
+                  DIcon(
+                    row.icon,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  row.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: color),
                 ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                row.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(color: color),
               ),
-            ),
-            if (detail case final detail?)
-              Text(
-                detail,
-                style: theme.textTheme.labelMedium?.copyWith(color: color),
-              ),
-          ],
+              if (detail case final detail?)
+                Text(
+                  detail,
+                  style: theme.textTheme.labelMedium?.copyWith(color: color),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -638,7 +650,7 @@ class _RowTile extends StatelessWidget {
   }
 }
 
-/// The one thing in here that is not a placeholder.
+/// The destructive account action shown after the profile rows.
 class _DisconnectTile extends StatelessWidget {
   const _DisconnectTile({required this.host, required this.onTap});
 
