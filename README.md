@@ -1417,11 +1417,13 @@ base URL to resolve a root-relative `src` against, so `TagImg` fell back to the
 `:slight_smile:`.
 
 Setting `HtmlWidget.baseUrl` would have fixed the URL in one line and routed
-*every* `<img>` in every post through `NetworkImage` — unbounded concurrency, no
-failure caching, one request per glyph. That is the exact 429 story
-`AvatarLoader` exists to prevent, so emoji go through a sibling of it,
-[`EmojiCache`](lib/src/data/emoji_cache.dart), and the caching and concurrency
-cap they share live in [`ByteCache`](lib/src/data/byte_cache.dart).
+*every* `<img>` in every post through `NetworkImage` — no failure caching and
+one request per glyph. Emoji instead go through
+[`EmojiCache`](lib/src/data/emoji_cache.dart), which uses
+[`ByteCache`](lib/src/data/byte_cache.dart) to deduplicate URLs, retain failures,
+bound response sizes, and persist reusable bytes. Picker emoji are small,
+immutable CDN assets, so that cache deliberately leaves their concurrency to
+the HTTP stack; JSON API requests retain their per-origin backpressure.
 
 Reactions need the other direction — a name, not a `src` — which is
 `SiteConfig.emojiUrl`, mirroring `Emoji.url_for`: `{external_emoji_url or

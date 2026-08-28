@@ -12,9 +12,9 @@ import 'site_url.dart';
 
 /// One emoji, drawn from the image the site serves for it.
 ///
-/// Goes through [EmojiCache] rather than [Image.network] for the reason written
-/// down there: a post can carry thirty of these and a screen six posts, and
-/// unbounded parallel requests are what a site answers with 429.
+/// Goes through [EmojiCache] rather than [Image.network] so repeated URLs share
+/// bytes, failures do not retry on every rebuild, and immutable CDN responses
+/// persist between launches without throttling a picker's initial asset burst.
 ///
 /// [alt] is what Discourse writes in the `alt` attribute — `:slight_smile:` —
 /// and is what stands in when the image cannot be fetched. It is a worse answer

@@ -6,11 +6,11 @@ import 'origin_request_gate.dart';
 
 /// One process-wide backpressure gate for native-managed media requests.
 ///
-/// Avatar and emoji caches use separate HTTP clients. A per-client connection
-/// limit therefore still let both caches drain four requests at once, and a
-/// 429 for one URL did not stop the other distinct URLs already queued. This
-/// coordinator limits their aggregate work by origin and turns the first 429
-/// into an origin-wide circuit breaker.
+/// Configured media caches can use separate HTTP clients. A per-client
+/// connection limit would still let them drain independently, and a 429 for
+/// one URL would not stop other distinct URLs already queued. This coordinator
+/// limits opted-in work by origin and turns the first 429 into a circuit
+/// breaker. CDN-backed emoji deliberately do not opt in.
 final class MediaRequestCoordinator {
   MediaRequestCoordinator({
     this.maxConcurrentPerOrigin = 2,
@@ -29,7 +29,7 @@ final class MediaRequestCoordinator {
          cooldownFactory: cooldownFactory,
        );
 
-  /// Shared by the production avatar and emoji singletons.
+  /// Shared by production media owners that opt into origin backpressure.
   static final shared = MediaRequestCoordinator();
 
   final int maxConcurrentPerOrigin;
