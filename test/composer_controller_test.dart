@@ -20,6 +20,55 @@ void main() {
     expect(composer.text.imageSiteUrl, _target.siteUrl);
   });
 
+  testWidgets('whisper state is restored and saved with the reply draft', (
+    tester,
+  ) async {
+    final saves = <ComposerDraftSave>[];
+    final composer = ComposerController(
+      _target,
+      onSaveDraft: (save) async {
+        saves.add(save);
+        return save.sequence + 1;
+      },
+    );
+    addTearDown(composer.dispose);
+
+    composer.text.text = 'Visible only to the whisper groups.';
+    composer.setWhisper(true);
+    await tester.pump(ComposerController.draftDebounce);
+    await tester.pump();
+
+    expect(composer.whisper, isTrue);
+    expect(composer.draft.whisper, isTrue);
+    expect(saves.single.draft.whisper, isTrue);
+
+    final restored = ComposerController(_target);
+    addTearDown(restored.dispose);
+    restored.restore(
+      const ComposerDraft(reply: 'A restored whisper', whisper: true),
+    );
+    expect(restored.whisper, isTrue);
+  });
+
+  test('a reply to a whisper cannot be made public', () {
+    final composer = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 7,
+        slug: 'a-topic',
+        topicTitle: 'A topic',
+        replyToPostNumber: 3,
+        replyToUsername: 'sam',
+        replyingToWhisper: true,
+      ),
+    );
+    addTearDown(composer.dispose);
+
+    expect(composer.whisper, isTrue);
+    composer.setWhisper(false);
+    expect(composer.whisper, isTrue);
+  });
+
   test('plugin edits reject a stale selection as well as stale text', () {
     final composer = ComposerController(_target);
     addTearDown(composer.dispose);

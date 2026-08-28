@@ -93,6 +93,7 @@ final class DiscourseModelCodec {
           json['staff'] == true ||
           json['admin'] == true ||
           json['moderator'] == true,
+      whisperer: json['whisperer'] == true,
       groups: List.unmodifiable([
         for (final group in jsonObjects(json['groups']))
           ?jsonText(group['name']),

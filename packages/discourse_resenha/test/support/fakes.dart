@@ -2218,6 +2218,7 @@ class FakeDiscourseApi
     required Duration typingDuration,
     required Duration composerOpenDuration,
     int? replyToPostNumber,
+    bool whisper = false,
     String? draftKey,
     String? clientId,
   }) async {
@@ -2226,6 +2227,7 @@ class FakeDiscourseApi
       'topicId': topicId,
       'raw': raw,
       'replyToPostNumber': replyToPostNumber,
+      'whisper': whisper,
       'typingDurationMsecs': typingDuration.inMilliseconds,
       'composerOpenDurationMsecs': composerOpenDuration.inMilliseconds,
       'draftKey': draftKey,

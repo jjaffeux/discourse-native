@@ -5691,12 +5691,14 @@ void _writeGroups() {
     int? replyToPostNumber = 3,
     String? draftKey = 'topic_12',
     Duration typing = const Duration(seconds: 9),
+    bool whisper = false,
   }) => api.createPost(
     siteUrl: 'https://meta.discourse.org',
     apiKey: 'the-key',
     topicId: 12,
     raw: 'hi',
     replyToPostNumber: replyToPostNumber,
+    whisper: whisper,
     draftKey: draftKey,
     typingDuration: typing,
     composerOpenDuration: const Duration(seconds: 30),
@@ -6074,6 +6076,39 @@ void _writeGroups() {
       );
     });
 
+    test('reads and persists the whisper guardian capability', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'current_user': {
+                'id': 7,
+                'username': 'sam',
+                'staff': false,
+                'whisperer': true,
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final user = await api.currentUser(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+      );
+      final stored = DiscourseUser.fromJson(user.toJson());
+
+      expect(user.staff, isFalse);
+      expect(user.whisperer, isTrue);
+      expect(stored, user);
+      expect(stored.hashCode, user.hashCode);
+      expect(
+        DiscourseUser.fromJson(const {'username': 'old'}).whisperer,
+        isFalse,
+      );
+    });
+
     test('sidebar category ids survive storage and affect user identity', () {
       const user = DiscourseUser(username: 'sam', sidebarCategoryIds: [5, 8]);
 
@@ -6365,6 +6400,23 @@ void _writeGroups() {
       final body = jsonDecode(sent.body) as Map<String, dynamic>;
       expect(body['typing_duration_msecs'], 9000);
       expect(body['composer_open_duration_msecs'], 30000);
+    });
+
+    test('sends the core whisper flag only for a whispered reply', () async {
+      late http.Request whispered;
+      await create(
+        DiscourseApi(client: accepting(onRequest: (r) => whispered = r)),
+        whisper: true,
+      );
+      final whisperedBody = jsonDecode(whispered.body) as Map<String, dynamic>;
+      expect(whisperedBody['whisper'], isTrue);
+
+      late http.Request public;
+      await create(
+        DiscourseApi(client: accepting(onRequest: (r) => public = r)),
+      );
+      final publicBody = jsonDecode(public.body) as Map<String, dynamic>;
+      expect(publicBody.containsKey('whisper'), isFalse);
     });
 
     test(

@@ -5221,11 +5221,17 @@ class ShellController extends FrameSafeNotifier
   /// composer at the new post rather than discarding it — unless that composer
   /// is editing a post, which is a different piece of writing altogether and
   /// cannot be retargeted into a reply.
-  void openReply({int? replyToPostNumber, String? replyToUsername}) {
+  void openReply({
+    int? replyToPostNumber,
+    String? replyToUsername,
+    bool? replyingToWhisper,
+  }) {
     final instance = currentInstance;
     final route = currentContent;
     final topicId = route?.topicId;
     if (instance == null || topicId == null || !canReplyHere) return;
+    final targetsWhisper =
+        replyingToWhisper ?? _replyTargetsWhisper(replyToPostNumber);
 
     final existing = _composer;
     if (existing != null &&
@@ -5236,6 +5242,7 @@ class ShellController extends FrameSafeNotifier
       existing.retarget(
         replyToPostNumber: replyToPostNumber,
         replyToUsername: replyToUsername,
+        replyingToWhisper: targetsWhisper,
       );
       existing.focus.requestFocus();
       return;
@@ -5250,12 +5257,25 @@ class ShellController extends FrameSafeNotifier
       topicTitle: route?.title ?? '',
       replyToPostNumber: replyToPostNumber,
       replyToUsername: replyToUsername,
+      replyingToWhisper: targetsWhisper,
     );
     final composer = _buildTextComposer(target, persistsDraft: true);
     _composer = composer;
     _notify();
 
     _startComposerDraftRestore(composer);
+  }
+
+  bool _replyTargetsWhisper(int? postNumber) {
+    if (postNumber == null) return false;
+    final instance = currentInstance;
+    final topic = currentTopic;
+    if (instance == null || topic == null) return false;
+    for (final postId in topic.stream) {
+      final post = store.read<Post>(instance.url, postId);
+      if (post?.postNumber == postNumber) return post!.isWhisper;
+    }
+    return false;
   }
 
   /// Opens a reply composer and inserts a selected post quote into it.
@@ -5290,6 +5310,7 @@ class ShellController extends FrameSafeNotifier
       openReply(
         replyToPostNumber: post.postNumber == 1 ? null : post.postNumber,
         replyToUsername: post.postNumber == 1 ? null : post.username,
+        replyingToWhisper: post.postNumber != 1 && post.isWhisper,
       );
       composer = _composer;
     }
@@ -7890,6 +7911,7 @@ class ShellController extends FrameSafeNotifier
               topicId: target.topicId,
               raw: raw,
               replyToPostNumber: target.replyToPostNumber,
+              whisper: composer.whisper,
               typingDuration: composer.typingDuration,
               composerOpenDuration: composer.openDuration,
               draftKey: target.draftKey,
