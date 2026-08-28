@@ -2505,37 +2505,7 @@ class _PostTileState extends State<_PostTile> {
                     if (post.createdAt != null) const SizedBox(width: 8),
                   ],
                   if (post.editCount > 0) ...[
-                    PostRevisionIndicator(
-                      post: post,
-                      onPressed: post.canViewEditHistory
-                          ? () {
-                              final controller = ShellScope.read(context);
-                              unawaited(
-                                showPostRevisionHistory(
-                                  context: context,
-                                  siteUrl: widget.siteUrl,
-                                  post: post,
-                                  loadRevision: (revision) =>
-                                      controller.loadPostRevision(
-                                        siteUrl: widget.siteUrl,
-                                        postId: post.id,
-                                        revision: revision,
-                                      ),
-                                  categoryLabel: (id) {
-                                    if (id == null) return 'Uncategorized';
-                                    return controller
-                                            .categoryFor(
-                                              id,
-                                              siteUrl: widget.siteUrl,
-                                            )
-                                            ?.name ??
-                                        'Category $id';
-                                  },
-                                ),
-                              );
-                            }
-                          : null,
-                    ),
+                    PostRevisionIndicator(post: post),
                     if (post.createdAt != null) const SizedBox(width: 4),
                   ],
                   if (post.createdAt case final createdAt?)

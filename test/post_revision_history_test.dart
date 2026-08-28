@@ -1,9 +1,18 @@
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_revision.dart';
+import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/post_revision_history.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/fakes.dart';
+
+const _siteUrl = 'https://meta.example';
 
 void main() {
   test('post reads the public edit count and history permission', () {
@@ -62,10 +71,9 @@ void main() {
     expect(revision.comparisonLabel, 'Comparing version 2 to 3 of 4');
   });
 
-  testWidgets('edit indicator shows the count and permission gate', (
+  testWidgets('edit indicator presents the count as passive metadata', (
     tester,
   ) async {
-    var pressed = false;
     const post = Post(
       id: 42,
       postNumber: 1,
@@ -78,27 +86,107 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: Scaffold(
-          body: PostRevisionIndicator(
-            post: post,
-            onPressed: () => pressed = true,
-          ),
-        ),
+        home: const Scaffold(body: PostRevisionIndicator(post: post)),
       ),
     );
 
     expect(find.text('2'), findsOneWidget);
     expect(
       tester.getSemantics(find.byType(PostRevisionIndicator)),
-      matchesSemantics(
-        label: '2 edits. View edit history',
-        isButton: true,
-        hasEnabledState: true,
-        isEnabled: true,
+      matchesSemantics(label: '2 edits'),
+    );
+    expect(
+      find.descendant(
+        of: find.byType(PostRevisionIndicator),
+        matching: find.byType(TextButton),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('More actions opens edit history for an authorized reader', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      postRevisions: const {
+        42: PostRevision(
+          postId: 42,
+          currentRevision: 3,
+          currentVersion: 3,
+          versionCount: 3,
+          username: 'editor',
+          bodyChanges: PostRevisionDiff(inline: '<p>Changed body</p>'),
+        ),
+      },
+    );
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([instance('meta.example')]),
+      api: api,
+      authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updater: FakeUpdater(),
+      updateStore: FakeUpdateStore(),
+    );
+    await controller.load();
+    addTearDown(controller.dispose);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 7, slug: 'edited-topic', title: 'Edited'),
+    );
+    controller.store.put(
+      _siteUrl,
+      const TopicDetail(id: 7, title: 'Edited', stream: [42]),
+    );
+
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: const Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 320,
+                height: 100,
+                child: PostActions(
+                  siteUrl: _siteUrl,
+                  post: Post(
+                    id: 42,
+                    postNumber: 1,
+                    username: 'author',
+                    cooked: '<p>Post body</p>',
+                    version: 3,
+                    canViewEditHistory: true,
+                  ),
+                  child: Center(child: Text('Post body')),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
-    await tester.tap(find.byKey(const ValueKey('post-revision-indicator-42')));
-    expect(pressed, isTrue);
+    await tester.pumpAndSettle();
+
+    final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await pointer.addPointer(location: Offset.zero);
+    addTearDown(pointer.removePointer);
+    await pointer.moveTo(tester.getCenter(find.text('Post body')));
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('More actions'));
+    await tester.pumpAndSettle();
+    expect(
+      find.widgetWithText(MenuItemButton, 'View edit history'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.widgetWithText(MenuItemButton, 'View edit history'));
+    await tester.pumpAndSettle();
+
+    expect(api.postRevisionsRequested, [(postId: 42, revision: null)]);
+    expect(find.text('Edit history'), findsOneWidget);
+    expect(_richTextContaining('Changed body'), findsOneWidget);
   });
 
   testWidgets('history renders the latest diff and follows server navigation', (

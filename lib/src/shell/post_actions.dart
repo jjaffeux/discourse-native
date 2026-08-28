@@ -19,6 +19,7 @@ import 'post_action.dart';
 import 'post_flag_editor.dart';
 import 'post_notice_editor.dart';
 import 'post_permanent_delete.dart';
+import 'post_revision_history.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
@@ -363,6 +364,14 @@ class _PostActionsState extends State<PostActions> {
             tooltip: 'Edit this post',
             onInvoke: () => controller.openEdit(post),
           ),
+        if (post.editCount > 0 && post.canViewEditHistory)
+          PostAction(
+            icon: DIcons.pencil,
+            placement: PostActionPlacement.overflow,
+            label: 'View edit history',
+            tooltip: 'View this post\'s edit history',
+            onInvoke: () => _openRevisionHistory(controller),
+          ),
         if (post.canWiki)
           PostAction(
             icon: DIcons.farPenToSquare,
@@ -521,6 +530,27 @@ class _PostActionsState extends State<PostActions> {
           ),
       ],
       rebuildOn: contribution.rebuildOn,
+    );
+  }
+
+  void _openRevisionHistory(ShellController controller) {
+    final post = widget.post;
+    unawaited(
+      showPostRevisionHistory(
+        context: context,
+        siteUrl: widget.siteUrl,
+        post: post,
+        loadRevision: (revision) => controller.loadPostRevision(
+          siteUrl: widget.siteUrl,
+          postId: post.id,
+          revision: revision,
+        ),
+        categoryLabel: (id) {
+          if (id == null) return 'Uncategorized';
+          return controller.categoryFor(id, siteUrl: widget.siteUrl)?.name ??
+              'Category $id';
+        },
+      ),
     );
   }
 
