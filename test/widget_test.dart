@@ -4212,6 +4212,12 @@ void main() {
           find.descendant(of: metadata, matching: find.text('Announcements')),
           findsOneWidget,
         );
+        expect(
+          tester.getSize(
+            find.byKey(const ValueKey('topic-header-category-color')),
+          ),
+          const Size.square(9),
+        );
         for (final tag in tags) {
           expect(
             find.descendant(
@@ -4243,6 +4249,7 @@ void main() {
         expect(centers[0].dx, lessThan(centers[1].dx));
         expect(centers[1].dx, lessThan(centers[2].dx));
         expect(centers[2].dx, lessThan(centers[3].dx));
+        expect(tester.getRect(metadata).right, greaterThan(centers[0].dx));
         expect(tester.takeException(), isNull);
       },
     );
