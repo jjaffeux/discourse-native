@@ -1,11 +1,9 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
-import 'package:discourse_native/src/plugins/local_dates/local_date_composer_pill.dart';
-import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
+import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_pills.dart';
@@ -17,11 +15,10 @@ import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/syntax.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-
-import 'support/bundled_plugins.dart';
 
 /// The composer draws markdown but posts it unchanged, and the two are the same
 /// string. Everything Flutter does with an editable — placing the caret, hit
@@ -41,7 +38,7 @@ void main() {
       text: source,
       resolveEmoji: resolveEmoji,
       pills: pills,
-      syntaxPlugins: pluginRegistry.composerSyntaxPlugins,
+      syntaxPolicies: const [_FakeSyntaxPolicy()],
     );
     addTearDown(controller.dispose);
 
@@ -733,13 +730,9 @@ void main() {
     const source =
         '![shot|400x300](https://example.com/a.png)\n'
         '\n'
-        'Meeting [date=2026-01-02 time=10:00 timezone="UTC"] here.\n'
+        'Meeting [[first:2026-01-02]] here.\n'
         '\n'
-        '[poll name=lunch]\n'
-        '# Question\n'
-        '* one\n'
-        '* two\n'
-        '[/poll]\n'
+        'Choose [[second:one|two]] now.\n'
         '\n'
         '[quote="sam, post:1, topic:2"]\n'
         'Quoted line.\n'
@@ -751,8 +744,8 @@ void main() {
 
     final finders = <String, Finder>{
       'image': find.byType(ComposerImagePreview),
-      'date': find.byType(LocalDateComposerPill),
-      'poll': find.byType(PollComposerPill),
+      'first syntax': find.widgetWithText(_FakeSyntaxPill, 'first:2026-01-02'),
+      'second syntax': find.widgetWithText(_FakeSyntaxPill, 'second:one|two'),
       'quote': find.byType(ComposerQuotePreview),
     };
     final before = <String, Element>{};
@@ -914,8 +907,8 @@ void main() {
       }
     });
     testWidgets('so does every block a pill stands in for', (tester) async {
-      // The block projections are the other half: a quote, an image, a poll
-      // and a local date each replace a whole range with one pill and then
+      // The block projections are the other half: a quote, an image, and
+      // arbitrary plugin syntax each replace a whole range with one pill and
       // account for every remaining code unit themselves — as a transparent
       // line ending, as zero-size text, or as a zero-size widget. The
       // arithmetic differs per kind and each is only as right as the shapes
@@ -930,14 +923,14 @@ void main() {
         '[quote="a"]\nx\n[/quote]\n\n',
         '![alt|10x20](upload://abc.png)',
         '![a](https://e.com/a.png)',
-        '[date=2026-01-02 time=10:00 timezone="UTC"]',
-        '[poll type=regular]\n* one\n* two\n[/poll]',
-        '[poll type=regular]\n* one\n* two\n[/poll] ',
-        '[poll type=regular]\n* one\n* two\n[/poll]\t\t',
+        '[[alpha:2026-01-02]]',
+        '[[choice:one|two]]',
+        '[[choice:one|two]] ',
+        '[[choice:one|two]]\t\t',
         '[/quote]',
-        '[/poll]',
+        '[[/unknown]]',
         '[quote',
-        '[poll',
+        '[[choice',
         '![',
         '](',
         ')',
@@ -986,6 +979,104 @@ void main() {
       }
     });
   });
+}
+
+const _fakeSyntaxKind = ComposerSyntaxKind(
+  owner: PluginId('fake-syntax'),
+  name: 'token',
+);
+
+final class _FakeSyntaxPolicy implements ComposerSyntaxPolicy {
+  const _FakeSyntaxPolicy();
+
+  @override
+  ComposerSyntaxKind get kind => _fakeSyntaxKind;
+
+  @override
+  Object? get projectionState => null;
+
+  @override
+  TextInputFormatter? get inputFormatter => null;
+
+  @override
+  List<ComposerSyntaxProjection> parse(String source) => [
+    for (final match in RegExp(r'\[\[[^\]\n]+\]\]').allMatches(source))
+      _FakeSyntaxProjection(match.start, match.end, match.group(0)!),
+  ];
+}
+
+final class _FakeSyntaxProjection implements ComposerSyntaxProjection {
+  const _FakeSyntaxProjection(this.start, this.end, this.source);
+
+  @override
+  final int start;
+  @override
+  final int end;
+  @override
+  final String source;
+
+  @override
+  bool needsRawSource(
+    TextEditingValue document, {
+    required bool suppressCollapsedCaret,
+  }) =>
+      !suppressCollapsedCaret &&
+      document.selection.extentOffset > start &&
+      document.selection.extentOffset < end;
+
+  @override
+  int caretAfter(String document) => end;
+
+  @override
+  TextEditingValue moveCaretAfter(TextEditingValue document) =>
+      document.copyWith(
+        selection: TextSelection.collapsed(offset: end),
+        composing: TextRange.empty,
+      );
+
+  @override
+  bool get supportsHover => false;
+
+  @override
+  bool get protectsAdjacentDelete => false;
+
+  @override
+  bool get hidesCursorWhenSelected => false;
+
+  @override
+  List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context) => [
+    WidgetSpan(
+      alignment: PlaceholderAlignment.middle,
+      child: _FakeSyntaxPill(
+        key: context.pillKey,
+        label: source.substring(2, source.length - 2),
+      ),
+    ),
+    if (source.length > 1)
+      TextSpan(
+        text: source.substring(1),
+        style: context.baseStyle.copyWith(
+          color: Colors.transparent,
+          fontSize: 0,
+          height: 0,
+        ),
+      ),
+  ];
+
+  @override
+  void edit(BuildContext context, ComposerEditorHost editor) {}
+
+  @override
+  void remove(BuildContext context, ComposerEditorHost editor) {}
+}
+
+final class _FakeSyntaxPill extends StatelessWidget {
+  const _FakeSyntaxPill({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Text(label);
 }
 
 /// The smallest thing `Image.memory` will accept: a 1x1 transparent PNG.

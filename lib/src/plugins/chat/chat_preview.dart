@@ -1,9 +1,10 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
-import '../../plugin_api/chat_preview.dart';
+import '../../diagnostics/diagnostics_controller.dart';
 import '../../shell/markdown_highlight.dart';
+import 'chat_preview_contract.dart';
 
-export '../../plugin_api/chat_preview.dart';
+export 'chat_preview_contract.dart';
 
 /// The deliberately small, app-owned boundary for provisional chat bodies.
 ///
@@ -21,6 +22,34 @@ final class ChatPreviewEngine {
   final int maxSourceLength;
   final int maxPluginClaims;
   final int maxDocumentNodes;
+
+  /// Builds the one contribution-owned node renderer, or declines safely.
+  ///
+  /// Rendering stays beside Chat's projector so core's registry never needs
+  /// to know about Chat documents or contribution ids.
+  Widget? buildPreviewNode(BuildContext context, PluginPreviewNode node) {
+    ChatPreviewContribution? owner;
+    for (final plugin in _plugins.whereType<ChatPreviewContribution>()) {
+      if (plugin.previewFeatureId != node.featureId) continue;
+      if (owner != null) return null;
+      owner = plugin;
+    }
+    if (owner == null) return null;
+    try {
+      return owner.buildPreviewNode(context, node);
+    } catch (error, stackTrace) {
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'chat.previewPlugin.render',
+        source: 'chat',
+        severity: DiagnosticSeverity.warning,
+        handled: true,
+        degraded: true,
+      );
+      return null;
+    }
+  }
 
   /// Rebuilds the pure projector from the currently active static registry.
   ChatPreviewEngine withPlugins(Iterable<ChatPreviewPluginAdapter> plugins) =>

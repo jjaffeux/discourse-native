@@ -18,6 +18,13 @@ const pollCurrentUserDataKey = PluginDataKey<PollCurrentUser>(
 const pollSettingsPersistenceCodec = PollSettingsPersistenceCodec();
 const pollCurrentUserPersistenceCodec = PollCurrentUserPersistenceCodec();
 
+extension PollPluginDataRead on PluginData {
+  PollSettings get pollSettings =>
+      get(pollSettingsDataKey) ?? const PollSettings();
+
+  PollCurrentUser? get pollCurrentUser => get(pollCurrentUserDataKey);
+}
+
 /// Poll's client settings from `/site/settings.json`.
 @immutable
 final class PollSettings {
@@ -136,8 +143,7 @@ final class PollCurrentUserPersistenceCodec
 
 /// Source-compatible Poll settings access for plugin-owned UI.
 extension PollSiteConfigData on SiteConfig {
-  PollSettings get pollSettings =>
-      plugins.get(pollSettingsDataKey) ?? const PollSettings();
+  PollSettings get pollSettings => plugins.pollSettings;
 
   int get pollMaximumOptions => pollSettings.maximumOptions;
 
@@ -146,7 +152,7 @@ extension PollSiteConfigData on SiteConfig {
 
 /// Source-compatible Poll capability access for plugin-owned UI.
 extension PollDiscourseUserData on DiscourseUser {
-  PollCurrentUser? get pollCurrentUser => plugins.get(pollCurrentUserDataKey);
+  PollCurrentUser? get pollCurrentUser => plugins.pollCurrentUser;
 
   bool? get canCreatePoll => pollCurrentUser?.canCreatePoll;
 }

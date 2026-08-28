@@ -59,13 +59,6 @@ abstract interface class PluginNavigationHost {
   void replaceCurrentContent(ContentRoute route);
   void selectDestination(SidebarDestination destination);
   void showPluginContent();
-
-  Future<String?> insertPluginTranscriptIntoNewTopic({
-    required String siteUrl,
-    required String sourceRouteId,
-    required String markdown,
-    int? initialCategoryId,
-  });
 }
 
 abstract interface class PluginLinkHandler implements PluginSessionCapability {

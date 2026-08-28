@@ -9,9 +9,13 @@ import '../../plugin_api/plugin_data.dart';
 
 const pollsDataKey = PluginDataKey<Polls>(owner: 'poll', name: 'post');
 
+extension PollPostPluginData on PluginData {
+  Polls? get polls => get(pollsDataKey);
+}
+
 /// The poll data Discourse attached to a post, if any.
 extension PostPolls on Post {
-  Polls? get polls => plugins.get(pollsDataKey);
+  Polls? get polls => plugins.polls;
 
   bool get hasPolls => polls != null;
 }

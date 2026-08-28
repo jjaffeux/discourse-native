@@ -1,8 +1,6 @@
-import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../diagnostics/diagnostics_controller.dart';
 import '../models/content_route.dart';
 import '../models/discourse_user.dart';
 import '../models/forum_workspace.dart';
@@ -12,7 +10,6 @@ import '../models/topic.dart';
 import '../models/user_card.dart';
 import '../shell/composer_controller.dart';
 import '../shell/post_action.dart';
-import 'chat_preview.dart';
 import 'site_plugin_api.dart';
 
 /// Immutable dispatch table produced by installing a complete manifest.
@@ -26,6 +23,7 @@ final class PluginRegistry implements PluginDataDecoder {
     final registry = PluginRegistry(List.unmodifiable(plugins));
     registry._validateRecordOwners();
     registry._validateComposerTargetOwners();
+    registry._validateComposerSyntaxOwners();
     registry._validateTopicRecommendationSources();
     registry._validateNotificationFeeds();
     return registry;
@@ -47,6 +45,28 @@ final class PluginRegistry implements PluginDataDecoder {
       if (previous != null) {
         throw ArgumentError(
           'Composer target $kind is claimed by both $previous and $pluginName.',
+        );
+      }
+      owners[kind] = pluginName;
+    }
+  }
+
+  void _validateComposerSyntaxOwners() {
+    final owners = <ComposerSyntaxKind, String>{};
+    for (final plugin in plugins.whereType<ComposerSyntaxPlugin>()) {
+      final pluginName = (plugin as SitePlugin).name;
+      final kind = plugin.composerSyntaxKind;
+      if (kind.owner != PluginId(pluginName) ||
+          kind.name.trim().isEmpty ||
+          kind.name.contains('/')) {
+        throw ArgumentError(
+          'Composer syntax $kind must be namespaced to $pluginName.',
+        );
+      }
+      final previous = owners[kind];
+      if (previous != null) {
+        throw ArgumentError(
+          'Composer syntax $kind is claimed by both $previous and $pluginName.',
         );
       }
       owners[kind] = pluginName;
@@ -195,37 +215,6 @@ final class PluginRegistry implements PluginDataDecoder {
     owners[key] = owner;
   }
 
-  /// Installed preview contributions in deterministic manifest order.
-  ///
-  /// Projection belongs to Chat; core only carries these stable adapters to
-  /// the Chat session factory.
-  List<ChatPreviewPluginAdapter> get chatPreviewPlugins =>
-      List.unmodifiable(plugins.whereType<ChatMessagePreviewPlugin>());
-
-  Widget? buildChatPreviewNode(BuildContext context, PluginPreviewNode node) {
-    ChatMessagePreviewPlugin? owner;
-    for (final plugin in plugins.whereType<ChatMessagePreviewPlugin>()) {
-      if (plugin.previewFeatureId != node.featureId) continue;
-      if (owner != null) return null;
-      owner = plugin;
-    }
-    if (owner == null) return null;
-    try {
-      return owner.buildPreviewNode(context, node);
-    } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'chat.previewPlugin.render',
-        source: 'chat',
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-      );
-      return null;
-    }
-  }
-
   @override
   PluginData readPost(Map<String, dynamic> json, String siteUrl) {
     var values = PluginData.none;
@@ -350,18 +339,6 @@ final class PluginRegistry implements PluginDataDecoder {
     return Map.unmodifiable(namespaces);
   }
 
-  int composerMaximumOptions(PluginData siteSettings, {int fallback = 20}) {
-    for (final plugin in plugins.whereType<ComposerMaximumOptionsPlugin>()) {
-      return plugin.composerMaximumOptions(siteSettings);
-    }
-    return fallback;
-  }
-
-  bool allowsComposerUploads(PluginData siteSettings, {required bool isChat}) =>
-      plugins.whereType<ComposerUploadPolicyPlugin>().every(
-        (plugin) => plugin.allowsComposerUploads(siteSettings, isChat: isChat),
-      );
-
   bool siteFeatureEnabled(String pluginId, PluginData siteSettings) {
     for (final plugin in plugins) {
       if (plugin.name == pluginId && plugin is PluginSiteFeature) {
@@ -380,19 +357,6 @@ final class PluginRegistry implements PluginDataDecoder {
       }
     }
     return false;
-  }
-
-  bool allowsPermission(
-    String permissionId,
-    PluginData currentUser,
-    bool? recordPermission,
-  ) {
-    for (final plugin in plugins.whereType<PluginPermissionPlugin>()) {
-      if (plugin.permissionId == permissionId) {
-        return plugin.allowsPermission(currentUser, recordPermission);
-      }
-    }
-    return recordPermission ?? false;
   }
 
   @override
@@ -549,10 +513,10 @@ final class PluginRegistry implements PluginDataDecoder {
 
   List<ComposerToolbarContribution> composerToolbar(
     BuildContext context,
-    ComposerController composer,
+    ComposerEditorHost editor,
   ) => [
     for (final plugin in plugins.whereType<ComposerToolbarPlugin>())
-      ...plugin.composerToolbar(context, composer),
+      ...plugin.composerToolbar(context, editor),
   ];
 
   /// Resolves the one capability which owns [request.kind].
@@ -592,15 +556,33 @@ final class PluginRegistry implements PluginDataDecoder {
     return null;
   }
 
-  List<ComposerSyntaxPlugin> get composerSyntaxPlugins =>
-      List.unmodifiable(plugins.whereType<ComposerSyntaxPlugin>());
+  List<ComposerSyntaxPolicy> composerSyntaxPolicies(
+    ComposerSyntaxPolicyContext context,
+  ) => List.unmodifiable([
+    for (final plugin in plugins.whereType<ComposerSyntaxPlugin>())
+      _composerSyntaxPolicy(plugin, context),
+  ]);
+
+  ComposerSyntaxPolicy _composerSyntaxPolicy(
+    ComposerSyntaxPlugin plugin,
+    ComposerSyntaxPolicyContext context,
+  ) {
+    final policy = plugin.createComposerSyntaxPolicy(context);
+    if (policy.kind != plugin.composerSyntaxKind) {
+      throw StateError(
+        '${(plugin as SitePlugin).name} returned syntax policy ${policy.kind} '
+        'for ${plugin.composerSyntaxKind}.',
+      );
+    }
+    return policy;
+  }
 
   Map<ShortcutActivator, VoidCallback> composerShortcuts(
     BuildContext context,
-    ComposerController composer,
+    ComposerEditorHost editor,
   ) => {
     for (final plugin in plugins.whereType<ComposerShortcutPlugin>())
-      ...plugin.composerShortcuts(context, composer),
+      ...plugin.composerShortcuts(context, editor),
   };
 
   List<Widget> userCardActions(

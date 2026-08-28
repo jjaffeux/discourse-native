@@ -78,11 +78,78 @@ final class PluginDependency {
   final bool optional;
 }
 
+/// Authority to contribute immutable installation-time behavior to a point
+/// owned by another plugin.
+///
+/// Unlike [PluginDependency], this does not impose session startup order and
+/// exposes no runtime service. It is deliberately a separate edge: an
+/// extension may be consumed by its owner before the contributing plugin's
+/// session is created.
+final class PluginStaticContributionTarget {
+  const PluginStaticContributionTarget(
+    this.id, {
+    this.versions = const PluginVersionRange.any(),
+    this.optional = false,
+  });
+
+  final PluginId id;
+  final PluginVersionRange versions;
+  final bool optional;
+}
+
+enum PluginStaticContributionCardinality { many, atMostOne, exactlyOne }
+
+/// A typed, namespaced point for immutable installation-time contributions.
+///
+/// The owning module declares the point. Other modules may contribute only
+/// when their descriptor declares a [PluginStaticContributionTarget] for the
+/// owner.
+final class PluginStaticContributionPoint<T extends Object> {
+  const PluginStaticContributionPoint({
+    required this.owner,
+    required this.name,
+    this.cardinality = PluginStaticContributionCardinality.many,
+  });
+
+  final PluginId owner;
+  final String name;
+  final PluginStaticContributionCardinality cardinality;
+
+  String get id => '${owner.value}/$name';
+
+  Type get valueType => T;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PluginStaticContributionPoint<Object> &&
+      other.owner == owner &&
+      other.name == name;
+
+  @override
+  int get hashCode => Object.hash(owner, name);
+
+  @override
+  String toString() => id;
+}
+
+/// An owner-scoped immutable view of static contributions.
+abstract interface class PluginStaticContributionCatalog {
+  /// Contributions in deterministic manifest order.
+  List<T> contributions<T extends Object>(
+    PluginStaticContributionPoint<T> point,
+  );
+
+  /// The contribution to a singleton point, or null when an at-most-one point
+  /// has no provider.
+  T? single<T extends Object>(PluginStaticContributionPoint<T> point);
+}
+
 final class PluginDescriptor {
   const PluginDescriptor({
     required this.id,
     this.version = const PluginVersion(1),
     this.dependencies = const [],
+    this.staticContributionTargets = const [],
     this.routeNamespaces = const {},
     this.syntaxIds = const {},
     this.exclusiveClaims = const {},
@@ -91,6 +158,7 @@ final class PluginDescriptor {
   final PluginId id;
   final PluginVersion version;
   final List<PluginDependency> dependencies;
+  final List<PluginStaticContributionTarget> staticContributionTargets;
   final Set<String> routeNamespaces;
   final Set<String> syntaxIds;
   final Set<String> exclusiveClaims;
@@ -120,6 +188,21 @@ abstract interface class PluginRegistrar {
   void addSyntaxId(String syntaxId);
 
   void addExclusiveClaim(String claim);
+
+  /// Declares a static contribution point owned by this module.
+  void addStaticContributionPoint<T extends Object>(
+    PluginStaticContributionPoint<T> point,
+  );
+
+  /// Contributes one immutable value to [point].
+  ///
+  /// [name] is local to the contributing module; the runtime namespaces it to
+  /// the registrar's module id.
+  void addStaticContribution<T extends Object>(
+    PluginStaticContributionPoint<T> point, {
+    required String name,
+    required T value,
+  });
 
   void addSession(
     PluginSessionFactory factory, {

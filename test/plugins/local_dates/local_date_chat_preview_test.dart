@@ -99,19 +99,19 @@ void main() {
     'the static registry renders a claimed node with Local Dates UI',
     (tester) async {
       const raw = '[date=2026-08-12 time=09:30 timezone=Etc/UTC]';
-      final result =
-          ChatPreviewEngine(
-                plugins: pluginRegistry.chatPreviewPlugins,
-              ).project(request(raw))
-              as ProjectedPreview;
+      final preview = ChatPreviewEngine(
+        plugins: installedPlugins
+            .staticContributionsFor(chatPreviewContributions.owner)
+            .contributions(chatPreviewContributions),
+      );
+      final result = preview.project(request(raw)) as ProjectedPreview;
       final node = result.document.nodes.whereType<PluginPreviewNode>().single;
 
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: Builder(
-              builder: (context) =>
-                  pluginRegistry.buildChatPreviewNode(context, node)!,
+              builder: (context) => preview.buildPreviewNode(context, node)!,
             ),
           ),
         ),

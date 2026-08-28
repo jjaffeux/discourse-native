@@ -319,8 +319,16 @@ void main() {
         _Module('two', routeNamespaces: {'shared'}),
       ]),
       const PluginManifest([
-        _Module('one', syntaxIds: {'shared'}),
-        _Module('two', syntaxIds: {'shared'}),
+        _Module(
+          'one',
+          syntaxIds: {'one/shared'},
+          capabilities: [_SyntaxCapability('one', 'shared')],
+        ),
+        _Module(
+          'two',
+          syntaxIds: {'one/shared'},
+          capabilities: [_SyntaxCapability('two', 'shared')],
+        ),
       ]),
       const PluginManifest([
         _Module('one', exclusiveClaims: {'shared'}),
@@ -341,7 +349,7 @@ void main() {
           _Module(
             'feature',
             routeNamespaces: {'route'},
-            syntaxIds: {'syntax'},
+            syntaxIds: {'feature/syntax'},
             exclusiveClaims: {'exclusive'},
             capabilities: [_SyntaxCapability('feature', 'syntax')],
           ),
@@ -358,8 +366,8 @@ void main() {
       ),
       const _Module(
         'syntax-owner',
-        syntaxIds: {'declared'},
-        registeredSyntaxIds: ['declared'],
+        syntaxIds: {'syntax-owner/declared'},
+        registeredSyntaxIds: ['syntax-owner/declared'],
         capabilities: [_SyntaxCapability('syntax-owner', 'actual')],
       ),
       const _Module(
@@ -375,6 +383,23 @@ void main() {
     }
   });
 
+  test('composer syntax kinds cannot claim a foreign owner', () {
+    expect(
+      () => PluginInstaller.install(
+        const PluginManifest([
+          _Module(
+            'feature',
+            syntaxIds: {'feature/syntax'},
+            capabilities: [
+              _SyntaxCapability('feature', 'syntax', owner: 'other'),
+            ],
+          ),
+        ]),
+      ),
+      throwsA(isA<PluginInstallationException>()),
+    );
+  });
+
   test('duplicate actual claims are rejected within one module', () {
     for (final duplicate in <PluginModule>[
       const _Module(
@@ -384,8 +409,8 @@ void main() {
       ),
       const _Module(
         'syntax-owner',
-        syntaxIds: {'syntax'},
-        registeredSyntaxIds: ['syntax', 'syntax'],
+        syntaxIds: {'syntax-owner/syntax'},
+        registeredSyntaxIds: ['syntax-owner/syntax', 'syntax-owner/syntax'],
         capabilities: [_SyntaxCapability('syntax-owner', 'syntax')],
       ),
       const _Module(
@@ -395,7 +420,7 @@ void main() {
       ),
       const _Module(
         'syntax-capability-owner',
-        syntaxIds: {'syntax'},
+        syntaxIds: {'syntax-capability-owner/syntax'},
         capabilities: [
           _SyntaxCapability('syntax-capability-owner', 'syntax'),
           _SyntaxCapability('syntax-capability-owner', 'syntax'),
@@ -423,7 +448,7 @@ void main() {
       ),
       const _Module(
         'syntax-omitted',
-        syntaxIds: {'declared'},
+        syntaxIds: {'syntax-omitted/declared'},
         registeredSyntaxIds: [],
       ),
       const _Module(
@@ -437,6 +462,304 @@ void main() {
         throwsA(isA<PluginInstallationException>()),
       );
     }
+  });
+
+  test(
+    'static contributions preserve manifest order without a startup edge',
+    () {
+      const point = PluginStaticContributionPoint<String>(
+        owner: PluginId('owner'),
+        name: 'items',
+      );
+      final installed = PluginInstaller.install(
+        PluginManifest([
+          _StaticModule(
+            'second',
+            targets: const [PluginStaticContributionTarget(PluginId('owner'))],
+            registerStatic: (registrar) => registrar.addStaticContribution(
+              point,
+              name: 'item',
+              value: 'second',
+            ),
+          ),
+          _StaticModule(
+            'owner',
+            registerStatic: (registrar) {
+              registrar.addStaticContributionPoint(point);
+              registrar.addStaticContribution(
+                point,
+                name: 'owned-item',
+                value: 'owner',
+              );
+            },
+          ),
+        ]),
+      );
+
+      expect(installed.descriptors.map((item) => item.id.value), [
+        'second',
+        'owner',
+      ]);
+      expect(
+        installed
+            .staticContributionsFor(const PluginId('owner'))
+            .contributions(point),
+        ['second', 'owner'],
+      );
+    },
+  );
+
+  test('static contribution order ignores runtime dependency order', () {
+    const point = PluginStaticContributionPoint<String>(
+      owner: PluginId('owner'),
+      name: 'items',
+    );
+    final installed = PluginInstaller.install(
+      PluginManifest([
+        _StaticModule(
+          'first',
+          dependencies: const [PluginDependency(PluginId('second'))],
+          targets: const [PluginStaticContributionTarget(PluginId('owner'))],
+          registerStatic: (registrar) => registrar.addStaticContribution(
+            point,
+            name: 'item',
+            value: 'first',
+          ),
+        ),
+        _StaticModule(
+          'second',
+          targets: const [PluginStaticContributionTarget(PluginId('owner'))],
+          registerStatic: (registrar) => registrar.addStaticContribution(
+            point,
+            name: 'item',
+            value: 'second',
+          ),
+        ),
+        _StaticModule(
+          'owner',
+          registerStatic: (registrar) =>
+              registrar.addStaticContributionPoint(point),
+        ),
+      ]),
+    );
+
+    expect(installed.descriptors.map((item) => item.id.value), [
+      'second',
+      'first',
+      'owner',
+    ]);
+    expect(
+      installed
+          .staticContributionsFor(const PluginId('owner'))
+          .contributions(point),
+      ['first', 'second'],
+    );
+  });
+
+  test('static contribution points and catalog reads enforce ownership', () {
+    const point = PluginStaticContributionPoint<String>(
+      owner: PluginId('owner'),
+      name: 'items',
+    );
+    expect(
+      () => PluginInstaller.install(
+        PluginManifest([
+          _StaticModule(
+            'other',
+            registerStatic: (registrar) =>
+                registrar.addStaticContributionPoint(point),
+          ),
+        ]),
+      ),
+      throwsA(isA<PluginInstallationException>()),
+    );
+
+    final installed = PluginInstaller.install(
+      PluginManifest([
+        _StaticModule(
+          'owner',
+          registerStatic: (registrar) =>
+              registrar.addStaticContributionPoint(point),
+        ),
+      ]),
+    );
+    expect(
+      () => installed
+          .staticContributionsFor(const PluginId('other'))
+          .contributions(point),
+      throwsA(isA<PluginInstallationException>()),
+    );
+  });
+
+  test('foreign static contributions require declared target authority', () {
+    const point = PluginStaticContributionPoint<String>(
+      owner: PluginId('owner'),
+      name: 'items',
+    );
+    expect(
+      () => PluginInstaller.install(
+        PluginManifest([
+          _StaticModule(
+            'owner',
+            registerStatic: (registrar) =>
+                registrar.addStaticContributionPoint(point),
+          ),
+          _StaticModule(
+            'contributor',
+            registerStatic: (registrar) => registrar.addStaticContribution(
+              point,
+              name: 'item',
+              value: 'value',
+            ),
+          ),
+        ]),
+      ),
+      throwsA(isA<PluginInstallationException>()),
+    );
+  });
+
+  test('optional absent static contribution targets are dormant', () {
+    const absentPoint = PluginStaticContributionPoint<String>(
+      owner: PluginId('absent'),
+      name: 'items',
+    );
+    final installed = PluginInstaller.install(
+      PluginManifest([
+        _StaticModule(
+          'contributor',
+          targets: const [
+            PluginStaticContributionTarget(PluginId('absent'), optional: true),
+          ],
+          registerStatic: (registrar) => registrar.addStaticContribution(
+            absentPoint,
+            name: 'item',
+            value: 'value',
+          ),
+        ),
+      ]),
+    );
+
+    expect(installed.descriptors.single.id, const PluginId('contributor'));
+  });
+
+  test(
+    'static contribution point type metadata must match its declaration',
+    () {
+      const declared = PluginStaticContributionPoint<String>(
+        owner: PluginId('owner'),
+        name: 'item',
+      );
+      const incompatible = PluginStaticContributionPoint<int>(
+        owner: PluginId('owner'),
+        name: 'item',
+      );
+      expect(
+        () => PluginInstaller.install(
+          PluginManifest([
+            _StaticModule(
+              'owner',
+              registerStatic: (registrar) =>
+                  registrar.addStaticContributionPoint(declared),
+            ),
+            _StaticModule(
+              'contributor',
+              targets: const [
+                PluginStaticContributionTarget(PluginId('owner')),
+              ],
+              registerStatic: (registrar) => registrar.addStaticContribution(
+                incompatible,
+                name: 'item',
+                value: 1,
+              ),
+            ),
+          ]),
+        ),
+        throwsA(isA<PluginInstallationException>()),
+      );
+    },
+  );
+
+  test('singleton static contribution cardinality is validated at install', () {
+    const point = PluginStaticContributionPoint<String>(
+      owner: PluginId('owner'),
+      name: 'singleton',
+      cardinality: PluginStaticContributionCardinality.atMostOne,
+    );
+    expect(
+      () => PluginInstaller.install(
+        PluginManifest([
+          _StaticModule(
+            'owner',
+            registerStatic: (registrar) =>
+                registrar.addStaticContributionPoint(point),
+          ),
+          for (final id in ['first', 'second'])
+            _StaticModule(
+              id,
+              targets: const [
+                PluginStaticContributionTarget(PluginId('owner')),
+              ],
+              registerStatic: (registrar) => registrar.addStaticContribution(
+                point,
+                name: 'item',
+                value: id,
+              ),
+            ),
+        ]),
+      ),
+      throwsA(isA<PluginInstallationException>()),
+    );
+
+    const required = PluginStaticContributionPoint<String>(
+      owner: PluginId('required-owner'),
+      name: 'singleton',
+      cardinality: PluginStaticContributionCardinality.exactlyOne,
+    );
+    expect(
+      () => PluginInstaller.install(
+        PluginManifest([
+          _StaticModule(
+            'required-owner',
+            registerStatic: (registrar) =>
+                registrar.addStaticContributionPoint(required),
+          ),
+        ]),
+      ),
+      throwsA(isA<PluginInstallationException>()),
+    );
+  });
+
+  test('singleton catalog reads successful and absent contributions', () {
+    const optional = PluginStaticContributionPoint<String>(
+      owner: PluginId('owner'),
+      name: 'optional',
+      cardinality: PluginStaticContributionCardinality.atMostOne,
+    );
+    const required = PluginStaticContributionPoint<String>(
+      owner: PluginId('owner'),
+      name: 'required',
+      cardinality: PluginStaticContributionCardinality.exactlyOne,
+    );
+    final installed = PluginInstaller.install(
+      PluginManifest([
+        _StaticModule(
+          'owner',
+          registerStatic: (registrar) {
+            registrar.addStaticContributionPoint(optional);
+            registrar.addStaticContributionPoint(required);
+            registrar.addStaticContribution(
+              required,
+              name: 'only',
+              value: 'value',
+            );
+          },
+        ),
+      ]),
+    );
+    final catalog = installed.staticContributionsFor(const PluginId('owner'));
+
+    expect(catalog.single(optional), isNull);
+    expect(catalog.single(required), 'value');
   });
 
   test('record and service keys must be owned by their module', () {
@@ -958,6 +1281,33 @@ final class _Module implements PluginModule {
   }
 }
 
+final class _StaticModule implements PluginModule {
+  _StaticModule(
+    this.id, {
+    this.dependencies = const [],
+    this.targets = const [],
+    required this.registerStatic,
+  });
+
+  final String id;
+  final List<PluginDependency> dependencies;
+  final List<PluginStaticContributionTarget> targets;
+  final void Function(PluginRegistrar registrar) registerStatic;
+
+  @override
+  PluginDescriptor get descriptor => PluginDescriptor(
+    id: PluginId(id),
+    dependencies: dependencies,
+    staticContributionTargets: targets,
+  );
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addCapability(_Capability(id));
+    registerStatic(registrar);
+  }
+}
+
 final class _Capability implements SitePlugin {
   const _Capability(this.name);
 
@@ -988,13 +1338,17 @@ final class _BookmarkStrategy implements PluginBookmarkTargetStrategy {
 }
 
 final class _SyntaxCapability implements SitePlugin, ComposerSyntaxPlugin {
-  const _SyntaxCapability(this.name, this.syntaxId);
+  const _SyntaxCapability(this.name, this.syntaxName, {this.owner});
 
   @override
   final String name;
 
+  final String syntaxName;
+  final String? owner;
+
   @override
-  final String syntaxId;
+  ComposerSyntaxKind get composerSyntaxKind =>
+      ComposerSyntaxKind(owner: PluginId(owner ?? name), name: syntaxName);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

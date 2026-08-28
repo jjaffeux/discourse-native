@@ -9,13 +9,12 @@ import '../models/forum_workspace.dart';
 import '../models/notification_totals.dart';
 import '../models/post.dart';
 import '../models/sidebar.dart';
-import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../models/user_card.dart';
 import '../shell/composer_controller.dart';
 import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
-import 'chat_preview.dart';
+import 'composer_syntax.dart';
 import 'notification_feed_host.dart';
 import 'plugin_data.dart';
 
@@ -23,6 +22,7 @@ export 'composer_syntax.dart';
 export 'emoji_usage.dart';
 export 'notification_feed_host.dart';
 export 'plugin_data.dart';
+export 'plugin_manifest.dart' show PluginId;
 export 'shell_extensions.dart';
 export 'topic_recommendation_source.dart';
 
@@ -94,16 +94,6 @@ abstract interface class CurrentUserPlugin<T extends Object> {
   T? readCurrentUser(Map<String, dynamic> json, String siteUrl);
 }
 
-/// Resolves a named write permission without exposing a feature's typed
-/// current-user value to the shell compatibility layer.
-///
-/// Target-specific payload permission remains authoritative when present.
-abstract interface class PluginPermissionPlugin {
-  String get permissionId;
-
-  bool allowsPermission(PluginData currentUser, bool? recordPermission);
-}
-
 /// Resolves a top-level capability which still has a core-owned navigation
 /// host. This is a narrow compatibility seam until those surfaces become UI
 /// contributions in their own right.
@@ -118,17 +108,6 @@ abstract interface class PluginSiteFeature {
 /// UI becomes a plugin contribution of its own.
 abstract interface class PluginCurrentUserFeature {
   bool currentUserFeatureEnabled(PluginData currentUser);
-}
-
-/// Supplies the generic composer projection limit currently shared by every
-/// syntax contribution. Poll is its only provider today.
-abstract interface class ComposerMaximumOptionsPlugin {
-  int composerMaximumOptions(PluginData siteSettings);
-}
-
-/// Narrows core's shared upload service for a plugin-owned composer target.
-abstract interface class ComposerUploadPolicyPlugin {
-  bool allowsComposerUploads(PluginData siteSettings, {required bool isChat});
 }
 
 /// A feature record embedded in a post payload.
@@ -442,7 +421,7 @@ abstract interface class ComposerToolbarPlugin {
   /// Formatting actions this feature contributes to an open composer.
   List<ComposerToolbarContribution> composerToolbar(
     BuildContext context,
-    ComposerController composer,
+    ComposerEditorHost editor,
   );
 }
 
@@ -460,34 +439,16 @@ abstract interface class ComposerTargetPlugin {
   );
 }
 
-/// Read-only site state available while a target's policy is resolved.
+/// Namespaced plugin state available while a target's policy is resolved.
 @immutable
 final class ComposerTargetContext {
   const ComposerTargetContext({
-    required this.config,
+    required this.siteSettings,
     required this.currentUser,
   });
 
-  final SiteConfig config;
-  final DiscourseUser? currentUser;
-}
-
-/// Contributes conservative, app-bundled syntax to optimistic chat previews.
-///
-/// Inspection is pure and returns typed claims or blockers. Rendering remains
-/// a separate capability so the preview document never stores a Widget or
-/// locally generated HTML. Server-only plugins cannot implement this Dart
-/// interface and therefore remain literal source until canonical cooking
-/// arrives.
-abstract interface class ChatMessagePreviewPlugin
-    implements SitePlugin, ChatPreviewPluginAdapter {
-  @override
-  String get previewFeatureId;
-
-  @override
-  ChatPreviewInspection inspect(ChatPreviewRequest request);
-
-  Widget? buildPreviewNode(BuildContext context, PluginPreviewNode node);
+  final PluginData siteSettings;
+  final PluginData currentUser;
 }
 
 /// Contributes navigation sections to the instance sidebar.

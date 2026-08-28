@@ -30,7 +30,6 @@ final class AssignPlugin
         SitePlugin,
         SiteSettingsPlugin<AssignSettings>,
         CurrentUserPlugin<AssignCurrentUser>,
-        PluginPermissionPlugin,
         PostRecordPlugin<Assignments>,
         TopicRecordPlugin<Assignments>,
         PostDecorationPlugin,
@@ -65,14 +64,6 @@ final class AssignPlugin
     Map<String, dynamic> json,
     String siteUrl,
   ) => AssignCurrentUser.fromWire(json);
-
-  @override
-  String get permissionId => 'assign';
-
-  @override
-  bool allowsPermission(PluginData currentUser, bool? recordPermission) =>
-      recordPermission ??
-      currentUser.get(assignCurrentUserDataKey)?.canAssign == true;
 
   @override
   PluginDataKey<Assignments> get record => assignmentsDataKey;

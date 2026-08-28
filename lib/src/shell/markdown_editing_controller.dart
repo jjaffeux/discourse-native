@@ -35,9 +35,7 @@ class MarkdownEditingController extends TextEditingController {
     this.resolveEmoji,
     this.pills,
     this.formatQuoteContents,
-    this.syntaxPlugins = const [],
-    this.pollMaximumOptions = 20,
-    this.localDateAccountTimezone,
+    this.syntaxPolicies = const [],
     this.resolveUploadUrls,
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
@@ -67,10 +65,7 @@ class MarkdownEditingController extends TextEditingController {
   ComposerQuoteContentsResolver? _quoteContentsResolver;
   Object? _quoteContentsResolverContext;
 
-  final List<ComposerSyntaxPlugin> syntaxPlugins;
-
-  final int pollMaximumOptions;
-  final String? localDateAccountTimezone;
+  final List<ComposerSyntaxPolicy> syntaxPolicies;
   final ComposerUploadUrlResolver? resolveUploadUrls;
   final int maxImageWidth;
   final int maxImageHeight;
@@ -107,18 +102,18 @@ class MarkdownEditingController extends TextEditingController {
         _keyboardSelectionDocument == current.text) {
       newValue = current;
     } else if (_caretSuppressedSyntax case final syntax?
-        when syntax.plugin.protectsAdjacentDelete &&
+        when syntax.projection.protectsAdjacentDelete &&
             _stillContainsSyntax(current.text, syntax) &&
-            syntax.plugin.needsRawSource(
-              syntax.value,
+            syntax.projection.needsRawSource(
               newValue,
               suppressCollapsedCaret: false,
             )) {
       // EditableText turns consecutive clicks into word and paragraph ranges
-      // on pointer-down. Keep that transient native selection out of the poll.
+      // on pointer-down. Keep that transient native selection out of the
+      // collapsed projection.
       newValue = newValue.copyWith(
         selection: TextSelection.collapsed(
-          offset: syntax.plugin.caretAfter(syntax.value, current.text),
+          offset: syntax.projection.caretAfter(current.text),
         ),
         composing: TextRange.empty,
       );
@@ -157,8 +152,8 @@ class MarkdownEditingController extends TextEditingController {
     if (projection is! ComposerImageBlock &&
         projection is! ComposerSyntaxOccurrence) {
       for (final occurrence in _syntaxBlocksFor(text)) {
-        if (identical(occurrence.value, projection) ||
-            occurrence.value == projection) {
+        if (identical(occurrence.projection, projection) ||
+            occurrence.projection == projection) {
           projection = occurrence;
           break;
         }
@@ -264,8 +259,8 @@ class MarkdownEditingController extends TextEditingController {
 
   List<TextInputFormatter> get syntaxInputFormatters {
     final formatters = <TextInputFormatter>[];
-    for (final plugin in syntaxPlugins) {
-      final formatter = plugin.inputFormatter;
+    for (final policy in syntaxPolicies) {
+      final formatter = policy.inputFormatter;
       if (formatter != null) formatters.add(formatter);
     }
     return formatters;
@@ -295,7 +290,7 @@ class MarkdownEditingController extends TextEditingController {
   }
 
   int syntaxCaretAfter(ComposerSyntaxOccurrence block) =>
-      block.plugin.caretAfter(block.value, text);
+      block.projection.caretAfter(text);
 
   void keepSyntaxCollapsedForPointerEdit(ComposerSyntaxOccurrence block) {
     if (_sameProjection(_caretSuppressedSyntax, block)) return;
@@ -331,7 +326,8 @@ class MarkdownEditingController extends TextEditingController {
     Offset globalPosition,
   ) {
     for (final block in _syntaxBlocksFor(text)) {
-      if (!block.plugin.protectsAdjacentDelete || !isSyntaxCollapsed(block)) {
+      if (!block.projection.protectsAdjacentDelete ||
+          !isSyntaxCollapsed(block)) {
         continue;
       }
       final rect = collapsedSyntaxGlobalRect(block);
@@ -356,9 +352,9 @@ class MarkdownEditingController extends TextEditingController {
   List<ComposerSyntaxOccurrence> _syntaxBlocksFor(String source) {
     if (_syntaxScanned == source) return _syntaxBlocks;
     final blocks = <ComposerSyntaxOccurrence>[
-      for (final plugin in syntaxPlugins)
-        for (final value in plugin.parseComposerSyntax(source))
-          ComposerSyntaxOccurrence(plugin, value),
+      for (final policy in syntaxPolicies)
+        for (final projection in policy.parse(source))
+          ComposerSyntaxOccurrence(policy, projection),
     ]..sort((a, b) => a.start.compareTo(b.start));
     final live = {for (final block in blocks) _syntaxKey(block): block};
     final held = {for (final block in _syntaxBlocks) _syntaxKey(block): block};
@@ -370,7 +366,7 @@ class MarkdownEditingController extends TextEditingController {
   }
 
   static String _syntaxKey(ComposerSyntaxOccurrence block) =>
-      '${block.plugin.syntaxId}:${block.start}';
+      '${block.kind.id}:${block.start}';
 
   String? _quoteScanned;
   List<ComposerQuoteBlock> _quoteBlocks = const [];
@@ -624,8 +620,7 @@ class MarkdownEditingController extends TextEditingController {
     final syntaxBlocks = _syntaxBlocksFor(source);
     final collapsedSyntax = [
       for (final block in syntaxBlocks)
-        if (!block.plugin.needsRawSource(
-          block.value,
+        if (!block.projection.needsRawSource(
           value,
           suppressCollapsedCaret: _sameProjection(
             _caretSuppressedSyntax,
@@ -642,12 +637,15 @@ class MarkdownEditingController extends TextEditingController {
     }
     final syntaxProjection = Object.hash(
       locale,
-      pollMaximumOptions,
-      localDateAccountTimezone,
+      Object.hashAll(
+        syntaxPolicies.map(
+          (policy) => Object.hash(policy.kind, policy.projectionState),
+        ),
+      ),
       Object.hashAll(
         collapsedSyntax.map(
           (block) => Object.hash(
-            block.plugin.syntaxId,
+            block.kind,
             block.start,
             block.end,
             block.source,
@@ -768,21 +766,20 @@ class MarkdownEditingController extends TextEditingController {
         _SpanProjection(
           block.start,
           block.end,
-          () => block.plugin.buildCollapsedSpans(
-            value: block.value,
-            baseStyle: base,
-            locale: locale,
-            accountTimezone: localDateAccountTimezone,
-            maximumOptions: pollMaximumOptions,
-            pillKey: _syntaxPillKeys.putIfAbsent(
-              _syntaxKey(block),
-              () => GlobalKey(
-                debugLabel: '${block.plugin.syntaxId}-pill-${block.start}',
+          () => block.projection.buildCollapsedSpans(
+            ComposerSyntaxRenderContext(
+              baseStyle: base,
+              locale: locale,
+              pillKey: _syntaxPillKeys.putIfAbsent(
+                _syntaxKey(block),
+                () => GlobalKey(
+                  debugLabel: '${block.kind.id}-pill-${block.start}',
+                ),
               ),
+              highlighted: isPillSelectedForKeyboard(block),
+              hovered: isSyntaxHovered(block),
+              followedByLineBreak: syntaxCaretAfter(block) > block.end,
             ),
-            highlighted: isPillSelectedForKeyboard(block),
-            hovered: isSyntaxHovered(block),
-            followedByLineBreak: syntaxCaretAfter(block) > block.end,
           ),
         ),
       for (final image in collapsedImages)
@@ -1051,7 +1048,7 @@ class MarkdownEditingController extends TextEditingController {
   /// subtree or *recreates* it, and a recreation throws away the element, its
   /// render objects, and everything they had measured or memoised. Every
   /// keystroke rebuilds the span tree, so emptying these maps meant paying
-  /// that for every image, date, poll and quote in the document, per key —
+  /// that for every image, plugin syntax block, and quote in the document, per key —
   /// which for a document that is mostly projections is nearly all of what
   /// typing costs.
   ///

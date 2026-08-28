@@ -29,7 +29,10 @@ final class PluginInstaller {
     final registrations = <_PluginRegistration>[];
 
     for (final module in ordered) {
-      final registrar = _PluginRegistrar(module.descriptor);
+      final registrar = _PluginRegistrar(
+        module.descriptor,
+        module.manifestIndex,
+      );
       try {
         module.module.register(registrar);
       } catch (error) {
@@ -44,6 +47,9 @@ final class PluginInstaller {
     final capabilities = <SitePlugin>[
       for (final registration in registrations) ...registration.capabilities,
     ];
+    final staticContributions = _InstalledStaticContributions.validate(
+      registrations,
+    );
     late final PluginRegistry registry;
     try {
       registry = PluginRegistry.validated(capabilities);
@@ -53,12 +59,14 @@ final class PluginInstaller {
     return InstalledPlugins._(
       registrations: List.unmodifiable(registrations),
       registry: registry,
+      staticContributions: staticContributions,
     );
   }
 
   static List<_ModuleSnapshot> _validateAndOrder(List<PluginModule> modules) {
     final snapshots = <_ModuleSnapshot>[];
-    for (final module in modules) {
+    for (var index = 0; index < modules.length; index++) {
+      final module = modules[index];
       final PluginDescriptor descriptor;
       try {
         descriptor = _snapshotDescriptor(module.descriptor);
@@ -68,7 +76,7 @@ final class PluginInstaller {
           error,
         );
       }
-      snapshots.add(_ModuleSnapshot(module, descriptor));
+      snapshots.add(_ModuleSnapshot(module, descriptor, index));
     }
 
     final byId = <PluginId, _ModuleSnapshot>{};
@@ -123,6 +131,30 @@ final class PluginInstaller {
           indegree[module.descriptor.id] = indegree[module.descriptor.id]! + 1;
         }
       }
+      final contributionTargets = <PluginId>{};
+      for (final target in module.descriptor.staticContributionTargets) {
+        if (!contributionTargets.add(target.id)) {
+          throw PluginInstallationException(
+            '${module.descriptor.id} declares duplicate static contribution '
+            'target ${target.id}.',
+          );
+        }
+        final provider = byId[target.id];
+        if (provider == null) {
+          if (target.optional) continue;
+          throw PluginInstallationException(
+            '${module.descriptor.id} requires missing static contribution '
+            'target ${target.id}.',
+          );
+        }
+        if (!target.versions.allows(provider.descriptor.version)) {
+          throw PluginInstallationException(
+            '${module.descriptor.id} requires static contribution target '
+            '${target.id} ${target.versions}, found '
+            '${provider.descriptor.version}.',
+          );
+        }
+      }
     }
 
     final ready = <PluginId>[
@@ -158,6 +190,9 @@ final class PluginInstaller {
       id: descriptor.id,
       version: descriptor.version,
       dependencies: List.unmodifiable(descriptor.dependencies),
+      staticContributionTargets: List.unmodifiable(
+        descriptor.staticContributionTargets,
+      ),
       routeNamespaces: Set.unmodifiable(descriptor.routeNamespaces),
       syntaxIds: Set.unmodifiable(descriptor.syntaxIds),
       exclusiveClaims: Set.unmodifiable(descriptor.exclusiveClaims),
@@ -178,6 +213,19 @@ final class PluginInstaller {
       throw PluginInstallationException(
         'Invalid version ${descriptor.version} for ${descriptor.id}.',
       );
+    }
+    for (final syntaxId in descriptor.syntaxIds) {
+      final prefix = '${descriptor.id.value}/';
+      final name = syntaxId.startsWith(prefix)
+          ? syntaxId.substring(prefix.length)
+          : '';
+      if (name.isEmpty ||
+          name.contains('/') ||
+          !RegExp(r'^[a-z0-9]+(?:[._-][a-z0-9]+)*$').hasMatch(name)) {
+        throw PluginInstallationException(
+          'Composer syntax $syntaxId must be namespaced to ${descriptor.id}.',
+        );
+      }
     }
   }
 
@@ -206,6 +254,7 @@ final class InstalledPlugins {
   InstalledPlugins._({
     required List<_PluginRegistration> registrations,
     required this.registry,
+    required this._staticContributions,
   }) : _registrations = registrations,
        descriptors = List.unmodifiable(
          registrations.map((registration) => registration.descriptor),
@@ -213,9 +262,14 @@ final class InstalledPlugins {
        models = DiscourseModelCodec(extensions: registry);
 
   final List<_PluginRegistration> _registrations;
+  final _InstalledStaticContributions _staticContributions;
   final List<PluginDescriptor> descriptors;
   final PluginRegistry registry;
   final DiscourseModelCodec models;
+
+  /// Static contribution catalog restricted to points owned by [consumer].
+  PluginStaticContributionCatalog staticContributionsFor(PluginId consumer) =>
+      _staticContributions.scopedTo(consumer);
 
   final Set<PluginAppLifecycle> _started = {};
   final Map<PluginAppLifecycle, Set<PluginStartupPhase>> _completedPhases = {};
@@ -537,15 +591,18 @@ final class _PluginDependencies implements PluginDependencies {
 }
 
 final class _PluginRegistrar implements PluginRegistrar {
-  _PluginRegistrar(this.descriptor);
+  _PluginRegistrar(this.descriptor, this.manifestIndex);
 
   final PluginDescriptor descriptor;
+  final int manifestIndex;
   final List<SitePlugin> _capabilities = [];
   final List<PluginAppLifecycle> _appLifecycles = [];
   final List<_SessionRegistration> _sessions = [];
   final Set<String> _routeNamespaces = {};
   final Set<String> _syntaxIds = {};
   final Set<String> _exclusiveClaims = {};
+  final List<_StaticPointRegistration> _staticPoints = [];
+  final List<_StaticContributionRegistration> _staticContributions = [];
 
   @override
   void addCapability(PluginCapability capability) {
@@ -590,6 +647,32 @@ final class _PluginRegistrar implements PluginRegistrar {
   }
 
   @override
+  void addStaticContributionPoint<T extends Object>(
+    PluginStaticContributionPoint<T> point,
+  ) {
+    _staticPoints.add(
+      _StaticPointRegistration(point as PluginStaticContributionPoint<Object>),
+    );
+  }
+
+  @override
+  void addStaticContribution<T extends Object>(
+    PluginStaticContributionPoint<T> point, {
+    required String name,
+    required T value,
+  }) {
+    _staticContributions.add(
+      _StaticContributionRegistration(
+        contributor: descriptor.id,
+        point: point as PluginStaticContributionPoint<Object>,
+        name: name,
+        value: value,
+        localOrder: _staticContributions.length,
+      ),
+    );
+  }
+
+  @override
   void addSession(
     PluginSessionFactory factory, {
     Iterable<PluginHostPortKey<Object>> requires = const [],
@@ -616,7 +699,11 @@ final class _PluginRegistrar implements PluginRegistrar {
 
     final capabilitySyntaxIds = <String>{};
     for (final capability in _capabilities.whereType<ComposerSyntaxPlugin>()) {
-      _addClaim(capabilitySyntaxIds, capability.syntaxId, 'composer syntax id');
+      _addClaim(
+        capabilitySyntaxIds,
+        capability.composerSyntaxKind.id,
+        'composer syntax id',
+      );
     }
     _validateClaims(
       kind: 'composer syntax ids',
@@ -626,9 +713,12 @@ final class _PluginRegistrar implements PluginRegistrar {
 
     return _PluginRegistration(
       descriptor,
+      manifestIndex,
       List.unmodifiable(_capabilities),
       List.unmodifiable(_appLifecycles),
       List.unmodifiable(_sessions),
+      List.unmodifiable(_staticPoints),
+      List.unmodifiable(_staticContributions),
     );
   }
 
@@ -664,22 +754,257 @@ final class _PluginRegistrar implements PluginRegistrar {
 final class _PluginRegistration {
   const _PluginRegistration(
     this.descriptor,
+    this.manifestIndex,
     this.capabilities,
     this.appLifecycles,
     this.sessions,
+    this.staticPoints,
+    this.staticContributions,
   );
 
   final PluginDescriptor descriptor;
+  final int manifestIndex;
   final List<SitePlugin> capabilities;
   final List<PluginAppLifecycle> appLifecycles;
   final List<_SessionRegistration> sessions;
+  final List<_StaticPointRegistration> staticPoints;
+  final List<_StaticContributionRegistration> staticContributions;
+}
+
+final class _StaticPointRegistration {
+  const _StaticPointRegistration(this.point);
+
+  final PluginStaticContributionPoint<Object> point;
+}
+
+final class _StaticContributionRegistration {
+  const _StaticContributionRegistration({
+    required this.contributor,
+    required this.point,
+    required this.name,
+    required this.value,
+    required this.localOrder,
+  });
+
+  final PluginId contributor;
+  final PluginStaticContributionPoint<Object> point;
+  final String name;
+  final Object value;
+  final int localOrder;
+
+  String get id => '${contributor.value}/$name';
+}
+
+final class _InstalledStaticContributions {
+  const _InstalledStaticContributions._(this._points, this._values);
+
+  factory _InstalledStaticContributions.validate(
+    List<_PluginRegistration> registrations,
+  ) {
+    final modules = <PluginId, _PluginRegistration>{
+      for (final registration in registrations)
+        registration.descriptor.id: registration,
+    };
+    final points = <String, PluginStaticContributionPoint<Object>>{};
+    for (final registration in registrations) {
+      for (final declared in registration.staticPoints) {
+        final point = declared.point;
+        if (point.owner != registration.descriptor.id) {
+          throw PluginInstallationException(
+            '${registration.descriptor.id} declared static contribution point '
+            '${point.id}, which is owned by ${point.owner}.',
+          );
+        }
+        _validateStaticName(
+          point.name,
+          '${registration.descriptor.id} static contribution point',
+        );
+        final previous = points[point.id];
+        if (previous != null) {
+          throw PluginInstallationException(
+            'Static contribution point ${point.id} was declared more than once.',
+          );
+        }
+        points[point.id] = point;
+      }
+    }
+
+    final values = <String, List<_StaticContributionRegistration>>{};
+    final contributionIds = <String, Set<String>>{};
+    for (final registration in registrations) {
+      final descriptor = registration.descriptor;
+      for (final contribution in registration.staticContributions) {
+        _validateStaticName(
+          contribution.name,
+          '${descriptor.id} static contribution',
+        );
+        if (contribution.point.owner != descriptor.id) {
+          final target = descriptor.staticContributionTargets
+              .where((candidate) => candidate.id == contribution.point.owner)
+              .firstOrNull;
+          if (target == null) {
+            throw PluginInstallationException(
+              '${descriptor.id} contributed to ${contribution.point.id} '
+              'without declaring ${contribution.point.owner} as a static '
+              'contribution target.',
+            );
+          }
+          if (!modules.containsKey(contribution.point.owner)) {
+            if (target.optional) continue;
+            throw PluginInstallationException(
+              '${descriptor.id} contributed to missing static contribution '
+              'target ${contribution.point.owner}.',
+            );
+          }
+        }
+
+        final declared = points[contribution.point.id];
+        if (declared == null) {
+          throw PluginInstallationException(
+            '${descriptor.id} contributed to undeclared static contribution '
+            'point ${contribution.point.id}.',
+          );
+        }
+        if (declared.valueType != contribution.point.valueType ||
+            declared.cardinality != contribution.point.cardinality) {
+          throw PluginInstallationException(
+            '${descriptor.id} used incompatible metadata for static '
+            'contribution point ${contribution.point.id}.',
+          );
+        }
+        final ids = contributionIds.putIfAbsent(
+          contribution.point.id,
+          () => <String>{},
+        );
+        if (!ids.add(contribution.id)) {
+          throw PluginInstallationException(
+            'Static contribution ${contribution.id} was registered more than '
+            'once for ${contribution.point.id}.',
+          );
+        }
+        values.putIfAbsent(contribution.point.id, () => []).add(contribution);
+      }
+    }
+
+    for (final contributions in values.values) {
+      contributions.sort((first, second) {
+        final moduleOrder = modules[first.contributor]!.manifestIndex.compareTo(
+          modules[second.contributor]!.manifestIndex,
+        );
+        return moduleOrder != 0
+            ? moduleOrder
+            : first.localOrder.compareTo(second.localOrder);
+      });
+    }
+
+    for (final point in points.values) {
+      final count = values[point.id]?.length ?? 0;
+      switch (point.cardinality) {
+        case PluginStaticContributionCardinality.many:
+          break;
+        case PluginStaticContributionCardinality.atMostOne:
+          if (count > 1) {
+            throw PluginInstallationException(
+              'Static contribution point ${point.id} accepts at most one '
+              'provider, found $count.',
+            );
+          }
+          break;
+        case PluginStaticContributionCardinality.exactlyOne:
+          if (count != 1) {
+            throw PluginInstallationException(
+              'Static contribution point ${point.id} requires exactly one '
+              'provider, found $count.',
+            );
+          }
+          break;
+      }
+    }
+
+    return _InstalledStaticContributions._(
+      Map.unmodifiable(points),
+      Map.unmodifiable({
+        for (final entry in values.entries)
+          entry.key: List<_StaticContributionRegistration>.unmodifiable(
+            entry.value,
+          ),
+      }),
+    );
+  }
+
+  final Map<String, PluginStaticContributionPoint<Object>> _points;
+  final Map<String, List<_StaticContributionRegistration>> _values;
+
+  PluginStaticContributionCatalog scopedTo(PluginId consumer) =>
+      _ScopedStaticContributionCatalog(this, consumer);
+
+  static void _validateStaticName(String name, String owner) {
+    if (!RegExp(r'^[a-z0-9]+(?:[._-][a-z0-9]+)*$').hasMatch(name)) {
+      throw PluginInstallationException('$owner has invalid name $name.');
+    }
+  }
+}
+
+final class _ScopedStaticContributionCatalog
+    implements PluginStaticContributionCatalog {
+  const _ScopedStaticContributionCatalog(this._installed, this._consumer);
+
+  final _InstalledStaticContributions _installed;
+  final PluginId _consumer;
+
+  @override
+  List<T> contributions<T extends Object>(
+    PluginStaticContributionPoint<T> point,
+  ) {
+    final declared = _validatePoint(point);
+    final values = _installed._values[declared.id] ?? const [];
+    return List<T>.unmodifiable(
+      values.map((contribution) => contribution.value as T),
+    );
+  }
+
+  @override
+  T? single<T extends Object>(PluginStaticContributionPoint<T> point) {
+    if (point.cardinality == PluginStaticContributionCardinality.many) {
+      throw StateError(
+        'Static contribution point ${point.id} is not a singleton.',
+      );
+    }
+    final values = contributions(point);
+    return values.isEmpty ? null : values.single;
+  }
+
+  PluginStaticContributionPoint<Object> _validatePoint<T extends Object>(
+    PluginStaticContributionPoint<T> point,
+  ) {
+    if (point.owner != _consumer) {
+      throw PluginInstallationException(
+        'Plugin $_consumer cannot read static contribution point ${point.id}.',
+      );
+    }
+    final declared = _installed._points[point.id];
+    if (declared == null) {
+      throw StateError(
+        'Static contribution point ${point.id} is not installed.',
+      );
+    }
+    if (declared.valueType != point.valueType ||
+        declared.cardinality != point.cardinality) {
+      throw StateError(
+        'Static contribution point ${point.id} was requested with '
+        'incompatible metadata.',
+      );
+    }
+    return declared;
+  }
 }
 
 final class _ModuleSnapshot {
-  const _ModuleSnapshot(this.module, this.descriptor);
+  const _ModuleSnapshot(this.module, this.descriptor, this.manifestIndex);
 
   final PluginModule module;
   final PluginDescriptor descriptor;
+  final int manifestIndex;
 }
 
 final class _SessionRegistration {

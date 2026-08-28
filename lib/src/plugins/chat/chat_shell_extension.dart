@@ -5,6 +5,7 @@ import '../../data/store.dart';
 import '../../models/bookmark.dart';
 import '../../models/content_route.dart';
 import '../../models/notification_totals.dart';
+import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import '../../plugin_api/plugin_runtime.dart';
 import '../../plugin_api/shell_extensions.dart';
@@ -38,11 +39,13 @@ final class ChatShellService
   ChatShellService({
     required this.chat,
     required this.host,
+    required this.composerHost,
     required this.store,
   });
 
   final ChatController chat;
   final PluginNavigationHost host;
+  final PluginComposerHost composerHost;
   final Store store;
   final ChatNavigationHandoff navigation = ChatNavigationHandoff();
   int _urlOpenGeneration = 0;
@@ -258,17 +261,27 @@ final class ChatShellService
     final route = host.currentContent;
     final chatRoute = route == null ? null : ChatRoute.parse(route.id);
     final channel = chat.channel(siteUrl, channelId);
-    if (channelId <= 0 ||
+    if (markdown.trim().isEmpty ||
+        channelId <= 0 ||
         chatRoute?.channelId != channelId ||
         channel == null) {
       return 'The topic composer is no longer available here.';
     }
-    return host.insertPluginTranscriptIntoNewTopic(
-      siteUrl: siteUrl,
-      sourceRouteId: route!.id,
-      markdown: markdown,
-      initialCategoryId: channel.isCategoryChannel ? channel.chatableId : null,
+    final result = await composerHost.openNewTopic(
+      OpenNewTopicComposerRequest(
+        siteUrl: siteUrl,
+        sourceRouteId: route!.id,
+        seed: ComposerSeed(raw: markdown),
+        initialCategoryId: channel.isCategoryChannel
+            ? channel.chatableId
+            : null,
+      ),
     );
+    return switch (result) {
+      OpenComposerResult.opened => null,
+      OpenComposerResult.unavailable || OpenComposerResult.sourceChanged =>
+        'The topic composer is no longer available here.',
+    };
   }
 
   Future<void> openShortcut() async {

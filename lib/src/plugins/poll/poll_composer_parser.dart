@@ -3,6 +3,13 @@ import 'package:flutter/foundation.dart';
 import '../../plugin_api/composer_syntax.dart';
 import '../../shell/markdown_editing_controller.dart';
 
+const pollComposerSyntaxId = 'poll/poll';
+
+/// Typed view retained by Poll projections while core keeps them opaque.
+abstract interface class PollComposerProjectionData {
+  PollComposerBlock get pollBlock;
+}
+
 /// A source attribute exactly as it appeared in a `[poll ...]` opener.
 ///
 /// [raw] includes the whitespace which separated the attribute from the one
@@ -67,15 +74,14 @@ class PollMarkupAttribute {
 /// caller into these casts without making the editor import Poll itself.
 extension PollComposerEditing on MarkdownEditingController {
   List<PollComposerBlock> get pollBlocks => [
-    for (final occurrence in syntaxBlocks)
-      if (occurrence.plugin.syntaxId == 'poll')
-        occurrence.value as PollComposerBlock,
+    for (final occurrence in syntaxBlocks) ?_pollBlock(occurrence),
   ];
 
   ComposerSyntaxOccurrence? _pollOccurrence(PollComposerBlock block) {
     for (final occurrence in syntaxBlocks) {
-      if (occurrence.plugin.syntaxId == 'poll' &&
-          (identical(occurrence.value, block) ||
+      final projected = _pollBlock(occurrence);
+      if (projected != null &&
+          (identical(projected, block) ||
               occurrence.start == block.start &&
                   occurrence.end == block.end &&
                   occurrence.source == block.source)) {
@@ -100,9 +106,7 @@ extension PollComposerEditing on MarkdownEditingController {
 
   PollComposerBlock? collapsedPollAtOffset(int offset) {
     final occurrence = collapsedSyntaxAtOffset(offset);
-    return occurrence?.plugin.syntaxId == 'poll'
-        ? occurrence!.value as PollComposerBlock
-        : null;
+    return occurrence == null ? null : _pollBlock(occurrence);
   }
 
   bool isPollCollapsed(PollComposerBlock block) {
@@ -122,10 +126,16 @@ extension PollComposerEditing on MarkdownEditingController {
 
   PollComposerBlock? get keyboardSelectedPoll {
     final occurrence = keyboardSelectedSyntax;
-    return occurrence?.plugin.syntaxId == 'poll'
-        ? occurrence!.value as PollComposerBlock
-        : null;
+    return occurrence == null ? null : _pollBlock(occurrence);
   }
+}
+
+PollComposerBlock? _pollBlock(ComposerSyntaxOccurrence occurrence) {
+  if (occurrence.kind.id != pollComposerSyntaxId) return null;
+  return switch (occurrence.projection) {
+    final PollComposerProjectionData projection => projection.pollBlock,
+    _ => null,
+  };
 }
 
 /// The subset of poll types the composer can project without losing source.

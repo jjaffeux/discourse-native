@@ -9,18 +9,13 @@ discourse_plugin_api (pure Dart contracts)
         │
         ▼
 PluginManifest ──► PluginInstaller ──► InstalledPlugins
-                                           │
-                       ┌───────────────────┼──────────────────┐
-                       ▼                   ▼                  ▼
-                 model codec          registry          app lifecycle
-                       │                   │                  │
-                       ▼                   ▼                  ▼
-                 PluginData         typed UI seams     bootstrap/appReady
-                                           │
-                                           ▼
-                                      PluginSession
-                                           │
-                         typed services + host capabilities + lifecycle
+                                           ├── model codec ────► PluginData
+                                           ├── static catalog ──► typed extension points
+                                           ├── registry ────────► typed UI seams
+                                           ├── app lifecycle ───► bootstrap / appReady
+                                           └── openSession(...) ─► PluginSession
+                                                                   │
+                                         typed services + host capabilities + lifecycle
 ```
 
 ## Module contract
@@ -28,13 +23,23 @@ PluginManifest ──► PluginInstaller ──► InstalledPlugins
 A module exposes a stable id/version/dependency descriptor and registers only
 the capabilities and lifecycles it owns. Installation validates all module
 ids, semantic-version requirements, dependency cycles, record keys, route
-namespaces, syntax ids, exclusive claims, and service ownership before the app
-uses the graph. Registered route, syntax, and exclusive claims must exactly
-match the descriptor, and contributed record and service keys must name that
-module as their owner. Registration order is deterministic and dependencies
-always precede their consumers. Descriptors and their collections are
-snapshotted once before validation, so registration cannot mutate the graph
-being installed.
+namespaces, syntax ids, exclusive claims, static contribution points, and
+service ownership before the app uses the graph. Registered route, syntax, and
+exclusive claims must exactly match the descriptor, and contributed record,
+service, syntax, and static-point keys must name their module as their owner.
+Singleton and exclusive ownership is rejected deterministically during
+installation rather than discovered while rendering. Registration order is
+deterministic and runtime dependencies always precede their consumers.
+Descriptors and their collections are snapshotted once before validation, so
+registration cannot mutate the graph being installed.
+
+Static contribution targets are a separate authority from runtime service
+dependencies. They let one module contribute an immutable typed value to a
+point owned by another module without changing session startup order or
+granting access to that module's services. Optional targets become dormant when
+their owner is absent. The installed, owner-scoped catalog preserves manifest
+order and validates point ownership, value type, contribution ids, and
+cardinality before any session is opened.
 
 App startup has idempotent `bootstrap` and `appReady` phases. A failed phase
 rolls back every lifecycle already started in reverse order. A shell opens one
@@ -120,8 +125,8 @@ The registry currently provides typed seams for:
 - post/topic records, cooked elements, footers, decorations, metadata, small
   actions, menus, headers, and live invalidation;
 - namespaced composer target policies (drafts, uploads, editing, validation,
-  mentions, and emoji usage), toolbar actions, shortcuts, lossless syntax
-  projections, and optimistic Chat preview syntax;
+  mentions, and emoji usage), toolbar actions, shortcuts, and lossless
+  namespaced syntax projections;
 - ordered user-menu sections, plugin notification feeds, bookmark target
   strategies, and ordered topic recommendation sources;
 - sidebar sections, content routes, content chrome, shell header actions, and
@@ -142,21 +147,35 @@ Bookmark mutation services are bound to one registered target type and require
 the originating site explicitly, so a sheet that outlives a forum switch
 cannot write through the newly selected forum.
 
-The full manifest declares route and syntax ownership up front. Chat and
-Resenha own separate route namespaces; Poll and Local Dates declare their
-composer syntax ids. Local Dates owns cooked date markup, Chat owns its header
-action, and Resenha owns its global call overlay rather than being imported by
-core shell widgets.
+Each composer resolves stable per-composer syntax policies from its installed
+contributions. A policy owns its feature configuration, parser, validation,
+projection state, and lossless source projection; core only supplies a narrow
+editor host for guarded document edits. Poll option limits and permissions and
+Local Dates timezone/configuration therefore never appear in the generic
+composer API. Target policies likewise own upload permission, including Chat's
+policy, instead of passing an `isChat` boolean through a global upload gate.
+
+Chat's provisional preview document, projector, renderers, and trusted GIF
+seed are all Chat-owned. Other modules extend that preview through Chat's typed
+static contribution point. Core sees only the generic owner-scoped catalog and
+cannot construct or interpret a Chat preview node. Chat also turns a selected
+transcript into a generic composer seed; core owns only the route-safe
+open-new-topic operation and has no transcript semantics or wording.
+
+The full manifest declares route and namespaced syntax ownership up front. Chat
+and Resenha own separate route namespaces; Poll and Local Dates declare syntax
+kinds under their own module ids. Local Dates owns cooked date markup, Chat
+owns its header action and preview contribution point, and Resenha owns its
+global call overlay rather than being imported by core shell widgets.
 
 ## Deferred UI contribution seams
 
-This workstream moves model ownership and persistence, not every host UI.
 `NotificationTotals` still carries Chat's total/presence fields and core still
-parses notification kinds used by the shared user menu. The user menu, shared
-composer limit, upload gate, and Resenha top-level capability currently query
-plugin-neutral registry interfaces. Moving those remaining surfaces to full UI
-contributions is intentionally deferred; core does not import a plugin type or
-wire key through these compatibility seams.
+parses notification kinds used by the shared user menu. The user menu and
+Resenha top-level capability remain plugin-neutral registry interfaces. Moving
+those remaining surfaces to full UI contributions is intentionally deferred;
+core does not import a plugin type or wire key through these compatibility
+seams.
 
 ## Build profiles
 

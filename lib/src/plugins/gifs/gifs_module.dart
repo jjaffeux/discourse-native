@@ -16,20 +16,35 @@ final class GifsModule implements PluginModule {
   @override
   void register(PluginRegistrar registrar) {
     registrar.addCapability(const GifsPlugin());
-    registrar.addSession((bindings, _) {
-      final transport = bindings.require(corePluginTransportPort);
-      return PluginSessionContribution(
-        lifecycle: _GifsSessionLifecycle(),
-        services: [
-          PluginService<Object>(
-            gifsApiService,
-            transport is GifsApi
-                ? transport as GifsApi
-                : GifsApiClient(transport),
-          ),
-        ],
-      );
-    }, requires: const [corePluginTransportPort]);
+    registrar.addSession(
+      (bindings, _) {
+        final transport = bindings.require(corePluginTransportPort);
+        final credentials = bindings.require(corePluginCredentialsPort);
+        final lifecycle = bindings.require(corePluginSiteLifecyclePort);
+        final api = transport is GifsApi
+            ? transport as GifsApi
+            : GifsApiClient(transport);
+        return PluginSessionContribution(
+          lifecycle: _GifsSessionLifecycle(),
+          services: [
+            PluginService<Object>(gifsApiService, api),
+            PluginService<Object>(
+              gifsPickerHostService,
+              GifsPickerHost(
+                api: api,
+                credentials: credentials,
+                lifecycle: lifecycle,
+              ),
+            ),
+          ],
+        );
+      },
+      requires: const [
+        corePluginTransportPort,
+        corePluginCredentialsPort,
+        corePluginSiteLifecyclePort,
+      ],
+    );
   }
 }
 
