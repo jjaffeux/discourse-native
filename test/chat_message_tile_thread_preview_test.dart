@@ -124,6 +124,60 @@ void main() {
     },
   );
 
+  testWidgets('draws emoji in a direct-reply excerpt', (tester) async {
+    EmojiCache.instance = EmojiCache(
+      client: MockClient((_) async => http.Response.bytes(_emojiPng, 200)),
+    );
+    addTearDown(EmojiCache.instance.clear);
+    const reply = ChatReplyTo(
+      id: 6,
+      userId: 10,
+      excerpt: 'You testing the new app? :rofl:',
+      username: 'kris',
+    );
+    final controller = await _controller(
+      _message(null, replyTo: reply),
+      api: FakeDiscourseApi(
+        emojisBySite: {
+          _siteUrl: const [
+            SiteEmoji(name: 'rofl', url: '/images/emoji/twitter/rofl.png'),
+          ],
+        },
+      ),
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(
+        controller: controller,
+        onOpenThread: (_) {},
+        onJumpToMessage: (_) {},
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final target = find.byKey(ChatMessageTile.replyIndicatorKey(reply.id));
+    final emoji = tester.widget<SiteEmojiImage>(
+      find.descendant(of: target, matching: find.byType(SiteEmojiImage)),
+    );
+    expect(emoji.name, 'rofl');
+    expect(
+      tester
+          .widget<EmojiImage>(
+            find.descendant(of: target, matching: find.byType(EmojiImage)),
+          )
+          .url,
+      'https://meta.example/images/emoji/twitter/rofl.png',
+    );
+    expect(find.descendant(of: target, matching: find.byType(Image)), findsOne);
+    expect(
+      find.bySemanticsLabel(
+        'Jump to message from @kris: You testing the new app? :rofl:',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets(
     'shows the latest reply and the representative participant stack',
     (tester) async {

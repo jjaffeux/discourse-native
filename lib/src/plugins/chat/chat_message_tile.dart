@@ -1371,8 +1371,9 @@ class _ReplyIndicator extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Flexible(
-                  child: Text(
+                  child: SiteEmojiText.plain(
                     reply.excerpt,
+                    siteUrl: siteUrl,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
