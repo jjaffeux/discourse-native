@@ -1,10 +1,13 @@
+import 'package:discourse_native/src/plugins/local_dates/local_date.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_cooked_time_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
 void main() {
-  const parser = LocalDatesCookedTimeParser();
+  final parser = LocalDatesCookedTimeParser(
+    formatter: LocalDateFormatter(environment: LocalDateEnvironment.instance),
+  );
 
   setUpAll(LocalDateEnvironment.instance.ensureDatabase);
 

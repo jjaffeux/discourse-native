@@ -24,12 +24,14 @@ class ReactionsController extends FrameSafeNotifier {
     required this.credentials,
     required this.store,
     SiteLifecycle? lifecycle,
+    this.diagnostics = const PluginDiagnosticsReporter.noop(),
   }) : lifecycle = lifecycle ?? SiteLifecycle();
 
   final ReactionsApi api;
   final ApiCredentialReader credentials;
   final Store store;
   final SiteLifecycle lifecycle;
+  final PluginDiagnosticsReporter diagnostics;
 
   /// Kept outside the [Store] for the reason the likers' equivalents are: they
   /// are facts about a request, not about a post, and a record that has never
@@ -90,7 +92,7 @@ class ReactionsController extends FrameSafeNotifier {
       });
     } catch (error, stackTrace) {
       if (!_canSend(lease, key, request)) return;
-      DiagnosticsSink.current.reportError(
+      diagnostics.reportError(
         error,
         stackTrace,
         operation: 'reactions.loadUsers',

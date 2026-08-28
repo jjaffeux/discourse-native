@@ -21,6 +21,7 @@ void main() {
       );
       final binding = DiagnosticsSink.install(ordinary);
       final deep = await ResenhaDiagnosticsController.create(
+        reporter: PluginDiagnosticsReporter.fixed(ordinary),
         persistence: MemoryResenhaDiagnosticsPersistence(),
         clock: () => now,
         captureIdFactory: () => 'capture-1',
@@ -1275,6 +1276,7 @@ void main() {
     );
     final binding = DiagnosticsSink.install(ordinary);
     final controller = await ResenhaDiagnosticsController.create(
+      reporter: PluginDiagnosticsReporter.fixed(ordinary),
       persistenceFactory: () async => throw const _SentinelFailure(secret),
     );
     addTearDown(() async {
@@ -1302,6 +1304,7 @@ void main() {
     final persistence = _CountingPersistence()
       ..loadError = const _SentinelFailure(secret);
     final controller = await ResenhaDiagnosticsController.create(
+      reporter: PluginDiagnosticsReporter.fixed(ordinary),
       persistence: persistence,
     );
     addTearDown(() async {
@@ -1351,6 +1354,7 @@ void main() {
     final binding = DiagnosticsSink.install(ordinary);
     final persistence = _CountingPersistence();
     final controller = await ResenhaDiagnosticsController.create(
+      reporter: PluginDiagnosticsReporter.fixed(ordinary),
       persistence: persistence,
       captureIdFactory: () => 'capture-append-failure',
     );
@@ -1383,6 +1387,7 @@ void main() {
       uninstall: () {},
     );
     final controller = await ResenhaDiagnosticsController.create(
+      reporter: PluginDiagnosticsReporter.fixed(ordinary),
       persistence: MemoryResenhaDiagnosticsPersistence(),
       captureIdFactory: () => 'capture-bridge-failure',
       sdkLogBridges: [bridge],

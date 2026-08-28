@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import '../../data/site_tracker.dart';
 import '../../data/store.dart';
 import '../../models/bookmark.dart';
 import '../../models/content_route.dart';
@@ -123,8 +122,8 @@ final class ChatShellService
   }
 
   @override
-  void attachPluginTracker(String siteUrl, SiteTracker tracker) =>
-      chat.attachTracker(siteUrl, tracker);
+  void attachPluginTracker(String siteUrl, PluginLiveChannelHandle channels) =>
+      chat.attachTracker(siteUrl, channels);
 
   @override
   BookmarkTargetType get pluginBookmarkTarget => chatMessageBookmarkTarget;

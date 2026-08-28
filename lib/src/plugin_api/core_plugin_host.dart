@@ -4,7 +4,6 @@ import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/plugin_transport.dart';
 import '../data/site_lifecycle.dart';
-import '../data/site_tracker.dart';
 import '../data/store.dart';
 import '../models/discourse_user.dart';
 import '../models/site_config.dart';
@@ -31,7 +30,7 @@ typedef PluginNotificationCounterUpdater =
       PluginNotificationCounterReducer reduce,
     );
 typedef PluginSiteCallback = void Function(String siteUrl);
-typedef PluginTrackerReader = SiteTracker? Function(String siteUrl);
+typedef PluginTrackerReader = PluginLiveChannelHandle? Function(String siteUrl);
 typedef PluginUserIdReader = int? Function(String siteUrl);
 typedef PluginSiteConfigResolver = Future<SiteConfig?> Function(String siteUrl);
 typedef PluginTopicReloader =
@@ -39,7 +38,6 @@ typedef PluginTopicReloader =
 typedef PluginTargetSnapshot = ({bool valid, PluginData data});
 typedef PluginTargetDataReader =
     PluginTargetSnapshot Function(String siteUrl, PluginTarget target);
-typedef PluginTrackingSync = void Function();
 typedef PluginWriteCredential = ({String? apiKey, WriteException? failure});
 typedef PluginComposerBuilder =
     ComposerController? Function(ComposerTargetRequest request);
@@ -241,10 +239,11 @@ const corePluginPresentationPort = PluginHostPortKey<PluginSiteConfigResolver>(
   name: 'presentation',
 );
 
-const corePluginTrackingSyncPort = PluginHostPortKey<PluginTrackingSync>(
-  owner: PluginId('core'),
-  name: 'tracking-sync',
-);
+const corePluginBackgroundRetentionPort =
+    PluginHostPortKey<PluginBackgroundRetentionHost>(
+      owner: PluginId('core'),
+      name: 'background-retention',
+    );
 
 const corePluginNavigationPort = PluginHostPortKey<PluginNavigationHost>(
   owner: PluginId('core'),

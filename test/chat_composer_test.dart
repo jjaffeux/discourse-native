@@ -20,7 +20,6 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
-import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_contract.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';

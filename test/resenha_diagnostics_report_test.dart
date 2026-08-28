@@ -38,7 +38,7 @@ void main() {
 
     final projected = <String>[];
     final report = ResenhaDiagnosticsReport(
-      diagnostics: diagnostics,
+      diagnostics: PluginDiagnosticsReadExportHost(diagnostics),
       resenha: resenha,
       onEventProjected: projected.add,
     );
@@ -82,6 +82,7 @@ void main() {
       );
       final persistence = _TrackingResenhaDiagnosticsPersistence();
       final resenha = await ResenhaDiagnosticsController.create(
+        reporter: PluginDiagnosticsReporter.fixed(diagnostics),
         persistence: persistence,
         captureIdFactory: () => 'capture-report-test',
         clock: () => now,
@@ -196,7 +197,7 @@ void main() {
       );
 
       final report = ResenhaDiagnosticsReport(
-        diagnostics: diagnostics,
+        diagnostics: PluginDiagnosticsReadExportHost(diagnostics),
         resenha: resenha,
       );
       final timeline = report.events;
@@ -307,6 +308,7 @@ void main() {
         clock: () => now,
       );
       final resenha = await ResenhaDiagnosticsController.create(
+        reporter: PluginDiagnosticsReporter.fixed(diagnostics),
         persistence: MemoryResenhaDiagnosticsPersistence(),
         captureIdFactory: () => 'capture-nested-event-id',
         clock: () => now,
@@ -339,7 +341,7 @@ void main() {
       await resenha.stopCapture();
 
       final report = ResenhaDiagnosticsReport(
-        diagnostics: diagnostics,
+        diagnostics: PluginDiagnosticsReadExportHost(diagnostics),
         resenha: resenha,
       );
       final materialized = await report.buildJson();
@@ -377,6 +379,7 @@ void main() {
       );
       final persistence = _ClearingAfterBuildPersistence();
       final resenha = await ResenhaDiagnosticsController.create(
+        reporter: PluginDiagnosticsReporter.fixed(diagnostics),
         persistence: persistence,
         captureIdFactory: () => 'capture-fallback-test',
         clock: () => now,
@@ -397,7 +400,7 @@ void main() {
 
       final output = StringBuffer();
       await ResenhaDiagnosticsReport(
-        diagnostics: diagnostics,
+        diagnostics: PluginDiagnosticsReadExportHost(diagnostics),
         resenha: resenha,
       ).writeJsonTo(output);
       final report = output.toString();

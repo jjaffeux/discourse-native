@@ -11,9 +11,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
+  final environment = LocalDateEnvironment.instance;
+
   setUpAll(() async {
-    LocalDateEnvironment.instance.ensureDatabase();
-    LocalDateEnvironment.instance.setDeviceTimezone('Etc/UTC');
+    environment.ensureDatabase();
+    environment.setDeviceTimezone('Etc/UTC');
     await initializeDateFormatting('en');
   });
 
@@ -22,7 +24,10 @@ void main() {
       const source =
           'before [DaTe=2026-08-09  future = “two ] words” '
           "timezone = 'UTC' format=\"YYYY [at] HH:mm\"   ] after";
-      final block = parseLocalDateComposerBlocks(source).single;
+      final block = parseLocalDateComposerBlocks(
+        source,
+        environment: environment,
+      ).single;
 
       expect(block.start, source.indexOf('[DaTe'));
       expect(block.source, source.substring(block.start, block.end));
@@ -42,7 +47,10 @@ void main() {
           '[date=2026-01-01] `x [date=2026-02-02]` '
           '[date-range from=2026-03-01T09:00:00 to=2026-03-01T10:00:00]\n'
           '```\n[date=2026-04-04]\n```';
-      final blocks = parseLocalDateComposerBlocks(source);
+      final blocks = parseLocalDateComposerBlocks(
+        source,
+        environment: environment,
+      );
 
       expect(blocks, hasLength(2));
       expect(blocks.first.kind, LocalDateComposerKind.date);
@@ -61,7 +69,10 @@ void main() {
       }
       final document = source.toString();
 
-      final blocks = parseLocalDateComposerBlocks(document);
+      final blocks = parseLocalDateComposerBlocks(
+        document,
+        environment: environment,
+      );
 
       expect(blocks, hasLength(count));
       expect(blocks.every((block) => block.source == visible), isTrue);
@@ -76,13 +87,19 @@ void main() {
           '[date=2026-01-01 timezone=Future/Mars] '
           '[date=2026-01-02 displayedTimezone=Invalid/Zone]';
 
-      expect(parseLocalDateComposerBlocks(source), isEmpty);
+      expect(
+        parseLocalDateComposerBlocks(source, environment: environment),
+        isEmpty,
+      );
     });
 
     test('accepts the ASCII attribute-name and recurrence grammar', () {
       const source = '[date=2024-02-29 _future-2=value recurring=12.quarters]';
 
-      final block = parseLocalDateComposerBlocks(source).single;
+      final block = parseLocalDateComposerBlocks(
+        source,
+        environment: environment,
+      ).single;
 
       expect(block.attribute('_future-2'), 'value');
       expect(block.attribute('recurring'), '12.quarters');
@@ -102,7 +119,11 @@ void main() {
       ];
 
       for (final source in invalid) {
-        expect(parseLocalDateComposerBlocks(source), isEmpty, reason: source);
+        expect(
+          parseLocalDateComposerBlocks(source, environment: environment),
+          isEmpty,
+          reason: source,
+        );
       }
     });
 
@@ -110,7 +131,7 @@ void main() {
       const source =
           '[date=2026-08-09 future = “keep ] me” timezone = \'UTC\'   ]';
       final draft = LocalDateComposerDraft.fromBlock(
-        parseLocalDateComposerBlocks(source).single,
+        parseLocalDateComposerBlocks(source, environment: environment).single,
       ).copyWith(countdown: true);
 
       expect(
@@ -124,6 +145,7 @@ void main() {
       final single = LocalDateComposerDraft.newDate(
         now: DateTime(2026, 8, 9),
         timezone: 'Europe/Paris',
+        environment: environment,
       ).copyWith(startTime: '09:30:00');
       final range = single.copyWith(endDate: '2026-08-09', endTime: '10:30:00');
 
@@ -142,6 +164,7 @@ void main() {
       final base = LocalDateComposerDraft.newDate(
         now: DateTime(2024, 3, 10),
         timezone: 'America/New_York',
+        environment: environment,
       ).copyWith(startTime: '02:30:00');
       expect(base.validate().firstError, contains('does not exist'));
 
@@ -158,7 +181,10 @@ void main() {
 
     test('stale replacement and removal abort without moving the caret', () {
       const source = 'A [date=2026-08-09 timezone=UTC] B';
-      final block = parseLocalDateComposerBlocks(source).single;
+      final block = parseLocalDateComposerBlocks(
+        source,
+        environment: environment,
+      ).single;
       const changed = TextEditingValue(
         text: '$source!',
         selection: TextSelection.collapsed(offset: 1),
@@ -207,9 +233,9 @@ void main() {
     ) async {
       final controller = MarkdownEditingController(
         text: date,
-        syntaxPolicies: const [
-          LocalDateComposerSyntaxPolicy(),
-          PollComposerSyntaxPolicy(),
+        syntaxPolicies: [
+          LocalDateComposerSyntaxPolicy(environment: environment),
+          const PollComposerSyntaxPolicy(),
         ],
       );
       addTearDown(controller.dispose);
@@ -271,9 +297,9 @@ void main() {
       const source = '$date\n\n$poll';
       final controller = MarkdownEditingController(
         text: source,
-        syntaxPolicies: const [
-          LocalDateComposerSyntaxPolicy(),
-          PollComposerSyntaxPolicy(),
+        syntaxPolicies: [
+          LocalDateComposerSyntaxPolicy(environment: environment),
+          const PollComposerSyntaxPolicy(),
         ],
       );
       addTearDown(controller.dispose);

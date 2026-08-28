@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../diagnostics/diagnostics_controller.dart';
 import '../models/content_route.dart';
 import '../models/discourse_user.dart';
 import '../models/forum_workspace.dart';
@@ -43,8 +44,47 @@ final class PluginRegistry
     registry._validateNotificationTypes();
     registry._validateNotificationFeeds();
     registry._validateNotificationCounters();
+    registry._validateCapabilityCardinality();
     return registry;
   }
+
+  void _validateCapabilityCardinality() {
+    _validateUniqueKeys<PluginSiteFeature>(
+      'site-feature owner',
+      (plugin) => _ownerOf(plugin),
+    );
+    _validateUniqueKeys<PluginCurrentUserFeature>(
+      'current-user feature owner',
+      (plugin) => _ownerOf(plugin),
+    );
+    _validateUniqueKeys<DiagnosticsPlugin>(
+      'diagnostics id',
+      (plugin) => plugin.diagnosticsId,
+    );
+  }
+
+  void _validateUniqueKeys<T extends Object>(
+    String kind,
+    String Function(T capability) readKey,
+  ) {
+    final owners = <String, String>{};
+    for (final capability in plugins.whereType<T>()) {
+      final owner = _ownerOf(capability);
+      final key = readKey(capability);
+      if (key.trim().isEmpty) {
+        throw ArgumentError('$kind registered by $owner must not be empty.');
+      }
+      final previous = owners[key];
+      if (previous != null) {
+        throw ArgumentError(
+          '$kind $key is provided by both $previous and $owner.',
+        );
+      }
+      owners[key] = owner;
+    }
+  }
+
+  static String _ownerOf(Object capability) => (capability as SitePlugin).name;
 
   void _validateComposerTargetOwners() {
     final owners = <ComposerTargetKind, String>{};

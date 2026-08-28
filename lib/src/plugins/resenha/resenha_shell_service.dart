@@ -1,4 +1,3 @@
-import '../../data/site_tracker.dart';
 import '../../models/content_route.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import '../../plugin_api/plugin_runtime.dart';
@@ -14,11 +13,7 @@ const resenhaShellService = PluginServiceKey<ResenhaShellService>(
 );
 
 final class ResenhaShellService
-    implements
-        PluginLinkHandler,
-        PluginSiteActivator,
-        PluginTrackerAttachment,
-        PluginBackgroundSite {
+    implements PluginLinkHandler, PluginSiteActivator, PluginTrackerAttachment {
   const ResenhaShellService({required this.controller, required this.host});
 
   final ResenhaController controller;
@@ -46,9 +41,6 @@ final class ResenhaShellService
     }
     host.pushContent(route);
   }
-
-  @override
-  String? get pluginBackgroundSiteUrl => controller.activeSiteUrl;
 
   @override
   Future<bool> openPluginUrl(String url) async {
@@ -89,6 +81,6 @@ final class ResenhaShellService
   }
 
   @override
-  void attachPluginTracker(String siteUrl, SiteTracker tracker) =>
-      controller.attachTracker(siteUrl);
+  void attachPluginTracker(String siteUrl, PluginLiveChannelHandle channels) =>
+      controller.attachTracker(siteUrl, channels);
 }

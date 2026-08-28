@@ -46,6 +46,9 @@ void main() {
     final chat = installed.descriptors.singleWhere(
       (descriptor) => descriptor.id.value == 'chat',
     );
+    final discourseAi = installed.descriptors.singleWhere(
+      (descriptor) => descriptor.id.value == 'discourse-ai',
+    );
     final resenha = installed.descriptors.singleWhere(
       (descriptor) => descriptor.id.value == 'resenha',
     );
@@ -71,8 +74,19 @@ void main() {
       ),
       [('chat', false)],
     );
+    expect(chat.liveChannelScopes.map((scope) => scope.path), {
+      '/chat',
+      '/presence/chat',
+    });
+    expect(discourseAi.liveChannelScopes.map((scope) => scope.path), {
+      '/discourse-ai',
+    });
     expect(resenha.routeNamespaces, {'resenha'});
     expect(resenha.exclusiveClaims, {'app-global-media-session'});
+    expect(resenha.liveChannelScopes.map((scope) => scope.path), {
+      '/chat',
+      '/resenha',
+    });
     expect(
       installed.registry.diagnosticsPlugins.map(
         (plugin) => plugin.diagnosticsId,
@@ -139,7 +153,7 @@ void main() {
       const PluginManifest([discourseGithubModule]),
     );
     final withLocalDates = PluginInstaller.install(
-      const PluginManifest([discourseGithubModule, localDatesModule]),
+      PluginManifest([discourseGithubModule, localDatesModule]),
     );
     final githubOnlySession = githubOnly.openSession(
       const PluginHostBindings.empty(),

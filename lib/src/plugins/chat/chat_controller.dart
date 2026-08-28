@@ -7,7 +7,6 @@ import '../../data/api_credentials.dart';
 import '../../data/discourse_api_contracts.dart'
     show SiteLookupException, SiteLookupFailure, WriteException, WriteFailure;
 import '../../data/site_lifecycle.dart';
-import '../../data/site_tracker.dart';
 import '../../data/store.dart';
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/frame_safe_notifier.dart';
@@ -16,6 +15,7 @@ import '../../models/discourse_user.dart';
 import '../../models/json.dart';
 import '../../models/post_flag.dart';
 import '../../models/site_config.dart';
+import '../../plugin_api/live_channels.dart';
 import 'chat_api.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
@@ -320,6 +320,7 @@ class ChatController extends FrameSafeNotifier {
     DiscourseUser? Function(String siteUrl)? currentUserFor,
     SiteConfig Function(String siteUrl)? siteConfigFor,
     ChatPreviewEngine? previewEngine,
+    this.reporter = const PluginDiagnosticsReporter.noop(),
     this.onChatNotificationsDelta,
     this.onSiteUnreachable,
     this.minimumWindowRefreshInterval = const Duration(seconds: 30),
@@ -339,6 +340,7 @@ class ChatController extends FrameSafeNotifier {
   final DiscourseUser? Function(String siteUrl) _currentUserFor;
   final SiteConfig Function(String siteUrl) _siteConfigFor;
   final ChatPreviewEngine _previewEngine;
+  final PluginDiagnosticsReporter reporter;
   final ChatNotificationsDelta? onChatNotificationsDelta;
   final ValueChanged<String>? onSiteUnreachable;
   final DateTime Function() _clock;
@@ -355,7 +357,7 @@ class ChatController extends FrameSafeNotifier {
     DiagnosticSeverity severity = DiagnosticSeverity.error,
     bool degraded = true,
   }) {
-    DiagnosticsSink.current.reportError(
+    reporter.reportError(
       error,
       stackTrace,
       operation: operation,
@@ -416,9 +418,9 @@ class ChatController extends FrameSafeNotifier {
   /// prevents a compact thread from dropping the subscription its expanded
   /// sibling still needs.
   final Map<String, Set<Object>> _rootViewTokens = {};
-  final Map<String, SiteMessageBusSubscription> _rootSubscriptions = {};
+  final Map<String, PluginLiveChannelSubscription> _rootSubscriptions = {};
   final Map<String, Set<Object>> _threadViewTokens = {};
-  final Map<String, SiteMessageBusSubscription> _threadSubscriptions = {};
+  final Map<String, PluginLiveChannelSubscription> _threadSubscriptions = {};
   final Map<String, int?> _threadMessageCursors = {};
   final Map<String, Future<ChatThread?>> _threadDetailRequests = {};
   final Set<String> _threadDetailDirty = {};
@@ -429,8 +431,8 @@ class ChatController extends FrameSafeNotifier {
   /// whenever the second one appears.
   final Map<String, ChatPresence> _presence = {};
   final Map<String, FrameSafeValueNotifier<Set<int>>> _presenceRefs = {};
-  final Map<String, SiteTracker> _presenceTrackers = {};
-  final Map<String, SiteMessageBusSubscription> _presenceSubscriptions = {};
+  final Map<String, PluginLiveChannelHandle> _presenceTrackers = {};
+  final Map<String, PluginLiveChannelSubscription> _presenceSubscriptions = {};
 
   /// Persistent activity subscriptions for every channel in the latest HTTP
   /// snapshot. Separate from [_sendSubscriptions], which temporarily watches
@@ -439,22 +441,25 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, Map<int, int?>> _newMentionCursors = {};
   final Map<String, Map<int, int?>> _kickCursors = {};
   final Map<String, Map<int, int?>> _rootMessageCursors = {};
-  final Map<String, SiteMessageBusSubscription> _newMessageSubscriptions = {};
-  final Map<String, SiteMessageBusSubscription> _newMentionSubscriptions = {};
-  final Map<String, SiteMessageBusSubscription> _kickSubscriptions = {};
+  final Map<String, PluginLiveChannelSubscription> _newMessageSubscriptions =
+      {};
+  final Map<String, PluginLiveChannelSubscription> _newMentionSubscriptions =
+      {};
+  final Map<String, PluginLiveChannelSubscription> _kickSubscriptions = {};
   final Map<String, int?> _newChannelCursors = {};
-  final Map<String, SiteMessageBusSubscription> _newChannelSubscriptions = {};
+  final Map<String, PluginLiveChannelSubscription> _newChannelSubscriptions =
+      {};
   final Map<String, int?> _channelMetadataCursors = {};
   final Map<String, int?> _channelEditCursors = {};
   final Map<String, int?> _channelStatusCursors = {};
-  final Map<String, List<SiteMessageBusSubscription>>
+  final Map<String, List<PluginLiveChannelSubscription>>
   _channelStateSubscriptions = {};
   final Map<String, int?> _userTrackingCursors = {};
-  final Map<String, List<SiteMessageBusSubscription>>
+  final Map<String, List<PluginLiveChannelSubscription>>
   _userTrackingSubscriptions = {};
   final Map<String, int?> _userHasThreadsCursors = {};
-  final Map<String, SiteMessageBusSubscription> _userHasThreadsSubscriptions =
-      {};
+  final Map<String, PluginLiveChannelSubscription>
+  _userHasThreadsSubscriptions = {};
   final Set<String> _newChannelsAwaitingFirstMessage = {};
 
   /// One channel's stream, keyed `'$siteUrl~$channelId'`.
@@ -491,7 +496,7 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, FrameSafeValueNotifier<ChatPinsState>> _pinListRefs = {};
   final Map<String, Object> _threadTitleWrites = {};
   final Map<String, _ChatSendQueue> _sendQueues = {};
-  final Map<String, SiteMessageBusSubscription> _sendSubscriptions = {};
+  final Map<String, PluginLiveChannelSubscription> _sendSubscriptions = {};
   final Set<({String siteUrl, ChatStreamTarget target})>
   _sendSubscriptionTargets = {};
   final Map<_ChatReactionWriteKey, Object> _reactionWrites = {};
@@ -2978,7 +2983,7 @@ class ChatController extends FrameSafeNotifier {
   ///
   /// [ShellController] remains responsible for the tracker lifetime; this
   /// controller owns only the presence channel registration made through it.
-  void attachTracker(String siteUrl, SiteTracker tracker) {
+  void attachTracker(String siteUrl, PluginLiveChannelHandle tracker) {
     if (!identical(_presenceTrackers[siteUrl], tracker)) {
       _cancelPresence(siteUrl);
       _cancelLiveChatSubscriptions(siteUrl);
@@ -3035,18 +3040,17 @@ class ChatController extends FrameSafeNotifier {
     final tracker = _presenceTrackers[siteUrl];
     if (tracker == null) return;
     try {
-      _rootSubscriptions[key] = tracker.watchPluginChannelWithPosition(
-        '/chat/$channelId',
-        (data, messageId) {
-          try {
-            _applyRootChannelEvent(siteUrl, channelId, data);
-          } finally {
-            final cursors = _rootMessageCursors[siteUrl] ??= {};
-            cursors[channelId] = _newerCursor(cursors[channelId], messageId);
-          }
-        },
-        lastId: _rootMessageCursors[siteUrl]?[channelId],
-      );
+      _rootSubscriptions[key] = tracker.subscribe('/chat/$channelId', (
+        data,
+        messageId,
+      ) {
+        try {
+          _applyRootChannelEvent(siteUrl, channelId, data);
+        } finally {
+          final cursors = _rootMessageCursors[siteUrl] ??= {};
+          cursors[channelId] = _newerCursor(cursors[channelId], messageId);
+        }
+      }, lastId: _rootMessageCursors[siteUrl]?[channelId]);
     } catch (error, stackTrace) {
       _report(
         error,
@@ -3071,7 +3075,7 @@ class ChatController extends FrameSafeNotifier {
         key,
         () => detail.messageBusLastId,
       );
-      _threadSubscriptions[key] = tracker.watchPluginChannelWithPosition(
+      _threadSubscriptions[key] = tracker.subscribe(
         '/chat/${target.channelId}/thread/${target.threadId}',
         (data, messageId) {
           try {
@@ -3096,7 +3100,7 @@ class ChatController extends FrameSafeNotifier {
   }
 
   void _cancelActiveStreamSubscriptions(String siteUrl) {
-    final cancelled = <SiteMessageBusSubscription>[];
+    final cancelled = <PluginLiveChannelSubscription>[];
     _rootSubscriptions.removeWhere((key, subscription) {
       if (!key.startsWith('$siteUrl~')) return false;
       cancelled.add(subscription);
@@ -3113,7 +3117,7 @@ class ChatController extends FrameSafeNotifier {
   }
 
   void _cancelSubscription(
-    SiteMessageBusSubscription? subscription,
+    PluginLiveChannelSubscription? subscription,
     String operation,
   ) {
     if (subscription == null) return;
@@ -3151,7 +3155,7 @@ class ChatController extends FrameSafeNotifier {
     if (tracker == null || presence == null) return;
 
     try {
-      _presenceSubscriptions[siteUrl] = tracker.watchPluginChannelWithPosition(
+      _presenceSubscriptions[siteUrl] = tracker.subscribe(
         '/presence/chat/online',
         (data, messageId) =>
             _applyPresenceMessage(siteUrl, data, messageId: messageId),
@@ -3190,7 +3194,7 @@ class ChatController extends FrameSafeNotifier {
   }
 
   void _cancelSendSubscriptions(String siteUrl, {bool forgetTargets = true}) {
-    final cancelled = <SiteMessageBusSubscription>[];
+    final cancelled = <PluginLiveChannelSubscription>[];
     _sendSubscriptions.removeWhere((key, subscription) {
       if (!key.startsWith('$siteUrl~')) return false;
       cancelled.add(subscription);
@@ -3327,20 +3331,20 @@ class ChatController extends FrameSafeNotifier {
         _newChannelCursors.containsKey(siteUrl) &&
         !_newChannelSubscriptions.containsKey(siteUrl)) {
       try {
-        _newChannelSubscriptions[siteUrl] = tracker
-            .watchPluginChannelWithPosition('/chat/new-channel', (
-              data,
-              messageId,
-            ) {
-              try {
-                _applyNewChannel(siteUrl, data);
-              } finally {
-                _newChannelCursors[siteUrl] = _newerCursor(
-                  _newChannelCursors[siteUrl],
-                  messageId,
-                );
-              }
-            }, lastId: _newChannelCursors[siteUrl]);
+        _newChannelSubscriptions[siteUrl] = tracker.subscribe(
+          '/chat/new-channel',
+          (data, messageId) {
+            try {
+              _applyNewChannel(siteUrl, data);
+            } finally {
+              _newChannelCursors[siteUrl] = _newerCursor(
+                _newChannelCursors[siteUrl],
+                messageId,
+              );
+            }
+          },
+          lastId: _newChannelCursors[siteUrl],
+        );
       } catch (error, stackTrace) {
         _report(
           error,
@@ -3353,13 +3357,10 @@ class ChatController extends FrameSafeNotifier {
 
     if (currentUserId != null &&
         !_channelStateSubscriptions.containsKey(siteUrl)) {
-      final subscriptions = <SiteMessageBusSubscription>[];
+      final subscriptions = <PluginLiveChannelSubscription>[];
       try {
         subscriptions.add(
-          tracker.watchPluginChannelWithPosition('/chat/channel-metadata', (
-            data,
-            messageId,
-          ) {
+          tracker.subscribe('/chat/channel-metadata', (data, messageId) {
             try {
               _applyChannelMetadata(siteUrl, data);
             } finally {
@@ -3371,10 +3372,7 @@ class ChatController extends FrameSafeNotifier {
           }, lastId: _channelMetadataCursors[siteUrl]),
         );
         subscriptions.add(
-          tracker.watchPluginChannelWithPosition('/chat/channel-edits', (
-            data,
-            messageId,
-          ) {
+          tracker.subscribe('/chat/channel-edits', (data, messageId) {
             try {
               _applyChannelEdit(siteUrl, data);
             } finally {
@@ -3386,10 +3384,7 @@ class ChatController extends FrameSafeNotifier {
           }, lastId: _channelEditCursors[siteUrl]),
         );
         subscriptions.add(
-          tracker.watchPluginChannelWithPosition('/chat/channel-status', (
-            data,
-            messageId,
-          ) {
+          tracker.subscribe('/chat/channel-status', (data, messageId) {
             try {
               _applyChannelStatus(siteUrl, data);
             } finally {
@@ -3417,40 +3412,38 @@ class ChatController extends FrameSafeNotifier {
     if (currentUserId != null &&
         _userTrackingCursors.containsKey(siteUrl) &&
         !_userTrackingSubscriptions.containsKey(siteUrl)) {
-      final subscriptions = <SiteMessageBusSubscription>[];
+      final subscriptions = <PluginLiveChannelSubscription>[];
       try {
         final cursor = _userTrackingCursors[siteUrl];
         subscriptions.add(
-          tracker.watchPluginChannelWithPosition(
-            '/chat/user-tracking-state/$currentUserId',
-            (data, messageId) {
-              try {
-                _applyUserTrackingState(siteUrl, data);
-              } finally {
-                _userTrackingCursors[siteUrl] = _newerCursor(
-                  _userTrackingCursors[siteUrl],
-                  messageId,
-                );
-              }
-            },
-            lastId: cursor,
-          ),
+          tracker.subscribe('/chat/user-tracking-state/$currentUserId', (
+            data,
+            messageId,
+          ) {
+            try {
+              _applyUserTrackingState(siteUrl, data);
+            } finally {
+              _userTrackingCursors[siteUrl] = _newerCursor(
+                _userTrackingCursors[siteUrl],
+                messageId,
+              );
+            }
+          }, lastId: cursor),
         );
         subscriptions.add(
-          tracker.watchPluginChannelWithPosition(
-            '/chat/bulk-user-tracking-state/$currentUserId',
-            (data, messageId) {
-              try {
-                _applyBulkUserTrackingState(siteUrl, data);
-              } finally {
-                _userTrackingCursors[siteUrl] = _newerCursor(
-                  _userTrackingCursors[siteUrl],
-                  messageId,
-                );
-              }
-            },
-            lastId: cursor,
-          ),
+          tracker.subscribe('/chat/bulk-user-tracking-state/$currentUserId', (
+            data,
+            messageId,
+          ) {
+            try {
+              _applyBulkUserTrackingState(siteUrl, data);
+            } finally {
+              _userTrackingCursors[siteUrl] = _newerCursor(
+                _userTrackingCursors[siteUrl],
+                messageId,
+              );
+            }
+          }, lastId: cursor),
         );
         _userTrackingSubscriptions[siteUrl] = subscriptions;
       } catch (error, stackTrace) {
@@ -3474,26 +3467,25 @@ class ChatController extends FrameSafeNotifier {
         _userHasThreadsCursors.containsKey(siteUrl) &&
         !_userHasThreadsSubscriptions.containsKey(siteUrl)) {
       try {
-        _userHasThreadsSubscriptions[siteUrl] = tracker
-            .watchPluginChannelWithPosition(
-              '/chat/user-has-threads/$currentUserId',
-              (data, messageId) {
-                try {
-                  if (data is Map<String, dynamic> &&
-                      data['has_threads'] == true &&
-                      !hasThreads(siteUrl)) {
-                    _hasThreads[siteUrl] = true;
-                    notifySafely();
-                  }
-                } finally {
-                  _userHasThreadsCursors[siteUrl] = _newerCursor(
-                    _userHasThreadsCursors[siteUrl],
-                    messageId,
-                  );
-                }
-              },
-              lastId: _userHasThreadsCursors[siteUrl],
-            );
+        _userHasThreadsSubscriptions[siteUrl] = tracker.subscribe(
+          '/chat/user-has-threads/$currentUserId',
+          (data, messageId) {
+            try {
+              if (data is Map<String, dynamic> &&
+                  data['has_threads'] == true &&
+                  !hasThreads(siteUrl)) {
+                _hasThreads[siteUrl] = true;
+                notifySafely();
+              }
+            } finally {
+              _userHasThreadsCursors[siteUrl] = _newerCursor(
+                _userHasThreadsCursors[siteUrl],
+                messageId,
+              );
+            }
+          },
+          lastId: _userHasThreadsCursors[siteUrl],
+        );
       } catch (error, stackTrace) {
         _report(
           error,
@@ -3508,7 +3500,7 @@ class ChatController extends FrameSafeNotifier {
       final key = _streamKey(siteUrl, entry.key);
       if (_newMessageSubscriptions.containsKey(key)) continue;
       try {
-        _newMessageSubscriptions[key] = tracker.watchPluginChannelWithPosition(
+        _newMessageSubscriptions[key] = tracker.subscribe(
           '/chat/${entry.key}/new-messages',
           (data, messageId) {
             try {
@@ -3540,7 +3532,7 @@ class ChatController extends FrameSafeNotifier {
       final key = _streamKey(siteUrl, entry.key);
       if (_newMentionSubscriptions.containsKey(key)) continue;
       try {
-        _newMentionSubscriptions[key] = tracker.watchPluginChannelWithPosition(
+        _newMentionSubscriptions[key] = tracker.subscribe(
           '/chat/${entry.key}/new-mentions',
           (data, messageId) {
             try {
@@ -3569,20 +3561,19 @@ class ChatController extends FrameSafeNotifier {
       final key = _streamKey(siteUrl, entry.key);
       if (_kickSubscriptions.containsKey(key)) continue;
       try {
-        _kickSubscriptions[key] = tracker.watchPluginChannelWithPosition(
-          '/chat/${entry.key}/kick',
-          (data, messageId) {
-            try {
-              _applyKick(siteUrl, entry.key, data);
-            } finally {
-              final latest = _kickCursors[siteUrl];
-              if (latest?.containsKey(entry.key) == true) {
-                latest![entry.key] = _newerCursor(latest[entry.key], messageId);
-              }
+        _kickSubscriptions[key] = tracker.subscribe('/chat/${entry.key}/kick', (
+          data,
+          messageId,
+        ) {
+          try {
+            _applyKick(siteUrl, entry.key, data);
+          } finally {
+            final latest = _kickCursors[siteUrl];
+            if (latest?.containsKey(entry.key) == true) {
+              latest![entry.key] = _newerCursor(latest[entry.key], messageId);
             }
-          },
-          lastId: entry.value,
-        );
+          }
+        }, lastId: entry.value);
       } catch (error, stackTrace) {
         _report(
           error,
@@ -3595,7 +3586,7 @@ class ChatController extends FrameSafeNotifier {
   }
 
   void _cancelLiveChatSubscriptions(String siteUrl) {
-    final cancelled = <SiteMessageBusSubscription>[];
+    final cancelled = <PluginLiveChannelSubscription>[];
     _newMessageSubscriptions.removeWhere((key, subscription) {
       if (!key.startsWith('$siteUrl~')) return false;
       cancelled.add(subscription);
@@ -3738,7 +3729,7 @@ class ChatController extends FrameSafeNotifier {
       'chat.kick.unsubscribe',
     );
     final threadPrefix = '$siteUrl~channel-$channelId-thread-';
-    final kickedThreadSubscriptions = <SiteMessageBusSubscription>[];
+    final kickedThreadSubscriptions = <PluginLiveChannelSubscription>[];
     _threadSubscriptions.removeWhere((targetKey, subscription) {
       if (!targetKey.startsWith(threadPrefix)) return false;
       kickedThreadSubscriptions.add(subscription);
@@ -5428,11 +5419,11 @@ class ChatController extends FrameSafeNotifier {
     if (tracker == null) return;
 
     try {
-      _sendSubscriptions[key] = tracker.watchPluginChannel(
+      _sendSubscriptions[key] = tracker.subscribe(
         target.threadId == null
             ? '/chat/${target.channelId}'
             : '/chat/${target.channelId}/thread/${target.threadId}',
-        (data) => _applySendMessage(siteUrl, target, data),
+        (data, _) => _applySendMessage(siteUrl, target, data),
       );
     } catch (error, stackTrace) {
       _report(
@@ -5828,7 +5819,7 @@ class ChatController extends FrameSafeNotifier {
     if (!force && targetMessageId == null && _windowAttemptedRecently(key)) {
       return;
     }
-    await DiagnosticsSink.runOperation(
+    await reporter.runOperation(
       'chat.loadWindow',
       () => _fetchWindow(
         siteUrl,
@@ -5859,7 +5850,7 @@ class ChatController extends FrameSafeNotifier {
     final detail = await refreshThreadDetail(siteUrl, target);
     if (detail == null || isDisposed) return;
     _ensureThreadSubscription(siteUrl, target);
-    final result = await DiagnosticsSink.runOperation(
+    final result = await reporter.runOperation(
       'chat.loadThreadWindow',
       () => _fetchWindow(
         siteUrl,
@@ -5870,7 +5861,7 @@ class ChatController extends FrameSafeNotifier {
     );
     if (result == _ChatWindowFetchResult.missingTarget &&
         targetMessageId != null) {
-      final fallback = await DiagnosticsSink.runOperation(
+      final fallback = await reporter.runOperation(
         'chat.loadThreadWindowFallback',
         () => _fetchWindow(siteUrl, target, fromLastRead: false),
       );
@@ -6341,7 +6332,7 @@ class ChatController extends FrameSafeNotifier {
   Future<void> showLatestFor(String siteUrl, ChatStreamTarget target) async {
     if (isDisposed || target.channelId <= 0) return;
     if (streamFor(siteUrl, target).atPresent) return;
-    await DiagnosticsSink.runOperation(
+    await reporter.runOperation(
       'chat.loadLatest',
       () => _fetchWindow(siteUrl, target, fromLastRead: false),
     );

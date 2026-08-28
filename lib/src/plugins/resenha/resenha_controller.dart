@@ -7,8 +7,8 @@ import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import '../../data/api_credentials.dart';
 import '../../data/discourse_api_contracts.dart'
     show SiteLookupException, SiteLookupFailure, WriteException, WriteFailure;
-import '../../data/site_tracker.dart';
 import '../../diagnostics/diagnostics_controller.dart';
+import '../../plugin_api/live_channels.dart';
 import '../chat/chat_contract.dart';
 import 'resenha_api.dart';
 import 'resenha_callkit.dart';
@@ -146,7 +146,8 @@ class ResenhaCallSnapshot {
   );
 }
 
-typedef ResenhaTrackerLookup = SiteTracker? Function(String siteUrl);
+typedef ResenhaTrackerLookup =
+    PluginLiveChannelHandle? Function(String siteUrl);
 typedef ResenhaUserIdLookup = int? Function(String siteUrl);
 typedef ResenhaCapabilityResolver = Future<bool?> Function(String siteUrl);
 
@@ -165,11 +166,16 @@ final class ResenhaController extends ChangeNotifier {
     ResenhaCapabilityResolver? capabilityEnabledFor,
     this.mediaFactory = const NativeResenhaMediaFactory(),
     ResenhaSystemCall? systemCall,
+    PluginDiagnosticsReporter reporter = const PluginDiagnosticsReporter.noop(),
     ResenhaDiagnosticsRecorder? diagnostics,
     ResenhaPreferences? preferences,
     this.heartbeatInterval = const Duration(seconds: 10),
     this.signalBatchDelay = const Duration(milliseconds: 200),
   }) : capabilityEnabledFor = capabilityEnabledFor ?? _unknownResenhaCapability,
+       // Public constructor names should describe the granted facility rather
+       // than expose the controller's private storage name.
+       // ignore: prefer_initializing_formals
+       _reporter = reporter,
        diagnostics = diagnostics ?? const NoopResenhaDiagnosticsRecorder(),
        systemCall =
            systemCall ??
@@ -191,6 +197,7 @@ final class ResenhaController extends ChangeNotifier {
   final VoidCallback onCallSiteChanged;
   final ResenhaMediaFactory mediaFactory;
   final ResenhaSystemCall systemCall;
+  final PluginDiagnosticsReporter _reporter;
   final ResenhaDiagnosticsRecorder diagnostics;
   final ResenhaPreferences _preferences;
   final Duration heartbeatInterval;
@@ -198,12 +205,13 @@ final class ResenhaController extends ChangeNotifier {
   late final StreamSubscription<ResenhaSystemCallAction> _systemActions;
 
   final Map<String, ResenhaDirectory> _directories = {};
+  final Map<String, PluginLiveChannelHandle> _attachedTrackers = {};
   final Map<String, Map<int, ResenhaRoom>> _linkedRooms = {};
   final Set<String> _loadingSites = {};
   final Set<String> _unavailableSites = {};
-  final Map<String, SiteMessageBusSubscription> _directorySubscriptions = {};
-  final Map<String, Map<int, SiteMessageBusSubscription>> _roomSubscriptions =
-      {};
+  final Map<String, PluginLiveChannelSubscription> _directorySubscriptions = {};
+  final Map<String, Map<int, PluginLiveChannelSubscription>>
+  _roomSubscriptions = {};
   final Map<String, String> _errors = {};
   final Map<String, _ResenhaChatAssociation> _chats = {};
   final Map<String, Object> _siteSessions = {};
@@ -456,13 +464,31 @@ final class ResenhaController extends ChangeNotifier {
       identical(_call?.media, call.media) &&
       _call?.status != ResenhaCallStatus.leaving;
 
-  void attachTracker(String siteUrl) {
+  void attachTracker(String siteUrl, [PluginLiveChannelHandle? tracker]) {
+    final replaced =
+        tracker != null && !identical(_attachedTrackers[siteUrl], tracker);
+    if (replaced) {
+      _cancelTrackerSubscriptions(siteUrl);
+      _attachedTrackers[siteUrl] = tracker;
+    }
     final directory = _directories[siteUrl];
     if (directory != null) _replaceSubscriptions(siteUrl, directory);
   }
 
+  PluginLiveChannelHandle? _trackerFor(String siteUrl) =>
+      _attachedTrackers[siteUrl] ?? trackerFor(siteUrl);
+
+  void _cancelTrackerSubscriptions(String siteUrl) {
+    _directorySubscriptions.remove(siteUrl)?.cancel();
+    for (final subscription
+        in _roomSubscriptions.remove(siteUrl)?.values ??
+            const <PluginLiveChannelSubscription>[]) {
+      subscription.cancel();
+    }
+  }
+
   void _replaceSubscriptions(String siteUrl, ResenhaDirectory directory) {
-    final tracker = trackerFor(siteUrl);
+    final tracker = _trackerFor(siteUrl);
     if (tracker == null) return;
     _record(
       'room.subscriptions.synced',
@@ -471,9 +497,9 @@ final class ResenhaController extends ChangeNotifier {
       data: {'roomCount': directory.rooms.length},
     );
     _directorySubscriptions.remove(siteUrl)?.cancel();
-    _directorySubscriptions[siteUrl] = tracker.watchPluginChannel(
+    _directorySubscriptions[siteUrl] = tracker.subscribe(
       '/resenha/rooms/index',
-      (data) => _onDirectoryEvent(siteUrl, data),
+      (data, _) => _onDirectoryEvent(siteUrl, data),
       lastId: directory.messageBusLastId,
     );
     final subscriptions = _roomSubscriptions.putIfAbsent(siteUrl, () => {});
@@ -485,9 +511,9 @@ final class ResenhaController extends ChangeNotifier {
     for (final room in directory.rooms) {
       subscriptions.putIfAbsent(
         room.id,
-        () => tracker.watchPluginChannel(
+        () => tracker.subscribe(
           '/resenha/rooms/${room.id}',
-          (data) => _onRoomEvent(siteUrl, room.id, data),
+          (data, _) => _onRoomEvent(siteUrl, room.id, data),
           lastId: room.messageBusLastId,
         ),
       );
@@ -893,7 +919,7 @@ final class ResenhaController extends ChangeNotifier {
       correlationId: correlationId,
       data: _rawRoomDiagnosticData(siteUrl, room, siteName: siteName),
     );
-    final operation = DiagnosticsSink.runOperation(
+    final operation = _reporter.runOperation(
       'resenha.join',
       () => _joinTail.then(
         (_) => _runPublicOperation(
@@ -1072,7 +1098,7 @@ final class ResenhaController extends ChangeNotifier {
       final signalBatcher = ResenhaSignalBatcher(
         batchDelay: signalBatchDelay,
         sendBatch: (payload) async {
-          await DiagnosticsSink.runOperation(
+          await _reporter.runOperation(
             'resenha.signal',
             () => api.signal(
               siteUrl: siteUrl,
@@ -1160,7 +1186,7 @@ final class ResenhaController extends ChangeNotifier {
           );
           final refreshClientId = await credentials.clientId();
           if (!mediaIsCurrent()) return fallback;
-          final refreshed = await DiagnosticsSink.runOperation(
+          final refreshed = await _reporter.runOperation(
             'resenha.livekitToken',
             () => api.livekitToken(
               siteUrl: siteUrl,
@@ -1441,7 +1467,7 @@ final class ResenhaController extends ChangeNotifier {
         );
         return;
       }
-      await DiagnosticsSink.runOperation(
+      await _reporter.runOperation(
         'resenha.heartbeat',
         () => api.heartbeat(
           siteUrl: call.siteUrl,
@@ -1540,7 +1566,7 @@ final class ResenhaController extends ChangeNotifier {
     _audioInputDeviceId = deviceId;
     final correlationId =
         _activeDiagnosticCorrelationId ??
-        DiagnosticsSink.newCorrelationId('resenha-device');
+        _reporter.newCorrelationId('resenha-device');
     await _traceDeviceSelection(
       kind: 'audio_input',
       origin: 'user',
@@ -1574,7 +1600,7 @@ final class ResenhaController extends ChangeNotifier {
     _audioOutputDeviceId = deviceId;
     final correlationId =
         _activeDiagnosticCorrelationId ??
-        DiagnosticsSink.newCorrelationId('resenha-device');
+        _reporter.newCorrelationId('resenha-device');
     await _traceDeviceSelection(
       kind: 'audio_output',
       origin: 'user',
@@ -1608,7 +1634,7 @@ final class ResenhaController extends ChangeNotifier {
     _cameraDeviceId = deviceId;
     final correlationId =
         _activeDiagnosticCorrelationId ??
-        DiagnosticsSink.newCorrelationId('resenha-device');
+        _reporter.newCorrelationId('resenha-device');
     await _traceDeviceSelection(
       kind: 'camera',
       origin: 'user',
@@ -1704,9 +1730,7 @@ final class ResenhaController extends ChangeNotifier {
   }
 
   Future<void> _restoreDevicePreferences() async {
-    final correlationId = DiagnosticsSink.newCorrelationId(
-      'resenha-preferences',
-    );
+    final correlationId = _reporter.newCorrelationId('resenha-preferences');
     _record(
       'preferences.devices.restore_started',
       component: 'preferences',
@@ -1942,7 +1966,7 @@ final class ResenhaController extends ChangeNotifier {
         );
         final apiKey = await credentials.apiKeyFor(call.siteUrl);
         if (apiKey == null || !isCurrent()) return;
-        await DiagnosticsSink.runOperation(
+        await _reporter.runOperation(
           'resenha.state',
           () => api.state(
             siteUrl: call.siteUrl,
@@ -2100,7 +2124,7 @@ final class ResenhaController extends ChangeNotifier {
         );
         final apiKey = await credentials.apiKeyFor(call.siteUrl);
         if (apiKey != null) {
-          await DiagnosticsSink.runOperation(
+          await _reporter.runOperation(
             'resenha.leave',
             () => api.leave(
               siteUrl: call.siteUrl,
@@ -2813,6 +2837,7 @@ final class ResenhaController extends ChangeNotifier {
     _directoryRequests.remove(siteUrl);
     _chatRequests.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _directories.remove(siteUrl);
+    _attachedTrackers.remove(siteUrl);
     _unavailableSites.remove(siteUrl);
     _linkedRooms.remove(siteUrl);
     final forgottenChats = <_ResenhaChatAssociation>[];
@@ -2824,19 +2849,14 @@ final class ResenhaController extends ChangeNotifier {
     for (final state in forgottenChats) {
       _closeChatConversation(state);
     }
+    _cancelTrackerSubscriptions(siteUrl);
     _errors.remove(siteUrl);
     _loadingSites.remove(siteUrl);
-    _directorySubscriptions.remove(siteUrl)?.cancel();
-    for (final subscription
-        in _roomSubscriptions.remove(siteUrl)?.values ??
-            const <SiteMessageBusSubscription>[]) {
-      subscription.cancel();
-    }
     if (!_disposed) notifyListeners();
   }
 
   String _nextCallCorrelationId() {
-    return DiagnosticsSink.newCorrelationId('resenha-call');
+    return _reporter.newCorrelationId('resenha-call');
   }
 
   String? _correlationFor(ResenhaCallSnapshot? call) =>
@@ -2970,7 +2990,7 @@ final class ResenhaController extends ChangeNotifier {
     final effectiveCorrelationId =
         correlationId ??
         _activeDiagnosticCorrelationId ??
-        DiagnosticsSink.currentCorrelationId;
+        _reporter.currentCorrelationId;
     _record(
       'runtime.error',
       severity: DiagnosticSeverity.warning,
@@ -2985,7 +3005,7 @@ final class ResenhaController extends ChangeNotifier {
       data: {'operation': operation, 'stackTrace': stackTrace.toString()},
     );
     try {
-      DiagnosticsSink.current.reportError(
+      _reporter.reportError(
         _ResenhaDiagnosticFailure(
           operation: operation,
           errorType: error.runtimeType.toString(),
@@ -3063,6 +3083,7 @@ final class ResenhaController extends ChangeNotifier {
     _heartbeatPending = false;
     _stateRetry?.cancel();
     _roomVideoWatchers.clear();
+    _attachedTrackers.clear();
     for (final subscription in _directorySubscriptions.values) {
       subscription.cancel();
     }

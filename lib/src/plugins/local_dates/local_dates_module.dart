@@ -1,13 +1,24 @@
 import '../../plugin_api/plugin_manifest.dart';
 import '../chat/chat_preview_contract.dart';
+import 'local_date.dart';
+import 'local_date_environment.dart';
 import 'local_dates_contract.dart';
 import 'local_dates_cooked_time_parser.dart';
 import 'local_dates_plugin.dart';
 
-const localDatesModule = LocalDatesModule();
+const localDatesPluginId = PluginId('discourse-local-dates');
+
+/// Production composition injects the process-owned timezone facility here;
+/// tests and alternate hosts can construct [LocalDatesModule] with an isolated
+/// environment instead.
+final localDatesModule = LocalDatesModule(
+  environment: LocalDateEnvironment.instance,
+);
 
 final class LocalDatesModule implements PluginModule {
-  const LocalDatesModule();
+  const LocalDatesModule({required this.environment});
+
+  final LocalDateEnvironment environment;
 
   @override
   PluginDescriptor get descriptor => const PluginDescriptor(
@@ -20,7 +31,7 @@ final class LocalDatesModule implements PluginModule {
 
   @override
   void register(PluginRegistrar registrar) {
-    const plugin = LocalDatesPlugin();
+    final plugin = LocalDatesPlugin(environment: environment);
     registrar.addCapability(plugin);
     registrar.addStaticContribution(
       chatPreviewContributions,
@@ -31,10 +42,12 @@ final class LocalDatesModule implements PluginModule {
     registrar.addSession(
       (_, _) => PluginSessionContribution(
         lifecycle: _LocalDatesSessionLifecycle(),
-        services: const [
+        services: [
           PluginService<Object>(
             localDatesCookedTimeParserService,
-            LocalDatesCookedTimeParser(),
+            LocalDatesCookedTimeParser(
+              formatter: LocalDateFormatter(environment: environment),
+            ),
           ),
         ],
       ),

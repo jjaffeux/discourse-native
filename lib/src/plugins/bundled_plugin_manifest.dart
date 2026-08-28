@@ -11,7 +11,7 @@ import 'reactions/reactions_module.dart';
 import 'resenha/resenha_module.dart';
 
 /// The one deterministic composition root for the full application build.
-const PluginManifest bundledPluginManifest = PluginManifest([
+final PluginManifest bundledPluginManifest = PluginManifest([
   localDatesModule,
   discourseGithubModule,
   discourseLazyVideosModule,
@@ -28,7 +28,7 @@ const PluginManifest bundledPluginManifest = PluginManifest([
 ///
 /// Widget hosts which provide their own diagnostics lifecycle can use this
 /// profile while retaining every forum feature and session capability.
-const PluginManifest bundledPluginManifestWithoutDiagnostics = PluginManifest([
+final PluginManifest bundledPluginManifestWithoutDiagnostics = PluginManifest([
   localDatesModule,
   discourseGithubModule,
   discourseLazyVideosModule,
@@ -38,5 +38,5 @@ const PluginManifest bundledPluginManifestWithoutDiagnostics = PluginManifest([
   discourseAiModule,
   assignModule,
   chatModule,
-  ResenhaModule.withoutDiagnostics(),
+  const ResenhaModule.withoutDiagnostics(),
 ]);

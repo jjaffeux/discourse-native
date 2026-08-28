@@ -1,9 +1,12 @@
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_plugin.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-const _registry = PluginRegistry([LocalDatesPlugin()]);
+final _registry = PluginRegistry([
+  LocalDatesPlugin(environment: LocalDateEnvironment.instance),
+]);
 
 void main() {
   test('installed plugin decodes its site-settings wire keys', () {

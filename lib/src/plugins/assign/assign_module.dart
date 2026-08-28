@@ -1,3 +1,4 @@
+import '../../diagnostics/diagnostics_controller.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import 'assign_api.dart';
@@ -52,6 +53,7 @@ final class AssignModule implements PluginModule {
             );
           },
           reloadTopic: topicRefresh.reloadTopic,
+          diagnostics: bindings.require(pluginDiagnosticsReporterPort),
         );
         return PluginSessionContribution(
           lifecycle: _AssignSessionLifecycle(controller),
@@ -68,6 +70,7 @@ final class AssignModule implements PluginModule {
         corePluginTargetPort,
         corePluginTopicRefreshPort,
         corePluginSiteStatePort,
+        pluginDiagnosticsReporterPort,
       ],
     );
   }

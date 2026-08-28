@@ -3,11 +3,8 @@ import 'dart:math';
 
 import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
-import 'package:discourse_native/src/plugin_api/hashtag_kind.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
-import 'package:discourse_native/src/plugins/local_dates/local_date_composer_pill.dart';
-import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_plugin.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
@@ -27,7 +24,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-import 'support/bundled_plugins.dart';
 import 'support/finders.dart';
 
 /// The composer draws markdown but posts it unchanged, and the two are the same

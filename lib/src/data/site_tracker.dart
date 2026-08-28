@@ -6,6 +6,8 @@ import 'package:message_bus_client/message_bus_client.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/incoming_topics.dart';
 import '../models/notification_totals.dart';
+import '../plugin_api/live_channels.dart';
+import '../plugin_api/plugin_manifest.dart';
 import 'discourse_api.dart';
 import 'http_transport.dart';
 
@@ -468,6 +470,75 @@ class SiteTracker {
     'User-Api-Key': ?apiKey,
     'User-Api-Client-Id': ?clientId,
   };
+}
+
+/// Materializes the least-privilege plugin view of [tracker].
+///
+/// The returned object is deliberately a wrapper rather than [tracker]
+/// implementing [PluginLiveChannelHandle]. Plugin code therefore cannot
+/// recover connection lifecycle, topic watching, core-channel callbacks, or
+/// disposal authority with a downcast.
+extension SiteTrackerPluginLiveChannels on SiteTracker {
+  PluginLiveChannelHandle pluginLiveChannels(
+    Iterable<PluginLiveChannelScope> scopes,
+  ) => _ScopedPluginLiveChannelHandle(this, List.unmodifiable(scopes));
+}
+
+const _coreLiveChannelScopes = <String>[
+  '/latest',
+  '/new',
+  '/notification',
+  '/reviewable_counts',
+  '/user-status',
+  '/do-not-disturb',
+  '/topic',
+];
+
+bool _isWithinChannelScope(String channel, String scope) =>
+    channel == scope || channel.startsWith('$scope/');
+
+bool _isCoreLiveChannel(String channel) => _coreLiveChannelScopes.any(
+  (scope) => _isWithinChannelScope(channel, scope),
+);
+
+final class _ScopedPluginLiveChannelHandle implements PluginLiveChannelHandle {
+  const _ScopedPluginLiveChannelHandle(this._tracker, this._scopes);
+
+  final SiteTracker _tracker;
+  final List<PluginLiveChannelScope> _scopes;
+
+  @override
+  PluginLiveChannelSubscription subscribe(
+    String channel,
+    void Function(Object? data, int messageId) onMessage, {
+    int? lastId,
+  }) {
+    if (_isCoreLiveChannel(channel) ||
+        !_scopes.any((scope) => scope.allows(channel))) {
+      throw ArgumentError.value(
+        channel,
+        'channel',
+        'The channel is outside this plugin live-channel scope.',
+      );
+    }
+    return _PluginLiveChannelSubscription(
+      _tracker.watchPluginChannelWithPosition(
+        channel,
+        onMessage,
+        lastId: lastId,
+      ),
+    );
+  }
+}
+
+final class _PluginLiveChannelSubscription
+    implements PluginLiveChannelSubscription {
+  const _PluginLiveChannelSubscription(this._subscription);
+
+  final SiteMessageBusSubscription _subscription;
+
+  @override
+  void cancel() => _subscription.cancel();
 }
 
 SiteMessageBusSession _createMessageBus({

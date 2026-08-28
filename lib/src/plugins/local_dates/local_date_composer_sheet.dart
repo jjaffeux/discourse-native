@@ -130,7 +130,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
     final draft = widget.draft;
     _zones = {
       ...LocalDateEnvironment.aliases.keys,
-      ...LocalDateEnvironment.instance.timezoneNames,
+      ...draft.environment.timezoneNames,
     }.toList()..sort();
     _startDate = TextEditingController(text: draft.startDate);
     _startTime = TextEditingController(text: draft.startTime ?? '09:00:00');
@@ -457,7 +457,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
 
   String _previewText(LocalDateComposerDraft draft) {
     final locale = Localizations.localeOf(context);
-    const formatter = LocalDateFormatter();
+    final formatter = LocalDateFormatter(environment: draft.environment);
     final start = formatter.resolve(
       LocalDateSpec(
         date: draft.startDate,

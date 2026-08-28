@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart' show visibleForTesting;
-
+import '../../diagnostics/diagnostics_controller.dart';
+import '../../plugin_api/background_retention.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import '../chat/chat_contract.dart';
@@ -18,17 +18,20 @@ const resenhaModule = ResenhaModule();
 final class ResenhaModule implements PluginModule {
   const ResenhaModule() : _includeDiagnostics = true;
 
-  @visibleForTesting
   const ResenhaModule.withoutDiagnostics() : _includeDiagnostics = false;
 
   final bool _includeDiagnostics;
 
   @override
-  PluginDescriptor get descriptor => const PluginDescriptor(
+  PluginDescriptor get descriptor => PluginDescriptor(
     id: resenhaPluginId,
-    dependencies: [PluginDependency(chatPluginId)],
+    dependencies: [const PluginDependency(chatPluginId)],
     routeNamespaces: {'resenha'},
     exclusiveClaims: {'app-global-media-session'},
+    liveChannelScopes: {
+      const PluginLiveChannelScope.prefix('/resenha'),
+      const PluginLiveChannelScope.prefix('/chat'),
+    },
   );
 
   @override
@@ -37,14 +40,25 @@ final class ResenhaModule implements PluginModule {
     registrar.addCapability(const ResenhaPlugin());
     registrar.addRouteNamespace('resenha');
     registrar.addExclusiveClaim('app-global-media-session');
+    registrar.addLiveChannelScope(
+      const PluginLiveChannelScope.prefix('/resenha'),
+    );
+    registrar.addLiveChannelScope(const PluginLiveChannelScope.prefix('/chat'));
     if (diagnostics != null) {
       registrar.addCapability(diagnostics);
-      registrar.addAppLifecycle(diagnostics);
+      registrar.addAppLifecycle(
+        diagnostics,
+        requires: const [pluginDiagnosticsReporterPort],
+      );
     }
     registrar.addSession(
       (bindings, dependencies) {
         final transport = bindings.require(corePluginTransportPort);
-        final controller = ResenhaController(
+        final retention = _ResenhaBackgroundRetention(
+          bindings.require(corePluginBackgroundRetentionPort),
+        );
+        late final ResenhaController controller;
+        controller = ResenhaController(
           api: ResenhaApi(transport),
           chatConversations: dependencies.require(chatConversationService),
           credentials: bindings.require(corePluginCredentialsPort),
@@ -53,15 +67,19 @@ final class ResenhaModule implements PluginModule {
           capabilityEnabledFor: (siteUrl) async => (await bindings.require(
             corePluginPresentationPort,
           )(siteUrl))?.resenhaSettings.enabled,
-          onCallSiteChanged: bindings.require(corePluginTrackingSyncPort),
+          onCallSiteChanged: () => retention.sync(controller.activeSiteUrl),
           diagnostics: diagnostics ?? const NoopResenhaDiagnosticsRecorder(),
+          reporter: bindings.require(pluginDiagnosticsReporterPort),
         );
         final shell = ResenhaShellService(
           controller: controller,
           host: bindings.require(corePluginRouteNavigationPort),
         );
         return PluginSessionContribution(
-          lifecycle: _ResenhaSessionLifecycle(controller: controller),
+          lifecycle: _ResenhaSessionLifecycle(
+            controller: controller,
+            retention: retention,
+          ),
           services: [
             PluginService<Object>(resenhaControllerService, controller),
             PluginService<Object>(resenhaShellService, shell),
@@ -75,24 +93,63 @@ final class ResenhaModule implements PluginModule {
         corePluginTrackerPort,
         corePluginUserPort,
         corePluginPresentationPort,
-        corePluginTrackingSyncPort,
+        corePluginBackgroundRetentionPort,
         corePluginRouteNavigationPort,
+        pluginDiagnosticsReporterPort,
       ],
     );
   }
 }
 
 final class _ResenhaSessionLifecycle extends PluginSessionLifecycle {
-  _ResenhaSessionLifecycle({required this.controller});
+  _ResenhaSessionLifecycle({required this.controller, required this.retention});
 
   final ResenhaController controller;
+  final _ResenhaBackgroundRetention retention;
 
   @override
   void setForeground(bool foreground) => controller.setForeground(foreground);
 
   @override
-  void forget(String siteUrl) => controller.forget(siteUrl);
+  void forget(String siteUrl) {
+    controller.forget(siteUrl);
+    retention.forget(siteUrl);
+  }
 
   @override
-  void close() => controller.dispose();
+  void close() {
+    try {
+      controller.dispose();
+    } finally {
+      retention.close();
+    }
+  }
+}
+
+/// Resenha alone decides when voice-call signalling needs background time.
+/// Core sees only an ordinary owner-scoped lease and composes it with claims
+/// from any other plugin.
+final class _ResenhaBackgroundRetention {
+  _ResenhaBackgroundRetention(this._host);
+
+  final PluginBackgroundRetentionHost _host;
+  PluginBackgroundRetentionLease? _lease;
+
+  void sync(String? siteUrl) {
+    final held = _lease;
+    if (held?.siteUrl == siteUrl && held?.isReleased == false) return;
+    held?.release();
+    _lease = siteUrl == null ? null : _host.retain(siteUrl);
+  }
+
+  void forget(String siteUrl) {
+    if (_lease?.siteUrl != siteUrl) return;
+    _lease?.release();
+    _lease = null;
+  }
+
+  void close() {
+    _lease?.release();
+    _lease = null;
+  }
 }

@@ -46,12 +46,20 @@ class DiagnosticsPanel extends StatefulWidget {
 class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
   final TextEditingController _search = TextEditingController();
   final ScrollController _timeline = ScrollController();
+  late PluginDiagnosticsReadExportHost _pluginDiagnostics;
   DiagnosticsPlugin? _selectedPlugin;
+
+  @override
+  void initState() {
+    super.initState();
+    _pluginDiagnostics = PluginDiagnosticsReadExportHost(widget.controller);
+  }
 
   @override
   void didUpdateWidget(DiagnosticsPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(widget.controller, oldWidget.controller)) {
+      _pluginDiagnostics = PluginDiagnosticsReadExportHost(widget.controller);
       _search.text = widget.controller.panelState.query;
     }
     if (!widget.plugins.contains(_selectedPlugin)) {
@@ -140,7 +148,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                     child: _selectedPlugin != null
                         ? _selectedPlugin!.buildDiagnostics(
                             context,
-                            widget.controller,
+                            _pluginDiagnostics,
                           )
                         : selected == null
                         ? _buildTimeline(context)

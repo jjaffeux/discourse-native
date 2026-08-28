@@ -11,12 +11,17 @@ final class DiscourseAiModule implements PluginModule {
   const DiscourseAiModule();
 
   @override
-  PluginDescriptor get descriptor =>
-      const PluginDescriptor(id: discourseAiPluginId);
+  PluginDescriptor get descriptor => PluginDescriptor(
+    id: discourseAiPluginId,
+    liveChannelScopes: {const PluginLiveChannelScope.prefix('/discourse-ai')},
+  );
 
   @override
   void register(PluginRegistrar registrar) {
     registrar.addCapability(const AiSummaryPlugin());
+    registrar.addLiveChannelScope(
+      const PluginLiveChannelScope.prefix('/discourse-ai'),
+    );
     registrar.addSession(
       (bindings, _) {
         final controller = AiSummaryController(

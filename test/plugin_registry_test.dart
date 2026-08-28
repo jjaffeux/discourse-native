@@ -1,4 +1,3 @@
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/json.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -596,6 +595,7 @@ final class _IconPlugin extends _NamedPlugin implements IconCatalogPlugin {
     entries: {iconName: _pluginOnlyIcon},
   );
 }
+
 final class _FooterPlugin extends _NamedPlugin implements PostFooterPlugin {
   const _FooterPlugin(super.name, {required this.claims});
 

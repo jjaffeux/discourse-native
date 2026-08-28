@@ -480,6 +480,76 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test('keyed providers reject ambiguous contributions', () {
+    for (final capabilities in <List<SitePlugin>>[
+      const [_SiteFeaturePlugin('same'), _SiteFeaturePlugin('same')],
+      const [_UserFeaturePlugin('same'), _UserFeaturePlugin('same')],
+      const [
+        _DiagnosticsCapability('first', 'shared'),
+        _DiagnosticsCapability('second', 'shared'),
+      ],
+    ]) {
+      expect(() => PluginRegistry.validated(capabilities), throwsArgumentError);
+    }
+  });
+
+  test('keyed providers require nonempty keys', () {
+    for (final capability in <SitePlugin>[
+      const _SiteFeaturePlugin(''),
+      const _UserFeaturePlugin(''),
+      const _DiagnosticsCapability('diagnostics', ' '),
+    ]) {
+      expect(() => PluginRegistry.validated([capability]), throwsArgumentError);
+    }
+  });
+
+  test('distinct keyed providers compose', () {
+    expect(
+      () => PluginRegistry.validated(const [
+        _SiteFeaturePlugin('site-one'),
+        _SiteFeaturePlugin('site-two'),
+        _UserFeaturePlugin('user-one'),
+        _UserFeaturePlugin('user-two'),
+        _DiagnosticsCapability('diagnostics-one', 'one'),
+        _DiagnosticsCapability('diagnostics-two', 'two'),
+      ]),
+      returnsNormally,
+    );
+  });
+}
+
+final class _SiteFeaturePlugin implements SitePlugin, PluginSiteFeature {
+  const _SiteFeaturePlugin(this.name);
+
+  @override
+  final String name;
+
+  @override
+  bool siteFeatureEnabled(PluginData siteSettings) => true;
+}
+
+final class _UserFeaturePlugin implements SitePlugin, PluginCurrentUserFeature {
+  const _UserFeaturePlugin(this.name);
+
+  @override
+  final String name;
+
+  @override
+  bool currentUserFeatureEnabled(PluginData currentUser) => true;
+}
+
+final class _DiagnosticsCapability implements SitePlugin, DiagnosticsPlugin {
+  const _DiagnosticsCapability(this.name, this.diagnosticsId);
+
+  @override
+  final String name;
+
+  @override
+  final String diagnosticsId;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 final class _ComposerPlugin implements SitePlugin, ComposerTargetPlugin {

@@ -5,9 +5,7 @@ import 'local_date.dart';
 import 'local_dates_contract.dart';
 
 final class LocalDatesCookedTimeParser implements CookedTimeParser {
-  const LocalDatesCookedTimeParser({
-    this.formatter = const LocalDateFormatter(),
-  });
+  const LocalDatesCookedTimeParser({required this.formatter});
 
   final LocalDateFormatter formatter;
 

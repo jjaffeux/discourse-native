@@ -270,6 +270,7 @@ void main() {
         api: _TimeoutApi(),
         credentials: credentials,
         store: Store(),
+        reporter: PluginDiagnosticsReporter.fixed(diagnostics),
       );
       addTearDown(chat.dispose);
 
@@ -326,6 +327,7 @@ void main() {
         api: ChatApiClient(api),
         credentials: credentials,
         store: Store(),
+        reporter: PluginDiagnosticsReporter.fixed(diagnostics),
       );
       addTearDown(chat.dispose);
 

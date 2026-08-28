@@ -78,6 +78,7 @@ import 'composer_triggers.dart';
 import 'do_not_disturb_controller.dart';
 import 'draft_list_controller.dart';
 import 'hashtag.dart';
+import 'plugin_background_retention.dart';
 import 'post_quote.dart';
 import 'preferences_controller.dart';
 import 'shell_search_controller.dart';
@@ -158,6 +159,7 @@ class ShellController extends FrameSafeNotifier
     this.anchorPersistDebounce = const Duration(milliseconds: 500),
     ShellRootMode initialRootMode = ShellRootMode.forum,
     InstalledPlugins? plugins,
+    PluginDiagnosticsReporter? pluginDiagnosticsReporter,
   }) : forumTabs = forumTabs ?? ForumTabStore.memory(),
        aggregatePreferences =
            aggregatePreferences ?? AggregatePreferencesStore(),
@@ -169,6 +171,9 @@ class ShellController extends FrameSafeNotifier
        _providedSiteImages = siteImages,
        _rootMode = initialRootMode,
        _ownsPlugins = plugins == null,
+       _pluginDiagnosticsReporter =
+           pluginDiagnosticsReporter ??
+           const PluginDiagnosticsReporter.ambient(),
        plugins = plugins ?? PluginInstaller.install(corePluginManifest),
        updates = UpdateController(
          updater: updater,
@@ -223,6 +228,22 @@ class ShellController extends FrameSafeNotifier
   final SiteImageRepository? _providedSiteImages;
   final InstalledPlugins plugins;
   final bool _ownsPlugins;
+  final PluginDiagnosticsReporter _pluginDiagnosticsReporter;
+  Future<void>? _pluginTeardownFuture;
+
+  /// Completes after this controller's plugin session has torn down.
+  ///
+  /// The app uses this to avoid closing an owned [InstalledPlugins] runtime
+  /// while its previous controller generation is still running session
+  /// lifecycle hooks.
+  Future<void> get pluginTeardown =>
+      _pluginTeardownFuture ?? Future<void>.value();
+
+  late final PluginBackgroundRetentionRegistry _backgroundRetention =
+      PluginBackgroundRetentionRegistry(
+        canRetain: (siteUrl) => _instanceAt(siteUrl) != null,
+        onChanged: _syncTracking,
+      );
 
   late final SiteImageRepository siteImages =
       _providedSiteImages ??
@@ -235,6 +256,10 @@ class ShellController extends FrameSafeNotifier
       PluginHostPort<Object>(corePluginCredentialsPort, authenticator),
       PluginHostPort<Object>(corePluginStorePort, store),
       PluginHostPort<Object>(corePluginSiteLifecyclePort, lifecycle),
+      PluginHostPort<Object>(
+        pluginDiagnosticsReporterPort,
+        _pluginDiagnosticsReporter,
+      ),
       PluginHostPort<Object>(
         corePluginSiteStatePort,
         PluginSiteStateHost(
@@ -262,10 +287,8 @@ class ShellController extends FrameSafeNotifier
               _refetchTopic(siteUrl, topicId, ''),
         ),
       ),
-      PluginHostPort<Object>(
-        corePluginTrackerPort,
-        (String siteUrl) => _trackers[siteUrl],
-      ),
+      _pluginTrackerHostPort(),
+      _pluginBackgroundRetentionHostPort(),
       PluginHostPort<Object>(
         corePluginUserPort,
         (String siteUrl) => _instanceAt(siteUrl)?.user?.id,
@@ -274,7 +297,6 @@ class ShellController extends FrameSafeNotifier
         corePluginPresentationPort,
         (String siteUrl) => _presentation.resolveConfig(siteUrl),
       ),
-      PluginHostPort<Object>(corePluginTrackingSyncPort, _syncTracking),
       PluginHostPort<Object>(
         corePluginNavigationPort,
         _ShellPluginNavigationHost(this, () => isDisposed),
@@ -401,11 +423,29 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  String? get _pluginBackgroundSiteUrl => _pluginSession
-      .capabilities<PluginBackgroundSite>()
-      .map((capability) => capability.pluginBackgroundSiteUrl)
-      .whereType<String>()
-      .firstOrNull;
+  PluginHostPort<Object> _pluginTrackerHostPort() {
+    PluginTrackerReader scopedReader(PluginId consumer) => (siteUrl) {
+      final tracker = _trackers[siteUrl];
+      if (tracker == null) return null;
+      return tracker.pluginLiveChannels(plugins.liveChannelScopesFor(consumer));
+    };
+
+    return PluginHostPort<Object>(
+      corePluginTrackerPort,
+      scopedReader(const PluginId('core')),
+      scopeToConsumer: scopedReader,
+    );
+  }
+
+  PluginHostPort<Object> _pluginBackgroundRetentionHostPort() =>
+      PluginHostPort<Object>(
+        corePluginBackgroundRetentionPort,
+        _backgroundRetention.scopedTo(const PluginId('core')),
+        scopeToConsumer: _backgroundRetention.scopedTo,
+        revokeConsumer: _backgroundRetention.releaseOwner,
+      );
+
+  Set<String> get _pluginBackgroundSiteUrls => _backgroundRetention.siteUrls;
 
   /// Neutral write coordination available to plugin-owned interaction APIs.
   ///
@@ -2253,7 +2293,7 @@ class ShellController extends FrameSafeNotifier
   /// their cursors survive, so foregrounding asks for what was missed.
   void _syncTracking() {
     final instance = currentInstance;
-    final callSiteUrl = _pluginBackgroundSiteUrl;
+    final retainedSiteUrls = _pluginBackgroundSiteUrls;
 
     for (final entry in _trackers.entries) {
       if (entry.key != instance?.url) entry.value.unwatchTopic();
@@ -2262,20 +2302,18 @@ class ShellController extends FrameSafeNotifier
           _foreground && (_instanceAt(entry.key)?.isConnected ?? false);
       if (selectedAndVisible ||
           connectedAndVisible ||
-          entry.key == callSiteUrl) {
+          retainedSiteUrls.contains(entry.key)) {
         entry.value.start();
       } else {
         entry.value.stop();
       }
     }
-    if (callSiteUrl != null && callSiteUrl != instance?.url) {
-      _trackers[callSiteUrl]?.start();
-    }
-    if (!_foreground) return;
 
     for (final candidate in _instances) {
       final selected = candidate.url == instance?.url;
-      if (!selected && !candidate.isConnected) continue;
+      final retained = retainedSiteUrls.contains(candidate.url);
+      if (!_foreground && !retained) continue;
+      if (!selected && !candidate.isConnected && !retained) continue;
 
       // Core never starts MessageBus for an anonymous reader on a private site.
       // Such a poll can only be refused, and retrying that refusal adds traffic
@@ -2290,7 +2328,8 @@ class ShellController extends FrameSafeNotifier
       }
     }
 
-    if (instance case final selected?) {
+    if (_foreground && instance != null) {
+      final selected = instance;
       final tracker = _trackers[selected.url];
       if (tracker != null) _syncTopicWatch(selected.url, tracker);
     }
@@ -2488,14 +2527,14 @@ class ShellController extends FrameSafeNotifier
       // Credential lookup can outlive the lifecycle state that asked for this
       // tracker. SiteTracker starts its message bus in the constructor, so
       // checking only after construction still spends one poll for a hidden
-      // app. A voice call remains eligible because its signalling deliberately
-      // survives app backgrounding.
+      // app. A plugin-retained site remains eligible because its owner has an
+      // explicit live background lease.
       final selectedAndVisible = _foreground && currentInstance?.url == siteUrl;
       final connectedAndVisible =
           _foreground && (_instanceAt(siteUrl)?.isConnected ?? false);
       if (!selectedAndVisible &&
           !connectedAndVisible &&
-          _pluginBackgroundSiteUrl != siteUrl) {
+          !_backgroundRetention.retains(siteUrl)) {
         return;
       }
 
@@ -2510,7 +2549,8 @@ class ShellController extends FrameSafeNotifier
           userId: userId,
           apiKey: apiKey,
           clientId: clientId,
-          shouldLongPoll: () => _foreground,
+          shouldLongPoll: () =>
+              _foreground || _backgroundRetention.retains(siteUrl),
           onIncomingTopics: () => commit(() {
             if (currentInstance?.url == siteUrl) _notify();
           }),
@@ -2562,9 +2602,23 @@ class ShellController extends FrameSafeNotifier
           }
         }
       }
-      for (final attachment
-          in _pluginSession.capabilities<PluginTrackerAttachment>()) {
-        attachment.attachPluginTracker(siteUrl, tracker);
+      for (final owned
+          in _pluginSession.ownedCapabilities<PluginTrackerAttachment>()) {
+        try {
+          owned.capability.attachPluginTracker(
+            siteUrl,
+            tracker.pluginLiveChannels(
+              plugins.liveChannelScopesFor(owned.owner),
+            ),
+          );
+        } catch (error, stackTrace) {
+          _reportOperationalError(
+            error,
+            stackTrace,
+            'plugins.attachTracker.${owned.owner.value}',
+            severity: DiagnosticSeverity.warning,
+          );
+        }
       }
       final stillSelectedAndVisible =
           _foreground && currentInstance?.url == siteUrl;
@@ -2572,7 +2626,7 @@ class ShellController extends FrameSafeNotifier
           _foreground && (_instanceAt(siteUrl)?.isConnected ?? false);
       if (!stillSelectedAndVisible &&
           !stillConnectedAndVisible &&
-          _pluginBackgroundSiteUrl != siteUrl) {
+          !_backgroundRetention.retains(siteUrl)) {
         tracker.stop();
       } else if (stillSelectedAndVisible) {
         _syncTopicWatch(siteUrl, tracker);
@@ -3129,8 +3183,8 @@ class ShellController extends FrameSafeNotifier
   /// on desktop that made this hidden app wake forever, and on mobile the OS can
   /// suspend the socket at any point. Cursors survive [SiteTracker.stop], so a
   /// returning app still asks for exactly what it missed. A tracker carrying an
-  /// active voice call is the sole exception because call signalling must stay
-  /// live in the background.
+  /// plugin-held retention lease is the exception; the plugin owns why the
+  /// lease exists, while core only composes the retained site set.
   void setForeground(bool foreground) {
     if (foreground == _foreground) return;
     _foreground = foreground;
@@ -3146,11 +3200,11 @@ class ShellController extends FrameSafeNotifier
     doNotDisturb.checkExpirations();
 
     final instance = currentInstance;
-    final callSite = _pluginBackgroundSiteUrl;
+    final retainedSiteUrls = _pluginBackgroundSiteUrls;
     for (final entry in _trackers.entries) {
       final selected = entry.key == instance?.url;
       final connected = _instanceAt(entry.key)?.isConnected ?? false;
-      if (selected || connected || entry.key == callSite) {
+      if (selected || connected || retainedSiteUrls.contains(entry.key)) {
         entry.value.pollNow();
       }
     }
@@ -9642,10 +9696,11 @@ class ShellController extends FrameSafeNotifier
     _unavailableForums.remove(siteUrl);
     _retryingUnavailableForums.remove(siteUrl);
 
-    _observePluginLifecycle(
-      _pluginSession.forget(siteUrl),
-      'plugins.session.forget',
-    );
+    _backgroundRetention.releaseSite(siteUrl);
+    final forgetPlugins = _pluginSession
+        .forget(siteUrl)
+        .whenComplete(() => _backgroundRetention.releaseSite(siteUrl));
+    _observePluginLifecycle(forgetPlugins, 'plugins.session.forget');
     topicFeeds.forget(siteUrl);
     _trackersStarting.remove(siteUrl);
     _sessionUsersRefreshed.remove(siteUrl);
@@ -10385,12 +10440,16 @@ class ShellController extends FrameSafeNotifier
     aggregate.dispose();
     siteImages.dispose();
     final closePluginSession = _pluginSession.close();
+    _backgroundRetention.close();
     _observePluginLifecycle(closePluginSession, 'plugins.session.close');
     if (_ownsPlugins) {
-      _observePluginLifecycle(
-        closePluginSession.then((_) => plugins.close()),
-        'plugins.close',
-      );
+      final closeOwnedPlugins = closePluginSession
+          .onError((_, _) {})
+          .then((_) => plugins.close());
+      _pluginTeardownFuture = closeOwnedPlugins;
+      _observePluginLifecycle(closeOwnedPlugins, 'plugins.close');
+    } else {
+      _pluginTeardownFuture = closePluginSession;
     }
     search.dispose();
     for (final host in _coreBookmarkTargetHosts.values) {

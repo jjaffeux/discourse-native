@@ -17,6 +17,7 @@ class LocalDateComposerValidation {
 @immutable
 class LocalDateComposerDraft {
   const LocalDateComposerDraft._({
+    required this.environment,
     required this.startDate,
     required this.startTime,
     required this.endDate,
@@ -35,7 +36,9 @@ class LocalDateComposerDraft {
   factory LocalDateComposerDraft.newDate({
     required DateTime now,
     required String timezone,
+    required LocalDateEnvironment environment,
   }) => LocalDateComposerDraft._(
+    environment: environment,
     startDate: _date(now),
     startTime: null,
     endDate: null,
@@ -91,6 +94,7 @@ class LocalDateComposerDraft {
       format: block.attribute('format'),
     );
     return LocalDateComposerDraft._(
+      environment: block.environment,
       startDate: values.startDate,
       startTime: values.startTime,
       endDate: values.endDate,
@@ -107,6 +111,7 @@ class LocalDateComposerDraft {
     );
   }
 
+  final LocalDateEnvironment environment;
   final String startDate;
   final String? startTime;
   final String? endDate;
@@ -137,6 +142,7 @@ class LocalDateComposerDraft {
     List<String>? previewTimezones,
     Object? format = _unset,
   }) => LocalDateComposerDraft._(
+    environment: environment,
     startDate: startDate ?? this.startDate,
     startTime: startTime == _unset ? this.startTime : startTime as String?,
     endDate: endDate == _unset ? this.endDate : endDate as String?,
@@ -158,8 +164,10 @@ class LocalDateComposerDraft {
 
   LocalDateComposerValidation validate({
     Locale locale = const Locale('en'),
-    LocalDateFormatter formatter = const LocalDateFormatter(),
+    LocalDateFormatter? formatter,
   }) {
+    final resolvedFormatter =
+        formatter ?? LocalDateFormatter(environment: environment);
     final errors = <String>[];
     if (!_validDate(startDate)) errors.add('Choose a valid start date.');
     if (startTime != null && !_validTime(startTime!)) {
@@ -174,7 +182,6 @@ class LocalDateComposerDraft {
     if (previewTimezones.length > 5) {
       errors.add('Choose at most five preview timezones.');
     }
-    final environment = formatter.environment ?? LocalDateEnvironment.instance;
     final zones = [timezone, ?displayedTimezone, ...previewTimezones];
     if (zones.any((zone) => environment.canonicalTimezone(zone) == null)) {
       errors.add('Every timezone must be a valid IANA timezone.');
@@ -191,7 +198,7 @@ class LocalDateComposerDraft {
     if (errors.isNotEmpty) {
       return LocalDateComposerValidation(List.unmodifiable(errors));
     }
-    final start = formatter.resolve(
+    final start = resolvedFormatter.resolve(
       LocalDateSpec(
         date: startDate,
         time: startTime,
@@ -205,7 +212,7 @@ class LocalDateComposerDraft {
       errors.add('The start time does not exist in that timezone.');
     }
     if (endDate != null) {
-      final end = formatter.resolve(
+      final end = resolvedFormatter.resolve(
         LocalDateSpec(
           date: endDate!,
           time: endTime,
@@ -494,7 +501,10 @@ bool _stillContains(
     expected.start >= 0 &&
     expected.end <= current.length &&
     current.substring(expected.start, expected.end) == expected.source &&
-    parseLocalDateComposerBlocks(current).any(
+    parseLocalDateComposerBlocks(
+      current,
+      environment: expected.environment,
+    ).any(
       (block) =>
           block.start == expected.start &&
           block.end == expected.end &&

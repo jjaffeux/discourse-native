@@ -21,9 +21,11 @@ import 'notification_types.dart';
 import 'plugin_data.dart';
 import 'plugin_icon_catalog.dart';
 
+export 'background_retention.dart';
 export 'composer_syntax.dart';
 export 'emoji_usage.dart';
 export 'hashtag_kind.dart';
+export 'live_channels.dart';
 export 'notification_counters.dart';
 export 'notification_feed_host.dart';
 export 'notification_types.dart';
@@ -592,8 +594,8 @@ abstract interface class ShellOverlayPlugin {
 /// Adds a feature-owned diagnostics surface to the app diagnostics panel.
 ///
 /// Capture state, report construction, retention, and vendor SDK integration
-/// stay inside the plugin. Core owns only tab placement and app lifecycle
-/// dispatch, so adding another diagnostic source requires no core import.
+/// stay inside the plugin. Core owns only tab placement; app observation,
+/// flushing, and teardown use the ordinary [PluginAppLifecycle] registration.
 abstract interface class DiagnosticsPlugin {
   /// Stable identity used to preserve the selected diagnostics surface when
   /// the application replaces a plugin capability instance.
@@ -609,12 +611,8 @@ abstract interface class DiagnosticsPlugin {
 
   Widget buildDiagnostics(
     BuildContext context,
-    DiagnosticsController diagnostics,
+    PluginDiagnosticsReadExportHost diagnostics,
   );
-
-  void recordAppLifecycle(String state, {required bool foreground});
-
-  Future<void> flushDiagnostics();
 }
 
 /// Suggests a future bookmark reminder from plugin-owned cooked markup.

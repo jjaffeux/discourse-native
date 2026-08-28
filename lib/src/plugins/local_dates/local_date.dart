@@ -163,12 +163,9 @@ class LocalDatePreview {
 
 /// Strict, DST-aware resolution and Moment-compatible display formatting.
 class LocalDateFormatter {
-  const LocalDateFormatter({this.environment});
+  const LocalDateFormatter({required this.environment});
 
-  final LocalDateEnvironment? environment;
-
-  LocalDateEnvironment get _environment =>
-      environment ?? LocalDateEnvironment.instance;
+  final LocalDateEnvironment environment;
 
   /// Resolves only the absolute instant carried by [spec].
   ///
@@ -192,12 +189,12 @@ class LocalDateFormatter {
     final source = sourceResult.source;
     final sourceName = sourceResult.name;
 
-    final readerName = _environment.readerTimezone(accountTimezone);
-    final displayedName = _environment.canonicalTimezone(
+    final readerName = environment.readerTimezone(accountTimezone);
+    final displayedName = environment.canonicalTimezone(
       spec.displayedTimezone ?? (spec.hasTime ? readerName : sourceName),
     );
     if (displayedName == null) return null;
-    final displayedLocation = _environment.location(displayedName);
+    final displayedLocation = environment.location(displayedName);
     if (displayedLocation == null) return null;
     final displayed = tz.TZDateTime.from(source, displayedLocation);
     final formatted = _formatResolved(
@@ -226,9 +223,9 @@ class LocalDateFormatter {
     LocalDateSpec spec,
     DateTime now,
   ) {
-    final sourceName = _environment.canonicalTimezone(spec.timezone ?? 'UTC');
+    final sourceName = environment.canonicalTimezone(spec.timezone ?? 'UTC');
     if (sourceName == null) return null;
-    final sourceLocation = _environment.location(sourceName);
+    final sourceLocation = environment.location(sourceName);
     if (sourceLocation == null) return null;
 
     final parts = _parseWallTime(spec);
@@ -278,9 +275,9 @@ class LocalDateFormatter {
     final seenOffsets = <String>{};
     final previews = <LocalDatePreview>[];
     for (final requestedZone in zones) {
-      final zone = _environment.canonicalTimezone(requestedZone);
+      final zone = environment.canonicalTimezone(requestedZone);
       if (zone == null || !seenZones.add(zone)) continue;
-      final location = _environment.location(zone);
+      final location = environment.location(zone);
       if (location == null) continue;
       final value = tz.TZDateTime.from(resolved.source, location);
       // Match web's useful de-duplication: canonical identity first, then the
@@ -323,7 +320,7 @@ class LocalDateFormatter {
           '(${zoneLabel(displayedName)})';
     }
 
-    final readerLocation = _environment.location(readerName)!;
+    final readerLocation = environment.location(readerName)!;
     final readerNow = tz.TZDateTime.from(now, readerLocation);
     final sameReaderZone = _zonesEquivalent(displayedName, readerName, source);
     if (spec.usesCalendar && sameReaderZone) {
@@ -347,8 +344,8 @@ class LocalDateFormatter {
 
   bool _zonesEquivalent(String a, String b, tz.TZDateTime instant) {
     if (a == b || a.contains(b) || b.contains(a)) return true;
-    final aDate = tz.TZDateTime.from(instant, _environment.location(a)!);
-    final bDate = tz.TZDateTime.from(instant, _environment.location(b)!);
+    final aDate = tz.TZDateTime.from(instant, environment.location(a)!);
+    final bDate = tz.TZDateTime.from(instant, environment.location(b)!);
     return aDate.timeZoneOffset == bDate.timeZoneOffset;
   }
 

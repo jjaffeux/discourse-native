@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/diagnostics_panel_width_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics_plugin.dart';
 import 'package:discourse_native/src/shell/diagnostics_panel.dart';
@@ -772,10 +773,9 @@ Future<void> _pumpApp(
       updateStore: FakeUpdateStore(),
       diagnostics: diagnostics,
       initialRootMode: ShellRootMode.forum,
-      diagnosticsPlugins: [
-        if (resenhaDiagnostics != null)
-          ResenhaDiagnosticsPlugin(controller: resenhaDiagnostics),
-      ],
+      pluginManifest: resenhaDiagnostics == null
+          ? const PluginManifest([])
+          : PluginManifest([_DiagnosticsTestModule(resenhaDiagnostics)]),
     ),
   );
   if (settle) {
@@ -795,4 +795,24 @@ final class _PendingStore implements InstanceStore {
 
   @override
   Future<void> save(List<DiscourseInstance> instances) async {}
+}
+
+final class _DiagnosticsTestModule implements PluginModule {
+  const _DiagnosticsTestModule(this.controller);
+
+  final ResenhaDiagnosticsController controller;
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('resenha'));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    final plugin = ResenhaDiagnosticsPlugin(controller: controller);
+    registrar.addCapability(plugin);
+    registrar.addAppLifecycle(
+      plugin,
+      requires: const [pluginDiagnosticsReporterPort],
+    );
+  }
 }

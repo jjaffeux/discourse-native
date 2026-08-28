@@ -21,10 +21,15 @@ final class ResenhaDiagnosticsPlugin extends PluginAppLifecycle
     ResenhaReportExporter? exporter,
   }) : this._(controller, exporter ?? NativeResenhaReportExporter());
 
-  ResenhaDiagnosticsPlugin._(this._controller, this._exporter);
+  ResenhaDiagnosticsPlugin._(this._controller, this._exporter) {
+    _controller?.captureEnabledListenable.addListener(_notifyStatusChanged);
+  }
 
   ResenhaDiagnosticsController? _controller;
   final ResenhaReportExporter _exporter;
+  final _DiagnosticsStatusListenable _diagnosticsStatus =
+      _DiagnosticsStatusListenable();
+  bool _closed = false;
 
   @override
   String get name => 'resenha';
@@ -36,8 +41,7 @@ final class ResenhaDiagnosticsPlugin extends PluginAppLifecycle
   String get diagnosticsLabel => 'Resenha';
 
   @override
-  Listenable get diagnosticsStatusListenable =>
-      _controller?.captureEnabledListenable ?? const _NeverListenable();
+  Listenable get diagnosticsStatusListenable => _diagnosticsStatus;
 
   @override
   bool get isDiagnosticsRecording => _controller?.captureEnabled ?? false;
@@ -47,19 +51,41 @@ final class ResenhaDiagnosticsPlugin extends PluginAppLifecycle
       isDiagnosticsRecording ? 'Resenha capture recording' : null;
 
   @override
-  Future<void> startPhase(PluginStartupPhase phase) async {
-    if (phase != PluginStartupPhase.bootstrap || _controller != null) return;
-    _controller = await ResenhaDiagnosticsController.create(
+  Future<void> startPhase(
+    PluginStartupPhase phase,
+    PluginHostBindings bindings,
+  ) async {
+    if (phase != PluginStartupPhase.bootstrap) return;
+    final reporter = bindings.require(pluginDiagnosticsReporterPort);
+    if (_controller != null || _closed) return;
+    final controller = await ResenhaDiagnosticsController.create(
+      reporter: reporter,
       sdkLogBridges: [NativeResenhaDiagnosticsSdkLogBridge()],
     );
+    if (_closed) {
+      await controller.close();
+      return;
+    }
+    _replaceController(controller);
   }
 
   @override
   Future<void> close() async {
+    _closed = true;
     final controller = _controller;
-    _controller = null;
+    _replaceController(null);
     await controller?.close();
   }
+
+  void _replaceController(ResenhaDiagnosticsController? controller) {
+    if (identical(_controller, controller)) return;
+    _controller?.captureEnabledListenable.removeListener(_notifyStatusChanged);
+    _controller = controller;
+    controller?.captureEnabledListenable.addListener(_notifyStatusChanged);
+    _notifyStatusChanged();
+  }
+
+  void _notifyStatusChanged() => _diagnosticsStatus.changed();
 
   @override
   bool get captureEnabled => _controller?.captureEnabled ?? false;
@@ -101,7 +127,7 @@ final class ResenhaDiagnosticsPlugin extends PluginAppLifecycle
   }
 
   @override
-  void recordAppLifecycle(String state, {required bool foreground}) {
+  void observeAppState(String state, {required bool foreground}) {
     record(
       'app.lifecycle.changed',
       component: 'app',
@@ -110,12 +136,12 @@ final class ResenhaDiagnosticsPlugin extends PluginAppLifecycle
   }
 
   @override
-  Future<void> flushDiagnostics() async => _controller?.flush();
+  Future<void> flush() async => _controller?.flush();
 
   @override
   Widget buildDiagnostics(
     BuildContext context,
-    DiagnosticsController diagnostics,
+    PluginDiagnosticsReadExportHost diagnostics,
   ) {
     final controller = _controller;
     if (controller == null) {
@@ -154,12 +180,6 @@ final class ResenhaDiagnosticsPlugin extends PluginAppLifecycle
   }
 }
 
-final class _NeverListenable implements Listenable {
-  const _NeverListenable();
-
-  @override
-  void addListener(VoidCallback listener) {}
-
-  @override
-  void removeListener(VoidCallback listener) {}
+final class _DiagnosticsStatusListenable extends ChangeNotifier {
+  void changed() => notifyListeners();
 }

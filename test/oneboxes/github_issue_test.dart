@@ -1,6 +1,8 @@
 import 'package:discourse_native/src/plugins/discourse_github/discourse_github_plugin.dart';
 import 'package:discourse_native/src/plugins/discourse_github/oneboxes/github.dart';
 import 'package:discourse_native/src/plugins/discourse_github/oneboxes/issue/block.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_cooked_time_parser.dart';
 import 'package:discourse_native/src/shell/relative_time.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -52,9 +54,13 @@ const String issueOnebox = '''
 </aside>
 ''';
 
+final _cookedTimeParser = LocalDatesCookedTimeParser(
+  formatter: LocalDateFormatter(environment: LocalDateEnvironment.instance),
+);
+
 GithubIssueData parse(String source) => GithubIssueData.from(
   html.parse(source).querySelector('aside.onebox')!,
-  cookedTimeParser: const LocalDatesCookedTimeParser(),
+  cookedTimeParser: _cookedTimeParser,
 );
 
 void main() {
@@ -94,8 +100,8 @@ void main() {
           theme: theme,
           home: Scaffold(
             body: SingleChildScrollView(
-              child: const DiscourseGithubPlugin(
-                cookedTimeParser: LocalDatesCookedTimeParser(),
+              child: DiscourseGithubPlugin(
+                cookedTimeParser: _cookedTimeParser,
               ).cookedElement(null, aside)!,
             ),
           ),
