@@ -120,16 +120,6 @@ abstract interface class PluginBackgroundSite
   String? get pluginBackgroundSiteUrl;
 }
 
-/// Adds server-owned hashtag target types to composer autocomplete.
-///
-/// A session capability is used because availability can depend on plugin
-/// state loaded after installation. Core only sees type names; it never
-/// dispatches on a plugin-specific kind.
-abstract interface class PluginComposerHashtagProvider
-    implements PluginSessionCapability {
-  Iterable<String> composerHashtagTypes(String siteUrl);
-}
-
 abstract interface class PluginBookmarkTargetStrategy
     implements PluginSessionCapability {
   BookmarkTargetType get pluginBookmarkTarget;

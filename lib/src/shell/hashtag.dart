@@ -3,41 +3,46 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 
 import '../models/topic.dart';
+import '../plugin_api/hashtag_kind.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'composer_autocomplete.dart';
 import 'emoji.dart';
 import 'open_link.dart';
 import 'pill.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 
-/// What kind of thing a `#hashtag` names.
-enum HashtagKind {
-  category,
-  tag,
-  room;
+/// Resolves core's two kinds, an installed plugin kind, or the neutral unknown
+/// fallback without ever changing the server's type identity.
+HashtagPresentation resolveHashtagPresentation(
+  HashtagPresentationRequest request, {
+  PluginHashtagPresentationResolver? pluginPresentation,
+}) {
+  switch (request.type) {
+    case 'category':
+      return HashtagPresentation.fromRequest(
+        request,
+        fallbackIcon: DIcons.folder,
+        colorPolicy: HashtagColorPolicy.category,
+      );
+    case 'tag':
+      return HashtagPresentation.fromRequest(
+        request,
+        fallbackIcon: DIcons.tag,
+        colorPolicy: HashtagColorPolicy.none,
+      );
+  }
 
-  static HashtagKind? parse(String? type) => switch (type) {
-    'category' => HashtagKind.category,
-    'tag' => HashtagKind.tag,
-    'room' => HashtagKind.room,
-    _ => null,
-  };
-}
-
-/// How a hashtag draws its prefix, from the cooked anchor's `data-style-type`.
-enum HashtagStyle {
-  /// A colour swatch. What an ordinary category gets.
-  square,
-  icon,
-  emoji;
-
-  static HashtagStyle parse(String? style) => switch (style) {
-    'icon' => HashtagStyle.icon,
-    'emoji' => HashtagStyle.emoji,
-    // Discourse's own default when the attribute is missing.
-    _ => HashtagStyle.square,
-  };
+  final contributed = pluginPresentation?.call(request);
+  return (contributed?.type == request.type ? contributed : null) ??
+      HashtagPresentation.fromRequest(
+        request,
+        // Unknown targets are links, not tags. A known wire icon or emoji is
+        // still honoured, and composer payload colours remain useful.
+        fallbackIcon: DIcons.link,
+        colorPolicy: HashtagColorPolicy.supplied,
+      );
 }
 
 /// The icon a hashtag draws, by the name the site gave.
@@ -45,15 +50,45 @@ enum HashtagStyle {
 /// Falls back on the kind's own default rather than on nothing: `data-icon` is
 /// whatever an admin picked in the category settings, and the sprite here holds
 /// the icons this app draws rather than all of Font Awesome.
-DIconData iconFor(String? icon, HashtagKind kind) {
+DIconData iconFor(String? icon, DIconData fallback) {
   final named = icon == null ? null : DIcons.byName[icon];
-  if (named != null) return named;
-  return switch (kind) {
-    HashtagKind.category => DIcons.folder,
-    HashtagKind.tag => DIcons.tag,
-    HashtagKind.room => DIcons.microphoneLines,
-  };
+  return named ?? fallback;
 }
+
+/// Maps the same resolved policy used by a pill into autocomplete artwork.
+SuggestionArt hashtagSuggestionArt(
+  HashtagPresentation presentation, {
+  required String Function(String emoji) resolveEmoji,
+}) {
+  final emoji = presentation.emoji;
+  if (presentation.style == HashtagStyle.emoji) {
+    return emoji == null
+        ? ArtIcon(presentation.icon, fallback: presentation.fallbackIcon)
+        : ArtImage(resolveEmoji(emoji));
+  }
+  if (presentation.style == HashtagStyle.square &&
+      _drawsHashtagSquare(presentation)) {
+    return ArtSquare(presentation.colorValues);
+  }
+  return ArtIcon(
+    presentation.icon,
+    colorValue: _hashtagColorValue(presentation),
+    fallback: presentation.fallbackIcon,
+  );
+}
+
+bool _drawsHashtagSquare(HashtagPresentation presentation) =>
+    switch (presentation.colorPolicy) {
+      HashtagColorPolicy.category => true,
+      HashtagColorPolicy.supplied => presentation.colorValues.isNotEmpty,
+      HashtagColorPolicy.none => false,
+    };
+
+int? _hashtagColorValue(HashtagPresentation presentation) =>
+    presentation.colorPolicy == HashtagColorPolicy.none ||
+        presentation.colorValues.isEmpty
+    ? null
+    : presentation.colorValues.last;
 
 /// The colour swatch ahead of a category hashtag.
 ///
@@ -100,7 +135,7 @@ class CategorySquare extends StatelessWidget {
   }
 }
 
-/// One `#category` or `#tag`, drawn as a pill.
+/// One server-confirmed hashtag target, drawn as a pill.
 ///
 /// The cooked anchor carries everything about *what* the hashtag is —
 /// `data-type`, `data-style-type`, `data-icon`, `data-emoji` — but nothing
@@ -115,36 +150,20 @@ class HashtagPill extends StatelessWidget {
     super.key,
     required this.label,
     required this.baseStyle,
-    required this.kind,
-    required this.style,
+    required this.presentation,
     this.href,
     this.recordId,
-    this.icon,
-    this.emoji,
-    this.colorValues,
     this.siteUrl,
   });
 
   final String label;
   final TextStyle? baseStyle;
-  final HashtagKind kind;
-  final HashtagStyle style;
+  final HashtagPresentation presentation;
 
   final String? href;
 
-  /// `data-id` — the category or tag id, which is how the colour is found.
+  /// `data-id` — how core finds a category colour missing from cooked HTML.
   final int? recordId;
-
-  final String? icon;
-  final String? emoji;
-
-  /// Colours the caller already has, ARGB, in `[parent, child]` order.
-  ///
-  /// The composer's path: it holds a `FoundHashtag` the site answered with, so
-  /// it needs no category lookup — and could not do one anyway, since the
-  /// identity store is keyed by id and a ref is not one. Null in cooked HTML,
-  /// where [recordId] is what finds them.
-  final List<int>? colorValues;
 
   /// The site that cooked this hashtag. Composer pills do not carry a link and
   /// may inherit the site currently owning the composer.
@@ -155,10 +174,10 @@ class HashtagPill extends StatelessWidget {
     final target = href;
     final controller = ShellScope.maybeRead(context);
 
-    Widget pill(_HashtagPresentation presentation) => Pill(
+    Widget pill(_HashtagShellPresentation shellPresentation) => Pill(
       label: label,
       baseStyle: baseStyle,
-      leading: _leading(context, presentation),
+      leading: _leading(context, shellPresentation),
       // The label rather than the slug: Discourse writes the real name into
       // the anchor — `Parent > Child` for a subcategory — and that beats
       // un-slugging the URL once the list is open.
@@ -167,95 +186,100 @@ class HashtagPill extends StatelessWidget {
           : () => openLink(context, target, title: label, siteUrl: siteUrl),
     );
 
-    if (controller == null) return pill(const _HashtagPresentation());
-    return ShellSelector<_HashtagPresentation>(
-      select: _presentation,
-      builder: (context, presentation, child) => pill(presentation),
+    if (controller == null) return pill(const _HashtagShellPresentation());
+    return ShellSelector<_HashtagShellPresentation>(
+      select: _shellPresentation,
+      builder: (context, shellPresentation, child) => pill(shellPresentation),
     );
   }
 
-  _HashtagPresentation _presentation(ShellController controller) {
+  _HashtagShellPresentation _shellPresentation(ShellController controller) {
     final sourceSite = siteUrl ?? controller.currentInstance?.url;
-    final category = kind == HashtagKind.category
+    final category =
+        presentation.colorPolicy == HashtagColorPolicy.category &&
+            presentation.colorValues.isEmpty
         ? controller.categoryFor(recordId, siteUrl: sourceSite)
         : null;
     final parentId = category?.parentCategoryId;
     final parent = parentId == null
         ? null
         : controller.categoryFor(parentId, siteUrl: sourceSite);
-    final emojiName = emoji;
+    final emojiName = presentation.emoji;
     final emojiUrl =
-        style == HashtagStyle.emoji && emojiName != null && sourceSite != null
+        presentation.style == HashtagStyle.emoji &&
+            emojiName != null &&
+            sourceSite != null
         ? controller.emojiUrlFor(sourceSite, emojiName)
         : null;
-    return _HashtagPresentation(
+    return _HashtagShellPresentation(
       category: category,
       parent: parent,
       emojiUrl: emojiUrl,
     );
   }
 
-  Widget _leading(BuildContext context, _HashtagPresentation presentation) {
+  Widget _leading(
+    BuildContext context,
+    _HashtagShellPresentation shellPresentation,
+  ) {
     final size = Pill.fontSizeFor(baseStyle);
 
-    switch (style) {
+    switch (presentation.style) {
       case HashtagStyle.emoji:
-        final url = presentation.emojiUrl;
+        final url = shellPresentation.emojiUrl;
         if (url == null) {
           return _icon(context, size, null);
         }
         return EmojiImage(url: url, size: size * pillGlyph, alt: '');
 
       case HashtagStyle.icon:
-        return _icon(context, size, _categoryColor(presentation));
+        return _icon(context, size, _hashtagColor(shellPresentation));
 
       case HashtagStyle.square:
-        // Only a category has a swatch. A tag has no colour of its own —
-        // `TagHashtagDataSource` sends none — so it keeps its glyph.
-        if (kind != HashtagKind.category) {
+        if (!_drawsHashtagSquare(presentation)) {
           return _icon(context, size, null);
         }
         return Padding(
           padding: EdgeInsets.only(left: size * pillSquareInset),
           child: CategorySquare(
             size: size * pillSquare,
-            color: _categoryColor(presentation),
-            parentColor: _parentColor(presentation),
+            color: _hashtagColor(shellPresentation),
+            parentColor: _parentColor(shellPresentation),
           ),
         );
     }
   }
 
   Widget _icon(BuildContext context, double size, Color? tint) => DIcon(
-    iconFor(icon, kind),
+    iconFor(presentation.icon, presentation.fallbackIcon),
     size: Pill.iconBoxFor(baseStyle),
-    // A tag's glyph takes the pill's own text colour, the way Discourse leaves
-    // it to inherit; a category's takes the category's.
     color: tint ?? Theme.of(context).colorScheme.onSurfaceVariant,
   );
 
-  /// The category's own colour — the last of [colorValues] when the caller
-  /// brought them, otherwise the store's, by id.
-  Color? _categoryColor(_HashtagPresentation presentation) {
-    if (colorValues case final given? when given.isNotEmpty) {
+  /// The last supplied colour, or a core category's colour resolved by id.
+  Color? _hashtagColor(_HashtagShellPresentation shellPresentation) {
+    if (presentation.colorPolicy == HashtagColorPolicy.none) return null;
+    if (presentation.colorValues case final given when given.isNotEmpty) {
       return Color(given.last);
     }
-    final category = presentation.category;
+    final category = shellPresentation.category;
     return category == null ? null : Color(category.colorValue);
   }
 
-  Color? _parentColor(_HashtagPresentation presentation) {
-    if (colorValues case final given?) {
+  Color? _parentColor(_HashtagShellPresentation shellPresentation) {
+    if (presentation.colorPolicy == HashtagColorPolicy.none) return null;
+    final given = presentation.colorValues;
+    if (given.isNotEmpty) {
       return given.length >= 2 ? Color(given.first) : null;
     }
-    final parent = presentation.parent;
+    final parent = shellPresentation.parent;
     return parent == null ? null : Color(parent.colorValue);
   }
 }
 
 @immutable
-class _HashtagPresentation {
-  const _HashtagPresentation({this.category, this.parent, this.emojiUrl});
+class _HashtagShellPresentation {
+  const _HashtagShellPresentation({this.category, this.parent, this.emojiUrl});
 
   final TopicCategory? category;
   final TopicCategory? parent;
@@ -263,7 +287,7 @@ class _HashtagPresentation {
 
   @override
   bool operator ==(Object other) =>
-      other is _HashtagPresentation &&
+      other is _HashtagShellPresentation &&
       other.category == category &&
       other.parent == parent &&
       other.emojiUrl == emojiUrl;
@@ -287,12 +311,13 @@ Widget? hashtagWidgetBuilder(
   dom.Element element,
   TextStyle? baseStyle, {
   String? siteUrl,
+  PluginHashtagPresentationResolver? pluginPresentation,
 }) {
   if (element.localName != 'a') return null;
   if (!element.classes.contains('hashtag-cooked')) return null;
 
-  final kind = HashtagKind.parse(element.attributes['data-type']);
-  if (kind == null) return null;
+  final type = element.attributes['data-type'];
+  if (type == null || type.trim().isEmpty) return null;
 
   // The label span, and not `element.text`, which also picks up whatever
   // whitespace the icon placeholder contributes.
@@ -302,16 +327,23 @@ Widget? hashtagWidgetBuilder(
       .trim();
   if (label == null || label.isEmpty) return null;
 
+  final presentation = resolveHashtagPresentation(
+    HashtagPresentationRequest(
+      type: type,
+      style: HashtagStyle.parse(element.attributes['data-style-type']),
+      icon: element.attributes['data-icon'],
+      emoji: element.attributes['data-emoji'],
+    ),
+    pluginPresentation: pluginPresentation,
+  );
+
   return InlineCustomWidget(
     child: HashtagPill(
       label: label,
       baseStyle: baseStyle,
-      kind: kind,
-      style: HashtagStyle.parse(element.attributes['data-style-type']),
+      presentation: presentation,
       href: element.attributes['href'],
       recordId: int.tryParse(element.attributes['data-id'] ?? ''),
-      icon: element.attributes['data-icon'],
-      emoji: element.attributes['data-emoji'],
       siteUrl: siteUrl,
     ),
   );

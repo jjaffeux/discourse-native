@@ -43,6 +43,121 @@ void main() {
     expect(PluginRegistry.empty.notificationFeeds, isEmpty);
   });
 
+  test('an installed plugin hashtag kind resolves its presentation', () {
+    final registry = PluginRegistry.validated(const [
+      _HashtagPlugin('issues', [
+        PluginHashtagKind('issue', _presentIssueHashtag),
+      ]),
+    ]);
+    final colors = <int>[0xFF112233, 0xFF445566];
+    final request = HashtagPresentationRequest(
+      type: 'issue',
+      style: HashtagStyle.emoji,
+      icon: 'bug',
+      emoji: 'beetle',
+      colorValues: colors,
+    );
+    colors.clear();
+
+    final presentation = registry.pluginHashtagPresentation(request);
+
+    expect(registry.pluginHashtagWireTypes, ['issue']);
+    expect(presentation, isNotNull);
+    expect(presentation!.type, 'issue');
+    expect(presentation.style, HashtagStyle.emoji);
+    expect(presentation.icon, 'bug');
+    expect(presentation.emoji, 'beetle');
+    expect(presentation.colorValues, [0xFF112233, 0xFF445566]);
+    expect(presentation.fallbackIcon, DIcons.link);
+    expect(presentation.colorPolicy, HashtagColorPolicy.supplied);
+    expect(() => request.colorValues.add(0), throwsUnsupportedError);
+    expect(() => presentation.colorValues.add(0), throwsUnsupportedError);
+  });
+
+  test('core and unknown hashtag kinds stay with the shell fallback', () {
+    final registry = PluginRegistry.validated(const [
+      _HashtagPlugin('issues', [
+        PluginHashtagKind('issue', _presentIssueHashtag),
+      ]),
+    ]);
+
+    for (final type in const ['category', 'tag', 'future-kind']) {
+      expect(
+        registry.pluginHashtagPresentation(
+          HashtagPresentationRequest(type: type, style: HashtagStyle.square),
+        ),
+        isNull,
+      );
+    }
+  });
+
+  test('plugins cannot claim core, blank, or untrimmed hashtag types', () {
+    for (final wireType in const [
+      'category',
+      'tag',
+      '',
+      ' ',
+      ' room',
+      'room ',
+    ]) {
+      expect(
+        () => PluginRegistry.validated([
+          _HashtagPlugin('voice', [
+            PluginHashtagKind(wireType, _presentIssueHashtag),
+          ]),
+        ]),
+        throwsArgumentError,
+        reason: 'accepted ${wireType.isEmpty ? '<empty>' : '"$wireType"'}',
+      );
+    }
+  });
+
+  test('duplicate plugin hashtag wire types are rejected', () {
+    expect(
+      () => PluginRegistry.validated(const [
+        _HashtagPlugin('first', [
+          PluginHashtagKind('room', _presentIssueHashtag),
+        ]),
+        _HashtagPlugin('second', [
+          PluginHashtagKind('room', _presentIssueHashtag),
+        ]),
+      ]),
+      throwsA(
+        isA<ArgumentError>()
+            .having((error) => error.message, 'message', contains('room'))
+            .having((error) => error.message, 'message', contains('first'))
+            .having((error) => error.message, 'message', contains('second')),
+      ),
+    );
+  });
+
+  test('plugin hashtag kinds fit the bounded server request', () {
+    expect(
+      () => PluginRegistry.validated([
+        _HashtagPlugin('many', [
+          for (var index = 0; index <= maximumPluginHashtagKinds; index++)
+            PluginHashtagKind('kind-$index', _presentIssueHashtag),
+        ]),
+      ]),
+      throwsArgumentError,
+    );
+  });
+
+  test('broken hashtag presenters degrade to the shell fallback', () {
+    for (final presenter in [_renameIssueHashtag, _throwIssueHashtag]) {
+      final registry = PluginRegistry.validated([
+        _HashtagPlugin('issues', [PluginHashtagKind('issue', presenter)]),
+      ]);
+
+      expect(
+        registry.pluginHashtagPresentation(
+          HashtagPresentationRequest(type: 'issue', style: HashtagStyle.square),
+        ),
+        isNull,
+      );
+    }
+  });
+
   test('one composer target resolves its owning policy', () {
     final registry = PluginRegistry.validated(const [
       _ComposerPlugin('messages', _messageTarget),
@@ -365,6 +480,34 @@ final class _ComposerPlugin implements SitePlugin, ComposerTargetPlugin {
     validate: (context) => validRaw == null || context.raw == validRaw,
   );
 }
+
+final class _HashtagPlugin implements SitePlugin, HashtagKindPlugin {
+  const _HashtagPlugin(this.name, this.hashtagKinds);
+
+  @override
+  final String name;
+
+  @override
+  final List<PluginHashtagKind> hashtagKinds;
+}
+
+HashtagPresentation _presentIssueHashtag(HashtagPresentationRequest request) =>
+    HashtagPresentation.fromRequest(
+      request,
+      fallbackIcon: DIcons.link,
+      colorPolicy: HashtagColorPolicy.supplied,
+    );
+
+HashtagPresentation _renameIssueHashtag(HashtagPresentationRequest request) =>
+    HashtagPresentation(
+      type: 'not-issue',
+      style: request.style,
+      fallbackIcon: DIcons.link,
+      colorPolicy: HashtagColorPolicy.none,
+    );
+
+HashtagPresentation _throwIssueHashtag(HashtagPresentationRequest request) =>
+    throw StateError('broken hashtag presenter');
 
 final class _MenuPlugin implements SitePlugin, UserMenuSectionPlugin {
   const _MenuPlugin(this.name, this.definitions);

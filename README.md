@@ -1415,11 +1415,13 @@ answering a different question.
 ### Mentions and hashtags
 
 Discourse draws `@sam`, `#support` and `#bug` as **pills** — a rounded tinted
-chip with the name in it, and for a category a coloured square beside it. All
-three share one SCSS mixin upstream, which is as clear a statement as the
-stylesheet can make that they are one idea; [`Pill`](lib/src/shell/pill.dart) is
-the same statement here, and every measurement in it is a ratio of the
-surrounding prose for the reason `emojiScale` gives.
+chip with the name in it, and for a category a coloured square beside it.
+Category and tag are the two core hashtag kinds; installed plugins may register
+more. Mentions and every hashtag kind share one SCSS mixin upstream, which is
+as clear a statement as the stylesheet can make that they are one idea;
+[`Pill`](lib/src/shell/pill.dart) is the same statement here, and every
+measurement in it is a ratio of the surrounding prose for the reason
+`emojiScale` gives.
 
 A pill is a widget rather than a style, and that costs something worth writing
 down: claiming an element in `customWidgetBuilder` means `HtmlWidget` never
@@ -1437,15 +1439,32 @@ otherwise:
 - **The `<svg>` inside a hashtag is a placeholder.** Every one Discourse cooks
   carries the same `d-icon-square-full`, whatever the hashtag is; its own client
   throws that away and redraws from `data-type`, `data-style-type`, `data-icon`
-  and `data-emoji`. Reading it would put a filled square on every tag on the
-  site. The attributes are read and the svg is ignored.
-- **The colour is not in the markup at all.** On the web it arrives in a
-  generated stylesheet. Here the read path already has it: `data-id` *is* the
-  category id, and categories are fetched once per site and read back by id. So
-  a cooked hashtag costs no request. The composer cannot do that — it has a
-  *ref* (`parent:child`, `name::tag`), the identity store is keyed by id and
-  cannot be enumerated — so it asks `/hashtags.json`. Two keys, two sources; the
-  asymmetry is the design, not an oversight.
+  and `data-emoji`. Reading it would put a filled square on kinds that should
+  draw an icon or emoji. The attributes are read and the svg is ignored.
+- **A category's colour is not in the markup at all.** On the web it arrives in
+  a generated stylesheet. Here the read path already has it: `data-id` *is* the
+  category id, and categories are fetched once per site and read back by id.
+  Other kinds follow their registered colour policy. The composer cannot use
+  the category store this way — it has a *ref* (`parent:child`, `name::tag`),
+  while the identity store is keyed by id and cannot be enumerated — so its
+  exact-ref lookup receives the colours and presentation fields directly.
+  Two keys, two sources; the asymmetry is the design, not an oversight.
+
+Hashtag interpretation is deliberately open-ended. Core owns category, tag,
+and a neutral unknown fallback; a plugin registers the wire type and the
+icon/emoji/colour policy it owns. One resolver drives cooked pills, autocomplete
+art, and composer pills, so accepting or hand-writing the same ref cannot
+change its meaning between those surfaces. That same registration extends the
+ordered type set used by both autocomplete search and exact-ref lookup.
+
+A valid cooked hashtag whose plugin is absent is not the same thing as an
+unresolved hashtag. Its opaque `data-type`, label, and `href` are retained and
+it draws with neutral art, so it remains readable and tappable rather than
+being discarded or masquerading as a tag. Its tap follows the ordinary
+`openLink` path: an installed plugin's `PluginLinkHandler` gets the first chance
+to open its route, followed by core routes and safe external navigation.
+Resenha uses that pair of contributions to own its room kind, microphone art,
+and room navigation; core does not dispatch on any of those literals.
 
 The initial `/categories.json` read paginates to twenty parents on a large or
 lazy-loading site, so some hashtags can draw a neutral square with the right
@@ -1456,10 +1475,11 @@ is what Discourse itself shows while its own category data is still absent.
 Not everything gets a pill, and that is deliberate. An unresolved mention cooks
 as `<span class="mention">` and an unresolved hashtag as
 `<span class="hashtag-raw">`; Discourse leaves both as plain text, and so does
-this. A pill over `@nobody` would promise a person who is not there. Group
-mentions do get one — they are real links — but no glyph, because a glyph would
-be encoding *this app's* lack of a group screen rather than anything about the
-post.
+this. Unlike an unknown but valid `hashtag-cooked` type, this markup says the
+server found no target at all. A pill over `@nobody` would promise a person who
+is not there. Group mentions do get one — they are real links — but no glyph,
+because a glyph would be encoding *this app's* lack of a group screen rather
+than anything about the post.
 
 **In the composer** the same pills are drawn over the text being typed, which is
 the emoji trick from
@@ -1482,17 +1502,19 @@ says. Three details fall out of that:
   text, so a pill over either would be the field claiming something the post
   will not do — the exact failure the document-model composer was removed for.
   Names go through `/composer/mentions` and refs through `/hashtags.json`, each
-  asked once and remembered, including the noes. Accepting a suggestion costs
-  nothing at all: the search already said what it was, and the answer is kept.
+  asked once and remembered, including the noes. Hashtag search and lookup use
+  the same core-plus-registration type order, so a plugin result can also be
+  resolved after it was typed by hand. Accepting a suggestion costs nothing at
+  all: the search already said what it was, and the answer is kept.
 - **The composer pill shows the characters that are in the field.** The cooked
   pill shows the site's own `Parent > Child`; the composer shows `#parent:child`,
   because what is drawn there has to be what will be posted. This is the thing
   in the feature most likely to be "fixed" by a later reader.
 
 `#` completes like `@` and `:` do, with one wrinkle. The autocomplete inserts a
-**ref** and never a slug — `parent:child`, `name::tag` — since that is the only
-form that survives a subcategory or two things sharing a name. Refs contain
-colons, and the backward walk in
+**ref** and never a slug — `parent:child`, `name::tag`, or a plugin's own
+type-qualified form — since that is the only form that survives a subcategory
+or two things sharing a name. Refs contain colons, and the backward walk in
 [`composer_triggers.dart`](lib/src/shell/composer_triggers.dart) stops at one,
 which left `#parent:child` looking like an emoji called `child`. So when a colon
 stops the walk it keeps going, over colons as well as names, and if a `#` opens

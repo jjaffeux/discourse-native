@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../models/user_status.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'composer_triggers.dart';
 
 /// What a suggestion row draws on its left.
@@ -38,9 +40,15 @@ class ArtSquare extends SuggestionArt {
 
 /// A glyph, by the name Discourse gave it, optionally in a category's colour.
 class ArtIcon extends SuggestionArt {
-  const ArtIcon(this.name, {this.colorValue});
+  const ArtIcon(this.name, {this.colorValue, this.fallback = DIcons.tag});
+
   final String? name;
   final int? colorValue;
+
+  /// The kind's own glyph when [name] is absent or is not in this app's
+  /// sprite. Plugin hashtag kinds supply this instead of inheriting the tag
+  /// glyph merely because their server icon is unknown locally.
+  final DIconData fallback;
 }
 
 /// A suggestion row that performs an action instead of completing text.

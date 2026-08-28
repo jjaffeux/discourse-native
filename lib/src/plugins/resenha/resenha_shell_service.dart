@@ -18,8 +18,7 @@ final class ResenhaShellService
         PluginLinkHandler,
         PluginSiteActivator,
         PluginTrackerAttachment,
-        PluginBackgroundSite,
-        PluginComposerHashtagProvider {
+        PluginBackgroundSite {
   const ResenhaShellService({required this.controller, required this.host});
 
   final ResenhaController controller;
@@ -92,8 +91,4 @@ final class ResenhaShellService
   @override
   void attachPluginTracker(String siteUrl, SiteTracker tracker) =>
       controller.attachTracker(siteUrl);
-
-  @override
-  Iterable<String> composerHashtagTypes(String siteUrl) =>
-      controller.directory(siteUrl) == null ? const [] : const ['room'];
 }

@@ -314,15 +314,16 @@ class _SuggestionRow extends StatelessWidget {
                     ArtSquare(:final colorValues) => Center(
                       child: _Swatch(colorValues: colorValues),
                     ),
-                    ArtIcon(:final name, :final colorValue) => DIcon(
-                      name == null
-                          ? DIcons.tag
-                          : DIcons.byName[name] ?? DIcons.tag,
-                      size: 18,
-                      color: colorValue == null
-                          ? theme.colorScheme.onSurfaceVariant
-                          : Color(colorValue),
-                    ),
+                    ArtIcon(:final name, :final colorValue, :final fallback) =>
+                      DIcon(
+                        name == null
+                            ? fallback
+                            : DIcons.byName[name] ?? fallback,
+                        size: 18,
+                        color: colorValue == null
+                            ? theme.colorScheme.onSurfaceVariant
+                            : Color(colorValue),
+                      ),
                   },
                 ),
                 const SizedBox(width: 10),

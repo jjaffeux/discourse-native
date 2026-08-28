@@ -425,6 +425,16 @@ void main() {
     expect(() => hashtag.colors.add('FFFFFF'), throwsUnsupportedError);
   });
 
+  test('retains an unknown hashtag wire type without normalizing it', () {
+    final hashtag = FoundHashtag.fromJson(const {
+      'type': ' future-kind ',
+      'ref': 'roadmap',
+    });
+
+    expect(hashtag, isNotNull);
+    expect(hashtag!.type, ' future-kind ');
+  });
+
   group('Store value semantics', () {
     test('unchanged topics and details retain their stored records', () {
       final store = Store();

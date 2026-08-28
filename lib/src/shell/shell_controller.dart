@@ -77,6 +77,7 @@ import 'composer_quotes.dart';
 import 'composer_triggers.dart';
 import 'do_not_disturb_controller.dart';
 import 'draft_list_controller.dart';
+import 'hashtag.dart';
 import 'post_quote.dart';
 import 'preferences_controller.dart';
 import 'shell_search_controller.dart';
@@ -4591,6 +4592,7 @@ class ShellController extends FrameSafeNotifier
       ),
       resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
       pills: _composerPills(target),
+      pluginHashtagPresentation: plugins.registry.pluginHashtagPresentation,
       formatQuoteContents: (block) =>
           quoteContentsFor(target, block) ?? block.contents,
       syntaxPlugins: plugins.registry.composerSyntaxPlugins,
@@ -5272,7 +5274,7 @@ class ShellController extends FrameSafeNotifier
               value: hashtag.ref,
               label: hashtag.text,
               detail: hashtag.secondaryText,
-              art: _hashtagArt(hashtag),
+              art: _hashtagArt(target.siteUrl, hashtag),
             ),
         ];
       },
@@ -8504,20 +8506,22 @@ class ShellController extends FrameSafeNotifier
   /// The same three shapes the cooked pill has, and for the same reason: a row
   /// that looked different from what the post will look like would be
   /// offering something other than what it writes.
-  static SuggestionArt _hashtagArt(FoundHashtag hashtag) =>
-      switch (hashtag.styleType) {
-        'emoji' when hashtag.emoji != null => ArtIcon(hashtag.icon),
-        'icon' => ArtIcon(
-          hashtag.icon,
-          colorValue: hashtag.colorValues.isEmpty
-              ? null
-              : hashtag.colorValues.last,
-        ),
-        // A tag has no colour of its own, so it keeps its glyph rather than
-        // drawing an empty swatch.
-        _ when hashtag.type != 'category' => ArtIcon(hashtag.icon),
-        _ => ArtSquare(hashtag.colorValues),
-      };
+  SuggestionArt _hashtagArt(String siteUrl, FoundHashtag hashtag) {
+    final presentation = resolveHashtagPresentation(
+      HashtagPresentationRequest(
+        type: hashtag.type,
+        style: HashtagStyle.parse(hashtag.styleType),
+        icon: hashtag.icon,
+        emoji: hashtag.emoji,
+        colorValues: hashtag.colorValues,
+      ),
+      pluginPresentation: plugins.registry.pluginHashtagPresentation,
+    );
+    return hashtagSuggestionArt(
+      presentation,
+      resolveEmoji: (emoji) => emojiUrlFor(siteUrl, emoji),
+    );
+  }
 
   /// What each site has said a `#ref` is. A null value is a ref it was asked
   /// about and did not have — remembered, so it is not asked twice.
@@ -8534,7 +8538,18 @@ class ShellController extends FrameSafeNotifier
   final Map<String, BoundedLruCache<String, bool>> _mentioned = {};
   final Map<String, Set<String>> _mentionsInFlight = {};
 
-  /// Categories and tags matching [term].
+  List<String> _composerHashtagTypes() {
+    final types = <String>{
+      ...DiscourseApi.hashtagOrder,
+      ...plugins.registry.pluginHashtagWireTypes,
+    };
+    // The endpoint rejects the entire request above its fixed bound. Core
+    // kinds stay first; installed registrations retain manifest order after
+    // them. Servers without one of those data sources simply filter it out.
+    return types.take(DiscourseApi.hashtagsPerRequest).toList(growable: false);
+  }
+
+  /// Hashtag targets matching [term].
   ///
   /// Never throws, for the reason [searchUsers] gives: a popup that says
   /// "could not reach the site" while somebody is mid-word is noise.
@@ -8552,18 +8567,10 @@ class ShellController extends FrameSafeNotifier
       if (credential == null) return const [];
       final identity = await _readSessionValue(lease, authenticator.clientId);
       if (identity == null || !lease.isCurrent) return const [];
-      final hashtagTypes = <String>{
-        ...DiscourseApi.hashtagOrder,
-        for (final provider
-            in _pluginSession.capabilities<PluginComposerHashtagProvider>())
-          ...provider
-              .composerHashtagTypes(siteUrl)
-              .where((type) => type.trim().isNotEmpty),
-      };
       found = await api.searchHashtags(
         siteUrl: siteUrl,
         term: term,
-        order: hashtagTypes.toList(growable: false),
+        order: _composerHashtagTypes(),
         apiKey: credential.value,
         clientId: identity.value,
       );
@@ -8645,6 +8652,7 @@ class ShellController extends FrameSafeNotifier
       final found = await api.lookupHashtags(
         siteUrl: siteUrl,
         refs: ask,
+        order: _composerHashtagTypes(),
         apiKey: credential.value,
         clientId: identity.value,
       );

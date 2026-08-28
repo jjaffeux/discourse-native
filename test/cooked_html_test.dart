@@ -5,6 +5,9 @@ import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_plugin.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
@@ -31,12 +34,18 @@ import 'support/finders.dart';
 /// Cooked HTML on its own, with no shell above it — which is how a quote or an
 /// onebox body can also be rendered, and is the case [CookedHtml] uses
 /// `ShellScope.maybeRead` for.
-Future<void> pumpCooked(WidgetTester tester, String html) async {
+Future<void> pumpCooked(
+  WidgetTester tester,
+  String html, {
+  PluginRegistry? registry,
+}) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.dark,
       home: Scaffold(
-        body: SingleChildScrollView(child: CookedHtml(html: html)),
+        body: SingleChildScrollView(
+          child: CookedHtml(html: html, registry: registry),
+        ),
       ),
     ),
   );
@@ -476,6 +485,181 @@ void main() {
       expect(find.text('ux'), findsOneWidget);
       expect(find.byType(CategorySquare), findsNothing);
       expect(find.dIcon(DIcons.tag), findsOneWidget);
+    });
+
+    testWidgets('a none colour policy ignores contributed colour values', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: HashtagPill(
+              label: 'issue',
+              baseStyle: null,
+              presentation: HashtagPresentation(
+                type: 'issue',
+                style: HashtagStyle.icon,
+                fallbackIcon: DIcons.link,
+                colorPolicy: HashtagColorPolicy.none,
+                colorValues: const [0xFFFF0000],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final icon = tester.widget<DIcon>(find.dIcon(DIcons.link));
+      expect(icon.color, isNot(const Color(0xFFFF0000)));
+    });
+
+    testWidgets('an installed room uses its microphone when no icon arrives', (
+      tester,
+    ) async {
+      await pumpCooked(
+        tester,
+        cooked(
+          type: 'room',
+          slug: 'town-hall',
+          id: 14,
+          href: '/resenha/r/town-hall',
+          styleType: 'icon',
+          text: 'Town Hall',
+        ),
+        registry: PluginRegistry.validated(const [ResenhaPlugin()]),
+      );
+
+      final pill = tester.widget<HashtagPill>(find.byType(HashtagPill));
+      expect(pill.label, 'Town Hall');
+      expect(pill.href, '/resenha/r/town-hall');
+      expect(find.dIcon(DIcons.microphoneLines), findsOneWidget);
+      expect(find.dIcon(DIcons.tag), findsNothing);
+    });
+
+    testWidgets(
+      'an installed room uses its microphone when its wire icon is unknown',
+      (tester) async {
+        await pumpCooked(
+          tester,
+          cooked(
+            type: 'room',
+            slug: 'town-hall',
+            id: 14,
+            href: '/resenha/r/town-hall',
+            styleType: 'icon',
+            icon: 'not-an-icon-this-app-has',
+            text: 'Town Hall',
+          ),
+          registry: PluginRegistry.validated(const [ResenhaPlugin()]),
+        );
+
+        expect(find.dIcon(DIcons.microphoneLines), findsOneWidget);
+        expect(find.dIcon(DIcons.link), findsNothing);
+      },
+    );
+
+    testWidgets('a room without its plugin stays a neutral linked pill', (
+      tester,
+    ) async {
+      await pumpCooked(
+        tester,
+        cooked(
+          type: 'room',
+          slug: 'town-hall',
+          id: 14,
+          href: '/resenha/r/town-hall',
+          styleType: 'icon',
+          text: 'Town Hall',
+        ),
+        registry: PluginRegistry.empty,
+      );
+
+      final pill = tester.widget<HashtagPill>(find.byType(HashtagPill));
+      expect(pill.label, 'Town Hall');
+      expect(pill.href, '/resenha/r/town-hall');
+      expect(pill.presentation.type, 'room');
+      expect(find.dIcon(DIcons.link), findsOneWidget);
+      expect(find.dIcon(DIcons.tag), findsNothing);
+      expect(find.dIcon(DIcons.microphoneLines), findsNothing);
+    });
+
+    testWidgets('an arbitrary unknown type stays a neutral linked pill', (
+      tester,
+    ) async {
+      await pumpCooked(
+        tester,
+        cooked(
+          type: 'calendar-event',
+          slug: 'launch-party',
+          id: 42,
+          href: '/calendar/event/42',
+          styleType: 'icon',
+          text: 'Launch party',
+        ),
+        registry: PluginRegistry.validated(const [ResenhaPlugin()]),
+      );
+
+      final pill = tester.widget<HashtagPill>(find.byType(HashtagPill));
+      expect(pill.label, 'Launch party');
+      expect(pill.href, '/calendar/event/42');
+      expect(pill.presentation.type, 'calendar-event');
+      expect(find.dIcon(DIcons.link), findsOneWidget);
+      expect(find.dIcon(DIcons.tag), findsNothing);
+      expect(find.dIcon(DIcons.microphoneLines), findsNothing);
+    });
+
+    testWidgets('an opaque type is not trimmed into an installed kind', (
+      tester,
+    ) async {
+      await pumpCooked(
+        tester,
+        cooked(
+          type: ' room ',
+          slug: 'town-hall',
+          id: 14,
+          href: '/resenha/r/town-hall',
+          styleType: 'icon',
+          text: 'Town Hall',
+        ),
+        registry: PluginRegistry.validated(const [ResenhaPlugin()]),
+      );
+
+      final pill = tester.widget<HashtagPill>(find.byType(HashtagPill));
+      expect(pill.presentation.type, ' room ');
+      expect(find.dIcon(DIcons.link), findsOneWidget);
+      expect(find.dIcon(DIcons.microphoneLines), findsNothing);
+    });
+
+    testWidgets('an installed hashtag plugin leaves core kinds unchanged', (
+      tester,
+    ) async {
+      final registry = PluginRegistry.validated(const [ResenhaPlugin()]);
+      await pumpCooked(
+        tester,
+        cooked(
+          type: 'category',
+          slug: 'known',
+          id: 6,
+          href: '/c/known/6',
+          styleType: 'icon',
+        ),
+        registry: registry,
+      );
+      expect(find.dIcon(DIcons.folder), findsOneWidget);
+
+      await pumpCooked(
+        tester,
+        cooked(
+          type: 'tag',
+          slug: 'ux',
+          id: 3,
+          href: '/tag/ux/3',
+          styleType: 'icon',
+        ),
+        registry: registry,
+      );
+      expect(find.dIcon(DIcons.tag), findsOneWidget);
+      expect(find.dIcon(DIcons.microphoneLines), findsNothing);
     });
 
     testWidgets('an icon the app does not carry falls back to the kind', (

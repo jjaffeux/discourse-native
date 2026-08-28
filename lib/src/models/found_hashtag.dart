@@ -2,13 +2,13 @@ import 'package:flutter/foundation.dart';
 
 import 'json.dart';
 
-/// One category or tag the site offered for a `#hashtag`.
+/// One server-owned target the site offered for a `#hashtag`.
 ///
 /// Deliberately not [Storable], for the reason [FoundUser] gives and one of its
-/// own: a category and a tag can share an id, so there is no single key to file
-/// these under — and [text] is `Parent > Child` where `TopicCategory.name` is
-/// just `Child`, so putting one in the store would corrupt the badge a topic
-/// row draws.
+/// own: different hashtag kinds can share an id, so there is no single key to
+/// file these under — and [text] is `Parent > Child` where
+/// `TopicCategory.name` is just `Child`, so putting one in the store would
+/// corrupt the badge a topic row draws.
 @immutable
 class FoundHashtag {
   const FoundHashtag({
@@ -26,11 +26,14 @@ class FoundHashtag {
     this.colors = const [],
   });
 
-  /// A category has its own color and, at most, one parent color.
+  /// Enough for one colour or a split parent/child presentation.
   static const int maximumColors = 2;
 
   static FoundHashtag? fromJson(Map<String, dynamic> json) {
-    final type = jsonText(json['type']);
+    final rawType = json['type'];
+    final type = rawType is String && rawType.trim().isNotEmpty
+        ? rawType
+        : null;
     final ref = jsonText(json['ref']) ?? jsonText(json['slug']);
     if (type == null || ref == null) return null;
 
@@ -42,8 +45,8 @@ class FoundHashtag {
       id: jsonInt(json['id']),
       relativeUrl: jsonText(json['relative_url']) ?? '',
       description: jsonText(json['description']),
-      // Tags only, and the reason it is a string rather than a count: the site
-      // has already formatted it (`x0`), and reformatting it here would be
+      // Usually tags, and the reason it is a string rather than a count: the
+      // site has already formatted it (`x0`), and reformatting it here would be
       // guessing at a convention we do not own.
       secondaryText: jsonText(json['secondary_text']),
       styleType: jsonText(json['style_type']) ?? 'square',
@@ -86,8 +89,8 @@ class FoundHashtag {
   final String? icon;
   final String? emoji;
 
-  /// Six hex digits each, no leading `#`, in `[parent, child]` order — one
-  /// entry for a top-level category, two for a subcategory, none for a tag.
+  /// Six hex digits each, no leading `#`. Core categories use `[parent, child]`
+  /// order — one entry for a top-level category, two for a subcategory.
   final List<String> colors;
 
   static int _value(String color) =>

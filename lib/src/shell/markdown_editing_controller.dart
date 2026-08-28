@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../data/emoji_cache.dart';
 import '../models/composer_upload.dart';
 import '../plugin_api/composer_syntax.dart';
+import '../plugin_api/hashtag_kind.dart';
 import 'composer_image.dart';
 import 'composer_images.dart';
 import 'composer_pills.dart';
@@ -34,6 +35,7 @@ class MarkdownEditingController extends TextEditingController {
     this.imageSiteUrl,
     this.resolveEmoji,
     this.pills,
+    this.pluginHashtagPresentation,
     this.formatQuoteContents,
     this.syntaxPlugins = const [],
     this.pollMaximumOptions = 20,
@@ -59,6 +61,10 @@ class MarkdownEditingController extends TextEditingController {
   /// Null leaves both as text — which is what the tests and a composer with no
   /// site behind it get, exactly as for [resolveEmoji].
   final ComposerPills? pills;
+
+  /// Resolves presentation for installed plugin-owned hashtag kinds.
+  /// Category, tag, and unknown fallback behavior remains in core.
+  final PluginHashtagPresentationResolver? pluginHashtagPresentation;
 
   /// Recovers the cooked structure of quote source when the referenced post
   /// is already loaded. This also upgrades an open pre-fix quote whose raw
@@ -1172,9 +1178,16 @@ class MarkdownEditingController extends TextEditingController {
       return null;
     }
 
-    final kind = found.type == 'category'
-        ? HashtagKind.category
-        : HashtagKind.tag;
+    final presentation = resolveHashtagPresentation(
+      HashtagPresentationRequest(
+        type: found.type,
+        style: HashtagStyle.parse(found.styleType),
+        icon: found.icon,
+        emoji: found.emoji,
+        colorValues: found.colorValues,
+      ),
+      pluginPresentation: pluginHashtagPresentation,
+    );
 
     return _placeholder(
       run,
@@ -1185,11 +1198,8 @@ class MarkdownEditingController extends TextEditingController {
         // the cooked post is where the real name belongs.
         label: text.substring(run.start, run.end),
         baseStyle: base,
-        kind: kind,
-        style: HashtagStyle.parse(found.styleType),
-        icon: found.icon,
-        emoji: found.emoji,
-        colorValues: found.colorValues,
+        presentation: presentation,
+        siteUrl: imageSiteUrl,
       ),
     );
   }

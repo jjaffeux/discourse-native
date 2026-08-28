@@ -22,6 +22,7 @@ import 'plugin_icon_catalog.dart';
 
 export 'composer_syntax.dart';
 export 'emoji_usage.dart';
+export 'hashtag_kind.dart';
 export 'notification_feed_host.dart';
 export 'plugin_data.dart';
 export 'plugin_icon_catalog.dart';

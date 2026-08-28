@@ -6,6 +6,7 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../theme/d_icons.dart';
 import 'resenha_call_widget.dart';
+import 'resenha_hashtag.dart';
 import 'resenha_models.dart';
 import 'resenha_room_view.dart';
 import 'resenha_services.dart';
@@ -19,6 +20,7 @@ final class ResenhaPlugin
         ContentPlugin,
         ShellOverlayPlugin,
         SiteSettingsPlugin<ResenhaClientConfig>,
+        HashtagKindPlugin,
         PluginSiteFeature {
   const ResenhaPlugin();
 
@@ -33,6 +35,9 @@ final class ResenhaPlugin
 
   @override
   String get name => 'resenha';
+
+  @override
+  List<PluginHashtagKind> get hashtagKinds => const [resenhaRoomHashtagKind];
 
   @override
   PluginDataPersistenceCodec<ResenhaClientConfig> get siteSettingsCodec =>
