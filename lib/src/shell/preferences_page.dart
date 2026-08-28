@@ -441,6 +441,7 @@ class _SectionRailItem extends StatelessWidget {
         child: InkWell(
           key: ValueKey('preferences-section-${section.name}'),
           onTap: onTap,
+          mouseCursor: SystemMouseCursors.click,
           borderRadius: BorderRadius.circular(8),
           child: Container(
             constraints: const BoxConstraints(minHeight: 48),

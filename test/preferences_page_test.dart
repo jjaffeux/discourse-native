@@ -171,6 +171,10 @@ void main() {
     expect(notifications, findsOneWidget);
     expect(tracking, findsOneWidget);
     expect(tester.getSize(notifications).height, greaterThanOrEqualTo(48));
+    expect(
+      tester.widget<InkWell>(notifications).mouseCursor,
+      SystemMouseCursors.click,
+    );
 
     final semantics = tester.ensureSemantics();
     try {
