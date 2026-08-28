@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../models/json.dart';
 import '../../models/post.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
@@ -10,12 +11,14 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'ai_summary.dart';
 import 'ai_summary_controller.dart';
+import 'discourse_ai_icons.dart';
 import 'discourse_ai_services.dart';
 
 /// Native presentation of discourse-ai's topic summary contribution.
 final class AiSummaryPlugin
     implements
         SitePlugin,
+        IconCatalogPlugin,
         TopicRecordPlugin<AiSummaryAvailability>,
         TopicMapActionPlugin,
         TopicRecommendationSourcePlugin {
@@ -23,6 +26,9 @@ final class AiSummaryPlugin
 
   @override
   String get name => 'discourse-ai';
+
+  @override
+  PluginIconCatalog get iconCatalog => discourseAiIconCatalog;
 
   @override
   PluginDataKey<AiSummaryAvailability> get record =>
@@ -33,8 +39,8 @@ final class AiSummaryPlugin
       AiSummaryAvailability.fromJson(json);
 
   @override
-  List<TopicRecommendationSourceDefinition> get topicRecommendationSources =>
-      const [discourseAiRelatedTopicRecommendationSource];
+  List<TopicRecommendationSourceCodec> get topicRecommendationSourceCodecs =>
+      const [discourseAiRelatedTopicRecommendationSourceCodec];
 
   @override
   List<Widget> topicMapActions(
@@ -60,10 +66,30 @@ const discourseAiRelatedTopicRecommendationSourceId =
 const discourseAiRelatedTopicRecommendationSource =
     TopicRecommendationSourceDefinition(
       id: discourseAiRelatedTopicRecommendationSourceId,
-      payloadKey: 'related_topics',
       label: 'Related',
-      icon: DIcons.discourseSparkles,
+      icon: DiscourseAiIcons.sparkles,
     );
+
+const discourseAiRelatedTopicRecommendationSourceCodec =
+    DiscourseAiRelatedTopicRecommendationSourceCodec();
+
+final class DiscourseAiRelatedTopicRecommendationSourceCodec
+    extends TopicRecommendationSourceCodec {
+  const DiscourseAiRelatedTopicRecommendationSourceCodec();
+
+  @override
+  TopicRecommendationSourceDefinition get definition =>
+      discourseAiRelatedTopicRecommendationSource;
+
+  @override
+  Set<String> get legacyStoredIds => const {'related'};
+
+  @override
+  List<Map<String, dynamic>>? decodeTopicRows(Map<String, dynamic> json) {
+    if (!json.containsKey('related_topics')) return null;
+    return List.unmodifiable(jsonObjects(json['related_topics']));
+  }
+}
 
 class _AiSummaryButton extends StatelessWidget {
   const _AiSummaryButton({
@@ -96,7 +122,7 @@ class _AiSummaryButton extends StatelessWidget {
         ),
       );
     },
-    icon: const DIcon(DIcons.discourseSparkles, size: 15),
+    icon: const DIcon(DiscourseAiIcons.sparkles, size: 15),
     label: const Text('Summarize'),
   );
 }
@@ -171,7 +197,7 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
     return AlertDialog(
       title: const Row(
         children: [
-          DIcon(DIcons.discourseSparkles, size: 18),
+          DIcon(DiscourseAiIcons.sparkles, size: 18),
           SizedBox(width: 8),
           Text('Topic summary'),
         ],

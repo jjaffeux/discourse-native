@@ -19,7 +19,6 @@ import 'shell_metrics.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'user_menu_button.dart';
-import 'user_status.dart';
 
 @immutable
 final class _SidebarSnapshot {
@@ -423,18 +422,11 @@ class _SectionState extends State<_Section> {
     final section = widget.section;
     final rowHeight = _SidebarSpacing.rowHeight(context);
     final sectionPadding = _SidebarSpacing.sectionPadding(context);
-    final rows = <({SidebarDestination destination, bool child})>[];
-    if (!section.collapsible || !_collapsed) {
-      for (final destination in section.destinations) {
-        rows.add((destination: destination, child: false));
-        for (final child in destination.children) {
-          rows.add((destination: child, child: true));
-        }
-      }
-    }
+    final rows = !section.collapsible || !_collapsed
+        ? section.destinations
+        : const <SidebarDestination>[];
     final rowIndexes = <String, int>{
-      for (var index = 0; index < rows.length; index++)
-        rows[index].destination.id: index,
+      for (var index = 0; index < rows.length; index++) rows[index].id: index,
     };
 
     final bottomSectionPadding = rows.isEmpty
@@ -478,18 +470,15 @@ class _SectionState extends State<_Section> {
             findChildIndexCallback: (key) =>
                 key is ValueKey<String> ? rowIndexes[key.value] : null,
             itemBuilder: (context, index) {
-              final row = rows[index];
-              final destination = row.destination;
+              final destination = rows[index];
               return _DestinationTile(
                 key: ValueKey(destination.id),
                 destination: destination,
-                selected: !row.child && destination.id == widget.selectedId,
-                badgeCount: row.child ? 0 : widget.badgeFor(destination.id),
+                selected: destination.id == widget.selectedId,
+                badgeCount: widget.badgeFor(destination.id),
                 rowHeight: rowHeight,
                 gapAfter: _SidebarSpacing.rowGap,
-                onTap:
-                    destination.onTap ??
-                    (row.child ? () {} : () => widget.onSelect(destination)),
+                onTap: destination.onTap ?? () => widget.onSelect(destination),
               );
             },
           ),
@@ -707,21 +696,11 @@ class _DestinationTileState extends State<_DestinationTile> {
   Widget _prefixArt(BuildContext context, Color foreground) {
     final theme = Theme.of(context);
 
+    if (destination.prefixBuilder case final builder?) {
+      return builder(context, 22);
+    }
+
     if (destination.avatarUrl case final url?) {
-      final siteUrl = ShellScope.read(context).currentInstance?.url;
-      final userId = destination.avatarUserId;
-      if (siteUrl != null && userId != null) {
-        final fallback = ColoredBox(color: theme.shell.floating);
-        final avatar = PluginScope.of(context).registry.userAvatar(
-          context,
-          siteUrl: siteUrl,
-          userId: userId,
-          url: url,
-          size: 22,
-          fallback: fallback,
-        );
-        if (avatar != null) return avatar;
-      }
       return ClipOval(
         child: SizedBox(
           width: 22,
@@ -795,7 +774,6 @@ class _DestinationTileState extends State<_DestinationTile> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final siteUrl = ShellScope.read(context).currentInstance?.url;
     final foreground = selected
         ? theme.shell.selectedForeground
         : destination.enabled
@@ -862,17 +840,8 @@ class _DestinationTileState extends State<_DestinationTile> {
                         ),
                       ),
                     ),
-                    if ((siteUrl, destination.userStatus) case (
-                      final siteUrl?,
-                      final status?,
-                    ))
-                      UserStatusMessage(
-                        siteUrl: siteUrl,
-                        userId: destination.avatarUserId,
-                        status: status,
-                        size: 14,
-                        leadingGap: 5,
-                      ),
+                    if (destination.labelSuffixBuilder case final builder?)
+                      builder(context, 14),
                     if (badge.isVisible && badge.dot)
                       Container(
                         key: ValueKey('sidebar-badge-${destination.id}'),

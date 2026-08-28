@@ -26,7 +26,7 @@ typedef AppBootstrapUnhandledErrorReporter =
 abstract interface class AppBootstrapHost {
   void ensureFlutterInitialized();
 
-  Future<void> initializeLocalDates();
+  Future<void> initializeTimezoneEnvironment();
 
   void installBoundedHttpOverrides();
 
@@ -73,7 +73,7 @@ final class AppBootstrap {
       runZonedGuarded<Future<void>>(
             () async {
               _host.ensureFlutterInitialized();
-              await _host.initializeLocalDates();
+              await _host.initializeTimezoneEnvironment();
               _host.installBoundedHttpOverrides();
               await _host.createDiagnostics();
               _host.installDiagnosticsSink();
@@ -124,7 +124,7 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   }
 
   @override
-  Future<void> initializeLocalDates() =>
+  Future<void> initializeTimezoneEnvironment() =>
       TimezoneEnvironment.instance.initialize();
 
   @override

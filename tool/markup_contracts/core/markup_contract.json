@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "contracts": [
+    {
+      "name": "core-onebox",
+      "snapshot": "onebox_snapshot",
+      "readers": "lib/src/shell/oneboxes/, lib/src/shell/code_block.dart, lib/src/shell/lightbox.dart, and lib/src/shell/youtube_video.dart",
+      "watched": [
+        "lib/onebox/templates/_layout.mustache",
+        "lib/onebox/templates/allowlistedgeneric.mustache",
+        "lib/onebox/templates/twitterstatus.mustache",
+        "lib/onebox/templates/githubblob.mustache",
+        "lib/onebox/templates/discoursetopic.mustache",
+        "lib/onebox/templates/discourse_topic_onebox.mustache",
+        "lib/onebox/templates/discourse_user_onebox.mustache",
+        "lib/onebox/templates/discourse_category_onebox.mustache",
+        "lib/onebox/engine/youtube_onebox.rb",
+        "app/assets/stylesheets/common/base/onebox.scss",
+        "frontend/discourse/app/lib/lightbox.js",
+        "lib/cooked_processor_mixin.rb",
+        "lib/inline_oneboxer.rb",
+        "lib/oneboxer.rb"
+      ]
+    },
+    {
+      "name": "core-hashtag-and-mention",
+      "snapshot": "hashtag_snapshot",
+      "readers": "lib/src/shell/hashtag.dart, lib/src/shell/mention.dart, and their core composer providers",
+      "watched": [
+        "frontend/discourse-markdown-it/src/features/hashtag-autocomplete.js",
+        "frontend/discourse-markdown-it/src/features/mentions.js",
+        "frontend/pretty-text/addon/mentions.js",
+        "frontend/pretty-text/addon/text-replace.js",
+        "frontend/discourse-markdown-it/src/features/text-post-process.js",
+        "frontend/discourse-markdown-it/src/features/emoji.js",
+        "lib/pretty_text.rb",
+        "app/services/hashtag_autocomplete_service.rb",
+        "app/services/category_hashtag_data_source.rb",
+        "app/services/tag_hashtag_data_source.rb",
+        "app/controllers/hashtags_controller.rb",
+        "app/assets/stylesheets/common/foundation/mixins.scss",
+        "app/assets/stylesheets/common/components/hashtag.scss"
+      ]
+    }
+  ]
+}

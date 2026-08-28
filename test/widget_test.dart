@@ -32,7 +32,6 @@ import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
-import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
@@ -43,7 +42,6 @@ import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
-import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
@@ -106,6 +104,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/bundled_plugins.dart';
+import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 import 'support/finders.dart';
 
@@ -190,7 +189,7 @@ Future<void> pumpShell(
       updater: updater ?? FakeUpdater(),
       updateStore: updateStore ?? FakeUpdateStore(),
       initialRootMode: ShellRootMode.forum,
-      pluginManifest: bundledPluginManifestWithoutDiagnostics,
+      pluginManifest: bundledWidgetTestManifest,
     ),
   );
   if (beforeSettle != null) {
@@ -5720,7 +5719,6 @@ void main() {
           TopicRecommendationSource(
             definition: TopicRecommendationSourceDefinition(
               id: TopicRecommendationSourceId('test/nearby'),
-              payloadKey: 'nearby_topics',
               label: 'Nearby',
               icon: DIcons.globe,
             ),
@@ -14589,7 +14587,7 @@ void main() {
           final tab = find.byType(ForumTabsBar);
           final item = tester.widget<ForumTabsBar>(tab).items.single;
           expect(item.avatarUrl, isNotNull);
-          expect(item.avatarUserId, 2);
+          expect(item.prefixBuilder, isNotNull);
           expect(
             find.descendant(of: tab, matching: find.byType(ChatUserAvatar)),
             findsOneWidget,

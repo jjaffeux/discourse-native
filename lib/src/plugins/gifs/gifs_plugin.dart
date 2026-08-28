@@ -6,8 +6,8 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/shell_scope.dart';
-import '../../theme/d_icons.dart';
 import 'gif_picker.dart';
+import 'gifs_icons.dart';
 import 'gifs_services.dart';
 import 'gifs_settings.dart';
 
@@ -17,12 +17,16 @@ export 'gifs_settings.dart';
 class GifsPlugin
     implements
         SitePlugin,
+        IconCatalogPlugin,
         SiteSettingsPlugin<GifsSettings>,
         ComposerToolbarPlugin {
   const GifsPlugin();
 
   @override
   String get name => 'gifs';
+
+  @override
+  PluginIconCatalog get iconCatalog => gifsIconCatalog;
 
   @override
   PluginDataPersistenceCodec<GifsSettings> get siteSettingsCodec =>
@@ -46,7 +50,7 @@ class GifsPlugin
     }
     return [
       ComposerToolbarContribution(
-        icon: DIcons.gif,
+        icon: GifsIcons.gif,
         label: 'Search GIFs',
         onInvoke: () => unawaited(openGifPickerForComposer(context, composer)),
       ),

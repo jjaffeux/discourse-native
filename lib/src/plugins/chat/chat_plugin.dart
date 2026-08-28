@@ -32,12 +32,19 @@ import 'chat_plugin_data.dart';
 import 'chat_route.dart';
 import 'chat_search_view.dart';
 import 'chat_services.dart';
-import 'chat_shell_extension.dart';
+import 'chat_shell_service.dart';
 import 'chat_thread_view.dart';
 import 'chat_transcript.dart';
 import 'chat_user_avatar.dart';
 import 'chat_user_card.dart';
 import 'chat_user_menu.dart';
+
+/// Chat's legacy sidebar icon alias. The glyph remains a neutral core asset;
+/// only the plugin-specific `d-chat` meaning belongs to Chat.
+const chatIconCatalog = PluginIconCatalog(
+  owner: PluginId('chat'),
+  entries: {'d-chat': DIcons.comment},
+);
 
 /// `chat`, as this app knows it.
 ///
@@ -72,6 +79,7 @@ import 'chat_user_menu.dart';
 class ChatPlugin
     implements
         SitePlugin,
+        IconCatalogPlugin,
         SidebarPlugin,
         ContentPlugin,
         ContentChromePlugin,
@@ -80,7 +88,6 @@ class ChatPlugin
         ContentHeaderTitlePlugin,
         ForumTabPlugin,
         ShellHeaderPlugin,
-        UserAvatarPlugin,
         UserCardRecordPlugin<ChatUserCardData>,
         UserCardActionPlugin,
         CookedElementPlugin,
@@ -119,6 +126,9 @@ class ChatPlugin
 
   @override
   String get name => 'chat';
+
+  @override
+  PluginIconCatalog get iconCatalog => chatIconCatalog;
 
   @override
   List<PluginNotificationFeedSource> get notificationFeeds => const [
@@ -335,28 +345,12 @@ class ChatPlugin
       context,
       chatControllerService,
     ).channel(siteUrl, route.channelId);
-    return channel == null ? null : destination(channel);
+    return channel == null ? null : destination(channel, siteUrl: siteUrl);
   }
 
   @override
   Listenable forumTabListenable(BuildContext context, String siteUrl) =>
       PluginScope.require(context, chatControllerService);
-
-  @override
-  Widget userAvatar(
-    BuildContext context, {
-    required String siteUrl,
-    required int userId,
-    required String url,
-    required double size,
-    required Widget fallback,
-  }) => ChatUserAvatar(
-    siteUrl: siteUrl,
-    userId: userId,
-    url: url,
-    size: size,
-    fallback: fallback,
-  );
 
   @override
   Widget? content(BuildContext context, ContentRoute route) {
@@ -498,6 +492,7 @@ class ChatPlugin
   ) {
     final chatRoute = ChatRoute.parse(route.id);
     final shell = ShellScope.read(context);
+    final chatShell = PluginScope.require(context, chatShellService);
     final siteUrl = shell.currentInstance?.url;
     if (siteUrl == null ||
         chatRoute == null ||
@@ -505,7 +500,7 @@ class ChatPlugin
         chatRoute.isInfo) {
       return null;
     }
-    return () => shell.openChatChannelInfo(
+    return () => chatShell.openChannelInfo(
       siteUrl: siteUrl,
       channelId: chatRoute.channelId,
     );
@@ -533,42 +528,64 @@ class ChatPlugin
   static SidebarDestination destination(
     ChatChannel channel, {
     String? siteUrl,
-  }) => SidebarDestination(
-    id: ChatRoute.channel(channel.id).routeId,
-    label: channel.title,
-    icon: switch (channel.kind) {
-      ChatChannelKind.directMessage when channel.users.length > 1 =>
-        DIcons.users,
-      ChatChannelKind.directMessage => DIcons.user,
-      _ => DIcons.comment,
-    },
-    emoji: channel.emoji,
-    avatarUrl: channel.avatarUrl,
-    avatarUserId: channel.isDirectMessage && channel.users.length == 1
-        ? channel.users.first.id
-        : null,
-    userStatus: channel.isDirectMessage && channel.users.length == 1
-        ? channel.users.first.status
-        : null,
-    iconColor: channel.categoryColor,
-    prefixBadgeIcon: channel.isCategoryChannel && channel.readRestricted
-        ? DIcons.lock
-        : null,
-    badge: channel.badge,
-    hoverActionBuilder: siteUrl == null
-        ? null
-        : (context) =>
-              ChatChannelMenuButton(siteUrl: siteUrl, channelId: channel.id),
-    onLongPress: siteUrl == null
-        ? null
-        : (context) => unawaited(
-            ChatChannelMenuButton.showSheet(
-              context: context,
+  }) {
+    final directUser = channel.isDirectMessage && channel.users.length == 1
+        ? channel.users.first
+        : null;
+    final avatarUrl = channel.avatarUrl;
+    final status = directUser?.status;
+    return SidebarDestination(
+      id: ChatRoute.channel(channel.id).routeId,
+      label: channel.title,
+      icon: switch (channel.kind) {
+        ChatChannelKind.directMessage when channel.users.length > 1 =>
+          DIcons.users,
+        ChatChannelKind.directMessage => DIcons.user,
+        _ => DIcons.comment,
+      },
+      emoji: channel.emoji,
+      avatarUrl: avatarUrl,
+      prefixBuilder: siteUrl == null || directUser == null || avatarUrl == null
+          ? null
+          : (context, size) => ChatUserAvatar(
               siteUrl: siteUrl,
-              channelId: channel.id,
+              userId: directUser.id,
+              url: avatarUrl,
+              size: size,
+              fallback: ColoredBox(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              ),
             ),
-          ),
-  );
+      labelSuffixBuilder: siteUrl == null || status == null
+          ? null
+          : (context, size) => UserStatusMessage(
+              siteUrl: siteUrl,
+              userId: directUser!.id,
+              status: status,
+              size: size,
+              leadingGap: size <= 13 ? 4 : 5,
+            ),
+      semanticDescription: status?.description,
+      iconColor: channel.categoryColor,
+      prefixBadgeIcon: channel.isCategoryChannel && channel.readRestricted
+          ? DIcons.lock
+          : null,
+      badge: channel.badge,
+      hoverActionBuilder: siteUrl == null
+          ? null
+          : (context) =>
+                ChatChannelMenuButton(siteUrl: siteUrl, channelId: channel.id),
+      onLongPress: siteUrl == null
+          ? null
+          : (context) => unawaited(
+              ChatChannelMenuButton.showSheet(
+                context: context,
+                siteUrl: siteUrl,
+                channelId: channel.id,
+              ),
+            ),
+    );
+  }
 }
 
 class _ChatChannelHeaderStatus extends StatelessWidget {
@@ -668,9 +685,10 @@ class _ChatChannelThreadsButton extends StatelessWidget {
         final unread = channel!.unreadThreadCount;
         return DButton.iconOnly(
           key: const ValueKey('chat-channel-threads-button'),
-          onPressed: () => ShellScope.read(
+          onPressed: () => PluginScope.require(
             context,
-          ).openChatChannelThreads(siteUrl: siteUrl, channelId: channelId),
+            chatShellService,
+          ).openChannelThreads(siteUrl: siteUrl, channelId: channelId),
           variant: DButtonVariant.flat,
           icon: Badge(
             isLabelVisible: unread > 0,

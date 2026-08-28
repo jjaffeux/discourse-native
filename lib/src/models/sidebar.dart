@@ -1,9 +1,17 @@
 import 'package:flutter/widgets.dart';
 
+import '../plugin_api/plugin_icon_catalog.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'json.dart';
-import 'user_status.dart';
+
+/// Builds owner-specific artwork inside a shared sidebar or forum-tab row.
+///
+/// [size] is the square reserved by the host surface. The owner supplies only
+/// the artwork; selection, spacing, interaction and row semantics stay with
+/// the host.
+typedef SidebarRowDecorationBuilder =
+    Widget Function(BuildContext context, double size);
 
 /// What a sidebar row says about what has not been read.
 ///
@@ -45,7 +53,8 @@ class SidebarBadge {
 
 /// A single tappable entry in the instance sidebar.
 ///
-/// The prefix is whichever of [avatarUrl], [emoji], [color] and [icon] the
+/// The prefix is [prefixBuilder] when an owner contributes live artwork;
+/// otherwise it is whichever of [avatarUrl], [emoji], [color] and [icon] the
 /// entry has, in that order — a face beats a picture beats a category badge
 /// beats a glyph. [icon] is the only one always present, so there is always
 /// something to draw.
@@ -65,14 +74,14 @@ class SidebarDestination {
     this.parentColor,
     this.emoji,
     this.avatarUrl,
-    this.avatarUserId,
-    this.userStatus,
+    this.prefixBuilder,
+    this.labelSuffixBuilder,
+    this.semanticDescription,
     this.iconColor,
     this.routeColor,
     this.prefixBadgeIcon,
     this.badge,
     this.onTap,
-    this.children = const [],
     this.trailingLabel,
     this.indent = 0,
     this.enabled = true,
@@ -109,15 +118,20 @@ class SidebarDestination {
   /// place.
   final String? avatarUrl;
 
-  /// The account behind [avatarUrl], when the row belongs to a chat user.
+  /// Feature-owned prefix artwork, or null to use the generic avatar, emoji,
+  /// colour or icon projection above.
   ///
-  /// Kept beside the artwork rather than reduced to an `online` boolean so the
-  /// shared chat avatar can watch live presence itself. Other avatar-backed
-  /// destinations leave this null and keep their ordinary static rendering.
-  final int? avatarUserId;
+  /// This keeps live feature records out of the navigation DTO. A feature can
+  /// watch its own state inside the returned widget without teaching core what
+  /// that state means.
+  final SidebarRowDecorationBuilder? prefixBuilder;
 
-  /// The one-to-one chat partner's status, shown after the channel label.
-  final UserStatus? userStatus;
+  /// Feature-owned decoration immediately after the label.
+  final SidebarRowDecorationBuilder? labelSuffixBuilder;
+
+  /// Extra meaning contributed by [labelSuffixBuilder] for the row's combined
+  /// semantics label.
+  final String? semanticDescription;
 
   /// What tints [icon], for an entry the site gave a colour but not a badge.
   ///
@@ -145,10 +159,6 @@ class SidebarDestination {
 
   /// An action row rather than ordinary content navigation.
   final VoidCallback? onTap;
-
-  /// Non-navigation rows nested under this destination, such as people
-  /// currently present in a voice room.
-  final List<SidebarDestination> children;
 
   final String? trailingLabel;
   final int indent;
@@ -205,6 +215,7 @@ class SidebarSection {
   static SidebarSection? customFromJson(
     Map<String, dynamic> json, {
     required int index,
+    IconNameDecoder icons = const CoreIconNameDecoder(),
   }) {
     if (json['section_type'] != null) return null;
     final title = jsonText(json['title']);
@@ -231,7 +242,7 @@ class SidebarSection {
         SidebarDestination(
           id: 'custom-$sectionId-$linkId',
           label: name,
-          icon: DIcons.byName[iconName] ?? DIcons.link,
+          icon: icons.iconNamed(iconName, fallback: DIcons.link),
           url: value,
         ),
       );

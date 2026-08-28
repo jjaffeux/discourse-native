@@ -1,7 +1,6 @@
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
-import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -11,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
@@ -145,7 +145,7 @@ Future<void> _pump(
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
       initialRootMode: ShellRootMode.forum,
-      pluginManifest: bundledPluginManifestWithoutDiagnostics,
+      pluginManifest: bundledWidgetTestManifest,
     ),
   );
   await tester.pumpAndSettle();

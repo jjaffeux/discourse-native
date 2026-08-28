@@ -9,7 +9,7 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_data.dart';
 import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
-import 'package:discourse_native/src/plugins/assign/assignment_shell_extension.dart';
+import 'package:discourse_native/src/plugins/assign/assignment_controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -56,7 +56,7 @@ void main() {
       final shell = await _loadShell(api);
       addTearDown(shell.dispose);
 
-      final error = await shell.assignTarget(
+      final error = await _assignments(shell).assign(
         _site,
         const AssignmentTarget.post(12, topicId: 7),
         const AssignmentGroup(name: 'triage'),
@@ -91,7 +91,7 @@ void main() {
       final shell = await _loadShell(api);
       addTearDown(shell.dispose);
 
-      final error = await shell.assignTarget(
+      final error = await _assignments(shell).assign(
         _site,
         const AssignmentTarget.post(11, topicId: 7),
         const AssignmentUser(username: 'sam'),
@@ -118,7 +118,7 @@ void main() {
       final shell = await _loadShell(api);
       addTearDown(shell.dispose);
 
-      final error = await shell.assignTarget(
+      final error = await _assignments(shell).assign(
         _site,
         const AssignmentTarget.post(12, topicId: 7),
         const AssignmentUser(username: 'sam'),
@@ -142,7 +142,7 @@ void main() {
     final shell = await _loadShell(api);
     addTearDown(shell.dispose);
 
-    final error = await shell.assignTarget(
+    final error = await _assignments(shell).assign(
       _site,
       const AssignmentTarget.post(12, topicId: 7),
       const AssignmentUser(username: 'sam'),
@@ -183,7 +183,7 @@ void main() {
       );
       await shell.loadTopic(7, 'topic');
 
-      final error = await shell.assignTarget(
+      final error = await _assignments(shell).assign(
         _site,
         const AssignmentTarget.post(12, topicId: 7),
         const AssignmentUser(username: 'sam'),
@@ -218,7 +218,7 @@ void main() {
     const legacyTarget = AssignmentTarget.post(12, topicId: 7);
     expect(assignments.canAssign(_site, legacyTarget), isTrue);
 
-    final error = await shell.assignTarget(
+    final error = await _assignments(shell).assign(
       _site,
       const AssignmentTarget.post(12, topicId: 7),
       const AssignmentUser(username: 'sam'),
@@ -374,7 +374,7 @@ void main() {
       final initialTopicHeaderBuilds = topicHeaderBuilds;
       final initialPostMenuBuilds = postMenuBuilds;
 
-      final error = await shell.assignTarget(
+      final error = await _assignments(shell).assign(
         _site,
         const AssignmentTarget.post(12, topicId: 7),
         const AssignmentUser(username: 'sam'),
@@ -452,7 +452,7 @@ void main() {
     expect(assignmentRow, findsOneWidget);
     expect(editIcon(), findsOneWidget);
 
-    final error = await shell.assignTarget(
+    final error = await _assignments(shell).assign(
       _site,
       const AssignmentTarget.post(12, topicId: 7),
       const AssignmentUser(username: 'other'),
@@ -470,7 +470,7 @@ void main() {
     final shell = await _loadShell(api);
     addTearDown(shell.dispose);
 
-    final error = await shell.assignTarget(
+    final error = await _assignments(shell).assign(
       _site,
       const AssignmentTarget.post(12, topicId: 7),
       const AssignmentUser(username: 'sam'),
@@ -485,6 +485,9 @@ void main() {
     expect(api.topicsOpened, [7, 7, 7]);
   });
 }
+
+AssignmentController _assignments(ShellController shell) =>
+    shell.pluginSession.require(assignmentControllerService);
 
 Future<ShellController> _loadShell(FakeDiscourseApi api) async {
   final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';

@@ -114,6 +114,23 @@ typedef _CategorySidebarCache = ({
   SidebarSection section,
 });
 
+sealed class _BookmarkWriteContext {
+  const _BookmarkWriteContext();
+}
+
+final class _TopicBookmarkWriteContext extends _BookmarkWriteContext {
+  const _TopicBookmarkWriteContext(this.topicId);
+
+  final int topicId;
+}
+
+/// The plugin strategy and target-bound host are the complete context.
+final class _PluginBookmarkWriteContext extends _BookmarkWriteContext {
+  const _PluginBookmarkWriteContext();
+}
+
+const _pluginBookmarkWriteContext = _PluginBookmarkWriteContext();
+
 /// Everything the shell needs to decide what to draw.
 ///
 /// Uses Flutter's notifier contract directly, without a state-management
@@ -6218,20 +6235,35 @@ class ShellController extends FrameSafeNotifier
 
   final Set<String> _topicBookmarkWritesInFlight = {};
   final Set<String> _pluginBookmarkWritesInFlight = {};
-  final Map<BookmarkTargetType, _ShellBookmarkTargetHost> _bookmarkTargetHosts =
-      {};
+  final Map<BookmarkTargetType, _ShellCoreBookmarkTargetHost>
+  _coreBookmarkTargetHosts = {};
+  final Map<BookmarkTargetType, _ShellPluginBookmarkTargetHost>
+  _pluginBookmarkTargetHosts = {};
   final Map<String, int> _bookmarkVersions = {};
   final Map<String, int> _siteBookmarkVersions = {};
 
   @override
-  BookmarkTargetHost bookmarkTarget(BookmarkTargetType targetType) =>
-      _bookmarkTargetHost(targetType);
-
-  _ShellBookmarkTargetHost _bookmarkTargetHost(BookmarkTargetType targetType) =>
-      _bookmarkTargetHosts.putIfAbsent(
+  BookmarkTargetHost bookmarkTarget(BookmarkTargetType targetType) {
+    if (targetType != BookmarkTargetType.post &&
+        targetType != BookmarkTargetType.topic) {
+      throw ArgumentError.value(
         targetType,
-        () => _ShellBookmarkTargetHost(this, targetType),
+        'targetType',
+        'Plugin bookmark targets require a plugin-scoped host.',
       );
+    }
+    return _coreBookmarkTargetHosts.putIfAbsent(
+      targetType,
+      () => _ShellCoreBookmarkTargetHost(this, targetType),
+    );
+  }
+
+  _ShellPluginBookmarkTargetHost _pluginBookmarkTargetHost(
+    BookmarkTargetType targetType,
+  ) => _pluginBookmarkTargetHosts.putIfAbsent(
+    targetType,
+    () => _ShellPluginBookmarkTargetHost(this, targetType),
+  );
 
   int _bookmarkVersion(String siteUrl, int topicId) =>
       _bookmarkVersions[_topicKey(siteUrl, topicId)] ?? 0;
@@ -6267,12 +6299,40 @@ class ShellController extends FrameSafeNotifier
     required int topicId,
     required BookmarkTargetType targetType,
     required int targetId,
+  }) => _bookmarkWriteInFlight(
+    siteUrl: siteUrl,
+    context: _TopicBookmarkWriteContext(topicId),
+    targetType: targetType,
+    targetId: targetId,
+  );
+
+  bool _pluginBookmarkWriteInFlight({
+    required String siteUrl,
+    required BookmarkTargetType targetType,
+    required int targetId,
+  }) => _bookmarkWriteInFlight(
+    siteUrl: siteUrl,
+    context: _pluginBookmarkWriteContext,
+    targetType: targetType,
+    targetId: targetId,
+  );
+
+  bool _bookmarkWriteInFlight({
+    required String siteUrl,
+    required _BookmarkWriteContext context,
+    required BookmarkTargetType targetType,
+    required int targetId,
   }) {
     if (targetType == BookmarkTargetType.post) {
       return _postWritesInFlight.contains(_postKey(siteUrl, targetId));
     }
     if (targetType == BookmarkTargetType.topic) {
-      return _topicBookmarkWritesInFlight.contains(_topicKey(siteUrl, topicId));
+      if (context case _TopicBookmarkWriteContext(:final topicId)) {
+        return _topicBookmarkWritesInFlight.contains(
+          _topicKey(siteUrl, topicId),
+        );
+      }
+      return false;
     }
     return _pluginBookmarkWritesInFlight.contains(
       _pluginBookmarkKey(siteUrl, targetType, targetId),
@@ -6314,6 +6374,19 @@ class ShellController extends FrameSafeNotifier
     return owner?.pluginBookmarkTarget;
   }
 
+  bool _bookmarkContextMatches(
+    BookmarkTargetType targetType,
+    _BookmarkWriteContext context,
+  ) {
+    final coreTarget =
+        targetType == BookmarkTargetType.post ||
+        targetType == BookmarkTargetType.topic;
+    return switch (context) {
+      _TopicBookmarkWriteContext(:final topicId) => coreTarget && topicId > 0,
+      _PluginBookmarkWriteContext() => !coreTarget,
+    };
+  }
+
   /// The live read currently allowed to update each post.
   final Map<String, Object> _postRefreshRequests = {};
 
@@ -6353,12 +6426,35 @@ class ShellController extends FrameSafeNotifier
     String? name,
     DateTime? reminderAt,
     BookmarkAutoDeletePreference? autoDeletePreference,
+  }) => _createBookmark(
+    siteUrl: siteUrl,
+    context: _TopicBookmarkWriteContext(topicId),
+    targetType: targetType,
+    targetId: targetId,
+    name: name,
+    reminderAt: reminderAt,
+    autoDeletePreference: autoDeletePreference,
+  );
+
+  Future<BookmarkWriteResult> _createBookmark({
+    required String siteUrl,
+    required _BookmarkWriteContext context,
+    required BookmarkTargetType targetType,
+    required int targetId,
+    String? name,
+    DateTime? reminderAt,
+    BookmarkAutoDeletePreference? autoDeletePreference,
   }) async {
     final instance = _instanceAt(siteUrl);
     final refreshTarget = targetType.refreshLabel;
     if (instance == null || !instance.isConnected) {
       return const BookmarkWriteResult.refused(
         'Reconnect to this forum to bookmark it.',
+      );
+    }
+    if (!_bookmarkContextMatches(targetType, context)) {
+      return const BookmarkWriteResult.refused(
+        'This bookmark target requires its owning context.',
       );
     }
     if (targetType != BookmarkTargetType.post &&
@@ -6368,7 +6464,7 @@ class ShellController extends FrameSafeNotifier
         'This bookmark target is not available in this build.',
       );
     }
-    if (!_beginBookmarkWrite(siteUrl, topicId, targetType, targetId)) {
+    if (!_beginBookmarkWrite(siteUrl, context, targetType, targetId)) {
       return const BookmarkWriteResult.refused(
         'Another action on this bookmark is still finishing.',
       );
@@ -6403,7 +6499,7 @@ class ShellController extends FrameSafeNotifier
         if (error.failure == WriteFailure.unreachable) {
           _reconcileBookmarks(
             instance,
-            topicId,
+            context,
             targetType: targetType,
             targetId: targetId,
           );
@@ -6417,7 +6513,7 @@ class ShellController extends FrameSafeNotifier
           _reportOperationalError(error, stackTrace, 'bookmark.create');
           _reconcileBookmarks(
             instance,
-            topicId,
+            context,
             targetType: targetType,
             targetId: targetId,
           );
@@ -6439,7 +6535,7 @@ class ShellController extends FrameSafeNotifier
         autoDeletePreference: preference,
       );
       final applied = lease.commit(() {
-        _applyBookmark(siteUrl, topicId, bookmark);
+        _applyBookmark(siteUrl, context, bookmark);
       });
       if (!applied) {
         return const BookmarkWriteResult.reconciled(
@@ -6448,14 +6544,14 @@ class ShellController extends FrameSafeNotifier
       }
       _reconcileBookmarks(
         instance,
-        topicId,
+        context,
         targetType: targetType,
         targetId: targetId,
       );
       return BookmarkWriteResult.saved(bookmark);
     } finally {
       lease.commit(
-        () => _endBookmarkWrite(siteUrl, topicId, targetType, targetId),
+        () => _endBookmarkWrite(siteUrl, context, targetType, targetId),
       );
     }
   }
@@ -6463,6 +6559,22 @@ class ShellController extends FrameSafeNotifier
   Future<BookmarkWriteResult> updateBookmark({
     required String siteUrl,
     required int topicId,
+    required Bookmark bookmark,
+    String? name,
+    DateTime? reminderAt,
+    required BookmarkAutoDeletePreference autoDeletePreference,
+  }) => _updateBookmark(
+    siteUrl: siteUrl,
+    context: _TopicBookmarkWriteContext(topicId),
+    bookmark: bookmark,
+    name: name,
+    reminderAt: reminderAt,
+    autoDeletePreference: autoDeletePreference,
+  );
+
+  Future<BookmarkWriteResult> _updateBookmark({
+    required String siteUrl,
+    required _BookmarkWriteContext context,
     required Bookmark bookmark,
     String? name,
     DateTime? reminderAt,
@@ -6479,8 +6591,13 @@ class ShellController extends FrameSafeNotifier
         'This bookmark cannot be edited here.',
       );
     }
+    if (!_bookmarkContextMatches(targetType, context)) {
+      return const BookmarkWriteResult.refused(
+        'This bookmark target requires its owning context.',
+      );
+    }
     final refreshTarget = targetType.refreshLabel;
-    if (!_beginBookmarkWrite(siteUrl, topicId, targetType, targetId)) {
+    if (!_beginBookmarkWrite(siteUrl, context, targetType, targetId)) {
       return const BookmarkWriteResult.refused(
         'Another action on this bookmark is still finishing.',
       );
@@ -6509,7 +6626,7 @@ class ShellController extends FrameSafeNotifier
         if (error.failure == WriteFailure.unreachable) {
           _reconcileBookmarks(
             instance,
-            topicId,
+            context,
             targetType: targetType,
             targetId: targetId,
           );
@@ -6523,7 +6640,7 @@ class ShellController extends FrameSafeNotifier
           _reportOperationalError(error, stackTrace, 'bookmark.update');
           _reconcileBookmarks(
             instance,
-            topicId,
+            context,
             targetType: targetType,
             targetId: targetId,
           );
@@ -6540,7 +6657,7 @@ class ShellController extends FrameSafeNotifier
         autoDeletePreference: autoDeletePreference,
       );
       final applied = lease.commit(() {
-        _applyBookmark(siteUrl, topicId, updated);
+        _applyBookmark(siteUrl, context, updated);
       });
       if (!applied) {
         return const BookmarkWriteResult.reconciled(
@@ -6549,14 +6666,14 @@ class ShellController extends FrameSafeNotifier
       }
       _reconcileBookmarks(
         instance,
-        topicId,
+        context,
         targetType: targetType,
         targetId: targetId,
       );
       return BookmarkWriteResult.saved(updated);
     } finally {
       lease.commit(
-        () => _endBookmarkWrite(siteUrl, topicId, targetType, targetId),
+        () => _endBookmarkWrite(siteUrl, context, targetType, targetId),
       );
     }
   }
@@ -6577,6 +6694,16 @@ class ShellController extends FrameSafeNotifier
     required String siteUrl,
     required int topicId,
     required Bookmark bookmark,
+  }) => _deleteBookmark(
+    siteUrl: siteUrl,
+    context: _TopicBookmarkWriteContext(topicId),
+    bookmark: bookmark,
+  );
+
+  Future<BookmarkWriteResult> _deleteBookmark({
+    required String siteUrl,
+    required _BookmarkWriteContext context,
+    required Bookmark bookmark,
   }) async {
     final instance = _instanceAt(siteUrl);
     final targetType = _bookmarkTargetFor(bookmark);
@@ -6589,8 +6716,13 @@ class ShellController extends FrameSafeNotifier
         'This bookmark cannot be deleted here.',
       );
     }
+    if (!_bookmarkContextMatches(targetType, context)) {
+      return const BookmarkWriteResult.refused(
+        'This bookmark target requires its owning context.',
+      );
+    }
     final refreshTarget = targetType.refreshLabel;
-    if (!_beginBookmarkWrite(siteUrl, topicId, targetType, targetId)) {
+    if (!_beginBookmarkWrite(siteUrl, context, targetType, targetId)) {
       return const BookmarkWriteResult.refused(
         'Another action on this bookmark is still finishing.',
       );
@@ -6621,7 +6753,7 @@ class ShellController extends FrameSafeNotifier
         if (error.failure == WriteFailure.unreachable) {
           _reconcileBookmarks(
             instance,
-            topicId,
+            context,
             targetType: targetType,
             targetId: targetId,
           );
@@ -6635,7 +6767,7 @@ class ShellController extends FrameSafeNotifier
           _reportOperationalError(error, stackTrace, 'bookmark.delete');
           _reconcileBookmarks(
             instance,
-            topicId,
+            context,
             targetType: targetType,
             targetId: targetId,
           );
@@ -6647,7 +6779,7 @@ class ShellController extends FrameSafeNotifier
       final applied = lease.commit(() {
         _removeBookmark(
           siteUrl,
-          topicId,
+          context,
           bookmark,
           topicBookmarked: topicBookmarked,
         );
@@ -6659,14 +6791,14 @@ class ShellController extends FrameSafeNotifier
       }
       _reconcileBookmarks(
         instance,
-        topicId,
+        context,
         targetType: targetType,
         targetId: targetId,
       );
       return const BookmarkWriteResult.saved();
     } finally {
       lease.commit(
-        () => _endBookmarkWrite(siteUrl, topicId, targetType, targetId),
+        () => _endBookmarkWrite(siteUrl, context, targetType, targetId),
       );
     }
   }
@@ -6676,6 +6808,7 @@ class ShellController extends FrameSafeNotifier
     required String siteUrl,
     required int topicId,
   }) async {
+    final context = _TopicBookmarkWriteContext(topicId);
     final instance = _instanceAt(siteUrl);
     if (instance == null || !instance.isConnected) {
       return const BookmarkWriteResult.refused(
@@ -6719,7 +6852,7 @@ class ShellController extends FrameSafeNotifier
         );
       } on WriteException catch (error) {
         if (error.failure == WriteFailure.unreachable) {
-          _reconcileBookmarks(instance, topicId);
+          _reconcileBookmarks(instance, context);
           return const BookmarkWriteResult.reconciled(
             "Couldn't confirm the deletion. The topic is being refreshed.",
           );
@@ -6728,14 +6861,14 @@ class ShellController extends FrameSafeNotifier
       } catch (error, stackTrace) {
         if (lease.isCurrent) {
           _reportOperationalError(error, stackTrace, 'bookmark.deleteAll');
-          _reconcileBookmarks(instance, topicId);
+          _reconcileBookmarks(instance, context);
         }
         return const BookmarkWriteResult.reconciled(
           "Couldn't confirm the deletion. The topic is being refreshed.",
         );
       }
       lease.commit(() => _removeAllBookmarks(siteUrl, topicId));
-      _reconcileBookmarks(instance, topicId);
+      _reconcileBookmarks(instance, context);
       return const BookmarkWriteResult.saved();
     } finally {
       lease.commit(() {
@@ -6750,7 +6883,7 @@ class ShellController extends FrameSafeNotifier
 
   bool _beginBookmarkWrite(
     String siteUrl,
-    int topicId,
+    _BookmarkWriteContext context,
     BookmarkTargetType targetType,
     int targetId,
   ) {
@@ -6758,6 +6891,7 @@ class ShellController extends FrameSafeNotifier
       return _beginPostWrite(_postKey(siteUrl, targetId));
     }
     if (targetType == BookmarkTargetType.topic) {
+      final topicId = (context as _TopicBookmarkWriteContext).topicId;
       return _beginTopicBookmarkWrite(_topicKey(siteUrl, topicId));
     }
     final key = _pluginBookmarkKey(siteUrl, targetType, targetId);
@@ -6774,7 +6908,7 @@ class ShellController extends FrameSafeNotifier
 
   void _endBookmarkWrite(
     String siteUrl,
-    int topicId,
+    _BookmarkWriteContext context,
     BookmarkTargetType targetType,
     int targetId,
   ) {
@@ -6783,6 +6917,7 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     if (targetType == BookmarkTargetType.topic) {
+      final topicId = (context as _TopicBookmarkWriteContext).topicId;
       _topicBookmarkWritesInFlight.remove(_topicKey(siteUrl, topicId));
       _notify();
       return;
@@ -6793,7 +6928,11 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  void _applyBookmark(String siteUrl, int topicId, Bookmark bookmark) {
+  void _applyBookmark(
+    String siteUrl,
+    _BookmarkWriteContext context,
+    Bookmark bookmark,
+  ) {
     final targetType = _bookmarkTargetFor(bookmark);
     final targetId = bookmark.bookmarkableId;
     final plugin = targetType == null
@@ -6806,6 +6945,7 @@ class ShellController extends FrameSafeNotifier
       _notify();
       return;
     }
+    final topicId = (context as _TopicBookmarkWriteContext).topicId;
     _advanceBookmarkVersion(siteUrl, topicId);
     store.update<TopicDetail>(
       siteUrl,
@@ -6830,7 +6970,7 @@ class ShellController extends FrameSafeNotifier
 
   void _removeBookmark(
     String siteUrl,
-    int topicId,
+    _BookmarkWriteContext context,
     Bookmark bookmark, {
     required bool? topicBookmarked,
   }) {
@@ -6844,6 +6984,7 @@ class ShellController extends FrameSafeNotifier
       _notify();
       return;
     }
+    final topicId = (context as _TopicBookmarkWriteContext).topicId;
     _advanceBookmarkVersion(siteUrl, topicId);
     store.update<TopicDetail>(
       siteUrl,
@@ -6881,7 +7022,7 @@ class ShellController extends FrameSafeNotifier
 
   void _reconcileBookmarks(
     DiscourseInstance instance,
-    int topicId, {
+    _BookmarkWriteContext context, {
     BookmarkTargetType targetType = BookmarkTargetType.topic,
     int? targetId,
   }) {
@@ -6894,6 +7035,7 @@ class ShellController extends FrameSafeNotifier
         'plugins.session.reconcileBookmark',
       );
     } else {
+      final topicId = (context as _TopicBookmarkWriteContext).topicId;
       final route = currentContent;
       final row = store.read<Topic>(instance.url, topicId);
       unawaited(
@@ -10175,10 +10317,14 @@ class ShellController extends FrameSafeNotifier
       );
     }
     search.dispose();
-    for (final host in _bookmarkTargetHosts.values) {
+    for (final host in _coreBookmarkTargetHosts.values) {
       host.dispose();
     }
-    _bookmarkTargetHosts.clear();
+    _coreBookmarkTargetHosts.clear();
+    for (final host in _pluginBookmarkTargetHosts.values) {
+      host.dispose();
+    }
+    _pluginBookmarkTargetHosts.clear();
     for (final listenable in _pluginSiteConfigListenables.values) {
       listenable.dispose();
     }
@@ -10430,19 +10576,19 @@ final class _ShellScopedPluginBookmarkHostFactory
         'Plugin $_consumer cannot request bookmark target ${targetType.id}.',
       );
     }
-    return _shell._bookmarkTargetHost(targetType);
+    return _shell._pluginBookmarkTargetHost(targetType);
   }
 }
 
-/// Bookmark actions restricted to one target type and one explicit site.
-final class _ShellBookmarkTargetHost implements PluginBookmarkHost {
-  _ShellBookmarkTargetHost(this._shell, this._targetType);
+/// Topic-aware bookmark actions used only by core post and topic surfaces.
+final class _ShellCoreBookmarkTargetHost implements BookmarkTargetHost {
+  _ShellCoreBookmarkTargetHost(this._shell, this._targetType);
 
   final ShellController _shell;
   final BookmarkTargetType _targetType;
   final Map<
     ({String siteUrl, int topicId, int targetId}),
-    _PluginBookmarkWriteListenable
+    _BookmarkWriteListenable
   >
   _writeListenables = {};
 
@@ -10485,7 +10631,7 @@ final class _ShellBookmarkTargetHost implements PluginBookmarkHost {
     final key = (siteUrl: siteUrl, topicId: topicId, targetId: targetId);
     return _writeListenables.putIfAbsent(
       key,
-      () => _PluginBookmarkWriteListenable(
+      () => _BookmarkWriteListenable(
         _shell,
         () => bookmarkWriteInFlight(
           siteUrl: siteUrl,
@@ -10570,10 +10716,134 @@ final class _ShellBookmarkTargetHost implements PluginBookmarkHost {
   }
 }
 
+/// Bookmark actions restricted to one plugin target and one explicit site.
+final class _ShellPluginBookmarkTargetHost implements PluginBookmarkHost {
+  _ShellPluginBookmarkTargetHost(this._shell, this._targetType);
+
+  final ShellController _shell;
+  final BookmarkTargetType _targetType;
+  final Map<({String siteUrl, int targetId}), _BookmarkWriteListenable>
+  _writeListenables = {};
+
+  bool _owns(Bookmark bookmark) =>
+      _shell._bookmarkTargetFor(bookmark) == _targetType;
+
+  BookmarkWriteResult _foreignBookmark() => BookmarkWriteResult.refused(
+    'This bookmark does not belong to ${_targetType.refreshLabel}.',
+  );
+
+  @override
+  BookmarkSiteContext siteContextFor(String siteUrl) {
+    final user = _shell.currentUserFor(siteUrl);
+    final config = _shell.siteConfigFor(siteUrl);
+    return BookmarkSiteContext(
+      username: user?.username,
+      timezone: user?.timezone,
+      suggestWeekendsInDatePickers: config.suggestWeekendsInDatePickers,
+    );
+  }
+
+  @override
+  bool bookmarkWriteInFlight({
+    required String siteUrl,
+    required int targetId,
+  }) => _shell._pluginBookmarkWriteInFlight(
+    siteUrl: siteUrl,
+    targetType: _targetType,
+    targetId: targetId,
+  );
+
+  @override
+  ValueListenable<bool> bookmarkWriteInFlightListenable({
+    required String siteUrl,
+    required int targetId,
+  }) {
+    final key = (siteUrl: siteUrl, targetId: targetId);
+    return _writeListenables.putIfAbsent(
+      key,
+      () => _BookmarkWriteListenable(
+        _shell,
+        () => bookmarkWriteInFlight(siteUrl: siteUrl, targetId: targetId),
+      ),
+    );
+  }
+
+  @override
+  Future<BookmarkWriteResult> createBookmark({
+    required String siteUrl,
+    required int targetId,
+    String? name,
+    DateTime? reminderAt,
+    BookmarkAutoDeletePreference? autoDeletePreference,
+  }) => _shell._createBookmark(
+    siteUrl: siteUrl,
+    context: _pluginBookmarkWriteContext,
+    targetType: _targetType,
+    targetId: targetId,
+    name: name,
+    reminderAt: reminderAt,
+    autoDeletePreference: autoDeletePreference,
+  );
+
+  @override
+  Future<BookmarkWriteResult> updateBookmark({
+    required String siteUrl,
+    required Bookmark bookmark,
+    String? name,
+    DateTime? reminderAt,
+    required BookmarkAutoDeletePreference autoDeletePreference,
+  }) {
+    if (!_owns(bookmark)) return Future.value(_foreignBookmark());
+    return _shell._updateBookmark(
+      siteUrl: siteUrl,
+      context: _pluginBookmarkWriteContext,
+      bookmark: bookmark,
+      name: name,
+      reminderAt: reminderAt,
+      autoDeletePreference: autoDeletePreference,
+    );
+  }
+
+  @override
+  Future<BookmarkWriteResult> clearBookmarkReminder({
+    required String siteUrl,
+    required Bookmark bookmark,
+  }) {
+    if (!_owns(bookmark)) return Future.value(_foreignBookmark());
+    return _shell._updateBookmark(
+      siteUrl: siteUrl,
+      context: _pluginBookmarkWriteContext,
+      bookmark: bookmark,
+      name: bookmark.name,
+      autoDeletePreference: bookmark.autoDeletePreference,
+    );
+  }
+
+  @override
+  Future<BookmarkWriteResult> deleteBookmark({
+    required String siteUrl,
+    required Bookmark bookmark,
+  }) {
+    if (!_owns(bookmark)) return Future.value(_foreignBookmark());
+    return _shell._deleteBookmark(
+      siteUrl: siteUrl,
+      context: _pluginBookmarkWriteContext,
+      bookmark: bookmark,
+    );
+  }
+
+  void dispose() {
+    for (final listenable in _writeListenables.values) {
+      listenable.dispose();
+    }
+    _writeListenables.clear();
+  }
+}
+
 /// Filters shell notifications to one bookmark write's busy state.
-final class _PluginBookmarkWriteListenable extends ChangeNotifier
+final class _BookmarkWriteListenable extends ChangeNotifier
     implements ValueListenable<bool> {
-  _PluginBookmarkWriteListenable(Listenable source, bool Function() read)
+  _BookmarkWriteListenable(Listenable source, bool Function() read)
     : _source = source,
       _read = read,
       _value = read() {

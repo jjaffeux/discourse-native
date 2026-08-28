@@ -299,7 +299,7 @@ void main() {
                         'id': 21,
                         'name': 'Design files',
                         'value': 'https://example.com/design',
-                        'icon': 'not-installed',
+                        'icon': 'd-chat',
                       },
                       {'id': 22, 'name': '', 'value': '/broken'},
                     ],
@@ -325,6 +325,48 @@ void main() {
         expect(sections.single.destinations.first.icon, DIcons.fire);
         expect(sections.single.destinations.last.icon, DIcons.link);
         expect(sections.single.destinations.first.url, '/c/roadmap/4');
+      },
+    );
+
+    test(
+      'resolves an installed owner alias in a generic sidebar row',
+      () async {
+        final api = DiscourseApi(
+          models: DiscourseModelCodec(
+            extensions: pluginRegistry,
+            recommendationSources: pluginRegistry,
+            icons: pluginRegistry,
+          ),
+          client: MockClient(
+            (_) async => http.Response(
+              jsonEncode({
+                'sidebar_sections': [
+                  {
+                    'id': 2,
+                    'title': 'Chat links',
+                    'links': [
+                      {
+                        'id': 20,
+                        'name': 'Chat',
+                        'value': '/chat',
+                        'icon': 'd-chat',
+                      },
+                    ],
+                  },
+                ],
+              }),
+              200,
+            ),
+          ),
+        );
+
+        final destination = (await api.customSidebarSections(
+          siteUrl: 'https://forum.example',
+          apiKey: 'secret',
+        )).single.destinations.single;
+
+        expect(destination.icon, DIcons.comment);
+        expect(DIcons.byName, isNot(contains('d-chat')));
       },
     );
 
@@ -3124,7 +3166,11 @@ void _feedGroups() {
     test('puts to the toggle route with no body at all', () async {
       late http.Request seen;
       final api = DiscourseApi(
-        models: DiscourseModelCodec(extensions: pluginRegistry),
+        models: DiscourseModelCodec(
+          extensions: pluginRegistry,
+          recommendationSources: pluginRegistry,
+          icons: pluginRegistry,
+        ),
         client: MockClient((request) async {
           seen = request;
           return http.Response(jsonEncode(reacted()), 200);
@@ -5655,7 +5701,11 @@ void _writeGroups() {
     test('asks for and parses more topics on a final post window', () async {
       late Uri asked;
       final api = DiscourseApi(
-        models: DiscourseModelCodec(extensions: pluginRegistry),
+        models: DiscourseModelCodec(
+          extensions: pluginRegistry,
+          recommendationSources: pluginRegistry,
+          icons: pluginRegistry,
+        ),
         client: MockClient((request) async {
           asked = request.url;
           return http.Response(
@@ -6058,7 +6108,11 @@ void _writeGroups() {
 
     test('reads the current account’s chat header state', () async {
       final api = DiscourseApi(
-        models: DiscourseModelCodec(extensions: pluginRegistry),
+        models: DiscourseModelCodec(
+          extensions: pluginRegistry,
+          recommendationSources: pluginRegistry,
+          icons: pluginRegistry,
+        ),
         client: MockClient(
           (_) async => http.Response(
             jsonEncode({

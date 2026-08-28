@@ -24,7 +24,7 @@ import 'chat_header_button.dart';
 import 'chat_message.dart';
 import 'chat_route.dart';
 import 'chat_services.dart';
-import 'chat_shell_extension.dart';
+import 'chat_shell_service.dart';
 import 'chat_stream.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread.dart';
@@ -345,7 +345,10 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final navigation = ShellScope.read(context).chatNavigation;
+    final navigation = PluginScope.require(
+      context,
+      chatShellService,
+    ).navigation;
     if (identical(navigation, _navigation)) return;
     _navigation?.removeListener(_consumeNavigation);
     _navigation = navigation;
@@ -357,14 +360,14 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   }
 
   bool _consumeNavigation() {
-    final shell = ShellScope.read(context);
-    final pending = shell.chatNavigation.take(
-      siteUrl: widget.siteUrl,
-      route: ChatRoute.thread(
-        channelId: widget.target.channelId,
-        threadId: widget.target.threadId,
-      ),
-    );
+    final pending = PluginScope.require(context, chatShellService).navigation
+        .take(
+          siteUrl: widget.siteUrl,
+          route: ChatRoute.thread(
+            channelId: widget.target.channelId,
+            threadId: widget.target.threadId,
+          ),
+        );
     if (pending == null || !mounted) return false;
     _opened = true;
     setState(() {

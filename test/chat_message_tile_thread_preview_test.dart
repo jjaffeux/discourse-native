@@ -13,7 +13,7 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
-import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_pill.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -36,6 +36,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'support/bundled_plugins.dart';
+import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.example';
@@ -1199,12 +1200,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final write = controller.createBookmark(
-      siteUrl: _siteUrl,
-      topicId: 0,
-      targetType: chatMessageBookmarkTarget,
-      targetId: 7,
-    );
+    final write = controller.pluginSession
+        .require(chatBookmarkHostService)
+        .createBookmark(siteUrl: _siteUrl, targetId: 7);
     await api.started.future;
     await tester.pump();
     await _hoverMessage(tester);

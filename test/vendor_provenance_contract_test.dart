@@ -1,10 +1,62 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import '../tool/flutter_webrtc_contract.dart';
+import '../tool/vendor_provenance_contract.dart';
 
 void main() {
+  test('discovers vendor configuration from its owning plugin', () async {
+    final contracts = await loadVendorProvenanceContracts();
+
+    expect(contracts, hasLength(1));
+    final contract = contracts.single;
+    expect(contract.name, 'Resenha flutter_webrtc');
+    expect(contract.package, 'flutter_webrtc');
+    expect(contract.version, '1.6.0');
+    expect(
+      contract.catalog,
+      'lib/src/plugins/resenha/tool/vendor_contract.json',
+    );
+    expect(
+      contract.patchManifest,
+      endsWith('lib/src/plugins/resenha/tool/flutter_webrtc/PATCHES.md'),
+    );
+    expect(contract.vendorPath, endsWith('third_party/flutter_webrtc'));
+  });
+
+  test('rejects vendor paths which resolve outside the repository', () async {
+    final repository = await Directory.systemTemp.createTemp(
+      'vendor-contract-repository-',
+    );
+    final outside = await Directory.systemTemp.createTemp(
+      'vendor-contract-outside-',
+    );
+    addTearDown(() => repository.delete(recursive: true));
+    addTearDown(() => outside.delete(recursive: true));
+    final tool = Directory('${repository.path}/lib/src/plugins/owner/tool');
+    await tool.create(recursive: true);
+    final vendor = Link('${repository.path}/third_party/vendor');
+    await vendor.create(outside.path, recursive: true);
+    final patches = File('${tool.path}/PATCHES.md');
+    await patches.writeAsString('- `lib/file.dart`\n');
+    await File('${tool.path}/vendor_contract.json').writeAsString(
+      jsonEncode({
+        'schemaVersion': 1,
+        'name': 'escaped vendor',
+        'package': 'escaped_vendor',
+        'version': '1.0.0',
+        'vendorPath': 'third_party/vendor',
+        'patchManifest': 'lib/src/plugins/owner/tool/PATCHES.md',
+      }),
+    );
+
+    expect(
+      loadVendorProvenanceContracts(repository: repository),
+      throwsFormatException,
+    );
+  });
+
   group('compareVendorFiles', () {
     test('accepts exactly the documented changed-file inventory', () {
       final comparison = compareVendorFiles(
@@ -79,7 +131,7 @@ Files:
 - `lib/one.dart`
 - `native/two.cc`
 
-Run `dart run tool/flutter_webrtc_contract.dart`.
+Run `dart run tool/vendor_provenance_contract.dart`.
 ''';
 
     expect(parseDocumentedPatchInventory(markdown), {

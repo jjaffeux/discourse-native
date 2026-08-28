@@ -2,11 +2,11 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
-import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
+import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.discourse.org';

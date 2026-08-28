@@ -123,5 +123,16 @@ void main() {
       expect(DIcons.byName['topic.closed'], DIcons.lock);
       expect(DIcons.byName['notification.mentioned'], DIcons.at);
     });
+
+    test('core catalog excludes optional plugin resources and aliases', () {
+      for (final name in const [
+        'discourse-sparkles',
+        'gif',
+        'square-poll-horizontal',
+        'd-chat',
+      ]) {
+        expect(DIcons.byName, isNot(contains(name)), reason: name);
+      }
+    });
   });
 }

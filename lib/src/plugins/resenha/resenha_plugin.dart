@@ -10,7 +10,7 @@ import 'resenha_models.dart';
 import 'resenha_room_view.dart';
 import 'resenha_services.dart';
 import 'resenha_settings.dart';
-import 'resenha_shell_extension.dart';
+import 'resenha_shell_service.dart';
 
 final class ResenhaPlugin
     implements
@@ -68,7 +68,7 @@ final class ResenhaPlugin
             ? () => showResenhaRoomEditor(context, siteUrl: instance.url)
             : null,
         destinations: [
-          for (final room in directory.rooms)
+          for (final room in directory.rooms) ...[
             SidebarDestination(
               id: routeId(room.id),
               label: room.name,
@@ -109,23 +109,22 @@ final class ResenhaPlugin
                   icon: DIcons.microphoneLines,
                 ),
               ),
-              children: [
-                for (final participant in room.participants)
-                  SidebarDestination(
-                    id: 'resenha-room-${room.id}-user-${participant.id}',
-                    label: participant.name ?? participant.username,
-                    icon: DIcons.user,
-                    avatarUrl: participant.avatarUrl(instance.url),
-                    trailingLabel: participant.handRaisedAt != null
-                        ? '✋'
-                        : participant.muted
-                        ? 'muted'
-                        : null,
-                    indent: 1,
-                    enabled: false,
-                  ),
-              ],
             ),
+            for (final participant in room.participants)
+              SidebarDestination(
+                id: 'resenha-room-${room.id}-user-${participant.id}',
+                label: participant.name ?? participant.username,
+                icon: DIcons.user,
+                avatarUrl: participant.avatarUrl(instance.url),
+                trailingLabel: participant.handRaisedAt != null
+                    ? '✋'
+                    : participant.muted
+                    ? 'muted'
+                    : null,
+                indent: 1,
+                enabled: false,
+              ),
+          ],
         ],
       ),
     ];

@@ -1,5 +1,5 @@
 import 'package:discourse_native/src/models/content_route.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_shell_extension.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_shell_service.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -12,7 +12,6 @@
 # --- Sidebar and navigation
 layer-group
 asterisk
-discourse-sparkles
 circle
 fire
 envelope
@@ -107,8 +106,6 @@ discourse-bookmark-clock
 # --- Composer
 bold
 italic
-gif
-square-poll-horizontal
 
 # --- Oneboxes
 tag
@@ -125,8 +122,6 @@ d-tracking = bell
 d-regular = far-bell
 d-watching = discourse-bell-exclamation
 d-muted = discourse-bell-slash
-# What the chat plugin's own chat-setup.js replaces it with.
-d-chat = comment
 topic.closed = lock
 topic.opened = unlock
 category.restricted = lock

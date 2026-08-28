@@ -683,6 +683,8 @@ class TopicDetail with Storable<TopicDetail> {
     Map<String, dynamic> json,
     String siteUrl, {
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+    TopicRecommendationSourceDecoder recommendationSources =
+        const EmptyTopicRecommendationSourceDecoder(),
   }) {
     final postStream = jsonObject(json['post_stream']);
     final gaps = jsonObject(postStream['gaps']);
@@ -771,6 +773,7 @@ class TopicDetail with Storable<TopicDetail> {
           json,
           siteUrl,
           extensions: extensions,
+          recommendationSources: recommendationSources,
         ),
         plugins: extensions.readTopic(json, siteUrl),
       ),

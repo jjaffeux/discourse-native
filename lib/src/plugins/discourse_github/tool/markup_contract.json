@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "contracts": [
+    {
+      "name": "discourse-github-oneboxes",
+      "snapshot": "markup_snapshot",
+      "readers": "lib/src/plugins/discourse_github/oneboxes/",
+      "watched": [
+        "lib/onebox/templates/githubissue.mustache",
+        "lib/onebox/templates/githubpullrequest.mustache",
+        "lib/onebox/templates/githubcommit.mustache",
+        "lib/onebox/templates/github/github_body.mustache",
+        "plugins/discourse-github/assets/stylesheets/common/github-pr-status.scss"
+      ]
+    }
+  ]
+}

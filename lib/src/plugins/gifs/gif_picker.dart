@@ -12,6 +12,7 @@ import '../../theme/d_icons.dart';
 import 'gif.dart';
 import 'gif_picker_controller.dart';
 import 'gifs_api.dart';
+import 'gifs_icons.dart';
 import 'gifs_settings.dart';
 
 /// Opens the shared GIF browser and returns the chosen remote image.
@@ -338,7 +339,7 @@ class _GifPickerState extends State<GifPicker> {
 
     if (!controller.hasActiveSearch) {
       return const _PickerMessage(
-        icon: DIcons.gif,
+        icon: GifsIcons.gif,
         message: 'Type at least 3 characters to search for a GIF.',
       );
     }

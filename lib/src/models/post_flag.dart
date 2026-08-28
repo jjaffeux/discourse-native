@@ -56,9 +56,15 @@ final class PostFlagType {
   final List<String> appliesTo;
   final bool system;
 
-  bool get appliesToPost => appliesTo.contains('Post');
-  bool get appliesToTopic => appliesTo.contains('Topic');
-  bool get appliesToChatMessage => appliesTo.contains('Chat::Message');
+  /// Whether the server advertised this reason for [target].
+  ///
+  /// Target names are an open Discourse wire vocabulary. Core owns the Post
+  /// and Topic conveniences below; optional features keep their target names
+  /// beside the feature and query them through this generic boundary.
+  bool appliesToTarget(String target) => appliesTo.contains(target);
+
+  bool get appliesToPost => appliesToTarget('Post');
+  bool get appliesToTopic => appliesToTarget('Topic');
   bool get isIllegal => nameKey == 'illegal';
 
   @override

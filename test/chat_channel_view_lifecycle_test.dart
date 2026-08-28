@@ -11,7 +11,6 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
-import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/shell/loading_skeleton.dart';
@@ -28,6 +27,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/bundled_plugins.dart';
+import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 
 void main() {

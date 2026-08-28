@@ -632,7 +632,13 @@ class FakeDiscourseApi
     this.customSidebarSectionsBySite = const {},
     this.pluginResponses = const {},
     Map<String, WriteException>? pluginWriteFailures,
-  }) : models = models ?? DiscourseModelCodec(extensions: pluginRegistry),
+  }) : models =
+           models ??
+           DiscourseModelCodec(
+             extensions: pluginRegistry,
+             recommendationSources: pluginRegistry,
+             icons: pluginRegistry,
+           ),
        pluginWriteFailures = pluginWriteFailures ?? {};
 
   @override

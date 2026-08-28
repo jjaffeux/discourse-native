@@ -17,6 +17,7 @@ import 'poll_composer_editor.dart';
 import 'poll_composer_pill.dart';
 import 'poll_composer_sheet.dart';
 import 'poll_data.dart';
+import 'poll_icons.dart';
 import 'poll_shell_extension.dart';
 
 export 'poll_data.dart';
@@ -25,6 +26,7 @@ export 'poll_data.dart';
 class PollPlugin
     implements
         SitePlugin,
+        IconCatalogPlugin,
         SiteSettingsPlugin<PollSettings>,
         CurrentUserPlugin<PollCurrentUser>,
         PluginPermissionPlugin,
@@ -38,6 +40,9 @@ class PollPlugin
 
   @override
   String get name => 'poll';
+
+  @override
+  PluginIconCatalog get iconCatalog => pollIconCatalog;
 
   @override
   String get syntaxId => 'poll';

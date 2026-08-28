@@ -18,11 +18,13 @@ import '../theme/d_icon.dart';
 import 'chat_preview.dart';
 import 'notification_feed_host.dart';
 import 'plugin_data.dart';
+import 'plugin_icon_catalog.dart';
 
 export 'composer_syntax.dart';
 export 'emoji_usage.dart';
 export 'notification_feed_host.dart';
 export 'plugin_data.dart';
+export 'plugin_icon_catalog.dart';
 export 'shell_extensions.dart';
 export 'topic_recommendation_source.dart';
 
@@ -61,6 +63,11 @@ abstract interface class SitePlugin implements PluginCapability {
   /// output; nothing dispatches on it.
   @override
   String get name;
+}
+
+/// Contributes optional icon resources and semantic aliases owned by a plugin.
+abstract interface class IconCatalogPlugin {
+  PluginIconCatalog get iconCatalog;
 }
 
 /// The typed key shared by a plugin's records.
@@ -401,11 +408,11 @@ abstract interface class TopicMapActionPlugin {
 
 /// Contributes optional lists to the more-topics panel.
 ///
-/// Definitions are declarative: core owns parsing the shared topic row shape,
-/// while each plugin owns the serializer key, stable identity and
-/// presentation of its source. Registry order is presentation order.
+/// Each codec owns both its serializer decoding and presentation identity.
+/// Core only constructs the shared topic row after the owner has recognized
+/// and normalized its payload. Registry order is presentation order.
 abstract interface class TopicRecommendationSourcePlugin {
-  List<TopicRecommendationSourceDefinition> get topicRecommendationSources;
+  List<TopicRecommendationSourceCodec> get topicRecommendationSourceCodecs;
 }
 
 /// Contributes actions to a post menu.
@@ -526,18 +533,6 @@ abstract interface class ForumTabPlugin {
   );
 
   Listenable? forumTabListenable(BuildContext context, String siteUrl);
-}
-
-/// Decorates an avatar with feature-owned live state such as presence.
-abstract interface class UserAvatarPlugin {
-  Widget? userAvatar(
-    BuildContext context, {
-    required String siteUrl,
-    required int userId,
-    required String url,
-    required double size,
-    required Widget fallback,
-  });
 }
 
 /// Claims a content route.

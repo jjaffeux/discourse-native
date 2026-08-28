@@ -1,11 +1,12 @@
 import '../../models/bookmark.dart';
 import '../../models/json.dart';
 import '../../plugin_api/plugin_manifest.dart';
+import 'chat_wire.dart';
 
 const chatMessageBookmarkTarget = BookmarkTargetType(
   owner: PluginId('chat'),
   name: 'message',
-  wireName: 'Chat::Message',
+  wireName: chatMessageWireType,
   refreshLabel: 'chat message',
 );
 

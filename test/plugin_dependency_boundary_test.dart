@@ -330,6 +330,52 @@ void main() {
       );
     }
   });
+
+  test('core flag models keep optional target names opaque', () {
+    final postFlag = File('lib/src/models/post_flag.dart').readAsStringSync();
+
+    expect(postFlag, contains('appliesToTarget'));
+    expect(postFlag, isNot(contains('appliesToChatMessage')));
+    expect(
+      postFlag,
+      isNot(contains('Chat::Message')),
+      reason: 'The Chat plugin owns its flag-target wire name.',
+    );
+  });
+
+  test('core recommendation persistence does not own plugin migrations', () {
+    final tabStore = File(
+      'lib/src/data/topic_recommendations_tab_store.dart',
+    ).readAsStringSync();
+
+    expect(tabStore, contains('migrateLegacyStoredId'));
+    expect(tabStore, isNot(contains('discourse-ai/related')));
+    expect(
+      tabStore,
+      isNot(contains(RegExp(r'''["']related["']'''))),
+      reason: 'The Discourse AI codec owns its legacy stored value.',
+    );
+  });
+
+  test('deleted concrete-shell compatibility extensions stay deleted', () {
+    for (final path in const [
+      'lib/src/plugins/assign/assignment_shell_extension.dart',
+      'lib/src/plugins/chat/chat_shell_extension.dart',
+      'lib/src/plugins/resenha/resenha_shell_extension.dart',
+    ]) {
+      expect(File(path).existsSync(), isFalse, reason: path);
+    }
+    expect(
+      File('lib/src/plugins/chat/chat_shell_service.dart').readAsStringSync(),
+      isNot(contains('on ShellController')),
+    );
+    expect(
+      File(
+        'lib/src/plugins/resenha/resenha_shell_service.dart',
+      ).readAsStringSync(),
+      isNot(contains('on ShellController')),
+    );
+  });
 }
 
 Iterable<File> _dartFilesUnder(String path) sync* {

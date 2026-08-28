@@ -617,6 +617,11 @@ only to the forum origin, follows redirects explicitly, and never forwards
 those headers to the signed object-store or CDN URL. Its encoded-byte cache is
 memory-only and is discarded with the site's account lifecycle, so reconnecting
 as another account cannot reuse private media from the previous session.
+Core's generic `lightbox.js` gives `data-large-src` precedence over `href` for
+every `a.lightbox`; Chat is only one producer of that upstream-wide attribute.
+The native lightbox therefore keeps that decode in core, and its root markup
+contract snapshots the generic consumer rather than assigning the wire key to
+Chat.
 
 Two things worth knowing if you touch the lists:
 
@@ -1548,7 +1553,11 @@ thumbnail.
 The GitHub engines draw their bodies the way the web's stylesheet arranges
 them — icon column beside the title, the facts, then the body underneath —
 with the octicons taken from Discourse's templates and the `--gh-status-*`
-colors of `github-pr-status.scss` for pull requests. The internal engines draw
+colors of `github-pr-status.scss` for pull requests. Those templates always
+put UTC `data-date` and `data-time` attributes on their
+`discourse-local-date` spans. The GitHub owner decodes that small server wire
+contract itself; it does not depend on the optional Local Dates formatter.
+The internal engines draw
 the oneboxes Discourse writes for links to itself: a topic on another site,
 and a same-site profile or category. A same-site *topic* link arrives as an
 `aside.quote` — Discourse renders it as a quote of the first post — so it is
@@ -1644,9 +1653,9 @@ emits around forty scope names; `scopeColor` groups them into six so a block
 reads as code rather than as confetti, and so an unanticipated language still
 lands somewhere sensible.
 
-Since this depends on markup no one versions or announces,
-`tool/markup_contract.dart` diffs the upstream templates, SCSS and JavaScript
-against the snapshots under `tool/`:
+Since this depends on markup no one versions or announces, the neutral
+`tool/markup_contract.dart` runner discovers owner-local catalogs and diffs
+their upstream templates, SCSS and JavaScript against their snapshots:
 
 ```sh
 dart run tool/markup_contract.dart             # fails if upstream moved
@@ -1656,13 +1665,15 @@ dart run tool/markup_contract.dart --update    # accept, then read the diff
 It is a drift detector, not a source of styling — the SCSS is snapshotted
 because it is where the class names the parser matches on are given meaning.
 
-The four snapshot families cover oneboxes (including YouTube's server and lazy
-player handoff), mention and hashtag markup, polls, and local dates. Each names
-what to re-read when it drifts, because "check whether the onebox parsers still
-handle it" is wrong advice for a hashtag or a poll. A path that has *moved*
-fails harder than one that changed — upstream put the JS under `frontend/` at
-some point, and a check that quietly reported no drift because it could not
-find the file would be worse than no check.
+Core's catalogs and snapshots live under `tool/markup_contracts/`. Poll, Local
+Dates, Chat, discourse-github, and discourse-lazy-videos keep theirs under
+`lib/src/plugins/<owner>/tool/`, so adding or removing a feature does not make
+the runner the owner of its paths. Each catalog names what to re-read when it
+drifts, because "check whether the onebox parsers still handle it" is wrong
+advice for a hashtag or a poll. A path that has *moved* fails harder than one
+that changed — upstream put the JS under `frontend/` at some point, and a check
+that quietly reported no drift because it could not find the file would be
+worse than no check.
 
 ### Avatars
 
@@ -1800,17 +1811,19 @@ flutter test integration_test -d <device> # real app, real network, real storage
 And one check that is about upstream rather than about this code:
 
 ```sh
-dart run tool/markup_contract.dart         # see Oneboxes, Mentions, and Polls
-dart run tool/flutter_webrtc_contract.dart # verify the vendored 1.6.0 archive
+dart run tool/markup_contract.dart         # verify all owner-declared markup
+dart run tool/vendor_provenance_contract.dart # verify owner-declared vendors
 ```
 
 GitHub runs those network-dependent checks weekly and on manual dispatch via
 `.github/workflows/markup-contract.yml` and
-`.github/workflows/flutter-webrtc-contract.yml`. They deliberately do not run
+`.github/workflows/vendor-provenance-contract.yml`. They deliberately do not run
 for pull requests: an upstream move or transient fetch failure should report in
 those workflows without making an unrelated PR flaky. The WebRTC check accepts
-only the file inventory in `third_party/flutter_webrtc/PATCHES.md` after
-verifying pub.dev's pinned archive SHA-256.
+only the file inventory in
+`lib/src/plugins/resenha/tool/flutter_webrtc/PATCHES.md` after verifying
+pub.dev's pinned archive SHA-256. Its package/version/path configuration sits
+beside Resenha; the root provenance runner contains no WebRTC semantics.
 
 The live tests are skipped by default (see `dart_test.yaml`) so an offline or CI
 run stays green. The integration test is the only one that covers real HTTP,

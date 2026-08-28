@@ -14,7 +14,7 @@ import 'chat_controller.dart';
 import 'chat_plugin_data.dart';
 import 'chat_route.dart';
 import 'chat_services.dart';
-import 'chat_shell_extension.dart';
+import 'chat_shell_service.dart';
 
 typedef _ChatHeaderSnapshot = ({
   bool showShortcut,
@@ -108,7 +108,9 @@ class ChatHeaderButton extends StatelessWidget {
               return DButton.iconOnly(
                 key: buttonKey,
                 tooltip: tooltip,
-                onPressed: () => unawaited(controller.openChat()),
+                onPressed: () => unawaited(
+                  PluginScope.require(context, chatShellService).openShortcut(),
+                ),
                 variant: DButtonVariant.flat,
                 icon: ExcludeSemantics(
                   child: Stack(

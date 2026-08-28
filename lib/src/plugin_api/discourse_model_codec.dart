@@ -9,6 +9,7 @@ import '../models/topic.dart';
 import '../models/user_card.dart';
 import '../models/user_status.dart';
 import 'plugin_data.dart';
+import 'plugin_icon_catalog.dart';
 
 /// Constructs core wire models with one explicitly installed extension decoder.
 ///
@@ -16,12 +17,20 @@ import 'plugin_data.dart';
 /// empty decoder and prevents model factories from reaching a process-global
 /// plugin registry.
 final class DiscourseModelCodec {
-  const DiscourseModelCodec({required this.extensions});
+  const DiscourseModelCodec({
+    required this.extensions,
+    this.recommendationSources = const EmptyTopicRecommendationSourceDecoder(),
+    this.icons = const CoreIconNameDecoder(),
+  });
 
   const DiscourseModelCodec.core()
-    : extensions = const EmptyPluginDataDecoder();
+    : extensions = const EmptyPluginDataDecoder(),
+      recommendationSources = const EmptyTopicRecommendationSourceDecoder(),
+      icons = const CoreIconNameDecoder();
 
   final PluginDataDecoder extensions;
+  final TopicRecommendationSourceDecoder recommendationSources;
+  final IconNameDecoder icons;
 
   Post post(Map<String, dynamic> json, String siteUrl) =>
       Post.fromJson(json, siteUrl, extensions: extensions);
@@ -30,12 +39,22 @@ final class DiscourseModelCodec {
       TopicList.fromJson(json, siteUrl, extensions: extensions);
 
   TopicPayload topic(Map<String, dynamic> json, String siteUrl) =>
-      TopicDetail.parse(json, siteUrl, extensions: extensions);
+      TopicDetail.parse(
+        json,
+        siteUrl,
+        extensions: extensions,
+        recommendationSources: recommendationSources,
+      );
 
   TopicRecommendations? topicRecommendations(
     Map<String, dynamic> json,
     String siteUrl,
-  ) => TopicRecommendations.fromJson(json, siteUrl, extensions: extensions);
+  ) => TopicRecommendations.fromJson(
+    json,
+    siteUrl,
+    extensions: extensions,
+    recommendationSources: recommendationSources,
+  );
 
   UserCard userCard(Map<String, dynamic> json, String siteUrl) =>
       UserCard.fromJson(json, siteUrl, extensions: extensions);

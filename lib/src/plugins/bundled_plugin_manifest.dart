@@ -23,20 +23,3 @@ const PluginManifest bundledPluginManifest = PluginManifest([
   chatModule,
   resenhaModule,
 ]);
-
-/// The full feature graph with app-global diagnostics ownership omitted.
-///
-/// Widget hosts which provide their own diagnostics lifecycle can use this
-/// profile while retaining every forum feature and session capability.
-const PluginManifest bundledPluginManifestWithoutDiagnostics = PluginManifest([
-  discourseGithubModule,
-  discourseLazyVideosModule,
-  reactionsModule,
-  localDatesModule,
-  pollModule,
-  gifsModule,
-  discourseAiModule,
-  assignModule,
-  chatModule,
-  ResenhaModule(includeDiagnostics: false),
-]);

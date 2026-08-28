@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugins/resenha/resenha_services.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 void main() {
@@ -60,21 +61,23 @@ void main() {
     );
   });
 
-  test('core and diagnostics-free compatibility manifests install', () async {
+  test('core manifest installs without optional features', () async {
     final core = PluginInstaller.install(corePluginManifest);
-    final withoutDiagnostics = PluginInstaller.install(
-      bundledPluginManifestWithoutDiagnostics,
-    );
     addTearDown(core.close);
-    addTearDown(withoutDiagnostics.close);
 
     expect(core.descriptors, isEmpty);
     expect(core.registry.plugins, isEmpty);
+  });
+
+  test('widget-only manifest changes only diagnostics ownership', () async {
+    final installed = PluginInstaller.install(bundledWidgetTestManifest);
+    addTearDown(installed.close);
+
     expect(
-      withoutDiagnostics.descriptors.map((descriptor) => descriptor.id.value),
-      bundledPluginManifest.modules.map((module) => module.descriptor.id.value),
+      installed.descriptors.map((descriptor) => descriptor.id),
+      bundledPluginManifest.modules.map((module) => module.descriptor.id),
     );
-    expect(withoutDiagnostics.registry.diagnosticsPlugins, isEmpty);
+    expect(installed.registry.diagnosticsPlugins, isEmpty);
   });
 
   test('full production sessions resolve the declared dependency chain', () {

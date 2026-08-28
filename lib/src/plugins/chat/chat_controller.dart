@@ -26,6 +26,7 @@ import 'chat_preview.dart';
 import 'chat_reactors.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread.dart';
+import 'chat_wire.dart';
 
 typedef _ChatReactionWriteKey = ({String siteUrl, int messageId, String emoji});
 typedef _ChatReactorsKey = ({
@@ -1804,7 +1805,7 @@ class ChatController extends FrameSafeNotifier {
     return List.unmodifiable([
       for (final type in catalog)
         if (type.enabled &&
-            type.appliesToChatMessage &&
+            type.appliesToTarget(chatMessageWireType) &&
             available.contains(type.nameKey))
           type,
     ]);
@@ -1824,7 +1825,7 @@ class ChatController extends FrameSafeNotifier {
       return 'This message can no longer be flagged.';
     }
     if (!flagType.enabled ||
-        !flagType.appliesToChatMessage ||
+        !flagType.appliesToTarget(chatMessageWireType) ||
         !held.availableFlags.contains(flagType.nameKey)) {
       return 'This flag reason is no longer available.';
     }

@@ -10,7 +10,7 @@ import 'chat_plugin.dart';
 import 'chat_preview.dart';
 import 'chat_search_controller.dart';
 import 'chat_services.dart';
-import 'chat_shell_extension.dart';
+import 'chat_shell_service.dart';
 
 const chatModule = ChatModule();
 
@@ -51,9 +51,9 @@ final class ChatModule implements PluginModule {
           lifecycle: lifecycle,
           currentUserFor: siteState.currentUserFor,
           siteConfigFor: siteState.siteConfigFor,
-        previewEngine: ChatPreviewEngine(
-          plugins: bindings.require(corePluginPreviewPort),
-        ),
+          previewEngine: ChatPreviewEngine(
+            plugins: bindings.require(corePluginPreviewPort),
+          ),
           onChatNotificationsDelta: (siteUrl, delta) =>
               accountEvents.updateTotals(
                 siteUrl,

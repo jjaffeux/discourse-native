@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+import 'package:discourse_native/src/models/json.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -9,6 +10,7 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
 import 'package:discourse_native/src/shell/post_action.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +19,11 @@ import 'support/bundled_plugins.dart';
 
 const _post = Post(id: 1, postNumber: 1, username: 'sam', cooked: '');
 const _topic = TopicDetail(id: 42, title: 'A topic', stream: [1]);
+const _pluginOnlyIcon = DIconData(
+  'plugin-only',
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1">'
+      '<path d="M0 0h1v1H0z"/></svg>',
+);
 
 void main() {
   test('registry accepts a capability declared against the API seam', () {
@@ -25,6 +32,51 @@ void main() {
     final footer = registry.postFooter('https://example.com', _post);
 
     expect((footer as Text).data, 'api-only');
+  });
+
+  test(
+    'icon names resolve through their owner catalog with a core fallback',
+    () {
+      final registry = PluginRegistry.validated(const [_IconPlugin('owner')]);
+
+      expect(
+        registry.iconNamed('plugin.semantic', fallback: DIcons.circle),
+        _pluginOnlyIcon,
+      );
+      expect(
+        registry.iconNamed('missing', fallback: DIcons.circle),
+        DIcons.circle,
+      );
+      expect(
+        PluginRegistry.empty.iconNamed(
+          'plugin.semantic',
+          fallback: DIcons.circle,
+        ),
+        DIcons.circle,
+      );
+    },
+  );
+
+  test('icon catalogs cannot claim core, foreign, or duplicate names', () {
+    expect(
+      () => PluginRegistry.validated(const [
+        _IconPlugin('owner', iconName: 'heart'),
+      ]),
+      throwsArgumentError,
+    );
+    expect(
+      () => PluginRegistry.validated(const [
+        _IconPlugin('owner', catalogOwner: 'someone-else'),
+      ]),
+      throwsArgumentError,
+    );
+    expect(
+      () => PluginRegistry.validated(const [
+        _IconPlugin('first'),
+        _IconPlugin('second'),
+      ]),
+      throwsArgumentError,
+    );
   });
 
   test('dispatches only implemented capabilities and preserves order', () {
@@ -208,6 +260,7 @@ void main() {
       },
       'https://example.com',
       extensions: registry,
+      recommendationSources: registry,
     )!;
 
     expect(recommendations.sources.map((source) => source.id.value), [
@@ -252,6 +305,68 @@ void main() {
       ]),
       throwsArgumentError,
     );
+  });
+
+  test('topic recommendation codecs exclusively own legacy storage ids', () {
+    final registry = PluginRegistry.validated(const [
+      _RecommendationPlugin(
+        'first',
+        sourceName: 'nearby',
+        payloadKey: 'nearby_topics',
+        label: 'Nearby',
+        legacyStoredIds: {'nearby'},
+      ),
+      _RecommendationPlugin(
+        'second',
+        sourceName: 'popular',
+        payloadKey: 'popular_topics',
+        label: 'Popular',
+        legacyStoredIds: {'popular'},
+      ),
+    ]);
+
+    expect(
+      registry.migrateLegacyStoredId('nearby'),
+      const TopicRecommendationSourceId('first/nearby'),
+    );
+    expect(registry.migrateLegacyStoredId('missing'), isNull);
+    expect(
+      () => PluginRegistry.validated(const [
+        _RecommendationPlugin(
+          'first',
+          sourceName: 'nearby',
+          payloadKey: 'nearby_topics',
+          label: 'Nearby',
+          legacyStoredIds: {'shared'},
+        ),
+        _RecommendationPlugin(
+          'second',
+          sourceName: 'popular',
+          payloadKey: 'popular_topics',
+          label: 'Popular',
+          legacyStoredIds: {'shared'},
+        ),
+      ]),
+      throwsArgumentError,
+    );
+    for (final invalid in const [
+      {'suggested'},
+      {' first '},
+      {'old/nearby'},
+    ]) {
+      expect(
+        () => PluginRegistry.validated([
+          _RecommendationPlugin(
+            'first',
+            sourceName: 'nearby',
+            payloadKey: 'nearby_topics',
+            label: 'Nearby',
+            legacyStoredIds: invalid,
+          ),
+        ]),
+        throwsArgumentError,
+      );
+    }
   });
 
   testWidgets('aggregates additive topic and post surfaces in order', (
@@ -566,6 +681,23 @@ class _NamedPlugin implements SitePlugin {
   final String name;
 }
 
+final class _IconPlugin extends _NamedPlugin implements IconCatalogPlugin {
+  const _IconPlugin(
+    super.name, {
+    this.iconName = 'plugin.semantic',
+    String? catalogOwner,
+  }) : catalogOwner = catalogOwner ?? name;
+
+  final String iconName;
+  final String catalogOwner;
+
+  @override
+  PluginIconCatalog get iconCatalog => PluginIconCatalog(
+    owner: PluginId(catalogOwner),
+    entries: {iconName: _pluginOnlyIcon},
+  );
+}
+
 final class _PreviewPlugin implements ChatMessagePreviewPlugin {
   const _PreviewPlugin(
     this.previewFeatureId,
@@ -768,21 +900,46 @@ final class _RecommendationPlugin extends _NamedPlugin
     required this.payloadKey,
     required this.label,
     this.namespace,
+    this.legacyStoredIds = const {},
   });
 
   final String sourceName;
   final String payloadKey;
   final String label;
   final String? namespace;
+  final Set<String> legacyStoredIds;
 
   @override
-  List<TopicRecommendationSourceDefinition> get topicRecommendationSources => [
-    TopicRecommendationSourceDefinition(
-      id: TopicRecommendationSourceId('${namespace ?? name}/$sourceName'),
+  List<TopicRecommendationSourceCodec> get topicRecommendationSourceCodecs => [
+    _RecommendationCodec(
+      definition: TopicRecommendationSourceDefinition(
+        id: TopicRecommendationSourceId('${namespace ?? name}/$sourceName'),
+        label: label,
+      ),
       payloadKey: payloadKey,
-      label: label,
+      legacyStoredIds: legacyStoredIds,
     ),
   ];
+}
+
+final class _RecommendationCodec extends TopicRecommendationSourceCodec {
+  const _RecommendationCodec({
+    required this.definition,
+    required this.payloadKey,
+    required this.legacyStoredIds,
+  });
+
+  @override
+  final TopicRecommendationSourceDefinition definition;
+  final String payloadKey;
+  @override
+  final Set<String> legacyStoredIds;
+
+  @override
+  List<Map<String, dynamic>>? decodeTopicRows(Map<String, dynamic> json) {
+    if (!json.containsKey(payloadKey)) return null;
+    return List.unmodifiable(jsonObjects(json[payloadKey]));
+  }
 }
 
 void _noop() {}

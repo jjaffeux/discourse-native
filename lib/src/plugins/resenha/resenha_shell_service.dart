@@ -3,7 +3,6 @@ import '../../models/content_route.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import '../../plugin_api/plugin_runtime.dart';
 import '../../plugin_api/shell_extensions.dart';
-import '../../shell/shell_controller.dart';
 import '../../shell/site_url.dart';
 import '../../theme/d_icons.dart';
 import 'resenha_controller.dart';
@@ -97,14 +96,4 @@ final class ResenhaShellService
   @override
   Iterable<String> composerHashtagTypes(String siteUrl) =>
       controller.directory(siteUrl) == null ? const [] : const ['room'];
-}
-
-extension ResenhaShellExtension on ShellController {
-  ResenhaShellService get _resenhaShell =>
-      pluginSession.require(resenhaShellService);
-
-  ResenhaController get resenha =>
-      pluginSession.require(resenhaControllerService);
-
-  Future<bool> openResenhaUrl(String url) => _resenhaShell.openPluginUrl(url);
 }

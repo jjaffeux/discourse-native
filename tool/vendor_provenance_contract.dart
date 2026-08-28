@@ -1,10 +1,10 @@
-/// Verifies the vendored flutter_webrtc package against its published archive.
+/// Verifies owner-declared vendored packages against their published archives.
 ///
-/// The archive itself is immutable and checksum-pinned. Local source may differ
-/// only in the file inventory documented by `third_party/flutter_webrtc/
-/// PATCHES.md`, and every documented file must still differ from the archive.
+/// Each plugin keeps its package identity, vendor path, checksum, and reviewed
+/// patch inventory beside its own source. This root runner knows only how to
+/// validate that generic provenance contract.
 ///
-///   dart run tool/flutter_webrtc_contract.dart
+///   dart run tool/vendor_provenance_contract.dart
 library;
 
 import 'dart:collection';
@@ -14,22 +14,35 @@ import 'dart:typed_data';
 
 import 'package:pointycastle/digests/sha256.dart';
 
-const String flutterWebrtcVersion = '1.6.0';
-const String _packageName = 'flutter_webrtc';
-const String _patchesPath = 'third_party/flutter_webrtc/PATCHES.md';
-const String _vendorPath = 'third_party/flutter_webrtc';
+const int vendorContractSchemaVersion = 1;
+const String _pluginRoot = 'lib/src/plugins';
 const int _tarBlockSize = 512;
 const int _maximumMetadataBytes = 1024 * 1024;
 const int _maximumArchiveBytes = 64 * 1024 * 1024;
 
-final Uri _metadataUri = Uri.https(
-  'pub.dev',
-  '/api/packages/$_packageName/versions/$flutterWebrtcVersion',
-);
-final Uri _archiveUri = Uri.https(
-  'pub.dev',
-  '/api/archives/$_packageName-$flutterWebrtcVersion.tar.gz',
-);
+final class VendorProvenanceContract {
+  const VendorProvenanceContract({
+    required this.name,
+    required this.package,
+    required this.version,
+    required this.vendorPath,
+    required this.patchManifest,
+    required this.catalog,
+  });
+
+  final String name;
+  final String package;
+  final String version;
+  final String vendorPath;
+  final String patchManifest;
+  final String catalog;
+
+  Uri get metadataUri =>
+      Uri.https('pub.dev', '/api/packages/$package/versions/$version');
+
+  Uri get archiveUri =>
+      Uri.https('pub.dev', '/api/archives/$package-$version.tar.gz');
+}
 
 enum VendorDifferenceKind { added, modified, removed }
 
@@ -54,12 +67,181 @@ final class VendorComparison {
 }
 
 Future<void> main() async {
-  exitCode = await runFlutterWebrtcContract();
+  exitCode = await runVendorProvenanceContracts();
 }
 
-Future<int> runFlutterWebrtcContract() async {
+Future<List<VendorProvenanceContract>> loadVendorProvenanceContracts({
+  Directory? repository,
+}) async {
+  final root = repository ?? Directory.current;
+  final plugins = Directory.fromUri(root.uri.resolve('$_pluginRoot/'));
+  if (!await plugins.exists()) return const [];
+
+  final owners = await plugins
+      .list(followLinks: false)
+      .where((entity) => entity is Directory)
+      .cast<Directory>()
+      .toList();
+  owners.sort((left, right) => left.path.compareTo(right.path));
+  final contracts = <VendorProvenanceContract>[];
+  final names = <String>{};
+  final packages = <String>{};
+  for (final owner in owners) {
+    final catalog = File.fromUri(
+      owner.uri.resolve('tool/vendor_contract.json'),
+    );
+    if (!await catalog.exists()) continue;
+    final contract = await _readVendorContract(root, catalog);
+    if (!names.add(contract.name)) {
+      throw FormatException('duplicate vendor contract name', contract.name);
+    }
+    if (!packages.add(contract.package)) {
+      throw FormatException(
+        'more than one owner claims ${contract.package}',
+        contract.catalog,
+      );
+    }
+    contracts.add(contract);
+  }
+  return List.unmodifiable(contracts);
+}
+
+Future<VendorProvenanceContract> _readVendorContract(
+  Directory repository,
+  File catalog,
+) async {
+  final Object? decoded;
   try {
-    final patches = await File(_patchesPath).readAsString();
+    decoded = jsonDecode(await catalog.readAsString());
+  } on Object catch (error) {
+    throw FormatException('could not decode vendor contract: $error');
+  }
+  if (decoded is! Map<String, Object?> ||
+      decoded['schemaVersion'] != vendorContractSchemaVersion) {
+    throw FormatException('invalid vendor contract', catalog.path);
+  }
+  final name = decoded['name'];
+  final package = decoded['package'];
+  final version = decoded['version'];
+  final vendorPath = decoded['vendorPath'];
+  final patchManifest = decoded['patchManifest'];
+  if (name is! String ||
+      name.trim().isEmpty ||
+      package is! String ||
+      !_safePackageName(package) ||
+      version is! String ||
+      !_safeVersion(version) ||
+      vendorPath is! String ||
+      !_safeRepositoryPath(vendorPath) ||
+      patchManifest is! String ||
+      !_safeRepositoryPath(patchManifest)) {
+    throw FormatException('invalid vendor contract fields', catalog.path);
+  }
+  final vendor = Directory.fromUri(repository.uri.resolve(vendorPath));
+  final patches = File.fromUri(repository.uri.resolve(patchManifest));
+  if (!await _within(repository, vendor) ||
+      !await _within(repository, patches)) {
+    throw FormatException(
+      'vendor contract escaped the repository',
+      catalog.path,
+    );
+  }
+  return VendorProvenanceContract(
+    name: name,
+    package: package,
+    version: version,
+    vendorPath: vendor.path,
+    patchManifest: patches.path,
+    catalog: _relativePath(repository, catalog),
+  );
+}
+
+bool _safePackageName(String value) => RegExp(r'^[a-z0-9_]+$').hasMatch(value);
+
+bool _safeVersion(String value) =>
+    value.isNotEmpty && !value.contains('/') && !value.contains('\\');
+
+bool _safeRepositoryPath(String value) =>
+    value.isNotEmpty &&
+    !value.startsWith('/') &&
+    !value.contains('\\') &&
+    !value.contains('%') &&
+    !value.contains('?') &&
+    !value.contains('#') &&
+    !value.contains(':') &&
+    !value
+        .split('/')
+        .any((part) => part.isEmpty || part == '.' || part == '..');
+
+Future<bool> _within(Directory root, FileSystemEntity entity) async {
+  try {
+    final resolvedRoot = await root.resolveSymbolicLinks();
+    var candidate = entity.absolute.path;
+    while (true) {
+      final type = await FileSystemEntity.type(candidate, followLinks: false);
+      if (type != FileSystemEntityType.notFound) {
+        final resolved = switch (type) {
+          FileSystemEntityType.directory => await Directory(
+            candidate,
+          ).resolveSymbolicLinks(),
+          FileSystemEntityType.file => await File(
+            candidate,
+          ).resolveSymbolicLinks(),
+          FileSystemEntityType.link => await Link(
+            candidate,
+          ).resolveSymbolicLinks(),
+          _ => candidate,
+        };
+        return _pathWithin(resolvedRoot, resolved);
+      }
+      final parent = File(candidate).parent.path;
+      if (parent == candidate) return false;
+      candidate = parent;
+    }
+  } on FileSystemException {
+    return false;
+  }
+}
+
+bool _pathWithin(String root, String candidate) {
+  if (candidate == root) return true;
+  final prefix = root.endsWith(Platform.pathSeparator)
+      ? root
+      : '$root${Platform.pathSeparator}';
+  return candidate.startsWith(prefix);
+}
+
+String _relativePath(Directory root, FileSystemEntity entity) {
+  final rootPath = root.absolute.path.endsWith(Platform.pathSeparator)
+      ? root.absolute.path
+      : '${root.absolute.path}${Platform.pathSeparator}';
+  return entity.absolute.path.substring(rootPath.length);
+}
+
+Future<int> runVendorProvenanceContracts() async {
+  try {
+    final contracts = await loadVendorProvenanceContracts();
+    if (contracts.isEmpty) {
+      stderr.writeln('no owner-local vendor contracts were found');
+      return 2;
+    }
+    var worst = 0;
+    for (final contract in contracts) {
+      final result = await runVendorProvenanceContract(contract);
+      if (result > worst) worst = result;
+    }
+    return worst;
+  } on Object catch (error) {
+    stderr.writeln('vendor provenance contracts could not be checked: $error');
+    return 2;
+  }
+}
+
+Future<int> runVendorProvenanceContract(
+  VendorProvenanceContract contract,
+) async {
+  try {
+    final patches = await File(contract.patchManifest).readAsString();
     final documentedSha256 = parseDocumentedArchiveSha256(patches);
     final documentedPatches = parseDocumentedPatchInventory(patches);
     final client = HttpClient()
@@ -70,15 +252,15 @@ Future<int> runFlutterWebrtcContract() async {
     try {
       metadataBytes = await _download(
         client,
-        _metadataUri,
+        contract.metadataUri,
         maximumBytes: _maximumMetadataBytes,
       );
       final metadata = _readMetadata(metadataBytes);
-      if (metadata.version != flutterWebrtcVersion ||
-          metadata.archiveUrl != _archiveUri.toString()) {
-        throw const FormatException(
+      if (metadata.version != contract.version ||
+          metadata.archiveUrl != contract.archiveUri.toString()) {
+        throw FormatException(
           'pub.dev returned an unexpected archive for '
-          '$_packageName $flutterWebrtcVersion',
+          '${contract.package} ${contract.version}',
         );
       }
       if (metadata.archiveSha256 != documentedSha256) {
@@ -89,7 +271,7 @@ Future<int> runFlutterWebrtcContract() async {
       }
       archiveBytes = await _download(
         client,
-        _archiveUri,
+        contract.archiveUri,
         maximumBytes: _maximumArchiveBytes,
       );
     } finally {
@@ -105,10 +287,7 @@ Future<int> runFlutterWebrtcContract() async {
     }
 
     final baseline = decodeTarGzipFiles(archiveBytes);
-    final vendor = await readDirectoryFiles(
-      Directory(_vendorPath),
-      excludedPaths: const {'PATCHES.md'},
-    );
+    final vendor = await readDirectoryFiles(Directory(contract.vendorPath));
     final comparison = compareVendorFiles(
       baseline: baseline,
       vendor: vendor,
@@ -118,7 +297,7 @@ Future<int> runFlutterWebrtcContract() async {
     stdout.writeln('archive SHA-256 verified: $documentedSha256');
     if (comparison.matchesDocumentedInventory) {
       stdout.writeln(
-        'flutter_webrtc $flutterWebrtcVersion matches its published archive '
+        '${contract.name} matches its published archive '
         'plus ${documentedPatches.length} documented patch files',
       );
       return 0;
@@ -137,12 +316,13 @@ Future<int> runFlutterWebrtcContract() async {
       }
     }
     stderr.writeln(
-      'Review the archive diff and update $_patchesPath only when the '
+      'Review the archive diff and update ${contract.patchManifest} only when '
+      'the '
       'vendored change is intentional.',
     );
     return 1;
   } on Object catch (error) {
-    stderr.writeln('flutter_webrtc contract could not be checked: $error');
+    stderr.writeln('${contract.name} contract could not be checked: $error');
     return 2;
   }
 }
@@ -354,7 +534,7 @@ Future<Uint8List> _download(
   request.followRedirects = false;
   request.headers.set(
     HttpHeaders.userAgentHeader,
-    'discourse-native-flutter-webrtc-contract',
+    'discourse-native-vendor-provenance-contract',
   );
   final response = await request.close().timeout(const Duration(seconds: 30));
   if (response.statusCode != HttpStatus.ok) {

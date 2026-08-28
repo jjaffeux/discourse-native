@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/choice_menu.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -12,7 +11,7 @@ import 'chat_message_tile.dart';
 import 'chat_search.dart';
 import 'chat_search_controller.dart';
 import 'chat_services.dart';
-import 'chat_shell_extension.dart';
+import 'chat_shell_service.dart';
 
 class ChatSearchView extends StatefulWidget {
   const ChatSearchView({super.key, required this.siteUrl});
@@ -152,16 +151,16 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     try {
       final channel = await chat.ensureChannel(widget.siteUrl, hit.channel.id);
       if (!mounted || channel == null) throw StateError('Channel unavailable');
-      final shell = ShellScope.read(context);
+      final shell = PluginScope.require(context, chatShellService);
       if (hit.message.threadId case final threadId?) {
-        shell.openChatThread(
+        shell.openThread(
           siteUrl: widget.siteUrl,
           channelId: channel.id,
           threadId: threadId,
           messageId: hit.message.id,
         );
       } else {
-        shell.openChatChannel(channel.id, messageId: hit.message.id);
+        shell.openChannel(channel.id, messageId: hit.message.id);
       }
     } catch (_) {
       if (!mounted) return;

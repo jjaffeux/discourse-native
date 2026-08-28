@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import '../chat/chat_contract.dart';
@@ -8,15 +10,18 @@ import 'resenha_diagnostics_plugin.dart';
 import 'resenha_plugin.dart';
 import 'resenha_services.dart';
 import 'resenha_settings.dart';
-import 'resenha_shell_extension.dart';
+import 'resenha_shell_service.dart';
 
 const resenhaModule = ResenhaModule();
 
 /// Complete production registration for the bundled Resenha feature.
 final class ResenhaModule implements PluginModule {
-  const ResenhaModule({this.includeDiagnostics = true});
+  const ResenhaModule() : _includeDiagnostics = true;
 
-  final bool includeDiagnostics;
+  @visibleForTesting
+  const ResenhaModule.withoutDiagnostics() : _includeDiagnostics = false;
+
+  final bool _includeDiagnostics;
 
   @override
   PluginDescriptor get descriptor => const PluginDescriptor(
@@ -28,7 +33,7 @@ final class ResenhaModule implements PluginModule {
 
   @override
   void register(PluginRegistrar registrar) {
-    final diagnostics = includeDiagnostics ? ResenhaDiagnosticsPlugin() : null;
+    final diagnostics = _includeDiagnostics ? ResenhaDiagnosticsPlugin() : null;
     registrar.addCapability(const ResenhaPlugin());
     registrar.addRouteNamespace('resenha');
     registrar.addExclusiveClaim('app-global-media-session');

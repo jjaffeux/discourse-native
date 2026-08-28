@@ -499,7 +499,9 @@ class _DiagnosticsButton extends StatelessWidget {
                     ),
                   if (recordingLabels.isNotEmpty)
                     Positioned(
-                      key: const ValueKey('resenha-capture-rail-indicator'),
+                      key: const ValueKey(
+                        'plugin-diagnostics-recording-indicator',
+                      ),
                       right: -3,
                       top: -3,
                       child: ExcludeSemantics(

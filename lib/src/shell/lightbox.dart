@@ -103,8 +103,10 @@ class LightboxImage {
   /// there is no image to point at, which is not markup Discourse writes but is
   /// cheaper to tolerate than to trust.
   static LightboxImage? from(dom.Element anchor) {
-    // `data-large-src` first, matching `lib/lightbox.js`. Only chat writes it
-    // today, but the precedence is the contract.
+    // `data-large-src` first, matching core's generic `lib/lightbox.js`
+    // consumer. Chat is one current producer, but the attribute belongs to
+    // every upstream `a.lightbox`, not to the feature which happened to write
+    // a particular element.
     final fullSrc =
         anchor.attributes['data-large-src'].orNull ??
         anchor.attributes['href'].orNull;

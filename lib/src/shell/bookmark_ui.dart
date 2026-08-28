@@ -22,6 +22,138 @@ final class _QuickMenuResult {
   final Bookmark bookmark;
 }
 
+/// UI-facing bookmark actions with the owning context already bound.
+///
+/// Topic/post surfaces bind a real topic id. Plugin surfaces bind only their
+/// target-scoped host, so no fake topic identifier can leak into the shared
+/// reminder UI.
+abstract interface class _BookmarkUiHost {
+  BookmarkSiteContext siteContextFor(String siteUrl);
+
+  Future<BookmarkWriteResult> createBookmark({
+    required String siteUrl,
+    required int targetId,
+  });
+
+  Future<BookmarkWriteResult> updateBookmark({
+    required String siteUrl,
+    required Bookmark bookmark,
+    String? name,
+    DateTime? reminderAt,
+    required BookmarkAutoDeletePreference autoDeletePreference,
+  });
+
+  Future<BookmarkWriteResult> clearBookmarkReminder({
+    required String siteUrl,
+    required Bookmark bookmark,
+  });
+
+  Future<BookmarkWriteResult> deleteBookmark({
+    required String siteUrl,
+    required Bookmark bookmark,
+  });
+}
+
+final class _CoreBookmarkUiHost implements _BookmarkUiHost {
+  const _CoreBookmarkUiHost(this._host, this._topicId);
+
+  final BookmarkTargetHost _host;
+  final int _topicId;
+
+  @override
+  BookmarkSiteContext siteContextFor(String siteUrl) =>
+      _host.siteContextFor(siteUrl);
+
+  @override
+  Future<BookmarkWriteResult> createBookmark({
+    required String siteUrl,
+    required int targetId,
+  }) => _host.createBookmark(
+    siteUrl: siteUrl,
+    topicId: _topicId,
+    targetId: targetId,
+  );
+
+  @override
+  Future<BookmarkWriteResult> updateBookmark({
+    required String siteUrl,
+    required Bookmark bookmark,
+    String? name,
+    DateTime? reminderAt,
+    required BookmarkAutoDeletePreference autoDeletePreference,
+  }) => _host.updateBookmark(
+    siteUrl: siteUrl,
+    topicId: _topicId,
+    bookmark: bookmark,
+    name: name,
+    reminderAt: reminderAt,
+    autoDeletePreference: autoDeletePreference,
+  );
+
+  @override
+  Future<BookmarkWriteResult> clearBookmarkReminder({
+    required String siteUrl,
+    required Bookmark bookmark,
+  }) => _host.clearBookmarkReminder(
+    siteUrl: siteUrl,
+    topicId: _topicId,
+    bookmark: bookmark,
+  );
+
+  @override
+  Future<BookmarkWriteResult> deleteBookmark({
+    required String siteUrl,
+    required Bookmark bookmark,
+  }) => _host.deleteBookmark(
+    siteUrl: siteUrl,
+    topicId: _topicId,
+    bookmark: bookmark,
+  );
+}
+
+final class _PluginBookmarkUiHost implements _BookmarkUiHost {
+  const _PluginBookmarkUiHost(this._host);
+
+  final PluginBookmarkHost _host;
+
+  @override
+  BookmarkSiteContext siteContextFor(String siteUrl) =>
+      _host.siteContextFor(siteUrl);
+
+  @override
+  Future<BookmarkWriteResult> createBookmark({
+    required String siteUrl,
+    required int targetId,
+  }) => _host.createBookmark(siteUrl: siteUrl, targetId: targetId);
+
+  @override
+  Future<BookmarkWriteResult> updateBookmark({
+    required String siteUrl,
+    required Bookmark bookmark,
+    String? name,
+    DateTime? reminderAt,
+    required BookmarkAutoDeletePreference autoDeletePreference,
+  }) => _host.updateBookmark(
+    siteUrl: siteUrl,
+    bookmark: bookmark,
+    name: name,
+    reminderAt: reminderAt,
+    autoDeletePreference: autoDeletePreference,
+  );
+
+  @override
+  Future<BookmarkWriteResult> clearBookmarkReminder({
+    required String siteUrl,
+    required Bookmark bookmark,
+  }) => _host.clearBookmarkReminder(siteUrl: siteUrl, bookmark: bookmark);
+
+  @override
+  Future<BookmarkWriteResult> deleteBookmark({
+    required String siteUrl,
+    required Bookmark bookmark,
+  }) => _host.deleteBookmark(siteUrl: siteUrl, bookmark: bookmark);
+}
+
 Future<void> showPostBookmarkMenu({
   required BuildContext context,
   required BookmarkHost controller,
@@ -30,14 +162,14 @@ Future<void> showPostBookmarkMenu({
   required Post post,
 }) async {
   final actions = controller.bookmarkTarget(BookmarkTargetType.post);
+  final uiActions = _CoreBookmarkUiHost(actions, topicId);
   final result = await showShellSheet<_QuickMenuResult>(
     context: context,
     title: post.bookmark == null ? 'Bookmark post' : 'Post bookmark',
     dialogOnDesktop: true,
     builder: (_) => _BookmarkQuickSheet(
-      controller: actions,
+      controller: uiActions,
       siteUrl: siteUrl,
-      topicId: topicId,
       targetId: post.id,
       initialBookmark: post.bookmark,
     ),
@@ -63,24 +195,23 @@ Future<void> showPluginBookmarkMenu({
   required String createTitle,
   required String existingTitle,
 }) async {
+  final uiActions = _PluginBookmarkUiHost(controller);
   final result = await showShellSheet<_QuickMenuResult>(
     context: context,
     title: bookmark == null ? createTitle : existingTitle,
     dialogOnDesktop: true,
     builder: (_) => _BookmarkQuickSheet(
-      controller: controller,
+      controller: uiActions,
       siteUrl: siteUrl,
-      topicId: 0,
       targetId: targetId,
       initialBookmark: bookmark,
     ),
   );
   if (result == null || !context.mounted) return;
-  await showBookmarkEditor(
+  await _showBookmarkEditor(
     context: context,
-    controller: controller,
+    controller: uiActions,
     siteUrl: siteUrl,
-    topicId: 0,
     bookmark: result.bookmark,
     cooked: cooked,
   );
@@ -100,9 +231,8 @@ Future<void> showTopicBookmarkMenu({
       title: topic.topicBookmark == null ? 'Bookmark topic' : 'Topic bookmark',
       dialogOnDesktop: true,
       builder: (_) => _BookmarkQuickSheet(
-        controller: topicActions,
+        controller: _CoreBookmarkUiHost(topicActions, topic.id),
         siteUrl: siteUrl,
-        topicId: topic.id,
         targetId: topic.id,
         initialBookmark: topic.topicBookmark,
       ),
@@ -146,9 +276,8 @@ Future<void> showTopicBookmarkMenu({
             : 'Topic bookmark',
         dialogOnDesktop: true,
         builder: (_) => _BookmarkQuickSheet(
-          controller: topicActions,
+          controller: _CoreBookmarkUiHost(topicActions, topic.id),
           siteUrl: siteUrl,
-          topicId: topic.id,
           targetId: topic.id,
           initialBookmark: current.topicBookmark,
         ),
@@ -226,6 +355,20 @@ Future<void> showBookmarkEditor({
   required int topicId,
   required Bookmark bookmark,
   String? cooked,
+}) => _showBookmarkEditor(
+  context: context,
+  controller: _CoreBookmarkUiHost(controller, topicId),
+  siteUrl: siteUrl,
+  bookmark: bookmark,
+  cooked: cooked,
+);
+
+Future<void> _showBookmarkEditor({
+  required BuildContext context,
+  required _BookmarkUiHost controller,
+  required String siteUrl,
+  required Bookmark bookmark,
+  String? cooked,
 }) => showShellSheet<void>(
   context: context,
   title: 'Edit bookmark',
@@ -233,7 +376,6 @@ Future<void> showBookmarkEditor({
   builder: (_) => _BookmarkEditor(
     controller: controller,
     siteUrl: siteUrl,
-    topicId: topicId,
     bookmark: bookmark,
     cooked: cooked,
   ),
@@ -243,14 +385,12 @@ class _BookmarkQuickSheet extends StatefulWidget {
   const _BookmarkQuickSheet({
     required this.controller,
     required this.siteUrl,
-    required this.topicId,
     required this.targetId,
     required this.initialBookmark,
   });
 
-  final BookmarkTargetHost controller;
+  final _BookmarkUiHost controller;
   final String siteUrl;
-  final int topicId;
   final int targetId;
   final Bookmark? initialBookmark;
 
@@ -277,7 +417,6 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
     });
     final result = await widget.controller.createBookmark(
       siteUrl: widget.siteUrl,
-      topicId: widget.topicId,
       targetId: widget.targetId,
     );
     if (!mounted) return;
@@ -297,7 +436,6 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
     });
     final result = await widget.controller.updateBookmark(
       siteUrl: widget.siteUrl,
-      topicId: widget.topicId,
       bookmark: bookmark,
       name: bookmark.name,
       reminderAt: reminder,
@@ -320,7 +458,6 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
     setState(() => _busy = true);
     final result = await widget.controller.clearBookmarkReminder(
       siteUrl: widget.siteUrl,
-      topicId: widget.topicId,
       bookmark: bookmark,
     );
     if (!mounted) return;
@@ -349,7 +486,6 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
     setState(() => _busy = true);
     final result = await widget.controller.deleteBookmark(
       siteUrl: widget.siteUrl,
-      topicId: widget.topicId,
       bookmark: bookmark,
     );
     if (!mounted) return;
@@ -460,14 +596,12 @@ class _BookmarkEditor extends StatefulWidget {
   const _BookmarkEditor({
     required this.controller,
     required this.siteUrl,
-    required this.topicId,
     required this.bookmark,
     this.cooked,
   });
 
-  final BookmarkTargetHost controller;
+  final _BookmarkUiHost controller;
   final String siteUrl;
-  final int topicId;
   final Bookmark bookmark;
   final String? cooked;
 
@@ -615,7 +749,6 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
     final text = _name.text.trim();
     final result = await widget.controller.updateBookmark(
       siteUrl: widget.siteUrl,
-      topicId: widget.topicId,
       bookmark: widget.bookmark,
       name: text.isEmpty ? null : text,
       reminderAt: reminder,

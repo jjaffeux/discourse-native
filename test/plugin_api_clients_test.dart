@@ -89,7 +89,11 @@ void main() {
         };
       final api = ReactionsApiClient(
         transport,
-        DiscourseModelCodec(extensions: pluginRegistry),
+        DiscourseModelCodec(
+          extensions: pluginRegistry,
+          recommendationSources: pluginRegistry,
+          icons: pluginRegistry,
+        ),
       );
 
       final reactors = await api.postReactors(

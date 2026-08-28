@@ -93,13 +93,13 @@ void main() {
     );
 
     expect(
-      find.byKey(const ValueKey('resenha-capture-rail-indicator')),
+      find.byKey(const ValueKey('plugin-diagnostics-recording-indicator')),
       findsNothing,
     );
     await resenha.startCapture();
     await tester.pump();
     expect(
-      find.byKey(const ValueKey('resenha-capture-rail-indicator')),
+      find.byKey(const ValueKey('plugin-diagnostics-recording-indicator')),
       findsOneWidget,
     );
 
@@ -116,7 +116,7 @@ void main() {
     await resenha.stopCapture();
     await tester.pump();
     expect(
-      find.byKey(const ValueKey('resenha-capture-rail-indicator')),
+      find.byKey(const ValueKey('plugin-diagnostics-recording-indicator')),
       findsNothing,
     );
 
