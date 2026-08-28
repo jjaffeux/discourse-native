@@ -225,6 +225,34 @@ void main() {
     expect(find.text('Automatically delete bookmarks'), findsOneWidget);
   });
 
+  testWidgets('section content omits its duplicate title and description', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    await _pumpPage(tester, fixture, width: 1000);
+
+    const descriptions = {
+      PreferenceSection.profile:
+          'Set the account timezone used for dates and reminders.',
+      PreferenceSection.notifications:
+          'Choose which forum activity should notify this account.',
+      PreferenceSection.tracking:
+          'Choose when topics become new, tracked, or watched.',
+      PreferenceSection.interface:
+          'Choose the default bookmark cleanup behavior.',
+    };
+
+    for (final section in PreferenceSection.values) {
+      await tester.tap(
+        find.byKey(ValueKey('preferences-section-${section.name}')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(_sectionLabel(section)), findsOneWidget);
+      expect(find.text(descriptions[section]!), findsNothing);
+    }
+  });
+
   testWidgets('editing enables save and sends only the changed flat field', (
     tester,
   ) async {

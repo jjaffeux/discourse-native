@@ -215,8 +215,6 @@ class _PreferencesPageState extends State<PreferencesPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionHeading(section: section),
-        const SizedBox(height: 24),
         _StatusAnnouncement(state: state),
         if (state.error != null || state.loading || state.savedSection != null)
           const SizedBox(height: 16),
@@ -475,38 +473,6 @@ class _SectionRailItem extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _SectionHeading extends StatelessWidget {
-  const _SectionHeading({required this.section});
-
-  final PreferenceSection section;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Semantics(
-          header: true,
-          child: Text(
-            _sectionTitle(section),
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          _sectionDescription(section),
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -990,17 +956,6 @@ String _sectionTitle(PreferenceSection section) => switch (section) {
   PreferenceSection.notifications => 'Notifications',
   PreferenceSection.tracking => 'Tracking',
   PreferenceSection.interface => 'Interface',
-};
-
-String _sectionDescription(PreferenceSection section) => switch (section) {
-  PreferenceSection.profile =>
-    'Set the account timezone used for dates and reminders.',
-  PreferenceSection.notifications =>
-    'Choose which forum activity should notify this account.',
-  PreferenceSection.tracking =>
-    'Choose when topics become new, tracked, or watched.',
-  PreferenceSection.interface =>
-    'Choose the default bookmark cleanup behavior.',
 };
 
 DIconData _sectionIcon(PreferenceSection section) => switch (section) {
