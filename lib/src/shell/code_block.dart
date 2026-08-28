@@ -1,7 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'cooked_dom.dart';
 import 'syntax.dart';
 
@@ -17,11 +23,22 @@ import 'syntax.dart';
 class CodeBlockData {
   const CodeBlockData({required this.lines, this.language});
 
+  static final RegExp _clipboardWhitespace = RegExp(
+    r'[\f\v\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\ufeff]',
+  );
+
   final List<CodeLine> lines;
 
   /// What the markup said the language is, before alias resolution — kept for
   /// debugging and tests rather than for rendering.
   final String? language;
+
+  /// The code as the author wrote it, without line-number markup.
+  String get text => lines.map((line) => line.text).join('\n');
+
+  /// The web client normalizes non-standard spaces before copying so pasted
+  /// code behaves like ordinary source in editors and terminals.
+  String get clipboardText => text.replaceAll(_clipboardWhitespace, ' ').trim();
 
   /// Reads [pre], which must be the `<pre>` element itself.
   static CodeBlockData from(dom.Element pre) {
@@ -204,9 +221,10 @@ Widget? codeBlockWidgetBuilder(dom.Element element) {
 }
 
 class CodeBlock extends StatefulWidget {
-  const CodeBlock({super.key, required this.data});
+  const CodeBlock({super.key, required this.data, this.showFullscreen = true});
 
   final CodeBlockData data;
+  final bool showFullscreen;
 
   /// Room under the code for the horizontal scrollbar, so the thumb sits below
   /// the last line rather than over it.
@@ -219,11 +237,47 @@ class CodeBlock extends StatefulWidget {
 class _CodeBlockState extends State<CodeBlock> {
   /// Shared with the [Scrollbar] so it has something to draw and to drag.
   final ScrollController _horizontal = ScrollController();
+  Timer? _copiedTimer;
+  bool _copied = false;
 
   @override
   void dispose() {
+    _copiedTimer?.cancel();
     _horizontal.dispose();
     super.dispose();
+  }
+
+  Future<void> _copy() async {
+    try {
+      await Clipboard.setData(ClipboardData(text: widget.data.clipboardText));
+    } catch (_) {
+      if (mounted) _notice("Couldn't copy code.");
+      return;
+    }
+    if (!mounted) return;
+
+    _copiedTimer?.cancel();
+    setState(() => _copied = true);
+    _copiedTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  void _notice(String message) {
+    ScaffoldMessenger.maybeOf(context)
+        ?.showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _openFullscreen() {
+    unawaited(
+      Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: 'code-block-fullscreen'),
+          fullscreenDialog: true,
+          builder: (context) => CodeBlockFullscreen(data: widget.data),
+        ),
+      ),
+    );
   }
 
   @override
@@ -258,40 +312,80 @@ class _CodeBlockState extends State<CodeBlock> {
       // wrapping makes indentation lie about structure. The scrollbar stays up
       // whenever there is somewhere to scroll: a clipped line otherwise reads
       // as a rendering bug rather than as an invitation to scroll.
-      child: LayoutBuilder(
-        builder: (context, constraints) => Scrollbar(
-          controller: _horizontal,
-          thumbVisibility: true,
-          child: SingleChildScrollView(
-            controller: _horizontal,
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.only(
-              top: 8,
-              bottom: CodeBlock._scrollbarLane,
-            ),
-            // At least as wide as the block, so a selected line highlights all
-            // the way across; wider when a line is longer than that.
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minWidth: constraints.maxWidth),
-              child: IntrinsicWidth(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final line in data.lines)
-                      _Line(
-                        line: line,
-                        style: style,
-                        gutterStyle: gutterStyle,
-                        gutterWidth: _gutterWidth,
-                        highlight: theme.colorScheme.tertiaryContainer,
-                        scopeColor: (scope) => scopeColor(scope, theme.code),
-                      ),
-                  ],
+      child: Stack(
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) => Scrollbar(
+              controller: _horizontal,
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                controller: _horizontal,
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.only(
+                  top: 8,
+                  bottom: CodeBlock._scrollbarLane,
+                ),
+                // At least as wide as the block, so a selected line highlights
+                // all the way across; wider when a line is longer than that.
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  child: IntrinsicWidth(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final line in data.lines)
+                          _Line(
+                            line: line,
+                            style: style,
+                            gutterStyle: gutterStyle,
+                            gutterWidth: _gutterWidth,
+                            highlight: theme.colorScheme.tertiaryContainer,
+                            scopeColor: (scope) =>
+                                scopeColor(scope, theme.code),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+          PositionedDirectional(
+            top: 0,
+            end: 0,
+            child: ColoredBox(
+              color: theme.code.blockBackground.withValues(alpha: 0.94),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DButton.iconOnly(
+                    key: const ValueKey('code-block-copy'),
+                    onPressed: _copied ? null : () => unawaited(_copy()),
+                    tooltip: _copied ? 'Copied!' : 'Copy code',
+                    semanticLabel: _copied ? 'Code copied' : 'Copy code',
+                    variant: DButtonVariant.flat,
+                    size: DButtonSize.small,
+                    icon: DIcon(
+                      _copied ? DIcons.check : DIcons.copy,
+                      size: 14,
+                      color: _copied ? theme.colorScheme.primary : null,
+                    ),
+                  ),
+                  if (widget.showFullscreen)
+                    DButton.iconOnly(
+                      key: const ValueKey('code-block-fullscreen'),
+                      onPressed: _openFullscreen,
+                      tooltip: 'View code full screen',
+                      semanticLabel: 'View code full screen',
+                      variant: DButtonVariant.flat,
+                      size: DButtonSize.small,
+                      icon: const DIcon(DIcons.expand, size: 14),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -302,6 +396,55 @@ class _CodeBlockState extends State<CodeBlock> {
         .map((line) => line.number?.toString().length ?? 0)
         .fold(0, (a, b) => a > b ? a : b);
     return widest == 0 ? null : widest * 8 + 12;
+  }
+}
+
+/// A focused, scrollable view of one code block, matching Discourse's
+/// full-screen code modal. Copy remains available here; opening another viewer
+/// does not.
+class CodeBlockFullscreen extends StatefulWidget {
+  const CodeBlockFullscreen({super.key, required this.data});
+
+  final CodeBlockData data;
+
+  @override
+  State<CodeBlockFullscreen> createState() => _CodeBlockFullscreenState();
+}
+
+class _CodeBlockFullscreenState extends State<CodeBlockFullscreen> {
+  final ScrollController _vertical = ScrollController();
+
+  @override
+  void dispose() {
+    _vertical.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      key: const ValueKey('code-block-fullscreen-view'),
+      appBar: AppBar(
+        leading: IconButton(
+          key: const ValueKey('code-block-fullscreen-close'),
+          onPressed: Navigator.of(context).pop,
+          tooltip: 'Close',
+          icon: const DIcon(DIcons.xmark, size: 18),
+        ),
+        title: const Text('View code'),
+      ),
+      body: SafeArea(
+        child: Scrollbar(
+          controller: _vertical,
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            controller: _vertical,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: CodeBlock(data: widget.data, showFullscreen: false),
+          ),
+        ),
+      ),
+    );
   }
 }
 

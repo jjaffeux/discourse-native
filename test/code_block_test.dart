@@ -2,6 +2,7 @@ import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
@@ -215,6 +216,72 @@ void main() {
         tester.widget<Scrollbar>(find.byType(Scrollbar)).thumbVisibility,
         isTrue,
       );
+    });
+
+    testWidgets('copies the source without line-number markup', (tester) async {
+      String? clipboardText;
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboardText =
+              (call.arguments as Map<Object?, Object?>)['text'] as String;
+        }
+        return null;
+      });
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(body: CodeBlock(data: parseBlock(blobOnebox))),
+        ),
+      );
+
+      expect(find.byTooltip('Copy code'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('code-block-copy')));
+      await tester.pump();
+
+      expect(
+        clipboardText,
+        'def self.get_from_url(url)\n'
+        '  return if url.blank?\n\n'
+        'end',
+      );
+      expect(find.byTooltip('Copied!'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 3));
+      expect(find.byTooltip('Copy code'), findsOneWidget);
+    });
+
+    testWidgets('opens a full-screen viewer with copy and close controls', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(body: CodeBlock(data: parseBlock(codeFence))),
+        ),
+      );
+
+      expect(find.byTooltip('View code full screen'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('code-block-fullscreen')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CodeBlockFullscreen), findsOneWidget);
+      expect(find.text('View code'), findsOneWidget);
+      expect(find.byTooltip('Copy code'), findsOneWidget);
+      expect(find.byTooltip('View code full screen'), findsNothing);
+      expect(find.text('def hello'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('code-block-fullscreen-close')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CodeBlockFullscreen), findsNothing);
+      expect(find.byTooltip('View code full screen'), findsOneWidget);
     });
 
     testWidgets('a onebox containing code gets the native block', (
