@@ -22,6 +22,18 @@ import 'support/fakes.dart';
 
 const _metaUrl = 'https://meta.discourse.org';
 const _teamUrl = 'https://team.discourse.org';
+const _metaUser = DiscourseUser(
+  id: 1,
+  username: 'meta-user',
+  name: 'Meta User',
+  hidePresence: false,
+);
+const _teamUser = DiscourseUser(
+  id: 2,
+  username: 'team-user',
+  name: 'Team User',
+  hidePresence: true,
+);
 
 const _metaNotification = DiscourseNotification(
   id: 11,
@@ -493,6 +505,27 @@ void main() {
       expect(api.userActivityUsers, ['meta-user']);
     }),
   );
+
+  testWidgets(
+    'a nested profile changes presence only for its source account',
+    (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
+      final api = fixture.api;
+
+      await _openNestedSection(tester, 'Profile');
+      final shell = ShellScope.read(tester.element(find.text('Online')));
+      shell.selectInstance(1);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Online'));
+      await tester.pumpAndSettle();
+
+      expect(api.presenceUpdates, [
+        (siteUrl: _metaUrl, username: 'meta-user', hidePresence: true),
+      ]);
+      expect(shell.hidePresenceFor(_metaUrl), isTrue);
+      expect(shell.hidePresenceFor(_teamUrl), isTrue);
+    }),
+  );
 }
 
 Future<void> _focusTab(WidgetTester tester, Finder tab) async {
@@ -528,23 +561,13 @@ Future<_MenuFixture> _pumpMenu(WidgetTester tester) async {
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
-  const metaUser = DiscourseUser(
-    id: 1,
-    username: 'meta-user',
-    name: 'Meta User',
-  );
-  const teamUser = DiscourseUser(
-    id: 2,
-    username: 'team-user',
-    name: 'Team User',
-  );
   final instances = <DiscourseInstance>[
     instance('meta.discourse.org', title: 'Discourse Meta').copyWith(
-      user: metaUser,
+      user: _metaUser,
       config: const SiteConfig(userStatusEnabled: true),
     ),
     instance('team.discourse.org', title: 'Discourse Team').copyWith(
-      user: teamUser,
+      user: _teamUser,
       config: const SiteConfig(userStatusEnabled: true),
     ),
   ];
@@ -605,15 +628,15 @@ final class _SiteMenuApi extends FakeDiscourseApi {
   final List<String> userActivitySites = [];
   final List<String> userActivityUsers = [];
   final List<({String siteUrl, int id})> readSites = [];
+  final List<({String siteUrl, String username, bool hidePresence})>
+  presenceUpdates = [];
 
   @override
   Future<DiscourseUser> currentUser({
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async => siteUrl == _metaUrl
-      ? const DiscourseUser(id: 1, username: 'meta-user', name: 'Meta User')
-      : const DiscourseUser(id: 2, username: 'team-user', name: 'Team User');
+  }) async => siteUrl == _metaUrl ? _metaUser : _teamUser;
 
   @override
   Future<List<DiscourseNotification>> notifications({
@@ -667,5 +690,20 @@ final class _SiteMenuApi extends FakeDiscourseApi {
     userActivitySites.add(siteUrl);
     userActivityUsers.add(username);
     return const UserActivityPage();
+  }
+
+  @override
+  Future<void> updateHidePresence({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required bool hidePresence,
+    String? clientId,
+  }) async {
+    presenceUpdates.add((
+      siteUrl: siteUrl,
+      username: username,
+      hidePresence: hidePresence,
+    ));
   }
 }

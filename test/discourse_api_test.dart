@@ -5406,6 +5406,27 @@ void _feedGroups() {
       );
     });
 
+    test('updates hide_presence through the canonical user payload', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      await api.updateHidePresence(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        username: 'reader name',
+        hidePresence: true,
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/u/reader%20name.json');
+      expect(jsonDecode(sent.body), {'hide_presence': true});
+    });
+
     test('preserves a failed response status for diagnostics', () async {
       final api = DiscourseApi(
         client: MockClient((_) async => http.Response('', 503)),
@@ -5947,6 +5968,44 @@ void _writeGroups() {
         isNull,
       );
     });
+
+    test(
+      'reads and persists the current account presence preference',
+      () async {
+        final api = DiscourseApi(
+          client: MockClient(
+            (_) async => http.Response(
+              jsonEncode({
+                'current_user': {
+                  'id': 7,
+                  'username': 'sam',
+                  'user_option': {'hide_presence': true},
+                },
+              }),
+              200,
+            ),
+          ),
+        );
+
+        final user = await api.currentUser(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+        );
+        final stored = DiscourseUser.fromJson(user.toJson());
+
+        expect(user.hidePresence, isTrue);
+        expect(stored, user);
+        expect(stored.hashCode, user.hashCode);
+        expect(
+          DiscourseUser.fromJson(const {'username': 'old'}).hidePresence,
+          isNull,
+        );
+        expect(
+          user,
+          isNot(const DiscourseUser(username: 'sam', hidePresence: false)),
+        );
+      },
+    );
 
     test('reads the current account’s chat header state', () async {
       final api = DiscourseApi(

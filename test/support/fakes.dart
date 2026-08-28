@@ -512,6 +512,7 @@ class FakeDiscourseApi
     this.cards = const {},
     this.creation,
     this.writeFailure,
+    this.presenceGate,
     this.permanentDeletionAllowed = true,
     this.permanentDeletionReason,
     this.draftFailure,
@@ -819,6 +820,8 @@ class FakeDiscourseApi
   final List<String> userStatusesCleared = [];
   final List<DoNotDisturbDuration> doNotDisturbDurations = [];
   final List<String> doNotDisturbResumes = [];
+  final List<({String siteUrl, String username, bool hidePresence})>
+  presencePreferencesUpdated = [];
   final List<List<int>> postFetches = [];
 
   final List<String> feedPaths = [];
@@ -833,6 +836,9 @@ class FakeDiscourseApi
   /// Thrown by [createPost] instead of answering, so a test can drive the
   /// refusal paths without a server.
   final WriteException? writeFailure;
+
+  /// Holds presence preference writes open for optimistic and lifecycle tests.
+  final Completer<void>? presenceGate;
   final bool permanentDeletionAllowed;
   final String? permanentDeletionReason;
   final List<int> permanentDeletionChecks = [];
@@ -1730,6 +1736,24 @@ class FakeDiscourseApi
     doNotDisturbResumes.add(siteUrl);
     await doNotDisturbGate?.future;
     final failure = doNotDisturbFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> updateHidePresence({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required bool hidePresence,
+    String? clientId,
+  }) async {
+    presencePreferencesUpdated.add((
+      siteUrl: siteUrl,
+      username: username,
+      hidePresence: hidePresence,
+    ));
+    await presenceGate?.future;
+    final failure = writeFailure;
     if (failure != null) throw failure;
   }
 

@@ -54,6 +54,7 @@ class DiscourseUser {
     this.doNotDisturbChannelPosition,
     this.lastChatChannelId,
     this.timezone,
+    this.hidePresence,
     this.bookmarkAutoDeletePreference =
         BookmarkAutoDeletePreference.clearReminder,
   });
@@ -103,6 +104,9 @@ class DiscourseUser {
     ),
     lastChatChannelId: jsonIntOrNull(json['lastChatChannelId']),
     timezone: json['timezone'] as String?,
+    // Null distinguishes an account stored before this preference was retained
+    // from the server-confirmed "online" value false.
+    hidePresence: json['hidePresence'] as bool?,
     bookmarkAutoDeletePreference: BookmarkAutoDeletePreference.read(
       json['bookmarkAutoDeletePreference'],
     ),
@@ -196,6 +200,13 @@ class DiscourseUser {
   /// operating system cannot report an IANA identifier.
   final String? timezone;
 
+  /// Whether this account opted out of Discourse presence features.
+  ///
+  /// Null means no current-user payload carrying the option has been retained
+  /// yet. False is an authoritative server value and means the account appears
+  /// online where a presence feature is active.
+  final bool? hidePresence;
+
   final BookmarkAutoDeletePreference bookmarkAutoDeletePreference;
 
   bool get isInDoNotDisturb =>
@@ -226,6 +237,7 @@ class DiscourseUser {
     'doNotDisturbChannelPosition': doNotDisturbChannelPosition,
     'lastChatChannelId': lastChatChannelId,
     'timezone': timezone,
+    if (hidePresence != null) 'hidePresence': hidePresence,
     'bookmarkAutoDeletePreference': bookmarkAutoDeletePreference.wireValue,
   };
 
@@ -317,6 +329,36 @@ class DiscourseUser {
     doNotDisturbUntil: doNotDisturbUntil,
     lastChatChannelId: lastChatChannelId,
     timezone: timezone,
+    hidePresence: hidePresence,
+    bookmarkAutoDeletePreference: bookmarkAutoDeletePreference,
+  );
+
+  /// Replaces the server-confirmed presence preference while retaining the
+  /// rest of the freshest current-user payload.
+  DiscourseUser withHidePresence(bool? hidePresence) => DiscourseUser(
+    username: username,
+    id: id,
+    name: name,
+    avatarUrl: avatarUrl,
+    status: status,
+    draftCount: draftCount,
+    canCreatePoll: canCreatePoll,
+    canAssign: canAssign,
+    canAssignGlobally: canAssignGlobally,
+    canChangePostOwner: canChangePostOwner,
+    staff: staff,
+    groups: groups,
+    ignoredUsernames: ignoredUsernames,
+    sidebarCategoryIds: sidebarCategoryIds,
+    trackedCategoryIds: trackedCategoryIds,
+    watchedCategoryIds: watchedCategoryIds,
+    watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
+    hasChatEnabled: hasChatEnabled,
+    chatHeaderIndicatorPreference: chatHeaderIndicatorPreference,
+    doNotDisturbUntil: doNotDisturbUntil,
+    lastChatChannelId: lastChatChannelId,
+    timezone: timezone,
+    hidePresence: hidePresence,
     bookmarkAutoDeletePreference: bookmarkAutoDeletePreference,
   );
 
@@ -349,6 +391,7 @@ class DiscourseUser {
       other.doNotDisturbChannelPosition == doNotDisturbChannelPosition &&
       other.lastChatChannelId == lastChatChannelId &&
       other.timezone == timezone &&
+      other.hidePresence == hidePresence &&
       other.bookmarkAutoDeletePreference == bookmarkAutoDeletePreference;
 
   @override
@@ -376,6 +419,7 @@ class DiscourseUser {
     doNotDisturbChannelPosition,
     lastChatChannelId,
     timezone,
+    hidePresence,
     bookmarkAutoDeletePreference,
   ]);
 }
