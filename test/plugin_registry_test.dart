@@ -468,7 +468,7 @@ void main() {
     ]);
     late List<Widget> decorations;
     late List<Widget> metadata;
-    late List<Widget> header;
+    late List<TopicPropertySection> properties;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -485,8 +485,14 @@ void main() {
               'site',
               const Topic(id: 42, title: 'A topic', slug: 'a-topic'),
             );
-            header = registry.topicHeader(context, 'site', _topic);
-            return Column(children: [...decorations, ...metadata, ...header]);
+            properties = registry.topicProperties(context, 'site', _topic);
+            return Column(
+              children: [
+                ...decorations,
+                ...metadata,
+                for (final section in properties) ...section.values,
+              ],
+            );
           },
         ),
       ),
@@ -497,14 +503,14 @@ void main() {
       'second-post',
       'first-list',
       'second-list',
-      'first-header',
-      'second-header',
+      'first-properties',
+      'second-properties',
     ]) {
       expect(find.text(label), findsOneWidget);
     }
   });
 
-  testWidgets('aggregates topic-header rebuild signals', (tester) async {
+  testWidgets('aggregates topic-property rebuild signals', (tester) async {
     final first = ChangeNotifier();
     final second = ChangeNotifier();
     addTearDown(first.dispose);
@@ -520,7 +526,11 @@ void main() {
       MaterialApp(
         home: Builder(
           builder: (context) {
-            rebuildOn = registry.topicHeaderRebuildOn(context, 'site', _topic);
+            rebuildOn = registry.topicPropertiesRebuildOn(
+              context,
+              'site',
+              _topic,
+            );
             return const SizedBox.shrink();
           },
         ),
@@ -630,7 +640,7 @@ final class _SurfacePlugin extends _NamedPlugin
     implements
         PostDecorationPlugin,
         TopicListMetadataPlugin,
-        TopicHeaderPlugin {
+        TopicPropertiesPlugin {
   const _SurfacePlugin(super.name);
 
   @override
@@ -649,11 +659,13 @@ final class _SurfacePlugin extends _NamedPlugin
   ) => [Text('$name-list')];
 
   @override
-  List<Widget> topicHeader(
+  List<TopicPropertySection> topicProperties(
     BuildContext context,
     String siteUrl,
     TopicDetail topic,
-  ) => [Text('$name-header')];
+  ) => [
+    TopicPropertySection(label: name, values: [Text('$name-properties')]),
+  ];
 }
 
 final class _SmallActionPlugin extends _NamedPlugin
@@ -671,13 +683,13 @@ final class _SmallActionPlugin extends _NamedPlugin
 }
 
 final class _RebuildingHeaderPlugin extends _NamedPlugin
-    implements TopicHeaderRebuildPlugin {
+    implements TopicPropertiesRebuildPlugin {
   const _RebuildingHeaderPlugin(super.name, this.rebuildOn);
 
   final Listenable rebuildOn;
 
   @override
-  Listenable topicHeaderRebuildOn(
+  Listenable topicPropertiesRebuildOn(
     BuildContext context,
     String siteUrl,
     TopicDetail topic,

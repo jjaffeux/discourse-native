@@ -3,8 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
-/// Per-forum topic-recommendations panel persistence.
-abstract interface class TopicRecommendationsPanelPersistence {
+/// Per-forum topic-sidebar visibility persistence.
+abstract interface class TopicSidebarPersistence {
   Future<bool?> readCollapsed({required String siteUrl});
 
   Future<bool> writeCollapsed({
@@ -13,10 +13,13 @@ abstract interface class TopicRecommendationsPanelPersistence {
   });
 }
 
-final class SharedPreferencesTopicRecommendationsPanelPersistence
-    implements TopicRecommendationsPanelPersistence {
-  const SharedPreferencesTopicRecommendationsPanelPersistence();
+final class SharedPreferencesTopicSidebarPersistence
+    implements TopicSidebarPersistence {
+  const SharedPreferencesTopicSidebarPersistence();
 
+  // Keep the earlier recommendations-panel key: that panel became this
+  // sidebar, so an existing reader's visibility choice still means the same
+  // thing after the surface grows topic properties and actions.
   static const String _keyPrefix =
       'discourse_native.topic_recommendations_panel_collapsed';
 
@@ -35,18 +38,16 @@ final class SharedPreferencesTopicRecommendationsPanelPersistence
       '$_keyPrefix.${Uri.encodeComponent(siteUrl)}';
 }
 
-/// Remembers whether the reader collapsed more topics on each forum.
+/// Remembers whether the reader hid the topic context sidebar on each forum.
 ///
-/// This is optional presentation state. Storage failures leave the panel open
-/// and never prevent a topic from being read.
-final class TopicRecommendationsPanelStore {
-  const TopicRecommendationsPanelStore({
-    TopicRecommendationsPanelPersistence? persistence,
-  }) : _persistence =
-           persistence ??
-           const SharedPreferencesTopicRecommendationsPanelPersistence();
+/// This is optional presentation state. Storage failures leave the sidebar
+/// open and never prevent a topic from being read.
+final class TopicSidebarStore {
+  const TopicSidebarStore({TopicSidebarPersistence? persistence})
+    : _persistence =
+          persistence ?? const SharedPreferencesTopicSidebarPersistence();
 
-  final TopicRecommendationsPanelPersistence _persistence;
+  final TopicSidebarPersistence _persistence;
   static final ReadAfterWriteOperationQueue _operations =
       ReadAfterWriteOperationQueue();
 
@@ -60,11 +61,7 @@ final class TopicRecommendationsPanelStore {
     try {
       return await _persistence.readCollapsed(siteUrl: siteUrl) ?? false;
     } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'topicRecommendationsPanel.readCollapsed',
-      );
+      reportStorageFailure(error, stackTrace, 'topicSidebar.readCollapsed');
       return false;
     }
   }
@@ -86,16 +83,10 @@ final class TopicRecommendationsPanelStore {
         collapsed: collapsed,
       );
       if (!saved) {
-        throw StateError(
-          'Could not persist topic recommendations panel state.',
-        );
+        throw StateError('Could not persist topic sidebar state.');
       }
     } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'topicRecommendationsPanel.writeCollapsed',
-      );
+      reportStorageFailure(error, stackTrace, 'topicSidebar.writeCollapsed');
     }
   }
 }

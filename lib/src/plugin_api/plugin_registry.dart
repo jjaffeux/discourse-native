@@ -1036,27 +1036,32 @@ final class PluginRegistry
       ),
   ];
 
-  List<Widget> topicHeader(
+  List<TopicPropertySection> topicProperties(
     BuildContext context,
     String siteUrl,
     TopicDetail topic,
   ) => [
-    for (final plugin in plugins.whereType<TopicHeaderPlugin>())
-      ..._ownedAll(
-        plugin,
-        plugin.topicHeader(_uiContext(context, plugin), siteUrl, topic),
-      ),
+    for (final plugin in plugins.whereType<TopicPropertiesPlugin>())
+      for (final section in plugin.topicProperties(
+        _uiContext(context, plugin),
+        siteUrl,
+        topic,
+      ))
+        TopicPropertySection(
+          label: section.label,
+          values: _ownedAll(plugin, section.values),
+        ),
   ];
 
-  Listenable? topicHeaderRebuildOn(
+  Listenable? topicPropertiesRebuildOn(
     BuildContext context,
     String siteUrl,
     TopicDetail topic,
   ) {
     final listenables = plugins
-        .whereType<TopicHeaderRebuildPlugin>()
+        .whereType<TopicPropertiesRebuildPlugin>()
         .map(
-          (plugin) => plugin.topicHeaderRebuildOn(
+          (plugin) => plugin.topicPropertiesRebuildOn(
             _uiContext(context, plugin),
             siteUrl,
             topic,

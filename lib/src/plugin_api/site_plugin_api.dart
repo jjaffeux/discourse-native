@@ -405,28 +405,37 @@ abstract interface class TopicListMetadataPlugin {
   );
 }
 
-/// Adds actions or state to the header of an open topic.
-abstract interface class TopicHeaderPlugin {
-  /// Inline metadata placed after core's category and tags, in plugin order.
+/// One plugin-owned property group in an open topic's context sidebar.
+@immutable
+final class TopicPropertySection {
+  const TopicPropertySection({required this.label, required this.values});
+
+  final String label;
+  final List<Widget> values;
+}
+
+/// Adds labeled properties to the sidebar of an open topic.
+abstract interface class TopicPropertiesPlugin {
+  /// Property groups placed after core's category and tags, in plugin order.
   ///
-  /// Contributions may remain actionable, but must size as metadata and allow
-  /// the owning header's [Wrap] to move them onto another line.
-  List<Widget> topicHeader(
+  /// Values may remain actionable, but must fit within the sidebar's wrapping
+  /// value column. The group label is presentation text, not a persistence id.
+  List<TopicPropertySection> topicProperties(
     BuildContext context,
     String siteUrl,
     TopicDetail topic,
   );
 }
 
-/// Invalidates a topic-header contribution from plugin-owned session state.
+/// Invalidates topic properties contributed from plugin-owned session state.
 ///
 /// Topic records still decide whether public plugin state is present. This
 /// signal is for transient state, such as a permission fallback becoming
 /// unavailable, which can add or remove an affordance without replacing the
-/// topic record. Core recomputes all header contributions when it fires so an
-/// absent contribution does not leave an empty metadata row behind.
-abstract interface class TopicHeaderRebuildPlugin {
-  Listenable? topicHeaderRebuildOn(
+/// topic record. Core recomputes all property groups when it fires so an absent
+/// contribution does not leave an empty row behind.
+abstract interface class TopicPropertiesRebuildPlugin {
+  Listenable? topicPropertiesRebuildOn(
     BuildContext context,
     String siteUrl,
     TopicDetail topic,

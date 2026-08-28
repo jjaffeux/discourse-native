@@ -5,16 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
-import '../data/topic_recommendations_panel_store.dart';
 import '../data/topic_recommendations_tab_store.dart';
+import '../data/topic_sidebar_store.dart';
 import '../foundation/calendar_day.dart';
+import '../models/content_route.dart';
 import '../models/post.dart';
+import '../models/post_flag.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
@@ -31,20 +34,28 @@ import 'shell_scope.dart';
 import 'small_action.dart';
 import 'stream_day_separator.dart';
 import 'time_gap.dart';
+import 'title_bar.dart';
+import 'topic_actions.dart';
 import 'topic_change_owner.dart';
 import 'topic_list_view.dart';
 import 'topic_move_posts.dart';
 import 'topic_progress.dart';
 import 'user_card.dart';
+import 'user_menu_button.dart';
 import 'user_status.dart';
 
 /// A topic and its posts.
 class TopicView extends StatefulWidget {
   const TopicView({
     super.key,
-    this.showRecommendationsPanel = false,
-    this.recommendationsPanelStore = const TopicRecommendationsPanelStore(),
+    this.showSidebar = false,
+    this.sidebarStore = const TopicSidebarStore(),
     this.recommendationsTabStore = const TopicRecommendationsTabStore(),
+    this.route,
+    this.canReply = false,
+    this.bookmarkBusy = false,
+    this.isConnected = false,
+    this.registry = PluginRegistry.empty,
   });
 
   /// Start fetching the next batch about a screen before either end.
@@ -53,13 +64,19 @@ class TopicView extends StatefulWidget {
   /// Header, body line, their gap, and the post's outer padding.
   static const double minimumPostHeight = 96;
 
-  /// Whether recommendations are docked beside the posts instead of below
-  /// them. Narrow layouts leave this false so the reading column stays usable.
-  final bool showRecommendationsPanel;
+  /// Whether topic context is docked beside the posts. Narrow layouts leave
+  /// this false so the reading column stays usable.
+  final bool showSidebar;
 
-  final TopicRecommendationsPanelStore recommendationsPanelStore;
+  final TopicSidebarStore sidebarStore;
 
   final TopicRecommendationsTabStore recommendationsTabStore;
+
+  final ContentRoute? route;
+  final bool canReply;
+  final bool bookmarkBusy;
+  final bool isConnected;
+  final PluginRegistry registry;
 
   @override
   State<TopicView> createState() => _TopicViewState();
@@ -115,8 +132,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   bool _saveAnchorAfterLook = false;
   int? _savedAnchorPostNumber;
   String? _recommendationsSiteUrl;
-  bool _recommendationsPanelCollapsed = false;
-  int _recommendationsPanelRestoreGeneration = 0;
+  bool _sidebarCollapsed = false;
+  bool _sidebarOverlayOpen = false;
+  int _sidebarRestoreGeneration = 0;
   TopicRecommendationSourceId _recommendationsSourceId =
       coreSuggestedTopicRecommendationSourceId;
   int _recommendationsTabRestoreGeneration = 0;
@@ -139,6 +157,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didUpdateWidget(covariant TopicView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.showSidebar != widget.showSidebar) {
+      _sidebarOverlayOpen = false;
+    }
   }
 
   void _syncControllers(
@@ -180,6 +206,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _dayJumpToken = null;
     _seen = null;
     _progressPosition = null;
+    _sidebarOverlayOpen = false;
     _scroll = ScrollController();
     _list = ListController()..addListener(_noteExtentsChanged);
     _noteExtentsChanged();
@@ -296,7 +323,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _recommendationsPanelRestoreGeneration++;
+    _sidebarRestoreGeneration++;
     _recommendationsTabRestoreGeneration++;
     _dayJumpToken = null;
     _creditReaderNow();
@@ -322,26 +349,24 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   void _syncRecommendationsSite(String siteUrl) {
     if (_recommendationsSiteUrl == siteUrl) return;
     _recommendationsSiteUrl = siteUrl;
-    _recommendationsPanelCollapsed = false;
+    _sidebarCollapsed = false;
     _recommendationsSourceId = coreSuggestedTopicRecommendationSourceId;
     final sourceMigrations =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
-    unawaited(_restoreRecommendationsPanel(siteUrl));
+    unawaited(_restoreSidebar(siteUrl));
     unawaited(_restoreRecommendationsTab(siteUrl, sourceMigrations));
   }
 
-  Future<void> _restoreRecommendationsPanel(String siteUrl) async {
-    final generation = ++_recommendationsPanelRestoreGeneration;
-    final collapsed = await widget.recommendationsPanelStore.read(
-      siteUrl: siteUrl,
-    );
+  Future<void> _restoreSidebar(String siteUrl) async {
+    final generation = ++_sidebarRestoreGeneration;
+    final collapsed = await widget.sidebarStore.read(siteUrl: siteUrl);
     if (!mounted ||
-        generation != _recommendationsPanelRestoreGeneration ||
+        generation != _sidebarRestoreGeneration ||
         _recommendationsSiteUrl != siteUrl) {
       return;
     }
-    if (collapsed != _recommendationsPanelCollapsed) {
-      setState(() => _recommendationsPanelCollapsed = collapsed);
+    if (collapsed != _sidebarCollapsed) {
+      setState(() => _sidebarCollapsed = collapsed);
     }
   }
 
@@ -364,18 +389,24 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  void _setRecommendationsPanelCollapsed(bool collapsed) {
+  void _setSidebarCollapsed(bool collapsed) {
     final siteUrl = _recommendationsSiteUrl;
-    if (siteUrl == null || collapsed == _recommendationsPanelCollapsed) return;
-    _recommendationsPanelRestoreGeneration++;
-    setState(() => _recommendationsPanelCollapsed = collapsed);
+    if (siteUrl == null || collapsed == _sidebarCollapsed) return;
+    _sidebarRestoreGeneration++;
+    setState(() => _sidebarCollapsed = collapsed);
     unawaited(
-      widget.recommendationsPanelStore.write(
-        siteUrl: siteUrl,
-        collapsed: collapsed,
-      ),
+      widget.sidebarStore.write(siteUrl: siteUrl, collapsed: collapsed),
     );
   }
+
+  void _setSidebarOverlayOpen(bool open) {
+    if (open == _sidebarOverlayOpen) return;
+    setState(() => _sidebarOverlayOpen = open);
+  }
+
+  double _sidebarOverlayWidth(BuildContext context) => MediaQuery.sizeOf(
+    context,
+  ).width.clamp(0.0, _TopicSidebarPanel.dockedWidth).toDouble();
 
   void _setRecommendationsSource(TopicRecommendationSourceId sourceId) {
     final siteUrl = _recommendationsSiteUrl;
@@ -988,20 +1019,66 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         const topicSkeleton = _TopicLoadingSkeleton(
           key: ValueKey('topic-loading-skeleton'),
         );
-        if (!widget.showRecommendationsPanel) return topicSkeleton;
-
-        return Row(
+        final showDockedSidebar = widget.showSidebar && !_sidebarCollapsed;
+        final showOverlaySidebar = !widget.showSidebar && _sidebarOverlayOpen;
+        return Stack(
           children: [
-            const Expanded(child: topicSkeleton),
-            _TopicRecommendationsPanel(
-              collapsed: _recommendationsPanelCollapsed,
-              siteUrl: snapshot.siteUrl,
-              recommendations: null,
-              loading: true,
-              selected: _recommendationsSourceId,
-              onSelected: _setRecommendationsSource,
-              onCollapsedChanged: _setRecommendationsPanelCollapsed,
+            Row(
+              children: [
+                const Expanded(child: topicSkeleton),
+                if (showDockedSidebar)
+                  _TopicSidebarPanel(
+                    siteUrl: snapshot.siteUrl,
+                    topic: null,
+                    recommendations: null,
+                    loading: true,
+                    selected: _recommendationsSourceId,
+                    onSelected: _setRecommendationsSource,
+                    onCollapsed: () => _setSidebarCollapsed(true),
+                    route: widget.route,
+                    canReply: false,
+                    bookmarkBusy: false,
+                    isConnected: widget.isConnected,
+                    registry: widget.registry,
+                  ),
+              ],
             ),
+            if (showOverlaySidebar)
+              Positioned(
+                top: 0,
+                right: 0,
+                bottom: 0,
+                child: Material(
+                  elevation: 8,
+                  child: _TopicSidebarPanel(
+                    width: _sidebarOverlayWidth(context),
+                    siteUrl: snapshot.siteUrl,
+                    topic: null,
+                    recommendations: null,
+                    loading: true,
+                    selected: _recommendationsSourceId,
+                    onSelected: _setRecommendationsSource,
+                    onCollapsed: () => _setSidebarOverlayOpen(false),
+                    route: widget.route,
+                    canReply: false,
+                    bookmarkBusy: false,
+                    isConnected: widget.isConnected,
+                    registry: widget.registry,
+                  ),
+                ),
+              ),
+            if ((widget.showSidebar && _sidebarCollapsed) ||
+                (!widget.showSidebar && !showOverlaySidebar))
+              Positioned(
+                top: 8,
+                right: 8,
+                child: _TopicSidebarToggle(
+                  showSidebar: true,
+                  onPressed: widget.showSidebar
+                      ? () => _setSidebarCollapsed(false)
+                      : () => _setSidebarOverlayOpen(true),
+                ),
+              ),
           ],
         );
       }
@@ -1042,9 +1119,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final recommendationsPending =
         snapshot.recommendations == null &&
         (snapshot.hasMore || snapshot.loadingMore);
-    final showRecommendationsPanel =
-        widget.showRecommendationsPanel &&
-        (hasRecommendations || recommendationsPending);
+    final showDockedSidebar = widget.showSidebar && !_sidebarCollapsed;
+    final showOverlaySidebar = !widget.showSidebar && _sidebarOverlayOpen;
 
     // Which posts are on screen, and in what order. The posts themselves are
     // in the store; each tile watches its own, so an edit or a deletion redraws
@@ -1141,7 +1217,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             postIds.length +
             (showHeader ? 1 : 0) +
             (showFooter ? 1 : 0) +
-            (showRecommendations && !showRecommendationsPanel ? 1 : 0),
+            (showRecommendations && !widget.showSidebar ? 1 : 0),
         separatorBuilder: (context, index) {
           final nextPostIndex = index + 1 - (showHeader ? 1 : 0);
           if (dayByPostIndex.containsKey(nextPostIndex)) {
@@ -1207,65 +1283,113 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     );
 
     final floatingDay = _floatingDay;
-    return Row(
+    return Stack(
       children: [
-        Expanded(
-          child: Column(
-            children: [
-              _TopicPostSelectionToolbar(
-                siteUrl: siteUrl,
-                topic: snapshot.topic!,
-              ),
-              Expanded(
-                child: Stack(
-                  clipBehavior: Clip.hardEdge,
-                  children: [
-                    Positioned.fill(child: postStream),
-                    if (floatingDay != null)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        top: _floatingDayOffset,
-                        child: StreamDaySeparator(
-                          key: ValueKey(('topic-floating-day', floatingDay)),
-                          day: floatingDay,
-                          floating: true,
-                          onTap: () => _jumpToDayStart(floatingDay),
-                        ),
-                      ),
-                    if (_progressPosition case final position?
-                        when snapshot.streamIds.length > 1)
-                      Positioned(
-                        right: 16,
-                        bottom: 16,
-                        child: TopicProgressButton(
-                          position: position,
-                          total: snapshot.streamIds.length,
-                          onPressed: () => unawaited(
-                            showTopicProgress(
-                              context: context,
-                              controller: controller,
-                              position: position,
-                              total: snapshot.streamIds.length,
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                children: [
+                  _TopicPostSelectionToolbar(
+                    siteUrl: siteUrl,
+                    topic: snapshot.topic!,
+                  ),
+                  Expanded(
+                    child: Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        Positioned.fill(child: postStream),
+                        if (floatingDay != null)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: _floatingDayOffset,
+                            child: StreamDaySeparator(
+                              key: ValueKey((
+                                'topic-floating-day',
+                                floatingDay,
+                              )),
+                              day: floatingDay,
+                              floating: true,
+                              onTap: () => _jumpToDayStart(floatingDay),
                             ),
                           ),
-                        ),
-                      ),
-                  ],
-                ),
+                        if (_progressPosition case final position?
+                            when snapshot.streamIds.length > 1)
+                          Positioned(
+                            right: 16,
+                            bottom: 16,
+                            child: TopicProgressButton(
+                              position: position,
+                              total: snapshot.streamIds.length,
+                              onPressed: () => unawaited(
+                                showTopicProgress(
+                                  context: context,
+                                  controller: controller,
+                                  position: position,
+                                  total: snapshot.streamIds.length,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            if (showDockedSidebar)
+              _TopicSidebarPanel(
+                siteUrl: siteUrl,
+                topic: snapshot.topic!,
+                recommendations: snapshot.recommendations,
+                loading: recommendationsPending || snapshot.loadingMore,
+                selected: _recommendationsSourceId,
+                onSelected: _setRecommendationsSource,
+                onCollapsed: () => _setSidebarCollapsed(true),
+                route: widget.route,
+                canReply: widget.canReply,
+                bookmarkBusy: widget.bookmarkBusy,
+                isConnected: widget.isConnected,
+                registry: widget.registry,
+              ),
+          ],
         ),
-        if (showRecommendationsPanel)
-          _TopicRecommendationsPanel(
-            collapsed: _recommendationsPanelCollapsed,
-            siteUrl: siteUrl,
-            recommendations: snapshot.recommendations,
-            loading: snapshot.loadingMore,
-            selected: _recommendationsSourceId,
-            onSelected: _setRecommendationsSource,
-            onCollapsedChanged: _setRecommendationsPanelCollapsed,
+        if (showOverlaySidebar)
+          Positioned(
+            top: 0,
+            right: 0,
+            bottom: 0,
+            child: Material(
+              elevation: 8,
+              child: _TopicSidebarPanel(
+                width: _sidebarOverlayWidth(context),
+                siteUrl: siteUrl,
+                topic: snapshot.topic!,
+                recommendations: snapshot.recommendations,
+                loading: recommendationsPending || snapshot.loadingMore,
+                selected: _recommendationsSourceId,
+                onSelected: _setRecommendationsSource,
+                onCollapsed: () => _setSidebarOverlayOpen(false),
+                route: widget.route,
+                canReply: widget.canReply,
+                bookmarkBusy: widget.bookmarkBusy,
+                isConnected: widget.isConnected,
+                registry: widget.registry,
+              ),
+            ),
+          ),
+        if ((widget.showSidebar && _sidebarCollapsed) ||
+            (!widget.showSidebar && !showOverlaySidebar))
+          Positioned(
+            top: 8,
+            right: 8,
+            child: _TopicSidebarToggle(
+              showSidebar: true,
+              onPressed: widget.showSidebar
+                  ? () => _setSidebarCollapsed(false)
+                  : () => _setSidebarOverlayOpen(true),
+            ),
           ),
       ],
     );
@@ -1767,56 +1891,83 @@ class _TopicViewSnapshot {
   );
 }
 
-class _TopicRecommendationsPanel extends StatelessWidget {
-  const _TopicRecommendationsPanel({
-    required this.collapsed,
+class _TopicSidebarPanel extends StatelessWidget {
+  const _TopicSidebarPanel({
     required this.siteUrl,
+    required this.topic,
     required this.recommendations,
     required this.loading,
     required this.selected,
     required this.onSelected,
-    required this.onCollapsedChanged,
+    required this.onCollapsed,
+    required this.route,
+    required this.canReply,
+    required this.bookmarkBusy,
+    required this.isConnected,
+    required this.registry,
+    this.width = dockedWidth,
   }) : assert(recommendations == null || siteUrl != null);
 
-  static const double _width = 320;
-  static const double _collapsedWidth = 48;
+  static const double dockedWidth = 344;
 
-  final bool collapsed;
   final String? siteUrl;
+  final TopicDetail? topic;
   final TopicRecommendations? recommendations;
   final bool loading;
   final TopicRecommendationSourceId selected;
   final ValueChanged<TopicRecommendationSourceId> onSelected;
-  final ValueChanged<bool> onCollapsedChanged;
+  final VoidCallback onCollapsed;
+  final ContentRoute? route;
+  final bool canReply;
+  final bool bookmarkBusy;
+  final bool isConnected;
+  final PluginRegistry registry;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      key: const ValueKey('topic-recommendations-panel'),
-      width: collapsed ? _collapsedWidth : _width,
+      key: const ValueKey('topic-sidebar-panel'),
+      width: width,
       decoration: BoxDecoration(
         color: theme.shell.panel,
         border: Border(left: BorderSide(color: theme.shell.divider)),
       ),
-      child: collapsed
-          ? Align(
-              alignment: Alignment.topCenter,
-              child: IconButton(
-                onPressed: () => onCollapsedChanged(false),
-                icon: const DIcon(DIcons.chevronLeft, size: 18),
-                tooltip: 'Show more topics',
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _TopicSidebarActions(
+              siteUrl: siteUrl,
+              topic: topic,
+              route: route,
+              canReply: canReply,
+              bookmarkBusy: bookmarkBusy,
+              isConnected: isConnected,
+              registry: registry,
+              onCollapsed: onCollapsed,
+            ),
+            if (topic case final topic? when siteUrl != null) ...[
+              const SizedBox(height: 12),
+              _TopicPropertiesCard(
+                siteUrl: siteUrl!,
+                topic: topic,
+                route: route,
+                registry: registry,
               ),
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  height: 48,
-                  child: Row(
+            ],
+            if (recommendations != null || loading) ...[
+              const SizedBox(height: 12),
+              _TopicSidebarCard(
+                key: const ValueKey('topic-more-topics-card'),
+                child: switch (recommendations) {
+                  final recommendations? => Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const SizedBox(width: 16),
-                      Expanded(
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 13, 14, 8),
                         child: Text(
                           'More topics',
                           style: theme.textTheme.titleSmall?.copyWith(
@@ -1824,34 +1975,389 @@ class _TopicRecommendationsPanel extends StatelessWidget {
                           ),
                         ),
                       ),
-                      IconButton(
-                        onPressed: () => onCollapsedChanged(true),
-                        icon: const DIcon(DIcons.chevronRight, size: 18),
-                        tooltip: 'Collapse more topics',
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(height: 1, color: theme.shell.divider),
-                Expanded(
-                  child: switch (recommendations) {
-                    final recommendations? => SingleChildScrollView(
-                      child: _MoreTopics(
-                        key: const ValueKey('topic-recommendations-panel-list'),
+                      _MoreTopics(
+                        key: const ValueKey('topic-sidebar-more-topics-list'),
                         siteUrl: siteUrl!,
                         recommendations: recommendations,
                         selected: selected,
                         onSelected: onSelected,
+                        topPadding: 0,
                       ),
-                    ),
-                    null when loading => const _MoreTopicsLoadingSkeleton(),
-                    null => const SizedBox.shrink(),
-                  },
-                ),
-              ],
-            ),
+                    ],
+                  ),
+                  null => const _MoreTopicsLoadingSkeleton(),
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
+}
+
+class _TopicSidebarActions extends StatelessWidget {
+  const _TopicSidebarActions({
+    required this.siteUrl,
+    required this.topic,
+    required this.route,
+    required this.canReply,
+    required this.bookmarkBusy,
+    required this.isConnected,
+    required this.registry,
+    required this.onCollapsed,
+  });
+
+  final String? siteUrl;
+  final TopicDetail? topic;
+  final ContentRoute? route;
+  final bool canReply;
+  final bool bookmarkBusy;
+  final bool isConnected;
+  final PluginRegistry registry;
+  final VoidCallback onCollapsed;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ShellScope.read(context);
+    final topic = this.topic;
+    final siteUrl = this.siteUrl;
+    final topicFlags = topic == null || siteUrl == null
+        ? const <PostFlagType>[]
+        : controller.availableTopicFlagTypes(siteUrl, topic);
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            if (topic != null && canReply)
+              Expanded(
+                child: DButton(
+                  key: const ValueKey('topic-reply-button'),
+                  onPressed: controller.openReply,
+                  icon: const DIcon(DIcons.reply, size: 18),
+                  label: const Text('Reply'),
+                  tooltip: 'Reply to this topic',
+                  variant: DButtonVariant.primary,
+                  size: DButtonSize.small,
+                ),
+              )
+            else
+              const Spacer(),
+            const SizedBox(width: 8),
+            _TopicSidebarToggle(showSidebar: false, onPressed: onCollapsed),
+          ],
+        ),
+        if (topic != null && siteUrl != null) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (isConnected)
+                Expanded(
+                  child: TopicNotificationLevelButton(
+                    siteUrl: siteUrl,
+                    topic: topic,
+                    showLabel: true,
+                  ),
+                ),
+              if (isConnected) const SizedBox(width: 4),
+              if (controller.currentInstance?.user != null)
+                TopicBookmarkButton(
+                  siteUrl: siteUrl,
+                  topic: topic,
+                  busy: bookmarkBusy,
+                ),
+              TopicStatusButton(
+                siteUrl: siteUrl,
+                topic: topic,
+                route: route,
+                topicFlags: topicFlags,
+              ),
+              if (ShellTitleBar.columnsCarryUserMenu) ...[
+                ...registry.shellHeaderActions(
+                  context,
+                  surface: PluginHeaderSurface.content,
+                  compact: MediaQuery.sizeOf(context).width < 768,
+                  ringColor: theme.shell.panel,
+                ),
+                UserMenuButton(ringColor: theme.shell.panel),
+              ],
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _TopicSidebarToggle extends StatelessWidget {
+  const _TopicSidebarToggle({
+    required this.showSidebar,
+    required this.onPressed,
+  });
+
+  final bool showSidebar;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => DButton.iconOnly(
+    key: const ValueKey('topic-sidebar-toggle'),
+    onPressed: onPressed,
+    icon: const _TopicSidebarIcon(),
+    tooltip: showSidebar ? 'Show topic sidebar' : 'Hide topic sidebar',
+    variant: DButtonVariant.flat,
+    size: DButtonSize.small,
+  );
+}
+
+class _TopicSidebarIcon extends StatelessWidget {
+  const _TopicSidebarIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = IconTheme.of(context).color ?? const Color(0xFF000000);
+    return SizedBox(
+      width: 20,
+      height: 18,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border.all(color: color, width: 2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            bottom: 4,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(1),
+              ),
+              child: const SizedBox(width: 4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TopicPropertiesCard extends StatelessWidget {
+  const _TopicPropertiesCard({
+    required this.siteUrl,
+    required this.topic,
+    required this.route,
+    required this.registry,
+  });
+
+  final String siteUrl;
+  final TopicDetail topic;
+  final ContentRoute? route;
+  final PluginRegistry registry;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ShellScope.read(context);
+    final category = controller.categoryFor(topic.categoryId, siteUrl: siteUrl);
+    final propertiesRebuildOn = registry.topicPropertiesRebuildOn(
+      context,
+      siteUrl,
+      topic,
+    );
+
+    Widget properties() {
+      final pluginSections = registry.topicProperties(context, siteUrl, topic);
+      return _TopicSidebarCard(
+        key: const ValueKey('topic-properties-card'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Column(
+            children: [
+              _TopicPropertyRow(
+                label: 'Category',
+                child: _TopicSidebarCategory(
+                  label: category?.name ?? route?.subtitle ?? 'Uncategorized',
+                  color: category == null
+                      ? route?.color
+                      : Color(category.colorValue),
+                ),
+              ),
+              _TopicPropertyRow(
+                label: 'Tags',
+                child: topic.tags.isEmpty
+                    ? const _EmptyTopicProperty('No tags')
+                    : Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final tag in topic.tags)
+                            _TopicSidebarTag(tag: tag),
+                        ],
+                      ),
+              ),
+              for (final section in pluginSections)
+                _TopicPropertyRow(
+                  label: section.label,
+                  child: section.values.isEmpty
+                      ? const _EmptyTopicProperty('None')
+                      : Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: section.values,
+                        ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return propertiesRebuildOn == null
+        ? properties()
+        : ListenableBuilder(
+            listenable: propertiesRebuildOn,
+            builder: (context, _) => properties(),
+          );
+  }
+}
+
+class _TopicSidebarCard extends StatelessWidget {
+  const _TopicSidebarCard({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainer,
+        border: Border.all(color: theme.shell.divider),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(11), child: child),
+    );
+  }
+}
+
+class _TopicPropertyRow extends StatelessWidget {
+  const _TopicPropertyRow({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 94,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+}
+
+class _TopicSidebarCategory extends StatelessWidget {
+  const _TopicSidebarCategory({required this.label, required this.color});
+
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      key: const ValueKey('topic-sidebar-category'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          key: const ValueKey('topic-sidebar-category-color'),
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(
+            color: color ?? theme.colorScheme.outline,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 7),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TopicSidebarTag extends StatelessWidget {
+  const _TopicSidebarTag({required this.tag});
+
+  final TopicTag tag;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: ValueKey(('topic-sidebar-tag', tag.name)),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        '#${tag.name}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyTopicProperty extends StatelessWidget {
+  const _EmptyTopicProperty(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    label,
+    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
+  );
 }
 
 /// A topic-list-shaped placeholder for the payload attached to the final post
@@ -1862,6 +2368,7 @@ class _MoreTopicsLoadingSkeleton extends StatelessWidget {
   const _MoreTopicsLoadingSkeleton();
 
   static const double _headingHeight = 48;
+  static const int _rowCount = 4;
 
   @override
   Widget build(BuildContext context) {
@@ -1870,42 +2377,25 @@ class _MoreTopicsLoadingSkeleton extends StatelessWidget {
     return LoadingSkeleton(
       key: const ValueKey('topic-recommendations-loading-skeleton'),
       semanticsLabel: 'Loading more topics',
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final availableHeight = constraints.hasBoundedHeight
-              ? constraints.maxHeight - _headingHeight
-              : TopicListRow.minimumHeight * 4;
-          final rowCount = (availableHeight / TopicListRow.minimumHeight)
-              .ceil()
-              .clamp(1, 12);
-
-          return ClipRect(
-            child: OverflowBox(
-              alignment: Alignment.topCenter,
-              maxHeight: double.infinity,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(
-                    height: _headingHeight,
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(16, 20, 16, 16),
-                      child: Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: LoadingSkeletonBlock(width: 72, height: 10),
-                      ),
-                    ),
-                  ),
-                  for (var index = 0; index < rowCount; index++) ...[
-                    if (index > 0) Divider(height: 1, color: divider),
-                    _MoreTopicsSkeletonRow(index: index),
-                  ],
-                ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(
+            height: _headingHeight,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 20, 16, 16),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: LoadingSkeletonBlock(width: 72, height: 10),
               ),
             ),
-          );
-        },
+          ),
+          for (var index = 0; index < _rowCount; index++) ...[
+            if (index > 0) Divider(height: 1, color: divider),
+            _MoreTopicsSkeletonRow(index: index),
+          ],
+        ],
       ),
     );
   }
@@ -1960,12 +2450,14 @@ class _MoreTopics extends StatelessWidget {
     required this.recommendations,
     required this.selected,
     required this.onSelected,
+    this.topPadding = 20,
   });
 
   final String siteUrl;
   final TopicRecommendations recommendations;
   final TopicRecommendationSourceId selected;
   final ValueChanged<TopicRecommendationSourceId> onSelected;
+  final double topPadding;
 
   /// A remembered choice only holds while that source has topics. A missing
   /// plugin or an empty contribution falls back to the first populated source
@@ -1991,7 +2483,7 @@ class _MoreTopics extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.only(top: 20, bottom: 16),
+      padding: EdgeInsets.only(top: topPadding, bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

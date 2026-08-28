@@ -4,7 +4,7 @@ import 'package:discourse_native/src/data/composer_geometry_store.dart';
 import 'package:discourse_native/src/data/diagnostics_panel_width_store.dart';
 import 'package:discourse_native/src/data/sidebar_section_store.dart';
 import 'package:discourse_native/src/data/sidebar_width_store.dart';
-import 'package:discourse_native/src/data/topic_recommendations_panel_store.dart';
+import 'package:discourse_native/src/data/topic_sidebar_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -128,10 +128,10 @@ void main() {
     );
   });
 
-  test('reports a rejected topic panel write without failing', () async {
-    final persistence = _RejectingTopicRecommendationsPanelPersistence();
+  test('reports a rejected topic sidebar write without failing', () async {
+    final persistence = _RejectingTopicSidebarPersistence();
 
-    await TopicRecommendationsPanelStore(
+    await TopicSidebarStore(
       persistence: persistence,
     ).write(siteUrl: 'https://meta.discourse.org', collapsed: true);
 
@@ -141,7 +141,7 @@ void main() {
     ));
     expect(
       diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-      _isRejectedStorageWrite('topicRecommendationsPanel.writeCollapsed'),
+      _isRejectedStorageWrite('topicSidebar.writeCollapsed'),
     );
   });
 }
@@ -242,8 +242,8 @@ final class _RejectingSidebarSectionPersistence
   }
 }
 
-final class _RejectingTopicRecommendationsPanelPersistence
-    implements TopicRecommendationsPanelPersistence {
+final class _RejectingTopicSidebarPersistence
+    implements TopicSidebarPersistence {
   ({String siteUrl, bool collapsed})? write;
 
   @override

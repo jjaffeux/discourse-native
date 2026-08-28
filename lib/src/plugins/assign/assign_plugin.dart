@@ -39,8 +39,8 @@ final class AssignPlugin
         TopicRecordPlugin<Assignments>,
         PostDecorationPlugin,
         TopicListMetadataPlugin,
-        TopicHeaderPlugin,
-        TopicHeaderRebuildPlugin,
+        TopicPropertiesPlugin,
+        TopicPropertiesRebuildPlugin,
         PostMenuPlugin,
         TopicLivePlugin,
         TopicLiveReloadPlugin,
@@ -164,7 +164,7 @@ final class AssignPlugin
   }
 
   @override
-  List<Widget> topicHeader(
+  List<TopicPropertySection> topicProperties(
     BuildContext context,
     String siteUrl,
     TopicDetail topic,
@@ -221,7 +221,7 @@ final class AssignPlugin
         onTap: openAssignments,
         child: ExcludeSemantics(
           child: DButton(
-            key: const Key('assign-topic-header'),
+            key: const Key('assign-topic-property'),
             label: const Text('Assign'),
             icon: const DIcon(DIcons.userPlus, size: 18),
             tooltip: 'Assign topic',
@@ -232,66 +232,79 @@ final class AssignPlugin
         ),
       );
       if (!canAssign) return const [];
-      return [button()];
+      return [
+        TopicPropertySection(label: 'Assignments', values: [button()]),
+      ];
     }
 
     return [
-      for (var index = 0; index < visibleAssignments.length; index++)
-        Semantics(
-          key: index == 0
-              ? const Key('assign-topic-header')
-              : Key('assign-topic-header-$index'),
-          button: true,
-          label: index == 0
-              ? summary
-              : 'View assignment for '
-                    '${visibleAssignments[index].assignee.displayName}',
-          onTap: openAssignments,
-          child: ExcludeSemantics(
-            child: Tooltip(
-              message: 'View assignments',
-              child: Builder(
-                builder: (context) {
-                  final theme = Theme.of(context);
-                  return InkWell(
-                    onTap: openAssignments,
-                    borderRadius: BorderRadius.circular(4),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 2,
-                        vertical: 3,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          DIcon(
-                            visibleAssignments[index].assignee.isGroup
-                                ? DIcons.users
-                                : DIcons.userPlus,
-                            size: 14,
-                            color: theme.colorScheme.onSurfaceVariant,
+      TopicPropertySection(
+        label: 'Assignments',
+        values: [
+          for (var index = 0; index < visibleAssignments.length; index++)
+            Semantics(
+              key: index == 0
+                  ? const Key('assign-topic-property')
+                  : Key('assign-topic-property-$index'),
+              button: true,
+              label: index == 0
+                  ? summary
+                  : 'View assignment for '
+                        '${visibleAssignments[index].assignee.displayName}',
+              onTap: openAssignments,
+              child: ExcludeSemantics(
+                child: Tooltip(
+                  message: 'View assignments',
+                  child: Builder(
+                    builder: (context) {
+                      final theme = Theme.of(context);
+                      return InkWell(
+                        onTap: openAssignments,
+                        borderRadius: BorderRadius.circular(4),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 2,
+                            vertical: 3,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _headerAssignmentLabel(visibleAssignments[index]),
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              DIcon(
+                                visibleAssignments[index].assignee.isGroup
+                                    ? DIcons.users
+                                    : DIcons.userPlus,
+                                size: 14,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  _propertyAssignmentLabel(
+                                    visibleAssignments[index],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
+        ],
+      ),
     ];
   }
 
   @override
-  Listenable? topicHeaderRebuildOn(
+  Listenable? topicPropertiesRebuildOn(
     BuildContext context,
     String siteUrl,
     TopicDetail topic,
@@ -630,7 +643,7 @@ bool _canAssignRecord(
 String _postLabel(int? postNumber) =>
     postNumber == null ? 'Post' : 'Post #$postNumber';
 
-String _headerAssignmentLabel(Assignment assignment) =>
+String _propertyAssignmentLabel(Assignment assignment) =>
     assignment.isPostAssignment
     ? '${_postLabel(assignment.postNumber)} · ${assignment.assignee.displayName}'
     : 'Assigned to ${assignment.assignee.displayName}';

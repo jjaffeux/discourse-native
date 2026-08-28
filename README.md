@@ -209,7 +209,7 @@ bookmark on something this app has never heard of still opens.
 
 Posts and topics also expose the complete core bookmark lifecycle. Their
 personalized serializers populate one shared `Bookmark` record; post actions
-and the topic header create, edit and delete through `/bookmarks`, while the
+and the topic sidebar create, edit and delete through `/bookmarks`, while the
 topic payload's `bookmarks` array drives the grouped list even for posts outside
 the loaded stream. Notes, reminder presets/custom wall times and the four
 auto-delete preferences match the web client. Reminder authoring prefers the
@@ -540,6 +540,16 @@ binding fails outright on the poll's backoff timer outliving the tree.
 Tapping a row pushes a topic route onto the content stack, so back returns to
 the list — which is not refetched, since feeds are cached.
 
+Topic chrome keeps navigation separate from context. The fixed header contains
+only Back and a single-line title. On expanded layouts a 344-point right
+sidebar holds Reply, notification tracking, bookmarks and the guardian-gated
+topic menu at its top level; category, tags and plugin-owned properties such as
+Assignments share one untitled card; and recommendation sources such as
+Related and Suggested share a second card with tabs. Its panel-shaped toggle
+removes the entire sidebar from the layout, and that preference is remembered
+per forum. Medium and compact layouts keep the same controls available through
+a transient right-side overlay instead of shrinking the reading column.
+
 Topic-list rows carry `last_read_post_number` and `highest_post_number`. Like
 Discourse's web client, an unread row opens at `last_read_post_number + 1`,
 capped at the highest post; a fully read row opens at its last post. The
@@ -591,7 +601,7 @@ Each post's hover, keyboard, and touch actions also open that share surface
 with its post-number URL. Its Reply as new topic action keeps the backlink
 post-specific while the one-tap Copy link remains available beside it.
 
-Whole-topic flagging is distinct from flagging the opening post. The header
+Whole-topic flagging is distinct from flagging the opening post. The sidebar
 action requires `details.can_flag_topic`, intersects the topic's top-level
 `actions_summary` with `/site.json`'s separately localized
 `topic_flag_types`, and submits the topic id with `flag_topic: true` through
@@ -1976,7 +1986,7 @@ with the available width.
 | ---------- | -------- | --------------------------------------------- |
 | `compact`  | < 768    | rail + **one** pane (sidebar *or* content)     |
 | `medium`   | 768–1199 | rail + sidebar + content                       |
-| `expanded` | ≥ 1200   | rail + sidebar + content + right sidebar       |
+| `expanded` | ≥ 1200   | rail + sidebar + content + topic sidebar       |
 
 On medium and expanded layouts, drag the sidebar's right edge to resize it.
 The preferred width is stored once for the app, so it follows the reader when
