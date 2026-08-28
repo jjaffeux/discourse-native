@@ -327,6 +327,10 @@ DND through the normal endpoint, matching the web status service.
 (`topic_list.topics` plus a `users` array), so they go through a single
 `DiscourseApi.topicList(path:)`. `messages` is the exception only in that its
 path is named after the account, so signed out it falls back to the placeholder.
+Connected accounts also retain the current-user groups marked `has_messages`.
+The Messages page offers those beside Personal, with each group reading
+`/topics/private-messages-group/{username}/{group}.json`; every inbox has its
+own cached feed, pagination cursor, restored route, and scroll position.
 
 Lists are cached per site and destination — revisiting one does not refetch.
 Tapping the destination you are already looking at forces a refresh; merely

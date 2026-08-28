@@ -22,6 +22,7 @@ class ContentRoute {
     this.slug,
     this.postNumber,
     this.feedPath,
+    this.messageGroupName,
   });
 
   /// A filtered topic list — a category or a tag — opened from a hashtag.
@@ -78,6 +79,26 @@ class ContentRoute {
   factory ContentRoute.userActivity() =>
       const ContentRoute(id: 'activity', title: 'Activity', icon: DIcons.list);
 
+  /// One private-message inbox belonging to the connected account.
+  ///
+  /// Personal and group inboxes use distinct route ids so their topic feeds,
+  /// pagination cursors, and scroll positions never overwrite one another.
+  factory ContentRoute.messages({String? groupName}) {
+    final group = groupName?.trim();
+    if (group != null &&
+        (group.isEmpty || group.length > maximumMessageGroupNameLength)) {
+      throw ArgumentError.value(groupName, 'groupName', 'Invalid group name.');
+    }
+    return ContentRoute(
+      id: group == null
+          ? 'messages'
+          : 'messages-group-${Uri.encodeComponent(group)}',
+      title: 'Messages',
+      icon: DIcons.inbox,
+      messageGroupName: group,
+    );
+  }
+
   /// The route a sidebar entry opens.
   ContentRoute.fromDestination(SidebarDestination destination)
     : id = destination.id,
@@ -88,7 +109,8 @@ class ContentRoute {
       topicId = null,
       slug = null,
       postNumber = null,
-      feedPath = destination.feedPath;
+      feedPath = destination.feedPath,
+      messageGroupName = null;
 
   final String id;
   final String title;
@@ -109,6 +131,10 @@ class ContentRoute {
   /// knows their address.
   final String? feedPath;
 
+  /// The group whose PM inbox this route shows, or null for personal messages
+  /// and every non-message route.
+  final String? messageGroupName;
+
   /// Largest site-relative feed path restored from presentation state.
   ///
   /// Ordinary category paths are tiny. Keeping the same generous boundary as
@@ -116,9 +142,16 @@ class ContentRoute {
   /// oversized URI on startup.
   static const int maximumFeedPathLength = 2048;
 
+  /// Core group names are much shorter; this defensive persistence boundary
+  /// also keeps their percent-encoded request segment comfortably bounded.
+  static const int maximumMessageGroupNameLength = 255;
+
   bool get isTopic => topicId != null;
 
   bool get isPreferences => !isTopic && id == 'preferences';
+
+  bool get isMessages =>
+      !isTopic && (id == 'messages' || messageGroupName != null);
 
   /// A durable, presentation-only snapshot of this route.
   ///
@@ -135,6 +168,7 @@ class ContentRoute {
     if (slug != null) 'slug': slug,
     if (postNumber != null) 'post_number': postNumber,
     if (feedPath != null) 'feed_path': feedPath,
+    if (messageGroupName != null) 'message_group_name': messageGroupName,
   };
 
   factory ContentRoute.fromJson(Map<String, dynamic> json) {
@@ -152,6 +186,7 @@ class ContentRoute {
     final topicId = json['topic_id'];
     final postNumber = json['post_number'];
     final feedPath = json['feed_path'];
+    final messageGroupName = json['message_group_name'];
     if (topicId != null && (topicId is! int || topicId <= 0)) {
       throw const FormatException('Invalid content route topic id');
     }
@@ -160,6 +195,15 @@ class ContentRoute {
     }
     if (feedPath != null && !_isSafeFeedPath(feedPath)) {
       throw const FormatException('Invalid content route feed path');
+    }
+    if (messageGroupName != null &&
+        (messageGroupName is! String ||
+            messageGroupName.trim().isEmpty ||
+            messageGroupName != messageGroupName.trim() ||
+            messageGroupName.length > maximumMessageGroupNameLength ||
+            topicId != null ||
+            id != 'messages-group-${Uri.encodeComponent(messageGroupName)}')) {
+      throw const FormatException('Invalid content route message group');
     }
     return ContentRoute(
       id: id,
@@ -171,6 +215,7 @@ class ContentRoute {
       slug: json['slug'] is String ? json['slug'] as String : null,
       postNumber: postNumber as int?,
       feedPath: feedPath as String?,
+      messageGroupName: messageGroupName as String?,
     );
   }
 

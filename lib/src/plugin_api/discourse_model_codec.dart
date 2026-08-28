@@ -97,6 +97,10 @@ final class DiscourseModelCodec {
         for (final group in jsonObjects(json['groups']))
           ?jsonText(group['name']),
       ]),
+      messageGroupNames: List.unmodifiable([
+        for (final group in jsonObjects(json['groups']))
+          if (group['has_messages'] == true) ?jsonText(group['name']),
+      ]),
       sidebarCategoryIds: List.unmodifiable([
         for (final value in jsonArray(json['sidebar_category_ids']))
           ?jsonIntOrNull(value),

@@ -2946,6 +2946,130 @@ void main() {
       expect(find.text('A private message'), findsOneWidget);
     });
 
+    testWidgets('switches between personal and eligible group inboxes', (
+      tester,
+    ) async {
+      const teamInbox = '/topics/private-messages-group/joffreyj/team.json';
+      final api = FakeDiscourseApi(
+        user: const DiscourseUser(
+          id: 7,
+          username: 'joffreyj',
+          name: 'Joffrey',
+          messageGroupNames: ['team', 'tech-advocates'],
+        ),
+        feeds: {
+          '/latest.json': latest,
+          inbox: [const Topic(id: 9, title: 'A private message', slug: 'a-pm')],
+          teamInbox: [
+            const Topic(id: 10, title: 'Team escalation', slug: 'team-pm'),
+          ],
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(userMenu);
+      await tester.pumpAndSettle();
+      await tester.tap(sidebarDestination('Messages'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('message-inbox-picker')),
+        findsOneWidget,
+      );
+      expect(find.text('Personal'), findsOneWidget);
+      expect(find.text('A private message'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('message-inbox-selector')));
+      await tester.pumpAndSettle();
+      expect(find.text('team'), findsOneWidget);
+      expect(find.text('tech-advocates'), findsOneWidget);
+      await tester.tap(find.text('team'));
+      await tester.pumpAndSettle();
+
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      expect(api.feedPaths, contains(teamInbox));
+      expect(find.text('Team escalation'), findsOneWidget);
+      expect(find.text('A private message'), findsNothing);
+      expect(controller.currentContent?.messageGroupName, 'team');
+      expect(controller.currentFeedId, 'messages-group-team');
+      expect(controller.canCreateTopicHere, isFalse);
+
+      await tester.tap(find.byKey(const ValueKey('message-inbox-selector')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Personal'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('A private message'), findsOneWidget);
+      expect(controller.currentContent?.id, 'messages');
+      expect(api.feedPaths.where((path) => path == inbox), hasLength(1));
+    });
+
+    testWidgets('restores the selected group inbox', (tester) async {
+      const groupInbox =
+          '/topics/private-messages-group/joffreyj/tech-advocates.json';
+      const user = DiscourseUser(
+        id: 7,
+        username: 'joffreyj',
+        messageGroupNames: ['tech-advocates'],
+      );
+      final forumTabs = FakeForumTabStore([
+        ForumWorkspace(
+          siteUrl: 'https://meta.discourse.org',
+          accountIdentity: 'user:joffreyj',
+          activeTabId: 'group-inbox-tab',
+          tabs: [
+            ForumTab(
+              id: 'group-inbox-tab',
+              rootDestinationId: 'messages',
+              contentStack: [
+                ContentRoute.messages(groupName: 'tech-advocates'),
+              ],
+            ),
+          ],
+        ),
+      ]);
+      final api = FakeDiscourseApi(
+        user: user,
+        feeds: {
+          groupInbox: [
+            const Topic(
+              id: 10,
+              title: 'Restored group message',
+              slug: 'restored-group-pm',
+            ),
+          ],
+        },
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: user),
+        ],
+        api: api,
+        authenticator: authenticator,
+        forumTabs: forumTabs,
+      );
+
+      expect(api.feedPaths, [groupInbox]);
+      expect(find.text('tech-advocates'), findsOneWidget);
+      expect(find.text('Restored group message'), findsOneWidget);
+      expect(
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).currentContent?.messageGroupName,
+        'tech-advocates',
+      );
+    });
+
     testWidgets('messages uses a topic-row skeleton while loading', (
       tester,
     ) async {

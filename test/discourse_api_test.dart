@@ -5911,6 +5911,56 @@ void _writeGroups() {
 
   group('user drafts', () {
     test(
+      'reads and persists only groups that expose message inboxes',
+      () async {
+        final api = DiscourseApi(
+          client: MockClient(
+            (_) async => http.Response(
+              jsonEncode({
+                'current_user': {
+                  'id': 7,
+                  'username': 'sam',
+                  'groups': [
+                    {'name': 'team', 'has_messages': true},
+                    {'name': 'ordinary-membership', 'has_messages': false},
+                    {'name': 'tech-advocates', 'has_messages': true},
+                    {'name': 42, 'has_messages': true},
+                  ],
+                },
+              }),
+              200,
+            ),
+          ),
+        );
+
+        final user = await api.currentUser(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+        );
+        final stored = DiscourseUser.fromJson(user.toJson());
+
+        expect(user.groups, ['team', 'ordinary-membership', 'tech-advocates']);
+        expect(user.messageGroupNames, ['team', 'tech-advocates']);
+        expect(
+          () => user.messageGroupNames.add('another'),
+          throwsUnsupportedError,
+        );
+        expect(stored, user);
+        expect(stored.messageGroupNames, ['team', 'tech-advocates']);
+        expect(
+          user,
+          isNot(
+            const DiscourseUser(
+              id: 7,
+              username: 'sam',
+              groups: ['team', 'ordinary-membership', 'tech-advocates'],
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
       'reads the current account draft count for navigation badges',
       () async {
         final api = DiscourseApi(

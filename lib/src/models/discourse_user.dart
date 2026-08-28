@@ -18,6 +18,7 @@ class DiscourseUser {
     this.canChangePostOwner = false,
     this.staff = false,
     this.groups = const [],
+    this.messageGroupNames = const [],
     this.sidebarCategoryIds = const [],
     this.trackedCategoryIds,
     this.watchedCategoryIds,
@@ -48,6 +49,9 @@ class DiscourseUser {
     staff: json['staff'] == true,
     groups: List.unmodifiable(
       jsonArray(json['groups']).map(jsonText).whereType<String>(),
+    ),
+    messageGroupNames: List.unmodifiable(
+      jsonArray(json['messageGroupNames']).map(jsonText).whereType<String>(),
     ),
     sidebarCategoryIds: List.unmodifiable([
       for (final value in jsonArray(json['sidebarCategoryIds']))
@@ -92,6 +96,13 @@ class DiscourseUser {
 
   /// Group names from the freshly loaded current-user payload.
   final List<String> groups;
+
+  /// Groups whose private-message inboxes this account may enter.
+  ///
+  /// Discourse marks these with `has_messages` in the current-user payload.
+  /// Keeping the narrower list separate prevents ordinary group membership
+  /// from being presented as an inbox the server will refuse.
+  final List<String> messageGroupNames;
 
   /// The categories this account chose for its sidebar. Core derives display
   /// order from the site's category ordering rather than this list's order.
@@ -163,6 +174,7 @@ class DiscourseUser {
       'canChangePostOwner': canChangePostOwner,
       'staff': staff,
       'groups': groups,
+      'messageGroupNames': messageGroupNames,
       'sidebarCategoryIds': sidebarCategoryIds,
       if (trackedCategoryIds != null) 'trackedCategoryIds': trackedCategoryIds,
       if (watchedCategoryIds != null) 'watchedCategoryIds': watchedCategoryIds,
@@ -190,6 +202,7 @@ class DiscourseUser {
     canChangePostOwner: canChangePostOwner,
     staff: staff,
     groups: groups,
+    messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
@@ -212,6 +225,7 @@ class DiscourseUser {
     canChangePostOwner: canChangePostOwner,
     staff: staff,
     groups: groups,
+    messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
@@ -242,6 +256,7 @@ class DiscourseUser {
     canChangePostOwner: canChangePostOwner,
     staff: staff,
     groups: groups,
+    messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
@@ -267,6 +282,7 @@ class DiscourseUser {
     canChangePostOwner: canChangePostOwner,
     staff: staff,
     groups: groups,
+    messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
@@ -289,6 +305,7 @@ class DiscourseUser {
     canChangePostOwner: canChangePostOwner,
     staff: staff,
     groups: groups,
+    messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
@@ -313,6 +330,7 @@ class DiscourseUser {
       other.canChangePostOwner == canChangePostOwner &&
       other.staff == staff &&
       listEquals(other.groups, groups) &&
+      listEquals(other.messageGroupNames, messageGroupNames) &&
       listEquals(other.sidebarCategoryIds, sidebarCategoryIds) &&
       listEquals(other.trackedCategoryIds, trackedCategoryIds) &&
       listEquals(other.watchedCategoryIds, watchedCategoryIds) &&
@@ -338,6 +356,7 @@ class DiscourseUser {
     canChangePostOwner,
     staff,
     Object.hashAll(groups),
+    Object.hashAll(messageGroupNames),
     Object.hashAll(sidebarCategoryIds),
     Object.hashAll(trackedCategoryIds ?? const <int>[]),
     Object.hashAll(watchedCategoryIds ?? const <int>[]),
