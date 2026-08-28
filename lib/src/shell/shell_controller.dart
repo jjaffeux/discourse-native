@@ -1479,7 +1479,10 @@ class ShellController extends FrameSafeNotifier
     PreferenceSection section,
     UserPreferences preferences,
   ) {
-    if (section != PreferenceSection.datesAndReminders) return;
+    if (section != PreferenceSection.profile &&
+        section != PreferenceSection.interface) {
+      return;
+    }
     final instance = _instanceAt(siteUrl);
     final user = instance?.user;
     if (instance == null ||
@@ -1487,10 +1490,15 @@ class ShellController extends FrameSafeNotifier
         user.username.toLowerCase() != preferences.username.toLowerCase()) {
       return;
     }
-    final updated = user.withPreferences(
-      timezone: preferences.timezone,
-      bookmarkAutoDeletePreference: preferences.bookmarkAutoDeletePreference,
-    );
+    final updated = switch (section) {
+      PreferenceSection.profile => user.withPreferences(
+        timezone: preferences.timezone,
+      ),
+      PreferenceSection.interface => user.withPreferences(
+        bookmarkAutoDeletePreference: preferences.bookmarkAutoDeletePreference,
+      ),
+      _ => user,
+    };
     if (updated == user) return;
     _replaceInstance(instance, instance.copyWith(user: updated));
     _notify();
@@ -4579,9 +4587,8 @@ class ShellController extends FrameSafeNotifier
       selectedTagIds: composer.tags.map((tag) => tag.id).whereType<int>(),
       // Core rejects a page larger than the site's own setting outright, so
       // the site sets this and the client only caps what it will render.
-      limit: siteConfigFor(
-        target.siteUrl,
-      ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
+      limit: siteConfigFor(target.siteUrl).maxTagSearchResults
+          .clamp(1, TopicTagSearch.maximumResults),
     );
   }
 

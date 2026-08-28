@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
@@ -196,9 +197,10 @@ void main() {
 
   test('forwards each supported section as one flat partial payload', () async {
     expect(PreferenceSection.values, [
+      PreferenceSection.profile,
       PreferenceSection.notifications,
       PreferenceSection.tracking,
-      PreferenceSection.datesAndReminders,
+      PreferenceSection.interface,
     ]);
 
     final cases =
@@ -209,6 +211,10 @@ void main() {
             Map<String, Object?> payload,
           })
         >{
+          PreferenceSection.profile: (
+            change: (current) => current.copyWith(timezone: 'Europe/Paris'),
+            payload: const {'timezone': 'Europe/Paris'},
+          ),
           PreferenceSection.notifications: (
             change: (current) => current.copyWith(
               likeNotificationFrequency: 3,
@@ -231,9 +237,12 @@ void main() {
               'notification_level_when_replying': 3,
             },
           ),
-          PreferenceSection.datesAndReminders: (
-            change: (current) => current.copyWith(timezone: 'Europe/Paris'),
-            payload: const {'timezone': 'Europe/Paris'},
+          PreferenceSection.interface: (
+            change: (current) => current.copyWith(
+              bookmarkAutoDeletePreference:
+                  BookmarkAutoDeletePreference.onOwnerReply,
+            ),
+            payload: const {'bookmark_auto_delete_preference': 2},
           ),
         };
 
@@ -265,7 +274,7 @@ void main() {
 
       controller.edit(
         _siteUrl,
-        PreferenceSection.datesAndReminders,
+        PreferenceSection.profile,
         (current) => current.copyWith(timezone: 'Europe/Paris'),
       );
       controller.edit(
@@ -285,7 +294,7 @@ void main() {
       expect(state.confirmed?.timezone, 'Etc/UTC');
       expect(state.draft?.timezone, 'Europe/Paris');
       expect(state.dirty(PreferenceSection.notifications), isFalse);
-      expect(state.dirty(PreferenceSection.datesAndReminders), isTrue);
+      expect(state.dirty(PreferenceSection.profile), isTrue);
       expect(saved.single.timezone, 'Etc/UTC');
     },
   );
@@ -305,18 +314,18 @@ void main() {
 
       controller.edit(
         _siteUrl,
-        PreferenceSection.datesAndReminders,
+        PreferenceSection.profile,
         (current) => current.copyWith(timezone: 'Mars/Olympus'),
       );
 
       expect(
-        await controller.save(_accountA, PreferenceSection.datesAndReminders),
+        await controller.save(_accountA, PreferenceSection.profile),
         isFalse,
       );
       final state = controller.stateFor(_siteUrl)!;
       expect(state.draft?.timezone, 'Mars/Olympus');
       expect(state.confirmed?.timezone, 'Etc/UTC');
-      expect(state.dirty(PreferenceSection.datesAndReminders), isTrue);
+      expect(state.dirty(PreferenceSection.profile), isTrue);
       expect(state.error, 'The selected timezone is not available.');
       expect(state.saving, isFalse);
       expect(state.savedSection, isNull);
@@ -404,7 +413,7 @@ void main() {
     await pumpEventQueue();
     controller.edit(
       _siteUrl,
-      PreferenceSection.datesAndReminders,
+      PreferenceSection.profile,
       (current) => current.copyWith(timezone: 'Europe/Paris'),
     );
     refresh.complete(_initial.copyWith(timezone: 'America/New_York'));
@@ -414,7 +423,7 @@ void main() {
     expect(state.loading, isFalse);
     expect(state.draft?.timezone, 'Europe/Paris');
     expect(state.confirmed?.timezone, 'Etc/UTC');
-    expect(state.dirty(PreferenceSection.datesAndReminders), isTrue);
+    expect(state.dirty(PreferenceSection.profile), isTrue);
   });
 
   test('forget during a credential read dispatches no stale load', () async {

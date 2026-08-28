@@ -4,7 +4,7 @@ import 'bookmark.dart';
 import 'json.dart';
 
 /// The coherent native groups backed by Discourse's user preferences route.
-enum PreferenceSection { notifications, tracking, datesAndReminders }
+enum PreferenceSection { profile, notifications, tracking, interface }
 
 /// The server-backed preference fields exposed by the native client.
 ///
@@ -112,6 +112,7 @@ final class UserPreferences {
   /// The exact flat attributes accepted by Discourse's user update route.
   Map<String, Object?> payloadFor(PreferenceSection section) =>
       Map.unmodifiable(switch (section) {
+        PreferenceSection.profile => {'timezone': timezone},
         PreferenceSection.notifications => {
           'like_notification_frequency': likeNotificationFrequency,
           'notify_on_linked_posts': notifyOnLinkedPosts,
@@ -121,8 +122,7 @@ final class UserPreferences {
           'auto_track_topics_after_msecs': autoTrackTopicsAfterMsecs,
           'notification_level_when_replying': notificationLevelWhenReplying,
         },
-        PreferenceSection.datesAndReminders => {
-          'timezone': timezone,
+        PreferenceSection.interface => {
           'bookmark_auto_delete_preference':
               bookmarkAutoDeletePreference.wireValue,
         },
@@ -146,8 +146,8 @@ final class UserPreferences {
       autoTrackTopicsAfterMsecs: confirmed.autoTrackTopicsAfterMsecs,
       notificationLevelWhenReplying: confirmed.notificationLevelWhenReplying,
     ),
-    PreferenceSection.datesAndReminders => copyWith(
-      timezone: confirmed.timezone,
+    PreferenceSection.profile => copyWith(timezone: confirmed.timezone),
+    PreferenceSection.interface => copyWith(
       bookmarkAutoDeletePreference: confirmed.bookmarkAutoDeletePreference,
     ),
   };

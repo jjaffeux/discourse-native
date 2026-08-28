@@ -131,9 +131,10 @@ Future<void> _chooseNarrowSection(
 }
 
 String _sectionLabel(PreferenceSection section) => switch (section) {
+  PreferenceSection.profile => 'Profile',
   PreferenceSection.notifications => 'Notifications',
   PreferenceSection.tracking => 'Tracking',
-  PreferenceSection.datesAndReminders => 'Dates & reminders',
+  PreferenceSection.interface => 'Interface',
 };
 
 void main() {
@@ -196,6 +197,31 @@ void main() {
     } finally {
       semantics.dispose();
     }
+  });
+
+  testWidgets('profile and interface replace dates and reminders', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    await _pumpPage(tester, fixture, width: 1000);
+
+    final profile = find.byKey(const ValueKey('preferences-section-profile'));
+    final interface = find.byKey(
+      const ValueKey('preferences-section-interface'),
+    );
+    expect(profile, findsOneWidget);
+    expect(interface, findsOneWidget);
+    expect(find.text('Dates & reminders'), findsNothing);
+
+    await tester.tap(profile);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('preferences-timezone')), findsOneWidget);
+    expect(find.text('Automatically delete bookmarks'), findsNothing);
+
+    await tester.tap(interface);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('preferences-timezone')), findsNothing);
+    expect(find.text('Automatically delete bookmarks'), findsOneWidget);
   });
 
   testWidgets('editing enables save and sends only the changed flat field', (
@@ -263,7 +289,7 @@ void main() {
   testWidgets('invalid IANA timezone blocks the write locally', (tester) async {
     final fixture = await _fixture();
     await _pumpPage(tester, fixture);
-    await _chooseNarrowSection(tester, PreferenceSection.datesAndReminders);
+    await _chooseNarrowSection(tester, PreferenceSection.profile);
 
     await tester.enterText(
       find.byKey(const ValueKey('preferences-timezone')),
@@ -275,10 +301,7 @@ void main() {
       find.text('Use a valid IANA timezone, such as Europe/Paris.'),
       findsOneWidget,
     );
-    expect(
-      _saveButton(tester, PreferenceSection.datesAndReminders).onPressed,
-      isNull,
-    );
+    expect(_saveButton(tester, PreferenceSection.profile).onPressed, isNull);
     expect(fixture.api.userPreferenceUpdates, isEmpty);
   });
 
@@ -397,33 +420,61 @@ void main() {
     );
   });
 
-  testWidgets('confirmed date settings update the account mirror and store', (
+  testWidgets(
+    'confirmed profile settings update the account mirror and store',
+    (tester) async {
+      final fixture = await _fixture();
+      await _pumpPage(tester, fixture);
+      await _chooseNarrowSection(tester, PreferenceSection.profile);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('preferences-timezone')),
+        'Europe/London',
+      );
+      await tester.pump();
+      fixture.store.saved.clear();
+      await tester.tap(_save(PreferenceSection.profile));
+      await tester.pumpAndSettle();
+
+      final mirrored = fixture.shell.instanceFor(_siteUrl)!.user!;
+      expect(mirrored.timezone, 'Europe/London');
+      expect(
+        mirrored.bookmarkAutoDeletePreference,
+        BookmarkAutoDeletePreference.clearReminder,
+      );
+      expect(fixture.store.saved, isNotEmpty);
+      expect(fixture.store.saved.last.single.user?.timezone, 'Europe/London');
+    },
+  );
+
+  testWidgets('confirmed interface settings update only the bookmark mirror', (
     tester,
   ) async {
     final fixture = await _fixture();
     await _pumpPage(tester, fixture);
-    await _chooseNarrowSection(tester, PreferenceSection.datesAndReminders);
+    await _chooseNarrowSection(tester, PreferenceSection.interface);
 
-    await tester.enterText(
-      find.byKey(const ValueKey('preferences-timezone')),
-      'Europe/London',
-    );
-    await tester.pump();
+    await tester.tap(find.text('When the reminder is cleared'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Never').last);
+    await tester.pumpAndSettle();
     fixture.store.saved.clear();
-    await tester.tap(_save(PreferenceSection.datesAndReminders));
+    await tester.tap(_save(PreferenceSection.interface));
     await tester.pumpAndSettle();
 
     final mirrored = fixture.shell.instanceFor(_siteUrl)!.user!;
-    expect(mirrored.timezone, 'Europe/London');
+    expect(mirrored.timezone, 'Etc/UTC');
     expect(
       mirrored.bookmarkAutoDeletePreference,
-      BookmarkAutoDeletePreference.clearReminder,
+      BookmarkAutoDeletePreference.never,
     );
+    expect(fixture.api.userPreferenceUpdates.single.values, {
+      'bookmark_auto_delete_preference': 0,
+    });
     expect(fixture.store.saved, isNotEmpty);
-    expect(fixture.store.saved.last.single.user?.timezone, 'Europe/London');
   });
 
-  testWidgets('notification save does not mirror unrelated loaded dates', (
+  testWidgets('notification save does not mirror unrelated loaded profile', (
     tester,
   ) async {
     final fixture = await _fixture(

@@ -97,8 +97,10 @@ void main() {
       'auto_track_topics_after_msecs': 30000,
       'notification_level_when_replying': 1,
     });
-    expect(preferences.payloadFor(PreferenceSection.datesAndReminders), {
+    expect(preferences.payloadFor(PreferenceSection.profile), {
       'timezone': 'Asia/Tokyo',
+    });
+    expect(preferences.payloadFor(PreferenceSection.interface), {
       'bookmark_auto_delete_preference': 2,
     });
     expect(

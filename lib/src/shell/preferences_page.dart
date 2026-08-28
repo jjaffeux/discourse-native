@@ -203,8 +203,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
     bool editable,
   ) {
     final timezoneValid = _timezoneError(_timezone.text) == null;
-    final valid =
-        section != PreferenceSection.datesAndReminders || timezoneValid;
+    final valid = section != PreferenceSection.profile || timezoneValid;
     final dirty = state.dirty(section);
     final canSave =
         instance?.isConnected == true &&
@@ -222,6 +221,19 @@ class _PreferencesPageState extends State<PreferencesPage> {
         if (state.error != null || state.saving || state.savedSection != null)
           const SizedBox(height: 16),
         switch (section) {
+          PreferenceSection.profile => _ProfileForm(
+            timezone: _timezone,
+            timezoneFocus: _timezoneFocus,
+            timezoneError: _timezoneError(_timezone.text),
+            deviceTimezone: TimezoneEnvironment.instance.deviceTimezone,
+            enabled: editable,
+            onTimezoneChanged: (timezone) => shell.preferences.edit(
+              widget.siteUrl,
+              PreferenceSection.profile,
+              (current) => current.copyWith(timezone: timezone),
+            ),
+            onUseDeviceTimezone: _useDeviceTimezone,
+          ),
           PreferenceSection.notifications => _NotificationsForm(
             preferences: draft,
             enabled: editable,
@@ -240,25 +252,15 @@ class _PreferencesPageState extends State<PreferencesPage> {
               change,
             ),
           ),
-          PreferenceSection.datesAndReminders => _DatesAndRemindersForm(
+          PreferenceSection.interface => _InterfaceForm(
             preferences: draft,
-            timezone: _timezone,
-            timezoneFocus: _timezoneFocus,
-            timezoneError: _timezoneError(_timezone.text),
-            deviceTimezone: TimezoneEnvironment.instance.deviceTimezone,
             enabled: editable,
-            onTimezoneChanged: (timezone) => shell.preferences.edit(
-              widget.siteUrl,
-              PreferenceSection.datesAndReminders,
-              (current) => current.copyWith(timezone: timezone),
-            ),
             onBookmarkChanged: (preference) => shell.preferences.edit(
               widget.siteUrl,
-              PreferenceSection.datesAndReminders,
+              PreferenceSection.interface,
               (current) =>
                   current.copyWith(bookmarkAutoDeletePreference: preference),
             ),
-            onUseDeviceTimezone: _useDeviceTimezone,
           ),
         },
         const SizedBox(height: 24),
@@ -284,7 +286,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
     DiscourseInstance instance,
     PreferenceSection section,
   ) {
-    if (section == PreferenceSection.datesAndReminders) {
+    if (section == PreferenceSection.profile) {
       final trimmed = _timezone.text.trim();
       final canonical = trimmed.isEmpty
           ? ''
@@ -297,7 +299,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
         );
         shell.preferences.edit(
           widget.siteUrl,
-          PreferenceSection.datesAndReminders,
+          PreferenceSection.profile,
           (current) => current.copyWith(timezone: canonical),
         );
       }
@@ -316,7 +318,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
     if (shell == null) return;
     shell.preferences.edit(
       widget.siteUrl,
-      PreferenceSection.datesAndReminders,
+      PreferenceSection.profile,
       (current) => current.copyWith(timezone: zone),
     );
   }
@@ -353,9 +355,10 @@ class _PreferencesPageState extends State<PreferencesPage> {
   }
 
   List<PreferenceSection> _sectionsFor(UserPreferences preferences) => [
+    PreferenceSection.profile,
     PreferenceSection.notifications,
     if (preferences.canChangeTrackingPreferences) PreferenceSection.tracking,
-    PreferenceSection.datesAndReminders,
+    PreferenceSection.interface,
   ];
 
   void _selectSection(PreferenceSection section) {
@@ -409,9 +412,8 @@ class _SectionRail extends StatelessWidget {
             header: true,
             child: Text(
               'Preferences',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ),
@@ -690,27 +692,23 @@ class _TrackingForm extends StatelessWidget {
   }
 }
 
-class _DatesAndRemindersForm extends StatelessWidget {
-  const _DatesAndRemindersForm({
-    required this.preferences,
+class _ProfileForm extends StatelessWidget {
+  const _ProfileForm({
     required this.timezone,
     required this.timezoneFocus,
     required this.timezoneError,
     required this.deviceTimezone,
     required this.enabled,
     required this.onTimezoneChanged,
-    required this.onBookmarkChanged,
     required this.onUseDeviceTimezone,
   });
 
-  final UserPreferences preferences;
   final TextEditingController timezone;
   final FocusNode timezoneFocus;
   final String? timezoneError;
   final String? deviceTimezone;
   final bool enabled;
   final ValueChanged<String> onTimezoneChanged;
-  final ValueChanged<BookmarkAutoDeletePreference> onBookmarkChanged;
   final VoidCallback onUseDeviceTimezone;
 
   @override
@@ -759,7 +757,26 @@ class _DatesAndRemindersForm extends StatelessWidget {
             size: DButtonSize.small,
           ),
         ),
-        const SizedBox(height: 24),
+      ],
+    );
+  }
+}
+
+class _InterfaceForm extends StatelessWidget {
+  const _InterfaceForm({
+    required this.preferences,
+    required this.enabled,
+    required this.onBookmarkChanged,
+  });
+
+  final UserPreferences preferences;
+  final bool enabled;
+  final ValueChanged<BookmarkAutoDeletePreference> onBookmarkChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PreferenceCard(
+      children: [
         DSelectField<BookmarkAutoDeletePreference>(
           key: ValueKey((
             'bookmark-auto-delete',
@@ -983,22 +1000,26 @@ class _UnavailablePreferences extends StatelessWidget {
 }
 
 String _sectionTitle(PreferenceSection section) => switch (section) {
+  PreferenceSection.profile => 'Profile',
   PreferenceSection.notifications => 'Notifications',
   PreferenceSection.tracking => 'Tracking',
-  PreferenceSection.datesAndReminders => 'Dates & reminders',
+  PreferenceSection.interface => 'Interface',
 };
 
 String _sectionDescription(PreferenceSection section) => switch (section) {
+  PreferenceSection.profile =>
+    'Set the account timezone used for dates and reminders.',
   PreferenceSection.notifications =>
     'Choose which forum activity should notify this account.',
   PreferenceSection.tracking =>
     'Choose when topics become new, tracked, or watched.',
-  PreferenceSection.datesAndReminders =>
-    'Set the account timezone and default bookmark cleanup behavior.',
+  PreferenceSection.interface =>
+    'Choose the default bookmark cleanup behavior.',
 };
 
 DIconData _sectionIcon(PreferenceSection section) => switch (section) {
+  PreferenceSection.profile => DIcons.user,
   PreferenceSection.notifications => DIcons.bell,
   PreferenceSection.tracking => DIcons.list,
-  PreferenceSection.datesAndReminders => DIcons.farClock,
+  PreferenceSection.interface => DIcons.display,
 };

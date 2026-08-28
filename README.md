@@ -249,17 +249,19 @@ here:
   whether replying watches, tracks, or leaves a topic alone. This section is
   absent when the detailed user serializer says
   `can_change_tracking_preferences: false`.
-- **Dates and reminders:** the account's IANA timezone and the default bookmark
-  auto-delete behavior. These immediately become the confirmed warm-start
-  values used by Local Dates and the bookmark editor.
+- **Profile:** the account's IANA timezone used by Local Dates.
+- **Interface:** the default bookmark auto-delete behavior used by the bookmark
+  editor.
+
+Those confirmed values immediately become the account's warm-start values.
 
 The page names the deliberately unsupported web-only areas rather than drawing
-disabled or fake controls: account/security changes, profile fields and
-uploads, email delivery, notification schedules, category/tag/user tracking
-lists, browser theme and interface overrides, navigation-menu configuration,
-calendar feeds, and plugin-contributed preferences. Push delivery is included
-in that disclosure on purpose. The web selector also subscribes or
-unsubscribes that browser's push publisher; merely writing
+disabled or fake controls: account/security changes, the remaining profile
+fields and uploads, email delivery, notification schedules, category/tag/user
+tracking lists, browser theme and other interface overrides, navigation-menu
+configuration, calendar feeds, and plugin-contributed preferences. Push
+delivery is included in that disclosure on purpose. The web selector also
+subscribes or unsubscribes that browser's push publisher; merely writing
 `push_notification_level` would not perform the equivalent lifecycle for a
 native user-API push registration.
 

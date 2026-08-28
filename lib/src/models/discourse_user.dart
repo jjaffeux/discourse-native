@@ -292,8 +292,8 @@ class DiscourseUser {
   /// This stored user is a warm-start mirror, not the owner of the values;
   /// Preferences writes always go to Discourse before this copy changes.
   DiscourseUser withPreferences({
-    required String timezone,
-    required BookmarkAutoDeletePreference bookmarkAutoDeletePreference,
+    String? timezone,
+    BookmarkAutoDeletePreference? bookmarkAutoDeletePreference,
   }) => DiscourseUser(
     username: username,
     id: id,
@@ -316,8 +316,9 @@ class DiscourseUser {
     chatHeaderIndicatorPreference: chatHeaderIndicatorPreference,
     doNotDisturbUntil: doNotDisturbUntil,
     lastChatChannelId: lastChatChannelId,
-    timezone: timezone,
-    bookmarkAutoDeletePreference: bookmarkAutoDeletePreference,
+    timezone: timezone ?? this.timezone,
+    bookmarkAutoDeletePreference:
+        bookmarkAutoDeletePreference ?? this.bookmarkAutoDeletePreference,
   );
 
   @override
