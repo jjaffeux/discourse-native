@@ -311,6 +311,10 @@ class ShellController extends FrameSafeNotifier
         corePluginRouteNavigationPort,
         _ShellPluginRouteNavigationHost(this),
       ),
+      PluginHostPort<Object>(
+        corePluginTopicListNavigationPort,
+        _ShellPluginTopicListNavigationHost(this),
+      ),
       _pluginBookmarkHostPort(),
       _pluginComposerHostPort(),
       _pluginEmojiHostPort(),
@@ -10873,6 +10877,20 @@ final class _ShellPluginRouteNavigationHost
   @override
   void replaceCurrentContent(ContentRoute route) =>
       _shell.replaceCurrentContent(route);
+}
+
+final class _ShellPluginTopicListNavigationHost
+    implements PluginTopicListNavigationHost {
+  const _ShellPluginTopicListNavigationHost(this._shell);
+
+  final ShellController _shell;
+
+  @override
+  void openTopicList(ContentRoute route) {
+    if (route.feedPath == null || _shell.currentContent?.id == route.id) return;
+    _shell.pushContent(route);
+    unawaited(_shell.loadFeed(route.id));
+  }
 }
 
 /// Creates target-bound bookmark ports without exposing the core bookmark UI.

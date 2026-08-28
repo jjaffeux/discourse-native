@@ -47,6 +47,9 @@ void main() {
     final discourseAi = installed.descriptors.singleWhere(
       (descriptor) => descriptor.id.value == 'discourse-ai',
     );
+    final assign = installed.descriptors.singleWhere(
+      (descriptor) => descriptor.id.value == 'discourse-assign',
+    );
 
     expect(localDates.syntaxIds, {'discourse-local-dates/local-date'});
     expect(poll.syntaxIds, {'poll/poll'});
@@ -63,6 +66,7 @@ void main() {
       [('gifs', true)],
     );
     expect(chat.routeNamespaces, {'chat'});
+    expect(assign.routeNamespaces, {'assign'});
     expect(chat.liveChannelScopes.map((scope) => scope.path), {
       '/chat',
       '/presence/chat',

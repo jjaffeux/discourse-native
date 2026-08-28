@@ -41,6 +41,50 @@ DiscourseUser _assignUser({
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('Assign group URL opens its direct assignment feed natively', () async {
+    const assignedPath =
+        '/topics/group-topics-assigned/support.json?direct=true';
+    final api = FakeDiscourseApi(
+      user: _assignUser(),
+      feeds: const {
+        '/latest.json': <Topic>[],
+        assignedPath: [
+          Topic(id: 42, title: 'Assigned topic', slug: 'assigned-topic'),
+        ],
+      },
+      siteConfigs: const {_site: SiteConfig.unknown()},
+    );
+    final shell = await _loadListShell(api, user: _assignUser());
+    addTearDown(shell.dispose);
+
+    expect(await shell.openPluginUrl('/g/support/assigned/support'), isTrue);
+    await pumpEventQueue();
+
+    expect(shell.currentContent?.id, 'assign-group-support');
+    expect(shell.currentContent?.title, 'Assigned to support');
+    expect(shell.currentContent?.feedPath, assignedPath);
+    expect(api.feedPaths, contains(assignedPath));
+    expect(shell.currentFeed?.topicIds, [42]);
+  });
+
+  test('Assign group URL stays external without Assign permission', () async {
+    const assignedPath =
+        '/topics/group-topics-assigned/support.json?direct=true';
+    final api = FakeDiscourseApi(
+      user: _assignUser(canAssign: false),
+      feeds: const {'/latest.json': <Topic>[]},
+      siteConfigs: const {_site: SiteConfig.unknown()},
+    );
+    final shell = await _loadListShell(
+      api,
+      user: _assignUser(canAssign: false),
+    );
+    addTearDown(shell.dispose);
+
+    expect(await shell.openPluginUrl('/g/support/assigned/support'), isFalse);
+    expect(api.feedPaths, isNot(contains(assignedPath)));
+  });
+
   test(
     'Shell writes only an exact assignable target and reloads its topic',
     () async {
@@ -488,6 +532,26 @@ void main() {
 
 AssignmentController _assignments(ShellController shell) =>
     shell.pluginSession.require(assignmentControllerService);
+
+Future<ShellController> _loadListShell(
+  FakeDiscourseApi api, {
+  required DiscourseUser user,
+}) async {
+  final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
+  final shell = ShellController(
+    plugins: installedPlugins,
+    instanceStore: FakeInstanceStore([
+      instance('meta.discourse.org').copyWith(user: user),
+    ]),
+    api: api,
+    authenticator: authenticator,
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+  );
+  await shell.load();
+  await pumpEventQueue();
+  return shell;
+}
 
 Future<ShellController> _loadShell(FakeDiscourseApi api) async {
   final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';

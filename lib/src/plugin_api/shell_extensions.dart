@@ -50,6 +50,16 @@ abstract interface class PluginRouteNavigationHost {
   void replaceCurrentContent(ContentRoute route);
 }
 
+/// Core-owned feed navigation for a plugin route which is a topic list.
+abstract interface class PluginTopicListNavigationHost {
+  /// Opens a topic-list route carrying its own site-relative JSON path.
+  ///
+  /// Core owns the feed cache and request lifecycle, so a plugin supplies only
+  /// the presentation route. The selected site must already be the one which
+  /// serves that path.
+  void openTopicList(ContentRoute route);
+}
+
 /// Full navigation primitives used by a plugin with nested/restored routes.
 abstract interface class PluginNavigationHost {
   /// Invalidates navigation-derived presentation snapshots without exposing
