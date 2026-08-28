@@ -14,6 +14,7 @@ import 'chat_bookmark.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
+import 'chat_notification_counter.dart';
 import 'chat_plugin.dart';
 import 'chat_plugin_data.dart';
 import 'chat_route.dart';

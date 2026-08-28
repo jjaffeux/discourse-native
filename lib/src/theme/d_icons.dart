@@ -577,7 +577,6 @@ abstract final class DIcons {
     'notification.liked': heart,
     'notification.liked_consolidated': heart,
     'notification.quoted': quoteRight,
-    'notification.chat_quoted': quoteRight,
     'notification.private_message': envelope,
     'notification.invited_to_private_message': envelope,
     'notification.invited_to_topic': handPointRight,
@@ -592,7 +591,5 @@ abstract final class DIcons {
     'notification.post_approved': check,
     'notification.membership_request_accepted': userPlus,
     'notification.membership_request_consolidated': users,
-    'notification.reaction': discourseEmojis,
-    'notification.votes_released': plus,
   };
 }

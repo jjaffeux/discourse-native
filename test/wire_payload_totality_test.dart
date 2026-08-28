@@ -114,6 +114,7 @@ const _keys = [
   'primary_group_name',
   'flair_url',
   'chat_notifications',
+  'ignored_users',
   'topic_tracking',
   'unread_notifications',
   'type',

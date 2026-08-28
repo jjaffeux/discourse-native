@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../plugin_api/notification_counters.dart';
 import 'json.dart';
 
 /// Everything `/notifications/totals.json` reports in one call: the rail badge
@@ -11,26 +12,61 @@ class NotificationTotals {
     this.unreadNotifications = 0,
     this.unreadPersonalMessages = 0,
     this.unseenReviewables = 0,
-    this.chatNotifications = 0,
     this.topicTrackingUnread = 0,
     this.topicTrackingNew = 0,
     this.username,
-    this.hasChatEnabled = false,
+    this.pluginCounters = PluginNotificationCounters.none,
   });
 
-  factory NotificationTotals.fromJson(Map<String, dynamic> json) {
+  factory NotificationTotals.fromJson(
+    Map<String, dynamic> json, {
+    PluginNotificationCounterCodec counterCodec =
+        const EmptyPluginNotificationCounterCodec(),
+  }) {
     final tracking = jsonObject(json['topic_tracking']);
     return NotificationTotals(
       unreadNotifications: _count(json['unread_notifications']),
       unreadPersonalMessages: _count(json['unread_personal_messages']),
       unseenReviewables: _count(json['unseen_reviewables']),
-      chatNotifications: _count(json['chat_notifications']),
       topicTrackingUnread: _count(tracking['unread']),
       topicTrackingNew: _count(tracking['new']),
       username: jsonText(json['username']),
-      // The key is only present when the site has chat enabled.
-      hasChatEnabled: json['chat_notifications'] is num,
+      pluginCounters: counterCodec.readLiveNotificationCounters(json),
     );
+  }
+
+  factory NotificationTotals.fromStoredJson(
+    Map<String, dynamic> json, {
+    PluginNotificationCounterCodec counterCodec =
+        const EmptyPluginNotificationCounterCodec(),
+  }) => NotificationTotals(
+    unreadNotifications: _count(json['unreadNotifications']),
+    unreadPersonalMessages: _count(json['unreadPersonalMessages']),
+    unseenReviewables: _count(json['unseenReviewables']),
+    topicTrackingUnread: _count(json['topicTrackingUnread']),
+    topicTrackingNew: _count(json['topicTrackingNew']),
+    username: jsonText(json['username']),
+    pluginCounters: counterCodec.readStoredNotificationCounters(
+      json['plugins'],
+    ),
+  );
+
+  Map<String, Object?> toStoredJson({
+    PluginNotificationCounterCodec counterCodec =
+        const EmptyPluginNotificationCounterCodec(),
+  }) {
+    final plugins = counterCodec.writeStoredNotificationCounters(
+      pluginCounters,
+    );
+    return <String, Object?>{
+      'unreadNotifications': unreadNotifications,
+      'unreadPersonalMessages': unreadPersonalMessages,
+      'unseenReviewables': unseenReviewables,
+      'topicTrackingUnread': topicTrackingUnread,
+      'topicTrackingNew': topicTrackingNew,
+      'username': ?username,
+      if (plugins.isNotEmpty) 'plugins': plugins,
+    };
   }
 
   static int _count(Object? value) => _optionalCount(value) ?? 0;
@@ -92,38 +128,59 @@ class NotificationTotals {
     int? unreadNotifications,
     int? unreadPersonalMessages,
     int? unseenReviewables,
-    int? chatNotifications,
+    PluginNotificationCounters? pluginCounters,
   }) {
     return NotificationTotals(
       unreadNotifications: unreadNotifications ?? this.unreadNotifications,
       unreadPersonalMessages:
           unreadPersonalMessages ?? this.unreadPersonalMessages,
       unseenReviewables: unseenReviewables ?? this.unseenReviewables,
-      chatNotifications: chatNotifications ?? this.chatNotifications,
       topicTrackingUnread: topicTrackingUnread,
       topicTrackingNew: topicTrackingNew,
       username: username,
-      hasChatEnabled: hasChatEnabled,
+      pluginCounters: pluginCounters ?? this.pluginCounters,
     );
   }
 
-  /// Applies one exact change from chat's per-channel tracking state.
-  ///
-  /// `/notifications/totals.json` is only a snapshot. Chat reads and live
-  /// messages move the same count through their own MessageBus channels, so
-  /// folding their delta here keeps the rail and user menu in step without an
-  /// extra totals request after every viewport read. A replayed or otherwise
-  /// inconsistent negative delta is floored rather than producing an
-  /// impossible badge.
-  NotificationTotals withChatNotificationsDelta(int delta) {
-    final updated = chatNotifications + delta;
-    return copyWith(chatNotifications: updated < 0 ? 0 : updated);
-  }
+  int pluginCounter(PluginNotificationCounterId id) => pluginCounters.count(id);
+
+  bool hasPluginCounter(PluginNotificationCounterId id) =>
+      pluginCounters.isAvailable(id);
+
+  NotificationTotals updatePluginCounter(
+    PluginNotificationCounter counter,
+    int Function(int current) reduce,
+  ) => copyWith(pluginCounters: pluginCounters.update(counter, reduce));
+
+  /// Reconciles a refresh with account events received while it was in flight.
+  static NotificationTotals mergeRefresh({
+    required NotificationTotals response,
+    required NotificationTotals before,
+    required NotificationTotals live,
+  }) => NotificationTotals(
+    unreadNotifications: live.unreadNotifications != before.unreadNotifications
+        ? live.unreadNotifications
+        : response.unreadNotifications,
+    unreadPersonalMessages:
+        live.unreadPersonalMessages != before.unreadPersonalMessages
+        ? live.unreadPersonalMessages
+        : response.unreadPersonalMessages,
+    unseenReviewables: live.unseenReviewables != before.unseenReviewables
+        ? live.unseenReviewables
+        : response.unseenReviewables,
+    topicTrackingUnread: response.topicTrackingUnread,
+    topicTrackingNew: response.topicTrackingNew,
+    username: response.username,
+    pluginCounters: PluginNotificationCounters.mergeRefresh(
+      response: response.pluginCounters,
+      before: before.pluginCounters,
+      live: live.pluginCounters,
+    ),
+  );
 
   final int unreadNotifications;
   final int unreadPersonalMessages;
   final int unseenReviewables;
-  final int chatNotifications;
 
   /// Topics with unread posts, and topics never seen — the two numbers the
   /// sidebar's Unread and New entries show.
@@ -131,15 +188,15 @@ class NotificationTotals {
   final int topicTrackingNew;
 
   final String? username;
-  final bool hasChatEnabled;
+  final PluginNotificationCounters pluginCounters;
 
   /// What the rail badge shows: things addressed to you, not merely unread
   /// topics. Matches how DiscourseMobile totals it.
   int get badge =>
       unreadNotifications +
       unreadPersonalMessages +
-      chatNotifications +
-      unseenReviewables;
+      unseenReviewables +
+      pluginCounters.badge;
 
   @override
   bool operator ==(Object other) =>
@@ -147,21 +204,19 @@ class NotificationTotals {
       other.unreadNotifications == unreadNotifications &&
       other.unreadPersonalMessages == unreadPersonalMessages &&
       other.unseenReviewables == unseenReviewables &&
-      other.chatNotifications == chatNotifications &&
       other.topicTrackingUnread == topicTrackingUnread &&
       other.topicTrackingNew == topicTrackingNew &&
       other.username == username &&
-      other.hasChatEnabled == hasChatEnabled;
+      other.pluginCounters == pluginCounters;
 
   @override
   int get hashCode => Object.hash(
     unreadNotifications,
     unreadPersonalMessages,
     unseenReviewables,
-    chatNotifications,
     topicTrackingUnread,
     topicTrackingNew,
     username,
-    hasChatEnabled,
+    pluginCounters,
   );
 }

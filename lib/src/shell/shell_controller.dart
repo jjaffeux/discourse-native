@@ -246,13 +246,7 @@ class ShellController extends FrameSafeNotifier
         corePluginPreviewPort,
         plugins.registry.chatPreviewPlugins,
       ),
-      PluginHostPort<Object>(
-        corePluginAccountEventsPort,
-        PluginAccountEventsHost(
-          updateTotals: accountActivity.applyCounts,
-          markSiteUnreachable: _markForumUnavailable,
-        ),
-      ),
+      _pluginAccountEventsHostPort(),
       PluginHostPort<Object>(
         corePluginTargetPort,
         PluginTargetHost(
@@ -307,6 +301,36 @@ class ShellController extends FrameSafeNotifier
       corePluginBookmarkPort,
       factory,
       scopeToConsumer: factory.scopedTo,
+    );
+  }
+
+  PluginHostPort<Object> _pluginAccountEventsHostPort() {
+    final host = PluginAccountEventsHost(
+      updateNotificationCounter: (siteUrl, id, reduce) {
+        final counter = plugins.registry.notificationCounter(id);
+        if (counter == null) {
+          throw PluginInstallationException(
+            'Notification counter ${id.id} is not registered.',
+          );
+        }
+        accountActivity.applyPluginCounter(siteUrl, counter, reduce);
+      },
+      markSiteUnreachable: _markForumUnavailable,
+    );
+    return PluginHostPort<Object>(
+      corePluginAccountEventsPort,
+      host,
+      scopeToConsumer: (consumer) => PluginAccountEventsHost(
+        updateNotificationCounter: (siteUrl, id, reduce) {
+          if (id.owner != consumer) {
+            throw PluginInstallationException(
+              'Plugin $consumer cannot update notification counter ${id.id}.',
+            );
+          }
+          host.updateNotificationCounter(siteUrl, id, reduce);
+        },
+        markSiteUnreachable: host.markSiteUnreachable,
+      ),
     );
   }
 
@@ -523,6 +547,7 @@ class ShellController extends FrameSafeNotifier
         credentials: authenticator,
         lifecycle: lifecycle,
         onTotalsLoaded: _onTotalsLoaded,
+        onTotalsChanged: _onTotalsChanged,
       );
 
   /// Per-site notification pauses, isolated from shell navigation rebuilds.
@@ -1089,6 +1114,9 @@ class ShellController extends FrameSafeNotifier
       ..clear()
       ..addAll(stored);
     for (final instance in stored) {
+      if (instance.notificationTotals case final totals?) {
+        accountActivity.restoreTotals(instance.url, totals);
+      }
       doNotDisturb.restoreSnapshot(
         instance.url,
         instance.user?.doNotDisturbUntil,
@@ -1577,6 +1605,15 @@ class ShellController extends FrameSafeNotifier
     _notifyPluginTotals(instance, totals);
   }
 
+  void _onTotalsChanged(String siteUrl, NotificationTotals totals) {
+    if (isDisposed) return;
+    final instance = _instanceAt(siteUrl);
+    if (instance == null || !instance.isConnected) return;
+    if (instance.notificationTotals == totals) return;
+    _replaceInstance(instance, instance.copyWith(notificationTotals: totals));
+    instanceStore.save(List.of(_instances)).ignore();
+  }
+
   void _onPreferencesSaved(
     String siteUrl,
     PreferenceSection section,
@@ -1721,9 +1758,9 @@ class ShellController extends FrameSafeNotifier
 
   /// Marks [notification] read, which is what opening it amounts to here.
   ///
-  /// Where it then leads is [DiscourseNotification.path], handled the same way
-  /// as any other link — see `NotificationSection`. Called from the bookmarks
-  /// tab too, whose reminders are notifications like any other.
+  /// Its installed notification definition resolves where it then leads; the
+  /// shell handles that destination like any other link. Called from the
+  /// bookmarks tab too, whose reminders are notifications like any other.
   void readNotification(String siteUrl, DiscourseNotification notification) {
     final instance = _instanceAt(siteUrl);
     if (instance != null) {
@@ -2631,21 +2668,33 @@ class ShellController extends FrameSafeNotifier
     final accepted = lease.commit(() {
       final fresh = _instanceAt(siteUrl);
       if (fresh == null) return;
+      final previousUser = fresh.user;
+      final accountChanged =
+          previousUser != null &&
+          !plugins.models.sameCurrentUserAccount(previousUser, user);
       final withPreservedPlugins = plugins.models.preserveUnknownCurrentUser(
-        fresh.user,
+        previousUser,
         user,
       );
       final preserveConfirmedPresence =
-          _hidePresenceWrites.containsKey(siteUrl) ||
-          (_hidePresenceVersions[siteUrl] ?? 0) != hidePresenceVersion;
+          !accountChanged &&
+          (_hidePresenceWrites.containsKey(siteUrl) ||
+              (_hidePresenceVersions[siteUrl] ?? 0) != hidePresenceVersion);
       committedUser = preserveConfirmedPresence
-          ? withPreservedPlugins.withHidePresence(fresh.user?.hidePresence)
+          ? withPreservedPlugins.withHidePresence(previousUser?.hidePresence)
           : withPreservedPlugins;
       _sessionUsersRefreshed.add(siteUrl);
       _hidePresenceErrors.remove(siteUrl);
-      if (fresh.user != committedUser) {
+      if (previousUser != committedUser || accountChanged) {
         changed = true;
-        _replaceInstance(fresh, fresh.copyWith(user: committedUser));
+        if (accountChanged) accountActivity.forget(siteUrl);
+        _replaceInstance(
+          fresh,
+          fresh.copyWith(
+            user: committedUser,
+            clearNotificationTotals: accountChanged,
+          ),
+        );
       }
       _notify();
     });

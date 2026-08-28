@@ -18,7 +18,6 @@ class DiscourseUser {
     this.canChangePostOwner = false,
     this.staff = false,
     this.groups = const [],
-    this.ignoredUsernames = const [],
     this.sidebarCategoryIds = const [],
     this.trackedCategoryIds,
     this.watchedCategoryIds,
@@ -49,9 +48,6 @@ class DiscourseUser {
     staff: json['staff'] == true,
     groups: List.unmodifiable(
       jsonArray(json['groups']).map(jsonText).whereType<String>(),
-    ),
-    ignoredUsernames: List.unmodifiable(
-      jsonArray(json['ignoredUsernames']).map(jsonText).whereType<String>(),
     ),
     sidebarCategoryIds: List.unmodifiable([
       for (final value in jsonArray(json['sidebarCategoryIds']))
@@ -96,13 +92,6 @@ class DiscourseUser {
 
   /// Group names from the freshly loaded current-user payload.
   final List<String> groups;
-
-  /// Usernames this account ignores.
-  ///
-  /// Discourse uses this list to suppress unread state for chat messages from
-  /// ignored users. Persisting it keeps that behavior available between
-  /// current-user refreshes.
-  final List<String> ignoredUsernames;
 
   /// The categories this account chose for its sidebar. Core derives display
   /// order from the site's category ordering rather than this list's order.
@@ -174,7 +163,6 @@ class DiscourseUser {
       'canChangePostOwner': canChangePostOwner,
       'staff': staff,
       'groups': groups,
-      'ignoredUsernames': ignoredUsernames,
       'sidebarCategoryIds': sidebarCategoryIds,
       if (trackedCategoryIds != null) 'trackedCategoryIds': trackedCategoryIds,
       if (watchedCategoryIds != null) 'watchedCategoryIds': watchedCategoryIds,
@@ -202,7 +190,6 @@ class DiscourseUser {
     canChangePostOwner: canChangePostOwner,
     staff: staff,
     groups: groups,
-    ignoredUsernames: ignoredUsernames,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
@@ -225,7 +212,6 @@ class DiscourseUser {
     canChangePostOwner: canChangePostOwner,
     staff: staff,
     groups: groups,
-    ignoredUsernames: ignoredUsernames,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
@@ -256,7 +242,6 @@ class DiscourseUser {
     canChangePostOwner: canChangePostOwner,
     staff: staff,
     groups: groups,
-    ignoredUsernames: ignoredUsernames,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
@@ -282,7 +267,6 @@ class DiscourseUser {
     canChangePostOwner: canChangePostOwner,
     staff: staff,
     groups: groups,
-    ignoredUsernames: ignoredUsernames,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
@@ -305,7 +289,6 @@ class DiscourseUser {
     canChangePostOwner: canChangePostOwner,
     staff: staff,
     groups: groups,
-    ignoredUsernames: ignoredUsernames,
     sidebarCategoryIds: sidebarCategoryIds,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
@@ -330,7 +313,6 @@ class DiscourseUser {
       other.canChangePostOwner == canChangePostOwner &&
       other.staff == staff &&
       listEquals(other.groups, groups) &&
-      listEquals(other.ignoredUsernames, ignoredUsernames) &&
       listEquals(other.sidebarCategoryIds, sidebarCategoryIds) &&
       listEquals(other.trackedCategoryIds, trackedCategoryIds) &&
       listEquals(other.watchedCategoryIds, watchedCategoryIds) &&
@@ -356,7 +338,6 @@ class DiscourseUser {
     canChangePostOwner,
     staff,
     Object.hashAll(groups),
-    Object.hashAll(ignoredUsernames),
     Object.hashAll(sidebarCategoryIds),
     Object.hashAll(trackedCategoryIds ?? const <int>[]),
     Object.hashAll(watchedCategoryIds ?? const <int>[]),

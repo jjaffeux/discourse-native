@@ -36,34 +36,42 @@ const _teamUser = DiscourseUser(
   hidePresence: true,
 );
 
-const _metaNotification = DiscourseNotification(
+const _metaNotification = DiscourseNotification.test(
   id: 11,
-  kind: NotificationKind.grantedBadge,
-  badgeName: 'Meta Helper',
-  path: '/badges/11/meta-helper',
+  typeId: NotificationTypeId(12),
+  data: {
+    'badge_id': 11,
+    'badge_slug': 'meta-helper',
+    'badge_name': 'Meta Helper',
+  },
 );
 
-const _teamNotification = DiscourseNotification(
+const _teamNotification = DiscourseNotification.test(
   id: 22,
-  kind: NotificationKind.grantedBadge,
-  badgeName: 'Team Helper',
-  path: '/badges/22/team-helper',
+  typeId: NotificationTypeId(12),
+  data: {
+    'badge_id': 22,
+    'badge_slug': 'team-helper',
+    'badge_name': 'Team Helper',
+  },
 );
 
-const _metaReply = DiscourseNotification(
+const _metaReply = DiscourseNotification.test(
   id: 13,
-  kind: NotificationKind.replied,
-  actor: 'alice',
+  typeId: NotificationTypeId(2),
+  topicId: 13,
+  slug: 'meta-reply',
   title: 'Meta reply',
-  path: '/t/meta-reply/13',
+  data: {'display_username': 'alice'},
 );
 
-const _teamReply = DiscourseNotification(
+const _teamReply = DiscourseNotification.test(
   id: 24,
-  kind: NotificationKind.quoted,
-  actor: 'bob',
+  typeId: NotificationTypeId(3),
+  topicId: 24,
+  slug: 'team-reply',
   title: 'Team reply',
-  path: '/t/team-reply/24',
+  data: {'display_username': 'bob'},
 );
 
 const _metaBookmark = Bookmark(
@@ -668,7 +676,7 @@ final class _SiteMenuApi extends FakeDiscourseApi {
     required String siteUrl,
     required String apiKey,
     int limit = 30,
-    List<NotificationKind> filterByTypes = const [],
+    List<NotificationTypeName> filterByTypes = const [],
     String? clientId,
   }) async {
     if (filterByTypes.isNotEmpty) {

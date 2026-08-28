@@ -297,8 +297,8 @@ void main() {
       }, siteUrl);
 
       expect(notification.slug, '');
-      expect(notification.actor, isNull);
-      expect(notification.path, isNull);
+      expect(notification.typeId, const NotificationTypeId(0));
+      expect(notification.data, isEmpty);
       expect(bookmark.author, isNull);
       expect(totals.topicTrackingUnread, 0);
       expect(totals.username, isNull);

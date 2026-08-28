@@ -1,5 +1,15 @@
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/plugin_api/notification_counters.dart';
+import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+const _pluginCounter = PluginNotificationCounter(
+  id: PluginNotificationCounterId(
+    owner: PluginId('test-plugin'),
+    name: 'alerts',
+  ),
+  wireName: 'test_alerts',
+);
 
 /// A `/notification/{id}` message, shaped as
 /// `User#publish_notifications_state` sends it. Trimmed to the keys anything
@@ -20,50 +30,89 @@ Map<String, Object?> published({
 };
 
 void main() {
-  test('account identity and chat capability participate in equality', () {
+  test('account identity and plugin counters participate in equality', () {
     const baseline = NotificationTotals(username: 'sam');
 
     expect(baseline, isNot(const NotificationTotals(username: 'alex')));
     expect(
       baseline,
-      isNot(const NotificationTotals(username: 'sam', hasChatEnabled: true)),
+      isNot(
+        NotificationTotals(
+          username: 'sam',
+          pluginCounters: PluginNotificationCounters.single(_pluginCounter),
+        ),
+      ),
     );
   });
 
-  test('floors impossible initial counts while preserving capability', () {
+  test('floors impossible initial core counts', () {
     final totals = NotificationTotals.fromJson(const {
       'unread_notifications': -1,
       'unread_personal_messages': '-2',
       'unseen_reviewables': -3,
-      'chat_notifications': -4,
       'topic_tracking': {'unread': -5, 'new': 7},
     });
 
     expect(totals.unreadNotifications, 0);
     expect(totals.unreadPersonalMessages, 0);
     expect(totals.unseenReviewables, 0);
-    expect(totals.chatNotifications, 0);
     expect(totals.topicTrackingUnread, 0);
     expect(totals.topicTrackingNew, 7);
-    expect(totals.hasChatEnabled, isTrue);
   });
 
-  test('chat tracking deltas preserve the snapshot and never go negative', () {
-    const held = NotificationTotals(
-      unreadNotifications: 2,
-      chatNotifications: 6,
-      topicTrackingUnread: 4,
-      hasChatEnabled: true,
+  test('unknown stored counter namespaces round trip through core', () {
+    final totals = NotificationTotals.fromStoredJson(const {
+      'plugins': {
+        'absent-plugin/alerts': {
+          'count': 7,
+          'metadata': ['opaque'],
+        },
+      },
+    });
+
+    expect(totals.toStoredJson()['plugins'], {
+      'absent-plugin/alerts': {
+        'count': 7,
+        'metadata': ['opaque'],
+      },
+    });
+  });
+
+  test('refresh keeps live counts but takes response availability', () {
+    final before = NotificationTotals(
+      pluginCounters: PluginNotificationCounters.fromLive(const [
+        _pluginCounter,
+      ], const {}),
+    );
+    final live = before.updatePluginCounter(_pluginCounter, (_) => 5);
+    final availableResponse = NotificationTotals(
+      pluginCounters: PluginNotificationCounters.fromLive(
+        const [_pluginCounter],
+        const {'test_alerts': 1},
+      ),
+    );
+    final unavailableResponse = NotificationTotals(
+      pluginCounters: PluginNotificationCounters.fromLive(const [
+        _pluginCounter,
+      ], const {}),
     );
 
-    final read = held.withChatNotificationsDelta(-6);
-    final replayed = read.withChatNotificationsDelta(-1);
+    final available = NotificationTotals.mergeRefresh(
+      response: availableResponse,
+      before: before,
+      live: live,
+    );
+    final unavailable = NotificationTotals.mergeRefresh(
+      response: unavailableResponse,
+      before: before,
+      live: live,
+    );
 
-    expect(read.chatNotifications, 0);
-    expect(read.unreadNotifications, 2);
-    expect(read.topicTrackingUnread, 4);
-    expect(read.hasChatEnabled, isTrue);
-    expect(replayed.chatNotifications, 0);
+    expect(available.pluginCounter(_pluginCounter.id), 5);
+    expect(available.hasPluginCounter(_pluginCounter.id), isTrue);
+    expect(unavailable.pluginCounter(_pluginCounter.id), 5);
+    expect(unavailable.hasPluginCounter(_pluginCounter.id), isFalse);
+    expect(unavailable.badge, 0);
   });
 
   group('withNotification', () {
@@ -88,12 +137,15 @@ void main() {
     });
 
     test('leaves the counts it says nothing about alone', () {
-      const held = NotificationTotals(
+      final held = NotificationTotals(
         unseenReviewables: 3,
-        chatNotifications: 2,
         topicTrackingUnread: 12,
         topicTrackingNew: 7,
         username: 'joffreyj',
+        pluginCounters: PluginNotificationCounters.single(
+          _pluginCounter,
+          count: 2,
+        ),
       );
 
       final updated = held.withNotification(
@@ -101,7 +153,7 @@ void main() {
       );
 
       expect(updated.unseenReviewables, 3);
-      expect(updated.chatNotifications, 2);
+      expect(updated.pluginCounter(_pluginCounter.id), 2);
       expect(updated.topicTrackingUnread, 12);
       expect(updated.topicTrackingNew, 7);
       expect(updated.username, 'joffreyj');

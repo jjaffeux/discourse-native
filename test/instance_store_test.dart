@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -321,6 +322,32 @@ void main() {
         1,
       );
     });
+
+    test(
+      'core-only load and save preserves plugin notification counters',
+      () async {
+        final pluginStore = InstanceStore(models: installedPlugins.models);
+        final coreStore = InstanceStore();
+        final connected = DiscourseInstance(
+          url: 'https://counter.example.com',
+          title: 'Counter',
+          user: const DiscourseUser(id: 7, username: 'sam'),
+          notificationTotals: chatNotificationTotals(
+            unreadNotifications: 2,
+            chatNotifications: 7,
+          ),
+        );
+
+        await pluginStore.save([connected]);
+        final coreLoaded = await coreStore.load();
+        expect(coreLoaded.single.notificationTotals?.unreadNotifications, 2);
+        await coreStore.save(coreLoaded);
+
+        final restored = (await pluginStore.load()).single.notificationTotals!;
+        expect(restored.hasChatEnabled, isTrue);
+        expect(restored.chatNotifications, 7);
+      },
+    );
 
     test('keeps the rail in order, and keeps a signed-out site', () async {
       const first = DiscourseInstance(

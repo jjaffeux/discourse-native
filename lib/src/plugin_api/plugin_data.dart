@@ -41,6 +41,18 @@ abstract base class PluginDataPersistenceCodec<T extends Object> {
   Object? encode(T value);
 
   T? decodeLegacy(Map<String, dynamic> json) => null;
+
+  /// Reads this value from one complete stored record.
+  ///
+  /// The default keeps a namespaced value authoritative and consults legacy
+  /// flat fields only when the namespace is absent. A codec may override this
+  /// when a later schema revision needs to combine an existing namespace with
+  /// a field written outside it by an older release.
+  T? decodeStored({
+    required Object? namespacedValue,
+    required bool hasNamespacedValue,
+    required Map<String, dynamic> record,
+  }) => hasNamespacedValue ? decode(namespacedValue) : decodeLegacy(record);
 }
 
 /// What installed plugins had to say about one core record.

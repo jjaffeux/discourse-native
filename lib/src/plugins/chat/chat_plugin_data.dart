@@ -107,6 +107,7 @@ final class ChatCurrentUser {
     this.hasChatEnabled,
     this.headerIndicatorPreference = ChatHeaderIndicatorPreference.allNew,
     this.lastChannelId,
+    this.ignoredUsernames = const [],
   });
 
   factory ChatCurrentUser.fromCurrentUser(Map<String, dynamic> json) {
@@ -118,6 +119,7 @@ final class ChatCurrentUser {
         userOption['chat_header_indicator_preference'],
       ),
       lastChannelId: jsonIntOrNull(customFields['last_chat_channel_id']),
+      ignoredUsernames: _usernames(json['ignored_users']),
     );
   }
 
@@ -131,16 +133,21 @@ final class ChatCurrentUser {
           json['headerIndicatorPreference'],
         ),
         lastChannelId: jsonIntOrNull(json['lastChannelId']),
+        ignoredUsernames: _usernames(json['ignoredUsernames']),
       );
 
   final bool? hasChatEnabled;
   final ChatHeaderIndicatorPreference headerIndicatorPreference;
   final int? lastChannelId;
 
+  /// Usernames whose messages must not contribute Chat unread state.
+  final List<String> ignoredUsernames;
+
   Map<String, Object?> toStored() => {
     'hasChatEnabled': hasChatEnabled,
     'headerIndicatorPreference': headerIndicatorPreference.wireName,
     'lastChannelId': lastChannelId,
+    'ignoredUsernames': ignoredUsernames,
   };
 
   @override
@@ -148,11 +155,16 @@ final class ChatCurrentUser {
       other is ChatCurrentUser &&
       other.hasChatEnabled == hasChatEnabled &&
       other.headerIndicatorPreference == headerIndicatorPreference &&
-      other.lastChannelId == lastChannelId;
+      other.lastChannelId == lastChannelId &&
+      listEquals(other.ignoredUsernames, ignoredUsernames);
 
   @override
-  int get hashCode =>
-      Object.hash(hasChatEnabled, headerIndicatorPreference, lastChannelId);
+  int get hashCode => Object.hash(
+    hasChatEnabled,
+    headerIndicatorPreference,
+    lastChannelId,
+    Object.hashAll(ignoredUsernames),
+  );
 }
 
 final class ChatSettingsPersistenceCodec
@@ -204,6 +216,33 @@ final class ChatCurrentUserPersistenceCodec
   Object? encode(ChatCurrentUser value) => value.toStored();
 
   @override
+  ChatCurrentUser? decodeStored({
+    required Object? namespacedValue,
+    required bool hasNamespacedValue,
+    required Map<String, dynamic> record,
+  }) {
+    final decoded = super.decodeStored(
+      namespacedValue: namespacedValue,
+      hasNamespacedValue: hasNamespacedValue,
+      record: record,
+    );
+    if (!hasNamespacedValue ||
+        !record.containsKey('ignoredUsernames') ||
+        _jsonMap(namespacedValue)?.containsKey('ignoredUsernames') == true) {
+      return decoded;
+    }
+
+    return ChatCurrentUser(
+      hasChatEnabled: decoded?.hasChatEnabled,
+      headerIndicatorPreference:
+          decoded?.headerIndicatorPreference ??
+          ChatHeaderIndicatorPreference.allNew,
+      lastChannelId: decoded?.lastChannelId,
+      ignoredUsernames: _usernames(record['ignoredUsernames']),
+    );
+  }
+
+  @override
   ChatCurrentUser? decodeLegacy(Map<String, dynamic> json) =>
       _containsAny(json, _legacyChatCurrentUserKeys)
       ? ChatCurrentUser(
@@ -215,6 +254,7 @@ final class ChatCurrentUserPersistenceCodec
             json['chatHeaderIndicatorPreference'],
           ),
           lastChannelId: jsonIntOrNull(json['lastChatChannelId']),
+          ignoredUsernames: _usernames(json['ignoredUsernames']),
         )
       : null;
 }
@@ -248,6 +288,9 @@ extension ChatDiscourseUserData on DiscourseUser {
       ChatHeaderIndicatorPreference.allNew;
 
   int? get lastChatChannelId => chatCurrentUser?.lastChannelId;
+
+  List<String> get ignoredUsernames =>
+      chatCurrentUser?.ignoredUsernames ?? const [];
 }
 
 const Set<String> _legacyChatSettingsKeys = {
@@ -261,12 +304,16 @@ const Set<String> _legacyChatCurrentUserKeys = {
   'hasChatEnabled',
   'chatHeaderIndicatorPreference',
   'lastChatChannelId',
+  'ignoredUsernames',
 };
 
 int _retentionDays(Object? raw) => switch (jsonIntOrNull(raw)) {
   final value? when value >= 0 => value,
   _ => 0,
 };
+
+List<String> _usernames(Object? raw) =>
+    List.unmodifiable(jsonArray(raw).map(jsonText).whereType<String>());
 
 bool _containsAny(Map<String, dynamic> json, Set<String> keys) {
   for (final key in keys) {

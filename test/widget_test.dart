@@ -39,6 +39,7 @@ import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
+import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
@@ -6467,43 +6468,42 @@ void main() {
         FakeAuthenticator()..keys['https://meta.discourse.org'] = 'api-key';
 
     const notifications = [
-      DiscourseNotification(
+      DiscourseNotification.test(
         id: 1,
-        kind: NotificationKind.replied,
-        actor: 'sam',
+        typeId: NotificationTypeId(2),
         title: 'Better image handling',
         topicId: 7,
         slug: 'better-image-handling',
-        path: '/t/better-image-handling/7',
+        data: {'display_username': 'sam'},
       ),
-      DiscourseNotification(
+      DiscourseNotification.test(
         id: 2,
-        kind: NotificationKind.liked,
+        typeId: NotificationTypeId(5),
         read: true,
-        actor: 'david',
         title: 'Merge CVSS',
         topicId: 8,
-        path: '/t/merge-cvss/8',
+        slug: 'merge-cvss',
+        data: {'display_username': 'david'},
       ),
       // This app has no badge page, so this one leads out to the browser.
-      DiscourseNotification(
+      DiscourseNotification.test(
         id: 3,
-        kind: NotificationKind.grantedBadge,
-        badgeName: 'Nice Reply',
-        path: '/badges/24/nice-reply',
+        typeId: NotificationTypeId(12),
+        data: {
+          'badge_id': 24,
+          'badge_name': 'Nice Reply',
+          'badge_slug': 'nice-reply',
+        },
       ),
       // And this one points at nothing at all.
-      DiscourseNotification(
+      DiscourseNotification.test(
         id: 4,
-        kind: NotificationKind.unknown,
+        typeId: NotificationTypeId(4242),
         title: 'Something from a plugin',
       ),
     ];
 
-    const chatEnabledTotals = NotificationTotals(
-      chatNotifications: 1,
-      hasChatEnabled: true,
-    );
+    final chatEnabledTotals = chatNotificationTotals(chatNotifications: 1);
     const emptyChatChannels = ChatChannels(
       public: <ChatChannel>[],
       direct: <ChatChannel>[],
@@ -6576,7 +6576,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(api.replyNotificationCalls, 1);
-      expect(api.notificationFilters.single, userMenuReplyNotificationKinds);
+      expect(api.notificationFilters.single, userMenuReplyNotificationTypes);
       expect(
         find.textContaining('sam replied to Better image handling'),
         findsOneWidget,
@@ -6666,14 +6666,14 @@ void main() {
     testWidgets('a reaction notification refreshes a post already open', (
       tester,
     ) async {
-      const notification = DiscourseNotification(
+      const notification = DiscourseNotification.test(
         id: 5,
-        kind: NotificationKind.reaction,
-        actor: 'david',
+        typeId: NotificationTypeId(25),
         title: 'Better image handling',
         topicId: 7,
         postNumber: 1,
-        path: '/t/better-image-handling/7',
+        slug: 'better-image-handling',
+        data: {'display_username': 'david'},
       );
       Post reactionPost(List<Reaction> reactions) => Post(
         id: 1,
@@ -6830,7 +6830,7 @@ void main() {
         expect(api.notificationCalls, 1);
         expect(api.replyNotificationCalls, 0);
         expect(api.notificationFilters, [
-          const <NotificationKind>[],
+          const <NotificationTypeName>[],
           chatNotificationFeed.filterByTypes,
         ]);
 
@@ -7654,13 +7654,12 @@ void main() {
     ];
 
     /// A reminder that has come due, which the tab lists above the bookmarks.
-    const reminder = DiscourseNotification(
+    const reminder = DiscourseNotification.test(
       id: 41,
-      kind: NotificationKind.bookmarkReminder,
+      typeId: NotificationTypeId(24),
       title: 'Better image handling',
       topicId: 7,
       slug: 'better-image-handling',
-      path: '/t/better-image-handling/7',
     );
 
     Future<void> openBookmarks(WidgetTester tester) async {
@@ -13383,10 +13382,7 @@ void main() {
 
     /// Totals from a site that has chat, which is the only thing that makes
     /// this app ask for channels at all.
-    const withChat = NotificationTotals(
-      chatNotifications: 0,
-      hasChatEnabled: true,
-    );
+    final withChat = chatNotificationTotals();
     const withoutChat = NotificationTotals();
 
     SiteConfig chatConfig({
@@ -13540,7 +13536,7 @@ void main() {
     /// account to be made as.
     Future<void> pumpChat(
       WidgetTester tester, {
-      NotificationTotals totals = withChat,
+      NotificationTotals? totals,
       List<ChatChannel> public = const [],
       List<ChatChannel> direct = const [],
       Map<String, ChatMessagePage> messages = const {},
@@ -13557,7 +13553,7 @@ void main() {
         api:
             api ??
             FakeDiscourseApi(
-              totals: totals,
+              totals: totals ?? withChat,
               user: user,
               chatChannelsBySite: {
                 site: ChatChannels(

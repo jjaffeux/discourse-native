@@ -10,6 +10,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
 import 'reaction.dart';
 import 'reaction_picker.dart';
+import 'reactions_notifications.dart';
 import 'reactions_row.dart';
 import 'reactions_settings.dart';
 import 'reactions_shell_extension.dart';
@@ -36,11 +37,16 @@ class ReactionsPlugin
         PostRecordPlugin<Reactions>,
         PostFooterPlugin,
         PostMenuPlugin,
+        NotificationTypePlugin,
         TopicLivePlugin {
   const ReactionsPlugin();
 
   @override
   String get name => 'discourse-reactions';
+
+  @override
+  List<PluginNotificationType> get notificationTypes =>
+      reactionsNotificationTypes;
 
   @override
   PluginDataPersistenceCodec<ReactionsSettings> get siteSettingsCodec =>

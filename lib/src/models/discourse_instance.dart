@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../plugin_api/notification_counters.dart';
 import '../plugin_api/plugin_data.dart';
 import '../theme/d_icons.dart';
 import 'discourse_user.dart';
+import 'notification_totals.dart';
 import 'sidebar.dart';
 import 'site_appearance.dart';
 import 'site_config.dart';
@@ -23,6 +25,7 @@ class DiscourseInstance {
     this.apiVersion = 0,
     this.loginRequired = false,
     this.user,
+    this.notificationTotals,
     this.appearance,
     this.config = const SiteConfig.unknown(),
   });
@@ -30,7 +33,15 @@ class DiscourseInstance {
   factory DiscourseInstance.fromJson(
     Map<String, dynamic> json, {
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+    PluginNotificationCounterCodec counterCodec =
+        const EmptyPluginNotificationCounterCodec(),
   }) {
+    final user = json['user'] == null
+        ? null
+        : DiscourseUser.fromJson(
+            json['user'] as Map<String, dynamic>,
+            extensions: extensions,
+          );
     return DiscourseInstance(
       url: json['url'] as String,
       title: json['title'] as String,
@@ -38,11 +49,12 @@ class DiscourseInstance {
       iconUrl: json['iconUrl'] as String?,
       apiVersion: json['apiVersion'] as int? ?? 0,
       loginRequired: json['loginRequired'] as bool? ?? false,
-      user: json['user'] == null
+      user: user,
+      notificationTotals: user == null
           ? null
-          : DiscourseUser.fromJson(
-              json['user'] as Map<String, dynamic>,
-              extensions: extensions,
+          : _notificationTotalsFromJson(
+              json['notificationTotals'],
+              counterCodec,
             ),
       // Appearance is optional presentation metadata. An old, partial, or
       // malformed value must not make the whole site disappear from the rail.
@@ -67,6 +79,8 @@ class DiscourseInstance {
     bool? loginRequired,
     DiscourseUser? user,
     bool clearUser = false,
+    NotificationTotals? notificationTotals,
+    bool clearNotificationTotals = false,
     SiteAppearance? appearance,
     bool clearAppearance = false,
     SiteConfig? config,
@@ -80,6 +94,9 @@ class DiscourseInstance {
       apiVersion: apiVersion ?? this.apiVersion,
       loginRequired: loginRequired ?? this.loginRequired,
       user: clearUser ? null : (user ?? this.user),
+      notificationTotals: clearUser || clearNotificationTotals
+          ? null
+          : (notificationTotals ?? this.notificationTotals),
       appearance: clearAppearance ? null : (appearance ?? this.appearance),
       config: clearConfig
           ? const SiteConfig.unknown()
@@ -100,6 +117,12 @@ class DiscourseInstance {
   /// API key itself lives in platform-private storage, never here.
   final DiscourseUser? user;
 
+  /// Last account totals snapshot, retained for an immediate warm start.
+  ///
+  /// Plugin-owned counts remain namespaced and opaque when their plugin is not
+  /// installed, so a core-only build can safely load and save this instance.
+  final NotificationTotals? notificationTotals;
+
   /// The last resolved theme colors for this site. They are safe to persist:
   /// unlike the API key, compiled color variables contain no credentials.
   final SiteAppearance? appearance;
@@ -117,6 +140,8 @@ class DiscourseInstance {
 
   Map<String, dynamic> toJson({
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+    PluginNotificationCounterCodec counterCodec =
+        const EmptyPluginNotificationCounterCodec(),
   }) => {
     'url': url,
     'title': title,
@@ -125,9 +150,28 @@ class DiscourseInstance {
     'apiVersion': apiVersion,
     'loginRequired': loginRequired,
     'user': user?.toJson(extensions: extensions),
+    if (user != null && notificationTotals != null)
+      'notificationTotals': notificationTotals!.toStoredJson(
+        counterCodec: counterCodec,
+      ),
     'appearance': appearance?.toJson(),
     'config': config.toJson(extensions: extensions),
   };
+
+  static NotificationTotals? _notificationTotalsFromJson(
+    Object? value,
+    PluginNotificationCounterCodec counterCodec,
+  ) {
+    if (value is! Map) return null;
+    try {
+      return NotificationTotals.fromStoredJson(
+        Map<String, dynamic>.from(value),
+        counterCodec: counterCodec,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 
   static SiteAppearance? _appearanceFromJson(Object? value) {
     if (value is! Map) return null;

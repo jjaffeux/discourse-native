@@ -703,7 +703,7 @@ class FakeDiscourseApi
   int chatNotificationCalls = 0;
 
   /// The type filters passed to [notifications], one immutable list per call.
-  final List<List<NotificationKind>> notificationFilters = [];
+  final List<List<NotificationTypeName>> notificationFilters = [];
 
   /// Usernames passed to [bookmarks], in order.
   final List<String> bookmarksRequested = [];
@@ -1084,7 +1084,8 @@ class FakeDiscourseApi
   /// Missing is the default, and deliberately: a test that has not said a site
   /// has chat sees a site drawn as plain core, which is what every test that is
   /// not about chat wants. Nothing asks in the first place unless
-  /// [totals] reports `hasChatEnabled`, which itself defaults to off.
+  /// [totals] contains Chat's available notification counter, which defaults
+  /// to absent.
   final Map<String, ChatChannels> chatChannelsBySite;
 
   final Map<int, ChatChannel> chatChannelsById;
@@ -1466,11 +1467,11 @@ class FakeDiscourseApi
     required String siteUrl,
     required String apiKey,
     int limit = 30,
-    List<NotificationKind> filterByTypes = const [],
+    List<NotificationTypeName> filterByTypes = const [],
     String? clientId,
   }) async {
     notificationFilters.add(List.unmodifiable(filterByTypes));
-    final replies = _sameKinds(filterByTypes, userMenuReplyNotificationKinds);
+    final replies = _sameKinds(filterByTypes, userMenuReplyNotificationTypes);
     final chat = _sameKinds(filterByTypes, chatNotificationFeed.filterByTypes);
     if (replies) {
       replyNotificationCalls++;
@@ -1493,8 +1494,8 @@ class FakeDiscourseApi
   }
 
   static bool _sameKinds(
-    List<NotificationKind> actual,
-    List<NotificationKind> expected,
+    List<NotificationTypeName> actual,
+    List<NotificationTypeName> expected,
   ) {
     if (actual.length != expected.length) return false;
     for (var index = 0; index < actual.length; index++) {

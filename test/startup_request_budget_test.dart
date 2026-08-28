@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -86,6 +87,91 @@ void main() {
   });
 
   test(
+    'restores, persists, and reconciles plugin counters on startup',
+    () async {
+      const siteUrl = 'https://first.example';
+      final savedInstance = _connected(siteUrl).copyWith(
+        notificationTotals: chatNotificationTotals(chatNotifications: 7),
+      );
+      final instanceStore = FakeInstanceStore([savedInstance]);
+      final api = _StartupApi(siteUrl, siteAppearance());
+      final authenticator = FakeAuthenticator()..keys[siteUrl] = 'key';
+      final shell = ShellController(
+        instanceStore: instanceStore,
+        api: api,
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        plugins: installedPlugins,
+      );
+      addTearDown(shell.dispose);
+
+      await shell.load();
+      await pumpEventQueue();
+      expect(shell.currentTotals?.chatNotifications, 7);
+
+      shell.accountActivity.applyPluginCounter(
+        siteUrl,
+        chatNotificationCounter,
+        (current) => current + 1,
+      );
+      await pumpEventQueue();
+      expect(
+        (await instanceStore.load())
+            .single
+            .notificationTotals
+            ?.chatNotifications,
+        8,
+      );
+
+      api.firstTotals.complete(chatNotificationTotals(chatNotifications: 2));
+      await pumpEventQueue();
+      expect(shell.currentTotals?.chatNotifications, 8);
+      expect(shell.currentTotals?.hasChatEnabled, isTrue);
+    },
+  );
+
+  test(
+    'a different credential account cannot inherit persisted counters',
+    () async {
+      const siteUrl = 'https://first.example';
+      final savedInstance = _connected(siteUrl).copyWith(
+        notificationTotals: chatNotificationTotals(chatNotifications: 7),
+      );
+      final instanceStore = FakeInstanceStore([savedInstance]);
+      final api = _StartupApi(
+        siteUrl,
+        siteAppearance(),
+        sessionUser: const DiscourseUser(id: 8, username: 'other-reader'),
+      );
+      final authenticator = FakeAuthenticator()..keys[siteUrl] = 'key';
+      final shell = ShellController(
+        instanceStore: instanceStore,
+        api: api,
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        plugins: installedPlugins,
+      );
+      addTearDown(shell.dispose);
+
+      await shell.load();
+      await pumpEventQueue();
+
+      expect(shell.currentInstance?.user?.id, 8);
+      expect(shell.currentTotals, isNull);
+      expect(shell.currentInstance?.notificationTotals, isNull);
+      expect((await instanceStore.load()).single.notificationTotals, isNull);
+
+      // The old account's in-flight response cannot repopulate the new one.
+      api.firstTotals.complete(chatNotificationTotals(chatNotifications: 3));
+      await pumpEventQueue();
+      expect(shell.currentTotals, isNull);
+      expect((await instanceStore.load()).single.notificationTotals, isNull);
+    },
+  );
+
+  test(
     'a session response which lands after switching does not hydrate the inactive sidebar',
     () async {
       const firstUrl = 'https://first.example';
@@ -159,7 +245,7 @@ void main() {
       shell.selectInstance(1);
       await pumpEventQueue();
 
-      api.firstTotals.complete(const NotificationTotals(hasChatEnabled: true));
+      api.firstTotals.complete(chatNotificationTotals());
       await pumpEventQueue();
       expect(api.chatChannelsRequested, isNot(contains(firstUrl)));
 
@@ -178,19 +264,23 @@ DiscourseInstance _connected(String url) => DiscourseInstance(
 );
 
 final class _StartupApi extends FakeDiscourseApi {
-  _StartupApi(this.firstUrl, SiteAppearance appearance)
-    : super(
-        totals: const NotificationTotals(),
-        siteAppearances: {firstUrl: appearance},
-        chatChannelsBySite: {
-          firstUrl: const ChatChannels(
-            public: <ChatChannel>[],
-            direct: <ChatChannel>[],
-          ),
-        },
-      );
+  _StartupApi(
+    this.firstUrl,
+    SiteAppearance appearance, {
+    this.sessionUser = const DiscourseUser(id: 7, username: 'reader'),
+  }) : super(
+         totals: const NotificationTotals(),
+         siteAppearances: {firstUrl: appearance},
+         chatChannelsBySite: {
+           firstUrl: const ChatChannels(
+             public: <ChatChannel>[],
+             direct: <ChatChannel>[],
+           ),
+         },
+       );
 
   final String firstUrl;
+  final DiscourseUser sessionUser;
   final Completer<NotificationTotals> firstTotals = Completer();
   final List<String> totalsSites = [];
   final List<String> sessionSites = [];
@@ -206,7 +296,7 @@ final class _StartupApi extends FakeDiscourseApi {
     sessionSites.add(siteUrl);
     final gate = sessionGates[siteUrl];
     if (gate != null) await gate.future;
-    return const DiscourseUser(id: 7, username: 'reader');
+    return sessionUser;
   }
 
   @override

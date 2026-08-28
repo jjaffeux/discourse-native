@@ -99,9 +99,10 @@ v1.5**. `basic_utils`' `rsaDecrypt` uses raw unpadded RSA and will not work;
 Every number the shell shows — the rail badge and all the sidebar counts —
 comes from a single call to `/notifications/totals.json`, not from a request per
 section. It returns `unread_notifications`, `unread_personal_messages`,
-`unseen_reviewables`, `chat_notifications`, `topic_tracking.{unread,new}` and
-`username`. Key names are taken from what DiscourseMobile's `Site.refresh()`
-actually reads.
+`unseen_reviewables`, `topic_tracking.{unread,new}` and `username`. Installed
+plugins register additional namespaced counters and own their wire keys; Chat,
+for example, registers `chat/notifications` backed by `chat_notifications`.
+Core-only builds do not interpret that field.
 
 The rail badge counts only things *addressed to you* (notifications, PMs, chat,
 reviewables). Unread and new topics are sidebar counts, not rail badges —
@@ -111,6 +112,11 @@ site's `success` colour like core's high-priority notification badge. The
 current site's avatar repeats that total in core's padded count pill, using the
 same `success` colour. The `danger` colour remains reserved for actual error
 surfaces.
+
+Counter presence is distinct from its value: zero may be available, while an
+absent plugin field means the feature is unavailable. The last snapshot is
+stored with the connected instance. Unknown plugin namespaces survive a
+core-only load/save and are reclaimed if their plugin is installed again.
 
 Refreshed on launch for every connected site, after connecting, and when
 switching to a site. A failure is swallowed: counters are decoration and a site
@@ -437,6 +443,12 @@ live, which is the one thing behind the rail badge, the user menu's tab counts
 and the count pill on the avatar that opens it. The avatar repeats the current
 site's exact total, as core's header does; the rail keeps the same number visible
 while switching among sites.
+
+Plugin-owned live counts use an owner-scoped account-events host. A feature can
+reduce only a counter registered to its own module; it cannot replace core
+totals. If an HTTP refresh overlaps a live event, response presence remains
+authoritative while a count changed during the request stays live, and the
+result is persisted with the instance snapshot.
 
 The arithmetic is the trap. The message carries its own `unread_notifications`,
 and it is **not** the field `/notifications/totals.json` returns under that

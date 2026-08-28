@@ -15,11 +15,11 @@ void main() {
     await _pumpRow(
       tester,
       NotificationRow(
-        notification: const DiscourseNotification(
+        notification: const DiscourseNotification.test(
           id: 1,
-          kind: NotificationKind.replied,
-          actor: 'sam',
+          typeId: NotificationTypeId(2),
           title: 'A useful topic',
+          data: {'display_username': 'sam'},
         ),
         onTap: () => opens++,
       ),

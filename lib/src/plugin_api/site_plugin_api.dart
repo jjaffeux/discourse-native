@@ -16,14 +16,18 @@ import '../shell/composer_controller.dart';
 import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
 import 'chat_preview.dart';
+import 'notification_counters.dart';
 import 'notification_feed_host.dart';
+import 'notification_types.dart';
 import 'plugin_data.dart';
 import 'plugin_icon_catalog.dart';
 
 export 'composer_syntax.dart';
 export 'emoji_usage.dart';
 export 'hashtag_kind.dart';
+export 'notification_counters.dart';
 export 'notification_feed_host.dart';
+export 'notification_types.dart';
 export 'plugin_data.dart';
 export 'plugin_icon_catalog.dart';
 export 'shell_extensions.dart';
@@ -262,6 +266,17 @@ abstract interface class UserMenuSectionPlugin {
 /// Declares namespaced notification feeds consumed by plugin-owned sections.
 abstract interface class NotificationFeedPlugin {
   List<PluginNotificationFeedSource> get notificationFeeds;
+}
+
+/// Declares the wire identities and interpretation owned by a plugin's
+/// notification types.
+abstract interface class NotificationTypePlugin {
+  List<PluginNotificationType> get notificationTypes;
+}
+
+/// Declares plugin-owned counts in `/notifications/totals.json`.
+abstract interface class NotificationCounterPlugin {
+  List<PluginNotificationCounter> get notificationCounters;
 }
 
 /// Replaces a top-level element inside a post's cooked body.

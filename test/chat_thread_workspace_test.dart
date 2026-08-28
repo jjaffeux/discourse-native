@@ -3,12 +3,12 @@ import 'dart:ui' show CheckedState, PointerDeviceKind;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
-import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
+import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread_panel_width_store.dart';
@@ -603,10 +603,7 @@ final class _WorkspaceApi extends FakeDiscourseApi {
   _WorkspaceApi({this.terminalThread = false, this.thread = _thread})
     : super(
         user: _reader,
-        totals: const NotificationTotals(
-          chatNotifications: 0,
-          hasChatEnabled: true,
-        ),
+        totals: chatNotificationTotals(),
         feeds: const {'/latest.json': []},
         chatChannelsBySite: const {
           _siteUrl: ChatChannels(public: [_channel]),

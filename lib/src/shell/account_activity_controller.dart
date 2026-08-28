@@ -13,10 +13,13 @@ import '../models/notification.dart';
 import '../models/notification_feed.dart';
 import '../models/notification_totals.dart';
 import '../models/user_activity_feed.dart';
+import '../plugin_api/notification_counters.dart';
 import '../plugin_api/notification_feed_host.dart';
 
 typedef TotalsLoaded =
     void Function(DiscourseInstance instance, NotificationTotals totals);
+typedef TotalsChanged =
+    void Function(String siteUrl, NotificationTotals totals);
 
 /// Account-specific activity held independently from shell navigation state.
 final class AccountActivityController extends FrameSafeNotifier {
@@ -25,6 +28,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     required this.credentials,
     required this.lifecycle,
     this.onTotalsLoaded,
+    this.onTotalsChanged,
     this.minimumRefreshInterval = const Duration(minutes: 5),
     DateTime Function()? clock,
   }) : assert(minimumRefreshInterval >= Duration.zero),
@@ -34,6 +38,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   final SiteApiKeyReader credentials;
   final SiteLifecycle lifecycle;
   final TotalsLoaded? onTotalsLoaded;
+  final TotalsChanged? onTotalsChanged;
   final Duration minimumRefreshInterval;
   final DateTime Function() _clock;
 
@@ -91,6 +96,12 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, Set<int>> _locallyReadNotificationIds = {};
 
   NotificationTotals? totalsFor(String siteUrl) => _totals[siteUrl];
+
+  /// Seeds a warm-start snapshot without treating disk state as a new event.
+  void restoreTotals(String siteUrl, NotificationTotals totals) {
+    if (isDisposed) return;
+    _totals[siteUrl] = totals;
+  }
 
   NotificationFeed notificationsFor(String? siteUrl) => siteUrl == null
       ? const NotificationFeed()
@@ -188,12 +199,16 @@ final class AccountActivityController extends FrameSafeNotifier {
         if (!identical(_totalsRequests[instance.url], request)) return;
         final current = _totals[instance.url];
         final resolved = current != null
-            ? _mergeChangedCounts(totals, before, current)
+            ? NotificationTotals.mergeRefresh(
+                response: totals,
+                before: before,
+                live: current,
+              )
             : totals;
         applied = resolved;
         if (current != resolved) {
           _totals[instance.url] = resolved;
-          _notifyTotals();
+          _notifyTotals(instance.url, resolved);
         }
         // Publishing can synchronously dispose this owner through a listener.
         // Do not let its post-load hook start work for a replacement shell.
@@ -278,7 +293,7 @@ final class AccountActivityController extends FrameSafeNotifier {
           fetch: (apiKey) => api.notifications(
             siteUrl: instance.url,
             apiKey: apiKey,
-            filterByTypes: userMenuReplyNotificationKinds,
+            filterByTypes: userMenuReplyNotificationTypes,
           ),
           reconnectMessage: 'Reconnect to ${instance.host} to see replies.',
           failureMessage: "Couldn't load replies from ${instance.host}.",
@@ -864,7 +879,15 @@ final class AccountActivityController extends FrameSafeNotifier {
     final updated = fold(held);
     if (updated == held) return;
     _totals[siteUrl] = updated;
-    _notifyTotals();
+    _notifyTotals(siteUrl, updated);
+  }
+
+  void applyPluginCounter(
+    String siteUrl,
+    PluginNotificationCounter counter,
+    int Function(int current) reduce,
+  ) {
+    applyCounts(siteUrl, (held) => held.updatePluginCounter(counter, reduce));
   }
 
   void forget(String siteUrl) {
@@ -924,7 +947,9 @@ final class AccountActivityController extends FrameSafeNotifier {
     if (changed) notifySafely();
   }
 
-  void _notifyTotals() {
+  void _notifyTotals(String siteUrl, NotificationTotals totals) {
+    onTotalsChanged?.call(siteUrl, totals);
+    if (isDisposed) return;
     _totalsChanges.changed();
     notifySafely();
   }
@@ -981,30 +1006,6 @@ final class AccountActivityController extends FrameSafeNotifier {
     readIds.remove(notificationId);
     if (readIds.isEmpty) _locallyReadNotificationIds.remove(siteUrl);
   }
-
-  static NotificationTotals _mergeChangedCounts(
-    NotificationTotals response,
-    NotificationTotals before,
-    NotificationTotals live,
-  ) => NotificationTotals(
-    unreadNotifications: live.unreadNotifications != before.unreadNotifications
-        ? live.unreadNotifications
-        : response.unreadNotifications,
-    unreadPersonalMessages:
-        live.unreadPersonalMessages != before.unreadPersonalMessages
-        ? live.unreadPersonalMessages
-        : response.unreadPersonalMessages,
-    unseenReviewables: live.unseenReviewables != before.unseenReviewables
-        ? live.unseenReviewables
-        : response.unseenReviewables,
-    chatNotifications: live.chatNotifications != before.chatNotifications
-        ? live.chatNotifications
-        : response.chatNotifications,
-    topicTrackingUnread: response.topicTrackingUnread,
-    topicTrackingNew: response.topicTrackingNew,
-    username: response.username,
-    hasChatEnabled: response.hasChatEnabled,
-  );
 
   @override
   void dispose() {

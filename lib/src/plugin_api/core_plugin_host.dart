@@ -7,7 +7,6 @@ import '../data/site_lifecycle.dart';
 import '../data/site_tracker.dart';
 import '../data/store.dart';
 import '../models/discourse_user.dart';
-import '../models/notification_totals.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../shell/composer_controller.dart';
@@ -15,6 +14,7 @@ import 'bookmark_host.dart';
 import 'chat_preview.dart';
 import 'discourse_model_codec.dart';
 import 'emoji_preferences.dart';
+import 'notification_counters.dart';
 import 'notification_feed_host.dart';
 import 'plugin_data.dart';
 import 'plugin_manifest.dart';
@@ -24,10 +24,13 @@ typedef PluginCurrentUserReader = DiscourseUser? Function(String siteUrl);
 typedef PluginSiteConfigReader = SiteConfig Function(String siteUrl);
 typedef PluginSiteConfigListenableReader =
     ValueListenable<SiteConfig> Function(String siteUrl);
-typedef PluginTotalsFold =
-    NotificationTotals Function(NotificationTotals current);
-typedef PluginTotalsUpdater =
-    void Function(String siteUrl, PluginTotalsFold fold);
+typedef PluginNotificationCounterReducer = int Function(int current);
+typedef PluginNotificationCounterUpdater =
+    void Function(
+      String siteUrl,
+      PluginNotificationCounterId id,
+      PluginNotificationCounterReducer reduce,
+    );
 typedef PluginSiteCallback = void Function(String siteUrl);
 typedef PluginTrackerReader = SiteTracker? Function(String siteUrl);
 typedef PluginUserIdReader = int? Function(String siteUrl);
@@ -71,11 +74,11 @@ final class PluginSiteStateHost {
 /// Account-level events emitted by a plugin-owned background controller.
 final class PluginAccountEventsHost {
   const PluginAccountEventsHost({
-    required this.updateTotals,
+    required this.updateNotificationCounter,
     required this.markSiteUnreachable,
   });
 
-  final PluginTotalsUpdater updateTotals;
+  final PluginNotificationCounterUpdater updateNotificationCounter;
   final PluginSiteCallback markSiteUnreachable;
 }
 

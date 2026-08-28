@@ -77,6 +77,35 @@ Reactions, GIFs, Local Dates, and Resenha therefore decode only when their
 modules are in the selected manifest. A core-only manifest ignores those live
 schemas rather than silently growing optional model fields.
 
+Chat's current-user value also owns `ignored_users`. Core retains no ignored
+user field; Chat decodes and persists the usernames it uses to suppress unread
+state for messages from ignored authors.
+
+Notification totals use a parallel open registry. A
+`PluginNotificationCounter` declares a stable `PluginId`/local-name identity,
+the feature-owned wire field, and whether an available value contributes to
+the global badge. Core retains the typed count and presence separately: zero
+is an available count, while an absent wire field keeps the feature
+unavailable. Chat owns the `chat/notifications` declaration and every use of
+`chat_notifications`; the shared API only asks the installed model codec to
+decode the response.
+
+Notification rows are open at the wire boundary too. Core retains the exact
+numeric type id, an optional type name only when the response supplied one,
+the complete immutable envelope, and the type-owned `data` map. Response ids
+and request filter names are separate value types because Discourse normally
+sends only the former and accepts only the latter; neither is collapsed to an
+`unknown` enum member. A `PluginNotificationType` pairs the known wire values
+with a namespaced owner and the owner's payload decoder. That decoder owns its
+payload keys, route, wording, actor policy, and icon. Chat, Assign, and
+Reactions register their definitions beside their modules. If an owner is not
+installed, or its decoder rejects malformed data, core still renders a bell
+and the row title and follows only a topic route derivable from stable envelope
+fields. The fallback reads only the top-level `fancy_title`; a type-owned
+`data.topic_title` remains opaque until a registered owner decodes it. The
+shared API therefore parses and filters open values without importing any
+feature implementation.
+
 Plugin HTTP contracts and route/payload parsing live beside their feature
 (`poll`, `reactions`, `gifs`, and `chat`) and use the shared transport only as a
 narrow wire boundary. `DiscourseApi` exposes no typed plugin endpoint.
@@ -117,9 +146,30 @@ validated registry rejects whitespace, namespaced aliases, duplicate claims,
 and attempts to claim core's alias. Thus `related` becomes
 `discourse-ai/related` only while the Discourse AI codec is installed.
 
+Persistence codecs receive both their namespaced value and the complete stored
+record for migrations which span schema generations. Chat uses this hook for
+the transition where a snapshot already has `chat/current-user` but still
+stores `ignoredUsernames` at the account root. The first save with Chat
+installed folds that list into the namespace and removes the flat field.
+
 Malformed data in one installed namespace is isolated to that codec and does
 not make the connected site unreadable. Once claimed, malformed data is not
 re-emitted indefinitely.
+
+The last account totals are part of `DiscourseInstance` and restore before the
+first network refresh. Plugin counters are stored under the totals `plugins`
+object by their stable `owner/name` identity. Unknown namespaces retain their
+opaque JSON through a core-only load/save; reinstalling the owner claims the
+same value again. Installed unavailable counters are omitted rather than
+turning absence into a synthetic zero. HTTP refresh presence is authoritative,
+while a count changed by a live event during the request remains live. Every
+changed accepted refresh or event is written through the instance store's
+coalescing snapshot writer.
+
+Totals snapshots are account-bound as well as site-bound. If the live
+current-user id does not match the stored account, the shell clears the warm
+totals and cancels the previous account's in-flight totals request before it
+publishes and persists the replacement user.
 
 ## UI extensions
 
@@ -138,8 +188,9 @@ The registry currently provides typed seams for:
 - namespaced composer target policies (drafts, uploads, editing, validation,
   mentions, and emoji usage), toolbar actions, shortcuts, lossless syntax
   projections, and optimistic Chat preview syntax;
-- ordered user-menu sections, plugin notification feeds, bookmark target
-  strategies, and ordered owner-decoded topic recommendation sources;
+- ordered user-menu sections, plugin notification type definitions and feeds,
+  bookmark target strategies, and ordered owner-decoded topic recommendation
+  sources;
 - sidebar sections, content routes, content chrome, shell header actions, and
   app-global overlays;
 - owner-local icon catalogs for optional artwork and semantic aliases, with a
@@ -156,6 +207,12 @@ plugin and reject foreign or malformed context values; the forum skin-tone
 choice intentionally remains shared across pickers. Composer and notification
 hosts are also materialized per consumer: foreign composer targets and
 foreign, undeclared, or altered feed definitions fail at the host boundary.
+Notification type installation rejects duplicate numeric ids, duplicate wire
+names, and definitions outside the contributing plugin's namespace; a
+filtered feed may name only types registered by that same owner.
+The account-events host is likewise scoped to its consumer: a plugin may
+update only a notification counter registered to its own id, and receives a
+count reducer rather than authority to replace core totals.
 Plugin-owned widgets receive narrow services such as composer, emoji,
 bookmark, or notification hosts rather than a concrete `ShellController`.
 Bookmark mutation services are bound to one registered target type and require
@@ -204,13 +261,10 @@ likewise expose only a generic target predicate; Chat owns the
 
 ## Deferred UI contribution seams
 
-This workstream moves model ownership and persistence, not every host UI.
-`NotificationTotals` still carries Chat's total/presence fields and core still
-parses notification kinds used by the shared user menu. The user menu, shared
-composer limit, upload gate, and Resenha top-level capability currently query
-plugin-neutral registry interfaces. Moving those remaining surfaces to full UI
-contributions is intentionally deferred; core does not import a plugin type or
-wire key through these compatibility seams.
+The user menu, shared composer limit, upload gate, and Resenha top-level
+capability currently query plugin-neutral registry interfaces. Moving those
+remaining surfaces to full UI contributions is intentionally deferred; core
+does not import a plugin type or wire key through these compatibility seams.
 
 ## Build profiles
 

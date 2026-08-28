@@ -300,6 +300,9 @@ void main() {
     final discourseUser = File(
       'lib/src/models/discourse_user.dart',
     ).readAsStringSync();
+    final modelCodec = File(
+      'lib/src/plugin_api/discourse_model_codec.dart',
+    ).readAsStringSync();
 
     for (final identifier in const [
       'mainReaction',
@@ -322,12 +325,68 @@ void main() {
       'hasChatEnabled',
       'ChatHeaderIndicatorPreference',
       'lastChatChannelId',
+      'ignoredUsernames',
     ]) {
       expect(
         discourseUser,
         isNot(contains(identifier)),
         reason: '$identifier belongs in its plugin-owned current-user model.',
       );
+    }
+    expect(
+      modelCodec,
+      isNot(contains('ignored_users')),
+      reason: 'ignored_users belongs to Chat\'s current-user wire reader.',
+    );
+  });
+
+  test('core totals do not own Chat counters or wire fields', () {
+    for (final path in const [
+      'lib/src/models/notification_totals.dart',
+      'lib/src/shell/account_activity_controller.dart',
+      'lib/src/data/discourse_api.dart',
+    ]) {
+      final source = File(path).readAsStringSync();
+      for (final identifier in const [
+        'chat_notifications',
+        'chatNotifications',
+        'hasChatEnabled',
+        'withChatNotificationsDelta',
+      ]) {
+        expect(
+          source,
+          isNot(contains(identifier)),
+          reason: '$identifier belongs to Chat, not $path.',
+        );
+      }
+    }
+  });
+
+  test('core notifications do not own optional feature wire schemas', () {
+    for (final path in const [
+      'lib/src/models/notification.dart',
+      'lib/src/plugin_api/notification_types.dart',
+      'lib/src/plugin_api/notification_feed_host.dart',
+      'lib/src/shell/notification_list.dart',
+      'lib/src/data/discourse_api.dart',
+      'lib/src/data/discourse_api_contracts.dart',
+    ]) {
+      final source = File(path).readAsStringSync();
+      for (final identifier in const [
+        'chat_mention',
+        'chat_channel_id',
+        'mentioned_by_username',
+        'assigned',
+        'reaction',
+        'following_replied',
+        'votes_released',
+      ]) {
+        expect(
+          source,
+          isNot(contains(identifier)),
+          reason: '$identifier belongs to an optional feature, not $path.',
+        );
+      }
     }
   });
 

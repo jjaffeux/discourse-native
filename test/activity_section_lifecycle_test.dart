@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
+import 'package:discourse_native/src/plugins/chat/chat_notifications.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
@@ -205,18 +206,34 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
   final List<String> chatSites = [];
   final List<String> bookmarkSites = [];
   final List<String> userActivitySites = [];
+  final Map<String, DiscourseUser> currentUsers = {};
+
+  @override
+  Future<DiscourseUser> currentUser({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) {
+    final user = currentUsers[siteUrl];
+    if (user != null) return Future.value(user);
+    return super.currentUser(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
 
   @override
   Future<List<DiscourseNotification>> notifications({
     required String siteUrl,
     required String apiKey,
     int limit = 30,
-    List<NotificationKind> filterByTypes = const [],
+    List<NotificationTypeName> filterByTypes = const [],
     String? clientId,
   }) {
     if (filterByTypes.isEmpty) {
       notificationSites.add(siteUrl);
-    } else if (_sameKinds(filterByTypes, userMenuReplyNotificationKinds)) {
+    } else if (_sameKinds(filterByTypes, userMenuReplyNotificationTypes)) {
       replySites.add(siteUrl);
     } else if (_sameKinds(filterByTypes, chatNotificationFeed.filterByTypes)) {
       chatSites.add(siteUrl);
@@ -269,7 +286,10 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
   }
 }
 
-bool _sameKinds(List<NotificationKind> first, List<NotificationKind> second) =>
+bool _sameKinds(
+  List<NotificationTypeName> first,
+  List<NotificationTypeName> second,
+) =>
     first.length == second.length &&
     Iterable<int>.generate(
       first.length,
@@ -312,6 +332,9 @@ Future<ShellController> _controller(
   bool load = true,
 }) async {
   final resolvedSites = sites ?? [_connected('meta.example', 'reader')];
+  for (final site in resolvedSites) {
+    if (site.user case final user?) api.currentUsers[site.url] = user;
+  }
   final authenticator = FakeAuthenticator();
   for (final site in resolvedSites) {
     authenticator.keys[site.url] = 'api-key';
@@ -347,11 +370,14 @@ final class _ChatNotificationFeedModule implements PluginModule {
 }
 
 final class _ChatNotificationFeedPlugin
-    implements SitePlugin, NotificationFeedPlugin {
+    implements SitePlugin, NotificationFeedPlugin, NotificationTypePlugin {
   const _ChatNotificationFeedPlugin();
 
   @override
   String get name => 'chat';
+
+  @override
+  List<PluginNotificationType> get notificationTypes => chatNotificationTypes;
 
   @override
   List<PluginNotificationFeedSource> get notificationFeeds => const [

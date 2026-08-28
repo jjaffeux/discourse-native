@@ -1,9 +1,9 @@
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
-import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
@@ -112,10 +112,7 @@ Future<void> _pump(
   );
   final api = FakeDiscourseApi(
     user: user,
-    totals: const NotificationTotals(
-      chatNotifications: 0,
-      hasChatEnabled: true,
-    ),
+    totals: chatNotificationTotals(),
     feeds: const {'/latest.json': []},
     chatChannelsBySite: {
       _siteUrl: ChatChannels(

@@ -8,33 +8,41 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
+import 'package:discourse_native/src/plugin_api/notification_counters.dart';
 import 'package:discourse_native/src/plugin_api/notification_feed_host.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
 import 'package:discourse_native/src/shell/account_activity_controller.dart';
+import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
-const _notification = DiscourseNotification(
+const _counter = PluginNotificationCounter(
+  id: PluginNotificationCounterId(
+    owner: PluginId('test-plugin'),
+    name: 'alerts',
+  ),
+  wireName: 'test_alerts',
+);
+const _notification = DiscourseNotification.test(
   id: 11,
-  kind: NotificationKind.replied,
+  typeId: NotificationTypeId(2),
   title: 'A reply',
 );
-const _secondReply = DiscourseNotification(
+const _secondReply = DiscourseNotification.test(
   id: 13,
-  kind: NotificationKind.quoted,
+  typeId: NotificationTypeId(3),
   title: 'A quote',
 );
-const _chatNotification = DiscourseNotification(
+const _chatNotification = DiscourseNotification.test(
   id: 14,
-  kind: NotificationKind.chatMention,
-  actor: 'alex',
-  channelTitle: 'dev',
+  typeId: NotificationTypeId(29),
+  data: {'mentioned_by_username': 'alex', 'chat_channel_title': 'dev'},
 );
-const _reminder = DiscourseNotification(
+const _reminder = DiscourseNotification.test(
   id: 12,
-  kind: NotificationKind.bookmarkReminder,
+  typeId: NotificationTypeId(24),
   title: 'A reminder',
 );
 const _bookmark = Bookmark(id: 9, title: 'Saved topic');
@@ -60,10 +68,10 @@ const _activityReply = UserActivityItem(
 enum _NotificationFeedKind { all, replies, chat }
 
 _NotificationFeedKind _notificationFeedKind(
-  List<NotificationKind> filterByTypes,
+  List<NotificationTypeName> filterByTypes,
 ) {
   if (filterByTypes.isEmpty) return _NotificationFeedKind.all;
-  if (_sameKinds(filterByTypes, userMenuReplyNotificationKinds)) {
+  if (_sameKinds(filterByTypes, userMenuReplyNotificationTypes)) {
     return _NotificationFeedKind.replies;
   }
   if (_sameKinds(filterByTypes, chatNotificationFeed.filterByTypes)) {
@@ -72,7 +80,10 @@ _NotificationFeedKind _notificationFeedKind(
   throw StateError('Unexpected notification filter: $filterByTypes');
 }
 
-bool _sameKinds(List<NotificationKind> first, List<NotificationKind> second) =>
+bool _sameKinds(
+  List<NotificationTypeName> first,
+  List<NotificationTypeName> second,
+) =>
     first.length == second.length &&
     Iterable<int>.generate(
       first.length,
@@ -117,7 +128,7 @@ class _AccountApi implements AccountActivityApi {
     required String siteUrl,
     required String apiKey,
     int limit = 30,
-    List<NotificationKind> filterByTypes = const [],
+    List<NotificationTypeName> filterByTypes = const [],
     String? clientId,
   }) async => switch (_notificationFeedKind(filterByTypes)) {
     _NotificationFeedKind.all =>
@@ -182,6 +193,7 @@ AccountActivityController _controller(
   FakeApiCredentialReader credentials, {
   SiteLifecycle? lifecycle,
   TotalsLoaded? onTotalsLoaded,
+  TotalsChanged? onTotalsChanged,
   Duration minimumRefreshInterval = const Duration(minutes: 5),
   DateTime Function()? clock,
 }) => AccountActivityController(
@@ -189,6 +201,7 @@ AccountActivityController _controller(
   credentials: credentials,
   lifecycle: lifecycle ?? SiteLifecycle(),
   onTotalsLoaded: onTotalsLoaded,
+  onTotalsChanged: onTotalsChanged,
   minimumRefreshInterval: minimumRefreshInterval,
   clock: clock,
 );
@@ -197,9 +210,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('refreshes per-site totals and reports capabilities', () async {
-    const totals = NotificationTotals(
+    final totals = NotificationTotals(
       unreadNotifications: 3,
-      hasChatEnabled: true,
+      pluginCounters: PluginNotificationCounters.single(_counter),
     );
     final api = _AccountApi(totals: totals);
     final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
@@ -222,7 +235,7 @@ void main() {
   });
 
   test('reentrant disposal suppresses the totals post-load callback', () async {
-    const totals = NotificationTotals(hasChatEnabled: true);
+    const totals = NotificationTotals();
     final api = _AccountApi(totals: totals);
     final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
     var loaded = false;
@@ -292,7 +305,7 @@ void main() {
 
     final conflicting = PluginNotificationFeedSource(
       id: chatNotificationFeed.id,
-      filterByTypes: const [NotificationKind.replied],
+      filterByTypes: const [NotificationTypeName('replied')],
       reconnectMessage: 'Reconnect.',
       failureMessage: 'Failed.',
       emptyMessage: 'Empty.',
@@ -424,7 +437,7 @@ void main() {
 
     expect(second, same(first));
     expect(api.calls, 1);
-    expect(api.filters.single, userMenuReplyNotificationKinds);
+    expect(api.filters.single, userMenuReplyNotificationTypes);
     gate.complete();
     await Future.wait([first, second]);
   });
@@ -819,23 +832,21 @@ void main() {
 
     final loading = controller.refresh(_connectedInstance());
     await api.firstStarted.future;
-    controller.applyCounts(
-      _siteUrl,
-      (held) => held.copyWith(unreadNotifications: 5),
-    );
+    controller.applyPluginCounter(_siteUrl, _counter, (_) => 5);
     gate.complete(
-      const NotificationTotals(
+      NotificationTotals(
         unreadNotifications: 1,
         topicTrackingUnread: 7,
-        hasChatEnabled: true,
+        pluginCounters: PluginNotificationCounters.single(_counter, count: 1),
       ),
     );
     await loading;
 
     final totals = controller.totalsFor(_siteUrl)!;
-    expect(totals.unreadNotifications, 5);
+    expect(totals.unreadNotifications, 1);
     expect(totals.topicTrackingUnread, 7);
-    expect(totals.hasChatEnabled, isTrue);
+    expect(totals.pluginCounter(_counter.id), 5);
+    expect(totals.hasPluginCounter(_counter.id), isTrue);
   });
 
   test(
@@ -1305,7 +1316,7 @@ final class _CountingAccountApi extends _AccountApi {
     required String siteUrl,
     required String apiKey,
     int limit = 30,
-    List<NotificationKind> filterByTypes = const [],
+    List<NotificationTypeName> filterByTypes = const [],
     String? clientId,
   }) async {
     calls.add(switch (_notificationFeedKind(filterByTypes)) {
@@ -1359,14 +1370,14 @@ final class _GatedNotificationsApi extends _AccountApi {
 
   final Completer<void> _notificationGate;
   int calls = 0;
-  final List<List<NotificationKind>> filters = [];
+  final List<List<NotificationTypeName>> filters = [];
 
   @override
   Future<List<DiscourseNotification>> notifications({
     required String siteUrl,
     required String apiKey,
     int limit = 30,
-    List<NotificationKind> filterByTypes = const [],
+    List<NotificationTypeName> filterByTypes = const [],
     String? clientId,
   }) async {
     calls++;
@@ -1390,7 +1401,7 @@ final class _SequencedNotificationsApi extends _AccountApi {
     required String siteUrl,
     required String apiKey,
     int limit = 30,
-    List<NotificationKind> filterByTypes = const [],
+    List<NotificationTypeName> filterByTypes = const [],
     String? clientId,
   }) async {
     final call = calls++;
@@ -1473,7 +1484,7 @@ final class _GatedActivityRefreshApi extends _AccountApi {
     required String siteUrl,
     required String apiKey,
     int limit = 30,
-    List<NotificationKind> filterByTypes = const [],
+    List<NotificationTypeName> filterByTypes = const [],
     String? clientId,
   }) async {
     final kind = _notificationFeedKind(filterByTypes);
