@@ -1,8 +1,10 @@
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show EagerGestureRecognizer;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html_parser;
 
@@ -304,6 +306,7 @@ void main() {
 
       await tester.tap(find.bySemanticsLabel('Play video: A useful video'));
       await tester.pump();
+      await tester.pump();
 
       final player = find.byKey(const ValueKey('fake-youtube-player'));
       expect(player, findsOneWidget);
@@ -313,6 +316,120 @@ void main() {
       );
       expect(tester.getSize(player).height, 200);
     });
+
+    testWidgets('composites the macOS player in the root overlay', (
+      tester,
+    ) async {
+      await _withTargetPlatform(TargetPlatform.macOS, () async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 400,
+                child: YoutubeVideo(
+                  data: _video,
+                  siteUrl: 'https://meta.discourse.org',
+                  playerBuilder: (_, _) => const ColoredBox(
+                    key: ValueKey('overlaid-youtube-player'),
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.bySemanticsLabel('Play video: A useful video'));
+        await tester.pump();
+        await tester.pump();
+
+        final player = find.byKey(const ValueKey('overlaid-youtube-player'));
+        expect(player, findsOneWidget);
+        expect(
+          find.ancestor(
+            of: player,
+            matching: find.byType(CompositedTransformFollower),
+          ),
+          findsOneWidget,
+        );
+        expect(find.byType(CompositedTransformTarget), findsOneWidget);
+
+        await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+        await tester.pump();
+        expect(player, findsNothing);
+      });
+    });
+
+    testWidgets(
+      'clips the macOS player to its viewport and forwards scrolling',
+      (tester) async {
+        await _withTargetPlatform(TargetPlatform.macOS, () async {
+          var playerTaps = 0;
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 400,
+                    height: 300,
+                    child: ListView(
+                      controller: scroll,
+                      children: [
+                        const SizedBox(height: 100),
+                        YoutubeVideo(
+                          data: _video,
+                          siteUrl: 'https://meta.discourse.org',
+                          playerBuilder: (_, _) => GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => playerTaps += 1,
+                            child: const ColoredBox(color: Colors.black),
+                          ),
+                        ),
+                        const SizedBox(height: 500),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+
+          await tester.tap(find.bySemanticsLabel('Play video: A useful video'));
+          await tester.pump();
+          await tester.pump();
+
+          // The player runs from y=108 to y=333. Only the part above the
+          // scrollable's y=300 lower edge should receive pointer events.
+          await tester.tapAt(const Offset(200, 290));
+          await tester.pump();
+          expect(playerTaps, 1);
+
+          await tester.tapAt(const Offset(200, 315));
+          await tester.pump();
+          expect(playerTaps, 1);
+
+          await _sendMacOSYoutubeScroll(
+            tester,
+            position: const Offset(200, 315),
+            delta: 40,
+          );
+          await tester.pump();
+          expect(scroll.offset, 0);
+
+          await _sendMacOSYoutubeScroll(
+            tester,
+            position: const Offset(200, 250),
+            delta: 40,
+          );
+          await tester.pump();
+          expect(scroll.offset, 40);
+        });
+      },
+    );
 
     testWidgets('keeps an activated player alive while it scrolls offscreen', (
       tester,
@@ -417,3 +534,28 @@ void main() {
     });
   });
 }
+
+Future<void> _withTargetPlatform(
+  TargetPlatform platform,
+  Future<void> Function() body,
+) async {
+  final previous = debugDefaultTargetPlatformOverride;
+  debugDefaultTargetPlatformOverride = platform;
+  try {
+    await body();
+  } finally {
+    debugDefaultTargetPlatformOverride = previous;
+  }
+}
+
+Future<void> _sendMacOSYoutubeScroll(
+  WidgetTester tester, {
+  required Offset position,
+  required double delta,
+}) => tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+  'org.discourse.native/youtube_scroll',
+  const StandardMethodCodec().encodeMethodCall(
+    MethodCall('scroll', {'x': position.dx, 'y': position.dy, 'deltaY': delta}),
+  ),
+  (_) {},
+);

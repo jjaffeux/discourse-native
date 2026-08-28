@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show Factory;
+import 'package:flutter/foundation.dart'
+    show Factory, TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/gestures.dart'
     show EagerGestureRecognizer, OneSequenceGestureRecognizer;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:webview_all/webview_all.dart';
 import 'package:webview_all_linux/webview_all_linux.dart';
@@ -297,7 +299,17 @@ class YoutubeVideo extends StatefulWidget {
 
 class _YoutubeVideoState extends State<YoutubeVideo>
     with AutomaticKeepAliveClientMixin {
+  final LayerLink _playerLink = LayerLink();
+  final GlobalKey _playerAnchorKey = GlobalKey();
+
   bool _loaded = false;
+  OverlayEntry? _playerEntry;
+  Size _playerSize = Size.zero;
+  Rect? _playerViewport;
+  Object? _geometrySyncToken;
+
+  bool get _usesRootPlayerOverlay =>
+      defaultTargetPlatform == TargetPlatform.macOS;
 
   @override
   bool get wantKeepAlive => _loaded;
@@ -305,9 +317,16 @@ class _YoutubeVideoState extends State<YoutubeVideo>
   @override
   void didUpdateWidget(YoutubeVideo oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.data.playbackIdentity != widget.data.playbackIdentity) {
+    final sourceChanged =
+        oldWidget.data.playbackIdentity != widget.data.playbackIdentity ||
+        youtubeForumOrigin(oldWidget.siteUrl) !=
+            youtubeForumOrigin(widget.siteUrl);
+    if (sourceChanged) {
+      _removePlayer();
       _loaded = false;
       updateKeepAlive();
+    } else {
+      _playerEntry?.markNeedsBuild();
     }
   }
 
@@ -315,12 +334,134 @@ class _YoutubeVideoState extends State<YoutubeVideo>
     if (_loaded) return;
     setState(() => _loaded = true);
     updateKeepAlive();
+    if (_usesRootPlayerOverlay) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _insertPlayer());
+    }
+  }
+
+  void _insertPlayer() {
+    if (!mounted || !_loaded || !_usesRootPlayerOverlay) return;
+    if (_playerEntry != null) return;
+    _syncPlayerGeometry();
+    final entry = OverlayEntry(
+      builder: (context) => Positioned.fill(
+        child: ClipRect(
+          clipper: _PlayerViewportClipper(_playerViewport),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                child: CompositedTransformFollower(
+                  link: _playerLink,
+                  showWhenUnlinked: false,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox.fromSize(
+                      size: _playerSize,
+                      child: _buildPlayer(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    _playerEntry = entry;
+    Overlay.of(context, rootOverlay: true).insert(entry);
+    _MacOSYoutubeScrollBridge.register(this, _handleMacOSScroll);
+  }
+
+  Widget _buildPlayer() =>
+      widget.playerBuilder?.call(
+        widget.data,
+        youtubeForumOrigin(widget.siteUrl),
+      ) ??
+      YoutubePlayerSurface(
+        data: widget.data,
+        forumOrigin: youtubeForumOrigin(widget.siteUrl),
+      );
+
+  void _schedulePlayerGeometrySync({bool rebuildPlayer = false}) {
+    if (!_loaded || !_usesRootPlayerOverlay) return;
+    final token = Object();
+    _geometrySyncToken = token;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(_geometrySyncToken, token)) return;
+      _geometrySyncToken = null;
+      _syncPlayerGeometry(rebuildPlayer: rebuildPlayer);
+    });
+  }
+
+  void _syncPlayerGeometry({bool rebuildPlayer = false}) {
+    final overlayBox =
+        Overlay.of(context, rootOverlay: true).context.findRenderObject()
+            as RenderBox?;
+    final viewportBox =
+        Scrollable.maybeOf(context)?.context.findRenderObject() as RenderBox?;
+    Rect? nextViewport;
+    if (overlayBox != null &&
+        overlayBox.hasSize &&
+        viewportBox != null &&
+        viewportBox.hasSize) {
+      final origin = viewportBox.localToGlobal(
+        Offset.zero,
+        ancestor: overlayBox,
+      );
+      nextViewport = origin & viewportBox.size;
+    }
+    if (_playerViewport != nextViewport) {
+      _playerViewport = nextViewport;
+      rebuildPlayer = true;
+    }
+    if (rebuildPlayer) _playerEntry?.markNeedsBuild();
+  }
+
+  bool _handleMacOSScroll(Offset globalPosition, double delta) {
+    if (!mounted || !_loaded) return false;
+    final playerBox =
+        _playerAnchorKey.currentContext?.findRenderObject() as RenderBox?;
+    if (playerBox == null || !playerBox.attached || !playerBox.hasSize) {
+      return false;
+    }
+
+    var visibleBounds = playerBox.localToGlobal(Offset.zero) & playerBox.size;
+    final viewportBox =
+        Scrollable.maybeOf(context)?.context.findRenderObject() as RenderBox?;
+    if (viewportBox != null && viewportBox.attached && viewportBox.hasSize) {
+      final viewportBounds =
+          viewportBox.localToGlobal(Offset.zero) & viewportBox.size;
+      if (!visibleBounds.overlaps(viewportBounds)) return false;
+      visibleBounds = visibleBounds.intersect(viewportBounds);
+    }
+    if (!visibleBounds.contains(globalPosition)) return false;
+
+    final position = Scrollable.maybeOf(context)?.position;
+    if (position == null || !position.hasContentDimensions) return true;
+    position.pointerScroll(delta);
+    return true;
+  }
+
+  void _removePlayer() {
+    _geometrySyncToken = null;
+    _MacOSYoutubeScrollBridge.unregister(this);
+    _playerEntry?.remove();
+    _playerEntry = null;
+    _playerViewport = null;
+  }
+
+  @override
+  void dispose() {
+    _removePlayer();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final origin = youtubeForumOrigin(widget.siteUrl);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -330,27 +471,103 @@ class _YoutubeVideoState extends State<YoutubeVideo>
               ? constraints.maxWidth
               : 480.0;
           final height = math.max(width * 9 / 16, 200.0);
-          final player = widget.playerBuilder;
-          final child = _loaded
-              ? player?.call(widget.data, origin) ??
-                    YoutubePlayerSurface(data: widget.data, forumOrigin: origin)
+          final nextSize = Size(width, height);
+          final sizeChanged = _playerSize != nextSize;
+          if (sizeChanged) _playerSize = nextSize;
+          _schedulePlayerGeometrySync(rebuildPlayer: sizeChanged);
+
+          final child = _loaded && _usesRootPlayerOverlay
+              ? CompositedTransformTarget(
+                  key: _playerAnchorKey,
+                  link: _playerLink,
+                  child: const ColoredBox(color: Colors.black),
+                )
+              : _loaded
+              ? _buildPlayer()
               : _YoutubePoster(
                   data: widget.data,
                   siteUrl: widget.siteUrl,
                   onPlay: _load,
                 );
 
+          final surface = SizedBox(
+            width: double.infinity,
+            height: height,
+            child: child,
+          );
           return ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: SizedBox(
-              width: double.infinity,
-              height: height,
-              child: child,
-            ),
+            child: surface,
           );
         },
       ),
     );
+  }
+}
+
+/// Restricts the root-overlay player to the scrollable that owns its post.
+///
+/// Flutter's macOS compositor excludes native views from pointer hit testing
+/// wherever a later Flutter layer overlaps them. Painting the WebView in the
+/// root overlay avoids those topic-wide layers, while this clip preserves the
+/// same viewport boundary the inline player would have had.
+class _PlayerViewportClipper extends CustomClipper<Rect> {
+  const _PlayerViewportClipper(this.viewport);
+
+  final Rect? viewport;
+
+  @override
+  Rect getClip(Size size) {
+    final bounds = Offset.zero & size;
+    final candidate = viewport;
+    if (candidate == null) return bounds;
+    return candidate.overlaps(bounds) ? candidate.intersect(bounds) : Rect.zero;
+  }
+
+  @override
+  bool shouldReclip(_PlayerViewportClipper oldClipper) =>
+      oldClipper.viewport != viewport;
+}
+
+typedef _MacOSYoutubeScrollTarget =
+    bool Function(Offset globalPosition, double delta);
+
+/// Receives wheel and trackpad deltas captured by the macOS WKWebView host.
+///
+/// A process-wide channel is shared by every activated player. The native
+/// event includes its Flutter-global pointer position, which lets the latest
+/// visible matching player hand the delta to its own topic or channel.
+final class _MacOSYoutubeScrollBridge {
+  static const _channel = MethodChannel('org.discourse.native/youtube_scroll');
+  static final Map<Object, _MacOSYoutubeScrollTarget> _targets = {};
+  static bool _listening = false;
+
+  static void register(Object owner, _MacOSYoutubeScrollTarget target) {
+    if (!_listening) {
+      _channel.setMethodCallHandler(_handleMethodCall);
+      _listening = true;
+    }
+    _targets[owner] = target;
+  }
+
+  static void unregister(Object owner) => _targets.remove(owner);
+
+  static Future<void> _handleMethodCall(MethodCall call) async {
+    if (call.method != 'scroll' || call.arguments is! Map) return;
+    final arguments = call.arguments as Map;
+    final x = arguments['x'];
+    final y = arguments['y'];
+    final deltaY = arguments['deltaY'];
+    if (x is! num || y is! num || deltaY is! num) return;
+    final position = Offset(x.toDouble(), y.toDouble());
+    final delta = deltaY.toDouble();
+    if (!position.dx.isFinite || !position.dy.isFinite || !delta.isFinite) {
+      return;
+    }
+
+    for (final target in _targets.values.toList().reversed) {
+      if (target(position, delta)) return;
+    }
   }
 }
 
