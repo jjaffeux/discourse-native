@@ -2028,6 +2028,10 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _trackersStarting = {};
   final Map<String, Map<int, UserStatus?>> _userStatusOverrides = {};
   final Set<String> _userStatusWrites = {};
+  final Map<String, bool> _optimisticHidePresence = {};
+  final Map<String, Object> _hidePresenceWrites = {};
+  final Map<String, String> _hidePresenceErrors = {};
+  final Map<String, int> _hidePresenceVersions = {};
 
   /// Sites whose account was read from `/session/current.json` during this
   /// process. Persisted capabilities are intentionally never put in this set.
@@ -2447,13 +2451,15 @@ class ShellController extends FrameSafeNotifier
     if (active != null) return active;
 
     final session = lease ?? lifecycle.capture(siteUrl);
+    final hidePresenceVersion = _hidePresenceVersions[siteUrl] ?? 0;
     late final Future<DiscourseUser?> request;
-    request = _readSessionUser(siteUrl, apiKey, session).whenComplete(() {
-      if (identical(_sessionUserRequests[siteUrl], request)) {
-        final removed = _sessionUserRequests.remove(siteUrl);
-        assert(identical(removed, request));
-      }
-    });
+    request = _readSessionUser(siteUrl, apiKey, session, hidePresenceVersion)
+        .whenComplete(() {
+          if (identical(_sessionUserRequests[siteUrl], request)) {
+            final removed = _sessionUserRequests.remove(siteUrl);
+            assert(identical(removed, request));
+          }
+        });
     _sessionUserRequests[siteUrl] = request;
     return request;
   }
@@ -2462,6 +2468,7 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     String apiKey,
     SiteLease lease,
+    int hidePresenceVersion,
   ) async {
     if (!lease.isCurrent || _connectingSiteUrl == siteUrl) return null;
 
@@ -2476,6 +2483,14 @@ class ShellController extends FrameSafeNotifier
         'messageBus.resolveAccount',
         severity: DiagnosticSeverity.warning,
       );
+      lease.commit(() {
+        if (_instanceAt(siteUrl)?.user?.hidePresence == null &&
+            !_hidePresenceWrites.containsKey(siteUrl)) {
+          _hidePresenceErrors[siteUrl] =
+              "Couldn't load the presence setting. Try again.";
+          _notify();
+        }
+      });
       // The connection is still worth opening for `/latest`.
       return null;
     }
@@ -2483,21 +2498,29 @@ class ShellController extends FrameSafeNotifier
     final user = _acceptDoNotDisturbSnapshot(siteUrl, responseUser);
 
     var changed = false;
+    DiscourseUser? committedUser;
     final accepted = lease.commit(() {
       final fresh = _instanceAt(siteUrl);
       if (fresh == null) return;
+      final preserveConfirmedPresence =
+          _hidePresenceWrites.containsKey(siteUrl) ||
+          (_hidePresenceVersions[siteUrl] ?? 0) != hidePresenceVersion;
+      committedUser = preserveConfirmedPresence
+          ? user.withHidePresence(fresh.user?.hidePresence)
+          : user;
       _sessionUsersRefreshed.add(siteUrl);
       _assignLegacyFallbackUnavailable.remove(siteUrl);
-      if (fresh.user != user) {
+      _hidePresenceErrors.remove(siteUrl);
+      if (fresh.user != committedUser) {
         changed = true;
-        _replaceInstance(fresh, fresh.copyWith(user: user));
+        _replaceInstance(fresh, fresh.copyWith(user: committedUser));
       }
       _notify();
     });
     if (accepted && changed && lease.isCurrent) {
       instanceStore.save(List.of(_instances)).ignore();
     }
-    return accepted ? user : null;
+    return accepted ? committedUser : null;
   }
 
   /// Folds a counters message onto what is held for a site.
@@ -2592,6 +2615,186 @@ class ShellController extends FrameSafeNotifier
       instance.copyWith(user: user.withDoNotDisturbUntil(until)),
     );
     instanceStore.save(List.of(_instances)).ignore();
+  }
+
+  /// The presence preference currently shown for one account.
+  ///
+  /// An accepted tap overlays the server-confirmed user record until its write
+  /// settles. Keeping the overlay separate prevents an unrelated instance
+  /// persistence pass from making an unconfirmed choice durable.
+  bool? hidePresenceFor(String siteUrl) =>
+      _optimisticHidePresence.containsKey(siteUrl)
+      ? _optimisticHidePresence[siteUrl]
+      : _instanceAt(siteUrl)?.user?.hidePresence;
+
+  bool hidePresenceWriteInFlight(String siteUrl) =>
+      _hidePresenceWrites.containsKey(siteUrl);
+
+  String? hidePresenceErrorFor(String siteUrl) => _hidePresenceErrors[siteUrl];
+
+  /// Retries the current-user read when an older stored account has no
+  /// presence value and the initial session refresh failed.
+  Future<void> retryHidePresence(String siteUrl) async {
+    final instance = _instanceAt(siteUrl);
+    if (instance?.user == null || hidePresenceFor(siteUrl) != null) return;
+    final lease = lifecycle.capture(siteUrl);
+    _hidePresenceErrors.remove(siteUrl);
+    _notify();
+
+    try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
+      );
+      if (credential == null) return;
+      final apiKey = credential.value;
+      if (apiKey == null) {
+        lease.commit(() {
+          _hidePresenceErrors[siteUrl] =
+              'Reconnect this account to load its presence setting.';
+          _notify();
+        });
+        return;
+      }
+      await _sessionUser(siteUrl, apiKey, lease: lease);
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'presence.read',
+        severity: DiagnosticSeverity.warning,
+      );
+      lease.commit(() {
+        _hidePresenceErrors[siteUrl] =
+            "Couldn't load the presence setting. Try again.";
+        _notify();
+      });
+    }
+  }
+
+  /// Optimistically flips the same `hide_presence` option as Discourse's web
+  /// profile menu, then either confirms it or returns to the retained value.
+  Future<void> toggleHidePresence(String siteUrl) async {
+    final instance = _instanceAt(siteUrl);
+    final user = instance?.user;
+    final held = hidePresenceFor(siteUrl);
+    if (instance == null || user == null || held == null) return;
+    if (_hidePresenceWrites.containsKey(siteUrl)) return;
+
+    final desired = !held;
+    final request = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _hidePresenceWrites[siteUrl] = request;
+    _optimisticHidePresence[siteUrl] = desired;
+    _hidePresenceErrors.remove(siteUrl);
+    _bumpHidePresenceVersion(siteUrl);
+    _notify();
+
+    bool isCurrent() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_hidePresenceWrites[siteUrl], request);
+
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!isCurrent()) return;
+      if (credential.failure case final failure?) {
+        _finishHidePresenceWrite(
+          siteUrl,
+          request,
+          lease,
+          error: _hidePresenceError(failure),
+        );
+        return;
+      }
+      final identity = await _readSessionValue(lease, authenticator.clientId);
+      if (identity == null || !isCurrent()) return;
+      await api.updateHidePresence(
+        siteUrl: siteUrl,
+        apiKey: credential.apiKey!,
+        username: user.username,
+        hidePresence: desired,
+        clientId: identity.value,
+      );
+      if (!isCurrent()) return;
+      _finishHidePresenceWrite(siteUrl, request, lease, confirmed: desired);
+    } on WriteException catch (error) {
+      _finishHidePresenceWrite(
+        siteUrl,
+        request,
+        lease,
+        error: _hidePresenceError(error),
+      );
+    } catch (error, stackTrace) {
+      if (isCurrent()) {
+        _reportOperationalError(error, stackTrace, 'presence.update');
+      }
+      _finishHidePresenceWrite(
+        siteUrl,
+        request,
+        lease,
+        error: "Couldn't update presence. Check the connection and try again.",
+      );
+    }
+  }
+
+  void _finishHidePresenceWrite(
+    String siteUrl,
+    Object request,
+    SiteLease lease, {
+    bool? confirmed,
+    String? error,
+  }) {
+    if (isDisposed ||
+        !lease.isCurrent ||
+        !identical(_hidePresenceWrites[siteUrl], request)) {
+      return;
+    }
+    lease.commit(() {
+      _hidePresenceWrites.remove(siteUrl);
+      _optimisticHidePresence.remove(siteUrl);
+      _bumpHidePresenceVersion(siteUrl);
+
+      if (error != null) {
+        _hidePresenceErrors[siteUrl] = error;
+      } else {
+        _hidePresenceErrors.remove(siteUrl);
+        final instance = _instanceAt(siteUrl);
+        final user = instance?.user;
+        if (instance != null && user != null && confirmed != null) {
+          _replaceInstance(
+            instance,
+            instance.copyWith(user: user.withHidePresence(confirmed)),
+          );
+          instanceStore.save(List.of(_instances)).ignore();
+        }
+      }
+      _notify();
+    });
+  }
+
+  void _bumpHidePresenceVersion(String siteUrl) {
+    _hidePresenceVersions[siteUrl] = (_hidePresenceVersions[siteUrl] ?? 0) + 1;
+  }
+
+  String _hidePresenceError(WriteException error) {
+    if (error.errors.isNotEmpty) return error.errors.join('\n');
+    return switch (error.failure) {
+      WriteFailure.validation =>
+        "The site didn't accept that presence setting.",
+      WriteFailure.rateLimited => switch (error.retryAfter) {
+        final wait? =>
+          'Too fast — try changing presence again in ${wait.inSeconds}s.',
+        null => 'Too fast — try changing presence again in a moment.',
+      },
+      WriteFailure.forbidden =>
+        'Presence could not be changed. Reconnect this account and try again.',
+      WriteFailure.conflict =>
+        'Presence changed somewhere else. Try again to use this setting.',
+      WriteFailure.unreachable =>
+        "Couldn't update presence. Check the connection and try again.",
+    };
   }
 
   bool userStatusWriteInFlight(String siteUrl) =>
@@ -9039,6 +9242,10 @@ class ShellController extends FrameSafeNotifier
     doNotDisturb.forget(siteUrl);
     _userStatusOverrides.remove(siteUrl);
     _userStatusWrites.remove(siteUrl);
+    _optimisticHidePresence.remove(siteUrl);
+    _hidePresenceWrites.remove(siteUrl);
+    _hidePresenceErrors.remove(siteUrl);
+    _hidePresenceVersions.remove(siteUrl);
     _disposeTracking(siteUrl);
     _notify();
   }
@@ -9795,6 +10002,10 @@ class ShellController extends FrameSafeNotifier
     _topicStatusWrites.clear();
     _userStatusOverrides.clear();
     _userStatusWrites.clear();
+    _optimisticHidePresence.clear();
+    _hidePresenceWrites.clear();
+    _hidePresenceErrors.clear();
+    _hidePresenceVersions.clear();
     _topicDeletionWrites.clear();
     _topicPostSelections.clear();
     _topicPostSelectionWrites.clear();

@@ -131,6 +131,7 @@ class UserMenuRow {
   bool get isUserStatus => id == 'user-status';
   bool get isPreferences => id == 'preferences';
   bool get isDoNotDisturb => id == 'do-not-disturb';
+  bool get isHidePresence => id == 'hide-presence';
 }
 
 /// Results a section can hand back to whatever opened it.
@@ -220,7 +221,7 @@ List<UserMenuSection> userMenuSections(
             status: user?.status,
             userId: user?.id,
           ),
-        const UserMenuRow(DIcons.toggleOn, 'Online'),
+        const UserMenuRow(DIcons.toggleOn, 'Online', id: 'hide-presence'),
         const UserMenuRow(
           DIcons.toggleOff,
           'Pause notifications',
@@ -513,7 +514,9 @@ class _SectionBody extends StatelessWidget {
         BookmarkSection(siteUrl: siteUrl, onOpened: onDismiss)
       else
         for (final row in section.rows)
-          if (row.isDoNotDisturb && siteUrl != null)
+          if (row.isHidePresence && siteUrl != null)
+            _HidePresenceTile(siteUrl: siteUrl)
+          else if (row.isDoNotDisturb && siteUrl != null)
             _DoNotDisturbTile(siteUrl: siteUrl, onPause: onPauseNotifications)
           else
             _RowTile(
@@ -722,6 +725,147 @@ class _SectionHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+typedef _HidePresenceSnapshot = ({bool? hidden, bool saving, String? error});
+
+/// The current account's presence preference, shared by the pointer panel and
+/// the nested touch sheet.
+class _HidePresenceTile extends StatelessWidget {
+  const _HidePresenceTile({required this.siteUrl});
+
+  static const semanticsKey = ValueKey('user-menu-hide-presence');
+
+  final String siteUrl;
+
+  @override
+  Widget build(BuildContext context) => ShellSelector<_HidePresenceSnapshot>(
+    select: (controller) => (
+      hidden: controller.hidePresenceFor(siteUrl),
+      saving: controller.hidePresenceWriteInFlight(siteUrl),
+      error: controller.hidePresenceErrorFor(siteUrl),
+    ),
+    builder: (context, state, _) {
+      final controller = ShellScope.read(context);
+      final theme = Theme.of(context);
+      final hidden = state.hidden;
+      final loading = hidden == null && state.error == null;
+      final title = switch ((hidden, state.error)) {
+        (true, _) => 'Offline',
+        (false, _) => 'Online',
+        (null, null) => 'Loading presence…',
+        (null, _) => 'Presence unavailable',
+      };
+      final VoidCallback? onTap = state.saving || loading
+          ? null
+          : hidden == null
+          ? () => unawaited(controller.retryHidePresence(siteUrl))
+          : () => unawaited(controller.toggleHidePresence(siteUrl));
+      final semanticsLabel = hidden == null ? 'Presence' : title;
+      final semanticsValue = state.saving
+          ? 'Saving'
+          : loading
+          ? 'Loading'
+          : null;
+      final semanticsHint = hidden == null && state.error != null
+          ? 'Retry loading the presence setting'
+          : 'Toggle presence features';
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              key: semanticsKey,
+              container: true,
+              button: true,
+              enabled: onTap != null,
+              toggled: hidden == null ? null : !hidden,
+              label: semanticsLabel,
+              value: semanticsValue,
+              hint: semanticsHint,
+              liveRegion: state.saving || loading,
+              onTap: onTap,
+              child: ExcludeSemantics(
+                child: Tooltip(
+                  message: 'Toggle presence features',
+                  excludeFromSemantics: true,
+                  child: InkWell(
+                    onTap: onTap,
+                    borderRadius: BorderRadius.circular(6),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Row(
+                          children: [
+                            DIcon(
+                              hidden == false
+                                  ? DIcons.toggleOn
+                                  : DIcons.toggleOff,
+                              size: 18,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                            ),
+                            if (state.saving)
+                              const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator.adaptive(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            else if (loading)
+                              DIcon(
+                                DIcons.farClock,
+                                size: 16,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              )
+                            else if (hidden == null)
+                              Text(
+                                'Retry',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (state.error case final error?)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(36, 1, 8, 7),
+                child: Semantics(
+                  container: true,
+                  liveRegion: true,
+                  label: error,
+                  child: ExcludeSemantics(
+                    child: Text(
+                      error,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 /// A static row. Rows without [onTap] use the shell's placeholder color;
