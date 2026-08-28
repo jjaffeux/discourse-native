@@ -1,8 +1,10 @@
 import Cocoa
 import FlutterMacOS
+import WebKit
 
 class MainFlutterWindow: NSWindow {
   private var windowChannel: FlutterMethodChannel?
+  private var youtubeScrollChannel: FlutterMethodChannel?
   private var launchScreen: LaunchScreenView?
 
   override func awakeFromNib() {
@@ -44,8 +46,74 @@ class MainFlutterWindow: NSWindow {
       to: flutterViewController.engine.binaryMessenger
     )
     attachWindowChannel(to: flutterViewController.engine.binaryMessenger)
+    youtubeScrollChannel = FlutterMethodChannel(
+      name: "org.discourse.native/youtube_scroll",
+      binaryMessenger: flutterViewController.engine.binaryMessenger
+    )
 
     super.awakeFromNib()
+  }
+
+  override func sendEvent(_ event: NSEvent) {
+    if forwardYoutubeScroll(event) { return }
+    super.sendEvent(event)
+  }
+
+  /// WKWebView owns pointer events inside a platform view, so Flutter's parent
+  /// Scrollable never sees a wheel or trackpad gesture over an active player.
+  /// Forward just those deltas to the matching Flutter player; clicks remain
+  /// native so YouTube's controls keep their normal behavior.
+  private func forwardYoutubeScroll(_ event: NSEvent) -> Bool {
+    guard event.type == .scrollWheel,
+      let contentView,
+      let flutterView = contentViewController?.view,
+      let channel = youtubeScrollChannel
+    else {
+      return false
+    }
+
+    // desktop_drop intentionally installs a transparent full-window native
+    // view, so AppKit's ordinary hitTest stops there. Walk the native subtree
+    // and use WKWebView.visibleRect to find a player below that drop target.
+    guard containsVisibleWebView(at: event.locationInWindow, in: contentView) else {
+      return false
+    }
+
+    let pixelsPerLine: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 40
+    let deltaY: CGFloat
+    if event.modifierFlags.contains(.shift) {
+      deltaY = -event.scrollingDeltaX * pixelsPerLine
+    } else {
+      deltaY = -event.scrollingDeltaY * pixelsPerLine
+    }
+
+    let flutterPoint = flutterView.convert(event.locationInWindow, from: nil)
+    channel.invokeMethod(
+      "scroll",
+      arguments: [
+        "x": flutterPoint.x,
+        "y": flutterView.isFlipped
+          ? flutterPoint.y
+          : flutterView.bounds.height - flutterPoint.y,
+        "deltaY": deltaY,
+      ]
+    )
+    return true
+  }
+
+  private func containsVisibleWebView(at windowPoint: NSPoint, in view: NSView) -> Bool {
+    if let webView = view as? WKWebView {
+      let localPoint = webView.convert(windowPoint, from: nil)
+      return !webView.isHiddenOrHasHiddenAncestor
+        && webView.alphaValue > 0
+        && webView.visibleRect.contains(localPoint)
+    }
+    for subview in view.subviews.reversed() {
+      if containsVisibleWebView(at: windowPoint, in: subview) {
+        return true
+      }
+    }
+    return false
   }
 
   private func attachWindowChannel(to messenger: FlutterBinaryMessenger) {
