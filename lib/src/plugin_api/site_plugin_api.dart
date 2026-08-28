@@ -200,7 +200,10 @@ abstract interface class TopicListMetadataPlugin {
 
 /// Adds actions or state to the header of an open topic.
 abstract interface class TopicHeaderPlugin {
-  /// Header widgets placed before core's reply action, in plugin order.
+  /// Inline metadata placed after core's category and tags, in plugin order.
+  ///
+  /// Contributions may remain actionable, but must size as metadata and allow
+  /// the owning header's [Wrap] to move them onto another line.
   List<Widget> topicHeader(
     BuildContext context,
     String siteUrl,

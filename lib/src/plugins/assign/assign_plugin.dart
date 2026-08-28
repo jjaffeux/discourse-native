@@ -101,6 +101,8 @@ final class AssignPlugin
       assignments?.canAssign,
     );
     final hasAssignments = assignments?.hasAssignments == true;
+    final visibleAssignments =
+        assignments?.all.toList(growable: false) ?? const <Assignment>[];
     if (!hasAssignments && !canAssign) {
       return const [];
     }
@@ -133,22 +135,55 @@ final class AssignPlugin
       );
     }
 
-    return [
-      Semantics(
-        button: true,
-        label: summary,
-        onTap: openAssignments,
-        child: ExcludeSemantics(
-          child: DButton.iconOnly(
-            key: const Key('assign-topic-header'),
-            icon: const DIcon(DIcons.userPlus, size: 18),
-            tooltip: hasAssignments ? 'View assignments' : 'Assign topic',
-            onPressed: openAssignments,
-            variant: DButtonVariant.flat,
-            size: DButtonSize.small,
+    if (!hasAssignments) {
+      return [
+        Semantics(
+          button: true,
+          label: summary,
+          onTap: openAssignments,
+          child: ExcludeSemantics(
+            child: DButton(
+              key: const Key('assign-topic-header'),
+              label: const Text('Assign'),
+              icon: const DIcon(DIcons.userPlus, size: 18),
+              tooltip: 'Assign topic',
+              onPressed: openAssignments,
+              variant: DButtonVariant.link,
+              size: DButtonSize.small,
+            ),
           ),
         ),
-      ),
+      ];
+    }
+
+    return [
+      for (var index = 0; index < visibleAssignments.length; index++)
+        Semantics(
+          button: true,
+          label: index == 0
+              ? summary
+              : 'View assignment for '
+                    '${visibleAssignments[index].assignee.displayName}',
+          onTap: openAssignments,
+          child: ExcludeSemantics(
+            child: DButton(
+              key: index == 0
+                  ? const Key('assign-topic-header')
+                  : Key('assign-topic-header-$index'),
+              label: Text(_headerAssignmentLabel(visibleAssignments[index])),
+              icon: DIcon(
+                visibleAssignments[index].assignee.isGroup
+                    ? DIcons.users
+                    : DIcons.userPlus,
+                size: 18,
+              ),
+              tooltip: 'View assignments',
+              onPressed: openAssignments,
+              variant: DButtonVariant.link,
+              size: DButtonSize.small,
+            ),
+          ),
+        ),
     ];
   }
 
@@ -460,6 +495,11 @@ bool _canAssignRecord(
 
 String _postLabel(int? postNumber) =>
     postNumber == null ? 'Post' : 'Post #$postNumber';
+
+String _headerAssignmentLabel(Assignment assignment) =>
+    assignment.isPostAssignment
+    ? '${_postLabel(assignment.postNumber)} · ${assignment.assignee.displayName}'
+    : 'Assigned to ${assignment.assignee.displayName}';
 
 String _compactLabel(Assignment assignment) {
   final prefix = assignment.isPostAssignment

@@ -281,28 +281,28 @@ class _ContentHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (route.isTopic && siteUrl != null && topic != null) {
+      return _TopicContentHeader(
+        layout: layout,
+        route: route,
+        siteUrl: siteUrl!,
+        topic: topic!,
+        canPop: canPop,
+        canReply: canReply,
+        bookmarkBusy: bookmarkBusy,
+        isConnected: isConnected,
+        registry: registry,
+      );
+    }
+
     final theme = Theme.of(context);
     final controller = ShellScope.read(context);
-    final topicHeader = switch ((siteUrl, topic)) {
-      (final siteUrl?, final topic?) => registry.topicHeader(
-        context,
-        siteUrl,
-        topic,
-      ),
-      _ => const <Widget>[],
-    };
     final contentHeader = registry.contentHeaderActions(context, route);
     final contentHeaderLeading = registry.contentHeaderLeading(context, route);
     final contentHeaderTitleAction = registry.contentHeaderTitleAction(
       context,
       route,
     );
-    final topicFlags = switch ((siteUrl, topic)) {
-      (final String siteUrl, final TopicDetail topic) =>
-        controller.availableTopicFlagTypes(siteUrl, topic),
-      _ => const <PostFlagType>[],
-    };
-
     // On compact the main region has replaced the sidebar, so back always has
     // somewhere to go. On wider layouts it only matters inside the stack.
     final showBack = layout.isCompact || canPop;
@@ -427,128 +427,6 @@ class _ContentHeader extends StatelessWidget {
                 const SizedBox(width: 4),
               ],
               ...contentHeader,
-              ...topicHeader,
-              if (route.isTopic && siteUrl != null && topic != null)
-                DButton.iconOnly(
-                  key: const ValueKey('topic-share-button'),
-                  onPressed: () {
-                    final instance = controller.currentInstance;
-                    if (instance == null || instance.url != siteUrl) return;
-                    unawaited(
-                      showTopicShareSheet(
-                        context: context,
-                        title: topic!.title,
-                        url: topicShareUrl(
-                          siteUrl: siteUrl!,
-                          topicId: topic!.id,
-                          slug: route.slug,
-                          config: instance.config,
-                          username: instance.user?.username,
-                        ),
-                        onReplyAsNewTopic: topic!.canReplyAsNewTopic
-                            ? () => controller.openReplyAsNewTopic(
-                                topicContinuationMarkdown(
-                                  title: topic!.title,
-                                  url: topicShareUrl(
-                                    siteUrl: siteUrl!,
-                                    topicId: topic!.id,
-                                    slug: route.slug,
-                                    config: instance.config,
-                                  ),
-                                ),
-                              )
-                            : null,
-                      ),
-                    );
-                  },
-                  icon: const DIcon(DIcons.upRightFromSquare, size: 18),
-                  tooltip: 'Share this topic',
-                  variant: DButtonVariant.flat,
-                  size: DButtonSize.small,
-                ),
-              if (route.isTopic &&
-                  siteUrl != null &&
-                  topic != null &&
-                  topicFlags.isNotEmpty)
-                DButton.iconOnly(
-                  key: const ValueKey('topic-flag-button'),
-                  onPressed:
-                      controller.topicFlagWriteInFlight(siteUrl!, topic!.id)
-                      ? null
-                      : () => unawaited(
-                          showTopicFlagEditor(
-                            context: context,
-                            siteUrl: siteUrl!,
-                            topic: topic!,
-                            flagTypes: topicFlags,
-                          ),
-                        ),
-                  icon: const DIcon(DIcons.flag, size: 18),
-                  tooltip: 'Flag this topic',
-                  loading: controller.topicFlagWriteInFlight(
-                    siteUrl!,
-                    topic!.id,
-                  ),
-                  variant: DButtonVariant.flat,
-                  size: DButtonSize.small,
-                ),
-              if (route.isTopic && siteUrl != null && topic != null)
-                _TopicStatusButton(siteUrl: siteUrl!, topic: topic!),
-              if (route.isTopic &&
-                  siteUrl != null &&
-                  topic != null &&
-                  controller.currentInstance?.user != null)
-                _TopicPinButton(siteUrl: siteUrl!, topic: topic!),
-              if (route.isTopic &&
-                  isConnected &&
-                  siteUrl != null &&
-                  topic != null)
-                _TopicNotificationLevelButton(siteUrl: siteUrl!, topic: topic!),
-              if (route.isTopic &&
-                  siteUrl != null &&
-                  topic != null &&
-                  controller.currentInstance?.user != null)
-                DButton.iconOnly(
-                  onPressed: bookmarkBusy
-                      ? null
-                      : () => unawaited(
-                          showTopicBookmarkMenu(
-                            context: context,
-                            controller: controller,
-                            siteUrl: siteUrl!,
-                            topic: topic!,
-                          ),
-                        ),
-                  icon: bookmarkBusy
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : DIcon(
-                          topic!.topicBookmark?.reminderAt != null
-                              ? DIcons.discourseBookmarkClock
-                              : topic!.hasBookmarks
-                              ? DIcons.bookmark
-                              : DIcons.farBookmark,
-                          size: 20,
-                        ),
-                  tooltip: topic!.hasBookmarks
-                      ? 'Manage ${topic!.bookmarks.length} topic bookmark${topic!.bookmarks.length == 1 ? '' : 's'}'
-                      : 'Bookmark this topic',
-                  loading: bookmarkBusy,
-                  variant: DButtonVariant.flat,
-                  size: DButtonSize.small,
-                ),
-              if (route.isTopic && canReply)
-                DButton.iconOnly(
-                  onPressed: () => controller.openReply(),
-                  icon: const DIcon(DIcons.reply, size: 20),
-                  tooltip: 'Reply to this topic',
-                  variant: DButtonVariant.flat,
-                  size: DButtonSize.small,
-                ),
               if (!route.isTopic &&
                   route.id != 'activity' &&
                   showCreateTopicAction)
@@ -572,74 +450,428 @@ class _ContentHeader extends StatelessWidget {
   }
 }
 
-class _TopicPinButton extends StatelessWidget {
-  const _TopicPinButton({required this.siteUrl, required this.topic});
+class _TopicContentHeader extends StatelessWidget {
+  const _TopicContentHeader({
+    required this.layout,
+    required this.route,
+    required this.siteUrl,
+    required this.topic,
+    required this.canPop,
+    required this.canReply,
+    required this.bookmarkBusy,
+    required this.isConnected,
+    required this.registry,
+  });
 
+  final ShellLayout layout;
+  final ContentRoute route;
   final String siteUrl;
   final TopicDetail topic;
-
-  Future<void> _change(BuildContext context, bool pinned) async {
-    final error = await ShellScope.read(
-      context,
-    ).updateTopicPinPreference(siteUrl, topic.id, pinned);
-    if (error == null || !context.mounted) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
-  }
+  final bool canPop;
+  final bool canReply;
+  final bool bookmarkBusy;
+  final bool isConnected;
+  final PluginRegistry registry;
 
   @override
   Widget build(BuildContext context) {
-    if (!topic.hasPinPreference) return const SizedBox.shrink();
-    final options = [
-      ChoiceMenuOption(
-        value: true,
-        title: topic.pinnedGlobally ? 'Pinned globally' : 'Pinned',
-        description: 'Keep this topic at the top of its list',
-        icon: DIcons.thumbtack,
+    final theme = Theme.of(context);
+    final controller = ShellScope.read(context);
+    final category = controller.categoryFor(topic.categoryId, siteUrl: siteUrl);
+    final pluginMetadata = registry.topicHeader(context, siteUrl, topic);
+    final topicFlags = controller.availableTopicFlagTypes(siteUrl, topic);
+    final showBack = layout.isCompact || canPop;
+    final carriesSearch =
+        !ShellTitleBar.isSupported && !(layout.isCompact && !isConnected);
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: shellHeaderHeight),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: theme.shell.divider)),
       ),
-      const ChoiceMenuOption(
-        value: false,
-        title: 'Unpinned',
-        description: 'Do not keep this topic at the top',
-        icon: DIcons.thumbtack,
-      ),
-    ];
-    return ShellSelector<bool>(
-      select: (controller) =>
-          controller.topicPinWriteInFlight(siteUrl, topic.id),
-      builder: (context, busy, _) => ChoiceMenuAnchor<bool>(
-        title: 'Pinned topic options',
-        value: topic.pinned,
-        options: options,
-        enabled: !busy,
-        onSelected: (pinned) => unawaited(_change(context, pinned)),
-        builder: (context, openMenu) => DButton.iconOnly(
-          key: const ValueKey('topic-pin-button'),
-          tooltip: 'Pinned topic options',
-          onPressed: openMenu,
-          loading: busy,
-          variant: DButtonVariant.flat,
-          size: DButtonSize.small,
-          icon: busy
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 560;
+          final showActionLabels = constraints.maxWidth >= 840;
+
+          Widget actions() => Wrap(
+            spacing: 2,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (controller.currentInstance?.user != null)
+                DButton.iconOnly(
+                  key: const ValueKey('topic-bookmark-button'),
+                  onPressed: bookmarkBusy
+                      ? null
+                      : () => unawaited(
+                          showTopicBookmarkMenu(
+                            context: context,
+                            controller: controller,
+                            siteUrl: siteUrl,
+                            topic: topic,
+                          ),
+                        ),
+                  icon: bookmarkBusy
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : DIcon(
+                          topic.topicBookmark?.reminderAt != null
+                              ? DIcons.discourseBookmarkClock
+                              : topic.hasBookmarks
+                              ? DIcons.bookmark
+                              : DIcons.farBookmark,
+                          size: 20,
+                        ),
+                  tooltip: topic.hasBookmarks
+                      ? 'Manage ${topic.bookmarks.length} topic bookmark${topic.bookmarks.length == 1 ? '' : 's'}'
+                      : 'Bookmark this topic',
+                  loading: bookmarkBusy,
+                  variant: DButtonVariant.flat,
+                  size: DButtonSize.small,
+                ),
+              _TopicStatusButton(
+                siteUrl: siteUrl,
+                topic: topic,
+                route: route,
+                topicFlags: topicFlags,
+              ),
+              if (isConnected)
+                _TopicNotificationLevelButton(
+                  siteUrl: siteUrl,
+                  topic: topic,
+                  showLabel: showActionLabels,
+                ),
+              if (canReply)
+                if (showActionLabels)
+                  DButton(
+                    key: const ValueKey('topic-reply-button'),
+                    onPressed: controller.openReply,
+                    icon: const DIcon(DIcons.reply, size: 18),
+                    label: const Text('Reply'),
+                    tooltip: 'Reply to this topic',
+                    variant: DButtonVariant.primary,
+                    size: DButtonSize.small,
+                  )
+                else
+                  DButton.iconOnly(
+                    key: const ValueKey('topic-reply-button'),
+                    onPressed: controller.openReply,
+                    icon: const DIcon(DIcons.reply, size: 20),
+                    tooltip: 'Reply to this topic',
+                    variant: DButtonVariant.primary,
+                    size: DButtonSize.small,
+                  ),
+              if (ShellTitleBar.columnsCarryUserMenu) ...[
+                ...registry.shellHeaderActions(
+                  context,
+                  surface: PluginHeaderSurface.content,
+                  compact: layout.isCompact,
+                  ringColor: theme.shell.content,
+                ),
+                UserMenuButton(ringColor: theme.shell.content),
+              ],
+            ],
+          );
+
+          final topicIdentity = _TopicHeaderIdentity(
+            route: route,
+            siteUrl: siteUrl,
+            topic: topic,
+            category: category,
+            pluginMetadata: pluginMetadata,
+          );
+
+          final header = compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (showBack)
+                          DButton.iconOnly(
+                            onPressed: () => controller.handleBack(
+                              canReturnToSidebar: layout.isCompact,
+                            ),
+                            icon: const DIcon(DIcons.arrowLeft, size: 20),
+                            tooltip: 'Back',
+                            variant: DButtonVariant.flat,
+                          )
+                        else
+                          const SizedBox(width: 8),
+                        const SizedBox(width: 4),
+                        Expanded(child: topicIdentity),
+                      ],
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(
+                        left: showBack ? 44 : 12,
+                        top: 8,
+                      ),
+                      child: actions(),
+                    ),
+                  ],
                 )
-              : const DIcon(DIcons.thumbtack, size: 18),
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (showBack)
+                      DButton.iconOnly(
+                        onPressed: () => controller.handleBack(
+                          canReturnToSidebar: layout.isCompact,
+                        ),
+                        icon: const DIcon(DIcons.arrowLeft, size: 20),
+                        tooltip: 'Back',
+                        variant: DButtonVariant.flat,
+                      )
+                    else
+                      const SizedBox(width: 8),
+                    const SizedBox(width: 4),
+                    Expanded(child: topicIdentity),
+                    const SizedBox(width: 8),
+                    actions(),
+                  ],
+                );
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                header,
+                if (carriesSearch) ...[
+                  const SizedBox(height: 8),
+                  const ForumSearch(dense: true),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TopicHeaderIdentity extends StatelessWidget {
+  const _TopicHeaderIdentity({
+    required this.route,
+    required this.siteUrl,
+    required this.topic,
+    required this.category,
+    required this.pluginMetadata,
+  });
+
+  final ContentRoute route;
+  final String siteUrl;
+  final TopicDetail topic;
+  final TopicCategory? category;
+  final List<Widget> pluginMetadata;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final fallbackCategory = category == null ? route.subtitle : null;
+    final hasMetadata =
+        category != null ||
+        fallbackCategory != null ||
+        topic.tags.isNotEmpty ||
+        pluginMetadata.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TopicTitle(
+          topic.title,
+          key: const ValueKey('topic-header-title'),
+          siteUrl: siteUrl,
+          maxLines: 4,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (hasMetadata) ...[
+          const SizedBox(height: 6),
+          Wrap(
+            key: const ValueKey('topic-header-metadata'),
+            spacing: 10,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (category case final category?)
+                _TopicHeaderCategory(
+                  label: category.name,
+                  color: Color(category.colorValue),
+                )
+              else if (fallbackCategory case final fallbackCategory?)
+                _TopicHeaderCategory(
+                  label: fallbackCategory,
+                  color: route.color,
+                ),
+              for (final tag in topic.tags) _TopicHeaderTag(tag: tag),
+              ...pluginMetadata,
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _TopicHeaderCategory extends StatelessWidget {
+  const _TopicHeaderCategory({required this.label, required this.color});
+
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 200, minHeight: 26),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            key: const ValueKey('topic-header-category-color'),
+            width: 7,
+            height: 18,
+            decoration: BoxDecoration(
+              color: color ?? theme.colorScheme.outline,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TopicHeaderTag extends StatelessWidget {
+  const _TopicHeaderTag({required this.tag});
+
+  final TopicTag tag;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      key: ValueKey(('topic-header-tag', tag.name)),
+      constraints: const BoxConstraints(maxWidth: 200, minHeight: 26),
+      child: Text(
+        '#${tag.name}',
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
         ),
       ),
     );
   }
 }
 
-enum _TopicCommand { selectPosts, closed, archived, visible, delete, recover }
+enum _TopicCommand {
+  share,
+  flag,
+  pinned,
+  selectPosts,
+  closed,
+  archived,
+  visible,
+  delete,
+  recover,
+}
 
 class _TopicStatusButton extends StatelessWidget {
-  const _TopicStatusButton({required this.siteUrl, required this.topic});
+  const _TopicStatusButton({
+    required this.siteUrl,
+    required this.topic,
+    this.route,
+    this.topicFlags = const [],
+  });
 
   final String siteUrl;
   final TopicDetail topic;
+  final ContentRoute? route;
+  final List<PostFlagType> topicFlags;
+
+  void _share(BuildContext context) {
+    final controller = ShellScope.read(context);
+    final instance = controller.currentInstance;
+    if (instance == null || instance.url != siteUrl) return;
+    final slug = route?.slug;
+    unawaited(
+      showTopicShareSheet(
+        context: context,
+        title: topic.title,
+        url: topicShareUrl(
+          siteUrl: siteUrl,
+          topicId: topic.id,
+          slug: slug,
+          config: instance.config,
+          username: instance.user?.username,
+        ),
+        onReplyAsNewTopic: topic.canReplyAsNewTopic
+            ? () => controller.openReplyAsNewTopic(
+                topicContinuationMarkdown(
+                  title: topic.title,
+                  url: topicShareUrl(
+                    siteUrl: siteUrl,
+                    topicId: topic.id,
+                    slug: slug,
+                    config: instance.config,
+                  ),
+                ),
+              )
+            : null,
+      ),
+    );
+  }
+
+  void _flag(BuildContext context) {
+    final controller = ShellScope.read(context);
+    if (topicFlags.isEmpty ||
+        controller.topicFlagWriteInFlight(siteUrl, topic.id)) {
+      return;
+    }
+    unawaited(
+      showTopicFlagEditor(
+        context: context,
+        siteUrl: siteUrl,
+        topic: topic,
+        flagTypes: topicFlags,
+      ),
+    );
+  }
+
+  Future<void> _changePin(BuildContext context) async {
+    final error = await ShellScope.read(
+      context,
+    ).updateTopicPinPreference(siteUrl, topic.id, !topic.pinned);
+    if (error == null || !context.mounted) return;
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(error)));
+  }
 
   Future<void> _change(
     BuildContext context,
@@ -702,6 +934,12 @@ class _TopicStatusButton extends StatelessWidget {
 
   void _selectCommand(BuildContext context, _TopicCommand command) {
     switch (command) {
+      case _TopicCommand.share:
+        _share(context);
+      case _TopicCommand.flag:
+        _flag(context);
+      case _TopicCommand.pinned:
+        unawaited(_changePin(context));
       case _TopicCommand.selectPosts:
         final controller = ShellScope.read(context);
         controller.setTopicPostSelectionEnabled(
@@ -728,19 +966,43 @@ class _TopicStatusButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!topic.hasStatusActions) return const SizedBox.shrink();
     final hasStatusCommands =
         topic.canCloseTopic ||
         topic.canArchiveTopic ||
         topic.canToggleTopicVisibility;
     final hasPriorToDestructive = topic.canSelectPosts || hasStatusCommands;
+    final hasMoreActions = route != null || topicFlags.isNotEmpty;
     final options = [
-      if (topic.canSelectPosts)
+      if (route != null)
         const CommandMenuOption(
+          value: _TopicCommand.share,
+          label: 'Share topic',
+          icon: DIcons.upRightFromSquare,
+          key: ValueKey('topic-share-button'),
+        ),
+      if (topicFlags.isNotEmpty)
+        CommandMenuOption(
+          value: _TopicCommand.flag,
+          label: 'Flag topic',
+          icon: DIcons.flag,
+          key: const ValueKey('topic-flag-button'),
+          dividerBefore: route != null,
+        ),
+      if (topic.hasPinPreference)
+        CommandMenuOption(
+          value: _TopicCommand.pinned,
+          label: topic.pinned ? 'Unpin topic' : 'Pin topic',
+          icon: DIcons.thumbtack,
+          key: const ValueKey('topic-pin-button'),
+          dividerBefore: route != null || topicFlags.isNotEmpty,
+        ),
+      if (topic.canSelectPosts)
+        CommandMenuOption(
           value: _TopicCommand.selectPosts,
           label: 'Select posts',
           icon: DIcons.list,
-          key: ValueKey('topic-select-posts'),
+          key: const ValueKey('topic-select-posts'),
+          dividerBefore: hasMoreActions || topic.hasPinPreference,
         ),
       if (topic.canCloseTopic)
         CommandMenuOption(
@@ -748,7 +1010,9 @@ class _TopicStatusButton extends StatelessWidget {
           label: topic.closed ? 'Open topic' : 'Close topic',
           icon: DIcons.lock,
           key: const ValueKey('topic-status-closed'),
-          dividerBefore: topic.canSelectPosts,
+          dividerBefore:
+              !topic.canSelectPosts &&
+              (hasMoreActions || topic.hasPinPreference),
         ),
       if (topic.canArchiveTopic)
         CommandMenuOption(
@@ -756,7 +1020,10 @@ class _TopicStatusButton extends StatelessWidget {
           label: topic.archived ? 'Unarchive topic' : 'Archive topic',
           icon: topic.archived ? DIcons.folderOpen : DIcons.folder,
           key: const ValueKey('topic-status-archived'),
-          dividerBefore: topic.canSelectPosts && !topic.canCloseTopic,
+          dividerBefore:
+              !topic.canSelectPosts &&
+              !topic.canCloseTopic &&
+              (hasMoreActions || topic.hasPinPreference),
         ),
       if (topic.canToggleTopicVisibility)
         CommandMenuOption(
@@ -765,9 +1032,10 @@ class _TopicStatusButton extends StatelessWidget {
           icon: topic.visible ? DIcons.farEyeSlash : DIcons.farEye,
           key: const ValueKey('topic-status-visible'),
           dividerBefore:
-              topic.canSelectPosts &&
+              !topic.canSelectPosts &&
               !topic.canCloseTopic &&
-              !topic.canArchiveTopic,
+              !topic.canArchiveTopic &&
+              (hasMoreActions || topic.hasPinPreference),
         ),
       if (topic.canDeleteTopic)
         CommandMenuOption(
@@ -791,15 +1059,17 @@ class _TopicStatusButton extends StatelessWidget {
       select: (controller) =>
           controller.topicStatusWriteInFlight(siteUrl, topic.id) ||
           controller.topicDeletionWriteInFlight(siteUrl, topic.id) ||
-          controller.topicPostSelectionWriteInFlight(siteUrl, topic.id),
+          controller.topicPostSelectionWriteInFlight(siteUrl, topic.id) ||
+          controller.topicPinWriteInFlight(siteUrl, topic.id) ||
+          controller.topicFlagWriteInFlight(siteUrl, topic.id),
       builder: (context, busy, _) => CommandMenuAnchor<_TopicCommand>(
-        title: 'Topic actions',
+        title: 'More topic actions',
         options: options,
         enabled: !busy,
         onSelected: (command) => _selectCommand(context, command),
         builder: (context, openMenu) => DButton.iconOnly(
           key: const ValueKey('topic-status-button'),
-          tooltip: 'Topic actions',
+          tooltip: 'More topic actions',
           onPressed: openMenu,
           loading: busy,
           variant: DButtonVariant.flat,
@@ -809,7 +1079,7 @@ class _TopicStatusButton extends StatelessWidget {
                   dimension: 18,
                   child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                 )
-              : const DIcon(DIcons.gear, size: 18),
+              : const DIcon(DIcons.ellipsis, size: 18),
         ),
       ),
     );
@@ -820,10 +1090,12 @@ class _TopicNotificationLevelButton extends StatelessWidget {
   const _TopicNotificationLevelButton({
     required this.siteUrl,
     required this.topic,
+    this.showLabel = false,
   });
 
   final String siteUrl;
   final TopicDetail topic;
+  final bool showLabel;
 
   static const _options = [
     ChoiceMenuOption(
@@ -859,6 +1131,13 @@ class _TopicNotificationLevelButton extends StatelessWidget {
     TopicNotificationLevel.muted => DIcons.discourseBellSlash,
   };
 
+  static String _titleFor(TopicNotificationLevel level) => switch (level) {
+    TopicNotificationLevel.watching => 'Watching',
+    TopicNotificationLevel.tracking => 'Tracking',
+    TopicNotificationLevel.normal => 'Normal',
+    TopicNotificationLevel.muted => 'Muted',
+  };
+
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
@@ -869,13 +1148,32 @@ class _TopicNotificationLevelButton extends StatelessWidget {
       onSelected: (level) => unawaited(
         controller.updateTopicNotificationLevel(siteUrl, topic.id, level),
       ),
-      builder: (context, openMenu) => DButton.iconOnly(
-        tooltip: 'Topic notifications',
-        onPressed: openMenu,
-        icon: DIcon(_iconFor(topic.notificationLevel), size: 18),
-        variant: DButtonVariant.flat,
-        size: DButtonSize.small,
-      ),
+      builder: (context, openMenu) => showLabel
+          ? DButton(
+              key: const ValueKey('topic-notification-level-button'),
+              label: Text(_titleFor(topic.notificationLevel)),
+              tooltip: 'Topic notifications',
+              onPressed: openMenu,
+              icon: DIcon(_iconFor(topic.notificationLevel), size: 18),
+              variant:
+                  topic.notificationLevel.index >=
+                      TopicNotificationLevel.tracking.index
+                  ? DButtonVariant.transparentPrimary
+                  : DButtonVariant.flat,
+              size: DButtonSize.small,
+            )
+          : DButton.iconOnly(
+              key: const ValueKey('topic-notification-level-button'),
+              tooltip: 'Topic notifications',
+              onPressed: openMenu,
+              icon: DIcon(_iconFor(topic.notificationLevel), size: 18),
+              variant:
+                  topic.notificationLevel.index >=
+                      TopicNotificationLevel.tracking.index
+                  ? DButtonVariant.transparentPrimary
+                  : DButtonVariant.flat,
+              size: DButtonSize.small,
+            ),
     );
   }
 }
