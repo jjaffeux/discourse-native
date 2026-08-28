@@ -379,7 +379,8 @@ class LightboxTile extends StatelessWidget {
 ///
 /// The chrome follows `lib/lightbox.js`: a counter, the title and the
 /// `.informations` line as a caption, a download button when the image is an
-/// upload, and a tap on the image to get all of it out of the way.
+/// upload, and a tap on the image to get all of it out of the way. Moving a
+/// pointer brings the chrome back; touch users reveal it with another tap.
 class LightboxGallery extends StatefulWidget {
   const LightboxGallery({
     super.key,
@@ -466,6 +467,11 @@ class _LightboxGalleryState extends State<LightboxGallery> {
     );
   }
 
+  void _revealChrome() {
+    if (_chromeVisible) return;
+    setState(() => _chromeVisible = true);
+  }
+
   @override
   Widget build(BuildContext context) {
     // Esc and the arrow keys, which the web client binds too. Harmless where
@@ -481,21 +487,25 @@ class _LightboxGalleryState extends State<LightboxGallery> {
         autofocus: true,
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              _pages(),
-              _Chrome(
-                visible: _chromeVisible,
-                index: _index,
-                total: widget.images.length,
-                image: _current,
-                downloading: _downloading,
-                onDownload: _download,
-                onStep: _step,
-                onClose: () => Navigator.of(context).maybePop(),
-              ),
-            ],
+          body: MouseRegion(
+            onEnter: (_) => _revealChrome(),
+            onHover: (_) => _revealChrome(),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _pages(),
+                _Chrome(
+                  visible: _chromeVisible,
+                  index: _index,
+                  total: widget.images.length,
+                  image: _current,
+                  downloading: _downloading,
+                  onDownload: _download,
+                  onStep: _step,
+                  onClose: () => Navigator.of(context).maybePop(),
+                ),
+              ],
+            ),
           ),
         ),
       ),
