@@ -275,8 +275,6 @@ class _PreferencesPageState extends State<PreferencesPage> {
             variant: DButtonVariant.primary,
           ),
         ),
-        const SizedBox(height: 40),
-        const _AvailableOnWeb(),
       ],
     );
   }
@@ -910,95 +908,6 @@ class _StatusAnnouncement extends StatelessWidget {
 }
 
 enum _StatusKind { error, success, progress }
-
-class _AvailableOnWeb extends StatelessWidget {
-  const _AvailableOnWeb();
-
-  static const _items = [
-    'Account, login, security, passkeys, and two-factor authentication',
-    'Profile details, custom fields, avatars, and background uploads',
-    'Email delivery, digests, and mailing-list mode',
-    'Notification schedules and the complete push subscription lifecycle',
-    'Category, tag, ignored-user, muted-user, and message-list controls',
-    'Browser appearance, themes, text size, language, and interface options',
-    'Navigation-menu settings and private calendar subscription feeds',
-    'Preferences added by forum plugins',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Semantics(
-      container: true,
-      label: 'Available on the web. ${_items.join('. ')}.',
-      child: ExcludeSemantics(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: theme.shell.divider),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    DIcon(
-                      DIcons.globe,
-                      size: 18,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Available on the web',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'These settings remain managed by the forum’s web app. '
-                  'They are listed here for clarity, not as inactive controls.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                for (final item in _items)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '•',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            item,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _LoadingPreferences extends StatelessWidget {
   const _LoadingPreferences({required this.host});

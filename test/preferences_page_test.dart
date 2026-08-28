@@ -397,27 +397,6 @@ void main() {
     );
   });
 
-  testWidgets('web-only settings are disclosed as noninteractive information', (
-    tester,
-  ) async {
-    final fixture = await _fixture();
-    final semantics = tester.ensureSemantics();
-    try {
-      await _pumpPage(tester, fixture);
-      final disclosure = find.bySemanticsLabel(
-        RegExp(r'^Available on the web\. Account, login, security'),
-      );
-      expect(disclosure, findsOneWidget);
-      expect(find.text('Preferences added by forum plugins'), findsOneWidget);
-      expect(
-        tester.getSemantics(disclosure),
-        isSemantics(isButton: false, hasTapAction: false),
-      );
-    } finally {
-      semantics.dispose();
-    }
-  });
-
   testWidgets('confirmed date settings update the account mirror and store', (
     tester,
   ) async {
