@@ -9023,6 +9023,10 @@ class ShellController extends FrameSafeNotifier
   bool knowsEmoji(String siteUrl, String name) =>
       _presentation.knowsEmoji(siteUrl, name);
 
+  /// The canonical artwork name for a valid site shortcode, aliases included.
+  String? emojiNameFor(String siteUrl, String name) =>
+      _presentation.emojiNameFor(siteUrl, name);
+
   /// Opaque identity for widgets whose presentation depends on this site's
   /// settings or custom emoji artwork.
   Object presentationTokenFor(String siteUrl) =>
