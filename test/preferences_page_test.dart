@@ -113,6 +113,11 @@ Future<void> _pumpPage(
 Finder _save(PreferenceSection section) =>
     find.byKey(ValueKey('preferences-save-${section.name}'));
 
+Finder get _timezoneMenu => find.byKey(const ValueKey('preferences-timezone'));
+
+Finder get _timezoneInput =>
+    find.descendant(of: _timezoneMenu, matching: find.byType(EditableText));
+
 DButton _saveButton(WidgetTester tester, PreferenceSection section) =>
     tester.widget<DButton>(_save(section));
 
@@ -306,24 +311,56 @@ void main() {
     }
   });
 
-  testWidgets('invalid IANA timezone blocks the write locally', (tester) async {
-    final fixture = await _fixture();
-    await _pumpPage(tester, fixture);
-    await _chooseNarrowSection(tester, PreferenceSection.profile);
+  testWidgets(
+    'timezone input filters known values without accepting free text',
+    (tester) async {
+      final fixture = await _fixture();
+      await _pumpPage(tester, fixture);
+      await _chooseNarrowSection(tester, PreferenceSection.profile);
 
-    await tester.enterText(
-      find.byKey(const ValueKey('preferences-timezone')),
-      'Mars/Olympus',
-    );
-    await tester.pump();
+      final menu = tester.widget<DropdownMenu<String>>(_timezoneMenu);
+      expect(menu.enableFilter, isTrue);
+      expect(menu.enableSearch, isTrue);
+      expect(
+        menu.dropdownMenuEntries.map((entry) => entry.value),
+        contains('Europe/London'),
+      );
 
-    expect(
-      find.text('Use a valid IANA timezone, such as Europe/Paris.'),
-      findsOneWidget,
-    );
-    expect(_saveButton(tester, PreferenceSection.profile).onPressed, isNull);
-    expect(fixture.api.userPreferenceUpdates, isEmpty);
-  });
+      await tester.enterText(_timezoneInput, 'Mars/Olympus');
+      await tester.pump();
+
+      expect(find.text('Europe/London'), findsNothing);
+      expect(
+        fixture.shell.preferences.stateFor(_siteUrl)!.draft!.timezone,
+        'Etc/UTC',
+      );
+      expect(_saveButton(tester, PreferenceSection.profile).onPressed, isNull);
+      expect(fixture.api.userPreferenceUpdates, isEmpty);
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      expect(
+        tester.widget<EditableText>(_timezoneInput).controller.text,
+        'Etc/UTC',
+      );
+
+      await tester.enterText(_timezoneInput, 'Europe/Lond');
+      await tester.pump();
+      expect(find.text('Europe/London'), findsOneWidget);
+
+      await tester.tap(find.text('Europe/London'));
+      await tester.pumpAndSettle();
+
+      expect(
+        fixture.shell.preferences.stateFor(_siteUrl)!.draft!.timezone,
+        'Europe/London',
+      );
+      expect(
+        _saveButton(tester, PreferenceSection.profile).onPressed,
+        isNotNull,
+      );
+    },
+  );
 
   testWidgets('server validation error is announced and retains the draft', (
     tester,
@@ -447,11 +484,10 @@ void main() {
       await _pumpPage(tester, fixture);
       await _chooseNarrowSection(tester, PreferenceSection.profile);
 
-      await tester.enterText(
-        find.byKey(const ValueKey('preferences-timezone')),
-        'Europe/London',
-      );
-      await tester.pump();
+      await tester.enterText(_timezoneInput, 'Europe/Lond');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Europe/London'));
+      await tester.pumpAndSettle();
       fixture.store.saved.clear();
       await tester.tap(_save(PreferenceSection.profile));
       await tester.pumpAndSettle();

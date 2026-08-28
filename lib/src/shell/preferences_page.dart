@@ -19,7 +19,7 @@ import 'shell_scope.dart';
 ///
 /// The controller owns the draft so navigating between sections, rebuilding,
 /// and failed writes never reset a reader's edits. This widget owns only the
-/// currently visible section and the text-input affordance for the timezone.
+/// currently visible section and the filter affordance for the timezone menu.
 class PreferencesPage extends StatefulWidget {
   const PreferencesPage({super.key, required this.siteUrl});
 
@@ -31,13 +31,23 @@ class PreferencesPage extends StatefulWidget {
 
 class _PreferencesPageState extends State<PreferencesPage> {
   static const double _wideBreakpoint = 760;
+  static const String _forumDefaultTimezoneLabel = 'Forum default';
 
   final TextEditingController _timezone = TextEditingController();
   final FocusNode _timezoneFocus = FocusNode();
+  late final List<String> _timezoneNames;
 
   ShellController? _shell;
   PreferencesController? _preferences;
   PreferenceSection _selectedSection = PreferenceSection.notifications;
+
+  @override
+  void initState() {
+    super.initState();
+    _timezoneNames = TimezoneEnvironment.instance.timezoneNames.toList()
+      ..sort();
+    _timezoneFocus.addListener(_restoreSelectedTimezoneAfterFiltering);
+  }
 
   @override
   void didChangeDependencies() {
@@ -202,15 +212,9 @@ class _PreferencesPageState extends State<PreferencesPage> {
     PreferenceSection section,
     bool editable,
   ) {
-    final timezoneValid = _timezoneError(_timezone.text) == null;
-    final valid = section != PreferenceSection.profile || timezoneValid;
     final dirty = state.dirty(section);
     final canSave =
-        instance?.isConnected == true &&
-        editable &&
-        dirty &&
-        valid &&
-        !state.saving;
+        instance?.isConnected == true && editable && dirty && !state.saving;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -224,7 +228,8 @@ class _PreferencesPageState extends State<PreferencesPage> {
           PreferenceSection.profile => _ProfileForm(
             timezone: _timezone,
             timezoneFocus: _timezoneFocus,
-            timezoneError: _timezoneError(_timezone.text),
+            selectedTimezone: draft.timezone,
+            timezoneNames: _timezoneNames,
             deviceTimezone: TimezoneEnvironment.instance.deviceTimezone,
             enabled: editable,
             onTimezoneChanged: (timezone) => shell.preferences.edit(
@@ -287,24 +292,6 @@ class _PreferencesPageState extends State<PreferencesPage> {
     DiscourseInstance instance,
     PreferenceSection section,
   ) {
-    if (section == PreferenceSection.profile) {
-      final trimmed = _timezone.text.trim();
-      final canonical = trimmed.isEmpty
-          ? ''
-          : TimezoneEnvironment.instance.canonicalTimezone(trimmed);
-      if (canonical == null || trimmed == 'IST') return;
-      if (_timezone.text != canonical) {
-        _timezone.value = TextEditingValue(
-          text: canonical,
-          selection: TextSelection.collapsed(offset: canonical.length),
-        );
-        shell.preferences.edit(
-          widget.siteUrl,
-          PreferenceSection.profile,
-          (current) => current.copyWith(timezone: canonical),
-        );
-      }
-    }
     unawaited(shell.preferences.save(instance, section));
   }
 
@@ -325,26 +312,24 @@ class _PreferencesPageState extends State<PreferencesPage> {
   }
 
   void _synchronizeTimezone(String value) {
-    if (_timezoneFocus.hasFocus || _timezone.text == value) return;
+    if (_timezoneFocus.hasFocus) return;
+    final label = value.isEmpty ? _forumDefaultTimezoneLabel : value;
+    if (_timezone.text == label) return;
     _timezone.value = TextEditingValue(
-      text: value,
-      selection: TextSelection.collapsed(offset: value.length),
+      text: label,
+      selection: TextSelection.collapsed(offset: label.length),
     );
+  }
+
+  void _restoreSelectedTimezoneAfterFiltering() {
+    if (_timezoneFocus.hasFocus) return;
+    final value = _preferences?.stateFor(widget.siteUrl)?.draft?.timezone;
+    if (value != null) _synchronizeTimezone(value);
   }
 
   void _handlePreferencesChanged() {
     final value = _preferences?.stateFor(widget.siteUrl)?.draft?.timezone;
     if (value != null) _synchronizeTimezone(value);
-  }
-
-  String? _timezoneError(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return null;
-    if (trimmed == 'IST' ||
-        TimezoneEnvironment.instance.canonicalTimezone(trimmed) == null) {
-      return 'Use a valid IANA timezone, such as Europe/Paris.';
-    }
-    return null;
   }
 
   PreferenceSection _visibleSection(UserPreferences preferences) {
@@ -370,6 +355,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
   @override
   void dispose() {
     _preferences?.removeListener(_handlePreferencesChanged);
+    _timezoneFocus.removeListener(_restoreSelectedTimezoneAfterFiltering);
     _timezone.dispose();
     _timezoneFocus.dispose();
     super.dispose();
@@ -686,7 +672,8 @@ class _ProfileForm extends StatelessWidget {
   const _ProfileForm({
     required this.timezone,
     required this.timezoneFocus,
-    required this.timezoneError,
+    required this.selectedTimezone,
+    required this.timezoneNames,
     required this.deviceTimezone,
     required this.enabled,
     required this.onTimezoneChanged,
@@ -695,7 +682,8 @@ class _ProfileForm extends StatelessWidget {
 
   final TextEditingController timezone;
   final FocusNode timezoneFocus;
-  final String? timezoneError;
+  final String selectedTimezone;
+  final List<String> timezoneNames;
   final String? deviceTimezone;
   final bool enabled;
   final ValueChanged<String> onTimezoneChanged;
@@ -706,23 +694,36 @@ class _ProfileForm extends StatelessWidget {
     final theme = Theme.of(context);
     return _PreferenceCard(
       children: [
-        TextField(
+        DropdownMenu<String>(
           key: const ValueKey('preferences-timezone'),
           controller: timezone,
           focusNode: timezoneFocus,
           enabled: enabled,
-          autocorrect: false,
-          enableSuggestions: false,
-          textCapitalization: TextCapitalization.none,
-          decoration: InputDecoration(
-            labelText: 'Timezone',
-            hintText: 'Europe/Paris',
-            helperText:
-                'Leave blank for the forum default, or use an IANA '
-                'timezone for dates and reminders.',
-            errorText: timezoneError,
-          ),
-          onChanged: onTimezoneChanged,
+          initialSelection: selectedTimezone,
+          expandedInsets: EdgeInsets.zero,
+          enableFilter: true,
+          enableSearch: true,
+          requestFocusOnTap: true,
+          label: const Text('Timezone'),
+          helperText:
+              'Type to filter IANA timezones used for dates and reminders.',
+          dropdownMenuEntries: [
+            const DropdownMenuEntry(
+              value: '',
+              label: _PreferencesPageState._forumDefaultTimezoneLabel,
+            ),
+            for (final name in timezoneNames)
+              DropdownMenuEntry(value: name, label: name),
+          ],
+          onSelected: enabled
+              ? (value) {
+                  if (value == null) {
+                    _restoreSelectedTimezone();
+                  } else {
+                    onTimezoneChanged(value);
+                  }
+                }
+              : null,
         ),
         const SizedBox(height: 12),
         Text(
@@ -748,6 +749,16 @@ class _ProfileForm extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  void _restoreSelectedTimezone() {
+    final label = selectedTimezone.isEmpty
+        ? _PreferencesPageState._forumDefaultTimezoneLabel
+        : selectedTimezone;
+    timezone.value = TextEditingValue(
+      text: label,
+      selection: TextSelection.collapsed(offset: label.length),
     );
   }
 }
