@@ -92,7 +92,7 @@ final class TopicPostIndexProjection {
   int? operator [](int postId) => _indexByPostId[postId];
 }
 
-class _TopicViewState extends State<TopicView> {
+class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   static const Duration _readInterval = Duration(milliseconds: 500);
 
   ScrollController? _scroll;
@@ -131,6 +131,12 @@ class _TopicViewState extends State<TopicView> {
     final held = _postIndexProjection;
     if (held != null && held.represents(postIds)) return held;
     return _postIndexProjection = TopicPostIndexProjection(postIds);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
   }
 
   void _syncControllers(
@@ -287,6 +293,7 @@ class _TopicViewState extends State<TopicView> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _recommendationsPanelRestoreGeneration++;
     _recommendationsTabRestoreGeneration++;
     _dayJumpToken = null;
@@ -296,6 +303,18 @@ class _TopicViewState extends State<TopicView> {
     _controller?.flushAnchorPersist();
     _disposeControllers();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) return;
+
+    // The post was measured while the app was still in front. Flush that
+    // observation at the first foreground-exit signal, before the platform can
+    // suspend the request. This is especially easy to hit from a video-only
+    // post: opening the video externally backgrounds the app inside the normal
+    // viewport debounce window.
+    _creditReaderNow(leavingForeground: true);
   }
 
   void _syncRecommendationsSite(String siteUrl) {
@@ -662,7 +681,7 @@ class _TopicViewState extends State<TopicView> {
     setState(() => _progressPosition = position);
   }
 
-  void _creditReaderNow() {
+  void _creditReaderNow({bool leavingForeground = false}) {
     _readTimer?.cancel();
     _readTimer = null;
 
@@ -674,7 +693,11 @@ class _TopicViewState extends State<TopicView> {
     // background. Null is a test or a launch with no lifecycle event yet, and
     // both mean the view is in front.
     final lifecycle = WidgetsBinding.instance.lifecycleState;
-    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
+    if (!leavingForeground &&
+        lifecycle != null &&
+        lifecycle != AppLifecycleState.resumed) {
+      return;
+    }
 
     void send() => unawaited(
       controller.markTopicRead(

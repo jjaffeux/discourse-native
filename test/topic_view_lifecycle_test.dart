@@ -8,6 +8,7 @@ import 'package:discourse_native/src/shell/loading_skeleton.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
+import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -141,6 +142,72 @@ void main() {
       closeTo(list.controller!.position.maxScrollExtent, 1),
     );
   });
+
+  testWidgets(
+    'backgrounding from a video-only final post keeps its read receipt',
+    (tester) async {
+      final site = instance('meta.example');
+      final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+      final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([site]),
+        api: api,
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(controller.dispose);
+      addTearDown(() => _resumeLifecycle(tester));
+      await controller.load();
+      controller.store
+        ..put(
+          site.url,
+          const TopicDetail(id: 1, title: 'One', stream: [100], postsCount: 1),
+        )
+        ..put(
+          site.url,
+          const Post(
+            id: 100,
+            postNumber: 1,
+            username: 'sam',
+            cooked: '''
+<div class="youtube-onebox lazy-video-container"
+  data-video-id="dQw4w9WgXcQ"
+  data-video-title="Only a video"
+  data-provider-name="youtube">
+  <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+     class="video-thumbnail"></a>
+</div>
+''',
+          ),
+        )
+        ..put(
+          site.url,
+          const Topic(
+            id: 1,
+            title: 'One',
+            slug: 'one',
+            unreadPosts: 1,
+            highestPostNumber: 1,
+          ),
+        );
+      controller.pushContent(
+        ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+      );
+
+      await tester.pumpWidget(_topicView(controller));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(YoutubeVideo), findsOneWidget);
+      expect(api.topicReadsRecorded, isEmpty);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      await tester.pump();
+
+      expect(api.topicReadsRecorded, [(topicId: 1, postNumber: 1)]);
+    },
+  );
 
   testWidgets(
     'records the visible range after programmatic scrolling lays out',
@@ -1487,5 +1554,20 @@ final class _FailingOncePostsApi extends FakeDiscourseApi {
       posts: ids.map((id) => postsById[id]).whereType<Post>().toList(),
       recommendations: null,
     );
+  }
+}
+
+void _resumeLifecycle(WidgetTester tester) {
+  var state = tester.binding.lifecycleState;
+  if (state == AppLifecycleState.paused) {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    state = AppLifecycleState.hidden;
+  }
+  if (state == AppLifecycleState.hidden) {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    state = AppLifecycleState.inactive;
+  }
+  if (state == AppLifecycleState.inactive) {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
   }
 }
