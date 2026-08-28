@@ -12,6 +12,7 @@ import '../models/discourse_instance.dart';
 import '../models/notification.dart';
 import '../models/notification_feed.dart';
 import '../models/notification_totals.dart';
+import '../models/user_activity_feed.dart';
 
 typedef TotalsLoaded =
     void Function(DiscourseInstance instance, NotificationTotals totals);
@@ -51,18 +52,21 @@ final class AccountActivityController extends FrameSafeNotifier {
   final _replyNotificationChanges = _ActivityAspect();
   final _chatNotificationChanges = _ActivityAspect();
   final _bookmarkChanges = _ActivityAspect();
+  final _userActivityChanges = _ActivityAspect();
 
   Listenable get totalsListenable => _totalsChanges;
   Listenable get notificationsListenable => _notificationChanges;
   Listenable get replyNotificationsListenable => _replyNotificationChanges;
   Listenable get chatNotificationsListenable => _chatNotificationChanges;
   Listenable get bookmarksListenable => _bookmarkChanges;
+  Listenable get userActivityListenable => _userActivityChanges;
 
   final Map<String, NotificationTotals> _totals = {};
   final Map<String, NotificationFeed> _notifications = {};
   final Map<String, NotificationFeed> _replyNotifications = {};
   final Map<String, NotificationFeed> _chatNotifications = {};
   final Map<String, BookmarkFeed> _bookmarks = {};
+  final Map<String, UserActivityFeed> _userActivity = {};
   final Map<String, Object> _totalsRequests = {};
   final Map<String, Future<NotificationTotals?>> _totalsTasks = {};
   final Map<String, DateTime> _totalsAttemptedAt = {};
@@ -74,6 +78,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, Future<void>> _replyNotificationTasks = {};
   final Map<String, Future<void>> _chatNotificationTasks = {};
   final Map<String, Future<void>> _bookmarkTasks = {};
+  final Map<String, Future<void>> _userActivityTasks = {};
   final Map<String, DiscourseInstance> _pendingBookmarks = {};
   final Map<String, Completer<void>> _pendingBookmarkWaiters = {};
   final Map<String, Completer<void>> _replayingBookmarkWaiters = {};
@@ -81,6 +86,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, Object> _replyNotificationRequests = {};
   final Map<String, Object> _chatNotificationRequests = {};
   final Map<String, Object> _bookmarkRequests = {};
+  final Map<String, Object> _userActivityRequests = {};
   final Map<(String, int), Object> _notificationReadRequests = {};
   final Map<String, Set<int>> _locallyReadNotificationIds = {};
 
@@ -101,6 +107,13 @@ final class AccountActivityController extends FrameSafeNotifier {
   BookmarkFeed bookmarksFor(String? siteUrl) => siteUrl == null
       ? const BookmarkFeed()
       : _bookmarks[siteUrl] ?? const BookmarkFeed();
+
+  UserActivityFeed userActivityFor(String? siteUrl) => siteUrl == null
+      ? const UserActivityFeed()
+      : _userActivity[siteUrl] ?? const UserActivityFeed();
+
+  /// Core's default Activity page size and server default.
+  static const int userActivityPageSize = 30;
 
   Future<void> refreshAll(Iterable<DiscourseInstance> instances) async {
     await Future.wait(
@@ -566,6 +579,156 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
   }
 
+  /// Loads the default Activity stream for one connected account.
+  ///
+  /// [loadMore] advances from the number of raw server entries already seen;
+  /// [refresh] replaces the stream and supersedes an older page in flight.
+  /// The latter is what prevents a slow stale page from appending after a
+  /// pull-to-refresh or a new session for the same origin.
+  Future<void> loadUserActivity(
+    DiscourseInstance instance, {
+    bool refresh = false,
+    bool loadMore = false,
+  }) {
+    assert(!(refresh && loadMore));
+    if (isDisposed || !instance.isConnected) return Future<void>.value();
+
+    final siteUrl = instance.url;
+    final held = userActivityFor(siteUrl);
+    if (!refresh && !loadMore && held.loaded) return Future<void>.value();
+    if (loadMore && (!held.loaded || !held.hasMore)) {
+      return Future<void>.value();
+    }
+
+    final active = _userActivityTasks[siteUrl];
+    if (active != null && !refresh) return active;
+
+    final replace = refresh || !held.loaded;
+    final request = Object();
+    final lease = lifecycle.capture(siteUrl);
+    final offset = replace ? 0 : held.nextOffset;
+    final result = Completer<void>();
+    final task = result.future;
+    _userActivityRequests[siteUrl] = request;
+    _userActivityTasks[siteUrl] = task;
+    _userActivity[siteUrl] = held.loadingPage(replace: replace);
+
+    void finish([Object? error, StackTrace? stackTrace]) {
+      if (identical(_userActivityTasks[siteUrl], task)) {
+        final _ = _userActivityTasks.remove(siteUrl);
+      }
+      if (result.isCompleted) return;
+      if (error == null) {
+        result.complete();
+      } else {
+        result.completeError(error, stackTrace!);
+      }
+    }
+
+    _notifyUserActivity();
+    // Publishing loading state can synchronously dispose this controller.
+    // Do not cross into credential storage for its replacement generation.
+    if (!_ownsRequest(lease, _userActivityRequests[siteUrl], request)) {
+      finish();
+      return task;
+    }
+
+    try {
+      unawaited(
+        _loadUserActivityPage(
+          instance,
+          lease: lease,
+          request: request,
+          offset: offset,
+          replace: replace,
+        ).then<void>(
+          (_) => finish(),
+          onError: (Object error, StackTrace stackTrace) =>
+              finish(error, stackTrace),
+        ),
+      );
+    } catch (error, stackTrace) {
+      finish(error, stackTrace);
+    }
+    return task;
+  }
+
+  Future<void> _loadUserActivityPage(
+    DiscourseInstance instance, {
+    required SiteLease lease,
+    required Object request,
+    required int offset,
+    required bool replace,
+  }) async {
+    final siteUrl = instance.url;
+    final username = instance.user?.username;
+    if (username == null) return;
+
+    void fail(String message) {
+      final held = userActivityFor(siteUrl);
+      _userActivity[siteUrl] = held.withError(message, retryFromStart: replace);
+    }
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!_ownsRequest(lease, _userActivityRequests[siteUrl], request)) {
+        return;
+      }
+      if (apiKey == null) {
+        _commit(lease, () {
+          if (!identical(_userActivityRequests[siteUrl], request)) return;
+          fail('Reconnect to ${instance.host} to see your activity.');
+          _notifyUserActivity();
+        });
+        return;
+      }
+      final page = await api.userActivity(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        username: username,
+        offset: offset,
+        limit: userActivityPageSize,
+      );
+      _commit(lease, () {
+        if (!identical(_userActivityRequests[siteUrl], request)) return;
+        _userActivity[siteUrl] = userActivityFor(
+          siteUrl,
+        ).withPage(page, limit: userActivityPageSize, replace: replace);
+        _notifyUserActivity();
+      });
+    } on SiteLookupException catch (error, stackTrace) {
+      if (!_ownsRequest(lease, _userActivityRequests[siteUrl], request)) {
+        return;
+      }
+      _report(error, stackTrace, 'account.loadUserActivity');
+      _commit(lease, () {
+        if (!identical(_userActivityRequests[siteUrl], request)) return;
+        fail(
+          error.failure == SiteLookupFailure.notDiscourse
+              ? 'Not allowed — try reconnecting to ${instance.host}.'
+              : "Couldn't reach ${instance.host}.",
+        );
+        _notifyUserActivity();
+      });
+    } catch (error, stackTrace) {
+      if (!_ownsRequest(lease, _userActivityRequests[siteUrl], request)) {
+        return;
+      }
+      _report(error, stackTrace, 'account.loadUserActivity');
+      _commit(lease, () {
+        if (!identical(_userActivityRequests[siteUrl], request)) return;
+        fail("Couldn't load activity from ${instance.host}.");
+        _notifyUserActivity();
+      });
+    } finally {
+      _commit(lease, () {
+        if (identical(_userActivityRequests[siteUrl], request)) {
+          _userActivityRequests.remove(siteUrl);
+        }
+      });
+    }
+  }
+
   void readNotification(
     DiscourseInstance instance,
     DiscourseNotification notification,
@@ -684,6 +847,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     final hadReplyNotifications = _replyNotifications.remove(siteUrl) != null;
     final hadChatNotifications = _chatNotifications.remove(siteUrl) != null;
     final hadBookmarks = _bookmarks.remove(siteUrl) != null;
+    final hadUserActivity = _userActivity.remove(siteUrl) != null;
     _totalsRequests.remove(siteUrl);
     _totalsAttemptedAt.remove(siteUrl);
     final abandonedTotals = _totalsTasks.remove(siteUrl);
@@ -698,6 +862,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     _replyNotificationTasks.remove(siteUrl)?.ignore();
     _chatNotificationTasks.remove(siteUrl)?.ignore();
     _bookmarkTasks.remove(siteUrl)?.ignore();
+    _userActivityTasks.remove(siteUrl)?.ignore();
     _pendingBookmarks.remove(siteUrl);
     _pendingBookmarkWaiters.remove(siteUrl)?.complete();
     final replayingBookmarkWaiter = _replayingBookmarkWaiters.remove(siteUrl);
@@ -709,6 +874,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     _replyNotificationRequests.remove(siteUrl);
     _chatNotificationRequests.remove(siteUrl);
     _bookmarkRequests.remove(siteUrl);
+    _userActivityRequests.remove(siteUrl);
     _notificationReadRequests.removeWhere((key, _) => key.$1 == siteUrl);
     _locallyReadNotificationIds.remove(siteUrl);
     final changed =
@@ -716,12 +882,14 @@ final class AccountActivityController extends FrameSafeNotifier {
         hadNotifications ||
         hadReplyNotifications ||
         hadChatNotifications ||
-        hadBookmarks;
+        hadBookmarks ||
+        hadUserActivity;
     if (hadTotals) _totalsChanges.changed();
     if (hadNotifications) _notificationChanges.changed();
     if (hadReplyNotifications) _replyNotificationChanges.changed();
     if (hadChatNotifications) _chatNotificationChanges.changed();
     if (hadBookmarks) _bookmarkChanges.changed();
+    if (hadUserActivity) _userActivityChanges.changed();
     if (changed) notifySafely();
   }
 
@@ -747,6 +915,11 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   void _notifyBookmarks() {
     _bookmarkChanges.changed();
+    notifySafely();
+  }
+
+  void _notifyUserActivity() {
+    _userActivityChanges.changed();
     notifySafely();
   }
 
@@ -832,11 +1005,13 @@ final class AccountActivityController extends FrameSafeNotifier {
     _replyNotificationTasks.clear();
     _chatNotificationTasks.clear();
     _bookmarkTasks.clear();
+    _userActivityTasks.clear();
     _totalsRequests.clear();
     _notificationRequests.clear();
     _replyNotificationRequests.clear();
     _chatNotificationRequests.clear();
     _bookmarkRequests.clear();
+    _userActivityRequests.clear();
     _notificationReadRequests.clear();
     _locallyReadNotificationIds.clear();
     _totalsChanges.dispose();
@@ -844,6 +1019,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     _replyNotificationChanges.dispose();
     _chatNotificationChanges.dispose();
     _bookmarkChanges.dispose();
+    _userActivityChanges.dispose();
     super.dispose();
   }
 }

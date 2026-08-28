@@ -1183,6 +1183,128 @@ void _authGroups() {
     });
   });
 
+  group('user activity', () {
+    test('requests the web default contribution stream contract', () async {
+      Uri? url;
+      String? apiKey;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          url = request.url;
+          apiKey = request.headers['User-Api-Key'];
+          return http.Response(
+            jsonEncode({
+              'user_actions': [
+                {
+                  'action_type': 4,
+                  'created_at': '2026-08-27T10:00:00.000Z',
+                  'avatar_template': '/user_avatar/meta/sam/{size}/1.png',
+                  'slug': 'native-client',
+                  'topic_id': 71,
+                  'post_number': 1,
+                  'post_id': 901,
+                  'username': 'sam',
+                  'title': 'A native client',
+                  'category_id': 3,
+                  'closed': true,
+                  'excerpt': '<p>The opening post</p>',
+                },
+                {
+                  'action_type': 5,
+                  'created_at': '2026-08-26T10:00:00.000Z',
+                  'avatar_template': '/user_avatar/meta/sam/{size}/1.png',
+                  'slug': 'another-topic',
+                  'topic_id': 72,
+                  'post_number': 4,
+                  'post_id': 902,
+                  'username': 'sam',
+                  'title': 'Another topic',
+                  'category_id': 3,
+                  'hidden': true,
+                  'excerpt': '<p>A useful reply &amp; follow-up</p>',
+                },
+              ],
+              'categories': [
+                {'id': 3, 'name': 'Support', 'color': '0088CC'},
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final page = await api.userActivity(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        username: 'sam',
+        offset: 30,
+        limit: 30,
+      );
+
+      expect(url?.path, '/user_actions.json');
+      expect(url?.queryParameters, {
+        'offset': '30',
+        'username': 'sam',
+        // Core maps the unfiltered userActivity.index route to topics and
+        // replies. Summary, drafts, likes, reads, and bookmarks are separate.
+        'filter': '4,5',
+        'limit': '30',
+      });
+      expect(apiKey, 'the-key');
+      expect(page.rawItemCount, 2);
+      expect(page.items, hasLength(2));
+      expect(page.items.first.isTopic, isTrue);
+      expect(page.items.first.topicId, 71);
+      expect(page.items.first.closed, isTrue);
+      expect(
+        page.items.first.avatarUrl,
+        'https://meta.discourse.org/user_avatar/meta/sam/90/1.png',
+      );
+      expect(page.items.last.isReply, isTrue);
+      expect(page.items.last.postNumber, 4);
+      expect(page.items.last.hidden, isTrue);
+      expect(page.items.last.plainExcerpt, 'A useful reply & follow-up');
+      expect(page.categories.single.name, 'Support');
+    });
+
+    test(
+      'counts malformed server rows when advancing the raw offset',
+      () async {
+        final api = DiscourseApi(
+          client: MockClient(
+            (_) async => http.Response(
+              jsonEncode({
+                'user_actions': [
+                  {
+                    'action_type': 99,
+                    'topic_id': 1,
+                    'post_number': 1,
+                    'title': 'A future action kind',
+                  },
+                  {
+                    'action_type': 5,
+                    'topic_id': 2,
+                    'post_number': 0,
+                    'title': 'Broken reply',
+                  },
+                ],
+              }),
+              200,
+            ),
+          ),
+        );
+
+        final page = await api.userActivity(
+          siteUrl: 'https://example.com',
+          apiKey: 'k',
+          username: 'sam',
+        );
+
+        expect(page.items, isEmpty);
+        expect(page.rawItemCount, 2);
+      },
+    );
+  });
+
   group('bookmarks', () {
     test('reads both lists the bookmarks tab is made of', () async {
       Uri? url;

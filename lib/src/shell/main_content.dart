@@ -39,6 +39,7 @@ import 'topic_list_view.dart';
 import 'topic_share.dart';
 import 'topic_title.dart';
 import 'topic_view.dart';
+import 'user_activity.dart';
 import 'user_menu_button.dart';
 import 'user_summary.dart';
 
@@ -185,6 +186,9 @@ class _ContentViewport extends StatelessWidget {
     }
     if (route.isPreferences && siteUrl != null) {
       return PreferencesPage(siteUrl: siteUrl!);
+    }
+    if (!route.isTopic && route.id == 'activity' && siteUrl != null) {
+      return UserActivityView(siteUrl: siteUrl!);
     }
     if (!route.isTopic &&
         route.id == 'all-categories' &&

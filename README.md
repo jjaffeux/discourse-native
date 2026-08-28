@@ -150,6 +150,29 @@ links preserve their exact message destination and open connected
 channel/thread routes natively; disconnected or unclaimable destinations keep
 the browser fallback.
 
+### Activity
+
+Activity in the profile menu matches the web app's default `userActivity`
+route. It is not the profile Summary and it is not a general account-event
+history. Core's unfiltered activity route deliberately asks
+`/user_actions.json` with `filter=4,5`, so the native page contains only topics
+the connected user created and replies they posted, in reverse chronological
+order. Likes, bookmarks, reads and drafts remain in their own destinations.
+
+The request names the connected username and pages thirty raw user-action rows
+at a time. Its offset advances by the number of server rows received, even when
+an unexpected or malformed row cannot be displayed, which prevents a bad row
+from being requested forever. The response's sibling `categories` collection
+supplies category names and colours for the post-list rows. Rows retain the
+server-cooked excerpt and open the exact topic post natively.
+
+Activity is a restorable content route rather than a new sidebar root. Opening
+it closes the account menu and pushes it over the current destination, so Back
+returns to the previous native page in compact and expanded shells. Loading,
+pull-to-refresh, pagination, retry and empty state are isolated per site and
+account lifecycle; a page from a disconnected or replaced session cannot
+repopulate the new account's stream.
+
 ### Bookmarks
 
 The bookmarks tab reads `/u/{username}/user-menu-bookmarks.json`, which is the

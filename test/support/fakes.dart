@@ -35,6 +35,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
+import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
@@ -493,6 +494,9 @@ class FakeDiscourseApi
     this.userDraftGate,
     this.summary,
     this.userSummaryGate,
+    this.userActivityItems = const [],
+    this.userActivityCategories = const [],
+    this.userActivityGate,
     this.nextPages = const {},
     this.gate,
     this.feedGates = const {},
@@ -747,6 +751,11 @@ class FakeDiscourseApi
   final UserSummary? summary;
   final Completer<void>? userSummaryGate;
   final List<({String siteUrl, String username})> userSummaryRequests = [];
+  final List<UserActivityItem> userActivityItems;
+  final List<TopicCategory> userActivityCategories;
+  final Completer<void>? userActivityGate;
+  final List<({String siteUrl, String username, int offset, int limit})>
+  userActivityRequests = [];
 
   /// `more_topics_url` to report for a given path, driving pagination.
   final Map<String, String> nextPages;
@@ -3537,6 +3546,33 @@ class FakeDiscourseApi
     userDraftRequests.add((siteUrl: siteUrl, offset: offset, limit: limit));
     await userDraftGate?.future;
     return userDraftList.skip(offset).take(limit).toList(growable: false);
+  }
+
+  @override
+  Future<UserActivityPage> userActivity({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int offset = 0,
+    int limit = 30,
+    String? clientId,
+  }) async {
+    userActivityRequests.add((
+      siteUrl: siteUrl,
+      username: username,
+      offset: offset,
+      limit: limit,
+    ));
+    await userActivityGate?.future;
+    final items = userActivityItems
+        .skip(offset)
+        .take(limit)
+        .toList(growable: false);
+    return UserActivityPage(
+      items: items,
+      categories: userActivityCategories,
+      rawItemCount: items.length,
+    );
   }
 
   @override

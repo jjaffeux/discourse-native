@@ -127,6 +127,7 @@ class UserMenuRow {
 
   bool get isDrafts => id == 'drafts';
   bool get isSummary => id == 'summary';
+  bool get isActivity => id == 'activity';
   bool get isUserStatus => id == 'user-status';
   bool get isPreferences => id == 'preferences';
   bool get isDoNotDisturb => id == 'do-not-disturb';
@@ -226,7 +227,7 @@ List<UserMenuSection> userMenuSections(
           id: 'do-not-disturb',
         ),
         const UserMenuRow(DIcons.user, 'Summary', id: 'summary'),
-        const UserMenuRow(DIcons.list, 'Activity'),
+        const UserMenuRow(DIcons.list, 'Activity', id: 'activity'),
         const UserMenuRow(DIcons.pencil, 'Drafts', id: 'drafts'),
         const UserMenuRow(DIcons.gear, 'Preferences', id: 'preferences'),
       ],
@@ -540,6 +541,11 @@ class _SectionBody extends StatelessWidget {
                       onDismiss();
                       controller.openUserSummary(siteUrl);
                     }
+                  : row.isActivity && siteUrl != null
+                  ? () {
+                      onDismiss();
+                      controller.openUserActivity(siteUrl);
+                    }
                   : row.isDrafts && siteUrl != null
                   ? () {
                       onDismiss();
@@ -652,9 +658,9 @@ class _DoNotDisturbTile extends StatelessWidget {
                           DIcon(
                             active ? DIcons.toggleOn : DIcons.toggleOff,
                             size: 18,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         const SizedBox(width: 10),
                         const Expanded(
@@ -732,8 +738,9 @@ class _RowTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = onTap == null ? theme.shell.placeholder : null;
+    final rowKey = ValueKey('user-menu-row-${row.id ?? row.title}');
     final tile = InkWell(
-      key: ValueKey('user-menu-row-${row.id ?? row.title}'),
+      key: rowKey,
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
       child: ConstrainedBox(
@@ -775,7 +782,9 @@ class _RowTile extends StatelessWidget {
           : Semantics(
               button: true,
               label: [row.title, ?detail].join(', '),
-              child: ExcludeSemantics(child: tile),
+              onTap: onTap,
+              excludeSemantics: true,
+              child: tile,
             ),
     );
   }

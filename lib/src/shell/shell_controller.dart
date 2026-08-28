@@ -53,6 +53,7 @@ import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../models/topic_filter.dart';
 import '../models/topic_link.dart';
+import '../models/user_activity.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
@@ -420,7 +421,7 @@ class ShellController extends FrameSafeNotifier
   /// [ComposerController] is. See [UpdateController].
   final UpdateController updates;
 
-  /// Notifications, bookmarks, and account counters for every connected site.
+  /// Notifications, bookmarks, activity, and account counters per site.
   ///
   /// This state changes independently from navigation, so widgets that show it
   /// listen here instead of invalidating every [ShellScope] dependent.
@@ -1610,6 +1611,12 @@ class ShellController extends FrameSafeNotifier
   Future<void> loadBookmarks(String siteUrl) async {
     final instance = _instanceAt(siteUrl);
     if (instance != null) await accountActivity.loadBookmarks(instance);
+  }
+
+  /// Loads the first page of the connected user's default Activity stream.
+  Future<void> loadUserActivity(String siteUrl) async {
+    final instance = _instanceAt(siteUrl);
+    if (instance != null) await accountActivity.loadUserActivity(instance);
   }
 
   /// Sites whose category list has been fetched. The categories themselves are
@@ -3002,6 +3009,14 @@ class ShellController extends FrameSafeNotifier
       postNumber: hit.postNumber,
     );
   }
+
+  /// Opens one row from the connected account's default Activity stream.
+  void openUserActivityItem(UserActivityItem item) => _openTopic(
+    item.topicId,
+    item.slug,
+    item.title,
+    postNumber: item.postNumber,
+  );
 
   void _openTopic(
     int topicId,
@@ -9543,6 +9558,22 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     pushContent(ContentRoute.preferences());
+  }
+
+  /// Opens the connected account's default contribution stream.
+  ///
+  /// Activity is a profile subpage on the web rather than a sidebar root, so
+  /// it pushes a restorable content route and Back returns to the reader's
+  /// previous native destination.
+  void openUserActivity(String siteUrl) {
+    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0) return;
+    if (index != _instanceIndex) selectInstance(index);
+    if (_instances[index].isConnected != true ||
+        currentContent?.id == 'activity') {
+      return;
+    }
+    pushContent(ContentRoute.userActivity());
   }
 
   /// Restores a draft into the composer mode this client supports.

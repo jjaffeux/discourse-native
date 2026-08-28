@@ -4,6 +4,7 @@ import '../models/do_not_disturb.dart';
 import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../models/topic.dart';
+import '../models/user_activity.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
 import '../models/user_summary.dart';
@@ -157,6 +158,16 @@ abstract interface class AccountActivityApi {
     required String siteUrl,
     required String apiKey,
     required String username,
+    String? clientId,
+  });
+
+  /// The connected user's default Activity stream: topics and replies only.
+  Future<UserActivityPage> userActivity({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int offset = 0,
+    int limit = 30,
     String? clientId,
   });
 

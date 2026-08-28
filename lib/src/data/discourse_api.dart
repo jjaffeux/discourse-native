@@ -27,6 +27,7 @@ import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
+import '../models/user_activity.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
@@ -124,6 +125,7 @@ class DiscourseApi
   static const int maximumAutocompleteResults = TopicTagSearch.maximumResults;
   static const int maximumRecentNotifications = 60;
   static const int maximumUserMenuBookmarkRows = 20;
+  static const int maximumUserActivityPageSize = UserActivityPage.maximumItems;
   static const int maximumUserDraftPageSize = 30;
   static const int _maxRedirects = 5;
 
@@ -634,6 +636,46 @@ class DiscourseApi
           Bookmark.fromJson(entry),
       ]),
     );
+  }
+
+  /// The connected user's default Activity destination.
+  ///
+  /// Core's `UserStream.filterParam` maps an unfiltered `userActivity.index`
+  /// route to action types 4 and 5. Those are topics and replies; likes,
+  /// bookmarks, private messages, reads, and drafts each belong to other
+  /// filters or routes and must not leak into this default stream.
+  @override
+  Future<UserActivityPage> userActivity({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int offset = 0,
+    int limit = 30,
+    String? clientId,
+  }) async {
+    if (offset < 0) {
+      throw RangeError.value(offset, 'offset', 'Must not be negative.');
+    }
+    if (limit < 1 || limit > maximumUserActivityPageSize) {
+      throw RangeError.range(limit, 1, maximumUserActivityPageSize, 'limit');
+    }
+    final url = Uri.parse('$siteUrl/user_actions.json').replace(
+      queryParameters: {
+        'offset': '$offset',
+        'username': username,
+        'filter':
+            '${UserActivityItem.topicActionType},'
+            '${UserActivityItem.replyActionType}',
+        'limit': '$limit',
+      },
+    );
+    final body = await _getObject(
+      url,
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return UserActivityPage.fromJson(body, siteUrl, limit: limit);
   }
 
   @override

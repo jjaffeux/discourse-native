@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/shell/account_activity_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -35,6 +36,24 @@ const _reminder = DiscourseNotification(
   title: 'A reminder',
 );
 const _bookmark = Bookmark(id: 9, title: 'Saved topic');
+const _activityTopic = UserActivityItem(
+  actionType: UserActivityItem.topicActionType,
+  topicId: 70,
+  postNumber: 1,
+  title: 'A new topic',
+  slug: 'a-new-topic',
+  username: 'sam',
+  excerpt: '<p>The opening post</p>',
+);
+const _activityReply = UserActivityItem(
+  actionType: UserActivityItem.replyActionType,
+  topicId: 71,
+  postNumber: 4,
+  title: 'A useful discussion',
+  slug: 'a-useful-discussion',
+  username: 'sam',
+  excerpt: '<p>A reply</p>',
+);
 
 enum _NotificationFeedKind { all, replies, chat }
 
@@ -65,6 +84,7 @@ class _AccountApi implements AccountActivityApi {
     this.chatNotificationList,
     this.bookmarkList,
     this.reminderList = const [],
+    this.activityPages = const {},
   });
 
   final NotificationTotals? totals;
@@ -73,7 +93,10 @@ class _AccountApi implements AccountActivityApi {
   final List<DiscourseNotification>? chatNotificationList;
   final List<Bookmark>? bookmarkList;
   final List<DiscourseNotification> reminderList;
+  final Map<int, UserActivityPage> activityPages;
   final List<String> bookmarksRequested = [];
+  final List<({String siteUrl, String username, int offset, int limit})>
+  activityRequests = [];
   final List<String> totalsRequested = [];
   final List<int> markedRead = [];
 
@@ -117,6 +140,24 @@ class _AccountApi implements AccountActivityApi {
       reminders: reminderList,
       bookmarks: bookmarkList ?? (throw StateError('No bookmarks configured')),
     );
+  }
+
+  @override
+  Future<UserActivityPage> userActivity({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int offset = 0,
+    int limit = 30,
+    String? clientId,
+  }) async {
+    activityRequests.add((
+      siteUrl: siteUrl,
+      username: username,
+      offset: offset,
+      limit: limit,
+    ));
+    return activityPages[offset] ?? const UserActivityPage();
   }
 
   @override
@@ -271,6 +312,9 @@ void main() {
       replyNotificationList: const [_notification],
       chatNotificationList: const [_chatNotification],
       bookmarkList: const [_bookmark],
+      activityPages: const {
+        0: UserActivityPage(items: [_activityTopic], rawItemCount: 1),
+      },
     );
     final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
     final controller = _controller(api, credentials);
@@ -280,6 +324,7 @@ void main() {
     var replyNotificationChanges = 0;
     var chatNotificationChanges = 0;
     var bookmarkChanges = 0;
+    var userActivityChanges = 0;
     controller.totalsListenable.addListener(() => totalsChanges++);
     controller.notificationsListenable.addListener(() => notificationChanges++);
     controller.replyNotificationsListenable.addListener(
@@ -289,6 +334,7 @@ void main() {
       () => chatNotificationChanges++,
     );
     controller.bookmarksListenable.addListener(() => bookmarkChanges++);
+    controller.userActivityListenable.addListener(() => userActivityChanges++);
 
     await controller.loadNotifications(_connectedInstance());
 
@@ -297,6 +343,7 @@ void main() {
     expect(replyNotificationChanges, 0);
     expect(chatNotificationChanges, 0);
     expect(bookmarkChanges, 0);
+    expect(userActivityChanges, 0);
 
     await controller.loadChatNotifications(_connectedInstance());
 
@@ -305,6 +352,16 @@ void main() {
     expect(replyNotificationChanges, 0);
     expect(chatNotificationChanges, 2);
     expect(bookmarkChanges, 0);
+    expect(userActivityChanges, 0);
+
+    await controller.loadUserActivity(_connectedInstance());
+
+    expect(totalsChanges, 0);
+    expect(notificationChanges, 2);
+    expect(replyNotificationChanges, 0);
+    expect(chatNotificationChanges, 2);
+    expect(bookmarkChanges, 0);
+    expect(userActivityChanges, 2);
   });
 
   test('coalesces repeated notification loads for one site', () async {
@@ -378,6 +435,205 @@ void main() {
     await Future.wait([first, second]);
     expect(controller.bookmarksFor(_siteUrl).loaded, isTrue);
   });
+
+  test('activity paginates by raw rows and de-duplicates posts', () async {
+    final api = _AccountApi(
+      activityPages: const {
+        0: UserActivityPage(
+          items: [_activityTopic, _activityReply],
+          rawItemCount: AccountActivityController.userActivityPageSize,
+        ),
+        AccountActivityController.userActivityPageSize: UserActivityPage(
+          items: [_activityReply],
+          rawItemCount: 1,
+        ),
+      },
+    );
+    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+    final controller = _controller(api, credentials);
+    addTearDown(controller.dispose);
+
+    await controller.loadUserActivity(_connectedInstance());
+    var feed = controller.userActivityFor(_siteUrl);
+
+    expect(feed.items, const [_activityTopic, _activityReply]);
+    expect(feed.nextOffset, AccountActivityController.userActivityPageSize);
+    expect(feed.hasMore, isTrue);
+    expect(api.activityRequests.single.username, 'sam');
+    expect(api.activityRequests.single.offset, 0);
+    expect(api.activityRequests.single.limit, 30);
+
+    await controller.loadUserActivity(_connectedInstance(), loadMore: true);
+    feed = controller.userActivityFor(_siteUrl);
+
+    expect(feed.items, const [_activityTopic, _activityReply]);
+    expect(feed.nextOffset, AccountActivityController.userActivityPageSize + 1);
+    expect(feed.hasMore, isFalse);
+    expect(api.activityRequests.map((request) => request.offset), [0, 30]);
+  });
+
+  test('ordinary overlapping activity loads share one request', () async {
+    final api = _SequencedUserActivityApi(1);
+    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+    final controller = _controller(api, credentials);
+    addTearDown(controller.dispose);
+
+    final first = controller.loadUserActivity(_connectedInstance());
+    await api.started[0].future;
+    final second = controller.loadUserActivity(_connectedInstance());
+
+    expect(second, same(first));
+    expect(api.calls, 1);
+    api.answers[0].complete(
+      const UserActivityPage(items: [_activityTopic], rawItemCount: 1),
+    );
+    await Future.wait([first, second]);
+  });
+
+  test('an activity refresh supersedes a stale page in flight', () async {
+    final api = _SequencedUserActivityApi(2);
+    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+    final controller = _controller(api, credentials);
+    addTearDown(controller.dispose);
+
+    final stale = controller.loadUserActivity(_connectedInstance());
+    await api.started[0].future;
+    final fresh = controller.loadUserActivity(
+      _connectedInstance(),
+      refresh: true,
+    );
+    await api.started[1].future;
+
+    api.answers[1].complete(
+      const UserActivityPage(items: [_activityReply], rawItemCount: 1),
+    );
+    await fresh;
+    api.answers[0].complete(
+      const UserActivityPage(items: [_activityTopic], rawItemCount: 1),
+    );
+    await stale;
+
+    expect(controller.userActivityFor(_siteUrl).items, const [_activityReply]);
+    expect(api.offsets, [0, 0]);
+  });
+
+  test('session rotation rejects a stale activity page', () async {
+    final api = _SequencedUserActivityApi(2);
+    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+    final lifecycle = SiteLifecycle();
+    final controller = _controller(api, credentials, lifecycle: lifecycle);
+    addTearDown(controller.dispose);
+
+    final stale = controller.loadUserActivity(_connectedInstance());
+    await api.started[0].future;
+    lifecycle.invalidate(_siteUrl);
+    controller.forget(_siteUrl);
+
+    final replacement = controller.loadUserActivity(_connectedInstance());
+    await api.started[1].future;
+    api.answers[1].complete(
+      const UserActivityPage(items: [_activityReply], rawItemCount: 1),
+    );
+    await replacement;
+    api.answers[0].complete(
+      const UserActivityPage(items: [_activityTopic], rawItemCount: 1),
+    );
+    await stale;
+
+    expect(controller.userActivityFor(_siteUrl).items, const [_activityReply]);
+  });
+
+  test('activity failure is retryable without losing a loaded page', () async {
+    final api = _SequencedUserActivityApi(3);
+    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+    final controller = _controller(api, credentials);
+    addTearDown(controller.dispose);
+
+    final initial = controller.loadUserActivity(_connectedInstance());
+    await api.started[0].future;
+    api.answers[0].complete(
+      const UserActivityPage(
+        items: [_activityTopic],
+        rawItemCount: AccountActivityController.userActivityPageSize,
+      ),
+    );
+    await initial;
+
+    final failedPage = controller.loadUserActivity(
+      _connectedInstance(),
+      loadMore: true,
+    );
+    await api.started[1].future;
+    api.answers[1].completeError(StateError('offline'));
+    await failedPage;
+
+    var feed = controller.userActivityFor(_siteUrl);
+    expect(feed.items, const [_activityTopic]);
+    expect(feed.error, contains("Couldn't load activity"));
+
+    final retry = controller.loadUserActivity(
+      _connectedInstance(),
+      loadMore: true,
+    );
+    await api.started[2].future;
+    api.answers[2].complete(
+      const UserActivityPage(items: [_activityReply], rawItemCount: 1),
+    );
+    await retry;
+
+    feed = controller.userActivityFor(_siteUrl);
+    expect(feed.items, const [_activityTopic, _activityReply]);
+    expect(feed.error, isNull);
+    expect(api.offsets, [0, 30, 30]);
+  });
+
+  test(
+    'failed activity refresh preserves rows and retries from zero',
+    () async {
+      final api = _SequencedUserActivityApi(3);
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+
+      final initial = controller.loadUserActivity(_connectedInstance());
+      await api.started[0].future;
+      api.answers[0].complete(
+        const UserActivityPage(
+          items: [_activityTopic],
+          rawItemCount: AccountActivityController.userActivityPageSize,
+        ),
+      );
+      await initial;
+
+      final failedRefresh = controller.loadUserActivity(
+        _connectedInstance(),
+        refresh: true,
+      );
+      await api.started[1].future;
+      api.answers[1].completeError(StateError('offline'));
+      await failedRefresh;
+
+      var feed = controller.userActivityFor(_siteUrl);
+      expect(feed.items, const [_activityTopic]);
+      expect(feed.nextOffset, AccountActivityController.userActivityPageSize);
+      expect(feed.retryFromStart, isTrue);
+
+      final retry = controller.loadUserActivity(
+        _connectedInstance(),
+        refresh: feed.retryFromStart,
+      );
+      await api.started[2].future;
+      api.answers[2].complete(
+        const UserActivityPage(items: [_activityReply], rawItemCount: 1),
+      );
+      await retry;
+
+      feed = controller.userActivityFor(_siteUrl);
+      expect(feed.items, const [_activityReply]);
+      expect(feed.retryFromStart, isFalse);
+      expect(api.offsets, [0, 0, 0]);
+    },
+  );
 
   test('ordinary overlapping totals refreshes share one request', () async {
     final first = Completer<NotificationTotals>();
@@ -930,6 +1186,11 @@ void main() {
           begin: (controller, instance) => controller.loadBookmarks(instance),
         ),
         (
+          name: 'user activity request',
+          begin: (controller, instance) =>
+              controller.loadUserActivity(instance),
+        ),
+        (
           name: 'mark-read request',
           begin: (controller, instance) async {
             controller.readNotification(instance, _notification);
@@ -1012,6 +1273,19 @@ final class _CountingAccountApi extends _AccountApi {
   }
 
   @override
+  Future<UserActivityPage> userActivity({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int offset = 0,
+    int limit = 30,
+    String? clientId,
+  }) async {
+    calls.add('user-activity');
+    return const UserActivityPage();
+  }
+
+  @override
   Future<void> markNotificationRead({
     required String siteUrl,
     required String apiKey,
@@ -1085,6 +1359,32 @@ final class _SequencedBookmarksApi extends _AccountApi {
     String? clientId,
   }) {
     final call = calls++;
+    started[call].complete();
+    return answers[call].future;
+  }
+}
+
+final class _SequencedUserActivityApi extends _AccountApi {
+  _SequencedUserActivityApi(int count)
+    : answers = List.generate(count, (_) => Completer<UserActivityPage>()),
+      started = List.generate(count, (_) => Completer<void>());
+
+  final List<Completer<UserActivityPage>> answers;
+  final List<Completer<void>> started;
+  final List<int> offsets = [];
+  int calls = 0;
+
+  @override
+  Future<UserActivityPage> userActivity({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int offset = 0,
+    int limit = 30,
+    String? clientId,
+  }) {
+    final call = calls++;
+    offsets.add(offset);
     started[call].complete();
     return answers[call].future;
   }
