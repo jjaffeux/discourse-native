@@ -46,6 +46,7 @@ import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/post_flag.dart';
 import '../models/post_likers.dart';
+import '../models/post_revision.dart';
 import '../models/search_results.dart';
 import '../models/sidebar.dart';
 import '../models/site_appearance.dart';
@@ -7314,6 +7315,45 @@ class ShellController extends FrameSafeNotifier
         _likersLoading.remove(key);
         _notify();
       });
+    }
+  }
+
+  /// Reads a post revision without retaining its potentially large HTML diff.
+  ///
+  /// History is modal, so its owner keeps the response only while that modal
+  /// is open. The credential read is still generation-guarded: disconnecting
+  /// or replacing an account while secure storage is suspended must not send
+  /// the old identity after the session has changed.
+  Future<PostRevision?> loadPostRevision({
+    required String siteUrl,
+    required int postId,
+    int? revision,
+  }) async {
+    if (_instanceAt(siteUrl) == null) return null;
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
+      );
+      if (credential == null || !lease.isCurrent) return null;
+      final fetched = await api.postRevision(
+        siteUrl: siteUrl,
+        postId: postId,
+        revision: revision,
+        apiKey: credential.value,
+      );
+      return lease.isCurrent ? fetched : null;
+    } catch (error, stackTrace) {
+      if (!isDisposed && lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'post.loadRevision',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      rethrow;
     }
   }
 

@@ -13,6 +13,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
+import 'package:discourse_native/src/models/post_revision.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -200,6 +201,16 @@ const _keys = [
   'bookmark_auto_delete_preference',
   'can_edit',
   'can_change_tracking_preferences',
+  'version',
+  'can_view_edit_history',
+  'current_revision',
+  'previous_revision',
+  'next_revision',
+  'version_count',
+  'body_changes',
+  'title_changes',
+  'previous',
+  'current',
 ];
 
 Object? _value(Random random, int depth) => switch (random.nextInt(
@@ -284,6 +295,26 @@ void main() {
       probe('Post', () => Post.fromJson(json, site), json);
       probe('PostNotice', () => PostNotice.fromJson(loose), loose);
       probe('PostInboundLink', () => PostInboundLink.fromJson(json), json);
+      probe(
+        'PostRevisionChange',
+        () => PostRevisionChange.fromJson(
+          loose,
+          (value) => value is String ? value : null,
+        ),
+        loose,
+      );
+      probe('PostRevisionDiff', () => PostRevisionDiff.fromJson(loose), loose);
+      probe(
+        'PostRevisionUser',
+        () => PostRevisionUser.fromJson(loose, site),
+        loose,
+      );
+      probe(
+        'PostRevisionReplyTarget',
+        () => PostRevisionReplyTarget.fromJson(loose),
+        loose,
+      );
+      probe('PostRevision', () => PostRevision.fromJson(json, site), json);
       probe('PostCreation', () => PostCreation.fromJson(json, site), json);
       probe(
         'SitePostActionCatalog',

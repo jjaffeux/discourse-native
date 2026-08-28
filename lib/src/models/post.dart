@@ -53,9 +53,12 @@ class Post with Storable<Post> {
     this.userStatus,
     this.mentionedUserStatuses = const {},
     this.createdAt,
+    this.updatedAt,
     this.userTitle,
     this.replyCount = 0,
     this.isStaff = false,
+    this.version = 1,
+    this.canViewEditHistory = false,
     this.canEdit = false,
     this.canDelete = false,
     this.canRecover = false,
@@ -116,9 +119,18 @@ class Post with Storable<Post> {
       userStatus: UserStatus.fromJson(json['user_status']),
       mentionedUserStatuses: userStatusesByUsername(json['mentioned_users']),
       createdAt: jsonDate(json['created_at']),
+      updatedAt: jsonDate(json['updated_at']),
       userTitle: jsonText(json['user_title']),
       replyCount: jsonInt(json['reply_count']),
       isStaff: json['admin'] == true || json['moderator'] == true,
+      // Core shows `version - 1` beside the pencil. The version is already
+      // guardian-filtered: non-staff receive the public version, so hidden
+      // revisions never leak through this count.
+      version: switch (jsonIntOrNull(json['version'])) {
+        final version? when version > 0 => version,
+        _ => 1,
+      },
+      canViewEditHistory: json['can_view_edit_history'] == true,
       // The whole permission question, answered by the site's guardian: it has
       // already weighed ownership, staff, trust level, the edit time window and
       // whether the topic is closed or archived. Absent when read signed out,
@@ -208,9 +220,16 @@ class Post with Storable<Post> {
   /// Statuses for the people linked from cooked `@mentions` in this post.
   final Map<String, UserStatusReference> mentionedUserStatuses;
   final DateTime? createdAt;
+  final DateTime? updatedAt;
   final String? userTitle;
   final int replyCount;
   final bool isStaff;
+
+  /// The initial post is version one, so every version after it is one edit.
+  final int version;
+  final bool canViewEditHistory;
+
+  int get editCount => version > 1 ? version - 1 : 0;
 
   /// Whether this reader may rewrite this post.
   final bool canEdit;
@@ -429,9 +448,12 @@ class Post with Storable<Post> {
     userStatus: userStatus,
     mentionedUserStatuses: mentionedUserStatuses,
     createdAt: createdAt,
+    updatedAt: updatedAt,
     userTitle: userTitle,
     replyCount: replyCount,
     isStaff: isStaff,
+    version: version,
+    canViewEditHistory: canViewEditHistory,
     canEdit: canEdit,
     canDelete: canDelete,
     canRecover: canRecover,
@@ -475,9 +497,12 @@ class Post with Storable<Post> {
           other.userStatus == userStatus &&
           mapEquals(other.mentionedUserStatuses, mentionedUserStatuses) &&
           other.createdAt == createdAt &&
+          other.updatedAt == updatedAt &&
           other.userTitle == userTitle &&
           other.replyCount == replyCount &&
           other.isStaff == isStaff &&
+          other.version == version &&
+          other.canViewEditHistory == canViewEditHistory &&
           other.canEdit == canEdit &&
           other.canDelete == canDelete &&
           other.canRecover == canRecover &&
@@ -514,9 +539,12 @@ class Post with Storable<Post> {
     userStatus,
     Object.hashAllUnordered(mentionedUserStatuses.entries),
     createdAt,
+    updatedAt,
     userTitle,
     replyCount,
     isStaff,
+    version,
+    canViewEditHistory,
     canEdit,
     canDelete,
     canRecover,

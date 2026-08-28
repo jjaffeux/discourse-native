@@ -29,6 +29,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
+import 'package:discourse_native/src/models/post_revision.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
@@ -543,6 +544,7 @@ class FakeDiscourseApi
     this.topicFlagGate,
     this.likersById = const {},
     this.likerGate,
+    this.postRevisions = const {},
     this.siteAppearances = const {},
     this.appearanceGate,
     this.siteConfigs = const {},
@@ -931,6 +933,10 @@ class FakeDiscourseApi
 
   /// When set, [postLikers] waits on it, so a test can hold the list in flight.
   final Completer<void>? likerGate;
+
+  /// Revision responses keyed by post id for history UI tests.
+  final Map<int, PostRevision> postRevisions;
+  final List<({int postId, int? revision})> postRevisionsRequested = [];
 
   /// Resolved appearances returned per site. Missing is the neutral optional
   /// capability answer used by tests unrelated to theming.
@@ -2627,6 +2633,22 @@ class FakeDiscourseApi
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return PostLikers(postId: postId, likers: found);
+  }
+
+  @override
+  Future<PostRevision> postRevision({
+    required String siteUrl,
+    required int postId,
+    int? revision,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    postRevisionsRequested.add((postId: postId, revision: revision));
+    final found = postRevisions[postId];
+    if (found == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return found;
   }
 
   @override
