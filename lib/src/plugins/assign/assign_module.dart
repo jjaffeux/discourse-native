@@ -4,6 +4,7 @@ import '../../plugin_api/plugin_manifest.dart';
 import 'assign_api.dart';
 import 'assign_plugin.dart';
 import 'assign_services.dart';
+import 'assign_shell_service.dart';
 import 'assignment.dart';
 import 'assignment_controller.dart';
 
@@ -13,11 +14,13 @@ final class AssignModule implements PluginModule {
   const AssignModule();
 
   @override
-  PluginDescriptor get descriptor => const PluginDescriptor(id: assignPluginId);
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: assignPluginId, routeNamespaces: {'assign'});
 
   @override
   void register(PluginRegistrar registrar) {
     registrar.addCapability(const AssignPlugin());
+    registrar.addRouteNamespace('assign');
     registrar.addSession(
       (bindings, _) {
         final targetHost = bindings.require(corePluginTargetPort);
@@ -60,12 +63,21 @@ final class AssignModule implements PluginModule {
           reloadTopic: topicRefresh.reloadTopic,
           diagnostics: bindings.require(pluginDiagnosticsReporterPort),
         );
+        final shell = AssignShellService(
+          host: bindings.require(corePluginRouteNavigationPort),
+          topicLists: bindings.require(corePluginTopicListNavigationPort),
+          canOpenGroupAssignments: (siteUrl) =>
+              freshAccount
+                  .recordFor(siteUrl, assignCurrentUserDataKey)
+                  ?.canAssign ==
+              true,
+        );
         return PluginSessionContribution(
           lifecycle: _AssignSessionLifecycle(controller),
           services: [
             PluginService<Object>(assignmentControllerService, controller),
           ],
-          capabilities: [controller],
+          capabilities: [controller, shell],
         );
       },
       requires: const [
@@ -75,6 +87,8 @@ final class AssignModule implements PluginModule {
         corePluginFreshAccountPort,
         corePluginTopicRefreshPort,
         corePluginSiteStatePort,
+        corePluginRouteNavigationPort,
+        corePluginTopicListNavigationPort,
         pluginDiagnosticsReporterPort,
       ],
     );

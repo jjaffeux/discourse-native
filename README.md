@@ -1442,6 +1442,7 @@ Every tapped link — in a post, a quote attribution, a onebox card — goes thr
 | `/u/{username}` on the site being read    | that person's card             |
 | `/c/{slug…}/{id}` — a category            | here, as a filtered topic list |
 | `/tag/{slug}/{id}` — a tag                | the same                       |
+| `/g/{group}/assigned/{group}` with Assign | here, as assigned topics       |
 | anything else                             | the platform browser           |
 
 Two things make this work. Discourse writes its internal links site-relative, so

@@ -365,6 +365,12 @@ const corePluginRouteNavigationPort =
       name: 'route-navigation',
     );
 
+const corePluginTopicListNavigationPort =
+    PluginHostPortKey<PluginTopicListNavigationHost>(
+      owner: PluginId('core'),
+      name: 'topic-list-navigation',
+    );
+
 const corePluginBookmarkPort = PluginHostPortKey<PluginBookmarkHostFactory>(
   owner: PluginId('core'),
   name: 'bookmarks',
