@@ -4726,6 +4726,9 @@ void main() {
     testWidgets('a signed-in topic exposes all web notification levels', (
       tester,
     ) async {
+      final previousPlatform = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = previousPlatform);
       const reader = DiscourseUser(username: 'reader', name: 'Reader');
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
@@ -4761,7 +4764,7 @@ void main() {
       await tester.tap(trigger);
       await tester.pumpAndSettle();
 
-      expect(find.text('Topic notifications'), findsOneWidget);
+      expect(find.text('Topic notifications'), findsNothing);
       expect(find.text('Watching'), findsOneWidget);
       expect(find.text('Every reply and unread count'), findsOneWidget);
       expect(
@@ -4806,6 +4809,7 @@ void main() {
         TopicNotificationLevel.muted,
       );
       expect(triggerIcon(), DIcons.discourseBellSlash);
+      debugDefaultTargetPlatformOverride = previousPlatform;
     });
 
     testWidgets('a rejected notification change restores the confirmed level', (

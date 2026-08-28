@@ -1136,6 +1136,7 @@ class _TopicNotificationLevelButton extends StatelessWidget {
     final controller = ShellScope.read(context);
     return ChoiceMenuAnchor<TopicNotificationLevel>(
       title: 'Topic notifications',
+      showPopoverTitle: false,
       value: topic.notificationLevel,
       options: _options,
       onSelected: (level) => unawaited(
