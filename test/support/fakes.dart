@@ -3856,6 +3856,7 @@ TopicPayload topicPayload({
   bool hasSummary = false,
   bool isNestedView = false,
   int? categoryId,
+  List<TopicTag> tags = const [],
   bool canCreatePost = false,
   bool canReplyAsNewTopic = false,
   TopicNotificationLevel notificationLevel = TopicNotificationLevel.normal,
@@ -3882,6 +3883,7 @@ TopicPayload topicPayload({
   TopicRecommendations? recommendations,
   List<TopicParticipant> participants = const [],
   List<TopicMapLink> links = const [],
+  List<Bookmark> bookmarks = const [],
   PluginData plugins = PluginData.none,
 }) => (
   detail: TopicDetail(
@@ -3899,6 +3901,7 @@ TopicPayload topicPayload({
     hasSummary: hasSummary,
     isNestedView: isNestedView,
     categoryId: categoryId,
+    tags: tags,
     canCreatePost: canCreatePost,
     canReplyAsNewTopic: canReplyAsNewTopic,
     notificationLevel: notificationLevel,
@@ -3925,6 +3928,7 @@ TopicPayload topicPayload({
     recommendations: recommendations,
     participants: participants,
     links: links,
+    bookmarks: bookmarks,
     plugins: plugins,
   ),
   posts: posts,

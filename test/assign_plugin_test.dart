@@ -224,6 +224,7 @@ void main() {
   testWidgets('topic header has a concise actionable semantic label', (
     tester,
   ) async {
+    final semanticsHandle = tester.ensureSemantics();
     const registry = PluginRegistry([AssignPlugin()]);
     final plugins = registry.readTopic(const {
       'can_assign': false,
@@ -256,17 +257,15 @@ void main() {
       ),
     );
 
-    final semantics = tester
-        .widgetList<Semantics>(
-          find.ancestor(
-            of: find.byKey(const Key('assign-topic-header')),
-            matching: find.byType(Semantics),
-          ),
-        )
-        .singleWhere(
-          (widget) => widget.properties.label == 'View 2 assignments',
-        );
-    expect(semantics.properties.onTap, isNotNull);
-    expect(semantics.properties.label, isNot(contains('long')));
+    expect(
+      tester.getSemantics(find.byKey(const Key('assign-topic-header'))),
+      isSemantics(
+        label: 'View 2 assignments',
+        isButton: true,
+        hasTapAction: true,
+      ),
+    );
+    expect(find.bySemanticsLabel(RegExp('long')), findsNothing);
+    semanticsHandle.dispose();
   });
 }

@@ -30,6 +30,7 @@ import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
+import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
@@ -932,12 +933,24 @@ void main() {
       controller.search.setQuery('matches');
       controller.search.requestFocus();
       await tester.pump();
-      expect(searchInput.hasFocus, isTrue);
+      expect(
+        tester
+            .widget<EditableText>(find.byKey(ForumSearch.inputKey))
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
       expect(controller.search.panelOpen, isFalse);
       expect(controller.search.query, 'matches');
-      expect(searchInput.hasFocus, isFalse);
+      expect(
+        tester
+            .widget<EditableText>(find.byKey(ForumSearch.inputKey))
+            .focusNode
+            .hasFocus,
+        isFalse,
+      );
     });
 
     testWidgets('Ctrl Enter opens the selected result externally', (
@@ -4163,68 +4176,185 @@ void main() {
       expect(renderedText('<p>'), findsNothing);
     });
 
-    testWidgets('every icon in the topic action toolbar uses DButton', (
-      tester,
-    ) async {
-      const reader = DiscourseUser(id: 1, username: 'reader');
-      const spam = PostFlagType(
-        id: 8,
-        nameKey: 'spam',
-        name: 'Spam',
-        description: 'Promotional content',
-        appliesTo: ['Topic'],
-      );
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {
-          7: detail(
-            pinned: true,
-            canCloseTopic: true,
-            canFlagTopic: true,
-            canCreatePost: true,
-            topicActions: const [PostActionSummary(id: 8, canAct: true)],
+    testWidgets(
+      'topic header wraps a long title and keeps taxonomy with assignment',
+      (tester) async {
+        const longTitle =
+            'Chris weekly update for 2026 with roadmap decisions, operational '
+            'priorities, cross-team blockers, and every next step we agreed on';
+        final plugins = PluginData.none.withValue(
+          assignmentsDataKey,
+          Assignments(
+            canAssign: true,
+            direct: const Assignment(
+              assignee: AssignmentUser(username: 'sam', name: 'Sam Example'),
+            ),
           ),
-        },
-        categoryPostActionCatalog: const SitePostActionCatalog(
-          topicFlags: [spam],
-        ),
-      );
-      final authenticator = FakeAuthenticator()
-        ..keys['https://meta.discourse.org'] = 'meta-key';
-
-      await pumpShell(
-        tester,
-        desktop,
-        instances: [instance('meta.discourse.org').copyWith(user: reader)],
-        api: api,
-        authenticator: authenticator,
-      );
-      await tester.tap(contentText('A real topic'));
-      await tester.pumpAndSettle();
-
-      for (final tooltip in [
-        'Share this topic',
-        'Flag this topic',
-        'Topic actions',
-        'Pinned topic options',
-        'Topic notifications',
-        'Bookmark this topic',
-        'Reply to this topic',
-      ]) {
-        final trigger = find.byTooltip(tooltip);
-        expect(trigger, findsOneWidget, reason: tooltip);
-        final button = find.ancestor(
-          of: trigger,
-          matching: find.byType(DButton),
         );
-        expect(button, findsOneWidget, reason: tooltip);
+        final tags = [
+          for (final name in const [
+            'weekly-update',
+            '2026',
+            'team',
+            'async',
+            'roadmap',
+            'priorities',
+            'operations',
+            'progress',
+            'blockers',
+            'planning',
+            'internal',
+            'leadership',
+          ])
+            TopicTag(name: name),
+        ];
+        final api = FakeDiscourseApi(
+          feeds: {
+            '/latest.json': [
+              const Topic(id: 7, title: longTitle, slug: 'weekly-update'),
+            ],
+          },
+          categoryList: const [
+            TopicCategory(id: 5, name: 'Announcements', color: '7C3AED'),
+          ],
+          topics: {
+            7: topicPayload(
+              id: 7,
+              title: longTitle,
+              posts: [post(1, 1, 'First post body')],
+              categoryId: 5,
+              tags: tags,
+              canCreatePost: true,
+              notificationLevel: TopicNotificationLevel.tracking,
+              plugins: plugins,
+            ),
+          },
+        );
+        const reader = DiscourseUser(id: 1, username: 'reader');
+        final authenticator = FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key';
+
+        await pumpShell(
+          tester,
+          laptop,
+          instances: [instance('meta.discourse.org').copyWith(user: reader)],
+          api: api,
+          authenticator: authenticator,
+        );
+        await tester.tap(find.text(longTitle));
+        await tester.pumpAndSettle();
+
+        final title = find.byKey(const ValueKey('topic-header-title'));
+        expect(title, findsOneWidget);
+        expect(tester.getSize(title).height, greaterThan(30));
+
+        final metadata = find.byKey(const ValueKey('topic-header-metadata'));
         expect(
-          tester.getSize(button),
-          Size.square(DButton.iconOnlyDimensionFor(DButtonSize.small)),
-          reason: tooltip,
+          find.descendant(of: metadata, matching: find.text('Announcements')),
+          findsOneWidget,
         );
-      }
-    });
+        for (final tag in tags) {
+          expect(
+            find.descendant(
+              of: metadata,
+              matching: find.byKey(ValueKey(('topic-header-tag', tag.name))),
+            ),
+            findsOneWidget,
+          );
+        }
+        expect(
+          find.descendant(
+            of: metadata,
+            matching: find.byKey(const Key('assign-topic-header')),
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('Assigned to Sam Example'), findsOneWidget);
+
+        final actions = [
+          find.byKey(const ValueKey('topic-bookmark-button')),
+          find.byKey(const ValueKey('topic-status-button')),
+          find.byKey(const ValueKey('topic-notification-level-button')),
+          find.byKey(const ValueKey('topic-reply-button')),
+        ];
+        for (final action in actions) {
+          expect(action, findsOneWidget);
+        }
+        final centers = actions.map(tester.getCenter).toList();
+        expect(centers[0].dx, lessThan(centers[1].dx));
+        expect(centers[1].dx, lessThan(centers[2].dx));
+        expect(centers[2].dx, lessThan(centers[3].dx));
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'topic actions keep four primary controls and overflow extras',
+      (tester) async {
+        const reader = DiscourseUser(id: 1, username: 'reader');
+        const spam = PostFlagType(
+          id: 8,
+          nameKey: 'spam',
+          name: 'Spam',
+          description: 'Promotional content',
+          appliesTo: ['Topic'],
+        );
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {
+            7: detail(
+              pinned: true,
+              canCloseTopic: true,
+              canFlagTopic: true,
+              canCreatePost: true,
+              topicActions: const [PostActionSummary(id: 8, canAct: true)],
+            ),
+          },
+          categoryPostActionCatalog: const SitePostActionCatalog(
+            topicFlags: [spam],
+          ),
+        );
+        final authenticator = FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key';
+
+        await pumpShell(
+          tester,
+          desktop,
+          instances: [instance('meta.discourse.org').copyWith(user: reader)],
+          api: api,
+          authenticator: authenticator,
+        );
+        await tester.tap(contentText('A real topic'));
+        await tester.pumpAndSettle();
+
+        for (final tooltip in [
+          'Bookmark this topic',
+          'More topic actions',
+          'Topic notifications',
+          'Reply to this topic',
+        ]) {
+          final trigger = find.byTooltip(tooltip);
+          expect(trigger, findsOneWidget, reason: tooltip);
+          final button = find.ancestor(
+            of: trigger,
+            matching: find.byType(DButton),
+          );
+          expect(button, findsOneWidget, reason: tooltip);
+        }
+
+        expect(find.byTooltip('Share this topic'), findsNothing);
+        expect(find.byTooltip('Flag this topic'), findsNothing);
+        expect(find.byTooltip('Pinned topic options'), findsNothing);
+
+        await tester.tap(find.byTooltip('More topic actions'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Share topic'), findsOneWidget);
+        expect(find.text('Flag topic'), findsOneWidget);
+        expect(find.text('Unpin topic'), findsOneWidget);
+        expect(find.text('Close topic'), findsOneWidget);
+      },
+    );
 
     testWidgets('topic sharing copies and hands off core’s canonical link', (
       tester,
@@ -4260,7 +4390,9 @@ void main() {
       );
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Share this topic'));
+      await tester.tap(find.byTooltip('More topic actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Share topic'));
       await tester.pumpAndSettle();
 
       const url = 'https://meta.discourse.org/t/a-real-topic/7?u=reader';
@@ -4379,7 +4511,9 @@ void main() {
       );
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Flag this topic'));
+      await tester.tap(find.byTooltip('More topic actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Flag topic'));
       await tester.pumpAndSettle();
 
       expect(find.text('Spam'), findsOneWidget);
@@ -4390,7 +4524,9 @@ void main() {
       expect(api.topicFlagsCreated, [
         (topicId: 7, postActionTypeId: 8, message: null),
       ]);
-      expect(find.byTooltip('Flag this topic'), findsNothing);
+      await tester.tap(find.byTooltip('More topic actions'));
+      await tester.pumpAndSettle();
+      expect(find.text('Flag topic'), findsNothing);
     });
 
     testWidgets('shows the web topic map beneath the opening post', (
@@ -4628,7 +4764,18 @@ void main() {
       expect(find.text('Topic notifications'), findsOneWidget);
       expect(find.text('Watching'), findsOneWidget);
       expect(find.text('Every reply and unread count'), findsOneWidget);
-      expect(find.text('Tracking'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey((
+              'choice-menu-option',
+              TopicNotificationLevel.tracking,
+            )),
+          ),
+          matching: find.text('Tracking'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Mentions, replies, and unread count'), findsOneWidget);
       expect(find.text('Normal'), findsOneWidget);
       expect(find.text('Mentions and replies only'), findsOneWidget);
@@ -4807,7 +4954,7 @@ void main() {
       await tester.pumpAndSettle();
 
       Future<void> choose(String label) async {
-        await tester.tap(find.byTooltip('Topic actions'));
+        await tester.tap(find.byTooltip('More topic actions'));
         await tester.pumpAndSettle();
         await tester.tap(find.text(label));
         await tester.pumpAndSettle();
@@ -4840,7 +4987,7 @@ void main() {
         (topicId: 7, status: TopicStatusProperty.visible, enabled: false),
       ]);
 
-      await tester.tap(find.byTooltip('Topic actions'));
+      await tester.tap(find.byTooltip('More topic actions'));
       await tester.pumpAndSettle();
       expect(find.text('Open topic'), findsOneWidget);
       expect(find.text('Unarchive topic'), findsOneWidget);
@@ -4877,7 +5024,7 @@ void main() {
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Topic actions'));
+      await tester.tap(find.byTooltip('More topic actions'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Delete topic'));
       await tester.pumpAndSettle();
@@ -4889,7 +5036,7 @@ void main() {
       expect(shell.currentTopic?.deletedAt, isNotNull);
       expect(shell.currentTopic?.canRecoverTopic, isTrue);
 
-      await tester.tap(find.byTooltip('Topic actions'));
+      await tester.tap(find.byTooltip('More topic actions'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Recover topic'));
       await tester.pumpAndSettle();
@@ -4899,7 +5046,7 @@ void main() {
       expect(shell.currentTopic?.canDeleteTopic, isTrue);
     });
 
-    testWidgets('topic actions are absent without a serialized guardian gate', (
+    testWidgets('guardian-gated topic actions stay out of More', (
       tester,
     ) async {
       final api = FakeDiscourseApi(
@@ -4911,7 +5058,12 @@ void main() {
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Topic actions'), findsNothing);
+      await tester.tap(find.byTooltip('More topic actions'));
+      await tester.pumpAndSettle();
+      expect(find.text('Share topic'), findsOneWidget);
+      expect(find.text('Close topic'), findsNothing);
+      expect(find.text('Archive topic'), findsNothing);
+      expect(find.text('Delete topic'), findsNothing);
     });
 
     testWidgets('a personalized topic pin can be dismissed and restored', (
@@ -4949,15 +5101,10 @@ void main() {
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
 
-      final trigger = find.byTooltip('Pinned topic options');
-      expect(trigger, findsOneWidget);
+      final trigger = find.byTooltip('More topic actions');
       await tester.tap(trigger);
       await tester.pumpAndSettle();
-      expect(find.text('Pinned globally'), findsOneWidget);
-      expect(find.text('Unpinned'), findsOneWidget);
-      await tester.tap(
-        find.byKey(const ValueKey(('choice-menu-option', false))),
-      );
+      await tester.tap(find.text('Unpin topic'));
       await tester.pumpAndSettle();
 
       var shell = ShellScope.read(tester.element(find.byType(MainContent)));
@@ -4973,9 +5120,7 @@ void main() {
 
       await tester.tap(trigger);
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey(('choice-menu-option', true))),
-      );
+      await tester.tap(find.text('Pin topic'));
       await tester.pumpAndSettle();
 
       shell = ShellScope.read(tester.element(find.byType(MainContent)));
@@ -5021,11 +5166,9 @@ void main() {
       );
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Pinned topic options'));
+      await tester.tap(find.byTooltip('More topic actions'));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey(('choice-menu-option', false))),
-      );
+      await tester.tap(find.text('Unpin topic'));
       await tester.pumpAndSettle();
 
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
@@ -5056,7 +5199,10 @@ void main() {
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Pinned topic options'), findsNothing);
+      await tester.tap(find.byTooltip('More topic actions'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pin topic'), findsNothing);
+      expect(find.text('Unpin topic'), findsNothing);
     });
 
     testWidgets('signed-out topics do not expose notification controls', (
@@ -6710,9 +6856,10 @@ void main() {
         tester,
         desktop,
         instances: [
-          instance('meta.discourse.org', title: 'Discourse Meta').copyWith(
-            user: user,
-          ),
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: user),
         ],
         api: api,
         authenticator: signedIn(),
@@ -6728,8 +6875,9 @@ void main() {
       expect(find.byTooltip('New topic'), findsNothing);
       expect(find.byTooltip('Open the latest drafts menu'), findsNothing);
       expect(
-        ShellScope.read(tester.element(find.byType(MainContent)))
-            .canCreateTopicHere,
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).canCreateTopicHere,
         isFalse,
       );
     });
@@ -8304,7 +8452,10 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    Finder sendButton() => find.widgetWithText(FilledButton, 'Reply');
+    Finder sendButton() => find.descendant(
+      of: find.byType(ComposerPanel),
+      matching: find.widgetWithText(FilledButton, 'Reply'),
+    );
 
     testWidgets('the reply affordances wait for permission to use them', (
       tester,
@@ -12337,7 +12488,12 @@ void main() {
       await openComposer(tester, api);
       await tester.enterText(find.byType(TextField), 'Held for review');
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Reply'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ComposerPanel),
+          matching: find.widgetWithText(FilledButton, 'Reply'),
+        ),
+      );
       await tester.pumpAndSettle();
       api.draftsSaved.clear();
 
@@ -12490,7 +12646,12 @@ void main() {
       await settleDraft(tester);
       expect(drafts.saved, isNotEmpty);
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Reply'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ComposerPanel),
+          matching: find.widgetWithText(FilledButton, 'Reply'),
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Discourse deletes its own copy when it accepts a post; ours has to go
