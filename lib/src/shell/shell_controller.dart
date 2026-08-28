@@ -1691,7 +1691,9 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool get canCreateTopicHere {
-    if (currentContent?.isTopic != false || currentFeedId == 'messages') {
+    if (currentContent?.isTopic != false ||
+        currentContent?.isPreferences == true ||
+        currentFeedId == 'messages') {
       return false;
     }
     final instance = currentInstance;

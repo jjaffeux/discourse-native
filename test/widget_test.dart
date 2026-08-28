@@ -6650,6 +6650,48 @@ void main() {
       expect(find.text('Disconnect'), findsOneWidget);
     });
 
+    testWidgets('Preferences hides topic creation and its drafts menu', (
+      tester,
+    ) async {
+      const user = DiscourseUser(
+        id: 7,
+        username: 'joffreyj',
+        name: 'Joffrey',
+        draftCount: 1,
+      );
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': []},
+        creatableFeedPaths: const {'/latest.json'},
+        user: user,
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [
+          instance('meta.discourse.org', title: 'Discourse Meta').copyWith(
+            user: user,
+          ),
+        ],
+        api: api,
+        authenticator: signedIn(),
+      );
+
+      expect(find.byTooltip('New topic'), findsOneWidget);
+      expect(find.byTooltip('Open the latest drafts menu'), findsOneWidget);
+
+      await openProfileSection(tester);
+      await tester.tap(find.byKey(const ValueKey('user-menu-row-preferences')));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('New topic'), findsNothing);
+      expect(find.byTooltip('Open the latest drafts menu'), findsNothing);
+      expect(
+        ShellScope.read(tester.element(find.byType(MainContent)))
+            .canCreateTopicHere,
+        isFalse,
+      );
+    });
+
     testWidgets('only unfinished profile rows are orange', (tester) async {
       await pumpShell(tester, phone, instances: connected);
       await openMenu(tester);
