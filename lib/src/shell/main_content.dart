@@ -585,6 +585,22 @@ class _TopicContentHeader extends StatelessWidget {
           );
 
           final topicTitle = _TopicHeaderTitle(siteUrl: siteUrl, topic: topic);
+          final topicIdentity = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              topicTitle,
+              if (hasMetadata)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: _TopicHeaderMetadata(
+                    route: route,
+                    topic: topic,
+                    category: category,
+                    pluginMetadata: pluginMetadata,
+                  ),
+                ),
+            ],
+          );
 
           final contentIndent = showBack ? 44.0 : 12.0;
           final titleRow = Row(
@@ -598,11 +614,12 @@ class _TopicContentHeader extends StatelessWidget {
                   icon: const DIcon(DIcons.arrowLeft, size: 20),
                   tooltip: 'Back',
                   variant: DButtonVariant.flat,
+                  size: DButtonSize.small,
                 )
               else
                 const SizedBox(width: 8),
               const SizedBox(width: 4),
-              Expanded(child: topicTitle),
+              Expanded(child: topicIdentity),
               if (!compact) ...[const SizedBox(width: 8), actions()],
             ],
           );
@@ -613,18 +630,8 @@ class _TopicContentHeader extends StatelessWidget {
               titleRow,
               if (compact)
                 Padding(
-                  padding: EdgeInsets.only(left: contentIndent, top: 8),
+                  padding: EdgeInsets.only(left: contentIndent, top: 4),
                   child: actions(),
-                ),
-              if (hasMetadata)
-                Padding(
-                  padding: EdgeInsets.only(left: contentIndent, top: 6),
-                  child: _TopicHeaderMetadata(
-                    route: route,
-                    topic: topic,
-                    category: category,
-                    pluginMetadata: pluginMetadata,
-                  ),
                 ),
             ],
           );
@@ -657,13 +664,18 @@ class _TopicHeaderTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return TopicTitle(
-      topic.title,
-      key: const ValueKey('topic-header-title'),
-      siteUrl: siteUrl,
-      maxLines: 4,
-      overflow: TextOverflow.ellipsis,
-      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+    return Padding(
+      padding: const EdgeInsets.only(top: 3),
+      child: TopicTitle(
+        topic.title,
+        key: const ValueKey('topic-header-title'),
+        siteUrl: siteUrl,
+        maxLines: 4,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
