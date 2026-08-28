@@ -46,6 +46,7 @@ class ChoiceMenuAnchor<T> extends StatefulWidget {
     required this.onSelected,
     required this.builder,
     this.enabled = true,
+    this.showPopoverTitle = true,
   });
 
   final String title;
@@ -54,6 +55,10 @@ class ChoiceMenuAnchor<T> extends StatefulWidget {
   final ValueChanged<T> onSelected;
   final ChoiceMenuAnchorBuilder builder;
   final bool enabled;
+
+  /// Keeps a descriptive title for touch sheets and accessibility while
+  /// allowing a compact pointer popover to begin directly with its options.
+  final bool showPopoverTitle;
 
   @override
   State<ChoiceMenuAnchor<T>> createState() => _ChoiceMenuAnchorState<T>();
@@ -74,6 +79,7 @@ class _ChoiceMenuAnchorState<T> extends State<ChoiceMenuAnchor<T>> {
         title: widget.title,
         value: widget.value,
         options: widget.options,
+        showPopoverTitle: widget.showPopoverTitle,
       );
       if (!mounted || selected == null || selected == widget.value) return;
       widget.onSelected(selected);
@@ -100,6 +106,7 @@ Future<T?> showChoiceMenu<T>({
   required String title,
   required T value,
   required List<ChoiceMenuOption<T>> options,
+  bool showPopoverTitle = true,
 }) {
   if (options.isEmpty) return Future<T?>.value();
 
@@ -129,6 +136,7 @@ Future<T?> showChoiceMenu<T>({
     anchor: anchor,
     viewport: media.size,
     optionCount: options.length,
+    showTitle: showPopoverTitle,
   );
 
   return navigator.push<T>(
@@ -151,6 +159,7 @@ Future<T?> showChoiceMenu<T>({
             anchor: anchor,
             animation: animation,
             transitionAlignment: alignment,
+            showTitle: showPopoverTitle,
           ),
     ),
   );
@@ -160,10 +169,11 @@ Alignment _transitionAlignment({
   required Rect? anchor,
   required Size viewport,
   required int optionCount,
+  required bool showTitle,
 }) {
   if (anchor == null) return Alignment.center;
   final right = anchor.center.dx > viewport.width / 2;
-  final estimatedHeight = 45.0 + optionCount * 62.0;
+  final estimatedHeight = (showTitle ? 45.0 : 0) + optionCount * 62.0;
   final roomBelow = viewport.height - anchor.bottom - 12;
   final above = roomBelow < estimatedHeight && anchor.top > roomBelow;
   return Alignment(right ? 1 : -1, above ? 1 : -1);
@@ -177,6 +187,7 @@ class _ChoiceMenuPopup<T> extends StatelessWidget {
     required this.anchor,
     required this.animation,
     required this.transitionAlignment,
+    required this.showTitle,
   });
 
   static const double width = 336;
@@ -187,6 +198,7 @@ class _ChoiceMenuPopup<T> extends StatelessWidget {
   final Rect? anchor;
   final Animation<double> animation;
   final Alignment transitionAlignment;
+  final bool showTitle;
 
   @override
   Widget build(BuildContext context) => CustomSingleChildLayout(
@@ -199,6 +211,7 @@ class _ChoiceMenuPopup<T> extends StatelessWidget {
         value: value,
         options: options,
         onSelected: Navigator.of(context).pop,
+        showTitle: showTitle,
       ),
     ),
   );
@@ -245,12 +258,14 @@ class _ChoiceMenuSurface<T> extends StatelessWidget {
     required this.value,
     required this.options,
     required this.onSelected,
+    required this.showTitle,
   });
 
   final String title;
   final T value;
   final List<ChoiceMenuOption<T>> options;
   final ValueChanged<T> onSelected;
+  final bool showTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -277,16 +292,18 @@ class _ChoiceMenuSurface<T> extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 11, 14, 10),
-              child: Text(
-                title,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
+            if (showTitle) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 11, 14, 10),
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-            Divider(height: 1, color: divider),
+              Divider(height: 1, color: divider),
+            ],
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(6),
