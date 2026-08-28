@@ -980,6 +980,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             const Expanded(child: topicSkeleton),
             _TopicRecommendationsPanel(
               collapsed: _recommendationsPanelCollapsed,
+              siteUrl: snapshot.siteUrl,
               recommendations: null,
               loading: true,
               selected: _recommendationsTab,
@@ -1149,6 +1150,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             }
             return _MoreTopics(
               key: ValueKey((siteUrl, snapshot.topicId, 'more-topics')),
+              siteUrl: siteUrl,
               recommendations: snapshot.recommendations!,
               selected: _recommendationsTab,
               onSelected: _setRecommendationsTab,
@@ -1243,6 +1245,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         if (showRecommendationsPanel)
           _TopicRecommendationsPanel(
             collapsed: _recommendationsPanelCollapsed,
+            siteUrl: siteUrl,
             recommendations: snapshot.recommendations,
             loading: snapshot.loadingMore,
             selected: _recommendationsTab,
@@ -1758,17 +1761,19 @@ class _TopicViewSnapshot {
 class _TopicRecommendationsPanel extends StatelessWidget {
   const _TopicRecommendationsPanel({
     required this.collapsed,
+    required this.siteUrl,
     required this.recommendations,
     required this.loading,
     required this.selected,
     required this.onSelected,
     required this.onCollapsedChanged,
-  });
+  }) : assert(recommendations == null || siteUrl != null);
 
   static const double _width = 320;
   static const double _collapsedWidth = 48;
 
   final bool collapsed;
+  final String? siteUrl;
   final TopicRecommendations? recommendations;
   final bool loading;
   final TopicRecommendationsTab selected;
@@ -1824,6 +1829,7 @@ class _TopicRecommendationsPanel extends StatelessWidget {
                     final recommendations? => SingleChildScrollView(
                       child: _MoreTopics(
                         key: const ValueKey('topic-recommendations-panel-list'),
+                        siteUrl: siteUrl!,
                         recommendations: recommendations,
                         selected: selected,
                         onSelected: onSelected,
@@ -1941,11 +1947,13 @@ class _MoreTopicsSkeletonRow extends StatelessWidget {
 class _MoreTopics extends StatelessWidget {
   const _MoreTopics({
     super.key,
+    required this.siteUrl,
     required this.recommendations,
     required this.selected,
     required this.onSelected,
   });
 
+  final String siteUrl;
   final TopicRecommendations recommendations;
   final TopicRecommendationsTab selected;
   final ValueChanged<TopicRecommendationsTab> onSelected;
@@ -2031,7 +2039,7 @@ class _MoreTopics extends StatelessWidget {
               ),
             ),
           for (var index = 0; index < topics.length; index++) ...[
-            TopicListRow(topic: topics[index]),
+            TopicListRow(topic: topics[index], siteUrl: siteUrl),
             if (index < topics.length - 1)
               Divider(height: 1, color: theme.shell.divider),
           ],

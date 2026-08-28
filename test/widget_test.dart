@@ -5674,19 +5674,31 @@ void main() {
       addTearDown(() => SharedPreferences.setMockInitialValues({}));
       const recommendations = TopicRecommendations(
         suggested: [
-          Topic(id: 8, title: 'A suggested topic', slug: 'a-suggested-topic'),
+          Topic(id: 8, title: 'Locations :earth_africa:', slug: 'locations'),
         ],
         related: [
-          Topic(id: 9, title: 'An AI related topic', slug: 'an-ai-topic'),
+          Topic(id: 9, title: 'An AI topic :sparkles:', slug: 'an-ai-topic'),
         ],
       );
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
+        emojisBySite: const {
+          'https://meta.discourse.org': [
+            SiteEmoji(
+              name: 'earth_africa',
+              url: 'https://emoji.discourse-cdn.com/twitter/earth_africa.png',
+            ),
+            SiteEmoji(
+              name: 'sparkles',
+              url: 'https://emoji.discourse-cdn.com/twitter/sparkles.png',
+            ),
+          ],
+        },
         topics: {
           7: detail(recommendations: recommendations),
           9: topicPayload(
             id: 9,
-            title: 'An AI related topic',
+            title: 'An AI topic :sparkles:',
             posts: [post(9, 1, 'Related topic body')],
           ),
         },
@@ -5704,16 +5716,23 @@ void main() {
       expect(find.byTooltip('Collapse more topics'), findsOneWidget);
       expect(find.text('Suggested'), findsOneWidget);
       expect(find.text('Related'), findsOneWidget);
-      expect(find.text('A suggested topic'), findsOneWidget);
-      expect(find.text('An AI related topic'), findsNothing);
+      final earth = find.byWidgetPredicate(
+        (widget) =>
+            widget is SiteEmojiImage && widget.name == 'earth_africa',
+      );
+      final sparkles = find.byWidgetPredicate(
+        (widget) => widget is SiteEmojiImage && widget.name == 'sparkles',
+      );
+      expect(earth, findsOneWidget);
+      expect(sparkles, findsNothing);
 
       await tester.tap(find.byKey(const ValueKey('related-topics-tab')));
       await tester.pumpAndSettle();
 
-      expect(find.text('A suggested topic'), findsNothing);
-      expect(find.text('An AI related topic'), findsOneWidget);
+      expect(earth, findsNothing);
+      expect(sparkles, findsOneWidget);
 
-      await tester.tap(find.text('An AI related topic'));
+      await tester.tap(sparkles);
       await tester.pumpAndSettle();
 
       expect(api.topicsOpened, [7, 9]);
