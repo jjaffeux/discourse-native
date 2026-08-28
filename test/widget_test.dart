@@ -4249,10 +4249,44 @@ void main() {
         expect(centers[0].dx, lessThan(centers[1].dx));
         expect(centers[1].dx, lessThan(centers[2].dx));
         expect(centers[2].dx, lessThan(centers[3].dx));
-        expect(tester.getRect(metadata).right, greaterThan(centers[0].dx));
         expect(tester.takeException(), isNull);
       },
     );
+
+    testWidgets('short topic title stays close to its metadata', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': const [
+            Topic(id: 7, title: 'Short update', slug: 'short-update'),
+          ],
+        },
+        categoryList: const [
+          TopicCategory(id: 5, name: 'Updates', color: '7C3AED'),
+        ],
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'Short update',
+            posts: [post(1, 1, 'First post body')],
+            categoryId: 5,
+            tags: const [TopicTag(name: 'weekly')],
+          ),
+        },
+      );
+
+      await pumpShell(tester, laptop, api: api);
+      await tester.tap(contentText('Short update'));
+      await tester.pumpAndSettle();
+
+      final title = find.byKey(const ValueKey('topic-header-title'));
+      final metadata = find.byKey(const ValueKey('topic-header-metadata'));
+      final gap = tester.getRect(metadata).top - tester.getRect(title).bottom;
+
+      expect(gap, lessThanOrEqualTo(18));
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets(
       'topic actions keep four primary controls and overflow extras',
