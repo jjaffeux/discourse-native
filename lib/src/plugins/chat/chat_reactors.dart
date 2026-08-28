@@ -2,18 +2,72 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/store.dart';
 import '../../models/json.dart';
-import '../reactions/reactions_contract.dart';
+import '../../plugin_api/reaction_presentation.dart';
+
+/// One account returned by Chat's reaction-user endpoint.
+///
+/// This is deliberately Chat-owned. Topic reactions expose the same neutral
+/// [ReactionUser] presentation interface, but neither feature imports or
+/// constructs the other's wire model.
+@immutable
+class ChatReactor implements ReactionUser {
+  const ChatReactor({
+    required this.id,
+    required this.username,
+    required this.reaction,
+    this.name,
+    this.avatarUrl,
+  });
+
+  factory ChatReactor.fromJson(Map<String, dynamic> json, String siteUrl) =>
+      ChatReactor(
+        id: jsonInt(json['id']),
+        username: jsonString(json['username']),
+        name: jsonText(json['name']),
+        avatarUrl: resolveAvatarUrl(jsonText(json['avatar_template']), siteUrl),
+        reaction: jsonString(json['reaction']),
+      );
+
+  @override
+  final int id;
+
+  @override
+  final String username;
+
+  @override
+  final String reaction;
+
+  @override
+  final String? name;
+
+  @override
+  final String? avatarUrl;
+
+  @override
+  String get displayName => name ?? username;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChatReactor &&
+          other.id == id &&
+          other.username == username &&
+          other.reaction == reaction &&
+          other.name == name &&
+          other.avatarUrl == avatarUrl;
+
+  @override
+  int get hashCode => Object.hash(id, username, reaction, name, avatarUrl);
+}
 
 /// Who reacted to one chat message, as returned by chat's own lazy endpoint.
 ///
-/// The rows deliberately use [PostReactor]: despite its historical name, it
-/// is exactly Discourse's basic-user-plus-reaction envelope on both routes.
-/// [ReactorsPage] is the UI boundary; this record only owns chat identity and
-/// storage.
+/// [ReactionUsersPage] is the UI boundary; this record owns Chat identity,
+/// bounded parsing, and storage.
 @immutable
 class ChatMessageReactors
     with Storable<ChatMessageReactors>
-    implements ReactorsPage {
+    implements ReactionUsersPage {
   const ChatMessageReactors({
     required this.channelId,
     required this.messageId,
@@ -37,7 +91,7 @@ class ChatMessageReactors
     reactors: List.unmodifiable(
       jsonObjects(json['users'])
           .take(maximumPageSize)
-          .map((entry) => PostReactor.fromJson(entry, siteUrl)),
+          .map((entry) => ChatReactor.fromJson(entry, siteUrl)),
     ),
     total: jsonInt(json['total_rows']),
   );
@@ -47,7 +101,7 @@ class ChatMessageReactors
   final String? filter;
 
   @override
-  final List<PostReactor> reactors;
+  final List<ChatReactor> reactors;
 
   @override
   final int total;

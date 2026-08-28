@@ -3,8 +3,12 @@ import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/discourse_github/discourse_github_module.dart';
+import 'package:discourse_native/src/plugins/gifs/gif_picker_session.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_services.dart';
-import 'package:discourse_native/src/plugins/reactions/reactions_module.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_contract.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_module.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_module.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_services.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,10 +22,10 @@ void main() {
     addTearDown(installed.close);
 
     expect(installed.descriptors.map((descriptor) => descriptor.id.value), [
+      'discourse-local-dates',
       'discourse-github',
       'discourse-lazy-videos',
       'discourse-reactions',
-      'discourse-local-dates',
       'poll',
       'gifs',
       'discourse-ai',
@@ -36,6 +40,9 @@ void main() {
     final poll = installed.descriptors.singleWhere(
       (descriptor) => descriptor.id.value == 'poll',
     );
+    final github = installed.descriptors.singleWhere(
+      (descriptor) => descriptor.id.value == 'discourse-github',
+    );
     final chat = installed.descriptors.singleWhere(
       (descriptor) => descriptor.id.value == 'chat',
     );
@@ -46,15 +53,24 @@ void main() {
     expect(localDates.syntaxIds, {'discourse-local-dates/local-date'});
     expect(poll.syntaxIds, {'poll/poll'});
     expect(
+      github.dependencies.map(
+        (dependency) => (dependency.id.value, dependency.optional),
+      ),
+      [('discourse-local-dates', true)],
+    );
+    expect(
       chat.dependencies.map(
         (dependency) => (dependency.id.value, dependency.optional),
       ),
-      [('discourse-reactions', false), ('gifs', true)],
+      [('gifs', true)],
     );
     expect(chat.routeNamespaces, {'chat'});
-    expect(resenha.dependencies.map((dependency) => dependency.id.value), [
-      'chat',
-    ]);
+    expect(
+      resenha.dependencies.map(
+        (dependency) => (dependency.id.value, dependency.optional),
+      ),
+      [('chat', false)],
+    );
     expect(resenha.routeNamespaces, {'resenha'});
     expect(resenha.exclusiveClaims, {'app-global-media-session'});
     expect(
@@ -95,15 +111,15 @@ void main() {
     });
 
     final session = shell.pluginSession;
-    expect(session.require(gifsApiService), same(api));
-    expect(session.require(chatApiService), same(api));
-    expect(session.require(chatGifsApiService), same(api));
+    expect(session.require(gifsPickerSessionService), isA<GifPickerSession>());
+    expect(session.require(chatConversationService), isNotNull);
+    expect(session.require(localDatesCookedTimeParserService), isNotNull);
     expect(session.require(resenhaControllerService), isNotNull);
   });
 
-  test('production Chat works without its optional GIF dependency', () {
+  test('production Chat works without optional GIFs or Reactions', () {
     final installed = PluginInstaller.install(
-      const PluginManifest([reactionsModule, chatModule]),
+      const PluginManifest([chatModule]),
     );
     final api = FakeDiscourseApi();
     final shell = _shell(installed, api);
@@ -114,9 +130,45 @@ void main() {
     });
 
     final session = shell.pluginSession;
-    expect(session.require(chatApiService), same(api));
-    expect(session.maybeService(gifsApiService), isNull);
-    expect(session.maybeService(chatGifsApiService), isNull);
+    expect(session.require(chatConversationService), isNotNull);
+    expect(session.maybeService(gifsPickerSessionService), isNull);
+  });
+
+  test('GitHub oneboxes degrade without their optional cooked-time parser', () {
+    final githubOnly = PluginInstaller.install(
+      const PluginManifest([discourseGithubModule]),
+    );
+    final withLocalDates = PluginInstaller.install(
+      const PluginManifest([discourseGithubModule, localDatesModule]),
+    );
+    final githubOnlySession = githubOnly.openSession(
+      const PluginHostBindings.empty(),
+    );
+    final withLocalDatesSession = withLocalDates.openSession(
+      const PluginHostBindings.empty(),
+    );
+    addTearDown(() async {
+      await githubOnlySession.close();
+      await withLocalDatesSession.close();
+      await githubOnly.close();
+      await withLocalDates.close();
+    });
+
+    expect(
+      githubOnlySession.maybeService(localDatesCookedTimeParserService),
+      isNull,
+    );
+    expect(
+      withLocalDatesSession.require(localDatesCookedTimeParserService),
+      isNotNull,
+    );
+  });
+
+  test('Resenha keeps Chat as a required conversation provider', () {
+    expect(
+      () => PluginInstaller.install(const PluginManifest([resenhaModule])),
+      throwsA(isA<PluginInstallationException>()),
+    );
   });
 }
 

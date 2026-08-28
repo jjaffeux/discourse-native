@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/plugins/discourse_github/discourse_github_plugin.dart';
 import 'package:discourse_native/src/plugins/discourse_github/oneboxes/commit/block.dart';
 import 'package:discourse_native/src/plugins/discourse_github/oneboxes/github.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_cooked_time_parser.dart';
 import 'package:discourse_native/src/shell/cooked_dom.dart';
 import 'package:discourse_native/src/shell/relative_time.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -49,8 +50,10 @@ const String commitOnebox = '''
 </aside>
 ''';
 
-GithubCommitData parse(String source) =>
-    GithubCommitData.from(html.parse(source).querySelector('aside.onebox')!);
+GithubCommitData parse(String source) => GithubCommitData.from(
+  html.parse(source).querySelector('aside.onebox')!,
+  cookedTimeParser: const LocalDatesCookedTimeParser(),
+);
 
 void main() {
   test('deep GitHub markup is parsed without recursive traversal', () {
@@ -91,6 +94,17 @@ void main() {
       expect(data.deletions, 3);
       expect(data.body, isNull);
     });
+
+    test('keeps the card metadata when cooked-time parsing is absent', () {
+      final aside = html.parse(commitOnebox).querySelector('aside.onebox')!;
+      final data = GithubCommitData.from(aside, cookedTimeParser: null);
+
+      expect(data.committedVerb, 'Committed');
+      expect(data.committedAt, isNull);
+      expect(data.authorLogin, 'octocat');
+      expect(data.additions, 12);
+      expect(data.deletions, 3);
+    });
   });
 
   group('GithubCommitOnebox', () {
@@ -110,7 +124,9 @@ void main() {
           theme: theme,
           home: Scaffold(
             body: SingleChildScrollView(
-              child: const DiscourseGithubPlugin().cookedElement(null, aside)!,
+              child: const DiscourseGithubPlugin(
+                cookedTimeParser: LocalDatesCookedTimeParser(),
+              ).cookedElement(null, aside)!,
             ),
           ),
         ),

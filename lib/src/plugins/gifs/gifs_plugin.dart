@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
-import 'gif_picker.dart';
 import 'gifs_icons.dart';
 import 'gifs_services.dart';
 import 'gifs_settings.dart';
@@ -39,10 +38,14 @@ class GifsPlugin
     BuildContext context,
     ComposerEditorHost editor,
   ) {
+    final picker = PluginScope.maybeOf(
+      context,
+    )?.maybeService(gifsPickerSessionService);
     if (!editor.isCurrent ||
+        picker == null ||
         editor.isPluginTarget ||
         editor.loadingBody ||
-        !editor.siteSettings.gifsSettings.enabled) {
+        !picker.isAvailable(editor.siteUrl)) {
       return const [];
     }
     return [
@@ -61,32 +64,25 @@ Future<void> openGifPickerForComposer(
   BuildContext context,
   ComposerEditorHost editor,
 ) async {
+  final picker = PluginScope.maybeOf(
+    context,
+  )?.maybeService(gifsPickerSessionService);
   if (!editor.isCurrent ||
       editor.isPluginTarget ||
-      !editor.siteSettings.gifsSettings.enabled) {
+      picker == null ||
+      !picker.isAvailable(editor.siteUrl)) {
     return;
   }
 
   final expectedValue = editor.value;
   final siteUrl = editor.siteUrl;
-  final picker = PluginScope.maybeOf(
-    context,
-  )?.maybeService(gifsPickerHostService);
-  if (picker == null) return;
-  final result = await showGifPicker(
-    context: context,
-    siteUrl: siteUrl,
-    api: picker.api,
-    credentials: picker.credentials,
-    lifecycle: picker.lifecycle,
-    settings: editor.siteSettings.gifsSettings,
-  );
+  final result = await picker.showPicker(context: context, siteUrl: siteUrl);
   if (result == null || !context.mounted) return;
 
   final stillCurrent =
       editor.isCurrent &&
       editor.value == expectedValue &&
-      editor.siteSettings.gifsSettings.enabled;
+      picker.isAvailable(siteUrl);
   if (!stillCurrent) {
     _changedComposerMessage(context);
     return;

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+import 'package:discourse_native/src/plugins/chat/chat_contract.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_api.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_callkit.dart';
@@ -18,6 +19,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
+import 'support/fake_chat_conversations.dart';
 import 'support/fakes.dart';
 
 Map<String, dynamic> fixture(String name) =>
@@ -431,13 +433,6 @@ typedef _TransportDiagnosticContext = ({
   String? correlationId,
 });
 
-final class _PendingThreadMessages {
-  _PendingThreadMessages({required this.before});
-
-  final int? before;
-  final Completer<ChatMessagePage> response = Completer();
-}
-
 final class _ControlledResenhaTransport extends FakeDiscourseApi {
   _ControlledResenhaTransport({super.pluginResponses, super.chatMessagesByKey});
 
@@ -448,11 +443,7 @@ final class _ControlledResenhaTransport extends FakeDiscourseApi {
   final List<_PendingPluginGet> pendingPluginGets = [];
   final List<_PendingPluginWrite> pendingPluginWrites = [];
   final List<_TransportDiagnosticContext> diagnosticContexts = [];
-  final List<_PendingThreadMessages> pendingThreadMessages = [];
-  bool holdThreadMessages = false;
-  Object? chatThreadReadFailure;
   Object? operationFailure;
-  int chatThreadReadCalls = 0;
 
   @override
   Future<Map<String, dynamic>> pluginGetJson({
@@ -508,49 +499,6 @@ final class _ControlledResenhaTransport extends FakeDiscourseApi {
     pendingPluginWrites.add(pending);
     return pending.response.future;
   }
-
-  @override
-  Future<ChatMessagePage> chatThreadMessages({
-    required String siteUrl,
-    required int channelId,
-    required int threadId,
-    int? before,
-    int? after,
-    int? targetMessageId,
-    int pageSize = 50,
-    String? apiKey,
-    String? clientId,
-  }) {
-    if (!holdThreadMessages) {
-      return super.chatThreadMessages(
-        siteUrl: siteUrl,
-        channelId: channelId,
-        threadId: threadId,
-        before: before,
-        after: after,
-        targetMessageId: targetMessageId,
-        pageSize: pageSize,
-        apiKey: apiKey,
-        clientId: clientId,
-      );
-    }
-    final pending = _PendingThreadMessages(before: before);
-    pendingThreadMessages.add(pending);
-    return pending.response.future;
-  }
-
-  @override
-  Future<void> markChatThreadRead({
-    required String siteUrl,
-    required String apiKey,
-    required int channelId,
-    required int threadId,
-    required int messageId,
-    String? clientId,
-  }) async {
-    chatThreadReadCalls++;
-    if (chatThreadReadFailure case final failure?) throw failure;
-  }
 }
 
 Future<List<Object>> _captureUncaught(Future<void> Function() action) async {
@@ -588,19 +536,37 @@ void main() {
   late FakeResenhaDiagnosticsRecorder diagnostics;
   late FakeSiteTracker firstTracker;
   late FakeSiteTracker secondTracker;
+  late FakeChatConversationCapability chatConversations;
   late ResenhaController controller;
+
+  FakeChatConversationCapability seededChatConversations() {
+    final capability = FakeChatConversationCapability();
+    capability.seed(
+      siteUrl: firstSite,
+      channelId: 42,
+      threadId: 99,
+      snapshot: ChatConversationSnapshot(
+        messages: _chatPage(10).messages,
+        canLoadMorePast: true,
+      ),
+      olderMessages: _chatPage(5).messages,
+    );
+    return capability;
+  }
 
   void useTransport(
     FakeDiscourseApi value, {
     ResenhaCapabilityResolver? capabilityEnabledFor,
+    FakeChatConversationCapability? conversations,
   }) {
     controller.dispose();
     transport = value;
+    chatConversations = conversations ?? seededChatConversations();
     mediaFactory = FakeResenhaMediaFactory();
     systemCall = FakeResenhaSystemCall();
     controller = ResenhaController(
       api: ResenhaApi(transport),
-      chatApi: transport,
+      chatConversations: chatConversations,
       credentials: credentials,
       trackerFor: (siteUrl) => siteUrl == firstSite
           ? firstTracker
@@ -631,34 +597,6 @@ void main() {
         'POST /resenha/rooms/7/state.json': {},
         'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
       },
-      chatMessagesByKey: {
-        'thread-42-99': (
-          messages: const [
-            ChatMessage(
-              id: 10,
-              channelId: 42,
-              cooked: '<p>newer</p>',
-              author: ChatMessageAuthor(id: 1, username: 'sam'),
-            ),
-          ],
-          canLoadMorePast: true,
-          canLoadMoreFuture: false,
-          targetMessageId: null,
-        ),
-        'thread-42-99~past~10': (
-          messages: const [
-            ChatMessage(
-              id: 5,
-              channelId: 42,
-              cooked: '<p>older</p>',
-              author: ChatMessageAuthor(id: 2, username: 'lee'),
-            ),
-          ],
-          canLoadMorePast: false,
-          canLoadMoreFuture: false,
-          targetMessageId: null,
-        ),
-      },
     );
     credentials = FakeApiCredentialReader()
       ..keys[firstSite] = 'first-key'
@@ -669,9 +607,10 @@ void main() {
     diagnostics = FakeResenhaDiagnosticsRecorder();
     firstTracker = tracker(firstSite);
     secondTracker = tracker(secondSite);
+    chatConversations = seededChatConversations();
     controller = ResenhaController(
       api: ResenhaApi(transport),
-      chatApi: transport,
+      chatConversations: chatConversations,
       credentials: credentials,
       trackerFor: (siteUrl) => siteUrl == firstSite
           ? firstTracker
@@ -1092,8 +1031,6 @@ void main() {
         'resenha.directory',
         'resenha.join',
         'resenha.chat.load',
-        'resenha.chat.page',
-        'resenha.chat.send',
       };
       expect(
         diagnostics.records
@@ -1102,6 +1039,11 @@ void main() {
             .toSet(),
         containsAll(operations),
       );
+      final reportedOperations = diagnostics.records
+          .where((record) => record.event == 'runtime.error')
+          .map((record) => record.data['operation']);
+      expect(reportedOperations, isNot(contains('resenha.chat.page')));
+      expect(reportedOperations, isNot(contains('resenha.chat.send')));
       expect(
         ordinaryDiagnostics.events
             .whereType<ErrorDiagnosticEvent>()
@@ -1646,66 +1588,62 @@ void main() {
   });
 
   test(
-    'an older forced chat refresh cannot replace a newer response',
+    'an older room association response cannot replace a newer response',
     () async {
       final controlled = _ControlledResenhaTransport()
-        ..heldPluginPaths.add('/resenha/rooms/7/chat_session.json')
-        ..holdThreadMessages = true;
-      useTransport(controlled);
+        ..heldPluginPaths.add('/resenha/rooms/7/chat_session.json');
+      final conversations = FakeChatConversationCapability();
+      conversations.seed(
+        siteUrl: firstSite,
+        channelId: 42,
+        threadId: 99,
+        snapshot: ChatConversationSnapshot(messages: _chatPage(20).messages),
+      );
+      useTransport(controlled, conversations: conversations);
 
       final older = controller.openChat(firstSite, 7, force: true);
       await pumpEventQueue();
-      controlled.pendingPluginGets[0].response.complete(fixture('chat'));
-      await pumpEventQueue();
-      expect(controlled.pendingThreadMessages, hasLength(1));
-
       final newer = controller.openChat(firstSite, 7, force: true);
       await pumpEventQueue();
       controlled.pendingPluginGets[1].response.complete(fixture('chat'));
-      await pumpEventQueue();
-      expect(controlled.pendingThreadMessages, hasLength(2));
-
-      controlled.pendingThreadMessages[1].response.complete(_chatPage(20));
       await newer;
-      controlled.pendingThreadMessages[0].response.complete(_chatPage(10));
+      controlled.pendingPluginGets[0].response.complete(fixture('chat'));
       await older;
 
       expect(
         controller.chat(firstSite, 7)?.messages.map((message) => message.id),
         [20],
       );
+      expect(conversations.opened, hasLength(1));
     },
   );
 
-  test('an older chat page cannot replace a newer forced refresh', () async {
+  test('chat paging stays behind the Chat conversation capability', () async {
     final controlled = _ControlledResenhaTransport(
       pluginResponses: {
         'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
       },
-      chatMessagesByKey: {'thread-42-99': _chatPage(10, canLoadMorePast: true)},
     );
+    final countingCredentials = _CountingCredentialReader();
+    credentials = countingCredentials;
     useTransport(controlled);
     await controller.openChat(firstSite, 7);
-    controlled.holdThreadMessages = true;
+    final conversation = chatConversations.find(
+      siteUrl: firstSite,
+      channelId: 42,
+      threadId: 99,
+    )!;
+    expect(countingCredentials.apiKeyCalls, 1);
 
-    final page = controller.loadOlderChat(firstSite, 7);
-    await pumpEventQueue();
-    expect(controlled.pendingThreadMessages.single.before, 10);
-
-    final refresh = controller.openChat(firstSite, 7, force: true);
-    await pumpEventQueue();
-    expect(controlled.pendingThreadMessages, hasLength(2));
-    expect(controlled.pendingThreadMessages[1].before, isNull);
-
-    controlled.pendingThreadMessages[1].response.complete(_chatPage(20));
-    await refresh;
-    controlled.pendingThreadMessages[0].response.complete(_chatPage(5));
-    await page;
+    await controller.loadOlderChat(firstSite, 7);
 
     expect(
       controller.chat(firstSite, 7)?.messages.map((message) => message.id),
-      [20],
+      [5, 10],
     );
+    expect(conversation.loadOlderCalls, 1);
+    expect(countingCredentials.apiKeyCalls, 1);
+    expect(controlled.chatThreadMessagesRequested, isEmpty);
   });
 
   test(
@@ -2037,11 +1975,17 @@ void main() {
 
   test('loads and pages the associated Discourse Chat thread', () async {
     await controller.openChat(firstSite, 7);
+    final conversation = chatConversations.find(
+      siteUrl: firstSite,
+      channelId: 42,
+      threadId: 99,
+    )!;
     expect(
       controller.chat(firstSite, 7)?.messages.map((message) => message.id),
       [10],
     );
     expect(controller.chat(firstSite, 7)?.canLoadMorePast, isTrue);
+    expect(conversation.refreshCalls, 1);
 
     await controller.loadOlderChat(firstSite, 7);
     expect(
@@ -2049,55 +1993,139 @@ void main() {
       [5, 10],
     );
     expect(controller.chat(firstSite, 7)?.canLoadMorePast, isFalse);
+    expect(conversation.loadOlderCalls, 1);
+
+    await controller.sendChatMessage(firstSite, 7, '  hello room  ');
+    expect(conversation.sentMessages, ['hello room']);
+    expect(transport.chatMessagesSent, isEmpty);
   });
 
   test(
-    'contains detached chat mark-read failures without forwarding raw cause',
+    'relays live Chat conversation state and releases it with the room site',
     () async {
-      const privateCause = 'chat-private-user device-private 203.0.113.122';
-      final controlled = _ControlledResenhaTransport(
-        pluginResponses: {
-          'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
-        },
-        chatMessagesByKey: {'thread-42-99': _chatPage(10)},
-      )..chatThreadReadFailure = StateError(privateCause);
-      useTransport(controlled);
-      final ordinaryDiagnostics = await DiagnosticsController.create(
-        persistence: MemoryDiagnosticsPersistence(),
-        sessionId: 'resenha-chat-mark-read',
+      await controller.openChat(firstSite, 7);
+      final conversation = chatConversations.find(
+        siteUrl: firstSite,
+        channelId: 42,
+        threadId: 99,
+      )!;
+      conversation.setSnapshot(
+        ChatConversationSnapshot(
+          messages: _chatPage(20).messages,
+          error: 'Chat is reconnecting.',
+        ),
       );
-      final binding = DiagnosticsSink.install(ordinaryDiagnostics);
-      addTearDown(() async {
-        binding.close();
-        await ordinaryDiagnostics.close();
-      });
-      final uncaught = <Object>[];
 
-      final operation = runZonedGuarded<Future<void>>(() async {
-        await controller.openChat(firstSite, 7);
-        await pumpEventQueue();
-        await pumpEventQueue();
-      }, (error, _) => uncaught.add(error));
-      await operation;
-
-      expect(uncaught, isEmpty);
-      expect(controlled.chatThreadReadCalls, 1);
-      final safeRecord = diagnostics.records.singleWhere(
-        (record) =>
-            record.event == 'runtime.error' &&
-            record.data['operation'] == 'resenha.chat.markRead',
-      );
-      expect(safeRecord.data['errorType'], 'StateError');
-      expect(diagnostics.rawRecords, isEmpty);
-      final globalRecord = ordinaryDiagnostics.events
-          .whereType<ErrorDiagnosticEvent>()
-          .singleWhere((event) => event.operation == 'resenha.chat.markRead');
-      expect(globalRecord.message, contains('resenha.chat.markRead'));
-      expect(globalRecord.message, isNot(contains(privateCause)));
       expect(
-        ordinaryDiagnostics.buildJsonReport(),
-        isNot(contains(privateCause)),
+        controller.chat(firstSite, 7)?.messages.map((message) => message.id),
+        [20],
       );
+      expect(controller.chat(firstSite, 7)?.error, 'Chat is reconnecting.');
+
+      controller.forget(firstSite);
+
+      expect(controller.chat(firstSite, 7), isNull);
+      expect(conversation.closeCalls, 1);
+    },
+  );
+
+  test('releases the Chat viewing handle when the room chat closes', () async {
+    await controller.openChat(firstSite, 7);
+    final conversation = chatConversations.find(
+      siteUrl: firstSite,
+      channelId: 42,
+      threadId: 99,
+    )!;
+
+    controller.closeChat(firstSite, 7);
+
+    expect(conversation.closeCalls, 1);
+    expect(controller.chat(firstSite, 7)?.messages, isEmpty);
+  });
+
+  test('temporary Chat sends retain capability-reported failures', () async {
+    transport.pluginResponses['POST /resenha/rooms/7/chat_session.json'] =
+        fixture('chat');
+    final conversation = chatConversations.find(
+      siteUrl: firstSite,
+      channelId: 42,
+      threadId: 99,
+    )!..sendError = 'Message not sent.';
+
+    await controller.sendChatMessage(firstSite, 7, 'hello');
+
+    expect(conversation.sentMessages, ['hello']);
+    expect(conversation.closeCalls, 1);
+    expect(controller.chat(firstSite, 7)?.error, 'Message not sent.');
+  });
+
+  test('room destruction discards its retained Chat association', () async {
+    await controller.ensureLoaded(firstSite);
+    await controller.openChat(firstSite, 7);
+    final conversation = chatConversations.find(
+      siteUrl: firstSite,
+      channelId: 42,
+      threadId: 99,
+    )!;
+
+    firstTracker.deliverPluginMessage('/resenha/rooms/index', {
+      'type': 'destroyed',
+      'room': (fixture('directory')['rooms'] as List<dynamic>).first,
+    });
+
+    expect(controller.chat(firstSite, 7), isNull);
+    expect(conversation.closeCalls, 1);
+  });
+
+  test('directory refresh prunes removed room Chat associations', () async {
+    final responses = <String, Map<String, dynamic>>{
+      'GET /resenha/rooms.json': fixture('directory'),
+      'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
+    };
+    useTransport(FakeDiscourseApi(pluginResponses: responses));
+    await controller.ensureLoaded(firstSite);
+    await controller.openChat(firstSite, 7);
+    final conversation = chatConversations.find(
+      siteUrl: firstSite,
+      channelId: 42,
+      threadId: 99,
+    )!;
+    responses['GET /resenha/rooms.json'] = {
+      ...fixture('directory'),
+      'rooms': <Object>[],
+    };
+
+    await controller.ensureLoaded(firstSite, force: true);
+
+    expect(controller.chat(firstSite, 7), isNull);
+    expect(conversation.closeCalls, 1);
+  });
+
+  test(
+    'directory refresh invalidates a pre-credential room Chat open',
+    () async {
+      final gated = _NextGatedCredentialReader();
+      credentials = gated;
+      final responses = <String, Map<String, dynamic>>{
+        'GET /resenha/rooms.json': fixture('directory'),
+        'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
+      };
+      useTransport(FakeDiscourseApi(pluginResponses: responses));
+      await controller.ensureLoaded(firstSite);
+      gated.gateNextRead = true;
+
+      final opening = controller.openChat(firstSite, 7);
+      await gated.readStarted.future;
+      responses['GET /resenha/rooms.json'] = {
+        ...fixture('directory'),
+        'rooms': <Object>[],
+      };
+      await controller.ensureLoaded(firstSite, force: true);
+      gated.readGate.complete();
+      await opening;
+
+      expect(controller.chat(firstSite, 7), isNull);
+      expect(chatConversations.opened, isEmpty);
     },
   );
 

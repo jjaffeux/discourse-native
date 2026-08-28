@@ -1,8 +1,9 @@
 import '../../plugin_api/plugin_manifest.dart';
 import '../chat/chat_preview_contract.dart';
+import 'local_dates_contract.dart';
+import 'local_dates_cooked_time_parser.dart';
 import 'local_dates_plugin.dart';
 
-const localDatesPluginId = PluginId('discourse-local-dates');
 const localDatesModule = LocalDatesModule();
 
 final class LocalDatesModule implements PluginModule {
@@ -27,5 +28,18 @@ final class LocalDatesModule implements PluginModule {
       value: plugin,
     );
     registrar.addSyntaxId(plugin.composerSyntaxKind.id);
+    registrar.addSession(
+      (_, _) => PluginSessionContribution(
+        lifecycle: _LocalDatesSessionLifecycle(),
+        services: const [
+          PluginService<Object>(
+            localDatesCookedTimeParserService,
+            LocalDatesCookedTimeParser(),
+          ),
+        ],
+      ),
+    );
   }
 }
+
+final class _LocalDatesSessionLifecycle extends PluginSessionLifecycle {}

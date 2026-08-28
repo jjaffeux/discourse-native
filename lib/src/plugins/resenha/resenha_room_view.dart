@@ -1068,16 +1068,20 @@ Future<void> _showResenhaChat(
   required int roomId,
 }) async {
   unawaited(controller.openChat(siteUrl, roomId));
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    constraints: const BoxConstraints(maxWidth: 720),
-    builder: (context) => _ResenhaChatSheet(
-      controller: controller,
-      siteUrl: siteUrl,
-      roomId: roomId,
-    ),
-  );
+  try {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      constraints: const BoxConstraints(maxWidth: 720),
+      builder: (context) => _ResenhaChatSheet(
+        controller: controller,
+        siteUrl: siteUrl,
+        roomId: roomId,
+      ),
+    );
+  } finally {
+    controller.closeChat(siteUrl, roomId);
+  }
 }
 
 class _ResenhaChatSheet extends StatefulWidget {

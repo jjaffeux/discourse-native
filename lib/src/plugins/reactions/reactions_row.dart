@@ -2,15 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../models/post.dart';
 import '../../plugin_api/plugin_scope.dart';
+import '../../shell/reaction_presentation.dart';
 import '../../shell/shell_scope.dart';
 import 'reaction.dart';
 import 'reaction_picker.dart';
-import 'reaction_pill.dart';
 import 'reactions_controller.dart';
 import 'reactions_services.dart';
 import 'reactions_shell_extension.dart';
-
-export 'reaction_pill.dart' show ReactionPill, ReactionPills;
 
 /// What people gave a post, under the post itself.
 ///

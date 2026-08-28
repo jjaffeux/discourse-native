@@ -428,31 +428,27 @@ class _ChatComposerState extends State<ChatComposer> {
     final host = _host;
     final composer = _composer;
     final sourceKey = _sourceKey;
-    final gifsApi = PluginScope.maybeOf(
+    final gifPicker = PluginScope.maybeOf(
       context,
-    )?.maybeService(chatGifsApiService);
+    )?.maybeService(gifsPickerSessionService);
     if (host == null ||
         composer == null ||
         sourceKey == null ||
-        gifsApi == null ||
+        gifPicker == null ||
         _pickingGif ||
         _pickingEmoji ||
         _savingEdit ||
         widget.editingMessage != null ||
-        !host.siteConfigFor(widget.siteUrl).gifsSettings.enabled ||
+        !gifPicker.isAvailable(widget.siteUrl) ||
         !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
       return;
     }
 
     setState(() => _pickingGif = true);
     try {
-      final result = await showGifPicker(
+      final result = await gifPicker.showPicker(
         context: context,
         siteUrl: widget.siteUrl,
-        api: gifsApi,
-        credentials: host.credentials,
-        lifecycle: host.lifecycle,
-        settings: host.siteConfigFor(widget.siteUrl).gifsSettings,
       );
       if (result == null || !_ownsComposer(host, composer, sourceKey)) {
         return;
@@ -746,40 +742,40 @@ class _ChatComposerState extends State<ChatComposer> {
               valueListenable: host.siteConfigListenableFor(
                 composer.target.siteUrl,
               ),
-              builder: (context, config, _) =>
-                  config.gifsSettings.enabled &&
-                      PluginScope.maybeOf(
-                            context,
-                          )?.maybeService(chatGifsApiService) !=
-                          null
-                  ? Center(
-                      child: DButton.iconOnly(
-                        key: const ValueKey('chat-composer-gif'),
-                        onPressed:
-                            _pickingGif ||
-                                _pickingEmoji ||
-                                _savingEdit ||
-                                widget.editingMessage != null ||
-                                !(_chat?.canSendMessage(
-                                      widget.siteUrl,
-                                      widget.channelId,
-                                    ) ??
-                                    false)
-                            ? null
-                            : () => unawaited(_pickGif()),
-                        icon: DIcon(
-                          PluginScope.maybeOf(context)?.registry.iconNamed(
-                                'gif',
-                                fallback: DIcons.paperclip,
-                              ) ??
-                              DIcons.paperclip,
-                          size: 18,
+              builder: (context, _, _) {
+                final gifPicker = PluginScope.maybeOf(
+                  context,
+                )?.maybeService(gifsPickerSessionService);
+                return gifPicker?.isAvailable(widget.siteUrl) ?? false
+                    ? Center(
+                        child: DButton.iconOnly(
+                          key: const ValueKey('chat-composer-gif'),
+                          onPressed:
+                              _pickingGif ||
+                                  _pickingEmoji ||
+                                  _savingEdit ||
+                                  widget.editingMessage != null ||
+                                  !(_chat?.canSendMessage(
+                                        widget.siteUrl,
+                                        widget.channelId,
+                                      ) ??
+                                      false)
+                              ? null
+                              : () => unawaited(_pickGif()),
+                          icon: DIcon(
+                            PluginScope.maybeOf(context)?.registry.iconNamed(
+                                  'gif',
+                                  fallback: DIcons.paperclip,
+                                ) ??
+                                DIcons.paperclip,
+                            size: 18,
+                          ),
+                          tooltip: 'Send GIF',
+                          variant: DButtonVariant.flat,
                         ),
-                        tooltip: 'Send GIF',
-                        variant: DButtonVariant.flat,
-                      ),
-                    )
-                  : const SizedBox.shrink(),
+                      )
+                    : const SizedBox.shrink();
+              },
             ),
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: composer.text,

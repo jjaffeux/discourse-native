@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:discourse_native/src/plugins/chat/chat_contract.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_api.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_callkit.dart';
@@ -21,6 +22,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:flutter_webrtc/src/native/media_stream_track_impl.dart';
 
 import 'support/bundled_plugins.dart';
+import 'support/fake_chat_conversations.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://voice.example.com';
@@ -779,17 +781,27 @@ void main() {
           'thread_id': 99,
         },
       },
-      chatMessagesByKey: {
-        'thread-42-99': _chatPage(
+    );
+    final conversations = FakeChatConversationCapability();
+    final conversation = conversations.seed(
+      siteUrl: _siteUrl,
+      channelId: 42,
+      threadId: 99,
+      snapshot: ChatConversationSnapshot(
+        messages: _chatPage(
           id: 10,
           username: 'sam',
           name: 'Sam',
           canLoadMorePast: true,
-        ),
-        'thread-42-99~past~10': _chatPage(id: 5, username: 'lee', name: 'Lee'),
-      },
+        ).messages,
+        canLoadMorePast: true,
+      ),
+      olderMessages: _chatPage(id: 5, username: 'lee', name: 'Lee').messages,
     );
-    final harness = _Harness(discourseApi: transport);
+    final harness = _Harness(
+      discourseApi: transport,
+      chatConversations: conversations,
+    );
     addTearDown(harness.dispose);
     final room = _room(
       chatAvailable: true,
@@ -818,7 +830,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Lee'), findsOneWidget);
     expect(find.text('Load older messages'), findsNothing);
-    expect(transport.chatThreadMessagesRequested.last.before, 10);
+    expect(conversation.loadOlderCalls, 1);
+    expect(transport.chatThreadMessagesRequested, isEmpty);
 
     final composer = find.widgetWithText(TextField, 'Message the room');
     await tester.enterText(composer, '  hello room  ');
@@ -826,12 +839,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.widget<TextField>(composer).controller?.text, isEmpty);
-    expect(transport.chatMessagesSent.single.channelId, 42);
-    expect(transport.chatMessagesSent.single.threadId, 99);
-    expect(transport.chatMessagesSent.single.message, 'hello room');
+    expect(conversation.sentMessages, ['hello room']);
+    expect(transport.chatMessagesSent, isEmpty);
 
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
+    expect(conversation.closeCalls, 1);
     expect(tester.takeException(), isNull);
   });
 
@@ -1347,7 +1360,10 @@ final class _Harness {
     Set<int> speakingIds = const {},
     FakeDiscourseApi? discourseApi,
     _Preferences? preferences,
+    FakeChatConversationCapability? chatConversations,
   }) : preferences = preferences ?? _Preferences(),
+       chatConversations =
+           chatConversations ?? FakeChatConversationCapability(),
        transport =
            discourseApi ??
            FakeDiscourseApi(
@@ -1373,7 +1389,7 @@ final class _Harness {
     final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
     controller = ResenhaController(
       api: ResenhaApi(transport),
-      chatApi: transport,
+      chatConversations: this.chatConversations,
       credentials: credentials,
       trackerFor: (_) => null,
       userIdFor: (_) => 1,
@@ -1388,6 +1404,7 @@ final class _Harness {
   final FakeDiscourseApi transport;
   final _MediaFactory media;
   final _Preferences preferences;
+  final FakeChatConversationCapability chatConversations;
   late final ResenhaController controller;
 
   void dispose() => controller.dispose();

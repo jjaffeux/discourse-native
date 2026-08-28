@@ -18,8 +18,9 @@ const _pluginIdsByDirectory = <String, String>{
 
 const _approvedCrossFeatureContracts = <String, String>{
   'chat->gifs': 'lib/src/plugins/gifs/gifs_contract.dart',
-  'chat->reactions': 'lib/src/plugins/reactions/reactions_contract.dart',
   'local_dates->chat': 'lib/src/plugins/chat/chat_preview_contract.dart',
+  'discourse_github->local_dates':
+      'lib/src/plugins/local_dates/local_dates_contract.dart',
   'resenha->chat': 'lib/src/plugins/chat/chat_contract.dart',
 };
 

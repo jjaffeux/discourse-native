@@ -59,6 +59,12 @@ fails for a missing dependency service; `maybe` returns null for a declared
 optional integration that is absent. Both reject undeclared owners, so this
 boundary cannot become a global service locator.
 
+Cross-plugin imports stop at an owner-provided contract file. A consumer never
+receives another feature's full API client, controller, credentials, settings,
+or lifecycle machinery merely to reuse one operation. Dependencies are
+required only when the consumer cannot function without that capability;
+optional integrations must define and test their absent-provider behavior.
+
 ## Dependency rule
 
 Production core never imports or exports a file under `lib/src/plugins`.
@@ -121,6 +127,15 @@ Topic recommendation sources are a sibling resource, not values in a topic's
 `suggested_topics`; each optional source recognizes and normalizes its own
 payload into the shared recommendation-topic row shape before core constructs
 `Topic` values. Absence remains distinct from a present, empty source.
+
+GIFs exposes one picker session rather than its wire API. That session owns the
+API client, credentials, lifecycle lease, settings lookup, and catalog/picker
+assembly; topic and Chat composers receive only availability and a selected
+GIF. Chat similarly exposes an embedded thread-conversation capability. It
+owns paging, sending, read receipts, timeline merging, and live subscriptions,
+while Resenha retains only its room-to-thread association and room UI. The
+viewing handle is released when that UI closes and pruned when its room leaves
+the directory, so hidden rooms retain no Chat subscription or read receipt.
 
 ## Persistence and compatibility
 
@@ -279,6 +294,16 @@ catalog no longer embeds it, and Chat owns the `d-chat` alias it contributes to
 Discourse's wire vocabulary. Core flag models likewise expose only a generic
 target predicate; Chat owns the `Chat::Message` target constant used by its
 flag and bookmark paths.
+
+Reaction pills and reactor lists use plugin-neutral presentation contracts.
+Chat and Reactions each own their wire model, cache identity, controller, and
+writes; neither constructs the other's post- or message-specific types merely
+to draw the shared UI.
+
+GitHub oneboxes declare Local Dates as optional and ask its cooked-time parser
+for an instant. They no longer recognize `.discourse-local-date` or interpret
+its attributes themselves. Without that service the GitHub card, author,
+labels, and diff metadata still render; only relative-time metadata is omitted.
 
 ## Deferred UI contribution seams
 

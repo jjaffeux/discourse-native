@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/plugins/discourse_github/discourse_github_plugin.dart';
 import 'package:discourse_native/src/plugins/discourse_github/oneboxes/github.dart';
 import 'package:discourse_native/src/plugins/discourse_github/oneboxes/issue/block.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_cooked_time_parser.dart';
 import 'package:discourse_native/src/shell/relative_time.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -51,35 +52,13 @@ const String issueOnebox = '''
 </aside>
 ''';
 
-GithubIssueData parse(String source) =>
-    GithubIssueData.from(html.parse(source).querySelector('aside.onebox')!);
+GithubIssueData parse(String source) => GithubIssueData.from(
+  html.parse(source).querySelector('aside.onebox')!,
+  cookedTimeParser: const LocalDatesCookedTimeParser(),
+);
 
 void main() {
   group('GithubIssueData', () {
-    test('decodes the GitHub template timestamp without Local Dates', () {
-      final dateCell = html
-          .parse(
-            '<div><span class="discourse-local-date" '
-            'data-date="2026-07-01" data-time="09:00:00" '
-            'data-timezone="UTC">server fallback</span></div>',
-          )
-          .querySelector('div')!;
-
-      expect(githubLocalDate(dateCell), DateTime.utc(2026, 7, 1, 9));
-    });
-
-    test('declines a local-date timestamp outside GitHub\'s UTC contract', () {
-      final dateCell = html
-          .parse(
-            '<div><span class="discourse-local-date" '
-            'data-date="2026-07-01" data-time="09:00:00" '
-            'data-timezone="Europe/Paris">server fallback</span></div>',
-          )
-          .querySelector('div')!;
-
-      expect(githubLocalDate(dateCell), isNull);
-    });
-
     test('reads title, dates, user, labels and body', () {
       final data = parse(issueOnebox);
 
@@ -115,7 +94,9 @@ void main() {
           theme: theme,
           home: Scaffold(
             body: SingleChildScrollView(
-              child: const DiscourseGithubPlugin().cookedElement(null, aside)!,
+              child: const DiscourseGithubPlugin(
+                cookedTimeParser: LocalDatesCookedTimeParser(),
+              ).cookedElement(null, aside)!,
             ),
           ),
         ),

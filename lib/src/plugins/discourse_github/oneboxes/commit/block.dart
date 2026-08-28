@@ -5,6 +5,7 @@ import '../../../../shell/cooked_dom.dart';
 import '../../../../shell/oneboxes/onebox.dart';
 import '../../../../shell/relative_time.dart';
 import '../../../../theme/app_theme.dart';
+import '../../../local_dates/local_dates_contract.dart';
 import '../github.dart';
 
 /// The commit engine: `aside.onebox.githubcommit`.
@@ -128,7 +129,10 @@ class GithubCommitData {
 
   final String? body;
 
-  static GithubCommitData from(dom.Element aside) {
+  static GithubCommitData from(
+    dom.Element aside, {
+    required CookedTimeParser? cookedTimeParser,
+  }) {
     final article =
         descendantWhere(aside, (e) => e.classes.contains('onebox-body')) ??
         aside;
@@ -156,12 +160,15 @@ class GithubCommitData {
     final linesEl = info == null
         ? null
         : descendantWhere(info, (e) => e.classes.contains('lines'));
+    final cookedTime = dateEl == null
+        ? null
+        : cookedTimeParser?.parseDescendant(dateEl);
 
     return GithubCommitData(
       title: (titleLink?.text ?? scope.text).trim(),
       titleUrl: titleLink?.attributes['href'],
       committedVerb: dateEl == null ? null : githubDateVerb(dateEl),
-      committedAt: dateEl == null ? null : githubLocalDate(dateEl),
+      committedAt: cookedTime,
       authorLogin: userLink?.text.trim(),
       authorAvatarUrl: userLink == null
           ? null
@@ -178,13 +185,13 @@ class GithubCommitData {
 }
 
 /// Claims `aside.onebox.githubcommit`, for the dispatch in `onebox.dart`.
-final OneboxEngine githubCommitBlock = OneboxEngine(
+final GithubOneboxEngine githubCommitBlock = GithubOneboxEngine(
   matches: (aside) => aside.classes.contains('githubcommit'),
-  build: (aside, envelope, siteUrl) => OneboxCard(
+  build: (aside, envelope, siteUrl, cookedTimeParser) => OneboxCard(
     data: envelope,
     siteUrl: siteUrl,
     child: GithubCommitOnebox(
-      data: GithubCommitData.from(aside),
+      data: GithubCommitData.from(aside, cookedTimeParser: cookedTimeParser),
       siteUrl: siteUrl,
     ),
   ),

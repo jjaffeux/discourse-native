@@ -83,23 +83,18 @@ class ResenhaChatSnapshot {
   final bool sending;
   final bool canLoadMorePast;
   final String? error;
+}
 
-  ResenhaChatSnapshot copyWith({
-    ResenhaChatSession? session,
-    List<ChatMessage>? messages,
-    bool? loading,
-    bool? sending,
-    bool? canLoadMorePast,
-    String? error,
-    bool clearError = false,
-  }) => ResenhaChatSnapshot(
-    session: session ?? this.session,
-    messages: messages ?? this.messages,
-    loading: loading ?? this.loading,
-    sending: sending ?? this.sending,
-    canLoadMorePast: canLoadMorePast ?? this.canLoadMorePast,
-    error: clearError ? null : error ?? this.error,
-  );
+final class _ResenhaChatAssociation {
+  _ResenhaChatAssociation({this.session = const ResenhaChatSession()});
+
+  ResenhaChatSession session;
+  ChatConversation? conversation;
+  VoidCallback? conversationListener;
+  bool visible = false;
+  bool loading = false;
+  bool sending = false;
+  String? error;
 }
 
 @immutable
@@ -162,7 +157,7 @@ Future<bool?> _unknownResenhaCapability(String _) async => null;
 final class ResenhaController extends ChangeNotifier {
   ResenhaController({
     required this.api,
-    required this.chatApi,
+    required this.chatConversations,
     required this.credentials,
     required this.trackerFor,
     required this.userIdFor,
@@ -188,7 +183,7 @@ final class ResenhaController extends ChangeNotifier {
   }
 
   final ResenhaApi api;
-  final ChatApi chatApi;
+  final ChatConversationCapability chatConversations;
   final ApiCredentialReader credentials;
   final ResenhaTrackerLookup trackerFor;
   final ResenhaUserIdLookup userIdFor;
@@ -210,8 +205,7 @@ final class ResenhaController extends ChangeNotifier {
   final Map<String, Map<int, SiteMessageBusSubscription>> _roomSubscriptions =
       {};
   final Map<String, String> _errors = {};
-  final Map<String, ResenhaChatSnapshot> _chats = {};
-  final Map<String, SiteMessageBusSubscription> _chatSubscriptions = {};
+  final Map<String, _ResenhaChatAssociation> _chats = {};
   final Map<String, Object> _siteSessions = {};
   final Map<String, Object> _directoryRequests = {};
   final Map<String, Object> _chatRequests = {};
@@ -287,8 +281,19 @@ final class ResenhaController extends ChangeNotifier {
   ResenhaDirectory? directory(String siteUrl) => _directories[siteUrl];
   String? errorFor(String siteUrl) => _errors[siteUrl];
   bool isLoading(String siteUrl) => _loadingSites.contains(siteUrl);
-  ResenhaChatSnapshot? chat(String siteUrl, int roomId) =>
-      _chats['$siteUrl#$roomId'];
+  ResenhaChatSnapshot? chat(String siteUrl, int roomId) {
+    final state = _chats['$siteUrl#$roomId'];
+    if (state == null) return null;
+    final conversation = state.conversation?.value;
+    return ResenhaChatSnapshot(
+      session: state.session,
+      messages: conversation?.messages ?? const [],
+      loading: state.loading || (conversation?.loading ?? false),
+      sending: state.sending || (conversation?.sending ?? false),
+      canLoadMorePast: conversation?.canLoadMorePast ?? false,
+      error: state.error ?? conversation?.error,
+    );
+  }
 
   ResenhaRoom? room(String siteUrl, int roomId) {
     for (final room in _directories[siteUrl]?.rooms ?? const <ResenhaRoom>[]) {
@@ -374,6 +379,7 @@ final class ResenhaController extends ChangeNotifier {
     if (!isCurrent()) return;
     if (capabilityEnabled == false) {
       _directories.remove(siteUrl);
+      _pruneChatAssociations(siteUrl, const {});
       _directoryRequests.remove(siteUrl);
       _record('room.directory.skipped', component: 'room');
       notifyListeners();
@@ -399,6 +405,9 @@ final class ResenhaController extends ChangeNotifier {
       );
       if (!isCurrent()) return;
       _directories[siteUrl] = directory;
+      _pruneChatAssociations(siteUrl, {
+        for (final room in directory.rooms) room.id,
+      });
       _record(
         'room.directory.load_completed',
         component: 'room',
@@ -413,6 +422,7 @@ final class ResenhaController extends ChangeNotifier {
       // and parse failures stay retryable without claiming the plugin exists.
       if (_isUnavailableDirectoryFailure(error)) {
         _directories.remove(siteUrl);
+        _pruneChatAssociations(siteUrl, const {});
         _unavailableSites.add(siteUrl);
       } else {
         _errors[siteUrl] = "Couldn't load voice rooms.";
@@ -516,6 +526,7 @@ final class ResenhaController extends ChangeNotifier {
         }
       case 'destroyed':
         rooms.removeWhere((room) => room.id == incoming.id);
+        _removeChatAssociation(siteUrl, incoming.id);
         if (_call case final call?
             when call.siteUrl == siteUrl && call.room.id == incoming.id) {
           _observe(
@@ -2257,6 +2268,20 @@ final class ResenhaController extends ChangeNotifier {
         'resenha.chat.load',
       );
 
+  /// Releases the Chat-owned viewing handle when the room UI is no longer
+  /// visible while retaining only Resenha's lightweight room association.
+  void closeChat(String siteUrl, int roomId) {
+    final key = '$siteUrl#$roomId';
+    _chatRequests.remove(key);
+    final state = _chats[key];
+    if (state == null) return;
+    state
+      ..visible = false
+      ..loading = false;
+    _closeChatConversation(state);
+    if (!_disposed) notifyListeners();
+  }
+
   Future<void> _openChat(
     String siteUrl,
     int roomId, {
@@ -2270,137 +2295,40 @@ final class ResenhaController extends ChangeNotifier {
     bool isCurrent() =>
         _isCurrentSiteSession(siteUrl, siteSession) &&
         identical(_chatRequests[key], request);
-    final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (apiKey == null || !isCurrent()) return;
-    _chats[key] =
-        (_chats[key] ??
-                const ResenhaChatSnapshot(session: ResenhaChatSession()))
-            .copyWith(loading: true, clearError: true);
+    final state = _chats.putIfAbsent(key, _ResenhaChatAssociation.new);
+    state
+      ..visible = true
+      ..loading = true
+      ..error = null;
     notifyListeners();
     try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (apiKey == null || !isCurrent()) return;
       final session = await api.chatSession(
         siteUrl: siteUrl,
         roomId: roomId,
         apiKey: apiKey,
       );
       if (!isCurrent()) return;
-      final channelId = session.channelId;
-      final threadId = session.threadId;
-      var messages = const <ChatMessage>[];
-      var canLoadMorePast = false;
-      if (channelId != null && threadId != null) {
-        final page = await chatApi.chatThreadMessages(
-          siteUrl: siteUrl,
-          channelId: channelId,
-          threadId: threadId,
-          apiKey: apiKey,
-        );
-        if (!isCurrent()) return;
-        messages = page.messages;
-        canLoadMorePast = page.canLoadMorePast;
-        _subscribeChat(siteUrl, roomId, channelId, threadId);
-        if (messages.isNotEmpty) {
-          _observe(
-            () => chatApi.markChatThreadRead(
-              siteUrl: siteUrl,
-              apiKey: apiKey,
-              channelId: channelId,
-              threadId: threadId,
-              messageId: messages.last.id,
-            ),
-            'resenha.chat.markRead',
-          );
-        }
-      }
-      _chats[key] = ResenhaChatSnapshot(
-        session: session,
-        messages: messages,
-        canLoadMorePast: canLoadMorePast,
-      );
+      state.session = session;
+      final conversation = _bindChatConversation(siteUrl, key, state);
+      if (conversation != null) await conversation.refresh(force: force);
     } catch (error, stackTrace) {
       if (!isCurrent()) return;
-      _chats[key] =
-          (_chats[key] ??
-                  const ResenhaChatSnapshot(session: ResenhaChatSession()))
-              .copyWith(loading: false, error: "Couldn't load room chat.");
+      state.error = "Couldn't load room chat.";
       _report(error, stackTrace, 'resenha.chat.load');
-    }
-    if (isCurrent()) notifyListeners();
-  }
-
-  Future<void> loadOlderChat(String siteUrl, int roomId) => _runPublicOperation(
-    () => _loadOlderChat(siteUrl, roomId),
-    'resenha.chat.page',
-  );
-
-  Future<void> _loadOlderChat(String siteUrl, int roomId) async {
-    final key = '$siteUrl#$roomId';
-    final state = _chats[key];
-    final channelId = state?.session.channelId;
-    final threadId = state?.session.threadId;
-    if (state == null ||
-        state.loading ||
-        !state.canLoadMorePast ||
-        state.messages.isEmpty ||
-        channelId == null ||
-        threadId == null) {
-      return;
-    }
-    final siteSession = _siteSession(siteUrl);
-    final request = Object();
-    _chatRequests[key] = request;
-    bool isCurrent() =>
-        _isCurrentSiteSession(siteUrl, siteSession) &&
-        identical(_chatRequests[key], request);
-    final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (apiKey == null || !isCurrent()) return;
-    _chats[key] = state.copyWith(loading: true, clearError: true);
-    notifyListeners();
-    try {
-      final page = await chatApi.chatThreadMessages(
-        siteUrl: siteUrl,
-        channelId: channelId,
-        threadId: threadId,
-        before: state.messages.first.id,
-        apiKey: apiKey,
-      );
-      if (!isCurrent()) return;
-      final byId = {
-        for (final message in [...page.messages, ...state.messages])
-          message.id: message,
-      };
-      final merged = byId.values.toList()
-        ..sort((left, right) => left.id.compareTo(right.id));
-      _chats[key] = state.copyWith(
-        messages: List.unmodifiable(merged),
-        loading: false,
-        canLoadMorePast: page.canLoadMorePast,
-      );
-    } catch (error, stackTrace) {
-      if (!isCurrent()) return;
-      _chats[key] = state.copyWith(
-        loading: false,
-        error: "Couldn't load older messages.",
-      );
-      _report(error, stackTrace, 'resenha.chat.page');
-    }
-    if (isCurrent()) notifyListeners();
-  }
-
-  void _subscribeChat(String siteUrl, int roomId, int channelId, int threadId) {
-    final key = '$siteUrl#$roomId';
-    if (_chatSubscriptions.containsKey(key)) return;
-    final tracker = trackerFor(siteUrl);
-    if (tracker == null) return;
-    _chatSubscriptions[key] = tracker.watchPluginChannel('/chat/$channelId', (
-      data,
-    ) {
-      if (data is Map<String, dynamic> &&
-          (data['thread_id'] == threadId || data['thread_id'] == '$threadId')) {
-        unawaited(openChat(siteUrl, roomId, force: true));
+    } finally {
+      if (isCurrent()) {
+        _chatRequests.remove(key);
+        state.loading = false;
+        notifyListeners();
       }
-    });
+    }
   }
+
+  Future<void> loadOlderChat(String siteUrl, int roomId) =>
+      _chats['$siteUrl#$roomId']?.conversation?.loadOlder() ??
+      Future<void>.value();
 
   Future<void> sendChatMessage(String siteUrl, int roomId, String message) =>
       _runPublicOperation(
@@ -2416,13 +2344,19 @@ final class ResenhaController extends ChangeNotifier {
     final text = message.trim();
     if (text.isEmpty) return;
     final key = '$siteUrl#$roomId';
+    var state = _chats.putIfAbsent(key, _ResenhaChatAssociation.new);
+    final heldConversation = state.conversation;
+    if (heldConversation != null) {
+      await heldConversation.send(text);
+      return;
+    }
     final siteSession = _siteSession(siteUrl);
     bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
     final apiKey = await credentials.apiKeyFor(siteUrl);
     if (apiKey == null || !isCurrent()) return;
-    var state =
-        _chats[key] ?? const ResenhaChatSnapshot(session: ResenhaChatSession());
-    _chats[key] = state.copyWith(sending: true, clearError: true);
+    state
+      ..sending = true
+      ..error = null;
     notifyListeners();
     try {
       var session = state.session;
@@ -2435,6 +2369,7 @@ final class ResenhaController extends ChangeNotifier {
         );
         if (!isCurrent()) return;
       }
+      var sentFirstMessage = false;
       if (session.threadId == null) {
         session = await api.firstChatMessage(
           siteUrl: siteUrl,
@@ -2443,25 +2378,128 @@ final class ResenhaController extends ChangeNotifier {
           message: text,
         );
         if (!isCurrent()) return;
-      } else if (session.channelId case final channelId?) {
-        await chatApi.sendChatMessage(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          channelId: channelId,
-          threadId: session.threadId,
-          message: text,
-        );
-        if (!isCurrent()) return;
+        sentFirstMessage = true;
       }
       state = _chats[key] ?? state;
-      _chats[key] = state.copyWith(session: session, sending: false);
-      await openChat(siteUrl, roomId, force: true);
+      state
+        ..session = session
+        ..sending = false;
+      final retainConversation = state.visible && identical(_chats[key], state);
+      final conversation = retainConversation
+          ? _bindChatConversation(siteUrl, key, state)
+          : sentFirstMessage
+          ? null
+          : _temporaryChatConversation(siteUrl, state.session);
+      try {
+        if (conversation != null) {
+          if (sentFirstMessage) {
+            if (retainConversation) await conversation.refresh(force: true);
+          } else {
+            await conversation.send(text);
+            final sendError = conversation.value.error;
+            if (!retainConversation && sendError != null) {
+              state.error = sendError;
+            }
+          }
+        }
+      } finally {
+        if (!retainConversation) conversation?.close();
+      }
+      if (isCurrent()) notifyListeners();
     } catch (error, stackTrace) {
       if (!isCurrent()) return;
       state = _chats[key] ?? state;
-      _chats[key] = state.copyWith(sending: false, error: 'Message not sent.');
+      state
+        ..sending = false
+        ..error = 'Message not sent.';
       _report(error, stackTrace, 'resenha.chat.send');
       notifyListeners();
+    }
+  }
+
+  ChatConversation? _bindChatConversation(
+    String siteUrl,
+    String key,
+    _ResenhaChatAssociation state,
+  ) {
+    if (!state.visible || !identical(_chats[key], state)) {
+      _closeChatConversation(state);
+      return null;
+    }
+    final channelId = state.session.channelId;
+    final threadId = state.session.threadId;
+    final held = state.conversation;
+    if (channelId == null || threadId == null) {
+      _closeChatConversation(state);
+      return null;
+    }
+    if (held != null &&
+        held.channelId == channelId &&
+        held.threadId == threadId) {
+      return held;
+    }
+
+    _closeChatConversation(state);
+    final conversation = chatConversations.openThread(
+      siteUrl: siteUrl,
+      channelId: channelId,
+      threadId: threadId,
+    );
+    void conversationChanged() {
+      if (!_disposed && identical(_chats[key], state)) notifyListeners();
+    }
+
+    state
+      ..conversation = conversation
+      ..conversationListener = conversationChanged;
+    conversation.addListener(conversationChanged);
+    return conversation;
+  }
+
+  ChatConversation? _temporaryChatConversation(
+    String siteUrl,
+    ResenhaChatSession session,
+  ) {
+    final channelId = session.channelId;
+    final threadId = session.threadId;
+    if (channelId == null || threadId == null) return null;
+    return chatConversations.openThread(
+      siteUrl: siteUrl,
+      channelId: channelId,
+      threadId: threadId,
+    );
+  }
+
+  void _closeChatConversation(_ResenhaChatAssociation state) {
+    final conversation = state.conversation;
+    final listener = state.conversationListener;
+    if (conversation != null && listener != null) {
+      conversation.removeListener(listener);
+    }
+    conversation?.close();
+    state
+      ..conversation = null
+      ..conversationListener = null;
+  }
+
+  void _removeChatAssociation(String siteUrl, int roomId) {
+    final key = '$siteUrl#$roomId';
+    _chatRequests.remove(key);
+    final state = _chats.remove(key);
+    if (state != null) _closeChatConversation(state);
+  }
+
+  void _pruneChatAssociations(String siteUrl, Set<int> roomIds) {
+    final prefix = '$siteUrl#';
+    for (final key in {
+      ..._chats.keys.where((key) => key.startsWith(prefix)),
+      ..._chatRequests.keys.where((key) => key.startsWith(prefix)),
+    }) {
+      final roomId = int.tryParse(key.substring(prefix.length));
+      if (roomId != null && roomIds.contains(roomId)) continue;
+      _chatRequests.remove(key);
+      final state = _chats.remove(key);
+      if (state != null) _closeChatConversation(state);
     }
   }
 
@@ -2777,12 +2815,14 @@ final class ResenhaController extends ChangeNotifier {
     _directories.remove(siteUrl);
     _unavailableSites.remove(siteUrl);
     _linkedRooms.remove(siteUrl);
-    _chats.removeWhere((key, _) => key.startsWith('$siteUrl#'));
-    for (final key
-        in _chatSubscriptions.keys
-            .where((key) => key.startsWith('$siteUrl#'))
-            .toList()) {
-      _chatSubscriptions.remove(key)?.cancel();
+    final forgottenChats = <_ResenhaChatAssociation>[];
+    _chats.removeWhere((key, state) {
+      if (!key.startsWith('$siteUrl#')) return false;
+      forgottenChats.add(state);
+      return true;
+    });
+    for (final state in forgottenChats) {
+      _closeChatConversation(state);
     }
     _errors.remove(siteUrl);
     _loadingSites.remove(siteUrl);
@@ -3031,9 +3071,10 @@ final class ResenhaController extends ChangeNotifier {
         subscription.cancel();
       }
     }
-    for (final subscription in _chatSubscriptions.values) {
-      subscription.cancel();
+    for (final state in _chats.values) {
+      _closeChatConversation(state);
     }
+    _chats.clear();
     _observe(() => _systemActions.cancel(), 'resenha.systemActions.dispose');
     final call = _call;
     if (call != null && !identical(_leavingMedia, call.media)) {

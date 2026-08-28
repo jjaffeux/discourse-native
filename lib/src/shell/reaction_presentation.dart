@@ -2,17 +2,17 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../shell/avatar_image.dart';
-import '../../shell/emoji_picker.dart';
-import '../../shell/hover_panel.dart';
-import '../../shell/platform.dart';
-import '../../shell/shell_sheet.dart';
-import '../../shell/site_emoji_image.dart';
-import '../../shell/user_card.dart';
-import '../../theme/app_theme.dart';
-import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
-import 'post_reactors.dart';
+import '../plugin_api/reaction_presentation.dart';
+import '../theme/app_theme.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
+import 'avatar_image.dart';
+import 'emoji_picker.dart';
+import 'hover_panel.dart';
+import 'platform.dart';
+import 'shell_sheet.dart';
+import 'site_emoji_image.dart';
+import 'user_card.dart';
 
 /// The shared layout for reaction pills under either a post or chat message.
 ///
@@ -348,13 +348,13 @@ class ReactionUsersPanel extends StatelessWidget {
   }
 }
 
-typedef ReactionUsersSnapshot = ({ReactorsPage? reactors, String? error});
+typedef ReactionUsersSnapshot = ({ReactionUsersPage? reactors, String? error});
 
 /// Who reacted, with loading, retry and user rows shared by topic and chat.
 ///
 /// [source] is the owning feature controller. [select] and [load] are the only
-/// feature-specific code paths: topic delegates them to `ReactionsController`,
-/// while chat delegates them to `ChatController`.
+/// feature-specific code paths, so each owner retains its own cache identity,
+/// paging, error state, and endpoint semantics.
 class ReactionUsersList extends StatefulWidget {
   const ReactionUsersList({
     super.key,
@@ -518,7 +518,7 @@ class _ReactionUsersListState extends State<ReactionUsersList> {
 class _ReactorRow extends StatelessWidget {
   const _ReactorRow({required this.reactor, required this.siteUrl});
 
-  final PostReactor reactor;
+  final ReactionUser reactor;
   final String siteUrl;
 
   @override

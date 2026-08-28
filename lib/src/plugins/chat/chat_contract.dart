@@ -1,9 +1,4 @@
-export 'chat_api.dart' show ChatApi;
+export 'chat_conversation_contract.dart'
+    show ChatConversation, ChatConversationCapability, ChatConversationSnapshot;
 export 'chat_message.dart' show ChatMessage;
-export 'chat_services.dart'
-    show
-        chatApiService,
-        chatControllerService,
-        chatGifsApiService,
-        chatPluginId,
-        chatSearchControllerService;
+export 'chat_services.dart' show chatConversationService, chatPluginId;

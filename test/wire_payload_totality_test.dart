@@ -31,6 +31,7 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary.dart';
@@ -471,6 +472,7 @@ void main() {
       probe('Poll', () => Poll.fromJson(loose, site), loose);
       probe('Polls', () => Polls.fromJson(json, site), json);
       probe('PostReactor', () => PostReactor.fromJson(json, site), json);
+      probe('ChatReactor', () => ChatReactor.fromJson(json, site), json);
       probe('Reaction', () => Reaction.fromJson(loose), loose);
       probe('Reactions', () => Reactions.fromJson(json), json);
 

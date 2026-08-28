@@ -5,6 +5,7 @@ import '../../../../shell/cooked_dom.dart';
 import '../../../../shell/oneboxes/onebox.dart';
 import '../../../../shell/relative_time.dart';
 import '../../../../theme/app_theme.dart';
+import '../../../local_dates/local_dates_contract.dart';
 import '../github.dart';
 
 /// The issue engine: `aside.onebox.githubissue`.
@@ -166,7 +167,10 @@ class GithubIssueData {
 
   final String? body;
 
-  static GithubIssueData from(dom.Element aside) {
+  static GithubIssueData from(
+    dom.Element aside, {
+    required CookedTimeParser? cookedTimeParser,
+  }) {
     final article =
         descendantWhere(aside, (e) => e.classes.contains('onebox-body')) ??
         aside;
@@ -191,6 +195,12 @@ class GithubIssueData {
     final userLink = userEl == null
         ? null
         : descendantWhere(userEl, (e) => e.localName == 'a');
+    final openedTime = dates.isEmpty
+        ? null
+        : cookedTimeParser?.parseDescendant(dates[0]);
+    final closedTime = dates.length < 2
+        ? null
+        : cookedTimeParser?.parseDescendant(dates[1]);
 
     final labelsEl = descendantWhere(
       scope,
@@ -207,9 +217,9 @@ class GithubIssueData {
       title: (titleLink?.text ?? scope.text).trim(),
       titleUrl: titleLink?.attributes['href'],
       openedVerb: dates.isNotEmpty ? githubDateVerb(dates[0]) : null,
-      openedAt: dates.isNotEmpty ? githubLocalDate(dates[0]) : null,
+      openedAt: openedTime,
       closedVerb: dates.length > 1 ? githubDateVerb(dates[1]) : null,
-      closedAt: dates.length > 1 ? githubLocalDate(dates[1]) : null,
+      closedAt: closedTime,
       userLogin: userLink?.text.trim(),
       userAvatarUrl: userLink == null
           ? null
@@ -225,13 +235,13 @@ class GithubIssueData {
 }
 
 /// Claims `aside.onebox.githubissue`, for the dispatch in `onebox.dart`.
-final OneboxEngine githubIssueBlock = OneboxEngine(
+final GithubOneboxEngine githubIssueBlock = GithubOneboxEngine(
   matches: (aside) => aside.classes.contains('githubissue'),
-  build: (aside, envelope, siteUrl) => OneboxCard(
+  build: (aside, envelope, siteUrl, cookedTimeParser) => OneboxCard(
     data: envelope,
     siteUrl: siteUrl,
     child: GithubIssueOnebox(
-      data: GithubIssueData.from(aside),
+      data: GithubIssueData.from(aside, cookedTimeParser: cookedTimeParser),
       siteUrl: siteUrl,
     ),
   ),
