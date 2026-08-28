@@ -346,9 +346,12 @@ class GithubBodyText extends StatelessWidget {
 
 // --- DOM reading shared by the GitHub engines.
 
-/// The `discourse-local-date` span carries the real moment in `data-date` and
-/// `data-time`; the text the server wrote as a fallback is a fixed-time
-/// string nobody asked for.
+/// The GitHub Onebox templates carry their real moment in `data-date` and
+/// `data-time` on a `discourse-local-date` span.
+///
+/// Those attributes are the server template's wire shape even when the Local
+/// Dates client plugin is absent. GitHub owns this minimal UTC decode; Local
+/// Dates owns authoring and reader-specific presentation of cooked dates.
 DateTime? githubLocalDate(dom.Element scope) {
   final span = descendantWhere(
     scope,
@@ -358,7 +361,8 @@ DateTime? githubLocalDate(dom.Element scope) {
 
   final date = span.attributes['data-date'];
   final time = span.attributes['data-time'];
-  if (date == null || time == null) return null;
+  final timezone = span.attributes['data-timezone'];
+  if (date == null || time == null || timezone != 'UTC') return null;
   return DateTime.tryParse('$date $time Z');
 }
 

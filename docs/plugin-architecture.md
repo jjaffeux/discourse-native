@@ -81,6 +81,13 @@ Plugin HTTP contracts and route/payload parsing live beside their feature
 (`poll`, `reactions`, `gifs`, and `chat`) and use the shared transport only as a
 narrow wire boundary. `DiscourseApi` exposes no typed plugin endpoint.
 
+Topic recommendation sources are a sibling resource, not values in a topic's
+`PluginData`. Their catalog and decoder therefore use a separate
+`TopicRecommendationSourceCodec` seam. Core recognizes only
+`suggested_topics`; each optional source recognizes and normalizes its own
+payload into the shared recommendation-topic row shape before core constructs
+`Topic` values. Absence remains distinct from a present, empty source.
+
 ## Persistence and compatibility
 
 The instance snapshot stores plugin values under a `plugins` object keyed by
@@ -103,6 +110,13 @@ installed: a smaller manifest deliberately has no schema with which to claim
 those legacy keys. Once data has been written under `plugins`, every manifest
 can preserve it losslessly without decoding it.
 
+The remembered recommendation tab follows the same ownership rule. Core
+accepts stable namespaced source ids and migrates only its old `suggested`
+value. Optional source codecs declare their own pre-stable aliases; the
+validated registry rejects whitespace, namespaced aliases, duplicate claims,
+and attempts to claim core's alias. Thus `related` becomes
+`discourse-ai/related` only while the Discourse AI codec is installed.
+
 Malformed data in one installed namespace is isolated to that codec and does
 not make the connected site unreadable. Once claimed, malformed data is not
 re-emitted indefinitely.
@@ -123,9 +137,13 @@ The registry currently provides typed seams for:
   mentions, and emoji usage), toolbar actions, shortcuts, lossless syntax
   projections, and optimistic Chat preview syntax;
 - ordered user-menu sections, plugin notification feeds, bookmark target
-  strategies, and ordered topic recommendation sources;
+  strategies, and ordered owner-decoded topic recommendation sources;
 - sidebar sections, content routes, content chrome, shell header actions, and
   app-global overlays;
+- owner-local icon catalogs for optional artwork and semantic aliases, with a
+  required generic fallback for unknown or uninstalled names; shared wire
+  readers receive this resolver explicitly, so an installed owner alias works
+  without returning that alias to core's generated icon table;
 - session route handlers, restored-route hydration, tracker attachments,
   site/totals observers, bookmark strategies, and background-site ownership.
 
@@ -140,13 +158,26 @@ Plugin-owned widgets receive narrow services such as composer, emoji,
 bookmark, or notification hosts rather than a concrete `ShellController`.
 Bookmark mutation services are bound to one registered target type and require
 the originating site explicitly, so a sheet that outlives a forum switch
-cannot write through the newly selected forum.
+cannot write through the newly selected forum. Core post/topic actions bind a
+real topic context; the separate plugin bookmark host exposes only its opaque,
+owner-scoped target context. Shared reminder UI adapts those two contracts and
+never invents a sentinel topic id for a plugin record.
+
+Sidebar destinations likewise carry only generic presentation and navigation
+state. Optional owners may contribute prefix and label-suffix builders that
+watch their own live records; Chat uses those hooks for presence avatars and
+user status. Resenha contributes its indented participant rows directly in
+its section, so the core DTO has no Chat-user or voice-room child fields.
 
 The full manifest declares route and syntax ownership up front. Chat and
 Resenha own separate route namespaces; Poll and Local Dates declare their
 composer syntax ids. Local Dates owns cooked date markup, Chat owns its header
 action, and Resenha owns its global call overlay rather than being imported by
-core shell widgets.
+core shell widgets. Optional AI, GIF, and Poll artwork lives beside those
+plugins; core's generated icon catalog no longer embeds it, and Chat owns the
+`d-chat` alias it contributes to Discourse's wire vocabulary. Core flag models
+likewise expose only a generic target predicate; Chat owns the
+`Chat::Message` target constant used by its flag and bookmark paths.
 
 ## Deferred UI contribution seams
 

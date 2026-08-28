@@ -36,7 +36,7 @@ void main() {
             'is_flag': true,
             'enabled': false,
             'require_message': true,
-            'applies_to': ['Post', 'Topic'],
+            'applies_to': ['Post', 'Topic', 'Plugin::Opaque'],
           },
           {
             'id': 7,
@@ -66,6 +66,8 @@ void main() {
       expect(catalog.postFlags[1].enabled, isFalse);
       expect(catalog.postFlags[1].requireMessage, isTrue);
       expect(catalog.postFlags[1].appliesToPost, isTrue);
+      expect(catalog.postFlags[1].appliesToTarget('Topic'), isTrue);
+      expect(catalog.postFlags[1].appliesToTarget('Plugin::Opaque'), isTrue);
       expect(catalog.postFlags.last.appliesToPost, isFalse);
       expect(catalog.topicFlags.single.id, 8);
       expect(catalog.topicFlags.single.appliesToTopic, isTrue);

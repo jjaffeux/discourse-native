@@ -419,6 +419,7 @@ void main() {
         },
         site,
         extensions: const PluginRegistry([AiSummaryPlugin()]),
+        recommendationSources: const PluginRegistry([AiSummaryPlugin()]),
       );
 
       final recommendations = payload.detail.recommendations!;

@@ -1,12 +1,12 @@
 import 'package:discourse_native/src/plugin_api/core_plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
-import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_shell_extension.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_shell_service.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 
 void main() {
@@ -38,6 +38,6 @@ void main() {
     expect(plugins.descriptors, isEmpty);
     expect(plugins.registry.plugins, isEmpty);
     expect(() => controller.chat, throwsStateError);
-    expect(() => controller.resenha, throwsStateError);
+    expect(controller.pluginSession.maybeService(resenhaShellService), isNull);
   });
 }

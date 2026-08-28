@@ -9,7 +9,7 @@ import '../../theme/d_icons.dart';
 import 'chat_plugin_data.dart';
 import 'chat_search_controller.dart';
 import 'chat_services.dart';
-import 'chat_shell_extension.dart';
+import 'chat_shell_service.dart';
 
 class ChatChannelSearchButton extends StatelessWidget {
   const ChatChannelSearchButton({
@@ -224,7 +224,7 @@ class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
     if (hit == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ShellScope.read(context).revealChatChannelMessage(
+      PluginScope.require(context, chatShellService).revealChannelMessage(
         siteUrl: widget.siteUrl,
         channelId: widget.channelId,
         messageId: hit.message.id,

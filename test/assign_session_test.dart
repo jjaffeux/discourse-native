@@ -17,7 +17,11 @@ void main() {
       'preserves present true and false values from a fresh session',
       () async {
         final api = DiscourseApi(
-          models: DiscourseModelCodec(extensions: pluginRegistry),
+          models: DiscourseModelCodec(
+            extensions: pluginRegistry,
+            recommendationSources: pluginRegistry,
+            icons: pluginRegistry,
+          ),
           client: MockClient(
             (_) async => http.Response(
               jsonEncode({
@@ -46,7 +50,11 @@ void main() {
       'keeps absent capabilities unknown for optional plugin safety',
       () async {
         final api = DiscourseApi(
-          models: DiscourseModelCodec(extensions: pluginRegistry),
+          models: DiscourseModelCodec(
+            extensions: pluginRegistry,
+            recommendationSources: pluginRegistry,
+            icons: pluginRegistry,
+          ),
           client: MockClient(
             (_) async => http.Response(
               jsonEncode({

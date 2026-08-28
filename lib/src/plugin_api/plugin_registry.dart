@@ -12,12 +12,19 @@ import '../models/topic.dart';
 import '../models/user_card.dart';
 import '../shell/composer_controller.dart';
 import '../shell/post_action.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'chat_preview.dart';
 import 'site_plugin_api.dart';
 
 /// Immutable dispatch table produced by installing a complete manifest.
 @immutable
-final class PluginRegistry implements PluginDataDecoder {
+final class PluginRegistry
+    implements
+        PluginDataDecoder,
+        IconNameDecoder,
+        TopicRecommendationSourceDecoder,
+        TopicRecommendationSourceMigrationRegistry {
   const PluginRegistry(this.plugins);
 
   static const PluginRegistry empty = PluginRegistry([]);
@@ -27,6 +34,7 @@ final class PluginRegistry implements PluginDataDecoder {
     registry._validateRecordOwners();
     registry._validateComposerTargetOwners();
     registry._validateTopicRecommendationSources();
+    registry._validateIconCatalogs();
     registry._validateNotificationFeeds();
     return registry;
   }
@@ -55,13 +63,59 @@ final class PluginRegistry implements PluginDataDecoder {
 
   final List<SitePlugin> plugins;
 
+  List<PluginIconCatalog> get iconCatalogs => List.unmodifiable([
+    for (final plugin in plugins.whereType<IconCatalogPlugin>())
+      plugin.iconCatalog,
+  ]);
+
+  /// Resolves a core or installed-plugin icon name.
+  ///
+  /// Unknown names deliberately answer [fallback], including names owned by a
+  /// plugin which is not installed in this composition.
+  @override
+  DIconData iconNamed(String? name, {required DIconData fallback}) {
+    final core = name == null ? null : DIcons.byName[name];
+    if (core != null) return core;
+    for (final catalog in iconCatalogs) {
+      final icon = catalog.iconNamed(name);
+      if (icon != null) return icon;
+    }
+    return fallback;
+  }
+
   @override
   List<TopicRecommendationSourceDefinition> get topicRecommendationSources =>
       List.unmodifiable([
         for (final plugin
             in plugins.whereType<TopicRecommendationSourcePlugin>())
-          ...plugin.topicRecommendationSources,
+          for (final codec in plugin.topicRecommendationSourceCodecs)
+            codec.definition,
       ]);
+
+  @override
+  List<TopicRecommendationSourcePayload> readTopicRecommendationSources(
+    Map<String, dynamic> json,
+  ) => List.unmodifiable([
+    for (final plugin in plugins.whereType<TopicRecommendationSourcePlugin>())
+      for (final codec in plugin.topicRecommendationSourceCodecs)
+        if (codec.decodeTopicRows(json) case final rows?)
+          TopicRecommendationSourcePayload(
+            definition: codec.definition,
+            topicRows: rows,
+          ),
+  ]);
+
+  @override
+  TopicRecommendationSourceId? migrateLegacyStoredId(String storedId) {
+    for (final plugin in plugins.whereType<TopicRecommendationSourcePlugin>()) {
+      for (final codec in plugin.topicRecommendationSourceCodecs) {
+        if (codec.legacyStoredIds.contains(storedId)) {
+          return codec.definition.id;
+        }
+      }
+    }
+    return null;
+  }
 
   List<PluginNotificationFeedSource> get notificationFeeds =>
       List.unmodifiable([
@@ -100,22 +154,22 @@ final class PluginRegistry implements PluginDataDecoder {
     final idOwners = <TopicRecommendationSourceId, String>{
       coreSuggestedTopicRecommendationSource.id: 'core',
     };
-    final payloadOwners = <String, String>{
-      coreSuggestedTopicRecommendationSource.payloadKey: 'core',
+    final legacyIdOwners = <String, String>{
+      coreSuggestedTopicRecommendationLegacyStoredId: 'core',
     };
     for (final plugin in plugins.whereType<TopicRecommendationSourcePlugin>()) {
       final pluginName = (plugin as SitePlugin).name;
-      for (final source in plugin.topicRecommendationSources) {
+      for (final codec in plugin.topicRecommendationSourceCodecs) {
+        final source = codec.definition;
         if (!source.id.isNamespaced || source.id.namespace != pluginName) {
           throw ArgumentError(
             'Topic recommendation source ${source.id} must be namespaced to '
             '$pluginName.',
           );
         }
-        if (source.payloadKey.trim().isEmpty || source.label.trim().isEmpty) {
+        if (source.label.trim().isEmpty) {
           throw ArgumentError(
-            'Topic recommendation source ${source.id} must declare a payload '
-            'key and label.',
+            'Topic recommendation source ${source.id} must declare a label.',
           );
         }
         final previousIdOwner = idOwners[source.id];
@@ -125,15 +179,54 @@ final class PluginRegistry implements PluginDataDecoder {
             '$previousIdOwner and $pluginName.',
           );
         }
-        final previousPayloadOwner = payloadOwners[source.payloadKey];
-        if (previousPayloadOwner != null) {
+        idOwners[source.id] = pluginName;
+        for (final legacyId in codec.legacyStoredIds) {
+          if (legacyId.trim() != legacyId ||
+              legacyId.isEmpty ||
+              TopicRecommendationSourceId(legacyId).isNamespaced) {
+            throw ArgumentError(
+              'Legacy topic recommendation id "$legacyId" registered by '
+              '$pluginName must be a trimmed pre-stable value.',
+            );
+          }
+          final previousLegacyOwner = legacyIdOwners[legacyId];
+          if (previousLegacyOwner != null) {
+            throw ArgumentError(
+              'Legacy topic recommendation id "$legacyId" is claimed by '
+              'both $previousLegacyOwner and $pluginName.',
+            );
+          }
+          legacyIdOwners[legacyId] = pluginName;
+        }
+      }
+    }
+  }
+
+  void _validateIconCatalogs() {
+    final owners = <String, String>{
+      for (final name in DIcons.byName.keys) name: 'core',
+    };
+    for (final plugin in plugins.whereType<IconCatalogPlugin>()) {
+      final pluginName = (plugin as SitePlugin).name;
+      final catalog = plugin.iconCatalog;
+      if (catalog.owner != PluginId(pluginName)) {
+        throw ArgumentError(
+          'Icon catalog ${catalog.owner} is registered by $pluginName.',
+        );
+      }
+      for (final name in catalog.entries.keys) {
+        if (name.isEmpty || name.trim() != name) {
           throw ArgumentError(
-            'Topic recommendation payload ${source.payloadKey} is claimed by '
-            'both $previousPayloadOwner and $pluginName.',
+            'Icon names contributed by $pluginName must not be empty or padded.',
           );
         }
-        idOwners[source.id] = pluginName;
-        payloadOwners[source.payloadKey] = pluginName;
+        final previous = owners[name];
+        if (previous != null) {
+          throw ArgumentError(
+            'Icon name $name is claimed by both $previous and $pluginName.',
+          );
+        }
+        owners[name] = pluginName;
       }
     }
   }
@@ -669,28 +762,6 @@ final class PluginRegistry implements PluginDataDecoder {
       if (listenable != null) listenables.add(listenable);
     }
     return listenables;
-  }
-
-  Widget? userAvatar(
-    BuildContext context, {
-    required String siteUrl,
-    required int userId,
-    required String url,
-    required double size,
-    required Widget fallback,
-  }) {
-    for (final plugin in plugins.whereType<UserAvatarPlugin>()) {
-      final avatar = plugin.userAvatar(
-        context,
-        siteUrl: siteUrl,
-        userId: userId,
-        url: url,
-        size: size,
-        fallback: fallback,
-      );
-      if (avatar != null) return avatar;
-    }
-    return null;
   }
 
   Widget? content(BuildContext context, ContentRoute route) {

@@ -3,13 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_services.dart';
-import 'chat_shell_extension.dart';
+import 'chat_shell_service.dart';
 
 enum ChatChannelJoinedFilter { all, joined, notJoined }
 
@@ -319,7 +318,10 @@ class _ChannelCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 5),
       child: InkWell(
         onTap: following
-            ? () => ShellScope.read(context).openChatChannel(channel.id)
+            ? () => PluginScope.require(
+                context,
+                chatShellService,
+              ).openChannel(channel.id)
             : null,
         borderRadius: BorderRadius.circular(12),
         child: Padding(

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../shell/pill.dart';
 import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
 import 'poll_composer_parser.dart';
+import 'poll_icons.dart';
 
 export 'poll_composer_parser.dart';
 
@@ -165,7 +165,7 @@ class PollComposerPill extends StatelessWidget {
       hovered: hovered,
       highlighted: highlighted,
       leading: DIcon(
-        DIcons.squarePollHorizontal,
+        PollIcons.squarePollHorizontal,
         size: Pill.iconBoxFor(baseStyle),
       ),
     ),

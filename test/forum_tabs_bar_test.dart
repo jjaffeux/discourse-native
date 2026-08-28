@@ -412,6 +412,40 @@ void main() {
     expect(dot.left - titleEnd, moreOrLessEquals(3, epsilon: 0.5));
   });
 
+  testWidgets('renders owner-provided prefix and label decorations', (
+    tester,
+  ) async {
+    double? prefixSize;
+    double? suffixSize;
+    final item = ForumTabItem(
+      id: 'plugin-route',
+      title: 'Plugin route',
+      prefixBuilder: (_, size) {
+        prefixSize = size;
+        return const SizedBox(key: ValueKey('plugin-tab-prefix'));
+      },
+      labelSuffixBuilder: (_, size) {
+        suffixSize = size;
+        return const SizedBox(key: ValueKey('plugin-tab-label-suffix'));
+      },
+      semanticDescription: 'feature state',
+    );
+
+    await _pumpBar(tester, items: [item], selectedId: item.id);
+
+    expect(find.byKey(const ValueKey('plugin-tab-prefix')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('plugin-tab-label-suffix')),
+      findsOneWidget,
+    );
+    expect(prefixSize, 15);
+    expect(suffixSize, 13);
+    expect(
+      find.bySemanticsLabel('Plugin route, feature state'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('does not render an OPEN label or opened-tab totals', (
     tester,
   ) async {

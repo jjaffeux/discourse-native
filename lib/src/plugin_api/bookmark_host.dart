@@ -112,7 +112,47 @@ abstract interface class BookmarkHost {
 }
 
 /// Target-bound bookmark actions exposed to plugin-owned widgets.
-abstract interface class PluginBookmarkHost implements BookmarkTargetHost {}
+///
+/// A plugin bookmark has no topic/post context. The owning strategy is the
+/// opaque context used to project the write back into feature state, so this
+/// contract deliberately has no `topicId` parameter. Core's topic-aware host
+/// remains a separate interface rather than asking plugins to pass a sentinel.
+abstract interface class PluginBookmarkHost {
+  BookmarkSiteContext siteContextFor(String siteUrl);
+
+  bool bookmarkWriteInFlight({required String siteUrl, required int targetId});
+
+  ValueListenable<bool> bookmarkWriteInFlightListenable({
+    required String siteUrl,
+    required int targetId,
+  });
+
+  Future<BookmarkWriteResult> createBookmark({
+    required String siteUrl,
+    required int targetId,
+    String? name,
+    DateTime? reminderAt,
+    BookmarkAutoDeletePreference? autoDeletePreference,
+  });
+
+  Future<BookmarkWriteResult> updateBookmark({
+    required String siteUrl,
+    required Bookmark bookmark,
+    String? name,
+    DateTime? reminderAt,
+    required BookmarkAutoDeletePreference autoDeletePreference,
+  });
+
+  Future<BookmarkWriteResult> clearBookmarkReminder({
+    required String siteUrl,
+    required Bookmark bookmark,
+  });
+
+  Future<BookmarkWriteResult> deleteBookmark({
+    required String siteUrl,
+    required Bookmark bookmark,
+  });
+}
 
 /// Creates a least-privilege facade for one plugin-owned target strategy.
 abstract interface class PluginBookmarkHostFactory {

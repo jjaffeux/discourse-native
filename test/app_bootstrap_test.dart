@@ -12,7 +12,7 @@ void main() {
 
     expect(host.calls, [
       'ensureFlutterInitialized',
-      'initializeLocalDates',
+      'initializeTimezoneEnvironment',
       'installBoundedHttpOverrides',
       'createDiagnostics',
       'installDiagnosticsSink',
@@ -36,7 +36,7 @@ void main() {
 
     expect(host.calls, [
       'ensureFlutterInitialized',
-      'initializeLocalDates',
+      'initializeTimezoneEnvironment',
       'installBoundedHttpOverrides',
       'createDiagnostics',
       'installDiagnosticsSink',
@@ -68,7 +68,7 @@ void main() {
     expect(host.unhandledErrors.single.source, 'zone');
     expect(host.calls, [
       'ensureFlutterInitialized',
-      'initializeLocalDates',
+      'initializeTimezoneEnvironment',
       'installBoundedHttpOverrides',
       'createDiagnostics',
       'installDiagnosticsSink',
@@ -81,13 +81,18 @@ void main() {
   });
 
   test('forwards a fatal error before handlers can install', () async {
-    final host = _RecordingBootstrapHost(failureStage: 'initializeLocalDates');
+    final host = _RecordingBootstrapHost(
+      failureStage: 'initializeTimezoneEnvironment',
+    );
 
     final forwarded = await _startAndCaptureFatalError(host);
 
     expect(forwarded.error, same(host.failure));
     expect(host.unhandledErrors, isEmpty);
-    expect(host.calls, ['ensureFlutterInitialized', 'initializeLocalDates']);
+    expect(host.calls, [
+      'ensureFlutterInitialized',
+      'initializeTimezoneEnvironment',
+    ]);
     expect(host.launched.isCompleted, isFalse);
   });
 }
@@ -153,8 +158,8 @@ final class _RecordingBootstrapHost implements AppBootstrapHost {
   }
 
   @override
-  Future<void> initializeLocalDates() async {
-    _record('initializeLocalDates');
+  Future<void> initializeTimezoneEnvironment() async {
+    _record('initializeTimezoneEnvironment');
   }
 
   @override

@@ -4,13 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/relative_time.dart';
-import '../../shell/shell_scope.dart';
 import '../../shell/user_status.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_controller.dart';
 import 'chat_services.dart';
-import 'chat_shell_extension.dart';
+import 'chat_shell_service.dart';
 import 'chat_thread.dart';
 import 'chat_user_avatar.dart';
 
@@ -260,7 +259,7 @@ class ChatThreadListRow extends StatelessWidget {
       final channel = await chat.ensureChannel(siteUrl, thread.channelId);
       if (!context.mounted) return;
       if (channel == null) throw StateError('Channel unavailable');
-      ShellScope.read(context).openChatThread(
+      PluginScope.require(context, chatShellService).openThread(
         siteUrl: siteUrl,
         channelId: channel.id,
         threadId: thread.id,

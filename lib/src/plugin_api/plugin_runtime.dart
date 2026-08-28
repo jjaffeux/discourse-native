@@ -210,7 +210,11 @@ final class InstalledPlugins {
        descriptors = List.unmodifiable(
          registrations.map((registration) => registration.descriptor),
        ),
-       models = DiscourseModelCodec(extensions: registry);
+       models = DiscourseModelCodec(
+         extensions: registry,
+         recommendationSources: registry,
+         icons: registry,
+       );
 
   final List<_PluginRegistration> _registrations;
   final List<PluginDescriptor> descriptors;

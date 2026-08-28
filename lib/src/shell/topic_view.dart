@@ -322,8 +322,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _recommendationsSiteUrl = siteUrl;
     _recommendationsPanelCollapsed = false;
     _recommendationsSourceId = coreSuggestedTopicRecommendationSourceId;
+    final sourceMigrations =
+        PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     unawaited(_restoreRecommendationsPanel(siteUrl));
-    unawaited(_restoreRecommendationsTab(siteUrl));
+    unawaited(_restoreRecommendationsTab(siteUrl, sourceMigrations));
   }
 
   Future<void> _restoreRecommendationsPanel(String siteUrl) async {
@@ -341,10 +343,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _restoreRecommendationsTab(String siteUrl) async {
+  Future<void> _restoreRecommendationsTab(
+    String siteUrl,
+    TopicRecommendationSourceMigrationRegistry sourceMigrations,
+  ) async {
     final generation = ++_recommendationsTabRestoreGeneration;
     final sourceId = await widget.recommendationsTabStore.read(
       siteUrl: siteUrl,
+      sourceMigrations: sourceMigrations,
     );
     if (!mounted ||
         generation != _recommendationsTabRestoreGeneration ||

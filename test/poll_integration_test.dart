@@ -67,7 +67,11 @@ void main() {
       'current user reads fresh poll capability, staff, and group names',
       () async {
         final api = DiscourseApi(
-          models: DiscourseModelCodec(extensions: pluginRegistry),
+          models: DiscourseModelCodec(
+            extensions: pluginRegistry,
+            recommendationSources: pluginRegistry,
+            icons: pluginRegistry,
+          ),
           client: MockClient(
             (_) async => http.Response(
               jsonEncode({
@@ -101,7 +105,11 @@ void main() {
       'an absent plugin capability remains unknown, including in old storage',
       () async {
         final api = DiscourseApi(
-          models: DiscourseModelCodec(extensions: pluginRegistry),
+          models: DiscourseModelCodec(
+            extensions: pluginRegistry,
+            recommendationSources: pluginRegistry,
+            icons: pluginRegistry,
+          ),
           client: MockClient(
             (_) async => http.Response(
               jsonEncode({

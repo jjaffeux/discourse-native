@@ -6,7 +6,8 @@ import 'store_diagnostics.dart';
 
 /// Per-forum more-topics tab persistence.
 abstract interface class TopicRecommendationsTabPersistence {
-  Future<TopicRecommendationSourceId?> readTab({required String siteUrl});
+  /// Reads the raw value so the store can apply the installed source codecs.
+  Future<String?> readStoredSourceId({required String siteUrl});
 
   Future<bool> writeTab({
     required String siteUrl,
@@ -21,11 +22,8 @@ final class SharedPreferencesTopicRecommendationsTabPersistence
   static const String _keyPrefix = 'discourse_native.topic_recommendations_tab';
 
   @override
-  Future<TopicRecommendationSourceId?> readTab({
-    required String siteUrl,
-  }) async => _sourceIdFromStoredValue(
-    (await SharedPreferences.getInstance()).getString(_key(siteUrl)),
-  );
+  Future<String?> readStoredSourceId({required String siteUrl}) async =>
+      (await SharedPreferences.getInstance()).getString(_key(siteUrl));
 
   @override
   Future<bool> writeTab({
@@ -55,16 +53,25 @@ final class TopicRecommendationsTabStore {
   static final ReadAfterWriteOperationQueue _operations =
       ReadAfterWriteOperationQueue();
 
-  Future<TopicRecommendationSourceId> read({required String siteUrl}) =>
-      _operations.read(
-        owner: _persistence,
-        key: siteUrl,
-        operation: () => _read(siteUrl),
-      );
+  Future<TopicRecommendationSourceId> read({
+    required String siteUrl,
+    TopicRecommendationSourceMigrationRegistry sourceMigrations =
+        const EmptyTopicRecommendationSourceMigrationRegistry(),
+  }) => _operations.read(
+    owner: _persistence,
+    key: siteUrl,
+    operation: () => _read(siteUrl, sourceMigrations),
+  );
 
-  Future<TopicRecommendationSourceId> _read(String siteUrl) async {
+  Future<TopicRecommendationSourceId> _read(
+    String siteUrl,
+    TopicRecommendationSourceMigrationRegistry sourceMigrations,
+  ) async {
     try {
-      return await _persistence.readTab(siteUrl: siteUrl) ??
+      return _sourceIdFromStoredValue(
+            await _persistence.readStoredSourceId(siteUrl: siteUrl),
+            sourceMigrations,
+          ) ??
           coreSuggestedTopicRecommendationSourceId;
     } catch (error, stackTrace) {
       reportStorageFailure(
@@ -107,16 +114,20 @@ final class TopicRecommendationsTabStore {
   }
 }
 
-TopicRecommendationSourceId? _sourceIdFromStoredValue(String? value) {
+TopicRecommendationSourceId? _sourceIdFromStoredValue(
+  String? value,
+  TopicRecommendationSourceMigrationRegistry sourceMigrations,
+) {
   if (value == null) return null;
 
   // Versions before recommendation contributions persisted enum names. Map
-  // those once at the storage boundary; all new values are stable source ids.
-  if (value == 'suggested') return coreSuggestedTopicRecommendationSourceId;
-  if (value == 'related') {
-    return const TopicRecommendationSourceId('discourse-ai/related');
+  // core's own value here; optional sources resolve their aliases through the
+  // installed codec registry.
+  if (value == coreSuggestedTopicRecommendationLegacyStoredId) {
+    return coreSuggestedTopicRecommendationSourceId;
   }
 
   final sourceId = TopicRecommendationSourceId(value);
-  return sourceId.isNamespaced ? sourceId : null;
+  if (sourceId.isNamespaced) return sourceId;
+  return sourceMigrations.migrateLegacyStoredId(value);
 }

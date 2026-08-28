@@ -767,7 +767,14 @@ class _ChatComposerState extends State<ChatComposer> {
                                     false)
                             ? null
                             : () => unawaited(_pickGif()),
-                        icon: const DIcon(DIcons.gif, size: 18),
+                        icon: DIcon(
+                          PluginScope.maybeOf(context)?.registry.iconNamed(
+                                'gif',
+                                fallback: DIcons.paperclip,
+                              ) ??
+                              DIcons.paperclip,
+                          size: 18,
+                        ),
                         tooltip: 'Send GIF',
                         variant: DButtonVariant.flat,
                       ),

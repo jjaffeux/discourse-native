@@ -1,10 +1,10 @@
 import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
+import 'package:discourse_native/src/plugins/poll/poll_icons.dart';
 import 'package:discourse_native/src/plugins/poll/poll_plugin.dart';
 import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -77,7 +77,7 @@ void main() {
     expect(
       find.byWidgetPredicate(
         (widget) =>
-            widget is DIcon && widget.icon == DIcons.squarePollHorizontal,
+            widget is DIcon && widget.icon == PollIcons.squarePollHorizontal,
       ),
       findsOneWidget,
     );

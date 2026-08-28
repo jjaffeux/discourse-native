@@ -83,11 +83,10 @@ void main() {
     final shell = await _loadShell(api);
     addTearDown(shell.dispose);
     _putChatFixture(shell);
+    final host = shell.pluginSession.require(chatBookmarkHostService);
 
-    final created = await shell.createBookmark(
+    final created = await host.createBookmark(
       siteUrl: _site,
-      topicId: 0,
-      targetType: chatMessageBookmarkTarget,
       targetId: 42,
       name: 'Follow up',
       reminderAt: DateTime.now().add(const Duration(days: 1)),
@@ -103,9 +102,8 @@ void main() {
     expect(api.createdBookmarks.single.targetType, chatMessageBookmarkTarget);
     expect(api.bookmarksRequested, isNotEmpty);
 
-    final updated = await shell.updateBookmark(
+    final updated = await host.updateBookmark(
       siteUrl: _site,
-      topicId: 0,
       bookmark: created.bookmark!,
       name: 'Keep this',
       autoDeletePreference: BookmarkAutoDeletePreference.clearReminder,
@@ -122,9 +120,8 @@ void main() {
       isNull,
     );
 
-    final deleted = await shell.deleteBookmark(
+    final deleted = await host.deleteBookmark(
       siteUrl: _site,
-      topicId: 0,
       bookmark: updated.bookmark!,
     );
     await pumpEventQueue();
@@ -163,13 +160,13 @@ void main() {
       final host = shell.pluginSession.require(chatBookmarkHostService);
       expect(host, isA<PluginBookmarkHost>());
       expect(host, isNot(isA<BookmarkHost>()));
+      expect(host, isNot(isA<BookmarkTargetHost>()));
 
       shell.selectInstance(1);
       expect(shell.currentInstance?.url, _otherSite);
 
       final foreign = await host.updateBookmark(
         siteUrl: _site,
-        topicId: 7,
         bookmark: const Bookmark(
           id: 91,
           bookmarkableId: 12,
@@ -183,7 +180,6 @@ void main() {
 
       final created = await host.createBookmark(
         siteUrl: _site,
-        topicId: 0,
         targetId: 42,
         name: 'First forum',
       );
@@ -201,7 +197,7 @@ void main() {
   );
 
   test(
-    'a plugin bookmark target fails closed when its plugin is absent',
+    'core bookmark actions cannot supply context for a plugin target',
     () async {
       final api = _ChatBookmarkFakeApi();
       final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
@@ -221,13 +217,13 @@ void main() {
 
       final result = await shell.createBookmark(
         siteUrl: _site,
-        topicId: 0,
+        topicId: 7,
         targetType: chatMessageBookmarkTarget,
         targetId: 42,
       );
 
       expect(result.saved, isFalse);
-      expect(result.message, contains('not available'));
+      expect(result.message, contains('owning context'));
       expect(api.createdBookmarks, isEmpty);
     },
   );
@@ -251,6 +247,7 @@ void main() {
         plugins: plugins,
       );
       addTearDown(shell.dispose);
+      await shell.load();
 
       // Opening the session materializes the bookmark factory for `probe`.
       final _ = shell.pluginSession;
@@ -265,7 +262,6 @@ void main() {
       // validated. Matching only core's wire name must not confer authority.
       final spoofed = await probe.spoofedCoreWireHost!.updateBookmark(
         siteUrl: _site,
-        topicId: 7,
         bookmark: const Bookmark(
           id: 91,
           bookmarkableId: 12,
@@ -277,6 +273,14 @@ void main() {
       expect(spoofed.saved, isFalse);
       expect(spoofed.message, contains('does not belong'));
       expect(api.updatedBookmarks, isEmpty);
+
+      final unavailable = await probe.spoofedCoreWireHost!.createBookmark(
+        siteUrl: _site,
+        targetId: 12,
+      );
+      expect(unavailable.saved, isFalse);
+      expect(unavailable.message, contains('not available'));
+      expect(api.createdBookmarks, isEmpty);
     },
   );
 
@@ -339,20 +343,11 @@ void main() {
     final shell = await _loadShell(api);
     addTearDown(shell.dispose);
     _putChatFixture(shell);
+    final host = shell.pluginSession.require(chatBookmarkHostService);
 
-    final first = shell.createBookmark(
-      siteUrl: _site,
-      topicId: 0,
-      targetType: chatMessageBookmarkTarget,
-      targetId: 42,
-    );
+    final first = host.createBookmark(siteUrl: _site, targetId: 42);
     await api.started.future;
-    final duplicate = await shell.createBookmark(
-      siteUrl: _site,
-      topicId: 0,
-      targetType: chatMessageBookmarkTarget,
-      targetId: 42,
-    );
+    final duplicate = await host.createBookmark(siteUrl: _site, targetId: 42);
 
     expect(duplicate.saved, isFalse);
     expect(duplicate.message, contains('still finishing'));
@@ -372,16 +367,11 @@ void main() {
       final host = shell.pluginSession.require(chatBookmarkHostService);
       final busy = host.bookmarkWriteInFlightListenable(
         siteUrl: _site,
-        topicId: 0,
         targetId: 42,
       );
       expect(busy, isNot(isA<ShellController>()));
       expect(
-        host.bookmarkWriteInFlightListenable(
-          siteUrl: _site,
-          topicId: 0,
-          targetId: 42,
-        ),
+        host.bookmarkWriteInFlightListenable(siteUrl: _site, targetId: 42),
         same(busy),
       );
       var notifications = 0;
@@ -394,11 +384,7 @@ void main() {
       );
       expect(notifications, 0);
 
-      final write = host.createBookmark(
-        siteUrl: _site,
-        topicId: 0,
-        targetId: 42,
-      );
+      final write = host.createBookmark(siteUrl: _site, targetId: 42);
       await api.started.future;
       await pumpEventQueue();
       expect(busy.value, isTrue);

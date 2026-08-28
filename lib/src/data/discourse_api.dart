@@ -428,7 +428,11 @@ class DiscourseApi
       final sections = <SidebarSection>[];
       var index = 0;
       for (final json in jsonObjects(body['sidebar_sections'])) {
-        final section = SidebarSection.customFromJson(json, index: index);
+        final section = SidebarSection.customFromJson(
+          json,
+          index: index,
+          icons: models.icons,
+        );
         if (section != null) sections.add(section);
         index++;
       }

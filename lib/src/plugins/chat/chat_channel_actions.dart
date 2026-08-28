@@ -12,7 +12,7 @@ import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_services.dart';
-import 'chat_shell_extension.dart';
+import 'chat_shell_service.dart';
 
 enum _ChannelAction { settings, star, leave }
 
@@ -442,9 +442,10 @@ void _applyChannelAction(
 ) {
   switch (action) {
     case _ChannelAction.settings:
-      ShellScope.read(
+      PluginScope.require(
         context,
-      ).openChatChannelInfo(siteUrl: siteUrl, channelId: channel.id);
+        chatShellService,
+      ).openChannelInfo(siteUrl: siteUrl, channelId: channel.id);
       return;
     case _ChannelAction.star:
       unawaited(_toggleStarred(context, chat, siteUrl, channel));
@@ -477,6 +478,7 @@ Future<void> _leaveChannel(
   ChatChannel channel,
 ) async {
   final shell = ShellScope.read(context);
+  final chatShell = PluginScope.require(context, chatShellService);
   final messenger = ScaffoldMessenger.maybeOf(context);
   final error = await chat.updateChannelFollowing(siteUrl, channel, false);
   if (error != null) {
@@ -489,7 +491,7 @@ Future<void> _leaveChannel(
     ...chat.directChannels(siteUrl),
   ];
   if (remaining.isNotEmpty) {
-    shell.openChatChannel(remaining.first.id);
+    chatShell.openChannel(remaining.first.id);
   } else {
     shell.selectDestination(
       const SidebarDestination(

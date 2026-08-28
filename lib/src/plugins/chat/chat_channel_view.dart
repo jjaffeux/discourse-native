@@ -25,7 +25,7 @@ import 'chat_message_tile.dart';
 import 'chat_pinned_bar.dart';
 import 'chat_route.dart';
 import 'chat_services.dart';
-import 'chat_shell_extension.dart';
+import 'chat_shell_service.dart';
 import 'chat_stream.dart';
 import 'chat_stream_target.dart';
 
@@ -142,7 +142,10 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final navigation = ShellScope.read(context).chatNavigation;
+    final navigation = PluginScope.require(
+      context,
+      chatShellService,
+    ).navigation;
     if (identical(navigation, _navigation)) return;
     _navigation?.removeListener(_consumeNavigation);
     _navigation = navigation;
@@ -155,10 +158,11 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
 
   bool _consumeNavigation() {
     if (!mounted) return false;
-    final pending = ShellScope.read(context).chatNavigation.take(
-      siteUrl: widget.siteUrl,
-      route: ChatRoute.channel(widget.channelId),
-    );
+    final pending = PluginScope.require(context, chatShellService).navigation
+        .take(
+          siteUrl: widget.siteUrl,
+          route: ChatRoute.channel(widget.channelId),
+        );
     if (pending == null) return false;
 
     _opened = true;
@@ -357,10 +361,10 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   }
 
   Future<void> _replyInThread(BuildContext context, ChatMessage message) async {
-    final shell = ShellScope.read(context);
+    final chatShell = PluginScope.require(context, chatShellService);
     final existing = message.thread;
     if (existing != null) {
-      shell.openChatThread(
+      chatShell.openThread(
         siteUrl: widget.siteUrl,
         channelId: widget.channelId,
         threadId: existing.threadId,
@@ -398,7 +402,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       );
       return;
     }
-    shell.openChatThread(
+    chatShell.openThread(
       siteUrl: widget.siteUrl,
       channelId: widget.channelId,
       threadId: created.id,
@@ -412,8 +416,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     int channelId,
     ChatThreadPreview preview,
   ) {
-    final shell = ShellScope.read(context);
-    shell.openChatThread(
+    PluginScope.require(context, chatShellService).openThread(
       siteUrl: siteUrl,
       channelId: channelId,
       threadId: preview.threadId,
@@ -1521,7 +1524,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
         widget.messageIds.isEmpty) {
       return;
     }
-    final shell = ShellScope.read(context);
+    final chatShell = PluginScope.require(context, chatShellService);
     setState(() => _quoting = true);
     final result = await widget.chat.generateMessageQuote(
       widget.siteUrl,
@@ -1530,7 +1533,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
     );
     var notice = result.error;
     if (result.markdown case final markdown?) {
-      notice = await shell.openChatQuote(
+      notice = await chatShell.openQuote(
         widget.siteUrl,
         widget.channelId,
         markdown,
@@ -1617,7 +1620,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
     if (destinationId == null || !mounted) return;
 
     final ids = widget.messageIds.toSet();
-    final shell = ShellScope.read(context);
+    final chatShell = PluginScope.require(context, chatShellService);
     setState(() => _moving = true);
     final result = await widget.chat.moveMessages(
       widget.siteUrl,
@@ -1635,7 +1638,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
     }
     if (result.move case final move?) {
       widget.onCancel();
-      shell.openChatChannel(
+      chatShell.openChannel(
         move.destinationChannelId,
         messageId: move.firstMovedMessageId,
       );

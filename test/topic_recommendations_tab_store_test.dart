@@ -1,5 +1,7 @@
 import 'package:discourse_native/src/data/topic_recommendations_tab_store.dart';
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/topic_recommendation_source.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -45,7 +47,7 @@ void main() {
     );
   });
 
-  test('migrates the legacy suggested and related tab names', () async {
+  test('core migrates only its legacy suggested tab name', () async {
     SharedPreferences.setMockInitialValues({
       'discourse_native.topic_recommendations_tab.'
               'https%3A%2F%2Fmeta.discourse.org':
@@ -61,9 +63,29 @@ void main() {
     );
     expect(
       await store.read(siteUrl: 'https://team.discourse.org'),
-      const TopicRecommendationSourceId('discourse-ai/related'),
+      coreSuggestedTopicRecommendationSourceId,
     );
   });
+
+  test(
+    'the installed Discourse AI codec migrates its legacy tab name',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'discourse_native.topic_recommendations_tab.'
+                'https%3A%2F%2Fmeta.discourse.org':
+            'related',
+      });
+      const sourceMigrations = PluginRegistry([AiSummaryPlugin()]);
+
+      expect(
+        await store.read(
+          siteUrl: 'https://meta.discourse.org',
+          sourceMigrations: sourceMigrations,
+        ),
+        discourseAiRelatedTopicRecommendationSourceId,
+      );
+    },
+  );
 
   test('an unreadable stored value reads as suggested', () async {
     SharedPreferences.setMockInitialValues({

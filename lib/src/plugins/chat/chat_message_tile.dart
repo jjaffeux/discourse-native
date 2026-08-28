@@ -486,7 +486,6 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     );
     final bookmarkBusy = bookmarkHost.bookmarkWriteInFlight(
       siteUrl: widget.siteUrl,
-      topicId: 0,
       targetId: widget.message.id,
     );
     final bookmarkLabel = widget.message.bookmark == null
@@ -665,7 +664,6 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       builder: (context, _, _) => ValueListenableBuilder<bool>(
         valueListenable: bookmarkHost.bookmarkWriteInFlightListenable(
           siteUrl: widget.siteUrl,
-          topicId: 0,
           targetId: widget.message.id,
         ),
         builder: (context, bookmarkBusy, _) {

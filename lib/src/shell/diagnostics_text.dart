@@ -1,9 +1,8 @@
-/// Presentation of captured diagnostics, shared by the diagnostics panel and
-/// the Resenha report view.
+/// Presentation of captured diagnostics, shared by the core panel and
+/// plugin-owned diagnostics views.
 ///
-/// Both draw the same records: one as the app-wide timeline, one as a single
-/// call's deep capture. What a field looks like on screen has to agree between
-/// them, or the same event read twice reads as two events.
+/// What a field looks like on screen has to agree across those views, or the
+/// same event read twice reads as two events.
 library;
 
 import 'dart:convert';

@@ -56,6 +56,30 @@ GithubIssueData parse(String source) =>
 
 void main() {
   group('GithubIssueData', () {
+    test('decodes the GitHub template timestamp without Local Dates', () {
+      final dateCell = html
+          .parse(
+            '<div><span class="discourse-local-date" '
+            'data-date="2026-07-01" data-time="09:00:00" '
+            'data-timezone="UTC">server fallback</span></div>',
+          )
+          .querySelector('div')!;
+
+      expect(githubLocalDate(dateCell), DateTime.utc(2026, 7, 1, 9));
+    });
+
+    test('declines a local-date timestamp outside GitHub\'s UTC contract', () {
+      final dateCell = html
+          .parse(
+            '<div><span class="discourse-local-date" '
+            'data-date="2026-07-01" data-time="09:00:00" '
+            'data-timezone="Europe/Paris">server fallback</span></div>',
+          )
+          .querySelector('div')!;
+
+      expect(githubLocalDate(dateCell), isNull);
+    });
+
     test('reads title, dates, user, labels and body', () {
       final data = parse(issueOnebox);
 

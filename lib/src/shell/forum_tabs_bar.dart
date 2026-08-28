@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 
 import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
-import '../models/user_status.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -17,7 +16,6 @@ import 'avatar_image.dart';
 import 'emoji.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
-import 'user_status.dart';
 
 /// Presentation data for one tab in a forum's horizontal tab bar.
 ///
@@ -35,12 +33,12 @@ class ForumTabItem {
     this.parentColor,
     this.iconColor,
     this.avatarUrl,
-    this.avatarUserId,
+    this.prefixBuilder,
+    this.labelSuffixBuilder,
+    this.semanticDescription,
     this.emojiUrl,
     this.emojiName,
     this.badge = SidebarBadge.none,
-    this.userStatus,
-    this.statusUserId,
   }) : assert(
          (emojiUrl == null) == (emojiName == null),
          'emojiUrl and emojiName must be provided together',
@@ -53,12 +51,12 @@ class ForumTabItem {
   final Color? parentColor;
   final Color? iconColor;
   final String? avatarUrl;
-  final int? avatarUserId;
+  final SidebarRowDecorationBuilder? prefixBuilder;
+  final SidebarRowDecorationBuilder? labelSuffixBuilder;
+  final String? semanticDescription;
   final String? emojiUrl;
   final String? emojiName;
   final SidebarBadge badge;
-  final UserStatus? userStatus;
-  final int? statusUserId;
 }
 
 /// The horizontal, forum-scoped tab bar shown above the main content header.
@@ -601,10 +599,10 @@ class _ForumTabState extends State<_ForumTab> {
 
   String get _selectionSemanticsLabel {
     final badge = widget.item.badge;
-    final status = widget.item.userStatus;
-    final title = status == null
+    final description = widget.item.semanticDescription;
+    final title = description == null
         ? widget.item.title
-        : '${widget.item.title}, ${status.description}';
+        : '${widget.item.title}, $description';
     if (!badge.isVisible) return title;
     if (badge.dot) {
       return '$title, '
@@ -618,21 +616,11 @@ class _ForumTabState extends State<_ForumTab> {
     final item = widget.item;
     final theme = Theme.of(context);
 
+    if (item.prefixBuilder case final builder?) {
+      return builder(context, 15);
+    }
+
     if (item.avatarUrl case final url?) {
-      final siteUrl = ShellScope.read(context).currentInstance?.url;
-      final userId = item.avatarUserId;
-      if (siteUrl != null && userId != null) {
-        final fallback = ColoredBox(color: theme.shell.floating);
-        final avatar = PluginScope.of(context).registry.userAvatar(
-          context,
-          siteUrl: siteUrl,
-          userId: userId,
-          url: url,
-          size: 15,
-          fallback: fallback,
-        );
-        if (avatar != null) return avatar;
-      }
       return ClipOval(
         child: SizedBox.square(
           dimension: 16,
@@ -791,18 +779,8 @@ class _ForumTabState extends State<_ForumTab> {
                           style: labelStyle,
                         ),
                       ),
-                      if ((
-                            ShellScope.maybeRead(context)?.currentInstance?.url,
-                            widget.item.userStatus,
-                          )
-                          case (final siteUrl?, final status?))
-                        UserStatusMessage(
-                          siteUrl: siteUrl,
-                          userId: widget.item.statusUserId,
-                          status: status,
-                          size: 13,
-                          leadingGap: 4,
-                        ),
+                      if (widget.item.labelSuffixBuilder case final builder?)
+                        builder(context, 13),
                       if (widget.item.badge.dot &&
                           _badgeFits(
                             constraints.maxWidth,
@@ -1205,14 +1183,14 @@ class CurrentForumTabsBar extends StatelessWidget {
                     parentColor: destination.parentColor,
                     iconColor: destination.iconColor,
                     avatarUrl: destination.avatarUrl,
-                    avatarUserId: destination.avatarUserId,
+                    prefixBuilder: destination.prefixBuilder,
+                    labelSuffixBuilder: destination.labelSuffixBuilder,
+                    semanticDescription: destination.semanticDescription,
                     emojiUrl: emoji == null
                         ? null
                         : controller.emojiUrlFor(siteUrl, emoji),
                     emojiName: emoji,
                     badge: destination.badge ?? SidebarBadge.none,
-                    userStatus: destination.userStatus,
-                    statusUserId: destination.avatarUserId,
                   );
                 }
 

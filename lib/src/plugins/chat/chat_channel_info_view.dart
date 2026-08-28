@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/sidebar.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/user_card.dart';
 import '../../shell/user_status.dart';
@@ -14,7 +15,7 @@ import 'chat_channel_status.dart';
 import 'chat_controller.dart';
 import 'chat_plugin_data.dart';
 import 'chat_route.dart';
-import 'chat_shell_extension.dart';
+import 'chat_shell_service.dart';
 import 'chat_user_avatar.dart';
 
 /// Core Discourse's routed channel information surface.
@@ -51,9 +52,10 @@ class ChatChannelInfoView extends StatelessWidget {
             channel.status != ChatChannelStatus.open) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!context.mounted) return;
-            ShellScope.read(
+            PluginScope.require(
               context,
-            ).openChatChannelInfo(siteUrl: siteUrl, channelId: channelId);
+              chatShellService,
+            ).openChannelInfo(siteUrl: siteUrl, channelId: channelId);
           });
           return const Center(child: CircularProgressIndicator.adaptive());
         }
@@ -128,11 +130,12 @@ class _ChannelInfoTabs extends StatelessWidget {
       key: ValueKey('chat-channel-info-${tab.name}-tab'),
       onTap: active
           ? null
-          : () => ShellScope.read(context).openChatChannelInfo(
-              siteUrl: siteUrl,
-              channelId: channel.id,
-              tab: tab,
-            ),
+          : () =>
+                PluginScope.require(context, chatShellService).openChannelInfo(
+                  siteUrl: siteUrl,
+                  channelId: channel.id,
+                  tab: tab,
+                ),
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
         decoration: BoxDecoration(
@@ -267,9 +270,10 @@ class _ChannelSettings extends StatelessWidget {
                                       key: const ValueKey(
                                         'chat-channel-settings-channel-link',
                                       ),
-                                      onTap: () => ShellScope.read(
+                                      onTap: () => PluginScope.require(
                                         context,
-                                      ).openChatChannel(channel.id),
+                                        chatShellService,
+                                      ).openChannel(channel.id),
                                       child: Text(
                                         '/chat/c/${channel.slug ?? '-'}/${channel.id}',
                                         style: TextStyle(

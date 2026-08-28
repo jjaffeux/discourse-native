@@ -491,31 +491,32 @@ class TopicRecommendations {
     Map<String, dynamic> json,
     String siteUrl, {
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+    TopicRecommendationSourceDecoder recommendationSources =
+        const EmptyTopicRecommendationSourceDecoder(),
   }) {
-    final definitions = [
-      coreSuggestedTopicRecommendationSource,
-      ...extensions.topicRecommendationSources,
+    final decoded = <TopicRecommendationSourcePayload>[
+      if (json.containsKey('suggested_topics'))
+        TopicRecommendationSourcePayload(
+          definition: coreSuggestedTopicRecommendationSource,
+          topicRows: List.unmodifiable(jsonObjects(json['suggested_topics'])),
+        ),
+      ...recommendationSources.readTopicRecommendationSources(json),
     ];
-    if (!definitions.any(
-      (definition) => json.containsKey(definition.payloadKey),
-    )) {
-      return null;
-    }
+    if (decoded.isEmpty) return null;
     return TopicRecommendations(
       sources: List.unmodifiable([
-        for (final definition in definitions)
-          if (json.containsKey(definition.payloadKey))
-            TopicRecommendationSource(
-              definition: definition,
-              topics: List.unmodifiable([
-                for (final topic in jsonObjects(json[definition.payloadKey]))
-                  Topic.fromRecommendationJson(
-                    topic,
-                    siteUrl,
-                    extensions: extensions,
-                  ),
-              ]),
-            ),
+        for (final payload in decoded)
+          TopicRecommendationSource(
+            definition: payload.definition,
+            topics: List.unmodifiable([
+              for (final topic in payload.topicRows)
+                Topic.fromRecommendationJson(
+                  topic,
+                  siteUrl,
+                  extensions: extensions,
+                ),
+            ]),
+          ),
       ]),
     );
   }

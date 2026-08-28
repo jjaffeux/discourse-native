@@ -7,7 +7,7 @@ import '../../theme/d_icons.dart';
 import 'resenha_plugin.dart';
 import 'resenha_room_view.dart';
 import 'resenha_services.dart';
-import 'resenha_shell_extension.dart';
+import 'resenha_shell_service.dart';
 
 class ResenhaCallWidget extends StatelessWidget {
   const ResenhaCallWidget({super.key});
