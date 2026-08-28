@@ -708,13 +708,26 @@ class _TopicRow extends StatelessWidget {
 /// than filed in a feed. This keeps their presentation and navigation exactly
 /// the same as an ordinary topic row without making them masquerade as a feed.
 class TopicListRow extends StatelessWidget {
-  const TopicListRow({super.key, required this.topic, this.forum, this.onTap});
+  const TopicListRow({
+    super.key,
+    required this.topic,
+    this.forum,
+    this.siteUrl,
+    this.onTap,
+  }) : assert(forum == null || siteUrl == null);
 
   /// One title line, one metadata line, their gap, and the row padding.
   static const double minimumHeight = 68;
 
   final Topic topic;
   final DiscourseInstance? forum;
+
+  /// The forum that owns [topic] when no full [forum] record is available.
+  ///
+  /// Recommendation payloads carry topic rows without their forum, but their
+  /// title emoji must still resolve against the topic response's site rather
+  /// than whichever forum happens to be ambient in the shell.
+  final String? siteUrl;
   final VoidCallback? onTap;
 
   @override
@@ -722,6 +735,9 @@ class TopicListRow extends StatelessWidget {
     final owningForum = forum;
     if (owningForum != null) {
       return _buildRow(context, owningForum.url, owningForum);
+    }
+    if (siteUrl case final siteUrl?) {
+      return _buildRow(context, siteUrl, null);
     }
     return ShellSelector<String?>(
       select: (controller) => controller.currentInstance?.url,
