@@ -124,6 +124,20 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       controller.search.requestFocus();
       return true;
     }
+    if (event.logicalKey == LogicalKeyboardKey.keyF) {
+      if (controller.rootMode != ShellRootMode.forum) return false;
+      final extraModifierPressed =
+          keyboard.isShiftPressed ||
+          keyboard.isAltPressed ||
+          (usesMetaModifier
+              ? keyboard.isControlPressed
+              : keyboard.isMetaPressed);
+      if (extraModifierPressed) return false;
+      final topicId = controller.currentContent?.topicId;
+      if (topicId == null) return false;
+      controller.search.requestTopicFocus(topicId);
+      return true;
+    }
 
     final tabIndex = _tabShortcutKeys.indexOf(event.logicalKey);
     if (tabIndex < 0) return false;

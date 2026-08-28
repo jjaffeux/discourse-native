@@ -873,6 +873,7 @@ class DiscourseApi
     required String siteUrl,
     required String term,
     String? typeFilter,
+    int? topicId,
     bool searchForId = false,
     String? restrictToArchetype,
     String? apiKey,
@@ -885,11 +886,16 @@ class DiscourseApi
         'Search terms must be at most $maximumSearchTermLength characters.',
       );
     }
+    if (topicId != null) _requirePositiveId(topicId, 'topicId');
     final body = await _getObject(
       Uri.parse('$siteUrl/search/query.json').replace(
         queryParameters: {
           'term': term,
           'type_filter': ?typeFilter,
+          if (topicId != null) ...{
+            'search_context[type]': 'topic',
+            'search_context[id]': '$topicId',
+          },
           if (searchForId) 'search_for_id': 'true',
           'restrict_to_archetype': ?restrictToArchetype,
         },

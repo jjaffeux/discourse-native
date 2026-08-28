@@ -1640,6 +1640,33 @@ void _feedGroups() {
 
       expect(sent.url.queryParameters, {'term': '@sam test'});
     });
+
+    test('sends the current topic as core search context', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'grouped_search_result': {'error': null},
+            }),
+            200,
+          );
+        }),
+      );
+
+      await api.searchPosts(
+        siteUrl: 'https://example.com',
+        term: 'needle',
+        topicId: 42,
+      );
+
+      expect(sent.url.queryParameters, {
+        'term': 'needle',
+        'search_context[type]': 'topic',
+        'search_context[id]': '42',
+      });
+    });
   });
 
   group('header search support', () {

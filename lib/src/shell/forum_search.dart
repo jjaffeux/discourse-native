@@ -228,8 +228,14 @@ class _ForumSearchState extends State<ForumSearch> {
     final search = _search;
     final siteUrl = search?.siteUrl;
     if (search == null || siteUrl == null) return;
+    final term = search.query.trim();
+    final topicId = search.topicId;
+    final query = [
+      if (term.isNotEmpty) term,
+      if (term.isNotEmpty && topicId != null) 'topic:$topicId',
+    ].join(' ');
     final parameters = <String, String>{
-      if (search.query.trim().isNotEmpty) 'q': search.query.trim(),
+      if (query.isNotEmpty) 'q': query,
       if (expanded) 'expanded': 'true',
     };
     final path = Uri(path: '/search', queryParameters: parameters).toString();
@@ -244,9 +250,12 @@ class _ForumSearchState extends State<ForumSearch> {
     if (search.siteUrl == null) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
+    final topicScoped = search.topicId != null;
+    final shortcutKey = topicScoped ? 'F' : 'K';
     final shortcut = defaultTargetPlatform == TargetPlatform.macOS
-        ? '⌘K'
-        : 'Ctrl K';
+        ? '⌘$shortcutKey'
+        : 'Ctrl $shortcutKey';
+    final searchLabel = topicScoped ? 'Search this topic' : 'Search this forum';
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -298,7 +307,7 @@ class _ForumSearchState extends State<ForumSearch> {
             onKeyEvent: _handleKey,
             child: Semantics(
               textField: true,
-              label: 'Search this forum',
+              label: searchLabel,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
@@ -328,7 +337,7 @@ class _ForumSearchState extends State<ForumSearch> {
                             if (search.query.isEmpty)
                               IgnorePointer(
                                 child: Text(
-                                  'Search this forum',
+                                  searchLabel,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style:
