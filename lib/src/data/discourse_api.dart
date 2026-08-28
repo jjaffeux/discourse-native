@@ -20,6 +20,7 @@ import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/post_flag.dart';
 import '../models/post_likers.dart';
+import '../models/post_revision.dart';
 import '../models/search_results.dart';
 import '../models/sidebar.dart';
 import '../models/site_appearance.dart';
@@ -1203,6 +1204,33 @@ class DiscourseApi
       ]),
       recommendations: models.topicRecommendations(body, siteUrl),
     );
+  }
+
+  /// Loads one server-generated comparison from a post's edit history.
+  ///
+  /// A null [revision] asks for the latest comparison. Numbered revisions are
+  /// the opaque adjacent values returned by this same endpoint rather than a
+  /// locally inferred version, because hidden revisions can leave gaps for a
+  /// reader who is not allowed to see them.
+  Future<PostRevision> postRevision({
+    required String siteUrl,
+    required int postId,
+    int? revision,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    _requirePositiveId(postId, 'postId');
+    if (revision != null && revision < 2) {
+      throw ArgumentError.value(revision, 'revision', 'must be at least 2');
+    }
+    final target = revision?.toString() ?? 'latest';
+    final body = await _getObject(
+      Uri.parse('$siteUrl/posts/$postId/revisions/$target.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return PostRevision.fromJson(body, siteUrl);
   }
 
   /// The summary shown when an avatar or a username is clicked.

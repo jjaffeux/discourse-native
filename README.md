@@ -580,6 +580,16 @@ Post bodies are the `cooked` field — HTML the site already rendered, with its
 markdown, oneboxes, mentions and emoji resolved. `flutter_widget_from_html_core`
 draws it; reimplementing any of that client side would be a mistake.
 
+Edit history follows the same server-owned rule. A post's guardian-filtered
+`version` supplies the pencil count (`version - 1`), while
+`can_view_edit_history` alone makes it actionable. Opening it reads
+`GET /posts/{id}/revisions/{revision-or-latest}.json` and renders core's inline
+body and title diffs together with category, tag, ownership and other metadata
+changes. Previous/next navigation uses the response's revision ids rather than
+assuming they are contiguous, because hidden revisions can leave deliberate
+gaps for readers who may not see them. Topic edits appear on the opening post,
+which is also where core records title, category and tag revisions.
+
 Wiki state is likewise server-owned. Posts read both `wiki` and the guardian's
 `can_wiki`; authorized post actions toggle the exact
 `PUT /posts/{id}/wiki` field route and then re-read the post rather than

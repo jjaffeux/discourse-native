@@ -29,6 +29,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
+import 'package:discourse_native/src/models/post_revision.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
@@ -1870,6 +1871,19 @@ class FakeDiscourseApi
     return (
       posts: ids.map((i) => postsById[i]).whereType<Post>().toList(),
       recommendations: postRecommendations[topicId],
+    );
+  }
+
+  @override
+  Future<PostRevision> postRevision({
+    required String siteUrl,
+    required int postId,
+    int? revision,
+    String? apiKey,
+    String? clientId,
+  }) {
+    throw UnsupportedError(
+      'Post revision history is not configured in this fake.',
     );
   }
 

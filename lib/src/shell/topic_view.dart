@@ -23,6 +23,7 @@ import 'loading_skeleton.dart';
 import 'open_link.dart';
 import 'post_actions.dart';
 import 'post_footer.dart';
+import 'post_revision_history.dart';
 import 'post_text_selection.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
@@ -2502,6 +2503,40 @@ class _PostTileState extends State<_PostTile> {
                       ),
                     ),
                     if (post.createdAt != null) const SizedBox(width: 8),
+                  ],
+                  if (post.editCount > 0) ...[
+                    PostRevisionIndicator(
+                      post: post,
+                      onPressed: post.canViewEditHistory
+                          ? () {
+                              final controller = ShellScope.read(context);
+                              unawaited(
+                                showPostRevisionHistory(
+                                  context: context,
+                                  siteUrl: widget.siteUrl,
+                                  post: post,
+                                  loadRevision: (revision) =>
+                                      controller.loadPostRevision(
+                                        siteUrl: widget.siteUrl,
+                                        postId: post.id,
+                                        revision: revision,
+                                      ),
+                                  categoryLabel: (id) {
+                                    if (id == null) return 'Uncategorized';
+                                    return controller
+                                            .categoryFor(
+                                              id,
+                                              siteUrl: widget.siteUrl,
+                                            )
+                                            ?.name ??
+                                        'Category $id';
+                                  },
+                                ),
+                              );
+                            }
+                          : null,
+                    ),
+                    if (post.createdAt != null) const SizedBox(width: 4),
                   ],
                   if (post.createdAt case final createdAt?)
                     Text(
