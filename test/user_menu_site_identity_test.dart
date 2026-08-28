@@ -13,6 +13,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_activity.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -174,6 +175,12 @@ void main() {
             hasTapAction: true,
           ),
         );
+        expect(
+          tester.widget<DIcon>(
+            find.descendant(of: row, matching: find.byType(DIcon)),
+          ).color,
+          Theme.of(tester.element(row)).colorScheme.onSurfaceVariant,
+        );
 
         await tester.tap(row);
         await tester.pumpAndSettle();
@@ -222,6 +229,12 @@ void main() {
             isToggled: true,
           ),
         );
+        expect(
+          tester.widget<DIcon>(
+            find.descendant(of: row, matching: find.byType(DIcon)),
+          ).color,
+          Theme.of(tester.element(row)).colorScheme.primary,
+        );
         expect(find.text('30m'), findsOneWidget);
 
         await tester.tap(row);
@@ -230,6 +243,12 @@ void main() {
         expect(
           tester.getSemantics(row),
           isSemantics(hasToggledState: true, isToggled: false),
+        );
+        expect(
+          tester.widget<DIcon>(
+            find.descendant(of: row, matching: find.byType(DIcon)),
+          ).color,
+          Theme.of(tester.element(row)).colorScheme.onSurfaceVariant,
         );
       } finally {
         semantics.dispose();
