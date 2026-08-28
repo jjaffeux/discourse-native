@@ -17,8 +17,8 @@ import 'media_request_coordinator.dart';
 /// app draws off a site:
 ///
 /// * A first render can ask for three avatars per topic across thirty topics.
-///   Callers serving forum-origin media may opt into a concurrency limit, while
-///   CDN-backed static assets can leave [maxConcurrent] null and fan out.
+///   Static media leaves [maxConcurrent] null by default so the HTTP stack and
+///   CDN can fan out; specialized callers may still opt into a local limit.
 /// * The format is not always what the URL says, so the bytes have to be looked
 ///   at rather than the extension trusted.
 ///
@@ -31,7 +31,7 @@ import 'media_request_coordinator.dart';
 abstract class ByteCache<T extends Object> {
   ByteCache({
     http.Client? client,
-    this.maxConcurrent = 4,
+    this.maxConcurrent,
     this.maxEntries = 2000,
     this.maxResponseBytes = 4 * 1024 * 1024,
     this.maxCachedBytes = 32 * 1024 * 1024,

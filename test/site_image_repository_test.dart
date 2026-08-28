@@ -71,6 +71,45 @@ void main() {
     expect(sent.headers, isNot(contains('User-Api-Client-Id')));
   });
 
+  test('does not throttle authenticated media requests', () async {
+    final credentials = FakeApiCredentialReader()
+      ..keys[siteUrl] = 'account-key';
+    final gate = Completer<void>();
+    var active = 0;
+    var peak = 0;
+    final repository = SiteImageRepository(
+      credentials: credentials,
+      lifecycle: SiteLifecycle(),
+      client: MockClient((request) async {
+        active++;
+        peak = peak > active ? peak : active;
+        await gate.future;
+        active--;
+        return http.Response.bytes([1], 200);
+      }),
+    );
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+      repository.dispose();
+    });
+
+    final loads = [
+      for (var index = 0; index < 20; index++)
+        repository.load(
+          siteUrl: siteUrl,
+          url: '$siteUrl/secure-uploads/original/$index.png',
+        ),
+    ];
+
+    for (var attempt = 0; attempt < 20 && peak < 20; attempt++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    expect(peak, 20);
+
+    gate.complete();
+    expect(await Future.wait(loads), everyElement(isNotNull));
+  });
+
   test('an invalidated account cannot publish or retain stale bytes', () async {
     final credentials = FakeApiCredentialReader()..keys[siteUrl] = 'old-key';
     final lifecycle = SiteLifecycle();

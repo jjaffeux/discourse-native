@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'api_credentials.dart';
 import 'avatar_loader.dart';
 import 'byte_cache.dart';
-import 'media_request_coordinator.dart';
 import 'site_lifecycle.dart';
 
 /// Encoded artwork returned for a post, composer preview, or chat upload.
@@ -149,7 +148,6 @@ final class _AuthenticatedSiteImageCache extends ByteCache<SiteImageBytes> {
     required this.apiKey,
     required this.clientId,
   }) : super(
-         coordinator: MediaRequestCoordinator.shared,
          maxEntries: 256,
          maxResponseBytes: 32 * 1024 * 1024,
          maxCachedBytes: 64 * 1024 * 1024,

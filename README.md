@@ -680,7 +680,9 @@ authenticated upload itself succeeded. The loader sends the user API identity
 only to the forum origin, follows redirects explicitly, and never forwards
 those headers to the signed object-store or CDN URL. Its encoded-byte cache is
 memory-only and is discarded with the site's account lifecycle, so reconnecting
-as another account cannot reuse private media from the previous session.
+as another account cannot reuse private media from the previous session. These
+remain media requests even when their first hop is authenticated, so they have
+no application-level concurrency limit either.
 Core's generic `lightbox.js` gives `data-large-src` precedence over `href` for
 every `a.lightbox`; Chat is only one producer of that upstream-wide attribute.
 The native lightbox therefore keeps that decode in core, and its root markup
@@ -1810,10 +1812,11 @@ Avatars go through [`AvatarLoader`](lib/src/data/avatar_loader.dart) rather than
   `image/svg+xml` from a URL ending in `.png`, and `dart:ui` cannot decode SVG.
   The loader reads the content type, falls back to sniffing the leading bytes,
   and `AvatarImage` renders with `SvgPicture.memory` or `Image.memory`.
-- **A first render asks for ~90 avatars at once** (three posters × thirty
-  topics) and earns an HTTP 429. The loader caps concurrency and caches by URL
-  — *including failures*, so a rate-limited avatar is not retried on every
-  rebuild, which is what turned one 429 into a stream of them.
+- **A first render can ask for ~90 avatars at once** (three posters × thirty
+  topics). Those are static-media requests rather than JSON API work, so the
+  loader lets the HTTP stack and CDN fan them out instead of serializing them
+  behind app backpressure. It still deduplicates and caches by URL — *including
+  failures* — so a rate-limited avatar is not retried on every rebuild.
 
 Anything undecodable falls back to a placeholder rather than throwing.
 

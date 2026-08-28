@@ -157,13 +157,12 @@ void main() {
       },
     );
 
-    test('never has more than maxConcurrent requests in flight', () async {
+    test('does not throttle a cold avatar list', () async {
       var active = 0;
       var peak = 0;
       final gate = Completer<void>();
 
       final loader = AvatarLoader(
-        maxConcurrent: 3,
         client: MockClient((_) async {
           active++;
           peak = peak > active ? peak : active;
@@ -179,11 +178,11 @@ void main() {
 
       // Let the first wave start before releasing them.
       await Future<void>.delayed(Duration.zero);
-      expect(peak, 3);
+      expect(peak, 20);
 
       gate.complete();
       await all;
-      expect(peak, 3);
+      expect(peak, 20);
     });
   });
 }
