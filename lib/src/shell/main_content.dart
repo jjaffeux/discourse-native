@@ -769,13 +769,17 @@ class _TopicHeaderTag extends StatelessWidget {
     return ConstrainedBox(
       key: ValueKey(('topic-header-tag', tag.name)),
       constraints: const BoxConstraints(maxWidth: 200, minHeight: 24),
-      child: Text(
-        '#${tag.name}',
-        maxLines: 1,
-        softWrap: false,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.labelMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        widthFactor: 1,
+        child: Text(
+          '#${tag.name}',
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ),
     );
