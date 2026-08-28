@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'group_route.dart';
 import 'list_link.dart';
 import 'sidebar.dart';
 
@@ -23,6 +24,7 @@ class ContentRoute {
     this.postNumber,
     this.feedPath,
     this.messageGroupName,
+    this.groupRoute,
   });
 
   /// A filtered topic list — a category or a tag — opened from a hashtag.
@@ -75,6 +77,19 @@ class ContentRoute {
     icon: DIcons.gear,
   );
 
+  /// The group directory or one tab in a group page.
+  factory ContentRoute.group(
+    GroupRoute route, {
+    String? title,
+    String? feedPath,
+  }) => ContentRoute(
+    id: route.id,
+    title: title ?? route.groupName ?? 'Groups',
+    icon: DIcons.users,
+    feedPath: feedPath,
+    groupRoute: route,
+  );
+
   /// The connected account's contribution stream from its profile menu.
   factory ContentRoute.userActivity() =>
       const ContentRoute(id: 'activity', title: 'Activity', icon: DIcons.list);
@@ -110,7 +125,8 @@ class ContentRoute {
       slug = null,
       postNumber = null,
       feedPath = destination.feedPath,
-      messageGroupName = null;
+      messageGroupName = null,
+      groupRoute = null;
 
   final String id;
   final String title;
@@ -135,6 +151,9 @@ class ContentRoute {
   /// and every non-message route.
   final String? messageGroupName;
 
+  /// A native `/g` destination, including an optional plugin-owned tab.
+  final GroupRoute? groupRoute;
+
   /// Largest site-relative feed path restored from presentation state.
   ///
   /// Ordinary category paths are tiny. Keeping the same generous boundary as
@@ -153,6 +172,10 @@ class ContentRoute {
   bool get isMessages =>
       !isTopic && (id == 'messages' || messageGroupName != null);
 
+  bool get isGroups => !isTopic && groupRoute?.isDirectory == true;
+
+  bool get isGroup => !isTopic && groupRoute?.isDetail == true;
+
   /// A durable, presentation-only snapshot of this route.
   ///
   /// The payload deliberately contains no fetched content or credentials. Icon
@@ -169,6 +192,7 @@ class ContentRoute {
     if (postNumber != null) 'post_number': postNumber,
     if (feedPath != null) 'feed_path': feedPath,
     if (messageGroupName != null) 'message_group_name': messageGroupName,
+    if (groupRoute != null) 'group_route': groupRoute!.toJson(),
   };
 
   factory ContentRoute.fromJson(Map<String, dynamic> json) {
@@ -187,6 +211,7 @@ class ContentRoute {
     final postNumber = json['post_number'];
     final feedPath = json['feed_path'];
     final messageGroupName = json['message_group_name'];
+    final rawGroupRoute = json['group_route'];
     if (topicId != null && (topicId is! int || topicId <= 0)) {
       throw const FormatException('Invalid content route topic id');
     }
@@ -205,6 +230,19 @@ class ContentRoute {
             id != 'messages-group-${Uri.encodeComponent(messageGroupName)}')) {
       throw const FormatException('Invalid content route message group');
     }
+    final GroupRoute? groupRoute;
+    if (rawGroupRoute == null) {
+      groupRoute = null;
+    } else if (rawGroupRoute is Map) {
+      groupRoute = GroupRoute.fromJson(
+        Map<String, dynamic>.from(rawGroupRoute),
+      );
+      if (topicId != null || messageGroupName != null || id != groupRoute.id) {
+        throw const FormatException('Invalid content group route');
+      }
+    } else {
+      throw const FormatException('Invalid content group route');
+    }
     return ContentRoute(
       id: id,
       title: title,
@@ -216,6 +254,7 @@ class ContentRoute {
       postNumber: postNumber as int?,
       feedPath: feedPath as String?,
       messageGroupName: messageGroupName as String?,
+      groupRoute: groupRoute,
     );
   }
 

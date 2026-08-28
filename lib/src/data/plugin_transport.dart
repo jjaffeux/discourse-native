@@ -20,3 +20,14 @@ abstract interface class PluginApiTransport {
     String? clientId,
   });
 }
+
+/// Optional companion for compatibility routes whose successful JSON payload
+/// is a top-level array rather than an object.
+abstract interface class PluginJsonListTransport {
+  Future<List<Map<String, dynamic>>> pluginGetJsonList({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  });
+}

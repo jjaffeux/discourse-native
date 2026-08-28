@@ -14,8 +14,10 @@ import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'assign_data.dart';
+import 'assign_group_data.dart';
 import 'assign_notifications.dart';
 import 'assign_services.dart';
+import 'assigned_group_view.dart';
 import 'assignment.dart';
 import 'assignment_sheet.dart';
 
@@ -31,6 +33,8 @@ final class AssignPlugin
         SitePlugin,
         SiteSettingsPlugin<AssignSettings>,
         CurrentUserPlugin<AssignCurrentUser>,
+        GroupRecordPlugin<AssignGroupData>,
+        GroupTabPlugin,
         PostRecordPlugin<Assignments>,
         TopicRecordPlugin<Assignments>,
         PostDecorationPlugin,
@@ -69,6 +73,47 @@ final class AssignPlugin
     Map<String, dynamic> json,
     String siteUrl,
   ) => AssignCurrentUser.fromWire(json);
+
+  @override
+  PluginDataKey<AssignGroupData> get groupRecord => assignGroupDataKey;
+
+  @override
+  AssignGroupData? readGroup(Map<String, dynamic> json, String siteUrl) =>
+      AssignGroupData.fromWire(json);
+
+  @override
+  PluginGroupTab? groupTab(PluginGroupContext group) {
+    final record = group.groupData.get(assignGroupDataKey);
+    final user = group.currentUserData.get(assignCurrentUserDataKey);
+    if (record?.canShowAssignedTab != true ||
+        record!.assignableLevel <= 0 ||
+        !group.canSeeMembers ||
+        user?.canAssignGlobally != true) {
+      return null;
+    }
+    return PluginGroupTab(
+      section: 'assigned',
+      label: 'Assigned',
+      icon: DIcons.userPlus,
+      count: record.assignmentCount,
+    );
+  }
+
+  @override
+  Widget? groupContent(BuildContext context, PluginGroupContext group) {
+    if (group.route.pluginOwner != name || group.route.section != 'assigned') {
+      return null;
+    }
+    return AssignedGroupView(
+      siteUrl: group.siteUrl,
+      groupName: group.groupName,
+      subsection: group.route.subsection,
+    );
+  }
+
+  @override
+  Listenable? groupListenable(BuildContext context, PluginGroupContext group) =>
+      PluginUiScope.maybe(context, assignedGroupControllerService);
 
   @override
   PluginDataKey<Assignments> get record => assignmentsDataKey;

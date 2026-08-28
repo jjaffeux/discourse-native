@@ -1,0 +1,217 @@
+import 'dart:async';
+
+import 'package:discourse_native/src/data/groups_api.dart';
+import 'package:discourse_native/src/data/plugin_transport.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
+import 'package:discourse_native/src/shell/groups_controller.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'support/fakes.dart';
+
+const _site = 'https://forum.example';
+const _instance = DiscourseInstance(url: _site, title: 'Forum');
+const _connectedInstance = DiscourseInstance(
+  url: _site,
+  title: 'Forum',
+  user: DiscourseUser(username: 'sam'),
+);
+
+Completer<T> _completed<T>(T value) => Completer<T>()..complete(value);
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'directory pagination merges by id and preserves the confirmed page',
+    () async {
+      final transport = _ControlledGroupTransport()
+        ..objects.addAll([
+          _completed({
+            'groups': [
+              {'id': 1, 'name': 'alpha'},
+            ],
+            'total_rows_groups': 2,
+            'load_more_groups': '/groups?page=1',
+          }),
+          _completed({
+            'groups': [
+              {'id': 1, 'name': 'alpha'},
+              {'id': 2, 'name': 'beta'},
+            ],
+            'total_rows_groups': 2,
+          }),
+        ]);
+      final controller = _controller(transport);
+      addTearDown(controller.dispose);
+      const query = GroupDirectoryQuery();
+
+      await controller.loadDirectory(_instance, query);
+      await controller.loadDirectory(_instance, query, more: true);
+
+      final state = controller.directoryState(_site, query);
+      expect(state.groups.map((group) => group.id), [1, 2]);
+      expect(state.totalRows, 2);
+      expect(state.hasMore, isFalse);
+      expect(transport.gets.map((request) => request.path), [
+        '/groups.json?order=name',
+        '/groups.json?page=1&order=name',
+      ]);
+      expect(transport.gets.every((request) => request.apiKey == null), isTrue);
+    },
+  );
+
+  test('member filters have independent caches and paging windows', () async {
+    final transport = _ControlledGroupTransport()
+      ..objects.addAll([
+        _completed({
+          'members': [
+            {'id': 1, 'username': 'sam'},
+          ],
+          'owners': <Object?>[],
+          'meta': {'total': 1, 'limit': 50, 'offset': 0},
+        }),
+        _completed({
+          'members': [
+            {'id': 2, 'username': 'lee'},
+          ],
+          'owners': <Object?>[],
+          'meta': {'total': 1, 'limit': 50, 'offset': 0},
+        }),
+      ]);
+    final controller = _controller(transport);
+    addTearDown(controller.dispose);
+
+    await controller.loadMembers(_instance, 'support');
+    await controller.loadMembers(_instance, 'support', filter: 'lee');
+
+    expect(controller.membersState(_site, 'support').members.single.id, 1);
+    expect(
+      controller
+          .membersState(_site, 'support', filter: 'lee')
+          .members
+          .single
+          .id,
+      2,
+    );
+  });
+
+  test('permissions remain available to an anonymous group visitor', () async {
+    final transport = _ControlledGroupTransport()
+      ..lists.add(
+        _completed([
+          {
+            'permission_type': 1,
+            'category': {'id': 4, 'name': 'Support'},
+          },
+        ]),
+      );
+    final controller = _controller(transport);
+    addTearDown(controller.dispose);
+
+    await controller.loadPermissions(_instance, 'support');
+
+    final state = controller.permissionsState(_site, 'support');
+    expect(state.permissions.single.category.name, 'Support');
+    expect(transport.listGets.single.apiKey, isNull);
+    expect(transport.listGets.single.clientId, isNull);
+  });
+
+  test(
+    'authenticated reads send the user API client id with the key',
+    () async {
+      final transport = _ControlledGroupTransport()
+        ..objects.add(
+          _completed({
+            'group': {'id': 7, 'name': 'support'},
+          }),
+        );
+      final credentials = FakeApiCredentialReader(
+        clientIdValue: 'native-client',
+      )..keys[_site] = 'secret';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+
+      await controller.loadDetail(_connectedInstance, 'support');
+
+      expect(transport.gets.single.apiKey, 'secret');
+      expect(transport.gets.single.clientId, 'native-client');
+    },
+  );
+
+  test(
+    'forget plus lifecycle invalidation rejects a late group response',
+    () async {
+      final detail = Completer<Map<String, dynamic>>();
+      final transport = _ControlledGroupTransport()..objects.add(detail);
+      final lifecycle = SiteLifecycle();
+      final controller = _controller(transport, lifecycle: lifecycle);
+      addTearDown(controller.dispose);
+
+      final load = controller.loadDetail(_instance, 'support');
+      await pumpEventQueue();
+      lifecycle.invalidate(_site);
+      controller.forget(_site);
+      detail.complete({
+        'group': {'id': 7, 'name': 'support'},
+      });
+      await load;
+
+      final state = controller.detailState(_site, 'support');
+      expect(state.loaded, isFalse);
+      expect(state.detail, isNull);
+    },
+  );
+}
+
+GroupsController _controller(
+  _ControlledGroupTransport transport, {
+  SiteLifecycle? lifecycle,
+  FakeApiCredentialReader? credentials,
+}) => GroupsController(
+  api: GroupsApi(transport, const DiscourseModelCodec.core()),
+  credentials: credentials ?? FakeApiCredentialReader(),
+  lifecycle: lifecycle ?? SiteLifecycle(),
+);
+
+final class _ControlledGroupTransport
+    implements PluginApiTransport, PluginJsonListTransport {
+  final List<Completer<Map<String, dynamic>>> objects = [];
+  final List<Completer<List<Map<String, dynamic>>>> lists = [];
+  final List<({String path, String? apiKey, String? clientId})> gets = [];
+  final List<({String path, String? apiKey, String? clientId})> listGets = [];
+
+  @override
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) {
+    gets.add((path: path, apiKey: apiKey, clientId: clientId));
+    return objects.removeAt(0).future;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> pluginGetJsonList({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) {
+    listGets.add((path: path, apiKey: apiKey, clientId: clientId));
+    return lists.removeAt(0).future;
+  }
+
+  @override
+  Future<Map<String, dynamic>> pluginWriteJson({
+    required String siteUrl,
+    required String path,
+    required String method,
+    required String apiKey,
+    required Map<String, Object?> body,
+    String? clientId,
+  }) => throw UnimplementedError();
+}

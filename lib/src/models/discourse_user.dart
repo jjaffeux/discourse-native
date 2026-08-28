@@ -16,8 +16,10 @@ class DiscourseUser {
     this.status,
     this.draftCount = 0,
     this.canChangePostOwner = false,
+    this.admin = false,
     this.staff = false,
     this.whisperer = false,
+    this.canSendPrivateMessages = false,
     this.groups = const [],
     this.messageGroupNames = const [],
     this.sidebarCategoryIds = const [],
@@ -47,8 +49,10 @@ class DiscourseUser {
     status: _storedStatus(json['status']),
     draftCount: jsonInt(json['draftCount']),
     canChangePostOwner: json['canChangePostOwner'] == true,
+    admin: json['admin'] == true,
     staff: json['staff'] == true,
     whisperer: json['whisperer'] == true,
+    canSendPrivateMessages: json['canSendPrivateMessages'] == true,
     groups: List.unmodifiable(
       jsonArray(json['groups']).map(jsonText).whereType<String>(),
     ),
@@ -93,6 +97,9 @@ class DiscourseUser {
   /// Core's account-level guardian for reassigning post authorship.
   final bool canChangePostOwner;
 
+  /// Administrators have access to group inboxes even without membership.
+  final bool admin;
+
   /// Whether the current account is an administrator or moderator.
   final bool staff;
 
@@ -101,6 +108,9 @@ class DiscourseUser {
   /// This is intentionally not inferred from [staff]: sites may grant whisper
   /// access to any configured group through `whispers_allowed_groups`.
   final bool whisperer;
+
+  /// The server guardian's account-level private-message capability.
+  final bool canSendPrivateMessages;
 
   /// Group names from the freshly loaded current-user payload.
   final List<String> groups;
@@ -180,8 +190,10 @@ class DiscourseUser {
       'status': status?.toJson(),
       'draftCount': draftCount,
       'canChangePostOwner': canChangePostOwner,
+      'admin': admin,
       'staff': staff,
       'whisperer': whisperer,
+      'canSendPrivateMessages': canSendPrivateMessages,
       'groups': groups,
       'messageGroupNames': messageGroupNames,
       'sidebarCategoryIds': sidebarCategoryIds,
@@ -209,8 +221,10 @@ class DiscourseUser {
     status: status,
     draftCount: draftCount,
     canChangePostOwner: canChangePostOwner,
+    admin: admin,
     staff: staff,
     whisperer: whisperer,
+    canSendPrivateMessages: canSendPrivateMessages,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -233,8 +247,10 @@ class DiscourseUser {
     status: status,
     draftCount: draftCount,
     canChangePostOwner: canChangePostOwner,
+    admin: admin,
     staff: staff,
     whisperer: whisperer,
+    canSendPrivateMessages: canSendPrivateMessages,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -265,8 +281,10 @@ class DiscourseUser {
     status: status,
     draftCount: draftCount,
     canChangePostOwner: canChangePostOwner,
+    admin: admin,
     staff: staff,
     whisperer: whisperer,
+    canSendPrivateMessages: canSendPrivateMessages,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -292,8 +310,10 @@ class DiscourseUser {
     status: status,
     draftCount: draftCount,
     canChangePostOwner: canChangePostOwner,
+    admin: admin,
     staff: staff,
     whisperer: whisperer,
+    canSendPrivateMessages: canSendPrivateMessages,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -316,8 +336,10 @@ class DiscourseUser {
     status: status,
     draftCount: draftCount,
     canChangePostOwner: canChangePostOwner,
+    admin: admin,
     staff: staff,
     whisperer: whisperer,
+    canSendPrivateMessages: canSendPrivateMessages,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -342,8 +364,10 @@ class DiscourseUser {
       other.status == status &&
       other.draftCount == draftCount &&
       other.canChangePostOwner == canChangePostOwner &&
+      other.admin == admin &&
       other.staff == staff &&
       other.whisperer == whisperer &&
+      other.canSendPrivateMessages == canSendPrivateMessages &&
       listEquals(other.groups, groups) &&
       listEquals(other.messageGroupNames, messageGroupNames) &&
       listEquals(other.sidebarCategoryIds, sidebarCategoryIds) &&
@@ -369,8 +393,10 @@ class DiscourseUser {
     status,
     draftCount,
     canChangePostOwner,
+    admin,
     staff,
     whisperer,
+    canSendPrivateMessages,
     Object.hashAll(groups),
     Object.hashAll(messageGroupNames),
     Object.hashAll(sidebarCategoryIds),
