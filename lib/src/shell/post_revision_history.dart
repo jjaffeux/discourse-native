@@ -48,14 +48,9 @@ Future<void> showPostRevisionHistory({
 
 /// Core's compact pencil-and-count post metadata indicator.
 class PostRevisionIndicator extends StatelessWidget {
-  const PostRevisionIndicator({
-    super.key,
-    required this.post,
-    required this.onPressed,
-  });
+  const PostRevisionIndicator({super.key, required this.post});
 
   final Post post;
-  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -68,25 +63,21 @@ class PostRevisionIndicator extends StatelessWidget {
         : 'Last edited ${age == 'now' ? 'now' : '$age ago'}';
 
     return Semantics(
-      label:
-          '${count == 1 ? '1 edit' : '$count edits'}. '
-          '${onPressed == null ? 'Edit history unavailable' : 'View edit history'}',
-      button: true,
-      enabled: onPressed != null,
+      label: count == 1 ? '1 edit' : '$count edits',
       excludeSemantics: true,
       child: Tooltip(
         message: tooltip,
-        child: TextButton.icon(
+        child: Padding(
           key: ValueKey('post-revision-indicator-${post.id}'),
-          onPressed: onPressed,
-          style: TextButton.styleFrom(
-            minimumSize: const Size(32, 28),
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const DIcon(DIcons.pencil, size: 12),
+              const SizedBox(width: 4),
+              Text('$count'),
+            ],
           ),
-          icon: const DIcon(DIcons.pencil, size: 12),
-          label: Text('$count'),
         ),
       ),
     );

@@ -581,8 +581,10 @@ markdown, oneboxes, mentions and emoji resolved. `flutter_widget_from_html_core`
 draws it; reimplementing any of that client side would be a mistake.
 
 Edit history follows the same server-owned rule. A post's guardian-filtered
-`version` supplies the pencil count (`version - 1`), while
-`can_view_edit_history` alone makes it actionable. Opening it reads
+`version` supplies the passive pencil count (`version - 1`), while
+`can_view_edit_history` alone adds **View edit history** to the post's More
+actions menu. Keeping the metadata passive avoids putting its interaction
+behind the hover toolbar drawn over that edge of the post. Opening history reads
 `GET /posts/{id}/revisions/{revision-or-latest}.json` and renders core's inline
 body and title diffs together with category, tag, ownership and other metadata
 changes. Previous/next navigation uses the response's revision ids rather than
