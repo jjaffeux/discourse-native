@@ -2035,8 +2035,6 @@ class _Header extends StatelessWidget {
         whisperer &&
         target.mode == ComposerMode.reply &&
         !target.replyingToWhisper;
-    final replyActionLabel = replyTo == null ? 'Topic' : '@$replyTo';
-    final titleLabel = canToggleWhisper ? target.topicTitle : label;
 
     final header = SizedBox(
       key: const ValueKey('composer-drag-handle'),
@@ -2115,29 +2113,10 @@ class _Header extends StatelessWidget {
                     onTap: menuController.isOpen
                         ? menuController.close
                         : menuController.open,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        DIcon(
-                          composer.whisper ? DIcons.farEyeSlash : DIcons.reply,
-                          size: 16,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          replyActionLabel,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        DIcon(
-                          DIcons.chevronDown,
-                          size: 12,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 4),
-                      ],
+                    child: DIcon(
+                      composer.whisper ? DIcons.farEyeSlash : DIcons.reply,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -2157,7 +2136,7 @@ class _Header extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                titleLabel,
+                label,
                 key: const ValueKey('composer-title'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
