@@ -122,6 +122,53 @@ void main() {
       );
     }
   });
+
+  testWidgets('loading labels keep progress visible on text buttons', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const Scaffold(
+          body: Center(
+            child: DButton(
+              label: Text('Save changes'),
+              loadingLabel: Text('Saving changes…'),
+              semanticLabel: 'Saving preferences',
+              onPressed: _noop,
+              loading: true,
+              variant: DButtonVariant.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final rendered = find.byType(FilledButton);
+    final semantics = tester.ensureSemantics();
+    try {
+      expect(find.text('Save changes'), findsNothing);
+      expect(find.text('Saving changes…'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(
+        tester.getSize(rendered).width,
+        greaterThan(tester.getSize(rendered).height),
+      );
+      expect(tester.widget<FilledButton>(rendered).onPressed, isNull);
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('Saving preferences')),
+        isSemantics(
+          label: 'Saving preferences',
+          value: 'Loading',
+          isButton: true,
+          isEnabled: false,
+          isLiveRegion: true,
+        ),
+      );
+    } finally {
+      semantics.dispose();
+    }
+  });
 }
 
 void _noop() {}

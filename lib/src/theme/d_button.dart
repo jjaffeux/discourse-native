@@ -303,6 +303,7 @@ class DButton extends StatelessWidget {
     this.variant = DButtonVariant.standard,
     this.size = DButtonSize.regular,
     this.loading = false,
+    this.loadingLabel,
     this.tooltip,
     this.semanticLabel,
     this.focusNode,
@@ -321,6 +322,7 @@ class DButton extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
   }) : label = const SizedBox.shrink(),
+       loadingLabel = null,
        // The public constructor keeps this non-nullable for icon-only use.
        // ignore: prefer_initializing_formals
        icon = icon,
@@ -335,6 +337,7 @@ class DButton extends StatelessWidget {
   final DButtonVariant variant;
   final DButtonSize size;
   final bool loading;
+  final Widget? loadingLabel;
   final String? tooltip;
   final String? semanticLabel;
   final FocusNode? focusNode;
@@ -463,10 +466,32 @@ class DButton extends StatelessWidget {
                   ),
           );
     if (loading) {
-      child = SizedBox.square(
-        dimension: fontSize,
-        child: const CircularProgressIndicator(strokeWidth: 2),
+      final indicator = ExcludeSemantics(
+        child: SizedBox.square(
+          dimension: fontSize,
+          child: const CircularProgressIndicator(strokeWidth: 2),
+        ),
       );
+      child = loadingLabel == null
+          ? indicator
+          : DefaultTextStyle.merge(
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  indicator,
+                  SizedBox(width: fontSize * 0.45),
+                  Flexible(
+                    child: ExcludeSemantics(
+                      excluding: semanticLabel != null,
+                      child: loadingLabel!,
+                    ),
+                  ),
+                ],
+              ),
+            );
     }
 
     Widget result = FilledButton(
@@ -493,6 +518,7 @@ class DButton extends StatelessWidget {
       child: Semantics(
         button: true,
         enabled: enabled,
+        liveRegion: loading,
         label: semanticLabel,
         value: loading ? 'Loading' : null,
         child: result,
