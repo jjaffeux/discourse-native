@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/discourse_user.dart';
+import '../models/do_not_disturb.dart';
 import '../models/notification_totals.dart';
 import '../models/user_status.dart';
 import '../theme/app_theme.dart';
@@ -10,6 +11,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'bookmark_list.dart';
+import 'do_not_disturb_dialog.dart';
 import 'notification_list.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -127,11 +129,13 @@ class UserMenuRow {
   bool get isSummary => id == 'summary';
   bool get isUserStatus => id == 'user-status';
   bool get isPreferences => id == 'preferences';
+  bool get isDoNotDisturb => id == 'do-not-disturb';
 }
 
 /// Results a section can hand back to whatever opened it.
 enum UserMenuAction {
   disconnect,
+  pauseNotifications,
 
   /// The section did something that leaves nothing to come back to — opening
   /// a notification, say — so the menu should get out of the way.
@@ -216,7 +220,11 @@ List<UserMenuSection> userMenuSections(
             userId: user?.id,
           ),
         const UserMenuRow(DIcons.toggleOn, 'Online'),
-        const UserMenuRow(DIcons.toggleOff, 'Pause notifications'),
+        const UserMenuRow(
+          DIcons.toggleOff,
+          'Pause notifications',
+          id: 'do-not-disturb',
+        ),
         const UserMenuRow(DIcons.user, 'Summary', id: 'summary'),
         const UserMenuRow(DIcons.list, 'Activity'),
         const UserMenuRow(DIcons.pencil, 'Drafts', id: 'drafts'),
@@ -309,6 +317,17 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
                         siteUrl: menu.siteUrl,
                         host: menu.host,
                         onDismiss: widget.onDismiss,
+                        onPauseNotifications: () {
+                          final siteUrl = menu.siteUrl;
+                          if (siteUrl == null) return;
+                          final dialog = showDoNotDisturbDialog(
+                            context,
+                            siteUrl: siteUrl,
+                            controller: controller,
+                          );
+                          widget.onDismiss();
+                          unawaited(dialog);
+                        },
                         onDisconnect: () {
                           widget.onDismiss();
                           final siteUrl = menu.siteUrl;
@@ -459,6 +478,7 @@ class _SectionBody extends StatelessWidget {
     required this.host,
     required this.onDisconnect,
     required this.onDismiss,
+    required this.onPauseNotifications,
     this.showHeader = true,
   });
 
@@ -466,6 +486,7 @@ class _SectionBody extends StatelessWidget {
   final String? siteUrl;
   final String? host;
   final VoidCallback onDisconnect;
+  final VoidCallback onPauseNotifications;
 
   /// Closes the menu, for a row that has taken the user somewhere else.
   final VoidCallback onDismiss;
@@ -491,42 +512,46 @@ class _SectionBody extends StatelessWidget {
         BookmarkSection(siteUrl: siteUrl, onOpened: onDismiss)
       else
         for (final row in section.rows)
-          _RowTile(
-            row: row,
-            leading: row.isUserStatus && siteUrl != null && row.status != null
-                ? UserStatusMessage(
-                    siteUrl: siteUrl,
-                    userId: row.userId,
-                    status: row.status,
-                    size: 18,
-                  )
-                : null,
-            detail: row.isDrafts && siteUrl != null
-                ? switch (controller.draftCountFor(siteUrl)) {
-                    final count when count > 0 => '$count',
-                    _ => null,
-                  }
-                : row.detail,
-            onTap: row.isUserStatus && siteUrl != null
-                ? () =>
-                      unawaited(showUserStatusEditor(context, siteUrl: siteUrl))
-                : row.isSummary && siteUrl != null
-                ? () {
-                    onDismiss();
-                    controller.openUserSummary(siteUrl);
-                  }
-                : row.isDrafts && siteUrl != null
-                ? () {
-                    onDismiss();
-                    controller.openDrafts(siteUrl);
-                  }
-                : row.isPreferences && siteUrl != null
-                ? () {
-                    onDismiss();
-                    controller.openPreferences(siteUrl);
-                  }
-                : null,
-          ),
+          if (row.isDoNotDisturb && siteUrl != null)
+            _DoNotDisturbTile(siteUrl: siteUrl, onPause: onPauseNotifications)
+          else
+            _RowTile(
+              row: row,
+              leading: row.isUserStatus && siteUrl != null && row.status != null
+                  ? UserStatusMessage(
+                      siteUrl: siteUrl,
+                      userId: row.userId,
+                      status: row.status,
+                      size: 18,
+                    )
+                  : null,
+              detail: row.isDrafts && siteUrl != null
+                  ? switch (controller.draftCountFor(siteUrl)) {
+                      final count when count > 0 => '$count',
+                      _ => null,
+                    }
+                  : row.detail,
+              onTap: row.isUserStatus && siteUrl != null
+                  ? () => unawaited(
+                      showUserStatusEditor(context, siteUrl: siteUrl),
+                    )
+                  : row.isSummary && siteUrl != null
+                  ? () {
+                      onDismiss();
+                      controller.openUserSummary(siteUrl);
+                    }
+                  : row.isDrafts && siteUrl != null
+                  ? () {
+                      onDismiss();
+                      controller.openDrafts(siteUrl);
+                    }
+                  : row.isPreferences && siteUrl != null
+                  ? () {
+                      onDismiss();
+                      controller.openPreferences(siteUrl);
+                    }
+                  : null,
+            ),
       if (section.isProfile) ...[
         Divider(color: theme.shell.divider, height: 17),
         _DisconnectTile(host: host, onTap: onDisconnect),
@@ -549,6 +574,112 @@ class _SectionBody extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DoNotDisturbTile extends StatelessWidget {
+  const _DoNotDisturbTile({required this.siteUrl, required this.onPause});
+
+  final String siteUrl;
+  final VoidCallback onPause;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ShellScope.read(context);
+    return ListenableBuilder(
+      listenable: controller.doNotDisturb,
+      builder: (context, _) {
+        final state = controller.doNotDisturb.stateFor(siteUrl);
+        final active = state.isActiveAt(DateTime.now());
+        final until = state.until;
+        final detail = active && until != null && !state.isEternal
+            ? doNotDisturbRemainingLabel(until)
+            : null;
+        final localizations = MaterialLocalizations.of(context);
+        final value = state.saving
+            ? 'Saving'
+            : active
+            ? state.isEternal
+                  ? 'On, no expiration'
+                  : 'On, until ${localizations.formatMediumDate(until!.toLocal())} '
+                        '${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(until.toLocal()))}'
+            : 'Off';
+        final messenger = ScaffoldMessenger.maybeOf(context);
+
+        Future<void> resume() async {
+          final error = await controller.doNotDisturb.resume(siteUrl);
+          if (error != null && messenger?.mounted == true) {
+            messenger!.showSnackBar(SnackBar(content: Text(error)));
+          }
+        }
+
+        final VoidCallback? action = state.saving
+            ? null
+            : active
+            ? () => unawaited(resume())
+            : onPause;
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+          child: Semantics(
+            key: const ValueKey('pause-notifications-row'),
+            container: true,
+            button: true,
+            enabled: !state.saving,
+            toggled: active,
+            label: 'Pause notifications',
+            value: value,
+            onTap: action,
+            child: ExcludeSemantics(
+              child: InkWell(
+                onTap: action,
+                borderRadius: BorderRadius.circular(6),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 44),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      children: [
+                        if (state.saving)
+                          const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator.adaptive(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        else
+                          DIcon(
+                            active ? DIcons.toggleOn : DIcons.toggleOff,
+                            size: 18,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant,
+                          ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Pause notifications',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (detail != null) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            detail,
+                            style: Theme.of(context).textTheme.labelMedium,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -768,6 +899,8 @@ class _SectionList extends StatelessWidget {
         showHeader: false,
         onDismiss: () =>
             Navigator.of(nestedContext).pop(UserMenuAction.dismiss),
+        onPauseNotifications: () =>
+            Navigator.of(nestedContext).pop(UserMenuAction.pauseNotifications),
         onDisconnect: () =>
             Navigator.of(nestedContext).pop(UserMenuAction.disconnect),
       ),
@@ -779,10 +912,21 @@ class _SectionList extends StatelessWidget {
     // them are now in the way: of the topic that was opened, or of the account
     // that is about to stop existing.
     final controller = ShellScope.read(context);
+    final navigator = Navigator.of(context, rootNavigator: true);
     Navigator.of(context).pop();
 
     if (action == UserMenuAction.disconnect) {
       controller.disconnectInstance(siteUrl).ignore();
+    } else if (action == UserMenuAction.pauseNotifications) {
+      final dialogContext = navigator.context;
+      if (!dialogContext.mounted) return;
+      unawaited(
+        showDoNotDisturbDialog(
+          dialogContext,
+          siteUrl: siteUrl,
+          controller: controller,
+        ),
+      );
     }
   }
 

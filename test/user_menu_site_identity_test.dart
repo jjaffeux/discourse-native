@@ -68,7 +68,7 @@ const _teamBookmark = Bookmark(
 void main() {
   testWidgets(
     'pointer tabs expose 44 pixel selected controls with keyboard actions',
-    (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
+    (tester) => _withMenu(tester, TargetPlatform.macOS, (_) async {
       final semantics = tester.ensureSemantics();
       try {
         await tester.tap(find.byKey(UserMenuButton.avatarKey));
@@ -132,6 +132,129 @@ void main() {
       } finally {
         semantics.dispose();
       }
+    }),
+  );
+
+  testWidgets(
+    'pause notifications is an accessible keyboard control that can resume',
+    (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.tap(find.byKey(UserMenuButton.avatarKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Profile'));
+        await tester.pumpAndSettle();
+
+        var row = find.byKey(const ValueKey('pause-notifications-row'));
+        expect(tester.getSize(row).height, greaterThanOrEqualTo(44));
+        expect(
+          tester.getSemantics(row),
+          isSemantics(
+            label: 'Pause notifications',
+            value: 'Off',
+            isButton: true,
+            hasEnabledState: true,
+            isEnabled: true,
+            hasToggledState: true,
+            isToggled: false,
+            hasTapAction: true,
+          ),
+        );
+
+        await tester.tap(row);
+        await tester.pumpAndSettle();
+        expect(find.byType(UserMenuPanel), findsNothing);
+        expect(find.text('Pause notifications for…'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('do-not-disturb-halfHour')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('do-not-disturb-oneHour')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('do-not-disturb-twoHours')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('do-not-disturb-tomorrow')),
+          findsOneWidget,
+        );
+
+        final halfHour = find.byKey(const ValueKey('do-not-disturb-halfHour'));
+        final focusChild = find
+            .descendant(of: halfHour, matching: find.byType(MouseRegion))
+            .first;
+        Focus.of(tester.element(focusChild)).requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(fixture.api.doNotDisturbDurations.single.wireValue, 30);
+        expect(find.text('Pause notifications for…'), findsNothing);
+
+        await tester.tap(find.byKey(UserMenuButton.avatarKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Profile'));
+        await tester.pumpAndSettle();
+        row = find.byKey(const ValueKey('pause-notifications-row'));
+        expect(
+          tester.getSemantics(row),
+          isSemantics(
+            label: 'Pause notifications',
+            isButton: true,
+            hasToggledState: true,
+            isToggled: true,
+          ),
+        );
+        expect(find.text('30m'), findsOneWidget);
+
+        await tester.tap(row);
+        await tester.pumpAndSettle();
+        expect(fixture.api.doNotDisturbResumes, [_metaUrl]);
+        expect(
+          tester.getSemantics(row),
+          isSemantics(hasToggledState: true, isToggled: false),
+        );
+      } finally {
+        semantics.dispose();
+      }
+    }),
+  );
+
+  testWidgets(
+    'touch profile closes both sheets before showing pause choices',
+    (tester) => _withMenu(tester, TargetPlatform.android, (_) async {
+      await _openNestedSection(tester, 'Profile');
+      await tester.tap(find.byKey(const ValueKey('pause-notifications-row')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pause notifications for…'), findsOneWidget);
+      expect(find.text('Profile'), findsNothing);
+      expect(find.text('Meta User'), findsNothing);
+    }),
+  );
+
+  testWidgets(
+    'pause choices link to the account notification schedule',
+    (tester) => _withMenu(tester, TargetPlatform.macOS, (_) async {
+      final launched = _watchBrowser(tester);
+      await tester.tap(find.byKey(UserMenuButton.avatarKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Profile'));
+      await tester.pumpAndSettle();
+      final shell = ShellScope.read(tester.element(find.byType(UserMenuPanel)));
+      final username = shell.currentInstance!.user!.username;
+
+      await tester.tap(find.byKey(const ValueKey('pause-notifications-row')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Set a notification schedule'));
+      await tester.pumpAndSettle();
+
+      expect(launched, [
+        '$_metaUrl/u/${Uri.encodeComponent(username)}/preferences/notifications',
+      ]);
     }),
   );
 

@@ -20,7 +20,13 @@ const _siteUrl = 'https://meta.discourse.org';
 
 final class _AccountFeedApi extends FakeDiscourseApi {
   _AccountFeedApi(this.firstGate)
-    : super(user: const DiscourseUser(id: 2, username: 'account-b'));
+    : super(
+        user: DiscourseUser(
+          id: 2,
+          username: 'account-b',
+          doNotDisturbUntil: DateTime.utc(2040),
+        ),
+      );
 
   final Completer<void> firstGate;
   int requests = 0;
@@ -500,6 +506,7 @@ void main() {
     await shell.connectCurrentInstance();
     await Future<void>.delayed(Duration.zero);
     expect(shell.currentInstance?.user?.username, 'account-b');
+    expect(shell.doNotDisturb.stateFor(_siteUrl).until, DateTime.utc(2040));
     expect(shell.currentFeed?.topicIds, [2]);
 
     firstGate.complete();

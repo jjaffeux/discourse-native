@@ -23,6 +23,9 @@ Future<void> showUserStatusEditor(
     builder: (context) => _UserStatusDialog(
       siteUrl: siteUrl,
       initialStatus: controller.userStatusFor(siteUrl, user.id, user.status),
+      initialPauseNotifications: controller.doNotDisturb
+          .stateFor(siteUrl)
+          .isActiveAt(DateTime.now()),
     ),
   );
 }
@@ -30,10 +33,15 @@ Future<void> showUserStatusEditor(
 enum _StatusExpiry { never, oneHour, twoHours, tomorrow, custom }
 
 class _UserStatusDialog extends StatefulWidget {
-  const _UserStatusDialog({required this.siteUrl, required this.initialStatus});
+  const _UserStatusDialog({
+    required this.siteUrl,
+    required this.initialStatus,
+    required this.initialPauseNotifications,
+  });
 
   final String siteUrl;
   final UserStatus? initialStatus;
+  final bool initialPauseNotifications;
 
   @override
   State<_UserStatusDialog> createState() => _UserStatusDialogState();
@@ -44,6 +52,7 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
   late String _emoji;
   late _StatusExpiry _expiry;
   DateTime? _customEndsAt;
+  late bool _pauseNotifications;
   bool _busy = false;
   String? _error;
 
@@ -53,6 +62,7 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
     final initial = widget.initialStatus;
     _description = TextEditingController(text: initial?.description ?? '');
     _emoji = initial?.emoji ?? 'speech_balloon';
+    _pauseNotifications = widget.initialPauseNotifications;
     _customEndsAt = initial?.endsAt?.toLocal();
     _expiry = _customEndsAt == null
         ? _StatusExpiry.never
@@ -150,6 +160,7 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
       description: description,
       emoji: _emoji,
       endsAt: _endsAt(),
+      pauseNotifications: _pauseNotifications,
     );
     if (!mounted) return;
     if (error == null) {
@@ -274,6 +285,18 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                   style: theme.textTheme.bodySmall,
                 ),
               ],
+              CheckboxListTile(
+                value: _pauseNotifications,
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() {
+                        _pauseNotifications = value ?? false;
+                        _error = null;
+                      }),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('Pause notifications'),
+              ),
               if (preview != null) ...[
                 const SizedBox(height: 12),
                 Row(

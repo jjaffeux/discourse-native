@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/do_not_disturb.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
@@ -5213,6 +5214,76 @@ void _feedGroups() {
       expect(jsonDecode(sent.last.body), <String, dynamic>{});
     });
 
+    test('enters and leaves Do Not Disturb with core payloads', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response(
+            request.method == 'DELETE'
+                ? jsonEncode({'success': true})
+                : jsonEncode({'ends_at': '2030-02-03T12:30:00.000Z'}),
+            200,
+          );
+        }),
+      );
+
+      for (final option in DoNotDisturbOption.values) {
+        expect(
+          await api.enterDoNotDisturb(
+            siteUrl: 'https://example.com',
+            apiKey: 'key',
+            duration: option.duration,
+          ),
+          DateTime.utc(2030, 2, 3, 12, 30),
+        );
+      }
+      await api.leaveDoNotDisturb(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+      );
+
+      expect(sent.map((request) => request.method), [
+        'POST',
+        'POST',
+        'POST',
+        'POST',
+        'DELETE',
+      ]);
+      expect(
+        sent.map((request) => request.url.path),
+        everyElement('/do-not-disturb.json'),
+      );
+      expect(sent.map((request) => jsonDecode(request.body)), [
+        {'duration': 30},
+        {'duration': 60},
+        {'duration': 120},
+        {'duration': 'tomorrow'},
+        <String, dynamic>{},
+      ]);
+    });
+
+    test('rejects a Do Not Disturb response without an expiration', () async {
+      final api = DiscourseApi(
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+
+      await expectLater(
+        api.enterDoNotDisturb(
+          siteUrl: 'https://example.com',
+          apiKey: 'key',
+          duration: DoNotDisturbOption.halfHour.duration,
+        ),
+        throwsA(
+          isA<WriteException>().having(
+            (error) => error.failure,
+            'failure',
+            WriteFailure.unreachable,
+          ),
+        ),
+      );
+    });
+
     test('preserves a failed response status for diagnostics', () async {
       final api = DiscourseApi(
         client: MockClient((_) async => http.Response('', 503)),
@@ -5765,6 +5836,7 @@ void _writeGroups() {
                 'username': 'sam',
                 'has_chat_enabled': true,
                 'do_not_disturb_until': '2027-01-02T03:04:05.000Z',
+                'do_not_disturb_channel_position': 91,
                 'custom_fields': {'last_chat_channel_id': '42'},
                 'user_option': {
                   'chat_header_indicator_preference': 'only_mentions',
@@ -5787,6 +5859,7 @@ void _writeGroups() {
         ChatHeaderIndicatorPreference.onlyMentions,
       );
       expect(user.doNotDisturbUntil, DateTime.utc(2027, 1, 2, 3, 4, 5));
+      expect(user.doNotDisturbChannelPosition, 91);
       expect(user.lastChatChannelId, 42);
     });
 

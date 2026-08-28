@@ -67,10 +67,13 @@ class ChatHeaderButton extends StatelessWidget {
         return const SizedBox.shrink();
       }
 
-      return _DoNotDisturbExpiry(
-        until: user.doNotDisturbUntil,
-        builder: (context, isInDoNotDisturb) {
-          final controller = ShellScope.read(context);
+      final controller = ShellScope.read(context);
+      return ListenableBuilder(
+        listenable: controller.doNotDisturb,
+        builder: (context, _) {
+          final isInDoNotDisturb = controller.doNotDisturb
+              .stateFor(siteUrl)
+              .isActiveAt(DateTime.now());
           final chat = PluginScope.require(context, chatControllerService);
           return ListenableBuilder(
             listenable: Listenable.merge([
@@ -136,62 +139,6 @@ class ChatHeaderButton extends StatelessWidget {
       );
     },
   );
-}
-
-/// Rebuilds the indicator when a time-based Do Not Disturb window ends.
-///
-/// The user record itself does not change at that instant and the server has
-/// no event to publish, so neither shell nor chat listeners would otherwise
-/// wake a badge that was already waiting behind the suppression window.
-class _DoNotDisturbExpiry extends StatefulWidget {
-  const _DoNotDisturbExpiry({required this.until, required this.builder});
-
-  final DateTime? until;
-  final Widget Function(BuildContext context, bool active) builder;
-
-  @override
-  State<_DoNotDisturbExpiry> createState() => _DoNotDisturbExpiryState();
-}
-
-class _DoNotDisturbExpiryState extends State<_DoNotDisturbExpiry> {
-  Timer? _timer;
-  late bool _active;
-
-  @override
-  void initState() {
-    super.initState();
-    _schedule();
-  }
-
-  @override
-  void didUpdateWidget(_DoNotDisturbExpiry oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.until != widget.until) _schedule();
-  }
-
-  void _schedule() {
-    _timer?.cancel();
-    _timer = null;
-    final remaining = widget.until?.difference(DateTime.now());
-    if (remaining == null || remaining <= Duration.zero) {
-      _active = false;
-      return;
-    }
-    _active = true;
-    _timer = Timer(remaining, () {
-      if (!mounted) return;
-      setState(() => _active = false);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.builder(context, _active);
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
 }
 
 class _UnreadDot extends StatelessWidget {
