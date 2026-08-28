@@ -6,7 +6,9 @@ the files under `/usr`, and users receive updates through `apt upgrade`.
 
 ## Distribution model
 
-The release workflow builds one amd64 `.deb` and publishes it in two places:
+The release workflow builds the production app from `profiles/full` (the
+package graph which includes Resenha) into one amd64 `.deb` and publishes it in
+two places:
 
 - a signed apt repository on the `gh-pages` branch, which is the normal install
   and update path;
@@ -43,7 +45,8 @@ not a build of every push to `main`.
 
 ## Channels and versions
 
-`pubspec.yaml` holds the next stable version. The workflow reads only its
+The root `pubspec.yaml` holds the canonical next stable version. The workflow
+reads only its
 `major.minor.patch` part; the `+build` suffix is ignored. Its build number is
 the full git commit count at the source revision.
 
@@ -199,8 +202,9 @@ Release checks below pass.
 
 Before publication, the job:
 
-1. builds against Ubuntu 22.04/glibc 2.35, runs `flutter analyze` and
-   `flutter test`, and checks that the bundle uses WebKitGTK 4.1;
+1. resolves the core, Resenha, and full lockfiles; analyzes all three package
+   roots; runs the core and Resenha tests; then builds `profiles/full` against
+   Ubuntu 22.04/glibc 2.35 and checks that the bundle uses WebKitGTK 4.1;
 2. lays the app under `/usr/lib/discourse-native`, adds the
    `/usr/bin/discourse-native` symlink plus desktop and icon files, and builds
    an amd64 `.deb`;

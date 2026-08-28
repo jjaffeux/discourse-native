@@ -1,8 +1,11 @@
 # Plugin architecture
 
 The application installs one immutable `PluginManifest` before creating its
-API or shell. The full build uses `bundledPluginManifest`; the core-only build
-uses `corePluginManifest` and can be run with `flutter run -t lib/main_core.dart`.
+API or shell. The production full build is the independent Flutter application
+under `profiles/full`; it adds `discourse_resenha` to the root package's bundled
+modules. The core-only build is resolved from the repository root, uses
+`corePluginManifest`, and can be run with
+`flutter run -t lib/main_core.dart`.
 
 ```text
 discourse_plugin_api (pure Dart contracts)
@@ -59,12 +62,14 @@ boundary cannot become a global service locator.
 Production core never imports or exports a file under `lib/src/plugins`.
 Dependencies point in one direction: plugins may use core and the stable
 `lib/src/plugin_api` surface, while core discovers optional behavior through
-registries, session capabilities, services, and host ports. Only
-`lib/main.dart`, `lib/discourse_full.dart`, and the bundled manifest compose the
-full feature set. Every bundled feature owns a production module and its
-service keys under `lib/src/plugins/<feature>/`; the bundled manifest imports
-only those module entrypoints. `plugin_dependency_boundary_test.dart` enforces
-this rule.
+registries, session capabilities, services, and host ports. The root bundled
+manifest composes the SDK-free feature set. The outer
+`profiles/full/lib/full_plugin_manifest.dart` composition root is the only
+application source allowed to add `discourse_resenha`. Every other bundled
+feature owns a production module and its service keys under
+`lib/src/plugins/<feature>/`; the bundled manifest imports only those module
+entrypoints. `plugin_dependency_boundary_test.dart` and
+`build_profile_packaging_test.dart` enforce these rules.
 
 ## Data and APIs
 
@@ -73,9 +78,10 @@ Core records hold immutable `PluginData` addressed by stable
 model codec; `SiteConfig` and `DiscourseUser` contain only core fields plus that
 opaque bag. Installed `SiteSettingsPlugin<T>` and `CurrentUserPlugin<T>`
 readers own their feature's wire keys and defaults. Poll, Assign, Chat,
-Reactions, GIFs, Local Dates, and Resenha therefore decode only when their
-modules are in the selected manifest. A core-only manifest ignores those live
-schemas rather than silently growing optional model fields.
+Reactions, GIFs, and Local Dates therefore decode only when their modules are
+in the selected manifest. Resenha's codecs live in its own package and are
+available only to the full package graph. A core-only manifest ignores those
+live schemas rather than silently growing optional model fields.
 
 Plugin HTTP contracts and route/payload parsing live beside their feature
 (`poll`, `reactions`, `gifs`, and `chat`) and use the shared transport only as a
@@ -146,7 +152,13 @@ The full manifest declares route and syntax ownership up front. Chat and
 Resenha own separate route namespaces; Poll and Local Dates declare their
 composer syntax ids. Local Dates owns cooked date markup, Chat owns its header
 action, and Resenha owns its global call overlay rather than being imported by
-core shell widgets.
+core shell widgets. Closing a Resenha session is asynchronous: the plugin
+lifecycle does not complete until its server leave, media, subscriptions,
+system call, CallKit, diagnostics, and audio-session teardown have settled.
+The native audio adapter serializes process-global operations and checks its
+owner before each queued operation. Replacement preparation therefore runs
+after any already-started teardown, while queued stale teardown is skipped, so
+an old session cannot reset the replacement's audio state.
 
 ## Deferred UI contribution seams
 
@@ -160,13 +172,38 @@ wire key through these compatibility seams.
 
 ## Build profiles
 
-- `lib/discourse_core.dart` exports the public core/runtime surface.
-- `lib/discourse_full.dart` adds the bundled manifest.
-- `lib/main.dart` launches the full profile.
-- `lib/main_core.dart` launches the empty optional-plugin profile.
+- The repository root is the core Flutter package and application graph. Its
+  `pubspec.yaml`, lockfile, and generated registrants contain neither Resenha,
+  `flutter_webrtc`, nor `livekit_client`. `lib/main_core.dart` launches the
+  empty optional-plugin manifest; `lib/main.dart` launches the SDK-free bundled
+  modules.
 - `packages/discourse_plugin_api` is a pure-Dart package containing the stable
   manifest, lifecycle, host-port, and service-key contracts.
+- `packages/discourse_resenha` owns all Resenha Dart integration, the iOS
+  CallKit Flutter plugin, native media SDK dependencies, SDK diagnostics, and
+  the reviewed `third_party/flutter_webrtc` fork plus its provenance tool.
+  It depends on the core package; the core package never depends back on it.
+- `profiles/full` is a separate Flutter application root. Its pubspec depends
+  on both packages, activates Resenha's vendored WebRTC override (Pub ignores
+  overrides from transitive dependencies), and owns independent iOS, macOS,
+  and Linux generated registrants. `fullPluginManifest` adds `resenhaModule`
+  to the SDK-free bundled modules.
 
-Native feature SDKs remain behind the Resenha module and are initialized only
-when that module is present in the chosen manifest. The core-profile regression
-test verifies that the shell can load and mount with no optional services.
+This split is a package boundary, not an entrypoint convention. Flutter derives
+native registration and packaging from the resolved pubspec, so `-t` alone can
+never remove a plugin. Resolve and run each graph from its own root:
+
+```sh
+# Core: no Resenha or media SDK in the package graph or artifact.
+flutter pub get --enforce-lockfile
+flutter run -t lib/main_core.dart -d macos
+
+# Full: independent graph and registrants, including Resenha.
+(cd profiles/full && flutter pub get --enforce-lockfile)
+(cd profiles/full && flutter run -d macos)
+```
+
+`build_profile_packaging_test.dart` checks the two lockfiles, source ownership,
+CallKit location, vendored provenance location, and the tracked
+iOS/macOS/Linux registrants. CI additionally builds both Linux artifacts and
+rejects a core executable containing WebRTC or LiveKit registration markers.

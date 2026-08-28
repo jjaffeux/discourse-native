@@ -1,0 +1,33 @@
+name: discourse_native_full
+description: Full Discourse native application profile, including Resenha.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  discourse_native:
+    path: ../..
+  discourse_resenha:
+    path: ../../packages/discourse_resenha
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+# Overrides from a dependency are deliberately ignored by Dart Pub. This is
+# the application-side activation of the reviewed fork owned by Resenha.
+dependency_overrides:
+  flutter_webrtc:
+    path: ../../packages/discourse_resenha/third_party/flutter_webrtc
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

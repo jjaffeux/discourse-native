@@ -1,0 +1,19 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    depend_on_referenced_packages: error
+    discarded_futures: error
+    # Resenha is a repository-owned extension of the core host and consumes
+    # its internal plugin API until that API is promoted to a public SDK.
+    implementation_imports: ignore
+    unawaited_futures: error
+  exclude:
+    - build/**
+    - third_party/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**

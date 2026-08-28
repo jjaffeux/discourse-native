@@ -51,9 +51,9 @@ final class ChatModule implements PluginModule {
           lifecycle: lifecycle,
           currentUserFor: siteState.currentUserFor,
           siteConfigFor: siteState.siteConfigFor,
-        previewEngine: ChatPreviewEngine(
-          plugins: bindings.require(corePluginPreviewPort),
-        ),
+          previewEngine: ChatPreviewEngine(
+            plugins: bindings.require(corePluginPreviewPort),
+          ),
           onChatNotificationsDelta: (siteUrl, delta) =>
               accountEvents.updateTotals(
                 siteUrl,

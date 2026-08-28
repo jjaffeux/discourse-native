@@ -4,6 +4,9 @@ analyzer:
   exclude:
     - build/**
     - third_party/**
+    # These have independent package configs and analyzer gates.
+    - packages/discourse_resenha/**
+    - profiles/**
     - android/**
     - ios/**
     - web/**

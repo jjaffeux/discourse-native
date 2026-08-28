@@ -42,9 +42,6 @@ import 'package:discourse_native/src/plugins/poll/poll_data.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics_models.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_models.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keys taken from the payloads these parsers actually read, so the generator
@@ -322,16 +319,6 @@ void main() {
         json,
       );
       probe(
-        'ResenhaClientConfig',
-        () => ResenhaClientConfig.fromJson(json),
-        json,
-      );
-      probe(
-        'ResenhaClientSettings',
-        () => ResenhaClientConfig.fromSettings(json),
-        json,
-      );
-      probe(
         'TopicFilterModifier',
         () => TopicFilterModifier.fromJson(json),
         json,
@@ -480,38 +467,6 @@ void main() {
       );
       probe('AiTopicSummary', () => AiTopicSummary.fromJson(json), json);
 
-      probe(
-        'ResenhaParticipant',
-        () => ResenhaParticipant.fromJson(json),
-        json,
-      );
-      probe('ResenhaMembership', () => ResenhaMembership.fromJson(json), json);
-      probe('ResenhaRecording', () => ResenhaRecording.fromJson(json), json);
-      probe('ResenhaRoom', () => ResenhaRoom.fromJson(json), json);
-      probe('ResenhaDirectory', () => ResenhaDirectory.fromJson(json), json);
-      probe('ResenhaIceServer', () => ResenhaIceServer.fromJson(json), json);
-      probe(
-        'ResenhaIceConfiguration',
-        () => ResenhaIceConfiguration.fromJson(json),
-        json,
-      );
-      probe(
-        'ResenhaLiveKitCredentials',
-        () => ResenhaLiveKitCredentials.fromJson(json),
-        json,
-      );
-      probe(
-        'ResenhaChatSession',
-        () => ResenhaChatSession.fromJson(json),
-        json,
-      );
-      probe('ResenhaRoomEvent', () => ResenhaRoomEvent.fromJson(json), json);
-      probe(
-        'ResenhaDiagnosticRecord',
-        () => ResenhaDiagnosticRecord.fromJson(loose),
-        loose,
-      );
-
       probe('TopicLink', () => TopicLink.parse('$loose'), loose);
       probe('ListLink', () => ListLink.parse('$loose'), loose);
     }
@@ -542,9 +497,6 @@ void main() {
       'ErrorDiagnosticEvent',
       'HttpDiagnosticEvent',
       '_CommonFields',
-      // The one wire parser that joins them: a join answered with a transport
-      // this client cannot speak is a failed join rather than a degraded one.
-      'ResenhaJoinResponse',
     };
 
     final declaring = <String, String>{};

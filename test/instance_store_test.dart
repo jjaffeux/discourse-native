@@ -303,7 +303,6 @@ void main() {
         'gifs/site-settings',
         'discourse-assign/site-settings',
         'chat/site-settings',
-        'resenha/site-settings',
       });
       expect((user['plugins'] as Map<String, dynamic>).keys, {
         'poll/current-user',

@@ -10,14 +10,23 @@ before changing a subsystem.
 Every change must pass exactly what CI runs:
 
 ```sh
-dart format --output=none --set-exit-if-changed lib test integration_test tool
+flutter pub get --enforce-lockfile
+(cd packages/discourse_resenha && flutter pub get --enforce-lockfile)
+(cd profiles/full && flutter pub get --enforce-lockfile)
+
+dart format --output=none --set-exit-if-changed \
+  lib test integration_test tool \
+  packages/discourse_resenha/lib packages/discourse_resenha/test \
+  packages/discourse_resenha/tool profiles/full/lib
 flutter analyze
 flutter test
+(cd packages/discourse_resenha && flutter analyze && flutter test)
+(cd profiles/full && flutter analyze)
 ```
 
-The Flutter version is pinned in `.fvmrc`; `pubspec.lock` is enforced in CI
-(`flutter pub get --enforce-lockfile`). If you re-resolve dependencies, the
-pin, the lockfile, and the README's Requirements line must move together.
+The Flutter version is pinned in `.fvmrc`; all three `pubspec.lock` files are
+enforced in CI. If you re-resolve dependencies, update the affected lockfile;
+if the Flutter pin moves, update the README's Requirements line with it.
 
 ## Conventions that are easy to miss
 
@@ -80,8 +89,12 @@ pin, the lockfile, and the README's Requirements line must move together.
 - `lib/src/data/` — stores, HTTP transport, API client, request coordinators.
 - `lib/src/models/` — JSON parsing and domain records.
 - `lib/src/shell/` — app frame, navigation, composer, rendering.
-- `lib/src/plugins/` — chat, resenha (voice rooms), poll, reactions,
-  local_dates, gifs, assign; each is optional per site.
+- `lib/src/plugins/` — SDK-free bundled features such as chat, poll, reactions,
+  local_dates, gifs, and assign; each is optional per site.
+- `packages/discourse_resenha/` — the Resenha Dart integration, native CallKit
+  adapter, media SDK dependencies, vendored WebRTC fork, and package tests.
+- `profiles/full/` — the production application graph and runners which opt
+  into Resenha; the repository root remains the SDK-free core graph.
 - `lib/src/diagnostics/`, `lib/src/foundation/` — error capture, shared
   primitives.
 - Things with exactly one owner, because a second copy drifts:
@@ -97,7 +110,9 @@ pin, the lockfile, and the README's Requirements line must move together.
   use plaintext development transports),
   `plugins/chat/chat_message_timeline.dart` (how canonical chat-message ids are
   merged across pages, live arrivals, and the seam back to the present),
-  `plugins/resenha/resenha_diagnostics_report.dart` (how ordinary and deep
-  Resenha diagnostics are sanitized, de-duplicated, and merged).
-- `test/` mirrors these by name; a change to `foo.dart` almost always has a
-  `foo_test.dart` to extend.
+  `packages/discourse_resenha/lib/src/resenha_diagnostics_report.dart` (how
+  ordinary and deep Resenha diagnostics are sanitized, de-duplicated, and
+  merged).
+- Root tests live under `test/`; Resenha tests live under
+  `packages/discourse_resenha/test/`. A change to `foo.dart` almost always has
+  a `foo_test.dart` in its owning package to extend.

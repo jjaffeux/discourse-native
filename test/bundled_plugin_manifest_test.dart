@@ -5,14 +5,13 @@ import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_services.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_module.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_services.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 
 void main() {
-  test('full manifest installs the deterministic feature graph', () async {
+  test('bundled manifest installs the deterministic feature graph', () async {
     final installed = PluginInstaller.install(bundledPluginManifest);
     addTearDown(installed.close);
 
@@ -26,7 +25,6 @@ void main() {
       'discourse-ai',
       'discourse-assign',
       'chat',
-      'resenha',
     ]);
 
     final localDates = installed.descriptors.singleWhere(
@@ -35,10 +33,6 @@ void main() {
     final chat = installed.descriptors.singleWhere(
       (descriptor) => descriptor.id.value == 'chat',
     );
-    final resenha = installed.descriptors.singleWhere(
-      (descriptor) => descriptor.id.value == 'resenha',
-    );
-
     expect(localDates.syntaxIds, {'local-dates'});
     expect(
       chat.dependencies.map(
@@ -47,17 +41,7 @@ void main() {
       [('discourse-reactions', false), ('gifs', true)],
     );
     expect(chat.routeNamespaces, {'chat'});
-    expect(resenha.dependencies.map((dependency) => dependency.id.value), [
-      'chat',
-    ]);
-    expect(resenha.routeNamespaces, {'resenha'});
-    expect(resenha.exclusiveClaims, {'app-global-media-session'});
-    expect(
-      installed.registry.diagnosticsPlugins.map(
-        (plugin) => plugin.diagnosticsId,
-      ),
-      ['resenha'],
-    );
+    expect(installed.registry.diagnosticsPlugins, isEmpty);
   });
 
   test('core and diagnostics-free compatibility manifests install', () async {
@@ -77,7 +61,7 @@ void main() {
     expect(withoutDiagnostics.registry.diagnosticsPlugins, isEmpty);
   });
 
-  test('full production sessions resolve the declared dependency chain', () {
+  test('bundled production sessions resolve the dependency chain', () {
     final installed = PluginInstaller.install(bundledPluginManifest);
     final api = FakeDiscourseApi();
     final shell = _shell(installed, api);
@@ -91,7 +75,6 @@ void main() {
     expect(session.require(gifsApiService), same(api));
     expect(session.require(chatApiService), same(api));
     expect(session.require(chatGifsApiService), same(api));
-    expect(session.require(resenhaControllerService), isNotNull);
   });
 
   test('production Chat works without its optional GIF dependency', () {

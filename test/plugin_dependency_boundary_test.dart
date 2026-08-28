@@ -13,13 +13,11 @@ const _pluginIdsByDirectory = <String, String>{
   'local_dates': 'discourse-local-dates',
   'poll': 'poll',
   'reactions': 'discourse-reactions',
-  'resenha': 'resenha',
 };
 
 const _approvedCrossFeatureContracts = <String, String>{
   'chat->gifs': 'lib/src/plugins/gifs/gifs_contract.dart',
   'chat->reactions': 'lib/src/plugins/reactions/reactions_contract.dart',
-  'resenha->chat': 'lib/src/plugins/chat/chat_contract.dart',
 };
 
 const _removedCompatibilityFiles = <String>{
@@ -48,7 +46,6 @@ const _featureModuleEntrypoints = <String>{
   'local_dates/local_dates_module.dart',
   'poll/poll_module.dart',
   'reactions/reactions_module.dart',
-  'resenha/resenha_module.dart',
 };
 
 final _directiveStatements = RegExp(
@@ -66,13 +63,13 @@ void main() {
       final path = _workspacePath(file);
       if (path.startsWith('lib/src/plugins/') ||
           path == 'lib/main.dart' ||
-          path == 'lib/discourse_full.dart') {
+          path == 'lib/discourse_bundled.dart') {
         continue;
       }
 
       for (final directive in _localDirectives(file)) {
         if (!directive.target.startsWith('lib/src/plugins/') &&
-            directive.target != 'lib/discourse_full.dart') {
+            directive.target != 'lib/discourse_bundled.dart') {
           continue;
         }
         violations.add('$path:${directive.line} imports ${directive.uri}');

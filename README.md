@@ -26,9 +26,18 @@ Run `flutter doctor` to check the toolchain.
 ## Running
 
 ```sh
-flutter run -d macos                    # macOS desktop
-flutter run -d <simulator-id>           # iOS simulator, see `flutter devices`
+# Production/full profile (includes Resenha, WebRTC, LiveKit, and CallKit).
+(cd profiles/full && flutter run -d macos)
+(cd profiles/full && flutter run -d <simulator-id>)
+
+# Core profile (separate dependency graph; excludes those packages entirely).
+flutter run -t lib/main_core.dart -d macos
 ```
+
+Run `flutter devices` to find the simulator id. The working directory is part
+of the build profile: choosing `lib/main_core.dart` inside `profiles/full` would
+not remove native plugins, because Flutter registration is derived from that
+directory's pubspec. See [Plugin architecture](docs/plugin-architecture.md#build-profiles).
 
 ## Connecting a site
 
@@ -893,10 +902,13 @@ other shape — its once-per-site guard is released again in its own failure
 path, so the next thing that asks for categories retries. Signing out drops the
 settings: on a `login_required` site they were only readable as that account.
 
-Adding the next one is a module under `lib/src/plugins/<name>/` owning its
-models, state, widgets, typed HTTP contract, and the narrow capability
+Adding an SDK-free feature is a module under `lib/src/plugins/<name>/` owning
+its models, state, widgets, typed HTTP contract, and the narrow capability
 interfaces it actually contributes, plus an entry in
-`bundledPluginManifest`. `PluginRegistry` owns ordered UI dispatch, while
+`bundledPluginManifest`. A feature that adds a native SDK or platform channel
+must instead follow `packages/discourse_resenha`: its own package owns those
+dependencies and registration, and an outer app profile opts into that package.
+`PluginRegistry` owns ordered UI dispatch, while
 `PluginSession` owns typed services and host-facing capabilities. A session
 factory can resolve only services from dependencies declared by its module,
 and optional integrations use nullable lookup rather than a global service
@@ -1763,9 +1775,18 @@ preference drafts are moved only after the private file write succeeds.
 ## Checks
 
 ```sh
-dart format --output=none --set-exit-if-changed lib test integration_test tool
+flutter pub get --enforce-lockfile
+(cd packages/discourse_resenha && flutter pub get --enforce-lockfile)
+(cd profiles/full && flutter pub get --enforce-lockfile)
+
+dart format --output=none --set-exit-if-changed \
+  lib test integration_test tool \
+  packages/discourse_resenha/lib packages/discourse_resenha/test \
+  packages/discourse_resenha/tool profiles/full/lib
 flutter analyze
 flutter test
+(cd packages/discourse_resenha && flutter analyze && flutter test)
+(cd profiles/full && flutter analyze)
 ```
 
 `flutter analyze` runs `flutter_lints` plus the rules in
@@ -1776,12 +1797,12 @@ a `hashCode` that disagrees with `==`. Anything the analyzer reports fails the
 gate, `info` level included — so run it bare, with no path argument and no
 grep, or a file-scoped run will hide exactly those.
 
-CI also builds a debug Linux bundle after those checks and verifies that its
-executable has no unresolved shared libraries. That keeps the native WebRTC,
-LiveKit and desktop plugin graph compiling between release builds. The macOS
-and iOS bundles are compiled on every change for the same reason, together
-with the `RunnerTests` covering the CallKit and audio-session code Dart tests
-cannot type-check.
+CI builds both independently resolved Linux bundles after those checks. It
+verifies that neither has unresolved shared libraries, that the core executable
+contains no WebRTC or LiveKit registration markers, and that the full
+executable contains both. The core and full macOS/iOS bundles are also compiled
+on every change. The full `RunnerTests` target consumes the package-owned
+CallKit tests because Dart cannot type-check that native coordinator.
 
 The macOS build there is driven as `flutter build macos --debug --config-only`
 followed by `xcodebuild ... CODE_SIGNING_ALLOWED=NO`, because
@@ -1794,14 +1815,15 @@ Two suites need more than that:
 
 ```sh
 flutter test --tags live --run-skipped    # hits meta.discourse.org
-flutter test integration_test -d <device> # real app, real network, real storage
+flutter test integration_test -d <device> # core storage/network integration
 ```
 
 And one check that is about upstream rather than about this code:
 
 ```sh
-dart run tool/markup_contract.dart         # see Oneboxes, Mentions, and Polls
-dart run tool/flutter_webrtc_contract.dart # verify the vendored 1.6.0 archive
+dart run tool/markup_contract.dart # see Oneboxes, Mentions, and Polls
+(cd packages/discourse_resenha && \
+  dart run tool/flutter_webrtc_contract.dart) # verify the vendored 1.6.0 archive
 ```
 
 GitHub runs those network-dependent checks weekly and on manual dispatch via
@@ -1809,7 +1831,8 @@ GitHub runs those network-dependent checks weekly and on manual dispatch via
 `.github/workflows/flutter-webrtc-contract.yml`. They deliberately do not run
 for pull requests: an upstream move or transient fetch failure should report in
 those workflows without making an unrelated PR flaky. The WebRTC check accepts
-only the file inventory in `third_party/flutter_webrtc/PATCHES.md` after
+only the file inventory in
+`packages/discourse_resenha/third_party/flutter_webrtc/PATCHES.md` after
 verifying pub.dev's pinned archive SHA-256.
 
 The live tests are skipped by default (see `dart_test.yaml`) so an offline or CI
@@ -1929,7 +1952,8 @@ edge (see `UserBar.maxBottomInset`).
 
 ```
 lib/
-  main.dart                    minimal production entry point
+  main.dart                    SDK-free bundled entry point
+  main_core.dart               empty optional-plugin entry point
   src/
     app_bootstrap.dart         ordered, testable startup and platform adapter
     app.dart                   root widget, owns the ShellController
@@ -1940,7 +1964,7 @@ lib/
     models/                    instance, sidebar and content-route types
     plugin_api/                stable extension seams and runtime
     plugins/
-      bundled_plugin_manifest.dart  full-build composition root
+      bundled_plugin_manifest.dart  SDK-free bundled modules
       reactions/               plugin-owned models, API, state and widgets
       discourse_github/        GitHub block and inline onebox presentation
       discourse_lazy_videos/   lazy-video cooked markup adapters
@@ -1971,8 +1995,10 @@ lib/
       shell_controller.dart    all shell state (plain ChangeNotifier)
       shell_scope.dart         InheritedNotifier access
     theme/app_theme.dart       color schemes + ShellColors/CodeColors
-ios/                           iOS runner (Xcode project)
-macos/                         macOS runner (Xcode project)
+packages/discourse_resenha/    Resenha Dart/native/SDK package and WebRTC fork
+profiles/full/                 production app graph and independent runners
+ios/                           core iOS runner (Xcode project)
+macos/                         core macOS runner (Xcode project)
 test/                          widget tests, one group per breakpoint
 ```
 
@@ -1980,7 +2006,8 @@ State is a plain `ChangeNotifier` so the skeleton carries no state-management
 dependency; swapping in Riverpod or Bloc later only touches `shell_scope.dart`
 and `shell_controller.dart`.
 
-Release bundle identifier: `org.discourse.native`. macOS debug/profile builds
+The released application is always built from `profiles/full`. Release bundle
+identifier: `org.discourse.native`. macOS debug/profile builds
 use `org.discourse.native.dev` so their sandbox data and credential service
 cannot overlap the installed TestFlight app.
 
