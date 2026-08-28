@@ -406,17 +406,6 @@ class _SectionRail extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-          child: Semantics(
-            header: true,
-            child: Text(
-              'Preferences',
-              style: Theme.of(context).textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
         for (final section in sections)
           _SectionRailItem(
             section: section,
