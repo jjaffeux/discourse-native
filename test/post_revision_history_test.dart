@@ -205,7 +205,19 @@ void main() {
       username: currentRevision == 3 ? 'latest-editor' : 'first-editor',
       editReason: currentRevision == 3 ? 'Clarified the report' : null,
       bodyChanges: PostRevisionDiff(
-        inline: '<div><p>Body at revision $currentRevision</p></div>',
+        inline:
+            '<div class="inline-diff"><p>Inline body at revision '
+            '$currentRevision <ins>added</ins></p></div>',
+        sideBySide:
+            '<div class="revision-content --previous"><p>Before body at '
+            'revision $currentRevision</p></div>'
+            '<div class="revision-content --current"><p>Current body at '
+            'revision $currentRevision</p></div>',
+        sideBySideMarkdown:
+            '<table class="markdown"><tr>'
+            '<td class="--previous diff-del">raw before $currentRevision</td>'
+            '<td class="--current diff-ins">raw current $currentRevision</td>'
+            '</tr></table>',
       ),
       tagsChanges: currentRevision == 3
           ? const PostRevisionChange(
@@ -217,7 +229,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light,
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
         home: Scaffold(
           body: Builder(
             builder: (context) => TextButton(
@@ -253,7 +265,29 @@ void main() {
     expect(find.text('old-tag'), findsOneWidget);
     expect(find.text('new-tag'), findsOneWidget);
     expect(find.text('Comparing version 2 to 3 of 3'), findsOneWidget);
-    expect(_richTextContaining('Body at revision 3'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('post-revision-diff-side-by-side')),
+      findsOneWidget,
+    );
+    expect(_richTextContaining('Before body at revision 3'), findsOneWidget);
+    expect(_richTextContaining('Current body at revision 3'), findsOneWidget);
+
+    await tester.tap(find.text('Markdown'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('post-revision-diff-markdown')),
+      findsOneWidget,
+    );
+    expect(_richTextContaining('raw before 3'), findsOneWidget);
+    expect(_richTextContaining('raw current 3'), findsOneWidget);
+
+    await tester.tap(find.text('Inline'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('post-revision-diff-inline')),
+      findsOneWidget,
+    );
+    expect(_richTextContaining('Inline body at revision 3'), findsOneWidget);
 
     await tester.tap(find.text('Previous'));
     await tester.pumpAndSettle();
@@ -261,7 +295,66 @@ void main() {
     expect(requested, [null, 2]);
     expect(find.text('first-editor'), findsOneWidget);
     expect(find.text('Comparing version 1 to 2 of 3'), findsOneWidget);
-    expect(_richTextContaining('Body at revision 2'), findsOneWidget);
+    expect(_richTextContaining('Inline body at revision 2'), findsOneWidget);
+  });
+
+  testWidgets('compact history uses the web inline mode without a selector', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showPostRevisionHistory(
+                context: context,
+                siteUrl: 'https://example.com',
+                post: const Post(
+                  id: 42,
+                  postNumber: 1,
+                  username: 'sam',
+                  cooked: '',
+                  version: 2,
+                ),
+                loadRevision: (_) async => const PostRevision(
+                  postId: 42,
+                  currentRevision: 2,
+                  currentVersion: 2,
+                  versionCount: 2,
+                  username: 'editor',
+                  bodyChanges: PostRevisionDiff(
+                    inline: '<p>Compact inline diff</p>',
+                    sideBySide:
+                        '<div class="revision-content --previous">before</div>'
+                        '<div class="revision-content --current">after</div>',
+                  ),
+                ),
+              ),
+              child: const Text('History'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('History'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('post-revision-mode-picker')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('post-revision-diff-inline')),
+      findsOneWidget,
+    );
+    expect(_richTextContaining('Compact inline diff'), findsOneWidget);
   });
 }
 

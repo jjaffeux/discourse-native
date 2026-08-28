@@ -31,6 +31,10 @@ Future<T?> showShellSheet<T>({
   WidgetBuilder? footerBuilder,
   bool nested = false,
   bool dialogOnDesktop = false,
+  BoxConstraints desktopDialogConstraints = const BoxConstraints(
+    maxWidth: 480,
+    maxHeight: 560,
+  ),
   EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
     horizontal: 24,
     vertical: 16,
@@ -43,7 +47,7 @@ Future<T?> showShellSheet<T>({
       builder: (context) => Dialog(
         clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480, maxHeight: 560),
+          constraints: desktopDialogConstraints,
           child: _SheetBody(
             title: title,
             builder: builder,

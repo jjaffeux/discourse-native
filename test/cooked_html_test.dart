@@ -211,6 +211,45 @@ void main() {
     expect(styles(paragraphs.last), {'margin': '0.5em 0 0.1em'});
   });
 
+  testWidgets('revision diff markers receive insert and delete backgrounds', (
+    tester,
+  ) async {
+    const html =
+        '<p><del>before</del><ins>after</ins></p>'
+        '<p class="diff-del">removed</p>'
+        '<p class="diff-ins">added</p>';
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const Scaffold(body: CookedHtml(html: html, revisionDiff: true)),
+      ),
+    );
+
+    final renderer = tester.widget<HtmlWidget>(find.byType(HtmlWidget));
+    final styles = renderer.customStylesBuilder!;
+    final elements = html_parser.parseFragment(html).querySelectorAll('*');
+    final deleted = styles(
+      elements.firstWhere((node) => node.localName == 'del'),
+    )!;
+    final inserted = styles(
+      elements.firstWhere((node) => node.localName == 'ins'),
+    )!;
+    final deletedBlock = styles(
+      elements.firstWhere((node) => node.classes.contains('diff-del')),
+    )!;
+    final insertedBlock = styles(
+      elements.firstWhere((node) => node.classes.contains('diff-ins')),
+    )!;
+
+    expect(deleted['background-color'], isNotEmpty);
+    expect(inserted['background-color'], isNotEmpty);
+    expect(deleted['background-color'], isNot(inserted['background-color']));
+    expect(deleted['text-decoration'], 'none');
+    expect(inserted['text-decoration'], 'none');
+    expect(deletedBlock['background-color'], deleted['background-color']);
+    expect(insertedBlock['background-color'], inserted['background-color']);
+  });
+
   testWidgets('unrelated shell notifications do not rebuild post HTML', (
     tester,
   ) async {
