@@ -1,7 +1,10 @@
 # Local patches
 
-This directory vendors the published `flutter_webrtc` 1.6.0 package from
-<https://pub.dev/packages/flutter_webrtc/versions/1.6.0>.
+Resenha vendors the published `flutter_webrtc` 1.6.0 package under
+`third_party/flutter_webrtc`, from
+<https://pub.dev/packages/flutter_webrtc/versions/1.6.0>. The owner-local
+`vendor_contract.json` connects that external source tree to this reviewed
+inventory without teaching the root runner about Resenha or WebRTC.
 
 - Archive SHA-256: `e997161d7da3adedd3d430691b20931b0b4d96fa48bb60938d9ba0bf6fca98be`
 - Upstream source: <https://github.com/flutter-webrtc/flutter-webrtc/tree/v1.6.0>
@@ -89,11 +92,11 @@ Commit: `b401810ff43d3e20fe4bc41ece6fee33722dd60f`.
 From the application repository root, run:
 
 ```sh
-dart run tool/flutter_webrtc_contract.dart
+dart run tool/vendor_provenance_contract.dart
 ```
 
 The check downloads only the official pub.dev metadata and archive, verifies
-the archive SHA-256 above, and compares every regular file except this manifest.
+the archive SHA-256 above, and compares every regular file in the vendor tree.
 It passes only when the differing files are exactly the inventory above; empty
 package-manager metadata directories are deliberately outside the file contract.
 Any additional vendored source difference must be documented here before

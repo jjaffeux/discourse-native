@@ -48,9 +48,11 @@ pin, the lockfile, and the README's Requirements line must move together.
   welcome — that is how the eleven existing sub-controllers got there — but
   moving lines to shrink the file is not, and has been declined deliberately.
 - Cooked-HTML parsers (oneboxes, hashtags, polls, local dates) depend on exact
-  upstream markup. The upstream sources are snapshotted under `tool/*_snapshot/`
-  and checked by `dart run tool/markup_contract.dart`; when changing a parser,
-  check the snapshot, not your memory of Discourse markup. Search a cooked DOM
+  upstream markup. Core snapshots live under `tool/markup_contracts/`; optional
+  feature catalogs and snapshots live under their owning plugin's `tool/`
+  directory. `dart run tool/markup_contract.dart` checks all of them. When
+  changing a parser, check its snapshot, not your memory of Discourse markup.
+  Search a cooked DOM
   through `cooked_dom.dart`, never by indexing `Element.children` — that is a
   `FilteredElementList` which rebuilds itself out of `nodes` on every `length`
   and every `[]`.

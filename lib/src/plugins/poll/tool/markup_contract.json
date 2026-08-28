@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "contracts": [
+    {
+      "name": "poll",
+      "snapshot": "markup_snapshot",
+      "readers": "lib/src/plugins/poll/",
+      "watched": [
+        "plugins/poll/assets/javascripts/lib/discourse-markdown/poll.js",
+        "plugins/poll/assets/javascripts/discourse/initializers/extend-for-poll.gjs"
+      ]
+    }
+  ]
+}

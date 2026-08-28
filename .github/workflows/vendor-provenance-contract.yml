@@ -1,4 +1,4 @@
-name: flutter_webrtc contract
+name: vendor provenance contract
 
 # The provenance check depends on pub.dev availability. Keep it out of ordinary
 # PR CI so a transient upstream failure cannot make an unrelated pull request
@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   provenance:
-    name: Check vendored flutter_webrtc provenance
+    name: Check plugin-owned vendor provenance
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -33,4 +33,4 @@ jobs:
         run: flutter pub get --enforce-lockfile
 
       - name: Check vendored package provenance
-        run: dart run tool/flutter_webrtc_contract.dart
+        run: dart run tool/vendor_provenance_contract.dart

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "contracts": [
+    {
+      "name": "chat-onebox-collapser",
+      "snapshot": "markup_snapshot",
+      "readers": "lib/src/plugins/chat/chat_preview_body.dart",
+      "watched": [
+        "plugins/chat/assets/javascripts/discourse/components/chat-message-collapser.gjs"
+      ]
+    }
+  ]
+}

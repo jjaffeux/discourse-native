@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "contracts": [
+    {
+      "name": "discourse-lazy-videos-oneboxes",
+      "snapshot": "markup_snapshot",
+      "readers": "lib/src/plugins/discourse_lazy_videos/",
+      "watched": [
+        "plugins/discourse-lazy-videos/lib/discourse_lazy_videos/lazy_youtube.rb",
+        "plugins/discourse-lazy-videos/assets/javascripts/lib/lazy-video-attributes.js",
+        "plugins/discourse-lazy-videos/assets/javascripts/discourse/components/lazy-video.gjs",
+        "plugins/discourse-lazy-videos/assets/javascripts/discourse/components/lazy-iframe.gjs",
+        "plugins/discourse-lazy-videos/assets/stylesheets/lazy-videos.scss"
+      ]
+    }
+  ]
+}

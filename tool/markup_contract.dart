@@ -1,10 +1,9 @@
 /// Checks the markup contracts against discourse/discourse.
 ///
-/// Several things here are drawn natively from Discourse's cooked HTML rather
-/// than from its stylesheet, which means they depend on the exact shape of the
-/// markup it emits. None of that is versioned or announced, so this fetches
-/// the upstream sources and diffs them against the copies under
-/// `tool/*_snapshot/`.
+/// Native renderers depend on exact shapes in Discourse's cooked HTML. None of
+/// those shapes are versioned or announced, so this discovers owner-local
+/// contract catalogs, fetches their upstream sources, and diffs them against
+/// the snapshots declared by each owner.
 ///
 /// It is a drift detector, not a source of styling: Discourse's SCSS cannot be
 /// applied by the HTML renderer this app uses. When it fails, read the diff and
@@ -18,12 +17,13 @@ import 'dart:convert';
 import 'dart:io';
 
 /// One thing whose markup we copy, and where to look when it moves.
-class Contract {
-  const Contract({
+final class MarkupContract {
+  const MarkupContract({
     required this.name,
     required this.snapshot,
     required this.readers,
     required this.watched,
+    required this.catalog,
   });
 
   final String name;
@@ -38,160 +38,208 @@ class Contract {
 
   /// Upstream paths that describe the markup those readers read.
   final List<String> watched;
+
+  /// Owner-local declaration which supplied this contract.
+  final String catalog;
 }
 
-const List<Contract> contracts = [
-  Contract(
-    name: 'onebox',
-    snapshot: 'tool/onebox_snapshot',
-    readers:
-        'lib/src/shell/oneboxes/, lib/src/plugins/discourse_github/, and '
-        'lib/src/plugins/discourse_lazy_videos/',
-    watched: oneboxWatched,
-  ),
-  Contract(
-    name: 'hashtag',
-    snapshot: 'tool/hashtag_snapshot',
-    readers: 'lib/src/shell/hashtag.dart and lib/src/shell/mention.dart',
-    watched: hashtagWatched,
-  ),
-  Contract(
-    name: 'poll',
-    snapshot: 'tool/poll_snapshot',
-    readers: 'lib/src/plugins/poll/ and lib/src/shell/cooked_html.dart',
-    watched: pollWatched,
-  ),
-  Contract(
-    name: 'local-dates',
-    snapshot: 'tool/local_dates_snapshot',
-    readers: 'lib/src/plugins/local_dates/ and lib/src/shell/cooked_html.dart',
-    watched: localDatesWatched,
-  ),
-];
+const int markupContractCatalogSchemaVersion = 1;
+const String _coreCatalogRoot = 'tool/markup_contracts';
+const String _pluginRoot = 'lib/src/plugins';
 
-/// The BBCode generator, Markdown cooker, cooked behavior transformer, and
-/// formatter whose source/dataset contracts the native codec mirrors.
-const List<String> localDatesWatched = [
-  'plugins/discourse-local-dates/assets/javascripts/lib/'
-      'local-date-markup-generator.js',
-  'plugins/discourse-local-dates/assets/javascripts/lib/discourse-markdown/'
-      'discourse-local-dates.js',
-  'plugins/discourse-local-dates/assets/javascripts/initializers/'
-      'discourse-local-dates.js',
-  'plugins/discourse-local-dates/assets/javascripts/lib/'
-      'local-date-builder.js',
-];
+/// Discovers core catalogs and optional feature catalogs without teaching the
+/// runner any feature ids or upstream paths.
+Future<List<MarkupContract>> loadMarkupContracts({
+  Directory? repository,
+}) async {
+  final root = repository ?? Directory.current;
+  final catalogs = <File>[];
+  await _addCatalogsUnder(
+    Directory.fromUri(root.uri.resolve('$_coreCatalogRoot/')),
+    catalogs,
+  );
 
-/// The server-cooked poll skeleton and the web client code that claims it by
-/// `data-poll-name` and replaces it with the personalised poll from post JSON.
-///
-/// The native client deliberately depends on the same seam: the Markdown
-/// plugin supplies only title/option fallback markup, while `post.polls` is
-/// matched by name rather than by the poll's position in the document.
-const List<String> pollWatched = [
-  // Writes `.poll`, `data-poll-name`, title/options, option digests, and the
-  // non-authoritative zero-voter skeleton that native rendering must ignore.
-  'plugins/poll/assets/javascripts/lib/discourse-markdown/poll.js',
-  // Finds outer cooked polls, excludes blockquotes, looks up structured polls
-  // by `dataset.pollName`, and replaces matched skeletons with the live UI.
-  'plugins/poll/assets/javascripts/discourse/initializers/extend-for-poll.gjs',
-];
+  final plugins = Directory.fromUri(root.uri.resolve('$_pluginRoot/'));
+  if (await plugins.exists()) {
+    final owners = await plugins
+        .list(followLinks: false)
+        .where((entity) => entity is Directory)
+        .cast<Directory>()
+        .toList();
+    owners.sort((left, right) => left.path.compareTo(right.path));
+    for (final owner in owners) {
+      final catalog = File.fromUri(
+        owner.uri.resolve('tool/markup_contract.json'),
+      );
+      if (await catalog.exists()) catalogs.add(catalog);
+    }
+  }
 
-/// The `a.hashtag-cooked` and `a.mention` markup, the `@mixin mention` that
-/// gives it its shape, and the endpoints the composer completes against.
-///
-/// Worth watching closely for one reason in particular: the `<svg>` inside a
-/// cooked hashtag is a *placeholder* — always `square-full`, whatever the type
-/// — which the web client replaces at runtime from the `data-` attributes.
-/// `hashtag.dart` reads the attributes and ignores the svg, and would draw a
-/// filled square on every tag on the site if that ever stopped being true.
-const List<String> hashtagWatched = [
-  // Where the cooked anchor and its `data-` attributes are written, and the
-  // allow-list that decides which of them survive sanitising.
-  'frontend/discourse-markdown-it/src/features/hashtag-autocomplete.js',
-  'frontend/discourse-markdown-it/src/features/mentions.js',
-  // The pattern that decides what a mention *is*, which the one in
-  // `markdown_highlight.dart` is transcribed from. Its tail is the part that
-  // matters: a name may not end in a dot, a dash or an underscore, so
-  // `thanks @sam.` mentions `sam` and not `sam.`.
-  'frontend/pretty-text/addon/mentions.js',
-  // Which tokens Discourse's own post-processing rules — mentions, hashtags
-  // and emoji — are run over, which is what decides that a backslash does not
-  // stop any of them: `textReplace` visits `text` tokens of the *finished*
-  // inline pass, by which point `\@sam` is the text `@sam`. `_escapes` in
-  // `markdown_highlight.dart` binds only the rules above that one.
-  'frontend/pretty-text/addon/text-replace.js',
-  'frontend/discourse-markdown-it/src/features/text-post-process.js',
-  // The third thing that rides `textPostProcess`, and the only one whose
-  // matcher is a trie walk rather than a pattern: `getEmojiName` bounds the
-  // name and refuses a shortcode whose opening colon has an ordinary
-  // character before it, which is what keeps `10:30:45` from holding one.
-  'frontend/discourse-markdown-it/src/features/emoji.js',
-  // What turns a `span.mention` into an anchor, and what an unresolved one
-  // stays as.
-  'lib/pretty_text.rb',
-  // The shape of a hashtag item: ref vs slug, the colours array, style_type.
-  'app/services/hashtag_autocomplete_service.rb',
-  'app/services/category_hashtag_data_source.rb',
-  'app/services/tag_hashtag_data_source.rb',
-  // The endpoints the composer asks, including the required `order` param.
-  'app/controllers/hashtags_controller.rb',
-  // Where the pill gets its shape, and the two stylesheets that apply it.
-  'app/assets/stylesheets/common/foundation/mixins.scss',
-  'app/assets/stylesheets/common/components/hashtag.scss',
-];
+  catalogs.sort((left, right) => left.path.compareTo(right.path));
+  final contracts = <MarkupContract>[];
+  final names = <String>{};
+  final watched = <String>{};
+  final snapshotTargets = <String>{};
+  for (final catalog in catalogs) {
+    for (final contract in await _readCatalog(root, catalog)) {
+      if (!names.add(contract.name)) {
+        throw FormatException(
+          'duplicate markup contract name ${contract.name}',
+          catalog.path,
+        );
+      }
+      for (final path in contract.watched) {
+        if (!watched.add(path)) {
+          throw FormatException(
+            'upstream path is claimed by more than one contract: $path',
+            catalog.path,
+          );
+        }
+        final snapshotTarget =
+            '${contract.snapshot}${Platform.pathSeparator}${_flatten(path)}';
+        if (!snapshotTargets.add(snapshotTarget)) {
+          throw FormatException(
+            'upstream paths flatten to the same snapshot file: $path',
+            catalog.path,
+          );
+        }
+      }
+      contracts.add(contract);
+    }
+  }
+  return List.unmodifiable(contracts);
+}
 
-/// Upstream paths that describe the markup the onebox parsers read.
-const List<String> oneboxWatched = [
-  // The envelope shared by every onebox engine.
-  'lib/onebox/templates/_layout.mustache',
-  // The engine behind the overwhelming majority of oneboxes.
-  'lib/onebox/templates/allowlistedgeneric.mustache',
-  // A representative engine with its own body shape (avatar, no thumbnail).
-  'lib/onebox/templates/twitterstatus.mustache',
-  // The `<pre><code><ol class="lines">` shape CodeBlock reads.
-  'lib/onebox/templates/githubblob.mustache',
-  // The GitHub engines with native bodies under plugins/discourse_github/.
-  'lib/onebox/templates/githubissue.mustache',
-  'lib/onebox/templates/githubpullrequest.mustache',
-  'lib/onebox/templates/githubcommit.mustache',
-  'lib/onebox/templates/github/github_body.mustache',
-  // The internal oneboxes under oneboxes/discourse/ — a topic elsewhere,
-  // and a same-site topic (rendered as a quote), user, and category.
-  'lib/onebox/templates/discoursetopic.mustache',
-  'lib/onebox/templates/discourse_topic_onebox.mustache',
-  'lib/onebox/templates/discourse_user_onebox.mustache',
-  'lib/onebox/templates/discourse_category_onebox.mustache',
-  // The `--gh-status-*` classes and their colors, read by the pull request
-  // oneboxes and their inline variants.
-  'plugins/discourse-github/assets/stylesheets/common/github-pr-status.scss',
-  // Core's direct iframe fallback is parsed by youtube_video.dart. The bundled
-  // lazy-video provider owns its replacement parser. These sources define the
-  // data attributes, time conversion and iframe parameters mirrored natively.
-  'lib/onebox/engine/youtube_onebox.rb',
-  'plugins/discourse-lazy-videos/lib/discourse_lazy_videos/lazy_youtube.rb',
-  'plugins/discourse-lazy-videos/assets/javascripts/lib/'
-      'lazy-video-attributes.js',
-  'plugins/discourse-lazy-videos/assets/javascripts/discourse/components/'
-      'lazy-video.gjs',
-  'plugins/discourse-lazy-videos/assets/javascripts/discourse/components/'
-      'lazy-iframe.gjs',
-  'plugins/discourse-lazy-videos/assets/stylesheets/lazy-videos.scss',
-  // Chat wraps the same top-level lazy container in a collapser on the web.
-  // Native intentionally recognises the same marker but keeps it full-width.
-  'plugins/chat/assets/javascripts/discourse/components/'
-      'chat-message-collapser.gjs',
-  // Where the class names the parsers match on are given meaning.
-  'app/assets/stylesheets/common/base/onebox.scss',
-  // Post-processing that rewrites onebox markup after the template runs,
-  // including the resolution of `a.inline-onebox-loading` anchors.
-  'lib/cooked_processor_mixin.rb',
-  // What an inline onebox lookup returns — title, and css_class for engines
-  // that advertise one.
-  'lib/inline_oneboxer.rb',
-  // Which markup the internal handlers emit for local links.
-  'lib/oneboxer.rb',
-];
+Future<void> _addCatalogsUnder(Directory directory, List<File> output) async {
+  if (!await directory.exists()) return;
+  await for (final entity in directory.list(followLinks: false)) {
+    if (entity is File &&
+        entity.uri.pathSegments.last == 'markup_contract.json') {
+      output.add(entity);
+    } else if (entity is Directory) {
+      final catalog = File.fromUri(entity.uri.resolve('markup_contract.json'));
+      if (await catalog.exists()) output.add(catalog);
+    }
+  }
+}
+
+Future<List<MarkupContract>> _readCatalog(
+  Directory repository,
+  File catalog,
+) async {
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(await catalog.readAsString());
+  } on Object catch (error) {
+    throw FormatException('could not decode catalog: $error', catalog.path);
+  }
+  if (decoded is! Map<String, Object?> ||
+      decoded['schemaVersion'] != markupContractCatalogSchemaVersion ||
+      decoded['contracts'] is! List<Object?>) {
+    throw FormatException('invalid markup contract catalog', catalog.path);
+  }
+
+  final result = <MarkupContract>[];
+  for (final entry in decoded['contracts']! as List<Object?>) {
+    if (entry is! Map<String, Object?> ||
+        entry['name'] is! String ||
+        entry['snapshot'] is! String ||
+        entry['readers'] is! String ||
+        entry['watched'] is! List<Object?>) {
+      throw FormatException('invalid markup contract entry', catalog.path);
+    }
+    final name = entry['name']! as String;
+    final snapshot = entry['snapshot']! as String;
+    final readers = entry['readers']! as String;
+    final watched = entry['watched']! as List<Object?>;
+    if (!_safeSegment(name) ||
+        !_safeRelativePath(snapshot) ||
+        readers.trim().isEmpty ||
+        watched.isEmpty ||
+        watched.any((path) => path is! String || !_safeRelativePath(path))) {
+      throw FormatException('unsafe markup contract entry', catalog.path);
+    }
+    final snapshotDirectory = Directory.fromUri(
+      catalog.parent.uri.resolve('$snapshot/'),
+    );
+    if (!await _within(repository, snapshotDirectory)) {
+      throw FormatException(
+        'snapshot must stay inside the repository',
+        catalog.path,
+      );
+    }
+    result.add(
+      MarkupContract(
+        name: name,
+        snapshot: snapshotDirectory.path,
+        readers: readers,
+        watched: List.unmodifiable(watched.cast<String>()),
+        catalog: _relativePath(repository, catalog),
+      ),
+    );
+  }
+  return result;
+}
+
+bool _safeSegment(String value) =>
+    value.isNotEmpty && !value.contains('/') && !value.contains('\\');
+
+bool _safeRelativePath(String value) =>
+    value.isNotEmpty &&
+    !value.startsWith('/') &&
+    !value.contains('\\') &&
+    !value.contains('%') &&
+    !value.contains('?') &&
+    !value.contains('#') &&
+    !value.contains(':') &&
+    !value
+        .split('/')
+        .any((part) => part.isEmpty || part == '.' || part == '..');
+
+Future<bool> _within(Directory root, FileSystemEntity entity) async {
+  try {
+    final resolvedRoot = await root.resolveSymbolicLinks();
+    var candidate = entity.absolute.path;
+    while (true) {
+      final type = await FileSystemEntity.type(candidate, followLinks: false);
+      if (type != FileSystemEntityType.notFound) {
+        final resolved = switch (type) {
+          FileSystemEntityType.directory => await Directory(
+            candidate,
+          ).resolveSymbolicLinks(),
+          FileSystemEntityType.file => await File(
+            candidate,
+          ).resolveSymbolicLinks(),
+          FileSystemEntityType.link => await Link(
+            candidate,
+          ).resolveSymbolicLinks(),
+          _ => candidate,
+        };
+        return _pathWithin(resolvedRoot, resolved);
+      }
+      final parent = File(candidate).parent.path;
+      if (parent == candidate) return false;
+      candidate = parent;
+    }
+  } on FileSystemException {
+    return false;
+  }
+}
+
+bool _pathWithin(String root, String candidate) {
+  if (candidate == root) return true;
+  final prefix = root.endsWith(Platform.pathSeparator)
+      ? root
+      : '$root${Platform.pathSeparator}';
+  return candidate.startsWith(prefix);
+}
+
+String _relativePath(Directory root, FileSystemEntity entity) {
+  final rootPath = root.absolute.path.endsWith(Platform.pathSeparator)
+      ? root.absolute.path
+      : '${root.absolute.path}${Platform.pathSeparator}';
+  return entity.absolute.path.substring(rootPath.length);
+}
 
 const String branch = 'main';
 const String rawBase = 'https://raw.githubusercontent.com/discourse/discourse';
@@ -206,12 +254,20 @@ Future<int> _run(List<String> args) async {
 
   var worst = 0;
   try {
+    final contracts = await loadMarkupContracts();
+    if (contracts.isEmpty) {
+      stderr.writeln('no markup contract catalogs were found');
+      return 2;
+    }
     for (final contract in contracts) {
       final result = await _check(client, contract, update: update);
       // A path that has moved (2) beats drift (1): the check could not be run
       // at all, and reporting "no drift" for the rest would be a lie.
       if (result > worst) worst = result;
     }
+  } on Object catch (error) {
+    stderr.writeln('markup contracts could not be checked: $error');
+    return 2;
   } finally {
     client.close();
   }
@@ -220,7 +276,7 @@ Future<int> _run(List<String> args) async {
 
 Future<int> _check(
   HttpClient client,
-  Contract contract, {
+  MarkupContract contract, {
   required bool update,
 }) async {
   final drifted = <String>[];

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "contracts": [
+    {
+      "name": "local-dates",
+      "snapshot": "markup_snapshot",
+      "readers": "lib/src/plugins/local_dates/",
+      "watched": [
+        "plugins/discourse-local-dates/assets/javascripts/lib/local-date-markup-generator.js",
+        "plugins/discourse-local-dates/assets/javascripts/lib/discourse-markdown/discourse-local-dates.js",
+        "plugins/discourse-local-dates/assets/javascripts/initializers/discourse-local-dates.js",
+        "plugins/discourse-local-dates/assets/javascripts/lib/local-date-builder.js"
+      ]
+    }
+  ]
+}
