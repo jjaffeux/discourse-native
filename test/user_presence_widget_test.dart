@@ -8,6 +8,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -60,6 +61,12 @@ void main() {
             hasTapAction: true,
           ),
         );
+        expect(
+          tester.widget<DIcon>(
+            find.descendant(of: toggle, matching: find.byType(DIcon)),
+          ).color,
+          Theme.of(tester.element(toggle)).colorScheme.primary,
+        );
 
         await tester.tap(toggle);
         await tester.pump();
@@ -79,11 +86,23 @@ void main() {
             isLiveRegion: true,
           ),
         );
+        expect(
+          tester.widget<DIcon>(
+            find.descendant(of: toggle, matching: find.byType(DIcon)),
+          ).color,
+          Theme.of(tester.element(toggle)).colorScheme.onSurfaceVariant,
+        );
 
         gate.complete();
         await tester.pumpAndSettle();
 
         expect(find.text('Online'), findsOneWidget);
+        expect(
+          tester.widget<DIcon>(
+            find.descendant(of: toggle, matching: find.byType(DIcon)),
+          ).color,
+          Theme.of(tester.element(toggle)).colorScheme.primary,
+        );
         final error = find.bySemanticsLabel(
           "Couldn't update presence. Check the connection and try again.",
         );
