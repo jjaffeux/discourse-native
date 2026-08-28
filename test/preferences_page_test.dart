@@ -247,6 +247,9 @@ void main() {
         _saveButton(tester, PreferenceSection.notifications).onPressed,
         isNotNull,
       );
+      final idleButtonSize = tester.getSize(
+        _save(PreferenceSection.notifications),
+      );
       await tester.tap(_save(PreferenceSection.notifications));
       await tester.pump();
       await tester.pump();
@@ -255,11 +258,27 @@ void main() {
       expect(fixture.api.userPreferenceUpdates.single.values, {
         'like_notification_frequency': 3,
       });
-      final saving = find.bySemanticsLabel('Saving preferences…');
+      final saving = find.bySemanticsLabel('Saving preferences');
       expect(saving, findsOneWidget);
       expect(
         tester.getSemantics(saving),
-        isSemantics(label: 'Saving preferences…', isLiveRegion: true),
+        isSemantics(
+          label: 'Saving preferences',
+          value: 'Loading',
+          isButton: true,
+          isEnabled: false,
+          isLiveRegion: true,
+        ),
+      );
+      expect(find.text('Saving changes…'), findsOneWidget);
+      expect(find.text('Saving preferences…'), findsNothing);
+      final savingButtonSize = tester.getSize(
+        _save(PreferenceSection.notifications),
+      );
+      expect(savingButtonSize.width, greaterThan(savingButtonSize.height));
+      expect(
+        savingButtonSize.width,
+        greaterThanOrEqualTo(idleButtonSize.width),
       );
       expect(
         _saveButton(tester, PreferenceSection.notifications).loading,

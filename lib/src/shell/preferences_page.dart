@@ -218,7 +218,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
         _SectionHeading(section: section),
         const SizedBox(height: 24),
         _StatusAnnouncement(state: state),
-        if (state.error != null || state.saving || state.savedSection != null)
+        if (state.error != null || state.loading || state.savedSection != null)
           const SizedBox(height: 16),
         switch (section) {
           PreferenceSection.profile => _ProfileForm(
@@ -274,6 +274,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                 : 'Save ${_sectionTitle(section)} preferences',
             onPressed: canSave ? () => _save(shell, instance!, section) : null,
             loading: state.saving,
+            loadingLabel: const Text('Saving changes…'),
             variant: DButtonVariant.primary,
           ),
         ),
@@ -841,10 +842,6 @@ class _StatusAnnouncement extends StatelessWidget {
   Widget build(BuildContext context) {
     final (message, kind) = switch (state) {
       PreferencesState(error: final error?) => (error, _StatusKind.error),
-      PreferencesState(saving: true) => (
-        'Saving preferences…',
-        _StatusKind.progress,
-      ),
       PreferencesState(savedSection: final section?) => (
         '${_sectionTitle(section)} preferences saved.',
         _StatusKind.success,
