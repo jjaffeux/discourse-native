@@ -4,7 +4,6 @@ import 'package:flutter/widgets.dart';
 
 import 'app.dart';
 import 'data/avatar_loader.dart';
-import 'data/bounded_http_overrides.dart';
 import 'data/byte_cache_store.dart';
 import 'data/emoji_cache.dart';
 import 'data/media_request_coordinator.dart';
@@ -27,8 +26,6 @@ abstract interface class AppBootstrapHost {
   void ensureFlutterInitialized();
 
   Future<void> initializeTimezoneEnvironment();
-
-  void installBoundedHttpOverrides();
 
   Future<void> createDiagnostics();
 
@@ -74,7 +71,6 @@ final class AppBootstrap {
             () async {
               _host.ensureFlutterInitialized();
               await _host.initializeTimezoneEnvironment();
-              _host.installBoundedHttpOverrides();
               await _host.createDiagnostics();
               _host.installDiagnosticsSink();
               _host.installRecordingHttpOverrides();
@@ -128,11 +124,6 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
       TimezoneEnvironment.instance.initialize();
 
   @override
-  void installBoundedHttpOverrides() {
-    BoundedHttpOverrides.install();
-  }
-
-  @override
   Future<void> createDiagnostics() async {
     _diagnostics = await DiagnosticsController.create();
   }
@@ -175,10 +166,7 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
       coordinator: MediaRequestCoordinator.shared,
       store: mediaStore,
     );
-    EmojiCache.instance = EmojiCache(
-      coordinator: MediaRequestCoordinator.shared,
-      store: mediaStore,
-    );
+    EmojiCache.instance = EmojiCache(store: mediaStore);
   }
 
   @override

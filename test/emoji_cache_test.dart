@@ -149,9 +149,33 @@ void main() {
       },
     );
 
-    test('never has more than maxConcurrent requests in flight', () async {
-      // A post can carry thirty emoji and a screen six posts, so this cap is
-      // the whole reason this is not an Image.network.
+    test('does not throttle a cold picker by default', () async {
+      var active = 0;
+      var peak = 0;
+      final gate = Completer<void>();
+
+      final cache = EmojiCache(
+        client: MockClient((_) async {
+          active++;
+          peak = peak > active ? peak : active;
+          await gate.future;
+          active--;
+          return http.Response.bytes(pngBytes, 200);
+        }),
+      );
+
+      final all = Future.wait([
+        for (var i = 0; i < 30; i++) cache.load('https://cdn.site/$i.png'),
+      ]);
+
+      await Future<void>.delayed(Duration.zero);
+      expect(peak, 30);
+
+      gate.complete();
+      await all;
+    });
+
+    test('can explicitly bound requests for a non-CDN deployment', () async {
       var active = 0;
       var peak = 0;
       final gate = Completer<void>();

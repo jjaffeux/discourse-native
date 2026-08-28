@@ -13,7 +13,6 @@ void main() {
     expect(host.calls, [
       'ensureFlutterInitialized',
       'initializeTimezoneEnvironment',
-      'installBoundedHttpOverrides',
       'createDiagnostics',
       'installDiagnosticsSink',
       'installRecordingHttpOverrides',
@@ -37,7 +36,6 @@ void main() {
     expect(host.calls, [
       'ensureFlutterInitialized',
       'initializeTimezoneEnvironment',
-      'installBoundedHttpOverrides',
       'createDiagnostics',
       'installDiagnosticsSink',
       'installRecordingHttpOverrides',
@@ -69,7 +67,6 @@ void main() {
     expect(host.calls, [
       'ensureFlutterInitialized',
       'initializeTimezoneEnvironment',
-      'installBoundedHttpOverrides',
       'createDiagnostics',
       'installDiagnosticsSink',
       'installRecordingHttpOverrides',
@@ -165,11 +162,6 @@ final class _RecordingBootstrapHost implements AppBootstrapHost {
   @override
   Future<void> initializePersistentMediaCache() async {
     _record('initializePersistentMediaCache');
-  }
-
-  @override
-  void installBoundedHttpOverrides() {
-    _record('installBoundedHttpOverrides');
   }
 
   @override

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:discourse_native/src/data/bounded_http_overrides.dart';
 import 'package:discourse_native/src/diagnostics/recording_http.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -665,54 +664,6 @@ void main() {
         ],
       );
     });
-
-    test(
-      'production wrapper order replaces the complete prior app stack',
-      () async {
-        final response = _FakeResponse(Stream<List<int>>.value(<int>[1]));
-        final baseClient = _FakeHttpClient(
-          onGetUrl: (uri) async => _FakeHttpClientRequest(uri, response),
-        );
-        final base = _FakeOverrides(client: baseClient);
-        final priorRecorder = _Recorder();
-        final replacementRecorder = _Recorder();
-
-        // AppBootstrap installs the bounded layer first and recording second.
-        // Repeating that order must not leave Recording1 below Bounded2.
-        final priorBounded = BoundedHttpOverrides(previous: base);
-        final priorRecording = RecordingHttpOverrides(
-          priorRecorder,
-          previous: priorBounded,
-        );
-        final replacementBounded = BoundedHttpOverrides(
-          previous: priorRecording,
-        );
-        final replacementRecording = RecordingHttpOverrides(
-          replacementRecorder,
-          previous: replacementBounded,
-        );
-
-        expect(replacementBounded.previous, same(base));
-        final client = replacementRecording.createHttpClient(null);
-        addTearDown(client.close);
-        final request = await client.getUrl(
-          Uri.https('example.com', '/repeated-bootstrap'),
-        );
-        await (await request.close()).drain<void>();
-
-        expect(base.clientsCreated, 1);
-        expect(baseClient.maxConnectionsPerHost, 4);
-        expect(priorRecorder.updates, isEmpty);
-        expect(
-          replacementRecorder.updates.map((update) => update.phase),
-          <HttpDiagnosticPhase>[
-            HttpDiagnosticPhase.started,
-            HttpDiagnosticPhase.responseHeaders,
-            HttpDiagnosticPhase.completed,
-          ],
-        );
-      },
-    );
   });
 }
 
