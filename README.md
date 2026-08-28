@@ -585,12 +585,16 @@ Edit history follows the same server-owned rule. A post's guardian-filtered
 `can_view_edit_history` alone adds **View edit history** to the post's More
 actions menu. Keeping the metadata passive avoids putting its interaction
 behind the hover toolbar drawn over that edge of the post. Opening history reads
-`GET /posts/{id}/revisions/{revision-or-latest}.json` and renders core's inline
-body and title diffs together with category, tag, ownership and other metadata
-changes. Previous/next navigation uses the response's revision ids rather than
-assuming they are contiguous, because hidden revisions can leave deliberate
-gaps for readers who may not see them. Topic edits appear on the opening post,
-which is also where core records title, category and tag revisions.
+`GET /posts/{id}/revisions/{revision-or-latest}.json` and renders core's three
+server-generated representations: inline cooked HTML, side-by-side cooked HTML,
+and side-by-side raw Markdown. Desktop follows web by defaulting to side by side
+and offering all three modes; compact layouts use inline. Insertions and
+deletions use core's success/danger treatment. Category, tag, ownership and
+other metadata changes remain alongside the body and title diff. Previous/next
+navigation uses the response's revision ids rather than assuming they are
+contiguous, because hidden revisions can leave deliberate gaps for readers who
+may not see them. Topic edits appear on the opening post, which is also where
+core records title, category and tag revisions.
 
 Wiki state is likewise server-owned. Posts read both `wiki` and the guardian's
 `can_wiki`; authorized post actions toggle the exact

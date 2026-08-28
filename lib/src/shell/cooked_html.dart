@@ -7,6 +7,7 @@ import '../models/user_status.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
+import '../theme/app_theme.dart';
 import 'code_block.dart';
 import 'emoji.dart';
 import 'hashtag.dart';
@@ -40,6 +41,7 @@ class CookedHtml extends StatelessWidget {
     this.containingTopic,
     this.registry,
     this.compactParagraphs = false,
+    this.revisionDiff = false,
     this.mentionedUserStatuses = const {},
   });
 
@@ -72,6 +74,13 @@ class CookedHtml extends StatelessWidget {
   /// at the outer edges, so a reaction row or upload follows the message
   /// instead of looking detached from it.
   final bool compactParagraphs;
+
+  /// Applies core's edit-history treatment to server-generated diff markup.
+  ///
+  /// Ordinary cooked posts keep the browser meaning of `ins` and `del`.
+  /// Revision payloads instead use those elements, plus `.diff-ins` and
+  /// `.diff-del`, as visual change markers with success/danger backgrounds.
+  final bool revisionDiff;
 
   /// Statuses embedded beside the resolved mentions in this cooked fragment.
   final Map<String, UserStatusReference> mentionedUserStatuses;
@@ -143,6 +152,8 @@ class CookedHtml extends StatelessWidget {
   static Map<String, String>? _customStyles(
     dom.Element element,
     bool compactParagraphs,
+    String? insertedBackground,
+    String? deletedBackground,
   ) {
     final styles = <String, String>{};
 
@@ -164,12 +175,42 @@ class CookedHtml extends StatelessWidget {
       styles['margin'] = '$top 0 $bottom';
     }
 
+    final inserted =
+        element.localName == 'ins' || element.classes.contains('diff-ins');
+    final deleted =
+        element.localName == 'del' || element.classes.contains('diff-del');
+    if (inserted && insertedBackground != null) {
+      styles['background-color'] = insertedBackground;
+      styles['text-decoration'] = 'none';
+    } else if (deleted && deletedBackground != null) {
+      styles['background-color'] = deletedBackground;
+      styles['text-decoration'] = 'none';
+    }
+
     return styles.isEmpty ? null : styles;
   }
 
   @override
   Widget build(BuildContext context) {
-    final style = textStyle ?? Theme.of(context).textTheme.bodyMedium;
+    final theme = Theme.of(context);
+    final style = textStyle ?? theme.textTheme.bodyMedium;
+    final surface = theme.colorScheme.surface;
+    final insertedBackground = revisionDiff
+        ? _cssColor(
+            Color.alphaBlend(
+              theme.discourse.success.withValues(alpha: 0.18),
+              surface,
+            ),
+          )
+        : null;
+    final deletedBackground = revisionDiff
+        ? _cssColor(
+            Color.alphaBlend(
+              theme.colorScheme.error.withValues(alpha: 0.14),
+              surface,
+            ),
+          )
+        : null;
     // `maybeRead`, because this also renders outside the shell — a quote or an
     // onebox in a test. Emoji fall back to their shortcode there, which is what
     // they did everywhere before [emojiWidgetBuilder] existed.
@@ -201,8 +242,12 @@ class CookedHtml extends StatelessWidget {
           resolvedRegistry,
           mentionedUserStatuses,
         ),
-        customStylesBuilder: (element) =>
-            _customStyles(element, compactParagraphs),
+        customStylesBuilder: (element) => _customStyles(
+          element,
+          compactParagraphs,
+          insertedBackground,
+          deletedBackground,
+        ),
         // The builders close over the style and resolved site, and [HtmlWidget]
         // caches what they built — so a change to either has to say so to reach
         // the inline code and the emoji.
@@ -213,6 +258,9 @@ class CookedHtml extends StatelessWidget {
           containingTopic,
           resolvedRegistry,
           compactParagraphs,
+          revisionDiff,
+          insertedBackground,
+          deletedBackground,
           mentionedUserStatuses,
         ],
         onTapUrl: (url) => openLink(context, url, siteUrl: resolvedSiteUrl),
@@ -220,3 +268,6 @@ class CookedHtml extends StatelessWidget {
     );
   }
 }
+
+String _cssColor(Color color) =>
+    '#${(color.toARGB32() & 0x00FFFFFF).toRadixString(16).padLeft(6, '0')}';
