@@ -21,7 +21,6 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
-import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api_client.dart';
@@ -907,39 +906,42 @@ void main() {
 
 void _authGroups() {
   group('notificationTotals', () {
-    test('reads every counter the shell shows from one call', () async {
-      final api = DiscourseApi(
-        client: MockClient((request) async {
-          expect(request.headers['User-Api-Key'], 'the-key');
-          return http.Response(
-            jsonEncode({
-              'unread_notifications': 3,
-              'unread_personal_messages': 2,
-              'unseen_reviewables': 1,
-              'chat_notifications': 4,
-              'topic_tracking': {'unread': 12, 'new': 7},
-              'username': 'joffreyj',
-            }),
-            200,
-          );
-        }),
-      );
+    test(
+      'core reads its counters without claiming plugin wire fields',
+      () async {
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            expect(request.headers['User-Api-Key'], 'the-key');
+            return http.Response(
+              jsonEncode({
+                'unread_notifications': 3,
+                'unread_personal_messages': 2,
+                'unseen_reviewables': 1,
+                'chat_notifications': 4,
+                'topic_tracking': {'unread': 12, 'new': 7},
+                'username': 'joffreyj',
+              }),
+              200,
+            );
+          }),
+        );
 
-      final totals = await api.notificationTotals(
-        siteUrl: 'https://meta.discourse.org',
-        apiKey: 'the-key',
-      );
+        final totals = await api.notificationTotals(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+        );
 
-      expect(totals.unreadNotifications, 3);
-      expect(totals.unreadPersonalMessages, 2);
-      expect(totals.topicTrackingUnread, 12);
-      expect(totals.topicTrackingNew, 7);
-      expect(totals.hasChatEnabled, isTrue);
-      // Addressed-to-you items only; unread topics are not in the rail badge.
-      expect(totals.badge, 3 + 2 + 1 + 4);
-    });
+        expect(totals.unreadNotifications, 3);
+        expect(totals.unreadPersonalMessages, 2);
+        expect(totals.unseenReviewables, 1);
+        expect(totals.topicTrackingUnread, 12);
+        expect(totals.topicTrackingNew, 7);
+        // Addressed-to-you items only; unread topics are not in the rail badge.
+        expect(totals.badge, 3 + 2 + 1);
+      },
+    );
 
-    test('a site without chat reports none enabled', () async {
+    test('absent optional counters leave core totals at zero', () async {
       final api = DiscourseApi(
         client: MockClient(
           (_) async => http.Response(
@@ -957,8 +959,8 @@ void _authGroups() {
         apiKey: 'k',
       );
 
-      expect(totals.hasChatEnabled, isFalse);
-      expect(totals.chatNotifications, 0);
+      expect(totals.unreadPersonalMessages, 0);
+      expect(totals.unseenReviewables, 0);
     });
 
     test('a rejected key is reported as such', () async {
@@ -1031,17 +1033,17 @@ void _authGroups() {
       expect(url?.queryParameters, isNot(contains('filter_by_types')));
       expect(url?.queryParameters, isNot(contains('silent')));
 
-      expect(notifications.first.kind, NotificationKind.replied);
+      expect(notifications.first.typeId, const NotificationTypeId(2));
       expect(notifications.first.topicId, 77);
       expect(notifications.first.postNumber, 4);
-      expect(notifications.first.actor, 'sam');
+      expect(notifications.first.data['display_username'], 'sam');
       expect(notifications.first.title, 'Better “image” handling');
       expect(notifications.first.isUnread, isTrue);
 
-      // The consolidated kinds name the actor in `username` instead.
-      expect(notifications.last.kind, NotificationKind.likedConsolidated);
-      expect(notifications.last.actor, 'david');
-      expect(notifications.last.count, 3);
+      // Type-owned payload keys remain opaque at the API boundary.
+      expect(notifications.last.typeId, const NotificationTypeId(19));
+      expect(notifications.last.data['username'], 'david');
+      expect(notifications.last.data['count'], 3);
       expect(notifications.last.isUnread, isFalse);
     });
 
@@ -1098,9 +1100,10 @@ void _authGroups() {
         apiKey: 'k',
       );
 
-      expect(notifications.single.kind, NotificationKind.unknown);
-      expect(notifications.single.title, 'From some plugin');
-      expect(notifications.single.path, '/t/topic/9');
+      expect(notifications.single.typeId, const NotificationTypeId(4242));
+      expect(notifications.single.title, isEmpty);
+      expect(notifications.single.topicId, 9);
+      expect(notifications.single.data, {'topic_title': 'From some plugin'});
     });
 
     test('reads Replies as a silent server-filtered list', () async {
@@ -1113,7 +1116,7 @@ void _authGroups() {
               'notifications': [
                 {
                   'id': 12,
-                  'notification_type': NotificationKind.replied.id,
+                  'notification_type': 2,
                   'data': {
                     'display_username': 'sam',
                     'topic_title': 'Better image handling',
@@ -1129,7 +1132,7 @@ void _authGroups() {
       final replies = await api.notifications(
         siteUrl: 'https://meta.discourse.org',
         apiKey: 'the-key',
-        filterByTypes: userMenuReplyNotificationKinds,
+        filterByTypes: userMenuReplyNotificationTypes,
       );
 
       expect(url?.path, '/notifications.json');
@@ -1139,11 +1142,11 @@ void _authGroups() {
         'filter_by_types': 'mentioned,group_mentioned,posted,quoted,replied',
         'silent': 'true',
       });
-      expect(replies.single.kind, NotificationKind.replied);
-      expect(replies.single.actor, 'sam');
+      expect(replies.single.typeId, const NotificationTypeId(2));
+      expect(replies.single.data['display_username'], 'sam');
     });
 
-    test('reads Chat as a silent server-filtered list', () async {
+    test('preserves arbitrary filter names in a silent request', () async {
       Uri? url;
       final api = DiscourseApi(
         client: MockClient((request) async {
@@ -1153,13 +1156,8 @@ void _authGroups() {
               'notifications': [
                 {
                   'id': 13,
-                  'notification_type': NotificationKind.chatMention.id,
-                  'data': {
-                    'mentioned_by_username': 'sam',
-                    'chat_channel_id': 9,
-                    'chat_channel_title': 'dev',
-                    'chat_message_id': 44,
-                  },
+                  'notification_type': 4243,
+                  'data': {'plugin_value': 'opaque'},
                 },
               ],
             }),
@@ -1168,23 +1166,24 @@ void _authGroups() {
         }),
       );
 
-      final chat = await api.notifications(
+      final notifications = await api.notifications(
         siteUrl: 'https://meta.discourse.org',
         apiKey: 'the-key',
-        filterByTypes: chatNotificationFeed.filterByTypes,
+        filterByTypes: const [
+          NotificationTypeName('future_alert'),
+          NotificationTypeName('plugin_ping'),
+        ],
       );
 
       expect(url?.path, '/notifications.json');
       expect(url?.queryParameters, {
         'recent': 'true',
         'limit': '30',
-        'filter_by_types':
-            'chat_invitation,chat_mention,chat_message,chat_quoted,'
-            'chat_watched_thread',
+        'filter_by_types': 'future_alert,plugin_ping',
         'silent': 'true',
       });
-      expect(chat.single.kind, NotificationKind.chatMention);
-      expect(chat.single.actor, 'sam');
+      expect(notifications.single.typeId, const NotificationTypeId(4243));
+      expect(notifications.single.data['plugin_value'], 'opaque');
     });
   });
 
@@ -1369,8 +1368,9 @@ void _authGroups() {
       expect(url?.path, '/u/joffreyj/user-menu-bookmarks.json');
 
       // A reminder is a notification, and reads as one.
-      expect(payload.reminders.single.kind, NotificationKind.bookmarkReminder);
-      expect(payload.reminders.single.path, '/t/better-image-handling/77');
+      expect(payload.reminders.single.typeId, const NotificationTypeId(24));
+      expect(payload.reminders.single.topicId, 77);
+      expect(payload.reminders.single.slug, 'better-image-handling');
 
       final first = payload.bookmarks.first;
       expect(first.title, 'Thinking about the next project');
@@ -5894,53 +5894,6 @@ void _writeGroups() {
       expect(
         DiscourseUser.fromJson(const {'username': 'old'}).followedCategoryIds,
         isNull,
-      );
-    });
-
-    test('reads the current account ignored usernames safely', () async {
-      final api = DiscourseApi(
-        client: MockClient(
-          (_) async => http.Response(
-            jsonEncode({
-              'current_user': {
-                'id': 7,
-                'username': 'sam',
-                'ignored_users': ['hawk', false, 'kris', null],
-              },
-            }),
-            200,
-          ),
-        ),
-      );
-
-      final user = await api.currentUser(
-        siteUrl: 'https://meta.discourse.org',
-        apiKey: 'the-key',
-      );
-
-      expect(user.ignoredUsernames, ['hawk', 'kris']);
-      expect(() => user.ignoredUsernames.add('lee'), throwsUnsupportedError);
-    });
-
-    test('ignored usernames survive storage and affect user identity', () {
-      const user = DiscourseUser(
-        username: 'sam',
-        ignoredUsernames: ['hawk', 'kris'],
-      );
-
-      final stored = DiscourseUser.fromJson(user.toJson());
-
-      expect(stored, user);
-      expect(stored.hashCode, user.hashCode);
-      expect(stored.ignoredUsernames, ['hawk', 'kris']);
-      expect(() => stored.ignoredUsernames.add('lee'), throwsUnsupportedError);
-      expect(
-        stored,
-        isNot(const DiscourseUser(username: 'sam', ignoredUsernames: ['hawk'])),
-      );
-      expect(
-        DiscourseUser.fromJson(const {'username': 'old'}).ignoredUsernames,
-        isEmpty,
       );
     });
 

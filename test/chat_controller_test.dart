@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
@@ -1367,10 +1368,13 @@ void main() {
     );
 
     test('does not make an ignored author urgent', () async {
-      const user = DiscourseUser(
+      final user = DiscourseUser(
         username: 'sam',
         id: 1,
-        ignoredUsernames: ['hawk'],
+        plugins: PluginData.none.withValue(
+          chatCurrentUserDataKey,
+          const ChatCurrentUser(ignoredUsernames: ['hawk']),
+        ),
       );
       final subject = build(
         currentUser: user,

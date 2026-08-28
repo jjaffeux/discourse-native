@@ -315,6 +315,59 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test('notification type wire ids and names are globally unique', () {
+    expect(
+      () => PluginRegistry.validated(const [
+        _TypePlugin('first', [
+          _TypeDefinition('first', 'alert', 901, 'first_alert'),
+        ]),
+        _TypePlugin('second', [
+          _TypeDefinition('second', 'other', 901, 'second_alert'),
+        ]),
+      ]),
+      throwsArgumentError,
+    );
+    expect(
+      () => PluginRegistry.validated(const [
+        _TypePlugin('first', [
+          _TypeDefinition('first', 'alert', 901, 'shared_alert'),
+        ]),
+        _TypePlugin('second', [
+          _TypeDefinition('second', 'other', 902, 'shared_alert'),
+        ]),
+      ]),
+      throwsArgumentError,
+    );
+  });
+
+  test('notification types cannot claim core or foreign identities', () {
+    expect(
+      () => PluginRegistry.validated(const [
+        _TypePlugin('first', [
+          _TypeDefinition('first', 'reply', 2, 'plugin_reply'),
+        ]),
+      ]),
+      throwsArgumentError,
+    );
+    expect(
+      () => PluginRegistry.validated(const [
+        _TypePlugin('first', [
+          _TypeDefinition('other', 'alert', 901, 'first_alert'),
+        ]),
+      ]),
+      throwsArgumentError,
+    );
+  });
+
+  test('notification feeds cannot filter types they do not own', () {
+    expect(
+      () => PluginRegistry.validated(const [
+        _FeedOnlyPlugin('second', 'first_notification'),
+      ]),
+      throwsArgumentError,
+    );
+  });
 }
 
 final class _ComposerPlugin implements SitePlugin, ComposerTargetPlugin {
@@ -394,7 +447,8 @@ final class _MenuDefinition {
   );
 }
 
-final class _FeedPlugin implements SitePlugin, NotificationFeedPlugin {
+final class _FeedPlugin
+    implements SitePlugin, NotificationFeedPlugin, NotificationTypePlugin {
   const _FeedPlugin(this.name, this.definitions);
 
   @override
@@ -406,6 +460,11 @@ final class _FeedPlugin implements SitePlugin, NotificationFeedPlugin {
   List<PluginNotificationFeedSource> get notificationFeeds => [
     for (final definition in definitions) definition.source,
   ];
+
+  @override
+  List<PluginNotificationType> get notificationTypes => [
+    for (final definition in definitions) definition.type,
+  ];
 }
 
 final class _FeedDefinition {
@@ -414,11 +473,80 @@ final class _FeedDefinition {
   final String owner;
   final String name;
 
+  int get wireId => switch (owner) {
+    'first' => 901,
+    'second' => 902,
+    'other' => 903,
+    _ => 999,
+  };
+
+  String get wireName => '${owner.replaceAll('-', '_')}_notification';
+
+  PluginNotificationType get type => PluginNotificationType(
+    id: PluginNotificationTypeId(owner: PluginId(owner), name: 'notification'),
+    wireType: NotificationWireType(wireId, wireName),
+    decode: _fakeNotificationDecoder,
+  );
+
   PluginNotificationFeedSource get source => PluginNotificationFeedSource(
     id: PluginNotificationFeedId(owner: PluginId(owner), name: name),
-    filterByTypes: const [NotificationKind.chatMessage],
+    filterByTypes: [NotificationTypeName(wireName)],
     reconnectMessage: 'Reconnect.',
     failureMessage: 'Failed.',
     emptyMessage: 'Empty.',
   );
+}
+
+ResolvedNotification _fakeNotificationDecoder(
+  DiscourseNotification notification,
+) => fallbackNotification(notification);
+
+final class _TypePlugin implements SitePlugin, NotificationTypePlugin {
+  const _TypePlugin(this.name, this.definitions);
+
+  @override
+  final String name;
+  final List<_TypeDefinition> definitions;
+
+  @override
+  List<PluginNotificationType> get notificationTypes => [
+    for (final definition in definitions) definition.type,
+  ];
+}
+
+final class _TypeDefinition {
+  const _TypeDefinition(this.owner, this.name, this.wireId, this.wireName);
+
+  final String owner;
+  final String name;
+  final int wireId;
+  final String wireName;
+
+  PluginNotificationType get type => PluginNotificationType(
+    id: PluginNotificationTypeId(owner: PluginId(owner), name: name),
+    wireType: NotificationWireType(wireId, wireName),
+    decode: _fakeNotificationDecoder,
+  );
+}
+
+final class _FeedOnlyPlugin implements SitePlugin, NotificationFeedPlugin {
+  const _FeedOnlyPlugin(this.name, this.wireName);
+
+  @override
+  final String name;
+  final String wireName;
+
+  @override
+  List<PluginNotificationFeedSource> get notificationFeeds => [
+    PluginNotificationFeedSource(
+      id: PluginNotificationFeedId(
+        owner: PluginId(name),
+        name: 'notifications',
+      ),
+      filterByTypes: [NotificationTypeName(wireName)],
+      reconnectMessage: 'Reconnect.',
+      failureMessage: 'Failed.',
+      emptyMessage: 'Empty.',
+    ),
+  ];
 }

@@ -6,6 +6,7 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../models/content_route.dart';
 import '../models/discourse_user.dart';
 import '../models/forum_workspace.dart';
+import '../models/notification.dart';
 import '../models/post.dart';
 import '../models/sidebar.dart';
 import '../models/topic.dart';
@@ -15,9 +16,14 @@ import '../shell/post_action.dart';
 import 'chat_preview.dart';
 import 'site_plugin_api.dart';
 
+final RegExp _notificationWireNamePattern = RegExp(
+  r'^[a-z0-9]+(?:_[a-z0-9]+)*$',
+);
+
 /// Immutable dispatch table produced by installing a complete manifest.
 @immutable
-final class PluginRegistry implements PluginDataDecoder {
+final class PluginRegistry
+    implements PluginDataDecoder, PluginNotificationCounterCodec {
   const PluginRegistry(this.plugins);
 
   static const PluginRegistry empty = PluginRegistry([]);
@@ -27,7 +33,9 @@ final class PluginRegistry implements PluginDataDecoder {
     registry._validateRecordOwners();
     registry._validateComposerTargetOwners();
     registry._validateTopicRecommendationSources();
+    registry._validateNotificationTypes();
     registry._validateNotificationFeeds();
+    registry._validateNotificationCounters();
     return registry;
   }
 
@@ -71,6 +79,49 @@ final class PluginRegistry implements PluginDataDecoder {
 
   PluginNotificationFeedSource? notificationFeed(PluginNotificationFeedId id) =>
       notificationFeeds.where((source) => source.id == id).firstOrNull;
+
+  List<PluginNotificationType> get notificationTypes => List.unmodifiable([
+    for (final plugin in plugins.whereType<NotificationTypePlugin>())
+      ...plugin.notificationTypes,
+  ]);
+
+  PluginNotificationType? notificationType(NotificationTypeId id) =>
+      notificationTypes
+          .where((definition) => definition.wireType.wireId == id.value)
+          .firstOrNull;
+
+  /// Resolves an installed feature's type, a core type, or the generic safe
+  /// fallback, in that order. A bad plugin decoder degrades only its own row.
+  ResolvedNotification resolveNotification(DiscourseNotification notification) {
+    final definition = notificationType(notification.typeId);
+    if (definition == null) return resolveCoreNotification(notification);
+    try {
+      return definition.decode(notification) ??
+          fallbackNotification(notification);
+    } catch (error, stackTrace) {
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'notifications.decode.${definition.id.id}',
+        source: definition.id.owner.value,
+        severity: DiagnosticSeverity.warning,
+        handled: true,
+        degraded: true,
+      );
+      return fallbackNotification(notification);
+    }
+  }
+
+  @override
+  List<PluginNotificationCounter> get notificationCounters =>
+      List.unmodifiable([
+        for (final plugin in plugins.whereType<NotificationCounterPlugin>())
+          ...plugin.notificationCounters,
+      ]);
+
+  PluginNotificationCounter? notificationCounter(
+    PluginNotificationCounterId id,
+  ) => notificationCounters.where((counter) => counter.id == id).firstOrNull;
 
   void _validateRecordOwners() {
     final owners = <PluginDataKey<Object>, String>{};
@@ -140,6 +191,12 @@ final class PluginRegistry implements PluginDataDecoder {
 
   void _validateNotificationFeeds() {
     final owners = <PluginNotificationFeedId, String>{};
+    final typeOwners = <NotificationTypeName, String>{
+      for (final plugin in plugins.whereType<NotificationTypePlugin>())
+        for (final type in plugin.notificationTypes)
+          NotificationTypeName(type.wireType.wireName):
+              (plugin as SitePlugin).name,
+    };
     for (final plugin in plugins.whereType<NotificationFeedPlugin>()) {
       final pluginName = (plugin as SitePlugin).name;
       for (final source in plugin.notificationFeeds) {
@@ -158,6 +215,15 @@ final class PluginRegistry implements PluginDataDecoder {
             'Notification feed ${source.id.id} must declare its messages.',
           );
         }
+        if (source.filterByTypes.isEmpty ||
+            source.filterByTypes.any(
+              (type) => typeOwners[type] != pluginName,
+            )) {
+          throw ArgumentError(
+            'Notification feed ${source.id.id} must filter only notification '
+            'types owned by $pluginName.',
+          );
+        }
         final previous = owners[source.id];
         if (previous != null) {
           throw ArgumentError(
@@ -169,6 +235,131 @@ final class PluginRegistry implements PluginDataDecoder {
       }
     }
   }
+
+  void _validateNotificationTypes() {
+    final definitionOwners = <PluginNotificationTypeId, String>{
+      for (final definition in coreNotificationTypes) definition.id: 'core',
+    };
+    final idOwners = <NotificationTypeId, String>{
+      for (final definition in coreNotificationTypes)
+        NotificationTypeId(definition.wireType.wireId): 'core',
+    };
+    final nameOwners = <NotificationTypeName, String>{
+      for (final definition in coreNotificationTypes)
+        NotificationTypeName(definition.wireType.wireName): 'core',
+    };
+    for (final plugin in plugins.whereType<NotificationTypePlugin>()) {
+      final pluginName = (plugin as SitePlugin).name;
+      for (final definition in plugin.notificationTypes) {
+        if (definition.id.owner != PluginId(pluginName) ||
+            definition.id.name.trim().isEmpty ||
+            definition.id.name.contains('/')) {
+          throw ArgumentError(
+            'Notification type ${definition.id.id} must be namespaced to '
+            '$pluginName.',
+          );
+        }
+        if (definition.wireType.wireId <= 0 ||
+            !_notificationWireNamePattern.hasMatch(
+              definition.wireType.wireName,
+            )) {
+          throw ArgumentError(
+            'Notification type ${definition.id.id} must declare a positive '
+            'wire id and a snake-case wire name.',
+          );
+        }
+        final previousDefinition = definitionOwners[definition.id];
+        if (previousDefinition != null) {
+          throw ArgumentError(
+            'Notification type ${definition.id.id} is claimed by both '
+            '$previousDefinition and $pluginName.',
+          );
+        }
+        final wireId = NotificationTypeId(definition.wireType.wireId);
+        final wireName = NotificationTypeName(definition.wireType.wireName);
+        final previousId = idOwners[wireId];
+        if (previousId != null) {
+          throw ArgumentError(
+            'Notification wire id ${definition.wireType.wireId} is claimed '
+            'by both $previousId and $pluginName.',
+          );
+        }
+        final previousName = nameOwners[wireName];
+        if (previousName != null) {
+          throw ArgumentError(
+            'Notification wire name ${definition.wireType.wireName} is '
+            'claimed by both $previousName and $pluginName.',
+          );
+        }
+        definitionOwners[definition.id] = pluginName;
+        idOwners[wireId] = pluginName;
+        nameOwners[wireName] = pluginName;
+      }
+    }
+  }
+
+  void _validateNotificationCounters() {
+    const coreWireNames = {
+      'unread_notifications',
+      'unread_personal_messages',
+      'unseen_reviewables',
+      'topic_tracking',
+      'username',
+    };
+    final idOwners = <PluginNotificationCounterId, String>{};
+    final wireOwners = <String, String>{
+      for (final name in coreWireNames) name: 'core',
+    };
+    for (final plugin in plugins.whereType<NotificationCounterPlugin>()) {
+      final pluginName = (plugin as SitePlugin).name;
+      for (final counter in plugin.notificationCounters) {
+        if (counter.id.owner != PluginId(pluginName) ||
+            counter.id.name.trim().isEmpty ||
+            counter.id.name.contains('/')) {
+          throw ArgumentError(
+            'Notification counter ${counter.id.id} must be namespaced to '
+            '$pluginName.',
+          );
+        }
+        if (!_notificationWireNamePattern.hasMatch(counter.wireName)) {
+          throw ArgumentError(
+            'Notification counter ${counter.id.id} must declare a snake-case '
+            'wire name.',
+          );
+        }
+        final previousIdOwner = idOwners[counter.id];
+        if (previousIdOwner != null) {
+          throw ArgumentError(
+            'Notification counter ${counter.id.id} is claimed by both '
+            '$previousIdOwner and $pluginName.',
+          );
+        }
+        final previousWireOwner = wireOwners[counter.wireName];
+        if (previousWireOwner != null) {
+          throw ArgumentError(
+            'Notification counter wire name ${counter.wireName} is claimed '
+            'by both $previousWireOwner and $pluginName.',
+          );
+        }
+        idOwners[counter.id] = pluginName;
+        wireOwners[counter.wireName] = pluginName;
+      }
+    }
+  }
+
+  @override
+  PluginNotificationCounters readLiveNotificationCounters(
+    Map<String, dynamic> json,
+  ) => PluginNotificationCounters.fromLive(notificationCounters, json);
+
+  @override
+  PluginNotificationCounters readStoredNotificationCounters(Object? value) =>
+      PluginNotificationCounters.fromStored(notificationCounters, value);
+
+  @override
+  Map<String, Object?> writeStoredNotificationCounters(
+    PluginNotificationCounters counters,
+  ) => counters.toStored(notificationCounters);
 
   static void _validateCodecOwner(
     PluginDataPersistenceCodec<Object> codec,
@@ -307,9 +498,11 @@ final class PluginRegistry implements PluginDataDecoder {
       final stored = namespaces[codec.key.id];
       values = values.withoutPreservedNamespace(codec.key.id);
       try {
-        final value = hasNamespacedValue
-            ? codec.decode(stored)
-            : codec.decodeLegacy(json);
+        final value = codec.decodeStored(
+          namespacedValue: stored,
+          hasNamespacedValue: hasNamespacedValue,
+          record: json,
+        );
         if (value != null) values = values.withValueFor(codec.key, value);
       } catch (_) {
         // One stale plugin payload must not make the core instance unreadable.

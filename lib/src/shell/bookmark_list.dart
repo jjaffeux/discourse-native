@@ -90,9 +90,12 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
 
   /// Marks a reminder read, then follows it — the same act as tapping it in
   /// the notifications tab.
-  Future<void> _openReminder(DiscourseNotification reminder) async {
+  Future<void> _openReminder(
+    DiscourseNotification reminder,
+    String? path,
+  ) async {
     ShellScope.read(context).readNotification(widget.siteUrl, reminder);
-    await _open(reminder.path);
+    await _open(path);
   }
 
   @override
@@ -120,11 +123,16 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final reminder in feed.reminders)
-              NotificationRow(
+            ...feed.reminders.map((reminder) {
+              final resolved = controller.plugins.registry.resolveNotification(
+                reminder,
+              );
+              return NotificationRow(
                 notification: reminder,
-                onTap: () => _openReminder(reminder),
-              ),
+                resolved: resolved,
+                onTap: () => _openReminder(reminder, resolved.path),
+              );
+            }),
             for (final bookmark in feed.bookmarks)
               BookmarkRow(
                 bookmark: bookmark,

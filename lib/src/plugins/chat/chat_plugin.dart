@@ -28,6 +28,8 @@ import 'chat_channel_view.dart';
 import 'chat_emoji_usage.dart';
 import 'chat_header_button.dart';
 import 'chat_my_threads_view.dart';
+import 'chat_notification_counter.dart';
+import 'chat_notifications.dart';
 import 'chat_plugin_data.dart';
 import 'chat_route.dart';
 import 'chat_search_view.dart';
@@ -87,6 +89,8 @@ class ChatPlugin
         ComposerTargetPlugin,
         UserMenuSectionPlugin,
         NotificationFeedPlugin,
+        NotificationTypePlugin,
+        NotificationCounterPlugin,
         SiteSettingsPlugin<ChatSettings>,
         CurrentUserPlugin<ChatCurrentUser>,
         PluginCurrentUserFeature,
@@ -123,6 +127,14 @@ class ChatPlugin
   @override
   List<PluginNotificationFeedSource> get notificationFeeds => const [
     chatNotificationFeed,
+  ];
+
+  @override
+  List<PluginNotificationType> get notificationTypes => chatNotificationTypes;
+
+  @override
+  List<PluginNotificationCounter> get notificationCounters => const [
+    chatNotificationCounter,
   ];
 
   @override

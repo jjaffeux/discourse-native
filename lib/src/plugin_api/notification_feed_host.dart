@@ -33,7 +33,7 @@ final class PluginNotificationFeedSource {
   });
 
   final PluginNotificationFeedId id;
-  final List<NotificationKind> filterByTypes;
+  final List<NotificationTypeName> filterByTypes;
   final String reconnectMessage;
   final String failureMessage;
   final String emptyMessage;

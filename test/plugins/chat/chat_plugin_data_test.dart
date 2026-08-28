@@ -34,6 +34,7 @@ void main() {
       'id': 7,
       'username': 'sam',
       'has_chat_enabled': true,
+      'ignored_users': ['hawk', false, 'kris', null],
       'custom_fields': {'last_chat_channel_id': '42'},
       'user_option': {'chat_header_indicator_preference': 'only_mentions'},
     }, 'https://forum.example');
@@ -44,8 +45,11 @@ void main() {
         hasChatEnabled: true,
         headerIndicatorPreference: ChatHeaderIndicatorPreference.onlyMentions,
         lastChannelId: 42,
+        ignoredUsernames: ['hawk', 'kris'],
       ),
     );
+    expect(user.ignoredUsernames, ['hawk', 'kris']);
+    expect(() => user.ignoredUsernames.add('lee'), throwsUnsupportedError);
 
     final absent = models.currentUser(const {
       'username': 'sam',
@@ -71,6 +75,7 @@ void main() {
           'hasChatEnabled': true,
           'headerIndicatorPreference': 'dm_and_mentions',
           'lastChannelId': 17,
+          'ignoredUsernames': ['hawk', 'kris'],
         },
       },
     }, extensions: _registry);
@@ -94,6 +99,7 @@ void main() {
         'hasChatEnabled': true,
         'headerIndicatorPreference': 'dm_and_mentions',
         'lastChannelId': 17,
+        'ignoredUsernames': ['hawk', 'kris'],
       },
     });
 
@@ -113,6 +119,7 @@ void main() {
       'hasChatEnabled': false,
       'chatHeaderIndicatorPreference': 'never',
       'lastChatChannelId': 9,
+      'ignoredUsernames': ['hawk', false, 'kris', null],
     }, extensions: _registry);
 
     expect(
@@ -130,6 +137,7 @@ void main() {
         hasChatEnabled: false,
         headerIndicatorPreference: ChatHeaderIndicatorPreference.never,
         lastChannelId: 9,
+        ignoredUsernames: ['hawk', 'kris'],
       ),
     );
     expect(
@@ -140,6 +148,96 @@ void main() {
       user.toJson(extensions: _registry)['plugins'],
       contains(chatCurrentUserDataKey.id),
     );
+  });
+
+  test('legacy ignored users merge into an existing Chat namespace', () {
+    final user = DiscourseUser.fromJson({
+      'id': 7,
+      'username': 'sam',
+      'ignoredUsernames': const ['hawk', false, 'kris'],
+      'plugins': {
+        chatCurrentUserDataKey.id: const {
+          'hasChatEnabled': true,
+          'headerIndicatorPreference': 'only_mentions',
+          'lastChannelId': 42,
+        },
+      },
+    }, extensions: _registry);
+
+    expect(
+      user.chatCurrentUser,
+      const ChatCurrentUser(
+        hasChatEnabled: true,
+        headerIndicatorPreference: ChatHeaderIndicatorPreference.onlyMentions,
+        lastChannelId: 42,
+        ignoredUsernames: ['hawk', 'kris'],
+      ),
+    );
+
+    final stored = user.toJson(extensions: _registry);
+    expect(stored, isNot(contains('ignoredUsernames')));
+    expect(stored['plugins'], {
+      chatCurrentUserDataKey.id: {
+        'hasChatEnabled': true,
+        'headerIndicatorPreference': 'only_mentions',
+        'lastChannelId': 42,
+        'ignoredUsernames': ['hawk', 'kris'],
+      },
+    });
+  });
+
+  test('namespaced ignored users remain authoritative during migration', () {
+    final user = DiscourseUser.fromJson({
+      'username': 'sam',
+      'ignoredUsernames': const ['legacy'],
+      'plugins': {
+        chatCurrentUserDataKey.id: const {
+          'ignoredUsernames': ['namespaced'],
+        },
+      },
+    }, extensions: _registry);
+
+    expect(user.ignoredUsernames, ['namespaced']);
+  });
+
+  test('core-only storage preserves opaque Chat current-user data', () {
+    const coreModels = DiscourseModelCodec.core();
+    final held = DiscourseUser.fromJson({
+      'id': 7,
+      'username': 'sam',
+      'plugins': {
+        chatCurrentUserDataKey.id: const {
+          'hasChatEnabled': true,
+          'ignoredUsernames': ['hawk'],
+          'futureShape': {
+            'nested': [1, 'two', null],
+          },
+        },
+      },
+    });
+    final incoming = coreModels.currentUser(const {
+      'id': 7,
+      'username': 'sam',
+      'ignored_users': ['new-live-value'],
+    }, 'https://forum.example');
+
+    final merged = coreModels.preserveUnknownCurrentUser(held, incoming);
+    expect(merged.chatCurrentUser, isNull);
+    expect(merged.toJson()['plugins'], {
+      chatCurrentUserDataKey.id: {
+        'hasChatEnabled': true,
+        'ignoredUsernames': ['hawk'],
+        'futureShape': {
+          'nested': [1, 'two', null],
+        },
+      },
+    });
+
+    final restored = DiscourseUser.fromJson(
+      merged.toJson(),
+      extensions: _registry,
+    );
+    expect(restored.ignoredUsernames, ['hawk']);
   });
 
   test('compatibility interfaces use typed Chat data', () {

@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
@@ -10,6 +11,34 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 void main() {
+  test('core-only preserves and safely presents an unknown plugin row', () {
+    final plugins = PluginInstaller.install(corePluginManifest);
+    addTearDown(plugins.close);
+    final source = <String, dynamic>{
+      'id': 51,
+      'notification_type': 29,
+      'notification_type_name': 'chat_mention',
+      'fancy_title': 'Safe envelope alert',
+      'data': {
+        'topic_title': 'Opaque Chat alert',
+        'chat_channel_id': 9,
+        'future': {'kept': true},
+      },
+    };
+
+    final notification = DiscourseNotification.fromJson(source);
+    final resolved = plugins.registry.resolveNotification(notification);
+
+    expect(notification.typeId, const NotificationTypeId(29));
+    expect(notification.typeName, const NotificationTypeName('chat_mention'));
+    expect(notification.toJson(), source);
+    expect(resolved.presentation.icon.name, 'bell');
+    expect(notification.title, 'Safe envelope alert');
+    expect(notification.data['topic_title'], 'Opaque Chat alert');
+    expect(resolved.presentation.phrase, 'Safe envelope alert');
+    expect(resolved.path, isNull);
+  });
+
   testWidgets('the core manifest boots without optional plugin services', (
     tester,
   ) async {

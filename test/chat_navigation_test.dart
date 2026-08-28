@@ -4,12 +4,12 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/notification.dart';
-import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
@@ -74,17 +74,18 @@ void main() {
   setUp(() async {
     api = FakeDiscourseApi(
       user: _user,
-      totals: const NotificationTotals(
-        chatNotifications: 0,
-        hasChatEnabled: true,
-      ),
+      totals: chatNotificationTotals(),
       chatNotificationList: const [
-        DiscourseNotification(
+        DiscourseNotification.test(
           id: 51,
-          kind: NotificationKind.chatWatchedThread,
-          actor: 'sam',
+          typeId: NotificationTypeId(40),
           title: 'Support thread',
-          path: '/chat/c/-/9/t/3/44',
+          data: {
+            'display_username': 'sam',
+            'chat_channel_id': 9,
+            'chat_thread_id': 3,
+            'chat_message_id': 44,
+          },
         ),
       ],
       feeds: const {'/latest.json': []},
@@ -253,7 +254,7 @@ void main() {
     );
     const foreignFeed = PluginNotificationFeedSource(
       id: foreignFeedId,
-      filterByTypes: [NotificationKind.chatMessage],
+      filterByTypes: [NotificationTypeName('chat_message')],
       reconnectMessage: 'Reconnect.',
       failureMessage: 'Failed.',
       emptyMessage: 'Empty.',
@@ -298,7 +299,7 @@ void main() {
             owner: PluginId('chat'),
             name: 'notifications',
           ),
-          filterByTypes: [NotificationKind.chatMessage],
+          filterByTypes: [NotificationTypeName('chat_message')],
           reconnectMessage: 'Different reconnect message.',
           failureMessage: 'Different failure message.',
           emptyMessage: 'Different empty message.',
@@ -557,11 +558,7 @@ void main() {
     tester,
   ) async {
     await shell.chat.loadChannels(_site);
-    shell.accountActivity.applyCounts(
-      _site,
-      (_) =>
-          const NotificationTotals(chatNotifications: 0, hasChatEnabled: true),
-    );
+    shell.accountActivity.applyCounts(_site, (_) => chatNotificationTotals());
     expect(shell.currentTotals?.hasChatEnabled, isTrue);
     expect(shell.chat.hasThreads(_site), isTrue);
     late List<SidebarSection> sections;
@@ -631,11 +628,7 @@ void main() {
     tester,
   ) async {
     await shell.chat.loadChannels(_site);
-    shell.accountActivity.applyCounts(
-      _site,
-      (_) =>
-          const NotificationTotals(chatNotifications: 0, hasChatEnabled: true),
-    );
+    shell.accountActivity.applyCounts(_site, (_) => chatNotificationTotals());
     expect(shell.openChatChannel(9), isTrue);
 
     await tester.pumpWidget(

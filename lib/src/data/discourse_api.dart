@@ -475,7 +475,7 @@ class DiscourseApi
       clientId: clientId,
     );
 
-    return NotificationTotals.fromJson(body);
+    return models.notificationTotals(body);
   }
 
   /// The notifications behind the user menu's first tab.
@@ -497,7 +497,7 @@ class DiscourseApi
     required String siteUrl,
     required String apiKey,
     int limit = 30,
-    List<NotificationKind> filterByTypes = const [],
+    List<NotificationTypeName> filterByTypes = const [],
     String? clientId,
   }) async {
     if (limit < 1 || limit > maximumRecentNotifications) {
@@ -508,9 +508,7 @@ class DiscourseApi
         'recent': 'true',
         'limit': '$limit',
         if (filterByTypes.isNotEmpty) ...{
-          'filter_by_types': filterByTypes
-              .map((kind) => kind.wireName)
-              .join(','),
+          'filter_by_types': filterByTypes.map((type) => type.value).join(','),
           'silent': 'true',
         },
       },

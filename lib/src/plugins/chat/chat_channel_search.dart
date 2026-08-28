@@ -6,6 +6,7 @@ import '../../shell/shell_scope.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import 'chat_notification_counter.dart';
 import 'chat_plugin_data.dart';
 import 'chat_search_controller.dart';
 import 'chat_services.dart';

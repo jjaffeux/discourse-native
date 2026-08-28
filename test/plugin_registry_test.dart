@@ -254,6 +254,95 @@ void main() {
     );
   });
 
+  test('notification counters decode in registered namespaces', () {
+    final registry = PluginRegistry.validated(const [
+      _CounterPlugin(
+        'alerts',
+        counters: [
+          PluginNotificationCounter(
+            id: PluginNotificationCounterId(
+              owner: PluginId('alerts'),
+              name: 'mentions',
+            ),
+            wireName: 'alert_mentions',
+          ),
+        ],
+      ),
+    ]);
+
+    final counters = registry.readLiveNotificationCounters(const {
+      'alert_mentions': 3,
+    });
+
+    expect(
+      counters.count(
+        const PluginNotificationCounterId(
+          owner: PluginId('alerts'),
+          name: 'mentions',
+        ),
+      ),
+      3,
+    );
+  });
+
+  test('notification counter ids and wire names are uniquely owned', () {
+    const owned = PluginNotificationCounter(
+      id: PluginNotificationCounterId(
+        owner: PluginId('alerts'),
+        name: 'mentions',
+      ),
+      wireName: 'alert_mentions',
+    );
+    expect(
+      () => PluginRegistry.validated(const [
+        _CounterPlugin('alerts', counters: [owned]),
+        _CounterPlugin('alerts', counters: [owned]),
+      ]),
+      throwsArgumentError,
+    );
+    expect(
+      () => PluginRegistry.validated(const [
+        _CounterPlugin('alerts', counters: [owned]),
+        _CounterPlugin(
+          'other',
+          counters: [
+            PluginNotificationCounter(
+              id: PluginNotificationCounterId(
+                owner: PluginId('other'),
+                name: 'other',
+              ),
+              wireName: 'alert_mentions',
+            ),
+          ],
+        ),
+      ]),
+      throwsArgumentError,
+    );
+    expect(
+      () => PluginRegistry.validated(const [
+        _CounterPlugin('wrong-owner', counters: [owned]),
+      ]),
+      throwsArgumentError,
+    );
+    expect(
+      () => PluginRegistry.validated(const [
+        _CounterPlugin(
+          'alerts',
+          counters: [
+            PluginNotificationCounter(
+              id: PluginNotificationCounterId(
+                owner: PluginId('alerts'),
+                name: 'core-collision',
+              ),
+              wireName: 'unread_notifications',
+            ),
+          ],
+        ),
+      ]),
+      throwsArgumentError,
+    );
+  });
+
   testWidgets('aggregates additive topic and post surfaces in order', (
     tester,
   ) async {
@@ -783,6 +872,16 @@ final class _RecommendationPlugin extends _NamedPlugin
       label: label,
     ),
   ];
+}
+
+final class _CounterPlugin extends _NamedPlugin
+    implements NotificationCounterPlugin {
+  const _CounterPlugin(super.name, {required this.counters});
+
+  final List<PluginNotificationCounter> counters;
+
+  @override
+  List<PluginNotificationCounter> get notificationCounters => counters;
 }
 
 void _noop() {}

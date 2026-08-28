@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../models/notification.dart';
 import '../plugin_api/notification_feed_host.dart';
+import '../plugin_api/notification_types.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
 import 'account_activity_loader.dart';
 import 'external_link.dart';
 import 'shell_controller.dart';
@@ -29,16 +30,18 @@ class NotificationDescription {
   });
 
   factory NotificationDescription.of(DiscourseNotification notification) {
-    return NotificationDescription(
-      icon: _icon(notification.kind),
-      actor: _namesActor(notification.kind)
-          // Every kind phrased as something somebody did arrives with a name
-          // attached; this is only reached if one does not.
-          ? notification.actor ?? 'Someone'
-          : null,
-      phrase: _phrase(notification),
+    return NotificationDescription.fromPresentation(
+      resolveCoreNotification(notification).presentation,
     );
   }
+
+  factory NotificationDescription.fromPresentation(
+    NotificationPresentation presentation,
+  ) => NotificationDescription(
+    icon: presentation.icon,
+    actor: presentation.actor,
+    phrase: presentation.phrase,
+  );
 
   final DIconData icon;
 
@@ -50,113 +53,6 @@ class NotificationDescription {
   /// What happened, as it reads after [actor]: `replied to Better image
   /// handling`.
   final String phrase;
-
-  /// Discourse names each notification's icon `notification.<type>` and
-  /// resolves it through the REPLACEMENTS table that `tool/icons.txt` mirrors,
-  /// so most kinds need nothing here. The rest are the ones whose icon
-  /// Discourse sets in a render director instead, the three it draws with a
-  /// `discourse-bell-*` glyph that is not in the sprites, and a bell for
-  /// whatever we have never heard of.
-  static DIconData _icon(NotificationKind kind) =>
-      DIcons.byName['notification.${kind.wireName}'] ??
-      switch (kind) {
-        NotificationKind.posted ||
-        NotificationKind.watchingCategoryOrTag ||
-        NotificationKind.watchingFirstPost ||
-        NotificationKind.followingCreatedTopic ||
-        NotificationKind.chatMessage ||
-        NotificationKind.chatMention => DIcons.comment,
-        NotificationKind.chatInvitation => DIcons.link,
-        NotificationKind.followingReplied ||
-        NotificationKind.chatWatchedThread => DIcons.reply,
-        NotificationKind.assigned => DIcons.userPlus,
-        NotificationKind.newFeatures => DIcons.asterisk,
-        NotificationKind.adminProblems => DIcons.triangleExclamation,
-        _ => DIcons.bell,
-      };
-
-  /// False for the kinds that are not somebody doing something to you.
-  static bool _namesActor(NotificationKind kind) => switch (kind) {
-    NotificationKind.grantedBadge ||
-    NotificationKind.groupMessageSummary ||
-    NotificationKind.membershipRequestAccepted ||
-    NotificationKind.membershipRequestConsolidated ||
-    NotificationKind.topicReminder ||
-    NotificationKind.bookmarkReminder ||
-    NotificationKind.postApproved ||
-    NotificationKind.votesReleased ||
-    NotificationKind.chatWatchedThread ||
-    NotificationKind.newFeatures ||
-    NotificationKind.adminProblems ||
-    NotificationKind.custom ||
-    NotificationKind.unknown => false,
-    _ => true,
-  };
-
-  static String _phrase(DiscourseNotification n) {
-    // Discourse sends a title with every kind that has a topic, so these
-    // stand-ins are for the malformed rest rather than for anything routine.
-    final title = n.title.isEmpty ? 'a topic' : n.title;
-    final group = n.groupName ?? 'a group';
-    final channel = n.channelTitle ?? 'chat';
-
-    return switch (n.kind) {
-      NotificationKind.mentioned ||
-      NotificationKind.groupMentioned => 'mentioned you in $title',
-      NotificationKind.replied ||
-      NotificationKind.followingReplied => 'replied to $title',
-      NotificationKind.quoted => 'quoted you in $title',
-      NotificationKind.edited => 'edited your post in $title',
-      NotificationKind.liked => 'liked your post in $title',
-      NotificationKind.reaction => 'reacted to your post in $title',
-      NotificationKind.likedConsolidated => 'liked ${_posts(n.count)}',
-      NotificationKind.linkedConsolidated => 'linked ${_posts(n.count)}',
-      NotificationKind.linked => 'linked to your post from $title',
-      NotificationKind.privateMessage => 'sent you $title',
-      NotificationKind.invitedToPrivateMessage ||
-      NotificationKind.invitedToTopic => 'invited you to $title',
-      NotificationKind.inviteeAccepted => 'accepted your invitation',
-      NotificationKind.posted ||
-      NotificationKind.watchingCategoryOrTag => 'posted in $title',
-      NotificationKind.watchingFirstPost ||
-      NotificationKind.followingCreatedTopic => 'created $title',
-      NotificationKind.movedPost => 'moved $title',
-      NotificationKind.grantedBadge => switch (n.badgeName) {
-        final badge? => 'You earned the $badge badge',
-        null => 'You earned a badge',
-      },
-      NotificationKind.groupMessageSummary =>
-        '${_plural(n.count, 'message')} in your $group inbox',
-      NotificationKind.membershipRequestAccepted =>
-        "You're now a member of $group",
-      NotificationKind.membershipRequestConsolidated =>
-        '${_plural(n.count, 'membership request')} for $group',
-      NotificationKind.topicReminder ||
-      NotificationKind.bookmarkReminder => 'Reminder: $title',
-      NotificationKind.postApproved => 'Your post in $title was approved',
-      NotificationKind.votesReleased => 'Your votes in $title were returned',
-      NotificationKind.assigned => 'assigned $title to you',
-      NotificationKind.chatMention => 'mentioned you in $channel',
-      NotificationKind.chatQuoted => 'quoted your chat message',
-      NotificationKind.chatMessage => 'sent a message in $channel',
-      NotificationKind.chatInvitation => 'invited you to $channel',
-      NotificationKind.chatWatchedThread =>
-        'There is a new reply in a thread you follow',
-      NotificationKind.newFeatures => 'New features are available',
-      NotificationKind.adminProblems =>
-        'There is new advice on your site dashboard',
-      // A kind from a plugin, or from a Discourse newer than this app. Its
-      // title still says what it is about, and tapping it still goes there.
-      NotificationKind.custom || NotificationKind.unknown =>
-        n.title.isEmpty ? 'New notification' : n.title,
-    };
-  }
-
-  static String _posts(int count) =>
-      count <= 1 ? 'one of your posts' : '$count of your posts';
-
-  static String _plural(int count, String noun) =>
-      count == 1 ? '1 $noun' : '$count ${noun}s';
 }
 
 enum _NotificationFeedKind { all, replies }
@@ -263,9 +159,8 @@ class _PluginNotificationsSectionState
     }
   }
 
-  Future<void> _open(DiscourseNotification notification) async {
+  Future<void> _open(DiscourseNotification notification, String? path) async {
     widget.host.readPluginNotification(widget.siteUrl, notification);
-    final path = notification.path;
     if (path == null) return;
     final url = widget.host.pluginAbsoluteUrl(path, siteUrl: widget.siteUrl);
     if (await widget.host.openPluginNotificationUrl(url)) {
@@ -296,15 +191,23 @@ class _PluginNotificationsSectionState
       if (feed.isEmpty) {
         return UserMenuMessage(text: widget.source.emptyMessage);
       }
+      final registry =
+          PluginScope.maybeOf(context)?.registry ??
+          PluginRegistryScope.maybeOf(context);
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final notification in feed.notifications)
-            NotificationRow(
+          ...feed.notifications.map((notification) {
+            final resolved =
+                registry?.resolveNotification(notification) ??
+                resolveCoreNotification(notification);
+            return NotificationRow(
               notification: notification,
-              onTap: () => _open(notification),
-            ),
+              resolved: resolved,
+              onTap: () => _open(notification, resolved.path),
+            );
+          }),
         ],
       );
     },
@@ -335,11 +238,10 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
   /// A topic or Chat target on a site in the rail is something this app has a
   /// view for, so it opens here. Everything else a notification points at — a
   /// badge, a group, the admin dashboard — belongs in the browser.
-  Future<void> _open(DiscourseNotification notification) async {
+  Future<void> _open(DiscourseNotification notification, String? path) async {
     final controller = widget.controller;
     controller.readNotification(widget.siteUrl, notification);
 
-    final path = notification.path;
     if (path == null) return;
 
     final url = controller.absoluteUrl(path, siteUrl: widget.siteUrl);
@@ -390,11 +292,16 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final notification in currentFeed.notifications)
-              NotificationRow(
+            ...currentFeed.notifications.map((notification) {
+              final resolved = controller.plugins.registry.resolveNotification(
+                notification,
+              );
+              return NotificationRow(
                 notification: notification,
-                onTap: () => _open(notification),
-              ),
+                resolved: resolved,
+                onTap: () => _open(notification, resolved.path),
+              );
+            }),
           ],
         );
       },
@@ -409,15 +316,19 @@ class NotificationRow extends StatelessWidget {
     super.key,
     required this.notification,
     required this.onTap,
+    this.resolved,
   });
 
   final DiscourseNotification notification;
   final VoidCallback onTap;
+  final ResolvedNotification? resolved;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final description = NotificationDescription.of(notification);
+    final description = resolved == null
+        ? NotificationDescription.of(notification)
+        : NotificationDescription.fromPresentation(resolved!.presentation);
     final line = switch (description.actor) {
       final actor? => '$actor ${description.phrase}',
       null => description.phrase,

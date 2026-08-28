@@ -14,6 +14,7 @@ import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'assign_data.dart';
+import 'assign_notifications.dart';
 import 'assign_services.dart';
 import 'assignment.dart';
 import 'assignment_sheet.dart';
@@ -40,6 +41,7 @@ final class AssignPlugin
         PostMenuPlugin,
         TopicLivePlugin,
         TopicLiveReloadPlugin,
+        NotificationTypePlugin,
         PostSmallActionPlugin {
   const AssignPlugin();
 
@@ -47,6 +49,9 @@ final class AssignPlugin
 
   @override
   String get name => 'discourse-assign';
+
+  @override
+  List<PluginNotificationType> get notificationTypes => assignNotificationTypes;
 
   @override
   PluginDataPersistenceCodec<AssignSettings> get siteSettingsCodec =>

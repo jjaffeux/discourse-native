@@ -6,6 +6,7 @@ import 'chat_api.dart';
 import 'chat_api_client.dart';
 import 'chat_bookmark.dart';
 import 'chat_controller.dart';
+import 'chat_notification_counter.dart';
 import 'chat_plugin.dart';
 import 'chat_preview.dart';
 import 'chat_search_controller.dart';
@@ -51,13 +52,14 @@ final class ChatModule implements PluginModule {
           lifecycle: lifecycle,
           currentUserFor: siteState.currentUserFor,
           siteConfigFor: siteState.siteConfigFor,
-        previewEngine: ChatPreviewEngine(
-          plugins: bindings.require(corePluginPreviewPort),
-        ),
+          previewEngine: ChatPreviewEngine(
+            plugins: bindings.require(corePluginPreviewPort),
+          ),
           onChatNotificationsDelta: (siteUrl, delta) =>
-              accountEvents.updateTotals(
+              accountEvents.updateNotificationCounter(
                 siteUrl,
-                (held) => held.withChatNotificationsDelta(delta),
+                chatNotificationCounter.id,
+                (current) => current + delta,
               ),
           onSiteUnreachable: accountEvents.markSiteUnreachable,
         );

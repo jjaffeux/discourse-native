@@ -10,11 +10,11 @@ import 'chat_services.dart';
 const chatNotificationFeed = PluginNotificationFeedSource(
   id: PluginNotificationFeedId(owner: PluginId('chat'), name: 'notifications'),
   filterByTypes: [
-    NotificationKind.chatInvitation,
-    NotificationKind.chatMention,
-    NotificationKind.chatMessage,
-    NotificationKind.chatQuoted,
-    NotificationKind.chatWatchedThread,
+    NotificationTypeName('chat_invitation'),
+    NotificationTypeName('chat_mention'),
+    NotificationTypeName('chat_message'),
+    NotificationTypeName('chat_quoted'),
+    NotificationTypeName('chat_watched_thread'),
   ],
   reconnectMessage: 'Reconnect to this forum to see chat notifications.',
   failureMessage: "Couldn't load chat notifications from this forum.",
