@@ -85,7 +85,7 @@ void main() {
       final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
       final chat = ChatController(
         api: api,
-        credentials: credentials,
+        requests: FakePluginRequestHost(credentials: credentials),
         store: Store(),
         currentUserFor: (_) => const DiscourseUser(id: 7, username: 'reader'),
         minimumWindowRefreshInterval: Duration.zero,

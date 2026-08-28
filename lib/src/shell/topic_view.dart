@@ -13,6 +13,7 @@ import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
+import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -2555,6 +2556,13 @@ class _PostTileState extends State<_PostTile> {
                           ),
                     siteUrl: widget.siteUrl,
                     post: post,
+                    containingTopic: PluginContainingTopic(
+                      id: widget.topic.id,
+                      slug:
+                          ShellScope.read(context).currentContent?.slug ??
+                          'topic',
+                      archived: widget.topic.archived,
+                    ),
                     mentionedUserStatuses: post.mentionedUserStatuses,
                   ),
                 ),

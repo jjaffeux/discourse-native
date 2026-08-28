@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -510,17 +512,24 @@ Future<ShellController> _openAssignmentEditor(
       theme: AppTheme.dark.copyWith(platform: platform),
       home: ShellScope(
         controller: controller,
-        child: Scaffold(
-          body: Builder(
-            builder: (context) => FilledButton(
-              onPressed: () => unawaited(
-                showAssignmentEditor(
-                  context: context,
-                  siteUrl: _site,
-                  target: const AssignmentTarget.topic(7),
+        child: PluginScope(
+          session: controller.pluginSession,
+          registry: installedPlugins.registry,
+          child: PluginUiScope.own(
+            assignPluginId,
+            Scaffold(
+              body: Builder(
+                builder: (context) => FilledButton(
+                  onPressed: () => unawaited(
+                    showAssignmentEditor(
+                      context: context,
+                      siteUrl: _site,
+                      target: const AssignmentTarget.topic(7),
+                    ),
+                  ),
+                  child: const Text('Open'),
                 ),
               ),
-              child: const Text('Open'),
             ),
           ),
         ),

@@ -1260,6 +1260,19 @@ void main() {
       expect(session.require(_serviceKey), 'plugin:host');
       expect(receivedUndeclaredPort, isFalse);
 
+      final owned = session.servicesFor(const PluginId('feature'));
+      expect(
+        session.servicesFor(const PluginId('feature')),
+        same(owned),
+        reason: 'one session keeps a stable owner view for inherited UI',
+      );
+      expect(owned.require(_serviceKey), 'plugin:host');
+      expect(() => owned.maybe(_spoofedServiceKey), throwsA(isA<StateError>()));
+      expect(
+        () => session.servicesFor(const PluginId('not-installed')),
+        throwsA(isA<StateError>()),
+      );
+
       await session.setForeground(true);
       await session.forget('https://example.com');
       await session.close();

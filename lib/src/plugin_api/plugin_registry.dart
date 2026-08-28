@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../diagnostics/diagnostics_controller.dart';
@@ -14,6 +15,7 @@ import '../shell/composer_controller.dart';
 import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'plugin_scope.dart';
 import 'site_plugin_api.dart';
 
 final RegExp _notificationWireNamePattern = RegExp(
@@ -182,6 +184,94 @@ final class PluginRegistry
     }
     return fallback;
   }
+
+  static PluginId _owner(Object plugin) =>
+      PluginId((plugin as SitePlugin).name);
+
+  static BuildContext _uiContext(BuildContext context, Object plugin) =>
+      PluginUiScope.contextFor(context, _owner(plugin));
+
+  static Widget _owned(Object plugin, Widget child) {
+    final owner = _owner(plugin);
+    // HtmlWidget detects this marker before building it. Wrapping the marker
+    // itself would turn an inline contribution into a block; keep the marker
+    // outermost and scope only the widget it carries.
+    if (child is InlineCustomWidget) {
+      return InlineCustomWidget(
+        key: child.key,
+        alignment: child.alignment,
+        baseline: child.baseline,
+        child: PluginUiScope.own(owner, child.child),
+      );
+    }
+    return PluginUiScope.own(owner, child);
+  }
+
+  static List<Widget> _ownedAll(Object plugin, Iterable<Widget> children) => [
+    for (final child in children) _owned(plugin, child),
+  ];
+
+  static SidebarDestination _ownedDestination(
+    Object plugin,
+    SidebarDestination destination,
+  ) => SidebarDestination(
+    id: destination.id,
+    label: destination.label,
+    icon: destination.icon,
+    color: destination.color,
+    parentColor: destination.parentColor,
+    emoji: destination.emoji,
+    avatarUrl: destination.avatarUrl,
+    prefixBuilder: destination.prefixBuilder != null
+        ? (context, size) => _owned(
+            plugin,
+            destination.prefixBuilder!(_uiContext(context, plugin), size),
+          )
+        : null,
+    labelSuffixBuilder: destination.labelSuffixBuilder != null
+        ? (context, size) => _owned(
+            plugin,
+            destination.labelSuffixBuilder!(_uiContext(context, plugin), size),
+          )
+        : null,
+    semanticDescription: destination.semanticDescription,
+    iconColor: destination.iconColor,
+    routeColor: destination.routeColor,
+    prefixBadgeIcon: destination.prefixBadgeIcon,
+    badge: destination.badge,
+    onTap: destination.onTap,
+    trailingLabel: destination.trailingLabel,
+    indent: destination.indent,
+    enabled: destination.enabled,
+    trailingIcon: destination.trailingIcon,
+    onSecondaryTap: destination.onSecondaryTap,
+    hoverActionBuilder: destination.hoverActionBuilder != null
+        ? (context) => _owned(
+            plugin,
+            destination.hoverActionBuilder!(_uiContext(context, plugin)),
+          )
+        : null,
+    onLongPress: destination.onLongPress != null
+        ? (context) => destination.onLongPress!(_uiContext(context, plugin))
+        : null,
+    url: destination.url,
+    feedPath: destination.feedPath,
+  );
+
+  static SidebarSection _ownedSection(Object plugin, SidebarSection section) =>
+      SidebarSection(
+        id: section.id,
+        title: section.title,
+        destinations: [
+          for (final destination in section.destinations)
+            _ownedDestination(plugin, destination),
+        ],
+        showHeader: section.showHeader,
+        collapsible: section.collapsible,
+        actionIcon: section.actionIcon,
+        actionLabel: section.actionLabel,
+        onAction: section.onAction,
+      );
 
   @override
   List<TopicRecommendationSourceDefinition> get topicRecommendationSources =>
@@ -733,10 +823,24 @@ final class PluginRegistry
     return merged;
   }
 
-  Widget? postBodyElement(String siteUrl, Post post, dom.Element element) {
+  Widget? postBodyElement(
+    BuildContext context,
+    String siteUrl,
+    Post post,
+    dom.Element element, {
+    PluginContainingTopic? topic,
+  }) {
     for (final plugin in plugins.whereType<PostBodyPlugin>()) {
-      final widget = plugin.postBodyElement(siteUrl, post, element);
-      if (widget != null) return widget;
+      final widget = plugin.postBodyElement(
+        PluginPostBodyContext(
+          buildContext: _uiContext(context, plugin),
+          siteUrl: siteUrl,
+          post: post,
+          topic: topic,
+        ),
+        element,
+      );
+      if (widget != null) return _owned(plugin, widget);
     }
     return null;
   }
@@ -744,7 +848,7 @@ final class PluginRegistry
   Widget? cookedElement(String? siteUrl, dom.Element element) {
     for (final plugin in plugins.whereType<CookedElementPlugin>()) {
       final widget = plugin.cookedElement(siteUrl, element);
-      if (widget != null) return widget;
+      if (widget != null) return _owned(plugin, widget);
     }
     return null;
   }
@@ -794,7 +898,13 @@ final class PluginRegistry
   CookedInlinePrefix? cookedInlinePrefix(dom.Element element) {
     for (final plugin in plugins.whereType<CookedInlinePlugin>()) {
       final prefix = plugin.cookedInlinePrefix(element);
-      if (prefix != null) return prefix;
+      if (prefix != null) {
+        return CookedInlinePrefix(
+          child: _owned(plugin, prefix.child),
+          alignment: prefix.alignment,
+          excludeLinkSemantics: prefix.excludeLinkSemantics,
+        );
+      }
     }
     return null;
   }
@@ -802,7 +912,7 @@ final class PluginRegistry
   Widget? postFooter(String siteUrl, Post post) {
     for (final plugin in plugins.whereType<PostFooterPlugin>()) {
       final footer = plugin.postFooter(siteUrl, post);
-      if (footer != null) return footer;
+      if (footer != null) return _owned(plugin, footer);
     }
     return null;
   }
@@ -814,7 +924,15 @@ final class PluginRegistry
     Post post,
   ) => [
     for (final plugin in plugins.whereType<PostDecorationPlugin>())
-      ...plugin.postDecorations(context, siteUrl, topic, post),
+      ..._ownedAll(
+        plugin,
+        plugin.postDecorations(
+          _uiContext(context, plugin),
+          siteUrl,
+          topic,
+          post,
+        ),
+      ),
   ];
 
   PluginSmallAction? smallAction(Post post) {
@@ -833,7 +951,10 @@ final class PluginRegistry
     Topic topic,
   ) => [
     for (final plugin in plugins.whereType<TopicListMetadataPlugin>())
-      ...plugin.topicListMetadata(context, siteUrl, topic),
+      ..._ownedAll(
+        plugin,
+        plugin.topicListMetadata(_uiContext(context, plugin), siteUrl, topic),
+      ),
   ];
 
   List<Widget> topicHeader(
@@ -842,7 +963,10 @@ final class PluginRegistry
     TopicDetail topic,
   ) => [
     for (final plugin in plugins.whereType<TopicHeaderPlugin>())
-      ...plugin.topicHeader(context, siteUrl, topic),
+      ..._ownedAll(
+        plugin,
+        plugin.topicHeader(_uiContext(context, plugin), siteUrl, topic),
+      ),
   ];
 
   Listenable? topicHeaderRebuildOn(
@@ -852,7 +976,13 @@ final class PluginRegistry
   ) {
     final listenables = plugins
         .whereType<TopicHeaderRebuildPlugin>()
-        .map((plugin) => plugin.topicHeaderRebuildOn(context, siteUrl, topic))
+        .map(
+          (plugin) => plugin.topicHeaderRebuildOn(
+            _uiContext(context, plugin),
+            siteUrl,
+            topic,
+          ),
+        )
         .whereType<Listenable>()
         .toList(growable: false);
     return switch (listenables) {
@@ -868,7 +998,10 @@ final class PluginRegistry
     TopicDetail topic,
   ) => [
     for (final plugin in plugins.whereType<TopicMapActionPlugin>())
-      ...plugin.topicMapActions(context, siteUrl, topic),
+      ..._ownedAll(
+        plugin,
+        plugin.topicMapActions(_uiContext(context, plugin), siteUrl, topic),
+      ),
   ];
 
   PostMenuContribution postMenu(
@@ -884,7 +1017,7 @@ final class PluginRegistry
     for (final plugin in plugins.whereType<PostMenuPlugin>()) {
       final contribution = plugin.postMenu(
         PostMenuContext(
-          buildContext: context,
+          buildContext: _uiContext(context, plugin),
           siteUrl: siteUrl,
           post: post,
           topic: topic,
@@ -916,7 +1049,7 @@ final class PluginRegistry
     ComposerEditorHost editor,
   ) => [
     for (final plugin in plugins.whereType<ComposerToolbarPlugin>())
-      ...plugin.composerToolbar(context, editor),
+      ...plugin.composerToolbar(_uiContext(context, plugin), editor),
   ];
 
   /// Resolves the one capability which owns [request.kind].
@@ -982,7 +1115,7 @@ final class PluginRegistry
     ComposerEditorHost editor,
   ) => {
     for (final plugin in plugins.whereType<ComposerShortcutPlugin>())
-      ...plugin.composerShortcuts(context, editor),
+      ...plugin.composerShortcuts(_uiContext(context, plugin), editor),
   };
 
   List<Widget> userCardActions(
@@ -992,7 +1125,15 @@ final class PluginRegistry
     VoidCallback close,
   ) => [
     for (final plugin in plugins.whereType<UserCardActionPlugin>())
-      ...plugin.userCardActions(context, siteUrl, user, close),
+      ..._ownedAll(
+        plugin,
+        plugin.userCardActions(
+          _uiContext(context, plugin),
+          siteUrl,
+          user,
+          close,
+        ),
+      ),
   ];
 
   List<PluginUserMenuSection> userMenuSections(PluginUserMenuContext context) {
@@ -1012,7 +1153,22 @@ final class PluginRegistry
         if (!owners.add(section.id)) {
           throw StateError('Duplicate user-menu section ${section.id.id}.');
         }
-        sections.add(section);
+        final owner = PluginId(pluginName);
+        sections.add(
+          PluginUserMenuSection(
+            id: section.id,
+            icon: section.icon,
+            label: section.label,
+            badge: section.badge,
+            builder: (buildContext, actions) => PluginUiScope.own(
+              owner,
+              section.builder(
+                PluginUiScope.contextFor(buildContext, owner),
+                actions,
+              ),
+            ),
+          ),
+        );
       }
     }
     return List.unmodifiable(sections);
@@ -1020,13 +1176,15 @@ final class PluginRegistry
 
   List<SidebarSection> sidebarSections(BuildContext context) => [
     for (final plugin in plugins.whereType<SidebarPlugin>())
-      ...plugin.sidebarSections(context),
+      ...plugin
+          .sidebarSections(_uiContext(context, plugin))
+          .map((section) => _ownedSection(plugin, section)),
   ];
 
   List<Listenable> sidebarListenables(BuildContext context) {
     final listenables = <Listenable>[];
     for (final plugin in plugins.whereType<SidebarPlugin>()) {
-      final listenable = plugin.sidebarListenable(context);
+      final listenable = plugin.sidebarListenable(_uiContext(context, plugin));
       if (listenable != null) listenables.add(listenable);
     }
     return listenables;
@@ -1038,8 +1196,12 @@ final class PluginRegistry
     ForumTab tab,
   ) {
     for (final plugin in plugins.whereType<ForumTabPlugin>()) {
-      final destination = plugin.forumTabDestination(context, siteUrl, tab);
-      if (destination != null) return destination;
+      final destination = plugin.forumTabDestination(
+        _uiContext(context, plugin),
+        siteUrl,
+        tab,
+      );
+      if (destination != null) return _ownedDestination(plugin, destination);
     }
     return null;
   }
@@ -1047,7 +1209,10 @@ final class PluginRegistry
   List<Listenable> forumTabListenables(BuildContext context, String siteUrl) {
     final listenables = <Listenable>[];
     for (final plugin in plugins.whereType<ForumTabPlugin>()) {
-      final listenable = plugin.forumTabListenable(context, siteUrl);
+      final listenable = plugin.forumTabListenable(
+        _uiContext(context, plugin),
+        siteUrl,
+      );
       if (listenable != null) listenables.add(listenable);
     }
     return listenables;
@@ -1055,26 +1220,34 @@ final class PluginRegistry
 
   Widget? content(BuildContext context, ContentRoute route) {
     for (final plugin in plugins.whereType<ContentPlugin>()) {
-      final content = plugin.content(context, route);
-      if (content != null) return content;
+      final content = plugin.content(_uiContext(context, plugin), route);
+      if (content != null) return _owned(plugin, content);
     }
     return null;
   }
 
-  bool ownsContentChrome(BuildContext context, ContentRoute route) => plugins
-      .whereType<ContentChromePlugin>()
-      .any((plugin) => plugin.ownsContentChrome(context, route));
+  bool ownsContentChrome(BuildContext context, ContentRoute route) =>
+      plugins.whereType<ContentChromePlugin>().any(
+        (plugin) =>
+            plugin.ownsContentChrome(_uiContext(context, plugin), route),
+      );
 
   List<Widget> contentHeaderActions(BuildContext context, ContentRoute route) =>
       [
         for (final plugin in plugins.whereType<ContentHeaderPlugin>())
-          ...plugin.contentHeaderActions(context, route),
+          ..._ownedAll(
+            plugin,
+            plugin.contentHeaderActions(_uiContext(context, plugin), route),
+          ),
       ];
 
   Widget? contentHeaderLeading(BuildContext context, ContentRoute route) {
     for (final plugin in plugins.whereType<ContentHeaderLeadingPlugin>()) {
-      final leading = plugin.contentHeaderLeading(context, route);
-      if (leading != null) return leading;
+      final leading = plugin.contentHeaderLeading(
+        _uiContext(context, plugin),
+        route,
+      );
+      if (leading != null) return _owned(plugin, leading);
     }
     return null;
   }
@@ -1084,7 +1257,10 @@ final class PluginRegistry
     ContentRoute route,
   ) {
     for (final plugin in plugins.whereType<ContentHeaderTitlePlugin>()) {
-      final action = plugin.contentHeaderTitleAction(context, route);
+      final action = plugin.contentHeaderTitleAction(
+        _uiContext(context, plugin),
+        route,
+      );
       if (action != null) return action;
     }
     return null;
@@ -1097,21 +1273,26 @@ final class PluginRegistry
     Color? ringColor,
   }) => [
     for (final plugin in plugins.whereType<ShellHeaderPlugin>())
-      ...plugin.shellHeaderActions(
-        context,
-        surface: surface,
-        compact: compact,
-        ringColor: ringColor,
+      ..._ownedAll(
+        plugin,
+        plugin.shellHeaderActions(
+          _uiContext(context, plugin),
+          surface: surface,
+          compact: compact,
+          ringColor: ringColor,
+        ),
       ),
   ];
 
   List<Widget> shellOverlays(BuildContext context) => [
     for (final plugin in plugins.whereType<ShellOverlayPlugin>())
-      ...plugin.shellOverlays(context),
+      ..._ownedAll(plugin, plugin.shellOverlays(_uiContext(context, plugin))),
   ];
 
-  List<DiagnosticsPlugin> get diagnosticsPlugins =>
-      List.unmodifiable(plugins.whereType<DiagnosticsPlugin>());
+  List<DiagnosticsPlugin> get diagnosticsPlugins => List.unmodifiable([
+    for (final plugin in plugins.whereType<DiagnosticsPlugin>())
+      _OwnedDiagnosticsPlugin(_owner(plugin), plugin),
+  ]);
 
   DateTime? futureBookmarkReminder(
     String cooked, {
@@ -1140,4 +1321,39 @@ final class PluginRegistry
   bool staleTopic(int topicId, String channel, Object? data) => plugins
       .whereType<TopicLiveReloadPlugin>()
       .any((plugin) => plugin.staleTopic(topicId, channel, data));
+}
+
+final class _OwnedDiagnosticsPlugin implements DiagnosticsPlugin {
+  const _OwnedDiagnosticsPlugin(this.owner, this.delegate);
+
+  final PluginId owner;
+  final DiagnosticsPlugin delegate;
+
+  @override
+  String get diagnosticsId => delegate.diagnosticsId;
+
+  @override
+  String get diagnosticsLabel => delegate.diagnosticsLabel;
+
+  @override
+  Listenable get diagnosticsStatusListenable =>
+      delegate.diagnosticsStatusListenable;
+
+  @override
+  bool get isDiagnosticsRecording => delegate.isDiagnosticsRecording;
+
+  @override
+  String? get diagnosticsRecordingLabel => delegate.diagnosticsRecordingLabel;
+
+  @override
+  Widget buildDiagnostics(
+    BuildContext context,
+    PluginDiagnosticsReadExportHost diagnostics,
+  ) => PluginUiScope.own(
+    owner,
+    delegate.buildDiagnostics(
+      PluginUiScope.contextFor(context, owner),
+      diagnostics,
+    ),
+  );
 }

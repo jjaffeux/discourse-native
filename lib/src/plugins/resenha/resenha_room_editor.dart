@@ -20,7 +20,7 @@ Future<void> showResenhaRoomEditor(
   if (result == null || !context.mounted) return;
   await (controllerResolver?.call() ??
           controller ??
-          PluginScope.require(context, resenhaControllerService))
+          PluginUiScope.require(context, resenhaControllerService))
       .saveRoom(siteUrl: siteUrl, draft: result, roomId: room?.id);
 }
 

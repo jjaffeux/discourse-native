@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
@@ -13,6 +14,7 @@ extension TestChatShell on ShellController {
   ChatShellService get _chatShell => pluginSession.require(chatShellService);
 
   ChatController get chat => pluginSession.require(chatControllerService);
+  TestChatRecords get chatRecords => TestChatRecords(chat);
   ChatNavigationHandoff get chatNavigation => _chatShell.navigation;
   Future<bool> openChatUrl(String url) => _chatShell.openPluginUrl(url);
   void openChatThread({
@@ -58,4 +60,19 @@ extension TestChatShell on ShellController {
     String markdown,
   ) => _chatShell.openQuote(siteUrl, channelId, markdown);
   Future<void> openChat() => _chatShell.openShortcut();
+}
+
+final class TestChatRecords {
+  const TestChatRecords(this._chat);
+
+  final ChatController _chat;
+
+  T put<T extends Storable<T>>(String siteUrl, T record) =>
+      _chat.putRecordForTesting(siteUrl, record);
+
+  List<T> putAll<T extends Storable<T>>(String siteUrl, Iterable<T> records) =>
+      _chat.putRecordsForTesting(siteUrl, records);
+
+  T? read<T extends Storable<T>>(String siteUrl, Object id) =>
+      _chat.readRecordForTesting<T>(siteUrl, id);
 }

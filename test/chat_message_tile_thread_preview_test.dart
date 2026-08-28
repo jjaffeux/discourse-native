@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_bookmark.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -512,7 +513,7 @@ void main() {
       isSemantics(onTapHint: 'add this reaction'),
     );
 
-    controller.store.put(
+    controller.chatRecords.put(
       _siteUrl,
       const ChatChannel(
         id: 9,
@@ -869,7 +870,10 @@ void main() {
     expect(api.createdBookmarks.single.targetType, chatMessageBookmarkTarget);
     expect(api.createdBookmarks.single.targetId, 7);
     expect(find.text('Bookmarked!'), findsOneWidget);
-    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.bookmark?.id, 1000);
+    expect(
+      controller.chatRecords.read<ChatMessage>(_siteUrl, 7)?.bookmark?.id,
+      1000,
+    );
   });
 
   testWidgets('hands an author edit to the owning composer', (tester) async {
@@ -886,7 +890,7 @@ void main() {
     expect(
       controller.chat.canEditMessage(
         _siteUrl,
-        controller.store.read<ChatMessage>(_siteUrl, 7)!,
+        controller.chatRecords.read<ChatMessage>(_siteUrl, 7)!,
       ),
       isTrue,
     );
@@ -901,13 +905,16 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.raw, 'before');
+    expect(
+      controller.chatRecords.read<ChatMessage>(_siteUrl, 7)?.raw,
+      'before',
+    );
     expect(controller.currentInstance?.user?.id, 1);
-    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.author.id, 1);
+    expect(controller.chatRecords.read<ChatMessage>(_siteUrl, 7)?.author.id, 1);
     expect(
       controller.chat.canEditMessage(
         _siteUrl,
-        controller.store.read<ChatMessage>(_siteUrl, 7)!,
+        controller.chatRecords.read<ChatMessage>(_siteUrl, 7)!,
       ),
       isTrue,
     );
@@ -977,7 +984,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.chatMessagesDeleted, [(channelId: 9, messageId: 7)]);
-    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.isDeleted, isTrue);
+    expect(
+      controller.chatRecords.read<ChatMessage>(_siteUrl, 7)?.isDeleted,
+      isTrue,
+    );
   });
 
   testWidgets('an author deletes from the desktop secondary actions', (
@@ -1007,7 +1017,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.chatMessagesDeleted, [(channelId: 9, messageId: 7)]);
-    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.isDeleted, isTrue);
+    expect(
+      controller.chatRecords.read<ChatMessage>(_siteUrl, 7)?.isDeleted,
+      isTrue,
+    );
   });
 
   testWidgets('a channel pin manager pins and unpins from message actions', (
@@ -1039,7 +1052,10 @@ void main() {
     expect(api.chatMessagePinsUpdated, [
       (channelId: 9, messageId: 7, pinned: true),
     ]);
-    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.pinned, isTrue);
+    expect(
+      controller.chatRecords.read<ChatMessage>(_siteUrl, 7)?.pinned,
+      isTrue,
+    );
     expect(_pinnedBadge(), findsOneWidget);
 
     await tester.tap(find.byTooltip('More message actions'));
@@ -1051,7 +1067,10 @@ void main() {
       messageId: 7,
       pinned: false,
     ));
-    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.pinned, isFalse);
+    expect(
+      controller.chatRecords.read<ChatMessage>(_siteUrl, 7)?.pinned,
+      isFalse,
+    );
     expect(_pinnedBadge(), findsNothing);
   });
 
@@ -1143,7 +1162,10 @@ void main() {
     expect(api.chatMessagesFlagged, [
       (channelId: 9, messageId: 7, flagTypeId: 7, message: null),
     ]);
-    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.userFlagStatus, 0);
+    expect(
+      controller.chatRecords.read<ChatMessage>(_siteUrl, 7)?.userFlagStatus,
+      0,
+    );
   });
 
   testWidgets('a chat bookmark shows its state and edit action', (
@@ -1554,7 +1576,7 @@ Future<ShellController> _controller(
   );
   await controller.load();
   if (flagCatalog != null) await controller.loadCategories(_siteUrl);
-  controller.store.put(
+  controller.chatRecords.put(
     _siteUrl,
     ChatChannel(
       id: 9,
@@ -1568,7 +1590,7 @@ Future<ShellController> _controller(
       membership: const ChatMembership(following: true),
     ),
   );
-  controller.store.put(_siteUrl, message);
+  controller.chatRecords.put(_siteUrl, message);
   return controller;
 }
 
@@ -1600,24 +1622,27 @@ class _TestTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ShellScope(
     controller: controller,
-    child: MaterialApp(
-      theme: AppTheme.light.copyWith(platform: platform),
-      home: Scaffold(
-        body: Align(
-          alignment: Alignment.topLeft,
-          child: SizedBox(
-            width: 720,
-            child: ChatMessageTile(
-              key: _messageTileKey,
-              siteUrl: _siteUrl,
-              messageId: messageId,
-              chained: chained,
-              contextThreadId: contextThreadId,
-              onOpenThread: onOpenThread,
-              onJumpToMessage: onJumpToMessage,
-              onReplyInThread: onReplyInThread,
-              onEdit: onEdit,
-              showThreadSummary: showThreadSummary,
+    child: PluginUiScope.own(
+      chatPluginId,
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: platform),
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 720,
+              child: ChatMessageTile(
+                key: _messageTileKey,
+                siteUrl: _siteUrl,
+                messageId: messageId,
+                chained: chained,
+                contextThreadId: contextThreadId,
+                onOpenThread: onOpenThread,
+                onJumpToMessage: onJumpToMessage,
+                onReplyInThread: onReplyInThread,
+                onEdit: onEdit,
+                showThreadSummary: showThreadSummary,
+              ),
             ),
           ),
         ),

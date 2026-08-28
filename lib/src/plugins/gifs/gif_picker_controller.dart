@@ -1,10 +1,11 @@
+// ignore_for_file: prefer_initializing_formals
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../../data/api_credentials.dart';
 import '../../data/discourse_api_contracts.dart' show SiteLookupException;
-import '../../data/site_lifecycle.dart';
+import '../../plugin_api/core_plugin_host.dart';
 import 'gif.dart';
 import 'gifs_api.dart';
 
@@ -18,19 +19,17 @@ final class GifPickerController extends ChangeNotifier {
   GifPickerController({
     required this.siteUrl,
     required this.api,
-    required this.credentials,
-    required this.lifecycle,
+    required PluginRequestHost requests,
     required this.fileDetail,
     this.maxResults,
     this.searchDebounce = const Duration(milliseconds: 700),
-  });
+  }) : _requests = requests;
 
   static const int minimumQueryLength = 3;
 
   final String siteUrl;
   final GifsApi api;
-  final ApiCredentialReader credentials;
-  final SiteLifecycle lifecycle;
+  final PluginRequestHost _requests;
   final String fileDetail;
 
   /// Null leaves server pagination unbounded. A positive value caps the
@@ -81,7 +80,7 @@ final class GifPickerController extends ChangeNotifier {
   Future<void> loadCategories() async {
     if (_disposed || _loadingCategories) return;
     final request = ++_categoryRequest;
-    final lease = lifecycle.capture(siteUrl);
+    final lease = _requests.capture(siteUrl);
     _loadingCategories = true;
     _categoriesError = null;
     _notify();
@@ -219,7 +218,7 @@ final class GifPickerController extends ChangeNotifier {
     required String position,
     required bool replace,
   }) async {
-    final lease = lifecycle.capture(siteUrl);
+    final lease = _requests.capture(siteUrl);
     try {
       final session = await _session(lease);
       if (!_searchIsCurrent(request)) return;
@@ -266,12 +265,15 @@ final class GifPickerController extends ChangeNotifier {
     }
   }
 
-  Future<_GifSession?> _session(SiteLease lease) async {
-    final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (_disposed || apiKey == null || !lease.isCurrent) return null;
-    final clientId = await credentials.clientId();
-    if (_disposed || !lease.isCurrent) return null;
-    return _GifSession(apiKey: apiKey, clientId: clientId);
+  Future<_GifSession?> _session(PluginSiteLease lease) async {
+    final credentials = await _requests.credentialsFor(siteUrl);
+    if (_disposed || credentials.apiKey == null || !lease.isCurrent) {
+      return null;
+    }
+    return _GifSession(
+      apiKey: credentials.apiKey!,
+      clientId: credentials.clientId,
+    );
   }
 
   bool _categoryIsCurrent(int request) =>

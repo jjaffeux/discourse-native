@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -181,7 +182,7 @@ void main() {
     'opens a thread route and hands its message to the mounted view',
     () async {
       expect(
-        shell.pluginSession.require(chatShellService).host,
+        shell.pluginSession.require(chatShellService),
         isNot(isA<ShellController>()),
       );
       expect(
@@ -568,11 +569,14 @@ void main() {
         controller: shell,
         child: MaterialApp(
           theme: AppTheme.light,
-          home: Builder(
-            builder: (context) {
-              sections = const ChatPlugin().sidebarSections(context);
-              return const SizedBox.shrink();
-            },
+          home: PluginUiScope.own(
+            chatPluginId,
+            Builder(
+              builder: (context) {
+                sections = const ChatPlugin().sidebarSections(context);
+                return const SizedBox.shrink();
+              },
+            ),
           ),
         ),
       ),

@@ -522,7 +522,9 @@ final class InstalledPlugins {
           _collectServices(contribution, services, serviceOwners);
         }
       }
-      return PluginSession._(contributions, services, consumerRevocations);
+      return PluginSession._(contributions, services, {
+        for (final registration in _registrations) registration.descriptor.id,
+      }, consumerRevocations);
     } catch (error) {
       _revokeConsumers(consumerRevocations, <Object>[]);
       unawaited(_rollbackSessionContributions(contributions));
@@ -611,20 +613,28 @@ final class PluginSession {
   PluginSession._(
     List<_OwnedSessionContribution> contributions,
     Map<PluginServiceKey<Object>, Object> services,
+    Set<PluginId> owners,
     List<void Function()> consumerRevocations,
   ) : _contributions = List.unmodifiable(contributions),
       _services = Map.unmodifiable(services),
+      _owners = Set.unmodifiable(owners),
       _consumerRevocations = List.of(consumerRevocations),
       _capabilities = List.unmodifiable([
         for (final contribution in contributions)
           ...contribution.value.capabilities,
       ]) {
+    _ownedServiceViews = Map.unmodifiable({
+      for (final owner in _owners)
+        owner: PluginOwnedServices._(owner, _services),
+    });
     _validateBookmarkTargets(contributions);
   }
 
   final List<_OwnedSessionContribution> _contributions;
   final Map<PluginServiceKey<Object>, Object> _services;
   final List<void Function()> _consumerRevocations;
+  final Set<PluginId> _owners;
+  late final Map<PluginId, PluginOwnedServices> _ownedServiceViews;
   final List<PluginSessionCapability> _capabilities;
   final _lifecycleOperations = _PluginLifecycleOperationQueue();
   bool _closing = false;
@@ -686,6 +696,19 @@ final class PluginSession {
     final value = maybeService(key);
     if (value == null) throw StateError('Plugin service ${key.id} is absent.');
     return value;
+  }
+
+  /// A resolver which can see only services republished by [owner].
+  ///
+  /// Dependency services are intentionally not transitively visible here. A
+  /// module may consume them while constructing its session and republish a
+  /// deliberately narrower adapter under one of its own keys for its UI.
+  PluginOwnedServices servicesFor(PluginId owner) {
+    final services = _ownedServiceViews[owner];
+    if (services == null) {
+      throw StateError('Plugin $owner is not installed in this session.');
+    }
+    return services;
   }
 
   /// Every installed session capability implementing [T], in manifest order.
@@ -782,6 +805,34 @@ final class PluginSession {
     if (failures.isNotEmpty) {
       throw PluginLifecycleException(operation, failures);
     }
+  }
+}
+
+/// The immutable service view carried by one owner-scoped UI contribution.
+final class PluginOwnedServices {
+  const PluginOwnedServices._(this.owner, this._services);
+
+  const PluginOwnedServices.detached(PluginId owner) : this._(owner, const {});
+
+  final PluginId owner;
+  final Map<PluginServiceKey<Object>, Object> _services;
+
+  T? maybe<T extends Object>(PluginServiceKey<T> key) {
+    _checkOwner(key);
+    return _services[key] as T?;
+  }
+
+  T require<T extends Object>(PluginServiceKey<T> key) {
+    final value = maybe(key);
+    if (value == null) throw StateError('Plugin service ${key.id} is absent.');
+    return value;
+  }
+
+  void _checkOwner<T extends Object>(PluginServiceKey<T> key) {
+    if (key.owner == owner) return;
+    throw StateError(
+      'Plugin $owner cannot resolve service ${key.id} owned by ${key.owner}.',
+    );
   }
 }
 

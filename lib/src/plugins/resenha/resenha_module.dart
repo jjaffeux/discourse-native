@@ -28,10 +28,7 @@ final class ResenhaModule implements PluginModule {
     dependencies: [const PluginDependency(chatPluginId)],
     routeNamespaces: {'resenha'},
     exclusiveClaims: {'app-global-media-session'},
-    liveChannelScopes: {
-      const PluginLiveChannelScope.prefix('/resenha'),
-      const PluginLiveChannelScope.prefix('/chat'),
-    },
+    liveChannelScopes: {const PluginLiveChannelScope.prefix('/resenha')},
   );
 
   @override
@@ -43,7 +40,6 @@ final class ResenhaModule implements PluginModule {
     registrar.addLiveChannelScope(
       const PluginLiveChannelScope.prefix('/resenha'),
     );
-    registrar.addLiveChannelScope(const PluginLiveChannelScope.prefix('/chat'));
     if (diagnostics != null) {
       registrar.addCapability(diagnostics);
       registrar.addAppLifecycle(
@@ -54,6 +50,7 @@ final class ResenhaModule implements PluginModule {
     registrar.addSession(
       (bindings, dependencies) {
         final transport = bindings.require(corePluginTransportPort);
+        final siteState = bindings.require(corePluginSiteStatePort);
         final retention = _ResenhaBackgroundRetention(
           bindings.require(corePluginBackgroundRetentionPort),
         );
@@ -61,7 +58,7 @@ final class ResenhaModule implements PluginModule {
         controller = ResenhaController(
           api: ResenhaApi(transport),
           chatConversations: dependencies.require(chatConversationService),
-          credentials: bindings.require(corePluginCredentialsPort),
+          requests: bindings.require(corePluginRequestPort),
           trackerFor: bindings.require(corePluginTrackerPort),
           userIdFor: bindings.require(corePluginUserPort),
           capabilityEnabledFor: (siteUrl) async => (await bindings.require(
@@ -74,6 +71,8 @@ final class ResenhaModule implements PluginModule {
         final shell = ResenhaShellService(
           controller: controller,
           host: bindings.require(corePluginRouteNavigationPort),
+          recordingEnabled: (siteUrl) =>
+              siteState.siteConfigFor(siteUrl).resenhaSettings.recordingEnabled,
         );
         return PluginSessionContribution(
           lifecycle: _ResenhaSessionLifecycle(
@@ -89,10 +88,11 @@ final class ResenhaModule implements PluginModule {
       },
       requires: const [
         corePluginTransportPort,
-        corePluginCredentialsPort,
+        corePluginRequestPort,
         corePluginTrackerPort,
         corePluginUserPort,
         corePluginPresentationPort,
+        corePluginSiteStatePort,
         corePluginBackgroundRetentionPort,
         corePluginRouteNavigationPort,
         pluginDiagnosticsReporterPort,

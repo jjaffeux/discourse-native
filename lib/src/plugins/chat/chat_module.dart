@@ -1,3 +1,4 @@
+import '../../data/store.dart';
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
@@ -41,28 +42,28 @@ final class ChatModule implements PluginModule {
       const PluginLiveChannelScope.prefix('/presence/chat'),
     );
     registrar.addSession(
-      (bindings, _) {
+      (bindings, dependencies) {
         final transport = bindings.require(corePluginTransportPort);
-        final credentials = bindings.require(corePluginCredentialsPort);
-        final store = bindings.require(corePluginStorePort);
-        final lifecycle = bindings.require(corePluginSiteLifecyclePort);
+        final requests = bindings.require(corePluginRequestPort);
+        final store = Store();
         final siteState = bindings.require(corePluginSiteStatePort);
         final accountEvents = bindings.require(corePluginAccountEventsPort);
         final composerHost = bindings.require(corePluginComposerPort);
         final chatApi = transport is ChatApi
             ? transport as ChatApi
             : ChatApiClient(transport);
+        final gifs = dependencies.maybe(gifsPickerSessionService);
         final controller = ChatController(
           api: chatApi,
-          credentials: credentials,
+          requests: requests,
           store: store,
-          lifecycle: lifecycle,
           currentUserFor: siteState.currentUserFor,
           siteConfigFor: siteState.siteConfigFor,
           previewEngine: ChatPreviewEngine(
             plugins: bindings
                 .require(corePluginStaticContributionsPort)
                 .contributions(chatPreviewContributions),
+            reporter: bindings.require(pluginDiagnosticsReporterPort),
           ),
           reporter: bindings.require(pluginDiagnosticsReporterPort),
           onChatNotificationsDelta: (siteUrl, delta) =>
@@ -76,9 +77,8 @@ final class ChatModule implements PluginModule {
         final conversations = ChatControllerConversationCapability(controller);
         final searchController = ChatSearchController(
           api: chatApi,
-          credentials: credentials,
+          requests: requests,
           store: store,
-          lifecycle: lifecycle,
           reporter: bindings.require(pluginDiagnosticsReporterPort),
         );
         final shell = ChatShellService(
@@ -86,6 +86,7 @@ final class ChatModule implements PluginModule {
           host: bindings.require(corePluginNavigationPort),
           composerHost: composerHost,
           store: store,
+          postFlagCatalog: bindings.require(corePluginPostFlagCatalogPort),
         );
         return PluginSessionContribution(
           lifecycle: _ChatSessionLifecycle(
@@ -116,15 +117,15 @@ final class ChatModule implements PluginModule {
               chatNotificationHostService,
               bindings.require(corePluginNotificationFeedPort),
             ),
+            if (gifs case final GifPickerSession value)
+              PluginService<Object>(chatGifsService, value),
           ],
           capabilities: [shell],
         );
       },
       requires: const [
         corePluginTransportPort,
-        corePluginCredentialsPort,
-        corePluginStorePort,
-        corePluginSiteLifecyclePort,
+        corePluginRequestPort,
         corePluginSiteStatePort,
         corePluginStaticContributionsPort,
         corePluginAccountEventsPort,
@@ -134,6 +135,7 @@ final class ChatModule implements PluginModule {
         corePluginEmojiPort,
         corePluginNotificationFeedPort,
         pluginDiagnosticsReporterPort,
+        corePluginPostFlagCatalogPort,
       ],
     );
   }

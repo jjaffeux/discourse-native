@@ -1,3 +1,4 @@
+import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import '../chat/chat_preview_contract.dart';
 import 'local_date.dart';
@@ -5,6 +6,7 @@ import 'local_date_environment.dart';
 import 'local_dates_contract.dart';
 import 'local_dates_cooked_time_parser.dart';
 import 'local_dates_plugin.dart';
+import 'local_dates_services.dart';
 
 const localDatesPluginId = PluginId('discourse-local-dates');
 
@@ -40,7 +42,7 @@ final class LocalDatesModule implements PluginModule {
     );
     registrar.addSyntaxId(plugin.composerSyntaxKind.id);
     registrar.addSession(
-      (_, _) => PluginSessionContribution(
+      (bindings, _) => PluginSessionContribution(
         lifecycle: _LocalDatesSessionLifecycle(),
         services: [
           PluginService<Object>(
@@ -49,8 +51,21 @@ final class LocalDatesModule implements PluginModule {
               formatter: LocalDateFormatter(environment: environment),
             ),
           ),
+          PluginService<Object>(
+            localDatesUiService,
+            LocalDatesUiService(
+              composer: bindings.require(corePluginComposerPort),
+              siteState: bindings.require(corePluginSiteStatePort),
+              currentSite: bindings.require(corePluginCurrentSitePort),
+            ),
+          ),
         ],
       ),
+      requires: const [
+        corePluginComposerPort,
+        corePluginSiteStatePort,
+        corePluginCurrentSitePort,
+      ],
     );
   }
 }

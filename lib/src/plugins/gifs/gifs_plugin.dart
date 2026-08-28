@@ -38,9 +38,7 @@ class GifsPlugin
     BuildContext context,
     ComposerEditorHost editor,
   ) {
-    final picker = PluginScope.maybeOf(
-      context,
-    )?.maybeService(gifsPickerSessionService);
+    final picker = PluginUiScope.maybe(context, gifsPickerSessionService);
     if (!editor.isCurrent ||
         picker == null ||
         editor.isPluginTarget ||
@@ -64,9 +62,7 @@ Future<void> openGifPickerForComposer(
   BuildContext context,
   ComposerEditorHost editor,
 ) async {
-  final picker = PluginScope.maybeOf(
-    context,
-  )?.maybeService(gifsPickerSessionService);
+  final picker = PluginUiScope.maybe(context, gifsPickerSessionService);
   if (!editor.isCurrent ||
       editor.isPluginTarget ||
       picker == null ||

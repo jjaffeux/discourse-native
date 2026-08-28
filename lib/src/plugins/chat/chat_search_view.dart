@@ -38,7 +38,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_ready) return;
-    _search = PluginScope.require(context, chatSearchControllerService);
+    _search = PluginUiScope.require(context, chatSearchControllerService);
     _query = TextEditingController(
       text: _search.globalState(widget.siteUrl).query,
     );
@@ -147,11 +147,11 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   }
 
   Future<void> _open(ChatSearchHit hit) async {
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     try {
       final channel = await chat.ensureChannel(widget.siteUrl, hit.channel.id);
       if (!mounted || channel == null) throw StateError('Channel unavailable');
-      final shell = PluginScope.require(context, chatShellService);
+      final shell = PluginUiScope.require(context, chatShellService);
       if (hit.message.threadId case final threadId?) {
         shell.openThread(
           siteUrl: widget.siteUrl,

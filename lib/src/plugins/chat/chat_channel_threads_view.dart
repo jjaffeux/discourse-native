@@ -47,7 +47,7 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_ready) return;
-    _chat = PluginScope.require(context, chatControllerService);
+    _chat = PluginUiScope.require(context, chatControllerService);
     _ready = true;
     unawaited(_chat.loadChannelThreads(widget.siteUrl, widget.channelId));
   }

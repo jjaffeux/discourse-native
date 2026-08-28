@@ -47,7 +47,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_request != null) return;
-    _chat = PluginScope.require(context, chatControllerService);
+    _chat = PluginUiScope.require(context, chatControllerService);
     unawaited(_load(reset: true));
   }
 
@@ -318,7 +318,7 @@ class _ChannelCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 5),
       child: InkWell(
         onTap: following
-            ? () => PluginScope.require(
+            ? () => PluginUiScope.require(
                 context,
                 chatShellService,
               ).openChannel(channel.id)

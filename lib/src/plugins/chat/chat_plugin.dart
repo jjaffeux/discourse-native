@@ -11,7 +11,6 @@ import '../../models/user_card.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/composer_controller.dart';
-import '../../shell/shell_scope.dart';
 import '../../shell/user_status.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
@@ -67,7 +66,7 @@ const chatIconCatalog = PluginIconCatalog(
 /// connected site on launch. It is serialized only when the site has chat, this
 /// reader may use it, and they have not switched it off — three questions
 /// answered by one absent key, scoped by the same guardian that decided the
-/// rest of the payload. `ShellController._refreshOne` reads it, and it decides
+/// rest of the payload. The host totals refresh reads it, and it decides
 /// only whether to **ask**. What comes back still decides whether to **draw**
 /// channel sections: they exist because there are channels. Search is a
 /// separate endpoint and uses its own explicit client setting so an older site
@@ -243,21 +242,20 @@ class ChatPlugin
 
   @override
   List<SidebarSection> sidebarSections(BuildContext context) {
-    final controller = ShellScope.read(context);
-    final siteUrl = controller.currentInstance?.url;
+    final shell = PluginUiScope.require(context, chatShellService);
+    final siteUrl = shell.currentSiteUrl;
     if (siteUrl == null) return const [];
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
 
     final starred = chat.starredChannels(siteUrl);
     final public = chat.unstarredPublicChannels(siteUrl);
     final direct = chat.unstarredDirectChannels(siteUrl);
     final chatAvailable =
-        controller.currentInstance?.isConnected == true &&
-        controller.currentInstance?.user?.hasChatEnabled != false &&
-        controller.currentTotals?.hasChatEnabled == true;
+        shell.isConnected(siteUrl) &&
+        shell.currentUser?.hasChatEnabled != false &&
+        shell.currentTotals?.hasChatEnabled == true;
     final searchEnabled =
-        chatAvailable &&
-        controller.currentInstance?.config.chatSearchEnabled == true;
+        chatAvailable && chat.siteConfigFor(siteUrl).chatSearchEnabled == true;
     final myThreadsEnabled = chatAvailable && chat.hasThreads(siteUrl);
 
     // Nothing before the answer, and nothing after an answer with no channels
@@ -337,7 +335,7 @@ class ChatPlugin
 
   @override
   Listenable sidebarListenable(BuildContext context) =>
-      PluginScope.require(context, chatControllerService);
+      PluginUiScope.require(context, chatControllerService);
 
   @override
   SidebarDestination? forumTabDestination(
@@ -347,7 +345,7 @@ class ChatPlugin
   ) {
     final route = ChatRoute.parse(tab.currentContent.id);
     if (route == null) return null;
-    final channel = PluginScope.require(
+    final channel = PluginUiScope.require(
       context,
       chatControllerService,
     ).channel(siteUrl, route.channelId);
@@ -356,18 +354,18 @@ class ChatPlugin
 
   @override
   Listenable forumTabListenable(BuildContext context, String siteUrl) =>
-      PluginScope.require(context, chatControllerService);
+      PluginUiScope.require(context, chatControllerService);
 
   @override
   Widget? content(BuildContext context, ContentRoute route) {
+    final shell = PluginUiScope.require(context, chatShellService);
     if (route.id == browseRouteId) {
-      final controller = ShellScope.read(context);
-      final instance = controller.currentInstance;
-      final siteUrl = instance?.url;
+      final siteUrl = shell.currentSiteUrl;
       final available =
-          instance?.isConnected == true &&
-          instance?.user?.hasChatEnabled != false &&
-          controller.currentTotals?.hasChatEnabled == true;
+          siteUrl != null &&
+          shell.isConnected(siteUrl) &&
+          shell.currentUser?.hasChatEnabled != false &&
+          shell.currentTotals?.hasChatEnabled == true;
       return siteUrl == null
           ? const SizedBox.shrink()
           : !available
@@ -375,15 +373,13 @@ class ChatPlugin
           : ChatBrowseChannelsView(key: ValueKey(siteUrl), siteUrl: siteUrl);
     }
     if (channelIdFromThreadsRoute(route.id) case final channelId?) {
-      final controller = ShellScope.read(context);
-      final instance = controller.currentInstance;
-      final siteUrl = instance?.url;
-      final chat = PluginScope.require(context, chatControllerService);
+      final siteUrl = shell.currentSiteUrl;
+      final chat = PluginUiScope.require(context, chatControllerService);
       final available =
-          instance?.isConnected == true &&
-          instance?.user?.hasChatEnabled != false &&
-          controller.currentTotals?.hasChatEnabled == true &&
           siteUrl != null &&
+          shell.isConnected(siteUrl) &&
+          shell.currentUser?.hasChatEnabled != false &&
+          shell.currentTotals?.hasChatEnabled == true &&
           chat.channel(siteUrl, channelId)?.threadingEnabled == true;
       return !available
           ? const Center(child: Text('Threads are not available.'))
@@ -394,13 +390,12 @@ class ChatPlugin
             );
     }
     if (route.id == myThreadsRouteId) {
-      final controller = ShellScope.read(context);
-      final instance = controller.currentInstance;
-      final siteUrl = instance?.url;
+      final siteUrl = shell.currentSiteUrl;
       final available =
-          instance?.isConnected == true &&
-          instance?.user?.hasChatEnabled != false &&
-          controller.currentTotals?.hasChatEnabled == true;
+          siteUrl != null &&
+          shell.isConnected(siteUrl) &&
+          shell.currentUser?.hasChatEnabled != false &&
+          shell.currentTotals?.hasChatEnabled == true;
       return siteUrl == null
           ? const SizedBox.shrink()
           : !available
@@ -408,14 +403,13 @@ class ChatPlugin
           : ChatMyThreadsView(key: ValueKey(siteUrl), siteUrl: siteUrl);
     }
     if (route.id == searchRouteId) {
-      final controller = ShellScope.read(context);
-      final instance = controller.currentInstance;
-      final siteUrl = instance?.url;
+      final siteUrl = shell.currentSiteUrl;
       final available =
-          instance?.isConnected == true &&
-          instance?.config.chatSearchEnabled == true &&
-          instance?.user?.hasChatEnabled != false &&
-          controller.currentTotals?.hasChatEnabled == true;
+          siteUrl != null &&
+          shell.isConnected(siteUrl) &&
+          shell.chat.siteConfigFor(siteUrl).chatSearchEnabled == true &&
+          shell.currentUser?.hasChatEnabled != false &&
+          shell.currentTotals?.hasChatEnabled == true;
       return siteUrl == null
           ? const SizedBox.shrink()
           : !available
@@ -425,14 +419,14 @@ class ChatPlugin
     final chatRoute = ChatRoute.parse(route.id);
     if (chatRoute == null) return null;
     if (chatRoute.isInfo) {
-      final siteUrl = ShellScope.read(context).currentInstance?.url;
+      final siteUrl = shell.currentSiteUrl;
       if (siteUrl == null) return const SizedBox.shrink();
       return ChatChannelInfoView(
         key: ValueKey((siteUrl, chatRoute.channelId, chatRoute.infoTab)),
         siteUrl: siteUrl,
         channelId: chatRoute.channelId,
         tab: chatRoute.infoTab!,
-        chat: PluginScope.require(context, chatControllerService),
+        chat: PluginUiScope.require(context, chatControllerService),
       );
     }
     return chatRoute.isThread
@@ -447,7 +441,10 @@ class ChatPlugin
   @override
   List<Widget> contentHeaderActions(BuildContext context, ContentRoute route) {
     final chatRoute = ChatRoute.parse(route.id);
-    final siteUrl = ShellScope.read(context).currentInstance?.url;
+    final siteUrl = PluginUiScope.require(
+      context,
+      chatShellService,
+    ).currentSiteUrl;
     if (siteUrl == null || chatRoute == null || chatRoute.isThread) {
       return const [];
     }
@@ -473,10 +470,13 @@ class ChatPlugin
   @override
   Widget? contentHeaderLeading(BuildContext context, ContentRoute route) {
     final chatRoute = ChatRoute.parse(route.id);
-    final siteUrl = ShellScope.read(context).currentInstance?.url;
+    final siteUrl = PluginUiScope.require(
+      context,
+      chatShellService,
+    ).currentSiteUrl;
     if (siteUrl == null || chatRoute == null || chatRoute.isThread) return null;
 
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     final channel = chat.channel(siteUrl, chatRoute.channelId);
     if (channel == null ||
         channel.avatarUrl == null ||
@@ -497,19 +497,16 @@ class ChatPlugin
     ContentRoute route,
   ) {
     final chatRoute = ChatRoute.parse(route.id);
-    final shell = ShellScope.read(context);
-    final chatShell = PluginScope.require(context, chatShellService);
-    final siteUrl = shell.currentInstance?.url;
+    final shell = PluginUiScope.require(context, chatShellService);
+    final siteUrl = shell.currentSiteUrl;
     if (siteUrl == null ||
         chatRoute == null ||
         chatRoute.isThread ||
         chatRoute.isInfo) {
       return null;
     }
-    return () => chatShell.openChannelInfo(
-      siteUrl: siteUrl,
-      channelId: chatRoute.channelId,
-    );
+    return () =>
+        shell.openChannelInfo(siteUrl: siteUrl, channelId: chatRoute.channelId);
   }
 
   @override
@@ -605,7 +602,7 @@ class _ChatChannelHeaderStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     return ValueListenableBuilder<ChatChannel?>(
       valueListenable: chat.channelRef(siteUrl, channelId),
       builder: (context, channel, _) {
@@ -640,7 +637,7 @@ class _ChatChannelHeaderAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     return ValueListenableBuilder<ChatChannel?>(
       valueListenable: chat.channelRef(siteUrl, channelId),
       builder: (context, channel, _) {
@@ -681,7 +678,7 @@ class _ChatChannelThreadsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     return ValueListenableBuilder<ChatChannel?>(
       valueListenable: chat.channelRef(siteUrl, channelId),
       builder: (context, channel, _) {
@@ -691,7 +688,7 @@ class _ChatChannelThreadsButton extends StatelessWidget {
         final unread = channel!.unreadThreadCount;
         return DButton.iconOnly(
           key: const ValueKey('chat-channel-threads-button'),
-          onPressed: () => PluginScope.require(
+          onPressed: () => PluginUiScope.require(
             context,
             chatShellService,
           ).openChannelThreads(siteUrl: siteUrl, channelId: channelId),

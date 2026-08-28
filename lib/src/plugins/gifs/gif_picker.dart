@@ -3,8 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../data/api_credentials.dart';
-import '../../data/site_lifecycle.dart';
+import '../../plugin_api/core_plugin_host.dart';
 import '../../shell/image_decode.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/d_icon.dart';
@@ -24,15 +23,13 @@ Future<GifResult?> showGifPicker({
   required BuildContext context,
   required String siteUrl,
   required GifsApi api,
-  required ApiCredentialReader credentials,
-  required SiteLifecycle lifecycle,
+  required PluginRequestHost requests,
   required GifsSettings settings,
 }) async {
   final controller = GifPickerController(
     siteUrl: siteUrl,
     api: api,
-    credentials: credentials,
-    lifecycle: lifecycle,
+    requests: requests,
     fileDetail: settings.fileDetail,
     maxResults: settings.resultLimitEnabled ? settings.maxResults : null,
   );

@@ -26,8 +26,7 @@ final class DiscourseAiModule implements PluginModule {
       (bindings, _) {
         final controller = AiSummaryController(
           api: AiSummaryApi(bindings.require(corePluginTransportPort)),
-          credentials: bindings.require(corePluginCredentialsPort),
-          lifecycle: bindings.require(corePluginSiteLifecyclePort),
+          requests: bindings.require(corePluginRequestPort),
           trackerFor: bindings.require(corePluginTrackerPort),
         );
         return PluginSessionContribution(
@@ -39,8 +38,7 @@ final class DiscourseAiModule implements PluginModule {
       },
       requires: const [
         corePluginTransportPort,
-        corePluginCredentialsPort,
-        corePluginSiteLifecyclePort,
+        corePluginRequestPort,
         corePluginTrackerPort,
       ],
     );

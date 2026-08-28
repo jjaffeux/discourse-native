@@ -20,12 +20,15 @@ const _pluginOnlyIcon = DIconData(
 );
 
 void main() {
-  test('registry accepts a capability declared against the API seam', () {
+  testWidgets('registry accepts a capability declared against the API seam', (
+    tester,
+  ) async {
     const registry = PluginRegistry([_ApiFooterPlugin()]);
 
     final footer = registry.postFooter('https://example.com', _post);
+    await tester.pumpWidget(MaterialApp(home: footer));
 
-    expect((footer as Text).data, 'api-only');
+    expect(find.text('api-only'), findsOneWidget);
   });
 
   test(
@@ -73,7 +76,9 @@ void main() {
     );
   });
 
-  test('dispatches only implemented capabilities and preserves order', () {
+  testWidgets('dispatches only implemented capabilities and preserves order', (
+    tester,
+  ) async {
     const registry = PluginRegistry([
       _NamedPlugin('metadata-only'),
       _FooterPlugin('first', claims: false),
@@ -85,8 +90,9 @@ void main() {
     ]);
 
     final footer = registry.postFooter('https://example.com', _post);
+    await tester.pumpWidget(MaterialApp(home: footer));
 
-    expect((footer as Text).data, 'second');
+    expect(find.text('second'), findsOneWidget);
     expect(registry.topicChannels(42), [
       '/topic/42/one',
       '/topic/42/two',
@@ -480,24 +486,22 @@ void main() {
               const Topic(id: 42, title: 'A topic', slug: 'a-topic'),
             );
             header = registry.topicHeader(context, 'site', _topic);
-            return const SizedBox.shrink();
+            return Column(children: [...decorations, ...metadata, ...header]);
           },
         ),
       ),
     );
 
-    expect(decorations.map((widget) => (widget as Text).data), [
+    for (final label in const [
       'first-post',
       'second-post',
-    ]);
-    expect(metadata.map((widget) => (widget as Text).data), [
       'first-list',
       'second-list',
-    ]);
-    expect(header.map((widget) => (widget as Text).data), [
       'first-header',
       'second-header',
-    ]);
+    ]) {
+      expect(find.text(label), findsOneWidget);
+    }
   });
 
   testWidgets('aggregates topic-header rebuild signals', (tester) async {

@@ -319,6 +319,7 @@ void main() {
           plugins: const [
             _RenderingPlugin('date', '[date]', throwsWhileBuilding: true),
           ],
+          reporter: PluginDiagnosticsReporter.fixed(diagnostics),
         );
         final projected =
             project(raw, withEngine: renderer) as ProjectedPreview;

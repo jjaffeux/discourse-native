@@ -6,6 +6,7 @@ import '../models/post.dart';
 import '../models/user_status.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
+import '../plugin_api/site_plugin_api.dart';
 import 'code_block.dart';
 import 'emoji.dart';
 import 'hashtag.dart';
@@ -36,6 +37,7 @@ class CookedHtml extends StatelessWidget {
     this.textStyle,
     this.siteUrl,
     this.post,
+    this.containingTopic,
     this.registry,
     this.compactParagraphs = false,
     this.mentionedUserStatuses = const {},
@@ -51,6 +53,10 @@ class CookedHtml extends StatelessWidget {
   /// The owner of a top-level topic body. Recursive cooked fragments omit it,
   /// keeping quoted plugin placeholders noninteractive.
   final Post? post;
+
+  /// Topic identity accompanying a top-level post body. Nested cooked
+  /// fragments intentionally omit it, just as they omit [post].
+  final PluginContainingTopic? containingTopic;
 
   /// Plugin renderers to use when this fragment is outside a [PluginScope].
   ///
@@ -74,14 +80,23 @@ class CookedHtml extends StatelessWidget {
   /// unlike the other builders those two need the style the widget was given.
   /// Emoji additionally need the site, to resolve their root-relative `src`.
   static Widget? Function(dom.Element) _customWidget(
+    BuildContext context,
     TextStyle? textStyle,
     String? siteUrl,
     Post? post,
+    PluginContainingTopic? containingTopic,
     PluginRegistry registry,
     Map<String, UserStatusReference> mentionedUserStatuses,
   ) =>
       (element) =>
-          _pluginWidget(element, siteUrl, post, registry) ??
+          _pluginWidget(
+            context,
+            element,
+            siteUrl,
+            post,
+            containingTopic,
+            registry,
+          ) ??
           registry.cookedElement(siteUrl, element) ??
           emojiWidgetBuilder(element, siteUrl, textStyle) ??
           mentionWidgetBuilder(
@@ -105,13 +120,21 @@ class CookedHtml extends StatelessWidget {
           inlineCodeWidgetBuilder(element, textStyle);
 
   static Widget? _pluginWidget(
+    BuildContext context,
     dom.Element element,
     String? siteUrl,
     Post? post,
+    PluginContainingTopic? containingTopic,
     PluginRegistry registry,
   ) {
     if (siteUrl == null || post == null) return null;
-    return registry.postBodyElement(siteUrl, post, element);
+    return registry.postBodyElement(
+      context,
+      siteUrl,
+      post,
+      element,
+      topic: containingTopic,
+    );
   }
 
   /// Discourse leaves links undecorated and lets colour carry them, but
@@ -170,9 +193,11 @@ class CookedHtml extends StatelessWidget {
           registry: resolvedRegistry,
         ),
         customWidgetBuilder: _customWidget(
+          context,
           style,
           resolvedSiteUrl,
           post,
+          containingTopic,
           resolvedRegistry,
           mentionedUserStatuses,
         ),
@@ -185,6 +210,7 @@ class CookedHtml extends StatelessWidget {
           style,
           resolvedSiteUrl,
           post?.plugins,
+          containingTopic,
           resolvedRegistry,
           compactParagraphs,
           mentionedUserStatuses,

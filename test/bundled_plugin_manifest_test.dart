@@ -4,6 +4,7 @@ import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/discourse_github/discourse_github_module.dart';
+import 'package:discourse_native/src/plugins/discourse_github/discourse_github_services.dart';
 import 'package:discourse_native/src/plugins/gifs/gif_picker_session.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_services.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_contract.dart';
@@ -83,10 +84,7 @@ void main() {
     });
     expect(resenha.routeNamespaces, {'resenha'});
     expect(resenha.exclusiveClaims, {'app-global-media-session'});
-    expect(resenha.liveChannelScopes.map((scope) => scope.path), {
-      '/chat',
-      '/resenha',
-    });
+    expect(resenha.liveChannelScopes.map((scope) => scope.path), {'/resenha'});
     expect(
       installed.registry.diagnosticsPlugins.map(
         (plugin) => plugin.diagnosticsId,
@@ -126,6 +124,10 @@ void main() {
 
     final session = shell.pluginSession;
     expect(session.require(gifsPickerSessionService), isA<GifPickerSession>());
+    expect(
+      session.require(chatGifsService),
+      same(session.require(gifsPickerSessionService)),
+    );
     expect(session.require(chatConversationService), isNotNull);
     expect(session.require(localDatesCookedTimeParserService), isNotNull);
     expect(session.require(resenhaControllerService), isNotNull);
@@ -158,12 +160,12 @@ void main() {
     final githubOnlySession = githubOnly.openSession(
       const PluginHostBindings.empty(),
     );
-    final withLocalDatesSession = withLocalDates.openSession(
-      const PluginHostBindings.empty(),
-    );
+    final withLocalDatesShell = _shell(withLocalDates, FakeDiscourseApi());
+    final withLocalDatesSession = withLocalDatesShell.pluginSession;
     addTearDown(() async {
       await githubOnlySession.close();
       await withLocalDatesSession.close();
+      withLocalDatesShell.dispose();
       await githubOnly.close();
       await withLocalDates.close();
     });
@@ -175,6 +177,10 @@ void main() {
     expect(
       withLocalDatesSession.require(localDatesCookedTimeParserService),
       isNotNull,
+    );
+    expect(
+      withLocalDatesSession.require(discourseGithubCookedTimeParserService),
+      same(withLocalDatesSession.require(localDatesCookedTimeParserService)),
     );
   });
 

@@ -2,7 +2,13 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
-import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
+import 'package:discourse_native/src/plugin_api/emoji_preferences.dart';
+import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_controller.dart';
@@ -76,6 +82,92 @@ final class _SequencedApiKeys implements ApiCredentialReader {
   Future<String> clientId() async => 'client';
 }
 
+final class _UnusedPostHost implements PluginPostHost {
+  @override
+  bool beginWrite(String siteUrl, int postId) => false;
+
+  @override
+  void endWrite(String siteUrl, int postId) {}
+
+  @override
+  Post? readPost(String siteUrl, int postId) => null;
+
+  @override
+  bool topicArchived(String siteUrl, int topicId) => false;
+
+  @override
+  Future<void> refreshPost({
+    required String siteUrl,
+    required int topicId,
+    required int postId,
+    required String? apiKey,
+    required PluginSiteLease lease,
+  }) async {}
+
+  @override
+  void updatePluginRecord<T extends Object>(
+    String siteUrl,
+    int postId,
+    PluginDataKey<T> key,
+    T? Function(T? held) update,
+  ) {}
+
+  @override
+  bool writeInFlight(String siteUrl, int postId) => false;
+}
+
+final class _UnusedEmojiPreferences implements EmojiPreferenceStore {
+  @override
+  Future<void> clearHistory({
+    required String siteUrl,
+    required EmojiUsageContext context,
+  }) async {}
+
+  @override
+  Future<List<String>> favoriteEmojiCodes({
+    required String siteUrl,
+    required EmojiUsageContext context,
+    required SiteEmojiCatalog catalog,
+  }) async => const [];
+
+  @override
+  Future<EmojiSkinTone> readSkinTone({required String siteUrl}) async =>
+      EmojiSkinTone.neutral;
+
+  @override
+  Future<void> trackEmoji({
+    required String siteUrl,
+    required EmojiUsageContext context,
+    required String emoji,
+  }) async {}
+
+  @override
+  Future<void> writeSkinTone({
+    required String siteUrl,
+    required EmojiSkinTone tone,
+  }) async {}
+}
+
+ReactionsController _controller({
+  required ReactionsApi api,
+  required PluginRequestHost requests,
+}) => ReactionsController(
+  api: api,
+  requests: requests,
+  posts: _UnusedPostHost(),
+  siteState: PluginSiteStateHost(
+    currentUserFor: (_) => null,
+    siteConfigFor: (_) => const SiteConfig.unknown(),
+  ),
+  resolveSiteConfig: (_) async => null,
+  emoji: PluginEmojiHost(
+    preferences: _UnusedEmojiPreferences(),
+    siteConfigFor: (_) => const SiteConfig.unknown(),
+    loadCatalog: (_, {refresh = false}) async => null,
+    loadSearchAliases: (_, {refresh = false}) async => null,
+  ),
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -84,13 +176,8 @@ void main() {
     final newGate = Completer<void>();
     final api = _SequencedReactorsApi([oldGate, newGate]);
     final lifecycle = SiteLifecycle();
-    final store = Store();
-    final controller = ReactionsController(
-      api: api,
-      credentials: FakeApiCredentialReader(),
-      store: store,
-      lifecycle: lifecycle,
-    );
+    final requests = FakePluginRequestHost(lifecycle: lifecycle);
+    final controller = _controller(api: api, requests: requests);
     addTearDown(controller.dispose);
 
     final oldLoad = controller.load(siteUrl: _siteUrl, postId: 7);
@@ -122,10 +209,9 @@ void main() {
   });
 
   test('forget notifies direct consumers when request state disappears', () {
-    final controller = ReactionsController(
+    final controller = _controller(
       api: _SequencedReactorsApi([Completer<void>()]),
-      credentials: FakeApiCredentialReader(),
-      store: Store(),
+      requests: FakePluginRequestHost(),
     );
     addTearDown(controller.dispose);
     var notifications = 0;
@@ -138,13 +224,12 @@ void main() {
     expect(notifications, 2);
   });
 
-  test('forget while the API key is pending sends no stale request', () async {
+  test('forget while credentials are pending sends no stale request', () async {
     final credentials = _GatedCredentials();
     final api = _SequencedReactorsApi([]);
-    final controller = ReactionsController(
+    final controller = _controller(
       api: api,
-      credentials: credentials,
-      store: Store(),
+      requests: FakePluginRequestHost(credentials: credentials),
     );
     addTearDown(controller.dispose);
 
@@ -152,10 +237,11 @@ void main() {
     await credentials.apiKeyStarted.future;
     controller.forget(_siteUrl);
     credentials.apiKeyResult.complete('stale-key');
+    await credentials.clientIdStarted.future;
+    credentials.clientIdResult.complete('stale-client');
     await load;
 
     expect(api.requests, 0);
-    expect(credentials.clientIdStarted.isCompleted, isFalse);
   });
 
   test(
@@ -164,11 +250,12 @@ void main() {
       final credentials = _GatedCredentials();
       final api = _SequencedReactorsApi([]);
       final lifecycle = SiteLifecycle();
-      final controller = ReactionsController(
+      final controller = _controller(
         api: api,
-        credentials: credentials,
-        store: Store(),
-        lifecycle: lifecycle,
+        requests: FakePluginRequestHost(
+          credentials: credentials,
+          lifecycle: lifecycle,
+        ),
       );
       addTearDown(controller.dispose);
 
@@ -192,10 +279,9 @@ void main() {
       final credentials = _SequencedApiKeys([oldKey, replacementKey]);
       final response = Completer<void>();
       final api = _SequencedReactorsApi([response]);
-      final controller = ReactionsController(
+      final controller = _controller(
         api: api,
-        credentials: credentials,
-        store: Store(),
+        requests: FakePluginRequestHost(credentials: credentials),
       );
       addTearDown(controller.dispose);
 
@@ -226,10 +312,9 @@ void main() {
     final credentials = _SequencedApiKeys([key, unexpectedKey]);
     final response = Completer<void>();
     final api = _SequencedReactorsApi([response]);
-    final controller = ReactionsController(
+    final controller = _controller(
       api: api,
-      credentials: credentials,
-      store: Store(),
+      requests: FakePluginRequestHost(credentials: credentials),
     );
     addTearDown(controller.dispose);
 
@@ -250,10 +335,9 @@ void main() {
   test('dispose during client id lookup sends no request', () async {
     final credentials = _GatedCredentials();
     final api = _SequencedReactorsApi([]);
-    final controller = ReactionsController(
+    final controller = _controller(
       api: api,
-      credentials: credentials,
-      store: Store(),
+      requests: FakePluginRequestHost(credentials: credentials),
     );
 
     final load = controller.load(siteUrl: _siteUrl, postId: 7);
@@ -270,10 +354,9 @@ void main() {
   test('load after dispose completes without reading credentials', () async {
     final credentials = _GatedCredentials();
     final api = _SequencedReactorsApi([]);
-    final controller = ReactionsController(
+    final controller = _controller(
       api: api,
-      credentials: credentials,
-      store: Store(),
+      requests: FakePluginRequestHost(credentials: credentials),
     );
     controller.dispose();
 

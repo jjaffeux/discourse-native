@@ -5,6 +5,7 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/oneboxes/onebox.dart';
 import '../local_dates/local_dates_contract.dart';
+import 'discourse_github_services.dart';
 import 'oneboxes/commit/block.dart';
 import 'oneboxes/github.dart';
 import 'oneboxes/issue/block.dart';
@@ -21,7 +22,7 @@ final class DiscourseGithubPlugin
   const DiscourseGithubPlugin({this.cookedTimeParser});
 
   /// An explicit test/standalone override. Production resolves the optional
-  /// Local Dates service from [PluginScope].
+  /// Local Dates service from this plugin's owner-scoped UI service view.
   final CookedTimeParser? cookedTimeParser;
 
   @override
@@ -88,6 +89,6 @@ final class _GithubOnebox extends StatelessWidget {
     envelope,
     siteUrl,
     cookedTimeParser ??
-        PluginScope.optional(context, localDatesCookedTimeParserService),
+        PluginUiScope.maybe(context, discourseGithubCookedTimeParserService),
   );
 }

@@ -13,12 +13,14 @@ export 'chat_preview_contract.dart';
 final class ChatPreviewEngine {
   ChatPreviewEngine({
     Iterable<ChatPreviewPluginAdapter> plugins = const [],
+    this.reporter = const PluginDiagnosticsReporter.noop(),
     this.maxSourceLength = 20000,
     this.maxPluginClaims = 128,
     this.maxDocumentNodes = 4096,
   }) : _plugins = List.unmodifiable(plugins);
 
   final List<ChatPreviewPluginAdapter> _plugins;
+  final PluginDiagnosticsReporter reporter;
   final int maxSourceLength;
   final int maxPluginClaims;
   final int maxDocumentNodes;
@@ -38,7 +40,7 @@ final class ChatPreviewEngine {
     try {
       return owner.buildPreviewNode(context, node);
     } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
+      reporter.reportError(
         error,
         stackTrace,
         operation: 'chat.previewPlugin.render',
@@ -55,6 +57,7 @@ final class ChatPreviewEngine {
   ChatPreviewEngine withPlugins(Iterable<ChatPreviewPluginAdapter> plugins) =>
       ChatPreviewEngine(
         plugins: plugins,
+        reporter: reporter,
         maxSourceLength: maxSourceLength,
         maxPluginClaims: maxPluginClaims,
         maxDocumentNodes: maxDocumentNodes,

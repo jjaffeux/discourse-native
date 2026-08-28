@@ -1,9 +1,16 @@
+// ignore_for_file: prefer_initializing_formals
+
 import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 
 import '../../data/store.dart';
 import '../../models/bookmark.dart';
 import '../../models/content_route.dart';
+import '../../models/discourse_user.dart';
 import '../../models/notification_totals.dart';
+import '../../models/post_flag.dart';
+import '../../models/sidebar.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import '../../plugin_api/plugin_runtime.dart';
@@ -13,7 +20,6 @@ import '../../theme/d_icons.dart';
 import 'chat_bookmark.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
-import 'chat_message.dart';
 import 'chat_notification_counter.dart';
 import 'chat_plugin.dart';
 import 'chat_plugin_data.dart';
@@ -29,6 +35,7 @@ const chatShellService = PluginServiceKey<ChatShellService>(
 /// Chat's routing, hydration, and bookmark integration for one shell session.
 final class ChatShellService
     implements
+        Listenable,
         PluginLinkHandler,
         PluginRouteRetry,
         PluginRouteHydrator,
@@ -37,46 +44,83 @@ final class ChatShellService
         PluginBookmarkTargetStrategy {
   ChatShellService({
     required this.chat,
-    required this.host,
+    required PluginNavigationHost host,
     required this.composerHost,
     required this.store,
-  });
+    required PluginPostFlagCatalogReader postFlagCatalog,
+  }) : _host = host,
+       _postFlagCatalog = postFlagCatalog;
 
   final ChatController chat;
-  final PluginNavigationHost host;
   final PluginComposerHost composerHost;
   final Store store;
+  final PluginNavigationHost _host;
+  final PluginPostFlagCatalogReader _postFlagCatalog;
   final ChatNavigationHandoff navigation = ChatNavigationHandoff();
   int _urlOpenGeneration = 0;
 
   @override
+  void addListener(VoidCallback listener) =>
+      _host.changes.addListener(listener);
+
+  @override
+  void removeListener(VoidCallback listener) =>
+      _host.changes.removeListener(listener);
+
+  String? get currentSiteUrl => _host.currentInstance?.url;
+  bool get showHeaderShortcut =>
+      _host.forumActive && _host.currentInstance != null;
+  DiscourseUser? get currentUser => _host.currentInstance?.user;
+  NotificationTotals? get currentTotals => _host.currentTotals;
+  ContentRoute? get currentContent => _host.currentContent;
+  bool get chatActive =>
+      ChatRoute.parse(_host.currentContent?.id ?? '') != null;
+
+  bool isConnected(String siteUrl) =>
+      _host.currentInstance?.url == siteUrl &&
+      _host.currentInstance?.isConnected == true;
+
+  bool doNotDisturbActive(String siteUrl, {DateTime? now}) =>
+      _host.currentInstance?.url == siteUrl &&
+      (_host.currentInstance?.user?.doNotDisturbUntil?.isAfter(
+            now ?? DateTime.now(),
+          ) ??
+          false);
+
+  List<PostFlagType> postFlagTypesFor(String siteUrl) =>
+      _postFlagCatalog(siteUrl);
+
+  int showTimeGapDaysFor(String siteUrl) =>
+      chat.siteConfigFor(siteUrl).showTimeGapDays;
+
+  @override
   Future<bool> openPluginUrl(String url) async {
     final generation = ++_urlOpenGeneration;
-    final absolute = resolveSiteUrl(url, host.currentInstance?.url);
+    final absolute = resolveSiteUrl(url, _host.currentInstance?.url);
     final link = ChatLink.parse(absolute);
     if (link == null) return false;
 
-    var index = host.instances.indexWhere(
+    var index = _host.instances.indexWhere(
       (instance) => instance.serves(link.uri),
     );
-    if (index < 0 || !host.instances[index].isConnected) return false;
+    if (index < 0 || !_host.instances[index].isConnected) return false;
 
-    final siteUrl = host.instances[index].url;
+    final siteUrl = _host.instances[index].url;
     await chat.loadChannels(siteUrl);
-    if (host.isDisposed || generation != _urlOpenGeneration) return false;
+    if (_host.isDisposed || generation != _urlOpenGeneration) return false;
     if (chat.channel(siteUrl, link.route.channelId) == null) return false;
     if (link.route.threadId case final threadId?) {
       final detail = await chat.refreshThreadDetail(
         siteUrl,
         ChatThreadTarget(channelId: link.route.channelId, threadId: threadId),
       );
-      if (host.isDisposed || generation != _urlOpenGeneration) return false;
+      if (_host.isDisposed || generation != _urlOpenGeneration) return false;
       if (detail == null) return false;
     }
 
-    index = host.instances.indexWhere((instance) => instance.url == siteUrl);
-    if (index < 0 || !host.instances[index].isConnected) return false;
-    if (host.currentInstance?.url != siteUrl) host.selectInstance(index);
+    index = _host.instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0 || !_host.instances[index].isConnected) return false;
+    if (_host.currentInstance?.url != siteUrl) _host.selectInstance(index);
     return _openRoute(siteUrl, link.route, messageId: link.messageId);
   }
 
@@ -138,9 +182,19 @@ final class ChatShellService
 
   @override
   Future<void> reconcilePluginBookmark(String siteUrl, int targetId) async {
-    final message = store.read<ChatMessage>(siteUrl, targetId);
+    final message = chat.message(siteUrl, targetId);
     if (message != null) await chat.reconcileMessageBookmark(siteUrl, message);
   }
+
+  void openBrowseChannels() => _host.selectDestination(
+    const SidebarDestination(
+      id: ChatPlugin.browseRouteId,
+      label: 'Browse channels',
+      icon: DIcons.list,
+    ),
+  );
+
+  void returnToChannel(int channelId) => openChannel(channelId);
 
   void openThread({
     required String siteUrl,
@@ -154,11 +208,11 @@ final class ChatShellService
         (messageId != null && messageId <= 0)) {
       return;
     }
-    final index = host.instances.indexWhere(
+    final index = _host.instances.indexWhere(
       (instance) => instance.url == siteUrl,
     );
-    if (index < 0 || !host.instances[index].isConnected) return;
-    if (host.currentInstance?.url != siteUrl) host.selectInstance(index);
+    if (index < 0 || !_host.instances[index].isConnected) return;
+    if (_host.currentInstance?.url != siteUrl) _host.selectInstance(index);
     _openRoute(
       siteUrl,
       ChatRoute.thread(channelId: channelId, threadId: threadId),
@@ -169,7 +223,7 @@ final class ChatShellService
 
   bool openChannel(int channelId, {int? messageId}) {
     if (channelId <= 0 || (messageId != null && messageId <= 0)) return false;
-    final instance = host.currentInstance;
+    final instance = _host.currentInstance;
     if (instance == null || !instance.isConnected) return false;
     return _openRoute(
       instance.url,
@@ -184,13 +238,13 @@ final class ChatShellService
     ChatChannelInfoTab tab = ChatChannelInfoTab.settings,
   }) {
     if (channelId <= 0) return false;
-    final index = host.instances.indexWhere(
+    final index = _host.instances.indexWhere(
       (instance) => instance.url == siteUrl,
     );
-    if (index < 0 || !host.instances[index].isConnected) return false;
+    if (index < 0 || !_host.instances[index].isConnected) return false;
     final channel = chat.channel(siteUrl, channelId);
     if (channel == null) return false;
-    if (host.currentInstance?.url != siteUrl) host.selectInstance(index);
+    if (_host.currentInstance?.url != siteUrl) _host.selectInstance(index);
     return _openInfoRoute(
       siteUrl,
       channel,
@@ -200,25 +254,25 @@ final class ChatShellService
 
   bool openChannelThreads({required String siteUrl, required int channelId}) {
     if (channelId <= 0) return false;
-    final index = host.instances.indexWhere(
+    final index = _host.instances.indexWhere(
       (instance) => instance.url == siteUrl,
     );
-    if (index < 0 || !host.instances[index].isConnected) return false;
+    if (index < 0 || !_host.instances[index].isConnected) return false;
     final channel = chat.channel(siteUrl, channelId);
     if (channel?.threadingEnabled != true) return false;
-    if (host.currentInstance?.url != siteUrl) host.selectInstance(index);
+    if (_host.currentInstance?.url != siteUrl) _host.selectInstance(index);
 
     final routeId = ChatPlugin.channelThreadsRouteId(channelId);
-    if (host.currentContent?.id != routeId) {
-      final currentChatRoute = switch (host.currentContent?.id) {
+    if (_host.currentContent?.id != routeId) {
+      final currentChatRoute = switch (_host.currentContent?.id) {
         final id? => ChatRoute.parse(id),
         null => null,
       };
       if (currentChatRoute?.channelId != channelId ||
           currentChatRoute?.isThread == true) {
-        host.selectDestination(ChatPlugin.destination(channel!));
+        _host.selectDestination(ChatPlugin.destination(channel!));
       }
-      host.pushContent(
+      _host.pushContent(
         ContentRoute(
           id: routeId,
           title: 'Threads',
@@ -227,7 +281,7 @@ final class ChatShellService
         ),
       );
     }
-    host.showPluginContent();
+    _host.showPluginContent();
     return true;
   }
 
@@ -238,7 +292,7 @@ final class ChatShellService
   }) {
     if (channelId <= 0 ||
         messageId <= 0 ||
-        host.currentInstance?.url != siteUrl ||
+        _host.currentInstance?.url != siteUrl ||
         chat.channel(siteUrl, channelId) == null) {
       return false;
     }
@@ -257,7 +311,7 @@ final class ChatShellService
     int channelId,
     String markdown,
   ) async {
-    final route = host.currentContent;
+    final route = _host.currentContent;
     final chatRoute = route == null ? null : ChatRoute.parse(route.id);
     final channel = chat.channel(siteUrl, channelId);
     if (markdown.trim().isEmpty ||
@@ -284,22 +338,22 @@ final class ChatShellService
   }
 
   Future<void> openShortcut() async {
-    final instance = host.currentInstance;
+    final instance = _host.currentInstance;
     if (instance == null || !instance.isConnected) return;
-    final totals = host.currentTotals;
+    final totals = _host.currentTotals;
     if (totals?.hasChatEnabled != true ||
         instance.user?.hasChatEnabled == false) {
       return;
     }
     final siteUrl = instance.url;
     await chat.loadChannels(siteUrl);
-    if (host.currentInstance?.url != siteUrl) return;
+    if (_host.currentInstance?.url != siteUrl) return;
     final channel = chat.shortcutChannel(
       siteUrl,
-      lastChannelId: host.currentInstance?.user?.lastChatChannelId,
+      lastChannelId: _host.currentInstance?.user?.lastChatChannelId,
     );
     if (channel != null) {
-      host.selectDestination(ChatPlugin.destination(channel));
+      _host.selectDestination(ChatPlugin.destination(channel));
     }
   }
 
@@ -309,30 +363,30 @@ final class ChatShellService
     int? messageId,
     bool focusComposer = false,
   }) {
-    if (host.currentInstance?.url != siteUrl) return false;
+    if (_host.currentInstance?.url != siteUrl) return false;
     final channel = chat.channel(siteUrl, route.channelId);
     if (channel == null) return false;
     if (route.isInfo) return _openInfoRoute(siteUrl, channel, route);
 
-    final currentRoute = switch (host.currentContent?.id) {
+    final currentRoute = switch (_host.currentContent?.id) {
       final id? => ChatRoute.parse(id),
       null => null,
     };
     if (route.isThread) {
       if (currentRoute != route) {
-        final currentThreadsChannelId = switch (host.currentContent?.id) {
+        final currentThreadsChannelId = switch (_host.currentContent?.id) {
           final id? => ChatPlugin.channelIdFromThreadsRoute(id),
           null => null,
         };
         final preservesThreadList =
-            host.currentContent?.id == ChatPlugin.myThreadsRouteId ||
+            _host.currentContent?.id == ChatPlugin.myThreadsRouteId ||
             currentThreadsChannelId == route.channelId;
         if (currentRoute?.threadId != null ||
             !preservesThreadList &&
                 currentRoute?.channelId != route.channelId) {
-          host.selectDestination(ChatPlugin.destination(channel));
+          _host.selectDestination(ChatPlugin.destination(channel));
         }
-        host.pushContent(
+        _host.pushContent(
           ContentRoute(
             id: route.routeId,
             title: 'Thread',
@@ -341,8 +395,8 @@ final class ChatShellService
           ),
         );
       }
-    } else if (currentRoute != route || host.contentStack.length != 1) {
-      host.selectDestination(ChatPlugin.destination(channel));
+    } else if (currentRoute != route || _host.contentStack.length != 1) {
+      _host.selectDestination(ChatPlugin.destination(channel));
     }
 
     navigation.offer(
@@ -353,13 +407,13 @@ final class ChatShellService
         focusComposer: focusComposer,
       ),
     );
-    host.showPluginContent();
+    _host.showPluginContent();
     return true;
   }
 
   bool _openInfoRoute(String siteUrl, ChatChannel channel, ChatRoute route) {
-    if (host.currentInstance?.url != siteUrl || !route.isInfo) return false;
-    final currentRoute = switch (host.currentContent?.id) {
+    if (_host.currentInstance?.url != siteUrl || !route.isInfo) return false;
+    final currentRoute = switch (_host.currentContent?.id) {
       final id? => ChatRoute.parse(id),
       null => null,
     };
@@ -369,13 +423,13 @@ final class ChatShellService
       icon: DIcons.comment,
     );
     if (currentRoute?.isInfo == true && currentRoute?.channelId == channel.id) {
-      host.replaceCurrentContent(content);
+      _host.replaceCurrentContent(content);
     } else {
       if (currentRoute?.channelId != channel.id ||
           currentRoute?.isThread == true) {
-        host.selectDestination(ChatPlugin.destination(channel));
+        _host.selectDestination(ChatPlugin.destination(channel));
       }
-      host.pushContent(content);
+      _host.pushContent(content);
     }
     return true;
   }

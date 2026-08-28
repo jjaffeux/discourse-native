@@ -55,8 +55,8 @@ final class ResenhaPlugin
 
   @override
   List<SidebarSection> sidebarSections(BuildContext context) {
-    final controller = PluginScope.require(context, resenhaControllerService);
-    final shell = PluginScope.require(context, resenhaShellService);
+    final controller = PluginUiScope.require(context, resenhaControllerService);
+    final shell = PluginUiScope.require(context, resenhaShellService);
     if (!controller.supportedPlatform) return const [];
     final instance = shell.currentInstance;
     if (instance == null || !instance.isConnected) return const [];
@@ -137,7 +137,7 @@ final class ResenhaPlugin
 
   @override
   Listenable sidebarListenable(BuildContext context) =>
-      PluginScope.require(context, resenhaControllerService);
+      PluginUiScope.require(context, resenhaControllerService);
 
   @override
   Widget? content(BuildContext context, ContentRoute route) {

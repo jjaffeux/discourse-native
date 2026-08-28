@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart';
 
-import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/plugin_transport.dart';
-import '../data/site_lifecycle.dart';
 import '../data/store.dart';
 import '../models/discourse_user.dart';
+import '../models/post.dart';
+import '../models/post_flag.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../shell/composer_controller.dart';
@@ -35,9 +35,11 @@ typedef PluginUserIdReader = int? Function(String siteUrl);
 typedef PluginSiteConfigResolver = Future<SiteConfig?> Function(String siteUrl);
 typedef PluginTopicReloader =
     Future<void> Function(String siteUrl, int topicId);
-typedef PluginTargetSnapshot = ({bool valid, PluginData data});
-typedef PluginTargetDataReader =
-    PluginTargetSnapshot Function(String siteUrl, PluginTarget target);
+typedef PluginTargetSnapshot<T extends Object> = ({bool valid, T? value});
+typedef PluginTrackingSync = void Function();
+typedef PluginCurrentSiteReader = String? Function();
+typedef PluginPostFlagCatalogReader =
+    List<PostFlagType> Function(String siteUrl);
 typedef PluginWriteCredential = ({String? apiKey, WriteException? failure});
 typedef PluginComposerBuilder =
     ComposerController? Function(ComposerTargetRequest request);
@@ -47,6 +49,79 @@ typedef PluginEmojiCatalogLoader =
     Future<SiteEmojiCatalog?> Function(String siteUrl, {bool refresh});
 typedef PluginEmojiSearchAliasLoader =
     Future<Map<String, List<String>>?> Function(String siteUrl, {bool refresh});
+
+/// Read-only request credentials for one explicitly named site.
+///
+/// Plugins receive this snapshot instead of the process-wide credential
+/// reader, so they cannot retain the authenticator or ask for a client id
+/// independently of the site request they are about to make.
+@immutable
+final class PluginRequestCredentials {
+  const PluginRequestCredentials({
+    required this.apiKey,
+    required this.clientId,
+  });
+
+  final String? apiKey;
+  final String clientId;
+}
+
+/// Permission to publish synchronous state for one captured site session.
+abstract interface class PluginSiteLease {
+  bool get isCurrent;
+  bool commit(VoidCallback mutation);
+}
+
+/// Least-privilege request and session-lifetime authority for plugins.
+abstract interface class PluginRequestHost {
+  PluginSiteLease capture(String siteUrl);
+
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl);
+
+  Future<PluginWriteCredential> writeCredentialFor(String siteUrl);
+}
+
+/// The only account mutation a plugin-owned signed-out affordance may invoke.
+///
+/// Connection remains a host workflow (it presents the platform authorisation
+/// UI and rotates the account session). Plugins can neither disconnect an
+/// account nor select another forum through this port.
+abstract interface class PluginAccountConnectionHost {
+  bool isConnected(String siteUrl);
+
+  /// Connects [siteUrl] when it is the host's currently presented forum and
+  /// returns the user-facing failure, if any.
+  Future<String?> connect(String siteUrl);
+}
+
+/// The shared post state needed by Poll and Reactions interactions.
+///
+/// This is intentionally not a generic [Store]. It grants access only to core
+/// post/topic records and to the one serialized post-write lane used by those
+/// plugins.
+abstract interface class PluginPostHost {
+  Post? readPost(String siteUrl, int postId);
+  bool topicArchived(String siteUrl, int topicId);
+
+  void updatePluginRecord<T extends Object>(
+    String siteUrl,
+    int postId,
+    PluginDataKey<T> key,
+    T? Function(T? held) update,
+  );
+
+  bool beginWrite(String siteUrl, int postId);
+  void endWrite(String siteUrl, int postId);
+  bool writeInFlight(String siteUrl, int postId);
+
+  Future<void> refreshPost({
+    required String siteUrl,
+    required int topicId,
+    required int postId,
+    required String? apiKey,
+    required PluginSiteLease lease,
+  });
+}
 
 enum ComposerSeedPlacement { block }
 
@@ -113,18 +188,37 @@ final class PluginAccountEventsHost {
   final PluginSiteCallback markSiteUnreachable;
 }
 
-/// Serializer snapshots and permission fallback used by target-based plugins.
+/// Owner-scoped serializer snapshots used by target-based plugins.
 ///
-/// This is deliberately separate from topic refresh. A plugin that only needs
-/// to refresh a known topic does not receive permission or record inspection.
-final class PluginTargetHost {
-  const PluginTargetHost({
-    required this.dataForTarget,
-    required this.freshCurrentUserFor,
-  });
+/// The shell validates the target and returns only the namespaced record owned
+/// by the consuming plugin. Foreign plugin data never crosses this port.
+abstract interface class PluginTargetHost {
+  PluginTargetSnapshot<T> recordFor<T extends Object>(
+    String siteUrl,
+    PluginTarget target,
+    PluginDataKey<T> key,
+  );
+}
 
-  final PluginTargetDataReader dataForTarget;
-  final PluginCurrentUserReader freshCurrentUserFor;
+/// Fresh account presentation fields which are safe for plugin UI policy.
+@immutable
+final class PluginFreshAccountProfile {
+  PluginFreshAccountProfile({required this.staff, required List<String> groups})
+    : groups = List<String>.unmodifiable(groups);
+
+  final bool staff;
+  final List<String> groups;
+}
+
+/// Owner-scoped view of the freshly authenticated account.
+///
+/// Plugins can read their own current-user record plus the presentation fields
+/// needed by feature UI. Other plugin namespaces and core account authority
+/// remain host-owned.
+abstract interface class PluginFreshAccountHost {
+  PluginFreshAccountProfile? profileFor(String siteUrl);
+
+  T? recordFor<T extends Object>(String siteUrl, PluginDataKey<T> key);
 }
 
 /// Topic reconciliation after a plugin-owned mutation.
@@ -144,16 +238,14 @@ final class PluginComposerHost {
   const PluginComposerHost({
     required this.buildComposer,
     required this.openNewTopic,
-    required this.credentials,
-    required this.lifecycle,
+    required this.isActive,
     required this.siteConfigFor,
     required this.siteConfigListenableFor,
   });
 
   final PluginComposerBuilder buildComposer;
   final PluginNewTopicComposerOpener openNewTopic;
-  final ApiCredentialReader credentials;
-  final SiteLifecycle lifecycle;
+  final bool Function(ComposerController composer) isActive;
   final PluginSiteConfigReader siteConfigFor;
   final PluginSiteConfigListenableReader siteConfigListenableFor;
 }
@@ -183,20 +275,21 @@ const corePluginModelCodecPort = PluginHostPortKey<DiscourseModelCodec>(
   name: 'model-codec',
 );
 
-const corePluginCredentialsPort = PluginHostPortKey<ApiCredentialReader>(
+const corePluginRequestPort = PluginHostPortKey<PluginRequestHost>(
   owner: PluginId('core'),
-  name: 'credentials',
+  name: 'requests',
 );
 
-const corePluginStorePort = PluginHostPortKey<Store>(
+const corePluginPostPort = PluginHostPortKey<PluginPostHost>(
   owner: PluginId('core'),
-  name: 'record-store',
+  name: 'posts',
 );
 
-const corePluginSiteLifecyclePort = PluginHostPortKey<SiteLifecycle>(
-  owner: PluginId('core'),
-  name: 'site-lifecycle',
-);
+const corePluginAccountConnectionPort =
+    PluginHostPortKey<PluginAccountConnectionHost>(
+      owner: PluginId('core'),
+      name: 'account-connection',
+    );
 
 const corePluginSiteStatePort = PluginHostPortKey<PluginSiteStateHost>(
   owner: PluginId('core'),
@@ -209,6 +302,17 @@ const corePluginStaticContributionsPort =
       name: 'static-contributions',
     );
 
+const corePluginCurrentSitePort = PluginHostPortKey<PluginCurrentSiteReader>(
+  owner: PluginId('core'),
+  name: 'current-site',
+);
+
+const corePluginPostFlagCatalogPort =
+    PluginHostPortKey<PluginPostFlagCatalogReader>(
+      owner: PluginId('core'),
+      name: 'post-flag-catalog',
+    );
+
 const corePluginAccountEventsPort = PluginHostPortKey<PluginAccountEventsHost>(
   owner: PluginId('core'),
   name: 'account-events',
@@ -217,6 +321,11 @@ const corePluginAccountEventsPort = PluginHostPortKey<PluginAccountEventsHost>(
 const corePluginTargetPort = PluginHostPortKey<PluginTargetHost>(
   owner: PluginId('core'),
   name: 'target',
+);
+
+const corePluginFreshAccountPort = PluginHostPortKey<PluginFreshAccountHost>(
+  owner: PluginId('core'),
+  name: 'fresh-account',
 );
 
 const corePluginTopicRefreshPort = PluginHostPortKey<PluginTopicRefreshHost>(

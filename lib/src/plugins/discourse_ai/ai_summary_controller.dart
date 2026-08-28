@@ -1,28 +1,24 @@
+// ignore_for_file: prefer_initializing_formals
+
 import 'dart:async';
 
-import '../../data/api_credentials.dart';
-import '../../data/site_lifecycle.dart';
-import '../../plugin_api/live_channels.dart';
+import '../../plugin_api/core_plugin_host.dart';
 import 'ai_summary.dart';
 import 'ai_summary_api.dart';
-
-typedef AiSummaryTrackerReader =
-    PluginLiveChannelHandle? Function(String siteUrl);
 
 /// Coordinates cached and newly streamed Discourse AI topic summaries.
 final class AiSummaryController {
   const AiSummaryController({
     required this.api,
-    required this.credentials,
-    required this.lifecycle,
-    required this.trackerFor,
+    required PluginRequestHost requests,
+    required PluginTrackerReader trackerFor,
     this.streamTimeout = const Duration(minutes: 3),
-  });
+  }) : _requests = requests,
+       _trackerFor = trackerFor;
 
   final AiSummaryApi api;
-  final ApiCredentialReader credentials;
-  final SiteLifecycle lifecycle;
-  final AiSummaryTrackerReader trackerFor;
+  final PluginRequestHost _requests;
+  final PluginTrackerReader _trackerFor;
   final Duration streamTimeout;
 
   Future<AiTopicSummary> load({
@@ -31,28 +27,36 @@ final class AiSummaryController {
     required bool hasCachedSummary,
     bool regenerate = false,
   }) async {
-    final lease = lifecycle.capture(siteUrl);
-    final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (!lease.isCurrent) {
-      throw StateError('The forum session changed while loading its summary.');
-    }
+    final lease = _requests.capture(siteUrl);
+    final credentials = await _requests.credentialsFor(siteUrl);
+    _requireCurrent(lease);
 
     if (hasCachedSummary && !regenerate) {
-      return api.cached(siteUrl: siteUrl, topicId: topicId, apiKey: apiKey);
+      final summary = await api.cached(
+        siteUrl: siteUrl,
+        topicId: topicId,
+        apiKey: credentials.apiKey,
+        clientId: credentials.clientId,
+      );
+      _requireCurrent(lease);
+      return summary;
     }
+    final apiKey = credentials.apiKey;
     if (apiKey == null) {
       throw StateError('Sign in to generate this summary.');
     }
 
-    final tracker = trackerFor(siteUrl);
+    final tracker = _trackerFor(siteUrl);
     if (tracker == null) {
       final body = await api.generate(
         siteUrl: siteUrl,
         topicId: topicId,
         apiKey: apiKey,
+        clientId: credentials.clientId,
         stream: false,
         regenerate: regenerate,
       );
+      _requireCurrent(lease);
       return AiTopicSummary.fromJson(body) ??
           (throw const FormatException('Summary response had no summary.'));
     }
@@ -61,6 +65,7 @@ final class AiSummaryController {
     final subscription = tracker.subscribe(
       '/discourse-ai/summaries/topic/$topicId',
       (data, _) {
+        if (!lease.isCurrent) return;
         if (data is! Map<String, dynamic>) return;
         final body = data;
         final summary = AiTopicSummary.fromJson(body);
@@ -74,12 +79,22 @@ final class AiSummaryController {
         siteUrl: siteUrl,
         topicId: topicId,
         apiKey: apiKey,
+        clientId: credentials.clientId,
         regenerate: regenerate,
       );
+      _requireCurrent(lease);
       if (AiTopicSummary.fromJson(response) case final cached?) return cached;
-      return await completed.future.timeout(streamTimeout);
+      final summary = await completed.future.timeout(streamTimeout);
+      _requireCurrent(lease);
+      return summary;
     } finally {
       subscription.cancel();
+    }
+  }
+
+  static void _requireCurrent(PluginSiteLease lease) {
+    if (!lease.isCurrent) {
+      throw StateError('The forum session changed while loading its summary.');
     }
   }
 }

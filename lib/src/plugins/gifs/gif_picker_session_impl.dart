@@ -1,7 +1,5 @@
 import 'package:flutter/widgets.dart';
 
-import '../../data/api_credentials.dart';
-import '../../data/site_lifecycle.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import 'gif.dart';
 import 'gif_picker.dart';
@@ -12,22 +10,19 @@ import 'gifs_settings.dart';
 /// Builds the production picker session from GIF-private infrastructure.
 GifPickerSession createGifPickerSession({
   required GifsApi api,
-  required ApiCredentialReader credentials,
-  required SiteLifecycle lifecycle,
+  required PluginRequestHost requests,
   required PluginSiteConfigReader siteConfigFor,
-}) => _DefaultGifPickerSession(api, credentials, lifecycle, siteConfigFor);
+}) => _DefaultGifPickerSession(api, requests, siteConfigFor);
 
 final class _DefaultGifPickerSession implements GifPickerSession {
   const _DefaultGifPickerSession(
     this._api,
-    this._credentials,
-    this._lifecycle,
+    this._requests,
     this._siteConfigFor,
   );
 
   final GifsApi _api;
-  final ApiCredentialReader _credentials;
-  final SiteLifecycle _lifecycle;
+  final PluginRequestHost _requests;
   final PluginSiteConfigReader _siteConfigFor;
 
   @override
@@ -45,8 +40,7 @@ final class _DefaultGifPickerSession implements GifPickerSession {
       context: context,
       siteUrl: siteUrl,
       api: _api,
-      credentials: _credentials,
-      lifecycle: _lifecycle,
+      requests: _requests,
       settings: settings,
     );
   }

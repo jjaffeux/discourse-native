@@ -9,7 +9,6 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
-import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
@@ -71,7 +70,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final context = tester.element(find.byType(ChatComposer));
-      final host = PluginScope.require(context, chatComposerHostService);
+      final host = PluginUiScope.require(context, chatComposerHostService);
       final config = host.siteConfigListenableFor(_site);
       expect(config, isNot(isA<ShellController>()));
       expect(host.siteConfigListenableFor(_site), same(config));
@@ -416,29 +415,6 @@ void main() {
     }
   });
 
-  testWidgets('uses the GIF-owned picker session as its only GIF dependency', (
-    tester,
-  ) async {
-    final fixture = await _fixture(
-      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
-    );
-    final gifPicker = FakeGifPickerSession(result: _gif);
-    addTearDown(fixture.shell.dispose);
-    await tester.pumpWidget(
-      _TestView(shell: fixture.shell, gifPicker: gifPicker),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const ValueKey('chat-composer-gif')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('chat-composer-gif')));
-    await tester.pumpAndSettle();
-
-    expect(gifPicker.requestedSites, [_site]);
-    expect(fixture.api.gifCategoryRequests, isEmpty);
-    expect(fixture.api.gifSearchRequests, isEmpty);
-    expect(fixture.api.chatMessagesSent.single.message, _gif.markdown);
-  });
-
   testWidgets('keeps both send actions idle while the GIF picker is open', (
     tester,
   ) async {
@@ -773,12 +749,12 @@ void main() {
     await tester.pumpAndSettle();
 
     final localId = fixture.shell.chat.stream(_site, 9).localMessageIds.single;
-    final local = fixture.shell.store.read<ChatMessage>(_site, localId)!;
+    final local = fixture.shell.chatRecords.read<ChatMessage>(_site, localId)!;
     expect(find.text('provisional'), findsOneWidget);
     expect(find.byType(ChatPreviewBody), findsOneWidget);
     expect(find.byType(ChatMessageTile), findsOneWidget);
 
-    fixture.shell.store.put(
+    fixture.shell.chatRecords.put(
       _site,
       local.withCanonical(
         ChatMessage(
@@ -816,10 +792,10 @@ void main() {
     await tester.pumpAndSettle();
 
     final localId = fixture.shell.chat.stream(_site, 9).localMessageIds.single;
-    final local = fixture.shell.store.read<ChatMessage>(_site, localId)!;
+    final local = fixture.shell.chatRecords.read<ChatMessage>(_site, localId)!;
     expect(find.byType(ChatPreviewBody), findsOneWidget);
 
-    fixture.shell.store.put(
+    fixture.shell.chatRecords.put(
       _site,
       local.withCanonical(
         ChatMessage(
@@ -860,7 +836,7 @@ void main() {
     expect(_text(tester), 'second');
     expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
     _button(tester, 'chat-composer-send').onPressed!();
-    expect(fixture.shell.store.read<ChatMessage>(_site, -2), isNotNull);
+    expect(fixture.shell.chatRecords.read<ChatMessage>(_site, -2), isNotNull);
     expect(fixture.shell.chat.stream(_site, 9).localMessageIds, hasLength(2));
     await tester.pump();
 
@@ -1053,7 +1029,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
     plugins: installedPlugins,
   );
   await shell.load();
-  shell.store.put(
+  shell.chatRecords.put(
     _site,
     ChatChannel(
       id: 9,
@@ -1063,7 +1039,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
       membership: const ChatMembership(following: true),
     ),
   );
-  shell.store.put(
+  shell.chatRecords.put(
     _site,
     const ChatChannel(
       id: 10,
@@ -1101,15 +1077,9 @@ Future<void> _closeGifPicker(WidgetTester tester, [GifResult? result]) async {
 }
 
 final class _TestView extends StatelessWidget {
-  const _TestView({required this.shell, this.gifPicker});
+  const _TestView({required this.shell});
 
   final ShellController shell;
-  final GifPickerSession? gifPicker;
-
-  T? _maybeService<T extends Object>(PluginServiceKey<T> key) {
-    if (key == gifsPickerSessionService) return gifPicker as T?;
-    return shell.pluginSession.maybeService(key);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1117,17 +1087,8 @@ final class _TestView extends StatelessWidget {
       theme: AppTheme.light,
       home: const Scaffold(body: ChatChannelView(channelId: 9)),
     );
-    return ShellScope(
-      controller: shell,
-      child: gifPicker == null
-          ? app
-          : PluginScope(
-              session: shell.pluginSession,
-              registry: shell.plugins.registry,
-              resolveMaybeService: _maybeService,
-              child: app,
-            ),
-    );
+    final ownedApp = PluginUiScope.own(chatPluginId, app);
+    return ShellScope(controller: shell, child: ownedApp);
   }
 }
 
@@ -1140,10 +1101,13 @@ final class _ComposerView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ShellScope(
     controller: shell,
-    child: MaterialApp(
-      theme: AppTheme.light,
-      home: Scaffold(
-        body: ChatComposer(siteUrl: _site, channelId: channelId),
+    child: PluginUiScope.own(
+      chatPluginId,
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: ChatComposer(siteUrl: _site, channelId: channelId),
+        ),
       ),
     ),
   );

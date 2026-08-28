@@ -2,9 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../models/sidebar.dart';
 import '../../plugin_api/plugin_scope.dart';
-import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
@@ -37,7 +35,7 @@ class ChatChannelMenuButton extends StatelessWidget {
     required String siteUrl,
     required int channelId,
   }) {
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     final channel = chat.channel(siteUrl, channelId);
     if (channel == null) return Future<void>.value();
 
@@ -55,7 +53,7 @@ class ChatChannelMenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     return ValueListenableBuilder<ChatChannel?>(
       valueListenable: chat.channelRef(siteUrl, channelId),
       builder: (context, channel, _) {
@@ -442,7 +440,7 @@ void _applyChannelAction(
 ) {
   switch (action) {
     case _ChannelAction.settings:
-      PluginScope.require(
+      PluginUiScope.require(
         context,
         chatShellService,
       ).openChannelInfo(siteUrl: siteUrl, channelId: channel.id);
@@ -477,8 +475,7 @@ Future<void> _leaveChannel(
   String siteUrl,
   ChatChannel channel,
 ) async {
-  final shell = ShellScope.read(context);
-  final chatShell = PluginScope.require(context, chatShellService);
+  final shell = PluginUiScope.require(context, chatShellService);
   final messenger = ScaffoldMessenger.maybeOf(context);
   final error = await chat.updateChannelFollowing(siteUrl, channel, false);
   if (error != null) {
@@ -491,15 +488,9 @@ Future<void> _leaveChannel(
     ...chat.directChannels(siteUrl),
   ];
   if (remaining.isNotEmpty) {
-    chatShell.openChannel(remaining.first.id);
+    shell.openChannel(remaining.first.id);
   } else {
-    shell.selectDestination(
-      const SidebarDestination(
-        id: 'chat-browse',
-        label: 'Browse channels',
-        icon: DIcons.list,
-      ),
-    );
+    shell.openBrowseChannels();
   }
 }
 

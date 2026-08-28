@@ -14,7 +14,6 @@ import '../../shell/platform.dart';
 import '../../shell/post_flag_editor.dart';
 import '../../shell/reaction_presentation.dart';
 import '../../shell/relative_time.dart';
-import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
 import '../../shell/site_emoji_text.dart';
 import '../../shell/user_card.dart';
@@ -30,6 +29,7 @@ import 'chat_message.dart';
 import 'chat_preview.dart';
 import 'chat_preview_body.dart';
 import 'chat_services.dart';
+import 'chat_shell_service.dart';
 import 'chat_uploads.dart';
 import 'chat_user_avatar.dart';
 
@@ -131,7 +131,7 @@ class ChatMessageTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ChatMessage?>(
-      valueListenable: PluginScope.require(
+      valueListenable: PluginUiScope.require(
         context,
         chatControllerService,
       ).messageRef(siteUrl, messageId),
@@ -173,7 +173,7 @@ class ChatMessageTile extends StatelessWidget {
             !message.isDeleted &&
             !message.isOptimistic &&
             (message.threadId == null || message.thread != null);
-        final chat = PluginScope.require(context, chatControllerService);
+        final chat = PluginUiScope.require(context, chatControllerService);
         final canBookmark = chat.canBookmarkMessage(siteUrl, message);
         final canEdit = onEdit != null && chat.canEditMessage(siteUrl, message);
         final canDelete = chat.canDeleteMessage(siteUrl, message);
@@ -183,7 +183,10 @@ class ChatMessageTile extends StatelessWidget {
         final flagTypes = chat.availableChatFlagTypes(
           siteUrl,
           message,
-          ShellScope.read(context).postFlagTypesFor(siteUrl),
+          PluginUiScope.require(
+            context,
+            chatShellService,
+          ).postFlagTypesFor(siteUrl),
         );
         final canCopyLink = message.id > 0 && !message.isOptimistic;
         final canCopyText =
@@ -382,7 +385,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
 
   Future<void> _bookmark() => showChatMessageBookmarkMenu(
     context: context,
-    host: PluginScope.require(context, chatBookmarkHostService),
+    host: PluginUiScope.require(context, chatBookmarkHostService),
     siteUrl: widget.siteUrl,
     messageId: widget.message.id,
     bookmark: widget.message.bookmark,
@@ -407,7 +410,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   void _edit() => widget.onEdit?.call(widget.message);
 
   Future<void> _delete() async {
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     final error = await chat.deleteMessage(widget.siteUrl, widget.message.id);
     if (!mounted || error == null) return;
     ScaffoldMessenger.maybeOf(
@@ -418,7 +421,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   Future<void> _togglePin() async {
     if (_pinning) return;
     setState(() => _pinning = true);
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     final error = await chat.setMessagePinned(
       widget.siteUrl,
       widget.message.id,
@@ -435,7 +438,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   Future<void> _rebake() async {
     if (_rebaking) return;
     setState(() => _rebaking = true);
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     final error = await chat.rebakeMessage(widget.siteUrl, widget.message.id);
     if (!mounted) return;
     setState(() => _rebaking = false);
@@ -445,7 +448,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   }
 
   Future<void> _flag(List<PostFlagType> flagTypes) async {
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     await showShellSheet<void>(
       context: context,
       title: 'Thanks for keeping our community civil!',
@@ -469,8 +472,11 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   }
 
   Future<void> _showActions() {
-    final bookmarkHost = PluginScope.require(context, chatBookmarkHostService);
-    final chat = PluginScope.require(context, chatControllerService);
+    final bookmarkHost = PluginUiScope.require(
+      context,
+      chatBookmarkHostService,
+    );
+    final chat = PluginUiScope.require(context, chatControllerService);
     final canEdit = chat.canEditMessage(widget.siteUrl, widget.message);
     final canDelete = chat.canDeleteMessage(widget.siteUrl, widget.message);
     final canPin = chat.canPinMessage(widget.siteUrl, widget.message);
@@ -654,8 +660,11 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
 
   @override
   Widget build(BuildContext context) {
-    final chat = PluginScope.require(context, chatControllerService);
-    final bookmarkHost = PluginScope.require(context, chatBookmarkHostService);
+    final chat = PluginUiScope.require(context, chatControllerService);
+    final bookmarkHost = PluginUiScope.require(
+      context,
+      chatBookmarkHostService,
+    );
     return ValueListenableBuilder<ChatChannel?>(
       valueListenable: chat.channelRef(
         widget.siteUrl,
@@ -697,7 +706,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     final bookmarkLabel = widget.message.bookmark == null
         ? 'Bookmark'
         : 'Edit bookmark';
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     final canAddReaction = chat.canAddReactionToMessage(
       widget.siteUrl,
       widget.message,
@@ -1026,7 +1035,7 @@ class _Tile extends StatelessWidget {
         ChatPreviewBody(
           document: document,
           textStyle: messageTextStyle,
-          previewEngine: PluginScope.require(
+          previewEngine: PluginUiScope.require(
             context,
             chatControllerService,
           ).previewEngine,
@@ -1386,18 +1395,19 @@ Future<void> _pickChatMessageReaction({
   required ChatMessage message,
   BuildContext? anchorContext,
 }) async {
-  final chat = PluginScope.require(context, chatControllerService);
-  final emoji = PluginScope.require(context, chatEmojiHostService);
+  final chat = PluginUiScope.require(context, chatControllerService);
+  final emoji = PluginUiScope.require(context, chatEmojiHostService);
   if (!chat.canAddReactionToMessage(siteUrl, message)) return;
-  final lease = chat.lifecycle.capture(siteUrl);
+  final lease = chat.captureSession(siteUrl);
   final messenger = ScaffoldMessenger.maybeOf(context);
 
   bool stillOwnsMessage() {
     if (!lease.isCurrent) return false;
     if (context.mounted) {
-      final scope = PluginScope.maybeOf(context);
-      if (scope == null ||
-          !identical(scope.service(chatControllerService), chat)) {
+      if (!identical(
+        PluginUiScope.maybe(context, chatControllerService),
+        chat,
+      )) {
         return false;
       }
     }
@@ -1449,7 +1459,7 @@ class _Reactions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     return ValueListenableBuilder<ChatChannel?>(
       valueListenable: chat.channelRef(siteUrl, message.channelId),
       builder: (context, _, _) => _build(context),
@@ -1457,7 +1467,7 @@ class _Reactions extends StatelessWidget {
   }
 
   Widget _build(BuildContext context) {
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     final canAdd = chat.canAddReactionToMessage(siteUrl, message);
     bool canToggle(ChatReaction reaction) => reaction.reacted
         ? chat.canRemoveReactionFromMessage(siteUrl, message)

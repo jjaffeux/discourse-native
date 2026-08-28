@@ -38,7 +38,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_ready) return;
-    _chat = PluginScope.require(context, chatControllerService);
+    _chat = PluginUiScope.require(context, chatControllerService);
     _ready = true;
     unawaited(_chat.loadMyThreads(widget.siteUrl));
   }
@@ -147,7 +147,7 @@ class ChatThreadListRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chat = PluginScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
     final channel = chat.channel(siteUrl, thread.channelId);
     final original = thread.originalMessage;
     final author = original?.author;
@@ -259,7 +259,7 @@ class ChatThreadListRow extends StatelessWidget {
       final channel = await chat.ensureChannel(siteUrl, thread.channelId);
       if (!context.mounted) return;
       if (channel == null) throw StateError('Channel unavailable');
-      PluginScope.require(context, chatShellService).openThread(
+      PluginUiScope.require(context, chatShellService).openThread(
         siteUrl: siteUrl,
         channelId: channel.id,
         threadId: thread.id,

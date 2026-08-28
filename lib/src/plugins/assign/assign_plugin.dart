@@ -250,7 +250,7 @@ final class AssignPlugin
     BuildContext context,
     String siteUrl,
     TopicDetail topic,
-  ) => PluginScope.maybeOf(context)?.service(assignmentControllerService);
+  ) => PluginUiScope.maybe(context, assignmentControllerService);
 
   @override
   List<Widget> postDecorations(
@@ -343,9 +343,10 @@ final class AssignPlugin
     if (post.postNumber == 1) return PostMenuContribution.none;
     final postAssignments = post.plugins.get(assignmentsDataKey);
     final topic = menu.topic;
-    final assignmentController = PluginScope.maybeOf(
+    final assignmentController = PluginUiScope.maybe(
       context,
-    )?.service(assignmentControllerService);
+      assignmentControllerService,
+    );
     if (topic == null ||
         !_canAssignRecord(
           context,
@@ -562,9 +563,7 @@ Widget _assignmentPermissionBuilder({
   required bool? recordPermission,
   required Widget Function(bool canAssign) builder,
 }) {
-  final controller = PluginScope.maybeOf(
-    context,
-  )?.service(assignmentControllerService);
+  final controller = PluginUiScope.maybe(context, assignmentControllerService);
   if (controller == null) return builder(recordPermission == true);
   return ListenableBuilder(
     listenable: controller,
@@ -578,9 +577,7 @@ bool _canAssignRecord(
   AssignmentTarget target,
   bool? targetCanAssign,
 ) {
-  final controller = PluginScope.maybeOf(
-    context,
-  )?.service(assignmentControllerService);
+  final controller = PluginUiScope.maybe(context, assignmentControllerService);
   if (controller == null) return targetCanAssign == true;
   return controller.canAssign(siteUrl, target);
 }

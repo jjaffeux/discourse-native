@@ -14,8 +14,8 @@ class ResenhaCallWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = PluginScope.require(context, resenhaControllerService);
-    final shell = PluginScope.require(context, resenhaShellService);
+    final controller = PluginUiScope.require(context, resenhaControllerService);
+    final shell = PluginUiScope.require(context, resenhaShellService);
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {

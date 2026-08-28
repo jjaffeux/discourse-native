@@ -1,14 +1,11 @@
 import 'dart:async';
 
-import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
-import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugins/assign/assign_api.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'support/fakes.dart';
 
 const _site = 'https://example.com';
 const _topic = AssignmentTarget.topic(7);
@@ -17,8 +14,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late _PluginTransport transport;
-  late FakeApiCredentialReader credentials;
-  late SiteLifecycle lifecycle;
+  late _RequestHost requests;
   late List<int> reloads;
   late bool allowed;
   late List<String> invalidatedFallbacks;
@@ -26,15 +22,13 @@ void main() {
 
   setUp(() {
     transport = _PluginTransport();
-    credentials = FakeApiCredentialReader()..keys[_site] = 'key';
-    lifecycle = SiteLifecycle();
+    requests = _RequestHost();
     reloads = [];
     allowed = true;
     invalidatedFallbacks = [];
     controller = AssignmentController(
       api: AssignApi(transport),
-      credentials: credentials,
-      lifecycle: lifecycle,
+      requests: requests,
       canAssign: (_, _) => allowed,
       reloadTopic: (_, topicId) async => reloads.add(topicId),
       invalidateLegacyFallback: invalidatedFallbacks.add,
@@ -130,8 +124,7 @@ void main() {
       );
       final snapshotController = AssignmentController(
         api: AssignApi(transport),
-        credentials: credentials,
-        lifecycle: lifecycle,
+        requests: requests,
         permissionSnapshot: (_, _) =>
             (valid: true, recordPermission: null, freshAccountCanAssign: true),
         reloadTopic: (_, topicId) async => reloads.add(topicId),
@@ -212,12 +205,11 @@ void main() {
   test(
     'dispose during credential lookup prevents assignment side effects',
     () async {
-      final gatedCredentials = _GatedCredentials();
+      final gatedRequests = _GatedRequestHost();
       final disposedReloads = <int>[];
       final disposedController = AssignmentController(
         api: AssignApi(transport),
-        credentials: gatedCredentials,
-        lifecycle: lifecycle,
+        requests: gatedRequests,
         canAssign: (_, _) => true,
         reloadTopic: (_, topicId) async => disposedReloads.add(topicId),
         invalidateLegacyFallback: (_) {},
@@ -228,34 +220,37 @@ void main() {
         _topic,
         const AssignmentUser(username: 'sam'),
       );
-      await _waitUntil(() => gatedCredentials.apiKeyCalls == 1);
+      await _waitUntil(() => gatedRequests.credentialCalls == 1);
 
       disposedController.dispose();
-      gatedCredentials.apiKey.complete('stale-key');
+      gatedRequests.credentials.complete(
+        const PluginRequestCredentials(apiKey: 'stale-key', clientId: 'test'),
+      );
 
       expect(await assignment, contains("can't post"));
-      expect(gatedCredentials.clientIdCalls, 0);
       expect(transport.writes, isEmpty);
       expect(disposedReloads, isEmpty);
     },
   );
 
-  test('dispose during client-id lookup prevents the plugin read', () async {
-    final gatedCredentials = _GatedClientIdCredentials();
-    final disposedController = AssignmentController(
+  test('an invalidated site lease prevents a stale plugin read', () async {
+    final gatedRequests = _GatedRequestHost();
+    final staleController = AssignmentController(
       api: AssignApi(transport),
-      credentials: gatedCredentials,
-      lifecycle: lifecycle,
+      requests: gatedRequests,
       canAssign: (_, _) => true,
       reloadTopic: (_, _) async {},
       invalidateLegacyFallback: (_) {},
     );
+    addTearDown(staleController.dispose);
 
-    final suggestions = disposedController.suggestions(_site, _topic);
-    await _waitUntil(() => gatedCredentials.clientIdCalls == 1);
+    final suggestions = staleController.suggestions(_site, _topic);
+    await _waitUntil(() => gatedRequests.credentialCalls == 1);
 
-    disposedController.dispose();
-    gatedCredentials.clientIdResult.complete('stale-client');
+    gatedRequests.invalidate();
+    gatedRequests.credentials.complete(
+      const PluginRequestCredentials(apiKey: 'stale-key', clientId: 'stale'),
+    );
 
     await expectLater(
       suggestions,
@@ -280,35 +275,59 @@ Future<void> _waitUntil(bool Function() condition) async {
   fail('Condition was not reached.');
 }
 
-final class _GatedCredentials implements ApiCredentialReader {
-  final apiKey = Completer<String?>();
-  int apiKeyCalls = 0;
-  int clientIdCalls = 0;
+final class _RequestHost implements PluginRequestHost {
+  @override
+  PluginSiteLease capture(String siteUrl) => _Lease();
 
   @override
-  Future<String?> apiKeyFor(String siteUrl) {
-    apiKeyCalls++;
-    return apiKey.future;
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) async =>
+      const PluginRequestCredentials(apiKey: 'key', clientId: 'test-client');
+
+  @override
+  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async =>
+      (apiKey: 'key', failure: null);
+}
+
+final class _GatedRequestHost implements PluginRequestHost {
+  final credentials = Completer<PluginRequestCredentials>();
+  final _leases = <_Lease>[];
+  int credentialCalls = 0;
+
+  @override
+  PluginSiteLease capture(String siteUrl) {
+    final lease = _Lease();
+    _leases.add(lease);
+    return lease;
   }
 
   @override
-  Future<String> clientId() async {
-    clientIdCalls++;
-    return 'test-client';
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) {
+    credentialCalls++;
+    return credentials.future;
+  }
+
+  @override
+  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async =>
+      (apiKey: 'key', failure: null);
+
+  void invalidate() {
+    for (final lease in _leases) {
+      lease.current = false;
+    }
   }
 }
 
-final class _GatedClientIdCredentials implements ApiCredentialReader {
-  final clientIdResult = Completer<String>();
-  int clientIdCalls = 0;
+final class _Lease implements PluginSiteLease {
+  bool current = true;
 
   @override
-  Future<String?> apiKeyFor(String siteUrl) async => 'test-key';
+  bool get isCurrent => current;
 
   @override
-  Future<String> clientId() {
-    clientIdCalls++;
-    return clientIdResult.future;
+  bool commit(void Function() mutation) {
+    if (!current) return false;
+    mutation();
+    return true;
   }
 }
 

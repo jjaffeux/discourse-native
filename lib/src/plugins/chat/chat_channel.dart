@@ -784,7 +784,7 @@ class ChatChannel with Storable<ChatChannel> {
   final String? slug;
 
   /// The bare emoji name a channel was given, or null. Resolved to artwork
-  /// where it is drawn, through `ShellController.emojiUrlFor`, so a site's
+  /// where it is drawn, through the host emoji resolver, so a site's
   /// custom emoji and its chosen set apply here the way they do inside a post.
   final String? emoji;
 

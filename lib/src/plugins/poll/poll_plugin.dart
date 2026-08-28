@@ -5,19 +5,19 @@ import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../models/post.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/external_link.dart';
-import '../../shell/shell_controller.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
 import 'poll.dart';
 import 'poll_card.dart';
 import 'poll_composer_editor.dart';
 import 'poll_composer_pill.dart';
 import 'poll_composer_sheet.dart';
+import 'poll_controller.dart';
 import 'poll_data.dart';
 import 'poll_icons.dart';
-import 'poll_shell_extension.dart';
+import 'poll_services.dart';
 
 export 'poll_data.dart';
 
@@ -88,8 +88,10 @@ class PollPlugin
       Polls.fromJson(json, siteUrl);
 
   @override
-  Widget? postBodyElement(String siteUrl, Post post, dom.Element element) {
+  Widget? postBodyElement(PluginPostBodyContext body, dom.Element element) {
     if (!element.classes.contains('poll')) return null;
+    final siteUrl = body.siteUrl;
+    final post = body.post;
     final name = element.attributes['data-poll-name'];
     if (name == null || name.isEmpty) {
       return PollFallbackCard.fromCooked(element, siteUrl: siteUrl);
@@ -97,7 +99,16 @@ class PollPlugin
     final poll = post.polls?[name];
     return poll == null
         ? PollFallbackCard.fromCooked(element, siteUrl: siteUrl)
-        : _PostPollCard(siteUrl: siteUrl, post: post, poll: poll);
+        : _PostPollCard(
+            siteUrl: siteUrl,
+            post: post,
+            poll: poll,
+            topic: body.topic,
+            controller: PluginUiScope.maybe(
+              body.buildContext,
+              pollControllerService,
+            ),
+          );
   }
 
   @override
@@ -447,67 +458,73 @@ class _PostPollCard extends StatelessWidget {
     required this.siteUrl,
     required this.post,
     required this.poll,
+    required this.topic,
+    required this.controller,
   });
 
   final String siteUrl;
   final Post post;
   final Poll poll;
+  final PluginContainingTopic? topic;
+  final PollController? controller;
 
   @override
   Widget build(BuildContext context) {
-    // A poll depends on shell state that does not rewrite the Post itself:
-    // session-fresh group membership and the per-post write lease. Subscribe
-    // here so restricted cards unlock after the session read and every card on
-    // the post disables while any one of them is saving.
-    final controller = ShellScope.maybeOf(context);
-    final route = controller?.currentContent;
-    final topicId = route?.topicId;
-    final instance = controller?.instances
-        .where((instance) => instance.url == siteUrl)
-        .firstOrNull;
+    final controller = this.controller;
+    if (controller == null) return _buildCard(context, null);
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => _buildCard(context, controller),
+    );
+  }
+
+  Widget _buildCard(BuildContext context, PollController? controller) {
+    final topic = this.topic;
     final freshUser = controller?.freshCurrentUserFor(siteUrl);
-    final archived = topicId == null
-        ? false
-        : controller?.store.read<TopicDetail>(siteUrl, topicId)?.archived ==
-              true;
-    final postUrl = topicId == null
+    final postUrl = topic == null
         ? null
-        : '$siteUrl/t/${_slug(route?.slug)}/$topicId/${post.postNumber}';
+        : '$siteUrl/t/${_slug(topic.slug)}/${topic.id}/${post.postNumber}';
 
     Future<void> vote(Poll target, List<String> options) async {
-      final result = await controller?.castPollVote(
-        post,
-        target,
-        options,
+      if (controller == null || topic == null) return;
+      final result = await controller.castVote(
         siteUrl: siteUrl,
+        topicId: topic.id,
+        archived: topic.archived,
+        post: post,
+        poll: target,
+        optionIds: options,
       );
-      if (result?.message case final message?) {
+      if (result.message case final message?) {
         throw _PollWriteRefused(message);
       }
-      if (result?.reconciled == true) throw const _PollVoteReconciled();
+      if (result.reconciled) throw const _PollVoteReconciled();
     }
 
     Future<void> remove(Poll target) async {
-      final result = await controller?.removePollVote(
-        post,
-        target,
+      if (controller == null || topic == null) return;
+      final result = await controller.removeVote(
         siteUrl: siteUrl,
+        topicId: topic.id,
+        archived: topic.archived,
+        post: post,
+        poll: target,
       );
-      if (result?.message case final message?) {
+      if (result.message case final message?) {
         throw _PollWriteRefused(message);
       }
-      if (result?.reconciled == true) throw const _PollVoteReconciled();
+      if (result.reconciled) throw const _PollVoteReconciled();
     }
 
     return PollCard(
       poll: poll,
       siteUrl: siteUrl,
-      signedIn: instance?.isConnected == true,
+      signedIn: controller?.isConnected(siteUrl) == true,
       currentUserGroups: freshUser?.groups,
-      archived: archived,
-      pending: controller?.postWriteInFlight(post.id, siteUrl: siteUrl) == true,
-      onVote: controller == null ? null : vote,
-      onRemoveVote: controller == null ? null : remove,
+      archived: topic?.archived == true,
+      pending: controller?.writeInFlight(siteUrl, post.id) == true,
+      onVote: controller == null || topic == null ? null : vote,
+      onRemoveVote: controller == null || topic == null ? null : remove,
       onVoteError: (error) {
         if (!context.mounted) return;
         final text = switch (error) {
@@ -523,10 +540,9 @@ class _PostPollCard extends StatelessWidget {
       onVoteOnWeb: postUrl == null
           ? null
           : () => unawaited(openExternalLink(postUrl)),
-      onConnectAccount:
-          controller == null || instance == null || instance.isConnected
+      onConnectAccount: controller == null || controller.isConnected(siteUrl)
           ? null
-          : () => unawaited(_connect(context, controller)),
+          : () => unawaited(_connect(context, controller, siteUrl)),
     );
   }
 
@@ -535,14 +551,17 @@ class _PostPollCard extends StatelessWidget {
 
   static Future<void> _connect(
     BuildContext context,
-    ShellController controller,
+    PollController controller,
+    String siteUrl,
   ) async {
-    await controller.connectCurrentInstance();
+    final error = await controller.connect(siteUrl);
     if (!context.mounted ||
-        !identical(ShellScope.maybeRead(context), controller)) {
+        !identical(
+          PluginUiScope.maybe(context, pollControllerService),
+          controller,
+        )) {
       return;
     }
-    final error = controller.connectError;
     if (error != null) {
       ScaffoldMessenger.maybeOf(
         context,

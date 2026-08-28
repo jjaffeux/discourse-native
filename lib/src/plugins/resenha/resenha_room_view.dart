@@ -10,7 +10,6 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/select.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -18,22 +17,30 @@ import 'resenha_controller.dart';
 import 'resenha_models.dart';
 import 'resenha_room_editor.dart';
 import 'resenha_services.dart';
-import 'resenha_settings.dart';
+import 'resenha_shell_service.dart';
 
 export 'resenha_room_editor.dart' show showResenhaRoomEditor;
 
 class ResenhaRoomView extends StatelessWidget {
-  const ResenhaRoomView({super.key, required this.roomId, this.controller});
+  const ResenhaRoomView({
+    super.key,
+    required this.roomId,
+    this.controller,
+    this.shell,
+  });
 
   final int roomId;
   final ResenhaController? controller;
+  final ResenhaShellService? shell;
 
   @override
   Widget build(BuildContext context) {
-    final shell = ShellScope.read(context);
+    final shell =
+        this.shell ?? PluginUiScope.require(context, resenhaShellService);
     final controller =
         this.controller ??
-        PluginScope.require(context, resenhaControllerService);
+        (this.shell?.controller ??
+            PluginUiScope.require(context, resenhaControllerService));
     final site = shell.currentInstance;
     if (site == null) return const SizedBox.shrink();
     return ListenableBuilder(
@@ -49,7 +56,7 @@ class ResenhaRoomView extends StatelessWidget {
             inRoom &&
             call!.room.canManage &&
             call.media.transport == ResenhaTransport.livekit &&
-            shell.siteConfigFor(site.url).resenhaSettings.recordingEnabled;
+            shell.recordingEnabledFor(site.url);
         return Focus(
           autofocus: true,
           onKeyEvent: (_, event) {
@@ -71,7 +78,7 @@ class ResenhaRoomView extends StatelessWidget {
             call: inRoom ? call : null,
             siteUrl: site.url,
             siteName: site.title,
-            currentUserId: site.user?.id,
+            currentUserId: shell.currentUserIdFor(site.url),
             recordingEnabled: recordingEnabled,
           ),
         );
@@ -559,7 +566,7 @@ class _CallControls extends StatelessWidget {
               context,
               siteUrl: siteUrl,
               room: call.room,
-              // A dialog can outlive the ShellController that opened it when
+              // A dialog can outlive the plugin session that opened it when
               // the root app is replaced. Resolve at save time; the explicit
               // controller remains the fallback for standalone widget hosts.
               controllerResolver: () =>
@@ -1047,7 +1054,7 @@ ResenhaController _resolveController(
   ResenhaController Function()? resolver,
 ) =>
     resolver?.call() ??
-    PluginScope.maybeOf(context)?.maybeService(resenhaControllerService) ??
+    PluginUiScope.maybe(context, resenhaControllerService) ??
     fallback;
 
 Future<void> showResenhaChat(
@@ -1056,7 +1063,7 @@ Future<void> showResenhaChat(
   required int roomId,
 }) => _showResenhaChat(
   context,
-  PluginScope.require(context, resenhaControllerService),
+  PluginUiScope.require(context, resenhaControllerService),
   siteUrl: siteUrl,
   roomId: roomId,
 );
@@ -1217,7 +1224,7 @@ Future<void> showResenhaMembers(
   required ResenhaRoom room,
 }) => _showResenhaMembers(
   context,
-  PluginScope.require(context, resenhaControllerService),
+  PluginUiScope.require(context, resenhaControllerService),
   siteUrl: siteUrl,
   room: room,
 );

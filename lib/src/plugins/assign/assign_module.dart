@@ -21,12 +21,12 @@ final class AssignModule implements PluginModule {
     registrar.addSession(
       (bindings, _) {
         final targetHost = bindings.require(corePluginTargetPort);
+        final freshAccount = bindings.require(corePluginFreshAccountPort);
         final topicRefresh = bindings.require(corePluginTopicRefreshPort);
         final siteState = bindings.require(corePluginSiteStatePort);
         final controller = AssignmentController(
           api: AssignApi(bindings.require(corePluginTransportPort)),
-          credentials: bindings.require(corePluginCredentialsPort),
-          lifecycle: bindings.require(corePluginSiteLifecyclePort),
+          requests: bindings.require(corePluginRequestPort),
           permissionSnapshot: (siteUrl, target) {
             final reference = switch (target.type) {
               AssignmentTargetType.topic => PluginTarget.topic(target.id),
@@ -35,14 +35,19 @@ final class AssignModule implements PluginModule {
                 topicId: target.topicId,
               ),
             };
-            final snapshot = targetHost.dataForTarget(siteUrl, reference);
+            final snapshot = targetHost.recordFor(
+              siteUrl,
+              reference,
+              assignmentsDataKey,
+            );
             return (
               valid: snapshot.valid,
-              recordPermission: snapshot.data
-                  .get(assignmentsDataKey)
-                  ?.canAssign,
+              recordPermission: snapshot.value?.canAssign,
               freshAccountCanAssign:
-                  targetHost.freshCurrentUserFor(siteUrl)?.canAssign == true,
+                  freshAccount
+                      .recordFor(siteUrl, assignCurrentUserDataKey)
+                      ?.canAssign ==
+                  true,
             );
           },
           statusOptionsReader: (siteUrl) {
@@ -65,9 +70,9 @@ final class AssignModule implements PluginModule {
       },
       requires: const [
         corePluginTransportPort,
-        corePluginCredentialsPort,
-        corePluginSiteLifecyclePort,
+        corePluginRequestPort,
         corePluginTargetPort,
+        corePluginFreshAccountPort,
         corePluginTopicRefreshPort,
         corePluginSiteStatePort,
         pluginDiagnosticsReporterPort,

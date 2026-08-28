@@ -9,10 +9,12 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/user_card.dart';
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_controller.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
-import 'package:discourse_native/src/plugins/reactions/reactions_shell_extension.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_services.dart';
 import 'package:discourse_native/src/shell/instance_actions.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
@@ -393,25 +395,29 @@ void main() {
     addTearDown(second.dispose);
 
     Future<void> openReactors(BuildContext context) {
-      final reactions = ShellScope.read(context).reactions;
+      final reactions = _reactionsFor(context);
       unawaited(
         reactions.load(siteUrl: _siteUrl, postId: post.id, filter: 'clap'),
       );
       return showShellSheet<void>(
         context: context,
         title: '1 reaction',
-        builder: (_) =>
-            const ReactorList(siteUrl: _siteUrl, post: post, filter: 'clap'),
+        builder: (sheetContext) => ReactorList(
+          controller: _reactionsFor(sheetContext),
+          siteUrl: _siteUrl,
+          post: post,
+          filter: 'clap',
+        ),
       );
     }
 
-    await tester.pumpWidget(_host(first, openReactors));
+    await tester.pumpWidget(_reactionHost(first, openReactors));
     await tester.tap(find.text('Open'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(firstApi.reactorsRequested, [(postId: 1, filter: 'clap')]);
 
-    await tester.pumpWidget(_host(second, openReactors));
+    await tester.pumpWidget(_reactionHost(second, openReactors));
     await tester.pumpAndSettle();
     expect(secondApi.reactorsRequested, [(postId: 1, filter: 'clap')]);
     expect(find.text('Replacement reactor'), findsOneWidget);
@@ -477,9 +483,9 @@ void main() {
     addTearDown(second.dispose);
 
     Future<void> openPicker(BuildContext context) =>
-        showReactionPicker(context, _siteUrl, post);
+        showReactionPicker(context, _reactionsFor(context), _siteUrl, post);
 
-    await tester.pumpWidget(_host(first, openPicker));
+    await tester.pumpWidget(_reactionHost(first, openPicker));
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
     final cell = find.descendant(
@@ -490,7 +496,7 @@ void main() {
     await tester.pump();
     expect(firstApi.reacted, [(postId: 1, reaction: 'heart')]);
 
-    await tester.pumpWidget(_host(second, openPicker));
+    await tester.pumpWidget(_reactionHost(second, openPicker));
     gate.complete();
     await tester.pumpAndSettle();
 
@@ -511,10 +517,14 @@ void main() {
     await controller.load();
     addTearDown(controller.dispose);
 
-    Future<void> openPicker(BuildContext context) =>
-        showReactionPicker(context, _siteUrl, _reactablePost());
+    Future<void> openPicker(BuildContext context) => showReactionPicker(
+      context,
+      _reactionsFor(context),
+      _siteUrl,
+      _reactablePost(),
+    );
 
-    await tester.pumpWidget(_host(controller, openPicker));
+    await tester.pumpWidget(_reactionHost(controller, openPicker));
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
 
@@ -547,10 +557,14 @@ void main() {
     await controller.load();
     addTearDown(controller.dispose);
 
-    Future<void> openPicker(BuildContext context) =>
-        showReactionPicker(context, _siteUrl, _reactablePost());
+    Future<void> openPicker(BuildContext context) => showReactionPicker(
+      context,
+      _reactionsFor(context),
+      _siteUrl,
+      _reactablePost(),
+    );
 
-    await tester.pumpWidget(_host(controller, openPicker));
+    await tester.pumpWidget(_reactionHost(controller, openPicker));
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
     await tester.tap(
@@ -622,6 +636,11 @@ void main() {
 
 typedef _OpenModal = Future<void> Function(BuildContext context);
 
+ReactionsController _reactionsFor(BuildContext context) =>
+    ShellScope.identityOf(
+      context,
+    ).pluginSession.require(reactionsControllerService);
+
 Widget _host(ShellController controller, _OpenModal open) => ShellScope(
   controller: controller,
   child: MaterialApp(
@@ -631,6 +650,24 @@ Widget _host(ShellController controller, _OpenModal open) => ShellScope(
         builder: (context) => FilledButton(
           onPressed: () => unawaited(open(context)),
           child: const Text('Open'),
+        ),
+      ),
+    ),
+  ),
+);
+
+Widget _reactionHost(ShellController controller, _OpenModal open) => ShellScope(
+  controller: controller,
+  child: MaterialApp(
+    theme: AppTheme.light,
+    home: Scaffold(
+      body: PluginUiScope.own(
+        reactionsPluginId,
+        Builder(
+          builder: (context) => FilledButton(
+            onPressed: () => unawaited(open(context)),
+            child: const Text('Open'),
+          ),
         ),
       ),
     ),

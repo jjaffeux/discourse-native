@@ -1,6 +1,8 @@
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_services.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_shell_service.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -68,5 +70,13 @@ void main() {
     expect(plugins.registry.plugins, isEmpty);
     expect(() => controller.chat, throwsStateError);
     expect(controller.pluginSession.maybeService(resenhaShellService), isNull);
+    expect(
+      () => controller.pluginSession.require(chatControllerService),
+      throwsStateError,
+    );
+    expect(
+      () => controller.pluginSession.require(resenhaControllerService),
+      throwsStateError,
+    );
   });
 }

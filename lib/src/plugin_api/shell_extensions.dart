@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
@@ -50,8 +52,13 @@ abstract interface class PluginRouteNavigationHost {
 
 /// Full navigation primitives used by a plugin with nested/restored routes.
 abstract interface class PluginNavigationHost {
+  /// Invalidates navigation-derived presentation snapshots without exposing
+  /// the concrete shell notifier to the plugin.
+  Listenable get changes;
+
   List<DiscourseInstance> get instances;
   DiscourseInstance? get currentInstance;
+  bool get forumActive;
   bool get isDisposed;
   ContentRoute? get currentContent;
   List<ContentRoute> get contentStack;

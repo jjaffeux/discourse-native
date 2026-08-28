@@ -208,9 +208,9 @@ class _ChatComposerState extends State<ChatComposer> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _useComposer(
-      PluginScope.require(context, chatComposerHostService),
-      PluginScope.require(context, chatEmojiHostService),
-      PluginScope.require(context, chatControllerService),
+      PluginUiScope.require(context, chatComposerHostService),
+      PluginUiScope.require(context, chatEmojiHostService),
+      PluginUiScope.require(context, chatControllerService),
     );
   }
 
@@ -306,9 +306,9 @@ class _ChatComposerState extends State<ChatComposer> {
       return;
     }
     _useComposer(
-      _host ?? PluginScope.require(context, chatComposerHostService),
-      _emoji ?? PluginScope.require(context, chatEmojiHostService),
-      _chat ?? PluginScope.require(context, chatControllerService),
+      _host ?? PluginUiScope.require(context, chatComposerHostService),
+      _emoji ?? PluginUiScope.require(context, chatEmojiHostService),
+      _chat ?? PluginUiScope.require(context, chatControllerService),
     );
   }
 
@@ -428,25 +428,23 @@ class _ChatComposerState extends State<ChatComposer> {
     final host = _host;
     final composer = _composer;
     final sourceKey = _sourceKey;
-    final gifPicker = PluginScope.maybeOf(
-      context,
-    )?.maybeService(gifsPickerSessionService);
+    final gifs = PluginUiScope.maybe(context, chatGifsService);
     if (host == null ||
         composer == null ||
         sourceKey == null ||
-        gifPicker == null ||
+        gifs == null ||
         _pickingGif ||
         _pickingEmoji ||
         _savingEdit ||
         widget.editingMessage != null ||
-        !gifPicker.isAvailable(widget.siteUrl) ||
+        !gifs.isAvailable(widget.siteUrl) ||
         !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
       return;
     }
 
     setState(() => _pickingGif = true);
     try {
-      final result = await gifPicker.showPicker(
+      final result = await gifs.showPicker(
         context: context,
         siteUrl: widget.siteUrl,
       );
@@ -561,7 +559,7 @@ class _ChatComposerState extends State<ChatComposer> {
     if (composer == null || host == null) return const SizedBox.shrink();
 
     return ValueListenableBuilder<ChatChannel?>(
-      valueListenable: PluginScope.require(
+      valueListenable: PluginUiScope.require(
         context,
         chatControllerService,
       ).channelRef(widget.siteUrl, widget.channelId),
@@ -743,10 +741,8 @@ class _ChatComposerState extends State<ChatComposer> {
                 composer.target.siteUrl,
               ),
               builder: (context, _, _) {
-                final gifPicker = PluginScope.maybeOf(
-                  context,
-                )?.maybeService(gifsPickerSessionService);
-                return gifPicker?.isAvailable(widget.siteUrl) ?? false
+                final gifs = PluginUiScope.maybe(context, chatGifsService);
+                return gifs?.isAvailable(widget.siteUrl) ?? false
                     ? Center(
                         child: DButton.iconOnly(
                           key: const ValueKey('chat-composer-gif'),
@@ -762,14 +758,7 @@ class _ChatComposerState extends State<ChatComposer> {
                                       false)
                               ? null
                               : () => unawaited(_pickGif()),
-                          icon: DIcon(
-                            PluginScope.maybeOf(context)?.registry.iconNamed(
-                                  'gif',
-                                  fallback: DIcons.paperclip,
-                                ) ??
-                                DIcons.paperclip,
-                            size: 18,
-                          ),
+                          icon: const DIcon(DIcons.paperclip, size: 18),
                           tooltip: 'Send GIF',
                           variant: DButtonVariant.flat,
                         ),

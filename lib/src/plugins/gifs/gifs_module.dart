@@ -29,8 +29,7 @@ final class GifsModule implements PluginModule {
                 api: transport is GifsApi
                     ? transport as GifsApi
                     : GifsApiClient(transport),
-                credentials: bindings.require(corePluginCredentialsPort),
-                lifecycle: bindings.require(corePluginSiteLifecyclePort),
+                requests: bindings.require(corePluginRequestPort),
                 siteConfigFor: bindings
                     .require(corePluginSiteStatePort)
                     .siteConfigFor,
@@ -41,8 +40,7 @@ final class GifsModule implements PluginModule {
       },
       requires: const [
         corePluginTransportPort,
-        corePluginCredentialsPort,
-        corePluginSiteLifecyclePort,
+        corePluginRequestPort,
         corePluginSiteStatePort,
       ],
     );

@@ -44,7 +44,6 @@ void main() {
     );
 
     final resenha = shell.pluginSession.require(resenhaShellService);
-    expect(resenha.host, isNot(isA<ShellController>()));
     resenha.openRoom(siteUrl: site.url, route: room);
     resenha.openRoom(siteUrl: site.url, route: room);
 

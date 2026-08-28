@@ -75,10 +75,7 @@ void main() {
     final host = registry.scopedTo(alpha);
 
     expect(host, isNot(isA<PluginBackgroundRetentionRegistry>()));
-    expect(
-      () => host.retain('https://hostile.example'),
-      throwsArgumentError,
-    );
+    expect(() => host.retain('https://hostile.example'), throwsArgumentError);
     expect(registry.siteUrls, isEmpty);
   });
 
