@@ -33,11 +33,14 @@ const _member = GroupMember(
   owner: true,
 );
 
+void _ignoreMember(BuildContext context, GroupMember member) {}
+
 void main() {
   testWidgets('header actions and capability-gated primary tabs are native', (
     tester,
   ) async {
     GroupMembershipAction? membership;
+    GroupMember? openedMember;
     GroupRoute? selected;
     var messaged = false;
 
@@ -56,6 +59,7 @@ void main() {
         ),
         onMembershipAction: (action) async => membership = action,
         onMessageGroup: () => messaged = true,
+        onOpenMember: (_, member) => openedMember = member,
         onSelectRoute: (route) => selected = route,
       ),
     );
@@ -83,6 +87,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('group-message')));
     expect(messaged, isTrue);
 
+    await tester.tap(find.text('Sam Example'));
+    expect(openedMember, _member);
+
     await tester.tap(find.byKey(const ValueKey('group-tab-activity')));
     expect(selected?.section, GroupRoute.activity);
     expect(selected?.subsection, GroupRoute.posts);
@@ -105,6 +112,7 @@ void main() {
           subsection: GroupRoute.posts,
         ),
         registry: PluginRegistry.empty,
+        onOpenMember: _ignoreMember,
         data: const GroupPageData(
           detail: _detail,
           activity: GroupActivityPage(
@@ -140,6 +148,7 @@ void main() {
         siteUrl: 'https://meta.discourse.org',
         route: GroupRoute.detail('support', section: GroupRoute.requests),
         registry: PluginRegistry.empty,
+        onOpenMember: _ignoreMember,
         data: const GroupPageData(
           detail: _detail,
           requesters: GroupRequestersPage(
@@ -168,6 +177,7 @@ void main() {
           subsection: GroupRoute.archive,
         ),
         registry: PluginRegistry.empty,
+        onOpenMember: _ignoreMember,
         data: const GroupPageData(
           detail: _detail,
           canSendPrivateMessages: true,
@@ -201,6 +211,7 @@ void main() {
           subsection: GroupRoute.tags,
         ),
         registry: PluginRegistry.empty,
+        onOpenMember: _ignoreMember,
         data: const GroupPageData(
           detail: _detail,
           smtpEnabled: true,
@@ -251,6 +262,7 @@ void main() {
           section: 'insights',
         ),
         registry: registry,
+        onOpenMember: _ignoreMember,
         data: const GroupPageData(detail: _detail, loaded: true),
         onSelectRoute: (route) => selected = route,
       ),
