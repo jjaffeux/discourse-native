@@ -4283,8 +4283,17 @@ void main() {
       final title = find.byKey(const ValueKey('topic-header-title'));
       final metadata = find.byKey(const ValueKey('topic-header-metadata'));
       final gap = tester.getRect(metadata).top - tester.getRect(title).bottom;
+      final category = find.descendant(
+        of: metadata,
+        matching: find.text('Updates'),
+      );
+      final tag = find.descendant(of: metadata, matching: find.text('#weekly'));
 
       expect(gap, lessThanOrEqualTo(18));
+      expect(
+        tester.getTopLeft(tag).dy,
+        closeTo(tester.getTopLeft(category).dy, 0.01),
+      );
       expect(tester.takeException(), isNull);
     });
 
