@@ -537,7 +537,9 @@ class _TopicContentHeader extends StatelessWidget {
                       ? 'Manage ${topic.bookmarks.length} topic bookmark${topic.bookmarks.length == 1 ? '' : 's'}'
                       : 'Bookmark this topic',
                   loading: bookmarkBusy,
-                  variant: DButtonVariant.flat,
+                  variant: topic.topicBookmark != null
+                      ? DButtonVariant.transparentPrimary
+                      : DButtonVariant.flat,
                   size: DButtonSize.small,
                 ),
               _TopicStatusButton(

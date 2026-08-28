@@ -4131,6 +4131,7 @@ void main() {
       bool canFlagTopic = false,
       bool canCreatePost = false,
       List<PostActionSummary> topicActions = const [],
+      List<Bookmark> bookmarks = const [],
     }) => topicPayload(
       id: 7,
       title: 'A real topic',
@@ -4154,6 +4155,7 @@ void main() {
       canFlagTopic: canFlagTopic,
       canCreatePost: canCreatePost,
       topicActions: topicActions,
+      bookmarks: bookmarks,
     );
 
     testWidgets('tapping a row replaces the list with the topic', (
@@ -4405,6 +4407,46 @@ void main() {
         expect(find.text('Close topic'), findsOneWidget);
       },
     );
+
+    testWidgets('only a topic bookmark gives its action the core accent', (
+      tester,
+    ) async {
+      const reader = DiscourseUser(id: 1, username: 'reader');
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      Future<DButtonVariant> bookmarkVariant(Bookmark bookmark) async {
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {
+            7: detail(bookmarks: [bookmark]),
+          },
+        );
+        await pumpShell(
+          tester,
+          desktop,
+          instances: [instance('meta.discourse.org').copyWith(user: reader)],
+          api: api,
+          authenticator: authenticator,
+        );
+        await tester.tap(contentText('A real topic'));
+        await tester.pumpAndSettle();
+        return tester
+            .widget<DButton>(
+              find.byKey(const ValueKey('topic-bookmark-button')),
+            )
+            .variant;
+      }
+
+      expect(
+        await bookmarkVariant(const Bookmark(id: 1, bookmarkableType: 'Topic')),
+        DButtonVariant.transparentPrimary,
+      );
+      expect(
+        await bookmarkVariant(const Bookmark(id: 2, bookmarkableType: 'Post')),
+        DButtonVariant.flat,
+      );
+    });
 
     testWidgets('topic sharing copies and hands off core’s canonical link', (
       tester,
