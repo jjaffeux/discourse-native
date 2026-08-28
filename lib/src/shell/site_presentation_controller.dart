@@ -4,6 +4,7 @@ import '../data/api_credentials.dart';
 import '../data/site_lifecycle.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../models/discourse_emoji_aliases.dart';
 import '../models/site_appearance.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
@@ -201,21 +202,36 @@ final class SitePresentationController extends FrameSafeNotifier {
     return configFor(siteUrl).emojiUrl(name, siteUrl: siteUrl);
   }
 
-  /// Whether [name] — a bare shortcode value, `:tN` tone suffix included — is
-  /// an emoji this site is known to serve artwork for.
+  /// Resolves [name] — a bare shortcode value, `:tN` tone suffix included —
+  /// to artwork this site is known to serve.
   ///
   /// [emojiUrlFor] answers for every name, registered or not, because the
   /// standard-set address is deterministic. Prose that finds `:30:` in a time
-  /// needs the narrower question, and false covers both a name the catalog
-  /// rules out and a catalog not fetched yet: fabricating artwork for either
-  /// is a guaranteed 404. Custom uploads answer from their eagerly loaded map
-  /// so they need no catalog to resolve.
-  bool knowsEmoji(String siteUrl, String name) {
+  /// needs the narrower question. Discourse's picker catalog only carries
+  /// canonical names, while valid prose may use aliases such as `:mega:`;
+  /// those resolve through the same built-in alias table as core, but only if
+  /// the canonical target is present in this site's filtered catalog.
+  ///
+  /// Custom uploads answer from their eagerly loaded map, so they need no
+  /// catalog to resolve.
+  String? emojiNameFor(String siteUrl, String name) {
     final tone = _toneSuffix.firstMatch(name);
     final base = tone == null ? name : name.substring(0, tone.start);
-    if (_customEmojis[siteUrl]?.containsKey(base) ?? false) return true;
-    return _emojiCatalogs[siteUrl]?.byName.containsKey(base) ?? false;
+    if (_customEmojis[siteUrl]?.containsKey(base) ?? false) return name;
+
+    final catalog = _emojiCatalogs[siteUrl];
+    if (catalog == null) return null;
+    if (catalog.byName.containsKey(base)) return name;
+
+    final canonical = discourseEmojiAliases[base];
+    if (canonical == null || !catalog.byName.containsKey(canonical)) {
+      return null;
+    }
+    return '$canonical${tone?.group(0) ?? ''}';
   }
+
+  bool knowsEmoji(String siteUrl, String name) =>
+      emojiNameFor(siteUrl, name) != null;
 
   static final RegExp _toneSuffix = RegExp(r':t[1-6]$');
 

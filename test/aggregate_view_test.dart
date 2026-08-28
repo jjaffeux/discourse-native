@@ -1,11 +1,13 @@
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/aggregate_view.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
+import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_filter_input.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
@@ -20,6 +22,51 @@ import 'support/fakes.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('renders Discourse emoji aliases in cross-forum topic titles', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1000, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    const user = DiscourseUser(username: 'sam');
+    final forum = instance('one.example', title: 'One').copyWith(user: user);
+    final authenticator = FakeAuthenticator()..keys[forum.url] = 'key';
+    final api = FakeDiscourseApi(
+      user: user,
+      feeds: const {
+        '/latest.json': [],
+        '/filter.json?per_page=30': [
+          Topic(id: 42, title: 'Weekly updates :mega:', slug: 'weekly'),
+        ],
+      },
+      emojisBySite: {
+        forum.url: const [
+          SiteEmoji(name: 'megaphone', url: '/images/emoji/megaphone.png'),
+        ],
+      },
+    );
+
+    await tester.pumpWidget(
+      DiscourseApp(
+        store: FakeInstanceStore([forum]),
+        api: api,
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        forumTabs: FakeForumTabStore(),
+        trackers: FakeSiteTracker.reset(),
+        updater: FakeUpdater(),
+        updateStore: FakeUpdateStore(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final emoji = tester.widget<SiteEmojiImage>(find.byType(SiteEmojiImage));
+    expect(emoji.name, 'megaphone');
+    expect(emoji.siteUrl, forum.url);
+  });
 
   testWidgets('starts with a mixed full-width feed and forum picker', (
     tester,

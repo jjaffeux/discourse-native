@@ -95,7 +95,9 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
         }
         return _resolved(context, text, [
           for (final match in SiteEmojiText._shortcode.allMatches(text))
-            if (controller.knowsEmoji(widget.siteUrl, match.group(1)!)) match,
+            if (controller.emojiNameFor(widget.siteUrl, match.group(1)!)
+                case final name?)
+              (match: match, name: name),
         ]);
       },
     );
@@ -133,7 +135,11 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
     );
   }
 
-  Widget _resolved(BuildContext context, String text, List<RegExpMatch> emoji) {
+  Widget _resolved(
+    BuildContext context,
+    String text,
+    List<({RegExpMatch match, String name})> emoji,
+  ) {
     final runs = widget.runs;
     if (emoji.isEmpty &&
         runs.length == 1 &&
@@ -154,16 +160,16 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
     final spans = <InlineSpan>[];
     final cursor = _StyledRunCursor(runs);
 
-    for (final match in emoji) {
+    for (final resolved in emoji) {
+      final match = resolved.match;
       cursor.appendText(spans, match.start);
-      final name = match.group(1)!;
       final emojiStyle = effectiveStyle.merge(cursor.style);
       spans.add(
         WidgetSpan(
           alignment: PlaceholderAlignment.middle,
           child: SiteEmojiImage(
             siteUrl: widget.siteUrl,
-            name: name,
+            name: resolved.name,
             size: (emojiStyle.fontSize ?? 14) * emojiScale,
             alt: match.group(0)!,
             style: emojiStyle,

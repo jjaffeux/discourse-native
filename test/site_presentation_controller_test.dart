@@ -389,6 +389,7 @@ void main() {
       ..emojis = const [
         SiteEmoji(name: 'tada', url: 'tada.png'),
         SiteEmoji(name: 'wave', url: 'wave.png', tonable: true),
+        SiteEmoji(name: 'megaphone', url: 'megaphone.png'),
       ];
     final controller = _controller(api);
 
@@ -402,7 +403,10 @@ void main() {
     await controller.ensureEmojiCatalog(site);
     expect(controller.knowsEmoji(site, 'tada'), isTrue);
     expect(controller.knowsEmoji(site, 'wave:t3'), isTrue);
+    expect(controller.emojiNameFor(site, 'mega'), 'megaphone');
+    expect(controller.emojiNameFor(site, 'mega:t3'), 'megaphone:t3');
     expect(controller.knowsEmoji(site, '30'), isFalse);
+    expect(controller.emojiNameFor(site, 'xray'), isNull);
     expect(controller.knowsEmoji('https://other.example', 'tada'), isFalse);
     controller.dispose();
   });
