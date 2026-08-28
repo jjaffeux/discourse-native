@@ -175,34 +175,6 @@ void main() {
       await all;
     });
 
-    test('can explicitly bound requests for a non-CDN deployment', () async {
-      var active = 0;
-      var peak = 0;
-      final gate = Completer<void>();
-
-      final cache = EmojiCache(
-        maxConcurrent: 3,
-        client: MockClient((_) async {
-          active++;
-          peak = peak > active ? peak : active;
-          await gate.future;
-          active--;
-          return http.Response.bytes(pngBytes, 200);
-        }),
-      );
-
-      final all = Future.wait([
-        for (var i = 0; i < 30; i++) cache.load('https://site/$i.png'),
-      ]);
-
-      await Future<void>.delayed(Duration.zero);
-      expect(peak, 3);
-
-      gate.complete();
-      await all;
-      expect(peak, 3);
-    });
-
     test('forgets an empty body rather than caching a blank image', () async {
       final cache = EmojiCache(
         client: MockClient((_) async => http.Response('', 200)),

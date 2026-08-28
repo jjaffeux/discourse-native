@@ -4,13 +4,13 @@ import 'dart:io';
 import 'origin_cooldown.dart';
 import 'origin_request_gate.dart';
 
-/// One process-wide backpressure gate for native-managed media requests.
+/// Optional per-origin backpressure for a specialized media cache.
 ///
 /// Configured media caches can use separate HTTP clients. A per-client
 /// connection limit would still let them drain independently, and a 429 for
 /// one URL would not stop other distinct URLs already queued. This coordinator
 /// limits opted-in work by origin and turns the first 429 into a circuit
-/// breaker. CDN-backed emoji deliberately do not opt in.
+/// breaker. Production static-media caches deliberately do not opt in.
 final class MediaRequestCoordinator {
   MediaRequestCoordinator({
     this.maxConcurrentPerOrigin = 2,
@@ -28,9 +28,6 @@ final class MediaRequestCoordinator {
          cooldownPolicy: OriginRequestCooldownPolicy.reject,
          cooldownFactory: cooldownFactory,
        );
-
-  /// Shared by production media owners that opt into origin backpressure.
-  static final shared = MediaRequestCoordinator();
 
   final int maxConcurrentPerOrigin;
 

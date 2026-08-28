@@ -20,12 +20,7 @@ import 'byte_cache.dart';
 /// upload, PNG or GIF; both go through Flutter's raster decoder and neither is
 /// SVG.
 class EmojiCache extends ByteCache<Uint8List> {
-  EmojiCache({
-    super.client,
-    super.maxConcurrent = null,
-    super.retryAfter,
-    super.store,
-  });
+  EmojiCache({super.client, super.retryAfter, super.store});
 
   /// Swappable so tests do not reach the network.
   static EmojiCache instance = EmojiCache();

@@ -6,7 +6,6 @@ import 'app.dart';
 import 'data/avatar_loader.dart';
 import 'data/byte_cache_store.dart';
 import 'data/emoji_cache.dart';
-import 'data/media_request_coordinator.dart';
 import 'diagnostics/diagnostics.dart';
 import 'foundation/timezone_environment.dart';
 import 'macos_launch_screen.dart';
@@ -162,10 +161,7 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   @override
   Future<void> initializePersistentMediaCache() async {
     final mediaStore = await FileByteCacheStore.applicationCache();
-    AvatarLoader.instance = AvatarLoader(
-      coordinator: MediaRequestCoordinator.shared,
-      store: mediaStore,
-    );
+    AvatarLoader.instance = AvatarLoader(store: mediaStore);
     EmojiCache.instance = EmojiCache(store: mediaStore);
   }
 

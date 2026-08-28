@@ -521,16 +521,19 @@ void main() {
       });
       final avatars = _TestByteCache(
         client: client,
+        maxConcurrent: 2,
         coordinator: coordinator,
         retryAfter: const Duration(milliseconds: 40),
       );
       final emoji = _TestByteCache(
         client: client,
+        maxConcurrent: 2,
         coordinator: coordinator,
         retryAfter: const Duration(milliseconds: 40),
       );
       final otherOrigin = _TestByteCache(
         client: client,
+        maxConcurrent: 2,
         coordinator: coordinator,
       );
 

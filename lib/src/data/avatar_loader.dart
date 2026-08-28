@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import 'byte_cache.dart';
-import 'media_request_coordinator.dart';
 
 /// What came back for an avatar URL.
 class AvatarBytes {
@@ -13,25 +12,17 @@ class AvatarBytes {
   final bool isSvg;
 }
 
-/// Deduplicates avatar fetches and keeps their concurrency bounded.
+/// Deduplicates and caches avatar fetches without throttling static media.
 ///
-/// The caching and the concurrency cap are [ByteCache]'s, and the reasons for
-/// them are written down there. What is left here is the one thing particular
-/// to avatars: Discourse serves some of them as SVG even though the URL ends in
-/// `.png`, so the format cannot be known from the URL — only from the bytes.
+/// [ByteCache] retains URL de-duplication, failure caching, response bounds,
+/// and persistent bytes while leaving request concurrency to the HTTP stack.
+/// What is particular to avatars is that Discourse serves some as SVG even
+/// though the URL ends in `.png`, so only the response reveals the format.
 class AvatarLoader extends ByteCache<AvatarBytes> {
-  AvatarLoader({
-    super.client,
-    super.maxConcurrent,
-    super.retryAfter,
-    super.coordinator,
-    super.store,
-  });
+  AvatarLoader({super.client, super.retryAfter, super.store});
 
   /// Swappable so tests do not reach the network.
-  static AvatarLoader instance = AvatarLoader(
-    coordinator: MediaRequestCoordinator.shared,
-  );
+  static AvatarLoader instance = AvatarLoader();
 
   @override
   AvatarBytes decode(http.Response response) => AvatarBytes(
