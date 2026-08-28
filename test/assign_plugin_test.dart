@@ -193,7 +193,7 @@ void main() {
     expect(contribution?.entries, isEmpty);
   });
 
-  testWidgets('unassigned topic header uses the Assign icon', (tester) async {
+  testWidgets('unassigned topic property uses the Assign icon', (tester) async {
     const registry = PluginRegistry([AssignPlugin()]);
     final plugins = registry.readTopic(const {'can_assign': true}, _siteUrl);
     final topic = TopicDetail(
@@ -208,8 +208,12 @@ void main() {
         theme: AppTheme.light,
         home: Scaffold(
           body: Builder(
-            builder: (context) =>
-                Row(children: _plugin.topicHeader(context, _siteUrl, topic)),
+            builder: (context) => Row(
+              children: _plugin
+                  .topicProperties(context, _siteUrl, topic)
+                  .single
+                  .values,
+            ),
           ),
         ),
       ),
@@ -217,7 +221,7 @@ void main() {
 
     expect(
       find.descendant(
-        of: find.byKey(const Key('assign-topic-header')),
+        of: find.byKey(const Key('assign-topic-property')),
         matching: find.byWidgetPredicate(
           (widget) => widget is DIcon && widget.icon == DIcons.userPlus,
         ),
@@ -225,12 +229,12 @@ void main() {
       findsOneWidget,
     );
     final button = tester.widget<DButton>(
-      find.byKey(const Key('assign-topic-header')),
+      find.byKey(const Key('assign-topic-property')),
     );
     expect(button.size, DButtonSize.small);
   });
 
-  testWidgets('topic header has a concise actionable semantic label', (
+  testWidgets('topic property has a concise actionable semantic label', (
     tester,
   ) async {
     final semanticsHandle = tester.ensureSemantics();
@@ -259,33 +263,37 @@ void main() {
         theme: AppTheme.light,
         home: Scaffold(
           body: Builder(
-            builder: (context) =>
-                Row(children: _plugin.topicHeader(context, _siteUrl, topic)),
+            builder: (context) => Row(
+              children: _plugin
+                  .topicProperties(context, _siteUrl, topic)
+                  .single
+                  .values,
+            ),
           ),
         ),
       ),
     );
 
     expect(
-      tester.getSemantics(find.byKey(const Key('assign-topic-header'))),
+      tester.getSemantics(find.byKey(const Key('assign-topic-property'))),
       isSemantics(
         label: 'View 2 assignments',
         isButton: true,
         hasTapAction: true,
       ),
     );
-    final assignmentHeader = find.byKey(const Key('assign-topic-header'));
+    final assignmentProperty = find.byKey(const Key('assign-topic-property'));
     expect(
-      find.descendant(of: assignmentHeader, matching: find.byType(DButton)),
+      find.descendant(of: assignmentProperty, matching: find.byType(DButton)),
       findsNothing,
     );
     final icon = tester.widget<DIcon>(
-      find.descendant(of: assignmentHeader, matching: find.byType(DIcon)),
+      find.descendant(of: assignmentProperty, matching: find.byType(DIcon)),
     );
     expect(icon.size, 14);
     expect(
       icon.color,
-      Theme.of(tester.element(assignmentHeader)).colorScheme.onSurfaceVariant,
+      Theme.of(tester.element(assignmentProperty)).colorScheme.onSurfaceVariant,
     );
     expect(find.bySemanticsLabel(RegExp('long')), findsNothing);
     semanticsHandle.dispose();

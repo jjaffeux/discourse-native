@@ -5,8 +5,8 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/emoji_cache.dart';
-import 'package:discourse_native/src/data/topic_recommendations_panel_store.dart';
 import 'package:discourse_native/src/data/topic_recommendations_tab_store.dart';
+import 'package:discourse_native/src/data/topic_sidebar_store.dart';
 import 'package:discourse_native/src/data/updater.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
@@ -937,6 +937,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.topicsOpened, [2]);
 
+      controller.handleBack(canReturnToSidebar: false);
+      await tester.pumpAndSettle();
       controller.search.setQuery('matches');
       controller.search.requestFocus();
       await tester.pump();
@@ -4262,7 +4264,7 @@ void main() {
     });
 
     testWidgets(
-      'topic header wraps a long title and keeps taxonomy with assignment',
+      'topic header stays minimal while the sidebar owns context and actions',
       (tester) async {
         const longTitle =
             'Chris weekly update for 2026 with roadmap decisions, operational '
@@ -4284,12 +4286,6 @@ void main() {
             'async',
             'roadmap',
             'priorities',
-            'operations',
-            'progress',
-            'blockers',
-            'planning',
-            'internal',
-            'leadership',
           ])
             TopicTag(name: name),
         ];
@@ -4321,7 +4317,7 @@ void main() {
 
         await pumpShell(
           tester,
-          laptop,
+          desktop,
           instances: [instance('meta.discourse.org').copyWith(user: reader)],
           api: api,
           authenticator: authenticator,
@@ -4329,99 +4325,73 @@ void main() {
         await tester.tap(find.text(longTitle));
         await tester.pumpAndSettle();
 
+        final header = find.byKey(const ValueKey('topic-content-header'));
         final title = find.byKey(const ValueKey('topic-header-title'));
+        expect(header, findsOneWidget);
         expect(title, findsOneWidget);
-        expect(tester.getSize(title).height, greaterThan(30));
-
-        final metadata = find.byKey(const ValueKey('topic-header-metadata'));
         expect(
-          find.descendant(of: metadata, matching: find.text('Announcements')),
+          find.descendant(of: header, matching: find.byTooltip('Back')),
+          findsOneWidget,
+        );
+        expect(tester.getSize(title).height, lessThan(30));
+        expect(
+          find.byKey(const ValueKey('topic-header-metadata')),
+          findsNothing,
+        );
+
+        final sidebar = find.byKey(const ValueKey('topic-sidebar-panel'));
+        final properties = find.byKey(const ValueKey('topic-properties-card'));
+        expect(sidebar, findsOneWidget);
+        expect(properties, findsOneWidget);
+        expect(
+          find.descendant(of: properties, matching: find.text('Announcements')),
           findsOneWidget,
         );
         expect(
           tester.getSize(
-            find.byKey(const ValueKey('topic-header-category-color')),
+            find.byKey(const ValueKey('topic-sidebar-category-color')),
           ),
           const Size.square(9),
         );
         for (final tag in tags) {
           expect(
             find.descendant(
-              of: metadata,
-              matching: find.byKey(ValueKey(('topic-header-tag', tag.name))),
+              of: properties,
+              matching: find.byKey(ValueKey(('topic-sidebar-tag', tag.name))),
             ),
             findsOneWidget,
           );
         }
         expect(
           find.descendant(
-            of: metadata,
-            matching: find.byKey(const Key('assign-topic-header')),
+            of: properties,
+            matching: find.byKey(const Key('assign-topic-property')),
           ),
           findsOneWidget,
         );
         expect(find.text('Assigned to Sam Example'), findsOneWidget);
 
-        final actions = [
-          find.byKey(const ValueKey('topic-bookmark-button')),
-          find.byKey(const ValueKey('topic-status-button')),
-          find.byKey(const ValueKey('topic-notification-level-button')),
-          find.byKey(const ValueKey('topic-reply-button')),
-        ];
-        for (final action in actions) {
-          expect(action, findsOneWidget);
+        for (final key in const [
+          ValueKey('topic-bookmark-button'),
+          ValueKey('topic-status-button'),
+          ValueKey('topic-notification-level-button'),
+          ValueKey('topic-reply-button'),
+        ]) {
+          expect(
+            find.descendant(of: sidebar, matching: find.byKey(key)),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(of: header, matching: find.byKey(key)),
+            findsNothing,
+          );
         }
-        final centers = actions.map(tester.getCenter).toList();
-        expect(centers[0].dx, lessThan(centers[1].dx));
-        expect(centers[1].dx, lessThan(centers[2].dx));
-        expect(centers[2].dx, lessThan(centers[3].dx));
+        expect(find.text('Topic context'), findsNothing);
+        expect(find.text('Actions'), findsNothing);
+        expect(find.text('Properties'), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
-
-    testWidgets('short topic title stays close to its metadata', (
-      tester,
-    ) async {
-      final api = FakeDiscourseApi(
-        feeds: {
-          '/latest.json': const [
-            Topic(id: 7, title: 'Short update', slug: 'short-update'),
-          ],
-        },
-        categoryList: const [
-          TopicCategory(id: 5, name: 'Updates', color: '7C3AED'),
-        ],
-        topics: {
-          7: topicPayload(
-            id: 7,
-            title: 'Short update',
-            posts: [post(1, 1, 'First post body')],
-            categoryId: 5,
-            tags: const [TopicTag(name: 'weekly')],
-          ),
-        },
-      );
-
-      await pumpShell(tester, laptop, api: api);
-      await tester.tap(contentText('Short update'));
-      await tester.pumpAndSettle();
-
-      final title = find.byKey(const ValueKey('topic-header-title'));
-      final metadata = find.byKey(const ValueKey('topic-header-metadata'));
-      final gap = tester.getRect(metadata).top - tester.getRect(title).bottom;
-      final category = find.descendant(
-        of: metadata,
-        matching: find.text('Updates'),
-      );
-      final tag = find.descendant(of: metadata, matching: find.text('#weekly'));
-
-      expect(gap, lessThanOrEqualTo(18));
-      expect(
-        tester.getTopLeft(tag).dy,
-        closeTo(tester.getTopLeft(category).dy, 0.01),
-      );
-      expect(tester.takeException(), isNull);
-    });
 
     testWidgets(
       'topic actions keep four primary controls and overflow extras',
@@ -5066,6 +5036,8 @@ void main() {
         tester.view.physicalSize = const Size(508, 700);
         await tester.pumpAndSettle();
 
+        await tester.tap(find.byTooltip('Show topic sidebar'));
+        await tester.pumpAndSettle();
         final trigger = find.byKey(const ValueKey('topic-status-button'));
         await tester.tap(trigger);
         await tester.pumpAndSettle();
@@ -5749,12 +5721,9 @@ void main() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const ValueKey('topic-recommendations-panel')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsOneWidget);
       expect(find.text('More topics'), findsOneWidget);
-      expect(find.byTooltip('Collapse more topics'), findsOneWidget);
+      expect(find.byTooltip('Hide topic sidebar'), findsOneWidget);
       expect(find.text('Suggested'), findsOneWidget);
       expect(find.text('Related'), findsOneWidget);
       expect(find.text('Nearby'), findsOneWidget);
@@ -5784,7 +5753,7 @@ void main() {
       expect(renderedText('Related topic body'), findsOneWidget);
     });
 
-    testWidgets('reserves the recommendations panel while a topic loads', (
+    testWidgets('reserves the topic sidebar while a topic loads', (
       tester,
     ) async {
       final recommendations = suggestedRecommendations(
@@ -5812,10 +5781,8 @@ void main() {
       expect(loadingPanel, findsOneWidget);
       expect(find.bySemanticsLabel('Loading more topics'), findsOneWidget);
       expect(
-        tester
-            .getSize(find.byKey(const ValueKey('topic-recommendations-panel')))
-            .width,
-        320,
+        tester.getSize(find.byKey(const ValueKey('topic-sidebar-panel'))).width,
+        344,
       );
       final loadingPostWidth = tester
           .getSize(find.byKey(const ValueKey('topic-loading-skeleton')))
@@ -5880,7 +5847,7 @@ void main() {
       );
     });
 
-    testWidgets('remembers a collapsed topics panel for the forum', (
+    testWidgets('remembers a hidden topic sidebar for the forum', (
       tester,
     ) async {
       SharedPreferences.setMockInitialValues({});
@@ -5897,16 +5864,22 @@ void main() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
       expect(find.text('Remembered suggestion'), findsOneWidget);
+      final dockedPostWidth = tester.getSize(find.byType(SuperListView)).width;
 
-      await tester.tap(find.byTooltip('Collapse more topics'));
+      await tester.tap(find.byTooltip('Hide topic sidebar'));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('Show more topics'), findsOneWidget);
+      expect(find.byTooltip('Show topic sidebar'), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsNothing);
       expect(find.text('Remembered suggestion'), findsNothing);
+      expect(
+        tester.getSize(find.byType(SuperListView)).width,
+        greaterThan(dockedPostWidth + 300),
+      );
       // The UI intentionally fires this optional preference write without
       // blocking. Read through the same serialized store boundary so the
       // replacement below cannot overtake that write.
       expect(
-        await const TopicRecommendationsPanelStore().read(
+        await const TopicSidebarStore().read(
           siteUrl: 'https://meta.discourse.org',
         ),
         isTrue,
@@ -5921,7 +5894,7 @@ void main() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Show more topics'), findsOneWidget);
+      expect(find.byTooltip('Show topic sidebar'), findsOneWidget);
       expect(find.text('Remembered suggestion'), findsNothing);
     });
 
@@ -6037,11 +6010,19 @@ void main() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const ValueKey('topic-recommendations-panel')),
-        findsNothing,
-      );
+      expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsNothing);
       expect(find.text('Narrow suggestion'), findsOneWidget);
+      expect(find.byTooltip('Show topic sidebar'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Show topic sidebar'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsOneWidget);
+      expect(find.byTooltip('Hide topic sidebar'), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-status-button')), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Hide topic sidebar'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsNothing);
     });
 
     testWidgets('gets more topics with the final page of a long topic', (
@@ -6724,6 +6705,8 @@ void main() {
           reactionPost(const [Reaction(id: 'clap', count: 1)]),
         ],
       );
+      await tester.tap(find.byTooltip('Show topic sidebar'));
+      await tester.pumpAndSettle();
       await openNotifications(tester);
       await tester.tap(find.textContaining('david reacted to your post in'));
       await tester.pumpAndSettle();
@@ -10391,9 +10374,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('2 posts selected'), findsOneWidget);
 
-      await tester.tap(
-        find.byKey(const ValueKey('topic-selected-posts-merge')),
+      final mergeAction = find.byKey(
+        const ValueKey('topic-selected-posts-merge'),
       );
+      await tester.ensureVisible(mergeAction);
+      await tester.tap(mergeAction);
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('topic-selected-merge-confirm')),
@@ -10416,9 +10401,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topic-post-select-3')));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('topic-selected-posts-delete')),
+      final deleteAction = find.byKey(
+        const ValueKey('topic-selected-posts-delete'),
       );
+      await tester.ensureVisible(deleteAction);
+      await tester.tap(deleteAction);
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('topic-selected-delete-confirm')),

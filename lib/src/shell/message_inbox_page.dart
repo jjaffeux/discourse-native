@@ -101,8 +101,8 @@ class _MessageInboxPicker extends StatelessWidget {
               showPopoverTitle: false,
               value: value,
               options: options,
-              onSelected: (choice) => ShellScope.read(context)
-                  .selectMessageInbox(
+              onSelected: (choice) =>
+                  ShellScope.read(context).selectMessageInbox(
                     choice == MessageInboxPage._personal
                         ? null
                         : choice.substring('group:'.length),

@@ -1,0 +1,1835 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Topic sidebar layout studies</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page: #0d0f12;
+        --page-raised: #14171b;
+        --rail: #131417;
+        --nav: #1a1c20;
+        --content: #212429;
+        --panel: #1a1c20;
+        --panel-raised: #202328;
+        --floating: #272b32;
+        --hover: #262a30;
+        --divider: #2b2e35;
+        --divider-strong: #363a42;
+        --text: #f1f3f5;
+        --text-soft: #c5c9cf;
+        --muted: #8b939f;
+        --muted-2: #676e79;
+        --blue: #099dd7;
+        --blue-soft: rgb(9 157 215 / 15%);
+        --blue-ring: rgb(9 157 215 / 38%);
+        --green: #45b574;
+        --orange: #f3a354;
+        --purple: #a98df4;
+        --red: #f07474;
+        --radius-sm: 7px;
+        --radius: 11px;
+        --radius-lg: 15px;
+        --shadow: 0 18px 60px rgb(0 0 0 / 34%);
+        font-family:
+          Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--page);
+      }
+
+      body {
+        min-width: 1100px;
+        min-height: 100vh;
+        margin: 0;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 52% -20%, rgb(9 157 215 / 12%), transparent 38%),
+          var(--page);
+      }
+
+      button {
+        color: inherit;
+        font: inherit;
+      }
+
+      button:focus-visible {
+        outline: 2px solid var(--blue);
+        outline-offset: 2px;
+      }
+
+      svg {
+        display: block;
+      }
+
+      .study-header {
+        position: sticky;
+        z-index: 20;
+        top: 0;
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
+        align-items: center;
+        min-height: 70px;
+        padding: 12px 24px;
+        border-bottom: 1px solid rgb(255 255 255 / 7%);
+        background: rgb(13 15 18 / 88%);
+        backdrop-filter: blur(18px);
+      }
+
+      .study-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .study-brand__mark {
+        display: grid;
+        width: 31px;
+        height: 31px;
+        place-items: center;
+        border: 1px solid var(--blue-ring);
+        border-radius: 9px;
+        color: #8fdcff;
+        background: var(--blue-soft);
+      }
+
+      .study-brand__text {
+        min-width: 0;
+      }
+
+      .study-brand__eyebrow,
+      .study-brand__title {
+        overflow: hidden;
+        margin: 0;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .study-brand__eyebrow {
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .study-brand__title {
+        margin-top: 3px;
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .layout-switcher {
+        display: flex;
+        gap: 3px;
+        padding: 4px;
+        border: 1px solid var(--divider);
+        border-radius: 10px;
+        background: #171a1f;
+      }
+
+      .layout-switcher button {
+        min-width: 148px;
+        padding: 9px 12px;
+        border: 0;
+        border-radius: 7px;
+        color: var(--muted);
+        background: transparent;
+        cursor: pointer;
+        transition:
+          color 140ms ease,
+          background 140ms ease,
+          box-shadow 140ms ease;
+      }
+
+      .layout-switcher button:hover {
+        color: var(--text-soft);
+        background: rgb(255 255 255 / 4%);
+      }
+
+      .layout-switcher button[aria-pressed="true"] {
+        color: var(--text);
+        background: var(--floating);
+        box-shadow:
+          inset 0 0 0 1px rgb(255 255 255 / 7%),
+          0 2px 7px rgb(0 0 0 / 20%);
+      }
+
+      .study-status {
+        justify-self: end;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .study-status::before {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        margin-right: 7px;
+        border-radius: 50%;
+        background: var(--green);
+        content: "";
+        vertical-align: 1px;
+      }
+
+      .study-main {
+        width: min(1560px, calc(100vw - 48px));
+        margin: 0 auto;
+        padding: 27px 0 40px;
+      }
+
+      .concept-intro {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 28px;
+        align-items: end;
+        width: min(1180px, 100%);
+        min-height: 76px;
+        margin: 0 auto 21px;
+      }
+
+      .concept-intro__index {
+        display: block;
+        margin-bottom: 7px;
+        color: #65c8f2;
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .concept-intro h1 {
+        margin: 0;
+        font-size: clamp(22px, 2vw, 30px);
+        font-weight: 680;
+        letter-spacing: -0.025em;
+      }
+
+      .concept-intro p {
+        max-width: 740px;
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .concept-traits {
+        display: flex;
+        gap: 7px;
+        justify-content: flex-end;
+        padding-bottom: 2px;
+      }
+
+      .concept-traits span {
+        padding: 5px 8px;
+        border: 1px solid var(--divider);
+        border-radius: 999px;
+        color: var(--muted);
+        background: rgb(255 255 255 / 2%);
+        font-size: 10px;
+        font-weight: 650;
+        letter-spacing: 0.02em;
+      }
+
+      .app-frame {
+        overflow: hidden;
+        width: 100%;
+        height: min(780px, calc(100vh - 210px));
+        min-height: 650px;
+        border: 1px solid #30343c;
+        border-radius: 17px;
+        background: var(--content);
+        box-shadow: var(--shadow);
+      }
+
+      .window-strip {
+        display: grid;
+        grid-template-columns: 78px 1fr 78px;
+        align-items: center;
+        height: 34px;
+        border-bottom: 1px solid #25282e;
+        background: #111317;
+      }
+
+      .traffic-lights {
+        display: flex;
+        gap: 7px;
+        padding-left: 13px;
+      }
+
+      .traffic-lights i {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #343840;
+      }
+
+      .window-title {
+        justify-self: center;
+        color: #656c77;
+        font-size: 10px;
+        font-weight: 600;
+      }
+
+      .app-shell {
+        display: grid;
+        grid-template-columns: 62px 222px minmax(470px, 1fr) 344px;
+        height: calc(100% - 34px);
+      }
+
+      .instance-rail {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 11px;
+        padding: 12px 8px;
+        background: var(--rail);
+      }
+
+      .instance {
+        display: grid;
+        width: 40px;
+        height: 40px;
+        place-items: center;
+        border: 0;
+        border-radius: 13px;
+        color: var(--muted);
+        background: #23262c;
+        cursor: default;
+      }
+
+      .instance--active {
+        position: relative;
+        color: #fff;
+        background: linear-gradient(145deg, #1c9ed3, #087ab1);
+      }
+
+      .instance--active::before {
+        position: absolute;
+        left: -10px;
+        width: 3px;
+        height: 23px;
+        border-radius: 0 4px 4px 0;
+        background: #fff;
+        content: "";
+      }
+
+      .instance--avatar {
+        margin-top: auto;
+        overflow: hidden;
+        color: #17191d;
+        background: #e6b454;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .forum-nav {
+        overflow: hidden;
+        border-right: 1px solid var(--divider);
+        background: var(--nav);
+      }
+
+      .forum-nav__header {
+        display: flex;
+        align-items: center;
+        height: 52px;
+        padding: 0 15px;
+        border-bottom: 1px solid var(--divider);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .forum-nav__header svg {
+        margin-left: auto;
+        color: var(--muted);
+      }
+
+      .forum-nav__body {
+        padding: 11px 8px;
+      }
+
+      .nav-heading {
+        margin: 17px 9px 7px;
+        color: var(--muted-2);
+        font-size: 9px;
+        font-weight: 750;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .nav-heading:first-child {
+        margin-top: 4px;
+      }
+
+      .nav-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 34px;
+        padding: 0 9px;
+        border-radius: 7px;
+        color: #aab0b9;
+        font-size: 12px;
+      }
+
+      .nav-row svg {
+        color: #727986;
+      }
+
+      .nav-row--active {
+        color: var(--text);
+        background: var(--hover);
+      }
+
+      .nav-count {
+        margin-left: auto;
+        color: #777f8b;
+        font-size: 10px;
+      }
+
+      .topic-main {
+        min-width: 0;
+        background: var(--content);
+      }
+
+      .topic-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        min-height: 52px;
+        padding: 9px 14px 8px 9px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .back-button {
+        display: grid;
+        flex: 0 0 auto;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border: 0;
+        border-radius: 7px;
+        color: #cbd0d6;
+        background: transparent;
+      }
+
+      .back-button:hover {
+        background: var(--hover);
+      }
+
+      .topic-header h2 {
+        overflow: hidden;
+        margin: 5px 0 0;
+        color: #f0f2f4;
+        font-size: 14px;
+        font-weight: 650;
+        line-height: 1.45;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .topic-stream {
+        overflow: hidden;
+        height: calc(100% - 52px);
+        padding: 26px clamp(24px, 5vw, 64px) 60px;
+      }
+
+      .post {
+        max-width: 760px;
+        margin: 0 auto;
+      }
+
+      .post + .post {
+        margin-top: 26px;
+        padding-top: 26px;
+        border-top: 1px solid var(--divider);
+      }
+
+      .post__head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .avatar {
+        display: grid;
+        flex: 0 0 auto;
+        width: 31px;
+        height: 31px;
+        place-items: center;
+        border: 2px solid var(--content);
+        border-radius: 50%;
+        color: white;
+        background: #69717d;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+
+      .avatar--sam {
+        background: linear-gradient(140deg, #198f70, #35b78d);
+      }
+
+      .avatar--mei {
+        background: linear-gradient(140deg, #8d63cd, #b787e8);
+      }
+
+      .avatar--staff {
+        background: linear-gradient(140deg, #b55d3e, #e7904e);
+      }
+
+      .avatar--group {
+        background: linear-gradient(140deg, #3e6aa7, #5e9be2);
+      }
+
+      .post__identity {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .post__identity strong {
+        color: #e6e8eb;
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .post__identity span {
+        color: var(--muted-2);
+        font-size: 10px;
+      }
+
+      .post__number {
+        margin-left: auto;
+        color: var(--muted-2);
+        font-size: 10px;
+      }
+
+      .post__body {
+        margin: 13px 0 0 41px;
+        color: #c6cad0;
+        font-size: 12px;
+        line-height: 1.65;
+      }
+
+      .post__body p {
+        margin: 0 0 12px;
+      }
+
+      .post__body h3 {
+        margin: 22px 0 9px;
+        color: #e7e9ec;
+        font-size: 15px;
+      }
+
+      .post__body ul {
+        margin: 10px 0 0;
+        padding-left: 18px;
+      }
+
+      .post__body li {
+        margin: 5px 0;
+      }
+
+      .post-actions {
+        display: flex;
+        gap: 6px;
+        margin: 17px 0 0 41px;
+      }
+
+      .post-action {
+        padding: 5px 8px;
+        border: 1px solid var(--divider);
+        border-radius: 6px;
+        color: var(--muted);
+        background: transparent;
+        font-size: 10px;
+      }
+
+      .topic-aside {
+        position: relative;
+        overflow: hidden;
+        border-left: 1px solid var(--divider);
+        background: #141619;
+      }
+
+      .sidebar-variant {
+        display: none;
+        overflow-y: auto;
+        height: 100%;
+        scrollbar-color: #3f434c transparent;
+        scrollbar-width: thin;
+      }
+
+      body[data-layout="cards"] .sidebar-variant--cards,
+      body[data-layout="sections"] .sidebar-variant--sections,
+      body[data-layout="compact"] .sidebar-variant--compact {
+        display: block;
+      }
+
+      .aside-caption {
+        padding: 13px 15px 5px;
+        color: #5f6671;
+        font-size: 8px;
+        font-weight: 800;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      .card {
+        overflow: hidden;
+        margin: 9px 10px 11px;
+        border: 1px solid #2e3239;
+        border-radius: var(--radius-lg);
+        background: #1b1d21;
+        box-shadow: 0 2px 0 rgb(0 0 0 / 18%);
+      }
+
+      .card__heading {
+        display: flex;
+        align-items: center;
+        min-height: 42px;
+        padding: 0 14px;
+        color: #d4d7dc;
+        font-size: 12px;
+        font-weight: 680;
+      }
+
+      .card__chevron {
+        margin-left: 7px;
+        color: #737a85;
+      }
+
+      .card__action {
+        display: grid;
+        width: 25px;
+        height: 25px;
+        margin-left: auto;
+        place-items: center;
+        border: 0;
+        border-radius: 6px;
+        color: #747b85;
+        background: transparent;
+      }
+
+      .action-card__body {
+        padding: 2px 12px 12px;
+      }
+
+      .reply-action {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 34px;
+        gap: 7px;
+        border: 1px solid #159bcf;
+        border-radius: 8px;
+        color: white;
+        background: linear-gradient(180deg, #10a3dc, #0789c1);
+        box-shadow:
+          inset 0 1px rgb(255 255 255 / 13%),
+          0 3px 10px rgb(0 136 204 / 15%);
+        font-size: 10px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .reply-action:hover {
+        background: linear-gradient(180deg, #19afe6, #0993cd);
+      }
+
+      .secondary-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        margin-top: 7px;
+      }
+
+      .sidebar-action {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        min-height: 39px;
+        gap: 7px;
+        padding: 6px 8px;
+        border: 1px solid #30343c;
+        border-radius: 8px;
+        color: #b8bdc4;
+        background: #202328;
+        cursor: pointer;
+      }
+
+      .sidebar-action:hover {
+        border-color: #3d424c;
+        color: #e0e3e7;
+        background: #25282e;
+      }
+
+      .sidebar-action svg {
+        flex: 0 0 auto;
+        color: #89919c;
+      }
+
+      .sidebar-action__copy {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 1px;
+        text-align: left;
+      }
+
+      .sidebar-action__copy strong {
+        overflow: hidden;
+        color: inherit;
+        font-size: 9px;
+        font-weight: 650;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .sidebar-action__copy small {
+        overflow: hidden;
+        color: #69707a;
+        font-size: 7px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .admin-menu {
+        grid-column: 1 / -1;
+        margin-top: 1px;
+        border: 1px solid #30343c;
+        border-radius: 8px;
+        background: #202328;
+      }
+
+      .admin-menu summary {
+        display: flex;
+        align-items: center;
+        min-height: 34px;
+        gap: 7px;
+        padding: 0 9px;
+        color: #aeb4bc;
+        cursor: pointer;
+        font-size: 9px;
+        font-weight: 620;
+        list-style: none;
+      }
+
+      .admin-menu summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .admin-menu summary svg {
+        color: #7a828d;
+      }
+
+      .admin-menu summary::after {
+        margin-left: auto;
+        color: #676e78;
+        content: "+";
+        font-size: 14px;
+        font-weight: 400;
+      }
+
+      .admin-menu[open] summary::after {
+        content: "−";
+      }
+
+      .admin-menu__items {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 2px;
+        padding: 3px 5px 6px;
+        border-top: 1px solid #2d3138;
+      }
+
+      .admin-menu__items button {
+        overflow: hidden;
+        padding: 7px 6px;
+        border: 0;
+        border-radius: 5px;
+        color: #8f969f;
+        background: transparent;
+        font-size: 8px;
+        text-align: left;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+
+      .admin-menu__items button:hover {
+        color: #d2d6db;
+        background: #292d33;
+      }
+
+      .admin-menu__items button.danger {
+        color: #d47c7c;
+      }
+
+      .property-list {
+        display: grid;
+        gap: 0;
+        margin: 0;
+        padding: 3px 14px 15px;
+      }
+
+      .property-row {
+        display: grid;
+        grid-template-columns: 88px minmax(0, 1fr);
+        gap: 9px;
+        align-items: start;
+        min-height: 44px;
+        padding: 8px 0;
+      }
+
+      .property-row dt,
+      .property-row dd {
+        margin: 0;
+      }
+
+      .property-row dt {
+        padding-top: 4px;
+        color: #858b95;
+        font-size: 11px;
+      }
+
+      .property-row dd {
+        min-width: 0;
+        color: #e1e4e8;
+        font-size: 11px;
+      }
+
+      .property-value {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 23px;
+      }
+
+      .category-mark {
+        flex: 0 0 auto;
+        width: 9px;
+        height: 9px;
+        border-radius: 2px;
+        background: var(--orange);
+        box-shadow: 0 0 0 3px rgb(243 163 84 / 10%);
+      }
+
+      .tag-cloud {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        min-height: 23px;
+        padding: 2px 7px;
+        border: 1px solid #393e47;
+        border-radius: 6px;
+        color: #bbc0c7;
+        background: #23262b;
+        font-size: 10px;
+      }
+
+      .tag::before {
+        margin-right: 3px;
+        color: #6f7782;
+        content: "#";
+      }
+
+      .assignee-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .assignee {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        gap: 8px;
+      }
+
+      .assignee .avatar {
+        width: 24px;
+        height: 24px;
+        border-color: #1b1d21;
+        font-size: 8px;
+      }
+
+      .assignee__text {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 1px;
+      }
+
+      .assignee__text strong {
+        overflow: hidden;
+        color: #dfe2e5;
+        font-size: 10px;
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .assignee__text span {
+        overflow: hidden;
+        color: #707782;
+        font-size: 8px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .recommendation-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .recommendation-tabs button {
+        position: relative;
+        flex: 1;
+        padding: 10px 8px 9px;
+        border: 0;
+        color: #777f8a;
+        background: transparent;
+        font-size: 10px;
+        font-weight: 650;
+        cursor: pointer;
+      }
+
+      .recommendation-tabs button:hover {
+        color: #b9bec5;
+      }
+
+      .recommendation-tabs button[aria-selected="true"] {
+        color: #8bd7f5;
+      }
+
+      .recommendation-tabs button[aria-selected="true"]::after {
+        position: absolute;
+        right: 12px;
+        bottom: -1px;
+        left: 12px;
+        height: 2px;
+        border-radius: 2px 2px 0 0;
+        background: var(--blue);
+        content: "";
+      }
+
+      .tab-count {
+        margin-left: 4px;
+        color: #606771;
+        font-size: 8px;
+      }
+
+      .recommendation-tabs button[aria-selected="true"] .tab-count {
+        color: #5e99b2;
+      }
+
+      .tab-panel[hidden] {
+        display: none;
+      }
+
+      .topic-links {
+        margin: 0;
+        padding: 2px 0;
+        list-style: none;
+      }
+
+      .topic-link {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        padding: 11px 13px;
+        border-bottom: 1px solid #272a30;
+        cursor: default;
+      }
+
+      .topic-link:last-child {
+        border-bottom: 0;
+      }
+
+      .topic-link:hover {
+        background: rgb(255 255 255 / 2.5%);
+      }
+
+      .topic-link__title {
+        color: #cbd0d6;
+        font-size: 10px;
+        font-weight: 570;
+        line-height: 1.4;
+      }
+
+      .topic-link__meta {
+        display: flex;
+        gap: 7px;
+        align-items: center;
+        margin-top: 5px;
+        color: #6e7580;
+        font-size: 8px;
+      }
+
+      .topic-link__category {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .topic-link__category::before {
+        width: 6px;
+        height: 6px;
+        border-radius: 2px;
+        background: var(--purple);
+        content: "";
+      }
+
+      .topic-link__category--orange::before {
+        background: var(--orange);
+      }
+
+      .topic-link__category--green::before {
+        background: var(--green);
+      }
+
+      .topic-link__replies {
+        padding-top: 1px;
+        color: #5f6670;
+        font-size: 8px;
+      }
+
+      /* Option 2: a quieter, single-surface sidebar. */
+      .sidebar-variant--sections {
+        background: var(--panel);
+      }
+
+      .sections-header {
+        display: flex;
+        align-items: center;
+        height: 52px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .sections-header strong {
+        font-size: 12px;
+        font-weight: 680;
+      }
+
+      .sections-header span {
+        margin-left: auto;
+        color: #646b75;
+        font-size: 9px;
+      }
+
+      .sections-actions {
+        padding: 13px 16px 14px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .sections-actions__row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        margin-top: 7px;
+      }
+
+      .sections-actions .admin-menu {
+        margin-top: 6px;
+      }
+
+      .metadata-section {
+        padding: 15px 16px 14px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .metadata-section__label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 10px;
+        color: #767d88;
+        font-size: 9px;
+        font-weight: 730;
+        letter-spacing: 0.075em;
+        text-transform: uppercase;
+      }
+
+      .metadata-section__label svg {
+        color: #626975;
+      }
+
+      .category-line {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 31px;
+        color: #dadddf;
+        font-size: 11px;
+        font-weight: 580;
+      }
+
+      .category-line small {
+        margin-left: auto;
+        color: #69707a;
+        font-size: 8px;
+        font-weight: 500;
+      }
+
+      .sections-assignees {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+      }
+
+      .person-tile {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        gap: 7px;
+        padding: 7px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        background: #202328;
+      }
+
+      .person-tile .avatar {
+        width: 24px;
+        height: 24px;
+        border-color: #202328;
+        font-size: 7px;
+      }
+
+      .person-tile span {
+        overflow: hidden;
+        color: #c9cdd3;
+        font-size: 9px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .sections-more {
+        padding-top: 15px;
+      }
+
+      .sections-more__title {
+        display: flex;
+        align-items: center;
+        padding: 0 16px 12px;
+      }
+
+      .sections-more__title strong {
+        font-size: 12px;
+        font-weight: 680;
+      }
+
+      .sections-more__title span {
+        margin-left: auto;
+        color: #686f7a;
+        font-size: 8px;
+      }
+
+      .sidebar-variant--sections .recommendation-tabs {
+        margin: 0 16px;
+        padding: 3px;
+        border: 1px solid var(--divider);
+        border-radius: 8px;
+        background: #17191d;
+      }
+
+      .sidebar-variant--sections .recommendation-tabs button {
+        padding: 7px 8px;
+        border-radius: 5px;
+      }
+
+      .sidebar-variant--sections
+        .recommendation-tabs
+        button[aria-selected="true"] {
+        color: #e4e7ea;
+        background: #292d34;
+        box-shadow: inset 0 0 0 1px #363b44;
+      }
+
+      .sidebar-variant--sections
+        .recommendation-tabs
+        button[aria-selected="true"]::after {
+        display: none;
+      }
+
+      .sidebar-variant--sections .topic-links {
+        padding: 7px 5px 20px;
+      }
+
+      .sidebar-variant--sections .topic-link {
+        margin: 2px 5px;
+        padding: 10px 11px;
+        border: 0;
+        border-radius: 8px;
+      }
+
+      .sidebar-variant--sections .topic-link:hover {
+        background: var(--hover);
+      }
+
+      /* Option 3: compact summary blocks with the feed given most space. */
+      .sidebar-variant--compact {
+        padding: 4px 0 14px;
+        background: #15171b;
+      }
+
+      .compact-actions {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        margin: 10px 10px 8px;
+      }
+
+      .compact-actions .reply-action {
+        grid-column: 1 / -1;
+      }
+
+      .compact-action {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        min-height: 31px;
+        gap: 5px;
+        padding: 5px;
+        border: 1px solid #30343b;
+        border-radius: 8px;
+        color: #9ca3ad;
+        background: #1e2126;
+        font-size: 8px;
+        font-weight: 620;
+        cursor: pointer;
+      }
+
+      .compact-action:hover {
+        color: #dce0e4;
+        background: #25292f;
+      }
+
+      .compact-admin {
+        position: relative;
+        grid-column: auto;
+        margin-top: 0;
+      }
+
+      .compact-admin > summary {
+        min-height: 31px;
+        justify-content: center;
+        padding: 0 5px;
+      }
+
+      .compact-admin > summary::after {
+        display: none;
+      }
+
+      .compact-admin .admin-menu__items {
+        grid-column: 1 / -1;
+      }
+
+      .compact-admin[open] {
+        grid-column: 1 / -1;
+      }
+
+      .compact-context {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin: 10px 10px 8px;
+      }
+
+      .compact-block {
+        min-width: 0;
+        min-height: 70px;
+        padding: 10px 11px;
+        border: 1px solid #2d3138;
+        border-radius: 11px;
+        background: #1b1e22;
+      }
+
+      .compact-block--tags {
+        grid-column: 1 / -1;
+        min-height: 62px;
+      }
+
+      .compact-block__label {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-bottom: 9px;
+        color: #717984;
+        font-size: 8px;
+        font-weight: 750;
+        letter-spacing: 0.075em;
+        text-transform: uppercase;
+      }
+
+      .compact-block__value {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        gap: 7px;
+        color: #d8dce0;
+        font-size: 10px;
+        font-weight: 580;
+      }
+
+      .compact-block__value > span:last-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .avatar-stack {
+        display: flex;
+        padding-left: 2px;
+      }
+
+      .avatar-stack .avatar {
+        width: 25px;
+        height: 25px;
+        margin-left: -6px;
+        border-color: #1b1e22;
+        font-size: 7px;
+      }
+
+      .avatar-stack .avatar:first-child {
+        margin-left: 0;
+      }
+
+      .compact-block__count {
+        margin-left: 5px;
+        color: #808792;
+        font-size: 9px;
+      }
+
+      .feed-card {
+        overflow: hidden;
+        margin: 8px 10px 0;
+        border: 1px solid #2e3239;
+        border-radius: 13px;
+        background: #1b1e22;
+      }
+
+      .feed-card__header {
+        display: flex;
+        align-items: center;
+        padding: 12px 12px 10px;
+      }
+
+      .feed-card__header strong {
+        font-size: 12px;
+        font-weight: 680;
+      }
+
+      .feed-card__header span {
+        margin-left: auto;
+        color: #656c76;
+        font-size: 8px;
+      }
+
+      .sidebar-variant--compact .recommendation-tabs {
+        gap: 5px;
+        margin: 0 9px 7px;
+        padding: 0;
+        border: 0;
+      }
+
+      .sidebar-variant--compact .recommendation-tabs button {
+        padding: 7px 6px;
+        border: 1px solid #31353d;
+        border-radius: 999px;
+        color: #7c838e;
+        background: #202328;
+      }
+
+      .sidebar-variant--compact
+        .recommendation-tabs
+        button[aria-selected="true"] {
+        border-color: #4a505a;
+        color: #e2e5e8;
+        background: #30343b;
+      }
+
+      .sidebar-variant--compact
+        .recommendation-tabs
+        button[aria-selected="true"]::after {
+        display: none;
+      }
+
+      .sidebar-variant--compact .topic-links {
+        display: grid;
+        gap: 6px;
+        padding: 0 7px 8px;
+      }
+
+      .sidebar-variant--compact .topic-link {
+        padding: 10px;
+        border: 1px solid transparent;
+        border-radius: 9px;
+        background: #202328;
+      }
+
+      .sidebar-variant--compact .topic-link:hover {
+        border-color: #353a43;
+        background: #24282e;
+      }
+
+      .sidebar-variant--compact .topic-link__title {
+        color: #d2d6db;
+      }
+
+      @media (max-height: 760px) {
+        .study-main {
+          padding-top: 18px;
+        }
+
+        .concept-intro {
+          min-height: 64px;
+          margin-bottom: 14px;
+        }
+
+        .concept-intro p {
+          margin-top: 4px;
+        }
+
+        .app-frame {
+          height: calc(100vh - 180px);
+          min-height: 560px;
+        }
+      }
+    </style>
+  </head>
+  <body data-layout="cards">
+    <header class="study-header">
+      <div class="study-brand">
+        <div class="study-brand__mark" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M4 5.5h16v10.3a3.2 3.2 0 0 1-3.2 3.2H9l-5 2V5.5Z"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linejoin="round"
+            />
+            <path d="M8 10h8M8 14h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+          </svg>
+        </div>
+        <div class="study-brand__text">
+          <p class="study-brand__eyebrow">Design study</p>
+          <p class="study-brand__title">Topic header + context sidebar</p>
+        </div>
+      </div>
+
+      <nav class="layout-switcher" aria-label="Choose a layout study">
+        <button type="button" data-layout-button="cards" aria-pressed="true">01 · Property cards</button>
+        <button type="button" data-layout-button="sections" aria-pressed="false">02 · Quiet sections</button>
+        <button type="button" data-layout-button="compact" aria-pressed="false">03 · Compact context</button>
+      </nav>
+
+      <div class="study-status">HTML/CSS concept only</div>
+    </header>
+
+    <main class="study-main">
+      <section class="concept-intro" aria-live="polite">
+        <div>
+          <span class="concept-intro__index" id="concept-index">Option 01 · closest to the reference</span>
+          <h1 id="concept-title">Property cards</h1>
+          <p id="concept-description">
+            A Linear-inspired inspector: topic actions, labeled properties, and the tabbed recommendation feed each get a clear card and visual role.
+          </p>
+        </div>
+        <div class="concept-traits" id="concept-traits" aria-label="Layout characteristics">
+          <span>Balanced</span><span>Explicit labels</span><span>Recommended</span>
+        </div>
+      </section>
+
+      <section class="app-frame" aria-label="Discourse Native topic page concept">
+        <div class="window-strip" aria-hidden="true">
+          <div class="traffic-lights"><i></i><i></i><i></i></div>
+          <div class="window-title">Discourse Native</div>
+        </div>
+
+        <div class="app-shell">
+          <aside class="instance-rail" aria-label="Instances">
+            <button class="instance instance--active" aria-label="Meta Discourse">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 4h16v11.3a3.7 3.7 0 0 1-3.7 3.7H9l-5 2V4Z" fill="currentColor" fill-opacity=".92" />
+                <path d="M8 9h8M8 13h5" stroke="#0a80b1" stroke-width="1.7" stroke-linecap="round" />
+              </svg>
+            </button>
+            <button class="instance" aria-label="Community">D</button>
+            <button class="instance" aria-label="Add instance">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              </svg>
+            </button>
+            <button class="instance instance--avatar" aria-label="User menu">JJ</button>
+          </aside>
+
+          <aside class="forum-nav" aria-label="Forum navigation">
+            <div class="forum-nav__header">
+              meta.discourse.org
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+            <div class="forum-nav__body">
+              <p class="nav-heading">Browse</p>
+              <div class="nav-row nav-row--active">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></svg>
+                Topics <span class="nav-count">18</span>
+              </div>
+              <div class="nav-row">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m4 6 8-3 8 3v12l-8 3-8-3V6Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg>
+                Categories
+              </div>
+              <div class="nav-row">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5h9l7 7-8 8-8-8V5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /><circle cx="9" cy="10" r="1.4" fill="currentColor" /></svg>
+                Tags
+              </div>
+              <p class="nav-heading">Community</p>
+              <div class="nav-row">Announcements</div>
+              <div class="nav-row">Site feedback</div>
+              <div class="nav-row">Support <span class="nav-count">7</span></div>
+              <div class="nav-row">Feature</div>
+              <p class="nav-heading">Personal</p>
+              <div class="nav-row">Bookmarks</div>
+              <div class="nav-row">My assignments <span class="nav-count">3</span></div>
+            </div>
+          </aside>
+
+          <article class="topic-main">
+            <header class="topic-header">
+              <button class="back-button" type="button" aria-label="Back">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+              <h2>Rethinking how topic context should work in the native client</h2>
+            </header>
+
+            <div class="topic-stream">
+              <article class="post">
+                <div class="post__head">
+                  <div class="avatar avatar--sam">SJ</div>
+                  <div class="post__identity"><strong>sam</strong><span>team · 12 minutes ago</span></div>
+                  <span class="post__number">#1</span>
+                </div>
+                <div class="post__body">
+                  <p>
+                    Topic metadata is useful while reading, but it currently competes with the title and the actions in the header. The proposal is to let the header do one job: orient you in the conversation.
+                  </p>
+                  <h3>A calmer reading surface</h3>
+                  <p>Move persistent context to the right sidebar, where it remains available without changing the rhythm of the post stream.</p>
+                  <ul>
+                    <li>Keep category, tags, and assignments visible.</li>
+                    <li>Use one tabbed container for related and suggested topics.</li>
+                    <li>Make the sidebar useful without making it visually loud.</li>
+                  </ul>
+                </div>
+                <div class="post-actions"><button class="post-action">Like</button><button class="post-action">Quote</button><button class="post-action">More</button></div>
+              </article>
+
+              <article class="post">
+                <div class="post__head">
+                  <div class="avatar avatar--mei">MK</div>
+                  <div class="post__identity"><strong>mei</strong><span>community · 4 minutes ago</span></div>
+                  <span class="post__number">#2</span>
+                </div>
+                <div class="post__body"><p>The sidebar should feel like topic context, not a second navigation tree. I’d keep it predictable and avoid hiding the properties behind another click.</p></div>
+              </article>
+            </div>
+          </article>
+
+          <aside class="topic-aside" aria-label="Topic context">
+            <div class="sidebar-variant sidebar-variant--cards">
+              <div class="aside-caption">Topic context</div>
+              <section class="card">
+                <div class="card__heading">Actions</div>
+                <div class="action-card__body">
+                  <button class="reply-action" type="button">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 8-5 4 5 4v-3h4.5c3.2 0 5.4 1.4 6.5 4-.2-5.1-2.5-7.5-6.5-7.5H9V8Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" /></svg>
+                    Reply
+                  </button>
+                  <div class="secondary-actions">
+                    <button class="sidebar-action" type="button">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 9a6 6 0 1 0-12 0c0 7-3 7-3 8h18c0-1-3-1-3-8ZM10 20h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                      <span class="sidebar-action__copy"><strong>Watching</strong><small>Notifications</small></span>
+                    </button>
+                    <button class="sidebar-action" type="button">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 4.5h12v16l-6-4-6 4v-16Z" fill="currentColor" fill-opacity=".28" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg>
+                      <span class="sidebar-action__copy"><strong>Saved</strong><small>2 bookmarks</small></span>
+                    </button>
+                    <details class="admin-menu">
+                      <summary>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6" /><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+                        Admin actions
+                      </summary>
+                      <div class="admin-menu__items"><button type="button">Edit topic</button><button type="button">Pin topic</button><button type="button">Close topic</button><button type="button">Move posts</button><button type="button">Archive</button><button class="danger" type="button">Delete topic</button></div>
+                    </details>
+                  </div>
+                </div>
+              </section>
+              <section class="card">
+                <div class="card__heading">
+                  Properties
+                  <svg class="card__chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="m2 3.5 3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                  <button class="card__action" type="button" aria-label="Edit properties">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></svg>
+                  </button>
+                </div>
+                <dl class="property-list">
+                  <div class="property-row"><dt>Category</dt><dd><div class="property-value"><span class="category-mark"></span><span>Feature</span></div></dd></div>
+                  <div class="property-row"><dt>Tags</dt><dd><div class="tag-cloud"><span class="tag">ux</span><span class="tag">native</span><span class="tag">sidebar</span></div></dd></div>
+                  <div class="property-row">
+                    <dt>Assignments</dt>
+                    <dd class="assignee-list">
+                      <div class="assignee"><span class="avatar avatar--sam">SJ</span><span class="assignee__text"><strong>Sam</strong><span>Topic · In progress</span></span></div>
+                      <div class="assignee"><span class="avatar avatar--group">DX</span><span class="assignee__text"><strong>Design UX</strong><span>Post #2 · Pending</span></span></div>
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+
+              <section class="card">
+                <div class="card__heading">More topics <span style="margin-left:auto;color:#68707a;font-size:9px;font-weight:500">6 total</span></div>
+                <div class="recommendation-tabs" role="tablist" aria-label="More topics, property cards">
+                  <button type="button" role="tab" data-tab-button="cards-related" aria-selected="true">Related <span class="tab-count">3</span></button>
+                  <button type="button" role="tab" data-tab-button="cards-suggested" aria-selected="false">Suggested <span class="tab-count">3</span></button>
+                </div>
+                <div class="tab-panel" data-tab-panel="cards-related">
+                  <ul class="topic-links">
+                    <li class="topic-link"><div><div class="topic-link__title">Making topic lists easier to scan on desktop</div><div class="topic-link__meta"><span class="topic-link__category">UX</span><span>2d</span></div></div><span class="topic-link__replies">14</span></li>
+                    <li class="topic-link"><div><div class="topic-link__title">A native pattern for topic metadata</div><div class="topic-link__meta"><span class="topic-link__category topic-link__category--orange">Feature</span><span>6d</span></div></div><span class="topic-link__replies">8</span></li>
+                    <li class="topic-link"><div><div class="topic-link__title">Where should topic actions live?</div><div class="topic-link__meta"><span class="topic-link__category topic-link__category--green">Support</span><span>1w</span></div></div><span class="topic-link__replies">21</span></li>
+                  </ul>
+                </div>
+                <div class="tab-panel" data-tab-panel="cards-suggested" hidden>
+                  <ul class="topic-links">
+                    <li class="topic-link"><div><div class="topic-link__title">Designing calm information-dense interfaces</div><div class="topic-link__meta"><span class="topic-link__category">UX</span><span>3d</span></div></div><span class="topic-link__replies">32</span></li>
+                    <li class="topic-link"><div><div class="topic-link__title">The future of the native client shell</div><div class="topic-link__meta"><span class="topic-link__category topic-link__category--orange">Feature</span><span>2w</span></div></div><span class="topic-link__replies">47</span></li>
+                    <li class="topic-link"><div><div class="topic-link__title">Keyboard navigation in four-column layouts</div><div class="topic-link__meta"><span class="topic-link__category topic-link__category--green">Support</span><span>3w</span></div></div><span class="topic-link__replies">11</span></li>
+                  </ul>
+                </div>
+              </section>
+            </div>
+
+            <div class="sidebar-variant sidebar-variant--sections">
+              <div class="sections-header"><strong>Topic details</strong><span>Always visible</span></div>
+              <section class="sections-actions">
+                <button class="reply-action" type="button">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 8-5 4 5 4v-3h4.5c3.2 0 5.4 1.4 6.5 4-.2-5.1-2.5-7.5-6.5-7.5H9V8Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" /></svg>
+                  Reply to topic
+                </button>
+                <div class="sections-actions__row">
+                  <button class="sidebar-action" type="button">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 9a6 6 0 1 0-12 0c0 7-3 7-3 8h18c0-1-3-1-3-8ZM10 20h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                    <span class="sidebar-action__copy"><strong>Watching</strong><small>Change tracking</small></span>
+                  </button>
+                  <button class="sidebar-action" type="button">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 4.5h12v16l-6-4-6 4v-16Z" fill="currentColor" fill-opacity=".28" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg>
+                    <span class="sidebar-action__copy"><strong>Bookmarked</strong><small>Manage bookmarks</small></span>
+                  </button>
+                </div>
+                <details class="admin-menu">
+                  <summary>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6" /><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+                    Admin actions
+                  </summary>
+                  <div class="admin-menu__items"><button type="button">Edit topic</button><button type="button">Pin topic</button><button type="button">Close topic</button><button type="button">Move posts</button><button type="button">Archive</button><button class="danger" type="button">Delete topic</button></div>
+                </details>
+              </section>
+              <section class="metadata-section">
+                <div class="metadata-section__label">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16v12H4z" stroke="currentColor" stroke-width="1.7" /><path d="M4 9h16" stroke="currentColor" stroke-width="1.7" /></svg>
+                  Category
+                </div>
+                <div class="category-line"><span class="category-mark"></span>Feature <small>Open category</small></div>
+              </section>
+              <section class="metadata-section">
+                <div class="metadata-section__label">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5h9l7 7-8 8-8-8V5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /><circle cx="9" cy="10" r="1.4" fill="currentColor" /></svg>
+                  Tags
+                </div>
+                <div class="tag-cloud"><span class="tag">ux</span><span class="tag">native</span><span class="tag">sidebar</span></div>
+              </section>
+              <section class="metadata-section">
+                <div class="metadata-section__label">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="8" cy="9" r="3" stroke="currentColor" stroke-width="1.6" /><circle cx="17" cy="10" r="2.5" stroke="currentColor" stroke-width="1.6" /><path d="M3 19c.5-3 2.2-4.5 5-4.5s4.5 1.5 5 4.5M14 15.5c2.8-.5 5 .8 6 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+                  Assignments
+                </div>
+                <div class="sections-assignees">
+                  <div class="person-tile"><span class="avatar avatar--sam">SJ</span><span>Sam</span></div>
+                  <div class="person-tile"><span class="avatar avatar--group">DX</span><span>Design UX</span></div>
+                </div>
+              </section>
+              <section class="sections-more">
+                <div class="sections-more__title"><strong>More topics</strong><span>Related + suggested</span></div>
+                <div class="recommendation-tabs" role="tablist" aria-label="More topics, quiet sections">
+                  <button type="button" role="tab" data-tab-button="sections-related" aria-selected="true">Related <span class="tab-count">3</span></button>
+                  <button type="button" role="tab" data-tab-button="sections-suggested" aria-selected="false">Suggested <span class="tab-count">3</span></button>
+                </div>
+                <div class="tab-panel" data-tab-panel="sections-related">
+                  <ul class="topic-links">
+                    <li class="topic-link"><div><div class="topic-link__title">Making topic lists easier to scan on desktop</div><div class="topic-link__meta"><span class="topic-link__category">UX</span><span>2d</span></div></div><span class="topic-link__replies">14</span></li>
+                    <li class="topic-link"><div><div class="topic-link__title">A native pattern for topic metadata</div><div class="topic-link__meta"><span class="topic-link__category topic-link__category--orange">Feature</span><span>6d</span></div></div><span class="topic-link__replies">8</span></li>
+                    <li class="topic-link"><div><div class="topic-link__title">Where should topic actions live?</div><div class="topic-link__meta"><span class="topic-link__category topic-link__category--green">Support</span><span>1w</span></div></div><span class="topic-link__replies">21</span></li>
+                  </ul>
+                </div>
+                <div class="tab-panel" data-tab-panel="sections-suggested" hidden>
+                  <ul class="topic-links">
+                    <li class="topic-link"><div><div class="topic-link__title">Designing calm information-dense interfaces</div><div class="topic-link__meta"><span class="topic-link__category">UX</span><span>3d</span></div></div><span class="topic-link__replies">32</span></li>
+                    <li class="topic-link"><div><div class="topic-link__title">The future of the native client shell</div><div class="topic-link__meta"><span class="topic-link__category topic-link__category--orange">Feature</span><span>2w</span></div></div><span class="topic-link__replies">47</span></li>
+                    <li class="topic-link"><div><div class="topic-link__title">Keyboard navigation in four-column layouts</div><div class="topic-link__meta"><span class="topic-link__category topic-link__category--green">Support</span><span>3w</span></div></div><span class="topic-link__replies">11</span></li>
+                  </ul>
+                </div>
+              </section>
+            </div>
+
+            <div class="sidebar-variant sidebar-variant--compact">
+              <div class="aside-caption">Context at a glance</div>
+              <div class="compact-actions">
+                <button class="reply-action" type="button">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 8-5 4 5 4v-3h4.5c3.2 0 5.4 1.4 6.5 4-.2-5.1-2.5-7.5-6.5-7.5H9V8Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" /></svg>
+                  Reply
+                </button>
+                <button class="compact-action" type="button" title="Notification level: Watching">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 9a6 6 0 1 0-12 0c0 7-3 7-3 8h18c0-1-3-1-3-8Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" /></svg>
+                  Watching
+                </button>
+                <button class="compact-action" type="button" title="Manage bookmarks">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 4.5h12v16l-6-4-6 4v-16Z" fill="currentColor" fill-opacity=".25" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" /></svg>
+                  Saved
+                </button>
+                <details class="admin-menu compact-admin">
+                  <summary>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6" /><path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+                    Admin
+                  </summary>
+                  <div class="admin-menu__items"><button type="button">Edit topic</button><button type="button">Pin topic</button><button type="button">Close topic</button><button type="button">Move posts</button><button type="button">Archive</button><button class="danger" type="button">Delete topic</button></div>
+                </details>
+              </div>
+              <div class="compact-context">
+                <section class="compact-block">
+                  <div class="compact-block__label">Category</div>
+                  <div class="compact-block__value"><span class="category-mark"></span><span>Feature</span></div>
+                </section>
+                <section class="compact-block">
+                  <div class="compact-block__label">Assignments</div>
+                  <div class="compact-block__value"><span class="avatar-stack"><span class="avatar avatar--sam">SJ</span><span class="avatar avatar--group">DX</span></span><span class="compact-block__count">2</span></div>
+                </section>
+                <section class="compact-block compact-block--tags">
+                  <div class="compact-block__label">Tags</div>
+                  <div class="tag-cloud"><span class="tag">ux</span><span class="tag">native</span><span class="tag">sidebar</span></div>
+                </section>
+              </div>
+              <section class="feed-card">
+                <div class="feed-card__header"><strong>More topics</strong><span>6 matches</span></div>
+                <div class="recommendation-tabs" role="tablist" aria-label="More topics, compact context">
+                  <button type="button" role="tab" data-tab-button="compact-related" aria-selected="true">Related <span class="tab-count">3</span></button>
+                  <button type="button" role="tab" data-tab-button="compact-suggested" aria-selected="false">Suggested <span class="tab-count">3</span></button>
+                </div>
+                <div class="tab-panel" data-tab-panel="compact-related">
+                  <ul class="topic-links">
+                    <li class="topic-link"><div><div class="topic-link__title">Making topic lists easier to scan on desktop</div><div class="topic-link__meta"><span class="topic-link__category">UX</span><span>2d</span></div></div><span class="topic-link__replies">14</span></li>
+                    <li class="topic-link"><div><div class="topic-link__title">A native pattern for topic metadata</div><div class="topic-link__meta"><span class="topic-link__category topic-link__category--orange">Feature</span><span>6d</span></div></div><span class="topic-link__replies">8</span></li>
+                    <li class="topic-link"><div><div class="topic-link__title">Where should topic actions live?</div><div class="topic-link__meta"><span class="topic-link__category topic-link__category--green">Support</span><span>1w</span></div></div><span class="topic-link__replies">21</span></li>
+                  </ul>
+                </div>
+                <div class="tab-panel" data-tab-panel="compact-suggested" hidden>
+                  <ul class="topic-links">
+                    <li class="topic-link"><div><div class="topic-link__title">Designing calm information-dense interfaces</div><div class="topic-link__meta"><span class="topic-link__category">UX</span><span>3d</span></div></div><span class="topic-link__replies">32</span></li>
+                    <li class="topic-link"><div><div class="topic-link__title">The future of the native client shell</div><div class="topic-link__meta"><span class="topic-link__category topic-link__category--orange">Feature</span><span>2w</span></div></div><span class="topic-link__replies">47</span></li>
+                    <li class="topic-link"><div><div class="topic-link__title">Keyboard navigation in four-column layouts</div><div class="topic-link__meta"><span class="topic-link__category topic-link__category--green">Support</span><span>3w</span></div></div><span class="topic-link__replies">11</span></li>
+                  </ul>
+                </div>
+              </section>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const concepts = {
+        cards: {
+          index: "Option 01 · closest to the reference",
+          title: "Property cards",
+          description:
+            "A Linear-inspired inspector: topic actions, labeled properties, and the tabbed recommendation feed each get a clear card and visual role.",
+          traits: ["Balanced", "Explicit labels", "Recommended"],
+        },
+        sections: {
+          index: "Option 02 · least visual chrome",
+          title: "Quiet sections",
+          description:
+            "A continuous sidebar surface with a compact action zone, strong spacing, and subtle dividers. It feels native to the current shell and leaves each group easy to extend.",
+          traits: ["Calm", "Extensible", "Roomy"],
+        },
+        compact: {
+          index: "Option 03 · maximum topic visibility",
+          title: "Compact context",
+          description:
+            "A dashboard-like action dock and summary keep every control scannable, then give most of the sidebar height to the tabbed topic feed.",
+          traits: ["Dense", "Fast scan", "Feed-first"],
+        },
+      };
+
+      const body = document.body;
+      const index = document.querySelector("#concept-index");
+      const title = document.querySelector("#concept-title");
+      const description = document.querySelector("#concept-description");
+      const traits = document.querySelector("#concept-traits");
+
+      document.querySelectorAll("[data-layout-button]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const layout = button.dataset.layoutButton;
+          const concept = concepts[layout];
+          body.dataset.layout = layout;
+          document.querySelectorAll("[data-layout-button]").forEach((candidate) => {
+            candidate.setAttribute("aria-pressed", String(candidate === button));
+          });
+          index.textContent = concept.index;
+          title.textContent = concept.title;
+          description.textContent = concept.description;
+          traits.replaceChildren(
+            ...concept.traits.map((trait) => {
+              const chip = document.createElement("span");
+              chip.textContent = trait;
+              return chip;
+            }),
+          );
+        });
+      });
+
+      document.querySelectorAll("[data-tab-button]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const key = button.dataset.tabButton;
+          const group = key.split("-")[0];
+          document.querySelectorAll(`[data-tab-button^="${group}-"]`).forEach((candidate) => {
+            candidate.setAttribute("aria-selected", String(candidate === button));
+          });
+          document.querySelectorAll(`[data-tab-panel^="${group}-"]`).forEach((panel) => {
+            panel.hidden = panel.dataset.tabPanel !== key;
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

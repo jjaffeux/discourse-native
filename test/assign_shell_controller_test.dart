@@ -295,7 +295,7 @@ void main() {
         assignments.canAssign(_site, const AssignmentTarget.topic(7)),
         isFalse,
       );
-      late List<Widget> contribution;
+      late List<TopicPropertySection> contribution;
 
       await tester.pumpWidget(
         MaterialApp(
@@ -305,10 +305,13 @@ void main() {
             child: Scaffold(
               body: Builder(
                 builder: (context) {
-                  contribution = PluginScope.of(
-                    context,
-                  ).registry.topicHeader(context, _site, shell.currentTopic!);
-                  return Row(children: contribution);
+                  contribution = PluginScope.of(context).registry
+                      .topicProperties(context, _site, shell.currentTopic!);
+                  return Row(
+                    children: [
+                      for (final section in contribution) ...section.values,
+                    ],
+                  );
                 },
               ),
             ),
@@ -317,12 +320,12 @@ void main() {
       );
 
       expect(contribution, isEmpty);
-      expect(find.byKey(const Key('assign-topic-header')), findsNothing);
+      expect(find.byKey(const Key('assign-topic-property')), findsNothing);
     },
   );
 
   testWidgets(
-    'a legacy 404 rebuilds away topic-header and post-menu contributions',
+    'a legacy 404 rebuilds away topic properties and post-menu contributions',
     (tester) async {
       final api = FakeDiscourseApi(
         user: _assignUser(),
@@ -342,9 +345,9 @@ void main() {
         assignmentControllerService,
       );
       late PostMenuContribution postMenu;
-      late Listenable topicHeaderRebuildOn;
+      late Listenable topicPropertiesRebuildOn;
       late Listenable postMenuRebuildOn;
-      var topicHeaderBuilds = 0;
+      var topicPropertiesBuilds = 0;
       var postMenuBuilds = 0;
 
       await tester.pumpWidget(
@@ -358,7 +361,7 @@ void main() {
                   final registry = PluginScope.of(context).registry;
                   final topic = shell.currentTopic!;
                   final post = shell.store.read<Post>(_site, 12)!;
-                  topicHeaderRebuildOn = registry.topicHeaderRebuildOn(
+                  topicPropertiesRebuildOn = registry.topicPropertiesRebuildOn(
                     context,
                     _site,
                     topic,
@@ -374,15 +377,19 @@ void main() {
                   return Column(
                     children: [
                       ListenableBuilder(
-                        listenable: topicHeaderRebuildOn,
+                        listenable: topicPropertiesRebuildOn,
                         builder: (context, _) {
-                          topicHeaderBuilds++;
+                          topicPropertiesBuilds++;
+                          final properties = registry.topicProperties(
+                            context,
+                            _site,
+                            topic,
+                          );
                           return Row(
-                            children: registry.topicHeader(
-                              context,
-                              _site,
-                              topic,
-                            ),
+                            children: [
+                              for (final section in properties)
+                                ...section.values,
+                            ],
                           );
                         },
                       ),
@@ -411,11 +418,11 @@ void main() {
         ),
       );
 
-      expect(find.byKey(const Key('assign-topic-header')), findsOneWidget);
+      expect(find.byKey(const Key('assign-topic-property')), findsOneWidget);
       expect(postMenu.entries.map((entry) => entry.label), ['Assign post']);
-      expect(identical(topicHeaderRebuildOn, assignments), isTrue);
+      expect(identical(topicPropertiesRebuildOn, assignments), isTrue);
       expect(identical(postMenuRebuildOn, assignments), isTrue);
-      final initialTopicHeaderBuilds = topicHeaderBuilds;
+      final initialTopicPropertiesBuilds = topicPropertiesBuilds;
       final initialPostMenuBuilds = postMenuBuilds;
 
       final error = await _assignments(shell).assign(
@@ -426,9 +433,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(error, 'This assignment target is no longer available.');
-      expect(topicHeaderBuilds, greaterThan(initialTopicHeaderBuilds));
+      expect(topicPropertiesBuilds, greaterThan(initialTopicPropertiesBuilds));
       expect(postMenuBuilds, greaterThan(initialPostMenuBuilds));
-      expect(find.byKey(const Key('assign-topic-header')), findsNothing);
+      expect(find.byKey(const Key('assign-topic-property')), findsNothing);
       expect(postMenu.entries, isEmpty);
       expect(identical(postMenu.rebuildOn, assignments), isTrue);
     },

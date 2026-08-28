@@ -24,8 +24,7 @@ Future<void> showPostReactionPicker(
 ) async {
   final session = controller.beginPicker(siteUrl, post);
   final messenger = ScaffoldMessenger.maybeOf(context);
-  bool stillOwnsUi() =>
-      !context.mounted || _stillOwnsUi(context, controller);
+  bool stillOwnsUi() => !context.mounted || _stillOwnsUi(context, controller);
   final allowAnyEmoji = await controller.allowsAnyEmoji(siteUrl);
   if (!context.mounted ||
       !controller.isPickerCurrent(session) ||

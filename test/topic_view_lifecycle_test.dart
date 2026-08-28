@@ -400,7 +400,7 @@ void main() {
       ContentRoute.topic(topicId: 1, slug: 'one', title: 'One', postNumber: 5),
     );
 
-    var showRecommendationsPanel = false;
+    var showSidebar = false;
     late StateSetter rebuild;
     await tester.pumpWidget(
       ShellScope(
@@ -411,9 +411,7 @@ void main() {
             body: StatefulBuilder(
               builder: (context, setState) {
                 rebuild = setState;
-                return TopicView(
-                  showRecommendationsPanel: showRecommendationsPanel,
-                );
+                return TopicView(showSidebar: showSidebar);
               },
             ),
           ),
@@ -429,26 +427,20 @@ void main() {
     expect(scroll.positions, hasLength(1));
     final position = scroll.position;
 
-    rebuild(() => showRecommendationsPanel = true);
+    rebuild(() => showSidebar = true);
     await tester.pump();
 
     expect(tester.takeException(), isNull);
-    expect(
-      find.byKey(const ValueKey('topic-recommendations-panel')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsOneWidget);
     expect(scroll.positions, hasLength(1));
     expect(scroll.position, same(position));
 
     await tester.pumpAndSettle();
-    rebuild(() => showRecommendationsPanel = false);
+    rebuild(() => showSidebar = false);
     await tester.pump();
 
     expect(tester.takeException(), isNull);
-    expect(
-      find.byKey(const ValueKey('topic-recommendations-panel')),
-      findsNothing,
-    );
+    expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsNothing);
     expect(scroll.positions, hasLength(1));
     expect(scroll.position, same(position));
   });
