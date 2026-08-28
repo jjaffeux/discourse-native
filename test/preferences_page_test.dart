@@ -162,6 +162,7 @@ void main() {
     await _pumpPage(tester, fixture, width: 1000);
 
     expect(find.byType(DSelectField<PreferenceSection>), findsNothing);
+    expect(find.text('Preferences'), findsNothing);
     final notifications = find.byKey(
       const ValueKey('preferences-section-notifications'),
     );
