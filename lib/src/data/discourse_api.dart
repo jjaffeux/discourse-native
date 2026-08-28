@@ -1615,7 +1615,7 @@ class DiscourseApi
   /// is what the overwhelming majority of sites run.
   static const List<String> hashtagOrder = ['category', 'tag'];
 
-  /// Categories and tags matching [term], best first.
+  /// Hashtag targets matching [term], best first.
   ///
   /// `order[]` is not optional decoration: `HashtagsController#search` does
   /// `params.require(:order)` and answers 400 without it.
@@ -1627,14 +1627,7 @@ class DiscourseApi
     String? clientId,
   }) async {
     _validateComposerLookupValue(term, allowEmpty: true);
-    if (order.isEmpty || order.length > hashtagsPerRequest) {
-      throw RangeError.range(
-        order.length,
-        1,
-        hashtagsPerRequest,
-        'order.length',
-      );
-    }
+    _validateHashtagOrder(order);
     final response = await _get(
       Uri.parse('$siteUrl/hashtags/search.json').replace(
         // `<String, dynamic>` so the list is emitted as a repeated parameter.
@@ -1674,13 +1667,16 @@ class DiscourseApi
   ///
   /// The response is keyed by type rather than being a list, and the keys are
   /// flattened back out here: which type a ref turned out to be is already on
-  /// the item.
+  /// the item. [order] declares every core or plugin-owned type the server
+  /// should try, in the same priority order as [searchHashtags].
   Future<List<FoundHashtag>> lookupHashtags({
     required String siteUrl,
     required Iterable<String> refs,
+    List<String> order = hashtagOrder,
     String? apiKey,
     String? clientId,
   }) async {
+    _validateHashtagOrder(order);
     final slugs = refs.take(hashtagsPerRequest).toList(growable: false);
     if (slugs.isEmpty) return const [];
     for (final slug in slugs) {
@@ -1690,10 +1686,7 @@ class DiscourseApi
 
     final response = await _get(
       Uri.parse('$siteUrl/hashtags.json').replace(
-        queryParameters: <String, dynamic>{
-          'slugs[]': slugs,
-          'order[]': hashtagOrder,
-        },
+        queryParameters: <String, dynamic>{'slugs[]': slugs, 'order[]': order},
       ),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -1718,6 +1711,17 @@ class DiscourseApi
         siteUrl,
         cause: error,
         causeStackTrace: stackTrace,
+      );
+    }
+  }
+
+  static void _validateHashtagOrder(List<String> order) {
+    if (order.isEmpty || order.length > hashtagsPerRequest) {
+      throw RangeError.range(
+        order.length,
+        1,
+        hashtagsPerRequest,
+        'order.length',
       );
     }
   }

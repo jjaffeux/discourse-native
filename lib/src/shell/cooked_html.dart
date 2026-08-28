@@ -90,7 +90,12 @@ class CookedHtml extends StatelessWidget {
             siteUrl: siteUrl,
             userStatuses: mentionedUserStatuses,
           ) ??
-          hashtagWidgetBuilder(element, textStyle, siteUrl: siteUrl) ??
+          hashtagWidgetBuilder(
+            element,
+            textStyle,
+            siteUrl: siteUrl,
+            pluginPresentation: registry.pluginHashtagPresentation,
+          ) ??
           imageGridWidgetBuilder(element, siteUrl: siteUrl) ??
           lightboxWidgetBuilder(element, siteUrl: siteUrl) ??
           youtubeVideoWidgetBuilder(element, siteUrl: siteUrl) ??

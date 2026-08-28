@@ -2777,47 +2777,94 @@ void _feedGroups() {
   });
 
   group('lookupHashtags', () {
-    test('asks with every ref and reads the reply keyed by type', () async {
-      Uri? asked;
+    test(
+      'asks with every ref and type and reads plugin-owned results',
+      () async {
+        Uri? asked;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            asked = request.url;
+            return http.Response(
+              jsonEncode({
+                'category': [
+                  {
+                    'type': 'category',
+                    'ref': 'bug',
+                    'slug': 'bug',
+                    'text': 'Bug',
+                    'id': 5,
+                    'colors': ['0088CC'],
+                  },
+                ],
+                'tag': [
+                  {
+                    'type': 'tag',
+                    'ref': 'ux::tag',
+                    'slug': 'ux',
+                    'text': 'ux',
+                    'id': 3,
+                  },
+                ],
+                'room': [
+                  {
+                    'type': 'room',
+                    'ref': 'lounge',
+                    'slug': 'lounge',
+                    'text': 'Lounge',
+                    'id': 9,
+                    'relative_url': '/resenha/r/lounge',
+                    'style_type': 'icon',
+                    'icon': 'microphone-lines',
+                  },
+                ],
+              }),
+              200,
+            );
+          }),
+        );
+
+        final found = await api.lookupHashtags(
+          siteUrl: 'https://example.com',
+          refs: ['bug', 'ux::tag', 'lounge'],
+          order: const ['category', 'tag', 'room'],
+        );
+
+        expect(asked!.path, '/hashtags.json');
+        expect(asked!.queryParametersAll['slugs[]'], [
+          'bug',
+          'ux::tag',
+          'lounge',
+        ]);
+        expect(asked!.queryParametersAll['order[]'], [
+          'category',
+          'tag',
+          'room',
+        ]);
+        expect(found.map((f) => f.ref), ['bug', 'ux::tag', 'lounge']);
+        expect(found.last.type, 'room');
+        expect(found.last.relativeUrl, '/resenha/r/lounge');
+        expect(found.last.icon, 'microphone-lines');
+      },
+    );
+
+    test('rejects an invalid type order before transport', () async {
+      var called = false;
       final api = DiscourseApi(
-        client: MockClient((request) async {
-          asked = request.url;
-          return http.Response(
-            jsonEncode({
-              'category': [
-                {
-                  'type': 'category',
-                  'ref': 'bug',
-                  'slug': 'bug',
-                  'text': 'Bug',
-                  'id': 5,
-                  'colors': ['0088CC'],
-                },
-              ],
-              'tag': [
-                {
-                  'type': 'tag',
-                  'ref': 'ux::tag',
-                  'slug': 'ux',
-                  'text': 'ux',
-                  'id': 3,
-                },
-              ],
-            }),
-            200,
-          );
+        client: MockClient((_) async {
+          called = true;
+          return http.Response('{}', 200);
         }),
       );
 
-      final found = await api.lookupHashtags(
-        siteUrl: 'https://example.com',
-        refs: ['bug', 'ux::tag'],
+      await expectLater(
+        api.lookupHashtags(
+          siteUrl: 'https://example.com',
+          refs: const ['bug'],
+          order: const [],
+        ),
+        throwsRangeError,
       );
-
-      expect(asked!.path, '/hashtags.json');
-      expect(asked!.queryParametersAll['slugs[]'], ['bug', 'ux::tag']);
-      expect(asked!.queryParametersAll['order[]'], ['category', 'tag']);
-      expect(found.map((f) => f.ref), containsAll(['bug', 'ux::tag']));
+      expect(called, isFalse);
     });
 
     test('a ref the site does not resolve is simply absent', () async {

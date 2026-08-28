@@ -4,9 +4,13 @@ import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
+import 'package:discourse_native/src/plugin_api/hashtag_kind.dart';
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_pill.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_plugin.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
+import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_pills.dart';
 import 'package:discourse_native/src/shell/composer_quotes.dart';
@@ -16,12 +20,14 @@ import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
 import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/syntax.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'support/bundled_plugins.dart';
+import 'support/finders.dart';
 
 /// The composer draws markdown but posts it unchanged, and the two are the same
 /// string. Everything Flutter does with an editable — placing the caret, hit
@@ -36,11 +42,13 @@ void main() {
     String source, {
     String Function(String)? resolveEmoji,
     ComposerPills? pills,
+    PluginHashtagPresentationResolver? pluginHashtagPresentation,
   }) async {
     controller = MarkdownEditingController(
       text: source,
       resolveEmoji: resolveEmoji,
       pills: pills,
+      pluginHashtagPresentation: pluginHashtagPresentation,
       syntaxPlugins: pluginRegistry.composerSyntaxPlugins,
     );
     addTearDown(controller.dispose);
@@ -535,10 +543,81 @@ void main() {
       },
     );
 
+    test('suggestion art shares installed and fallback kind policies', () {
+      const registry = PluginRegistry([ResenhaPlugin()]);
+      final request = HashtagPresentationRequest(
+        type: 'room',
+        style: HashtagStyle.square,
+      );
+      final installed = hashtagSuggestionArt(
+        resolveHashtagPresentation(
+          request,
+          pluginPresentation: registry.pluginHashtagPresentation,
+        ),
+        resolveEmoji: (name) => 'https://example.com/$name.png',
+      );
+      final absent = hashtagSuggestionArt(
+        resolveHashtagPresentation(request),
+        resolveEmoji: (name) => 'https://example.com/$name.png',
+      );
+      final future = hashtagSuggestionArt(
+        resolveHashtagPresentation(
+          HashtagPresentationRequest(type: 'board', style: HashtagStyle.square),
+        ),
+        resolveEmoji: (name) => 'https://example.com/$name.png',
+      );
+
+      expect((installed as ArtIcon).fallback, DIcons.microphoneLines);
+      expect((absent as ArtIcon).fallback, DIcons.link);
+      expect((future as ArtIcon).fallback, DIcons.link);
+    });
+
+    test('emoji-style hashtag suggestions use the emoji artwork', () {
+      final art = hashtagSuggestionArt(
+        resolveHashtagPresentation(
+          HashtagPresentationRequest(
+            type: 'board',
+            style: HashtagStyle.emoji,
+            emoji: 'rocket',
+          ),
+        ),
+        resolveEmoji: (name) => 'https://example.com/$name.png',
+      );
+
+      expect(art, isA<ArtImage>());
+      expect((art as ArtImage).url, 'https://example.com/rocket.png');
+    });
+
+    test('an emoji style without an emoji keeps an uncoloured kind icon', () {
+      final art = hashtagSuggestionArt(
+        resolveHashtagPresentation(
+          HashtagPresentationRequest(
+            type: 'category',
+            style: HashtagStyle.emoji,
+            colorValues: const [0xFF112233],
+          ),
+        ),
+        resolveEmoji: (name) => 'https://example.com/$name.png',
+      );
+
+      expect(art, isA<ArtIcon>());
+      expect((art as ArtIcon).fallback, DIcons.folder);
+      expect(art.colorValue, isNull);
+    });
+
     /// Puts the caret somewhere other than in the run being looked at, since a
     /// caret touching one is what keeps it as text.
-    Future<void> pumpAway(WidgetTester tester, String source) async {
-      await pumpField(tester, source, pills: pills());
+    Future<void> pumpAway(
+      WidgetTester tester,
+      String source, {
+      PluginHashtagPresentationResolver? pluginHashtagPresentation,
+    }) async {
+      await pumpField(
+        tester,
+        source,
+        pills: pills(),
+        pluginHashtagPresentation: pluginHashtagPresentation,
+      );
       controller.selection = const TextSelection.collapsed(offset: 0);
       await tester.pump();
     }
@@ -554,6 +633,72 @@ void main() {
         tester.widget<HashtagPill>(find.byType(HashtagPill)).label,
         '#bug',
       );
+    });
+
+    testWidgets('an installed Resenha room uses its microphone policy', (
+      tester,
+    ) async {
+      known['lounge'] = const FoundHashtag(
+        type: 'room',
+        ref: 'lounge',
+        slug: 'lounge',
+        text: 'Lounge',
+        id: 9,
+      );
+      const registry = PluginRegistry([ResenhaPlugin()]);
+
+      await pumpAway(
+        tester,
+        'join #lounge now',
+        pluginHashtagPresentation: registry.pluginHashtagPresentation,
+      );
+
+      final pill = tester.widget<HashtagPill>(find.byType(HashtagPill));
+      expect(pill.presentation.type, 'room');
+      expect(pill.presentation.fallbackIcon, DIcons.microphoneLines);
+      expect(find.dIcon(DIcons.microphoneLines), findsOneWidget);
+      expect(find.dIcon(DIcons.tag), findsNothing);
+    });
+
+    testWidgets('an absent Resenha room keeps its unknown identity', (
+      tester,
+    ) async {
+      known['lounge'] = const FoundHashtag(
+        type: 'room',
+        ref: 'lounge',
+        slug: 'lounge',
+        text: 'Lounge',
+        id: 9,
+      );
+
+      await pumpAway(tester, 'join #lounge now');
+
+      final pill = tester.widget<HashtagPill>(find.byType(HashtagPill));
+      expect(pill.presentation.type, 'room');
+      expect(pill.presentation.fallbackIcon, DIcons.link);
+      expect(find.dIcon(DIcons.link), findsOneWidget);
+      expect(find.dIcon(DIcons.tag), findsNothing);
+      expect(find.dIcon(DIcons.microphoneLines), findsNothing);
+    });
+
+    testWidgets('an arbitrary server kind uses the neutral fallback', (
+      tester,
+    ) async {
+      known['roadmap'] = const FoundHashtag(
+        type: 'board',
+        ref: 'roadmap',
+        slug: 'roadmap',
+        text: 'Roadmap',
+        id: 10,
+      );
+
+      await pumpAway(tester, 'see #roadmap next');
+
+      final pill = tester.widget<HashtagPill>(find.byType(HashtagPill));
+      expect(pill.presentation.type, 'board');
+      expect(pill.presentation.fallbackIcon, DIcons.link);
+      expect(find.dIcon(DIcons.link), findsOneWidget);
+      expect(find.dIcon(DIcons.tag), findsNothing);
     });
 
     testWidgets('a resolved mention is drawn as a pill', (tester) async {

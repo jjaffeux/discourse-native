@@ -119,6 +119,8 @@ The registry currently provides typed seams for:
 
 - post/topic records, cooked elements, footers, decorations, metadata, small
   actions, menus, headers, and live invalidation;
+- registered hashtag kinds, including their server wire type and shared cooked
+  and composer presentation policy;
 - namespaced composer target policies (drafts, uploads, editing, validation,
   mentions, and emoji usage), toolbar actions, shortcuts, lossless syntax
   projections, and optimistic Chat preview syntax;
@@ -141,6 +143,27 @@ bookmark, or notification hosts rather than a concrete `ShellController`.
 Bookmark mutation services are bound to one registered target type and require
 the originating site explicitly, so a sheet that outlives a forum switch
 cannot write through the newly selected forum.
+
+Hashtag kinds are an open registry rather than a core enum. Core owns the
+`category` and `tag` definitions and a neutral fallback for a wire type no
+installed plugin recognizes. A plugin definition owns its type's default
+style, icon, emoji, and colour policy; the same resolved presentation is used
+for cooked HTML, composer suggestion rows, and the composer's lossless pill
+projection. Consequently, a confirmed or cooked hashtag from an absent or
+newer plugin keeps its label, link, and opaque type instead of being rejected
+or silently presented as a tag.
+
+The registered kinds themselves extend the deterministic composer type order;
+search and exact-ref lookup consume that same order. Recognition therefore
+cannot race a plugin's asynchronously loaded per-site state, and a type cannot
+appear in autocomplete while being unavailable to the lookup which turns
+hand-written composer text into the same presentation. A server without an
+installed kind's data source simply filters that type from its answer. Cooked
+hashtag navigation remains ordinary link navigation: `openLink` first offers
+the URL to registered `PluginLinkHandler`s, then falls back to core routes and
+safe external navigation. Resenha therefore owns the `room` wire type, its
+microphone presentation, and its room-link handler; core contains none of that
+feature vocabulary.
 
 The full manifest declares route and syntax ownership up front. Chat and
 Resenha own separate route namespaces; Poll and Local Dates declare their

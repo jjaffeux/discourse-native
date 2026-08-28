@@ -12,6 +12,7 @@ import '../models/composer_upload.dart';
 import '../models/topic_tag.dart';
 import '../plugin_api/composer_syntax.dart';
 import '../plugin_api/emoji_usage.dart';
+import '../plugin_api/hashtag_kind.dart';
 import 'composer_autocomplete.dart';
 import 'composer_images.dart';
 import 'composer_marks.dart';
@@ -327,6 +328,7 @@ class ComposerController extends ChangeNotifier {
     this.onEmojiAccepted,
     String Function(String name)? resolveEmoji,
     ComposerPills? pills,
+    PluginHashtagPresentationResolver? pluginHashtagPresentation,
     ComposerQuoteContentsFormatter? formatQuoteContents,
     List<ComposerSyntaxPlugin> syntaxPlugins = const [],
     this.imageUploader,
@@ -343,6 +345,7 @@ class ComposerController extends ChangeNotifier {
          imageSiteUrl: _target.siteUrl,
          resolveEmoji: resolveEmoji,
          pills: pills,
+         pluginHashtagPresentation: pluginHashtagPresentation,
          formatQuoteContents: formatQuoteContents,
          syntaxPlugins: syntaxPlugins,
          pollMaximumOptions: pollMaximumOptions,

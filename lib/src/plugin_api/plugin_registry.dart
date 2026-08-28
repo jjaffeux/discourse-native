@@ -26,6 +26,7 @@ final class PluginRegistry implements PluginDataDecoder {
     final registry = PluginRegistry(List.unmodifiable(plugins));
     registry._validateRecordOwners();
     registry._validateComposerTargetOwners();
+    registry._validateHashtagKinds();
     registry._validateTopicRecommendationSources();
     registry._validateNotificationFeeds();
     return registry;
@@ -50,6 +51,37 @@ final class PluginRegistry implements PluginDataDecoder {
         );
       }
       owners[kind] = pluginName;
+    }
+  }
+
+  void _validateHashtagKinds() {
+    final owners = <String, String>{'category': 'core', 'tag': 'core'};
+    for (final plugin in plugins.whereType<HashtagKindPlugin>()) {
+      final pluginName = (plugin as SitePlugin).name;
+      for (final kind in plugin.hashtagKinds) {
+        final wireType = kind.wireType;
+        if (wireType.isEmpty || wireType.trim() != wireType) {
+          throw ArgumentError(
+            'Hashtag wire type "$wireType" registered by $pluginName must '
+            'be nonempty and already trimmed.',
+          );
+        }
+        final previous = owners[wireType];
+        if (previous != null) {
+          throw ArgumentError(
+            'Hashtag wire type $wireType is claimed by both $previous and '
+            '$pluginName.',
+          );
+        }
+        owners[wireType] = pluginName;
+      }
+    }
+    final pluginKindCount = owners.length - 2;
+    if (pluginKindCount > maximumPluginHashtagKinds) {
+      throw ArgumentError(
+        'At most $maximumPluginHashtagKinds plugin hashtag kinds can be '
+        'registered; found $pluginKindCount.',
+      );
     }
   }
 
@@ -426,6 +458,48 @@ final class PluginRegistry implements PluginDataDecoder {
     }
     return null;
   }
+
+  /// Resolves an installed plugin-owned hashtag type.
+  ///
+  /// Core category/tag behavior and the safe unknown fallback deliberately
+  /// remain with the shell, so null means either of those paths should answer.
+  HashtagPresentation? pluginHashtagPresentation(
+    HashtagPresentationRequest request,
+  ) {
+    for (final plugin in plugins.whereType<HashtagKindPlugin>()) {
+      for (final kind in plugin.hashtagKinds) {
+        if (kind.wireType != request.type) continue;
+        try {
+          final presentation = kind.present(request);
+          // A presenter owns appearance, never the server's identity. Treat a
+          // broken contribution exactly like an absent one so the shell's
+          // neutral fallback can keep the original type readable.
+          return presentation.type == request.type ? presentation : null;
+        } catch (error, stackTrace) {
+          DiagnosticsSink.current.reportError(
+            error,
+            stackTrace,
+            operation: 'hashtag.kind.present',
+            source: (plugin as SitePlugin).name,
+            severity: DiagnosticSeverity.warning,
+            handled: true,
+            degraded: true,
+          );
+          return null;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Plugin wire types recognized by composer search and exact-ref lookup.
+  ///
+  /// Registration is the single source of truth: rendering and recognition
+  /// cannot race separate per-site session state or drift apart.
+  List<String> get pluginHashtagWireTypes => List.unmodifiable([
+    for (final plugin in plugins.whereType<HashtagKindPlugin>())
+      for (final kind in plugin.hashtagKinds) kind.wireType,
+  ]);
 
   CookedInlinePrefix? cookedInlinePrefix(dom.Element element) {
     for (final plugin in plugins.whereType<CookedInlinePlugin>()) {

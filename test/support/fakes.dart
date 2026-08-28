@@ -986,6 +986,9 @@ class FakeDiscourseApi
   /// The terms asked for, in order.
   final List<String> hashtagSearchesRequested = [];
 
+  /// The type orders sent with each hashtag search.
+  final List<List<String>> hashtagSearchOrdersRequested = [];
+
   /// When set, [searchHashtags] waits on it, so a test can hold an answer in
   /// flight while the query moves on.
   final Completer<void>? hashtagSearchGate;
@@ -997,6 +1000,9 @@ class FakeDiscourseApi
   /// The batches of refs looked up, in order — so a test can show that typing
   /// a ref asks nothing and finishing it asks once.
   final List<Set<String>> hashtagLookupsRequested = [];
+
+  /// The type orders sent with each hashtag lookup.
+  final List<List<String>> hashtagLookupOrdersRequested = [];
 
   final Completer<void>? hashtagLookupGate;
 
@@ -2113,6 +2119,7 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     hashtagSearchesRequested.add(term);
+    hashtagSearchOrdersRequested.add(List.of(order, growable: false));
     if (hashtagSearchGate != null) await hashtagSearchGate!.future;
     return hashtagSearches[term] ?? const [];
   }
@@ -2121,11 +2128,13 @@ class FakeDiscourseApi
   Future<List<FoundHashtag>> lookupHashtags({
     required String siteUrl,
     required Iterable<String> refs,
+    List<String> order = DiscourseApi.hashtagOrder,
     String? apiKey,
     String? clientId,
   }) async {
     final asked = refs.toSet();
     hashtagLookupsRequested.add(asked);
+    hashtagLookupOrdersRequested.add(List.of(order, growable: false));
     if (hashtagLookupGate != null) await hashtagLookupGate!.future;
     return [for (final ref in asked) ?hashtagsByRef[ref]];
   }
