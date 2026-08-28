@@ -1,11 +1,11 @@
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import '../gifs/gifs_contract.dart';
-import '../reactions/reactions_contract.dart';
 import 'chat_api.dart';
 import 'chat_api_client.dart';
 import 'chat_bookmark.dart';
 import 'chat_controller.dart';
+import 'chat_conversation.dart';
 import 'chat_plugin.dart';
 import 'chat_preview.dart';
 import 'chat_search_controller.dart';
@@ -21,10 +21,7 @@ final class ChatModule implements PluginModule {
   @override
   PluginDescriptor get descriptor => const PluginDescriptor(
     id: chatPluginId,
-    dependencies: [
-      PluginDependency(reactionsPluginId),
-      PluginDependency(gifsPluginId, optional: true),
-    ],
+    dependencies: [PluginDependency(gifsPluginId, optional: true)],
     routeNamespaces: {'chat'},
   );
 
@@ -33,7 +30,7 @@ final class ChatModule implements PluginModule {
     registrar.addCapability(const ChatPlugin());
     registrar.addRouteNamespace('chat');
     registrar.addSession(
-      (bindings, dependencies) {
+      (bindings, _) {
         final transport = bindings.require(corePluginTransportPort);
         final credentials = bindings.require(corePluginCredentialsPort);
         final store = bindings.require(corePluginStorePort);
@@ -43,7 +40,6 @@ final class ChatModule implements PluginModule {
         final chatApi = transport is ChatApi
             ? transport as ChatApi
             : ChatApiClient(transport);
-        final gifsApi = dependencies.maybe(gifsApiService);
         final controller = ChatController(
           api: chatApi,
           credentials: credentials,
@@ -51,9 +47,9 @@ final class ChatModule implements PluginModule {
           lifecycle: lifecycle,
           currentUserFor: siteState.currentUserFor,
           siteConfigFor: siteState.siteConfigFor,
-        previewEngine: ChatPreviewEngine(
-          plugins: bindings.require(corePluginPreviewPort),
-        ),
+          previewEngine: ChatPreviewEngine(
+            plugins: bindings.require(corePluginPreviewPort),
+          ),
           onChatNotificationsDelta: (siteUrl, delta) =>
               accountEvents.updateTotals(
                 siteUrl,
@@ -61,6 +57,7 @@ final class ChatModule implements PluginModule {
               ),
           onSiteUnreachable: accountEvents.markSiteUnreachable,
         );
+        final conversations = ChatControllerConversationCapability(controller);
         final searchController = ChatSearchController(
           api: chatApi,
           credentials: credentials,
@@ -79,7 +76,7 @@ final class ChatModule implements PluginModule {
             shell: shell,
           ),
           services: [
-            PluginService<Object>(chatApiService, chatApi),
+            PluginService<Object>(chatConversationService, conversations),
             PluginService<Object>(chatControllerService, controller),
             PluginService<Object>(
               chatSearchControllerService,
@@ -104,8 +101,6 @@ final class ChatModule implements PluginModule {
               chatNotificationHostService,
               bindings.require(corePluginNotificationFeedPort),
             ),
-            if (gifsApi case final GifsApi value)
-              PluginService<Object>(chatGifsApiService, value),
           ],
           capabilities: [shell],
         );

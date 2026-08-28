@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/src/plugins/discourse_github/discourse_github_plugin.dart';
 import 'package:discourse_native/src/plugins/discourse_github/oneboxes/github.dart';
 import 'package:discourse_native/src/plugins/discourse_github/oneboxes/pr/block.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_cooked_time_parser.dart';
 import 'package:discourse_native/src/shell/relative_time.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -91,6 +92,7 @@ const String prCommentOnebox = '''
 
 GithubPullRequestData parse(String source) => GithubPullRequestData.from(
   html.parse(source).querySelector('aside.onebox')!,
+  cookedTimeParser: const LocalDatesCookedTimeParser(),
 );
 
 void main() {
@@ -158,7 +160,9 @@ void main() {
           theme: theme,
           home: Scaffold(
             body: SingleChildScrollView(
-              child: const DiscourseGithubPlugin().cookedElement(null, aside)!,
+              child: const DiscourseGithubPlugin(
+                cookedTimeParser: LocalDatesCookedTimeParser(),
+              ).cookedElement(null, aside)!,
             ),
           ),
         ),
@@ -213,7 +217,9 @@ void main() {
         MaterialApp(
           theme: theme,
           home: Scaffold(
-            body: const DiscourseGithubPlugin().cookedElement(null, aside)!,
+            body: const DiscourseGithubPlugin(
+              cookedTimeParser: LocalDatesCookedTimeParser(),
+            ).cookedElement(null, aside)!,
           ),
         ),
       );

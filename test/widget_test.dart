@@ -53,7 +53,6 @@ import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
-import 'package:discourse_native/src/plugins/reactions/reaction_pill.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_settings.dart';
@@ -77,6 +76,7 @@ import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/post_footer.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
+import 'package:discourse_native/src/shell/reaction_presentation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -15863,13 +15863,13 @@ void main() {
               filter: 'clap',
               total: 2,
               reactors: [
-                PostReactor(
+                ChatReactor(
                   id: 3,
                   username: 'sam',
                   name: 'Sam Saffron',
                   reaction: 'clap',
                 ),
-                PostReactor(id: 4, username: 'codinghorror', reaction: 'clap'),
+                ChatReactor(id: 4, username: 'codinghorror', reaction: 'clap'),
               ],
             ),
           },

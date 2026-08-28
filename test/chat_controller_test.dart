@@ -18,7 +18,6 @@ import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
-import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -4048,8 +4047,8 @@ void main() {
             filter: 'clap',
             total: 2,
             reactors: [
-              PostReactor(id: 3, username: 'sam', reaction: 'clap'),
-              PostReactor(id: 4, username: 'ada', reaction: 'clap'),
+              ChatReactor(id: 3, username: 'sam', reaction: 'clap'),
+              ChatReactor(id: 4, username: 'ada', reaction: 'clap'),
             ],
           ),
         },

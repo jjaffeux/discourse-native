@@ -12,10 +12,10 @@ import 'resenha/resenha_module.dart';
 
 /// The one deterministic composition root for the full application build.
 const PluginManifest bundledPluginManifest = PluginManifest([
+  localDatesModule,
   discourseGithubModule,
   discourseLazyVideosModule,
   reactionsModule,
-  localDatesModule,
   pollModule,
   gifsModule,
   discourseAiModule,
@@ -29,10 +29,10 @@ const PluginManifest bundledPluginManifest = PluginManifest([
 /// Widget hosts which provide their own diagnostics lifecycle can use this
 /// profile while retaining every forum feature and session capability.
 const PluginManifest bundledPluginManifestWithoutDiagnostics = PluginManifest([
+  localDatesModule,
   discourseGithubModule,
   discourseLazyVideosModule,
   reactionsModule,
-  localDatesModule,
   pollModule,
   gifsModule,
   discourseAiModule,

@@ -1,6 +1,6 @@
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
-import 'gifs_api.dart';
+import 'gif_picker_session_impl.dart';
 import 'gifs_api_client.dart';
 import 'gifs_plugin.dart';
 import 'gifs_services.dart';
@@ -16,20 +16,33 @@ final class GifsModule implements PluginModule {
   @override
   void register(PluginRegistrar registrar) {
     registrar.addCapability(const GifsPlugin());
-    registrar.addSession((bindings, _) {
-      final transport = bindings.require(corePluginTransportPort);
-      return PluginSessionContribution(
-        lifecycle: _GifsSessionLifecycle(),
-        services: [
-          PluginService<Object>(
-            gifsApiService,
-            transport is GifsApi
-                ? transport as GifsApi
-                : GifsApiClient(transport),
-          ),
-        ],
-      );
-    }, requires: const [corePluginTransportPort]);
+    registrar.addSession(
+      (bindings, _) {
+        final transport = bindings.require(corePluginTransportPort);
+        return PluginSessionContribution(
+          lifecycle: _GifsSessionLifecycle(),
+          services: [
+            PluginService<Object>(
+              gifsPickerSessionService,
+              createGifPickerSession(
+                api: GifsApiClient(transport),
+                credentials: bindings.require(corePluginCredentialsPort),
+                lifecycle: bindings.require(corePluginSiteLifecyclePort),
+                siteConfigFor: bindings
+                    .require(corePluginSiteStatePort)
+                    .siteConfigFor,
+              ),
+            ),
+          ],
+        );
+      },
+      requires: const [
+        corePluginTransportPort,
+        corePluginCredentialsPort,
+        corePluginSiteLifecyclePort,
+        corePluginSiteStatePort,
+      ],
+    );
   }
 }
 

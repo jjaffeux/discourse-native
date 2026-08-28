@@ -6,10 +6,27 @@ import '../../../shell/avatar_image.dart';
 import '../../../shell/code_block.dart' show monospaceTextStyle;
 import '../../../shell/cooked_dom.dart';
 import '../../../shell/oneboxes/markup.dart';
+import '../../../shell/oneboxes/onebox.dart';
 import '../../../shell/open_link.dart';
 import '../../../shell/site_url.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/d_icon.dart';
+import '../../local_dates/local_dates_contract.dart';
+
+/// A GitHub onebox parser whose optional cooked-time input stays owned by the
+/// Local Dates module.
+class GithubOneboxEngine {
+  const GithubOneboxEngine({required this.matches, required this.build});
+
+  final bool Function(dom.Element aside) matches;
+  final Widget Function(
+    dom.Element aside,
+    OneboxData envelope,
+    String? siteUrl,
+    CookedTimeParser? cookedTimeParser,
+  )
+  build;
+}
 
 /// The shared visual language of GitHub's oneboxes.
 ///
@@ -346,39 +363,15 @@ class GithubBodyText extends StatelessWidget {
 
 // --- DOM reading shared by the GitHub engines.
 
-/// The `discourse-local-date` span carries the real moment in `data-date` and
-/// `data-time`; the text the server wrote as a fallback is a fixed-time
-/// string nobody asked for.
-DateTime? githubLocalDate(dom.Element scope) {
-  final span = descendantWhere(
-    scope,
-    (e) => e.classes.contains('discourse-local-date'),
-  );
-  if (span == null) return null;
-
-  final date = span.attributes['data-date'];
-  final time = span.attributes['data-time'];
-  if (date == null || time == null) return null;
-  return DateTime.tryParse('$date $time Z');
-}
-
 /// The verb a `.date` cell leads with — "Opened", "Merged"… — which is the
-/// text around its `discourse-local-date` span, localized server-side.
+/// direct text around its cooked-time descendant, localized server-side.
 String? githubDateVerb(dom.Element dateEl) {
   final text = dateEl.nodes
-      .map((node) => node.text ?? '')
+      .whereType<dom.Text>()
+      .map((node) => node.data)
       .join()
-      .replaceAll(githubLocalDateText(dateEl), '')
       .trim();
   return text.isEmpty ? null : text;
-}
-
-String githubLocalDateText(dom.Element dateEl) {
-  final span = descendantWhere(
-    dateEl,
-    (e) => e.classes.contains('discourse-local-date'),
-  );
-  return span?.text ?? '';
 }
 
 /// The issue/PR/commit body, minus the "show more" link and the hidden

@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/plugin_api/reaction_presentation.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -27,7 +28,9 @@ void main() {
     expect(page.channelId, 9);
     expect(page.messageId, 44);
     expect(page.filter, 'clap');
+    expect(page, isA<ReactionUsersPage>());
     expect(page.total, 4);
+    expect(page.reactors.single, isA<ChatReactor>());
     expect(page.reactors.single.username, 'sam');
     expect(page.reactors.single.displayName, 'Sam Saffron');
     expect(page.reactors.single.reaction, 'clap');

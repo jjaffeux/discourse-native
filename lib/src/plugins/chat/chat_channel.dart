@@ -45,8 +45,9 @@ enum ChatChannelBrowseStatus { all, open, closed, archived }
 
 /// One account in a direct message channel.
 ///
-/// Thin, like `PostReactor`: this is a name and a face beside a sidebar row,
-/// and the card behind either is a separate fetch that only happens on a tap.
+/// Thin like the user rows in other lazy panels: this is a name and a face
+/// beside a sidebar row, and the card behind either is a separate fetch that
+/// only happens on a tap.
 @immutable
 class ChatUser {
   const ChatUser({
@@ -657,7 +658,8 @@ class ChatChannel with Storable<ChatChannel> {
   /// Reads the whole `/chat/api/me/channels` payload.
   ///
   /// A `parse` rather than a `fromJson` because the payload yields more than one
-  /// instance — the house rule `PostReactors.parse` and `TopicDetail.parse` set.
+  /// instance, following the collection-parser convention used by the other
+  /// paged models.
   ///
   /// Public channels are sorted here once because their slug order is static.
   /// Direct messages retain the server's activity order as their snapshot;

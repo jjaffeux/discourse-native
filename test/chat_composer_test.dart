@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
@@ -20,7 +21,7 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
-import 'package:discourse_native/src/plugins/gifs/gif.dart';
+import 'package:discourse_native/src/plugins/gifs/gifs_contract.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
 import 'package:discourse_native/src/plugins/poll/poll_data.dart';
@@ -425,6 +426,29 @@ void main() {
       expect(button.height, lessThan(composer.height));
       expect(button.center.dy, composer.center.dy);
     }
+  });
+
+  testWidgets('uses the GIF-owned picker session as its only GIF dependency', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+    );
+    final gifPicker = FakeGifPickerSession(result: _gif);
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(
+      _TestView(shell: fixture.shell, gifPicker: gifPicker),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('chat-composer-gif')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('chat-composer-gif')));
+    await tester.pumpAndSettle();
+
+    expect(gifPicker.requestedSites, [_site]);
+    expect(fixture.api.gifCategoryRequests, isEmpty);
+    expect(fixture.api.gifSearchRequests, isEmpty);
+    expect(fixture.api.chatMessagesSent.single.message, _gif.markdown);
   });
 
   testWidgets('keeps both send actions idle while the GIF picker is open', (
@@ -1089,18 +1113,34 @@ Future<void> _closeGifPicker(WidgetTester tester, [GifResult? result]) async {
 }
 
 final class _TestView extends StatelessWidget {
-  const _TestView({required this.shell});
+  const _TestView({required this.shell, this.gifPicker});
 
   final ShellController shell;
+  final GifPickerSession? gifPicker;
+
+  T? _maybeService<T extends Object>(PluginServiceKey<T> key) {
+    if (key == gifsPickerSessionService) return gifPicker as T?;
+    return shell.pluginSession.maybeService(key);
+  }
 
   @override
-  Widget build(BuildContext context) => ShellScope(
-    controller: shell,
-    child: MaterialApp(
+  Widget build(BuildContext context) {
+    final app = MaterialApp(
       theme: AppTheme.light,
       home: const Scaffold(body: ChatChannelView(channelId: 9)),
-    ),
-  );
+    );
+    return ShellScope(
+      controller: shell,
+      child: gifPicker == null
+          ? app
+          : PluginScope(
+              session: shell.pluginSession,
+              registry: shell.plugins.registry,
+              resolveMaybeService: _maybeService,
+              child: app,
+            ),
+    );
+  }
 }
 
 final class _ComposerView extends StatelessWidget {

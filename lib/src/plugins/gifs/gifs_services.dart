@@ -1,9 +1,9 @@
 import '../../plugin_api/plugin_manifest.dart';
-import 'gifs_api.dart';
+import 'gif_picker_session.dart';
 
 const gifsPluginId = PluginId('gifs');
 
-const gifsApiService = PluginServiceKey<GifsApi>(
+const gifsPickerSessionService = PluginServiceKey<GifPickerSession>(
   owner: gifsPluginId,
-  name: 'api',
+  name: 'picker-session',
 );

@@ -2,17 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/store.dart';
 import '../../models/json.dart';
-
-/// The common result drawn behind a reaction, regardless of whether the
-/// reaction belongs to a topic post or a chat message.
-///
-/// Both Discourse endpoints answer with the same user rows and total. Their
-/// target ids and cache keys differ, so the concrete result records remain in
-/// their owning features while the presentation consumes this small shape.
-abstract interface class ReactorsPage {
-  List<PostReactor> get reactors;
-  int get total;
-}
+import '../../plugin_api/reaction_presentation.dart';
 
 /// One account that reacted to a post, and what with.
 ///
@@ -20,7 +10,7 @@ abstract interface class ReactorsPage {
 /// list of names, and the card behind any of them is a separate fetch that only
 /// happens if one is clicked.
 @immutable
-class PostReactor {
+class PostReactor implements ReactionUser {
   const PostReactor({
     required this.id,
     required this.username,
@@ -41,16 +31,25 @@ class PostReactor {
     );
   }
 
+  @override
   final int id;
+
+  @override
   final String username;
+
+  @override
   final String? name;
+
+  @override
   final String? avatarUrl;
 
   /// What they gave. Never empty in practice: the route's query labels a plain
   /// liker with the site's main reaction, so the merged list is uniform and
   /// there is no "liked but did not react" row to draw differently.
+  @override
   final String reaction;
 
+  @override
   String get displayName => name ?? username;
 
   @override
@@ -73,7 +72,7 @@ class PostReactor {
 /// `PostLikers` is: it is fetched separately and only when asked for. The
 /// stream carries how many reacted, never who.
 @immutable
-class PostReactors with Storable<PostReactors> implements ReactorsPage {
+class PostReactors with Storable<PostReactors> implements ReactionUsersPage {
   const PostReactors({
     required this.postId,
     required this.reactors,

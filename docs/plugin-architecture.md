@@ -54,6 +54,12 @@ fails for a missing dependency service; `maybe` returns null for a declared
 optional integration that is absent. Both reject undeclared owners, so this
 boundary cannot become a global service locator.
 
+Cross-plugin imports stop at an owner-provided contract file. A consumer never
+receives another feature's full API client, controller, credentials, settings,
+or lifecycle machinery merely to reuse one operation. Dependencies are
+required only when the consumer cannot function without that capability;
+optional integrations must define and test their absent-provider behavior.
+
 ## Dependency rule
 
 Production core never imports or exports a file under `lib/src/plugins`.
@@ -80,6 +86,15 @@ schemas rather than silently growing optional model fields.
 Plugin HTTP contracts and route/payload parsing live beside their feature
 (`poll`, `reactions`, `gifs`, and `chat`) and use the shared transport only as a
 narrow wire boundary. `DiscourseApi` exposes no typed plugin endpoint.
+
+GIFs exposes one picker session rather than its wire API. That session owns the
+API client, credentials, lifecycle lease, settings lookup, and catalog/picker
+assembly; topic and Chat composers receive only availability and a selected
+GIF. Chat similarly exposes an embedded thread-conversation capability. It
+owns paging, sending, read receipts, timeline merging, and live subscriptions,
+while Resenha retains only its room-to-thread association and room UI. The
+viewing handle is released when that UI closes and pruned when its room leaves
+the directory, so hidden rooms retain no Chat subscription or read receipt.
 
 ## Persistence and compatibility
 
@@ -142,11 +157,21 @@ Bookmark mutation services are bound to one registered target type and require
 the originating site explicitly, so a sheet that outlives a forum switch
 cannot write through the newly selected forum.
 
+Reaction pills and reactor lists use plugin-neutral presentation contracts.
+Chat and Reactions each own their wire model, cache identity, controller, and
+writes; neither constructs the other's post- or message-specific types merely
+to draw the shared UI.
+
 The full manifest declares route and syntax ownership up front. Chat and
 Resenha own separate route namespaces; Poll and Local Dates declare their
 composer syntax ids. Local Dates owns cooked date markup, Chat owns its header
 action, and Resenha owns its global call overlay rather than being imported by
 core shell widgets.
+
+GitHub oneboxes declare Local Dates as optional and ask its cooked-time parser
+for an instant. They no longer recognize `.discourse-local-date` or interpret
+its attributes themselves. Without that service the GitHub card, author,
+labels, and diff metadata still render; only relative-time metadata is omitted.
 
 ## Deferred UI contribution seams
 

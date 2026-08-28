@@ -170,6 +170,15 @@ class LocalDateFormatter {
   LocalDateEnvironment get _environment =>
       environment ?? LocalDateEnvironment.instance;
 
+  /// Resolves only the absolute instant carried by [spec].
+  ///
+  /// Cross-feature cooked-time consumers do not need Local Dates formatting,
+  /// locale data, reader settings, or presentation models.
+  DateTime? resolveInstant(LocalDateSpec spec, {DateTime? now}) {
+    final resolved = _resolveSource(spec, now ?? DateTime.now());
+    return resolved?.source.toUtc();
+  }
+
   LocalDateResolved? resolve(
     LocalDateSpec spec, {
     required Locale locale,
@@ -177,30 +186,11 @@ class LocalDateFormatter {
     DateTime? now,
     bool sameLocalDayAsFrom = false,
   }) {
-    final sourceName = _environment.canonicalTimezone(spec.timezone ?? 'UTC');
-    if (sourceName == null) return null;
-    final sourceLocation = _environment.location(sourceName);
-    if (sourceLocation == null) return null;
-
-    final parts = _parseWallTime(spec);
-    if (parts == null) return null;
-    var source = tz.TZDateTime(
-      sourceLocation,
-      parts.year,
-      parts.month,
-      parts.day,
-      parts.hour,
-      parts.minute,
-      parts.second,
-    );
-    // timezone normalizes a nonexistent DST wall time. Treat normalization as
-    // invalid instead of silently inventing a different instant.
-    if (!_sameWallTime(source, parts)) return null;
-
     final instantNow = now ?? DateTime.now();
-    if (spec.recurring != null && source.isBefore(instantNow)) {
-      source = _advanceRecurring(source, spec.recurring!, instantNow) ?? source;
-    }
+    final sourceResult = _resolveSource(spec, instantNow);
+    if (sourceResult == null) return null;
+    final source = sourceResult.source;
+    final sourceName = sourceResult.name;
 
     final readerName = _environment.readerTimezone(accountTimezone);
     final displayedName = _environment.canonicalTimezone(
@@ -230,6 +220,36 @@ class LocalDateFormatter {
       formatted: formatted,
       past: spec.recurring == null && source.isBefore(instantNow),
     );
+  }
+
+  ({tz.TZDateTime source, String name})? _resolveSource(
+    LocalDateSpec spec,
+    DateTime now,
+  ) {
+    final sourceName = _environment.canonicalTimezone(spec.timezone ?? 'UTC');
+    if (sourceName == null) return null;
+    final sourceLocation = _environment.location(sourceName);
+    if (sourceLocation == null) return null;
+
+    final parts = _parseWallTime(spec);
+    if (parts == null) return null;
+    var source = tz.TZDateTime(
+      sourceLocation,
+      parts.year,
+      parts.month,
+      parts.day,
+      parts.hour,
+      parts.minute,
+      parts.second,
+    );
+    // timezone normalizes a nonexistent DST wall time. Treat normalization as
+    // invalid instead of silently inventing a different instant.
+    if (!_sameWallTime(source, parts)) return null;
+
+    if (spec.recurring != null && source.isBefore(now)) {
+      source = _advanceRecurring(source, spec.recurring!, now) ?? source;
+    }
+    return (source: source, name: sourceName);
   }
 
   List<LocalDatePreview> previews(

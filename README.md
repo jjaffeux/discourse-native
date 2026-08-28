@@ -902,6 +902,11 @@ factory can resolve only services from dependencies declared by its module,
 and optional integrations use nullable lookup rather than a global service
 locator. Service and record keys stay beside their owning feature; the bundled
 manifest itself contains only the deterministic list of module entrypoints.
+Cross-plugin imports stop at narrow owner-provided contracts: Chat exposes an
+embedded thread conversation rather than its full API, GIFs exposes a picker
+session rather than transport assembly, and Local Dates exposes an optional
+cooked-time parser. Shared reaction visuals consume neutral presentation
+interfaces while Chat and Reactions retain separate models and behavior.
 `DiscourseApi` contains only core endpoints; plugins adapt the shared
 `PluginApiTransport` themselves. Production core never imports
 `lib/src/plugins`, and an architecture test enforces that dependency direction.
@@ -970,6 +975,11 @@ emoji catalog instead — arbitrary emoji are never offered on a site whose
 route would reject them. Reaction picks keep their own favorites history, as
 the web client does, rather than displacing topic-composer emoji.
 
+The common pill, picker button, and user-list layout is neutral shell UI.
+Post rows still use Reactions-owned `PostReactor` records and endpoints; Chat
+uses its own `ChatReactor` records and message endpoints. Sharing presentation
+therefore does not make Chat depend on the post-reaction plugin.
+
 Live updates ride `/topic/{id}/reactions`, subscribed to only while that topic
 is the one on screen. The message carries which emoji changed and no counts at
 all, so it is an invalidation hint — the post is read again through
@@ -989,6 +999,10 @@ composing, uploads/GIFs, read state, live updates, and first-class message
 threads. A thread can be opened from its latest-reply summary or created with a
 message's Reply action. At 1200 logical pixels and above Chat owns a resizable
 channel/thread workspace; narrower shells push the thread as the next screen.
+The same Chat-owned thread machinery is exposed through a narrow embedded
+conversation capability: dependent room UIs observe messages and request
+refresh, older pages, and sends without duplicating Chat paging, read receipts,
+timeline merging, or MessageBus subscriptions.
 
 **Browse channels** mirrors the web directory with server-side text and status
 filters, client-side joined/not-joined filtering, and 25-row pagination from
@@ -1328,6 +1342,12 @@ its compact composer: a selection is staged as its own optimistic message, and
 an unchanged draft is cleared only after the send succeeds. A failed send or a
 draft edited while it is in flight is retained.
 
+Both composer surfaces consume a GIF-owned picker session. The GIF module alone
+assembles the raw API client, credentials, site lifecycle, and settings; a
+composer can only ask whether the picker is available and receive a selected
+result. Chat's dependency is optional, so its GIF button simply disappears
+when that provider is absent.
+
 The older `discourse-gifs` theme component is deliberately unsupported. It has
 no authenticated server route or reliable capability contract and would require
 a native client to discover theme settings and contact a provider with its
@@ -1530,6 +1550,11 @@ Not every onebox gets a file — there are dozens of engines and they churn.
 engine shares, which is `_layout.mustache` upstream. Installed provider
 contributions get first refusal; whatever neither a provider nor a core engine
 claims is handed back to `HtmlWidget` inside the native card:
+
+GitHub's module declares Local Dates as an optional provider for its cooked
+timestamps. With the provider installed it receives a resolved instant through
+the narrow parser service; without it the card still renders and omits only the
+relative-time phrase. GitHub never interprets Local Dates' class or attributes.
 
 | Markup                    | Drawn as                                    |
 | ------------------------- | ------------------------------------------- |

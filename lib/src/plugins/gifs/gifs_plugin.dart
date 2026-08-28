@@ -7,7 +7,6 @@ import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
-import 'gif_picker.dart';
 import 'gifs_services.dart';
 import 'gifs_settings.dart';
 
@@ -38,10 +37,14 @@ class GifsPlugin
     ComposerController composer,
   ) {
     final shell = ShellScope.maybeRead(context);
+    final picker = PluginScope.maybeOf(
+      context,
+    )?.maybeService(gifsPickerSessionService);
     if (shell == null ||
+        picker == null ||
         composer.target.isPlugin ||
         composer.loadingBody ||
-        !shell.siteConfigFor(composer.target.siteUrl).gifsSettings.enabled) {
+        !picker.isAvailable(composer.target.siteUrl)) {
       return const [];
     }
     return [
@@ -63,30 +66,25 @@ Future<void> openGifPickerForComposer(
   final shell = ShellScope.maybeRead(context);
   if (shell == null ||
       !identical(shell.visibleComposer, composer) ||
-      !shell.siteConfigFor(composer.target.siteUrl).gifsSettings.enabled) {
+      composer.target.isPlugin) {
     return;
   }
 
   final expectedDocument = composer.text.text;
   final expectedSelection = composer.text.selection;
   final siteUrl = composer.target.siteUrl;
-  final api = PluginScope.maybeOf(context)?.maybeService(gifsApiService);
-  if (api == null) return;
-  final result = await showGifPicker(
-    context: context,
-    siteUrl: siteUrl,
-    api: api,
-    credentials: shell.authenticator,
-    lifecycle: shell.lifecycle,
-    settings: shell.siteConfigFor(siteUrl).gifsSettings,
-  );
+  final picker = PluginScope.maybeOf(
+    context,
+  )?.maybeService(gifsPickerSessionService);
+  if (picker == null || !picker.isAvailable(siteUrl)) return;
+  final result = await picker.showPicker(context: context, siteUrl: siteUrl);
   if (result == null || !context.mounted) return;
 
   final stillCurrent =
       identical(ShellScope.maybeRead(context), shell) &&
       identical(shell.visibleComposer, composer) &&
       composer.text.text == expectedDocument &&
-      shell.siteConfigFor(siteUrl).gifsSettings.enabled;
+      picker.isAvailable(siteUrl);
   if (!stillCurrent) {
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       const SnackBar(

@@ -52,13 +52,38 @@ import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_api.dart';
+import 'package:discourse_native/src/plugins/gifs/gifs_contract.dart'
+    show GifPickerSession;
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/poll/polls_api.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
+import 'package:flutter/widgets.dart';
+
 import 'bundled_plugins.dart';
+
+/// A picker-result fake for consumers of the GIF module's narrow session.
+final class FakeGifPickerSession implements GifPickerSession {
+  FakeGifPickerSession({this.available = true, this.result});
+
+  bool available;
+  GifResult? result;
+  final List<String> requestedSites = [];
+
+  @override
+  bool isAvailable(String siteUrl) => available;
+
+  @override
+  Future<GifResult?> showPicker({
+    required BuildContext context,
+    required String siteUrl,
+  }) async {
+    requestedSites.add(siteUrl);
+    return result;
+  }
+}
 
 /// Keeps instances in memory instead of shared_preferences, which needs a
 /// platform channel.

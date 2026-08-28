@@ -41,7 +41,7 @@ final class ResenhaModule implements PluginModule {
         final transport = bindings.require(corePluginTransportPort);
         final controller = ResenhaController(
           api: ResenhaApi(transport),
-          chatApi: dependencies.require(chatApiService),
+          chatConversations: dependencies.require(chatConversationService),
           credentials: bindings.require(corePluginCredentialsPort),
           trackerFor: bindings.require(corePluginTrackerPort),
           userIdFor: bindings.require(corePluginUserPort),

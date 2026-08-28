@@ -8,6 +8,7 @@ import '../../../../shell/oneboxes/onebox.dart';
 import '../../../../shell/relative_time.dart';
 import '../../../../theme/app_theme.dart';
 import '../../../../theme/d_icon.dart';
+import '../../../local_dates/local_dates_contract.dart';
 import '../github.dart';
 
 /// The pull request engine: `aside.onebox.githubpullrequest`.
@@ -209,7 +210,10 @@ class GithubPullRequestData {
     };
   }
 
-  static GithubPullRequestData from(dom.Element aside) {
+  static GithubPullRequestData from(
+    dom.Element aside, {
+    required CookedTimeParser? cookedTimeParser,
+  }) {
     final article =
         descendantWhere(aside, (e) => e.classes.contains('onebox-body')) ??
         aside;
@@ -246,6 +250,9 @@ class GithubPullRequestData {
     final linesEl = info == null
         ? null
         : descendantWhere(info, (e) => e.classes.contains('lines'));
+    final cookedTime = dateEl == null
+        ? null
+        : cookedTimeParser?.parseDescendant(dateEl);
 
     // The deep-link shape writes one `<span>` of free text where the PR
     // shape writes its cells.
@@ -260,7 +267,7 @@ class GithubPullRequestData {
       baseLabel: codes.isNotEmpty ? codes[0].text.trim() : null,
       headLabel: codes.length > 1 ? codes[1].text.trim() : null,
       dateVerb: dateEl == null ? null : githubDateVerb(dateEl),
-      date: dateEl == null ? null : githubLocalDate(dateEl),
+      date: cookedTime,
       userLogin: userLink?.text.trim(),
       userAvatarUrl: userLink == null
           ? null
@@ -278,13 +285,16 @@ class GithubPullRequestData {
 }
 
 /// Claims `aside.onebox.githubpullrequest`, for the dispatch in `onebox.dart`.
-final OneboxEngine githubPullRequestBlock = OneboxEngine(
+final GithubOneboxEngine githubPullRequestBlock = GithubOneboxEngine(
   matches: (aside) => aside.classes.contains('githubpullrequest'),
-  build: (aside, envelope, siteUrl) => OneboxCard(
+  build: (aside, envelope, siteUrl, cookedTimeParser) => OneboxCard(
     data: envelope,
     siteUrl: siteUrl,
     child: GithubPullRequestOnebox(
-      data: GithubPullRequestData.from(aside),
+      data: GithubPullRequestData.from(
+        aside,
+        cookedTimeParser: cookedTimeParser,
+      ),
       siteUrl: siteUrl,
     ),
   ),
