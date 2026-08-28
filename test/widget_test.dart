@@ -8800,11 +8800,20 @@ void main() {
       await tester.pump();
       final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
 
+      final replyOptions = find.byKey(const ValueKey('composer-reply-options'));
+      final composerTitle = find.byKey(const ValueKey('composer-title'));
+      expect(replyOptions, findsOneWidget);
       expect(
-        find.byKey(const ValueKey('composer-reply-options')),
+        find.descendant(of: replyOptions, matching: find.text('Topic')),
         findsOneWidget,
       );
-      await tester.tap(find.byKey(const ValueKey('composer-reply-options')));
+      expect(
+        tester.getTopRight(replyOptions).dx,
+        lessThan(tester.getTopLeft(composerTitle).dx),
+      );
+      expect(tester.widget<Text>(composerTitle).data, 'A real topic');
+
+      await tester.tap(replyOptions);
       await tester.pumpAndSettle();
 
       final toggle = find.byKey(const ValueKey('composer-toggle-whisper'));
