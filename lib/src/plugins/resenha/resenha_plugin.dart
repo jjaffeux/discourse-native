@@ -5,11 +5,11 @@ import '../../models/sidebar.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
-import '../plugin_services.dart';
 import '../site_plugin_api.dart';
 import 'resenha_call_widget.dart';
 import 'resenha_models.dart';
 import 'resenha_room_view.dart';
+import 'resenha_services.dart';
 
 final class ResenhaPlugin
     implements SitePlugin, SidebarPlugin, ContentPlugin, ShellOverlayPlugin {

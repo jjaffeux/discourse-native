@@ -14,10 +14,10 @@ import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
-import '../plugin_services.dart';
 import 'resenha_controller.dart';
 import 'resenha_models.dart';
 import 'resenha_room_editor.dart';
+import 'resenha_services.dart';
 
 export 'resenha_room_editor.dart' show showResenhaRoomEditor;
 
@@ -1046,7 +1046,7 @@ ResenhaController _resolveController(
   ResenhaController Function()? resolver,
 ) =>
     resolver?.call() ??
-    PluginScope.maybeOf(context)?.service(resenhaControllerService) ??
+    PluginScope.maybeOf(context)?.maybeService(resenhaControllerService) ??
     fallback;
 
 Future<void> showResenhaChat(

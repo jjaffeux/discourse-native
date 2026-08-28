@@ -29,13 +29,24 @@ A module exposes a stable id/version/dependency descriptor and registers only
 the capabilities and lifecycles it owns. Installation validates all module
 ids, semantic-version requirements, dependency cycles, record keys, route
 namespaces, syntax ids, exclusive claims, and service ownership before the app
-uses the graph. Registration order is deterministic and dependencies always
-precede their consumers.
+uses the graph. Registered route, syntax, and exclusive claims must exactly
+match the descriptor, and contributed record and service keys must name that
+module as their owner. Registration order is deterministic and dependencies
+always precede their consumers. Descriptors and their collections are
+snapshotted once before validation, so registration cannot mutate the graph
+being installed.
 
 App startup has idempotent `bootstrap` and `appReady` phases. A failed phase
 rolls back every lifecycle already started in reverse order. A shell opens one
 session, receives only explicitly declared host ports, and dispatches
-foreground, site-forget, and close events with failure isolation.
+foreground, site-forget, and close events with failure isolation. Session
+teardown awaits each module in reverse dependency order.
+
+Session factories receive an immutable service snapshot containing only
+already-created modules named in their descriptor dependencies. `require`
+fails for a missing dependency service; `maybe` returns null for a declared
+optional integration that is absent. Both reject undeclared owners, so this
+boundary cannot become a global service locator.
 
 ## Dependency rule
 
@@ -44,7 +55,10 @@ Dependencies point in one direction: plugins may use core and the stable
 `lib/src/plugin_api` surface, while core discovers optional behavior through
 registries, session capabilities, services, and host ports. Only
 `lib/main.dart`, `lib/discourse_full.dart`, and the bundled manifest compose the
-full feature set. `plugin_dependency_boundary_test.dart` enforces this rule.
+full feature set. Every bundled feature owns a production module and its
+service keys under `lib/src/plugins/<feature>/`; the bundled manifest imports
+only those module entrypoints. `plugin_dependency_boundary_test.dart` enforces
+this rule.
 
 ## Data and APIs
 
@@ -57,7 +71,8 @@ wire boundary. `DiscourseApi` exposes no typed plugin endpoint.
 
 ## UI extensions
 
-`PluginScope` resolves session services by `PluginServiceKey`, independently
+`PluginScope` resolves required session services by `PluginServiceKey` and
+exposes `maybeService` for genuinely optional UI integrations, independently
 of `ShellScope`. Core owns navigation and shared write coordination through
 plugin-neutral host APIs; plugins own their route syntax, typed commands,
 controllers, optimistic transforms, and bookmark reconciliation.

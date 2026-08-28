@@ -6,8 +6,8 @@ import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
-import '../plugin_services.dart';
 import 'chat_search_controller.dart';
+import 'chat_services.dart';
 import 'chat_shell_extension.dart';
 
 class ChatChannelSearchButton extends StatelessWidget {

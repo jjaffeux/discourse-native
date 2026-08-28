@@ -11,16 +11,16 @@ import '../../plugin_api/shell_extensions.dart';
 import '../../shell/shell_controller.dart';
 import '../../shell/site_url.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_services.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
 import 'chat_plugin.dart';
 import 'chat_route.dart';
+import 'chat_services.dart';
 import 'chat_stream_target.dart';
 
 const chatShellService = PluginServiceKey<ChatShellService>(
-  owner: PluginId('chat'),
+  owner: chatPluginId,
   name: 'shell',
 );
 

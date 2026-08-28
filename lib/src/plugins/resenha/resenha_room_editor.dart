@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../shell/select.dart';
 import '../plugin_scope.dart';
-import '../plugin_services.dart';
 import 'resenha_controller.dart';
 import 'resenha_models.dart';
+import 'resenha_services.dart';
 
 Future<void> showResenhaRoomEditor(
   BuildContext context, {

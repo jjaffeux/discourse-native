@@ -115,6 +115,12 @@ abstract interface class PluginRegistrar {
 
   void addAppLifecycle(PluginAppLifecycle lifecycle);
 
+  void addRouteNamespace(String namespace);
+
+  void addSyntaxId(String syntaxId);
+
+  void addExclusiveClaim(String claim);
+
   void addSession(
     PluginSessionFactory factory, {
     Iterable<PluginHostPortKey<Object>> requires,
@@ -184,12 +190,23 @@ final class PluginHostBindings {
         for (final port in ports) port.key: port.value,
       });
 
+  PluginHostBindings._(Map<PluginHostPortKey<Object>, Object> ports)
+    : _ports = Map.unmodifiable(ports);
+
   const PluginHostBindings.empty()
     : _ports = const <PluginHostPortKey<Object>, Object>{};
 
   final Map<PluginHostPortKey<Object>, Object> _ports;
 
   bool contains(PluginHostPortKey<Object> key) => _ports.containsKey(key);
+
+  /// Returns a view containing only the ports declared for one session.
+  PluginHostBindings restrictedTo(
+    Iterable<PluginHostPortKey<Object>> allowed,
+  ) => PluginHostBindings._({
+    for (final key in allowed)
+      if (_ports.containsKey(key)) key: _ports[key]!,
+  });
 
   T require<T extends Object>(PluginHostPortKey<T> key) {
     final value = _ports[key];
@@ -207,8 +224,22 @@ final class PluginHostPort<T extends Object> {
   final T value;
 }
 
+/// Services exposed by modules this module explicitly depends on.
+///
+/// The runtime supplies an immutable snapshot containing only services that
+/// were created before the consumer's session factory ran. Both lookup methods
+/// reject keys owned by modules absent from the consumer's descriptor.
+abstract interface class PluginDependencies {
+  T require<T extends Object>(PluginServiceKey<T> key);
+
+  T? maybe<T extends Object>(PluginServiceKey<T> key);
+}
+
 typedef PluginSessionFactory =
-    PluginSessionContribution Function(PluginHostBindings bindings);
+    PluginSessionContribution Function(
+      PluginHostBindings bindings,
+      PluginDependencies dependencies,
+    );
 
 final class PluginSessionContribution {
   PluginSessionContribution({

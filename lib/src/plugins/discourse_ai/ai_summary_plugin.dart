@@ -7,10 +7,10 @@ import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
-import '../plugin_services.dart';
 import '../site_plugin_api.dart';
 import 'ai_summary.dart';
 import 'ai_summary_controller.dart';
+import 'discourse_ai_services.dart';
 
 /// Native presentation of discourse-ai's topic summary contribution.
 final class AiSummaryPlugin

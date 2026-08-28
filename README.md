@@ -893,7 +893,11 @@ Adding the next one is a module under `lib/src/plugins/<name>/` owning its
 models, state, widgets, typed HTTP contract, and the narrow capability
 interfaces it actually contributes, plus an entry in
 `bundledPluginManifest`. `PluginRegistry` owns ordered UI dispatch, while
-`PluginSession` owns typed services and host-facing capabilities.
+`PluginSession` owns typed services and host-facing capabilities. A session
+factory can resolve only services from dependencies declared by its module,
+and optional integrations use nullable lookup rather than a global service
+locator. Service and record keys stay beside their owning feature; the bundled
+manifest itself contains only the deterministic list of module entrypoints.
 `DiscourseApi` contains only core endpoints; plugins adapt the shared
 `PluginApiTransport` themselves. Production core never imports
 `lib/src/plugins`, and an architecture test enforces that dependency direction.

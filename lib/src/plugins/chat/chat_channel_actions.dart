@@ -9,9 +9,9 @@ import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
-import '../plugin_services.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
+import 'chat_services.dart';
 import 'chat_shell_extension.dart';
 
 enum _ChannelAction { settings, star, leave }

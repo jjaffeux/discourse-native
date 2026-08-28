@@ -37,15 +37,22 @@ class PluginScope extends InheritedWidget {
     required this.session,
     required this.registry,
     T Function<T extends Object>(PluginServiceKey<T> key)? resolveService,
+    T? Function<T extends Object>(PluginServiceKey<T> key)? resolveMaybeService,
     required super.child,
-  }) : _resolveService = resolveService ?? session.require;
+  }) : _resolveService = resolveService ?? session.require,
+       _resolveMaybeService = resolveMaybeService ?? session.maybeService;
 
   final PluginSession session;
   final PluginRegistry registry;
   final T Function<T extends Object>(PluginServiceKey<T> key) _resolveService;
+  final T? Function<T extends Object>(PluginServiceKey<T> key)
+  _resolveMaybeService;
 
   T service<T extends Object>(PluginServiceKey<T> key) =>
       _resolveService<T>(key);
+
+  T? maybeService<T extends Object>(PluginServiceKey<T> key) =>
+      _resolveMaybeService<T>(key);
 
   static PluginScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<PluginScope>();
@@ -60,6 +67,11 @@ class PluginScope extends InheritedWidget {
     BuildContext context,
     PluginServiceKey<T> key,
   ) => of(context).service(key);
+
+  static T? optional<T extends Object>(
+    BuildContext context,
+    PluginServiceKey<T> key,
+  ) => maybeOf(context)?.maybeService(key);
 
   @override
   bool updateShouldNotify(PluginScope oldWidget) =>

@@ -30,7 +30,7 @@ final class PluginInstaller {
     for (final module in ordered) {
       final registrar = _PluginRegistrar(module.descriptor);
       try {
-        module.register(registrar);
+        module.module.register(registrar);
       } catch (error) {
         throw PluginInstallationException(
           'Module ${module.descriptor.id} threw while registering.',
@@ -55,15 +55,29 @@ final class PluginInstaller {
     );
   }
 
-  static List<PluginModule> _validateAndOrder(List<PluginModule> modules) {
-    final byId = <PluginId, PluginModule>{};
+  static List<_ModuleSnapshot> _validateAndOrder(List<PluginModule> modules) {
+    final snapshots = <_ModuleSnapshot>[];
+    for (final module in modules) {
+      final PluginDescriptor descriptor;
+      try {
+        descriptor = _snapshotDescriptor(module.descriptor);
+      } catch (error) {
+        throw PluginInstallationException(
+          'A module threw while describing itself.',
+          error,
+        );
+      }
+      snapshots.add(_ModuleSnapshot(module, descriptor));
+    }
+
+    final byId = <PluginId, _ModuleSnapshot>{};
     final manifestIndex = <PluginId, int>{};
     final routeOwners = <String, PluginId>{};
     final syntaxOwners = <String, PluginId>{};
     final exclusiveOwners = <String, PluginId>{};
 
-    for (var index = 0; index < modules.length; index++) {
-      final module = modules[index];
+    for (var index = 0; index < snapshots.length; index++) {
+      final module = snapshots[index];
       final descriptor = module.descriptor;
       _validateDescriptor(descriptor);
       final previous = byId[descriptor.id];
@@ -89,7 +103,7 @@ final class PluginInstaller {
     };
     final indegree = <PluginId, int>{for (final id in byId.keys) id: 0};
 
-    for (final module in modules) {
+    for (final module in snapshots) {
       for (final dependency in module.descriptor.dependencies) {
         final provider = byId[dependency.id];
         if (provider == null) {
@@ -114,7 +128,7 @@ final class PluginInstaller {
       for (final entry in indegree.entries)
         if (entry.value == 0) entry.key,
     ]..sort((a, b) => manifestIndex[a]!.compareTo(manifestIndex[b]!));
-    final ordered = <PluginModule>[];
+    final ordered = <_ModuleSnapshot>[];
     while (ready.isNotEmpty) {
       final id = ready.removeAt(0);
       ordered.add(byId[id]!);
@@ -126,7 +140,7 @@ final class PluginInstaller {
         ready.sort((a, b) => manifestIndex[a]!.compareTo(manifestIndex[b]!));
       }
     }
-    if (ordered.length != modules.length) {
+    if (ordered.length != snapshots.length) {
       final cycle = [
         for (final entry in indegree.entries)
           if (entry.value > 0) entry.key.value,
@@ -136,6 +150,17 @@ final class PluginInstaller {
       );
     }
     return ordered;
+  }
+
+  static PluginDescriptor _snapshotDescriptor(PluginDescriptor descriptor) {
+    return PluginDescriptor(
+      id: descriptor.id,
+      version: descriptor.version,
+      dependencies: List.unmodifiable(descriptor.dependencies),
+      routeNamespaces: Set.unmodifiable(descriptor.routeNamespaces),
+      syntaxIds: Set.unmodifiable(descriptor.syntaxIds),
+      exclusiveClaims: Set.unmodifiable(descriptor.exclusiveClaims),
+    );
   }
 
   static void _validateDescriptor(PluginDescriptor descriptor) {
@@ -218,8 +243,15 @@ final class InstalledPlugins {
   PluginSession openSession(PluginHostBindings bindings) {
     if (_closed) throw StateError('Installed plugins are closed.');
     final contributions = <_OwnedSessionContribution>[];
+    final services = <PluginServiceKey<Object>, Object>{};
+    final serviceOwners = <PluginServiceKey<Object>, PluginId>{};
     try {
       for (final registration in _registrations) {
+        final dependencies = _PluginDependencies(
+          consumer: registration.descriptor.id,
+          declared: registration.descriptor.dependencies,
+          services: services,
+        );
         for (final session in registration.sessions) {
           for (final port in session.requiredPorts) {
             if (!bindings.contains(port)) {
@@ -228,20 +260,57 @@ final class InstalledPlugins {
               );
             }
           }
-          contributions.add(
-            _OwnedSessionContribution(
-              registration.descriptor.id,
-              session.factory(bindings),
+          final contribution = _OwnedSessionContribution(
+            registration.descriptor.id,
+            session.factory(
+              bindings.restrictedTo(session.requiredPorts),
+              dependencies,
             ),
           );
+          contributions.add(contribution);
+          _collectServices(contribution, services, serviceOwners);
         }
       }
-      return PluginSession._(contributions);
+      return PluginSession._(contributions, services);
     } catch (error) {
-      for (final contribution in contributions.reversed) {
-        unawaited(Future.sync(contribution.value.lifecycle.close));
-      }
+      unawaited(_rollbackSessionContributions(contributions));
       rethrow;
+    }
+  }
+
+  static Future<void> _rollbackSessionContributions(
+    List<_OwnedSessionContribution> contributions,
+  ) async {
+    for (final contribution in contributions.reversed) {
+      try {
+        await contribution.value.lifecycle.close();
+      } catch (_) {
+        // Preserve the installation error which triggered this rollback.
+      }
+    }
+  }
+
+  static void _collectServices(
+    _OwnedSessionContribution contribution,
+    Map<PluginServiceKey<Object>, Object> services,
+    Map<PluginServiceKey<Object>, PluginId> owners,
+  ) {
+    for (final service in contribution.value.services) {
+      if (service.key.owner != contribution.owner) {
+        throw PluginInstallationException(
+          '${contribution.owner} contributed service ${service.key.id}, '
+          'which is owned by ${service.key.owner}.',
+        );
+      }
+      final previous = owners[service.key];
+      if (previous != null) {
+        throw PluginInstallationException(
+          'Service ${service.key.id} is provided by both $previous and '
+          '${contribution.owner}.',
+        );
+      }
+      owners[service.key] = contribution.owner;
+      services[service.key] = service.value;
     }
   }
 
@@ -271,9 +340,11 @@ final class InstalledPlugins {
 }
 
 final class PluginSession {
-  PluginSession._(List<_OwnedSessionContribution> contributions)
-    : _contributions = List.unmodifiable(contributions),
-      _services = _collectServices(contributions),
+  PluginSession._(
+    List<_OwnedSessionContribution> contributions,
+    Map<PluginServiceKey<Object>, Object> services,
+  ) : _contributions = List.unmodifiable(contributions),
+      _services = Map.unmodifiable(services),
       _capabilities = List.unmodifiable([
         for (final contribution in contributions)
           ...contribution.value.capabilities,
@@ -284,10 +355,14 @@ final class PluginSession {
   final List<PluginSessionCapability> _capabilities;
   bool _closed = false;
 
-  T? service<T extends Object>(PluginServiceKey<T> key) => _services[key] as T?;
+  T? maybeService<T extends Object>(PluginServiceKey<T> key) =>
+      _services[key] as T?;
+
+  /// Compatibility alias for callers which used the original nullable API.
+  T? service<T extends Object>(PluginServiceKey<T> key) => maybeService(key);
 
   T require<T extends Object>(PluginServiceKey<T> key) {
-    final value = service(key);
+    final value = maybeService(key);
     if (value == null) throw StateError('Plugin service ${key.id} is absent.');
     return value;
   }
@@ -304,26 +379,20 @@ final class PluginSession {
   Future<void> forget(String siteUrl) =>
       _dispatch('forget', (lifecycle) => lifecycle.forget(siteUrl));
 
-  Future<void> close() {
-    if (_closed) return Future<void>.value();
+  Future<void> close() async {
+    if (_closed) return;
     _closed = true;
     final failures = <Object>[];
-    final pending = <Future<void>>[];
     for (final contribution in _contributions.reversed) {
       try {
-        final result = contribution.value.lifecycle.close();
-        if (result is Future<void>) {
-          pending.add(
-            result.onError((error, _) {
-              failures.add(error ?? StateError('Unknown plugin failure.'));
-            }),
-          );
-        }
+        await contribution.value.lifecycle.close();
       } catch (error) {
         failures.add(error);
       }
     }
-    return _finishDispatch('session.close', pending, failures);
+    if (failures.isNotEmpty) {
+      throw PluginLifecycleException('session.close', failures);
+    }
   }
 
   Future<void> _dispatch(
@@ -360,26 +429,59 @@ final class PluginSession {
       throw PluginLifecycleException(operation, failures);
     }
   }
+}
 
-  static Map<PluginServiceKey<Object>, Object> _collectServices(
-    List<_OwnedSessionContribution> contributions,
-  ) {
-    final services = <PluginServiceKey<Object>, Object>{};
-    final owners = <PluginServiceKey<Object>, PluginId>{};
-    for (final contribution in contributions) {
-      for (final service in contribution.value.services) {
-        final previous = owners[service.key];
-        if (previous != null) {
-          throw PluginInstallationException(
-            'Service ${service.key.id} is provided by both $previous and '
-            '${contribution.owner}.',
-          );
-        }
-        owners[service.key] = contribution.owner;
-        services[service.key] = service.value;
-      }
+final class _PluginDependencies implements PluginDependencies {
+  factory _PluginDependencies({
+    required PluginId consumer,
+    required Iterable<PluginDependency> declared,
+    required Map<PluginServiceKey<Object>, Object> services,
+  }) {
+    final declaredOwners = Set<PluginId>.unmodifiable(
+      declared.map((dependency) => dependency.id),
+    );
+    return _PluginDependencies._(
+      consumer,
+      declaredOwners,
+      Map.unmodifiable({
+        for (final entry in services.entries)
+          if (declaredOwners.contains(entry.key.owner)) entry.key: entry.value,
+      }),
+    );
+  }
+
+  const _PluginDependencies._(
+    this.consumer,
+    this._declaredOwners,
+    this._services,
+  );
+
+  final PluginId consumer;
+  final Set<PluginId> _declaredOwners;
+  final Map<PluginServiceKey<Object>, Object> _services;
+
+  @override
+  T? maybe<T extends Object>(PluginServiceKey<T> key) {
+    _validateDeclared(key);
+    return _services[key] as T?;
+  }
+
+  @override
+  T require<T extends Object>(PluginServiceKey<T> key) {
+    final value = maybe(key);
+    if (value == null) {
+      throw PluginInstallationException(
+        '$consumer requires missing dependency service ${key.id}.',
+      );
     }
-    return Map.unmodifiable(services);
+    return value;
+  }
+
+  void _validateDeclared(PluginServiceKey<Object> key) {
+    if (_declaredOwners.contains(key.owner)) return;
+    throw PluginInstallationException(
+      '$consumer attempted to access undeclared dependency service ${key.id}.',
+    );
   }
 }
 
@@ -390,6 +492,9 @@ final class _PluginRegistrar implements PluginRegistrar {
   final List<SitePlugin> _capabilities = [];
   final List<PluginAppLifecycle> _appLifecycles = [];
   final List<_SessionRegistration> _sessions = [];
+  final Set<String> _routeNamespaces = {};
+  final Set<String> _syntaxIds = {};
+  final Set<String> _exclusiveClaims = {};
 
   @override
   void addCapability(PluginCapability capability) {
@@ -403,12 +508,34 @@ final class _PluginRegistrar implements PluginRegistrar {
         '${descriptor.id} registered capability ${capability.name}.',
       );
     }
+    if (capability case final PluginRecord<Object> recordPlugin
+        when recordPlugin.record.owner != descriptor.id.value) {
+      throw PluginInstallationException(
+        '${descriptor.id} registered record ${recordPlugin.record.id}, '
+        'which is owned by ${recordPlugin.record.owner}.',
+      );
+    }
     _capabilities.add(capability);
   }
 
   @override
   void addAppLifecycle(PluginAppLifecycle lifecycle) {
     _appLifecycles.add(lifecycle);
+  }
+
+  @override
+  void addRouteNamespace(String namespace) {
+    _addClaim(_routeNamespaces, namespace, 'route namespace');
+  }
+
+  @override
+  void addSyntaxId(String syntaxId) {
+    _addClaim(_syntaxIds, syntaxId, 'syntax id');
+  }
+
+  @override
+  void addExclusiveClaim(String claim) {
+    _addClaim(_exclusiveClaims, claim, 'exclusive claim');
   }
 
   @override
@@ -419,12 +546,68 @@ final class _PluginRegistrar implements PluginRegistrar {
     _sessions.add(_SessionRegistration(factory, List.unmodifiable(requires)));
   }
 
-  _PluginRegistration freeze() => _PluginRegistration(
-    descriptor,
-    List.unmodifiable(_capabilities),
-    List.unmodifiable(_appLifecycles),
-    List.unmodifiable(_sessions),
-  );
+  _PluginRegistration freeze() {
+    _validateClaims(
+      kind: 'route namespaces',
+      declared: descriptor.routeNamespaces,
+      registered: _routeNamespaces,
+    );
+    _validateClaims(
+      kind: 'syntax ids',
+      declared: descriptor.syntaxIds,
+      registered: _syntaxIds,
+    );
+    _validateClaims(
+      kind: 'exclusive claims',
+      declared: descriptor.exclusiveClaims,
+      registered: _exclusiveClaims,
+    );
+
+    final capabilitySyntaxIds = <String>{};
+    for (final capability in _capabilities.whereType<ComposerSyntaxPlugin>()) {
+      _addClaim(capabilitySyntaxIds, capability.syntaxId, 'composer syntax id');
+    }
+    _validateClaims(
+      kind: 'composer syntax ids',
+      declared: _syntaxIds,
+      registered: capabilitySyntaxIds,
+    );
+
+    return _PluginRegistration(
+      descriptor,
+      List.unmodifiable(_capabilities),
+      List.unmodifiable(_appLifecycles),
+      List.unmodifiable(_sessions),
+    );
+  }
+
+  void _addClaim(Set<String> claims, String claim, String kind) {
+    if (!claims.add(claim)) {
+      throw PluginInstallationException(
+        '${descriptor.id} registered duplicate $kind $claim.',
+      );
+    }
+  }
+
+  void _validateClaims({
+    required String kind,
+    required Set<String> declared,
+    required Set<String> registered,
+  }) {
+    if (declared.length == registered.length &&
+        declared.containsAll(registered)) {
+      return;
+    }
+    throw PluginInstallationException(
+      '${descriptor.id} declared $kind ${_formatClaims(declared)} but '
+      'registered ${_formatClaims(registered)}.',
+    );
+  }
+
+  static String _formatClaims(Set<String> claims) {
+    final sorted = claims.toList()..sort();
+    return '{${sorted.join(', ')}}';
+  }
 }
 
 final class _PluginRegistration {
@@ -439,6 +622,13 @@ final class _PluginRegistration {
   final List<SitePlugin> capabilities;
   final List<PluginAppLifecycle> appLifecycles;
   final List<_SessionRegistration> sessions;
+}
+
+final class _ModuleSnapshot {
+  const _ModuleSnapshot(this.module, this.descriptor);
+
+  final PluginModule module;
+  final PluginDescriptor descriptor;
 }
 
 final class _SessionRegistration {

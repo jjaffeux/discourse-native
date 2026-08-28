@@ -6,11 +6,11 @@ import '../../plugin_api/shell_extensions.dart';
 import '../../shell/shell_controller.dart';
 import '../../shell/site_url.dart';
 import '../../theme/d_icons.dart';
-import '../plugin_services.dart';
 import 'resenha_controller.dart';
+import 'resenha_services.dart';
 
 const resenhaShellService = PluginServiceKey<ResenhaShellService>(
-  owner: PluginId('resenha'),
+  owner: resenhaPluginId,
   name: 'shell',
 );
 

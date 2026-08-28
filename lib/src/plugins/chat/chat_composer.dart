@@ -22,10 +22,10 @@ import '../../theme/d_icons.dart';
 import '../gifs/gif.dart';
 import '../gifs/gif_picker.dart';
 import '../plugin_scope.dart';
-import '../plugin_services.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
+import 'chat_services.dart';
 import 'chat_stream_target.dart';
 
 /// Connects the pane-sized desktop drop target to whichever compact composer
@@ -412,7 +412,9 @@ class _ChatComposerState extends State<ChatComposer> {
     final shell = _shell;
     final composer = _composer;
     final sourceKey = _sourceKey;
-    final gifsApi = PluginScope.maybeOf(context)?.service(gifsApiService);
+    final gifsApi = PluginScope.maybeOf(
+      context,
+    )?.maybeService(chatGifsApiService);
     if (shell == null ||
         composer == null ||
         sourceKey == null ||
@@ -718,7 +720,12 @@ class _ChatComposerState extends State<ChatComposer> {
             ShellSelector<bool>(
               select: (shell) =>
                   shell.siteConfigFor(composer.target.siteUrl).gifsEnabled,
-              builder: (context, gifsEnabled, _) => gifsEnabled
+              builder: (context, gifsEnabled, _) =>
+                  gifsEnabled &&
+                      PluginScope.maybeOf(
+                            context,
+                          )?.maybeService(chatGifsApiService) !=
+                          null
                   ? Center(
                       child: DButton.iconOnly(
                         key: const ValueKey('chat-composer-gif'),

@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
-import '../plugin_services.dart';
 import 'chat_controller.dart';
 import 'chat_my_threads_view.dart';
+import 'chat_services.dart';
 
 /// The active thread index for one Chat channel.
 ///

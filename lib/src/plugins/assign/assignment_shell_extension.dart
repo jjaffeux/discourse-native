@@ -1,5 +1,5 @@
 import '../../shell/shell_controller.dart';
-import '../plugin_services.dart';
+import 'assign_services.dart';
 import 'assignment.dart';
 import 'assignment_controller.dart';
 

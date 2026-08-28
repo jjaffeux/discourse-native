@@ -41,4 +41,38 @@ void main() {
           '${violations.join('\n')}',
     );
   });
+
+  test('bundled composition imports only feature module entrypoints', () {
+    const manifestPath = 'lib/src/plugins/bundled_plugin_manifest.dart';
+    final source = File(manifestPath).readAsStringSync();
+    final imports = RegExp(
+      r'''^\s*import\s+['"]([^'"]+)['"]''',
+      multiLine: true,
+    ).allMatches(source).map((match) => match.group(1)!).toList();
+
+    expect(File('lib/src/plugins/plugin_services.dart').existsSync(), isFalse);
+    expect(
+      imports,
+      everyElement(
+        anyOf(equals('plugin_manifest.dart'), endsWith('_module.dart')),
+      ),
+    );
+
+    for (final feature in const [
+      'reactions/reactions_module.dart',
+      'local_dates/local_dates_module.dart',
+      'poll/poll_module.dart',
+      'gifs/gifs_module.dart',
+      'discourse_ai/discourse_ai_module.dart',
+      'assign/assign_module.dart',
+      'chat/chat_module.dart',
+      'resenha/resenha_module.dart',
+    ]) {
+      expect(
+        File('lib/src/plugins/$feature').existsSync(),
+        isTrue,
+        reason: '$feature must own its production module',
+      );
+    }
+  });
 }

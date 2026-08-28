@@ -1,11 +1,11 @@
 import '../../data/discourse_api_contracts.dart';
 import '../../models/post.dart';
 import '../../shell/shell_controller.dart';
-import '../plugin_services.dart';
 import 'reaction.dart';
 import 'reactions_api.dart';
 import 'reactions_api_client.dart';
 import 'reactions_controller.dart';
+import 'reactions_services.dart';
 
 /// Reactions' typed interaction API over core's plugin-neutral write host.
 extension ReactionsShellExtension on ShellController {

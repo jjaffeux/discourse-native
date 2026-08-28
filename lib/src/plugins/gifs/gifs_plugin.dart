@@ -6,9 +6,9 @@ import '../../shell/composer_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
-import '../plugin_services.dart';
 import '../site_plugin_api.dart';
 import 'gif_picker.dart';
+import 'gifs_services.dart';
 
 /// Discourse core's authenticated Klipy picker contribution.
 class GifsPlugin implements SitePlugin, ComposerToolbarPlugin {
@@ -55,7 +55,7 @@ Future<void> openGifPickerForComposer(
   final expectedDocument = composer.text.text;
   final expectedSelection = composer.text.selection;
   final siteUrl = composer.target.siteUrl;
-  final api = PluginScope.maybeOf(context)?.service(gifsApiService);
+  final api = PluginScope.maybeOf(context)?.maybeService(gifsApiService);
   if (api == null) return;
   final result = await showGifPicker(
     context: context,

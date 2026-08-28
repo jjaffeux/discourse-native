@@ -23,13 +23,13 @@ import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
-import '../plugin_services.dart';
 import '../reactions/reaction_pill.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
 import 'chat_preview.dart';
 import 'chat_preview_body.dart';
+import 'chat_services.dart';
 import 'chat_uploads.dart';
 import 'chat_user_avatar.dart';
 
