@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../data/emoji_picker_store.dart';
+import '../plugin_api/core_plugin_host.dart';
+import '../plugin_api/emoji_usage.dart';
 import 'composer_controller.dart';
 import 'emoji_picker.dart';
-import 'shell_controller.dart';
 import 'shell_scope.dart';
 
 typedef ComposerOwnership = bool Function();
@@ -18,15 +18,15 @@ typedef ComposerOwnership = bool Function();
 /// is deliberately identical.
 Future<void> openEmojiPickerForComposer({
   required BuildContext context,
-  required ShellController shell,
+  required PluginEmojiHost emoji,
   required ComposerController composer,
-  required EmojiPickerContext pickerContext,
+  required EmojiUsageContext pickerContext,
   required ComposerOwnership stillOwns,
   String initialQuery = '',
   Rect? anchor,
 }) async {
   final siteUrl = composer.target.siteUrl;
-  if (!stillOwns() || !shell.siteConfigFor(siteUrl).emojiEnabled) return;
+  if (!stillOwns() || !emoji.siteConfigFor(siteUrl).emojiEnabled) return;
 
   final expectedDocument = composer.text.text;
   final expectedSelection = composer.text.selection;
@@ -35,13 +35,11 @@ Future<void> openEmojiPickerForComposer({
       context: context,
       siteUrl: siteUrl,
       pickerContext: pickerContext,
-      store: shell.emojiPickerStore,
-      loadCatalog: ({refresh = false}) => refresh
-          ? shell.refreshEmojiCatalog(siteUrl)
-          : shell.ensureEmojiCatalog(siteUrl),
-      loadSearchAliases: ({refresh = false}) => refresh
-          ? shell.refreshEmojiSearchAliases(siteUrl)
-          : shell.ensureEmojiSearchAliases(siteUrl),
+      store: emoji.preferences,
+      loadCatalog: ({refresh = false}) =>
+          emoji.loadCatalog(siteUrl, refresh: refresh),
+      loadSearchAliases: ({refresh = false}) =>
+          emoji.loadSearchAliases(siteUrl, refresh: refresh),
       initialQuery: initialQuery,
       anchor: anchor,
       anchorContext: context,
@@ -52,7 +50,7 @@ Future<void> openEmojiPickerForComposer({
         stillOwns() &&
         !composer.isDisposed &&
         composer.text.text == expectedDocument &&
-        shell.siteConfigFor(siteUrl).emojiEnabled;
+        emoji.siteConfigFor(siteUrl).emojiEnabled;
     if (!unchanged) {
       if (context.mounted) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -76,7 +74,7 @@ Future<void> openEmojiPickerForComposer({
     }
     composer.insertEmoji(result);
     unawaited(
-      shell.emojiPickerStore
+      emoji.preferences
           .trackEmoji(siteUrl: siteUrl, context: pickerContext, emoji: result)
           .catchError((_) {}),
     );
@@ -112,11 +110,22 @@ Future<void> openEmojiPickerForTopicComposer({
       identical(ShellScope.maybeRead(context), shell) &&
       identical(shell.visibleComposer, composer);
 
+  final emoji = PluginEmojiHost(
+    preferences: shell.emojiPickerStore,
+    siteConfigFor: shell.siteConfigFor,
+    loadCatalog: (siteUrl, {refresh = false}) => refresh
+        ? shell.refreshEmojiCatalog(siteUrl)
+        : shell.ensureEmojiCatalog(siteUrl),
+    loadSearchAliases: (siteUrl, {refresh = false}) => refresh
+        ? shell.refreshEmojiSearchAliases(siteUrl)
+        : shell.ensureEmojiSearchAliases(siteUrl),
+  );
+
   return openEmojiPickerForComposer(
     context: context,
-    shell: shell,
+    emoji: emoji,
     composer: composer,
-    pickerContext: EmojiPickerContext.topic,
+    pickerContext: CoreEmojiUsageContexts.topic,
     stillOwns: owns,
     initialQuery: initialQuery,
     anchor: anchor,

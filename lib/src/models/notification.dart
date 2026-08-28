@@ -83,19 +83,6 @@ const userMenuReplyNotificationKinds = <NotificationKind>[
   NotificationKind.replied,
 ];
 
-/// The notification kinds Discourse's Chat user-menu tab asks for.
-///
-/// This is a server-side filter rather than a subset of the general feed: each
-/// tab gets its own thirty-row budget, so busy sites cannot crowd chat activity
-/// out before the client sees it.
-const userMenuChatNotificationKinds = <NotificationKind>[
-  NotificationKind.chatInvitation,
-  NotificationKind.chatMention,
-  NotificationKind.chatMessage,
-  NotificationKind.chatQuoted,
-  NotificationKind.chatWatchedThread,
-];
-
 /// One row of the notifications tab.
 ///
 /// Flattened out of the envelope Discourse sends: the interesting parts of a

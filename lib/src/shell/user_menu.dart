@@ -6,6 +6,8 @@ import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
 import '../models/notification_totals.dart';
 import '../models/user_status.dart';
+import '../plugin_api/plugin_scope.dart';
+import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -50,6 +52,7 @@ class UserMenuSection {
     required this.label,
     this.rows = const [],
     this.badge = 0,
+    this.plugin,
   });
 
   /// The notifications section. First, and where the menu opens.
@@ -60,9 +63,6 @@ class UserMenuSection {
 
   /// The bookmarks section.
   static const String bookmarksId = 'bookmarks';
-
-  /// The server-filtered chat notification section.
-  static const String chatId = 'chat';
 
   /// The messages section, which opens the full private-message topic list.
   static const String messagesId = 'messages';
@@ -82,11 +82,11 @@ class UserMenuSection {
   /// Real count from `/notifications/totals.json` where we have one, so the
   /// tabs are not lying about how much is waiting even while their lists are.
   final int badge;
+  final PluginUserMenuSection? plugin;
 
   bool get isNotifications => id == notificationsId;
   bool get isReplies => id == repliesId;
   bool get isBookmarks => id == bookmarksId;
-  bool get isChat => id == chatId;
   bool get isMessages => id == messagesId;
   bool get isProfile => id == profileId;
 
@@ -96,7 +96,7 @@ class UserMenuSection {
       !isNotifications &&
       !isReplies &&
       !isBookmarks &&
-      !isChat &&
+      plugin == null &&
       !isMessages &&
       !isProfile;
 }
@@ -149,6 +149,7 @@ List<UserMenuSection> userMenuSections(
   NotificationTotals? totals, {
   DiscourseUser? user,
   bool userStatusEnabled = false,
+  List<PluginUserMenuSection> pluginSections = const [],
 }) {
   return [
     UserMenuSection(
@@ -191,12 +192,13 @@ List<UserMenuSection> userMenuSections(
       label: 'Invites',
       rows: [UserMenuRow(DIcons.paperPlane, 'No pending invites')],
     ),
-    if (totals?.hasChatEnabled == true && user?.hasChatEnabled != false)
+    for (final contribution in pluginSections)
       UserMenuSection(
-        id: UserMenuSection.chatId,
-        icon: DIcons.comment,
-        label: 'Chat',
-        badge: totals?.chatNotifications ?? 0,
+        id: contribution.id.id,
+        icon: contribution.icon,
+        label: contribution.label,
+        badge: contribution.badge,
+        plugin: contribution,
       ),
     UserMenuSection(
       id: 'other',
@@ -290,6 +292,15 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
                 : controller.accountActivity.totalsFor(siteUrl),
             user: menu.user,
             userStatusEnabled: menu.userStatusEnabled,
+            pluginSections: siteUrl == null || menu.user == null
+                ? const []
+                : PluginScope.of(context).registry.userMenuSections(
+                    PluginUserMenuContext(
+                      siteUrl: siteUrl,
+                      user: menu.user!,
+                      totals: controller.accountActivity.totalsFor(siteUrl),
+                    ),
+                  ),
           );
           final section = sections.firstWhere(
             (candidate) => candidate.id == _sectionId,
@@ -504,12 +515,15 @@ class _SectionBody extends StatelessWidget {
     final controller = ShellScope.read(context);
 
     List<Widget> rows() => [
-      if (section.isNotifications && siteUrl != null)
+      if (section.plugin case final contribution?)
+        contribution.builder(
+          context,
+          PluginUserMenuRenderContext(onDismiss: onDismiss),
+        )
+      else if (section.isNotifications && siteUrl != null)
         NotificationSection(siteUrl: siteUrl, onOpened: onDismiss)
       else if (section.isReplies && siteUrl != null)
         RepliesSection(siteUrl: siteUrl, onOpened: onDismiss)
-      else if (section.isChat && siteUrl != null)
-        ChatNotificationsSection(siteUrl: siteUrl, onOpened: onDismiss)
       else if (section.isBookmarks && siteUrl != null)
         BookmarkSection(siteUrl: siteUrl, onOpened: onDismiss)
       else
@@ -1124,6 +1138,13 @@ class _SectionList extends StatelessWidget {
             controller.accountActivity.totalsFor(currentSiteUrl),
             user: user,
             userStatusEnabled: state.userStatusEnabled,
+            pluginSections: PluginScope.of(context).registry.userMenuSections(
+              PluginUserMenuContext(
+                siteUrl: currentSiteUrl,
+                user: user,
+                totals: controller.accountActivity.totalsFor(currentSiteUrl),
+              ),
+            ),
           );
           return Column(
             mainAxisSize: MainAxisSize.min,

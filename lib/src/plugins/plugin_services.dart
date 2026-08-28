@@ -1,3 +1,6 @@
+import '../plugin_api/bookmark_host.dart';
+import '../plugin_api/core_plugin_host.dart';
+import '../plugin_api/notification_feed_host.dart';
 import 'assign/assignment_controller.dart';
 import 'chat/chat_controller.dart';
 import 'chat/chat_search_controller.dart';
@@ -11,6 +14,10 @@ import 'resenha/resenha_controller.dart';
 const reactionsControllerService = PluginServiceKey<ReactionsController>(
   owner: PluginId('discourse-reactions'),
   name: 'controller',
+);
+const reactionsEmojiHostService = PluginServiceKey<PluginEmojiHost>(
+  owner: PluginId('discourse-reactions'),
+  name: 'emoji-host',
 );
 const gifsApiService = PluginServiceKey<GifsApi>(
   owner: PluginId('gifs'),
@@ -28,6 +35,23 @@ const chatSearchControllerService = PluginServiceKey<ChatSearchController>(
   owner: PluginId('chat'),
   name: 'search-controller',
 );
+const chatBookmarkHostService = PluginServiceKey<PluginBookmarkHost>(
+  owner: PluginId('chat'),
+  name: 'bookmark-host',
+);
+const chatComposerHostService = PluginServiceKey<PluginComposerHost>(
+  owner: PluginId('chat'),
+  name: 'composer-host',
+);
+const chatEmojiHostService = PluginServiceKey<PluginEmojiHost>(
+  owner: PluginId('chat'),
+  name: 'emoji-host',
+);
+const chatNotificationHostService =
+    PluginServiceKey<PluginNotificationFeedHost>(
+      owner: PluginId('chat'),
+      name: 'notification-feed-host',
+    );
 const aiSummaryControllerService = PluginServiceKey<AiSummaryController>(
   owner: PluginId('discourse-ai'),
   name: 'controller',

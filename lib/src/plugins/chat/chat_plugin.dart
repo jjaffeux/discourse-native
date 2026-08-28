@@ -3,15 +3,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../models/composer_upload.dart';
 import '../../models/content_route.dart';
 import '../../models/forum_workspace.dart';
 import '../../models/sidebar.dart';
 import '../../models/user_card.dart';
+import '../../shell/composer_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/user_status.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../plugin_manifest.dart';
 import '../plugin_scope.dart';
 import '../plugin_services.dart';
 import '../site_plugin_api.dart';
@@ -23,6 +26,7 @@ import 'chat_channel_search.dart';
 import 'chat_channel_star_button.dart';
 import 'chat_channel_threads_view.dart';
 import 'chat_channel_view.dart';
+import 'chat_emoji_usage.dart';
 import 'chat_header_button.dart';
 import 'chat_my_threads_view.dart';
 import 'chat_route.dart';
@@ -32,6 +36,7 @@ import 'chat_thread_view.dart';
 import 'chat_transcript.dart';
 import 'chat_user_avatar.dart';
 import 'chat_user_card.dart';
+import 'chat_user_menu.dart';
 
 /// `chat`, as this app knows it.
 ///
@@ -77,8 +82,23 @@ class ChatPlugin
         UserAvatarPlugin,
         UserCardRecordPlugin<ChatUserCardData>,
         UserCardActionPlugin,
-        CookedElementPlugin {
+        CookedElementPlugin,
+        ComposerTargetPlugin,
+        UserMenuSectionPlugin,
+        NotificationFeedPlugin {
   const ChatPlugin();
+
+  static const ComposerTargetKind messageComposerTarget = ComposerTargetKind(
+    owner: PluginId('chat'),
+    name: 'message',
+  );
+  static const ComposerUploadType messageUploadType = ComposerUploadType(
+    'chat-composer',
+  );
+  static const String composerChannelId = 'channelId';
+  static const String composerThreadId = 'threadId';
+  static const PluginUserMenuSectionId notificationsSection =
+      PluginUserMenuSectionId(owner: PluginId('chat'), name: 'notifications');
 
   static const String searchRouteId = 'chat-search';
   static const String myThreadsRouteId = 'chat-my-threads';
@@ -94,6 +114,64 @@ class ChatPlugin
 
   @override
   String get name => 'chat';
+
+  @override
+  List<PluginNotificationFeedSource> get notificationFeeds => const [
+    chatNotificationFeed,
+  ];
+
+  @override
+  ComposerTargetKind get composerTargetKind => messageComposerTarget;
+
+  @override
+  ComposerTargetPolicy createComposerTarget(
+    ComposerTargetRequest request,
+    ComposerTargetContext context,
+  ) {
+    final channelId = request.data[composerChannelId];
+    final threadId = request.data[composerThreadId];
+    if (channelId is! int ||
+        channelId <= 0 ||
+        (threadId != null && (threadId is! int || threadId <= 0))) {
+      throw ArgumentError.value(
+        request.data,
+        'request.data',
+        'Invalid chat target.',
+      );
+    }
+    return ComposerTargetPolicy(
+      kind: messageComposerTarget,
+      draftKey: threadId == null
+          ? 'chat_$channelId'
+          : 'chat_${channelId}_thread_$threadId',
+      uploadType: messageUploadType,
+      uploadDisposition: ComposerUploadDisposition.retainAttachment,
+      uploadsEnabled: context.config.chatUploadsEnabled,
+      supportsEditing: true,
+      emojiUsageContext: chatEmojiUsageContext,
+      mentionTopicId: null,
+      validate: (state) =>
+          state.raw.isNotEmpty || state.completedUploadCount > 0,
+    );
+  }
+
+  @override
+  List<PluginUserMenuSection> userMenuSections(PluginUserMenuContext context) =>
+      context.totals?.hasChatEnabled == true &&
+          context.user.hasChatEnabled != false
+      ? [
+          PluginUserMenuSection(
+            id: notificationsSection,
+            icon: DIcons.comment,
+            label: 'Chat',
+            badge: context.totals?.chatNotifications ?? 0,
+            builder: (buildContext, actions) => ChatUserMenuNotifications(
+              siteUrl: context.siteUrl,
+              onOpened: actions.onDismiss,
+            ),
+          ),
+        ]
+      : const [];
 
   @override
   Widget? cookedElement(String? siteUrl, dom.Element element) =>

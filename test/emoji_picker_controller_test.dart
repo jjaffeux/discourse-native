@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/emoji_picker_store.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
 import 'package:discourse_native/src/shell/emoji_picker_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -73,7 +74,7 @@ void main() {
     var aliasLoads = 0;
     final controller = EmojiPickerController(
       siteUrl: _siteUrl,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       store: EmojiPickerStore(persistence: _MemoryPersistence()),
       loadCatalog: ({refresh = false}) async =>
           _catalog(const [SiteEmoji(name: 'smile', url: 'smile.png')]),
@@ -102,17 +103,17 @@ void main() {
     final store = EmojiPickerStore(persistence: _MemoryPersistence());
     await store.trackEmoji(
       siteUrl: _siteUrl,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       emoji: 'wave',
     );
     await store.trackEmoji(
       siteUrl: _siteUrl,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       emoji: 'wave',
     );
     await store.trackEmoji(
       siteUrl: _siteUrl,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       emoji: 'clap:t3',
     );
     await store.writeSkinTone(siteUrl: _siteUrl, tone: EmojiSkinTone.t5);
@@ -143,12 +144,12 @@ void main() {
     // the composer tracks the untoned name, the picker the toned one.
     await store.trackEmoji(
       siteUrl: _siteUrl,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       emoji: 'wave',
     );
     await store.trackEmoji(
       siteUrl: _siteUrl,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       emoji: 'wave:t5',
     );
     await store.writeSkinTone(siteUrl: _siteUrl, tone: EmojiSkinTone.t5);
@@ -173,7 +174,7 @@ void main() {
     final catalog = _catalog(const [SiteEmoji(name: 'wave', url: 'wave.png')]);
     final controller = EmojiPickerController(
       siteUrl: _siteUrl,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       store: EmojiPickerStore(persistence: _MemoryPersistence()),
       loadCatalog: ({refresh = false}) async {
         calls++;
@@ -197,7 +198,7 @@ void main() {
     final catalog = _catalog(const [SiteEmoji(name: 'wave', url: 'wave.png')]);
     final controller = EmojiPickerController(
       siteUrl: 'https://meta.example',
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       store: EmojiPickerStore(persistence: _MemoryPersistence()),
       loadCatalog: ({refresh = false}) async => catalog,
       loadSearchAliases: ({refresh = false}) async {
@@ -230,7 +231,7 @@ EmojiPickerController _controller({
 }) {
   return EmojiPickerController(
     siteUrl: _siteUrl,
-    context: EmojiPickerContext.topic,
+    context: CoreEmojiUsageContexts.topic,
     store: store ?? EmojiPickerStore(persistence: _MemoryPersistence()),
     loadCatalog: ({refresh = false}) async => catalog,
     loadSearchAliases:

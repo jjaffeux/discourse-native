@@ -4,20 +4,27 @@ import 'package:html/dom.dart' as dom;
 
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/content_route.dart';
+import '../models/discourse_user.dart';
 import '../models/forum_workspace.dart';
+import '../models/notification_totals.dart';
 import '../models/post.dart';
 import '../models/sidebar.dart';
+import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../models/user_card.dart';
 import '../shell/composer_controller.dart';
 import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
 import 'chat_preview.dart';
+import 'notification_feed_host.dart';
 import 'plugin_data.dart';
 
 export 'composer_syntax.dart';
+export 'emoji_usage.dart';
+export 'notification_feed_host.dart';
 export 'plugin_data.dart';
 export 'shell_extensions.dart';
+export 'topic_recommendation_source.dart';
 
 /// One optional Discourse feature this app knows how to draw.
 ///
@@ -124,6 +131,74 @@ abstract interface class UserCardActionPlugin {
   );
 }
 
+@immutable
+final class PluginUserMenuSectionId {
+  const PluginUserMenuSectionId({required this.owner, required this.name});
+
+  final PluginId owner;
+  final String name;
+  String get id => '${owner.value}/$name';
+
+  @override
+  bool operator ==(Object other) =>
+      other is PluginUserMenuSectionId &&
+      other.owner == owner &&
+      other.name == name;
+
+  @override
+  int get hashCode => Object.hash(owner, name);
+}
+
+@immutable
+final class PluginUserMenuContext {
+  const PluginUserMenuContext({
+    required this.siteUrl,
+    required this.user,
+    required this.totals,
+  });
+
+  final String siteUrl;
+  final DiscourseUser user;
+  final NotificationTotals? totals;
+}
+
+@immutable
+final class PluginUserMenuRenderContext {
+  const PluginUserMenuRenderContext({required this.onDismiss});
+
+  final VoidCallback onDismiss;
+}
+
+typedef PluginUserMenuSectionBuilder =
+    Widget Function(BuildContext context, PluginUserMenuRenderContext actions);
+
+@immutable
+final class PluginUserMenuSection {
+  const PluginUserMenuSection({
+    required this.id,
+    required this.icon,
+    required this.label,
+    required this.builder,
+    this.badge = 0,
+  });
+
+  final PluginUserMenuSectionId id;
+  final DIconData icon;
+  final String label;
+  final int badge;
+  final PluginUserMenuSectionBuilder builder;
+}
+
+/// Adds independently rendered user-menu sections in manifest order.
+abstract interface class UserMenuSectionPlugin {
+  List<PluginUserMenuSection> userMenuSections(PluginUserMenuContext context);
+}
+
+/// Declares namespaced notification feeds consumed by plugin-owned sections.
+abstract interface class NotificationFeedPlugin {
+  List<PluginNotificationFeedSource> get notificationFeeds;
+}
+
 /// Replaces a top-level element inside a post's cooked body.
 abstract interface class PostBodyPlugin {
   /// A top-level element inside a post body this feature can replace.
@@ -211,6 +286,21 @@ abstract interface class TopicHeaderPlugin {
   );
 }
 
+/// Invalidates a topic-header contribution from plugin-owned session state.
+///
+/// Topic records still decide whether public plugin state is present. This
+/// signal is for transient state, such as a permission fallback becoming
+/// unavailable, which can add or remove an affordance without replacing the
+/// topic record. Core recomputes all header contributions when it fires so an
+/// absent contribution does not leave an empty metadata row behind.
+abstract interface class TopicHeaderRebuildPlugin {
+  Listenable? topicHeaderRebuildOn(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+  );
+}
+
 /// Adds an action to the topic map beneath the opening post.
 ///
 /// The map itself is core, while optional features such as Discourse AI attach
@@ -223,18 +313,42 @@ abstract interface class TopicMapActionPlugin {
   );
 }
 
+/// Contributes optional lists to the more-topics panel.
+///
+/// Definitions are declarative: core owns parsing the shared topic row shape,
+/// while each plugin owns the serializer key, stable identity and
+/// presentation of its source. Registry order is presentation order.
+abstract interface class TopicRecommendationSourcePlugin {
+  List<TopicRecommendationSourceDefinition> get topicRecommendationSources;
+}
+
 /// Contributes actions to a post menu.
 abstract interface class PostMenuPlugin {
   /// What this feature adds to, or takes out of, the post action menu.
   ///
   /// Takes a [BuildContext] rather than the controller so that this interface
-  /// stays out of the shell's way; an implementation reaches whatever it needs
-  /// through `ShellScope.read` and selects any state that must repaint.
-  PostMenuContribution postMenu(
-    BuildContext context,
-    String siteUrl,
-    Post post,
-  );
+  /// stays out of the shell's way; an implementation reaches its narrow,
+  /// plugin-owned services through `PluginScope` and selects only the state
+  /// that must repaint.
+  PostMenuContribution postMenu(PostMenuContext context);
+}
+
+/// Immutable record and account state needed while composing a post menu.
+@immutable
+final class PostMenuContext {
+  const PostMenuContext({
+    required this.buildContext,
+    required this.siteUrl,
+    required this.post,
+    required this.topic,
+    required this.currentUser,
+  });
+
+  final BuildContext buildContext;
+  final String siteUrl;
+  final Post post;
+  final TopicDetail? topic;
+  final DiscourseUser? currentUser;
 }
 
 /// Contributes formatting actions to the composer.
@@ -244,6 +358,32 @@ abstract interface class ComposerToolbarPlugin {
     BuildContext context,
     ComposerController composer,
   );
+}
+
+/// Resolves one exact, namespaced plugin composer target.
+///
+/// A capability claims a key rather than answering a predicate. This makes a
+/// missing target fail closed and lets installation reject ambiguous owners
+/// before a user has typed into a document.
+abstract interface class ComposerTargetPlugin {
+  ComposerTargetKind get composerTargetKind;
+
+  ComposerTargetPolicy createComposerTarget(
+    ComposerTargetRequest request,
+    ComposerTargetContext context,
+  );
+}
+
+/// Read-only site state available while a target's policy is resolved.
+@immutable
+final class ComposerTargetContext {
+  const ComposerTargetContext({
+    required this.config,
+    required this.currentUser,
+  });
+
+  final SiteConfig config;
+  final DiscourseUser? currentUser;
 }
 
 /// Contributes conservative, app-bundled syntax to optimistic chat previews.
@@ -459,6 +599,7 @@ class PostMenuContribution {
   const PostMenuContribution({
     this.entries = const [],
     this.replacesLike = false,
+    this.rebuildOn,
   });
 
   /// For a feature with nothing to say about this post.
@@ -474,6 +615,14 @@ class PostMenuContribution {
   /// taken over what a like *means*, offering the plain one writes to the wrong
   /// place. A feature that only adds does not set this.
   final bool replacesLike;
+
+  /// Plugin-owned state which can change this contribution without changing
+  /// the post record or shell state.
+  ///
+  /// Core listens only while rendering this post menu, then asks the registry
+  /// for a fresh contribution. This keeps invalidation inside the plugin that
+  /// owns it without exposing a concrete shell controller to that plugin.
+  final Listenable? rebuildOn;
 }
 
 @immutable

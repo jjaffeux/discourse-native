@@ -13,8 +13,11 @@ import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
+import 'package:discourse_native/src/plugins/plugin_scope.dart';
+import 'package:discourse_native/src/plugins/plugin_services.dart';
 import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -39,6 +42,40 @@ const _gif = GifResult(
 );
 
 void main() {
+  testWidgets(
+    'site config listenable is narrow and ignores another site changes',
+    (tester) async {
+      const otherSite = 'https://other.example';
+      const otherConfig = SiteConfig(gifsEnabled: true);
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        additionalInstances: const [
+          DiscourseInstance(url: otherSite, title: 'Other', apiVersion: 4),
+        ],
+        fetchedSiteConfigs: const {otherSite: otherConfig},
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.byType(ChatComposer));
+      final host = PluginScope.require(context, chatComposerHostService);
+      final config = host.siteConfigListenableFor(_site);
+      expect(config, isNot(isA<ShellController>()));
+      expect(host.siteConfigListenableFor(_site), same(config));
+
+      var notifications = 0;
+      void notified() => notifications++;
+      config.addListener(notified);
+      addTearDown(() => config.removeListener(notified));
+
+      expect(await fixture.shell.resolveSiteConfig(otherSite), otherConfig);
+      await tester.pump();
+
+      expect(notifications, 0);
+    },
+  );
+
   testWidgets('stays pinned while the message stream scrolls', (tester) async {
     final messages = [for (var id = 1; id <= 80; id++) _message(id)];
     final fixture = await _fixture(
@@ -179,7 +216,7 @@ void main() {
       expect(fixture.api.composerUploads, hasLength(1));
       expect(
         fixture.api.composerUploads.single.uploadType,
-        ComposerUploadType.chatComposer,
+        ChatPlugin.messageUploadType,
       );
       expect(find.text('photo.png'), findsOneWidget);
       expect(find.text('Ready to send'), findsNothing);
@@ -940,6 +977,8 @@ ChatMessage _message(int id) => ChatMessage(
 Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
   required Map<String, ChatMessagePage> pages,
   SiteConfig config = const SiteConfig.unknown(),
+  List<DiscourseInstance> additionalInstances = const [],
+  Map<String, SiteConfig> fetchedSiteConfigs = const {},
   DiscourseUser? sessionUser,
   Completer<void>? sendGate,
   WriteException? sendFailure,
@@ -956,6 +995,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
     chatSentMessageId: sentMessageId ?? 1,
     composerUploadResult: composerUploadResult,
     emojiCatalogsBySite: {_site: ?emojiCatalog},
+    siteConfigs: fetchedSiteConfigs,
   );
   final authenticator = FakeAuthenticator()..keys[_site] = 'key';
   final shell = ShellController(
@@ -967,6 +1007,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
         config: config,
         user: sessionUser,
       ),
+      ...additionalInstances,
     ]),
     api: api,
     authenticator: authenticator,

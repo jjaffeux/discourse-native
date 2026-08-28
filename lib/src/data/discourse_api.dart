@@ -760,13 +760,10 @@ class DiscourseApi
       body: const {},
     );
     final topicBookmarked = body['topic_bookmarked'];
-    if (targetType == BookmarkTargetType.chatMessage) {
-      return topicBookmarked is bool ? topicBookmarked : null;
-    }
-    if (topicBookmarked is! bool) {
+    if (targetType.updatesTopicBookmarkState && topicBookmarked is! bool) {
       throw const WriteException(WriteFailure.unreachable);
     }
-    return topicBookmarked;
+    return topicBookmarked is bool ? topicBookmarked : null;
   }
 
   @override
@@ -1217,7 +1214,8 @@ class DiscourseApi
   /// A post window that may also carry the lists shown after the last post.
   ///
   /// Discourse only serializes these when the requested window reaches the
-  /// end. Core owns `suggested_topics`; discourse-ai adds `related_topics`.
+  /// end. Installed model extensions contribute optional sources beside
+  /// core's suggestions.
   Future<TopicPostsPayload> topicPosts({
     required String siteUrl,
     required int topicId,
@@ -1267,7 +1265,7 @@ class DiscourseApi
         for (final post in jsonObjects(stream['posts']))
           models.post(post, siteUrl),
       ]),
-      recommendations: TopicRecommendations.fromJson(body, siteUrl),
+      recommendations: models.topicRecommendations(body, siteUrl),
     );
   }
 

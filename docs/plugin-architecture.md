@@ -36,6 +36,9 @@ App startup has idempotent `bootstrap` and `appReady` phases. A failed phase
 rolls back every lifecycle already started in reverse order. A shell opens one
 session, receives only explicitly declared host ports, and dispatches
 foreground, site-forget, and close events with failure isolation.
+Session factories receive a restricted binding view containing exactly their
+declared ports, so the declaration is an authority boundary rather than only a
+startup dependency check.
 
 ## Dependency rule
 
@@ -66,12 +69,28 @@ The registry currently provides typed seams for:
 
 - post/topic records, cooked elements, footers, decorations, metadata, small
   actions, menus, headers, and live invalidation;
-- composer toolbar actions, shortcuts, lossless syntax projections, and
-  optimistic Chat preview syntax;
+- namespaced composer target policies (drafts, uploads, editing, validation,
+  mentions, and emoji usage), toolbar actions, shortcuts, lossless syntax
+  projections, and optimistic Chat preview syntax;
+- ordered user-menu sections, plugin notification feeds, bookmark target
+  strategies, and ordered topic recommendation sources;
 - sidebar sections, content routes, content chrome, shell header actions, and
   app-global overlays;
 - session route handlers, restored-route hydration, tracker attachments,
-  site/totals observers, bookmark observers, and background-site ownership.
+  site/totals observers, bookmark strategies, and background-site ownership.
+
+Shared emoji history is keyed by a namespaced `EmojiUsageContext`; unknown
+contexts remain in the persisted document so a temporarily absent plugin does
+not lose its reader preferences. Emoji preference hosts are materialized per
+plugin and reject foreign or malformed context values; the forum skin-tone
+choice intentionally remains shared across pickers. Composer and notification
+hosts are also materialized per consumer: foreign composer targets and
+foreign, undeclared, or altered feed definitions fail at the host boundary.
+Plugin-owned widgets receive narrow services such as composer, emoji,
+bookmark, or notification hosts rather than a concrete `ShellController`.
+Bookmark mutation services are bound to one registered target type and require
+the originating site explicitly, so a sheet that outlives a forum switch
+cannot write through the newly selected forum.
 
 The full manifest declares route and syntax ownership up front. Chat and
 Resenha own separate route namespaces; Poll and Local Dates declare their

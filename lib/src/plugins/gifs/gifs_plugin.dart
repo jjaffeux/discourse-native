@@ -24,7 +24,7 @@ class GifsPlugin implements SitePlugin, ComposerToolbarPlugin {
   ) {
     final shell = ShellScope.maybeRead(context);
     if (shell == null ||
-        composer.target.isChat ||
+        composer.target.isPlugin ||
         composer.loadingBody ||
         !shell.siteConfigFor(composer.target.siteUrl).gifsEnabled) {
       return const [];

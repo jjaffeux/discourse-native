@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/notification.dart';
+import '../plugin_api/notification_feed_host.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'account_activity_loader.dart';
@@ -156,7 +159,7 @@ class NotificationDescription {
       count == 1 ? '1 $noun' : '$count ${noun}s';
 }
 
-enum _NotificationFeedKind { all, replies, chat }
+enum _NotificationFeedKind { all, replies }
 
 /// The notifications tab's contents: the site's own unfiltered list.
 ///
@@ -218,29 +221,93 @@ class RepliesSection extends StatelessWidget {
       );
 }
 
-/// The Chat tab's server-filtered notification list.
-///
-/// Keeping this feed independent preserves both the general tab's cache and
-/// Chat's own thirty-row result window on active sites.
-class ChatNotificationsSection extends StatelessWidget {
-  const ChatNotificationsSection({
+/// A plugin-owned filtered notification list backed by a narrow host facade.
+class PluginNotificationsSection extends StatefulWidget {
+  const PluginNotificationsSection({
     super.key,
     required this.siteUrl,
     required this.onOpened,
+    required this.host,
+    required this.source,
   });
 
   final String siteUrl;
   final VoidCallback onOpened;
+  final PluginNotificationFeedHost host;
+  final PluginNotificationFeedSource source;
 
   @override
-  Widget build(BuildContext context) => AccountActivityLoader.chatNotifications(
-    siteUrl: siteUrl,
-    builder: (context, controller) => _NotificationSectionView(
-      controller: controller,
-      siteUrl: siteUrl,
-      onOpened: onOpened,
-      kind: _NotificationFeedKind.chat,
-    ),
+  State<PluginNotificationsSection> createState() =>
+      _PluginNotificationsSectionState();
+}
+
+class _PluginNotificationsSectionState
+    extends State<PluginNotificationsSection> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      widget.host.loadPluginNotificationFeed(widget.siteUrl, widget.source),
+    );
+  }
+
+  @override
+  void didUpdateWidget(PluginNotificationsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.source.id != widget.source.id ||
+        !identical(oldWidget.host, widget.host)) {
+      unawaited(
+        widget.host.loadPluginNotificationFeed(widget.siteUrl, widget.source),
+      );
+    }
+  }
+
+  Future<void> _open(DiscourseNotification notification) async {
+    widget.host.readPluginNotification(widget.siteUrl, notification);
+    final path = notification.path;
+    if (path == null) return;
+    final url = widget.host.pluginAbsoluteUrl(path, siteUrl: widget.siteUrl);
+    if (await widget.host.openPluginNotificationUrl(url)) {
+      if (mounted) widget.onOpened();
+      return;
+    }
+    if (mounted && await openExternalLink(url) && mounted) widget.onOpened();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.host.notificationFeedListenable(widget.source.id),
+    builder: (context, _) {
+      final feed = widget.host.notificationFeedFor(
+        widget.source.id,
+        widget.siteUrl,
+      );
+      if (feed.error case final error?) {
+        return UserMenuMessage(
+          text: error,
+          onRetry: () => widget.host.loadPluginNotificationFeed(
+            widget.siteUrl,
+            widget.source,
+          ),
+        );
+      }
+      if (!feed.loaded) return const UserMenuMessage(text: null);
+      if (feed.isEmpty) {
+        return UserMenuMessage(text: widget.source.emptyMessage);
+      }
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final notification in feed.notifications)
+            NotificationRow(
+              notification: notification,
+              onTap: () => _open(notification),
+            ),
+        ],
+      );
+    },
   );
 }
 
@@ -296,10 +363,6 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
         controller.accountActivity.replyNotificationsListenable,
         () => controller.loadReplyNotifications(widget.siteUrl),
       ),
-      _NotificationFeedKind.chat => (
-        controller.accountActivity.chatNotificationsListenable,
-        () => controller.loadChatNotifications(widget.siteUrl),
-      ),
     };
     return ListenableBuilder(
       listenable: listenable,
@@ -311,9 +374,6 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
           _NotificationFeedKind.replies => controller.replyNotificationsFor(
             widget.siteUrl,
           ),
-          _NotificationFeedKind.chat => controller.chatNotificationsFor(
-            widget.siteUrl,
-          ),
         };
 
         if (currentFeed.error case final error?) {
@@ -323,11 +383,7 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
         // asked for has started, which is a wait like any other.
         if (!currentFeed.loaded) return const UserMenuMessage(text: null);
         if (currentFeed.isEmpty) {
-          return UserMenuMessage(
-            text: widget.kind == _NotificationFeedKind.chat
-                ? 'You don’t have any chat notifications yet.'
-                : 'Nothing new.',
-          );
+          return const UserMenuMessage(text: 'Nothing new.');
         }
 
         return Column(

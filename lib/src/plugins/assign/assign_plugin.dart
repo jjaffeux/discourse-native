@@ -7,11 +7,12 @@ import '../../models/post.dart';
 import '../../models/topic.dart';
 import '../../shell/pill.dart';
 import '../../shell/post_action.dart';
-import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../plugin_scope.dart';
+import '../plugin_services.dart';
 import '../site_plugin_api.dart';
 import 'assignment.dart';
 import 'assignment_sheet.dart';
@@ -29,6 +30,7 @@ final class AssignPlugin
         PostDecorationPlugin,
         TopicListMetadataPlugin,
         TopicHeaderPlugin,
+        TopicHeaderRebuildPlugin,
         PostMenuPlugin,
         TopicLivePlugin,
         TopicLiveReloadPlugin,
@@ -95,17 +97,16 @@ final class AssignPlugin
     TopicDetail topic,
   ) {
     final assignments = topic.plugins.get(assignmentsDataKey);
+    final target = AssignmentTarget.topic(topic.id);
     final canAssign = _canAssignRecord(
       context,
       siteUrl,
+      target,
       assignments?.canAssign,
     );
     final hasAssignments = assignments?.hasAssignments == true;
     final visibleAssignments =
         assignments?.all.toList(growable: false) ?? const <Assignment>[];
-    if (!hasAssignments && !canAssign) {
-      return const [];
-    }
 
     final assignmentCount = assignments?.all.length ?? 0;
     final summary = hasAssignments
@@ -119,7 +120,7 @@ final class AssignPlugin
           showAssignmentEditor(
             context: context,
             siteUrl: siteUrl,
-            target: AssignmentTarget.topic(topic.id),
+            target: target,
           ),
         );
         return;
@@ -130,30 +131,35 @@ final class AssignPlugin
           siteUrl: siteUrl,
           topic: topic,
           assignments: assignments!,
-          canAssign: canAssign,
+          canAssign: _canAssignRecord(
+            context,
+            siteUrl,
+            target,
+            assignments.canAssign,
+          ),
         ),
       );
     }
 
     if (!hasAssignments) {
-      return [
-        Semantics(
-          button: true,
-          label: summary,
-          onTap: openAssignments,
-          child: ExcludeSemantics(
-            child: DButton(
-              key: const Key('assign-topic-header'),
-              label: const Text('Assign'),
-              icon: const DIcon(DIcons.userPlus, size: 18),
-              tooltip: 'Assign topic',
-              onPressed: openAssignments,
-              variant: DButtonVariant.link,
-              size: DButtonSize.small,
-            ),
+      Widget button() => Semantics(
+        button: true,
+        label: summary,
+        onTap: openAssignments,
+        child: ExcludeSemantics(
+          child: DButton(
+            key: const Key('assign-topic-header'),
+            label: const Text('Assign'),
+            icon: const DIcon(DIcons.userPlus, size: 18),
+            tooltip: 'Assign topic',
+            onPressed: openAssignments,
+            variant: DButtonVariant.link,
+            size: DButtonSize.small,
           ),
         ),
-      ];
+      );
+      if (!canAssign) return const [];
+      return [button()];
     }
 
     return [
@@ -212,6 +218,13 @@ final class AssignPlugin
   }
 
   @override
+  Listenable? topicHeaderRebuildOn(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+  ) => PluginScope.maybeOf(context)?.service(assignmentControllerService);
+
+  @override
   List<Widget> postDecorations(
     BuildContext context,
     String siteUrl,
@@ -226,33 +239,34 @@ final class AssignPlugin
         return const [];
       }
       return [
-        _AssignmentRows(
-          key: const Key('assign-first-post-assignments'),
-          rows: [
-            if (topicAssignments.direct case final direct?)
-              _AssignmentRowData(
-                assignment: direct,
-                label: 'Topic',
-                onTap:
-                    _canAssignRecord(
-                      context,
-                      siteUrl,
-                      topicAssignments.canAssign,
-                    )
-                    ? () => showAssignmentEditor(
-                        context: context,
-                        siteUrl: siteUrl,
-                        target: AssignmentTarget.topic(topic.id),
-                        existing: direct,
-                      )
-                    : null,
-              ),
-            for (final assignment in topicAssignments.postAssignments.values)
-              _AssignmentRowData(
-                assignment: assignment,
-                label: _postLabel(assignment.postNumber),
-              ),
-          ],
+        _assignmentPermissionBuilder(
+          context: context,
+          siteUrl: siteUrl,
+          target: AssignmentTarget.topic(topic.id),
+          recordPermission: topicAssignments.canAssign,
+          builder: (canEdit) => _AssignmentRows(
+            key: const Key('assign-first-post-assignments'),
+            rows: [
+              if (topicAssignments.direct case final direct?)
+                _AssignmentRowData(
+                  assignment: direct,
+                  label: 'Topic',
+                  onTap: canEdit
+                      ? () => showAssignmentEditor(
+                          context: context,
+                          siteUrl: siteUrl,
+                          target: AssignmentTarget.topic(topic.id),
+                          existing: direct,
+                        )
+                      : null,
+                ),
+              for (final assignment in topicAssignments.postAssignments.values)
+                _AssignmentRowData(
+                  assignment: assignment,
+                  label: _postLabel(assignment.postNumber),
+                ),
+            ],
+          ),
         ),
       ];
     }
@@ -264,55 +278,60 @@ final class AssignPlugin
         ? postAssignments?.direct
         : topicAssignments.forPost(post.id);
     if (assignment == null) return const [];
-    final canEdit = _canAssignRecord(
-      context,
-      siteUrl,
-      postAssignments?.canAssign,
-    );
     return [
-      _AssignmentRows(
-        key: Key('assign-post-${post.id}-assignment'),
-        rows: [
-          _AssignmentRowData(
-            assignment: assignment,
-            label: _postLabel(assignment.postNumber ?? post.postNumber),
-            onTap: canEdit
-                ? () => showAssignmentEditor(
-                    context: context,
-                    siteUrl: siteUrl,
-                    target: AssignmentTarget.post(post.id, topicId: topic.id),
-                    existing: assignment,
-                  )
-                : null,
-          ),
-        ],
+      _assignmentPermissionBuilder(
+        context: context,
+        siteUrl: siteUrl,
+        target: AssignmentTarget.post(post.id, topicId: topic.id),
+        recordPermission: postAssignments?.canAssign,
+        builder: (canEdit) => _AssignmentRows(
+          key: Key('assign-post-${post.id}-assignment'),
+          rows: [
+            _AssignmentRowData(
+              assignment: assignment,
+              label: _postLabel(assignment.postNumber ?? post.postNumber),
+              onTap: canEdit
+                  ? () => showAssignmentEditor(
+                      context: context,
+                      siteUrl: siteUrl,
+                      target: AssignmentTarget.post(post.id, topicId: topic.id),
+                      existing: assignment,
+                    )
+                  : null,
+            ),
+          ],
+        ),
       ),
     ];
   }
 
   @override
-  PostMenuContribution postMenu(
-    BuildContext context,
-    String siteUrl,
-    Post post,
-  ) {
+  PostMenuContribution postMenu(PostMenuContext menu) {
+    final context = menu.buildContext;
+    final siteUrl = menu.siteUrl;
+    final post = menu.post;
     // Assign treats the first post as the topic target. Never expose a Post
     // write for it, even if a malformed or older serializer says can_assign.
     if (post.postNumber == 1) return PostMenuContribution.none;
     final postAssignments = post.plugins.get(assignmentsDataKey);
-    if (!_canAssignRecord(context, siteUrl, postAssignments?.canAssign)) {
-      return PostMenuContribution.none;
+    final topic = menu.topic;
+    final assignmentController = PluginScope.maybeOf(
+      context,
+    )?.service(assignmentControllerService);
+    if (topic == null ||
+        !_canAssignRecord(
+          context,
+          siteUrl,
+          AssignmentTarget.post(post.id, topicId: topic.id),
+          postAssignments?.canAssign,
+        )) {
+      return PostMenuContribution(rebuildOn: assignmentController);
     }
-    final controller = ShellScope.maybeRead(context);
-    final topic = controller?.currentTopic;
-    if (topic == null) return PostMenuContribution.none;
     final aggregate = topic.plugins.get(assignmentsDataKey);
     final existing = aggregate == null
         ? postAssignments?.direct
         : aggregate.forPost(post.id);
-    final currentUser = controller?.currentInstance?.url == siteUrl
-        ? controller?.currentInstance?.user
-        : null;
+    final currentUser = menu.currentUser;
     final assignedToCurrentUser = switch (existing?.assignee) {
       final AssignmentUser assignee when currentUser != null =>
         (assignee.id != null && assignee.id == currentUser.id) ||
@@ -322,6 +341,7 @@ final class AssignPlugin
     };
 
     return PostMenuContribution(
+      rebuildOn: assignmentController,
       entries: [
         PostAction(
           icon: existing == null ? DIcons.userPlus : DIcons.pencil,
@@ -507,15 +527,35 @@ Future<void> _showAssignments({
   ),
 );
 
+Widget _assignmentPermissionBuilder({
+  required BuildContext context,
+  required String siteUrl,
+  required AssignmentTarget target,
+  required bool? recordPermission,
+  required Widget Function(bool canAssign) builder,
+}) {
+  final controller = PluginScope.maybeOf(
+    context,
+  )?.service(assignmentControllerService);
+  if (controller == null) return builder(recordPermission == true);
+  return ListenableBuilder(
+    listenable: controller,
+    builder: (context, _) => builder(controller.canAssign(siteUrl, target)),
+  );
+}
+
 bool _canAssignRecord(
   BuildContext context,
   String siteUrl,
+  AssignmentTarget target,
   bool? targetCanAssign,
-) =>
-    ShellScope.maybeRead(
-      context,
-    )?.canAssignForTarget(siteUrl, targetCanAssign) ??
-    targetCanAssign == true;
+) {
+  final controller = PluginScope.maybeOf(
+    context,
+  )?.service(assignmentControllerService);
+  if (controller == null) return targetCanAssign == true;
+  return controller.canAssign(siteUrl, target);
+}
 
 String _postLabel(int? postNumber) =>
     postNumber == null ? 'Post' : 'Post #$postNumber';

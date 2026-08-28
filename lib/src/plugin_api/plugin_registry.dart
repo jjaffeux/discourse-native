@@ -1,8 +1,10 @@
+import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/content_route.dart';
+import '../models/discourse_user.dart';
 import '../models/forum_workspace.dart';
 import '../models/post.dart';
 import '../models/sidebar.dart';
@@ -23,10 +25,52 @@ final class PluginRegistry implements PluginDataDecoder {
   factory PluginRegistry.validated(Iterable<SitePlugin> plugins) {
     final registry = PluginRegistry(List.unmodifiable(plugins));
     registry._validateRecordOwners();
+    registry._validateComposerTargetOwners();
+    registry._validateTopicRecommendationSources();
+    registry._validateNotificationFeeds();
     return registry;
   }
 
+  void _validateComposerTargetOwners() {
+    final owners = <ComposerTargetKind, String>{};
+    for (final plugin in plugins.whereType<ComposerTargetPlugin>()) {
+      final pluginName = (plugin as SitePlugin).name;
+      final kind = plugin.composerTargetKind;
+      if (kind.owner != PluginId(pluginName) ||
+          kind.name.trim().isEmpty ||
+          kind.name.contains('/')) {
+        throw ArgumentError(
+          'Composer target $kind must be namespaced to $pluginName.',
+        );
+      }
+      final previous = owners[kind];
+      if (previous != null) {
+        throw ArgumentError(
+          'Composer target $kind is claimed by both $previous and $pluginName.',
+        );
+      }
+      owners[kind] = pluginName;
+    }
+  }
+
   final List<SitePlugin> plugins;
+
+  @override
+  List<TopicRecommendationSourceDefinition> get topicRecommendationSources =>
+      List.unmodifiable([
+        for (final plugin
+            in plugins.whereType<TopicRecommendationSourcePlugin>())
+          ...plugin.topicRecommendationSources,
+      ]);
+
+  List<PluginNotificationFeedSource> get notificationFeeds =>
+      List.unmodifiable([
+        for (final plugin in plugins.whereType<NotificationFeedPlugin>())
+          ...plugin.notificationFeeds,
+      ]);
+
+  PluginNotificationFeedSource? notificationFeed(PluginNotificationFeedId id) =>
+      notificationFeeds.where((source) => source.id == id).firstOrNull;
 
   void _validateRecordOwners() {
     final owners = <PluginDataKey<Object>, String>{};
@@ -41,6 +85,80 @@ final class PluginRegistry implements PluginDataDecoder {
         );
       }
       owners[recordPlugin.record] = plugin.name;
+    }
+  }
+
+  void _validateTopicRecommendationSources() {
+    final idOwners = <TopicRecommendationSourceId, String>{
+      coreSuggestedTopicRecommendationSource.id: 'core',
+    };
+    final payloadOwners = <String, String>{
+      coreSuggestedTopicRecommendationSource.payloadKey: 'core',
+    };
+    for (final plugin in plugins.whereType<TopicRecommendationSourcePlugin>()) {
+      final pluginName = (plugin as SitePlugin).name;
+      for (final source in plugin.topicRecommendationSources) {
+        if (!source.id.isNamespaced || source.id.namespace != pluginName) {
+          throw ArgumentError(
+            'Topic recommendation source ${source.id} must be namespaced to '
+            '$pluginName.',
+          );
+        }
+        if (source.payloadKey.trim().isEmpty || source.label.trim().isEmpty) {
+          throw ArgumentError(
+            'Topic recommendation source ${source.id} must declare a payload '
+            'key and label.',
+          );
+        }
+        final previousIdOwner = idOwners[source.id];
+        if (previousIdOwner != null) {
+          throw ArgumentError(
+            'Topic recommendation source ${source.id} is claimed by both '
+            '$previousIdOwner and $pluginName.',
+          );
+        }
+        final previousPayloadOwner = payloadOwners[source.payloadKey];
+        if (previousPayloadOwner != null) {
+          throw ArgumentError(
+            'Topic recommendation payload ${source.payloadKey} is claimed by '
+            'both $previousPayloadOwner and $pluginName.',
+          );
+        }
+        idOwners[source.id] = pluginName;
+        payloadOwners[source.payloadKey] = pluginName;
+      }
+    }
+  }
+
+  void _validateNotificationFeeds() {
+    final owners = <PluginNotificationFeedId, String>{};
+    for (final plugin in plugins.whereType<NotificationFeedPlugin>()) {
+      final pluginName = (plugin as SitePlugin).name;
+      for (final source in plugin.notificationFeeds) {
+        if (source.id.owner != PluginId(pluginName) ||
+            source.id.name.trim().isEmpty ||
+            source.id.name.contains('/')) {
+          throw ArgumentError(
+            'Notification feed ${source.id.id} must be namespaced to '
+            '$pluginName.',
+          );
+        }
+        if (source.reconnectMessage.trim().isEmpty ||
+            source.failureMessage.trim().isEmpty ||
+            source.emptyMessage.trim().isEmpty) {
+          throw ArgumentError(
+            'Notification feed ${source.id.id} must declare its messages.',
+          );
+        }
+        final previous = owners[source.id];
+        if (previous != null) {
+          throw ArgumentError(
+            'Notification feed ${source.id.id} is claimed by both '
+            '$previous and $pluginName.',
+          );
+        }
+        owners[source.id] = pluginName;
+      }
     }
   }
 
@@ -179,6 +297,23 @@ final class PluginRegistry implements PluginDataDecoder {
       ...plugin.topicHeader(context, siteUrl, topic),
   ];
 
+  Listenable? topicHeaderRebuildOn(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+  ) {
+    final listenables = plugins
+        .whereType<TopicHeaderRebuildPlugin>()
+        .map((plugin) => plugin.topicHeaderRebuildOn(context, siteUrl, topic))
+        .whereType<Listenable>()
+        .toList(growable: false);
+    return switch (listenables) {
+      [] => null,
+      [final listenable] => listenable,
+      _ => Listenable.merge(listenables),
+    };
+  }
+
   List<Widget> topicMapActions(
     BuildContext context,
     String siteUrl,
@@ -191,17 +326,41 @@ final class PluginRegistry implements PluginDataDecoder {
   PostMenuContribution postMenu(
     BuildContext context,
     String siteUrl,
-    Post post,
-  ) {
+    Post post, {
+    required TopicDetail? topic,
+    required DiscourseUser? currentUser,
+  }) {
     final entries = <PostAction>[];
+    final rebuildListenables = <Listenable>[];
     var replacesLike = false;
     for (final plugin in plugins.whereType<PostMenuPlugin>()) {
-      final contribution = plugin.postMenu(context, siteUrl, post);
+      final contribution = plugin.postMenu(
+        PostMenuContext(
+          buildContext: context,
+          siteUrl: siteUrl,
+          post: post,
+          topic: topic,
+          currentUser: currentUser,
+        ),
+      );
       entries.addAll(contribution.entries);
       replacesLike |= contribution.replacesLike;
+      if (contribution.rebuildOn case final listenable?) {
+        rebuildListenables.add(listenable);
+      }
     }
-    if (entries.isEmpty && !replacesLike) return PostMenuContribution.none;
-    return PostMenuContribution(entries: entries, replacesLike: replacesLike);
+    if (entries.isEmpty && !replacesLike && rebuildListenables.isEmpty) {
+      return PostMenuContribution.none;
+    }
+    return PostMenuContribution(
+      entries: entries,
+      replacesLike: replacesLike,
+      rebuildOn: switch (rebuildListenables) {
+        [] => null,
+        [final listenable] => listenable,
+        _ => Listenable.merge(rebuildListenables),
+      },
+    );
   }
 
   List<ComposerToolbarContribution> composerToolbar(
@@ -211,6 +370,43 @@ final class PluginRegistry implements PluginDataDecoder {
     for (final plugin in plugins.whereType<ComposerToolbarPlugin>())
       ...plugin.composerToolbar(context, composer),
   ];
+
+  /// Resolves the one capability which owns [request.kind].
+  ///
+  /// Null is the plugin-absent answer. A caller must not silently construct a
+  /// generic target because doing so would use the wrong draft/upload policy.
+  ComposerTargetPolicy? composerTarget(
+    ComposerTargetRequest request,
+    ComposerTargetContext context,
+  ) {
+    for (final plugin in plugins.whereType<ComposerTargetPlugin>()) {
+      if (plugin.composerTargetKind != request.kind) continue;
+      final policy = plugin.createComposerTarget(request, context);
+      final pluginName = (plugin as SitePlugin).name;
+      if (policy.kind != request.kind) {
+        throw StateError(
+          '$pluginName returned policy ${policy.kind} '
+          'for ${request.kind}.',
+        );
+      }
+      final emojiContext = policy.emojiUsageContext;
+      if (emojiContext.owner != PluginId(pluginName) ||
+          emojiContext.name.trim().isEmpty ||
+          emojiContext.name.contains('/')) {
+        throw StateError(
+          '$pluginName returned emoji usage context $emojiContext for '
+          '${request.kind}; it must be namespaced to $pluginName.',
+        );
+      }
+      if (policy.draftKey.trim().isEmpty) {
+        throw StateError(
+          '$pluginName returned an empty draft key for ${request.kind}.',
+        );
+      }
+      return policy;
+    }
+    return null;
+  }
 
   List<ComposerSyntaxPlugin> get composerSyntaxPlugins =>
       List.unmodifiable(plugins.whereType<ComposerSyntaxPlugin>());
@@ -232,6 +428,29 @@ final class PluginRegistry implements PluginDataDecoder {
     for (final plugin in plugins.whereType<UserCardActionPlugin>())
       ...plugin.userCardActions(context, siteUrl, user, close),
   ];
+
+  List<PluginUserMenuSection> userMenuSections(PluginUserMenuContext context) {
+    final sections = <PluginUserMenuSection>[];
+    final owners = <PluginUserMenuSectionId>{};
+    for (final plugin in plugins.whereType<UserMenuSectionPlugin>()) {
+      final pluginName = (plugin as SitePlugin).name;
+      for (final section in plugin.userMenuSections(context)) {
+        if (section.id.owner != PluginId(pluginName) ||
+            section.id.name.trim().isEmpty ||
+            section.id.name.contains('/')) {
+          throw StateError(
+            'User-menu section ${section.id.id} must be namespaced to '
+            '$pluginName.',
+          );
+        }
+        if (!owners.add(section.id)) {
+          throw StateError('Duplicate user-menu section ${section.id.id}.');
+        }
+        sections.add(section);
+      }
+    }
+    return List.unmodifiable(sections);
+  }
 
   List<SidebarSection> sidebarSections(BuildContext context) => [
     for (final plugin in plugins.whereType<SidebarPlugin>())

@@ -3,6 +3,8 @@ import 'dart:async';
 // has no opinion about how anything is painted.
 import 'dart:ui' show Color;
 
+import 'package:flutter/foundation.dart'
+    show ChangeNotifier, Listenable, ValueListenable;
 import 'package:flutter/scheduler.dart';
 
 import '../data/aggregate_preferences_store.dart';
@@ -59,11 +61,12 @@ import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
 import '../models/user_status.dart';
 import '../models/user_summary.dart';
+import '../plugin_api/bookmark_host.dart';
 import '../plugin_api/core_plugin_host.dart';
 import '../plugin_api/core_plugin_manifest.dart';
-import '../plugin_api/plugin_data.dart';
+import '../plugin_api/emoji_preferences.dart';
 import '../plugin_api/plugin_runtime.dart';
-import '../plugin_api/shell_extensions.dart';
+import '../plugin_api/site_plugin_api.dart';
 import '../theme/d_icons.dart';
 import 'account_activity_controller.dart';
 import 'aggregate_feed_controller.dart';
@@ -111,33 +114,12 @@ typedef _CategorySidebarCache = ({
   SidebarSection section,
 });
 
-/// The confirmed result of a bookmark mutation, or why it was not applied.
-final class BookmarkWriteResult {
-  const BookmarkWriteResult.saved([this.bookmark])
-    : message = null,
-      reconciled = false;
-
-  const BookmarkWriteResult.refused(this.message)
-    : bookmark = null,
-      reconciled = false;
-
-  const BookmarkWriteResult.reconciled(this.message)
-    : bookmark = null,
-      reconciled = true;
-
-  final Bookmark? bookmark;
-  final String? message;
-  final bool reconciled;
-
-  bool get saved => message == null;
-}
-
 /// Everything the shell needs to decide what to draw.
 ///
 /// Uses Flutter's notifier contract directly, without a state-management
 /// dependency. [FrameSafeNotifier] only centralizes disposal and frame timing.
 class ShellController extends FrameSafeNotifier
-    implements PluginNavigationHost {
+    implements PluginNavigationHost, BookmarkHost, PluginNotificationFeedHost {
   ShellController({
     required this.instanceStore,
     required this.api,
@@ -189,6 +171,7 @@ class ShellController extends FrameSafeNotifier
   /// lives here once, and the maps in this class hold ids into it — so a list,
   /// a topic being read and a card popup are all drawing the same records
   /// rather than copies that have to be kept in step by hand.
+  @override
   final Store store;
 
   final DiscourseApi api;
@@ -229,50 +212,68 @@ class ShellController extends FrameSafeNotifier
 
   late final PluginSession _pluginSession = plugins.openSession(
     PluginHostBindings(<PluginHostPort<Object>>[
+      PluginHostPort<Object>(corePluginTransportPort, api),
+      PluginHostPort<Object>(corePluginModelCodecPort, api.models),
+      PluginHostPort<Object>(corePluginCredentialsPort, authenticator),
+      PluginHostPort<Object>(corePluginStorePort, store),
+      PluginHostPort<Object>(corePluginSiteLifecyclePort, lifecycle),
       PluginHostPort<Object>(
-        corePluginHostPort,
-        CorePluginHost(
-          api: api,
-          credentials: authenticator,
-          store: store,
-          siteLifecycle: lifecycle,
+        corePluginSiteStatePort,
+        PluginSiteStateHost(
           currentUserFor: (siteUrl) => _instanceAt(siteUrl)?.user,
           siteConfigFor: siteConfigFor,
-          previewEngine: plugins.registry.chatPreviewEngine,
-          applyNotificationDelta: (siteUrl, delta) {
-            accountActivity.applyCounts(
-              siteUrl,
-              (held) => held.withChatNotificationsDelta(delta),
-            );
-          },
-          markSiteUnreachable: _markForumUnavailable,
-          canPerform: (siteUrl, capability, recordPermission) =>
-              switch (capability) {
-                'assign' => canAssignForTarget(siteUrl, recordPermission),
-                _ => false,
-              },
-          dataForTarget: _pluginDataForTarget,
-          reloadTopic: (siteUrl, topicId) =>
-              _refetchTopic(siteUrl, topicId, ''),
-          invalidateFallback: (siteUrl, capability) {
-            if (capability == 'assign') {
-              _assignLegacyFallbackUnavailable.add(siteUrl);
-              _notify();
-            }
-          },
-          trackerFor: (siteUrl) => _trackers[siteUrl],
-          userIdFor: (siteUrl) => _instanceAt(siteUrl)?.user?.id,
-          capabilityEnabledFor: (siteUrl, capability) async =>
-              switch (capability) {
-                'resenha' => (await _presentation.resolveConfig(
-                  siteUrl,
-                ))?.resenha.enabled,
-                _ => null,
-              },
-          onCallSiteChanged: _syncTracking,
-          navigation: this,
         ),
       ),
+      PluginHostPort<Object>(
+        corePluginPreviewPort,
+        plugins.registry.chatPreviewEngine,
+      ),
+      PluginHostPort<Object>(
+        corePluginAccountEventsPort,
+        PluginAccountEventsHost(
+          updateTotals: accountActivity.applyCounts,
+          markSiteUnreachable: _markForumUnavailable,
+        ),
+      ),
+      PluginHostPort<Object>(
+        corePluginTargetPort,
+        PluginTargetHost(
+          dataForTarget: _pluginDataForTarget,
+          freshCurrentUserFor: freshCurrentUserFor,
+        ),
+      ),
+      PluginHostPort<Object>(
+        corePluginTopicRefreshPort,
+        PluginTopicRefreshHost(
+          reloadTopic: (siteUrl, topicId) =>
+              _refetchTopic(siteUrl, topicId, ''),
+        ),
+      ),
+      PluginHostPort<Object>(
+        corePluginTrackerPort,
+        (String siteUrl) => _trackers[siteUrl],
+      ),
+      PluginHostPort<Object>(
+        corePluginUserPort,
+        (String siteUrl) => _instanceAt(siteUrl)?.user?.id,
+      ),
+      PluginHostPort<Object>(
+        corePluginPresentationPort,
+        (String siteUrl) => _presentation.resolveConfig(siteUrl),
+      ),
+      PluginHostPort<Object>(corePluginTrackingSyncPort, _syncTracking),
+      PluginHostPort<Object>(
+        corePluginNavigationPort,
+        _ShellPluginNavigationHost(this, () => isDisposed),
+      ),
+      PluginHostPort<Object>(
+        corePluginRouteNavigationPort,
+        _ShellPluginRouteNavigationHost(this),
+      ),
+      _pluginBookmarkHostPort(),
+      _pluginComposerHostPort(),
+      _pluginEmojiHostPort(),
+      _pluginNotificationFeedHostPort(),
     ]),
   );
 
@@ -281,6 +282,79 @@ class ShellController extends FrameSafeNotifier
   /// Exposed as one typed lookup boundary for [PluginScope], not as a second
   /// shell controller API.
   PluginSession get pluginSession => _pluginSession;
+
+  PluginHostPort<Object> _pluginBookmarkHostPort() {
+    final factory = _ShellPluginBookmarkHostFactory(this);
+    return PluginHostPort<Object>(
+      corePluginBookmarkPort,
+      factory,
+      scopeToConsumer: factory.scopedTo,
+    );
+  }
+
+  PluginHostPort<Object> _pluginComposerHostPort() {
+    final host = PluginComposerHost(
+      buildComposer: buildPluginComposer,
+      credentials: authenticator,
+      lifecycle: lifecycle,
+      siteConfigFor: siteConfigFor,
+      siteConfigListenableFor: _pluginSiteConfigListenableFor,
+    );
+    return PluginHostPort<Object>(
+      corePluginComposerPort,
+      host,
+      scopeToConsumer: (consumer) => PluginComposerHost(
+        buildComposer: (request) {
+          if (request.kind.owner != consumer) {
+            throw PluginInstallationException(
+              'Plugin $consumer cannot build composer target '
+              '${request.kind.id}.',
+            );
+          }
+          return host.buildComposer(request);
+        },
+        credentials: host.credentials,
+        lifecycle: host.lifecycle,
+        siteConfigFor: host.siteConfigFor,
+        siteConfigListenableFor: host.siteConfigListenableFor,
+      ),
+    );
+  }
+
+  PluginHostPort<Object> _pluginEmojiHostPort() {
+    final host = PluginEmojiHost(
+      preferences: emojiPickerStore,
+      siteConfigFor: siteConfigFor,
+      loadCatalog: (siteUrl, {refresh = false}) =>
+          refresh ? refreshEmojiCatalog(siteUrl) : ensureEmojiCatalog(siteUrl),
+      loadSearchAliases: (siteUrl, {refresh = false}) => refresh
+          ? refreshEmojiSearchAliases(siteUrl)
+          : ensureEmojiSearchAliases(siteUrl),
+    );
+    return PluginHostPort<Object>(
+      corePluginEmojiPort,
+      host,
+      scopeToConsumer: (consumer) => PluginEmojiHost(
+        preferences: _ScopedEmojiPreferenceStore(emojiPickerStore, consumer),
+        siteConfigFor: host.siteConfigFor,
+        loadCatalog: host.loadCatalog,
+        loadSearchAliases: host.loadSearchAliases,
+      ),
+    );
+  }
+
+  PluginHostPort<Object> _pluginNotificationFeedHostPort() {
+    final host = _ShellPluginNotificationFeedHost(this);
+    return PluginHostPort<Object>(
+      corePluginNotificationFeedPort,
+      host,
+      scopeToConsumer: (consumer) =>
+          _ShellScopedPluginNotificationFeedHost(host, consumer, {
+            for (final source in plugins.registry.notificationFeeds)
+              if (source.id.owner == consumer) source.id: source,
+          }),
+    );
+  }
 
   String? get _pluginBackgroundSiteUrl => _pluginSession
       .capabilities<PluginBackgroundSite>()
@@ -528,6 +602,17 @@ class ShellController extends FrameSafeNotifier
   );
 
   SitePresentationController? _sitePresentation;
+  final Map<String, _PluginSiteConfigListenable> _pluginSiteConfigListenables =
+      {};
+
+  ValueListenable<SiteConfig> _pluginSiteConfigListenableFor(String siteUrl) =>
+      _pluginSiteConfigListenables.putIfAbsent(
+        siteUrl,
+        () => _PluginSiteConfigListenable(
+          _presentation,
+          () => siteConfigFor(siteUrl),
+        ),
+      );
 
   SitePresentationController get _presentation =>
       _sitePresentation ??= _createSitePresentationController();
@@ -1576,20 +1661,45 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// The filtered chat notifications fetched for [siteUrl].
-  NotificationFeed chatNotificationsFor(String siteUrl) =>
-      accountActivity.chatNotificationsFor(siteUrl);
+  @override
+  Listenable notificationFeedListenable(PluginNotificationFeedId id) =>
+      accountActivity.pluginNotificationsListenable(id);
 
-  /// Fetches what the user menu's Chat tab lists.
-  ///
-  /// This is separate from both the general and Replies feeds so opening any
-  /// one tab cannot replace another tab's cache or consume its row budget.
-  Future<void> loadChatNotifications(String siteUrl) async {
+  @override
+  NotificationFeed notificationFeedFor(
+    PluginNotificationFeedId id,
+    String siteUrl,
+  ) => accountActivity.pluginNotificationsFor(id, siteUrl);
+
+  @override
+  Future<void> loadPluginNotificationFeed(
+    String siteUrl,
+    PluginNotificationFeedSource source,
+  ) async {
+    if (plugins.registry.notificationFeed(source.id) != source) {
+      throw StateError(
+        'Notification feed ${source.id.id} is not installed in this build.',
+      );
+    }
     final instance = _instanceAt(siteUrl);
     if (instance != null) {
-      await accountActivity.loadChatNotifications(instance);
+      await accountActivity.loadPluginNotifications(instance, source);
     }
   }
+
+  @override
+  void readPluginNotification(
+    String siteUrl,
+    DiscourseNotification notification,
+  ) => readNotification(siteUrl, notification);
+
+  @override
+  String pluginAbsoluteUrl(String path, {required String siteUrl}) =>
+      absoluteUrl(path, siteUrl: siteUrl);
+
+  @override
+  Future<bool> openPluginNotificationUrl(String url) =>
+      openNotificationUrl(url);
 
   /// Marks [notification] read, which is what opening it amounts to here.
   ///
@@ -2038,7 +2148,6 @@ class ShellController extends FrameSafeNotifier
   /// Sites whose account was read from `/session/current.json` during this
   /// process. Persisted capabilities are intentionally never put in this set.
   final Set<String> _sessionUsersRefreshed = {};
-  final Set<String> _assignLegacyFallbackUnavailable = {};
 
   /// Deduplicates tracker startup with account refreshes and rapid lifecycle
   /// changes.
@@ -2511,7 +2620,6 @@ class ShellController extends FrameSafeNotifier
           ? user.withHidePresence(fresh.user?.hidePresence)
           : user;
       _sessionUsersRefreshed.add(siteUrl);
-      _assignLegacyFallbackUnavailable.remove(siteUrl);
       _hidePresenceErrors.remove(siteUrl);
       if (fresh.user != committedUser) {
         changed = true;
@@ -2521,6 +2629,15 @@ class ShellController extends FrameSafeNotifier
     });
     if (accepted && changed && lease.isCurrent) {
       instanceStore.save(List.of(_instances)).ignore();
+    }
+    if (accepted && lease.isCurrent) {
+      for (final observer
+          in _pluginSession.capabilities<PluginCurrentUserObserver>()) {
+        _observePluginLifecycle(
+          Future.sync(() => observer.pluginCurrentUserRefreshed(siteUrl)),
+          'plugins.session.currentUserRefreshed',
+        );
+      }
     }
     return accepted ? committedUser : null;
   }
@@ -3336,6 +3453,30 @@ class ShellController extends FrameSafeNotifier
         ),
       );
     }
+  }
+
+  @override
+  void openTopicPost({
+    required String siteUrl,
+    required int topicId,
+    required int postNumber,
+  }) {
+    if (postNumber <= 0) return;
+    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0) return;
+    if (index != _instanceIndex) selectInstance(index);
+    if (currentContent?.topicId == topicId) {
+      openCurrentTopicPost(postNumber, loadAroundPost: true);
+      return;
+    }
+    final detail = store.read<TopicDetail>(siteUrl, topicId);
+    final row = store.read<Topic>(siteUrl, topicId);
+    _openTopic(
+      topicId,
+      row?.slug ?? '',
+      detail?.title ?? row?.title ?? 'Topic',
+      postNumber: postNumber,
+    );
   }
 
   /// Changes whenever an explicit same-topic navigation replaces the reader's
@@ -4422,9 +4563,8 @@ class ShellController extends FrameSafeNotifier
       onEmojiAccepted: (code) => unawaited(
         emojiPickerStore.trackEmoji(
           siteUrl: target.siteUrl,
-          context: target.isChat
-              ? EmojiPickerContext.chat
-              : EmojiPickerContext.topic,
+          context:
+              target.policy?.emojiUsageContext ?? CoreEmojiUsageContexts.topic,
           emoji: code,
         ),
       ),
@@ -4435,7 +4575,7 @@ class ShellController extends FrameSafeNotifier
       syntaxPlugins: plugins.registry.composerSyntaxPlugins,
       pollMaximumOptions: config.pollMaximumOptions,
       localDateAccountTimezone: currentUserFor(target.siteUrl)?.timezone,
-      imageUploader: target.isChat && !config.chatUploadsEnabled
+      imageUploader: target.policy?.uploadsEnabled == false
           ? null
           : (file, {required onProgress, required abortTrigger}) =>
                 _uploadComposerImage(
@@ -4473,27 +4613,26 @@ class ShellController extends FrameSafeNotifier
     return null;
   }
 
-  /// Builds the inline composer for one chat channel with the same markdown,
-  /// completion, artwork, and upload services as the topic composer.
-  ///
-  /// Chat owns where this controller lives and how it is submitted; the shell
-  /// owns the site-scoped services needed while text is being written.
-  ComposerController buildChatComposer({
-    required String siteUrl,
-    required int channelId,
-    required String channelTitle,
-    int? threadId,
-  }) => _buildTextComposer(
-    ComposerTarget(
-      siteUrl: siteUrl,
-      topicId: 0,
-      slug: '',
-      topicTitle: channelTitle,
-      chatChannelId: channelId,
-      chatThreadId: threadId,
-      mode: ComposerMode.chat,
-    ),
-  );
+  /// Builds a plugin-owned composer only when an installed capability claims
+  /// the exact namespaced target.
+  ComposerController? buildPluginComposer(ComposerTargetRequest request) {
+    final policy = plugins.registry.composerTarget(
+      request,
+      ComposerTargetContext(
+        config: siteConfigFor(request.siteUrl),
+        currentUser: currentUserFor(request.siteUrl),
+      ),
+    );
+    if (policy == null) return null;
+    return _buildTextComposer(
+      ComposerTarget.plugin(
+        siteUrl: request.siteUrl,
+        topicTitle: request.title,
+        policy: policy,
+        data: Map.unmodifiable(request.data),
+      ),
+    );
+  }
 
   /// Opens a new-topic composer while leaving the originating list in place.
   Future<void> openNewTopic() async {
@@ -4792,8 +4931,9 @@ class ShellController extends FrameSafeNotifier
       selectedTagIds: composer.tags.map((tag) => tag.id).whereType<int>(),
       // Core rejects a page larger than the site's own setting outright, so
       // the site sets this and the client only caps what it will render.
-      limit: siteConfigFor(target.siteUrl).maxTagSearchResults
-          .clamp(1, TopicTagSearch.maximumResults),
+      limit: siteConfigFor(
+        target.siteUrl,
+      ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
     );
   }
 
@@ -4910,7 +5050,7 @@ class ShellController extends FrameSafeNotifier
         composer != null &&
         !composer.target.isEdit &&
         !composer.target.isNewTopic &&
-        !composer.target.isChat &&
+        !composer.target.isPlugin &&
         composer.target.topicId == topicId &&
         composer.target.siteUrl == instance.url &&
         composer.target.tabId == activeTabId;
@@ -5073,7 +5213,9 @@ class ShellController extends FrameSafeNotifier
       users: (term) async {
         final found = await searchUsers(
           siteUrl: target.siteUrl,
-          topicId: target.isChat ? null : target.topicId,
+          topicId: target.isPlugin
+              ? target.policy!.mentionTopicId
+              : target.topicId,
           term: term,
         );
         return [
@@ -6064,9 +6206,21 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _topicFlagWrites = {};
 
   final Set<String> _topicBookmarkWritesInFlight = {};
-  final Set<String> _chatBookmarkWritesInFlight = {};
+  final Set<String> _pluginBookmarkWritesInFlight = {};
+  final Map<BookmarkTargetType, _ShellBookmarkTargetHost> _bookmarkTargetHosts =
+      {};
   final Map<String, int> _bookmarkVersions = {};
   final Map<String, int> _siteBookmarkVersions = {};
+
+  @override
+  BookmarkTargetHost bookmarkTarget(BookmarkTargetType targetType) =>
+      _bookmarkTargetHost(targetType);
+
+  _ShellBookmarkTargetHost _bookmarkTargetHost(BookmarkTargetType targetType) =>
+      _bookmarkTargetHosts.putIfAbsent(
+        targetType,
+        () => _ShellBookmarkTargetHost(this, targetType),
+      );
 
   int _bookmarkVersion(String siteUrl, int topicId) =>
       _bookmarkVersions[_topicKey(siteUrl, topicId)] ?? 0;
@@ -6098,24 +6252,55 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool bookmarkWriteInFlight({
+    required String siteUrl,
     required int topicId,
     required BookmarkTargetType targetType,
     required int targetId,
-    String? siteUrl,
   }) {
-    final targetSite = siteUrl ?? currentInstance?.url;
-    if (targetSite == null) return false;
-    return switch (targetType) {
-      BookmarkTargetType.post => _postWritesInFlight.contains(
-        _postKey(targetSite, targetId),
-      ),
-      BookmarkTargetType.topic => _topicBookmarkWritesInFlight.contains(
-        _topicKey(targetSite, topicId),
-      ),
-      BookmarkTargetType.chatMessage => _chatBookmarkWritesInFlight.contains(
-        _postKey(targetSite, targetId),
-      ),
-    };
+    if (targetType == BookmarkTargetType.post) {
+      return _postWritesInFlight.contains(_postKey(siteUrl, targetId));
+    }
+    if (targetType == BookmarkTargetType.topic) {
+      return _topicBookmarkWritesInFlight.contains(_topicKey(siteUrl, topicId));
+    }
+    return _pluginBookmarkWritesInFlight.contains(
+      _pluginBookmarkKey(siteUrl, targetType, targetId),
+    );
+  }
+
+  PluginBookmarkTargetStrategy? _pluginBookmarkStrategy(
+    BookmarkTargetType targetType,
+  ) {
+    PluginBookmarkTargetStrategy? owner;
+    for (final candidate
+        in _pluginSession.capabilities<PluginBookmarkTargetStrategy>()) {
+      if (candidate.pluginBookmarkTarget != targetType) continue;
+      if (owner != null) {
+        throw StateError('Duplicate bookmark target ${targetType.id}.');
+      }
+      owner = candidate;
+    }
+    return owner;
+  }
+
+  BookmarkTargetType? _bookmarkTargetFor(Bookmark bookmark) {
+    final core = bookmark.coreTargetType;
+    if (core != null) return core;
+    PluginBookmarkTargetStrategy? owner;
+    for (final candidate
+        in _pluginSession.capabilities<PluginBookmarkTargetStrategy>()) {
+      if (candidate.pluginBookmarkTarget.wireName !=
+          bookmark.bookmarkableType) {
+        continue;
+      }
+      if (owner != null) {
+        throw StateError(
+          'Duplicate bookmark wire type ${bookmark.bookmarkableType}.',
+        );
+      }
+      owner = candidate;
+    }
+    return owner?.pluginBookmarkTarget;
   }
 
   /// The live read currently allowed to update each post.
@@ -6150,6 +6335,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<BookmarkWriteResult> createBookmark({
+    required String siteUrl,
     required int topicId,
     required BookmarkTargetType targetType,
     required int targetId,
@@ -6157,16 +6343,20 @@ class ShellController extends FrameSafeNotifier
     DateTime? reminderAt,
     BookmarkAutoDeletePreference? autoDeletePreference,
   }) async {
-    final instance = currentInstance;
-    final refreshTarget = targetType == BookmarkTargetType.chatMessage
-        ? 'chat message'
-        : 'topic';
+    final instance = _instanceAt(siteUrl);
+    final refreshTarget = targetType.refreshLabel;
     if (instance == null || !instance.isConnected) {
       return const BookmarkWriteResult.refused(
         'Reconnect to this forum to bookmark it.',
       );
     }
-    final siteUrl = instance.url;
+    if (targetType != BookmarkTargetType.post &&
+        targetType != BookmarkTargetType.topic &&
+        _pluginBookmarkStrategy(targetType) == null) {
+      return const BookmarkWriteResult.refused(
+        'This bookmark target is not available in this build.',
+      );
+    }
     if (!_beginBookmarkWrite(siteUrl, topicId, targetType, targetId)) {
       return const BookmarkWriteResult.refused(
         'Another action on this bookmark is still finishing.',
@@ -6260,14 +6450,15 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<BookmarkWriteResult> updateBookmark({
+    required String siteUrl,
     required int topicId,
     required Bookmark bookmark,
     String? name,
     DateTime? reminderAt,
     required BookmarkAutoDeletePreference autoDeletePreference,
   }) async {
-    final instance = currentInstance;
-    final targetType = bookmark.coreTargetType;
+    final instance = _instanceAt(siteUrl);
+    final targetType = _bookmarkTargetFor(bookmark);
     final targetId = bookmark.bookmarkableId;
     if (instance == null ||
         !instance.isConnected ||
@@ -6277,10 +6468,7 @@ class ShellController extends FrameSafeNotifier
         'This bookmark cannot be edited here.',
       );
     }
-    final refreshTarget = targetType == BookmarkTargetType.chatMessage
-        ? 'chat message'
-        : 'topic';
-    final siteUrl = instance.url;
+    final refreshTarget = targetType.refreshLabel;
     if (!_beginBookmarkWrite(siteUrl, topicId, targetType, targetId)) {
       return const BookmarkWriteResult.refused(
         'Another action on this bookmark is still finishing.',
@@ -6363,9 +6551,11 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<BookmarkWriteResult> clearBookmarkReminder({
+    required String siteUrl,
     required int topicId,
     required Bookmark bookmark,
   }) => updateBookmark(
+    siteUrl: siteUrl,
     topicId: topicId,
     bookmark: bookmark,
     name: bookmark.name,
@@ -6373,11 +6563,12 @@ class ShellController extends FrameSafeNotifier
   );
 
   Future<BookmarkWriteResult> deleteBookmark({
+    required String siteUrl,
     required int topicId,
     required Bookmark bookmark,
   }) async {
-    final instance = currentInstance;
-    final targetType = bookmark.coreTargetType;
+    final instance = _instanceAt(siteUrl);
+    final targetType = _bookmarkTargetFor(bookmark);
     final targetId = bookmark.bookmarkableId;
     if (instance == null ||
         !instance.isConnected ||
@@ -6387,10 +6578,7 @@ class ShellController extends FrameSafeNotifier
         'This bookmark cannot be deleted here.',
       );
     }
-    final refreshTarget = targetType == BookmarkTargetType.chatMessage
-        ? 'chat message'
-        : 'topic';
-    final siteUrl = instance.url;
+    final refreshTarget = targetType.refreshLabel;
     if (!_beginBookmarkWrite(siteUrl, topicId, targetType, targetId)) {
       return const BookmarkWriteResult.refused(
         'Another action on this bookmark is still finishing.',
@@ -6415,6 +6603,9 @@ class ShellController extends FrameSafeNotifier
           bookmarkId: bookmark.id,
           targetType: targetType,
         );
+        if (targetType.updatesTopicBookmarkState && topicBookmarked == null) {
+          throw const WriteException(WriteFailure.unreachable);
+        }
       } on WriteException catch (error) {
         if (error.failure == WriteFailure.unreachable) {
           _reconcileBookmarks(
@@ -6469,14 +6660,17 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  Future<BookmarkWriteResult> deleteAllTopicBookmarks(int topicId) async {
-    final instance = currentInstance;
+  @override
+  Future<BookmarkWriteResult> deleteAllTopicBookmarks({
+    required String siteUrl,
+    required int topicId,
+  }) async {
+    final instance = _instanceAt(siteUrl);
     if (instance == null || !instance.isConnected) {
       return const BookmarkWriteResult.refused(
         'Reconnect to this forum to delete its bookmarks.',
       );
     }
-    final siteUrl = instance.url;
     final key = _topicKey(siteUrl, topicId);
     final detail = store.read<TopicDetail>(siteUrl, topicId);
     final postIds =
@@ -6548,24 +6742,21 @@ class ShellController extends FrameSafeNotifier
     int topicId,
     BookmarkTargetType targetType,
     int targetId,
-  ) => switch (targetType) {
-    BookmarkTargetType.post => _beginPostWrite(_postKey(siteUrl, targetId)),
-    BookmarkTargetType.topic => _beginTopicBookmarkWrite(
-      _topicKey(siteUrl, topicId),
-    ),
-    BookmarkTargetType.chatMessage => _beginChatBookmarkWrite(
-      _postKey(siteUrl, targetId),
-    ),
-  };
-
-  bool _beginTopicBookmarkWrite(String key) {
-    if (!_topicBookmarkWritesInFlight.add(key)) return false;
+  ) {
+    if (targetType == BookmarkTargetType.post) {
+      return _beginPostWrite(_postKey(siteUrl, targetId));
+    }
+    if (targetType == BookmarkTargetType.topic) {
+      return _beginTopicBookmarkWrite(_topicKey(siteUrl, topicId));
+    }
+    final key = _pluginBookmarkKey(siteUrl, targetType, targetId);
+    if (!_pluginBookmarkWritesInFlight.add(key)) return false;
     _notify();
     return true;
   }
 
-  bool _beginChatBookmarkWrite(String key) {
-    if (!_chatBookmarkWritesInFlight.add(key)) return false;
+  bool _beginTopicBookmarkWrite(String key) {
+    if (!_topicBookmarkWritesInFlight.add(key)) return false;
     _notify();
     return true;
   }
@@ -6576,33 +6767,30 @@ class ShellController extends FrameSafeNotifier
     BookmarkTargetType targetType,
     int targetId,
   ) {
-    switch (targetType) {
-      case BookmarkTargetType.post:
-        _endPostWrite(siteUrl, targetId);
-      case BookmarkTargetType.topic:
-        _topicBookmarkWritesInFlight.remove(_topicKey(siteUrl, topicId));
-        _notify();
-      case BookmarkTargetType.chatMessage:
-        _chatBookmarkWritesInFlight.remove(_postKey(siteUrl, targetId));
-        _notify();
+    if (targetType == BookmarkTargetType.post) {
+      _endPostWrite(siteUrl, targetId);
+      return;
     }
+    if (targetType == BookmarkTargetType.topic) {
+      _topicBookmarkWritesInFlight.remove(_topicKey(siteUrl, topicId));
+      _notify();
+      return;
+    }
+    _pluginBookmarkWritesInFlight.remove(
+      _pluginBookmarkKey(siteUrl, targetType, targetId),
+    );
+    _notify();
   }
 
   void _applyBookmark(String siteUrl, int topicId, Bookmark bookmark) {
-    final targetType = bookmark.coreTargetType;
+    final targetType = _bookmarkTargetFor(bookmark);
     final targetId = bookmark.bookmarkableId;
-    if (targetType == BookmarkTargetType.chatMessage) {
+    final plugin = targetType == null
+        ? null
+        : _pluginBookmarkStrategy(targetType);
+    if (plugin != null) {
       if (targetId != null) {
-        for (final observer
-            in _pluginSession.capabilities<PluginBookmarkObserver>()) {
-          if (!observer.handlesPluginBookmark(
-            BookmarkTargetType.chatMessage.name,
-          )) {
-            continue;
-          }
-          observer.putPluginBookmark(siteUrl, targetId, bookmark);
-          break;
-        }
+        plugin.putPluginBookmark(siteUrl, targetId, bookmark);
       }
       _notify();
       return;
@@ -6635,21 +6823,13 @@ class ShellController extends FrameSafeNotifier
     Bookmark bookmark, {
     required bool? topicBookmarked,
   }) {
-    final targetType = bookmark.coreTargetType;
+    final targetType = _bookmarkTargetFor(bookmark);
     final targetId = bookmark.bookmarkableId;
-    if (targetType == BookmarkTargetType.chatMessage) {
-      if (targetId != null) {
-        for (final observer
-            in _pluginSession.capabilities<PluginBookmarkObserver>()) {
-          if (!observer.handlesPluginBookmark(
-            BookmarkTargetType.chatMessage.name,
-          )) {
-            continue;
-          }
-          observer.removePluginBookmark(siteUrl, targetId);
-          break;
-        }
-      }
+    final plugin = targetType == null
+        ? null
+        : _pluginBookmarkStrategy(targetType);
+    if (plugin != null) {
+      if (targetId != null) plugin.removePluginBookmark(siteUrl, targetId);
       _notify();
       return;
     }
@@ -6694,18 +6874,14 @@ class ShellController extends FrameSafeNotifier
     BookmarkTargetType targetType = BookmarkTargetType.topic,
     int? targetId,
   }) {
-    if (targetType == BookmarkTargetType.chatMessage && targetId != null) {
-      for (final observer
-          in _pluginSession.capabilities<PluginBookmarkObserver>()) {
-        if (!observer.handlesPluginBookmark(targetType.name)) continue;
-        _observePluginLifecycle(
-          Future.sync(
-            () => observer.reconcilePluginBookmark(instance.url, targetId),
-          ),
-          'plugins.session.reconcileBookmark',
-        );
-        break;
-      }
+    final plugin = _pluginBookmarkStrategy(targetType);
+    if (plugin != null && targetId != null) {
+      _observePluginLifecycle(
+        Future.sync(
+          () => plugin.reconcilePluginBookmark(instance.url, targetId),
+        ),
+        'plugins.session.reconcileBookmark',
+      );
     } else {
       final route = currentContent;
       final row = store.read<Topic>(instance.url, topicId);
@@ -6723,6 +6899,12 @@ class ShellController extends FrameSafeNotifier
   /// Names a post in the per-site maps and sets here: site and post together,
   /// because topic 7's post 3 on two sites are two different posts.
   static String _postKey(String siteUrl, int postId) => '$siteUrl~$postId';
+
+  static String _pluginBookmarkKey(
+    String siteUrl,
+    BookmarkTargetType targetType,
+    int targetId,
+  ) => '$siteUrl~${targetType.id}~$targetId';
 
   final Set<String> _likersLoading = {};
   final Map<String, String> _likersErrors = {};
@@ -7196,9 +7378,7 @@ class ShellController extends FrameSafeNotifier
       file: file,
       onProgress: onProgress,
       abortTrigger: abortTrigger,
-      uploadType: target.isChat
-          ? ComposerUploadType.chatComposer
-          : ComposerUploadType.composer,
+      uploadType: target.policy?.uploadType ?? ComposerUploadType.composer,
     );
   }
 
@@ -8219,17 +8399,18 @@ class ShellController extends FrameSafeNotifier
       if (credential == null) return const [];
       final identity = await _readSessionValue(lease, authenticator.clientId);
       if (identity == null || !lease.isCurrent) return const [];
+      final hashtagTypes = <String>{
+        ...DiscourseApi.hashtagOrder,
+        for (final provider
+            in _pluginSession.capabilities<PluginComposerHashtagProvider>())
+          ...provider
+              .composerHashtagTypes(siteUrl)
+              .where((type) => type.trim().isNotEmpty),
+      };
       found = await api.searchHashtags(
         siteUrl: siteUrl,
         term: term,
-        order: [
-          ...DiscourseApi.hashtagOrder,
-          if (_pluginSession.capabilities<PluginComposerTargetProvider>().any(
-            (provider) =>
-                provider.supportsPluginComposerTarget(siteUrl, 'room'),
-          ))
-            'room',
-        ],
+        order: hashtagTypes.toList(growable: false),
         apiKey: credential.value,
         clientId: identity.value,
       );
@@ -8271,7 +8452,7 @@ class ShellController extends FrameSafeNotifier
         unawaited(
           _resolveMentions(
             siteUrl,
-            target.isChat ? null : target.topicId,
+            target.isPlugin ? target.policy!.mentionTopicId : target.topicId,
             usernames,
           ),
         );
@@ -8519,15 +8700,6 @@ class ShellController extends FrameSafeNotifier
       _sessionUsersRefreshed.contains(siteUrl)
       ? _instanceAt(siteUrl)?.user
       : null;
-
-  /// Assign added per-target capabilities after its session-wide capability.
-  /// An explicit target answer always wins; only an absent answer may use a
-  /// freshly fetched session value. Persisted capabilities are never enough
-  /// to authorize a write, and absent/disabled plugins serialize neither.
-  bool canAssignForTarget(String siteUrl, bool? targetCanAssign) =>
-      targetCanAssign ??
-      (!_assignLegacyFallbackUnavailable.contains(siteUrl) &&
-          freshCurrentUserFor(siteUrl)?.canAssign == true);
 
   PluginTargetSnapshot _pluginDataForTarget(
     String siteUrl,
@@ -9179,7 +9351,7 @@ class ShellController extends FrameSafeNotifier
     _topicBookmarkWritesInFlight.removeWhere(
       (key) => key.startsWith('$siteUrl#'),
     );
-    _chatBookmarkWritesInFlight.removeWhere(
+    _pluginBookmarkWritesInFlight.removeWhere(
       (key) => key.startsWith('$siteUrl~'),
     );
     _bookmarkVersions.removeWhere((key, _) => key.startsWith('$siteUrl#'));
@@ -9239,7 +9411,6 @@ class ShellController extends FrameSafeNotifier
     topicFeeds.forget(siteUrl);
     _trackersStarting.remove(siteUrl);
     _sessionUsersRefreshed.remove(siteUrl);
-    _assignLegacyFallbackUnavailable.remove(siteUrl);
     _sessionUserRequests.remove(siteUrl)?.ignore();
     doNotDisturb.forget(siteUrl);
     _userStatusOverrides.remove(siteUrl);
@@ -9337,8 +9508,8 @@ class ShellController extends FrameSafeNotifier
     _syncTopicChannels();
     // Totals may have landed while this site was inactive. The ordinary
     // refresh on reselection can legitimately reuse that five-minute snapshot,
-    // so activation itself must apply its chat capability instead of relying
-    // on a callback which only runs after network responses.
+    // so activation itself must notify totals observers instead of relying on
+    // a callback which only runs after network responses.
     _notifyPluginTotals(instance);
     if (canRead && hydrateActiveTab) _hydrateActiveTab(instance);
   }
@@ -9885,57 +10056,6 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  /// Opens the active call's room even when its site is not the one currently
-  /// selected. The call itself stays untouched; only navigation moves.
-  void openResenhaRoom({
-    required String siteUrl,
-    required ContentRoute route,
-    bool replaceCurrent = false,
-  }) {
-    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
-    if (index < 0) return;
-    final sameInstance = index == _instanceIndex;
-    if (index != _instanceIndex) {
-      _instanceIndex = index;
-      _restoreInstanceWorkspace();
-    }
-    if (sameInstance && currentContent?.id == route.id) {
-      // The sidebar secondary action and the persistent call card can both
-      // open the room already on screen. Replacing its metadata keeps the
-      // route fresh without adding an indistinguishable stack entry that
-      // would make the first Back press appear to do nothing.
-      final tab = activeTab!;
-      _replaceActiveTab(
-        tab.copyWith(
-          contentStack: [
-            ...tab.contentStack.take(tab.contentStack.length - 1),
-            route,
-          ],
-        ),
-      );
-      _mobilePane = MobilePane.content;
-      _syncTopicChannels();
-      _notify();
-      return;
-    }
-    if (replaceCurrent && sameInstance && contentStack.isNotEmpty) {
-      final tab = activeTab!;
-      _replaceActiveTab(
-        tab.copyWith(
-          contentStack: [
-            ...tab.contentStack.take(tab.contentStack.length - 1),
-            route,
-          ],
-        ),
-      );
-      _mobilePane = MobilePane.content;
-      _syncTopicChannels();
-      _notify();
-      return;
-    }
-    pushContent(route);
-  }
-
   /// Unwinds one step: first through the content stack, then — on compact
   /// layouts only — back out to the sidebar.
   ///
@@ -10035,6 +10155,14 @@ class ShellController extends FrameSafeNotifier
       );
     }
     search.dispose();
+    for (final host in _bookmarkTargetHosts.values) {
+      host.dispose();
+    }
+    _bookmarkTargetHosts.clear();
+    for (final listenable in _pluginSiteConfigListenables.values) {
+      listenable.dispose();
+    }
+    _pluginSiteConfigListenables.clear();
     final presentation = _sitePresentation;
     if (presentation != null) {
       presentation.removeListener(_notify);
@@ -10049,6 +10177,513 @@ class ShellController extends FrameSafeNotifier
     if (ownsApi) api.close();
     super.dispose();
   }
+}
+
+/// Filters the presentation controller down to one site's configuration.
+///
+/// The runtime object is intentionally neither the shell nor the broader
+/// presentation controller, so a plugin cannot recover either by downcast.
+final class _PluginSiteConfigListenable extends ChangeNotifier
+    implements ValueListenable<SiteConfig> {
+  _PluginSiteConfigListenable(Listenable source, SiteConfig Function() read)
+    : _source = source,
+      _read = read,
+      _value = read() {
+    _source.addListener(_refresh);
+  }
+
+  final Listenable _source;
+  final SiteConfig Function() _read;
+  SiteConfig _value;
+
+  @override
+  SiteConfig get value => _value;
+
+  void _refresh() {
+    final next = _read();
+    if (next == _value) return;
+    _value = next;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _source.removeListener(_refresh);
+    super.dispose();
+  }
+}
+
+/// Emoji history access scoped to the plugin which received the host port.
+///
+/// Skin tone is intentionally shared across all pickers on one forum. Every
+/// history operation carries a context, however, and is rejected unless that
+/// context is well formed and belongs to the consuming plugin.
+final class _ScopedEmojiPreferenceStore implements EmojiPreferenceStore {
+  const _ScopedEmojiPreferenceStore(this._delegate, this._consumer);
+
+  final EmojiPreferenceStore _delegate;
+  final PluginId _consumer;
+
+  void _requireOwned(EmojiUsageContext context) {
+    if (context.isValidFor(_consumer)) return;
+    throw PluginInstallationException(
+      'Plugin $_consumer cannot use emoji context ${context.id}.',
+    );
+  }
+
+  @override
+  Future<EmojiSkinTone> readSkinTone({required String siteUrl}) =>
+      _delegate.readSkinTone(siteUrl: siteUrl);
+
+  @override
+  Future<List<String>> favoriteEmojiCodes({
+    required String siteUrl,
+    required EmojiUsageContext context,
+    required SiteEmojiCatalog catalog,
+  }) {
+    _requireOwned(context);
+    return _delegate.favoriteEmojiCodes(
+      siteUrl: siteUrl,
+      context: context,
+      catalog: catalog,
+    );
+  }
+
+  @override
+  Future<void> writeSkinTone({
+    required String siteUrl,
+    required EmojiSkinTone tone,
+  }) => _delegate.writeSkinTone(siteUrl: siteUrl, tone: tone);
+
+  @override
+  Future<void> trackEmoji({
+    required String siteUrl,
+    required EmojiUsageContext context,
+    required String emoji,
+  }) {
+    _requireOwned(context);
+    return _delegate.trackEmoji(
+      siteUrl: siteUrl,
+      context: context,
+      emoji: emoji,
+    );
+  }
+
+  @override
+  Future<void> clearHistory({
+    required String siteUrl,
+    required EmojiUsageContext context,
+  }) {
+    _requireOwned(context);
+    return _delegate.clearHistory(siteUrl: siteUrl, context: context);
+  }
+}
+
+/// Full plugin navigation without exposing the concrete shell object.
+final class _ShellPluginNavigationHost implements PluginNavigationHost {
+  const _ShellPluginNavigationHost(this._shell, this._isDisposed);
+
+  final ShellController _shell;
+  final bool Function() _isDisposed;
+
+  @override
+  List<DiscourseInstance> get instances => _shell.instances;
+
+  @override
+  DiscourseInstance? get currentInstance => _shell.currentInstance;
+
+  @override
+  bool get isDisposed => _isDisposed();
+
+  @override
+  ContentRoute? get currentContent => _shell.currentContent;
+
+  @override
+  List<ContentRoute> get contentStack => _shell.contentStack;
+
+  @override
+  NotificationTotals? get currentTotals => _shell.currentTotals;
+
+  @override
+  void selectInstance(int index) => _shell.selectInstance(index);
+
+  @override
+  void selectDestination(SidebarDestination destination) =>
+      _shell.selectDestination(destination);
+
+  @override
+  void pushContent(ContentRoute route) => _shell.pushContent(route);
+
+  @override
+  void replaceCurrentContent(ContentRoute route) =>
+      _shell.replaceCurrentContent(route);
+
+  @override
+  void showPluginContent() => _shell.showPluginContent();
+
+  @override
+  Future<String?> insertPluginTranscriptIntoNewTopic({
+    required String siteUrl,
+    required String sourceRouteId,
+    required String markdown,
+    int? initialCategoryId,
+  }) => _shell.insertPluginTranscriptIntoNewTopic(
+    siteUrl: siteUrl,
+    sourceRouteId: sourceRouteId,
+    markdown: markdown,
+    initialCategoryId: initialCategoryId,
+  );
+}
+
+/// Route-only navigation is a separate runtime object from the full port.
+final class _ShellPluginRouteNavigationHost
+    implements PluginRouteNavigationHost {
+  const _ShellPluginRouteNavigationHost(this._shell);
+
+  final ShellController _shell;
+
+  @override
+  List<PluginRouteSite> get sites => List.unmodifiable([
+    for (final instance in _shell.instances)
+      PluginRouteSite(
+        url: instance.url,
+        title: instance.title,
+        isConnected: instance.isConnected,
+      ),
+  ]);
+
+  @override
+  PluginRouteSite? get currentSite {
+    final instance = _shell.currentInstance;
+    return instance == null
+        ? null
+        : PluginRouteSite(
+            url: instance.url,
+            title: instance.title,
+            isConnected: instance.isConnected,
+          );
+  }
+
+  @override
+  ContentRoute? get currentContent => _shell.currentContent;
+
+  @override
+  void selectInstance(int index) => _shell.selectInstance(index);
+
+  @override
+  void pushContent(ContentRoute route) => _shell.pushContent(route);
+
+  @override
+  void replaceCurrentContent(ContentRoute route) =>
+      _shell.replaceCurrentContent(route);
+}
+
+/// Creates target-bound bookmark ports without exposing the core bookmark UI.
+final class _ShellPluginBookmarkHostFactory
+    implements PluginBookmarkHostFactory {
+  const _ShellPluginBookmarkHostFactory(this._shell);
+
+  final ShellController _shell;
+
+  PluginBookmarkHostFactory scopedTo(PluginId consumer) =>
+      _ShellScopedPluginBookmarkHostFactory(_shell, consumer);
+
+  @override
+  PluginBookmarkHost forTarget(BookmarkTargetType targetType) =>
+      throw StateError(
+        'The bookmark host factory must be scoped to a plugin session.',
+      );
+}
+
+/// A session can mint bookmark actions only for targets in its own namespace.
+final class _ShellScopedPluginBookmarkHostFactory
+    implements PluginBookmarkHostFactory {
+  const _ShellScopedPluginBookmarkHostFactory(this._shell, this._consumer);
+
+  final ShellController _shell;
+  final PluginId _consumer;
+
+  @override
+  PluginBookmarkHost forTarget(BookmarkTargetType targetType) {
+    if (targetType.owner != _consumer) {
+      throw PluginInstallationException(
+        'Plugin $_consumer cannot request bookmark target ${targetType.id}.',
+      );
+    }
+    return _shell._bookmarkTargetHost(targetType);
+  }
+}
+
+/// Bookmark actions restricted to one target type and one explicit site.
+final class _ShellBookmarkTargetHost implements PluginBookmarkHost {
+  _ShellBookmarkTargetHost(this._shell, this._targetType);
+
+  final ShellController _shell;
+  final BookmarkTargetType _targetType;
+  final Map<
+    ({String siteUrl, int topicId, int targetId}),
+    _PluginBookmarkWriteListenable
+  >
+  _writeListenables = {};
+
+  bool _owns(Bookmark bookmark) =>
+      _shell._bookmarkTargetFor(bookmark) == _targetType;
+
+  BookmarkWriteResult _foreignBookmark() => BookmarkWriteResult.refused(
+    'This bookmark does not belong to ${_targetType.refreshLabel}.',
+  );
+
+  @override
+  BookmarkSiteContext siteContextFor(String siteUrl) {
+    final user = _shell.currentUserFor(siteUrl);
+    final config = _shell.siteConfigFor(siteUrl);
+    return BookmarkSiteContext(
+      username: user?.username,
+      timezone: user?.timezone,
+      suggestWeekendsInDatePickers: config.suggestWeekendsInDatePickers,
+    );
+  }
+
+  @override
+  bool bookmarkWriteInFlight({
+    required String siteUrl,
+    required int topicId,
+    required int targetId,
+  }) => _shell.bookmarkWriteInFlight(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    targetType: _targetType,
+    targetId: targetId,
+  );
+
+  @override
+  ValueListenable<bool> bookmarkWriteInFlightListenable({
+    required String siteUrl,
+    required int topicId,
+    required int targetId,
+  }) {
+    final key = (siteUrl: siteUrl, topicId: topicId, targetId: targetId);
+    return _writeListenables.putIfAbsent(
+      key,
+      () => _PluginBookmarkWriteListenable(
+        _shell,
+        () => bookmarkWriteInFlight(
+          siteUrl: siteUrl,
+          topicId: topicId,
+          targetId: targetId,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<BookmarkWriteResult> createBookmark({
+    required String siteUrl,
+    required int topicId,
+    required int targetId,
+    String? name,
+    DateTime? reminderAt,
+    BookmarkAutoDeletePreference? autoDeletePreference,
+  }) => _shell.createBookmark(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    targetType: _targetType,
+    targetId: targetId,
+    name: name,
+    reminderAt: reminderAt,
+    autoDeletePreference: autoDeletePreference,
+  );
+
+  @override
+  Future<BookmarkWriteResult> updateBookmark({
+    required String siteUrl,
+    required int topicId,
+    required Bookmark bookmark,
+    String? name,
+    DateTime? reminderAt,
+    required BookmarkAutoDeletePreference autoDeletePreference,
+  }) {
+    if (!_owns(bookmark)) return Future.value(_foreignBookmark());
+    return _shell.updateBookmark(
+      siteUrl: siteUrl,
+      topicId: topicId,
+      bookmark: bookmark,
+      name: name,
+      reminderAt: reminderAt,
+      autoDeletePreference: autoDeletePreference,
+    );
+  }
+
+  @override
+  Future<BookmarkWriteResult> clearBookmarkReminder({
+    required String siteUrl,
+    required int topicId,
+    required Bookmark bookmark,
+  }) {
+    if (!_owns(bookmark)) return Future.value(_foreignBookmark());
+    return _shell.clearBookmarkReminder(
+      siteUrl: siteUrl,
+      topicId: topicId,
+      bookmark: bookmark,
+    );
+  }
+
+  @override
+  Future<BookmarkWriteResult> deleteBookmark({
+    required String siteUrl,
+    required int topicId,
+    required Bookmark bookmark,
+  }) {
+    if (!_owns(bookmark)) return Future.value(_foreignBookmark());
+    return _shell.deleteBookmark(
+      siteUrl: siteUrl,
+      topicId: topicId,
+      bookmark: bookmark,
+    );
+  }
+
+  void dispose() {
+    for (final listenable in _writeListenables.values) {
+      listenable.dispose();
+    }
+    _writeListenables.clear();
+  }
+}
+
+/// Filters shell notifications to one bookmark write's busy state.
+final class _PluginBookmarkWriteListenable extends ChangeNotifier
+    implements ValueListenable<bool> {
+  _PluginBookmarkWriteListenable(Listenable source, bool Function() read)
+    : _source = source,
+      _read = read,
+      _value = read() {
+    _source.addListener(_refresh);
+  }
+
+  final Listenable _source;
+  final bool Function() _read;
+  bool _value;
+
+  @override
+  bool get value => _value;
+
+  void _refresh() {
+    final next = _read();
+    if (next == _value) return;
+    _value = next;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _source.removeListener(_refresh);
+    super.dispose();
+  }
+}
+
+/// Notification-feed operations without exposing unrelated shell state.
+final class _ShellPluginNotificationFeedHost
+    implements PluginNotificationFeedHost {
+  const _ShellPluginNotificationFeedHost(this._shell);
+
+  final ShellController _shell;
+
+  @override
+  Listenable notificationFeedListenable(PluginNotificationFeedId id) =>
+      _shell.notificationFeedListenable(id);
+
+  @override
+  NotificationFeed notificationFeedFor(
+    PluginNotificationFeedId id,
+    String siteUrl,
+  ) => _shell.notificationFeedFor(id, siteUrl);
+
+  @override
+  Future<void> loadPluginNotificationFeed(
+    String siteUrl,
+    PluginNotificationFeedSource source,
+  ) => _shell.loadPluginNotificationFeed(siteUrl, source);
+
+  @override
+  void readPluginNotification(
+    String siteUrl,
+    DiscourseNotification notification,
+  ) => _shell.readPluginNotification(siteUrl, notification);
+
+  @override
+  String pluginAbsoluteUrl(String path, {required String siteUrl}) =>
+      _shell.pluginAbsoluteUrl(path, siteUrl: siteUrl);
+
+  @override
+  Future<bool> openPluginNotificationUrl(String url) =>
+      _shell.openPluginNotificationUrl(url);
+}
+
+/// Notification-feed authority restricted to the consuming plugin namespace.
+final class _ShellScopedPluginNotificationFeedHost
+    implements PluginNotificationFeedHost {
+  const _ShellScopedPluginNotificationFeedHost(
+    this._host,
+    this._consumer,
+    this._sources,
+  );
+
+  final PluginNotificationFeedHost _host;
+  final PluginId _consumer;
+  final Map<PluginNotificationFeedId, PluginNotificationFeedSource> _sources;
+
+  PluginNotificationFeedSource _requireDeclared(PluginNotificationFeedId id) {
+    final source = _sources[id];
+    if (source != null) return source;
+    final reason = id.owner == _consumer
+        ? 'did not register notification feed'
+        : 'cannot access notification feed';
+    throw PluginInstallationException('Plugin $_consumer $reason ${id.id}.');
+  }
+
+  @override
+  Listenable notificationFeedListenable(PluginNotificationFeedId id) {
+    _requireDeclared(id);
+    return _host.notificationFeedListenable(id);
+  }
+
+  @override
+  NotificationFeed notificationFeedFor(
+    PluginNotificationFeedId id,
+    String siteUrl,
+  ) {
+    _requireDeclared(id);
+    return _host.notificationFeedFor(id, siteUrl);
+  }
+
+  @override
+  Future<void> loadPluginNotificationFeed(
+    String siteUrl,
+    PluginNotificationFeedSource source,
+  ) {
+    final registered = _requireDeclared(source.id);
+    if (registered != source) {
+      throw PluginInstallationException(
+        'Plugin $_consumer must use its registered notification feed '
+        '${source.id.id}.',
+      );
+    }
+    return _host.loadPluginNotificationFeed(siteUrl, source);
+  }
+
+  @override
+  void readPluginNotification(
+    String siteUrl,
+    DiscourseNotification notification,
+  ) => _host.readPluginNotification(siteUrl, notification);
+
+  @override
+  String pluginAbsoluteUrl(String path, {required String siteUrl}) =>
+      _host.pluginAbsoluteUrl(path, siteUrl: siteUrl);
+
+  @override
+  Future<bool> openPluginNotificationUrl(String url) =>
+      _host.openPluginNotificationUrl(url);
 }
 
 final class _QueuedTopicNotification {

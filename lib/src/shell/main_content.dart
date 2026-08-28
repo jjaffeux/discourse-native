@@ -478,13 +478,12 @@ class _TopicContentHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final controller = ShellScope.read(context);
     final category = controller.categoryFor(topic.categoryId, siteUrl: siteUrl);
-    final pluginMetadata = registry.topicHeader(context, siteUrl, topic);
     final fallbackCategory = category == null ? route.subtitle : null;
-    final hasMetadata =
-        category != null ||
-        fallbackCategory != null ||
-        topic.tags.isNotEmpty ||
-        pluginMetadata.isNotEmpty;
+    final pluginHeaderRebuildOn = registry.topicHeaderRebuildOn(
+      context,
+      siteUrl,
+      topic,
+    );
     final topicFlags = controller.availableTopicFlagTypes(siteUrl, topic);
     final showBack = layout.isCompact || canPop;
     final carriesSearch =
@@ -587,22 +586,41 @@ class _TopicContentHeader extends StatelessWidget {
           );
 
           final topicTitle = _TopicHeaderTitle(siteUrl: siteUrl, topic: topic);
-          final topicIdentity = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              topicTitle,
-              if (hasMetadata)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: _TopicHeaderMetadata(
-                    route: route,
-                    topic: topic,
-                    category: category,
-                    pluginMetadata: pluginMetadata,
+          Widget buildTopicIdentity() {
+            final pluginMetadata = registry.topicHeader(
+              context,
+              siteUrl,
+              topic,
+            );
+            final hasMetadata =
+                category != null ||
+                fallbackCategory != null ||
+                topic.tags.isNotEmpty ||
+                pluginMetadata.isNotEmpty;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                topicTitle,
+                if (hasMetadata)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: _TopicHeaderMetadata(
+                      route: route,
+                      topic: topic,
+                      category: category,
+                      pluginMetadata: pluginMetadata,
+                    ),
                   ),
-                ),
-            ],
-          );
+              ],
+            );
+          }
+
+          final topicIdentity = pluginHeaderRebuildOn == null
+              ? buildTopicIdentity()
+              : ListenableBuilder(
+                  listenable: pluginHeaderRebuildOn,
+                  builder: (context, _) => buildTopicIdentity(),
+                );
 
           final contentIndent = showBack ? 44.0 : 12.0;
           final titleRow = Row(
@@ -1439,7 +1457,6 @@ class _MainContentSnapshot {
     required this.canReply,
     required this.bookmarkBusy,
     required this.isConnected,
-    required this.canAssignLegacyTargets,
     required this.filterCategories,
     required this.categoryFeed,
   });
@@ -1453,19 +1470,19 @@ class _MainContentSnapshot {
         composer: controller.visibleComposer,
         canPop: controller.canPopContent,
         canReply: controller.canReplyHere,
-        bookmarkBusy: switch (controller.currentTopic) {
-          final topic? => controller.bookmarkWriteInFlight(
+        bookmarkBusy: switch ((
+          controller.currentInstance?.url,
+          controller.currentTopic,
+        )) {
+          (final siteUrl?, final topic?) => controller.bookmarkWriteInFlight(
+            siteUrl: siteUrl,
             topicId: topic.id,
             targetType: BookmarkTargetType.topic,
             targetId: topic.id,
           ),
-          null => false,
+          _ => false,
         },
         isConnected: controller.currentInstance?.isConnected == true,
-        canAssignLegacyTargets: switch (controller.currentInstance?.url) {
-          final siteUrl? => controller.canAssignForTarget(siteUrl, null),
-          null => false,
-        },
         filterCategories: switch ((
           controller.currentContent?.id,
           controller.currentInstance?.url,
@@ -1493,7 +1510,6 @@ class _MainContentSnapshot {
   final bool canReply;
   final bool bookmarkBusy;
   final bool isConnected;
-  final bool canAssignLegacyTargets;
   final List<TopicCategory> filterCategories;
   final CategoryFeed? categoryFeed;
 
@@ -1509,7 +1525,6 @@ class _MainContentSnapshot {
       canReply == other.canReply &&
       bookmarkBusy == other.bookmarkBusy &&
       isConnected == other.isConnected &&
-      canAssignLegacyTargets == other.canAssignLegacyTargets &&
       identical(filterCategories, other.filterCategories) &&
       identical(categoryFeed, other.categoryFeed);
 
@@ -1524,7 +1539,6 @@ class _MainContentSnapshot {
     canReply,
     bookmarkBusy,
     isConnected,
-    canAssignLegacyTargets,
     identityHashCode(filterCategories),
     identityHashCode(categoryFeed),
   );

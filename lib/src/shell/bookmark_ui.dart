@@ -8,11 +8,11 @@ import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
 import '../models/bookmark_reminder.dart';
 import '../models/post.dart';
+import '../plugin_api/bookmark_host.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
-import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
 
@@ -24,19 +24,20 @@ final class _QuickMenuResult {
 
 Future<void> showPostBookmarkMenu({
   required BuildContext context,
-  required ShellController controller,
+  required BookmarkHost controller,
   required String siteUrl,
   required int topicId,
   required Post post,
 }) async {
+  final actions = controller.bookmarkTarget(BookmarkTargetType.post);
   final result = await showShellSheet<_QuickMenuResult>(
     context: context,
     title: post.bookmark == null ? 'Bookmark post' : 'Post bookmark',
     dialogOnDesktop: true,
     builder: (_) => _BookmarkQuickSheet(
-      controller: controller,
+      controller: actions,
+      siteUrl: siteUrl,
       topicId: topicId,
-      targetType: BookmarkTargetType.post,
       targetId: post.id,
       initialBookmark: post.bookmark,
     ),
@@ -44,7 +45,7 @@ Future<void> showPostBookmarkMenu({
   if (result == null || !context.mounted) return;
   await showBookmarkEditor(
     context: context,
-    controller: controller,
+    controller: actions,
     siteUrl: siteUrl,
     topicId: topicId,
     bookmark: result.bookmark,
@@ -52,23 +53,25 @@ Future<void> showPostBookmarkMenu({
   );
 }
 
-Future<void> showChatMessageBookmarkMenu({
+Future<void> showPluginBookmarkMenu({
   required BuildContext context,
-  required ShellController controller,
+  required PluginBookmarkHost controller,
   required String siteUrl,
-  required int messageId,
+  required int targetId,
   required Bookmark? bookmark,
   required String cooked,
+  required String createTitle,
+  required String existingTitle,
 }) async {
   final result = await showShellSheet<_QuickMenuResult>(
     context: context,
-    title: bookmark == null ? 'Bookmark chat message' : 'Chat message bookmark',
+    title: bookmark == null ? createTitle : existingTitle,
     dialogOnDesktop: true,
     builder: (_) => _BookmarkQuickSheet(
       controller: controller,
+      siteUrl: siteUrl,
       topicId: 0,
-      targetType: BookmarkTargetType.chatMessage,
-      targetId: messageId,
+      targetId: targetId,
       initialBookmark: bookmark,
     ),
   );
@@ -85,19 +88,21 @@ Future<void> showChatMessageBookmarkMenu({
 
 Future<void> showTopicBookmarkMenu({
   required BuildContext context,
-  required ShellController controller,
+  required BookmarkHost controller,
   required String siteUrl,
   required TopicDetail topic,
 }) async {
+  final topicActions = controller.bookmarkTarget(BookmarkTargetType.topic);
+  final postActions = controller.bookmarkTarget(BookmarkTargetType.post);
   if (topic.postBookmarks.isEmpty) {
     final result = await showShellSheet<_QuickMenuResult>(
       context: context,
       title: topic.topicBookmark == null ? 'Bookmark topic' : 'Topic bookmark',
       dialogOnDesktop: true,
       builder: (_) => _BookmarkQuickSheet(
-        controller: controller,
+        controller: topicActions,
+        siteUrl: siteUrl,
         topicId: topic.id,
-        targetType: BookmarkTargetType.topic,
         targetId: topic.id,
         initialBookmark: topic.topicBookmark,
       ),
@@ -105,7 +110,7 @@ Future<void> showTopicBookmarkMenu({
     if (result == null || !context.mounted) return;
     await showBookmarkEditor(
       context: context,
-      controller: controller,
+      controller: topicActions,
       siteUrl: siteUrl,
       topicId: topic.id,
       bookmark: result.bookmark,
@@ -126,7 +131,11 @@ Future<void> showTopicBookmarkMenu({
   if (result == null || !context.mounted) return;
   switch (result.kind) {
     case _TopicBookmarksActionKind.jump:
-      controller.openCurrentTopicPost(result.postNumber!);
+      controller.openTopicPost(
+        siteUrl: siteUrl,
+        topicId: topic.id,
+        postNumber: result.postNumber!,
+      );
     case _TopicBookmarksActionKind.topic:
       final current =
           controller.store.read<TopicDetail>(siteUrl, topic.id) ?? topic;
@@ -137,9 +146,9 @@ Future<void> showTopicBookmarkMenu({
             : 'Topic bookmark',
         dialogOnDesktop: true,
         builder: (_) => _BookmarkQuickSheet(
-          controller: controller,
+          controller: topicActions,
+          siteUrl: siteUrl,
           topicId: topic.id,
-          targetType: BookmarkTargetType.topic,
           targetId: topic.id,
           initialBookmark: current.topicBookmark,
         ),
@@ -147,7 +156,7 @@ Future<void> showTopicBookmarkMenu({
       if (quick != null && context.mounted) {
         await showBookmarkEditor(
           context: context,
-          controller: controller,
+          controller: topicActions,
           siteUrl: siteUrl,
           topicId: topic.id,
           bookmark: quick.bookmark,
@@ -155,12 +164,16 @@ Future<void> showTopicBookmarkMenu({
       }
     case _TopicBookmarksActionKind.edit:
       final bookmark = result.bookmark!;
+      final targetType = bookmark.coreTargetType;
+      if (targetType == null) return;
       final post = bookmark.bookmarkableId == null
           ? null
           : controller.store.read<Post>(siteUrl, bookmark.bookmarkableId!);
       await showBookmarkEditor(
         context: context,
-        controller: controller,
+        controller: targetType == BookmarkTargetType.post
+            ? postActions
+            : topicActions,
         siteUrl: siteUrl,
         topicId: topic.id,
         bookmark: bookmark,
@@ -168,6 +181,8 @@ Future<void> showTopicBookmarkMenu({
       );
     case _TopicBookmarksActionKind.delete:
       final bookmark = result.bookmark!;
+      final targetType = bookmark.coreTargetType;
+      if (targetType == null) return;
       if (bookmark.reminderAt != null &&
           !await _confirm(
             context,
@@ -177,10 +192,15 @@ Future<void> showTopicBookmarkMenu({
           )) {
         return;
       }
-      final write = await controller.deleteBookmark(
-        topicId: topic.id,
-        bookmark: bookmark,
-      );
+      final write =
+          await (targetType == BookmarkTargetType.post
+                  ? postActions
+                  : topicActions)
+              .deleteBookmark(
+                siteUrl: siteUrl,
+                topicId: topic.id,
+                bookmark: bookmark,
+              );
       if (context.mounted) _showWriteMessage(context, write);
     case _TopicBookmarksActionKind.clearAll:
       if (!await _confirm(
@@ -191,14 +211,17 @@ Future<void> showTopicBookmarkMenu({
       )) {
         return;
       }
-      final write = await controller.deleteAllTopicBookmarks(topic.id);
+      final write = await controller.deleteAllTopicBookmarks(
+        siteUrl: siteUrl,
+        topicId: topic.id,
+      );
       if (context.mounted) _showWriteMessage(context, write);
   }
 }
 
 Future<void> showBookmarkEditor({
   required BuildContext context,
-  required ShellController controller,
+  required BookmarkTargetHost controller,
   required String siteUrl,
   required int topicId,
   required Bookmark bookmark,
@@ -219,15 +242,15 @@ Future<void> showBookmarkEditor({
 class _BookmarkQuickSheet extends StatefulWidget {
   const _BookmarkQuickSheet({
     required this.controller,
+    required this.siteUrl,
     required this.topicId,
-    required this.targetType,
     required this.targetId,
     required this.initialBookmark,
   });
 
-  final ShellController controller;
+  final BookmarkTargetHost controller;
+  final String siteUrl;
   final int topicId;
-  final BookmarkTargetType targetType;
   final int targetId;
   final Bookmark? initialBookmark;
 
@@ -253,8 +276,8 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
       _error = null;
     });
     final result = await widget.controller.createBookmark(
+      siteUrl: widget.siteUrl,
       topicId: widget.topicId,
-      targetType: widget.targetType,
       targetId: widget.targetId,
     );
     if (!mounted) return;
@@ -273,6 +296,7 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
       _error = null;
     });
     final result = await widget.controller.updateBookmark(
+      siteUrl: widget.siteUrl,
       topicId: widget.topicId,
       bookmark: bookmark,
       name: bookmark.name,
@@ -295,6 +319,7 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
     if (bookmark == null) return;
     setState(() => _busy = true);
     final result = await widget.controller.clearBookmarkReminder(
+      siteUrl: widget.siteUrl,
       topicId: widget.topicId,
       bookmark: bookmark,
     );
@@ -323,6 +348,7 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
     }
     setState(() => _busy = true);
     final result = await widget.controller.deleteBookmark(
+      siteUrl: widget.siteUrl,
       topicId: widget.topicId,
       bookmark: bookmark,
     );
@@ -339,9 +365,9 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final instance = widget.controller.currentInstance;
+    final siteContext = widget.controller.siteContextFor(widget.siteUrl);
     final environment = TimezoneEnvironment.instance;
-    final zoneName = environment.readerTimezone(instance?.user?.timezone);
+    final zoneName = environment.readerTimezone(siteContext.timezone);
     final location = environment.location(zoneName)!;
     final suggestions = BookmarkReminderCalculator.quickSuggestions(
       now: DateTime.now(),
@@ -439,7 +465,7 @@ class _BookmarkEditor extends StatefulWidget {
     this.cooked,
   });
 
-  final ShellController controller;
+  final BookmarkTargetHost controller;
   final String siteUrl;
   final int topicId;
   final Bookmark bookmark;
@@ -480,15 +506,16 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
 
   Future<void> _loadSuggestions() async {
     final registry = PluginScope.of(context).registry;
-    final user = widget.controller.currentUserFor(widget.siteUrl);
-    final last = user == null
+    final siteContext = widget.controller.siteContextFor(widget.siteUrl);
+    final username = siteContext.username;
+    final last = username == null
         ? null
-        : await _store.read(widget.siteUrl, user.username);
+        : await _store.read(widget.siteUrl, username);
     final postDate = widget.cooked == null
         ? null
         : registry.futureBookmarkReminder(
             widget.cooked!,
-            accountTimezone: user?.timezone,
+            accountTimezone: siteContext.timezone,
           );
     if (!mounted) return;
     setState(() {
@@ -499,8 +526,8 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
 
   Future<void> _pickCustom() async {
     final environment = TimezoneEnvironment.instance;
-    final account = widget.controller.currentUserFor(widget.siteUrl);
-    final zoneName = environment.readerTimezone(account?.timezone);
+    final siteContext = widget.controller.siteContextFor(widget.siteUrl);
+    final zoneName = environment.readerTimezone(siteContext.timezone);
     final location = environment.location(zoneName)!;
     final wallInitial = tzDate(
       _reminder ?? DateTime.now().add(const Duration(hours: 1)),
@@ -543,8 +570,8 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
       _lastCustom = instant;
       _error = null;
     });
-    if (account != null) {
-      unawaited(_store.write(widget.siteUrl, account.username, instant));
+    if (siteContext.username case final username?) {
+      unawaited(_store.write(widget.siteUrl, username, instant));
     }
   }
 
@@ -587,6 +614,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
     });
     final text = _name.text.trim();
     final result = await widget.controller.updateBookmark(
+      siteUrl: widget.siteUrl,
       topicId: widget.topicId,
       bookmark: widget.bookmark,
       name: text.isEmpty ? null : text,
@@ -606,15 +634,14 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final instance = widget.controller.currentInstance;
+    final siteContext = widget.controller.siteContextFor(widget.siteUrl);
     final environment = TimezoneEnvironment.instance;
-    final zoneName = environment.readerTimezone(instance?.user?.timezone);
+    final zoneName = environment.readerTimezone(siteContext.timezone);
     final location = environment.location(zoneName)!;
-    final config = widget.controller.siteConfigFor(widget.siteUrl);
     final presets = BookmarkReminderCalculator.fullSuggestions(
       now: DateTime.now(),
       location: location,
-      suggestWeekends: config.suggestWeekendsInDatePickers,
+      suggestWeekends: siteContext.suggestWeekendsInDatePickers,
     );
 
     return Form(
@@ -801,7 +828,7 @@ class _TopicBookmarksSheet extends StatelessWidget {
     required this.topicId,
   });
 
-  final ShellController controller;
+  final BookmarkHost controller;
   final String siteUrl;
   final int topicId;
 
@@ -841,9 +868,11 @@ class _TopicBookmarksSheet extends StatelessWidget {
       if (topic == null) {
         return const Text('This topic is no longer available.');
       }
-      final account = controller.currentUserFor(siteUrl);
+      final siteContext = controller
+          .bookmarkTarget(BookmarkTargetType.topic)
+          .siteContextFor(siteUrl);
       final zoneName = TimezoneEnvironment.instance.readerTimezone(
-        account?.timezone,
+        siteContext.timezone,
       );
       final topicBusy = snapshot.busyTargets.split(',').contains('topic');
       return Column(

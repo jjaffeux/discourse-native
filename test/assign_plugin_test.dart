@@ -174,7 +174,15 @@ void main() {
         theme: AppTheme.light,
         home: Builder(
           builder: (context) {
-            contribution = _plugin.postMenu(context, _siteUrl, post);
+            contribution = _plugin.postMenu(
+              PostMenuContext(
+                buildContext: context,
+                siteUrl: _siteUrl,
+                post: post,
+                topic: null,
+                currentUser: null,
+              ),
+            );
             return const SizedBox.shrink();
           },
         ),

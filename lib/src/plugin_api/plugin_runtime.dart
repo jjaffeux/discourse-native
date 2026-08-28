@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../models/bookmark.dart';
 import 'discourse_model_codec.dart';
 import 'plugin_manifest.dart';
 import 'plugin_registry.dart';
@@ -231,7 +232,12 @@ final class InstalledPlugins {
           contributions.add(
             _OwnedSessionContribution(
               registration.descriptor.id,
-              session.factory(bindings),
+              session.factory(
+                bindings.restrictedTo(
+                  session.requiredPorts,
+                  consumer: registration.descriptor.id,
+                ),
+              ),
             ),
           );
         }
@@ -277,12 +283,59 @@ final class PluginSession {
       _capabilities = List.unmodifiable([
         for (final contribution in contributions)
           ...contribution.value.capabilities,
-      ]);
+      ]) {
+    _validateBookmarkTargets(contributions);
+  }
 
   final List<_OwnedSessionContribution> _contributions;
   final Map<PluginServiceKey<Object>, Object> _services;
   final List<PluginSessionCapability> _capabilities;
   bool _closed = false;
+
+  static void _validateBookmarkTargets(
+    List<_OwnedSessionContribution> contributions,
+  ) {
+    final idOwners = <String, PluginId>{
+      BookmarkTargetType.post.id: BookmarkTargetType.post.owner,
+      BookmarkTargetType.topic.id: BookmarkTargetType.topic.owner,
+    };
+    final wireOwners = <String, PluginId>{
+      BookmarkTargetType.post.wireName: BookmarkTargetType.post.owner,
+      BookmarkTargetType.topic.wireName: BookmarkTargetType.topic.owner,
+    };
+    for (final contribution in contributions) {
+      for (final capability
+          in contribution.value.capabilities
+              .whereType<PluginBookmarkTargetStrategy>()) {
+        final target = capability.pluginBookmarkTarget;
+        if (target.owner != contribution.owner ||
+            target.name.trim().isEmpty ||
+            target.name.contains('/') ||
+            target.wireName.trim().isEmpty) {
+          throw PluginInstallationException(
+            'Bookmark target ${target.id} must be namespaced to '
+            '${contribution.owner} and declare a wire type.',
+          );
+        }
+        final previousIdOwner = idOwners[target.id];
+        if (previousIdOwner != null) {
+          throw PluginInstallationException(
+            'Bookmark target ${target.id} is claimed by both '
+            '$previousIdOwner and ${contribution.owner}.',
+          );
+        }
+        final previousWireOwner = wireOwners[target.wireName];
+        if (previousWireOwner != null) {
+          throw PluginInstallationException(
+            'Bookmark wire type ${target.wireName} is claimed by both '
+            '$previousWireOwner and ${contribution.owner}.',
+          );
+        }
+        idOwners[target.id] = contribution.owner;
+        wireOwners[target.wireName] = contribution.owner;
+      }
+    }
+  }
 
   T? service<T extends Object>(PluginServiceKey<T> key) => _services[key] as T?;
 
@@ -368,6 +421,12 @@ final class PluginSession {
     final owners = <PluginServiceKey<Object>, PluginId>{};
     for (final contribution in contributions) {
       for (final service in contribution.value.services) {
+        if (service.key.owner != contribution.owner) {
+          throw PluginInstallationException(
+            'Service ${service.key.id} provided by ${contribution.owner} '
+            'must be owned by ${contribution.owner}.',
+          );
+        }
         final previous = owners[service.key];
         if (previous != null) {
           throw PluginInstallationException(

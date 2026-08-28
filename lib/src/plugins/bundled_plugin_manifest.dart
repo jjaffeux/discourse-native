@@ -5,6 +5,7 @@ import 'assign/assignment.dart';
 import 'assign/assignment_controller.dart';
 import 'chat/chat_api.dart';
 import 'chat/chat_api_client.dart';
+import 'chat/chat_bookmark.dart';
 import 'chat/chat_controller.dart';
 import 'chat/chat_plugin.dart';
 import 'chat/chat_search_controller.dart';
@@ -119,181 +120,282 @@ final class _ResenhaModule implements PluginModule {
 }
 
 void _reactionsSession(PluginRegistrar registrar) {
-  registrar.addSession((bindings) {
-    final host = bindings.require(corePluginHostPort);
-    final api = host.api is ReactionsApi
-        ? host.api as ReactionsApi
-        : ReactionsApiClient(host.api, host.api.models);
-    final controller = ReactionsController(
-      api: api,
-      credentials: host.credentials,
-      store: host.store,
-      lifecycle: host.siteLifecycle,
-    );
-    return PluginSessionContribution(
-      lifecycle: _ControllerLifecycle(
-        forget: controller.forget,
-        close: controller.dispose,
-      ),
-      services: [PluginService<Object>(reactionsControllerService, controller)],
-    );
-  }, requires: const [corePluginHostPort]);
+  registrar.addSession(
+    (bindings) {
+      final transport = bindings.require(corePluginTransportPort);
+      final api = transport is ReactionsApi
+          ? transport as ReactionsApi
+          : ReactionsApiClient(
+              transport,
+              bindings.require(corePluginModelCodecPort),
+            );
+      final controller = ReactionsController(
+        api: api,
+        credentials: bindings.require(corePluginCredentialsPort),
+        store: bindings.require(corePluginStorePort),
+        lifecycle: bindings.require(corePluginSiteLifecyclePort),
+      );
+      return PluginSessionContribution(
+        lifecycle: _ControllerLifecycle(
+          forget: controller.forget,
+          close: controller.dispose,
+        ),
+        services: [
+          PluginService<Object>(reactionsControllerService, controller),
+          PluginService<Object>(
+            reactionsEmojiHostService,
+            bindings.require(corePluginEmojiPort),
+          ),
+        ],
+      );
+    },
+    requires: const [
+      corePluginTransportPort,
+      corePluginModelCodecPort,
+      corePluginCredentialsPort,
+      corePluginStorePort,
+      corePluginSiteLifecyclePort,
+      corePluginEmojiPort,
+    ],
+  );
 }
 
 void _gifsSession(PluginRegistrar registrar) {
   registrar.addSession((bindings) {
-    final host = bindings.require(corePluginHostPort);
+    final transport = bindings.require(corePluginTransportPort);
     return PluginSessionContribution(
       lifecycle: _ControllerLifecycle(),
       services: [
         PluginService<Object>(
           gifsApiService,
-          host.api is GifsApi ? host.api as GifsApi : GifsApiClient(host.api),
+          transport is GifsApi ? transport : GifsApiClient(transport),
         ),
       ],
     );
-  }, requires: const [corePluginHostPort]);
+  }, requires: const [corePluginTransportPort]);
 }
 
 void _assignmentSession(PluginRegistrar registrar) {
-  registrar.addSession((bindings) {
-    final host = bindings.require(corePluginHostPort);
-    final controller = AssignmentController(
-      api: AssignApi(host.api),
-      credentials: host.credentials,
-      lifecycle: host.siteLifecycle,
-      canAssign: (siteUrl, target) {
-        final reference = switch (target.type) {
-          AssignmentTargetType.topic => PluginTarget.topic(target.id),
-          AssignmentTargetType.post => PluginTarget.post(
-            target.id,
-            topicId: target.topicId,
-          ),
-        };
-        final snapshot = host.dataForTarget(siteUrl, reference);
-        if (!snapshot.valid) return false;
-        final recordPermission = snapshot.data
-            .get(assignmentsDataKey)
-            ?.canAssign;
-        return host.canPerform(siteUrl, 'assign', recordPermission);
-      },
-      reloadTopic: host.reloadTopic,
-      invalidateLegacyFallback: (siteUrl) =>
-          host.invalidateFallback(siteUrl, 'assign'),
-    );
-    return PluginSessionContribution(
-      lifecycle: _ControllerLifecycle(
-        forget: controller.forget,
-        close: controller.dispose,
-      ),
-      services: [
-        PluginService<Object>(assignmentControllerService, controller),
-      ],
-    );
-  }, requires: const [corePluginHostPort]);
+  registrar.addSession(
+    (bindings) {
+      final targetHost = bindings.require(corePluginTargetPort);
+      final topicRefresh = bindings.require(corePluginTopicRefreshPort);
+      final siteState = bindings.require(corePluginSiteStatePort);
+      final controller = AssignmentController(
+        api: AssignApi(bindings.require(corePluginTransportPort)),
+        credentials: bindings.require(corePluginCredentialsPort),
+        lifecycle: bindings.require(corePluginSiteLifecyclePort),
+        permissionSnapshot: (siteUrl, target) {
+          final reference = switch (target.type) {
+            AssignmentTargetType.topic => PluginTarget.topic(target.id),
+            AssignmentTargetType.post => PluginTarget.post(
+              target.id,
+              topicId: target.topicId,
+            ),
+          };
+          final snapshot = targetHost.dataForTarget(siteUrl, reference);
+          return (
+            valid: snapshot.valid,
+            recordPermission: snapshot.data.get(assignmentsDataKey)?.canAssign,
+            freshAccountCanAssign:
+                targetHost.freshCurrentUserFor(siteUrl)?.canAssign == true,
+          );
+        },
+        statusOptionsReader: (siteUrl) {
+          final config = siteState.siteConfigFor(siteUrl);
+          return (
+            enabled: config.assignStatusesEnabled,
+            values: config.assignStatuses,
+          );
+        },
+        reloadTopic: topicRefresh.reloadTopic,
+      );
+      return PluginSessionContribution(
+        lifecycle: _ControllerLifecycle(
+          forget: controller.forget,
+          close: controller.dispose,
+        ),
+        services: [
+          PluginService<Object>(assignmentControllerService, controller),
+        ],
+        capabilities: [controller],
+      );
+    },
+    requires: const [
+      corePluginTransportPort,
+      corePluginCredentialsPort,
+      corePluginSiteLifecyclePort,
+      corePluginTargetPort,
+      corePluginTopicRefreshPort,
+      corePluginSiteStatePort,
+    ],
+  );
 }
 
 void _aiSummarySession(PluginRegistrar registrar) {
-  registrar.addSession((bindings) {
-    final host = bindings.require(corePluginHostPort);
-    final controller = AiSummaryController(
-      api: AiSummaryApi(host.api),
-      credentials: host.credentials,
-      lifecycle: host.siteLifecycle,
-      trackerFor: host.trackerFor,
-    );
-    return PluginSessionContribution(
-      lifecycle: _ControllerLifecycle(),
-      services: [PluginService<Object>(aiSummaryControllerService, controller)],
-    );
-  }, requires: const [corePluginHostPort]);
+  registrar.addSession(
+    (bindings) {
+      final controller = AiSummaryController(
+        api: AiSummaryApi(bindings.require(corePluginTransportPort)),
+        credentials: bindings.require(corePluginCredentialsPort),
+        lifecycle: bindings.require(corePluginSiteLifecyclePort),
+        trackerFor: bindings.require(corePluginTrackerPort),
+      );
+      return PluginSessionContribution(
+        lifecycle: _ControllerLifecycle(),
+        services: [
+          PluginService<Object>(aiSummaryControllerService, controller),
+        ],
+      );
+    },
+    requires: const [
+      corePluginTransportPort,
+      corePluginCredentialsPort,
+      corePluginSiteLifecyclePort,
+      corePluginTrackerPort,
+    ],
+  );
 }
 
 void _chatSession(PluginRegistrar registrar) {
-  registrar.addSession((bindings) {
-    final host = bindings.require(corePluginHostPort);
-    final chatApi = host.api is ChatApi
-        ? host.api as ChatApi
-        : ChatApiClient(host.api);
-    final controller = ChatController(
-      api: chatApi,
-      credentials: host.credentials,
-      store: host.store,
-      lifecycle: host.siteLifecycle,
-      currentUserFor: host.currentUserFor,
-      siteConfigFor: host.siteConfigFor,
-      previewEngine: host.previewEngine,
-      onChatNotificationsDelta: host.applyNotificationDelta,
-      onSiteUnreachable: host.markSiteUnreachable,
-    );
-    final searchController = ChatSearchController(
-      api: chatApi,
-      credentials: host.credentials,
-      store: host.store,
-      lifecycle: host.siteLifecycle,
-    );
-    final shell = ChatShellService(
-      chat: controller,
-      host: host.navigation,
-      store: host.store,
-    );
-    return PluginSessionContribution(
-      lifecycle: _ControllerLifecycle(
-        forget: (siteUrl) {
-          controller.forget(siteUrl);
-          searchController.forget(siteUrl);
-        },
-        close: () {
-          shell.dispose();
-          controller.dispose();
-          searchController.dispose();
-        },
-      ),
-      services: [
-        PluginService<Object>(chatControllerService, controller),
-        PluginService<Object>(chatSearchControllerService, searchController),
-        PluginService<Object>(chatShellService, shell),
-      ],
-      capabilities: [shell],
-    );
-  }, requires: const [corePluginHostPort]);
+  registrar.addSession(
+    (bindings) {
+      final transport = bindings.require(corePluginTransportPort);
+      final credentials = bindings.require(corePluginCredentialsPort);
+      final store = bindings.require(corePluginStorePort);
+      final lifecycle = bindings.require(corePluginSiteLifecyclePort);
+      final siteState = bindings.require(corePluginSiteStatePort);
+      final accountEvents = bindings.require(corePluginAccountEventsPort);
+      final chatApi = transport is ChatApi
+          ? transport as ChatApi
+          : ChatApiClient(transport);
+      final controller = ChatController(
+        api: chatApi,
+        credentials: credentials,
+        store: store,
+        lifecycle: lifecycle,
+        currentUserFor: siteState.currentUserFor,
+        siteConfigFor: siteState.siteConfigFor,
+        previewEngine: bindings.require(corePluginPreviewPort),
+        onChatNotificationsDelta: (siteUrl, delta) =>
+            accountEvents.updateTotals(
+              siteUrl,
+              (held) => held.withChatNotificationsDelta(delta),
+            ),
+        onSiteUnreachable: accountEvents.markSiteUnreachable,
+      );
+      final searchController = ChatSearchController(
+        api: chatApi,
+        credentials: credentials,
+        store: store,
+        lifecycle: lifecycle,
+      );
+      final shell = ChatShellService(
+        chat: controller,
+        host: bindings.require(corePluginNavigationPort),
+        store: store,
+      );
+      return PluginSessionContribution(
+        lifecycle: _ControllerLifecycle(
+          forget: (siteUrl) {
+            controller.forget(siteUrl);
+            searchController.forget(siteUrl);
+          },
+          close: () {
+            shell.dispose();
+            controller.dispose();
+            searchController.dispose();
+          },
+        ),
+        services: [
+          PluginService<Object>(chatControllerService, controller),
+          PluginService<Object>(chatSearchControllerService, searchController),
+          PluginService<Object>(chatShellService, shell),
+          PluginService<Object>(
+            chatBookmarkHostService,
+            bindings
+                .require(corePluginBookmarkPort)
+                .forTarget(chatMessageBookmarkTarget),
+          ),
+          PluginService<Object>(
+            chatComposerHostService,
+            bindings.require(corePluginComposerPort),
+          ),
+          PluginService<Object>(
+            chatEmojiHostService,
+            bindings.require(corePluginEmojiPort),
+          ),
+          PluginService<Object>(
+            chatNotificationHostService,
+            bindings.require(corePluginNotificationFeedPort),
+          ),
+        ],
+        capabilities: [shell],
+      );
+    },
+    requires: const [
+      corePluginTransportPort,
+      corePluginCredentialsPort,
+      corePluginStorePort,
+      corePluginSiteLifecyclePort,
+      corePluginSiteStatePort,
+      corePluginPreviewPort,
+      corePluginAccountEventsPort,
+      corePluginNavigationPort,
+      corePluginBookmarkPort,
+      corePluginComposerPort,
+      corePluginEmojiPort,
+      corePluginNotificationFeedPort,
+    ],
+  );
 }
 
 void _resenhaSession(
   PluginRegistrar registrar,
   ResenhaDiagnosticsRecorder diagnostics,
 ) {
-  registrar.addSession((bindings) {
-    final host = bindings.require(corePluginHostPort);
-    final api = host.api;
-    final controller = ResenhaController(
-      api: ResenhaApi(api),
-      chatApi: ChatApiClient(api),
-      credentials: host.credentials,
-      trackerFor: host.trackerFor,
-      userIdFor: host.userIdFor,
-      capabilityEnabledFor: (siteUrl) =>
-          host.capabilityEnabledFor(siteUrl, 'resenha'),
-      onCallSiteChanged: host.onCallSiteChanged,
-      diagnostics: diagnostics,
-    );
-    final shell = ResenhaShellService(
-      controller: controller,
-      host: host.navigation,
-    );
-    return PluginSessionContribution(
-      lifecycle: _ControllerLifecycle(
-        foreground: controller.setForeground,
-        forget: controller.forget,
-        close: controller.dispose,
-      ),
-      services: [
-        PluginService<Object>(resenhaControllerService, controller),
-        PluginService<Object>(resenhaShellService, shell),
-      ],
-      capabilities: [shell],
-    );
-  }, requires: const [corePluginHostPort]);
+  registrar.addSession(
+    (bindings) {
+      final transport = bindings.require(corePluginTransportPort);
+      final controller = ResenhaController(
+        api: ResenhaApi(transport),
+        chatApi: ChatApiClient(transport),
+        credentials: bindings.require(corePluginCredentialsPort),
+        trackerFor: bindings.require(corePluginTrackerPort),
+        userIdFor: bindings.require(corePluginUserPort),
+        capabilityEnabledFor: (siteUrl) async => (await bindings.require(
+          corePluginPresentationPort,
+        )(siteUrl))?.resenha.enabled,
+        onCallSiteChanged: bindings.require(corePluginTrackingSyncPort),
+        diagnostics: diagnostics,
+      );
+      final shell = ResenhaShellService(
+        controller: controller,
+        host: bindings.require(corePluginRouteNavigationPort),
+      );
+      return PluginSessionContribution(
+        lifecycle: _ControllerLifecycle(
+          foreground: controller.setForeground,
+          forget: controller.forget,
+          close: controller.dispose,
+        ),
+        services: [
+          PluginService<Object>(resenhaControllerService, controller),
+          PluginService<Object>(resenhaShellService, shell),
+        ],
+        capabilities: [shell],
+      );
+    },
+    requires: const [
+      corePluginTransportPort,
+      corePluginCredentialsPort,
+      corePluginTrackerPort,
+      corePluginUserPort,
+      corePluginPresentationPort,
+      corePluginTrackingSyncPort,
+      corePluginRouteNavigationPort,
+    ],
+  );
 }
 
 final class _ControllerLifecycle extends PluginSessionLifecycle {

@@ -4,10 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
-import '../../data/emoji_picker_store.dart';
 import '../../models/bookmark.dart';
 import '../../models/post_flag.dart';
-import '../../shell/bookmark_ui.dart';
 import '../../shell/cooked_html.dart';
 import '../../shell/emoji_picker.dart';
 import '../../shell/hover_action_toolbar.dart';
@@ -25,8 +23,10 @@ import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
 import '../plugin_services.dart';
 import '../reactions/reaction_pill.dart';
+import 'chat_bookmark_ui.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
+import 'chat_emoji_usage.dart';
 import 'chat_message.dart';
 import 'chat_preview.dart';
 import 'chat_preview_body.dart';
@@ -382,7 +382,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
 
   Future<void> _bookmark() => showChatMessageBookmarkMenu(
     context: context,
-    controller: ShellScope.read(context),
+    host: PluginScope.require(context, chatBookmarkHostService),
     siteUrl: widget.siteUrl,
     messageId: widget.message.id,
     bookmark: widget.message.bookmark,
@@ -445,7 +445,6 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   }
 
   Future<void> _flag(List<PostFlagType> flagTypes) async {
-    final shell = ShellScope.read(context);
     final chat = PluginScope.require(context, chatControllerService);
     await showShellSheet<void>(
       context: context,
@@ -455,9 +454,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         siteUrl: widget.siteUrl,
         targetUsername: widget.message.author.username,
         flagTypes: flagTypes,
-        minimumMessageLength: shell
-            .siteConfigFor(widget.siteUrl)
-            .minPersonalMessagePostLength,
+        minimumMessageLength: chat.flagMessageMinimumLength(widget.siteUrl),
         save: (type, {message}) => chat.flagMessage(
           widget.siteUrl,
           widget.message.id,
@@ -472,7 +469,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   }
 
   Future<void> _showActions() {
-    final shell = ShellScope.read(context);
+    final bookmarkHost = PluginScope.require(context, chatBookmarkHostService);
     final chat = PluginScope.require(context, chatControllerService);
     final canEdit = chat.canEditMessage(widget.siteUrl, widget.message);
     final canDelete = chat.canDeleteMessage(widget.siteUrl, widget.message);
@@ -487,10 +484,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       widget.message,
       widget.flagTypes,
     );
-    final bookmarkBusy = shell.bookmarkWriteInFlight(
+    final bookmarkBusy = bookmarkHost.bookmarkWriteInFlight(
       siteUrl: widget.siteUrl,
       topicId: 0,
-      targetType: BookmarkTargetType.chatMessage,
       targetId: widget.message.id,
     );
     final bookmarkLabel = widget.message.bookmark == null
@@ -660,31 +656,33 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   @override
   Widget build(BuildContext context) {
     final chat = PluginScope.require(context, chatControllerService);
+    final bookmarkHost = PluginScope.require(context, chatBookmarkHostService);
     return ValueListenableBuilder<ChatChannel?>(
       valueListenable: chat.channelRef(
         widget.siteUrl,
         widget.message.channelId,
       ),
-      builder: (context, _, _) => ShellSelector<bool>(
-        select: (shell) => shell.bookmarkWriteInFlight(
+      builder: (context, _, _) => ValueListenableBuilder<bool>(
+        valueListenable: bookmarkHost.bookmarkWriteInFlightListenable(
           siteUrl: widget.siteUrl,
           topicId: 0,
-          targetType: BookmarkTargetType.chatMessage,
           targetId: widget.message.id,
         ),
-        builder: (context, bookmarkBusy, _) => _build(
-          context,
-          bookmarkBusy: bookmarkBusy,
-          canEdit: chat.canEditMessage(widget.siteUrl, widget.message),
-          canDelete: chat.canDeleteMessage(widget.siteUrl, widget.message),
-          canPin: chat.canPinMessage(widget.siteUrl, widget.message),
-          canRebake: chat.canRebakeMessage(widget.siteUrl, widget.message),
-          flagTypes: chat.availableChatFlagTypes(
-            widget.siteUrl,
-            widget.message,
-            widget.flagTypes,
-          ),
-        ),
+        builder: (context, bookmarkBusy, _) {
+          return _build(
+            context,
+            bookmarkBusy: bookmarkBusy,
+            canEdit: chat.canEditMessage(widget.siteUrl, widget.message),
+            canDelete: chat.canDeleteMessage(widget.siteUrl, widget.message),
+            canPin: chat.canPinMessage(widget.siteUrl, widget.message),
+            canRebake: chat.canRebakeMessage(widget.siteUrl, widget.message),
+            flagTypes: chat.availableChatFlagTypes(
+              widget.siteUrl,
+              widget.message,
+              widget.flagTypes,
+            ),
+          );
+        },
       ),
     );
   }
@@ -1383,51 +1381,54 @@ Future<void> _pickChatMessageReaction({
   required ChatMessage message,
   BuildContext? anchorContext,
 }) async {
-  final controller = ShellScope.read(context);
   final chat = PluginScope.require(context, chatControllerService);
+  final emoji = PluginScope.require(context, chatEmojiHostService);
   if (!chat.canAddReactionToMessage(siteUrl, message)) return;
-  final lease = controller.lifecycle.capture(siteUrl);
+  final lease = chat.lifecycle.capture(siteUrl);
   final messenger = ScaffoldMessenger.maybeOf(context);
+
+  bool stillOwnsMessage() {
+    if (!lease.isCurrent) return false;
+    if (context.mounted) {
+      final scope = PluginScope.maybeOf(context);
+      if (scope == null ||
+          !identical(scope.service(chatControllerService), chat)) {
+        return false;
+      }
+    }
+    return chat.messageRef(siteUrl, message.id).value != null;
+  }
 
   final picked = await showEmojiPicker(
     context: context,
     anchorContext: anchorContext,
     siteUrl: siteUrl,
-    pickerContext: EmojiPickerContext.chat,
-    store: controller.emojiPickerStore,
-    loadCatalog: ({refresh = false}) => refresh
-        ? controller.refreshEmojiCatalog(siteUrl)
-        : controller.ensureEmojiCatalog(siteUrl),
-    loadSearchAliases: ({refresh = false}) => refresh
-        ? controller.refreshEmojiSearchAliases(siteUrl)
-        : controller.ensureEmojiSearchAliases(siteUrl),
+    pickerContext: chatEmojiUsageContext,
+    store: emoji.preferences,
+    loadCatalog: ({refresh = false}) =>
+        emoji.loadCatalog(siteUrl, refresh: refresh),
+    loadSearchAliases: ({refresh = false}) =>
+        emoji.loadSearchAliases(siteUrl, refresh: refresh),
   );
-  if (picked == null || !lease.isCurrent) return;
-  if (context.mounted &&
-      !identical(ShellScope.maybeRead(context), controller)) {
-    return;
-  }
+  if (picked == null || !stillOwnsMessage()) return;
   final current = chat.messageRef(siteUrl, message.id).value;
   if (current == null || !chat.canAddReactionToMessage(siteUrl, current)) {
     return;
   }
 
   unawaited(
-    controller.emojiPickerStore.trackEmoji(
+    emoji.preferences.trackEmoji(
       siteUrl: siteUrl,
-      context: EmojiPickerContext.chat,
+      context: chatEmojiUsageContext,
       emoji: picked,
     ),
   );
   unawaited(
     chat.addMessageReaction(siteUrl, message.id, picked).then((error) {
       if (error == null ||
-          !lease.isCurrent ||
+          !stillOwnsMessage() ||
           messenger == null ||
           !messenger.mounted) {
-        return;
-      }
-      if (!identical(ShellScope.maybeRead(messenger.context), controller)) {
         return;
       }
       messenger.showSnackBar(SnackBar(content: Text(error)));
@@ -1451,7 +1452,6 @@ class _Reactions extends StatelessWidget {
   }
 
   Widget _build(BuildContext context) {
-    final controller = ShellScope.identityOf(context);
     final chat = PluginScope.require(context, chatControllerService);
     final canAdd = chat.canAddReactionToMessage(siteUrl, message);
     bool canToggle(ChatReaction reaction) => reaction.reacted
@@ -1473,7 +1473,7 @@ class _Reactions extends StatelessWidget {
                 : reaction.reacted
                 ? 'remove your reaction'
                 : 'add this reaction',
-            interactionOwner: controller,
+            interactionOwner: chat,
             onToggle: canToggle(reaction)
                 ? () => chat.toggleMessageReaction(
                     siteUrl,

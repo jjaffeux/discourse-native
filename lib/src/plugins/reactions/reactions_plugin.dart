@@ -108,11 +108,10 @@ class ReactionsPlugin
   }
 
   @override
-  PostMenuContribution postMenu(
-    BuildContext context,
-    String siteUrl,
-    Post post,
-  ) {
+  PostMenuContribution postMenu(PostMenuContext menu) {
+    final context = menu.buildContext;
+    final siteUrl = menu.siteUrl;
+    final post = menu.post;
     if (!post.hasReactions) return PostMenuContribution.none;
     // Replaced even where nothing can be offered — a post the reader may not
     // react to must not fall back to a Like that writes to the wrong table.

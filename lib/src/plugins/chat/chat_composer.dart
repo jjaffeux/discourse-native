@@ -4,8 +4,9 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../data/emoji_picker_store.dart';
 import '../../models/composer_upload.dart';
+import '../../models/site_config.dart';
+import '../../plugin_api/core_plugin_host.dart';
 import '../../shell/composer_autocomplete.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/composer_drop.dart';
@@ -13,8 +14,6 @@ import '../../shell/composer_panel.dart';
 import '../../shell/emoji_composer.dart';
 import '../../shell/emoji_picker.dart';
 import '../../shell/platform.dart';
-import '../../shell/shell_controller.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
@@ -25,7 +24,9 @@ import '../plugin_scope.dart';
 import '../plugin_services.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
+import 'chat_emoji_usage.dart';
 import 'chat_message.dart';
+import 'chat_plugin.dart';
 import 'chat_stream_target.dart';
 
 /// Connects the pane-sized desktop drop target to whichever compact composer
@@ -184,7 +185,8 @@ class ChatComposer extends StatefulWidget {
 }
 
 class _ChatComposerState extends State<ChatComposer> {
-  ShellController? _shell;
+  PluginComposerHost? _host;
+  PluginEmojiHost? _emoji;
   ChatController? _chat;
   ComposerController? _composer;
   String? _sourceKey;
@@ -197,7 +199,7 @@ class _ChatComposerState extends State<ChatComposer> {
     if (emojiEnabled || composer == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted &&
-          !(_shell?.siteConfigFor(widget.siteUrl).emojiEnabled ?? true)) {
+          !(_host?.siteConfigFor(widget.siteUrl).emojiEnabled ?? true)) {
         composer.closeEmojiAutocomplete();
       }
     });
@@ -207,15 +209,21 @@ class _ChatComposerState extends State<ChatComposer> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _useComposer(
-      ShellScope.read(context),
+      PluginScope.require(context, chatComposerHostService),
+      PluginScope.require(context, chatEmojiHostService),
       PluginScope.require(context, chatControllerService),
     );
   }
 
-  void _useComposer(ShellController shell, ChatController chat) {
+  void _useComposer(
+    PluginComposerHost host,
+    PluginEmojiHost emoji,
+    ChatController chat,
+  ) {
     final sourceKey =
         '${widget.siteUrl}~${widget.channelId}~${widget.threadId ?? 'channel'}';
-    if (identical(_shell, shell) &&
+    if (identical(_host, host) &&
+        identical(_emoji, emoji) &&
         identical(_chat, chat) &&
         _sourceKey == sourceKey) {
       return;
@@ -224,24 +232,32 @@ class _ChatComposerState extends State<ChatComposer> {
     widget.uploadDropController?.detach(_composer);
     _composer?.dispose();
     final channel = chat.channel(widget.siteUrl, widget.channelId);
-    _shell = shell;
+    _host = host;
+    _emoji = emoji;
     _chat = chat;
     _sourceKey = sourceKey;
-    _composer = shell.buildChatComposer(
-      siteUrl: widget.siteUrl,
-      channelId: widget.channelId,
-      channelTitle: channel?.title ?? 'Chat',
-      threadId: widget.threadId,
+    _composer = host.buildComposer(
+      ComposerTargetRequest(
+        kind: ChatPlugin.messageComposerTarget,
+        siteUrl: widget.siteUrl,
+        title: channel?.title ?? 'Chat',
+        data: {
+          ChatPlugin.composerChannelId: widget.channelId,
+          ChatPlugin.composerThreadId: ?widget.threadId,
+        },
+      ),
     );
+    final composer = _composer;
+    if (composer == null) return;
     widget.uploadDropController?.attach(
-      _composer!,
+      composer,
       canAccept: () =>
           mounted &&
           !_savingEdit &&
           (_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false),
     );
     if (widget.editingMessage case final message?) {
-      _replaceWithMessage(_composer!, message, sourceKey);
+      _replaceWithMessage(composer, message, sourceKey);
     }
     if (widget.focusRequest > 0) _requestFocus(sourceKey);
   }
@@ -291,7 +307,8 @@ class _ChatComposerState extends State<ChatComposer> {
       return;
     }
     _useComposer(
-      _shell ?? ShellScope.read(context),
+      _host ?? PluginScope.require(context, chatComposerHostService),
+      _emoji ?? PluginScope.require(context, chatEmojiHostService),
       _chat ?? PluginScope.require(context, chatControllerService),
     );
   }
@@ -304,9 +321,9 @@ class _ChatComposerState extends State<ChatComposer> {
   }
 
   void _send(ComposerController composer) {
-    final shell = _shell;
+    final host = _host;
     final chat = _chat;
-    if (shell == null ||
+    if (host == null ||
         chat == null ||
         _savingEdit ||
         _pickingGif ||
@@ -346,7 +363,7 @@ class _ChatComposerState extends State<ChatComposer> {
     ChatMessage message,
     String sourceKey,
   ) {
-    composer.replaceChatDocument(
+    composer.replacePluginDocument(
       raw: message.raw,
       uploads: [for (final upload in message.uploads) _composerUpload(upload)],
     );
@@ -409,11 +426,11 @@ class _ChatComposerState extends State<ChatComposer> {
   }
 
   Future<void> _pickGif() async {
-    final shell = _shell;
+    final host = _host;
     final composer = _composer;
     final sourceKey = _sourceKey;
     final gifsApi = PluginScope.maybeOf(context)?.service(gifsApiService);
-    if (shell == null ||
+    if (host == null ||
         composer == null ||
         sourceKey == null ||
         gifsApi == null ||
@@ -421,7 +438,7 @@ class _ChatComposerState extends State<ChatComposer> {
         _pickingEmoji ||
         _savingEdit ||
         widget.editingMessage != null ||
-        !shell.siteConfigFor(widget.siteUrl).gifsEnabled ||
+        !host.siteConfigFor(widget.siteUrl).gifsEnabled ||
         !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
       return;
     }
@@ -432,17 +449,17 @@ class _ChatComposerState extends State<ChatComposer> {
         context: context,
         siteUrl: widget.siteUrl,
         api: gifsApi,
-        credentials: shell.authenticator,
-        lifecycle: shell.lifecycle,
-        config: shell.siteConfigFor(widget.siteUrl),
+        credentials: host.credentials,
+        lifecycle: host.lifecycle,
+        config: host.siteConfigFor(widget.siteUrl),
       );
-      if (result == null || !_ownsComposer(shell, composer, sourceKey)) {
+      if (result == null || !_ownsComposer(host, composer, sourceKey)) {
         return;
       }
-      _sendGif(shell, composer, sourceKey, result);
+      _sendGif(host, composer, sourceKey, result);
     } finally {
       if (mounted) setState(() => _pickingGif = false);
-      _refocus(shell, composer, sourceKey);
+      _refocus(host, composer, sourceKey);
     }
   }
 
@@ -451,16 +468,18 @@ class _ChatComposerState extends State<ChatComposer> {
     String initialQuery = '',
     Rect? anchor,
   }) async {
-    final shell = _shell;
+    final host = _host;
+    final emoji = _emoji;
     final composer = _composer;
     final sourceKey = _sourceKey;
-    if (shell == null ||
+    if (host == null ||
+        emoji == null ||
         composer == null ||
         sourceKey == null ||
         _pickingGif ||
         _pickingEmoji ||
         _savingEdit ||
-        !shell.siteConfigFor(widget.siteUrl).emojiEnabled ||
+        !host.siteConfigFor(widget.siteUrl).emojiEnabled ||
         !(_chat?.canSendMessage(widget.siteUrl, widget.channelId) ?? false)) {
       return;
     }
@@ -469,10 +488,10 @@ class _ChatComposerState extends State<ChatComposer> {
     try {
       await openEmojiPickerForComposer(
         context: pickerContext,
-        shell: shell,
+        emoji: emoji,
         composer: composer,
-        pickerContext: EmojiPickerContext.chat,
-        stillOwns: () => _ownsComposer(shell, composer, sourceKey),
+        pickerContext: chatEmojiUsageContext,
+        stillOwns: () => _ownsComposer(host, composer, sourceKey),
         initialQuery: initialQuery,
         anchor: anchor,
       );
@@ -482,12 +501,12 @@ class _ChatComposerState extends State<ChatComposer> {
   }
 
   void _sendGif(
-    ShellController shell,
+    PluginComposerHost host,
     ComposerController composer,
     String sourceKey,
     GifResult result,
   ) {
-    if (!_ownsComposer(shell, composer, sourceKey) ||
+    if (!_ownsComposer(host, composer, sourceKey) ||
         !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
       return;
     }
@@ -516,23 +535,23 @@ class _ChatComposerState extends State<ChatComposer> {
   };
 
   bool _ownsComposer(
-    ShellController shell,
+    PluginComposerHost host,
     ComposerController composer,
     String sourceKey,
   ) =>
       mounted &&
-      identical(_shell, shell) &&
+      identical(_host, host) &&
       identical(_composer, composer) &&
       _sourceKey == sourceKey;
 
   void _refocus(
-    ShellController shell,
+    PluginComposerHost host,
     ComposerController composer,
     String sourceKey,
   ) {
-    if (!_ownsComposer(shell, composer, sourceKey)) return;
+    if (!_ownsComposer(host, composer, sourceKey)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_ownsComposer(shell, composer, sourceKey)) {
+      if (_ownsComposer(host, composer, sourceKey)) {
         composer.focus.requestFocus();
       }
     });
@@ -541,7 +560,8 @@ class _ChatComposerState extends State<ChatComposer> {
   @override
   Widget build(BuildContext context) {
     final composer = _composer;
-    if (composer == null) return const SizedBox.shrink();
+    final host = _host;
+    if (composer == null || host == null) return const SizedBox.shrink();
 
     return ValueListenableBuilder<ChatChannel?>(
       valueListenable: PluginScope.require(
@@ -603,7 +623,7 @@ class _ChatComposerState extends State<ChatComposer> {
                       ),
                     ),
                   ),
-                _bar(context, composer),
+                _bar(context, composer, host),
               ],
             ),
           ),
@@ -612,7 +632,11 @@ class _ChatComposerState extends State<ChatComposer> {
     );
   }
 
-  Widget _bar(BuildContext context, ComposerController composer) {
+  Widget _bar(
+    BuildContext context,
+    ComposerController composer,
+    PluginComposerHost host,
+  ) {
     final theme = Theme.of(context);
     final channel = _chat?.channel(widget.siteUrl, widget.channelId);
     final hint = channel == null
@@ -678,10 +702,12 @@ class _ChatComposerState extends State<ChatComposer> {
                 ),
               ),
             ),
-            ShellSelector<bool>(
-              select: (shell) =>
-                  shell.siteConfigFor(composer.target.siteUrl).emojiEnabled,
-              builder: (context, emojiEnabled, _) {
+            ValueListenableBuilder<SiteConfig>(
+              valueListenable: host.siteConfigListenableFor(
+                composer.target.siteUrl,
+              ),
+              builder: (context, config, _) {
+                final emojiEnabled = config.emojiEnabled;
                 _closeDisabledEmojiAutocomplete(emojiEnabled);
                 return emojiEnabled
                     ? EmojiPickerAnchor(
@@ -715,10 +741,11 @@ class _ChatComposerState extends State<ChatComposer> {
                     : const SizedBox.shrink();
               },
             ),
-            ShellSelector<bool>(
-              select: (shell) =>
-                  shell.siteConfigFor(composer.target.siteUrl).gifsEnabled,
-              builder: (context, gifsEnabled, _) => gifsEnabled
+            ValueListenableBuilder<SiteConfig>(
+              valueListenable: host.siteConfigListenableFor(
+                composer.target.siteUrl,
+              ),
+              builder: (context, config, _) => config.gifsEnabled
                   ? Center(
                       child: DButton.iconOnly(
                         key: const ValueKey('chat-composer-gif'),

@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/plugins/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/site_plugin_api.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,8 +7,20 @@ const _hostValuePort = PluginHostPortKey<String>(
   owner: PluginId('core'),
   name: 'value',
 );
+const _undeclaredHostValuePort = PluginHostPortKey<String>(
+  owner: PluginId('core'),
+  name: 'undeclared-value',
+);
+const _scopedHostValuePort = PluginHostPortKey<String>(
+  owner: PluginId('core'),
+  name: 'scoped-value',
+);
 const _serviceKey = PluginServiceKey<String>(
   owner: PluginId('feature'),
+  name: 'value',
+);
+const _spoofedServiceKey = PluginServiceKey<String>(
+  owner: PluginId('other'),
   name: 'value',
 );
 
@@ -172,19 +185,25 @@ void main() {
     'sessions require declared host ports and expose typed services',
     () async {
       final events = <String>[];
+      var receivedUndeclaredPort = false;
       final installed = PluginInstaller.install(
         PluginManifest([
           _Module(
             'feature',
-            sessionFactory: (bindings) => PluginSessionContribution(
-              lifecycle: _SessionLifecycle(events),
-              services: [
-                PluginService<Object>(
-                  _serviceKey,
-                  'plugin:${bindings.require(_hostValuePort)}',
-                ),
-              ],
-            ),
+            sessionFactory: (bindings) {
+              receivedUndeclaredPort = bindings.contains(
+                _undeclaredHostValuePort,
+              );
+              return PluginSessionContribution(
+                lifecycle: _SessionLifecycle(events),
+                services: [
+                  PluginService<Object>(
+                    _serviceKey,
+                    'plugin:${bindings.require(_hostValuePort)}',
+                  ),
+                ],
+              );
+            },
             requiredPorts: const [_hostValuePort],
           ),
         ]),
@@ -198,9 +217,11 @@ void main() {
       final session = installed.openSession(
         PluginHostBindings(const [
           PluginHostPort<Object>(_hostValuePort, 'host'),
+          PluginHostPort<Object>(_undeclaredHostValuePort, 'private'),
         ]),
       );
       expect(session.require(_serviceKey), 'plugin:host');
+      expect(receivedUndeclaredPort, isFalse);
 
       await session.setForeground(true);
       await session.forget('https://example.com');
@@ -212,6 +233,84 @@ void main() {
       ]);
     },
   );
+
+  test('scoped host ports materialize once for each consuming plugin', () {
+    final received = <String>[];
+    final installed = PluginInstaller.install(
+      PluginManifest([
+        for (final id in const ['first', 'second'])
+          _Module(
+            id,
+            sessionFactory: (bindings) {
+              final value = bindings.require(_scopedHostValuePort);
+              received.add('$id:$value');
+
+              // Restricted views no longer carry the root materializer, so a
+              // plugin cannot rebind its value under another identity.
+              final rebound = bindings
+                  .restrictedTo(const [
+                    _scopedHostValuePort,
+                  ], consumer: const PluginId('other'))
+                  .require(_scopedHostValuePort);
+              received.add('$id:rebound:$rebound');
+              return PluginSessionContribution(
+                lifecycle: _SessionLifecycle([]),
+              );
+            },
+            requiredPorts: const [_scopedHostValuePort],
+          ),
+      ]),
+    );
+    final rootBindings = PluginHostBindings([
+      PluginHostPort<Object>(
+        _scopedHostValuePort,
+        'root',
+        scopeToConsumer: (consumer) => 'scoped:${consumer.value}',
+      ),
+    ]);
+
+    expect(rootBindings.require(_scopedHostValuePort), 'root');
+    expect(
+      () => rootBindings.restrictedTo(const [_scopedHostValuePort]),
+      throwsA(isA<PluginInstallationException>()),
+    );
+
+    installed.openSession(rootBindings);
+
+    expect(received, [
+      'first:scoped:first',
+      'first:rebound:scoped:first',
+      'second:scoped:second',
+      'second:rebound:scoped:second',
+    ]);
+  });
+
+  test('session contributions cannot provide another plugin service', () {
+    final installed = PluginInstaller.install(
+      PluginManifest([
+        _Module(
+          'feature',
+          sessionFactory: (_) => PluginSessionContribution(
+            lifecycle: _SessionLifecycle([]),
+            services: const [
+              PluginService<Object>(_spoofedServiceKey, 'spoofed'),
+            ],
+          ),
+        ),
+      ]),
+    );
+
+    expect(
+      () => installed.openSession(const PluginHostBindings.empty()),
+      throwsA(
+        isA<PluginInstallationException>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('other/value'), contains('feature')),
+        ),
+      ),
+    );
+  });
 
   test(
     'session teardown isolates failures and continues in reverse order',
@@ -246,7 +345,78 @@ void main() {
       expect(events, ['second:close', 'first:close']);
     },
   );
+
+  test('session bookmark targets are distinct and namespaced', () async {
+    final distinct = PluginInstaller.install(
+      PluginManifest([
+        _bookmarkModule('first', 'message', 'First::Message'),
+        _bookmarkModule('second', 'message', 'Second::Message'),
+      ]),
+    );
+    final session = distinct.openSession(const PluginHostBindings.empty());
+    expect(session.capabilities<PluginBookmarkTargetStrategy>(), hasLength(2));
+    await session.close();
+
+    final duplicateId = PluginInstaller.install(
+      PluginManifest([
+        _Module(
+          'shared',
+          sessionFactory: (_) => PluginSessionContribution(
+            lifecycle: _SessionLifecycle([]),
+            capabilities: [
+              _BookmarkStrategy('shared', 'message', 'First::Message'),
+              _BookmarkStrategy('shared', 'message', 'Second::Message'),
+            ],
+          ),
+        ),
+      ]),
+    );
+    expect(
+      () => duplicateId.openSession(const PluginHostBindings.empty()),
+      throwsA(isA<PluginInstallationException>()),
+    );
+
+    final duplicateWire = PluginInstaller.install(
+      PluginManifest([
+        _bookmarkModule('first', 'message', 'Shared::Message'),
+        _bookmarkModule('second', 'message', 'Shared::Message'),
+      ]),
+    );
+    expect(
+      () => duplicateWire.openSession(const PluginHostBindings.empty()),
+      throwsA(isA<PluginInstallationException>()),
+    );
+
+    for (final coreTarget in const [
+      BookmarkTargetType.post,
+      BookmarkTargetType.topic,
+    ]) {
+      final spoofedCoreWire = PluginInstaller.install(
+        PluginManifest([
+          _bookmarkModule('feature', 'spoof', coreTarget.wireName),
+        ]),
+      );
+      expect(
+        () => spoofedCoreWire.openSession(const PluginHostBindings.empty()),
+        throwsA(
+          isA<PluginInstallationException>().having(
+            (error) => error.message,
+            'message',
+            allOf(contains(coreTarget.wireName), contains('core')),
+          ),
+        ),
+      );
+    }
+  });
 }
+
+_Module _bookmarkModule(String owner, String name, String wireName) => _Module(
+  owner,
+  sessionFactory: (_) => PluginSessionContribution(
+    lifecycle: _SessionLifecycle([]),
+    capabilities: [_BookmarkStrategy(owner, name, wireName)],
+  ),
+);
 
 final class _Module implements PluginModule {
   const _Module(
@@ -298,6 +468,28 @@ final class _Capability implements SitePlugin {
 
   @override
   final String name;
+}
+
+final class _BookmarkStrategy implements PluginBookmarkTargetStrategy {
+  _BookmarkStrategy(String owner, String name, String wireName)
+    : pluginBookmarkTarget = BookmarkTargetType(
+        owner: PluginId(owner),
+        name: name,
+        wireName: wireName,
+        refreshLabel: 'record',
+      );
+
+  @override
+  final BookmarkTargetType pluginBookmarkTarget;
+
+  @override
+  void putPluginBookmark(String siteUrl, int targetId, Bookmark bookmark) {}
+
+  @override
+  void removePluginBookmark(String siteUrl, int targetId) {}
+
+  @override
+  void reconcilePluginBookmark(String siteUrl, int targetId) {}
 }
 
 final class _AppLifecycle extends PluginAppLifecycle {

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 
@@ -10,6 +11,7 @@ import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
 import '../models/topic_tag.dart';
 import '../plugin_api/composer_syntax.dart';
+import '../plugin_api/emoji_usage.dart';
 import 'composer_autocomplete.dart';
 import 'composer_images.dart';
 import 'composer_marks.dart';
@@ -24,7 +26,95 @@ import 'markdown_editing_controller.dart';
 /// comes time to submit. Switching sites while a reply is half written must not
 /// send it to the site the user switched to, and every other cache in the shell
 /// is site-keyed for the same reason.
-enum ComposerMode { reply, newTopic, postEdit, topicEdit, tagsEdit, chat }
+enum ComposerMode { reply, newTopic, postEdit, topicEdit, tagsEdit, plugin }
+
+/// Stable identity for a plugin-owned writing surface.
+///
+/// The pair is deliberately namespaced: two independently installed plugins
+/// may both call a target `message` without either one stealing the other's
+/// drafts or policy.
+@immutable
+final class ComposerTargetKind {
+  const ComposerTargetKind({required this.owner, required this.name});
+
+  final PluginId owner;
+  final String name;
+
+  String get id => '${owner.value}/$name';
+
+  @override
+  bool operator ==(Object other) =>
+      other is ComposerTargetKind && other.owner == owner && other.name == name;
+
+  @override
+  int get hashCode => Object.hash(owner, name);
+
+  @override
+  String toString() => id;
+}
+
+enum ComposerUploadDisposition { insertMarkdown, retainAttachment }
+
+/// The mutable facts a target strategy may use to decide whether Send is live.
+@immutable
+final class ComposerValidationContext {
+  const ComposerValidationContext({
+    required this.raw,
+    required this.completedUploadCount,
+  });
+
+  final String raw;
+  final int completedUploadCount;
+}
+
+typedef ComposerTargetValidator =
+    bool Function(ComposerValidationContext context);
+
+/// One resolved strategy for one plugin composer instance.
+///
+/// Resolution happens at the registry boundary. The controller retains this
+/// immutable answer, which means uninstalling or reordering plugins cannot
+/// silently change the policy of an already-open document.
+@immutable
+final class ComposerTargetPolicy {
+  const ComposerTargetPolicy({
+    required this.kind,
+    required this.draftKey,
+    required this.uploadType,
+    required this.uploadDisposition,
+    required this.uploadsEnabled,
+    required this.supportsEditing,
+    required this.validate,
+    required this.emojiUsageContext,
+    this.mentionTopicId,
+  });
+
+  final ComposerTargetKind kind;
+  final String draftKey;
+  final ComposerUploadType uploadType;
+  final ComposerUploadDisposition uploadDisposition;
+  final bool uploadsEnabled;
+  final bool supportsEditing;
+  final EmojiUsageContext emojiUsageContext;
+  final int? mentionTopicId;
+  final ComposerTargetValidator validate;
+}
+
+/// Input handed to the exact strategy registered for [kind].
+@immutable
+final class ComposerTargetRequest {
+  const ComposerTargetRequest({
+    required this.kind,
+    required this.siteUrl,
+    required this.title,
+    this.data = const {},
+  });
+
+  final ComposerTargetKind kind;
+  final String siteUrl;
+  final String title;
+  final Map<String, Object?> data;
+}
 
 @immutable
 class ComposerTarget {
@@ -38,16 +128,35 @@ class ComposerTarget {
     this.replyToUsername,
     this.editingPostId,
     this.editingPostNumber,
-    this.chatChannelId,
-    this.chatThreadId,
     ComposerMode? mode,
     this.originFeedId,
     this.originTopicId,
     this.initialCategoryId,
     this.initialTags = const [],
-  }) : mode =
+  }) : policy = null,
+       data = const {},
+       mode =
            mode ??
-           (editingPostId == null ? ComposerMode.reply : ComposerMode.postEdit);
+           (editingPostId == null ? ComposerMode.reply : ComposerMode.postEdit),
+       assert(mode != ComposerMode.plugin);
+
+  const ComposerTarget.plugin({
+    required this.siteUrl,
+    required this.topicTitle,
+    required this.policy,
+    this.data = const {},
+  }) : tabId = null,
+       topicId = 0,
+       slug = '',
+       mode = ComposerMode.plugin,
+       originFeedId = null,
+       originTopicId = null,
+       initialCategoryId = null,
+       initialTags = const [],
+       replyToPostNumber = null,
+       replyToUsername = null,
+       editingPostId = null,
+       editingPostNumber = null;
 
   final String siteUrl;
   final String? tabId;
@@ -55,8 +164,8 @@ class ComposerTarget {
   final String slug;
   final String topicTitle;
   final ComposerMode mode;
-  final int? chatChannelId;
-  final int? chatThreadId;
+  final ComposerTargetPolicy? policy;
+  final Map<String, Object?> data;
   final String? originFeedId;
   final int? originTopicId;
   final int? initialCategoryId;
@@ -83,34 +192,32 @@ class ComposerTarget {
   bool get isNewTopic => mode == ComposerMode.newTopic;
   bool get editsTopicMetadata => mode == ComposerMode.topicEdit;
   bool get isTagsEdit => mode == ComposerMode.tagsEdit;
-  bool get isChat => mode == ComposerMode.chat;
+  bool get isPlugin => mode == ComposerMode.plugin;
 
   /// What Discourse files a draft for this topic under.
-  String get draftKey => isNewTopic
-      ? ComposerDraft.newTopicDraftKey
-      : isChat
-      ? chatThreadId == null
-            ? 'chat_$chatChannelId'
-            : 'chat_${chatChannelId}_thread_$chatThreadId'
-      : 'topic_$topicId';
+  String get draftKey => switch (mode) {
+    ComposerMode.newTopic => ComposerDraft.newTopicDraftKey,
+    ComposerMode.plugin => policy!.draftKey,
+    _ => 'topic_$topicId',
+  };
 
-  ComposerTarget replyingTo(int? postNumber, String? username) =>
-      ComposerTarget(
-        siteUrl: siteUrl,
-        tabId: tabId,
-        topicId: topicId,
-        slug: slug,
-        topicTitle: topicTitle,
-        replyToPostNumber: postNumber,
-        replyToUsername: username,
-        chatChannelId: chatChannelId,
-        chatThreadId: chatThreadId,
-        mode: mode,
-        originFeedId: originFeedId,
-        originTopicId: originTopicId,
-        initialCategoryId: initialCategoryId,
-        initialTags: initialTags,
-      );
+  ComposerTarget replyingTo(int? postNumber, String? username) {
+    if (isPlugin) return this;
+    return ComposerTarget(
+      siteUrl: siteUrl,
+      tabId: tabId,
+      topicId: topicId,
+      slug: slug,
+      topicTitle: topicTitle,
+      replyToPostNumber: postNumber,
+      replyToUsername: username,
+      mode: mode,
+      originFeedId: originFeedId,
+      originTopicId: originTopicId,
+      initialCategoryId: initialCategoryId,
+      initialTags: initialTags,
+    );
+  }
 }
 
 /// One immutable draft revision handed to the persistence boundary.
@@ -573,7 +680,8 @@ class ComposerController extends ChangeNotifier {
       final result = first.value.result;
       if (result == null) break;
 
-      if (_target.isChat) {
+      if (_target.policy?.uploadDisposition ==
+          ComposerUploadDisposition.retainAttachment) {
         _pendingUploads.remove(first.key);
         final uploadIndex = _uploadIndex(first.key);
         if (uploadIndex >= 0) {
@@ -1290,17 +1398,17 @@ class ComposerController extends ChangeNotifier {
     _notify();
   }
 
-  /// Replaces a compact chat composer with a message being edited.
+  /// Replaces a plugin composer with a record being edited.
   ///
   /// Chat attachments do not live in the Markdown body, so entering edit mode
   /// has to replace both parts of the document. Retained uploads are completed
   /// queue rows: they can be removed or sent with the edit, but never retried
   /// because there is no local file behind them.
-  void replaceChatDocument({
+  void replacePluginDocument({
     required String raw,
     required Iterable<ComposerUploadResult> uploads,
   }) {
-    if (_disposed || !_target.isChat) return;
+    if (_disposed || _target.policy?.supportsEditing != true) return;
     draftSettled();
     _state = ComposerState.editing;
     _error = null;
@@ -1440,7 +1548,12 @@ class ComposerController extends ChangeNotifier {
             (metadataChanged || (raw.isNotEmpty && raw != _originalRaw)),
       ComposerMode.tagsEdit =>
         taxonomyValidationMessage == null && !listEquals(_tags, _originalTags),
-      ComposerMode.chat => raw.isNotEmpty || completedUploads.isNotEmpty,
+      ComposerMode.plugin => _target.policy!.validate(
+        ComposerValidationContext(
+          raw: raw,
+          completedUploadCount: completedUploads.length,
+        ),
+      ),
     };
     if (next == _canSubmit) return;
     _canSubmit = next;

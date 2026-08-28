@@ -1,9 +1,9 @@
-import 'package:discourse_native/src/data/emoji_picker_store.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -137,7 +137,7 @@ void main() {
     expect(
       shell.emojiPickerStore.favoriteEmojiCodesFor(
         siteUrl: _site,
-        context: EmojiPickerContext.topic,
+        context: CoreEmojiUsageContexts.topic,
         catalog: _catalog,
       ),
       isEmpty,

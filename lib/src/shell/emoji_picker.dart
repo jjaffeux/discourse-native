@@ -5,8 +5,9 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../data/emoji_picker_store.dart';
 import '../models/site_emoji.dart';
+import '../plugin_api/emoji_preferences.dart';
+import '../plugin_api/emoji_usage.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -24,8 +25,8 @@ import 'shell_sheet.dart';
 Future<String?> showEmojiPicker({
   required BuildContext context,
   required String siteUrl,
-  required EmojiPickerContext pickerContext,
-  required EmojiPickerStore store,
+  required EmojiUsageContext pickerContext,
+  required EmojiPreferenceStore store,
   required EmojiCatalogLoader loadCatalog,
   required EmojiSearchAliasLoader loadSearchAliases,
   String initialQuery = '',

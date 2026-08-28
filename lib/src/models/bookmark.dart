@@ -1,24 +1,70 @@
+import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart';
 
 import 'json.dart';
 import 'notification.dart';
 
-/// The records the native client can bookmark in place.
-enum BookmarkTargetType {
-  post('Post'),
-  topic('Topic'),
-  chatMessage('Chat::Message');
+/// A namespaced bookmarkable type the native client can mutate in place.
+@immutable
+final class BookmarkTargetType {
+  const BookmarkTargetType({
+    required this.owner,
+    required this.name,
+    required this.wireName,
+    required this.refreshLabel,
+    this.updatesTopicBookmarkState = false,
+  });
 
-  const BookmarkTargetType(this.wireName);
+  static const post = BookmarkTargetType(
+    owner: PluginId('core'),
+    name: 'post',
+    wireName: 'Post',
+    refreshLabel: 'topic',
+    updatesTopicBookmarkState: true,
+  );
+  static const topic = BookmarkTargetType(
+    owner: PluginId('core'),
+    name: 'topic',
+    wireName: 'Topic',
+    refreshLabel: 'topic',
+    updatesTopicBookmarkState: true,
+  );
 
+  final PluginId owner;
+  final String name;
   final String wireName;
+  final String refreshLabel;
+  final bool updatesTopicBookmarkState;
+
+  String get id => '${owner.value}/$name';
 
   static BookmarkTargetType? read(Object? value) {
-    for (final type in values) {
+    for (final type in const [post, topic]) {
       if (value == type.wireName) return type;
     }
     return null;
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is BookmarkTargetType &&
+      other.owner == owner &&
+      other.name == name &&
+      other.wireName == wireName &&
+      other.refreshLabel == refreshLabel &&
+      other.updatesTopicBookmarkState == updatesTopicBookmarkState;
+
+  @override
+  int get hashCode => Object.hash(
+    owner,
+    name,
+    wireName,
+    refreshLabel,
+    updatesTopicBookmarkState,
+  );
+
+  @override
+  String toString() => id;
 }
 
 /// What core should do with a bookmark after the event associated with it.
@@ -100,25 +146,6 @@ class Bookmark {
         json['bookmark_auto_delete_preference'],
       ),
     );
-  }
-
-  /// The complete bookmark object attached by `Chat::MessageSerializer`.
-  static Bookmark? fromChatMessageJson(Map<String, dynamic> json) {
-    final raw = json['bookmark'];
-    if (raw is! Map<String, dynamic>) return null;
-    final bookmarkId = jsonIntOrNull(raw['id']);
-    final messageId = jsonIntOrNull(json['id']);
-    final targetId = jsonIntOrNull(raw['bookmarkable_id']);
-    if (bookmarkId == null ||
-        bookmarkId <= 0 ||
-        messageId == null ||
-        messageId <= 0 ||
-        targetId != messageId ||
-        jsonText(raw['bookmarkable_type']) !=
-            BookmarkTargetType.chatMessage.wireName) {
-      return null;
-    }
-    return Bookmark.fromJson(raw);
   }
 
   /// Where the bookmark points, with a topic link taken back off whatever host

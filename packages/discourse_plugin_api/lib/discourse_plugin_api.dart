@@ -180,31 +180,72 @@ final class PluginServiceKey<T extends Object> {
 
 final class PluginHostBindings {
   PluginHostBindings(Iterable<PluginHostPort<Object>> ports)
-    : _ports = Map.unmodifiable({
-        for (final port in ports) port.key: port.value,
-      });
+    : _ports = Map.unmodifiable({for (final port in ports) port.key: port});
 
   const PluginHostBindings.empty()
-    : _ports = const <PluginHostPortKey<Object>, Object>{};
+    : _ports = const <PluginHostPortKey<Object>, PluginHostPort<Object>>{};
 
-  final Map<PluginHostPortKey<Object>, Object> _ports;
+  final Map<PluginHostPortKey<Object>, PluginHostPort<Object>> _ports;
 
   bool contains(PluginHostPortKey<Object> key) => _ports.containsKey(key);
 
-  T require<T extends Object>(PluginHostPortKey<T> key) {
-    final value = _ports[key];
-    if (value == null) {
+  /// A view containing only the ports a session explicitly declared.
+  ///
+  /// The application supplies one complete binding set at its composition
+  /// root. Restricting it before invoking a session factory makes `requires`
+  /// an authority boundary rather than only a startup validation list.
+  ///
+  /// A host may attach a [PluginHostPort.scopeToConsumer] materializer to a
+  /// root binding. The runtime supplies the consuming module id here, and the
+  /// restricted view receives only the resulting value. The materializer is
+  /// deliberately not copied, so a plugin cannot re-scope its view to another
+  /// consumer after construction.
+  PluginHostBindings restrictedTo(
+    Iterable<PluginHostPortKey<Object>> keys, {
+    PluginId? consumer,
+  }) => PluginHostBindings([
+    for (final key in keys) _restrictedPort(key, consumer: consumer),
+  ]);
+
+  PluginHostPort<Object> _restrictedPort(
+    PluginHostPortKey<Object> key, {
+    required PluginId? consumer,
+  }) {
+    final port = _ports[key];
+    if (port == null) {
       throw PluginInstallationException('Missing host port ${key.id}.');
     }
-    return value as T;
+    final scope = port.scopeToConsumer;
+    if (scope == null) return PluginHostPort<Object>(key, port.value);
+    if (consumer == null) {
+      throw PluginInstallationException(
+        'Host port ${key.id} requires a plugin consumer.',
+      );
+    }
+    return PluginHostPort<Object>(key, scope(consumer));
+  }
+
+  T require<T extends Object>(PluginHostPortKey<T> key) {
+    final port = _ports[key];
+    if (port == null) {
+      throw PluginInstallationException('Missing host port ${key.id}.');
+    }
+    return port.value as T;
   }
 }
 
 final class PluginHostPort<T extends Object> {
-  const PluginHostPort(this.key, this.value);
+  const PluginHostPort(this.key, this.value, {this.scopeToConsumer});
 
   final PluginHostPortKey<T> key;
   final T value;
+
+  /// Produces the authority this port grants to one consuming plugin module.
+  ///
+  /// Leave this null for ordinary ports whose value is already least-privilege.
+  /// Scoped ports are materialized by [PluginHostBindings.restrictedTo] before
+  /// a plugin session factory can observe them.
+  final T Function(PluginId consumer)? scopeToConsumer;
 }
 
 typedef PluginSessionFactory =

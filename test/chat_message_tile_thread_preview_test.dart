@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
+import 'package:discourse_native/src/plugins/chat/chat_bookmark.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
@@ -863,10 +864,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.createdBookmarks, hasLength(1));
-    expect(
-      api.createdBookmarks.single.targetType,
-      BookmarkTargetType.chatMessage,
-    );
+    expect(api.createdBookmarks.single.targetType, chatMessageBookmarkTarget);
     expect(api.createdBookmarks.single.targetId, 7);
     expect(find.text('Bookmarked!'), findsOneWidget);
     expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.bookmark?.id, 1000);
@@ -1201,8 +1199,9 @@ void main() {
     await tester.pumpAndSettle();
 
     final write = controller.createBookmark(
+      siteUrl: _siteUrl,
       topicId: 0,
-      targetType: BookmarkTargetType.chatMessage,
+      targetType: chatMessageBookmarkTarget,
       targetId: 7,
     );
     await api.started.future;

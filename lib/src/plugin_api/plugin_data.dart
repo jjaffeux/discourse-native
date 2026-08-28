@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'topic_recommendation_source.dart';
+
 /// Stable identity for one plugin-owned value attached to a core record.
 ///
 /// The owner/name pair is explicit instead of relying on a Dart [Type], so the
@@ -73,8 +75,11 @@ final class PluginData {
   );
 }
 
-/// Decodes plugin-owned fields without making core records import a manifest.
+/// Supplies installed model extensions without making core import a manifest.
 abstract interface class PluginDataDecoder {
+  /// Optional recommendation sources in installed-plugin order.
+  List<TopicRecommendationSourceDefinition> get topicRecommendationSources;
+
   PluginData readPost(Map<String, dynamic> json, String siteUrl);
 
   PluginData readTopic(Map<String, dynamic> json, String siteUrl);
@@ -90,6 +95,10 @@ abstract interface class PluginDataDecoder {
 /// The decoder used by a core-only manifest.
 final class EmptyPluginDataDecoder implements PluginDataDecoder {
   const EmptyPluginDataDecoder();
+
+  @override
+  List<TopicRecommendationSourceDefinition> get topicRecommendationSources =>
+      const [];
 
   @override
   PluginData readPost(Map<String, dynamic> json, String siteUrl) =>

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../data/emoji_picker_store.dart';
 import '../../data/site_lifecycle.dart';
 import '../../models/post.dart';
 import '../../shell/emoji.dart';
@@ -10,7 +9,10 @@ import '../../shell/emoji_picker.dart';
 import '../../shell/shell_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
+import '../plugin_scope.dart';
+import '../plugin_services.dart';
 import 'reaction.dart';
+import 'reactions_emoji_usage.dart';
 import 'reactions_shell_extension.dart';
 
 /// Opens the policy-aware chooser for a post reaction affordance.
@@ -25,6 +27,7 @@ Future<void> showPostReactionPicker(
   Post post,
 ) async {
   final controller = ShellScope.read(context);
+  final emoji = PluginScope.require(context, reactionsEmojiHostService);
   final lease = controller.lifecycle.capture(siteUrl);
   final messenger = ScaffoldMessenger.maybeOf(context);
   final config = await controller.resolveSiteConfig(siteUrl);
@@ -39,14 +42,12 @@ Future<void> showPostReactionPicker(
   final picked = await showEmojiPicker(
     context: context,
     siteUrl: siteUrl,
-    pickerContext: EmojiPickerContext.postReactions,
-    store: controller.emojiPickerStore,
-    loadCatalog: ({refresh = false}) => refresh
-        ? controller.refreshEmojiCatalog(siteUrl)
-        : controller.ensureEmojiCatalog(siteUrl),
-    loadSearchAliases: ({refresh = false}) => refresh
-        ? controller.refreshEmojiSearchAliases(siteUrl)
-        : controller.ensureEmojiSearchAliases(siteUrl),
+    pickerContext: reactionsEmojiUsageContext,
+    store: emoji.preferences,
+    loadCatalog: ({refresh = false}) =>
+        emoji.loadCatalog(siteUrl, refresh: refresh),
+    loadSearchAliases: ({refresh = false}) =>
+        emoji.loadSearchAliases(siteUrl, refresh: refresh),
   );
   if (picked == null || !lease.isCurrent) return;
   if (context.mounted &&
@@ -57,9 +58,9 @@ Future<void> showPostReactionPicker(
   if (latest == null || !latest.canReact) return;
 
   unawaited(
-    controller.emojiPickerStore.trackEmoji(
+    emoji.preferences.trackEmoji(
       siteUrl: siteUrl,
-      context: EmojiPickerContext.postReactions,
+      context: reactionsEmojiUsageContext,
       emoji: picked,
     ),
   );

@@ -3,14 +3,10 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/site_emoji.dart';
+import '../plugin_api/emoji_preferences.dart';
+import '../plugin_api/emoji_usage.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
-
-/// The surface whose emoji usage is being remembered.
-///
-/// Web Discourse keeps topic, chat, and reaction favorites apart. Native does
-/// the same so one kind of emoji use does not displace another.
-enum EmojiPickerContext { topic, chat, postReactions, userStatus }
 
 /// Encoded, per-forum emoji picker preferences.
 ///
@@ -53,12 +49,12 @@ final class SharedPreferencesEmojiPickerPersistence
 /// [favoriteEmojiCodesFor] provide synchronous reads while it is on screen.
 /// The Future-returning read methods are convenient for callers that do not
 /// otherwise need an explicit hydration phase.
-final class EmojiPickerStore {
+final class EmojiPickerStore implements EmojiPreferenceStore {
   EmojiPickerStore({EmojiPickerPersistence? persistence})
     : _persistence =
           persistence ?? const SharedPreferencesEmojiPickerPersistence();
 
-  static const int formatVersion = 1;
+  static const int formatVersion = 2;
   static const int maxTrackedEmoji = 40;
   static const int maxFavoriteEmoji = 20;
 
@@ -101,6 +97,7 @@ final class EmojiPickerStore {
   EmojiSkinTone skinToneFor({required String siteUrl}) =>
       _preferences[_canonicalSiteUrl(siteUrl)]?.tone ?? EmojiSkinTone.neutral;
 
+  @override
   Future<EmojiSkinTone> readSkinTone({required String siteUrl}) async {
     await ensureLoaded(siteUrl: siteUrl);
     return skinToneFor(siteUrl: siteUrl);
@@ -113,7 +110,7 @@ final class EmojiPickerStore {
   /// current catalog contains the tonable `wave` entry.
   List<String> favoriteEmojiCodesFor({
     required String siteUrl,
-    required EmojiPickerContext context,
+    required EmojiUsageContext context,
     required SiteEmojiCatalog catalog,
   }) {
     final history =
@@ -122,9 +119,10 @@ final class EmojiPickerStore {
     return _rankFavorites(history, catalog);
   }
 
+  @override
   Future<List<String>> favoriteEmojiCodes({
     required String siteUrl,
-    required EmojiPickerContext context,
+    required EmojiUsageContext context,
     required SiteEmojiCatalog catalog,
   }) async {
     await ensureLoaded(siteUrl: siteUrl);
@@ -135,15 +133,17 @@ final class EmojiPickerStore {
     );
   }
 
+  @override
   Future<void> writeSkinTone({
     required String siteUrl,
     required EmojiSkinTone tone,
   }) => _mutate(siteUrl, (preferences) => preferences.withTone(tone));
 
   /// Records one selection, retaining the most recent 40 normalized events.
+  @override
   Future<void> trackEmoji({
     required String siteUrl,
-    required EmojiPickerContext context,
+    required EmojiUsageContext context,
     required String emoji,
   }) {
     final normalized = _normalizeEmojiCode(emoji);
@@ -155,9 +155,10 @@ final class EmojiPickerStore {
   }
 
   /// Clears only [context], preserving the other history and skin tone.
+  @override
   Future<void> clearHistory({
     required String siteUrl,
-    required EmojiPickerContext context,
+    required EmojiUsageContext context,
   }) => _mutate(
     siteUrl,
     (preferences) => preferences.withClearedHistory(context),
@@ -263,26 +264,18 @@ final class EmojiPickerStore {
 }
 
 final class _EmojiPickerPreferences {
-  const _EmojiPickerPreferences({
-    required this.tone,
-    required this.topicHistory,
-    required this.chatHistory,
-    required this.postReactionsHistory,
-    required this.userStatusHistory,
-  });
+  const _EmojiPickerPreferences({required this.tone, required this.histories});
 
   static const empty = _EmojiPickerPreferences(
     tone: EmojiSkinTone.neutral,
-    topicHistory: [],
-    chatHistory: [],
-    postReactionsHistory: [],
-    userStatusHistory: [],
+    histories: {},
   );
 
   factory _EmojiPickerPreferences.fromEncoded(String encoded) {
     final decoded = jsonDecode(encoded);
     if (decoded is! Map<Object?, Object?> ||
-        decoded['version'] != EmojiPickerStore.formatVersion) {
+        (decoded['version'] != 1 &&
+            decoded['version'] != EmojiPickerStore.formatVersion)) {
       throw const FormatException('Unsupported emoji picker preferences.');
     }
 
@@ -295,46 +288,40 @@ final class _EmojiPickerPreferences {
     if (rawHistory != null && rawHistory is! Map<Object?, Object?>) {
       throw const FormatException('Invalid emoji picker history.');
     }
-    final history = rawHistory as Map<Object?, Object?>?;
+    final rawHistories = rawHistory as Map<Object?, Object?>?;
+    final histories = <String, List<String>>{};
+    if (rawHistories != null) {
+      for (final entry in rawHistories.entries) {
+        final key = entry.key;
+        if (key is! String || key.isEmpty) {
+          throw const FormatException('Invalid emoji picker context key.');
+        }
+        histories[key] = _decodeHistory(entry.value);
+      }
+    }
 
     return _EmojiPickerPreferences(
       tone: EmojiSkinTone.fromCode(rawTone),
-      topicHistory: _decodeHistory(history?[EmojiPickerContext.topic.name]),
-      chatHistory: _decodeHistory(history?[EmojiPickerContext.chat.name]),
-      postReactionsHistory: _decodeHistory(
-        history?[EmojiPickerContext.postReactions.name],
-      ),
-      userStatusHistory: _decodeHistory(
-        history?[EmojiPickerContext.userStatus.name],
-      ),
+      histories: Map<String, List<String>>.unmodifiable(histories),
     );
   }
 
   final EmojiSkinTone tone;
-  final List<String> topicHistory;
-  final List<String> chatHistory;
-  final List<String> postReactionsHistory;
-  final List<String> userStatusHistory;
+  final Map<String, List<String>> histories;
 
-  List<String> historyFor(EmojiPickerContext context) => switch (context) {
-    EmojiPickerContext.topic => topicHistory,
-    EmojiPickerContext.chat => chatHistory,
-    EmojiPickerContext.postReactions => postReactionsHistory,
-    EmojiPickerContext.userStatus => userStatusHistory,
-  };
+  List<String> historyFor(EmojiUsageContext context) {
+    final current = histories[context.id];
+    if (current != null) return current;
+    final legacyKey = context.legacyStorageKey;
+    return legacyKey == null ? const [] : histories[legacyKey] ?? const [];
+  }
 
   _EmojiPickerPreferences withTone(EmojiSkinTone value) => value == tone
       ? this
-      : _EmojiPickerPreferences(
-          tone: value,
-          topicHistory: topicHistory,
-          chatHistory: chatHistory,
-          postReactionsHistory: postReactionsHistory,
-          userStatusHistory: userStatusHistory,
-        );
+      : _EmojiPickerPreferences(tone: value, histories: histories);
 
   _EmojiPickerPreferences withTrackedEmoji(
-    EmojiPickerContext context,
+    EmojiUsageContext context,
     String emoji,
   ) {
     final tracked = [...historyFor(context), emoji];
@@ -344,52 +331,29 @@ final class _EmojiPickerPreferences {
     return _copyWithHistory(context, List<String>.unmodifiable(tracked));
   }
 
-  _EmojiPickerPreferences withClearedHistory(EmojiPickerContext context) =>
+  _EmojiPickerPreferences withClearedHistory(EmojiUsageContext context) =>
       historyFor(context).isEmpty ? this : _copyWithHistory(context, const []);
 
   _EmojiPickerPreferences _copyWithHistory(
-    EmojiPickerContext context,
+    EmojiUsageContext context,
     List<String> history,
-  ) => switch (context) {
-    EmojiPickerContext.topic => _EmojiPickerPreferences(
+  ) {
+    final updated = Map<String, List<String>>.of(histories);
+    final legacyKey = context.legacyStorageKey;
+    if (legacyKey != null && legacyKey != context.id) {
+      updated.remove(legacyKey);
+    }
+    updated[context.id] = history;
+    return _EmojiPickerPreferences(
       tone: tone,
-      topicHistory: history,
-      chatHistory: chatHistory,
-      postReactionsHistory: postReactionsHistory,
-      userStatusHistory: userStatusHistory,
-    ),
-    EmojiPickerContext.chat => _EmojiPickerPreferences(
-      tone: tone,
-      topicHistory: topicHistory,
-      chatHistory: history,
-      postReactionsHistory: postReactionsHistory,
-      userStatusHistory: userStatusHistory,
-    ),
-    EmojiPickerContext.postReactions => _EmojiPickerPreferences(
-      tone: tone,
-      topicHistory: topicHistory,
-      chatHistory: chatHistory,
-      postReactionsHistory: history,
-      userStatusHistory: userStatusHistory,
-    ),
-    EmojiPickerContext.userStatus => _EmojiPickerPreferences(
-      tone: tone,
-      topicHistory: topicHistory,
-      chatHistory: chatHistory,
-      postReactionsHistory: postReactionsHistory,
-      userStatusHistory: history,
-    ),
-  };
+      histories: Map<String, List<String>>.unmodifiable(updated),
+    );
+  }
 
   String get encoded => jsonEncode({
     'version': EmojiPickerStore.formatVersion,
     'tone': tone.code,
-    'history': {
-      EmojiPickerContext.topic.name: topicHistory,
-      EmojiPickerContext.chat.name: chatHistory,
-      EmojiPickerContext.postReactions.name: postReactionsHistory,
-      EmojiPickerContext.userStatus.name: userStatusHistory,
-    },
+    'history': histories,
   });
 
   static List<String> _decodeHistory(Object? value) {

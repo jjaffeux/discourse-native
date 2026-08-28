@@ -1809,6 +1809,9 @@ class ChatController extends FrameSafeNotifier {
     ]);
   }
 
+  int flagMessageMinimumLength(String siteUrl) =>
+      _siteConfigFor(siteUrl).minPersonalMessagePostLength;
+
   Future<String?> flagMessage(
     String siteUrl,
     int messageId,
@@ -1825,7 +1828,7 @@ class ChatController extends FrameSafeNotifier {
       return 'This flag reason is no longer available.';
     }
     final submittedMessage = flagType.requireMessage ? message ?? '' : null;
-    final minimum = _siteConfigFor(siteUrl).minPersonalMessagePostLength;
+    final minimum = flagMessageMinimumLength(siteUrl);
     final length = submittedMessage?.length ?? 0;
     if (flagType.requireMessage &&
         (length < minimum || length > PostFlagType.maximumMessageLength)) {

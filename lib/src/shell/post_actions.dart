@@ -215,13 +215,22 @@ class _PostActionsState extends State<PostActions> {
   /// An optional site feature can add its own, and can take the place of Like
   /// where it has taken over what liking means. That is gated on the post's own
   /// payload, so it too is an answer the site gave.
-  List<PostAction> _actions(BuildContext context, ShellController controller) {
+  ({List<PostAction> actions, Listenable? rebuildOn}) _actions(
+    BuildContext context,
+    ShellController controller,
+  ) {
     final post = widget.post;
     final topic = controller.currentTopic;
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
-    final contribution = registry.postMenu(context, widget.siteUrl, post);
     final instance = controller.currentInstance;
+    final contribution = registry.postMenu(
+      context,
+      widget.siteUrl,
+      post,
+      topic: topic,
+      currentUser: instance?.url == widget.siteUrl ? instance?.user : null,
+    );
     final availableFlags =
         instance?.url == widget.siteUrl && instance?.isConnected == true
         ? controller.availablePostFlagTypes(widget.siteUrl, post)
@@ -243,267 +252,275 @@ class _PostActionsState extends State<PostActions> {
         ((post.userId != null && post.userId == currentUser.id) ||
             post.username.toLowerCase() == currentUser.username.toLowerCase());
 
-    return [
-      // First, and furthest from Delete: it is the one thing here people do
-      // over and over while reading, and the only one they do without meaning
-      // to change anything.
-      ...contribution.entries,
-      // Offered only while it would do something. A post already liked past
-      // the site's undo window keeps its filled heart in the count underneath,
-      // which says the same thing without a button that refuses.
-      if (!contribution.replacesLike && post.canToggleLike)
-        PostAction(
-          icon: post.liked ? DIcons.heart : DIcons.farHeart,
-          placement: PostActionPlacement.toolbar,
-          label: post.liked ? 'Remove like' : 'Like',
-          tooltip: post.liked ? 'Remove your like' : 'Like this post',
-          tint: post.liked ? Theme.of(context).discourse.love : null,
-          onInvoke: () => _report(
-            controller,
-            controller.toggleLike(post, siteUrl: widget.siteUrl),
+    return (
+      actions: [
+        // First, and furthest from Delete: it is the one thing here people do
+        // over and over while reading, and the only one they do without meaning
+        // to change anything.
+        ...contribution.entries,
+        // Offered only while it would do something. A post already liked past
+        // the site's undo window keeps its filled heart in the count underneath,
+        // which says the same thing without a button that refuses.
+        if (!contribution.replacesLike && post.canToggleLike)
+          PostAction(
+            icon: post.liked ? DIcons.heart : DIcons.farHeart,
+            placement: PostActionPlacement.toolbar,
+            label: post.liked ? 'Remove like' : 'Like',
+            tooltip: post.liked ? 'Remove your like' : 'Like this post',
+            tint: post.liked ? Theme.of(context).discourse.love : null,
+            onInvoke: () => _report(
+              controller,
+              controller.toggleLike(post, siteUrl: widget.siteUrl),
+            ),
           ),
-        ),
-      if (controller.currentInstance?.url == widget.siteUrl &&
-          controller.currentInstance?.user != null &&
-          topic != null)
-        PostAction(
-          icon: switch (post.bookmark?.reminderAt) {
-            final DateTime _ => DIcons.discourseBookmarkClock,
-            null when post.bookmark != null => DIcons.bookmark,
-            null => DIcons.farBookmark,
-          },
-          label: post.bookmark == null ? 'Bookmark' : 'Edit bookmark',
-          // Core promotes an existing bookmark out of its collapsed set.
-          placement: post.bookmark == null
-              ? PostActionPlacement.overflow
-              : PostActionPlacement.toolbar,
-          tooltip: post.bookmark == null
-              ? 'Bookmark this post'
-              : 'Edit this post bookmark',
-          enabled: !controller.bookmarkWriteInFlight(
-            siteUrl: widget.siteUrl,
-            topicId: topic.id,
-            targetType: BookmarkTargetType.post,
-            targetId: post.id,
-          ),
-          onInvoke: () => unawaited(
-            showPostBookmarkMenu(
-              context: context,
-              controller: controller,
+        if (controller.currentInstance?.url == widget.siteUrl &&
+            controller.currentInstance?.user != null &&
+            topic != null)
+          PostAction(
+            icon: switch (post.bookmark?.reminderAt) {
+              final DateTime _ => DIcons.discourseBookmarkClock,
+              null when post.bookmark != null => DIcons.bookmark,
+              null => DIcons.farBookmark,
+            },
+            label: post.bookmark == null ? 'Bookmark' : 'Edit bookmark',
+            // Core promotes an existing bookmark out of its collapsed set.
+            placement: post.bookmark == null
+                ? PostActionPlacement.overflow
+                : PostActionPlacement.toolbar,
+            tooltip: post.bookmark == null
+                ? 'Bookmark this post'
+                : 'Edit this post bookmark',
+            enabled: !controller.bookmarkWriteInFlight(
               siteUrl: widget.siteUrl,
               topicId: topic.id,
-              post: post,
+              targetType: BookmarkTargetType.post,
+              targetId: post.id,
             ),
-          ),
-        ),
-      if (postUrl case final url?)
-        PostAction(
-          icon: DIcons.upRightFromSquare,
-          // Share is not in Core's default post_menu (Copy link is), but keep
-          // the native sharing surface available through More actions.
-          placement: PostActionPlacement.overflow,
-          label: 'Share',
-          tooltip: 'Share this post',
-          onInvoke: () => unawaited(
-            showPostShareSheet(
-              context: context,
-              topicTitle: topicTitle!,
-              url: url,
-              postNumber: post.postNumber,
-              onReplyAsNewTopic: topic?.canReplyAsNewTopic == true
-                  ? () => controller.openReplyAsNewTopic(
-                      topicContinuationMarkdown(
-                        title: topic!.title,
-                        url: _postCanonicalUrl(controller)!,
-                      ),
-                    )
-                  : null,
-            ),
-          ),
-        ),
-      if (postUrl case final url?)
-        PostAction(
-          icon: DIcons.link,
-          placement: PostActionPlacement.toolbar,
-          label: 'Copy link',
-          tooltip: 'Copy a link to this post to clipboard',
-          onInvoke: () => _copyLink(controller, url),
-        ),
-      if (controller.canReplyHere)
-        PostAction(
-          icon: DIcons.reply,
-          placement: PostActionPlacement.trailing,
-          label: 'Reply',
-          tooltip: 'Reply to this post',
-          onInvoke: () => controller.openReply(
-            replyToPostNumber: post.postNumber,
-            replyToUsername: post.username,
-          ),
-        ),
-      if (post.canEdit)
-        PostAction(
-          icon: DIcons.pencil,
-          // Core keeps an author's own Edit button visible and also promotes
-          // Edit for wiki posts; staff editing somebody else's post expand it.
-          placement: ownsPost || post.wiki
-              ? PostActionPlacement.toolbar
-              : PostActionPlacement.overflow,
-          label: 'Edit',
-          tooltip: 'Edit this post',
-          onInvoke: () => controller.openEdit(post),
-        ),
-      if (post.canWiki)
-        PostAction(
-          icon: DIcons.farPenToSquare,
-          placement: PostActionPlacement.overflow,
-          label: post.wiki ? 'Remove wiki' : 'Make wiki',
-          tooltip: post.wiki
-              ? 'Return this to ordinary post editing'
-              : 'Allow community members to edit this post',
-          onInvoke: () =>
-              _report(controller, controller.setPostWiki(post, !post.wiki)),
-        ),
-      if (controller.canLockPost(post))
-        PostAction(
-          icon: post.locked ? DIcons.unlock : DIcons.lock,
-          placement: PostActionPlacement.overflow,
-          label: post.locked ? 'Unlock post' : 'Lock post',
-          tooltip: post.locked
-              ? 'Allow this post to be edited again'
-              : 'Prevent further edits to this post',
-          onInvoke: () =>
-              _report(controller, controller.setPostLocked(post, !post.locked)),
-        ),
-      if (availableFlags.isNotEmpty)
-        PostAction(
-          icon: DIcons.flag,
-          placement: PostActionPlacement.overflow,
-          label: 'Flag',
-          tooltip: 'Privately flag this post for attention',
-          onInvoke: () => showPostFlagEditor(
-            context: context,
-            siteUrl: widget.siteUrl,
-            post: post,
-            flagTypes: availableFlags,
-          ),
-        )
-      else if (anonymousReportEmail != null &&
-          postUrl != null &&
-          topicTitle != null)
-        PostAction(
-          icon: DIcons.flag,
-          placement: PostActionPlacement.overflow,
-          label: 'Report illegal content',
-          tooltip: 'Report illegal content by email',
-          onInvoke: () => showAnonymousIllegalContentDialog(
-            context: context,
-            email: anonymousReportEmail,
-            topicTitle: topicTitle,
-            postUrl: postUrl,
-          ),
-        ),
-      if (controller.canUnhidePost(post))
-        PostAction(
-          icon: DIcons.farEye,
-          placement: PostActionPlacement.overflow,
-          label: 'Unhide post',
-          tooltip: 'Restore this hidden post',
-          onInvoke: () => _report(controller, controller.unhidePost(post)),
-        ),
-      if (controller.canTogglePostType(post))
-        PostAction(
-          icon: DIcons.flag,
-          placement: PostActionPlacement.overflow,
-          label: post.isModeratorAction
-              ? 'Revert to regular post'
-              : 'Convert to moderator post',
-          tooltip: post.isModeratorAction
-              ? 'Remove the moderator styling from this post'
-              : 'Mark this as an official moderator post',
-          onInvoke: () => _report(controller, controller.togglePostType(post)),
-        ),
-      if (controller.canEditPostNotice(post))
-        PostAction(
-          icon: DIcons.user,
-          placement: PostActionPlacement.overflow,
-          label: post.notice == null ? 'Add post notice' : 'Change post notice',
-          tooltip: post.notice == null
-              ? 'Add a staff notice above this post'
-              : 'Change or remove the staff notice',
-          onInvoke: () => showPostNoticeEditor(
-            context: context,
-            controller: controller,
-            post: post,
-          ),
-        ),
-      if (controller.canChangeTopicPostOwner(post))
-        PostAction(
-          icon: DIcons.user,
-          placement: PostActionPlacement.overflow,
-          label: 'Change owner',
-          tooltip: 'Assign this post to another account',
-          onInvoke: () {
-            final topic = controller.currentTopic;
-            if (topic == null) return;
-            unawaited(
-              showTopicChangeOwner(
+            onInvoke: () => unawaited(
+              showPostBookmarkMenu(
                 context: context,
                 controller: controller,
                 siteUrl: widget.siteUrl,
                 topicId: topic.id,
-                selectedPosts: [post],
-                usesTopicSelection: false,
+                post: post,
               ),
-            );
-          },
-        ),
-      if (post.postNumber == 1 &&
-          controller.currentTopic?.canEdit != true &&
-          controller.currentTopic?.canEditTags == true)
-        PostAction(
-          icon: DIcons.tag,
-          placement: PostActionPlacement.overflow,
-          label: 'Edit tags',
-          tooltip: 'Edit topic tags',
-          onInvoke: controller.openTagsEdit,
-        ),
-      if (controller.canPermanentlyDeletePost(post))
-        PostAction(
-          icon: DIcons.trashCan,
-          placement: PostActionPlacement.overflow,
-          label: 'Permanently delete',
-          tooltip: 'Permanently delete this post',
-          destructive: true,
-          onInvoke: () => unawaited(
-            showPostPermanentDelete(
+            ),
+          ),
+        if (postUrl case final url?)
+          PostAction(
+            icon: DIcons.upRightFromSquare,
+            // Share is not in Core's default post_menu (Copy link is), but keep
+            // the native sharing surface available through More actions.
+            placement: PostActionPlacement.overflow,
+            label: 'Share',
+            tooltip: 'Share this post',
+            onInvoke: () => unawaited(
+              showPostShareSheet(
+                context: context,
+                topicTitle: topicTitle!,
+                url: url,
+                postNumber: post.postNumber,
+                onReplyAsNewTopic: topic?.canReplyAsNewTopic == true
+                    ? () => controller.openReplyAsNewTopic(
+                        topicContinuationMarkdown(
+                          title: topic!.title,
+                          url: _postCanonicalUrl(controller)!,
+                        ),
+                      )
+                    : null,
+              ),
+            ),
+          ),
+        if (postUrl case final url?)
+          PostAction(
+            icon: DIcons.link,
+            placement: PostActionPlacement.toolbar,
+            label: 'Copy link',
+            tooltip: 'Copy a link to this post to clipboard',
+            onInvoke: () => _copyLink(controller, url),
+          ),
+        if (controller.canReplyHere)
+          PostAction(
+            icon: DIcons.reply,
+            placement: PostActionPlacement.trailing,
+            label: 'Reply',
+            tooltip: 'Reply to this post',
+            onInvoke: () => controller.openReply(
+              replyToPostNumber: post.postNumber,
+              replyToUsername: post.username,
+            ),
+          ),
+        if (post.canEdit)
+          PostAction(
+            icon: DIcons.pencil,
+            // Core keeps an author's own Edit button visible and also promotes
+            // Edit for wiki posts; staff editing somebody else's post expand it.
+            placement: ownsPost || post.wiki
+                ? PostActionPlacement.toolbar
+                : PostActionPlacement.overflow,
+            label: 'Edit',
+            tooltip: 'Edit this post',
+            onInvoke: () => controller.openEdit(post),
+          ),
+        if (post.canWiki)
+          PostAction(
+            icon: DIcons.farPenToSquare,
+            placement: PostActionPlacement.overflow,
+            label: post.wiki ? 'Remove wiki' : 'Make wiki',
+            tooltip: post.wiki
+                ? 'Return this to ordinary post editing'
+                : 'Allow community members to edit this post',
+            onInvoke: () =>
+                _report(controller, controller.setPostWiki(post, !post.wiki)),
+          ),
+        if (controller.canLockPost(post))
+          PostAction(
+            icon: post.locked ? DIcons.unlock : DIcons.lock,
+            placement: PostActionPlacement.overflow,
+            label: post.locked ? 'Unlock post' : 'Lock post',
+            tooltip: post.locked
+                ? 'Allow this post to be edited again'
+                : 'Prevent further edits to this post',
+            onInvoke: () => _report(
+              controller,
+              controller.setPostLocked(post, !post.locked),
+            ),
+          ),
+        if (availableFlags.isNotEmpty)
+          PostAction(
+            icon: DIcons.flag,
+            placement: PostActionPlacement.overflow,
+            label: 'Flag',
+            tooltip: 'Privately flag this post for attention',
+            onInvoke: () => showPostFlagEditor(
+              context: context,
+              siteUrl: widget.siteUrl,
+              post: post,
+              flagTypes: availableFlags,
+            ),
+          )
+        else if (anonymousReportEmail != null &&
+            postUrl != null &&
+            topicTitle != null)
+          PostAction(
+            icon: DIcons.flag,
+            placement: PostActionPlacement.overflow,
+            label: 'Report illegal content',
+            tooltip: 'Report illegal content by email',
+            onInvoke: () => showAnonymousIllegalContentDialog(
+              context: context,
+              email: anonymousReportEmail,
+              topicTitle: topicTitle,
+              postUrl: postUrl,
+            ),
+          ),
+        if (controller.canUnhidePost(post))
+          PostAction(
+            icon: DIcons.farEye,
+            placement: PostActionPlacement.overflow,
+            label: 'Unhide post',
+            tooltip: 'Restore this hidden post',
+            onInvoke: () => _report(controller, controller.unhidePost(post)),
+          ),
+        if (controller.canTogglePostType(post))
+          PostAction(
+            icon: DIcons.flag,
+            placement: PostActionPlacement.overflow,
+            label: post.isModeratorAction
+                ? 'Revert to regular post'
+                : 'Convert to moderator post',
+            tooltip: post.isModeratorAction
+                ? 'Remove the moderator styling from this post'
+                : 'Mark this as an official moderator post',
+            onInvoke: () =>
+                _report(controller, controller.togglePostType(post)),
+          ),
+        if (controller.canEditPostNotice(post))
+          PostAction(
+            icon: DIcons.user,
+            placement: PostActionPlacement.overflow,
+            label: post.notice == null
+                ? 'Add post notice'
+                : 'Change post notice',
+            tooltip: post.notice == null
+                ? 'Add a staff notice above this post'
+                : 'Change or remove the staff notice',
+            onInvoke: () => showPostNoticeEditor(
               context: context,
               controller: controller,
               post: post,
             ),
           ),
-        ),
-      if (post.canRecover)
-        PostAction(
-          icon: DIcons.arrowRotateLeft,
-          placement: PostActionPlacement.overflow,
-          label: 'Undelete',
-          tooltip: 'Put this post back',
-          onInvoke: () => _report(controller, controller.recoverPost(post)),
-        )
-      else if (post.canDelete)
-        PostAction(
-          icon: DIcons.trashCan,
-          placement: PostActionPlacement.overflow,
-          label: 'Delete',
-          tooltip: 'Delete this post',
-          destructive: true,
-          // Unconfirmed: a deleted post stays in the stream with Undelete in
-          // place of Delete, so the undo is one click away in the same menu —
-          // which is a better answer to a misclick than a dialog on every
-          // deliberate one.
-          onInvoke: () => _report(controller, controller.deletePost(post)),
-        ),
-    ];
+        if (controller.canChangeTopicPostOwner(post))
+          PostAction(
+            icon: DIcons.user,
+            placement: PostActionPlacement.overflow,
+            label: 'Change owner',
+            tooltip: 'Assign this post to another account',
+            onInvoke: () {
+              final topic = controller.currentTopic;
+              if (topic == null) return;
+              unawaited(
+                showTopicChangeOwner(
+                  context: context,
+                  controller: controller,
+                  siteUrl: widget.siteUrl,
+                  topicId: topic.id,
+                  selectedPosts: [post],
+                  usesTopicSelection: false,
+                ),
+              );
+            },
+          ),
+        if (post.postNumber == 1 &&
+            controller.currentTopic?.canEdit != true &&
+            controller.currentTopic?.canEditTags == true)
+          PostAction(
+            icon: DIcons.tag,
+            placement: PostActionPlacement.overflow,
+            label: 'Edit tags',
+            tooltip: 'Edit topic tags',
+            onInvoke: controller.openTagsEdit,
+          ),
+        if (controller.canPermanentlyDeletePost(post))
+          PostAction(
+            icon: DIcons.trashCan,
+            placement: PostActionPlacement.overflow,
+            label: 'Permanently delete',
+            tooltip: 'Permanently delete this post',
+            destructive: true,
+            onInvoke: () => unawaited(
+              showPostPermanentDelete(
+                context: context,
+                controller: controller,
+                post: post,
+              ),
+            ),
+          ),
+        if (post.canRecover)
+          PostAction(
+            icon: DIcons.arrowRotateLeft,
+            placement: PostActionPlacement.overflow,
+            label: 'Undelete',
+            tooltip: 'Put this post back',
+            onInvoke: () => _report(controller, controller.recoverPost(post)),
+          )
+        else if (post.canDelete)
+          PostAction(
+            icon: DIcons.trashCan,
+            placement: PostActionPlacement.overflow,
+            label: 'Delete',
+            tooltip: 'Delete this post',
+            destructive: true,
+            // Unconfirmed: a deleted post stays in the stream with Undelete in
+            // place of Delete, so the undo is one click away in the same menu —
+            // which is a better answer to a misclick than a dialog on every
+            // deliberate one.
+            onInvoke: () => _report(controller, controller.deletePost(post)),
+          ),
+      ],
+      rebuildOn: contribution.rebuildOn,
+    );
   }
 
   /// Core's canonical post URL. The opening post names the topic itself;
@@ -651,7 +668,20 @@ class _PostActionsState extends State<PostActions> {
   }
 
   Widget _buildActions(BuildContext context) {
-    final actions = _actions(context, ShellScope.read(context));
+    final snapshot = _actions(context, ShellScope.read(context));
+    if (snapshot.rebuildOn case final rebuildOn?) {
+      return ListenableBuilder(
+        listenable: rebuildOn,
+        builder: (context, _) => _buildActionList(
+          context,
+          _actions(context, ShellScope.read(context)).actions,
+        ),
+      );
+    }
+    return _buildActionList(context, snapshot.actions);
+  }
+
+  Widget _buildActionList(BuildContext context, List<PostAction> actions) {
     // Nothing this reader may do: no menu, and no hover target for one.
     if (actions.isEmpty) return widget.child;
 

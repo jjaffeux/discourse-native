@@ -371,7 +371,12 @@ void main() {
           stream: [1, 2, 3, 4, 5, 6],
           postsCount: 6,
           recommendations: TopicRecommendations(
-            suggested: [Topic(id: 2, title: 'Suggested', slug: 'suggested')],
+            sources: [
+              TopicRecommendationSource(
+                definition: coreSuggestedTopicRecommendationSource,
+                topics: [Topic(id: 2, title: 'Suggested', slug: 'suggested')],
+              ),
+            ],
           ),
         ),
       )

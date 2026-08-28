@@ -8,6 +8,8 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
+import 'package:discourse_native/src/plugin_api/notification_feed_host.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
 import 'package:discourse_native/src/shell/account_activity_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -64,7 +66,7 @@ _NotificationFeedKind _notificationFeedKind(
   if (_sameKinds(filterByTypes, userMenuReplyNotificationKinds)) {
     return _NotificationFeedKind.replies;
   }
-  if (_sameKinds(filterByTypes, userMenuChatNotificationKinds)) {
+  if (_sameKinds(filterByTypes, chatNotificationFeed.filterByTypes)) {
     return _NotificationFeedKind.chat;
   }
   throw StateError('Unexpected notification filter: $filterByTypes');
@@ -255,7 +257,7 @@ void main() {
       await Future.wait([
         controller.loadNotifications(connected),
         controller.loadReplyNotifications(connected),
-        controller.loadChatNotifications(connected),
+        controller.loadPluginNotifications(connected, chatNotificationFeed),
         controller.loadBookmarks(connected),
       ]);
 
@@ -265,9 +267,12 @@ void main() {
       expect(controller.replyNotificationsFor(_siteUrl).notifications, const [
         _secondReply,
       ]);
-      expect(controller.chatNotificationsFor(_siteUrl).notifications, const [
-        _chatNotification,
-      ]);
+      expect(
+        controller
+            .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
+            .notifications,
+        const [_chatNotification],
+      );
       expect(controller.bookmarksFor(_siteUrl).reminders, const [
         _notification,
       ]);
@@ -275,6 +280,28 @@ void main() {
       expect(api.bookmarksRequested, ['sam']);
     },
   );
+
+  test('conflicting plugin feed definitions cannot share state', () async {
+    final api = _AccountApi(chatNotificationList: const [_chatNotification]);
+    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+    final controller = _controller(api, credentials);
+    addTearDown(controller.dispose);
+    final connected = _connectedInstance();
+
+    await controller.loadPluginNotifications(connected, chatNotificationFeed);
+
+    final conflicting = PluginNotificationFeedSource(
+      id: chatNotificationFeed.id,
+      filterByTypes: const [NotificationKind.replied],
+      reconnectMessage: 'Reconnect.',
+      failureMessage: 'Failed.',
+      emptyMessage: 'Empty.',
+    );
+    await expectLater(
+      controller.loadPluginNotifications(connected, conflicting),
+      throwsStateError,
+    );
+  });
 
   test('a forced bookmark load replays behind an older request', () async {
     final api = _SequencedBookmarksApi(2);
@@ -330,9 +357,9 @@ void main() {
     controller.replyNotificationsListenable.addListener(
       () => replyNotificationChanges++,
     );
-    controller.chatNotificationsListenable.addListener(
-      () => chatNotificationChanges++,
-    );
+    controller
+        .pluginNotificationsListenable(chatNotificationFeed.id)
+        .addListener(() => chatNotificationChanges++);
     controller.bookmarksListenable.addListener(() => bookmarkChanges++);
     controller.userActivityListenable.addListener(() => userActivityChanges++);
 
@@ -345,7 +372,10 @@ void main() {
     expect(bookmarkChanges, 0);
     expect(userActivityChanges, 0);
 
-    await controller.loadChatNotifications(_connectedInstance());
+    await controller.loadPluginNotifications(
+      _connectedInstance(),
+      chatNotificationFeed,
+    );
 
     expect(totalsChanges, 0);
     expect(notificationChanges, 2);
@@ -408,13 +438,19 @@ void main() {
       final controller = _controller(api, credentials);
       addTearDown(controller.dispose);
 
-      final first = controller.loadChatNotifications(_connectedInstance());
-      final second = controller.loadChatNotifications(_connectedInstance());
+      final first = controller.loadPluginNotifications(
+        _connectedInstance(),
+        chatNotificationFeed,
+      );
+      final second = controller.loadPluginNotifications(
+        _connectedInstance(),
+        chatNotificationFeed,
+      );
       await Future<void>.delayed(Duration.zero);
 
       expect(second, same(first));
       expect(api.calls, 1);
-      expect(api.filters.single, userMenuChatNotificationKinds);
+      expect(api.filters.single, chatNotificationFeed.filterByTypes);
       gate.complete();
       await Future.wait([first, second]);
     },
@@ -820,7 +856,7 @@ void main() {
       final connected = _connectedInstance();
       await controller.loadNotifications(connected);
       await controller.loadReplyNotifications(connected);
-      await controller.loadChatNotifications(connected);
+      await controller.loadPluginNotifications(connected, chatNotificationFeed);
       await controller.loadBookmarks(connected);
 
       controller.readNotification(connected, _notification);
@@ -834,7 +870,11 @@ void main() {
         isTrue,
       );
       expect(
-        controller.chatNotificationsFor(_siteUrl).notifications.single.read,
+        controller
+            .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
+            .notifications
+            .single
+            .read,
         isTrue,
       );
       expect(controller.bookmarksFor(_siteUrl).reminders.single.read, isTrue);
@@ -853,14 +893,14 @@ void main() {
     await Future.wait([
       controller.loadNotifications(connected),
       controller.loadReplyNotifications(connected),
-      controller.loadChatNotifications(connected),
+      controller.loadPluginNotifications(connected, chatNotificationFeed),
       controller.loadBookmarks(connected),
     ]);
 
     final refreshes = Future.wait([
       controller.loadNotifications(connected),
       controller.loadReplyNotifications(connected),
-      controller.loadChatNotifications(connected),
+      controller.loadPluginNotifications(connected, chatNotificationFeed),
       controller.loadBookmarks(connected),
     ]);
     await Future.wait([
@@ -886,7 +926,11 @@ void main() {
       isTrue,
     );
     expect(
-      controller.chatNotificationsFor(_siteUrl).notifications.single.read,
+      controller
+          .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
+          .notifications
+          .single
+          .read,
       isTrue,
     );
     expect(controller.bookmarksFor(_siteUrl).reminders.single.read, isTrue);
@@ -903,7 +947,7 @@ void main() {
       await Future.wait([
         controller.loadNotifications(connected),
         controller.loadReplyNotifications(connected),
-        controller.loadChatNotifications(connected),
+        controller.loadPluginNotifications(connected, chatNotificationFeed),
         controller.loadBookmarks(connected),
       ]);
 
@@ -913,7 +957,7 @@ void main() {
       await Future.wait([
         controller.loadNotifications(connected),
         controller.loadReplyNotifications(connected),
-        controller.loadChatNotifications(connected),
+        controller.loadPluginNotifications(connected, chatNotificationFeed),
         controller.loadBookmarks(connected),
       ]);
 
@@ -930,7 +974,11 @@ void main() {
         isTrue,
       );
       expect(
-        controller.chatNotificationsFor(_siteUrl).notifications.single.isUnread,
+        controller
+            .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
+            .notifications
+            .single
+            .isUnread,
         isTrue,
       );
       expect(
@@ -954,7 +1002,7 @@ void main() {
     final connected = _connectedInstance();
     await controller.loadNotifications(connected);
     await controller.loadReplyNotifications(connected);
-    await controller.loadChatNotifications(connected);
+    await controller.loadPluginNotifications(connected, chatNotificationFeed);
     await controller.loadBookmarks(connected);
 
     var notificationChanges = 0;
@@ -965,9 +1013,9 @@ void main() {
     controller.replyNotificationsListenable.addListener(
       () => replyNotificationChanges++,
     );
-    controller.chatNotificationsListenable.addListener(
-      () => chatNotificationChanges++,
-    );
+    controller
+        .pluginNotificationsListenable(chatNotificationFeed.id)
+        .addListener(() => chatNotificationChanges++);
     controller.bookmarksListenable.addListener(() => bookmarkChanges++);
 
     controller.readNotification(connected, _notification);
@@ -1108,14 +1156,22 @@ void main() {
       final controller = _controller(api, credentials, lifecycle: lifecycle);
       addTearDown(controller.dispose);
 
-      final loading = controller.loadChatNotifications(_connectedInstance());
+      final loading = controller.loadPluginNotifications(
+        _connectedInstance(),
+        chatNotificationFeed,
+      );
       await Future<void>.delayed(Duration.zero);
       lifecycle.invalidate(_siteUrl);
       controller.forget(_siteUrl);
       gate.complete();
       await loading;
 
-      expect(controller.chatNotificationsFor(_siteUrl).loaded, isFalse);
+      expect(
+        controller
+            .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
+            .loaded,
+        isFalse,
+      );
     },
   );
 
@@ -1178,8 +1234,10 @@ void main() {
         ),
         (
           name: 'chat notification request',
-          begin: (controller, instance) =>
-              controller.loadChatNotifications(instance),
+          begin: (controller, instance) => controller.loadPluginNotifications(
+            instance,
+            chatNotificationFeed,
+          ),
         ),
         (
           name: 'bookmark request',

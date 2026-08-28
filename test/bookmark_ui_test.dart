@@ -155,7 +155,7 @@ void main() {
             onPressed: () => unawaited(
               showBookmarkEditor(
                 context: context,
-                controller: controller,
+                controller: controller.bookmarkTarget(BookmarkTargetType.post),
                 siteUrl: _site,
                 topicId: 7,
                 bookmark: bookmark,

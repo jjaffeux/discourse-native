@@ -19,6 +19,8 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
 import 'package:discourse_native/src/plugins/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api_client.dart';
@@ -1166,7 +1168,7 @@ void _authGroups() {
       final chat = await api.notifications(
         siteUrl: 'https://meta.discourse.org',
         apiKey: 'the-key',
-        filterByTypes: userMenuChatNotificationKinds,
+        filterByTypes: chatNotificationFeed.filterByTypes,
       );
 
       expect(url?.path, '/notifications.json');
@@ -5648,6 +5650,7 @@ void _writeGroups() {
     test('asks for and parses more topics on a final post window', () async {
       late Uri asked;
       final api = DiscourseApi(
+        models: DiscourseModelCodec(extensions: pluginRegistry),
         client: MockClient((request) async {
           asked = request.url;
           return http.Response(
@@ -5682,8 +5685,22 @@ void _writeGroups() {
 
       expect(asked.query, contains('include_suggested=true'));
       expect(page.posts.single.id, 20);
-      expect(page.recommendations!.suggested.single.id, 30);
-      expect(page.recommendations!.related.single.id, 40);
+      expect(
+        page.recommendations!
+            .source(coreSuggestedTopicRecommendationSourceId)!
+            .topics
+            .single
+            .id,
+        30,
+      );
+      expect(
+        page.recommendations!
+            .source(discourseAiRelatedTopicRecommendationSourceId)!
+            .topics
+            .single
+            .id,
+        40,
+      );
     });
   });
 
@@ -7438,7 +7455,7 @@ void _writeGroups() {
         siteUrl: 'https://meta.discourse.org',
         apiKey: 'key',
         file: _uploadFile,
-        uploadType: ComposerUploadType.chatComposer,
+        uploadType: const ComposerUploadType('chat-composer'),
         onProgress: (_) {},
         abortTrigger: Completer<void>().future,
       );

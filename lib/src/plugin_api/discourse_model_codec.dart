@@ -26,6 +26,11 @@ final class DiscourseModelCodec {
   TopicPayload topic(Map<String, dynamic> json, String siteUrl) =>
       TopicDetail.parse(json, siteUrl, extensions: extensions);
 
+  TopicRecommendations? topicRecommendations(
+    Map<String, dynamic> json,
+    String siteUrl,
+  ) => TopicRecommendations.fromJson(json, siteUrl, extensions: extensions);
+
   UserCard userCard(Map<String, dynamic> json, String siteUrl) =>
       UserCard.fromJson(json, siteUrl, extensions: extensions);
 

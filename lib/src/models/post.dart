@@ -592,9 +592,9 @@ typedef TopicPayload = ({TopicDetail detail, List<Post> posts});
 
 /// A page of posts and the more-topics payload attached to the final page.
 ///
-/// Core sends `suggested_topics` there; discourse-ai adds `related_topics` to
-/// the same response. [recommendations] is null before the end rather than an
-/// empty value, so a partial refetch cannot erase recommendations already held.
+/// Core and installed plugins may each attach a source to the same response.
+/// [recommendations] is null before the end rather than an empty value, so a
+/// partial refetch cannot erase recommendations already held.
 typedef TopicPostsPayload = ({
   List<Post> posts,
   TopicRecommendations? recommendations,

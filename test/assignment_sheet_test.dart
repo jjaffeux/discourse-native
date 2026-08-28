@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/shell_sheet.dart';
@@ -502,6 +503,7 @@ Future<ShellController> _openAssignmentEditor(
     authenticator: authenticator,
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
+    plugins: installedPlugins,
   );
   await tester.pumpWidget(
     MaterialApp(

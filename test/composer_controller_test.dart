@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_parser.dart';
+import 'package:discourse_native/src/plugins/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_triggers.dart';
@@ -762,13 +765,19 @@ const _target = ComposerTarget(
   topicTitle: 'A topic',
 );
 
-const _chatTarget = ComposerTarget(
+final _chatTarget = ComposerTarget.plugin(
   siteUrl: 'https://meta.discourse.org',
-  topicId: 0,
-  slug: '',
   topicTitle: 'Chat',
-  chatChannelId: 9,
-  mode: ComposerMode.chat,
+  policy: const ChatPlugin().createComposerTarget(
+    const ComposerTargetRequest(
+      kind: ChatPlugin.messageComposerTarget,
+      siteUrl: 'https://meta.discourse.org',
+      title: 'Chat',
+      data: {ChatPlugin.composerChannelId: 9},
+    ),
+    const ComposerTargetContext(config: SiteConfig(), currentUser: null),
+  ),
+  data: const {ChatPlugin.composerChannelId: 9},
 );
 
 TextEditingValue _typed(String text) => TextEditingValue(

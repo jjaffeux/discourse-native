@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/data/emoji_picker_store.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
+import 'package:discourse_native/src/plugins/chat/chat_emoji_usage.dart';
 import 'package:discourse_native/src/shell/emoji_picker.dart';
 import 'package:discourse_native/src/shell/emoji_picker_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -77,7 +79,7 @@ void main() {
                   selected = await showEmojiPicker(
                     context: context,
                     siteUrl: _siteUrl,
-                    pickerContext: EmojiPickerContext.topic,
+                    pickerContext: CoreEmojiUsageContexts.topic,
                     store: store,
                     loadCatalog: ({refresh = false}) async => _catalog,
                     loadSearchAliases: ({refresh = false}) async => const {},
@@ -161,7 +163,7 @@ void main() {
                 showEmojiPicker(
                   context: context,
                   siteUrl: _siteUrl,
-                  pickerContext: EmojiPickerContext.chat,
+                  pickerContext: chatEmojiUsageContext,
                   store: EmojiPickerStore(persistence: _MemoryPersistence()),
                   loadCatalog: ({refresh = false}) async => _catalog,
                   loadSearchAliases: ({refresh = false}) async => const {},
@@ -222,7 +224,7 @@ void main() {
                               context: anchorContext,
                               anchorContext: anchorContext,
                               siteUrl: _siteUrl,
-                              pickerContext: EmojiPickerContext.topic,
+                              pickerContext: CoreEmojiUsageContexts.topic,
                               store: EmojiPickerStore(
                                 persistence: _MemoryPersistence(),
                               ),
@@ -263,12 +265,12 @@ void main() {
     final store = EmojiPickerStore(persistence: _MemoryPersistence());
     await store.trackEmoji(
       siteUrl: _siteUrl,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       emoji: 'smile',
     );
     final controller = EmojiPickerController(
       siteUrl: _siteUrl,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       store: store,
       loadCatalog: ({refresh = false}) async => _catalog,
       loadSearchAliases: ({refresh = false}) async => const {},
@@ -323,7 +325,7 @@ void main() {
   ) async {
     final controller = EmojiPickerController(
       siteUrl: _siteUrl,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       store: EmojiPickerStore(persistence: _MemoryPersistence()),
       loadCatalog: ({refresh = false}) async => _catalog,
       loadSearchAliases: ({refresh = false}) async => const {},

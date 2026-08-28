@@ -2,8 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/emoji_picker_store.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
+import 'package:discourse_native/src/plugins/chat/chat_emoji_usage.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_emoji_usage.dart';
+import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -23,7 +29,7 @@ void main() {
       await first.writeSkinTone(siteUrl: '$meta/', tone: EmojiSkinTone.t5);
       await first.trackEmoji(
         siteUrl: meta,
-        context: EmojiPickerContext.topic,
+        context: CoreEmojiUsageContexts.topic,
         emoji: ':wave:t3:',
       );
 
@@ -35,7 +41,7 @@ void main() {
       expect(
         await reloaded.favoriteEmojiCodes(
           siteUrl: meta,
-          context: EmojiPickerContext.topic,
+          context: CoreEmojiUsageContexts.topic,
           catalog: _catalog(['wave']),
         ),
         ['wave:t3'],
@@ -71,7 +77,7 @@ void main() {
 
     await store.trackEmoji(
       siteUrl: meta,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       emoji: ':smile:',
     );
 
@@ -81,7 +87,7 @@ void main() {
     persistence.failReads = false;
     await store.trackEmoji(
       siteUrl: meta,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       emoji: ':smile:',
     );
 
@@ -101,7 +107,7 @@ void main() {
     ]) {
       await store.trackEmoji(
         siteUrl: meta,
-        context: EmojiPickerContext.topic,
+        context: CoreEmojiUsageContexts.topic,
         emoji: emoji,
       );
     }
@@ -109,7 +115,7 @@ void main() {
     expect(
       await store.favoriteEmojiCodes(
         siteUrl: meta,
-        context: EmojiPickerContext.topic,
+        context: CoreEmojiUsageContexts.topic,
         catalog: _catalog(['wave', 'heart', 'laughing']),
       ),
       ['heart:t3', 'wave', 'laughing'],
@@ -122,27 +128,27 @@ void main() {
     for (var index = 0; index < 45; index++) {
       await store.trackEmoji(
         siteUrl: meta,
-        context: EmojiPickerContext.topic,
+        context: CoreEmojiUsageContexts.topic,
         emoji: 'emoji_$index',
       );
     }
     await store.trackEmoji(
       siteUrl: meta,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       emoji: 'removed_from_site:t4',
     );
 
     final decoded =
         jsonDecode(persistence.values[meta]!) as Map<String, dynamic>;
     final history = decoded['history'] as Map<String, dynamic>;
-    final topic = history['topic'] as List<dynamic>;
+    final topic = history[CoreEmojiUsageContexts.topic.id] as List<dynamic>;
     expect(topic, hasLength(EmojiPickerStore.maxTrackedEmoji));
     expect(topic.first, 'emoji_6');
     expect(topic.last, 'removed_from_site:t4');
 
     final favorites = await store.favoriteEmojiCodes(
       siteUrl: meta,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       catalog: _catalog([
         for (var index = 0; index < 45; index++) 'emoji_$index',
       ]),
@@ -158,27 +164,30 @@ void main() {
     await store.writeSkinTone(siteUrl: meta, tone: EmojiSkinTone.t4);
     await store.trackEmoji(
       siteUrl: meta,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       emoji: 'wave',
     );
     await store.trackEmoji(
       siteUrl: meta,
-      context: EmojiPickerContext.chat,
+      context: chatEmojiUsageContext,
       emoji: 'heart:t2',
     );
     await store.trackEmoji(
       siteUrl: meta,
-      context: EmojiPickerContext.postReactions,
+      context: reactionsEmojiUsageContext,
       emoji: 'tada',
     );
 
-    await store.clearHistory(siteUrl: meta, context: EmojiPickerContext.topic);
+    await store.clearHistory(
+      siteUrl: meta,
+      context: CoreEmojiUsageContexts.topic,
+    );
 
     final catalog = _catalog(['wave', 'heart']);
     expect(
       store.favoriteEmojiCodesFor(
         siteUrl: meta,
-        context: EmojiPickerContext.topic,
+        context: CoreEmojiUsageContexts.topic,
         catalog: catalog,
       ),
       isEmpty,
@@ -186,7 +195,7 @@ void main() {
     expect(
       store.favoriteEmojiCodesFor(
         siteUrl: meta,
-        context: EmojiPickerContext.chat,
+        context: chatEmojiUsageContext,
         catalog: catalog,
       ),
       ['heart:t2'],
@@ -194,7 +203,7 @@ void main() {
     expect(
       store.favoriteEmojiCodesFor(
         siteUrl: meta,
-        context: EmojiPickerContext.postReactions,
+        context: reactionsEmojiUsageContext,
         catalog: _catalog(['tada']),
       ),
       ['tada'],
@@ -202,51 +211,149 @@ void main() {
     expect(store.skinToneFor(siteUrl: meta), EmojiSkinTone.t4);
   });
 
-  test('adding post reaction history upgrades a legacy v1 document', () async {
+  test(
+    'reactions context adopts postReactions while upgrading a v1 document',
+    () async {
+      final persistence = _MemoryPersistence()
+        ..values[meta] = jsonEncode({
+          'version': 1,
+          'tone': 't5',
+          'history': {
+            'topic': ['wave'],
+            'chat': ['heart:t2'],
+            'postReactions': ['clap'],
+          },
+        });
+      final store = EmojiPickerStore(persistence: persistence);
+
+      await store.trackEmoji(
+        siteUrl: meta,
+        context: reactionsEmojiUsageContext,
+        emoji: 'tada',
+      );
+
+      final upgraded =
+          jsonDecode(persistence.values[meta]!) as Map<String, dynamic>;
+      final upgradedHistory = upgraded['history'] as Map<String, dynamic>;
+      expect(upgraded['version'], EmojiPickerStore.formatVersion);
+      expect(upgradedHistory['topic'], ['wave']);
+      expect(upgradedHistory['chat'], ['heart:t2']);
+      expect(upgradedHistory, isNot(contains('postReactions')));
+      expect(upgradedHistory[reactionsEmojiUsageContext.id], ['clap', 'tada']);
+
+      final reloaded = EmojiPickerStore(persistence: persistence);
+      expect(await reloaded.readSkinTone(siteUrl: meta), EmojiSkinTone.t5);
+      expect(
+        await reloaded.favoriteEmojiCodes(
+          siteUrl: meta,
+          context: CoreEmojiUsageContexts.topic,
+          catalog: _catalog(['wave']),
+        ),
+        ['wave'],
+      );
+      expect(
+        await reloaded.favoriteEmojiCodes(
+          siteUrl: meta,
+          context: chatEmojiUsageContext,
+          catalog: _catalog(['heart']),
+        ),
+        ['heart:t2'],
+      );
+      expect(
+        await reloaded.favoriteEmojiCodes(
+          siteUrl: meta,
+          context: reactionsEmojiUsageContext,
+          catalog: _catalog(['clap', 'tada']),
+        ),
+        ['tada', 'clap'],
+      );
+    },
+  );
+
+  test('a legacy key is adopted when its namespaced context changes', () async {
     final persistence = _MemoryPersistence()
       ..values[meta] = jsonEncode({
         'version': 1,
-        'tone': 't5',
+        'tone': 'neutral',
         'history': {
-          'topic': ['wave'],
-          'chat': ['heart:t2'],
+          'chat': ['heart'],
         },
       });
     final store = EmojiPickerStore(persistence: persistence);
 
     await store.trackEmoji(
       siteUrl: meta,
-      context: EmojiPickerContext.postReactions,
-      emoji: 'tada',
+      context: chatEmojiUsageContext,
+      emoji: 'wave',
     );
 
-    final reloaded = EmojiPickerStore(persistence: persistence);
-    expect(await reloaded.readSkinTone(siteUrl: meta), EmojiSkinTone.t5);
-    expect(
-      await reloaded.favoriteEmojiCodes(
-        siteUrl: meta,
-        context: EmojiPickerContext.topic,
-        catalog: _catalog(['wave']),
-      ),
-      ['wave'],
-    );
-    expect(
-      await reloaded.favoriteEmojiCodes(
-        siteUrl: meta,
-        context: EmojiPickerContext.chat,
-        catalog: _catalog(['heart']),
-      ),
-      ['heart:t2'],
-    );
-    expect(
-      await reloaded.favoriteEmojiCodes(
-        siteUrl: meta,
-        context: EmojiPickerContext.postReactions,
-        catalog: _catalog(['tada']),
-      ),
-      ['tada'],
-    );
+    final upgraded =
+        jsonDecode(persistence.values[meta]!) as Map<String, dynamic>;
+    final history = upgraded['history'] as Map<String, dynamic>;
+    expect(upgraded['version'], EmojiPickerStore.formatVersion);
+    expect(history, isNot(contains('chat')));
+    expect(history[chatEmojiUsageContext.id], ['heart', 'wave']);
   });
+
+  test(
+    'plugin contexts are isolated and unknown histories are preserved',
+    () async {
+      const firstContext = EmojiUsageContext(
+        owner: PluginId('first-plugin'),
+        name: 'composer',
+      );
+      const secondContext = EmojiUsageContext(
+        owner: PluginId('second-plugin'),
+        name: 'composer',
+      );
+      const unknownContextId = 'removed-plugin/message';
+      final persistence = _MemoryPersistence()
+        ..values[meta] = jsonEncode({
+          'version': EmojiPickerStore.formatVersion,
+          'tone': 'neutral',
+          'history': {
+            unknownContextId: ['tada'],
+          },
+        });
+      final store = EmojiPickerStore(persistence: persistence);
+
+      await store.trackEmoji(
+        siteUrl: meta,
+        context: firstContext,
+        emoji: 'wave',
+      );
+      await store.trackEmoji(
+        siteUrl: meta,
+        context: secondContext,
+        emoji: 'heart',
+      );
+
+      final reloaded = EmojiPickerStore(persistence: persistence);
+      expect(
+        await reloaded.favoriteEmojiCodes(
+          siteUrl: meta,
+          context: firstContext,
+          catalog: _catalog(['wave', 'heart']),
+        ),
+        ['wave'],
+      );
+      expect(
+        await reloaded.favoriteEmojiCodes(
+          siteUrl: meta,
+          context: secondContext,
+          catalog: _catalog(['wave', 'heart']),
+        ),
+        ['heart'],
+      );
+
+      final encoded =
+          jsonDecode(persistence.values[meta]!) as Map<String, dynamic>;
+      final history = encoded['history'] as Map<String, dynamic>;
+      expect(history[unknownContextId], ['tada']);
+      expect(history[firstContext.id], ['wave']);
+      expect(history[secondContext.id], ['heart']);
+    },
+  );
 
   test('explicit t2 through t6 codes survive persistence', () async {
     final persistence = _MemoryPersistence();
@@ -254,7 +361,7 @@ void main() {
     for (final suffix in ['t2', 't3', 't4', 't5', 't6']) {
       await store.trackEmoji(
         siteUrl: meta,
-        context: EmojiPickerContext.chat,
+        context: chatEmojiUsageContext,
         emoji: ':wave:$suffix:',
       );
     }
@@ -263,7 +370,7 @@ void main() {
     expect(
       await reloaded.favoriteEmojiCodes(
         siteUrl: meta,
-        context: EmojiPickerContext.chat,
+        context: chatEmojiUsageContext,
         catalog: _catalog(['wave']),
       ),
       ['wave:t6', 'wave:t5', 'wave:t4', 'wave:t3', 'wave:t2'],
@@ -279,7 +386,7 @@ void main() {
     expect(
       await store.favoriteEmojiCodes(
         siteUrl: meta,
-        context: EmojiPickerContext.topic,
+        context: CoreEmojiUsageContexts.topic,
         catalog: _catalog(['wave']),
       ),
       isEmpty,
@@ -311,13 +418,13 @@ void main() {
 
     final first = store.trackEmoji(
       siteUrl: meta,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       emoji: 'wave',
     );
     await persistence.firstWriteStarted.future;
     final second = store.trackEmoji(
       siteUrl: meta,
-      context: EmojiPickerContext.topic,
+      context: CoreEmojiUsageContexts.topic,
       emoji: 'heart',
     );
     await Future<void>.delayed(Duration.zero);
@@ -340,13 +447,13 @@ void main() {
 
       final first = oldStore.trackEmoji(
         siteUrl: meta,
-        context: EmojiPickerContext.chat,
+        context: chatEmojiUsageContext,
         emoji: 'wave',
       );
       await persistence.firstWriteStarted.future;
       final second = replacementStore.trackEmoji(
         siteUrl: meta,
-        context: EmojiPickerContext.chat,
+        context: chatEmojiUsageContext,
         emoji: 'heart',
       );
       await Future<void>.delayed(Duration.zero);
@@ -359,7 +466,7 @@ void main() {
       expect(
         await reloaded.favoriteEmojiCodes(
           siteUrl: meta,
-          context: EmojiPickerContext.chat,
+          context: chatEmojiUsageContext,
           catalog: _catalog(['wave', 'heart']),
         ),
         ['heart', 'wave'],
@@ -383,7 +490,7 @@ SiteEmojiCatalog _catalog(Iterable<String> names) => SiteEmojiCatalog(
 List<dynamic> _topicHistory(String encoded) {
   final decoded = jsonDecode(encoded) as Map<String, dynamic>;
   final history = decoded['history'] as Map<String, dynamic>;
-  return history['topic'] as List<dynamic>;
+  return history[CoreEmojiUsageContexts.topic.id] as List<dynamic>;
 }
 
 Future<DiagnosticsController> _installDiagnostics(String sessionId) async {

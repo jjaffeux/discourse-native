@@ -20,11 +20,34 @@ final class ResenhaShellService
         PluginSiteActivator,
         PluginTrackerAttachment,
         PluginBackgroundSite,
-        PluginComposerTargetProvider {
+        PluginComposerHashtagProvider {
   const ResenhaShellService({required this.controller, required this.host});
 
   final ResenhaController controller;
-  final PluginNavigationHost host;
+  final PluginRouteNavigationHost host;
+
+  PluginRouteSite? get currentInstance => host.currentSite;
+  ContentRoute? get currentContent => host.currentContent;
+
+  void openRoom({
+    required String siteUrl,
+    required ContentRoute route,
+    bool replaceCurrent = false,
+  }) {
+    final index = host.sites.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0) return;
+    final sameInstance = host.currentSite?.url == siteUrl;
+    if (!sameInstance) host.selectInstance(index);
+    if (sameInstance && host.currentContent?.id == route.id) {
+      host.replaceCurrentContent(route);
+      return;
+    }
+    if (sameInstance && replaceCurrent && host.currentContent != null) {
+      host.replaceCurrentContent(route);
+      return;
+    }
+    host.pushContent(route);
+  }
 
   @override
   String? get pluginBackgroundSiteUrl => controller.activeSiteUrl;
@@ -32,17 +55,17 @@ final class ResenhaShellService
   @override
   Future<bool> openPluginUrl(String url) async {
     if (!controller.supportedPlatform) return false;
-    final absolute = resolveSiteUrl(url, host.currentInstance?.url);
+    final absolute = resolveSiteUrl(url, host.currentSite?.url);
     final uri = Uri.tryParse(absolute);
     if (uri == null) return false;
     final match = RegExp(r'^/resenha/r/([^/]+)/?$').firstMatch(uri.path);
     if (match == null) return false;
-    final index = host.instances.indexWhere((instance) => instance.serves(uri));
-    if (index < 0 || !host.instances[index].isConnected) return false;
-    if (host.currentInstance?.url != host.instances[index].url) {
+    final index = host.sites.indexWhere((instance) => instance.serves(uri));
+    if (index < 0 || !host.sites[index].isConnected) return false;
+    if (host.currentSite?.url != host.sites[index].url) {
       host.selectInstance(index);
     }
-    final instance = host.instances[index];
+    final instance = host.sites[index];
     await controller.ensureLoaded(instance.url);
     final room = await controller.resolveRoom(
       instance.url,
@@ -72,8 +95,8 @@ final class ResenhaShellService
       controller.attachTracker(siteUrl);
 
   @override
-  bool supportsPluginComposerTarget(String siteUrl, String kind) =>
-      kind == 'room' && controller.directory(siteUrl) != null;
+  Iterable<String> composerHashtagTypes(String siteUrl) =>
+      controller.directory(siteUrl) == null ? const [] : const ['room'];
 }
 
 extension ResenhaShellExtension on ShellController {

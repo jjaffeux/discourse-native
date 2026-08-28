@@ -8,19 +8,56 @@ import '../models/notification_totals.dart';
 import '../models/sidebar.dart';
 import 'plugin_manifest.dart';
 
-/// Core navigation primitives available to session-scoped plugin routers.
+/// Route-safe information about one configured forum.
+///
+/// Unlike [DiscourseInstance], this carries no account record, site settings,
+/// or appearance data. A plugin with route-only authority can identify and
+/// select a destination without also receiving unrelated session state.
+final class PluginRouteSite {
+  const PluginRouteSite({
+    required this.url,
+    required this.title,
+    required this.isConnected,
+  });
+
+  final String url;
+  final String title;
+  final bool isConnected;
+
+  bool serves(Uri link) {
+    if (!link.hasAuthority) return false;
+    final own = Uri.parse(url);
+    return _authority(link) == _authority(own);
+  }
+
+  static String _authority(Uri uri) =>
+      uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
+}
+
+/// The route mutations needed by a plugin which only opens its own screen.
+abstract interface class PluginRouteNavigationHost {
+  List<PluginRouteSite> get sites;
+  PluginRouteSite? get currentSite;
+  ContentRoute? get currentContent;
+
+  void selectInstance(int index);
+  void pushContent(ContentRoute route);
+  void replaceCurrentContent(ContentRoute route);
+}
+
+/// Full navigation primitives used by a plugin with nested/restored routes.
 abstract interface class PluginNavigationHost {
-  bool get isDisposed;
   List<DiscourseInstance> get instances;
   DiscourseInstance? get currentInstance;
+  bool get isDisposed;
   ContentRoute? get currentContent;
   List<ContentRoute> get contentStack;
   NotificationTotals? get currentTotals;
 
   void selectInstance(int index);
-  void selectDestination(SidebarDestination destination);
   void pushContent(ContentRoute route);
   void replaceCurrentContent(ContentRoute route);
+  void selectDestination(SidebarDestination destination);
   void showPluginContent();
 
   Future<String?> insertPluginTranscriptIntoNewTopic({
@@ -69,19 +106,33 @@ abstract interface class PluginTrackerAttachment
   void attachPluginTracker(String siteUrl, SiteTracker tracker);
 }
 
+/// Observes a freshly fetched `/session/current.json` account snapshot.
+///
+/// This is intentionally an invalidation hint rather than the user record:
+/// plugins read the narrow site-state port they declared when they need it.
+abstract interface class PluginCurrentUserObserver
+    implements PluginSessionCapability {
+  void pluginCurrentUserRefreshed(String siteUrl);
+}
+
 abstract interface class PluginBackgroundSite
     implements PluginSessionCapability {
   String? get pluginBackgroundSiteUrl;
 }
 
-abstract interface class PluginComposerTargetProvider
+/// Adds server-owned hashtag target types to composer autocomplete.
+///
+/// A session capability is used because availability can depend on plugin
+/// state loaded after installation. Core only sees type names; it never
+/// dispatches on a plugin-specific kind.
+abstract interface class PluginComposerHashtagProvider
     implements PluginSessionCapability {
-  bool supportsPluginComposerTarget(String siteUrl, String kind);
+  Iterable<String> composerHashtagTypes(String siteUrl);
 }
 
-abstract interface class PluginBookmarkObserver
+abstract interface class PluginBookmarkTargetStrategy
     implements PluginSessionCapability {
-  bool handlesPluginBookmark(String targetType);
+  BookmarkTargetType get pluginBookmarkTarget;
   void putPluginBookmark(String siteUrl, int targetId, Bookmark bookmark);
   void removePluginBookmark(String siteUrl, int targetId);
   FutureOr<void> reconcilePluginBookmark(String siteUrl, int targetId);

@@ -47,6 +47,7 @@ import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
 import 'package:discourse_native/src/plugins/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_api.dart';
@@ -1456,7 +1457,7 @@ class FakeDiscourseApi
   }) async {
     notificationFilters.add(List.unmodifiable(filterByTypes));
     final replies = _sameKinds(filterByTypes, userMenuReplyNotificationKinds);
-    final chat = _sameKinds(filterByTypes, userMenuChatNotificationKinds);
+    final chat = _sameKinds(filterByTypes, chatNotificationFeed.filterByTypes);
     if (replies) {
       replyNotificationCalls++;
     } else if (chat) {

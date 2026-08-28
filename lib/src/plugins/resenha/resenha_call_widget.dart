@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../../models/content_route.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
 import '../plugin_services.dart';
 import 'resenha_plugin.dart';
 import 'resenha_room_view.dart';
+import 'resenha_shell_extension.dart';
 
 class ResenhaCallWidget extends StatelessWidget {
   const ResenhaCallWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final shell = ShellScope.read(context);
     final controller = PluginScope.require(context, resenhaControllerService);
+    final shell = PluginScope.require(context, resenhaShellService);
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
@@ -50,7 +50,7 @@ class ResenhaCallWidget extends StatelessWidget {
                       const SizedBox(width: 10),
                       Flexible(
                         child: InkWell(
-                          onTap: () => shell.openResenhaRoom(
+                          onTap: () => shell.openRoom(
                             siteUrl: call.siteUrl,
                             route: ContentRoute(
                               id: ResenhaPlugin.routeId(call.room.id),

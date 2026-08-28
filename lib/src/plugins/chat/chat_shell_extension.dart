@@ -12,6 +12,7 @@ import '../../shell/shell_controller.dart';
 import '../../shell/site_url.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_services.dart';
+import 'chat_bookmark.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
@@ -32,7 +33,7 @@ final class ChatShellService
         PluginRouteHydrator,
         PluginTotalsObserver,
         PluginTrackerAttachment,
-        PluginBookmarkObserver {
+        PluginBookmarkTargetStrategy {
   ChatShellService({
     required this.chat,
     required this.host,
@@ -122,7 +123,7 @@ final class ChatShellService
       chat.attachTracker(siteUrl, tracker);
 
   @override
-  bool handlesPluginBookmark(String targetType) => targetType == 'chatMessage';
+  BookmarkTargetType get pluginBookmarkTarget => chatMessageBookmarkTarget;
 
   @override
   void putPluginBookmark(String siteUrl, int targetId, Bookmark bookmark) =>

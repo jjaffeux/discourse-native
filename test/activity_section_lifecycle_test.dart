@@ -6,6 +6,9 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -27,15 +30,22 @@ void main() {
         final firstApi = _RecordingActivityApi();
         final secondApi = _RecordingActivityApi();
         final first = await _controller(firstApi);
-        final second = await _controller(secondApi, load: false);
+        final second = await _controller(
+          secondApi,
+          load: activity == _Activity.chat,
+        );
         addTearDown(first.dispose);
         addTearDown(second.dispose);
 
-        await tester.pumpWidget(_section(first, activity.section(_siteUrl)));
+        await tester.pumpWidget(
+          _section(first, activity.section(first, _siteUrl)),
+        );
         await tester.pumpAndSettle();
         expect(activity.requests(firstApi), [_siteUrl]);
 
-        await tester.pumpWidget(_section(second, activity.section(_siteUrl)));
+        await tester.pumpWidget(
+          _section(second, activity.section(second, _siteUrl)),
+        );
         await tester.pumpAndSettle();
 
         expect(activity.requests(firstApi), [_siteUrl]);
@@ -52,87 +62,93 @@ void main() {
         addTearDown(controller.dispose);
 
         await tester.pumpWidget(
-          _section(controller, activity.section(sites.first.url)),
+          _section(controller, activity.section(controller, sites.first.url)),
         );
         await tester.pumpAndSettle();
 
         await tester.pumpWidget(
-          _section(controller, activity.section(sites.last.url)),
+          _section(controller, activity.section(controller, sites.last.url)),
         );
         await tester.pumpAndSettle();
 
         expect(activity.requests(api), [sites.first.url, sites.last.url]);
       });
 
-      testWidgets(
-        'a stale controller load cannot dispatch an activity request',
-        (tester) async {
-          final site = _connected('meta.example', 'reader');
-          final firstStore = _GatedInstanceStore([site]);
-          final firstApi = _RecordingActivityApi();
-          final secondApi = _RecordingActivityApi();
-          final first = await _controller(
-            firstApi,
-            sites: [site],
-            store: firstStore,
+      if (activity != _Activity.chat) {
+        testWidgets(
+          'a stale controller load cannot dispatch an activity request',
+          (tester) async {
+            final site = _connected('meta.example', 'reader');
+            final firstStore = _GatedInstanceStore([site]);
+            final firstApi = _RecordingActivityApi();
+            final secondApi = _RecordingActivityApi();
+            final first = await _controller(
+              firstApi,
+              sites: [site],
+              store: firstStore,
+              load: false,
+            );
+            final second = await _controller(
+              secondApi,
+              sites: [site],
+              load: false,
+            );
+            addTearDown(first.dispose);
+            addTearDown(second.dispose);
+
+            await tester.pumpWidget(
+              _section(first, activity.section(first, site.url)),
+            );
+            await firstStore.loadStarted.future;
+            expect(activity.requests(firstApi), isEmpty);
+
+            await tester.pumpWidget(
+              _section(second, activity.section(second, site.url)),
+            );
+            await tester.pumpAndSettle();
+            expect(activity.requests(secondApi), [site.url]);
+
+            firstStore.complete();
+            await tester.pumpAndSettle();
+
+            expect(activity.requests(firstApi), isEmpty);
+            expect(activity.requests(secondApi), [site.url]);
+          },
+        );
+
+        testWidgets('a stale site load cannot dispatch an activity request', (
+          tester,
+        ) async {
+          final sites = [
+            _connected('meta.example', 'meta-reader'),
+            _connected('other.example', 'other-reader'),
+          ];
+          final store = _GatedInstanceStore(sites);
+          final api = _RecordingActivityApi();
+          final controller = await _controller(
+            api,
+            sites: sites,
+            store: store,
             load: false,
           );
-          final second = await _controller(
-            secondApi,
-            sites: [site],
-            load: false,
+          addTearDown(controller.dispose);
+
+          await tester.pumpWidget(
+            _section(controller, activity.section(controller, sites.first.url)),
           );
-          addTearDown(first.dispose);
-          addTearDown(second.dispose);
+          await store.loadStarted.future;
 
-          await tester.pumpWidget(_section(first, activity.section(site.url)));
-          await firstStore.loadStarted.future;
-          expect(activity.requests(firstApi), isEmpty);
+          await tester.pumpWidget(
+            _section(controller, activity.section(controller, sites.last.url)),
+          );
+          expect(activity.requests(api), isEmpty);
 
-          await tester.pumpWidget(_section(second, activity.section(site.url)));
-          await tester.pumpAndSettle();
-          expect(activity.requests(secondApi), [site.url]);
-
-          firstStore.complete();
+          store.complete();
           await tester.pumpAndSettle();
 
-          expect(activity.requests(firstApi), isEmpty);
-          expect(activity.requests(secondApi), [site.url]);
-        },
-      );
-
-      testWidgets('a stale site load cannot dispatch an activity request', (
-        tester,
-      ) async {
-        final sites = [
-          _connected('meta.example', 'meta-reader'),
-          _connected('other.example', 'other-reader'),
-        ];
-        final store = _GatedInstanceStore(sites);
-        final api = _RecordingActivityApi();
-        final controller = await _controller(
-          api,
-          sites: sites,
-          store: store,
-          load: false,
-        );
-        addTearDown(controller.dispose);
-
-        await tester.pumpWidget(
-          _section(controller, activity.section(sites.first.url)),
-        );
-        await store.loadStarted.future;
-
-        await tester.pumpWidget(
-          _section(controller, activity.section(sites.last.url)),
-        );
-        expect(activity.requests(api), isEmpty);
-
-        store.complete();
-        await tester.pumpAndSettle();
-
-        expect(activity.requests(api), [sites.last.url]);
-      });
+          expect(activity.requests(api), [sites.last.url]);
+        });
+      }
     });
   }
 }
@@ -152,10 +168,15 @@ enum _Activity {
     userActivity => 'user activity',
   };
 
-  Widget section(String siteUrl) => switch (this) {
+  Widget section(ShellController controller, String siteUrl) => switch (this) {
     notifications => NotificationSection(siteUrl: siteUrl, onOpened: _ignore),
     replies => RepliesSection(siteUrl: siteUrl, onOpened: _ignore),
-    chat => ChatNotificationsSection(siteUrl: siteUrl, onOpened: _ignore),
+    chat => PluginNotificationsSection(
+      siteUrl: siteUrl,
+      onOpened: _ignore,
+      host: controller,
+      source: chatNotificationFeed,
+    ),
     bookmarks => BookmarkSection(siteUrl: siteUrl, onOpened: _ignore),
     userActivity => UserActivityView(siteUrl: siteUrl),
   };
@@ -197,7 +218,7 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
       notificationSites.add(siteUrl);
     } else if (_sameKinds(filterByTypes, userMenuReplyNotificationKinds)) {
       replySites.add(siteUrl);
-    } else if (_sameKinds(filterByTypes, userMenuChatNotificationKinds)) {
+    } else if (_sameKinds(filterByTypes, chatNotificationFeed.filterByTypes)) {
       chatSites.add(siteUrl);
     } else {
       throw StateError('Unexpected notification filter: $filterByTypes');
@@ -295,6 +316,10 @@ Future<ShellController> _controller(
   for (final site in resolvedSites) {
     authenticator.keys[site.url] = 'api-key';
   }
+  final plugins = PluginInstaller.install(
+    const PluginManifest([_ChatNotificationFeedModule()]),
+  );
+  addTearDown(plugins.close);
   final controller = ShellController(
     instanceStore: store ?? FakeInstanceStore(resolvedSites),
     api: api,
@@ -302,7 +327,34 @@ Future<ShellController> _controller(
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
     updateStore: FakeUpdateStore(),
+    plugins: plugins,
   );
   if (load) await controller.load();
   return controller;
+}
+
+final class _ChatNotificationFeedModule implements PluginModule {
+  const _ChatNotificationFeedModule();
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('chat'));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addCapability(const _ChatNotificationFeedPlugin());
+  }
+}
+
+final class _ChatNotificationFeedPlugin
+    implements SitePlugin, NotificationFeedPlugin {
+  const _ChatNotificationFeedPlugin();
+
+  @override
+  String get name => 'chat';
+
+  @override
+  List<PluginNotificationFeedSource> get notificationFeeds => const [
+    chatNotificationFeed,
+  ];
 }

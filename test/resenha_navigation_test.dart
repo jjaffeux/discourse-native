@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +18,7 @@ void main() {
       authenticator: authenticator,
       drafts: FakeDraftStore(),
       trackers: FakeSiteTracker.reset(),
+      plugins: installedPlugins,
     );
     addTearDown(shell.dispose);
     await shell.load();
@@ -27,8 +29,10 @@ void main() {
       icon: DIcons.microphoneLines,
     );
 
-    shell.openResenhaRoom(siteUrl: site.url, route: room);
-    shell.openResenhaRoom(siteUrl: site.url, route: room);
+    final resenha = shell.pluginSession.require(resenhaShellService);
+    expect(resenha.host, isNot(isA<ShellController>()));
+    resenha.openRoom(siteUrl: site.url, route: room);
+    resenha.openRoom(siteUrl: site.url, route: room);
 
     expect(shell.contentStack, hasLength(2));
     expect(shell.currentContent?.id, room.id);

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/plugins/chat/chat_bookmark.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -179,14 +180,14 @@ void main() {
       final id = await api.createBookmark(
         siteUrl: 'https://forum.example',
         apiKey: 'secret',
-        targetType: BookmarkTargetType.chatMessage,
+        targetType: chatMessageBookmarkTarget,
         targetId: 42,
       );
       final topicBookmarked = await api.deleteBookmark(
         siteUrl: 'https://forum.example',
         apiKey: 'secret',
         bookmarkId: id,
-        targetType: BookmarkTargetType.chatMessage,
+        targetType: chatMessageBookmarkTarget,
       );
 
       expect(id, 91);

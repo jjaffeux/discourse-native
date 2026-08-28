@@ -17,7 +17,8 @@ final class AiSummaryPlugin
     implements
         SitePlugin,
         TopicRecordPlugin<AiSummaryAvailability>,
-        TopicMapActionPlugin {
+        TopicMapActionPlugin,
+        TopicRecommendationSourcePlugin {
   const AiSummaryPlugin();
 
   @override
@@ -30,6 +31,10 @@ final class AiSummaryPlugin
   @override
   AiSummaryAvailability? readTopic(Map<String, dynamic> json, String siteUrl) =>
       AiSummaryAvailability.fromJson(json);
+
+  @override
+  List<TopicRecommendationSourceDefinition> get topicRecommendationSources =>
+      const [discourseAiRelatedTopicRecommendationSource];
 
   @override
   List<Widget> topicMapActions(
@@ -48,6 +53,17 @@ final class AiSummaryPlugin
     ];
   }
 }
+
+const discourseAiRelatedTopicRecommendationSourceId =
+    TopicRecommendationSourceId('discourse-ai/related');
+
+const discourseAiRelatedTopicRecommendationSource =
+    TopicRecommendationSourceDefinition(
+      id: discourseAiRelatedTopicRecommendationSourceId,
+      payloadKey: 'related_topics',
+      label: 'Related',
+      icon: DIcons.discourseSparkles,
+    );
 
 class _AiSummaryButton extends StatelessWidget {
   const _AiSummaryButton({

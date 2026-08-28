@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -9,6 +10,8 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -417,6 +420,54 @@ final class _RecordingInstanceStore extends FakeInstanceStore {
   }
 }
 
+final class _CurrentUserObserverModule implements PluginModule {
+  const _CurrentUserObserverModule(this.observers);
+
+  final List<PluginCurrentUserObserver> observers;
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('current-user-observer-test'));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addSession(
+      (_) => PluginSessionContribution(
+        lifecycle: _TestPluginSessionLifecycle(),
+        capabilities: observers,
+      ),
+      requires: const [],
+    );
+  }
+}
+
+final class _TestPluginSessionLifecycle extends PluginSessionLifecycle {}
+
+final class _ThrowingCurrentUserObserver implements PluginCurrentUserObserver {
+  const _ThrowingCurrentUserObserver(this.calls);
+
+  final List<String> calls;
+
+  @override
+  void pluginCurrentUserRefreshed(String siteUrl) {
+    calls.add('throwing:$siteUrl');
+    throw StateError('observer failed');
+  }
+}
+
+final class _RecordingCurrentUserObserver implements PluginCurrentUserObserver {
+  _RecordingCurrentUserObserver(this.calls);
+
+  final List<String> calls;
+  final called = Completer<String>();
+
+  @override
+  void pluginCurrentUserRefreshed(String siteUrl) {
+    calls.add('recording:$siteUrl');
+    if (!called.isCompleted) called.complete(siteUrl);
+  }
+}
+
 final class _GatedInstanceStore extends FakeInstanceStore {
   _GatedInstanceStore(super.instances, this.gate);
 
@@ -559,6 +610,72 @@ void main() {
     );
     expect((await store.load()).single.user, isNull);
   });
+
+  test(
+    'a throwing plugin current-user observer is reported and isolated',
+    () async {
+      final diagnostics = await DiagnosticsController.create(
+        persistence: MemoryDiagnosticsPersistence(),
+        sessionId: 'current-user-observer-isolation',
+      );
+      final diagnosticsBinding = DiagnosticsSink.install(diagnostics);
+      final calls = <String>[];
+      final recordingObserver = _RecordingCurrentUserObserver(calls);
+      final plugins = PluginInstaller.install(
+        PluginManifest([
+          _CurrentUserObserverModule([
+            _ThrowingCurrentUserObserver(calls),
+            recordingObserver,
+          ]),
+        ]),
+      );
+      const freshUser = DiscourseUser(
+        id: 42,
+        username: 'fresh-account',
+        canCreatePoll: true,
+      );
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance('meta.discourse.org').copyWith(
+            user: const DiscourseUser(id: 42, username: 'stored-account'),
+          ),
+        ]),
+        api: FakeDiscourseApi(
+          user: freshUser,
+          feeds: const {'/latest.json': []},
+        ),
+        authenticator: FakeAuthenticator()..keys[_siteUrl] = 'account-key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        plugins: plugins,
+      );
+      addTearDown(() async {
+        shell.dispose();
+        await Future<void>.delayed(Duration.zero);
+        await plugins.close();
+        diagnosticsBinding.close();
+        await diagnostics.close();
+      });
+
+      await shell.load();
+      expect(await recordingObserver.called.future, _siteUrl);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(shell.freshCurrentUserFor(_siteUrl)?.username, 'fresh-account');
+      expect(shell.canCreatePollFor(_siteUrl), isTrue);
+      expect(calls, ['throwing:$_siteUrl', 'recording:$_siteUrl']);
+      final event = diagnostics.events
+          .whereType<ErrorDiagnosticEvent>()
+          .singleWhere(
+            (candidate) =>
+                candidate.operation == 'plugins.session.currentUserRefreshed',
+          );
+      expect(event.source, 'shell');
+      expect(event.severity, DiagnosticSeverity.warning);
+      expect(event.handled, isTrue);
+      expect(event.degraded, isTrue);
+    },
+  );
 
   test(
     'a failed account lookup cannot leave old metadata beside a new key',

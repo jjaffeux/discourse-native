@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import '../../data/discourse_api_contracts.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/select.dart';
-import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../plugin_scope.dart';
+import '../plugin_services.dart';
 import 'assignment.dart';
-import 'assignment_shell_extension.dart';
 
 typedef AssignmentSuggestionsLoader = Future<AssignmentSuggestions> Function();
 typedef AssignmentAssigneeSearch =
@@ -39,8 +39,8 @@ Future<void> showAssignmentEditor({
   Assignment? existing,
   bool nested = false,
 }) {
-  final controller = ShellScope.read(context);
-  final config = controller.siteConfigFor(siteUrl);
+  final controller = PluginScope.require(context, assignmentControllerService);
+  final statusOptions = controller.statusOptions(siteUrl);
   final targetName = target.type == AssignmentTargetType.topic
       ? 'topic'
       : 'post';
@@ -49,12 +49,12 @@ Future<void> showAssignmentEditor({
       : 'Edit $targetName assignment';
   Widget editor(BuildContext presentationContext) => AssignmentEditor(
     existing: existing,
-    statusesEnabled: config.assignStatusesEnabled,
-    statuses: config.assignStatuses,
-    loadSuggestions: () => controller.assignmentSuggestions(siteUrl, target),
-    searchAssignees: (suggestions, term) => controller
-        .searchAssignmentAssignees(siteUrl, target, suggestions, term),
-    save: (assignee, {note, status}) => controller.assignTarget(
+    statusesEnabled: statusOptions.enabled,
+    statuses: statusOptions.values,
+    loadSuggestions: () => controller.suggestions(siteUrl, target),
+    searchAssignees: (suggestions, term) =>
+        controller.search(siteUrl, target, suggestions, term),
+    save: (assignee, {note, status}) => controller.assign(
       siteUrl,
       target,
       assignee,
@@ -63,7 +63,7 @@ Future<void> showAssignmentEditor({
     ),
     remove: existing == null
         ? null
-        : () => controller.unassignTarget(siteUrl, target),
+        : () => controller.unassign(siteUrl, target),
     onComplete: () => Navigator.of(presentationContext).pop(),
   );
   final isTouch = switch (Theme.of(context).platform) {

@@ -121,6 +121,48 @@ void main() {
     },
   );
 
+  test(
+    'a fresh current user restores the invalidated legacy fallback and rebuilds',
+    () async {
+      transport.writeFailure = const WriteException(
+        WriteFailure.unreachable,
+        statusCode: 404,
+      );
+      final snapshotController = AssignmentController(
+        api: AssignApi(transport),
+        credentials: credentials,
+        lifecycle: lifecycle,
+        permissionSnapshot: (_, _) =>
+            (valid: true, recordPermission: null, freshAccountCanAssign: true),
+        reloadTopic: (_, topicId) async => reloads.add(topicId),
+      );
+      addTearDown(snapshotController.dispose);
+      var rebuilds = 0;
+      snapshotController.addListener(() => rebuilds++);
+
+      expect(snapshotController.canAssign(_site, _topic), isTrue);
+
+      final error = await snapshotController.unassign(_site, _topic);
+
+      expect(error, 'This assignment target is no longer available.');
+      expect(snapshotController.canAssign(_site, _topic), isFalse);
+      expect(rebuilds, greaterThan(0));
+      final rebuildsBeforeRefresh = rebuilds;
+
+      snapshotController.pluginCurrentUserRefreshed(_site);
+
+      expect(snapshotController.canAssign(_site, _topic), isTrue);
+      expect(rebuilds, rebuildsBeforeRefresh + 1);
+
+      snapshotController.pluginCurrentUserRefreshed(_site);
+      expect(
+        rebuilds,
+        rebuildsBeforeRefresh + 1,
+        reason: 'an already-current fallback is unchanged',
+      );
+    },
+  );
+
   test('a suggestions 404 also reconciles stale plugin controls', () async {
     transport.getFailure = const SiteLookupException(
       SiteLookupFailure.unreachable,

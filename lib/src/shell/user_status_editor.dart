@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../data/emoji_picker_store.dart';
 import '../models/user_status.dart';
+import '../plugin_api/emoji_usage.dart';
 import 'emoji_picker.dart';
 import 'shell_scope.dart';
 import 'site_emoji_image.dart';
@@ -74,7 +74,7 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
     final picked = await showEmojiPicker(
       context: context,
       siteUrl: widget.siteUrl,
-      pickerContext: EmojiPickerContext.userStatus,
+      pickerContext: CoreEmojiUsageContexts.userStatus,
       store: shell.emojiPickerStore,
       loadCatalog: ({bool refresh = false}) =>
           shell.ensureEmojiCatalog(widget.siteUrl),

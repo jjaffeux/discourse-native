@@ -2,8 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../data/emoji_picker_store.dart';
 import '../models/site_emoji.dart';
+import '../plugin_api/emoji_preferences.dart';
+import '../plugin_api/emoji_usage.dart';
 
 typedef EmojiCatalogLoader = Future<SiteEmojiCatalog?> Function({bool refresh});
 typedef EmojiSearchAliasLoader =
@@ -45,8 +46,8 @@ final class EmojiPickerController extends ChangeNotifier {
       "Couldn't load emoji. Check the connection and try again.";
 
   final String siteUrl;
-  final EmojiPickerContext context;
-  final EmojiPickerStore store;
+  final EmojiUsageContext context;
+  final EmojiPreferenceStore store;
   final EmojiCatalogLoader loadCatalog;
   final EmojiSearchAliasLoader loadSearchAliases;
   final String initialQuery;

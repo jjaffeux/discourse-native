@@ -115,8 +115,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   String? _recommendationsSiteUrl;
   bool _recommendationsPanelCollapsed = false;
   int _recommendationsPanelRestoreGeneration = 0;
-  TopicRecommendationsTab _recommendationsTab =
-      TopicRecommendationsTab.suggested;
+  TopicRecommendationSourceId _recommendationsSourceId =
+      coreSuggestedTopicRecommendationSourceId;
   int _recommendationsTabRestoreGeneration = 0;
   List<_TopicDayStart> _laidOutDayStarts = const [];
   DateTime? _floatingDay;
@@ -321,7 +321,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     if (_recommendationsSiteUrl == siteUrl) return;
     _recommendationsSiteUrl = siteUrl;
     _recommendationsPanelCollapsed = false;
-    _recommendationsTab = TopicRecommendationsTab.suggested;
+    _recommendationsSourceId = coreSuggestedTopicRecommendationSourceId;
     unawaited(_restoreRecommendationsPanel(siteUrl));
     unawaited(_restoreRecommendationsTab(siteUrl));
   }
@@ -343,14 +343,16 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
   Future<void> _restoreRecommendationsTab(String siteUrl) async {
     final generation = ++_recommendationsTabRestoreGeneration;
-    final tab = await widget.recommendationsTabStore.read(siteUrl: siteUrl);
+    final sourceId = await widget.recommendationsTabStore.read(
+      siteUrl: siteUrl,
+    );
     if (!mounted ||
         generation != _recommendationsTabRestoreGeneration ||
         _recommendationsSiteUrl != siteUrl) {
       return;
     }
-    if (tab != _recommendationsTab) {
-      setState(() => _recommendationsTab = tab);
+    if (sourceId != _recommendationsSourceId) {
+      setState(() => _recommendationsSourceId = sourceId);
     }
   }
 
@@ -367,12 +369,17 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     );
   }
 
-  void _setRecommendationsTab(TopicRecommendationsTab tab) {
+  void _setRecommendationsSource(TopicRecommendationSourceId sourceId) {
     final siteUrl = _recommendationsSiteUrl;
-    if (siteUrl == null || tab == _recommendationsTab) return;
+    if (siteUrl == null || sourceId == _recommendationsSourceId) return;
     _recommendationsTabRestoreGeneration++;
-    setState(() => _recommendationsTab = tab);
-    unawaited(widget.recommendationsTabStore.write(siteUrl: siteUrl, tab: tab));
+    setState(() => _recommendationsSourceId = sourceId);
+    unawaited(
+      widget.recommendationsTabStore.write(
+        siteUrl: siteUrl,
+        sourceId: sourceId,
+      ),
+    );
   }
 
   /// Measures the viewport after layout. This also covers short topics that
@@ -983,8 +990,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               siteUrl: snapshot.siteUrl,
               recommendations: null,
               loading: true,
-              selected: _recommendationsTab,
-              onSelected: _setRecommendationsTab,
+              selected: _recommendationsSourceId,
+              onSelected: _setRecommendationsSource,
               onCollapsedChanged: _setRecommendationsPanelCollapsed,
             ),
           ],
@@ -1152,8 +1159,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               key: ValueKey((siteUrl, snapshot.topicId, 'more-topics')),
               siteUrl: siteUrl,
               recommendations: snapshot.recommendations!,
-              selected: _recommendationsTab,
-              onSelected: _setRecommendationsTab,
+              selected: _recommendationsSourceId,
+              onSelected: _setRecommendationsSource,
             );
           }
 
@@ -1248,8 +1255,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             siteUrl: siteUrl,
             recommendations: snapshot.recommendations,
             loading: snapshot.loadingMore,
-            selected: _recommendationsTab,
-            onSelected: _setRecommendationsTab,
+            selected: _recommendationsSourceId,
+            onSelected: _setRecommendationsSource,
             onCollapsedChanged: _setRecommendationsPanelCollapsed,
           ),
       ],
@@ -1641,7 +1648,6 @@ class _TopicViewSnapshot {
     required this.hasEarlier,
     required this.initialPostIndex,
     required this.recommendations,
-    required this.canAssignLegacyTargets,
     required this.summary,
     required this.summaryLoading,
     required this.readTimeWordCount,
@@ -1683,8 +1689,6 @@ class _TopicViewSnapshot {
       hasEarlier: hasEarlier,
       initialPostIndex: initialPostIndex,
       recommendations: controller.currentTopic?.recommendations,
-      canAssignLegacyTargets:
-          siteUrl != null && controller.canAssignForTarget(siteUrl, null),
       summary: controller.currentTopicSummary,
       summaryLoading: controller.currentTopicSummaryLoading,
       readTimeWordCount: controller.currentSiteConfig.readTimeWordCount,
@@ -1707,7 +1711,6 @@ class _TopicViewSnapshot {
   final bool hasEarlier;
   final int? initialPostIndex;
   final TopicRecommendations? recommendations;
-  final bool canAssignLegacyTargets;
   final bool summary;
   final bool summaryLoading;
   final int readTimeWordCount;
@@ -1729,7 +1732,6 @@ class _TopicViewSnapshot {
           hasMore == other.hasMore &&
           hasEarlier == other.hasEarlier &&
           recommendations == other.recommendations &&
-          canAssignLegacyTargets == other.canAssignLegacyTargets &&
           summary == other.summary &&
           summaryLoading == other.summaryLoading &&
           readTimeWordCount == other.readTimeWordCount &&
@@ -1749,7 +1751,6 @@ class _TopicViewSnapshot {
     hasMore,
     hasEarlier,
     recommendations,
-    canAssignLegacyTargets,
     summary,
     summaryLoading,
     readTimeWordCount,
@@ -1776,8 +1777,8 @@ class _TopicRecommendationsPanel extends StatelessWidget {
   final String? siteUrl;
   final TopicRecommendations? recommendations;
   final bool loading;
-  final TopicRecommendationsTab selected;
-  final ValueChanged<TopicRecommendationsTab> onSelected;
+  final TopicRecommendationSourceId selected;
+  final ValueChanged<TopicRecommendationSourceId> onSelected;
   final ValueChanged<bool> onCollapsedChanged;
 
   @override
@@ -1939,10 +1940,10 @@ class _MoreTopicsSkeletonRow extends StatelessWidget {
   }
 }
 
-/// Core's more-topics footer. Suggested topics are always a core feature;
-/// related topics appear when discourse-ai's semantic recommendations are on.
+/// Core's more-topics footer, populated by core and installed source
+/// contributions.
 ///
-/// The reader's tab choice is remembered per forum, so it is owned by the
+/// The reader's source choice is remembered per forum, so it is owned by the
 /// topic view rather than by this widget, which a new topic rebuilds.
 class _MoreTopics extends StatelessWidget {
   const _MoreTopics({
@@ -1955,33 +1956,30 @@ class _MoreTopics extends StatelessWidget {
 
   final String siteUrl;
   final TopicRecommendations recommendations;
-  final TopicRecommendationsTab selected;
-  final ValueChanged<TopicRecommendationsTab> onSelected;
+  final TopicRecommendationSourceId selected;
+  final ValueChanged<TopicRecommendationSourceId> onSelected;
 
-  /// The remembered choice only holds while that list has topics; a forum
-  /// without discourse-ai, or a topic with no semantic matches, falls back to
-  /// whichever list is there rather than showing an empty tab.
-  TopicRecommendationsTab get _effectiveSelection {
-    if (selected == TopicRecommendationsTab.suggested &&
-        recommendations.suggested.isNotEmpty) {
-      return TopicRecommendationsTab.suggested;
+  /// A remembered choice only holds while that source has topics. A missing
+  /// plugin or an empty contribution falls back to the first populated source
+  /// in registry order rather than showing an empty tab.
+  TopicRecommendationSource _effectiveSelection(
+    List<TopicRecommendationSource> available,
+  ) {
+    for (final source in available) {
+      if (source.id == selected) return source;
     }
-    if (recommendations.related.isNotEmpty) {
-      return TopicRecommendationsTab.related;
-    }
-    return TopicRecommendationsTab.suggested;
+    return available.first;
   }
 
   @override
   Widget build(BuildContext context) {
-    final suggested = recommendations.suggested.isNotEmpty;
-    final related = recommendations.related.isNotEmpty;
-    final hasTabs = suggested && related;
-    final selection = _effectiveSelection;
-    final topics = switch (selection) {
-      TopicRecommendationsTab.suggested => recommendations.suggested,
-      TopicRecommendationsTab.related => recommendations.related,
-    };
+    final available = [
+      for (final source in recommendations.sources)
+        if (source.topics.isNotEmpty) source,
+    ];
+    if (available.isEmpty) return const SizedBox.shrink();
+    final selection = _effectiveSelection(available);
+    final hasTabs = available.length > 1;
     final theme = Theme.of(context);
 
     return Padding(
@@ -1996,25 +1994,18 @@ class _MoreTopics extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Expanded(
-                    child: _MoreTopicsTabButton(
-                      key: const ValueKey('suggested-topics-tab'),
-                      label: 'Suggested',
-                      selected: selection == TopicRecommendationsTab.suggested,
-                      onPressed: () =>
-                          onSelected(TopicRecommendationsTab.suggested),
+                  for (final source in available)
+                    Expanded(
+                      child: _MoreTopicsTabButton(
+                        key: ValueKey(
+                          'topic-recommendations-tab-${source.id.value}',
+                        ),
+                        label: source.label,
+                        icon: source.definition.icon,
+                        selected: selection.id == source.id,
+                        onPressed: () => onSelected(source.id),
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: _MoreTopicsTabButton(
-                      key: const ValueKey('related-topics-tab'),
-                      label: 'Related',
-                      icon: DIcons.discourseSparkles,
-                      selected: selection == TopicRecommendationsTab.related,
-                      onPressed: () =>
-                          onSelected(TopicRecommendationsTab.related),
-                    ),
-                  ),
                 ],
               ),
             )
@@ -2023,24 +2014,21 @@ class _MoreTopics extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
               child: Row(
                 children: [
-                  if (related) ...[
+                  if (selection.definition.icon case final icon?) ...[
                     DIcon(
-                      DIcons.discourseSparkles,
+                      icon,
                       size: 14,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 6),
                   ],
-                  Text(
-                    related ? 'Related' : 'Suggested',
-                    style: theme.textTheme.titleSmall,
-                  ),
+                  Text(selection.label, style: theme.textTheme.titleSmall),
                 ],
               ),
             ),
-          for (var index = 0; index < topics.length; index++) ...[
-            TopicListRow(topic: topics[index], siteUrl: siteUrl),
-            if (index < topics.length - 1)
+          for (var index = 0; index < selection.topics.length; index++) ...[
+            TopicListRow(topic: selection.topics[index], siteUrl: siteUrl),
+            if (index < selection.topics.length - 1)
               Divider(height: 1, color: theme.shell.divider),
           ],
         ],

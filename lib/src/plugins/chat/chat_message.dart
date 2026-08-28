@@ -5,6 +5,7 @@ import '../../models/bookmark.dart';
 import '../../models/composer_upload.dart';
 import '../../models/json.dart';
 import '../../models/user_status.dart';
+import 'chat_bookmark.dart';
 import 'chat_preview.dart';
 
 /// One message accepted by the optimistic send boundary.
@@ -716,7 +717,7 @@ class ChatMessage with Storable<ChatMessage> {
       // into one without it.
       threadId: jsonIntOrNull(json['thread_id']),
       thread: ChatThreadPreview.fromJson(json['thread'], siteUrl),
-      bookmark: Bookmark.fromChatMessageJson(json),
+      bookmark: chatMessageBookmarkFromJson(json),
       // The key is left out entirely when nobody has reacted, which is most
       // messages — so the empty list is the default rather than something to
       // parse.

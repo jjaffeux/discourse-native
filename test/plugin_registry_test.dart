@@ -98,6 +98,8 @@ void main() {
               context,
               'https://example.com',
               _post,
+              topic: _topic,
+              currentUser: null,
             );
             return const SizedBox.shrink();
           },
@@ -110,6 +112,48 @@ void main() {
       'second',
     ]);
     expect(contribution!.replacesLike, isTrue);
+  });
+
+  testWidgets('aggregates plugin-owned post menu rebuild signals', (
+    tester,
+  ) async {
+    final first = ChangeNotifier();
+    final second = ChangeNotifier();
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    final registry = PluginRegistry([
+      _MenuPlugin('first', rebuildOn: first),
+      const _NamedPlugin('unrelated'),
+      _MenuPlugin('second', rebuildOn: second),
+    ]);
+    late PostMenuContribution contribution;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            contribution = registry.postMenu(
+              context,
+              'https://example.com',
+              _post,
+              topic: _topic,
+              currentUser: null,
+            );
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    var notifications = 0;
+    void notified() => notifications++;
+    contribution.rebuildOn!.addListener(notified);
+    addTearDown(() => contribution.rebuildOn?.removeListener(notified));
+
+    first.notifyListeners();
+    second.notifyListeners();
+
+    expect(notifications, 2);
   });
 
   test('record parsing and edit merge stay behind the registry', () {
@@ -126,6 +170,83 @@ void main() {
           .get(_recordKey)
           ?.value,
       'held',
+    );
+  });
+
+  test('topic recommendation sources preserve registry order', () {
+    final registry = PluginRegistry.validated(const [
+      _RecommendationPlugin(
+        'first',
+        sourceName: 'nearby',
+        payloadKey: 'nearby_topics',
+        label: 'Nearby',
+      ),
+      _NamedPlugin('unrelated'),
+      _RecommendationPlugin(
+        'second',
+        sourceName: 'popular',
+        payloadKey: 'popular_topics',
+        label: 'Popular',
+      ),
+    ]);
+
+    final recommendations = TopicRecommendations.fromJson(
+      const {
+        'suggested_topics': [
+          {'id': 1, 'title': 'Suggested', 'slug': 'suggested'},
+        ],
+        'nearby_topics': [
+          {'id': 2, 'title': 'Nearby', 'slug': 'nearby'},
+        ],
+        'popular_topics': [
+          {'id': 3, 'title': 'Popular', 'slug': 'popular'},
+        ],
+      },
+      'https://example.com',
+      extensions: registry,
+    )!;
+
+    expect(recommendations.sources.map((source) => source.id.value), [
+      'core/suggested',
+      'first/nearby',
+      'second/popular',
+    ]);
+    expect(recommendations.sources.map((source) => source.label), [
+      'Suggested',
+      'Nearby',
+      'Popular',
+    ]);
+  });
+
+  test('topic recommendation ids are namespaced and uniquely owned', () {
+    expect(
+      () => PluginRegistry.validated(const [
+        _RecommendationPlugin(
+          'owner',
+          sourceName: 'first',
+          payloadKey: 'first_topics',
+          label: 'First',
+          namespace: 'someone-else',
+        ),
+      ]),
+      throwsArgumentError,
+    );
+    expect(
+      () => PluginRegistry.validated(const [
+        _RecommendationPlugin(
+          'same',
+          sourceName: 'shared',
+          payloadKey: 'first_topics',
+          label: 'First',
+        ),
+        _RecommendationPlugin(
+          'same',
+          sourceName: 'shared',
+          payloadKey: 'second_topics',
+          label: 'Second',
+        ),
+      ]),
+      throwsArgumentError,
     );
   });
 
@@ -175,6 +296,40 @@ void main() {
       'first-header',
       'second-header',
     ]);
+  });
+
+  testWidgets('aggregates topic-header rebuild signals', (tester) async {
+    final first = ChangeNotifier();
+    final second = ChangeNotifier();
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    final registry = PluginRegistry([
+      _RebuildingHeaderPlugin('first', first),
+      const _NamedPlugin('unrelated'),
+      _RebuildingHeaderPlugin('second', second),
+    ]);
+    Listenable? rebuildOn;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            rebuildOn = registry.topicHeaderRebuildOn(context, 'site', _topic);
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    var notifications = 0;
+    void notified() => notifications++;
+    rebuildOn!.addListener(notified);
+    addTearDown(() => rebuildOn?.removeListener(notified));
+
+    first.notifyListeners();
+    second.notifyListeners();
+
+    expect(notifications, 2);
   });
 
   test(
@@ -466,27 +621,40 @@ final class _SmallActionPlugin extends _NamedPlugin
       : null;
 }
 
-final class _MenuPlugin extends _NamedPlugin implements PostMenuPlugin {
-  const _MenuPlugin(super.name, {this.replacesLike = false});
+final class _RebuildingHeaderPlugin extends _NamedPlugin
+    implements TopicHeaderRebuildPlugin {
+  const _RebuildingHeaderPlugin(super.name, this.rebuildOn);
 
-  final bool replacesLike;
+  final Listenable rebuildOn;
 
   @override
-  PostMenuContribution postMenu(
+  Listenable topicHeaderRebuildOn(
     BuildContext context,
     String siteUrl,
-    Post post,
-  ) => PostMenuContribution(
-    entries: [
-      PostAction(
-        icon: DIcons.heart,
-        label: name,
-        tooltip: name,
-        onInvoke: _noop,
-      ),
-    ],
-    replacesLike: replacesLike,
-  );
+    TopicDetail topic,
+  ) => rebuildOn;
+}
+
+final class _MenuPlugin extends _NamedPlugin implements PostMenuPlugin {
+  const _MenuPlugin(super.name, {this.replacesLike = false, this.rebuildOn});
+
+  final bool replacesLike;
+  final Listenable? rebuildOn;
+
+  @override
+  PostMenuContribution postMenu(PostMenuContext context) =>
+      PostMenuContribution(
+        entries: [
+          PostAction(
+            icon: DIcons.heart,
+            label: name,
+            tooltip: name,
+            onInvoke: _noop,
+          ),
+        ],
+        replacesLike: replacesLike,
+        rebuildOn: rebuildOn,
+      );
 }
 
 final class _Record {
@@ -519,6 +687,31 @@ final class _RecordPlugin extends _NamedPlugin
   @override
   _Record? mergeAfterPostEdit(_Record? held, _Record? incoming) =>
       held ?? incoming;
+}
+
+final class _RecommendationPlugin extends _NamedPlugin
+    implements TopicRecommendationSourcePlugin {
+  const _RecommendationPlugin(
+    super.name, {
+    required this.sourceName,
+    required this.payloadKey,
+    required this.label,
+    this.namespace,
+  });
+
+  final String sourceName;
+  final String payloadKey;
+  final String label;
+  final String? namespace;
+
+  @override
+  List<TopicRecommendationSourceDefinition> get topicRecommendationSources => [
+    TopicRecommendationSourceDefinition(
+      id: TopicRecommendationSourceId('${namespace ?? name}/$sourceName'),
+      payloadKey: payloadKey,
+      label: label,
+    ),
+  ];
 }
 
 void _noop() {}

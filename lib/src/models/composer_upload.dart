@@ -46,13 +46,23 @@ class ComposerUploadResult {
 }
 
 /// The upload security context Discourse applies to a composer attachment.
-enum ComposerUploadType {
-  composer('composer'),
-  chatComposer('chat-composer');
+@immutable
+final class ComposerUploadType {
+  const ComposerUploadType(this.wireName) : assert(wireName != '');
 
-  const ComposerUploadType(this.wireName);
+  static const composer = ComposerUploadType('composer');
 
   final String wireName;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ComposerUploadType && other.wireName == wireName;
+
+  @override
+  int get hashCode => wireName.hashCode;
+
+  @override
+  String toString() => wireName;
 }
 
 final class ComposerUploadException implements Exception {
@@ -67,8 +77,8 @@ final class ComposerUploadException implements Exception {
 
 enum ComposerUploadStatus { uploading, retrying, completed, failed, cancelled }
 
-/// One visible queue row. Topic successes are inserted into Markdown and
-/// removed; chat successes remain as completed attachments until send.
+/// One visible queue row. Markdown successes are inserted and removed; a
+/// target policy may instead retain successes as attachments until submit.
 @immutable
 class ComposerUploadItem {
   const ComposerUploadItem({

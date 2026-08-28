@@ -11,8 +11,11 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
+import 'package:discourse_native/src/plugins/plugin_services.dart';
 import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/open_link.dart';
@@ -172,6 +175,19 @@ void main() {
   test(
     'opens a thread route and hands its message to the mounted view',
     () async {
+      expect(
+        shell.pluginSession.require(chatShellService).host,
+        isNot(isA<ShellController>()),
+      );
+      expect(
+        shell.pluginSession.require(chatBookmarkHostService),
+        isNot(isA<ShellController>()),
+      );
+      expect(
+        shell.pluginSession.require(chatNotificationHostService),
+        isNot(isA<ShellController>()),
+      );
+
       expect(await shell.openChatUrl('$_site/chat/c/-/9/t/3/44'), isTrue);
 
       expect(shell.destinationId, 'chat-c-9');
@@ -189,6 +205,121 @@ void main() {
       expect(shell.chatNavigation.value?.messageId, 44);
     },
   );
+
+  test('Chat host ports reject foreign composer and feed namespaces', () async {
+    final composerHost = shell.pluginSession.require(chatComposerHostService);
+    const foreignTarget = ComposerTargetKind(
+      owner: PluginId('foreign'),
+      name: 'message',
+    );
+
+    expect(
+      () => composerHost.buildComposer(
+        const ComposerTargetRequest(
+          kind: foreignTarget,
+          siteUrl: _site,
+          title: 'Foreign message',
+        ),
+      ),
+      throwsA(
+        isA<PluginInstallationException>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('chat'), contains(foreignTarget.id)),
+        ),
+      ),
+    );
+
+    final composer = composerHost.buildComposer(
+      const ComposerTargetRequest(
+        kind: ChatPlugin.messageComposerTarget,
+        siteUrl: _site,
+        title: 'Support',
+        data: {ChatPlugin.composerChannelId: 9},
+      ),
+    );
+    expect(composer, isNotNull);
+    composer!.dispose();
+
+    final notificationHost = shell.pluginSession.require(
+      chatNotificationHostService,
+    );
+    const foreignFeedId = PluginNotificationFeedId(
+      owner: PluginId('foreign'),
+      name: 'notifications',
+    );
+    const foreignFeed = PluginNotificationFeedSource(
+      id: foreignFeedId,
+      filterByTypes: [NotificationKind.chatMessage],
+      reconnectMessage: 'Reconnect.',
+      failureMessage: 'Failed.',
+      emptyMessage: 'Empty.',
+    );
+
+    for (final access in <void Function()>[
+      () => notificationHost.notificationFeedListenable(foreignFeedId),
+      () => notificationHost.notificationFeedFor(foreignFeedId, _site),
+      () => notificationHost.loadPluginNotificationFeed(_site, foreignFeed),
+    ]) {
+      expect(
+        access,
+        throwsA(
+          isA<PluginInstallationException>().having(
+            (error) => error.message,
+            'message',
+            allOf(contains('chat'), contains(foreignFeedId.id)),
+          ),
+        ),
+      );
+    }
+
+    const undeclaredFeedId = PluginNotificationFeedId(
+      owner: PluginId('chat'),
+      name: 'undeclared',
+    );
+    expect(
+      () => notificationHost.notificationFeedFor(undeclaredFeedId, _site),
+      throwsA(
+        isA<PluginInstallationException>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('chat'), contains(undeclaredFeedId.id)),
+        ),
+      ),
+    );
+    expect(
+      () => notificationHost.loadPluginNotificationFeed(
+        _site,
+        const PluginNotificationFeedSource(
+          id: PluginNotificationFeedId(
+            owner: PluginId('chat'),
+            name: 'notifications',
+          ),
+          filterByTypes: [NotificationKind.chatMessage],
+          reconnectMessage: 'Different reconnect message.',
+          failureMessage: 'Different failure message.',
+          emptyMessage: 'Different empty message.',
+        ),
+      ),
+      throwsA(isA<PluginInstallationException>()),
+    );
+
+    expect(
+      notificationHost.notificationFeedListenable(chatNotificationFeed.id),
+      isNotNull,
+    );
+    await notificationHost.loadPluginNotificationFeed(
+      _site,
+      chatNotificationFeed,
+    );
+    expect(
+      notificationHost
+          .notificationFeedFor(chatNotificationFeed.id, _site)
+          .notifications
+          .map((notification) => notification.id),
+      [51],
+    );
+  });
 
   test(
     'retargets the same route without adding a duplicate stack entry',
@@ -398,9 +529,11 @@ void main() {
         controller: shell,
         child: MaterialApp(
           home: Scaffold(
-            body: ChatNotificationsSection(
+            body: PluginNotificationsSection(
               siteUrl: _site,
               onOpened: () => opened = true,
+              host: shell,
+              source: chatNotificationFeed,
             ),
           ),
         ),

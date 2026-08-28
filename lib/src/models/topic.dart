@@ -2,10 +2,12 @@ import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
 import '../plugin_api/plugin_data.dart';
+import '../plugin_api/topic_recommendation_source.dart';
 import 'json.dart';
 import 'topic_filter.dart';
 import 'topic_tag.dart';
 
+export '../plugin_api/topic_recommendation_source.dart';
 export 'topic_tag.dart';
 
 /// One participant in the topic map beneath the opening post.
@@ -452,52 +454,90 @@ class Topic with Storable<Topic> {
   ]);
 }
 
-/// The optional topic lists attached to the end of a topic.
+/// One installed source's topic list attached to the end of a topic.
 @immutable
-class TopicRecommendations {
-  const TopicRecommendations({
-    this.suggested = const [],
-    this.related = const [],
+class TopicRecommendationSource {
+  const TopicRecommendationSource({
+    required this.definition,
+    this.topics = const [],
   });
 
-  /// Null means neither field was present, which is how Discourse says the
-  /// reader has not reached the final post window yet.
+  final TopicRecommendationSourceDefinition definition;
+  final List<Topic> topics;
+
+  TopicRecommendationSourceId get id => definition.id;
+  String get label => definition.label;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TopicRecommendationSource &&
+          other.definition == definition &&
+          listEquals(other.topics, topics);
+
+  @override
+  int get hashCode => Object.hash(definition, Object.hashAll(topics));
+}
+
+/// The optional, ordered topic lists attached to the end of a topic.
+@immutable
+class TopicRecommendations {
+  const TopicRecommendations({this.sources = const []});
+
+  /// Null means no field owned by core or an installed plugin was present,
+  /// which is how Discourse says the reader has not reached the final post
+  /// window yet.
   static TopicRecommendations? fromJson(
     Map<String, dynamic> json,
     String siteUrl, {
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
   }) {
-    if (!json.containsKey('suggested_topics') &&
-        !json.containsKey('related_topics')) {
+    final definitions = [
+      coreSuggestedTopicRecommendationSource,
+      ...extensions.topicRecommendationSources,
+    ];
+    if (!definitions.any(
+      (definition) => json.containsKey(definition.payloadKey),
+    )) {
       return null;
     }
     return TopicRecommendations(
-      suggested: List.unmodifiable([
-        for (final topic in jsonObjects(json['suggested_topics']))
-          Topic.fromRecommendationJson(topic, siteUrl, extensions: extensions),
-      ]),
-      related: List.unmodifiable([
-        for (final topic in jsonObjects(json['related_topics']))
-          Topic.fromRecommendationJson(topic, siteUrl, extensions: extensions),
+      sources: List.unmodifiable([
+        for (final definition in definitions)
+          if (json.containsKey(definition.payloadKey))
+            TopicRecommendationSource(
+              definition: definition,
+              topics: List.unmodifiable([
+                for (final topic in jsonObjects(json[definition.payloadKey]))
+                  Topic.fromRecommendationJson(
+                    topic,
+                    siteUrl,
+                    extensions: extensions,
+                  ),
+              ]),
+            ),
       ]),
     );
   }
 
-  final List<Topic> suggested;
-  final List<Topic> related;
+  final List<TopicRecommendationSource> sources;
 
-  bool get isNotEmpty => suggested.isNotEmpty || related.isNotEmpty;
+  bool get isNotEmpty => sources.any((source) => source.topics.isNotEmpty);
+
+  TopicRecommendationSource? source(TopicRecommendationSourceId id) {
+    for (final source in sources) {
+      if (source.id == id) return source;
+    }
+    return null;
+  }
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is TopicRecommendations &&
-          listEquals(other.suggested, suggested) &&
-          listEquals(other.related, related);
+      other is TopicRecommendations && listEquals(other.sources, sources);
 
   @override
-  int get hashCode =>
-      Object.hash(Object.hashAll(suggested), Object.hashAll(related));
+  int get hashCode => Object.hashAll(sources);
 }
 
 /// One page of a topic list, plus what the rows need to render.

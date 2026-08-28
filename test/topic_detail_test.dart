@@ -1,7 +1,9 @@
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/plugins/site_plugin.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
+import 'package:discourse_native/src/plugins/plugin_data.dart';
+import 'package:discourse_native/src/plugins/plugin_registry.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const site = 'https://meta.discourse.org';
@@ -364,7 +366,7 @@ void main() {
       expect(payload.detail.canCreatePost, isFalse);
     });
 
-    test('reads core suggestions and discourse-ai related topics', () {
+    test('core reads suggestions and ignores uninstalled sources', () {
       final payload = TopicDetail.parse(const {
         'id': 7,
         'title': 'A real topic',
@@ -388,14 +390,50 @@ void main() {
       }, site);
 
       final recommendations = payload.detail.recommendations!;
-      expect(recommendations.suggested.single.title, 'Suggested one');
-      expect(recommendations.suggested.single.replyCount, 3);
-      expect(recommendations.suggested.single.views, 42);
-      expect(recommendations.suggested.single.posterAvatars, [
-        '$site/letter/s/90.png',
+      expect(recommendations.sources.map((source) => source.id), [
+        coreSuggestedTopicRecommendationSourceId,
       ]);
-      expect(recommendations.related.single.title, 'Related one');
-      expect(() => recommendations.suggested.clear(), throwsUnsupportedError);
+      final suggested = recommendations.sources.single.topics;
+      expect(suggested.single.title, 'Suggested one');
+      expect(suggested.single.replyCount, 3);
+      expect(suggested.single.views, 42);
+      expect(suggested.single.posterAvatars, ['$site/letter/s/90.png']);
+      expect(
+        recommendations.source(discourseAiRelatedTopicRecommendationSourceId),
+        isNull,
+      );
+      expect(() => suggested.clear(), throwsUnsupportedError);
+    });
+
+    test('an installed plugin parses its recommendation source', () {
+      final payload = TopicDetail.parse(
+        const {
+          'id': 7,
+          'title': 'A real topic',
+          'suggested_topics': [
+            {'id': 8, 'title': 'Suggested one', 'slug': 'suggested-one'},
+          ],
+          'related_topics': [
+            {'id': 9, 'title': 'Related one', 'slug': 'related-one'},
+          ],
+        },
+        site,
+        extensions: const PluginRegistry([AiSummaryPlugin()]),
+      );
+
+      final recommendations = payload.detail.recommendations!;
+      expect(recommendations.sources.map((source) => source.id), [
+        coreSuggestedTopicRecommendationSourceId,
+        discourseAiRelatedTopicRecommendationSourceId,
+      ]);
+      expect(
+        recommendations
+            .source(discourseAiRelatedTopicRecommendationSourceId)!
+            .topics
+            .single
+            .title,
+        'Related one',
+      );
     });
 
     test('distinguishes a partial response from an empty final response', () {
@@ -538,7 +576,12 @@ void main() {
 
     test('keeps recommendations when a partial refetch omits them', () {
       const recommendations = TopicRecommendations(
-        suggested: [Topic(id: 8, title: 'Suggested', slug: 'suggested')],
+        sources: [
+          TopicRecommendationSource(
+            definition: coreSuggestedTopicRecommendationSource,
+            topics: [Topic(id: 8, title: 'Suggested', slug: 'suggested')],
+          ),
+        ],
       );
       const held = TopicDetail(
         id: 7,

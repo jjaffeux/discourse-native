@@ -43,7 +43,9 @@ import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
@@ -4224,6 +4226,16 @@ void main() {
       bookmarks: bookmarks,
     );
 
+    TopicRecommendations suggestedRecommendations(Topic topic) =>
+        TopicRecommendations(
+          sources: [
+            TopicRecommendationSource(
+              definition: coreSuggestedTopicRecommendationSource,
+              topics: [topic],
+            ),
+          ],
+        );
+
     testWidgets('tapping a row replaces the list with the topic', (
       tester,
     ) async {
@@ -5667,17 +5679,42 @@ void main() {
       );
     });
 
-    testWidgets('shows suggested and discourse-ai related tabs in a panel', (
+    testWidgets('shows ordered recommendation-source tabs in a panel', (
       tester,
     ) async {
       SharedPreferences.setMockInitialValues({});
       addTearDown(() => SharedPreferences.setMockInitialValues({}));
       const recommendations = TopicRecommendations(
-        suggested: [
-          Topic(id: 8, title: 'Locations :earth_africa:', slug: 'locations'),
-        ],
-        related: [
-          Topic(id: 9, title: 'An AI topic :sparkles:', slug: 'an-ai-topic'),
+        sources: [
+          TopicRecommendationSource(
+            definition: coreSuggestedTopicRecommendationSource,
+            topics: [
+              Topic(
+                id: 8,
+                title: 'Locations :earth_africa:',
+                slug: 'locations',
+              ),
+            ],
+          ),
+          TopicRecommendationSource(
+            definition: discourseAiRelatedTopicRecommendationSource,
+            topics: [
+              Topic(
+                id: 9,
+                title: 'An AI topic :sparkles:',
+                slug: 'an-ai-topic',
+              ),
+            ],
+          ),
+          TopicRecommendationSource(
+            definition: TopicRecommendationSourceDefinition(
+              id: TopicRecommendationSourceId('test/nearby'),
+              payloadKey: 'nearby_topics',
+              label: 'Nearby',
+              icon: DIcons.globe,
+            ),
+            topics: [Topic(id: 10, title: 'A nearby topic', slug: 'nearby')],
+          ),
         ],
       );
       final api = FakeDiscourseApi(
@@ -5716,9 +5753,9 @@ void main() {
       expect(find.byTooltip('Collapse more topics'), findsOneWidget);
       expect(find.text('Suggested'), findsOneWidget);
       expect(find.text('Related'), findsOneWidget);
+      expect(find.text('Nearby'), findsOneWidget);
       final earth = find.byWidgetPredicate(
-        (widget) =>
-            widget is SiteEmojiImage && widget.name == 'earth_africa',
+        (widget) => widget is SiteEmojiImage && widget.name == 'earth_africa',
       );
       final sparkles = find.byWidgetPredicate(
         (widget) => widget is SiteEmojiImage && widget.name == 'sparkles',
@@ -5726,7 +5763,11 @@ void main() {
       expect(earth, findsOneWidget);
       expect(sparkles, findsNothing);
 
-      await tester.tap(find.byKey(const ValueKey('related-topics-tab')));
+      await tester.tap(
+        find.byKey(
+          const ValueKey('topic-recommendations-tab-discourse-ai/related'),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(earth, findsNothing);
@@ -5742,10 +5783,12 @@ void main() {
     testWidgets('reserves the recommendations panel while a topic loads', (
       tester,
     ) async {
-      const recommendations = TopicRecommendations(
-        suggested: [
-          Topic(id: 8, title: 'A suggested topic', slug: 'a-suggested-topic'),
-        ],
+      final recommendations = suggestedRecommendations(
+        const Topic(
+          id: 8,
+          title: 'A suggested topic',
+          slug: 'a-suggested-topic',
+        ),
       );
       final topicGate = Completer<void>();
       final api = FakeDiscourseApi(
@@ -5789,10 +5832,12 @@ void main() {
     testWidgets('keeps the panel width while final-page topics load', (
       tester,
     ) async {
-      const recommendations = TopicRecommendations(
-        suggested: [
-          Topic(id: 8, title: 'Suggested at the end', slug: 'suggested-end'),
-        ],
+      final recommendations = suggestedRecommendations(
+        const Topic(
+          id: 8,
+          title: 'Suggested at the end',
+          slug: 'suggested-end',
+        ),
       );
       final postGate = Completer<void>();
       final api = FakeDiscourseApi(
@@ -5836,10 +5881,8 @@ void main() {
     ) async {
       SharedPreferences.setMockInitialValues({});
       addTearDown(() => SharedPreferences.setMockInitialValues({}));
-      const recommendations = TopicRecommendations(
-        suggested: [
-          Topic(id: 8, title: 'Remembered suggestion', slug: 'remembered'),
-        ],
+      final recommendations = suggestedRecommendations(
+        const Topic(id: 8, title: 'Remembered suggestion', slug: 'remembered'),
       );
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
@@ -5882,11 +5925,23 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       addTearDown(() => SharedPreferences.setMockInitialValues({}));
       const recommendations = TopicRecommendations(
-        suggested: [
-          Topic(id: 8, title: 'A suggested topic', slug: 'a-suggested-topic'),
-        ],
-        related: [
-          Topic(id: 9, title: 'An AI related topic', slug: 'an-ai-topic'),
+        sources: [
+          TopicRecommendationSource(
+            definition: coreSuggestedTopicRecommendationSource,
+            topics: [
+              Topic(
+                id: 8,
+                title: 'A suggested topic',
+                slug: 'a-suggested-topic',
+              ),
+            ],
+          ),
+          TopicRecommendationSource(
+            definition: discourseAiRelatedTopicRecommendationSource,
+            topics: [
+              Topic(id: 9, title: 'An AI related topic', slug: 'an-ai-topic'),
+            ],
+          ),
         ],
       );
       final api = FakeDiscourseApi(
@@ -5899,7 +5954,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('A suggested topic'), findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('related-topics-tab')));
+      await tester.tap(
+        find.byKey(
+          const ValueKey('topic-recommendations-tab-discourse-ai/related'),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text('An AI related topic'), findsOneWidget);
       // The UI intentionally fires this optional preference write without
@@ -5909,7 +5968,7 @@ void main() {
         await const TopicRecommendationsTabStore().read(
           siteUrl: 'https://meta.discourse.org',
         ),
-        TopicRecommendationsTab.related,
+        discourseAiRelatedTopicRecommendationSourceId,
       );
 
       await pumpShell(
@@ -5932,12 +5991,10 @@ void main() {
       addTearDown(() => SharedPreferences.setMockInitialValues({}));
       await const TopicRecommendationsTabStore().write(
         siteUrl: 'https://meta.discourse.org',
-        tab: TopicRecommendationsTab.related,
+        sourceId: discourseAiRelatedTopicRecommendationSourceId,
       );
-      const recommendations = TopicRecommendations(
-        suggested: [
-          Topic(id: 8, title: 'Only suggestion', slug: 'only-suggestion'),
-        ],
+      final recommendations = suggestedRecommendations(
+        const Topic(id: 8, title: 'Only suggestion', slug: 'only-suggestion'),
       );
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
@@ -5949,16 +6006,23 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Only suggestion'), findsOneWidget);
-      expect(find.byKey(const ValueKey('related-topics-tab')), findsNothing);
+      expect(
+        find.byKey(
+          const ValueKey('topic-recommendations-tab-discourse-ai/related'),
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('keeps recommendations below the posts on narrow layouts', (
       tester,
     ) async {
-      const recommendations = TopicRecommendations(
-        suggested: [
-          Topic(id: 8, title: 'Narrow suggestion', slug: 'narrow-suggestion'),
-        ],
+      final recommendations = suggestedRecommendations(
+        const Topic(
+          id: 8,
+          title: 'Narrow suggestion',
+          slug: 'narrow-suggestion',
+        ),
       );
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
@@ -5979,10 +6043,12 @@ void main() {
     testWidgets('gets more topics with the final page of a long topic', (
       tester,
     ) async {
-      const recommendations = TopicRecommendations(
-        suggested: [
-          Topic(id: 8, title: 'Suggested at the end', slug: 'suggested-end'),
-        ],
+      final recommendations = suggestedRecommendations(
+        const Topic(
+          id: 8,
+          title: 'Suggested at the end',
+          slug: 'suggested-end',
+        ),
       );
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
@@ -6374,7 +6440,11 @@ void main() {
   });
 
   group('the user menu', () {
-    const me = DiscourseUser(username: 'joffreyj', name: 'Joffrey');
+    const me = DiscourseUser(
+      username: 'joffreyj',
+      name: 'Joffrey',
+      hidePresence: false,
+    );
     final connected = [
       instance(
         'meta.discourse.org',
@@ -6752,7 +6822,7 @@ void main() {
         expect(api.replyNotificationCalls, 0);
         expect(api.notificationFilters, [
           const <NotificationKind>[],
-          userMenuChatNotificationKinds,
+          chatNotificationFeed.filterByTypes,
         ]);
 
         final title = find.text('Chat');
@@ -6788,9 +6858,9 @@ void main() {
 
       expect(api.markedRead, [51]);
       expect(launched, ['https://meta.discourse.org/chat/c/-/9/44']);
-      expect(find.byType(ChatNotificationsSection), findsNothing);
+      expect(find.byType(ChatUserMenuNotifications), findsNothing);
       expect(find.text('@joffreyj · meta.discourse.org'), findsNothing);
-      expect(api.notificationFilters, [userMenuChatNotificationKinds]);
+      expect(api.notificationFilters, [chatNotificationFeed.filterByTypes]);
     });
 
     testWidgets('an empty Chat tab explains that there is no activity', (
@@ -6844,8 +6914,8 @@ void main() {
       expect(api.chatNotificationCalls, 2);
       expect(api.notificationCalls, 0);
       expect(api.notificationFilters, [
-        userMenuChatNotificationKinds,
-        userMenuChatNotificationKinds,
+        chatNotificationFeed.filterByTypes,
+        chatNotificationFeed.filterByTypes,
       ]);
       expect(tester.takeException(), isNull);
     });
@@ -7087,7 +7157,7 @@ void main() {
       );
       expect(
         tester.widget<Text>(find.text('Online')).style?.color,
-        placeholder,
+        isNot(placeholder),
       );
       expect(
         tester.widget<Text>(find.text('Disconnect')).style?.color,
