@@ -22,6 +22,7 @@ import 'package:discourse_native/src/models/topic_link.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/models/user_status.dart';
+import 'package:discourse_native/src/models/user_summary.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -156,6 +157,23 @@ const _keys = [
   'has_cached_summary',
   'ai_topic_summary',
   'summarized_text',
+  'user_summary',
+  'topic_ids',
+  'most_liked_by_users',
+  'most_liked_users',
+  'most_replied_to_users',
+  'top_categories',
+  'badge_id',
+  'likes_given',
+  'likes_received',
+  'topics_entered',
+  'posts_read_count',
+  'days_visited',
+  'time_read',
+  'recent_time_read',
+  'bookmark_count',
+  'can_see_summary_stats',
+  'can_see_user_actions',
 ];
 
 Object? _value(Random random, int depth) => switch (random.nextInt(
@@ -268,6 +286,7 @@ void main() {
       probe('UserCard', () => UserCard.fromJson(json, site), json);
       probe('UserDraft', () => UserDraft.fromJson(json), json);
       probe('UserStatus', () => UserStatus.fromJson(json), json);
+      probe('UserSummary', () => UserSummary.fromJson(json, site), json);
       probe('Topic', () => Topic.fromJson(json, const {}, site), json);
       probe(
         'TopicParticipant',

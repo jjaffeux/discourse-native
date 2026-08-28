@@ -13,12 +13,13 @@ import 'emoji_picker.dart';
 import 'shell_metrics.dart';
 import 'user_status.dart';
 
-typedef ComposerSuggestionActionHandler = Future<void> Function({
-  required BuildContext context,
-  required ComposerController composer,
-  required ComposerSuggestion suggestion,
-  Rect? anchor,
-});
+typedef ComposerSuggestionActionHandler =
+    Future<void> Function({
+      required BuildContext context,
+      required ComposerController composer,
+      required ComposerSuggestion suggestion,
+      Rect? anchor,
+    });
 
 /// The composer's text field, with the completion list over it.
 ///

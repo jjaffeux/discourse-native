@@ -55,11 +55,13 @@ import '../models/topic_link.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_status.dart';
+import '../models/user_summary.dart';
 import '../plugin_api/core_plugin_host.dart';
 import '../plugin_api/core_plugin_manifest.dart';
 import '../plugin_api/plugin_data.dart';
 import '../plugin_api/plugin_runtime.dart';
 import '../plugin_api/shell_extensions.dart';
+import '../theme/d_icons.dart';
 import 'account_activity_controller.dart';
 import 'aggregate_feed_controller.dart';
 import 'composer_autocomplete.dart';
@@ -75,6 +77,7 @@ import 'site_url.dart';
 import 'topic_feed_controller.dart';
 import 'topic_read_controller.dart';
 import 'update_controller.dart';
+import 'user_summary_controller.dart';
 
 /// Which pane occupies the space next to the rail when the shell is compact.
 ///
@@ -427,6 +430,14 @@ class ShellController extends FrameSafeNotifier
 
   /// The connected account's server-side drafts for the full-page destination.
   late final DraftListController draftList = DraftListController(
+    api: api,
+    credentials: authenticator,
+    lifecycle: lifecycle,
+  );
+
+  /// The connected account's profile summary, independent from shell-wide
+  /// navigation so refreshes do not rebuild the rail or inactive tabs.
+  late final UserSummaryController userSummary = UserSummaryController(
     api: api,
     credentials: authenticator,
     lifecycle: lifecycle,
@@ -2814,6 +2825,15 @@ class ShellController extends FrameSafeNotifier
     topic.title,
     postNumber: topic.lastUnreadPostNumber,
   );
+
+  /// Opens one of the partial topic records side-loaded with a user summary.
+  void openSummaryTopic(UserSummaryTopic topic, {int? postNumber}) =>
+      _openTopic(
+        topic.id,
+        topic.slug,
+        topic.title,
+        postNumber: postNumber != null && postNumber > 0 ? postNumber : null,
+      );
 
   /// Opens a featured topic from the categories page.
   ///
@@ -8787,6 +8807,7 @@ class ShellController extends FrameSafeNotifier
 
     accountActivity.forget(siteUrl);
     draftList.forget(siteUrl);
+    userSummary.forget(siteUrl);
     store.forget(siteUrl);
 
     _likersLoading.removeWhere((key) => key.startsWith('$siteUrl~'));
@@ -9365,6 +9386,17 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
+  /// Opens the connected account's restorable native Summary destination.
+  void openUserSummary(String siteUrl) {
+    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0 || _instances[index].user == null) return;
+    if (index != _instanceIndex) selectInstance(index);
+    if (currentContent?.id == 'summary') return;
+    pushContent(
+      const ContentRoute(id: 'summary', title: 'Summary', icon: DIcons.user),
+    );
+  }
+
   /// Restores a draft into the composer mode this client supports.
   Future<void> resumeDraft(String siteUrl, UserDraft draft) async {
     if (!draft.canResume) return;
@@ -9589,6 +9621,7 @@ class ShellController extends FrameSafeNotifier
     updates.dispose();
     accountActivity.dispose();
     draftList.dispose();
+    userSummary.dispose();
     topicFeeds.dispose();
     aggregate.dispose();
     siteImages.dispose();
