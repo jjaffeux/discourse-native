@@ -4458,10 +4458,7 @@ void main() {
         expect(sidebarRect.bottom, topicRect.bottom);
         expect(headerRect.left, topicRect.left);
         expect(headerRect.right, topicRect.right);
-        expect(surfaceRect.left - sidebarRect.left, 12);
-        expect(sidebarRect.right - surfaceRect.right, 12);
-        expect(surfaceRect.top - sidebarRect.top, 12);
-        expect(sidebarRect.bottom - surfaceRect.bottom, 12);
+        expect(surfaceRect, sidebarRect);
         expect(
           tester.widget<SingleChildScrollView>(sidebarSurface).padding,
           const EdgeInsets.fromLTRB(12, 12, 12, 16),

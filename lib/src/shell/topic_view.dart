@@ -2110,65 +2110,60 @@ class _TopicSidebarPanel extends StatelessWidget {
     return SizedBox(
       key: const ValueKey('topic-sidebar-panel'),
       width: width,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: SingleChildScrollView(
-          key: const ValueKey('topic-sidebar-surface'),
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _TopicSidebarActions(
-                siteUrl: siteUrl,
+      child: SingleChildScrollView(
+        key: const ValueKey('topic-sidebar-surface'),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _TopicSidebarActions(
+              siteUrl: siteUrl,
+              topic: topic,
+              canReply: canReply,
+              registry: registry,
+              onCollapsed: onCollapsed,
+            ),
+            if (topic case final topic? when siteUrl != null) ...[
+              const SizedBox(height: 12),
+              _TopicPropertiesCard(
+                siteUrl: siteUrl!,
                 topic: topic,
-                canReply: canReply,
+                route: route,
                 registry: registry,
-                onCollapsed: onCollapsed,
               ),
-              if (topic case final topic? when siteUrl != null) ...[
-                const SizedBox(height: 12),
-                _TopicPropertiesCard(
-                  siteUrl: siteUrl!,
-                  topic: topic,
-                  route: route,
-                  registry: registry,
-                ),
-              ],
-              if (recommendations?.isNotEmpty == true || loading) ...[
-                const SizedBox(height: 12),
-                _TopicSidebarCard(
-                  key: const ValueKey('topic-more-topics-card'),
-                  child: switch (recommendations) {
-                    final recommendations? => Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 13, 14, 8),
-                          child: Text(
-                            'More topics',
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        _MoreTopics(
-                          key: const ValueKey(
-                            'topic-sidebar-more-topics-list',
-                          ),
-                          siteUrl: siteUrl!,
-                          recommendations: recommendations,
-                          selected: selected,
-                          onSelected: onSelected,
-                          topPadding: 0,
-                        ),
-                      ],
-                    ),
-                    null => const _MoreTopicsLoadingSkeleton(),
-                  },
-                ),
-              ],
             ],
-          ),
+            if (recommendations?.isNotEmpty == true || loading) ...[
+              const SizedBox(height: 12),
+              _TopicSidebarCard(
+                key: const ValueKey('topic-more-topics-card'),
+                child: switch (recommendations) {
+                  final recommendations? => Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 13, 14, 8),
+                        child: Text(
+                          'More topics',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      _MoreTopics(
+                        key: const ValueKey('topic-sidebar-more-topics-list'),
+                        siteUrl: siteUrl!,
+                        recommendations: recommendations,
+                        selected: selected,
+                        onSelected: onSelected,
+                        topPadding: 0,
+                      ),
+                    ],
+                  ),
+                  null => const _MoreTopicsLoadingSkeleton(),
+                },
+              ),
+            ],
+          ],
         ),
       ),
     );
