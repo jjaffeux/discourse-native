@@ -1426,7 +1426,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _restoreViewportAfterPrepend(controller, snapshot, hasHeader: showHeader);
     _scheduleLook();
 
-    final postStream = NotificationListener<ScrollMetricsNotification>(
+    final postStreamContent = NotificationListener<ScrollMetricsNotification>(
       onNotification: (notification) {
         if (notification.depth == 0) _scheduleLook();
         return false;
@@ -1583,6 +1583,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           },
         ),
       ),
+    );
+    final postStream = ScrollbarTheme(
+      data: const ScrollbarThemeData(thickness: WidgetStatePropertyAll(4)),
+      child: postStreamContent,
     );
 
     final floatingDay = _floatingDay;
