@@ -319,14 +319,6 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
               enabled: !tag.disabled && (_selected(tag) || !_atMaximum),
               selected: _selected(tag),
               showSelectionIndicator: true,
-              leading: Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  borderRadius: BorderRadius.circular(5),
-                ),
-              ),
               title: Text(tag.name),
               subtitle: tag.disabledReason == null
                   ? null

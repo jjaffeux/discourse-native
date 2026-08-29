@@ -44,7 +44,7 @@ void main() {
     expect(query.decoration?.isDense, isTrue);
     expect(
       query.decoration?.contentPadding,
-      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
     );
 
     final option = tester.widget<ListTile>(find.byType(ListTile));

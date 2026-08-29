@@ -4804,7 +4804,7 @@ void main() {
             tester.widget<TextField>(categoryQuery).style?.fontSize,
             DiscourseTypography.fontDown1,
           );
-          expect(tester.getSize(categoryQuery).height, lessThan(40));
+          expect(tester.getSize(categoryQuery).height, inInclusiveRange(34, 42));
           final categoryDivider = find.byKey(
             const ValueKey('topic-category-picker-divider'),
           );
@@ -4927,7 +4927,7 @@ void main() {
         final query = find.byKey(const ValueKey('topic-tag-picker-query'));
         final queryWidget = tester.widget<TextField>(query);
         expect(queryWidget.style?.fontSize, DiscourseTypography.fontDown1);
-        expect(tester.getSize(query).height, lessThan(40));
+        expect(tester.getSize(query).height, inInclusiveRange(34, 42));
 
         final divider = find.descendant(
           of: picker,
@@ -4963,6 +4963,7 @@ void main() {
           mobileOption.titleTextStyle?.fontSize,
           DiscourseTypography.fontDown1,
         );
+        expect((mobileOption.leading! as Row).children, hasLength(1));
         await tester.tap(
           find.descendant(
             of: picker,

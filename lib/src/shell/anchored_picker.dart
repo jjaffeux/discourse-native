@@ -126,7 +126,7 @@ class AnchoredPickerContent extends StatelessWidget {
             border: InputBorder.none,
             isDense: compact,
             contentPadding: compact
-                ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
+                ? const EdgeInsets.symmetric(horizontal: 14, vertical: 11)
                 : null,
           ),
         ),
