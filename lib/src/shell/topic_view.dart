@@ -2291,15 +2291,23 @@ class _TopicPropertiesCard extends StatelessWidget {
                 ),
               ),
               _TopicPropertyRow(
+                key: const ValueKey('topic-sidebar-tags-property'),
                 label: 'Tags',
+                onTap: topic.canEditTags ? controller.openTagsEdit : null,
+                tooltip: topic.canEditTags ? 'Edit topic tags' : null,
                 child: topic.tags.isEmpty
-                    ? const _EmptyTopicProperty('No tags')
+                    ? topic.canEditTags
+                          ? const _EditableEmptyTopicTags()
+                          : const _EmptyTopicProperty('No tags')
                     : Wrap(
                         spacing: 6,
                         runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           for (final tag in topic.tags)
                             _TopicSidebarTag(tag: tag),
+                          if (topic.canEditTags)
+                            const _TopicTagsEditIndicator(),
                         ],
                       ),
               ),
@@ -2349,15 +2357,23 @@ class _TopicSidebarCard extends StatelessWidget {
 }
 
 class _TopicPropertyRow extends StatelessWidget {
-  const _TopicPropertyRow({required this.label, required this.child});
+  const _TopicPropertyRow({
+    super.key,
+    required this.label,
+    required this.child,
+    this.onTap,
+    this.tooltip,
+  });
 
   final String label;
   final Widget child;
+  final VoidCallback? onTap;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
+    final content = Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2376,6 +2392,20 @@ class _TopicPropertyRow extends StatelessWidget {
           ),
           Expanded(child: child),
         ],
+      ),
+    );
+
+    if (onTap == null) return content;
+    return Tooltip(
+      message: tooltip ?? label,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          mouseCursor: SystemMouseCursors.click,
+          borderRadius: BorderRadius.circular(6),
+          child: content,
+        ),
       ),
     );
   }
@@ -2446,6 +2476,39 @@ class _TopicSidebarTag extends StatelessWidget {
       ),
     );
   }
+}
+
+class _EditableEmptyTopicTags extends StatelessWidget {
+  const _EditableEmptyTopicTags();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.primary;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        DIcon(DIcons.plus, size: 12, color: color),
+        const SizedBox(width: 5),
+        Text(
+          'Add tags',
+          style: theme.textTheme.labelMedium?.copyWith(color: color),
+        ),
+      ],
+    );
+  }
+}
+
+class _TopicTagsEditIndicator extends StatelessWidget {
+  const _TopicTagsEditIndicator();
+
+  @override
+  Widget build(BuildContext context) => DIcon(
+    DIcons.pencil,
+    key: const ValueKey('topic-sidebar-tags-edit-indicator'),
+    size: 12,
+    color: Theme.of(context).colorScheme.onSurfaceVariant,
+  );
 }
 
 class _EmptyTopicProperty extends StatelessWidget {

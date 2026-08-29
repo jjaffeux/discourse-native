@@ -551,6 +551,11 @@ entire sidebar from the layout, and that preference is remembered per forum.
 Medium and compact layouts keep the same controls available through a transient
 right-side overlay instead of shrinking the reading column.
 
+When core grants `can_edit_tags`, the Tags property becomes an action and opens
+the existing topic-tag editor with the current selection. Topics without that
+permission keep the same read-only property, so the sidebar never implies a
+write the site will reject.
+
 Topic-list rows carry `last_read_post_number` and `highest_post_number`. Like
 Discourse's web client, an unread row opens at `last_read_post_number + 1`,
 capped at the highest post; a fully read row opens at its last post. The

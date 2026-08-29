@@ -4480,6 +4480,102 @@ void main() {
       },
     );
 
+    testWidgets('empty editable sidebar tags open the picker and save a tag', (
+      tester,
+    ) async {
+      const design = TopicTag(id: 8, name: 'design');
+      const mobile = TopicTag(id: 9, name: 'mobile');
+      final base = detail();
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: (
+            detail: base.detail.copyWith(canEditTags: true),
+            posts: base.posts,
+          ),
+        },
+        composerCapabilities: const TopicComposerCapabilities(
+          canTagTopics: true,
+          maxTagsPerTopic: 5,
+        ),
+        topicTagSearches: const {
+          '': TopicTagSearch(tags: [design, mobile]),
+        },
+      );
+      const reader = DiscourseUser(id: 1, username: 'reader');
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [instance('meta.discourse.org').copyWith(user: reader)],
+        api: api,
+        authenticator: authenticator,
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+
+      final tagsProperty = find.byKey(
+        const ValueKey('topic-sidebar-tags-property'),
+      );
+      expect(tagsProperty, findsOneWidget);
+      expect(find.byTooltip('Edit topic tags'), findsOneWidget);
+      expect(find.text('Add tags'), findsOneWidget);
+
+      await tester.tap(tagsProperty);
+      await tester.pumpAndSettle();
+
+      final composer = find.byType(ComposerPanel);
+      expect(composer, findsOneWidget);
+      expect(
+        find.descendant(of: composer, matching: find.text('Edit topic tags')),
+        findsOneWidget,
+      );
+      final tagsButton = find.descendant(
+        of: composer,
+        matching: find.widgetWithText(OutlinedButton, 'Tags'),
+      );
+      expect(tagsButton, findsOneWidget);
+      await tester.tap(tagsButton);
+      await tester.pumpAndSettle();
+
+      final picker = find.byWidgetPredicate(
+        (widget) => widget is Dialog || widget is BottomSheet,
+        description: 'tag picker dialog or sheet',
+      );
+      expect(picker, findsOneWidget);
+      await tester.tap(
+        find.descendant(
+          of: picker,
+          matching: find.widgetWithText(CheckboxListTile, 'mobile'),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(
+        find.descendant(of: picker, matching: find.byTooltip('Close')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: composer,
+          matching: find.widgetWithText(FilledButton, 'Save'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(api.topicTagsUpdated.single, {
+        'topicId': 7,
+        'tags': const [mobile],
+      });
+      expect(
+        find.byKey(const ValueKey(('topic-sidebar-tag', 'mobile'))),
+        findsOneWidget,
+      );
+      expect(find.byType(ComposerPanel), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('only a topic bookmark gives its action the core accent', (
       tester,
     ) async {
