@@ -14,6 +14,7 @@ import '../../shell/platform.dart';
 import '../../shell/post_flag_editor.dart';
 import '../../shell/reaction_presentation.dart';
 import '../../shell/relative_time.dart';
+import '../../shell/route_aware_selection_area.dart';
 import '../../shell/shell_sheet.dart';
 import '../../shell/site_emoji_text.dart';
 import '../../shell/user_card.dart';
@@ -1254,8 +1255,8 @@ class _MessageBodySelectionState extends State<_MessageBodySelection> {
   }
 
   @override
-  Widget build(BuildContext context) => SelectionArea(
-    key: widget.selectionKey,
+  Widget build(BuildContext context) => RouteAwareSelectionArea(
+    selectionAreaKey: widget.selectionKey,
     focusNode: _focusNode,
     child: widget.child,
   );

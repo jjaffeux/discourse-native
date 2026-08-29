@@ -12,6 +12,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'cooked_html.dart';
 import 'relative_time.dart';
+import 'route_aware_selection_area.dart';
 import 'shell_sheet.dart';
 
 typedef PostRevisionLoader =
@@ -182,7 +183,7 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
             );
           }
 
-          return SelectionArea(
+          return RouteAwareSelectionArea(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
