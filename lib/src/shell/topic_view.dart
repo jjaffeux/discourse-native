@@ -2860,20 +2860,6 @@ class _TopicTagsSavingIndicator extends StatelessWidget {
   );
 }
 
-class _TopicPropertyEditIndicator extends StatelessWidget {
-  const _TopicPropertyEditIndicator({required this.keyName});
-
-  final String keyName;
-
-  @override
-  Widget build(BuildContext context) => DIcon(
-    DIcons.pencil,
-    key: ValueKey(keyName),
-    size: 12,
-    color: Theme.of(context).colorScheme.onSurfaceVariant,
-  );
-}
-
 class _EmptyTopicProperty extends StatelessWidget {
   const _EmptyTopicProperty(this.label);
 
