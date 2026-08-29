@@ -100,6 +100,11 @@ void main() {
       find.byKey(const ValueKey('emoji-picker-desktop-popover')),
       findsOneWidget,
     );
+    final search = tester.widget<TextField>(
+      find.byKey(const ValueKey('emoji-picker-search')),
+    );
+    expect(search.focusNode, isNotNull);
+    expect(search.focusNode!.hasFocus, isTrue);
     expect(
       find.byKey(const ValueKey('emoji-picker-category-nav-desktop')),
       findsOneWidget,
