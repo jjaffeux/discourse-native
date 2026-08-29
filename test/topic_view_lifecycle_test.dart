@@ -12,6 +12,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -653,6 +654,99 @@ void main() {
         for (var id = 41; id <= 100; id++) id,
       ]);
       expect(tester.getTopLeft(anchoredPost).dy, closeTo(topBeforePrepend, 1));
+    },
+  );
+
+  testWidgets(
+    'scrolling up survives the second correction after a tall first post loads',
+    (tester) async {
+      final fixture = await _pumpTallPrependTopic(tester);
+      final controller = fixture.controller;
+
+      expect(fixture.api.postFetches, [
+        [1],
+      ]);
+      final list = tester.widget<SuperListView>(find.byType(SuperListView));
+      list.controller!.jumpTo(700);
+      await tester.pump();
+      final secondPost = find.byKey(const ValueKey(2));
+      expect(secondPost, findsOneWidget);
+      final topBeforePrepend = tester.getTopLeft(secondPost).dy;
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(SuperListView)),
+      );
+      await gesture.moveBy(const Offset(0, 20));
+      await tester.pump();
+      await gesture.moveBy(const Offset(0, 100));
+      await tester.pump();
+      expect(
+        tester.getTopLeft(secondPost).dy,
+        closeTo(topBeforePrepend + 100, 1),
+      );
+
+      fixture.postGate.complete();
+      await tester.pump();
+      expect(
+        tester.getTopLeft(secondPost).dy,
+        closeTo(topBeforePrepend + 100, 1),
+      );
+
+      await gesture.moveBy(const Offset(0, 100));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(controller.currentPostIds, [1, 2]);
+      expect(
+        tester.getTopLeft(secondPost).dy,
+        closeTo(topBeforePrepend + 200, 1),
+      );
+    },
+  );
+
+  testWidgets(
+    'mouse-wheel scrolling supersedes a queued tall-post correction',
+    (tester) async {
+      final fixture = await _pumpTallPrependTopic(tester);
+      final controller = fixture.controller;
+
+      final list = tester.widget<SuperListView>(find.byType(SuperListView));
+      list.controller!.jumpTo(700);
+      await tester.pump();
+      final secondPost = find.byKey(const ValueKey(2));
+      final topicCenter = tester.getCenter(find.byType(SuperListView));
+      final topBeforePrepend = tester.getTopLeft(secondPost).dy;
+
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: topicCenter,
+          scrollDelta: const Offset(0, -100),
+        ),
+      );
+      await tester.pump();
+
+      fixture.postGate.complete();
+      await tester.pump();
+      expect(
+        tester.getTopLeft(secondPost).dy,
+        closeTo(topBeforePrepend + 100, 1),
+      );
+
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: topicCenter,
+          scrollDelta: const Offset(0, -100),
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(controller.currentPostIds, [1, 2]);
+      expect(
+        tester.getTopLeft(secondPost).dy,
+        closeTo(topBeforePrepend + 200, 1),
+      );
     },
   );
 
@@ -1461,6 +1555,50 @@ void main() {
     expect(controller.currentContent?.postNumber, 30);
     expect(find.byKey(const ValueKey('topic-progress-slider')), findsNothing);
   });
+}
+
+Future<
+  ({ShellController controller, FakeDiscourseApi api, Completer<void> postGate})
+>
+_pumpTallPrependTopic(WidgetTester tester) async {
+  final site = instance('meta.example');
+  final posts = {
+    1: Post(
+      id: 1,
+      postNumber: 1,
+      username: 'sam',
+      cooked: List.filled(120, '<p>A very tall first post</p>').join(),
+    ),
+    2: Post(
+      id: 2,
+      postNumber: 2,
+      username: 'sam',
+      cooked: List.filled(80, '<p>A very tall second post</p>').join(),
+    ),
+  };
+  final postGate = Completer<void>();
+  final api = FakeDiscourseApi(
+    feeds: const {'/latest.json': []},
+    postsById: posts,
+    postGate: postGate,
+  );
+  final controller = _controller(site, api);
+  addTearDown(controller.dispose);
+  await controller.load();
+  controller.store
+    ..put(
+      site.url,
+      const TopicDetail(id: 1, title: 'One', stream: [1, 2], postsCount: 2),
+    )
+    ..put(site.url, posts[2]!);
+  controller.pushContent(
+    ContentRoute.topic(topicId: 1, slug: 'one', title: 'One', postNumber: 2),
+  );
+
+  await tester.pumpWidget(_topicView(controller));
+  await tester.pump();
+  await tester.pump();
+  return (controller: controller, api: api, postGate: postGate);
 }
 
 ShellController _controller(DiscourseInstance site, FakeDiscourseApi api) =>

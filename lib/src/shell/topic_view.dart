@@ -135,6 +135,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   bool _laidOutHasHeader = false;
   bool _restored = false;
   bool _restoring = false;
+  bool _userDragging = false;
+  bool _applyingAnchorRestore = false;
   bool _lookScheduled = false;
   bool _saveAnchorAfterLook = false;
   int? _savedAnchorPostNumber;
@@ -204,6 +206,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _laidOutHasHeader = false;
     _restored = false;
     _restoring = false;
+    _userDragging = false;
+    _applyingAnchorRestore = false;
     _lookScheduled = false;
     _saveAnchorAfterLook = false;
     _savedAnchorPostNumber = null;
@@ -866,6 +870,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     void restore() {
       if (!identical(_anchorRestoreToken, token)) return;
       if (!_isCurrent(controller, identity)) return;
+      // ScrollPosition.jumpTo ends the current drag. Once the reader has put
+      // a finger back on the list, preserving that live gesture matters more
+      // than applying the second, estimate-settling correction.
+      if (_userDragging) {
+        _anchorRestoreToken = null;
+        _restoring = false;
+        return;
+      }
       final list = _list;
       final scroll = _scroll;
       if (list == null || scroll == null) return;
@@ -880,11 +892,16 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       final target =
           _offsetBeforeChild(list, childIndex) - anchor.viewportOffset;
       final position = scroll.position;
-      scroll.jumpTo(
-        target
-            .clamp(position.minScrollExtent, position.maxScrollExtent)
-            .toDouble(),
-      );
+      _applyingAnchorRestore = true;
+      try {
+        scroll.jumpTo(
+          target
+              .clamp(position.minScrollExtent, position.maxScrollExtent)
+              .toDouble(),
+        );
+      } finally {
+        _applyingAnchorRestore = false;
+      }
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1183,6 +1200,21 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final postStream = NotificationListener<ScrollNotification>(
       onNotification: (notification) {
         if (notification.depth == 0) {
+          if (notification is ScrollStartNotification &&
+              notification.dragDetails != null) {
+            _userDragging = true;
+          } else if (notification is ScrollEndNotification) {
+            _userDragging = false;
+          }
+          // Wheel, trackpad, touch, and an unrelated programmatic scroll all
+          // supersede a queued prepend correction. The correction's own
+          // ScrollUpdateNotification is ignored while jumpTo is on the stack.
+          if (notification is ScrollUpdateNotification &&
+              !_applyingAnchorRestore &&
+              _anchorRestoreToken != null) {
+            _anchorRestoreToken = null;
+            _restoring = false;
+          }
           // SuperSliverList publishes its new visible range during layout,
           // after the scroll notification. Looking synchronously here reads
           // the previous viewport and repeatedly credits the old post.
