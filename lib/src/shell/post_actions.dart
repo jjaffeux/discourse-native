@@ -11,6 +11,7 @@ import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'anchored_layout.dart';
 import 'anonymous_flag_dialog.dart';
 import 'bookmark_ui.dart';
 import 'hover_action_toolbar.dart';
@@ -204,6 +205,31 @@ class _PostActionsState extends State<PostActions> {
   void _overflowChanged(bool open) {
     _overflowOpen = open;
     if (!open && !_pointerInside) _closeNow();
+  }
+
+  /// Captures a popover action's button before closing the toolbar that owns
+  /// it. Once the portal is hidden its button context is detached, so asking
+  /// the action to locate itself later would either fail or anchor to the much
+  /// larger post context that contributed it.
+  void _invokeFrom(PostAction action, BuildContext anchorContext) {
+    final anchored = action.onInvokeAnchored;
+    final anchor = anchored == null
+        ? null
+        : anchorRect(
+            anchor: anchorContext.findRenderObject() as RenderBox?,
+            overlay:
+                Navigator.of(
+                      anchorContext,
+                      rootNavigator: true,
+                    ).overlay?.context.findRenderObject()
+                    as RenderBox?,
+          );
+    _closeNow(force: true);
+    if (anchored != null && anchor != null) {
+      anchored(anchor);
+    } else {
+      action.onInvoke();
+    }
   }
 
   /// What this reader may do with this post, in the order they are offered.
@@ -745,10 +771,7 @@ class _PostActionsState extends State<PostActions> {
               actions: actions,
               firstActionFocus: _firstActionFocus,
               onOverflowChanged: _overflowChanged,
-              onInvoke: (action) {
-                _closeNow(force: true);
-                action.onInvoke();
-              },
+              onInvoke: _invokeFrom,
             ),
           ),
         ),
@@ -817,7 +840,7 @@ class _PostActionsMenu extends StatelessWidget {
   final List<PostAction> actions;
   final FocusNode firstActionFocus;
   final ValueChanged<bool> onOverflowChanged;
-  final void Function(PostAction action) onInvoke;
+  final void Function(PostAction action, BuildContext anchorContext) onInvoke;
 
   @override
   Widget build(BuildContext context) {
@@ -834,16 +857,20 @@ class _PostActionsMenu extends StatelessWidget {
       child: HoverActionToolbar(
         children: [
           for (final (index, action) in leadingActions.indexed)
-            HoverActionButton(
-              focusNode: index == 0 ? firstActionFocus : null,
-              onPressed: action.enabled ? () => onInvoke(action) : null,
-              icon: action.leading(context, size: 16),
-              tooltip: action.tooltip,
-              color:
-                  action.tint ??
-                  (action.destructive
-                      ? theme.colorScheme.error
-                      : theme.colorScheme.onSurfaceVariant),
+            Builder(
+              builder: (buttonContext) => HoverActionButton(
+                focusNode: index == 0 ? firstActionFocus : null,
+                onPressed: action.enabled
+                    ? () => onInvoke(action, buttonContext)
+                    : null,
+                icon: action.leading(context, size: 16),
+                tooltip: action.tooltip,
+                color:
+                    action.tint ??
+                    (action.destructive
+                        ? theme.colorScheme.error
+                        : theme.colorScheme.onSurfaceVariant),
+              ),
             ),
           if (collapse)
             MenuAnchor(
@@ -864,37 +891,43 @@ class _PostActionsMenu extends StatelessWidget {
                           .take(index)
                           .any((candidate) => candidate.destructive))
                     const Divider(height: 1),
-                  MenuItemButton(
-                    onPressed: action.enabled ? () => onInvoke(action) : null,
-                    leadingIcon: action.leading(
-                      context,
-                      size: 16,
-                      color:
-                          action.tint ??
-                          (action.destructive ? theme.colorScheme.error : null),
-                    ),
-                    style: ButtonStyle(
-                      backgroundColor: WidgetStateProperty.resolveWith((
-                        states,
-                      ) {
-                        if (states.contains(WidgetState.disabled)) {
+                  Builder(
+                    builder: (buttonContext) => MenuItemButton(
+                      onPressed: action.enabled
+                          ? () => onInvoke(action, buttonContext)
+                          : null,
+                      leadingIcon: action.leading(
+                        context,
+                        size: 16,
+                        color:
+                            action.tint ??
+                            (action.destructive
+                                ? theme.colorScheme.error
+                                : null),
+                      ),
+                      style: ButtonStyle(
+                        backgroundColor: WidgetStateProperty.resolveWith((
+                          states,
+                        ) {
+                          if (states.contains(WidgetState.disabled)) {
+                            return Colors.transparent;
+                          }
+                          if (states.contains(WidgetState.hovered) ||
+                              states.contains(WidgetState.focused) ||
+                              states.contains(WidgetState.pressed)) {
+                            return theme.shell.hover;
+                          }
                           return Colors.transparent;
-                        }
-                        if (states.contains(WidgetState.hovered) ||
-                            states.contains(WidgetState.focused) ||
-                            states.contains(WidgetState.pressed)) {
-                          return theme.shell.hover;
-                        }
-                        return Colors.transparent;
-                      }),
-                      foregroundColor: action.destructive
-                          ? WidgetStatePropertyAll(theme.colorScheme.error)
-                          : null,
-                      iconColor: action.destructive
-                          ? WidgetStatePropertyAll(theme.colorScheme.error)
-                          : null,
+                        }),
+                        foregroundColor: action.destructive
+                            ? WidgetStatePropertyAll(theme.colorScheme.error)
+                            : null,
+                        iconColor: action.destructive
+                            ? WidgetStatePropertyAll(theme.colorScheme.error)
+                            : null,
+                      ),
+                      child: Text(action.label),
                     ),
-                    child: Text(action.label),
                   ),
                 ],
               ],
@@ -907,18 +940,22 @@ class _PostActionsMenu extends StatelessWidget {
               ),
             ),
           for (final (index, action) in trailingActions.indexed)
-            HoverActionButton(
-              focusNode: leadingActions.isEmpty && !collapse && index == 0
-                  ? firstActionFocus
-                  : null,
-              onPressed: action.enabled ? () => onInvoke(action) : null,
-              icon: action.leading(context, size: 16),
-              tooltip: action.tooltip,
-              color:
-                  action.tint ??
-                  (action.destructive
-                      ? theme.colorScheme.error
-                      : theme.colorScheme.onSurfaceVariant),
+            Builder(
+              builder: (buttonContext) => HoverActionButton(
+                focusNode: leadingActions.isEmpty && !collapse && index == 0
+                    ? firstActionFocus
+                    : null,
+                onPressed: action.enabled
+                    ? () => onInvoke(action, buttonContext)
+                    : null,
+                icon: action.leading(context, size: 16),
+                tooltip: action.tooltip,
+                color:
+                    action.tint ??
+                    (action.destructive
+                        ? theme.colorScheme.error
+                        : theme.colorScheme.onSurfaceVariant),
+              ),
             ),
         ],
       ),

@@ -35,6 +35,7 @@ class PostAction {
     required this.label,
     required this.tooltip,
     required this.onInvoke,
+    this.onInvokeAnchored,
     this.enabled = true,
     this.destructive = false,
     this.tint,
@@ -68,6 +69,14 @@ class PostAction {
   /// Overrides the icon's color where the state of the post is worth saying in
   /// the icon itself — a heart already given, rather than one on offer.
   final Color? tint;
+
+  /// Invoked instead of [onInvoke] on pointer-driven post toolbars when the
+  /// action opens a popover that belongs beside its button.
+  ///
+  /// The rectangle is captured before the toolbar overlay closes and uses the
+  /// root navigator overlay's coordinates. Touch sheets and a button that can
+  /// no longer be measured fall back to [onInvoke].
+  final ValueChanged<Rect>? onInvokeAnchored;
 
   final VoidCallback onInvoke;
 

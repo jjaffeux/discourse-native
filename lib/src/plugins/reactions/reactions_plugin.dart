@@ -207,6 +207,18 @@ class ReactionsPlugin
             }
             report(controller.toggle(post, target, siteUrl: siteUrl));
           },
+          onInvokeAnchored: target == null
+              ? (anchor) => unawaited(
+                  showPostReactionPicker(
+                    context,
+                    controller,
+                    emoji,
+                    siteUrl,
+                    post,
+                    anchor: anchor,
+                  ),
+                )
+              : null,
         ),
         if (target != null && settings.offeredReactions.isNotEmpty)
           PostAction(
@@ -217,6 +229,16 @@ class ReactionsPlugin
             enabled: !writeInFlight,
             onInvoke: () => unawaited(
               showPostReactionPicker(context, controller, emoji, siteUrl, post),
+            ),
+            onInvokeAnchored: (anchor) => unawaited(
+              showPostReactionPicker(
+                context,
+                controller,
+                emoji,
+                siteUrl,
+                post,
+                anchor: anchor,
+              ),
             ),
           ),
       ],

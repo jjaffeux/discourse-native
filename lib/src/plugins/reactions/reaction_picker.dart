@@ -20,8 +20,9 @@ Future<void> showPostReactionPicker(
   ReactionsController controller,
   PluginEmojiHost emoji,
   String siteUrl,
-  Post post,
-) async {
+  Post post, {
+  Rect? anchor,
+}) async {
   final session = controller.beginPicker(siteUrl, post);
   final messenger = ScaffoldMessenger.maybeOf(context);
   bool stillOwnsUi() => !context.mounted || _stillOwnsUi(context, controller);
@@ -46,6 +47,7 @@ Future<void> showPostReactionPicker(
 
   final picked = await showEmojiPicker(
     context: context,
+    anchor: anchor,
     siteUrl: siteUrl,
     pickerContext: reactionsEmojiUsageContext,
     store: emoji.preferences,
