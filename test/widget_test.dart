@@ -9798,6 +9798,62 @@ void main() {
       expect(find.byTooltip('Reply to this post'), findsOneWidget);
     });
 
+    testWidgets(
+      'a recycled post stays closed under a stationary pointer',
+      (tester) async {
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {
+            7: topicPayload(
+              id: 7,
+              title: 'A real topic',
+              posts: [
+                for (var i = 1; i <= 30; i++)
+                  Post(
+                    id: i,
+                    postNumber: i,
+                    username: 'sam',
+                    cooked: '<p>Post body $i</p>',
+                  ),
+              ],
+              stream: [for (var i = 1; i <= 30; i++) i],
+              postsCount: 30,
+              canCreatePost: true,
+            ),
+          },
+        );
+
+        await openTopic(tester, api);
+        final list = find.byType(SuperListView);
+        final pointer = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        await pointer.addPointer(location: Offset.zero);
+        addTearDown(pointer.removePointer);
+        await pointer.moveTo(tester.getCenter(list));
+        await tester.pump();
+        expect(find.byTooltip('Reply to this post'), findsOneWidget);
+
+        final scrollable = find
+            .descendant(of: list, matching: find.byType(Scrollable))
+            .first;
+        final position = tester.state<ScrollableState>(scrollable).position;
+        position.jumpTo(1200);
+        await tester.pump();
+        await tester.pump();
+
+        // A synchronous jump can build a fresh row after scrolling has
+        // already ended. Its synthetic enter must not be mistaken for real
+        // pointer movement and create an overlay during mouse hit testing.
+        expect(find.byTooltip('Reply to this post'), findsNothing);
+        expect(tester.takeException(), isNull);
+
+        await pointer.moveBy(const Offset(0, 1));
+        await tester.pump();
+        expect(find.byTooltip('Reply to this post'), findsOneWidget);
+      },
+    );
+
     testWidgets('the menu goes when its post scrolls out of sight', (
       tester,
     ) async {

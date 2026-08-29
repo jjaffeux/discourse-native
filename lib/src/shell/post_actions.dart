@@ -164,7 +164,10 @@ class _PostActionsState extends State<PostActions> {
 
   void _pointerEntered(_PostActionsHoverTarget target) {
     _hoveredTargets.add(target);
-    _open();
+    // MouseTracker also synthesizes enter when layout moves a new row beneath
+    // a stationary device. Opening an OverlayPortal from that post-frame hit
+    // test can race with the row being recycled again. A genuine pointer move
+    // immediately delivers onHover, which opens through _pointerMoved instead.
   }
 
   void _pointerExited(_PostActionsHoverTarget target) {
