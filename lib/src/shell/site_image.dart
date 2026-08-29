@@ -8,6 +8,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../data/site_image_repository.dart';
 import '../plugin_api/plugin_registry.dart';
+import 'image_decode.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
 
@@ -359,16 +360,33 @@ final class SiteImageWidgetFactory extends WidgetFactory {
 
     final metadata = src.image;
     final semanticLabel = metadata?.alt ?? metadata?.title;
-    return SiteImage(
-      url: src.url,
-      siteUrl: siteUrl,
-      fit: BoxFit.fill,
-      semanticLabel: semanticLabel,
-      excludeFromSemantics: semanticLabel == null,
-      loadingBuilder: (context) =>
-          onLoadingBuilder(context, tree, null, src) ?? const SizedBox.shrink(),
-      errorBuilder: (context, error, stackTrace) =>
-          onErrorBuilder(context, tree, error, src) ?? const SizedBox.shrink(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final logicalWidth =
+            constraints.hasBoundedWidth &&
+                constraints.maxWidth.isFinite &&
+                constraints.maxWidth > 0
+            ? constraints.maxWidth
+            : src.width;
+        final cacheWidth =
+            logicalWidth != null && logicalWidth.isFinite && logicalWidth > 0
+            ? imagePhysicalPixels(context, logicalWidth.clamp(1, 10000))
+            : null;
+        return SiteImage(
+          url: src.url,
+          siteUrl: siteUrl,
+          fit: BoxFit.fill,
+          cacheWidth: cacheWidth,
+          semanticLabel: semanticLabel,
+          excludeFromSemantics: semanticLabel == null,
+          loadingBuilder: (context) =>
+              onLoadingBuilder(context, tree, null, src) ??
+              const SizedBox.shrink(),
+          errorBuilder: (context, error, stackTrace) =>
+              onErrorBuilder(context, tree, error, src) ??
+              const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

@@ -209,12 +209,7 @@ class ImageGridData {
   /// `parseInfoDimensions`: the leading `1920×1080` of an `.informations` line,
   /// which Discourse writes with either separator.
   static Size? _parseInformations(String? text) {
-    if (text == null) return null;
-    final dimensions = text.trim().split(' ').first;
-    final parts = dimensions.split(RegExp('x|×'));
-    if (parts.length != 2) return null;
-
-    return parseSafeImageLayoutSize(parts[0], parts[1]);
+    return parseSafeImageInformationSize(text);
   }
 }
 
@@ -759,7 +754,19 @@ class _DotButtonState extends State<_DotButton> {
 
   void _reveal() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(Scrollable.ensureVisible(context, alignment: 0.5));
+      if (!mounted) return;
+      final target = context.findRenderObject();
+      final scrollable = Scrollable.maybeOf(context);
+      if (target == null ||
+          scrollable == null ||
+          axisDirectionToAxis(scrollable.axisDirection) != Axis.horizontal) {
+        return;
+      }
+      // `Scrollable.ensureVisible` walks every enclosing scrollable. These dots
+      // live inside the vertically scrolling topic, so that API can recenter
+      // the whole post while merely changing carousel slides. Reveal through
+      // the nearest (horizontal) position only.
+      unawaited(scrollable.position.ensureVisible(target, alignment: 0.5));
     });
   }
 

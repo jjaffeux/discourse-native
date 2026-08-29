@@ -119,6 +119,17 @@ void main() {
       expect(image.aspectRatio, closeTo(690 / 388, 0.0001));
     });
 
+    test(
+      'falls back to intrinsic information when img dimensions are absent',
+      () {
+        final image = parse(sizelessImage);
+
+        expect(image.width, 1000);
+        expect(image.height, 1000);
+        expect(image.aspectRatio, 1);
+      },
+    );
+
     test('bounds hostile dimensions before they reach layout constraints', () {
       LightboxImage dimensions(String width, String height) => parse(
         '<a class="lightbox" href="full.png">'
@@ -293,13 +304,27 @@ void main() {
     testWidgets('lays out an image whose markup declared no size', (
       tester,
     ) async {
-      // No `width`/`height` means no [AspectRatio] to bound the tile, and a
-      // post scrolls, so a tile that asks to fill its box asks for an infinite
-      // height and takes the viewport's layout down with it.
+      // Chat can omit `width`/`height`, but its information line still gives
+      // us enough to reserve the slot before the image loads.
       await pumpCooked(tester, sizelessImage);
 
       expect(tester.takeException(), isNull);
       expect(find.byType(LightboxThumbnail), findsOneWidget);
+    });
+
+    testWidgets('standalone thumbnails contain unusually tall images', (
+      tester,
+    ) async {
+      await pumpCooked(
+        tester,
+        '<a class="lightbox" href="full.png"><img src="thumb.png" '
+        'width="100" height="1000"></a>',
+      );
+
+      expect(
+        tester.widget<LightboxTile>(find.byType(LightboxTile)).fit,
+        BoxFit.contain,
+      );
     });
 
     testWidgets('does not print the .meta overlay as stray text', (

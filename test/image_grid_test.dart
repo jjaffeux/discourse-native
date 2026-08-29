@@ -360,6 +360,40 @@ void main() {
   });
 
   group('the carousel', () {
+    testWidgets('changing slides does not recenter the outer topic scroll', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(400, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final outer = ScrollController();
+      addTearDown(outer.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: ListView(
+              controller: outer,
+              children: [
+                const SizedBox(height: 500),
+                ImageGridCarousel(data: parse(grid(3, mode: 'carousel'))),
+                const SizedBox(height: 500),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      outer.jumpTo(450);
+      await tester.pump();
+      final before = outer.offset;
+
+      await tester.tap(find.byKey(const ValueKey('image-carousel-next')));
+      await tester.pumpAndSettle();
+
+      expect(outer.offset, before);
+    });
+
     testWidgets('draws a track instead of a mosaic', (tester) async {
       await pumpGrid(tester, grid(3, mode: 'carousel'));
 
