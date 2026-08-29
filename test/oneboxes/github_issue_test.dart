@@ -119,7 +119,10 @@ void main() {
       );
       expect(find.text('bug'), findsOneWidget);
       expect(find.text('regression'), findsOneWidget);
-      expect(find.text('octocat'), findsOneWidget);
+      expect(
+        find.textContaining('octocat', findRichText: true),
+        findsOneWidget,
+      );
       expect(
         find.text('Opened ${relativeTime(DateTime.utc(2026, 7, 1, 9))}'),
         findsOneWidget,

@@ -152,9 +152,12 @@ void main() {
             ?.color,
         accent,
       );
-      expect(find.text('octocat'), findsOneWidget);
-      expect(find.text('+12'), findsOneWidget);
-      expect(find.text('−3'), findsOneWidget);
+      expect(
+        find.textContaining('octocat', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.textContaining('+12', findRichText: true), findsOneWidget);
+      expect(find.textContaining('−3', findRichText: true), findsOneWidget);
       expect(
         find.text(
           'Committed ${relativeTime(DateTime.utc(2026, 7, 30, 16, 45))}',
