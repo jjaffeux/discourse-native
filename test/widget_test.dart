@@ -5028,6 +5028,8 @@ void main() {
           composerCapabilities: const TopicComposerCapabilities(
             canTagTopics: true,
             canCreateTag: true,
+            tagsFilterRegexp:
+                r'''[\/\?#\[\]@!\$&'\(\)\*\+,;=%\\`^\s|\{\}"<>]+''',
             maxTagLength: 20,
             maxTagsPerTopic: 5,
           ),

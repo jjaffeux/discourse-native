@@ -873,6 +873,28 @@ class TopicComposerCapabilities {
   final int? uncategorizedCategoryId;
   final int? maxTagLength;
   final int? maxTagsPerTopic;
+
+  /// Whether [name] can be offered as a new tag.
+  ///
+  /// Discourse sends `tags_filter_regexp` as a pattern matching forbidden
+  /// characters. It is not an allowlist for the complete tag name.
+  bool canCreateTagNamed(String name) {
+    if (!canCreateTag || name.isEmpty) return false;
+    if (maxTagLength case final maximum?) {
+      if (name.length > maximum) return false;
+    }
+    final source = tagsFilterRegexp;
+    if (source == null || source.isEmpty) return true;
+    try {
+      var pattern = source;
+      if (pattern.startsWith('/') && pattern.lastIndexOf('/') > 0) {
+        pattern = pattern.substring(1, pattern.lastIndexOf('/'));
+      }
+      return !RegExp(pattern).hasMatch(name);
+    } catch (_) {
+      return false;
+    }
+  }
 }
 
 @immutable

@@ -870,9 +870,9 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
   }
 
   TopicTag? get _newTag {
-    if (!widget.capabilities.canCreateTag || _result.isForbidden) return null;
+    if (_result.isForbidden) return null;
     final name = _query.text.trim();
-    if (name.isEmpty ||
+    if (!widget.capabilities.canCreateTagNamed(name) ||
         widget.composer.tags.any(
           (tag) => tag.name.toLowerCase() == name.toLowerCase(),
         ) ||
@@ -881,26 +881,9 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
         )) {
       return null;
     }
-    final maximumLength = widget.capabilities.maxTagLength;
-    if (maximumLength != null && name.length > maximumLength) return null;
     final maximumTags = widget.capabilities.maxTagsPerTopic;
     if (maximumTags != null && widget.composer.tags.length >= maximumTags) {
       return null;
-    }
-    final source = widget.capabilities.tagsFilterRegexp;
-    if (source != null && source.isNotEmpty) {
-      try {
-        var pattern = source;
-        if (pattern.startsWith('/') && pattern.lastIndexOf('/') > 0) {
-          pattern = pattern.substring(1, pattern.lastIndexOf('/'));
-        }
-        final match = RegExp(pattern).firstMatch(name);
-        if (match == null || match.start != 0 || match.end != name.length) {
-          return null;
-        }
-      } catch (_) {
-        return null;
-      }
     }
     return TopicTag(name: name);
   }

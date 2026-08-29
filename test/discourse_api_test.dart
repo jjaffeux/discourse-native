@@ -2498,7 +2498,8 @@ void _feedGroups() {
             jsonEncode({
               'can_tag_topics': true,
               'can_create_tag': true,
-              'tags_filter_regexp': r'[a-z-]+',
+              'tags_filter_regexp':
+                  r'''[\/\?#\[\]@!\$&'\(\)\*\+,;=%\\`^\s|\{\}"<>]+''',
               'uncategorized_category_id': 1,
               'max_tag_length': 20,
             }),
@@ -2515,6 +2516,8 @@ void _feedGroups() {
       expect(capabilities.canTagTopics, isTrue);
       expect(capabilities.canCreateTag, isTrue);
       expect(capabilities.maxTagLength, 20);
+      expect(capabilities.canCreateTagNamed('mobile'), isTrue);
+      expect(capabilities.canCreateTagNamed('mobile tag'), isFalse);
     });
 
     test('searches tags in category and preserves disabled reasons', () async {
