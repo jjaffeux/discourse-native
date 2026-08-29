@@ -541,10 +541,10 @@ Tapping a row pushes a topic route onto the content stack, so back returns to
 the list — which is not refetched, since feeds are cached.
 
 Topic chrome keeps navigation separate from context. The fixed header contains
-Back, a single-line title and its right-aligned sidebar toggle. On expanded
-layouts a full-height 344-point right sidebar holds Reply, notification
-tracking, bookmarks and the guardian-gated topic menu at its top level;
-category, tags and plugin-owned properties such as Assignments share one
+Back, a single-line title, an icon-only notification-level menu and its
+right-aligned sidebar toggle. On expanded layouts a full-height 344-point right
+sidebar holds Reply, bookmarks and the guardian-gated topic menu at its top
+level; category, tags and plugin-owned properties such as Assignments share one
 untitled card; and non-empty recommendation sources such as Related and
 Suggested share a second card with tabs. The panel-shaped toggle removes the
 entire sidebar from the layout, and that preference is remembered per forum.

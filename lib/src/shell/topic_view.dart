@@ -1068,7 +1068,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                       route: widget.route,
                       canReply: false,
                       bookmarkBusy: false,
-                      isConnected: widget.isConnected,
                       registry: widget.registry,
                     ),
                 ],
@@ -1093,7 +1092,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                     route: widget.route,
                     canReply: false,
                     bookmarkBusy: false,
-                    isConnected: widget.isConnected,
                     registry: widget.registry,
                   ),
                 ),
@@ -1325,6 +1323,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                     _TopicViewHeader(
                       title: snapshot.topic!.title,
                       siteUrl: siteUrl,
+                      topic: snapshot.topic!,
+                      isConnected: widget.isConnected,
                       canReturnToSidebar: widget.canReturnToSidebar,
                       sidebarVisible: showDockedSidebar || showOverlaySidebar,
                       onToggleSidebar: showOverlaySidebar
@@ -1390,7 +1390,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                   route: widget.route,
                   canReply: widget.canReply,
                   bookmarkBusy: widget.bookmarkBusy,
-                  isConnected: widget.isConnected,
                   registry: widget.registry,
                 ),
             ],
@@ -1415,7 +1414,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                 route: widget.route,
                 canReply: widget.canReply,
                 bookmarkBusy: widget.bookmarkBusy,
-                isConnected: widget.isConnected,
                 registry: widget.registry,
               ),
             ),
@@ -1925,6 +1923,8 @@ class _TopicViewHeader extends StatelessWidget {
     required this.title,
     required this.siteUrl,
     required this.canReturnToSidebar,
+    this.topic,
+    this.isConnected = false,
     this.sidebarVisible = false,
     this.onToggleSidebar,
   });
@@ -1932,6 +1932,8 @@ class _TopicViewHeader extends StatelessWidget {
   final String title;
   final String? siteUrl;
   final bool canReturnToSidebar;
+  final TopicDetail? topic;
+  final bool isConnected;
   final bool sidebarVisible;
   final VoidCallback? onToggleSidebar;
 
@@ -1978,8 +1980,12 @@ class _TopicViewHeader extends StatelessWidget {
                     style: titleStyle,
                   ),
           ),
-          if (onToggleSidebar case final onPressed?) ...[
+          if (topic case final topic? when siteUrl != null && isConnected) ...[
             const SizedBox(width: 8),
+            TopicNotificationLevelButton(siteUrl: siteUrl!, topic: topic),
+          ],
+          if (onToggleSidebar case final onPressed?) ...[
+            const SizedBox(width: 4),
             _TopicSidebarToggle(
               showSidebar: !sidebarVisible,
               onPressed: onPressed,
@@ -2003,7 +2009,6 @@ class _TopicSidebarPanel extends StatelessWidget {
     required this.route,
     required this.canReply,
     required this.bookmarkBusy,
-    required this.isConnected,
     required this.registry,
     this.width = dockedWidth,
   }) : assert(recommendations == null || siteUrl != null);
@@ -2020,7 +2025,6 @@ class _TopicSidebarPanel extends StatelessWidget {
   final ContentRoute? route;
   final bool canReply;
   final bool bookmarkBusy;
-  final bool isConnected;
   final PluginRegistry registry;
   final double width;
 
@@ -2045,7 +2049,6 @@ class _TopicSidebarPanel extends StatelessWidget {
               route: route,
               canReply: canReply,
               bookmarkBusy: bookmarkBusy,
-              isConnected: isConnected,
               registry: registry,
               onCollapsed: onCollapsed,
             ),
@@ -2103,7 +2106,6 @@ class _TopicSidebarActions extends StatelessWidget {
     required this.route,
     required this.canReply,
     required this.bookmarkBusy,
-    required this.isConnected,
     required this.registry,
     this.onCollapsed,
   });
@@ -2113,7 +2115,6 @@ class _TopicSidebarActions extends StatelessWidget {
   final ContentRoute? route;
   final bool canReply;
   final bool bookmarkBusy;
-  final bool isConnected;
   final PluginRegistry registry;
   final VoidCallback? onCollapsed;
 
@@ -2155,15 +2156,6 @@ class _TopicSidebarActions extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              if (isConnected)
-                Expanded(
-                  child: TopicNotificationLevelButton(
-                    siteUrl: siteUrl,
-                    topic: topic,
-                    showLabel: true,
-                  ),
-                ),
-              if (isConnected) const SizedBox(width: 4),
               if (controller.currentInstance?.user != null)
                 TopicBookmarkButton(
                   siteUrl: siteUrl,

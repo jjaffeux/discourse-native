@@ -4264,7 +4264,7 @@ void main() {
     });
 
     testWidgets(
-      'topic header stays minimal while the sidebar owns context and actions',
+      'topic header places icon-only tracking beside the sidebar toggle',
       (tester) async {
         const longTitle =
             'Chris weekly update for 2026 with roadmap decisions, operational '
@@ -4330,6 +4330,9 @@ void main() {
         final sidebarToggle = find.byKey(
           const ValueKey('topic-sidebar-toggle'),
         );
+        final notificationLevel = find.byKey(
+          const ValueKey('topic-notification-level-button'),
+        );
         expect(header, findsOneWidget);
         expect(title, findsOneWidget);
         expect(
@@ -4345,6 +4348,14 @@ void main() {
           find.descendant(of: header, matching: sidebarToggle),
           findsOneWidget,
         );
+        expect(
+          find.descendant(of: header, matching: notificationLevel),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: header, matching: find.text('Tracking')),
+          findsNothing,
+        );
 
         final sidebar = find.byKey(const ValueKey('topic-sidebar-panel'));
         final properties = find.byKey(const ValueKey('topic-properties-card'));
@@ -4357,9 +4368,11 @@ void main() {
         final sidebarRect = tester.getRect(sidebar);
         final headerRect = tester.getRect(header);
         final toggleRect = tester.getRect(sidebarToggle);
+        final notificationRect = tester.getRect(notificationLevel);
         expect(sidebarRect.top, topicRect.top);
         expect(sidebarRect.bottom, topicRect.bottom);
         expect(headerRect.right, sidebarRect.left);
+        expect(notificationRect.right, lessThanOrEqualTo(toggleRect.left));
         expect(headerRect.right - toggleRect.right, lessThanOrEqualTo(8.1));
         expect(properties, findsOneWidget);
         expect(
@@ -4393,7 +4406,6 @@ void main() {
         for (final key in const [
           ValueKey('topic-bookmark-button'),
           ValueKey('topic-status-button'),
-          ValueKey('topic-notification-level-button'),
           ValueKey('topic-reply-button'),
         ]) {
           expect(
@@ -4405,6 +4417,10 @@ void main() {
             findsNothing,
           );
         }
+        expect(
+          find.descendant(of: sidebar, matching: notificationLevel),
+          findsNothing,
+        );
         expect(find.text('Topic context'), findsNothing);
         expect(find.text('Actions'), findsNothing);
         expect(find.text('Properties'), findsNothing);

@@ -386,12 +386,10 @@ class TopicNotificationLevelButton extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.topic,
-    this.showLabel = false,
   });
 
   final String siteUrl;
   final TopicDetail topic;
-  final bool showLabel;
 
   static const _options = [
     ChoiceMenuOption(
@@ -427,13 +425,6 @@ class TopicNotificationLevelButton extends StatelessWidget {
     TopicNotificationLevel.muted => DIcons.discourseBellSlash,
   };
 
-  static String _titleFor(TopicNotificationLevel level) => switch (level) {
-    TopicNotificationLevel.watching => 'Watching',
-    TopicNotificationLevel.tracking => 'Tracking',
-    TopicNotificationLevel.normal => 'Normal',
-    TopicNotificationLevel.muted => 'Muted',
-  };
-
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
@@ -445,32 +436,18 @@ class TopicNotificationLevelButton extends StatelessWidget {
       onSelected: (level) => unawaited(
         controller.updateTopicNotificationLevel(siteUrl, topic.id, level),
       ),
-      builder: (context, openMenu) => showLabel
-          ? DButton(
-              key: const ValueKey('topic-notification-level-button'),
-              label: Text(_titleFor(topic.notificationLevel)),
-              tooltip: 'Topic notifications',
-              onPressed: openMenu,
-              icon: DIcon(_iconFor(topic.notificationLevel), size: 18),
-              variant:
-                  topic.notificationLevel.index >=
-                      TopicNotificationLevel.tracking.index
-                  ? DButtonVariant.transparentPrimary
-                  : DButtonVariant.flat,
-              size: DButtonSize.small,
-            )
-          : DButton.iconOnly(
-              key: const ValueKey('topic-notification-level-button'),
-              tooltip: 'Topic notifications',
-              onPressed: openMenu,
-              icon: DIcon(_iconFor(topic.notificationLevel), size: 18),
-              variant:
-                  topic.notificationLevel.index >=
-                      TopicNotificationLevel.tracking.index
-                  ? DButtonVariant.transparentPrimary
-                  : DButtonVariant.flat,
-              size: DButtonSize.small,
-            ),
+      builder: (context, openMenu) => DButton.iconOnly(
+        key: const ValueKey('topic-notification-level-button'),
+        tooltip: 'Topic notifications',
+        onPressed: openMenu,
+        icon: DIcon(_iconFor(topic.notificationLevel), size: 18),
+        variant:
+            topic.notificationLevel.index >=
+                TopicNotificationLevel.tracking.index
+            ? DButtonVariant.transparentPrimary
+            : DButtonVariant.flat,
+        size: DButtonSize.small,
+      ),
     );
   }
 }
