@@ -12452,32 +12452,47 @@ void main() {
     testWidgets('an any-emoji site opens the full picker from the toolbar', (
       tester,
     ) async {
-      final api = await openTopic(
-        tester,
-        config: installedPlugins.models.siteConfig(const {
-          'discourse_reactions_enabled': true,
-          'discourse_reactions_reaction_for_like': 'heart',
-          'discourse_reactions_enabled_reactions': 'clap',
-          'discourse_reactions_allow_any_emoji': true,
-        }, site),
-        emojis: const [
-          SiteEmoji(name: 'wave', url: 'https://meta.discourse.org/wave.png'),
-        ],
-        posts: [post()],
-      );
+      final previousPlatform = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final api = await openTopic(
+          tester,
+          config: installedPlugins.models.siteConfig(const {
+            'discourse_reactions_enabled': true,
+            'discourse_reactions_reaction_for_like': 'heart',
+            'discourse_reactions_enabled_reactions': 'clap',
+            'discourse_reactions_allow_any_emoji': true,
+          }, site),
+          emojis: const [
+            SiteEmoji(name: 'wave', url: 'https://meta.discourse.org/wave.png'),
+          ],
+          posts: [post()],
+        );
 
-      await hoverPost(tester);
-      await tester.tap(find.byTooltip('Pick a reaction'));
-      await tester.pumpAndSettle();
+        await hoverPost(tester);
+        final launcherRect = tester.getRect(find.byTooltip('Pick a reaction'));
+        await tester.tap(find.byTooltip('Pick a reaction'));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(ReactionGrid), findsNothing);
-      expect(find.byType(EmojiPicker), findsOneWidget);
+        expect(find.byType(ReactionGrid), findsNothing);
+        expect(find.byType(EmojiPicker), findsOneWidget);
+        final pickerRect = tester.getRect(
+          find.byKey(const ValueKey('emoji-picker-desktop-popover')),
+        );
+        expect(pickerRect.top, closeTo(launcherRect.bottom + 8, 0.01));
+        expect(
+          launcherRect.center.dx,
+          inInclusiveRange(pickerRect.left, pickerRect.right),
+        );
 
-      await tester.tap(find.byTooltip(':wave:'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip(':wave:'));
+        await tester.pumpAndSettle();
 
-      expect(api.reacted, [(postId: 1, reaction: 'wave')]);
-      expect(find.bySemanticsLabel('1 wave reaction'), findsOneWidget);
+        expect(api.reacted, [(postId: 1, reaction: 'wave')]);
+        expect(find.bySemanticsLabel('1 wave reaction'), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = previousPlatform;
+      }
     });
 
     testWidgets('the write answer updates the reader and not the counts', (
