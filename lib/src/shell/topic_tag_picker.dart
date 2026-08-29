@@ -279,6 +279,13 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
       onQuerySubmitted: (_) => _submitQuery(),
       separatorKey: const ValueKey('topic-tag-picker-divider'),
       children: [
+        if (newTag != null)
+          AnchoredPickerOption(
+            key: const ValueKey('topic-tag-picker-create'),
+            leading: const DIcon(DIcons.plus, size: 16),
+            title: Text('Create new tag: “${newTag.name}”'),
+            onTap: () => _choose(newTag),
+          ),
         if (_loading)
           const AnchoredPickerProgress()
         else ...[
@@ -288,13 +295,6 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
               padding: const EdgeInsets.fromLTRB(12, 14, 12, 8),
               textAlign: TextAlign.start,
               color: theme.colorScheme.error,
-            ),
-          if (newTag != null)
-            AnchoredPickerOption(
-              key: const ValueKey('topic-tag-picker-create'),
-              leading: const DIcon(DIcons.plus, size: 16),
-              title: Text('Create new tag: “${newTag.name}”'),
-              onTap: () => _choose(newTag),
             ),
           for (final tag in _visibleResults)
             AnchoredPickerOption(
