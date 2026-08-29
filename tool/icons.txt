@@ -22,6 +22,7 @@ globe
 # --- Shell chrome
 gear
 bug
+wrench
 ellipsis
 ellipsis-vertical
 far-pen-to-square
