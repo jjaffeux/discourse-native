@@ -4382,6 +4382,14 @@ void main() {
         expect(headerRect.right - toggleRect.right, lessThanOrEqualTo(8.1));
         expect(replyRect.right, lessThanOrEqualTo(moreRect.left));
         expect(replyRect.center.dy, closeTo(moreRect.center.dy, 0.01));
+        expect(replyRect.height, moreRect.height);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('topic-status-button')),
+            matching: find.dIcon(DIcons.wrench),
+          ),
+          findsOneWidget,
+        );
         expect(properties, findsOneWidget);
         expect(
           find.descendant(of: properties, matching: find.text('Announcements')),

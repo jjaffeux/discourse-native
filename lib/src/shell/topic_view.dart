@@ -2146,14 +2146,17 @@ class _TopicSidebarActions extends StatelessWidget {
               UserMenuButton(ringColor: theme.shell.panel),
             ],
           ];
-    Widget replyButton() => DButton(
-      key: const ValueKey('topic-reply-button'),
-      onPressed: controller.openReply,
-      icon: const DIcon(DIcons.reply, size: 18),
-      label: const Text('Reply'),
-      tooltip: 'Reply to this topic',
-      variant: DButtonVariant.primary,
-      size: DButtonSize.small,
+    Widget replyButton() => SizedBox(
+      height: DButton.iconOnlyDimensionFor(DButtonSize.small),
+      child: DButton(
+        key: const ValueKey('topic-reply-button'),
+        onPressed: controller.openReply,
+        icon: const DIcon(DIcons.reply, size: 18),
+        label: const Text('Reply'),
+        tooltip: 'Reply to this topic',
+        variant: DButtonVariant.primary,
+        size: DButtonSize.small,
+      ),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
