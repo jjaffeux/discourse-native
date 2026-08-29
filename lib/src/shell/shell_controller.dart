@@ -5472,6 +5472,39 @@ class ShellController extends FrameSafeNotifier
     unawaited(_loadEditBody(composer, post));
   }
 
+  void openCategoryEdit() {
+    final instance = currentInstance;
+    final route = currentContent;
+    final detail = currentTopic;
+    if (instance == null || route?.topicId == null || detail?.canEdit != true) {
+      return;
+    }
+    unawaited(_ensureTopicComposerCapabilities(instance.url));
+    _replaceComposer();
+    final target = ComposerTarget(
+      siteUrl: instance.url,
+      tabId: activeTabId,
+      topicId: route!.topicId!,
+      slug: route.slug ?? '',
+      topicTitle: detail!.title,
+      editingPostId: detail.stream.firstOrNull,
+      editingPostNumber: 1,
+      mode: ComposerMode.categoryEdit,
+      initialCategoryId: detail.categoryId,
+      initialTags: detail.tags,
+    );
+    _composer = ComposerController(
+      target,
+      minimumRequiredTags:
+          categoryFor(
+            detail.categoryId,
+            siteUrl: instance.url,
+          )?.minimumRequiredTags ??
+          0,
+    );
+    _notify();
+  }
+
   void openTagsEdit() {
     final instance = currentInstance;
     final route = currentContent;
@@ -8094,6 +8127,9 @@ class ShellController extends FrameSafeNotifier
     ComposerTarget target,
     String raw,
   ) async {
+    if (target.isCategoryEdit) {
+      return _submitCategoryEdit(composer, target);
+    }
     if (target.isTagsEdit) {
       return _submitTagsEdit(composer, target);
     }
@@ -8293,6 +8329,74 @@ class ShellController extends FrameSafeNotifier
         target.siteUrl,
         target.topicId,
         (topic) => topic.copyWith(tags: composer.tags),
+      );
+      _closeSubmittedComposer(composer);
+    });
+  }
+
+  Future<void> _submitCategoryEdit(
+    ComposerController composer,
+    ComposerTarget target,
+  ) async {
+    final lease = lifecycle.capture(target.siteUrl);
+    composer.beginSubmit();
+    final credential = await _credentialForWrite(target.siteUrl);
+    if (!lease.isCurrent) return;
+    if (credential.failure case final failure?) {
+      lease.commit(() => composer.failed(failure));
+      return;
+    }
+    try {
+      await api.updateTopic(
+        siteUrl: target.siteUrl,
+        apiKey: credential.apiKey!,
+        topicId: target.topicId,
+        title: target.topicTitle,
+        originalTitle: target.topicTitle,
+        categoryId: composer.categoryId,
+        tags: composer.tags,
+        originalTags: composer.originalTags,
+      );
+    } on WriteException catch (error) {
+      lease.commit(() => composer.failed(error));
+      return;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'composer.editTopicCategory',
+        );
+      }
+      lease.commit(
+        () => composer.failed(const WriteException(WriteFailure.unreachable)),
+      );
+      return;
+    }
+    lease.commit(() {
+      store.update<TopicDetail>(
+        target.siteUrl,
+        target.topicId,
+        (detail) => detail.copyWith(
+          categoryId: composer.categoryId,
+          clearCategory: composer.categoryId == null,
+          tags: composer.tags,
+        ),
+      );
+      store.update<Topic>(
+        target.siteUrl,
+        target.topicId,
+        (topic) => topic.copyWith(
+          categoryId: composer.categoryId,
+          clearCategory: composer.categoryId == null,
+          tags: composer.tags,
+        ),
+      );
+      _updateTopicRouteMetadata(
+        target.siteUrl,
+        target.topicId,
+        target.topicTitle,
+        composer.categoryId,
       );
       _closeSubmittedComposer(composer);
     });

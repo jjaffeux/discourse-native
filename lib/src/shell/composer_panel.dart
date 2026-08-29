@@ -79,7 +79,7 @@ class ComposerPanel extends StatelessWidget {
               height ??
               (target.createsTopic || target.editsTopicMetadata
                   ? topicComposerHeight
-                  : target.isTagsEdit
+                  : target.isTaxonomyEdit
                   ? 190
                   : composerHeight),
           clipBehavior: Clip.antiAlias,
@@ -159,9 +159,9 @@ class ComposerPanel extends StatelessWidget {
                   ),
                 if (target.isNewTopic ||
                     target.editsTopicMetadata ||
-                    target.isTagsEdit)
+                    target.isTaxonomyEdit)
                   _TopicTaxonomy(composer: composer),
-                if (!target.isTagsEdit) ...[
+                if (!target.isTaxonomyEdit) ...[
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
@@ -459,7 +459,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
     final wantedHeight = switch (widget.composer.target) {
       final target when target.createsTopic || target.editsTopicMetadata =>
         topicComposerHeight,
-      final target when target.isTagsEdit => 190.0,
+      final target when target.isTaxonomyEdit => 190.0,
       _ => composerHeight,
     };
     final restoredPreference = _restoredPreference;
@@ -2044,6 +2044,7 @@ class _Header extends StatelessWidget {
     final label = switch ((target.editingPostNumber, replyTo)) {
       _ when target.isPrivateMessage => 'Message ${target.targetRecipients}',
       _ when target.isNewTopic => 'Create a new topic',
+      _ when target.isCategoryEdit => 'Edit topic category',
       _ when target.isTagsEdit => 'Edit topic tags',
       (final number?, _) => 'Edit post #$number',
       (_, final username?) => 'Reply to @$username',
@@ -2214,7 +2215,7 @@ class _Toolbar extends StatelessWidget {
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     final actions = registry.composerToolbar(context, composer);
     final emojiEnabled =
-        !composer.target.isTagsEdit &&
+        !composer.target.isTaxonomyEdit &&
         ShellScope.read(
           context,
         ).siteConfigFor(composer.target.siteUrl).emojiEnabled;
@@ -2463,7 +2464,7 @@ class _Footer extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(8, 0, 14, 10),
       child: Row(
         children: [
-          if (!composer.target.isTagsEdit) _Toolbar(composer: composer),
+          if (!composer.target.isTaxonomyEdit) _Toolbar(composer: composer),
           Expanded(
             child: message == null
                 ? const SizedBox.shrink()

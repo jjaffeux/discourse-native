@@ -34,6 +34,7 @@ enum ComposerMode {
   privateMessage,
   postEdit,
   topicEdit,
+  categoryEdit,
   tagsEdit,
   plugin,
 }
@@ -208,6 +209,7 @@ class ComposerTarget {
   bool get isEdit => switch (mode) {
     ComposerMode.postEdit ||
     ComposerMode.topicEdit ||
+    ComposerMode.categoryEdit ||
     ComposerMode.tagsEdit => true,
     _ => false,
   };
@@ -215,7 +217,9 @@ class ComposerTarget {
   bool get isPrivateMessage => mode == ComposerMode.privateMessage;
   bool get createsTopic => isNewTopic || isPrivateMessage;
   bool get editsTopicMetadata => mode == ComposerMode.topicEdit;
+  bool get isCategoryEdit => mode == ComposerMode.categoryEdit;
   bool get isTagsEdit => mode == ComposerMode.tagsEdit;
+  bool get isTaxonomyEdit => isCategoryEdit || isTagsEdit;
   bool get isPlugin => mode == ComposerMode.plugin;
 
   /// What Discourse files a draft for this topic under.
@@ -1683,6 +1687,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         title.text.trim().isNotEmpty &&
             taxonomyValidationMessage == null &&
             (metadataChanged || (raw.isNotEmpty && raw != _originalRaw)),
+      ComposerMode.categoryEdit =>
+        taxonomyValidationMessage == null && metadataChanged,
       ComposerMode.tagsEdit =>
         taxonomyValidationMessage == null && !listEquals(_tags, _originalTags),
       ComposerMode.plugin => _target.policy!.validate(

@@ -2282,12 +2282,16 @@ class _TopicPropertiesCard extends StatelessWidget {
           child: Column(
             children: [
               _TopicPropertyRow(
+                key: const ValueKey('topic-sidebar-category-property'),
                 label: 'Category',
+                onTap: topic.canEdit ? controller.openCategoryEdit : null,
+                tooltip: topic.canEdit ? 'Edit topic category' : null,
                 child: _TopicSidebarCategory(
                   label: category?.name ?? route?.subtitle ?? 'Uncategorized',
                   color: category == null
                       ? route?.color
                       : Color(category.colorValue),
+                  editable: topic.canEdit,
                 ),
               ),
               _TopicPropertyRow(
@@ -2307,7 +2311,9 @@ class _TopicPropertiesCard extends StatelessWidget {
                           for (final tag in topic.tags)
                             _TopicSidebarTag(tag: tag),
                           if (topic.canEditTags)
-                            const _TopicTagsEditIndicator(),
+                            const _TopicPropertyEditIndicator(
+                              keyName: 'topic-sidebar-tags-edit-indicator',
+                            ),
                         ],
                       ),
               ),
@@ -2412,10 +2418,15 @@ class _TopicPropertyRow extends StatelessWidget {
 }
 
 class _TopicSidebarCategory extends StatelessWidget {
-  const _TopicSidebarCategory({required this.label, required this.color});
+  const _TopicSidebarCategory({
+    required this.label,
+    required this.color,
+    required this.editable,
+  });
 
   final String label;
   final Color? color;
+  final bool editable;
 
   @override
   Widget build(BuildContext context) {
@@ -2445,6 +2456,12 @@ class _TopicSidebarCategory extends StatelessWidget {
             ),
           ),
         ),
+        if (editable) ...[
+          const SizedBox(width: 6),
+          const _TopicPropertyEditIndicator(
+            keyName: 'topic-sidebar-category-edit-indicator',
+          ),
+        ],
       ],
     );
   }
@@ -2499,13 +2516,15 @@ class _EditableEmptyTopicTags extends StatelessWidget {
   }
 }
 
-class _TopicTagsEditIndicator extends StatelessWidget {
-  const _TopicTagsEditIndicator();
+class _TopicPropertyEditIndicator extends StatelessWidget {
+  const _TopicPropertyEditIndicator({required this.keyName});
+
+  final String keyName;
 
   @override
   Widget build(BuildContext context) => DIcon(
     DIcons.pencil,
-    key: const ValueKey('topic-sidebar-tags-edit-indicator'),
+    key: ValueKey(keyName),
     size: 12,
     color: Theme.of(context).colorScheme.onSurfaceVariant,
   );
