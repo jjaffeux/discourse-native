@@ -2,6 +2,8 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 
+import 'd_tooltip.dart';
+
 /// The visual roles exposed by Discourse's shared button system.
 enum DButtonVariant {
   standard,
@@ -305,6 +307,7 @@ class DButton extends StatelessWidget {
     this.loading = false,
     this.loadingLabel,
     this.tooltip,
+    this.shortcut,
     this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
@@ -318,6 +321,7 @@ class DButton extends StatelessWidget {
     this.variant = DButtonVariant.standard,
     this.size = DButtonSize.regular,
     this.loading = false,
+    this.shortcut,
     this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
@@ -339,6 +343,7 @@ class DButton extends StatelessWidget {
   final bool loading;
   final Widget? loadingLabel;
   final String? tooltip;
+  final SingleActivator? shortcut;
   final String? semanticLabel;
   final FocusNode? focusNode;
   final bool autofocus;
@@ -505,10 +510,11 @@ class DButton extends StatelessWidget {
       result = Opacity(opacity: buttons.disabledOpacity, child: result);
     }
     if (tooltip case final tooltip?) {
-      result = Tooltip(
+      result = DTooltip(
         message: tooltip,
-        // Keep Flutter's native tooltip semantics unless a caller supplied a
-        // more specific spoken label.
+        shortcut: shortcut,
+        // Preserve tooltip semantics unless a caller supplied a more specific
+        // spoken label.
         excludeFromSemantics: semanticLabel != null,
         child: result,
       );

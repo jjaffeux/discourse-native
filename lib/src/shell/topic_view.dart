@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../app_shortcuts.dart';
 import '../data/topic_recommendations_tab_store.dart';
 import '../data/topic_sidebar_store.dart';
 import '../foundation/calendar_day.dart';
@@ -2189,6 +2190,7 @@ class _TopicSidebarActions extends StatelessWidget {
         icon: const DIcon(DIcons.reply, size: 18),
         label: const Text('Reply'),
         tooltip: 'Reply to this topic',
+        shortcut: topicReplyShortcut,
         variant: DButtonVariant.primary,
         size: DButtonSize.small,
       ),

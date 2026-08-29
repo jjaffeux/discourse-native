@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/site_appearance.dart';
 import 'color_contrast.dart';
 import 'd_button.dart';
+import 'd_tooltip.dart';
 
 /// The tertiary color of Discourse's default light scheme.
 const Color discourseBlue = Color(0xFF0088CC);
@@ -649,6 +650,20 @@ abstract final class AppTheme {
       ),
       shell.floating,
     );
+    final tooltipDecoration = BoxDecoration(
+      color: shell.floating,
+      border: Border.all(color: shell.divider),
+      borderRadius: BorderRadius.circular(10),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(
+            alpha: brightness == Brightness.dark ? 0.40 : 0.22,
+          ),
+          blurRadius: 16,
+          offset: const Offset(0, 6),
+        ),
+      ],
+    );
 
     return ThemeData(
       colorScheme: resolvedColorScheme,
@@ -721,6 +736,21 @@ abstract final class AppTheme {
       dropdownMenuTheme: DropdownMenuThemeData(
         textStyle: textTheme.bodyMedium,
         menuStyle: menuStyle,
+      ),
+      tooltipTheme: TooltipThemeData(
+        constraints: DTooltip.defaultConstraints,
+        padding: DTooltip.defaultPadding,
+        margin: DTooltip.defaultMargin,
+        verticalOffset: DTooltip.defaultVerticalOffset,
+        decoration: tooltipDecoration,
+        textStyle: textTheme.bodyMedium?.copyWith(
+          color: resolvedColorScheme.onSurface,
+          fontWeight: FontWeight.normal,
+        ),
+        textAlign: TextAlign.start,
+        waitDuration: const Duration(milliseconds: 400),
+        showDuration: const Duration(milliseconds: 1800),
+        exitDuration: const Duration(milliseconds: 100),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: shell.content,

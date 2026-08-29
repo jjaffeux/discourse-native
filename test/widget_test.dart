@@ -9258,6 +9258,72 @@ void main() {
       expect(find.byTooltip('Reply to this topic'), findsNothing);
       await hoverPost(tester);
       expect(find.byTooltip('Reply to this post'), findsNothing);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isFalse);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      expect(find.byType(ComposerPanel), findsNothing);
+    });
+
+    testWidgets('Shift R opens a topic reply only where replying is allowed', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+      );
+
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: connectedSites(),
+        authenticator: signedIn(),
+      );
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isFalse);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      expect(find.byType(ComposerPanel), findsNothing);
+
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isTrue);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
+      expect(shell.visibleComposer?.target.replyToPostNumber, isNull);
+    });
+
+    testWidgets('Shift R does not retarget a reply while its editor has focus', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+      );
+
+      await openTopic(tester, api);
+      await hoverPost(tester);
+      await tester.tap(find.byTooltip('Reply to this post'));
+      await tester.pumpAndSettle();
+
+      final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
+      expect(shell.visibleComposer?.target.replyToPostNumber, 1);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).focusNode?.hasFocus,
+        isTrue,
+      );
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pump();
+
+      expect(shell.visibleComposer?.target.replyToPostNumber, 1);
     });
 
     testWidgets('replying to a topic posts what was typed', (tester) async {
