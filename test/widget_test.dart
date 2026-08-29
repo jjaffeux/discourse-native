@@ -4673,15 +4673,34 @@ void main() {
         final tagsProperty = find.byKey(
           const ValueKey('topic-sidebar-tags-property'),
         );
+        final addTag = find.byKey(const ValueKey('topic-sidebar-add-tag'));
         expect(tagsProperty, findsOneWidget);
-        expect(find.byTooltip('Edit topic tags'), findsOneWidget);
+        expect(find.byTooltip('Add tag'), findsOneWidget);
         expect(find.text('Add tag'), findsOneWidget);
+        expect(addTag, findsOneWidget);
+        expect(tester.getSize(addTag).height, lessThan(24));
+        expect(
+          tester.getSize(addTag).width,
+          lessThan(tester.getSize(tagsProperty).width * 0.75),
+        );
 
-        await tester.tap(tagsProperty);
+        final tagsRect = tester.getRect(tagsProperty);
+        await tester.tapAt(Offset(tagsRect.left + 12, tagsRect.center.dy));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('topic-tag-picker-popover')),
+          findsNothing,
+        );
+
+        await tester.tap(addTag);
         await tester.pumpAndSettle();
 
         final picker = find.byKey(const ValueKey('topic-tag-picker-popover'));
         expect(picker, findsOneWidget);
+        expect(
+          find.descendant(of: picker, matching: find.dIcon(DIcons.tag)),
+          findsNothing,
+        );
         expect(find.byType(ComposerPanel), findsNothing);
         expect(
           find.descendant(
@@ -4761,10 +4780,8 @@ void main() {
         await tester.tap(contentText('A real topic'));
         await tester.pumpAndSettle();
 
-        final tagsProperty = find.byKey(
-          const ValueKey('topic-sidebar-tags-property'),
-        );
-        await tester.tap(tagsProperty);
+        final addTag = find.byKey(const ValueKey('topic-sidebar-add-tag'));
+        await tester.tap(addTag);
         await tester.pumpAndSettle();
         await tester.enterText(
           find.byKey(const ValueKey('topic-tag-picker-query')),
@@ -4786,7 +4803,9 @@ void main() {
           findsOneWidget,
         );
 
-        await tester.tap(tagsProperty);
+        await tester.tap(
+          find.byKey(const ValueKey(('topic-sidebar-tag', 'design'))),
+        );
         await tester.pumpAndSettle();
         await tester.tap(
           find.byKey(const ValueKey(('topic-tag-picker-option', 'design'))),
