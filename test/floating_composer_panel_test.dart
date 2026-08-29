@@ -165,6 +165,28 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('shows a private-message composer addressed to the group', (
+    tester,
+  ) async {
+    final composer = ComposerController(_privateMessageTarget);
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    await _pumpFloatingPanel(tester, shell, composer);
+
+    expect(find.text('Message tech-leads'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('composer-private-message-recipients')),
+      findsOneWidget,
+    );
+    expect(find.text('tech-leads'), findsOneWidget);
+    expect(find.text('Title'), findsOneWidget);
+    expect(find.text('Send message'), findsOneWidget);
+    expect(find.text('Category'), findsNothing);
+    expect(find.text('Tags'), findsNothing);
+    expect(find.text('Write your message…'), findsOneWidget);
+  });
+
   testWidgets('restores the last completed move and resize', (tester) async {
     final firstComposer = ComposerController(_replyTarget);
     final shell = await _shell();
@@ -317,4 +339,13 @@ const _newTopicTarget = ComposerTarget(
   slug: '',
   topicTitle: '',
   mode: ComposerMode.newTopic,
+);
+
+const _privateMessageTarget = ComposerTarget(
+  siteUrl: 'https://meta.discourse.org',
+  topicId: 0,
+  slug: '',
+  topicTitle: 'New message',
+  mode: ComposerMode.privateMessage,
+  targetRecipients: 'tech-leads',
 );

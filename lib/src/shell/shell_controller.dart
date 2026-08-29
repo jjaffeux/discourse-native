@@ -4760,7 +4760,7 @@ class ShellController extends FrameSafeNotifier
     if (composer.target.tabId case final tabId?) {
       if (tabId != activeTabId) return null;
     }
-    if (composer.target.isNewTopic) {
+    if (composer.target.createsTopic) {
       if (composer.target.originTopicId case final topicId?) {
         return currentContent?.topicId == topicId ? composer : null;
       }
@@ -4892,6 +4892,51 @@ class ShellController extends FrameSafeNotifier
         data: Map.unmodifiable(request.data),
       ),
     );
+  }
+
+  /// Opens a new private-message composer addressed to one or more recipients.
+  ///
+  /// Group pages pass their group name here. Discourse accepts the same
+  /// comma-separated recipient field for usernames and group names, so keeping
+  /// this method generic also keeps the composer compatible with core drafts.
+  void openPrivateMessage({
+    required String siteUrl,
+    required String targetRecipients,
+  }) {
+    final instance = currentInstance;
+    final route = currentContent;
+    final tabId = activeTabId;
+    final feedId = currentFeedId;
+    final recipients = targetRecipients
+        .split(',')
+        .map((recipient) => recipient.trim())
+        .where((recipient) => recipient.isNotEmpty)
+        .join(',');
+    if (instance?.url != siteUrl ||
+        instance?.user?.canSendPrivateMessages != true ||
+        route?.isTopic != false ||
+        tabId == null ||
+        feedId == null ||
+        recipients.isEmpty) {
+      return;
+    }
+
+    _replaceComposer();
+    final target = ComposerTarget(
+      siteUrl: siteUrl,
+      tabId: tabId,
+      topicId: 0,
+      slug: '',
+      topicTitle: 'New message',
+      mode: ComposerMode.privateMessage,
+      originFeedId: feedId,
+      targetRecipients: recipients,
+    );
+    final composer = _buildTextComposer(target, persistsDraft: true);
+    _composer = composer;
+    _notify();
+    _startComposerDraftRestore(composer);
+    composer.requestFocus();
   }
 
   /// Opens a new-topic composer while leaving the originating list in place.
@@ -5337,7 +5382,7 @@ class ShellController extends FrameSafeNotifier
     final reusesOpenReply =
         composer != null &&
         !composer.target.isEdit &&
-        !composer.target.isNewTopic &&
+        !composer.target.createsTopic &&
         !composer.target.isPlugin &&
         composer.target.topicId == topicId &&
         composer.target.siteUrl == instance.url &&
@@ -7710,7 +7755,7 @@ class ShellController extends FrameSafeNotifier
 
   int _draftSequence(ComposerTarget target) =>
       _draftSequences[_draftKey(target.siteUrl, target.draftKey)] ??
-      (target.isNewTopic
+      (target.createsTopic
           ? null
           : store
                 .read<TopicDetail>(target.siteUrl, target.topicId)
@@ -7783,7 +7828,7 @@ class ShellController extends FrameSafeNotifier
             return;
           }
 
-          if (!target.isNewTopic) {
+          if (!target.createsTopic) {
             store.update<TopicDetail>(
               target.siteUrl,
               target.topicId,
@@ -7883,7 +7928,7 @@ class ShellController extends FrameSafeNotifier
     if (!isCurrent()) return;
     ComposerDraft? remote;
     var remoteSequence = 0;
-    if (local == null && target.isNewTopic) {
+    if (local == null && target.createsTopic) {
       try {
         final held = await _readSessionValue(
           lease,
@@ -7909,7 +7954,7 @@ class ShellController extends FrameSafeNotifier
       final draft =
           local ??
           remote ??
-          (target.isNewTopic
+          (target.createsTopic
               ? null
               : store.read<TopicDetail>(target.siteUrl, target.topicId)?.draft);
       if (draft == null) return;
@@ -7922,7 +7967,7 @@ class ShellController extends FrameSafeNotifier
                 ?.minimumRequiredTags ??
             0,
       );
-      if (target.isNewTopic && remoteSequence > 0) {
+      if (target.createsTopic && remoteSequence > 0) {
         composer.draftSequence = remoteSequence;
         _draftSequences[_draftKey(target.siteUrl, target.draftKey)] =
             remoteSequence;
@@ -7969,7 +8014,7 @@ class ShellController extends FrameSafeNotifier
     final apiKey = credential.apiKey!;
     final PostCreation creation;
     try {
-      creation = target.isNewTopic
+      creation = target.createsTopic
           ? await api.createTopic(
               siteUrl: target.siteUrl,
               apiKey: apiKey,
@@ -7979,6 +8024,7 @@ class ShellController extends FrameSafeNotifier
               tags: composer.tags,
               typingDuration: composer.typingDuration,
               composerOpenDuration: composer.openDuration,
+              targetRecipients: target.targetRecipients,
               draftKey: target.draftKey,
             )
           : await api.createPost(
@@ -7996,7 +8042,7 @@ class ShellController extends FrameSafeNotifier
       // A refusal is certain — the site answered and said no. Not reaching it
       // is not: the post may well have been created and only the answer lost.
       if (e.failure == WriteFailure.unreachable) {
-        if (target.isNewTopic) {
+        if (target.createsTopic) {
           await _reconcileNewTopic(target, composer, e, lease: lease);
         } else {
           await _reconcile(target, raw, composer, e, lease: lease);
@@ -8009,7 +8055,7 @@ class ShellController extends FrameSafeNotifier
       if (lease.isCurrent) {
         _reportOperationalError(error, stackTrace, 'composer.submit');
       }
-      if (target.isNewTopic) {
+      if (target.createsTopic) {
         await _reconcileNewTopic(
           target,
           composer,
@@ -8028,7 +8074,7 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
-    if (target.isNewTopic) {
+    if (target.createsTopic) {
       lease.commit(
         () => _applyTopicCreation(target, creation, composer, lease),
       );
@@ -8264,7 +8310,7 @@ class ShellController extends FrameSafeNotifier
   Future<void> recheckComposer() async {
     final composer = _composer;
     if (composer == null || !composer.canRecheck) return;
-    if (composer.target.isNewTopic) {
+    if (composer.target.createsTopic) {
       await _reconcileNewTopic(
         composer.target,
         composer,
@@ -8318,9 +8364,12 @@ class ShellController extends FrameSafeNotifier
         session.commit(composer.unresolved);
         return;
       }
+      final recentPath = target.isPrivateMessage
+          ? '/topics/private-messages-sent/${Uri.encodeComponent(username)}.json'
+          : '/topics/created-by/${Uri.encodeComponent(username)}.json';
       final recent = await api.topicList(
         siteUrl: target.siteUrl,
-        path: '/topics/created-by/${Uri.encodeComponent(username)}.json',
+        path: recentPath,
         apiKey: apiKey,
       );
       final matches = <TopicPayload>[];
@@ -8604,7 +8653,9 @@ class ShellController extends FrameSafeNotifier
     final origin = target.originFeedId;
     if (currentInstance?.url == target.siteUrl) {
       _openTopic(topicId, slug, title);
-      if (origin != null) unawaited(loadFeed(origin, force: true));
+      if (origin != null && target.isNewTopic) {
+        unawaited(loadFeed(origin, force: true));
+      }
     }
   }
 

@@ -77,7 +77,7 @@ class ComposerPanel extends StatelessWidget {
         return Container(
           height:
               height ??
-              (target.isNewTopic || target.editsTopicMetadata
+              (target.createsTopic || target.editsTopicMetadata
                   ? topicComposerHeight
                   : target.isTagsEdit
                   ? 190
@@ -131,7 +131,21 @@ class ComposerPanel extends StatelessWidget {
                   onMove: onMove,
                   onMoveEnd: onMoveEnd,
                 ),
-                if (target.isNewTopic || target.editsTopicMetadata)
+                if (target.isPrivateMessage)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+                    child: InputDecorator(
+                      key: const ValueKey(
+                        'composer-private-message-recipients',
+                      ),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        labelText: 'To',
+                      ),
+                      child: Text(target.targetRecipients!),
+                    ),
+                  ),
+                if (target.createsTopic || target.editsTopicMetadata)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
                     child: TextField(
@@ -175,6 +189,8 @@ class ComposerPanel extends StatelessWidget {
                             },
                         hintText: switch (target) {
                           _ when composer.loadingBody => 'Loading that post…',
+                          _ when target.isPrivateMessage =>
+                            'Write your message…',
                           _ when target.isNewTopic => 'Write your topic…',
                           _ when target.isEdit => 'Edit this post…',
                           _ when target.replyToUsername != null =>
@@ -221,6 +237,7 @@ class ComposerPanel extends StatelessWidget {
                   label: switch (composer) {
                     _ when composer.canRecheck => 'Check again',
                     _ when target.isEdit => 'Save',
+                    _ when target.isPrivateMessage => 'Send message',
                     _ when target.isNewTopic => 'Create topic',
                     _ => 'Reply',
                   },
@@ -440,7 +457,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
     final minimumWidth = math.min(_minimumWidth, maximumWidth);
     final minimumHeight = math.min(_minimumHeight, maximumHeight);
     final wantedHeight = switch (widget.composer.target) {
-      final target when target.isNewTopic || target.editsTopicMetadata =>
+      final target when target.createsTopic || target.editsTopicMetadata =>
         topicComposerHeight,
       final target when target.isTagsEdit => 190.0,
       _ => composerHeight,
@@ -601,7 +618,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
 
   double get _minimumHeight {
     final target = widget.composer.target;
-    return target.isNewTopic || target.editsTopicMetadata
+    return target.createsTopic || target.editsTopicMetadata
         ? _minimumTopicHeight
         : _minimumReplyHeight;
   }
@@ -2025,6 +2042,7 @@ class _Header extends StatelessWidget {
     final target = composer.target;
     final replyTo = target.replyToUsername;
     final label = switch ((target.editingPostNumber, replyTo)) {
+      _ when target.isPrivateMessage => 'Message ${target.targetRecipients}',
       _ when target.isNewTopic => 'Create a new topic',
       _ when target.isTagsEdit => 'Edit topic tags',
       (final number?, _) => 'Edit post #$number',
@@ -2125,6 +2143,8 @@ class _Header extends StatelessWidget {
               DIcon(
                 composer.whisper
                     ? DIcons.farEyeSlash
+                    : target.isPrivateMessage
+                    ? DIcons.envelope
                     : target.isNewTopic
                     ? DIcons.plus
                     : target.isEdit

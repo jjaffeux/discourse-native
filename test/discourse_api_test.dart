@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/do_not_disturb.dart';
@@ -6695,6 +6696,44 @@ void _writeGroups() {
         expect(creation.topicSlug, 'hello-world');
       },
     );
+
+    test('creates a private message for the named group', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: accepting(
+          onRequest: (request) => sent = request,
+          envelope: {
+            'action': 'create_post',
+            'post': {
+              'id': 52,
+              'post_number': 1,
+              'username': 'joffreyj',
+              'cooked': '<p>Hello team</p>',
+              'topic_id': 89,
+              'topic_slug': 'a-private-subject',
+              'topic_title': 'A private subject',
+            },
+          },
+        ),
+      );
+
+      await api.createTopic(
+        siteUrl: 'https://example.com',
+        apiKey: 'k',
+        title: 'A private subject',
+        raw: 'Hello team',
+        targetRecipients: ' tech-leads ',
+        typingDuration: const Duration(seconds: 2),
+        composerOpenDuration: const Duration(seconds: 8),
+        draftKey: ComposerDraft.newPrivateMessageDraftKey,
+      );
+
+      final body = jsonDecode(sent.body) as Map<String, dynamic>;
+      expect(body['archetype'], 'private_message');
+      expect(body['target_recipients'], 'tech-leads');
+      expect(body['draft_key'], 'new_private_message');
+      expect(body['category'], isNull);
+    });
   });
 
   group('updatePost', () {
