@@ -4369,11 +4369,19 @@ void main() {
         final headerRect = tester.getRect(header);
         final toggleRect = tester.getRect(sidebarToggle);
         final notificationRect = tester.getRect(notificationLevel);
+        final replyRect = tester.getRect(
+          find.byKey(const ValueKey('topic-reply-button')),
+        );
+        final moreRect = tester.getRect(
+          find.byKey(const ValueKey('topic-status-button')),
+        );
         expect(sidebarRect.top, topicRect.top);
         expect(sidebarRect.bottom, topicRect.bottom);
         expect(headerRect.right, sidebarRect.left);
         expect(notificationRect.right, lessThanOrEqualTo(toggleRect.left));
         expect(headerRect.right - toggleRect.right, lessThanOrEqualTo(8.1));
+        expect(replyRect.right, lessThanOrEqualTo(moreRect.left));
+        expect(replyRect.center.dy, closeTo(moreRect.center.dy, 0.01));
         expect(properties, findsOneWidget);
         expect(
           find.descendant(of: properties, matching: find.text('Announcements')),

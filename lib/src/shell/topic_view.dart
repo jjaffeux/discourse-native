@@ -2127,6 +2127,25 @@ class _TopicSidebarActions extends StatelessWidget {
         ? const <PostFlagType>[]
         : controller.availableTopicFlagTypes(siteUrl, topic);
     final theme = Theme.of(context);
+    final secondaryActions = topic == null || siteUrl == null
+        ? const <Widget>[]
+        : <Widget>[
+            if (controller.currentInstance?.user != null)
+              TopicBookmarkButton(
+                siteUrl: siteUrl,
+                topic: topic,
+                busy: bookmarkBusy,
+              ),
+            if (ShellTitleBar.columnsCarryUserMenu) ...[
+              ...registry.shellHeaderActions(
+                context,
+                surface: PluginHeaderSurface.content,
+                compact: MediaQuery.sizeOf(context).width < 768,
+                ringColor: theme.shell.panel,
+              ),
+              UserMenuButton(ringColor: theme.shell.panel),
+            ],
+          ];
     Widget replyButton() => DButton(
       key: const ValueKey('topic-reply-button'),
       onPressed: controller.openReply,
@@ -2139,46 +2158,32 @@ class _TopicSidebarActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (onCollapsed case final onPressed?)
+        if ((topic != null && (canReply || siteUrl != null)) ||
+            onCollapsed != null)
           Row(
             children: [
               if (topic != null && canReply)
                 Expanded(child: replyButton())
               else
                 const Spacer(),
-              const SizedBox(width: 8),
-              _TopicSidebarToggle(showSidebar: false, onPressed: onPressed),
-            ],
-          )
-        else if (topic != null && canReply)
-          replyButton(),
-        if (topic != null && siteUrl != null) ...[
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              if (controller.currentInstance?.user != null)
-                TopicBookmarkButton(
+              if (topic != null && siteUrl != null) ...[
+                const SizedBox(width: 4),
+                TopicStatusButton(
                   siteUrl: siteUrl,
                   topic: topic,
-                  busy: bookmarkBusy,
+                  route: route,
+                  topicFlags: topicFlags,
                 ),
-              TopicStatusButton(
-                siteUrl: siteUrl,
-                topic: topic,
-                route: route,
-                topicFlags: topicFlags,
-              ),
-              if (ShellTitleBar.columnsCarryUserMenu) ...[
-                ...registry.shellHeaderActions(
-                  context,
-                  surface: PluginHeaderSurface.content,
-                  compact: MediaQuery.sizeOf(context).width < 768,
-                  ringColor: theme.shell.panel,
-                ),
-                UserMenuButton(ringColor: theme.shell.panel),
+              ],
+              if (onCollapsed case final onPressed?) ...[
+                const SizedBox(width: 4),
+                _TopicSidebarToggle(showSidebar: false, onPressed: onPressed),
               ],
             ],
           ),
+        if (secondaryActions.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Row(children: secondaryActions),
         ],
       ],
     );
