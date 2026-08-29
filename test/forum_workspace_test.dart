@@ -3,11 +3,26 @@ import 'dart:convert';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('ContentRoute persistence', () {
+    test('uses the dedicated layered icon for new and restored topics', () {
+      final route = ContentRoute.topic(
+        topicId: 42,
+        slug: 'a-topic',
+        title: 'A topic',
+      );
+      final legacyJson = _jsonMap(route.toJson())
+        ..['icon'] = DIcons.comments.name;
+
+      expect(route.icon, DNativeIcons.topic);
+      expect(route.toJson()['icon'], DNativeIcons.topic.name);
+      expect(ContentRoute.fromJson(legacyJson).icon, DNativeIcons.topic);
+    });
+
     test('round-trips every durable route field', () {
       const route = ContentRoute(
         id: 'topic-42',

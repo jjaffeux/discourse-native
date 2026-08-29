@@ -10,6 +10,7 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -147,7 +148,7 @@ void main() {
         tester,
       ).items.singleWhere((item) => item.id == newId);
       expect(routedItem.title, 'Native tabs');
-      expect(routedItem.icon, DIcons.comments);
+      expect(routedItem.icon, DNativeIcons.topic);
       expect(routedItem.color, color);
 
       await tester.tap(find.byKey(ValueKey('forum-tab-$originalId')));

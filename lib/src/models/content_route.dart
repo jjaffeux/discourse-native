@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import 'group_route.dart';
 import 'list_link.dart';
 import 'sidebar.dart';
@@ -56,7 +57,7 @@ class ContentRoute {
     return ContentRoute(
       id: 'topic-$topicId',
       title: title,
-      icon: DIcons.comments,
+      icon: DNativeIcons.topic,
       subtitle: subtitle,
       color: color,
       topicId: topicId,
@@ -246,7 +247,13 @@ class ContentRoute {
     return ContentRoute(
       id: id,
       title: title,
-      icon: DIcons.byName[iconName] ?? DIcons.comments,
+      // Upgrade the speech bubble saved by older topic tabs without changing
+      // the durable icon of routes that deliberately chose another glyph.
+      icon:
+          DNativeIcons.byName[iconName] ??
+          (topicId != null && iconName == DIcons.comments.name
+              ? DNativeIcons.topic
+              : DIcons.byName[iconName] ?? DIcons.comments),
       subtitle: json['subtitle'] is String ? json['subtitle'] as String : null,
       color: colorValue is int ? Color(colorValue) : null,
       topicId: topicId as int?,
