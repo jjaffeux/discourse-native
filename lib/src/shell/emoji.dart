@@ -142,9 +142,19 @@ Widget? emojiWidgetBuilder(
   if (url == null) return null;
 
   final onlyEmoji = element.classes.contains('only-emoji');
+  // Core enlarges a bare emoji to 32px, but restores it to 20px anywhere the
+  // `only-emoji` class is incidental to inline content. In particular, topic
+  // and search-result links can retain that class even though their emoji is
+  // sitting beside text.
+  final compactOnlyEmoji = onlyEmoji && _hasCompactOnlyEmojiAncestor(element);
+  final largeOnlyEmoji = onlyEmoji && !compactOnlyEmoji;
   final emoji = EmojiImage(
     url: url,
-    size: onlyEmoji ? 32 : (baseStyle?.fontSize ?? 14) * emojiScale,
+    size: largeOnlyEmoji
+        ? 32
+        : compactOnlyEmoji
+        ? 20
+        : (baseStyle?.fontSize ?? 14) * emojiScale,
     alt: element.attributes['alt'] ?? element.attributes['title'] ?? '',
     style: baseStyle,
   );
@@ -154,7 +164,7 @@ Widget? emojiWidgetBuilder(
     // widget directly. The paragraph's tight block width would then stretch
     // the image across the message and paint its artwork in the centre. Align
     // absorbs that width while giving the emoji its intended square.
-    child: onlyEmoji
+    child: largeOnlyEmoji
         ? Align(
             alignment: AlignmentDirectional.centerStart,
             widthFactor: 1,
@@ -163,6 +173,21 @@ Widget? emojiWidgetBuilder(
           )
         : emoji,
   );
+}
+
+/// Matches core's compact `only-emoji` selector contexts.
+bool _hasCompactOnlyEmojiAncestor(dom.Element element) {
+  var ancestor = element.parent;
+  while (ancestor != null) {
+    if (ancestor.localName == 'a' ||
+        ancestor.localName == 'li' ||
+        ancestor.classes.contains('md-table') ||
+        ancestor.classes.contains('poll')) {
+      return true;
+    }
+    ancestor = ancestor.parent;
+  }
+  return false;
 }
 
 /// Resolves a cooked emoji `src` against the site that cooked it.

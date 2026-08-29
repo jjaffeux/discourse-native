@@ -928,6 +928,22 @@ void main() {
       expect(tester.getTopLeft(emoji).dx, 0);
     });
 
+    testWidgets('an only-emoji image inside a link stays compact', (
+      tester,
+    ) async {
+      await pumpCookedInShell(
+        tester,
+        '<p><a href="https://meta.discourse.org/t/example">Result '
+        '<img src="/images/emoji/twitter/smiley.png?v=15" '
+        'title=":smiley:" class="emoji only-emoji" alt=":smiley:" '
+        'loading="lazy" width="20" height="20"></a></p>',
+        emoji: MockClient((_) async => http.Response.bytes(onePixelPng, 200)),
+      );
+
+      final emoji = tester.widget<EmojiImage>(find.byType(EmojiImage));
+      expect(emoji.size, 20);
+    });
+
     testWidgets(
       'fall back to their shortcode when the site will not serve one',
       (tester) async {
