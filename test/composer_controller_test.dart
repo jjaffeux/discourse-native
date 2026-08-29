@@ -378,6 +378,62 @@ void main() {
     expect(composer.tags.single.name, 'mobile');
   });
 
+  testWidgets('private messages retain their recipient in a portable draft', (
+    tester,
+  ) async {
+    final composer = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 0,
+        slug: '',
+        topicTitle: 'New message',
+        mode: ComposerMode.privateMessage,
+        originFeedId: 'groups',
+        targetRecipients: 'tech-leads',
+      ),
+    );
+    addTearDown(composer.dispose);
+
+    expect(composer.canSubmit, isFalse);
+    composer.title.text = 'A private subject';
+    composer.text.text = 'Hello team';
+
+    expect(composer.canSubmit, isTrue);
+    expect(composer.target.draftKey, 'new_private_message');
+    expect(composer.draft.action, ComposerDraft.privateMessageAction);
+    expect(composer.draft.archetypeId, ComposerDraft.privateMessageArchetype);
+    expect(composer.draft.recipients, 'tech-leads');
+    expect(composer.draft.categoryId, isNull);
+    expect(composer.draft.tags, isEmpty);
+  });
+
+  test('a private-message draft cannot be restored for another recipient', () {
+    final composer = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 0,
+        slug: '',
+        topicTitle: 'New message',
+        mode: ComposerMode.privateMessage,
+        targetRecipients: 'tech-leads',
+      ),
+    );
+    addTearDown(composer.dispose);
+
+    composer.restore(
+      const ComposerDraft(
+        reply: 'For another group',
+        title: 'Wrong recipient',
+        action: ComposerDraft.privateMessageAction,
+        archetypeId: ComposerDraft.privateMessageArchetype,
+        recipients: 'moderators',
+      ),
+    );
+
+    expect(composer.raw, isEmpty);
+    expect(composer.title.text, isEmpty);
+  });
+
   testWidgets('topic edits distinguish metadata and body baselines', (
     tester,
   ) async {

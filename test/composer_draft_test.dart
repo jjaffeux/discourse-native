@@ -29,6 +29,25 @@ void main() {
       expect(json['typingTime'], 9000);
       expect(json['composerTime'], 30000);
     });
+
+    test('uses the web private-message draft fields', () {
+      final json =
+          jsonDecode(
+                const ComposerDraft(
+                  reply: 'Hello team',
+                  action: ComposerDraft.privateMessageAction,
+                  title: 'A private subject',
+                  archetypeId: ComposerDraft.privateMessageArchetype,
+                  recipients: 'tech-leads',
+                ).encode(),
+              )
+              as Map<String, dynamic>;
+
+      expect(json['action'], 'privateMessage');
+      expect(json['title'], 'A private subject');
+      expect(json['archetypeId'], 'private_message');
+      expect(json['recipients'], 'tech-leads');
+    });
   });
 
   group('decode', () {
@@ -46,6 +65,22 @@ void main() {
       expect(draft?.replyToPostNumber, 2);
       expect(draft?.replyToUsername, 'sam');
       expect(draft?.whisper, isTrue);
+    });
+
+    test('round-trips private-message recipients and archetype', () {
+      final draft = ComposerDraft.decode(
+        const ComposerDraft(
+          reply: 'Hello team',
+          action: ComposerDraft.privateMessageAction,
+          title: 'A private subject',
+          archetypeId: ComposerDraft.privateMessageArchetype,
+          recipients: 'tech-leads',
+        ).encode(),
+      );
+
+      expect(draft?.action, ComposerDraft.privateMessageAction);
+      expect(draft?.archetypeId, ComposerDraft.privateMessageArchetype);
+      expect(draft?.recipients, 'tech-leads');
     });
 
     test('accepts a bare username, which is how some payloads write it', () {

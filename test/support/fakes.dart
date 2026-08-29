@@ -2268,6 +2268,7 @@ class FakeDiscourseApi
     required Duration composerOpenDuration,
     int? categoryId,
     Iterable<TopicTag> tags = const [],
+    String? targetRecipients,
     String draftKey = ComposerDraft.newTopicDraftKey,
     String? clientId,
   }) async {
@@ -2277,6 +2278,7 @@ class FakeDiscourseApi
       'raw': raw,
       'categoryId': categoryId,
       'tags': tags.toList(),
+      'targetRecipients': targetRecipients,
       'draftKey': draftKey,
     });
     final failure = writeFailure;

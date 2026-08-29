@@ -414,12 +414,9 @@ class _GroupPageHostState extends State<GroupPageHost> {
                     isAdmin: shell.currentInstance?.user?.admin == true,
                   ) ==
                   true
-              ? () => shell.selectGroupRoute(
-                  GroupRoute.detail(
-                    group!.name,
-                    section: GroupRoute.messages,
-                    subsection: GroupRoute.inbox,
-                  ),
+              ? () => shell.openPrivateMessage(
+                  siteUrl: widget.siteUrl,
+                  targetRecipients: group!.name,
                 )
               : null,
           onOpenMember: (memberContext, member) => unawaited(

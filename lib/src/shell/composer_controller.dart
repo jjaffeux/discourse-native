@@ -28,7 +28,15 @@ import 'markdown_editing_controller.dart';
 /// comes time to submit. Switching sites while a reply is half written must not
 /// send it to the site the user switched to, and every other cache in the shell
 /// is site-keyed for the same reason.
-enum ComposerMode { reply, newTopic, postEdit, topicEdit, tagsEdit, plugin }
+enum ComposerMode {
+  reply,
+  newTopic,
+  privateMessage,
+  postEdit,
+  topicEdit,
+  tagsEdit,
+  plugin,
+}
 
 /// Stable identity for a plugin-owned writing surface.
 ///
@@ -136,12 +144,14 @@ class ComposerTarget {
     this.originTopicId,
     this.initialCategoryId,
     this.initialTags = const [],
+    this.targetRecipients,
   }) : policy = null,
        data = const {},
        mode =
            mode ??
            (editingPostId == null ? ComposerMode.reply : ComposerMode.postEdit),
-       assert(mode != ComposerMode.plugin);
+       assert(mode != ComposerMode.plugin),
+       assert(mode != ComposerMode.privateMessage || targetRecipients != null);
 
   const ComposerTarget.plugin({
     required this.siteUrl,
@@ -156,6 +166,7 @@ class ComposerTarget {
        originTopicId = null,
        initialCategoryId = null,
        initialTags = const [],
+       targetRecipients = null,
        replyToPostNumber = null,
        replyToUsername = null,
        replyingToWhisper = false,
@@ -174,6 +185,7 @@ class ComposerTarget {
   final int? originTopicId;
   final int? initialCategoryId;
   final List<TopicTag> initialTags;
+  final String? targetRecipients;
 
   /// The post being answered, or null when the reply is to the topic itself.
   final int? replyToPostNumber;
@@ -200,6 +212,8 @@ class ComposerTarget {
     _ => false,
   };
   bool get isNewTopic => mode == ComposerMode.newTopic;
+  bool get isPrivateMessage => mode == ComposerMode.privateMessage;
+  bool get createsTopic => isNewTopic || isPrivateMessage;
   bool get editsTopicMetadata => mode == ComposerMode.topicEdit;
   bool get isTagsEdit => mode == ComposerMode.tagsEdit;
   bool get isPlugin => mode == ComposerMode.plugin;
@@ -207,6 +221,7 @@ class ComposerTarget {
   /// What Discourse files a draft for this topic under.
   String get draftKey => switch (mode) {
     ComposerMode.newTopic => ComposerDraft.newTopicDraftKey,
+    ComposerMode.privateMessage => ComposerDraft.newPrivateMessageDraftKey,
     ComposerMode.plugin => policy!.draftKey,
     _ => 'topic_$topicId',
   };
@@ -231,6 +246,7 @@ class ComposerTarget {
       originTopicId: originTopicId,
       initialCategoryId: initialCategoryId,
       initialTags: initialTags,
+      targetRecipients: targetRecipients,
     );
   }
 }
@@ -449,7 +465,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   /// This is draft state, not typing: retain it across browser/native handoff
   /// without adding time to Discourse's fast-typer measurement.
   void setWhisper(bool value) {
-    if (_disposed || _target.isNewTopic || _target.isEdit || _target.isPlugin) {
+    if (_disposed ||
+        _target.createsTopic ||
+        _target.isEdit ||
+        _target.isPlugin) {
       return;
     }
     if (_target.replyingToWhisper) value = true;
@@ -1179,12 +1198,18 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   /// This composer's contents, in the shape Discourse stores drafts in.
   ComposerDraft get draft => ComposerDraft(
     reply: text.text,
-    action: _target.isNewTopic
+    action: _target.isPrivateMessage
+        ? ComposerDraft.privateMessageAction
+        : _target.isNewTopic
         ? ComposerDraft.createTopicAction
         : ComposerDraft.replyAction,
-    title: _target.isNewTopic ? title.text : null,
+    title: _target.createsTopic ? title.text : null,
     categoryId: _target.isNewTopic ? _categoryId : null,
     tags: _target.isNewTopic ? _tags : const [],
+    archetypeId: _target.isPrivateMessage
+        ? ComposerDraft.privateMessageArchetype
+        : ComposerDraft.regularArchetype,
+    recipients: _target.isPrivateMessage ? _target.targetRecipients : null,
     replyToPostNumber: _target.replyToPostNumber,
     replyToUsername: _target.replyToUsername,
     whisper: _whisper,
@@ -1198,17 +1223,22 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   /// has started writing must not overwrite them.
   void restore(ComposerDraft draft) {
     if (_disposed || text.text.isNotEmpty || title.text.isNotEmpty) return;
+    if (_target.isPrivateMessage &&
+        (draft.archetypeId != ComposerDraft.privateMessageArchetype ||
+            draft.recipients?.trim() != _target.targetRecipients?.trim())) {
+      return;
+    }
     _replaceDocument(
       TextEditingValue(
         text: draft.reply,
         selection: TextSelection.collapsed(offset: draft.reply.length),
       ),
     );
-    if (_target.isNewTopic) {
+    if (_target.createsTopic) {
       _replaceMetadata(
         titleValue: draft.title ?? '',
-        categoryId: draft.categoryId,
-        tags: draft.tags,
+        categoryId: _target.isNewTopic ? draft.categoryId : null,
+        tags: _target.isNewTopic ? draft.tags : const [],
       );
     }
     _whisper = draft.whisper || _target.replyingToWhisper;
@@ -1471,7 +1501,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notice =
         message ?? 'Your reply was sent for review, so it is not posted yet.';
     _replaceDocument(TextEditingValue.empty);
-    if (_target.isNewTopic) {
+    if (_target.createsTopic) {
       _replaceMetadata(titleValue: '', categoryId: null, tags: const []);
       _minimumRequiredTags = 0;
     }
@@ -1644,6 +1674,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         raw.isNotEmpty &&
             title.text.trim().isNotEmpty &&
             taxonomyValidationMessage == null,
+      ComposerMode.privateMessage =>
+        raw.isNotEmpty &&
+            title.text.trim().isNotEmpty &&
+            (_target.targetRecipients?.trim().isNotEmpty ?? false),
       ComposerMode.postEdit => raw.isNotEmpty && raw != _originalRaw,
       ComposerMode.topicEdit =>
         title.text.trim().isNotEmpty &&

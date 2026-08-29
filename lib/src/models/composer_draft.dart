@@ -20,6 +20,8 @@ class ComposerDraft {
     this.title,
     this.categoryId,
     this.tags = const [],
+    this.archetypeId = regularArchetype,
+    this.recipients,
     this.replyToPostNumber,
     this.replyToUsername,
     this.whisper = false,
@@ -30,7 +32,11 @@ class ComposerDraft {
   /// What the web composer calls replying to an existing topic.
   static const String replyAction = 'reply';
   static const String createTopicAction = 'createTopic';
+  static const String privateMessageAction = 'privateMessage';
   static const String newTopicDraftKey = 'new_topic';
+  static const String newPrivateMessageDraftKey = 'new_private_message';
+  static const String regularArchetype = 'regular';
+  static const String privateMessageArchetype = 'private_message';
 
   /// Discourse rejects draft JSON above `SiteSetting.max_draft_length`, whose
   /// hidden maximum is 150,000 characters. Bound nonconforming stored/server
@@ -45,6 +51,9 @@ class ComposerDraft {
     tags: List.unmodifiable(
       jsonArray(json['tags']).map(TopicTag.parse).whereType<TopicTag>(),
     ),
+    archetypeId:
+        jsonText(json['archetypeId']) ?? ComposerDraft.regularArchetype,
+    recipients: jsonText(json['recipients']),
     replyToPostNumber: jsonIntOrNull(json['reply_to_post_number']),
     replyToUsername: switch (json['reply_to_user']) {
       final Map<String, dynamic> user => jsonText(user['username']),
@@ -97,6 +106,8 @@ class ComposerDraft {
   final String? title;
   final int? categoryId;
   final List<TopicTag> tags;
+  final String archetypeId;
+  final String? recipients;
   final int? replyToPostNumber;
   final String? replyToUsername;
   final bool whisper;
@@ -113,7 +124,8 @@ class ComposerDraft {
     'title': ?title,
     'categoryId': ?categoryId,
     'tags': [for (final tag in tags) tag.toJson()],
-    'archetypeId': 'regular',
+    'archetypeId': archetypeId,
+    'recipients': ?recipients,
     'reply_to_post_number': replyToPostNumber,
     'reply_to_user': replyToUsername == null
         ? null
@@ -134,6 +146,8 @@ class ComposerDraft {
           other.title == title &&
           other.categoryId == categoryId &&
           listEquals(other.tags, tags) &&
+          other.archetypeId == archetypeId &&
+          other.recipients == recipients &&
           other.replyToPostNumber == replyToPostNumber &&
           other.replyToUsername == replyToUsername &&
           other.whisper == whisper &&
@@ -147,6 +161,8 @@ class ComposerDraft {
     title,
     categoryId,
     Object.hashAll(tags),
+    archetypeId,
+    recipients,
     replyToPostNumber,
     replyToUsername,
     whisper,

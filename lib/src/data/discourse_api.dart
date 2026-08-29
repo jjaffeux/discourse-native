@@ -2127,10 +2127,14 @@ class DiscourseApi
     required Duration composerOpenDuration,
     int? categoryId,
     Iterable<TopicTag> tags = const [],
+    String? targetRecipients,
     String draftKey = ComposerDraft.newTopicDraftKey,
     String? clientId,
   }) async {
     if (categoryId != null) _requirePositiveId(categoryId, 'categoryId');
+    final recipients = targetRecipients == null
+        ? null
+        : _normalizePrivateMessageRecipients(targetRecipients);
     final body = await _write(
       Uri.parse('$siteUrl/posts.json'),
       siteUrl: siteUrl,
@@ -2142,6 +2146,10 @@ class DiscourseApi
         'raw': raw,
         'category': categoryId,
         'tags': tags.map((tag) => tag.toJson()).toList(),
+        'archetype': recipients == null
+            ? null
+            : ComposerDraft.privateMessageArchetype,
+        'target_recipients': recipients,
         'typing_duration_msecs': typingDuration.inMilliseconds,
         'composer_open_duration_msecs': composerOpenDuration.inMilliseconds,
         'draft_key': draftKey,
@@ -3139,6 +3147,21 @@ class DiscourseApi
 
   static void _requirePositiveId(int value, String name) {
     if (value <= 0) throw RangeError.value(value, name, 'Must be positive.');
+  }
+
+  static String _normalizePrivateMessageRecipients(String value) {
+    if (value.length > maximumSearchTermLength || value.contains('\u0000')) {
+      throw ArgumentError.value(value, 'targetRecipients');
+    }
+    final recipients = value
+        .split(',')
+        .map((recipient) => recipient.trim())
+        .where((recipient) => recipient.isNotEmpty)
+        .toList();
+    if (recipients.isEmpty) {
+      throw ArgumentError.value(value, 'targetRecipients');
+    }
+    return recipients.join(',');
   }
 
   static void _validateSelectedPostIds(List<int> postIds, {int minimum = 1}) {
