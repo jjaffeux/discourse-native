@@ -183,9 +183,12 @@ void main() {
       // The header source row survives into the card chrome.
       expect(find.text('github.com/discourse/discourse'), findsOneWidget);
       expect(find.textContaining('main', findRichText: true), findsOneWidget);
-      expect(find.text('+123'), findsOneWidget);
-      expect(find.text('−45'), findsOneWidget);
-      expect(find.text('octocat'), findsOneWidget);
+      expect(find.textContaining('+123', findRichText: true), findsOneWidget);
+      expect(find.textContaining('−45', findRichText: true), findsOneWidget);
+      expect(
+        find.textContaining('octocat', findRichText: true),
+        findsOneWidget,
+      );
       expect(
         find.text('Merged ${relativeTime(DateTime.utc(2026, 8, 1, 10, 24))}'),
         findsOneWidget,
@@ -238,6 +241,34 @@ void main() {
       expect(icon.color, theme.discourse.primaryHigh);
       expect(icon.isPrStatus, isFalse);
       expect(tester.getSize(find.byType(SvgPicture)), githubLegacyIconSize);
+    });
+
+    testWidgets('does not overflow in an exceptionally narrow post column', (
+      tester,
+    ) async {
+      final aside = html.parse(prOnebox).querySelector('aside.onebox')!;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 96,
+                  child: DiscourseGithubPlugin(
+                    cookedTimeParser: _cookedTimeParser,
+                  ).cookedElement(null, aside)!,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('paints the requested GitHub SVG color', (tester) async {

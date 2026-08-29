@@ -215,40 +215,44 @@ class GithubUser extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final row = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (avatarUrl != null) ...[
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: SizedBox.square(
-              dimension: 20,
-              child: AvatarImage(
-                url: resolveSiteUrl(avatarUrl!, siteUrl),
-                size: 20,
-                fallback: ColoredBox(color: theme.shell.floating),
+    final label = Text.rich(
+      TextSpan(
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        children: [
+          if (avatarUrl != null) ...[
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: SizedBox.square(
+                  dimension: 20,
+                  child: AvatarImage(
+                    url: resolveSiteUrl(avatarUrl!, siteUrl),
+                    size: 20,
+                    fallback: ColoredBox(color: theme.shell.floating),
+                  ),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 4),
+            const WidgetSpan(child: SizedBox(width: 4)),
+          ],
+          TextSpan(text: login),
         ],
-        Text(
-          login,
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
 
     final url = this.url;
-    if (url == null) return row;
+    if (url == null) return label;
 
     return _GithubInlineLink(
       label: login,
       url: url,
       siteUrl: siteUrl,
-      child: row,
+      child: label,
     );
   }
 }
@@ -275,17 +279,26 @@ class GithubLineCounts extends StatelessWidget {
       fontWeight: FontWeight.bold,
     );
 
-    final row = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('+$additions', style: style?.copyWith(color: githubAdditionColor)),
-        const SizedBox(width: 6),
-        Text('−$deletions', style: style?.copyWith(color: githubDeletionColor)),
-      ],
+    final counts = Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '+$additions',
+            style: style?.copyWith(color: githubAdditionColor),
+          ),
+          const WidgetSpan(child: SizedBox(width: 6)),
+          TextSpan(
+            text: '−$deletions',
+            style: style?.copyWith(color: githubDeletionColor),
+          ),
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
 
     final url = this.url;
-    if (url == null) return row;
+    if (url == null) return counts;
 
     return _GithubInlineLink(
       label:
@@ -293,7 +306,7 @@ class GithubLineCounts extends StatelessWidget {
           '$deletions ${deletions == 1 ? 'deletion' : 'deletions'}',
       url: url,
       siteUrl: siteUrl,
-      child: row,
+      child: counts,
     );
   }
 }
