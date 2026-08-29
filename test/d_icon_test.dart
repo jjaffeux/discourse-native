@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -11,10 +12,11 @@ import 'support/finders.dart';
 
 void main() {
   group('DIcon', () {
-    testWidgets('every generated icon renders', (tester) async {
-      // The generator lifts symbols out of a sprite by hand. A malformed one
-      // fails at parse time, inside a future, where nothing else would notice.
-      for (final icon in DIcons.byName.values.toSet()) {
+    testWidgets('every bundled icon renders', (tester) async {
+      // A malformed generated or app-specific SVG fails at parse time, inside
+      // a future, where nothing else would notice.
+      final icons = {...DIcons.byName.values, ...DNativeIcons.byName.values};
+      for (final icon in icons) {
         await tester.pumpWidget(
           MaterialApp(home: Center(child: DIcon(icon, size: 24))),
         );
