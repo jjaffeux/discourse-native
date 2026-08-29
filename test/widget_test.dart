@@ -1029,6 +1029,61 @@ void main() {
       }
     });
 
+    testWidgets('opens a scoped search result at its matched post', (
+      tester,
+    ) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        const hit = SearchPostHit(
+          postId: 70,
+          topicId: 7,
+          postNumber: 3,
+          topicTitle: 'Scoped topic',
+          topicSlug: 'scoped-topic',
+          username: 'sam',
+          excerpt: SearchExcerpt([SearchExcerptSegment('needle')]),
+        );
+        final api = FakeDiscourseApi(
+          topics: {7: topicPayload(id: 7, title: 'Scoped topic')},
+          searchResults: const {
+            'needle': SearchResults(hits: [hit]),
+          },
+        );
+        await pumpShell(tester, laptop, api: api);
+        final controller = ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        );
+
+        controller.pushContent(
+          ContentRoute.topic(
+            topicId: 7,
+            slug: 'scoped-topic',
+            title: 'Scoped topic',
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byKey(ForumSearch.inputKey), 'needle');
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('search-hit-70')));
+        await tester.pumpAndSettle();
+
+        expect(controller.currentContent?.topicId, 7);
+        expect(controller.currentContent?.postNumber, 3);
+        expect(controller.search.query, isEmpty);
+        expect(controller.search.topicId, isNull);
+        expect(api.topicPostNumbersOpened.last, 3);
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+
     testWidgets('Ctrl Enter opens the selected result externally', (
       tester,
     ) async {
