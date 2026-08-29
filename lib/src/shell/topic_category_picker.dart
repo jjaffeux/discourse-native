@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
-import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
 import 'anchored_picker.dart';
 import 'shell_scope.dart';
 
@@ -164,69 +161,39 @@ class _TopicCategoryPickerState extends State<TopicCategoryPicker> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final visible = _visibleCategories;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return AnchoredPickerContent(
+      queryKey: const ValueKey('topic-category-picker-query'),
+      queryController: _query,
+      queryHint: 'Search categories…',
+      onQueryChanged: (_) => setState(() {}),
+      onQuerySubmitted: (_) => _submitQuery(),
+      separatorKey: const ValueKey('topic-category-picker-divider'),
       children: [
-        TextField(
-          key: const ValueKey('topic-category-picker-query'),
-          controller: _query,
-          autofocus: true,
-          textInputAction: TextInputAction.done,
-          onChanged: (_) => setState(() {}),
-          onSubmitted: (_) => _submitQuery(),
-          decoration: const InputDecoration(
-            hintText: 'Search categories…',
-            border: InputBorder.none,
-          ),
-        ),
-        Divider(height: 1, color: theme.shell.divider),
         if (widget.errorMessage case final error? when visible.isEmpty)
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Text(
-              error,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.error,
-              ),
-            ),
-          )
+          AnchoredPickerMessage(error, color: theme.colorScheme.error)
         else ...[
           for (final category in visible)
-            ListTile(
+            AnchoredPickerOption(
               key: ValueKey('topic-category-option-${category.id}'),
-              dense: true,
-              contentPadding: EdgeInsets.only(
-                left: category.parentCategoryId == null ? 16 : 40,
-                right: 16,
-              ),
+              indent: category.parentCategoryId == null ? 0 : 24,
+              selected: category.id == widget.selectedCategoryId,
+              showSelectionIndicator: true,
               leading: Container(
-                width: 14,
-                height: 14,
+                width: 10,
+                height: 10,
                 decoration: BoxDecoration(
                   color: Color(category.colorValue),
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(5),
                 ),
               ),
               title: Text(category.name),
-              trailing: category.id == widget.selectedCategoryId
-                  ? const DIcon(DIcons.check, size: 16)
-                  : null,
               onTap: () => widget.onSelected(category.id),
             ),
           if (visible.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(18),
-              child: Text(
-                _query.text.trim().isEmpty
-                    ? 'No categories are available.'
-                    : 'No matching categories.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
+            AnchoredPickerMessage(
+              _query.text.trim().isEmpty
+                  ? 'No categories are available.'
+                  : 'No matching categories.',
             ),
         ],
       ],

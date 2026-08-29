@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
 import 'platform.dart';
 import 'shell_sheet.dart';
@@ -18,7 +20,7 @@ Future<T?> showAnchoredPicker<T>({
   required Key popoverKey,
   required WidgetBuilder builder,
   double popoverWidth = _AnchoredPickerSurface.defaultWidth,
-  EdgeInsetsGeometry popoverPadding = const EdgeInsets.all(10),
+  EdgeInsetsGeometry popoverPadding = EdgeInsets.zero,
 }) {
   if (context.isTouch) {
     return showShellSheet<T>(
@@ -79,6 +81,228 @@ Future<T?> showAnchoredPicker<T>({
   );
 }
 
+/// Search-and-results layout shared by anchored dropdown pickers.
+///
+/// Pointer platforms get compact menu geometry. Touch platforms keep the same
+/// content in a sheet with comfortable input and row targets.
+class AnchoredPickerContent extends StatelessWidget {
+  const AnchoredPickerContent({
+    super.key,
+    required this.queryKey,
+    required this.queryController,
+    required this.queryHint,
+    required this.onQueryChanged,
+    required this.onQuerySubmitted,
+    required this.children,
+    this.separatorKey,
+  });
+
+  final Key queryKey;
+  final TextEditingController queryController;
+  final String queryHint;
+  final ValueChanged<String> onQueryChanged;
+  final ValueChanged<String> onQuerySubmitted;
+  final List<Widget> children;
+  final Key? separatorKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final compact = !context.isTouch;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          key: queryKey,
+          controller: queryController,
+          autofocus: true,
+          style: compact ? theme.textTheme.bodySmall : null,
+          textInputAction: TextInputAction.done,
+          onChanged: onQueryChanged,
+          onSubmitted: onQuerySubmitted,
+          decoration: InputDecoration(
+            hintText: queryHint,
+            border: InputBorder.none,
+            isDense: compact,
+            contentPadding: compact
+                ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
+                : null,
+          ),
+        ),
+        Divider(
+          key: separatorKey,
+          height: 1,
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.14),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: compact ? 6 : 0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A consistently sized choice inside an [AnchoredPickerContent].
+class AnchoredPickerOption extends StatelessWidget {
+  const AnchoredPickerOption({
+    super.key,
+    required this.title,
+    required this.onTap,
+    this.leading,
+    this.subtitle,
+    this.trailing,
+    this.enabled = true,
+    this.indent = 0,
+    this.selected = false,
+    this.showSelectionIndicator = false,
+  });
+
+  final Widget title;
+  final VoidCallback? onTap;
+  final Widget? leading;
+  final Widget? subtitle;
+  final Widget? trailing;
+  final bool enabled;
+  final double indent;
+  final bool selected;
+  final bool showSelectionIndicator;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final compact = !context.isTouch;
+    final horizontalPadding = compact ? 10.0 : 16.0;
+    final highlightColor = Color.alphaBlend(
+      theme.colorScheme.onSurface.withValues(
+        alpha: theme.brightness == Brightness.dark ? 0.10 : 0.06,
+      ),
+      compact ? theme.shell.floating : theme.shell.content,
+    );
+    final effectiveLeading = showSelectionIndicator
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _AnchoredPickerSelectionIndicator(selected: selected),
+              if (leading != null) ...[const SizedBox(width: 8), leading!],
+            ],
+          )
+        : leading;
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 0),
+      child: ListTile(
+        dense: true,
+        visualDensity: compact ? VisualDensity.compact : null,
+        minTileHeight: compact ? 32 : null,
+        minLeadingWidth: compact ? 14 : null,
+        horizontalTitleGap: compact ? 10 : null,
+        contentPadding: EdgeInsets.only(
+          left: horizontalPadding + indent,
+          right: horizontalPadding,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        selected: selected,
+        selectedColor: theme.colorScheme.onSurface,
+        selectedTileColor: highlightColor,
+        hoverColor: highlightColor,
+        focusColor: highlightColor,
+        titleTextStyle: compact ? theme.textTheme.bodySmall : null,
+        subtitleTextStyle: compact ? theme.textTheme.labelSmall : null,
+        enabled: enabled,
+        leading: effectiveLeading,
+        title: title,
+        subtitle: subtitle,
+        trailing: trailing,
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _AnchoredPickerSelectionIndicator extends StatelessWidget {
+  const _AnchoredPickerSelectionIndicator({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      width: 14,
+      height: 14,
+      decoration: BoxDecoration(
+        color: selected ? colors.primary : Colors.transparent,
+        border: selected
+            ? null
+            : Border.all(
+                color: colors.onSurfaceVariant.withValues(alpha: 0.75),
+              ),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: selected
+          ? DIcon(DIcons.check, size: 10, color: colors.onPrimary)
+          : null,
+    );
+  }
+}
+
+/// Adaptive progress geometry for an [AnchoredPickerContent].
+class AnchoredPickerProgress extends StatelessWidget {
+  const AnchoredPickerProgress({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = !context.isTouch;
+    return Padding(
+      padding: EdgeInsets.all(compact ? 8 : 24),
+      child: Center(
+        child: compact
+            ? const SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+              )
+            : const CircularProgressIndicator.adaptive(),
+      ),
+    );
+  }
+}
+
+/// Empty or error copy inside an [AnchoredPickerContent].
+class AnchoredPickerMessage extends StatelessWidget {
+  const AnchoredPickerMessage(
+    this.message, {
+    super.key,
+    this.color,
+    this.padding = const EdgeInsets.all(18),
+    this.textAlign = TextAlign.center,
+  });
+
+  final String message;
+  final Color? color;
+  final EdgeInsetsGeometry padding;
+  final TextAlign textAlign;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: padding,
+      child: Text(
+        message,
+        textAlign: textAlign,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: color ?? theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
 class _AnchoredPickerTransition extends StatelessWidget {
   const _AnchoredPickerTransition({
     required this.animation,
@@ -116,7 +340,7 @@ class _AnchoredPickerSurface extends StatelessWidget {
     required this.child,
   });
 
-  static const double defaultWidth = 360;
+  static const double defaultWidth = 252;
 
   final double width;
   final EdgeInsetsGeometry padding;

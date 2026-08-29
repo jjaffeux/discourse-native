@@ -4796,11 +4796,37 @@ void main() {
             ),
             findsOneWidget,
           );
-          expect(tester.getSize(picker).width, 360);
+          expect(tester.getSize(picker).width, 252);
+          final categoryQuery = find.byKey(
+            const ValueKey('topic-category-picker-query'),
+          );
+          expect(
+            tester.widget<TextField>(categoryQuery).style?.fontSize,
+            DiscourseTypography.fontDown1,
+          );
+          expect(tester.getSize(categoryQuery).height, lessThan(40));
+          final categoryDivider = find.byKey(
+            const ValueKey('topic-category-picker-divider'),
+          );
+          expect(
+            tester.getSize(categoryDivider).width,
+            tester.getSize(picker).width - 2,
+          );
           final supportOption = find.byKey(
             const ValueKey('topic-category-option-5'),
           );
           expect(supportOption, findsOneWidget);
+          final supportTile = tester.widget<ListTile>(
+            find.descendant(
+              of: supportOption,
+              matching: find.byType(ListTile),
+            ),
+          );
+          expect(supportTile.minTileHeight, 32);
+          expect(
+            supportTile.titleTextStyle?.fontSize,
+            DiscourseTypography.fontDown1,
+          );
           await tester.tap(supportOption);
           await tester.pumpAndSettle();
 
@@ -4896,7 +4922,7 @@ void main() {
 
         final picker = find.byKey(const ValueKey('topic-tag-picker-popover'));
         expect(picker, findsOneWidget);
-        expect(tester.getSize(picker).width, 280);
+        expect(tester.getSize(picker).width, 252);
 
         final query = find.byKey(const ValueKey('topic-tag-picker-query'));
         final queryWidget = tester.widget<TextField>(query);
@@ -4926,13 +4952,13 @@ void main() {
         );
         final mobileOption = tester.widget<ListTile>(
           find.descendant(
-            of: picker,
-            matching: find.byKey(
+            of: find.byKey(
               const ValueKey(('topic-tag-picker-option', 'mobile')),
             ),
+            matching: find.byType(ListTile),
           ),
         );
-        expect(mobileOption.minTileHeight, 36);
+        expect(mobileOption.minTileHeight, 32);
         expect(
           mobileOption.titleTextStyle?.fontSize,
           DiscourseTypography.fontDown1,

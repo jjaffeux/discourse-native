@@ -6,7 +6,6 @@ import '../models/topic.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_picker.dart';
-import 'platform.dart';
 import 'shell_scope.dart';
 
 typedef TopicTagMenuAnchorBuilder =
@@ -122,8 +121,6 @@ Future<List<TopicTag>?> showTopicTagPicker({
     title: 'Tags',
     barrierLabel: 'Dismiss tag picker',
     popoverKey: const ValueKey('topic-tag-picker-popover'),
-    popoverWidth: 280,
-    popoverPadding: EdgeInsets.zero,
     builder: picker,
   );
 }
@@ -287,95 +284,53 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final compact = !context.isTouch;
     final newTag = _newTag;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return AnchoredPickerContent(
+      queryKey: const ValueKey('topic-tag-picker-query'),
+      queryController: _query,
+      queryHint: 'Add tags…',
+      onQueryChanged: (value) {
+        _changed(value);
+        setState(() {});
+      },
+      onQuerySubmitted: (_) => _submitQuery(),
+      separatorKey: const ValueKey('topic-tag-picker-divider'),
       children: [
-        TextField(
-          key: const ValueKey('topic-tag-picker-query'),
-          controller: _query,
-          autofocus: true,
-          style: compact ? theme.textTheme.bodySmall : null,
-          textInputAction: TextInputAction.done,
-          onChanged: (value) {
-            _changed(value);
-            setState(() {});
-          },
-          onSubmitted: (_) => _submitQuery(),
-          decoration: InputDecoration(
-            hintText: 'Add tags…',
-            border: InputBorder.none,
-            isDense: compact,
-            contentPadding: compact
-                ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
-                : null,
-          ),
-        ),
-        Divider(
-          key: const ValueKey('topic-tag-picker-divider'),
-          height: 1,
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.14),
-        ),
         if (_loading)
-          Padding(
-            padding: EdgeInsets.all(compact ? 14 : 24),
-            child: Center(
-              child: compact
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                    )
-                  : const CircularProgressIndicator.adaptive(),
-            ),
-          )
+          const AnchoredPickerProgress()
         else ...[
           if (_result.explanation case final message?)
-            Padding(
+            AnchoredPickerMessage(
+              message,
               padding: const EdgeInsets.fromLTRB(12, 14, 12, 8),
-              child: Text(
-                message,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              ),
+              textAlign: TextAlign.start,
+              color: theme.colorScheme.error,
             ),
           if (newTag != null)
-            ListTile(
+            AnchoredPickerOption(
               key: const ValueKey('topic-tag-picker-create'),
-              dense: true,
-              visualDensity: compact ? VisualDensity.compact : null,
-              minTileHeight: compact ? 36 : null,
-              minLeadingWidth: compact ? 16 : null,
-              horizontalTitleGap: compact ? 8 : null,
-              contentPadding: compact
-                  ? const EdgeInsets.symmetric(horizontal: 12)
-                  : null,
-              titleTextStyle: compact ? theme.textTheme.bodySmall : null,
               leading: const DIcon(DIcons.plus, size: 16),
               title: Text('Create new tag: “${newTag.name}”'),
               onTap: () => _choose(newTag),
             ),
           for (final tag in _visibleResults)
-            ListTile(
+            AnchoredPickerOption(
               key: ValueKey(('topic-tag-picker-option', tag.name)),
-              dense: true,
-              visualDensity: compact ? VisualDensity.compact : null,
-              minTileHeight: compact ? 36 : null,
-              contentPadding: compact
-                  ? const EdgeInsets.symmetric(horizontal: 12)
-                  : null,
-              titleTextStyle: compact ? theme.textTheme.bodySmall : null,
-              subtitleTextStyle: compact ? theme.textTheme.labelSmall : null,
               enabled: !tag.disabled && (_selected(tag) || !_atMaximum),
+              selected: _selected(tag),
+              showSelectionIndicator: true,
+              leading: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              ),
               title: Text(tag.name),
               subtitle: tag.disabledReason == null
                   ? null
                   : Text(tag.disabledReason!),
-              trailing: _selected(tag)
-                  ? const DIcon(DIcons.check, size: 16)
-                  : null,
               onTap: tag.disabled || (!_selected(tag) && _atMaximum)
                   ? null
                   : () => _choose(tag),
@@ -383,17 +338,10 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
           if (newTag == null &&
               _visibleResults.isEmpty &&
               _result.explanation == null)
-            Padding(
-              padding: const EdgeInsets.all(18),
-              child: Text(
-                _query.text.trim().isEmpty
-                    ? 'No tags available.'
-                    : 'No matching tags.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
+            AnchoredPickerMessage(
+              _query.text.trim().isEmpty
+                  ? 'No tags available.'
+                  : 'No matching tags.',
             ),
         ],
       ],
