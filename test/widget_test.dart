@@ -4264,7 +4264,7 @@ void main() {
     });
 
     testWidgets(
-      'topic header places icon-only tracking beside the sidebar toggle',
+      'topic header places bookmark to the left of tracking',
       (tester) async {
         const longTitle =
             'Chris weekly update for 2026 with roadmap decisions, operational '
@@ -4333,6 +4333,9 @@ void main() {
         final notificationLevel = find.byKey(
           const ValueKey('topic-notification-level-button'),
         );
+        final bookmark = find.byKey(
+          const ValueKey('topic-bookmark-button'),
+        );
         expect(header, findsOneWidget);
         expect(title, findsOneWidget);
         expect(
@@ -4353,6 +4356,10 @@ void main() {
           findsOneWidget,
         );
         expect(
+          find.descendant(of: header, matching: bookmark),
+          findsOneWidget,
+        );
+        expect(
           find.descendant(of: header, matching: find.text('Tracking')),
           findsNothing,
         );
@@ -4369,6 +4376,7 @@ void main() {
         final headerRect = tester.getRect(header);
         final toggleRect = tester.getRect(sidebarToggle);
         final notificationRect = tester.getRect(notificationLevel);
+        final bookmarkRect = tester.getRect(bookmark);
         final replyRect = tester.getRect(
           find.byKey(const ValueKey('topic-reply-button')),
         );
@@ -4378,6 +4386,7 @@ void main() {
         expect(sidebarRect.top, topicRect.top);
         expect(sidebarRect.bottom, topicRect.bottom);
         expect(headerRect.right, sidebarRect.left);
+        expect(bookmarkRect.right, lessThanOrEqualTo(notificationRect.left));
         expect(notificationRect.right, lessThanOrEqualTo(toggleRect.left));
         expect(headerRect.right - toggleRect.right, lessThanOrEqualTo(8.1));
         expect(replyRect.right, lessThanOrEqualTo(moreRect.left));
@@ -4412,7 +4421,6 @@ void main() {
         expect(find.text('Assigned to Sam Example'), findsOneWidget);
 
         for (final key in const [
-          ValueKey('topic-bookmark-button'),
           ValueKey('topic-status-button'),
           ValueKey('topic-reply-button'),
         ]) {
@@ -4427,6 +4435,10 @@ void main() {
         }
         expect(
           find.descendant(of: sidebar, matching: notificationLevel),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: sidebar, matching: bookmark),
           findsNothing,
         );
         expect(find.text('Topic context'), findsNothing);
