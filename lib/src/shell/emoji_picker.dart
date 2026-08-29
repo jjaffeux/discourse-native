@@ -82,15 +82,12 @@ Future<String?> showEmojiPicker({
             const SingleActivator(LogicalKeyboardKey.escape): () =>
                 Navigator.of(dialogContext).pop(),
           },
-          child: Focus(
-            autofocus: true,
-            child: _DesktopPickerCard(
-              controller: controller,
-              onPicked: (code) {
-                Navigator.of(dialogContext).pop(code);
-              },
-              onDismiss: () => Navigator.of(dialogContext).pop(),
-            ),
+          child: _DesktopPickerCard(
+            controller: controller,
+            onPicked: (code) {
+              Navigator.of(dialogContext).pop(code);
+            },
+            onDismiss: () => Navigator.of(dialogContext).pop(),
           ),
         ),
       ),
