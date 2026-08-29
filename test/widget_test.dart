@@ -4527,116 +4527,120 @@ void main() {
     testWidgets(
       'uncategorized editable sidebar opens the picker and saves a category',
       (tester) async {
-        const support = TopicCategory(
-          id: 5,
-          name: 'Support',
-          color: '0088CC',
-          permission: 1,
-        );
-        final base = detail();
-        final api = FakeDiscourseApi(
-          feeds: {'/latest.json': listed},
-          categoryList: const [support],
-          topics: {
-            7: (detail: base.detail.copyWith(canEdit: true), posts: base.posts),
-          },
-        );
-        const reader = DiscourseUser(id: 1, username: 'reader');
-        final authenticator = FakeAuthenticator()
-          ..keys['https://meta.discourse.org'] = 'meta-key';
+        final previousPlatform = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          const support = TopicCategory(
+            id: 5,
+            name: 'Support',
+            color: '0088CC',
+            permission: 1,
+          );
+          final base = detail();
+          final api = FakeDiscourseApi(
+            feeds: {'/latest.json': listed},
+            categoryList: const [support],
+            topics: {
+              7: (detail: base.detail.copyWith(canEdit: true), posts: base.posts),
+            },
+          );
+          const reader = DiscourseUser(id: 1, username: 'reader');
+          final authenticator = FakeAuthenticator()
+            ..keys['https://meta.discourse.org'] = 'meta-key';
 
-        await pumpShell(
-          tester,
-          desktop,
-          instances: [instance('meta.discourse.org').copyWith(user: reader)],
-          api: api,
-          authenticator: authenticator,
-        );
-        await tester.tap(contentText('A real topic'));
-        await tester.pumpAndSettle();
+          await pumpShell(
+            tester,
+            desktop,
+            instances: [instance('meta.discourse.org').copyWith(user: reader)],
+            api: api,
+            authenticator: authenticator,
+          );
+          await tester.tap(contentText('A real topic'));
+          await tester.pumpAndSettle();
 
-        final categoryProperty = find.byKey(
-          const ValueKey('topic-sidebar-category-property'),
-        );
-        expect(categoryProperty, findsOneWidget);
-        expect(find.byTooltip('Edit topic category'), findsOneWidget);
-        expect(
-          find.byKey(const ValueKey('topic-sidebar-category-edit-indicator')),
-          findsNothing,
-        );
-        expect(
-          find.descendant(
-            of: categoryProperty,
-            matching: find.text('Uncategorized'),
-          ),
-          findsOneWidget,
-        );
+          final categoryProperty = find.byKey(
+            const ValueKey('topic-sidebar-category-property'),
+          );
+          expect(categoryProperty, findsOneWidget);
+          expect(find.byTooltip('Edit topic category'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('topic-sidebar-category-edit-indicator')),
+            findsNothing,
+          );
+          expect(
+            find.descendant(
+              of: categoryProperty,
+              matching: find.text('Uncategorized'),
+            ),
+            findsOneWidget,
+          );
 
-        final categoryAction = find.byKey(
-          const ValueKey('topic-sidebar-category-action'),
-        );
-        expect(categoryAction, findsOneWidget);
-        final categoryInk = find.descendant(
-          of: categoryAction,
-          matching: find.byType(InkWell),
-        );
-        expect(categoryInk, findsOneWidget);
-        expect(
-          tester.widget<InkWell>(categoryInk).mouseCursor,
-          SystemMouseCursors.click,
-        );
-        expect(
-          tester.widget<InkWell>(categoryInk).hoverColor,
-          Colors.transparent,
-        );
-        expect(
-          tester.getSize(categoryAction).width,
-          lessThan(tester.getSize(categoryProperty).width),
-        );
+          final categoryAction = find.byKey(
+            const ValueKey('topic-sidebar-category-action'),
+          );
+          expect(categoryAction, findsOneWidget);
+          final categoryInk = find.descendant(
+            of: categoryAction,
+            matching: find.byType(InkWell),
+          );
+          expect(categoryInk, findsOneWidget);
+          expect(
+            tester.widget<InkWell>(categoryInk).mouseCursor,
+            SystemMouseCursors.click,
+          );
+          expect(
+            tester.widget<InkWell>(categoryInk).hoverColor,
+            Colors.transparent,
+          );
+          expect(
+            tester.getSize(categoryAction).width,
+            lessThan(tester.getSize(categoryProperty).width),
+          );
 
-        await tester.tap(categoryAction);
-        await tester.pumpAndSettle();
+          await tester.tap(categoryAction);
+          await tester.pumpAndSettle();
 
-        expect(find.byType(ComposerPanel), findsNothing);
-        final editor = find.byWidgetPredicate(
-          (widget) => widget is Dialog || widget is BottomSheet,
-          description: 'category editor dialog or sheet',
-        );
-        expect(editor, findsOneWidget);
-        expect(
-          find.descendant(
-            of: editor,
-            matching: find.text('Edit topic category'),
-          ),
-          findsOneWidget,
-        );
-        final supportOption = find.byKey(
-          const ValueKey('topic-category-option-5'),
-        );
-        expect(supportOption, findsOneWidget);
-        await tester.tap(supportOption);
-        await tester.pumpAndSettle();
+          expect(find.byType(ComposerPanel), findsNothing);
+          expect(find.byType(Dialog), findsNothing);
+          expect(find.byType(BottomSheet), findsNothing);
+          final picker = find.byKey(
+            const ValueKey('topic-category-picker-popover'),
+          );
+          expect(picker, findsOneWidget);
+          expect(
+            find.descendant(
+              of: picker,
+              matching: find.byKey(const ValueKey('topic-category-picker-query')),
+            ),
+            findsOneWidget,
+          );
+          expect(tester.getSize(picker).width, 360);
+          final supportOption = find.byKey(
+            const ValueKey('topic-category-option-5'),
+          );
+          expect(supportOption, findsOneWidget);
+          await tester.tap(supportOption);
+          await tester.pumpAndSettle();
 
-        await tester.tap(
-          find.byKey(const ValueKey('topic-category-editor-save')),
-        );
-        await tester.pumpAndSettle();
-
-        expect(api.topicsUpdated.single, {
-          'topicId': 7,
-          'title': 'A real topic',
-          'originalTitle': 'A real topic',
-          'categoryId': 5,
-          'tags': const <TopicTag>[],
-          'originalTags': const <TopicTag>[],
-        });
-        expect(api.topicTagsUpdated, isEmpty);
-        expect(
-          find.descendant(of: categoryProperty, matching: find.text('Support')),
-          findsOneWidget,
-        );
-        expect(find.byType(ComposerPanel), findsNothing);
-        expect(tester.takeException(), isNull);
+          expect(api.topicsUpdated.single, {
+            'topicId': 7,
+            'title': 'A real topic',
+            'originalTitle': 'A real topic',
+            'categoryId': 5,
+            'tags': const <TopicTag>[],
+            'originalTags': const <TopicTag>[],
+          });
+          expect(api.topicTagsUpdated, isEmpty);
+          expect(
+            find.descendant(of: categoryProperty, matching: find.text('Support')),
+            findsOneWidget,
+          );
+          expect(picker, findsNothing);
+          expect(find.byType(ComposerPanel), findsNothing);
+          expect(tester.takeException(), isNull);
+        } finally {
+          debugDefaultTargetPlatformOverride = previousPlatform;
+        }
       },
     );
 
