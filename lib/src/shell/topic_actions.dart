@@ -86,7 +86,6 @@ class TopicBookmarkButton extends StatelessWidget {
 }
 
 enum _TopicCommand {
-  share,
   flag,
   pinned,
   selectPosts,
@@ -97,19 +96,19 @@ enum _TopicCommand {
   recover,
 }
 
-class TopicStatusButton extends StatelessWidget {
-  const TopicStatusButton({
+class TopicShareButton extends StatelessWidget {
+  const TopicShareButton({
     super.key,
     required this.siteUrl,
     required this.topic,
     this.route,
-    this.topicFlags = const [],
+    this.showLabel = true,
   });
 
   final String siteUrl;
   final TopicDetail topic;
   final ContentRoute? route;
-  final List<PostFlagType> topicFlags;
+  final bool showLabel;
 
   void _share(BuildContext context) {
     final controller = ShellScope.read(context);
@@ -143,6 +142,42 @@ class TopicStatusButton extends StatelessWidget {
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!showLabel) {
+      return DButton.iconOnly(
+        key: const ValueKey('topic-share-button'),
+        onPressed: () => _share(context),
+        icon: const DIcon(DIcons.share, size: 18),
+        tooltip: 'Share topic',
+        variant: DButtonVariant.flat,
+        size: DButtonSize.small,
+      );
+    }
+    return DButton(
+      key: const ValueKey('topic-share-button'),
+      onPressed: () => _share(context),
+      icon: const DIcon(DIcons.share, size: 18),
+      label: const Text('Share'),
+      tooltip: 'Share topic',
+      variant: DButtonVariant.flat,
+      size: DButtonSize.small,
+    );
+  }
+}
+
+class TopicStatusButton extends StatelessWidget {
+  const TopicStatusButton({
+    super.key,
+    required this.siteUrl,
+    required this.topic,
+    this.topicFlags = const [],
+  });
+
+  final String siteUrl;
+  final TopicDetail topic;
+  final List<PostFlagType> topicFlags;
 
   void _flag(BuildContext context) {
     final controller = ShellScope.read(context);
@@ -229,8 +264,6 @@ class TopicStatusButton extends StatelessWidget {
 
   void _selectCommand(BuildContext context, _TopicCommand command) {
     switch (command) {
-      case _TopicCommand.share:
-        _share(context);
       case _TopicCommand.flag:
         _flag(context);
       case _TopicCommand.pinned:
@@ -266,22 +299,14 @@ class TopicStatusButton extends StatelessWidget {
         topic.canArchiveTopic ||
         topic.canToggleTopicVisibility;
     final hasPriorToDestructive = topic.canSelectPosts || hasStatusCommands;
-    final hasMoreActions = route != null || topicFlags.isNotEmpty;
+    final hasMoreActions = topicFlags.isNotEmpty;
     final options = [
-      if (route != null)
-        const CommandMenuOption(
-          value: _TopicCommand.share,
-          label: 'Share topic',
-          icon: DIcons.upRightFromSquare,
-          key: ValueKey('topic-share-button'),
-        ),
       if (topicFlags.isNotEmpty)
-        CommandMenuOption(
+        const CommandMenuOption(
           value: _TopicCommand.flag,
           label: 'Flag topic',
           icon: DIcons.flag,
-          key: const ValueKey('topic-flag-button'),
-          dividerBefore: route != null,
+          key: ValueKey('topic-flag-button'),
         ),
       if (topic.hasPinPreference)
         CommandMenuOption(
@@ -289,7 +314,7 @@ class TopicStatusButton extends StatelessWidget {
           label: topic.pinned ? 'Unpin topic' : 'Pin topic',
           icon: DIcons.thumbtack,
           key: const ValueKey('topic-pin-button'),
-          dividerBefore: route != null || topicFlags.isNotEmpty,
+          dividerBefore: topicFlags.isNotEmpty,
         ),
       if (topic.canSelectPosts)
         CommandMenuOption(
@@ -374,7 +399,7 @@ class TopicStatusButton extends StatelessWidget {
                   dimension: 18,
                   child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                 )
-              : const DIcon(DIcons.wrench, size: 18),
+              : const DIcon(DIcons.ellipsis, size: 18),
         ),
       ),
     );

@@ -4320,7 +4320,7 @@ void main() {
     });
 
     testWidgets(
-      'topic header places bookmark to the left of tracking',
+      'topic header spans the floating sidebar and keeps actions ordered',
       (tester) async {
         const longTitle =
             'Chris weekly update for 2026 with roadmap decisions, operational '
@@ -4389,15 +4389,22 @@ void main() {
         final notificationLevel = find.byKey(
           const ValueKey('topic-notification-level-button'),
         );
-        final bookmark = find.byKey(
-          const ValueKey('topic-bookmark-button'),
-        );
+        final bookmark = find.byKey(const ValueKey('topic-bookmark-button'));
+        final share = find.byKey(const ValueKey('topic-share-button'));
+        final more = find.byKey(const ValueKey('topic-status-button'));
         expect(header, findsOneWidget);
         expect(title, findsOneWidget);
         expect(
           find.descendant(of: header, matching: find.byTooltip('Back')),
           findsOneWidget,
         );
+        final titleWidget = tester.widget<TopicTitle>(title);
+        expect(titleWidget.maxLines, 1);
+        expect(titleWidget.overflow, TextOverflow.ellipsis);
+        final titleTooltip = tester.widget<Tooltip>(
+          find.ancestor(of: title, matching: find.byType(Tooltip)),
+        );
+        expect(titleTooltip.message, longTitle);
         expect(tester.getSize(title).height, lessThan(30));
         expect(
           find.byKey(const ValueKey('topic-header-metadata')),
@@ -4411,16 +4418,18 @@ void main() {
           find.descendant(of: header, matching: notificationLevel),
           findsOneWidget,
         );
-        expect(
-          find.descendant(of: header, matching: bookmark),
-          findsOneWidget,
-        );
+        expect(find.descendant(of: header, matching: bookmark), findsOneWidget);
+        expect(find.descendant(of: header, matching: share), findsOneWidget);
+        expect(find.descendant(of: header, matching: more), findsOneWidget);
         expect(
           find.descendant(of: header, matching: find.text('Tracking')),
           findsNothing,
         );
 
         final sidebar = find.byKey(const ValueKey('topic-sidebar-panel'));
+        final sidebarSurface = find.byKey(
+          const ValueKey('topic-sidebar-surface'),
+        );
         final properties = find.byKey(const ValueKey('topic-properties-card'));
         expect(sidebar, findsOneWidget);
         expect(
@@ -4430,29 +4439,39 @@ void main() {
         final topicRect = tester.getRect(find.byType(TopicView));
         final sidebarRect = tester.getRect(sidebar);
         final headerRect = tester.getRect(header);
+        final surfaceRect = tester.getRect(sidebarSurface);
+        final titleRect = tester.getRect(title);
         final toggleRect = tester.getRect(sidebarToggle);
         final notificationRect = tester.getRect(notificationLevel);
         final bookmarkRect = tester.getRect(bookmark);
+        final shareRect = tester.getRect(share);
         final replyRect = tester.getRect(
           find.byKey(const ValueKey('topic-reply-button')),
         );
-        final moreRect = tester.getRect(
-          find.byKey(const ValueKey('topic-status-button')),
-        );
-        expect(sidebarRect.top, topicRect.top);
+        final moreRect = tester.getRect(more);
+        expect(sidebarRect.top, headerRect.bottom);
         expect(sidebarRect.bottom, topicRect.bottom);
-        expect(headerRect.right, sidebarRect.left);
+        expect(headerRect.left, topicRect.left);
+        expect(headerRect.right, topicRect.right);
+        expect(surfaceRect.left - sidebarRect.left, 12);
+        expect(sidebarRect.right - surfaceRect.right, 12);
+        expect(surfaceRect.top - sidebarRect.top, 12);
+        expect(sidebarRect.bottom - surfaceRect.bottom, 12);
+        final surface = tester.widget<Material>(sidebarSurface);
+        expect(surface.color, Theme.of(tester.element(sidebar)).shell.floating);
+        expect(
+          (surface.shape! as RoundedRectangleBorder).borderRadius,
+          BorderRadius.circular(18),
+        );
+        expect(titleRect.right, lessThanOrEqualTo(moreRect.left));
+        expect(shareRect.right, lessThanOrEqualTo(bookmarkRect.left));
         expect(bookmarkRect.right, lessThanOrEqualTo(notificationRect.left));
         expect(notificationRect.right, lessThanOrEqualTo(toggleRect.left));
         expect(headerRect.right - toggleRect.right, lessThanOrEqualTo(8.1));
-        expect(replyRect.right, lessThanOrEqualTo(moreRect.left));
-        expect(replyRect.center.dy, closeTo(moreRect.center.dy, 0.01));
-        expect(replyRect.height, moreRect.height);
+        expect(replyRect.left, greaterThan(surfaceRect.left));
+        expect(replyRect.right, lessThan(surfaceRect.right));
         expect(
-          find.descendant(
-            of: find.byKey(const ValueKey('topic-status-button')),
-            matching: find.dIcon(DIcons.wrench),
-          ),
+          find.descendant(of: more, matching: find.dIcon(DIcons.ellipsis)),
           findsOneWidget,
         );
         expect(properties, findsOneWidget);
@@ -4467,14 +4486,9 @@ void main() {
           const Size.square(9),
         );
         for (final tag in tags) {
-          final tagPill = find.byKey(
-            ValueKey(('topic-sidebar-tag', tag.name)),
-          );
+          final tagPill = find.byKey(ValueKey(('topic-sidebar-tag', tag.name)));
           expect(
-            find.descendant(
-              of: properties,
-              matching: tagPill,
-            ),
+            find.descendant(of: properties, matching: tagPill),
             findsOneWidget,
           );
           final tagText = tester.widget<Text>(
@@ -4507,27 +4521,27 @@ void main() {
         );
         expect(find.text('Assigned to Sam Example'), findsOneWidget);
 
-        for (final key in const [
-          ValueKey('topic-status-button'),
-          ValueKey('topic-reply-button'),
-        ]) {
-          expect(
-            find.descendant(of: sidebar, matching: find.byKey(key)),
-            findsOneWidget,
-          );
-          expect(
-            find.descendant(of: header, matching: find.byKey(key)),
-            findsNothing,
-          );
-        }
+        expect(
+          find.descendant(
+            of: header,
+            matching: find.byKey(const ValueKey('topic-reply-button')),
+          ),
+          findsNothing,
+        );
+        expect(find.descendant(of: sidebar, matching: more), findsNothing);
+        expect(find.descendant(of: header, matching: more), findsOneWidget);
+        expect(
+          find.descendant(
+            of: sidebar,
+            matching: find.byKey(const ValueKey('topic-reply-button')),
+          ),
+          findsOneWidget,
+        );
         expect(
           find.descendant(of: sidebar, matching: notificationLevel),
           findsNothing,
         );
-        expect(
-          find.descendant(of: sidebar, matching: bookmark),
-          findsNothing,
-        );
+        expect(find.descendant(of: sidebar, matching: bookmark), findsNothing);
         expect(find.text('Topic context'), findsNothing);
         expect(find.text('Actions'), findsNothing);
         expect(find.text('Properties'), findsNothing);
@@ -4536,7 +4550,7 @@ void main() {
     );
 
     testWidgets(
-      'topic actions keep four primary controls and overflow extras',
+      'topic actions promote sharing and overflow administrative actions',
       (tester) async {
         const reader = DiscourseUser(id: 1, username: 'reader');
         const spam = PostFlagType(
@@ -4575,6 +4589,7 @@ void main() {
         await tester.pumpAndSettle();
 
         for (final tooltip in [
+          'Share topic',
           'Bookmark this topic',
           'More topic actions',
           'Topic notifications',
@@ -4589,14 +4604,13 @@ void main() {
           expect(button, findsOneWidget, reason: tooltip);
         }
 
-        expect(find.byTooltip('Share this topic'), findsNothing);
         expect(find.byTooltip('Flag this topic'), findsNothing);
         expect(find.byTooltip('Pinned topic options'), findsNothing);
 
         await tester.tap(find.byTooltip('More topic actions'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Share topic'), findsOneWidget);
+        expect(find.text('Share topic'), findsNothing);
         expect(find.text('Flag topic'), findsOneWidget);
         expect(find.text('Unpin topic'), findsOneWidget);
         expect(find.text('Close topic'), findsOneWidget);
@@ -4997,9 +5011,7 @@ void main() {
       );
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('More topic actions'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Share topic'));
+      await tester.tap(find.byKey(const ValueKey('topic-share-button')));
       await tester.pumpAndSettle();
 
       const url = 'https://meta.discourse.org/t/a-real-topic/7?u=reader';
@@ -5659,7 +5671,7 @@ void main() {
       expect(shell.currentTopic?.canDeleteTopic, isTrue);
     });
 
-    testWidgets('guardian-gated topic actions stay out of More', (
+    testWidgets('share stays available when guardian-gated actions do not', (
       tester,
     ) async {
       final api = FakeDiscourseApi(
@@ -5671,9 +5683,11 @@ void main() {
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('More topic actions'));
-      await tester.pumpAndSettle();
-      expect(find.text('Share topic'), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-share-button')), findsOneWidget);
+      final more = tester.widget<DButton>(
+        find.byKey(const ValueKey('topic-status-button')),
+      );
+      expect(more.onPressed, isNull);
       expect(find.text('Close topic'), findsNothing);
       expect(find.text('Archive topic'), findsNothing);
       expect(find.text('Delete topic'), findsNothing);
