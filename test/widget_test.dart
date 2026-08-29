@@ -4542,7 +4542,7 @@ void main() {
         expect(find.byTooltip('Edit topic category'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('topic-sidebar-category-edit-indicator')),
-          findsOneWidget,
+          findsNothing,
         );
         expect(
           find.descendant(
@@ -4552,51 +4552,44 @@ void main() {
           findsOneWidget,
         );
 
-        await tester.tap(categoryProperty);
+        final categoryAction = find.byKey(
+          const ValueKey('topic-sidebar-category-action'),
+        );
+        expect(categoryAction, findsOneWidget);
+        expect(
+          tester.widget<InkWell>(categoryAction).mouseCursor,
+          SystemMouseCursors.click,
+        );
+        expect(
+          tester.getSize(categoryAction).width,
+          lessThan(tester.getSize(categoryProperty).width),
+        );
+
+        await tester.tap(categoryAction);
         await tester.pumpAndSettle();
 
-        final composer = find.byType(ComposerPanel);
-        expect(composer, findsOneWidget);
+        expect(find.byType(ComposerPanel), findsNothing);
+        final editor = find.byWidgetPredicate(
+          (widget) => widget is Dialog || widget is BottomSheet,
+          description: 'category editor dialog or sheet',
+        );
+        expect(editor, findsOneWidget);
         expect(
           find.descendant(
-            of: composer,
+            of: editor,
             matching: find.text('Edit topic category'),
           ),
           findsOneWidget,
         );
-        final categoryButton = find.descendant(
-          of: composer,
-          matching: find.widgetWithText(OutlinedButton, 'Category'),
+        final supportOption = find.byKey(
+          const ValueKey('topic-category-option-5'),
         );
-        expect(categoryButton, findsOneWidget);
-        await tester.tap(categoryButton);
+        expect(supportOption, findsOneWidget);
+        await tester.tap(supportOption);
         await tester.pumpAndSettle();
 
-        final picker = find.byWidgetPredicate(
-          (widget) => widget is Dialog || widget is BottomSheet,
-          description: 'category picker dialog or sheet',
-        );
-        expect(picker, findsOneWidget);
         await tester.tap(
-          find.descendant(
-            of: picker,
-            matching: find.widgetWithText(ListTile, 'Support'),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(
-          find.descendant(
-            of: composer,
-            matching: find.widgetWithText(OutlinedButton, 'Support'),
-          ),
-          findsOneWidget,
-        );
-        await tester.tap(
-          find.descendant(
-            of: composer,
-            matching: find.widgetWithText(FilledButton, 'Save'),
-          ),
+          find.byKey(const ValueKey('topic-category-editor-save')),
         );
         await tester.pumpAndSettle();
 
