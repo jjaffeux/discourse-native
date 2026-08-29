@@ -1055,66 +1055,62 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         );
         final showDockedSidebar = widget.showSidebar && !_sidebarCollapsed;
         final showOverlaySidebar = !widget.showSidebar && _sidebarOverlayOpen;
-        return Stack(
+        return Column(
           children: [
-            Positioned.fill(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            _TopicViewHeader(
+              title: widget.route?.title ?? 'Topic',
+              siteUrl: snapshot.siteUrl,
+              route: widget.route,
+              canReturnToSidebar: widget.canReturnToSidebar,
+              sidebarVisible: showDockedSidebar || showOverlaySidebar,
+              onToggleSidebar: showOverlaySidebar ? null : _toggleSidebar,
+            ),
+            Expanded(
+              child: Stack(
                 children: [
-                  Expanded(
-                    child: Column(
+                  Positioned.fill(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _TopicViewHeader(
-                          title: widget.route?.title ?? 'Topic',
-                          siteUrl: snapshot.siteUrl,
-                          canReturnToSidebar: widget.canReturnToSidebar,
-                          sidebarVisible:
-                              showDockedSidebar || showOverlaySidebar,
-                          onToggleSidebar: showOverlaySidebar
-                              ? null
-                              : _toggleSidebar,
-                        ),
                         const Expanded(child: topicSkeleton),
+                        if (showDockedSidebar)
+                          _TopicSidebarPanel(
+                            siteUrl: snapshot.siteUrl,
+                            topic: null,
+                            recommendations: null,
+                            loading: true,
+                            selected: _recommendationsSourceId,
+                            onSelected: _setRecommendationsSource,
+                            route: widget.route,
+                            canReply: false,
+                            registry: widget.registry,
+                          ),
                       ],
                     ),
                   ),
-                  if (showDockedSidebar)
-                    _TopicSidebarPanel(
-                      siteUrl: snapshot.siteUrl,
-                      topic: null,
-                      recommendations: null,
-                      loading: true,
-                      selected: _recommendationsSourceId,
-                      onSelected: _setRecommendationsSource,
-                      route: widget.route,
-                      canReply: false,
-                      registry: widget.registry,
+                  if (showOverlaySidebar)
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: _TopicSidebarPanel(
+                        elevation: 8,
+                        width: _sidebarOverlayWidth(context),
+                        siteUrl: snapshot.siteUrl,
+                        topic: null,
+                        recommendations: null,
+                        loading: true,
+                        selected: _recommendationsSourceId,
+                        onSelected: _setRecommendationsSource,
+                        onCollapsed: () => _setSidebarOverlayOpen(false),
+                        route: widget.route,
+                        canReply: false,
+                        registry: widget.registry,
+                      ),
                     ),
                 ],
               ),
             ),
-            if (showOverlaySidebar)
-              Positioned(
-                top: 0,
-                right: 0,
-                bottom: 0,
-                child: Material(
-                  elevation: 8,
-                  child: _TopicSidebarPanel(
-                    width: _sidebarOverlayWidth(context),
-                    siteUrl: snapshot.siteUrl,
-                    topic: null,
-                    recommendations: null,
-                    loading: true,
-                    selected: _recommendationsSourceId,
-                    onSelected: _setRecommendationsSource,
-                    onCollapsed: () => _setSidebarOverlayOpen(false),
-                    route: widget.route,
-                    canReply: false,
-                    registry: widget.registry,
-                  ),
-                ),
-              ),
           ],
         );
       }
@@ -1123,6 +1119,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           _TopicViewHeader(
             title: widget.route?.title ?? 'Topic',
             siteUrl: snapshot.siteUrl,
+            route: widget.route,
             canReturnToSidebar: widget.canReturnToSidebar,
           ),
           Expanded(
@@ -1345,112 +1342,115 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     );
 
     final floatingDay = _floatingDay;
-    return Stack(
+    return Column(
       children: [
-        Positioned.fill(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        _TopicViewHeader(
+          title: snapshot.topic!.title,
+          siteUrl: siteUrl,
+          route: widget.route,
+          topic: snapshot.topic!,
+          isConnected: widget.isConnected,
+          bookmarkBusy: widget.bookmarkBusy,
+          canReturnToSidebar: widget.canReturnToSidebar,
+          sidebarVisible: showDockedSidebar || showOverlaySidebar,
+          onToggleSidebar: showOverlaySidebar ? null : _toggleSidebar,
+        ),
+        Expanded(
+          child: Stack(
             children: [
-              Expanded(
-                child: Column(
+              Positioned.fill(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _TopicViewHeader(
-                      title: snapshot.topic!.title,
-                      siteUrl: siteUrl,
-                      topic: snapshot.topic!,
-                      isConnected: widget.isConnected,
-                      bookmarkBusy: widget.bookmarkBusy,
-                      canReturnToSidebar: widget.canReturnToSidebar,
-                      sidebarVisible: showDockedSidebar || showOverlaySidebar,
-                      onToggleSidebar: showOverlaySidebar
-                          ? null
-                          : _toggleSidebar,
-                    ),
-                    _TopicPostSelectionToolbar(
-                      siteUrl: siteUrl,
-                      topic: snapshot.topic!,
-                    ),
                     Expanded(
-                      child: Stack(
-                        clipBehavior: Clip.hardEdge,
+                      child: Column(
                         children: [
-                          Positioned.fill(child: postStream),
-                          if (floatingDay != null)
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              top: _floatingDayOffset,
-                              child: StreamDaySeparator(
-                                key: ValueKey((
-                                  'topic-floating-day',
-                                  floatingDay,
-                                )),
-                                day: floatingDay,
-                                floating: true,
-                                onTap: () => _jumpToDayStart(floatingDay),
-                              ),
-                            ),
-                          if (_progressPosition case final position?
-                              when snapshot.streamIds.length > 1)
-                            Positioned(
-                              right: 16,
-                              bottom: 16,
-                              child: TopicProgressButton(
-                                position: position,
-                                total: snapshot.streamIds.length,
-                                onPressed: () => unawaited(
-                                  showTopicProgress(
-                                    context: context,
-                                    controller: controller,
-                                    position: position,
-                                    total: snapshot.streamIds.length,
+                          _TopicPostSelectionToolbar(
+                            siteUrl: siteUrl,
+                            topic: snapshot.topic!,
+                          ),
+                          Expanded(
+                            child: Stack(
+                              clipBehavior: Clip.hardEdge,
+                              children: [
+                                Positioned.fill(child: postStream),
+                                if (floatingDay != null)
+                                  Positioned(
+                                    left: 0,
+                                    right: 0,
+                                    top: _floatingDayOffset,
+                                    child: StreamDaySeparator(
+                                      key: ValueKey((
+                                        'topic-floating-day',
+                                        floatingDay,
+                                      )),
+                                      day: floatingDay,
+                                      floating: true,
+                                      onTap: () => _jumpToDayStart(floatingDay),
+                                    ),
                                   ),
-                                ),
-                              ),
+                                if (_progressPosition case final position?
+                                    when snapshot.streamIds.length > 1)
+                                  Positioned(
+                                    right: 16,
+                                    bottom: 16,
+                                    child: TopicProgressButton(
+                                      position: position,
+                                      total: snapshot.streamIds.length,
+                                      onPressed: () => unawaited(
+                                        showTopicProgress(
+                                          context: context,
+                                          controller: controller,
+                                          position: position,
+                                          total: snapshot.streamIds.length,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
+                          ),
                         ],
                       ),
                     ),
+                    if (showDockedSidebar)
+                      _TopicSidebarPanel(
+                        siteUrl: siteUrl,
+                        topic: snapshot.topic!,
+                        recommendations: snapshot.recommendations,
+                        loading: recommendationsPending || snapshot.loadingMore,
+                        selected: _recommendationsSourceId,
+                        onSelected: _setRecommendationsSource,
+                        route: widget.route,
+                        canReply: widget.canReply,
+                        registry: widget.registry,
+                      ),
                   ],
                 ),
               ),
-              if (showDockedSidebar)
-                _TopicSidebarPanel(
-                  siteUrl: siteUrl,
-                  topic: snapshot.topic!,
-                  recommendations: snapshot.recommendations,
-                  loading: recommendationsPending || snapshot.loadingMore,
-                  selected: _recommendationsSourceId,
-                  onSelected: _setRecommendationsSource,
-                  route: widget.route,
-                  canReply: widget.canReply,
-                  registry: widget.registry,
+              if (showOverlaySidebar)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _TopicSidebarPanel(
+                    elevation: 8,
+                    width: _sidebarOverlayWidth(context),
+                    siteUrl: siteUrl,
+                    topic: snapshot.topic!,
+                    recommendations: snapshot.recommendations,
+                    loading: recommendationsPending || snapshot.loadingMore,
+                    selected: _recommendationsSourceId,
+                    onSelected: _setRecommendationsSource,
+                    onCollapsed: () => _setSidebarOverlayOpen(false),
+                    route: widget.route,
+                    canReply: widget.canReply,
+                    registry: widget.registry,
+                  ),
                 ),
             ],
           ),
         ),
-        if (showOverlaySidebar)
-          Positioned(
-            top: 0,
-            right: 0,
-            bottom: 0,
-            child: Material(
-              elevation: 8,
-              child: _TopicSidebarPanel(
-                width: _sidebarOverlayWidth(context),
-                siteUrl: siteUrl,
-                topic: snapshot.topic!,
-                recommendations: snapshot.recommendations,
-                loading: recommendationsPending || snapshot.loadingMore,
-                selected: _recommendationsSourceId,
-                onSelected: _setRecommendationsSource,
-                onCollapsed: () => _setSidebarOverlayOpen(false),
-                route: widget.route,
-                canReply: widget.canReply,
-                registry: widget.registry,
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -1956,6 +1956,7 @@ class _TopicViewHeader extends StatelessWidget {
     required this.title,
     required this.siteUrl,
     required this.canReturnToSidebar,
+    this.route,
     this.topic,
     this.isConnected = false,
     this.bookmarkBusy = false,
@@ -1966,6 +1967,7 @@ class _TopicViewHeader extends StatelessWidget {
   final String title;
   final String? siteUrl;
   final bool canReturnToSidebar;
+  final ContentRoute? route;
   final TopicDetail? topic;
   final bool isConnected;
   final bool bookmarkBusy;
@@ -1979,66 +1981,97 @@ class _TopicViewHeader extends StatelessWidget {
     final titleStyle = theme.textTheme.titleSmall?.copyWith(
       fontWeight: FontWeight.w600,
     );
-    return Container(
-      key: const ValueKey('topic-content-header'),
-      height: shellHeaderHeight,
-      padding: const EdgeInsets.only(left: 8, right: 8),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: theme.shell.divider)),
-      ),
-      child: Row(
-        children: [
-          DButton.iconOnly(
-            onPressed: () =>
-                controller.handleBack(canReturnToSidebar: canReturnToSidebar),
-            icon: const DIcon(DIcons.arrowLeft, size: 20),
-            tooltip: 'Back',
-            variant: DButtonVariant.flat,
-            size: DButtonSize.small,
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: siteUrl == null
-                ? Text(
-                    title,
-                    key: const ValueKey('topic-header-title'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: titleStyle,
-                  )
-                : TopicTitle(
-                    title,
-                    key: const ValueKey('topic-header-title'),
-                    siteUrl: siteUrl!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: titleStyle,
-                  ),
-          ),
-          if (topic case final topic?
-              when siteUrl != null &&
-                  controller.currentInstance?.user != null) ...[
-            const SizedBox(width: 8),
-            TopicBookmarkButton(
-              siteUrl: siteUrl!,
-              topic: topic,
-              busy: bookmarkBusy,
+    final topic = this.topic;
+    final siteUrl = this.siteUrl;
+    final topicFlags = topic == null || siteUrl == null
+        ? const <PostFlagType>[]
+        : controller.availableTopicFlagTypes(siteUrl, topic);
+    return LayoutBuilder(
+      builder: (context, constraints) => Container(
+        key: const ValueKey('topic-content-header'),
+        height: shellHeaderHeight,
+        padding: const EdgeInsets.only(left: 8, right: 8),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: theme.shell.divider)),
+        ),
+        child: Row(
+          children: [
+            DButton.iconOnly(
+              onPressed: () =>
+                  controller.handleBack(canReturnToSidebar: canReturnToSidebar),
+              icon: const DIcon(DIcons.arrowLeft, size: 20),
+              tooltip: 'Back',
+              variant: DButtonVariant.flat,
+              size: DButtonSize.small,
             ),
-          ],
-          if (topic case final topic? when siteUrl != null && isConnected) ...[
-            SizedBox(
-              width: controller.currentInstance?.user != null ? 4 : 8,
-            ),
-            TopicNotificationLevelButton(siteUrl: siteUrl!, topic: topic),
-          ],
-          if (onToggleSidebar case final onPressed?) ...[
             const SizedBox(width: 4),
-            _TopicSidebarToggle(
-              showSidebar: !sidebarVisible,
-              onPressed: onPressed,
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Tooltip(
+                      message: title,
+                      child: siteUrl == null
+                          ? Text(
+                              title,
+                              key: const ValueKey('topic-header-title'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: titleStyle,
+                            )
+                          : TopicTitle(
+                              title,
+                              key: const ValueKey('topic-header-title'),
+                              siteUrl: siteUrl,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: titleStyle,
+                            ),
+                    ),
+                  ),
+                  if (topic != null && siteUrl != null) ...[
+                    const SizedBox(width: 4),
+                    TopicStatusButton(
+                      siteUrl: siteUrl,
+                      topic: topic,
+                      topicFlags: topicFlags,
+                    ),
+                  ],
+                ],
+              ),
             ),
+            if (topic != null && siteUrl != null) ...[
+              const SizedBox(width: 8),
+              TopicShareButton(
+                siteUrl: siteUrl,
+                topic: topic,
+                route: route,
+                showLabel: constraints.maxWidth >= 480,
+              ),
+            ],
+            if (topic != null &&
+                siteUrl != null &&
+                controller.currentInstance?.user != null) ...[
+              const SizedBox(width: 8),
+              TopicBookmarkButton(
+                siteUrl: siteUrl,
+                topic: topic,
+                busy: bookmarkBusy,
+              ),
+            ],
+            if (topic != null && siteUrl != null && isConnected) ...[
+              SizedBox(width: controller.currentInstance?.user != null ? 4 : 8),
+              TopicNotificationLevelButton(siteUrl: siteUrl, topic: topic),
+            ],
+            if (onToggleSidebar case final onPressed?) ...[
+              const SizedBox(width: 4),
+              _TopicSidebarToggle(
+                showSidebar: !sidebarVisible,
+                onPressed: onPressed,
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -2057,6 +2090,7 @@ class _TopicSidebarPanel extends StatelessWidget {
     required this.canReply,
     required this.registry,
     this.width = dockedWidth,
+    this.elevation = 1,
   }) : assert(recommendations == null || siteUrl != null);
 
   static const double dockedWidth = 344;
@@ -2072,71 +2106,83 @@ class _TopicSidebarPanel extends StatelessWidget {
   final bool canReply;
   final PluginRegistry registry;
   final double width;
+  final double elevation;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
+    return SizedBox(
       key: const ValueKey('topic-sidebar-panel'),
       width: width,
-      decoration: BoxDecoration(
-        color: theme.shell.panel,
-        border: Border(left: BorderSide(color: theme.shell.divider)),
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _TopicSidebarActions(
-              siteUrl: siteUrl,
-              topic: topic,
-              route: route,
-              canReply: canReply,
-              registry: registry,
-              onCollapsed: onCollapsed,
-            ),
-            if (topic case final topic? when siteUrl != null) ...[
-              const SizedBox(height: 12),
-              _TopicPropertiesCard(
-                siteUrl: siteUrl!,
-                topic: topic,
-                route: route,
-                registry: registry,
-              ),
-            ],
-            if (recommendations?.isNotEmpty == true || loading) ...[
-              const SizedBox(height: 12),
-              _TopicSidebarCard(
-                key: const ValueKey('topic-more-topics-card'),
-                child: switch (recommendations) {
-                  final recommendations? => Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 13, 14, 8),
-                        child: Text(
-                          'More topics',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      _MoreTopics(
-                        key: const ValueKey('topic-sidebar-more-topics-list'),
-                        siteUrl: siteUrl!,
-                        recommendations: recommendations,
-                        selected: selected,
-                        onSelected: onSelected,
-                        topPadding: 0,
-                      ),
-                    ],
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Material(
+          key: const ValueKey('topic-sidebar-surface'),
+          color: theme.shell.floating,
+          elevation: elevation,
+          shadowColor: theme.shadowColor.withValues(alpha: 0.18),
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: theme.shell.divider),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _TopicSidebarActions(
+                  siteUrl: siteUrl,
+                  topic: topic,
+                  canReply: canReply,
+                  registry: registry,
+                  onCollapsed: onCollapsed,
+                ),
+                if (topic case final topic? when siteUrl != null) ...[
+                  const SizedBox(height: 12),
+                  _TopicPropertiesCard(
+                    siteUrl: siteUrl!,
+                    topic: topic,
+                    route: route,
+                    registry: registry,
                   ),
-                  null => const _MoreTopicsLoadingSkeleton(),
-                },
-              ),
-            ],
-          ],
+                ],
+                if (recommendations?.isNotEmpty == true || loading) ...[
+                  const SizedBox(height: 12),
+                  _TopicSidebarCard(
+                    key: const ValueKey('topic-more-topics-card'),
+                    child: switch (recommendations) {
+                      final recommendations? => Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 13, 14, 8),
+                            child: Text(
+                              'More topics',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          _MoreTopics(
+                            key: const ValueKey(
+                              'topic-sidebar-more-topics-list',
+                            ),
+                            siteUrl: siteUrl!,
+                            recommendations: recommendations,
+                            selected: selected,
+                            onSelected: onSelected,
+                            topPadding: 0,
+                          ),
+                        ],
+                      ),
+                      null => const _MoreTopicsLoadingSkeleton(),
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -2147,7 +2193,6 @@ class _TopicSidebarActions extends StatelessWidget {
   const _TopicSidebarActions({
     required this.siteUrl,
     required this.topic,
-    required this.route,
     required this.canReply,
     required this.registry,
     this.onCollapsed,
@@ -2155,7 +2200,6 @@ class _TopicSidebarActions extends StatelessWidget {
 
   final String? siteUrl;
   final TopicDetail? topic;
-  final ContentRoute? route;
   final bool canReply;
   final PluginRegistry registry;
   final VoidCallback? onCollapsed;
@@ -2165,9 +2209,6 @@ class _TopicSidebarActions extends StatelessWidget {
     final controller = ShellScope.read(context);
     final topic = this.topic;
     final siteUrl = this.siteUrl;
-    final topicFlags = topic == null || siteUrl == null
-        ? const <PostFlagType>[]
-        : controller.availableTopicFlagTypes(siteUrl, topic);
     final theme = Theme.of(context);
     final secondaryActions = topic == null || siteUrl == null
         ? const <Widget>[]
@@ -2198,23 +2239,13 @@ class _TopicSidebarActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if ((topic != null && (canReply || siteUrl != null)) ||
-            onCollapsed != null)
+        if ((topic != null && canReply) || onCollapsed != null)
           Row(
             children: [
               if (topic != null && canReply)
                 Expanded(child: replyButton())
               else
                 const Spacer(),
-              if (topic != null && siteUrl != null) ...[
-                const SizedBox(width: 4),
-                TopicStatusButton(
-                  siteUrl: siteUrl,
-                  topic: topic,
-                  route: route,
-                  topicFlags: topicFlags,
-                ),
-              ],
               if (onCollapsed case final onPressed?) ...[
                 const SizedBox(width: 4),
                 _TopicSidebarToggle(showSidebar: false, onPressed: onPressed),
