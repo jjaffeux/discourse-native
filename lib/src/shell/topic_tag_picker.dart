@@ -410,7 +410,6 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
           },
           onSubmitted: (_) => _submitQuery(),
           decoration: const InputDecoration(
-            prefixIcon: DIcon(DIcons.tag, size: 17),
             hintText: 'Add tags…',
             border: InputBorder.none,
           ),
@@ -445,14 +444,13 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
               key: ValueKey(('topic-tag-picker-option', tag.name)),
               dense: true,
               enabled: !tag.disabled && (_selected(tag) || !_atMaximum),
-              leading: DIcon(
-                _selected(tag) ? DIcons.check : DIcons.tag,
-                size: 16,
-              ),
               title: Text(tag.name),
               subtitle: tag.disabledReason == null
                   ? null
                   : Text(tag.disabledReason!),
+              trailing: _selected(tag)
+                  ? const DIcon(DIcons.check, size: 16)
+                  : null,
               onTap: tag.disabled || (!_selected(tag) && _atMaximum)
                   ? null
                   : () => _choose(tag),
