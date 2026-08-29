@@ -10,6 +10,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'external_link.dart';
+import 'inline_action.dart';
 import 'loading_skeleton.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
@@ -569,42 +570,35 @@ class _SummaryLinkRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Semantics(
-            button: true,
-            label: 'Open external link $externalLabel, ${link.clicks} clicks',
-            child: InkWell(
-              onTap: () => unawaited(openExternalLink(link.url)),
-              child: ExcludeSemantics(
-                child: Text(
-                  externalLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    decoration: TextDecoration.underline,
-                  ),
-                ),
+          InlineAction.link(
+            onTap: () => unawaited(openExternalLink(link.url)),
+            semanticLabel:
+                'Open external link $externalLabel, ${link.clicks} clicks',
+            excludeChildSemantics: true,
+            child: Text(
+              externalLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                decoration: TextDecoration.underline,
               ),
             ),
           ),
           const SizedBox(height: 4),
-          Semantics(
-            button: true,
-            label: 'Open ${link.topic.title}',
-            child: InkWell(
-              onTap: () => ShellScope.read(
-                context,
-              ).openSummaryTopic(link.topic, postNumber: link.postNumber),
-              child: ExcludeSemantics(
-                child: TopicTitle(
-                  link.topic.title,
-                  siteUrl: siteUrl,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
+          InlineAction.link(
+            onTap: () => ShellScope.read(
+              context,
+            ).openSummaryTopic(link.topic, postNumber: link.postNumber),
+            semanticLabel: 'Open ${link.topic.title}',
+            excludeChildSemantics: true,
+            child: TopicTitle(
+              link.topic.title,
+              siteUrl: siteUrl,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.primary,
               ),
             ),
           ),

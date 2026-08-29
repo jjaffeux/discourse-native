@@ -5,6 +5,7 @@ import 'package:html/dom.dart' as dom;
 import '../../../shell/avatar_image.dart';
 import '../../../shell/code_block.dart' show monospaceTextStyle;
 import '../../../shell/cooked_dom.dart';
+import '../../../shell/inline_action.dart';
 import '../../../shell/oneboxes/markup.dart';
 import '../../../shell/oneboxes/onebox.dart';
 import '../../../shell/open_link.dart';
@@ -315,21 +316,12 @@ class _GithubInlineLink extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    final hover = Theme.of(context).shell.hover;
-    return Semantics(
-      container: true,
-      link: true,
-      label: label,
-      child: InkWell(
-        onTap: () => openLink(context, url, siteUrl: siteUrl),
-        borderRadius: BorderRadius.circular(2),
-        hoverColor: hover,
-        focusColor: hover,
-        child: ExcludeSemantics(child: child),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => InlineAction.link(
+    onTap: () => openLink(context, url, siteUrl: siteUrl),
+    semanticLabel: label,
+    excludeChildSemantics: true,
+    child: child,
+  );
 }
 
 /// The onebox body: GitHub's API returns it as markdown, Discourse's template

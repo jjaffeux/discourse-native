@@ -22,6 +22,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'cooked_html.dart';
+import 'inline_action.dart';
 import 'loading_skeleton.dart';
 import 'open_link.dart';
 import 'post_actions.dart';
@@ -2515,17 +2516,13 @@ class _TopicSidebarCategory extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Tooltip(
         message: 'Edit topic category',
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            key: const ValueKey('topic-sidebar-category-action'),
-            onTap: onTap,
-            mouseCursor: SystemMouseCursors.click,
-            borderRadius: BorderRadius.circular(5),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: category,
-            ),
+        child: InlineAction(
+          key: const ValueKey('topic-sidebar-category-action'),
+          onTap: onTap!,
+          borderRadius: BorderRadius.circular(5),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: category,
           ),
         ),
       ),
@@ -3683,42 +3680,39 @@ class _PostInboundLinks extends StatelessWidget {
           Divider(height: 1, color: theme.shell.divider),
           const SizedBox(height: 10),
           for (final link in displayed)
-            Semantics(
-              link: true,
-              label: link.title,
-              child: InkWell(
-                mouseCursor: SystemMouseCursors.click,
-                borderRadius: BorderRadius.circular(4),
-                onTap: () => unawaited(
-                  openLink(
-                    context,
-                    link.url,
-                    title: link.title,
-                    siteUrl: siteUrl,
-                  ),
+            InlineAction.link(
+              semanticLabel: link.title,
+              excludeChildSemantics: true,
+              borderRadius: BorderRadius.circular(4),
+              onTap: () => unawaited(
+                openLink(
+                  context,
+                  link.url,
+                  title: link.title,
+                  siteUrl: siteUrl,
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
-                  child: Row(
-                    children: [
-                      DIcon(
-                        DIcons.link,
-                        size: 14,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          link.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  children: [
+                    DIcon(
+                      DIcons.link,
+                      size: 14,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        link.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),

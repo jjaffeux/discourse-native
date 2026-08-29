@@ -4,6 +4,7 @@ import 'package:html/dom.dart' as dom;
 import '../../../../theme/app_theme.dart';
 import '../../../avatar_image.dart';
 import '../../../cooked_dom.dart';
+import '../../../inline_action.dart';
 import '../../../open_link.dart';
 import '../../../site_url.dart';
 import '../../markup.dart';
@@ -60,26 +61,18 @@ class DiscourseUserOnebox extends StatelessWidget {
                     if (data.location != null)
                       Text(data.location!, style: _mutedStyle(theme)),
                     if (data.websiteName != null && data.websiteUrl != null)
-                      Semantics(
-                        container: true,
-                        link: true,
-                        label: data.websiteName!,
-                        child: InkWell(
-                          onTap: () => openLink(
-                            context,
-                            data.websiteUrl!,
-                            siteUrl: siteUrl,
-                          ),
-                          borderRadius: BorderRadius.circular(2),
-                          hoverColor: theme.shell.hover,
-                          focusColor: theme.shell.hover,
-                          child: ExcludeSemantics(
-                            child: Text(
-                              data.websiteName!,
-                              style: _mutedStyle(
-                                theme,
-                              )?.copyWith(color: theme.colorScheme.primary),
-                            ),
+                      InlineAction.link(
+                        onTap: () => openLink(
+                          context,
+                          data.websiteUrl!,
+                          siteUrl: siteUrl,
+                        ),
+                        semanticLabel: data.websiteName!,
+                        excludeChildSemantics: true,
+                        child: Text(
+                          data.websiteName!,
+                          style: _mutedStyle(theme)?.copyWith(
+                            color: theme.colorScheme.primary,
                           ),
                         ),
                       ),

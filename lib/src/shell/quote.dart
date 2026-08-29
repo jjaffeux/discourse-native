@@ -8,6 +8,7 @@ import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'cooked_dom.dart';
 import 'cooked_html.dart';
+import 'inline_action.dart';
 import 'open_link.dart';
 import 'quote_panel.dart';
 import 'shell_scope.dart';
@@ -194,17 +195,11 @@ class _Header extends StatelessWidget {
     // The attribution behaves like the name on a post: it opens the person,
     // unless the quote names a source post, which opens that instead.
     if (link != null) {
-      return Semantics(
-        container: true,
-        link: true,
-        label: data.title ?? link,
-        child: InkWell(
-          onTap: () => openLink(context, link, siteUrl: siteUrl),
-          borderRadius: BorderRadius.circular(2),
-          hoverColor: theme.shell.hover,
-          focusColor: theme.shell.hover,
-          child: ExcludeSemantics(child: row),
-        ),
+      return InlineAction.link(
+        onTap: () => openLink(context, link, siteUrl: siteUrl),
+        semanticLabel: data.title ?? link,
+        excludeChildSemantics: true,
+        child: row,
       );
     }
     if (data.username case final username?) {

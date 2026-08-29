@@ -4576,9 +4576,18 @@ void main() {
           const ValueKey('topic-sidebar-category-action'),
         );
         expect(categoryAction, findsOneWidget);
+        final categoryInk = find.descendant(
+          of: categoryAction,
+          matching: find.byType(InkWell),
+        );
+        expect(categoryInk, findsOneWidget);
         expect(
-          tester.widget<InkWell>(categoryAction).mouseCursor,
+          tester.widget<InkWell>(categoryInk).mouseCursor,
           SystemMouseCursors.click,
+        );
+        expect(
+          tester.widget<InkWell>(categoryInk).hoverColor,
+          Colors.transparent,
         );
         expect(
           tester.getSize(categoryAction).width,
