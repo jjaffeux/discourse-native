@@ -294,7 +294,6 @@ class _CodeBlockState extends State<CodeBlock> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final shell = theme.shell;
     final data = widget.data;
 
     if (data.lines.isEmpty) return const SizedBox();
@@ -315,7 +314,6 @@ class _CodeBlockState extends State<CodeBlock> {
       margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: theme.code.blockBackground,
-        border: Border.all(color: shell.divider),
         borderRadius: BorderRadius.circular(6),
       ),
       clipBehavior: Clip.antiAlias,

@@ -187,6 +187,31 @@ void main() {
       expect(tester.getSize(find.byType(CodeBlock)).width, 400);
     });
 
+    testWidgets('has no border, matching Discourse core', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(body: CodeBlock(data: parseBlock(codeFence))),
+        ),
+      );
+
+      final block = tester
+          .widgetList<Container>(
+            find.descendant(
+              of: find.byType(CodeBlock),
+              matching: find.byType(Container),
+            ),
+          )
+          .singleWhere(
+            (container) =>
+                (container.decoration as BoxDecoration?)?.color ==
+                CodeColors.light.blockBackground,
+          );
+      final decoration = block.decoration! as BoxDecoration;
+
+      expect(decoration.border, isNull);
+    });
+
     testWidgets('scrolls sideways rather than cutting a long line off', (
       tester,
     ) async {
