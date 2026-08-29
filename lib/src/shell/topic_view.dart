@@ -36,6 +36,7 @@ import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
+import 'site_emoji_text.dart';
 import 'small_action.dart';
 import 'stream_day_separator.dart';
 import 'time_gap.dart';
@@ -3792,8 +3793,9 @@ class _PostInboundLinks extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
+                      child: SiteEmojiText.plain(
                         link.title,
+                        siteUrl: siteUrl,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyMedium?.copyWith(

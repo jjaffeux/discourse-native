@@ -5421,6 +5421,57 @@ void main() {
       expect(find.text('Source 1'), findsOneWidget);
     });
 
+    testWidgets('renders site emoji in reflected post link titles', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        emojisBySite: const {
+          'https://meta.discourse.org': [
+            SiteEmoji(name: 'mega', url: '/images/emoji/mega.png'),
+          ],
+        },
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: const [
+              Post(
+                id: 1,
+                postNumber: 1,
+                username: 'joffreyj',
+                cooked: '<p>First post body</p>',
+                inboundLinks: [
+                  PostInboundLink(
+                    url: '/t/weekly-updates/99',
+                    title: "Keegan's Weekly Updates (2025) :mega:",
+                  ),
+                ],
+              ),
+            ],
+          ),
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      EmojiCache.instance = EmojiCache(
+        client: MockClient((_) async => http.Response.bytes(emojiPng, 200)),
+      );
+      addTearDown(EmojiCache.instance.clear);
+
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      final emoji = tester.widget<SiteEmojiImage>(
+        find.byType(SiteEmojiImage),
+      );
+      expect(emoji.name, 'mega');
+      expect(
+        find.bySemanticsLabel("Keegan's Weekly Updates (2025) :mega:"),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('summarizes top replies and restores the complete stream', (
       tester,
     ) async {
