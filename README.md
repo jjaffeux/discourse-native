@@ -552,8 +552,8 @@ preference is remembered per forum.
 Medium and compact layouts keep the same controls available through a transient
 right-side overlay instead of shrinking the reading column.
 
-When core grants `can_edit`, the Category property becomes an action and opens
-a compact topic-category editor. `can_edit_tags` does the same for Tags with
+When core grants `can_edit`, the category value becomes an action and opens a
+focused topic-category picker. `can_edit_tags` does the same for Tags with
 the current selection. Topics without the corresponding permission keep the
 same read-only property, so the sidebar never implies a write the site will
 reject.

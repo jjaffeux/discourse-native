@@ -5528,6 +5528,113 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
+  /// Updates a topic's category without opening a writing surface.
+  ///
+  /// Category is topic metadata, so its focused picker writes the same topic
+  /// route as the full first-post editor while keeping the reader in place.
+  Future<String?> saveTopicCategory({
+    required String siteUrl,
+    required int topicId,
+    required int categoryId,
+  }) async {
+    final detail = store.read<TopicDetail>(siteUrl, topicId);
+    if (detail?.canEdit != true) {
+      return 'This topic can no longer be edited.';
+    }
+    if (detail!.categoryId == categoryId) return null;
+    final allowed = topicComposerCategories(
+      siteUrl,
+    ).any((category) => category.id == categoryId && category.canCreateTopic);
+    if (!allowed) return 'That category is not available.';
+
+    final lease = lifecycle.capture(siteUrl);
+    final credential = await _credentialForWrite(siteUrl);
+    if (!lease.isCurrent) return 'The forum changed before the category saved.';
+    if (credential.failure case final failure?) return failure.message;
+
+    final tags = await _tagsAllowedInCategory(
+      siteUrl: siteUrl,
+      apiKey: credential.apiKey!,
+      categoryId: categoryId,
+      selected: detail.tags,
+    );
+    if (!lease.isCurrent) return 'The forum changed before the category saved.';
+
+    try {
+      await api.updateTopic(
+        siteUrl: siteUrl,
+        apiKey: credential.apiKey!,
+        topicId: topicId,
+        title: detail.title,
+        originalTitle: detail.title,
+        categoryId: categoryId,
+        tags: tags,
+        originalTags: detail.tags,
+      );
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(error, stackTrace, 'topic.editCategory');
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    }
+    if (!lease.isCurrent) return 'The forum changed before the category saved.';
+
+    lease.commit(() {
+      store.update<TopicDetail>(
+        siteUrl,
+        topicId,
+        (topic) => topic.copyWith(categoryId: categoryId, tags: tags),
+      );
+      store.update<Topic>(
+        siteUrl,
+        topicId,
+        (topic) => topic.copyWith(categoryId: categoryId, tags: tags),
+      );
+      _updateTopicRouteMetadata(siteUrl, topicId, detail.title, categoryId);
+      _notify();
+    });
+    return null;
+  }
+
+  Future<List<TopicTag>> _tagsAllowedInCategory({
+    required String siteUrl,
+    required String apiKey,
+    required int categoryId,
+    required List<TopicTag> selected,
+  }) async {
+    if (selected.isEmpty) return selected;
+    final kept = <TopicTag>[];
+    for (final tag in selected) {
+      try {
+        final result = await api.searchTopicTags(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          term: tag.name,
+          categoryId: categoryId,
+          selectedTagIds: selected.map((item) => item.id).whereType<int>(),
+          limit: siteConfigFor(siteUrl).maxTagSearchResults
+              .clamp(1, TopicTagSearch.maximumResults),
+        );
+        final match = result.results
+            .where(
+              (item) =>
+                  item.id == tag.id ||
+                  item.name.toLowerCase() == tag.name.toLowerCase(),
+            )
+            .firstOrNull;
+        if (!result.isForbidden && match != null && !match.disabled) {
+          kept.add(match);
+        }
+      } catch (_) {
+        // A failed validation lookup must not silently remove existing tags.
+        return selected;
+      }
+    }
+    return List.unmodifiable(kept);
+  }
+
   void openTagsEdit() {
     final instance = currentInstance;
     final route = currentContent;

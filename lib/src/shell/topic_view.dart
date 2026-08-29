@@ -32,6 +32,7 @@ import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
+import 'shell_sheet.dart';
 import 'small_action.dart';
 import 'stream_day_separator.dart';
 import 'time_gap.dart';
@@ -2284,14 +2285,21 @@ class _TopicPropertiesCard extends StatelessWidget {
               _TopicPropertyRow(
                 key: const ValueKey('topic-sidebar-category-property'),
                 label: 'Category',
-                onTap: topic.canEdit ? controller.openCategoryEdit : null,
-                tooltip: topic.canEdit ? 'Edit topic category' : null,
                 child: _TopicSidebarCategory(
                   label: category?.name ?? route?.subtitle ?? 'Uncategorized',
                   color: category == null
                       ? route?.color
                       : Color(category.colorValue),
-                  editable: topic.canEdit,
+                  onTap: topic.canEdit
+                      ? () => unawaited(
+                          _showTopicCategoryEditor(
+                            context: context,
+                            controller: controller,
+                            siteUrl: siteUrl,
+                            topic: topic,
+                          ),
+                        )
+                      : null,
                 ),
               ),
               _TopicPropertyRow(
@@ -2421,17 +2429,17 @@ class _TopicSidebarCategory extends StatelessWidget {
   const _TopicSidebarCategory({
     required this.label,
     required this.color,
-    required this.editable,
+    this.onTap,
   });
 
   final String label;
   final Color? color;
-  final bool editable;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
+    final category = Row(
       key: const ValueKey('topic-sidebar-category'),
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -2456,15 +2464,252 @@ class _TopicSidebarCategory extends StatelessWidget {
             ),
           ),
         ),
-        if (editable) ...[
-          const SizedBox(width: 6),
-          const _TopicPropertyEditIndicator(
-            keyName: 'topic-sidebar-category-edit-indicator',
-          ),
-        ],
       ],
     );
+    if (onTap == null) return category;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Tooltip(
+        message: 'Edit topic category',
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            key: const ValueKey('topic-sidebar-category-action'),
+            onTap: onTap,
+            mouseCursor: SystemMouseCursors.click,
+            borderRadius: BorderRadius.circular(5),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: category,
+            ),
+          ),
+        ),
+      ),
+    );
   }
+}
+
+Future<void> _showTopicCategoryEditor({
+  required BuildContext context,
+  required ShellController controller,
+  required String siteUrl,
+  required TopicDetail topic,
+}) async {
+  unawaited(controller.loadCategories(siteUrl));
+  await showShellSheet<void>(
+    context: context,
+    title: 'Edit topic category',
+    dialogOnDesktop: true,
+    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+    builder: (sheetContext) => _TopicCategoryEditor(
+      controller: controller,
+      siteUrl: siteUrl,
+      topicId: topic.id,
+      initialCategoryId: topic.categoryId,
+      onSaved: () => Navigator.of(sheetContext).pop(),
+    ),
+  );
+}
+
+class _TopicCategoryEditor extends StatefulWidget {
+  const _TopicCategoryEditor({
+    required this.controller,
+    required this.siteUrl,
+    required this.topicId,
+    required this.initialCategoryId,
+    required this.onSaved,
+  });
+
+  final ShellController controller;
+  final String siteUrl;
+  final int topicId;
+  final int? initialCategoryId;
+  final VoidCallback onSaved;
+
+  @override
+  State<_TopicCategoryEditor> createState() => _TopicCategoryEditorState();
+}
+
+class _TopicCategoryEditorState extends State<_TopicCategoryEditor> {
+  int? _categoryId;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _categoryId = widget.initialCategoryId;
+  }
+
+  Future<void> _save() async {
+    final categoryId = _categoryId;
+    if (_saving || categoryId == null) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    final error = await widget.controller.saveTopicCategory(
+      siteUrl: widget.siteUrl,
+      topicId: widget.topicId,
+      categoryId: categoryId,
+    );
+    if (!mounted) return;
+    if (error == null) {
+      widget.onSaved();
+    } else {
+      setState(() {
+        _saving = false;
+        _error = error;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      ShellSelector<
+        ({List<TopicCategory> categories, bool loaded, String? loadError})
+      >(
+        select: (controller) {
+          final feed = controller.categoryFeedFor(widget.siteUrl);
+          return (
+            categories: controller.topicComposerCategories(widget.siteUrl),
+            loaded: feed.loaded,
+            loadError: feed.error,
+          );
+        },
+        builder: (context, state, _) {
+          final categories = _editableTopicCategories(state.categories);
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!state.loaded && categories.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 28),
+                  child: Center(child: CircularProgressIndicator.adaptive()),
+                )
+              else if (categories.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                    state.loadError ?? 'No categories are available.',
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              else
+                RadioGroup<int>(
+                  groupValue: _categoryId,
+                  onChanged: _saving
+                      ? (_) {}
+                      : (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _categoryId = value;
+                            _error = null;
+                          });
+                        },
+                  child: Column(
+                    children: [
+                      for (final category in categories)
+                        RadioListTile<int>(
+                          key: ValueKey('topic-category-option-${category.id}'),
+                          value: category.id,
+                          contentPadding: EdgeInsets.only(
+                            left: category.parentCategoryId == null ? 4 : 28,
+                            right: 4,
+                          ),
+                          title: Row(
+                            children: [
+                              Container(
+                                width: 14,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color: Color(category.colorValue),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                              const SizedBox(width: 9),
+                              Expanded(child: Text(category.name)),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              if (_error case final error?) ...[
+                const SizedBox(height: 8),
+                Text(
+                  error,
+                  key: const ValueKey('topic-category-editor-error'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _saving
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    key: const ValueKey('topic-category-editor-save'),
+                    onPressed:
+                        !_saving &&
+                            _categoryId != null &&
+                            _categoryId != widget.initialCategoryId
+                        ? () => unawaited(_save())
+                        : null,
+                    child: _saving
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator.adaptive(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text('Save'),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      );
+}
+
+List<TopicCategory> _editableTopicCategories(
+  Iterable<TopicCategory> categories,
+) {
+  final permitted = categories.where((category) => category.canCreateTopic);
+  final permittedIds = permitted.map((category) => category.id).toSet();
+  final ordered = <TopicCategory>[];
+  final visited = <int>{};
+
+  void appendChildren(int? parentId) {
+    final children =
+        permitted
+            .where(
+              (category) => parentId == null
+                  ? category.parentCategoryId == null ||
+                        !permittedIds.contains(category.parentCategoryId)
+                  : category.parentCategoryId == parentId,
+            )
+            .toList()
+          ..sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+          );
+    for (final child in children) {
+      if (!visited.add(child.id)) continue;
+      ordered.add(child);
+      appendChildren(child.id);
+    }
+  }
+
+  appendChildren(null);
+  return ordered;
 }
 
 class _TopicSidebarTag extends StatelessWidget {
