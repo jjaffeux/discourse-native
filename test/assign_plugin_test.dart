@@ -236,7 +236,9 @@ void main() {
     expect(contribution?.entries, isEmpty);
   });
 
-  testWidgets('unassigned topic property uses the Assign icon', (tester) async {
+  testWidgets('unassigned topic property uses a label-scale Assign action', (
+    tester,
+  ) async {
     const registry = PluginRegistry([AssignPlugin()]);
     final plugins = registry.readTopic(const {'can_assign': true}, _siteUrl);
     final topic = TopicDetail(
@@ -271,10 +273,24 @@ void main() {
       ),
       findsOneWidget,
     );
-    final button = tester.widget<DButton>(
-      find.byKey(const Key('assign-topic-property')),
+    final action = find.byKey(const Key('assign-topic-property'));
+    final icon = tester.widget<DIcon>(
+      find.descendant(
+        of: action,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.userPlus,
+        ),
+      ),
     );
-    expect(button.size, DButtonSize.small);
+    final label = tester.widget<Text>(
+      find.descendant(of: action, matching: find.text('Assign')),
+    );
+    expect(icon.size, 14);
+    expect(
+      label.style?.fontSize,
+      AppTheme.light.textTheme.labelMedium?.fontSize,
+    );
+    expect(tester.getSize(action).height, lessThan(30));
   });
 
   testWidgets('topic property has a concise actionable semantic label', (

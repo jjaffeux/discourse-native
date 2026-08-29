@@ -4327,6 +4327,9 @@ void main() {
 
         final header = find.byKey(const ValueKey('topic-content-header'));
         final title = find.byKey(const ValueKey('topic-header-title'));
+        final sidebarToggle = find.byKey(
+          const ValueKey('topic-sidebar-toggle'),
+        );
         expect(header, findsOneWidget);
         expect(title, findsOneWidget);
         expect(
@@ -4338,10 +4341,26 @@ void main() {
           find.byKey(const ValueKey('topic-header-metadata')),
           findsNothing,
         );
+        expect(
+          find.descendant(of: header, matching: sidebarToggle),
+          findsOneWidget,
+        );
 
         final sidebar = find.byKey(const ValueKey('topic-sidebar-panel'));
         final properties = find.byKey(const ValueKey('topic-properties-card'));
         expect(sidebar, findsOneWidget);
+        expect(
+          find.descendant(of: sidebar, matching: sidebarToggle),
+          findsNothing,
+        );
+        final topicRect = tester.getRect(find.byType(TopicView));
+        final sidebarRect = tester.getRect(sidebar);
+        final headerRect = tester.getRect(header);
+        final toggleRect = tester.getRect(sidebarToggle);
+        expect(sidebarRect.top, topicRect.top);
+        expect(sidebarRect.bottom, topicRect.bottom);
+        expect(headerRect.right, sidebarRect.left);
+        expect(headerRect.right - toggleRect.right, lessThanOrEqualTo(8.1));
         expect(properties, findsOneWidget);
         expect(
           find.descendant(of: properties, matching: find.text('Announcements')),
@@ -5751,6 +5770,34 @@ void main() {
 
       expect(api.topicsOpened, [7, 9]);
       expect(renderedText('Related topic body'), findsOneWidget);
+    });
+
+    testWidgets('omits More topics when every source is empty', (tester) async {
+      const recommendations = TopicRecommendations(
+        sources: [
+          TopicRecommendationSource(
+            definition: coreSuggestedTopicRecommendationSource,
+          ),
+          TopicRecommendationSource(
+            definition: discourseAiRelatedTopicRecommendationSource,
+          ),
+        ],
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(recommendations: recommendations)},
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('topic-more-topics-card')),
+        findsNothing,
+      );
+      expect(find.text('More topics'), findsNothing);
     });
 
     testWidgets('reserves the topic sidebar while a topic loads', (

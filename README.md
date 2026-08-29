@@ -541,14 +541,15 @@ Tapping a row pushes a topic route onto the content stack, so back returns to
 the list — which is not refetched, since feeds are cached.
 
 Topic chrome keeps navigation separate from context. The fixed header contains
-only Back and a single-line title. On expanded layouts a 344-point right
-sidebar holds Reply, notification tracking, bookmarks and the guardian-gated
-topic menu at its top level; category, tags and plugin-owned properties such as
-Assignments share one untitled card; and recommendation sources such as
-Related and Suggested share a second card with tabs. Its panel-shaped toggle
-removes the entire sidebar from the layout, and that preference is remembered
-per forum. Medium and compact layouts keep the same controls available through
-a transient right-side overlay instead of shrinking the reading column.
+Back, a single-line title and its right-aligned sidebar toggle. On expanded
+layouts a full-height 344-point right sidebar holds Reply, notification
+tracking, bookmarks and the guardian-gated topic menu at its top level;
+category, tags and plugin-owned properties such as Assignments share one
+untitled card; and non-empty recommendation sources such as Related and
+Suggested share a second card with tabs. The panel-shaped toggle removes the
+entire sidebar from the layout, and that preference is remembered per forum.
+Medium and compact layouts keep the same controls available through a transient
+right-side overlay instead of shrinking the reading column.
 
 Topic-list rows carry `last_read_post_number` and `highest_post_number`. Like
 Discourse's web client, an unread row opens at `last_read_post_number + 1`,

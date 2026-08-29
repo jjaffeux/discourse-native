@@ -30,6 +30,7 @@ import 'post_revision_history.dart';
 import 'post_text_selection.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
+import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'small_action.dart';
 import 'stream_day_separator.dart';
@@ -40,6 +41,7 @@ import 'topic_change_owner.dart';
 import 'topic_list_view.dart';
 import 'topic_move_posts.dart';
 import 'topic_progress.dart';
+import 'topic_title.dart';
 import 'user_card.dart';
 import 'user_menu_button.dart';
 import 'user_status.dart';
@@ -49,6 +51,7 @@ class TopicView extends StatefulWidget {
   const TopicView({
     super.key,
     this.showSidebar = false,
+    this.canReturnToSidebar = false,
     this.sidebarStore = const TopicSidebarStore(),
     this.recommendationsTabStore = const TopicRecommendationsTabStore(),
     this.route,
@@ -67,6 +70,8 @@ class TopicView extends StatefulWidget {
   /// Whether topic context is docked beside the posts. Narrow layouts leave
   /// this false so the reading column stays usable.
   final bool showSidebar;
+
+  final bool canReturnToSidebar;
 
   final TopicSidebarStore sidebarStore;
 
@@ -402,6 +407,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   void _setSidebarOverlayOpen(bool open) {
     if (open == _sidebarOverlayOpen) return;
     setState(() => _sidebarOverlayOpen = open);
+  }
+
+  void _toggleSidebar() {
+    if (widget.showSidebar) {
+      _setSidebarCollapsed(!_sidebarCollapsed);
+    } else {
+      _setSidebarOverlayOpen(!_sidebarOverlayOpen);
+    }
   }
 
   double _sidebarOverlayWidth(BuildContext context) => MediaQuery.sizeOf(
@@ -1023,25 +1036,43 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         final showOverlaySidebar = !widget.showSidebar && _sidebarOverlayOpen;
         return Stack(
           children: [
-            Row(
-              children: [
-                const Expanded(child: topicSkeleton),
-                if (showDockedSidebar)
-                  _TopicSidebarPanel(
-                    siteUrl: snapshot.siteUrl,
-                    topic: null,
-                    recommendations: null,
-                    loading: true,
-                    selected: _recommendationsSourceId,
-                    onSelected: _setRecommendationsSource,
-                    onCollapsed: () => _setSidebarCollapsed(true),
-                    route: widget.route,
-                    canReply: false,
-                    bookmarkBusy: false,
-                    isConnected: widget.isConnected,
-                    registry: widget.registry,
+            Positioned.fill(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Column(
+                      children: [
+                        _TopicViewHeader(
+                          title: widget.route?.title ?? 'Topic',
+                          siteUrl: snapshot.siteUrl,
+                          canReturnToSidebar: widget.canReturnToSidebar,
+                          sidebarVisible:
+                              showDockedSidebar || showOverlaySidebar,
+                          onToggleSidebar: showOverlaySidebar
+                              ? null
+                              : _toggleSidebar,
+                        ),
+                        const Expanded(child: topicSkeleton),
+                      ],
+                    ),
                   ),
-              ],
+                  if (showDockedSidebar)
+                    _TopicSidebarPanel(
+                      siteUrl: snapshot.siteUrl,
+                      topic: null,
+                      recommendations: null,
+                      loading: true,
+                      selected: _recommendationsSourceId,
+                      onSelected: _setRecommendationsSource,
+                      route: widget.route,
+                      canReply: false,
+                      bookmarkBusy: false,
+                      isConnected: widget.isConnected,
+                      registry: widget.registry,
+                    ),
+                ],
+              ),
             ),
             if (showOverlaySidebar)
               Positioned(
@@ -1067,42 +1098,41 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-            if ((widget.showSidebar && _sidebarCollapsed) ||
-                (!widget.showSidebar && !showOverlaySidebar))
-              Positioned(
-                top: 8,
-                right: 8,
-                child: _TopicSidebarToggle(
-                  showSidebar: true,
-                  onPressed: widget.showSidebar
-                      ? () => _setSidebarCollapsed(false)
-                      : () => _setSidebarOverlayOpen(true),
-                ),
-              ),
           ],
         );
       }
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DIcon(
-                DIcons.triangleExclamation,
-                size: 40,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                "Couldn't load this topic.",
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+      return Column(
+        children: [
+          _TopicViewHeader(
+            title: widget.route?.title ?? 'Topic',
+            siteUrl: snapshot.siteUrl,
+            canReturnToSidebar: widget.canReturnToSidebar,
+          ),
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DIcon(
+                      DIcons.triangleExclamation,
+                      size: 40,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "Couldn't load this topic.",
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       );
     }
 
@@ -1285,75 +1315,86 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final floatingDay = _floatingDay;
     return Stack(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                children: [
-                  _TopicPostSelectionToolbar(
-                    siteUrl: siteUrl,
-                    topic: snapshot.topic!,
-                  ),
-                  Expanded(
-                    child: Stack(
-                      clipBehavior: Clip.hardEdge,
-                      children: [
-                        Positioned.fill(child: postStream),
-                        if (floatingDay != null)
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            top: _floatingDayOffset,
-                            child: StreamDaySeparator(
-                              key: ValueKey((
-                                'topic-floating-day',
-                                floatingDay,
-                              )),
-                              day: floatingDay,
-                              floating: true,
-                              onTap: () => _jumpToDayStart(floatingDay),
+        Positioned.fill(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    _TopicViewHeader(
+                      title: snapshot.topic!.title,
+                      siteUrl: siteUrl,
+                      canReturnToSidebar: widget.canReturnToSidebar,
+                      sidebarVisible: showDockedSidebar || showOverlaySidebar,
+                      onToggleSidebar: showOverlaySidebar
+                          ? null
+                          : _toggleSidebar,
+                    ),
+                    _TopicPostSelectionToolbar(
+                      siteUrl: siteUrl,
+                      topic: snapshot.topic!,
+                    ),
+                    Expanded(
+                      child: Stack(
+                        clipBehavior: Clip.hardEdge,
+                        children: [
+                          Positioned.fill(child: postStream),
+                          if (floatingDay != null)
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              top: _floatingDayOffset,
+                              child: StreamDaySeparator(
+                                key: ValueKey((
+                                  'topic-floating-day',
+                                  floatingDay,
+                                )),
+                                day: floatingDay,
+                                floating: true,
+                                onTap: () => _jumpToDayStart(floatingDay),
+                              ),
                             ),
-                          ),
-                        if (_progressPosition case final position?
-                            when snapshot.streamIds.length > 1)
-                          Positioned(
-                            right: 16,
-                            bottom: 16,
-                            child: TopicProgressButton(
-                              position: position,
-                              total: snapshot.streamIds.length,
-                              onPressed: () => unawaited(
-                                showTopicProgress(
-                                  context: context,
-                                  controller: controller,
-                                  position: position,
-                                  total: snapshot.streamIds.length,
+                          if (_progressPosition case final position?
+                              when snapshot.streamIds.length > 1)
+                            Positioned(
+                              right: 16,
+                              bottom: 16,
+                              child: TopicProgressButton(
+                                position: position,
+                                total: snapshot.streamIds.length,
+                                onPressed: () => unawaited(
+                                  showTopicProgress(
+                                    context: context,
+                                    controller: controller,
+                                    position: position,
+                                    total: snapshot.streamIds.length,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            if (showDockedSidebar)
-              _TopicSidebarPanel(
-                siteUrl: siteUrl,
-                topic: snapshot.topic!,
-                recommendations: snapshot.recommendations,
-                loading: recommendationsPending || snapshot.loadingMore,
-                selected: _recommendationsSourceId,
-                onSelected: _setRecommendationsSource,
-                onCollapsed: () => _setSidebarCollapsed(true),
-                route: widget.route,
-                canReply: widget.canReply,
-                bookmarkBusy: widget.bookmarkBusy,
-                isConnected: widget.isConnected,
-                registry: widget.registry,
-              ),
-          ],
+              if (showDockedSidebar)
+                _TopicSidebarPanel(
+                  siteUrl: siteUrl,
+                  topic: snapshot.topic!,
+                  recommendations: snapshot.recommendations,
+                  loading: recommendationsPending || snapshot.loadingMore,
+                  selected: _recommendationsSourceId,
+                  onSelected: _setRecommendationsSource,
+                  route: widget.route,
+                  canReply: widget.canReply,
+                  bookmarkBusy: widget.bookmarkBusy,
+                  isConnected: widget.isConnected,
+                  registry: widget.registry,
+                ),
+            ],
+          ),
         ),
         if (showOverlaySidebar)
           Positioned(
@@ -1377,18 +1418,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                 isConnected: widget.isConnected,
                 registry: widget.registry,
               ),
-            ),
-          ),
-        if ((widget.showSidebar && _sidebarCollapsed) ||
-            (!widget.showSidebar && !showOverlaySidebar))
-          Positioned(
-            top: 8,
-            right: 8,
-            child: _TopicSidebarToggle(
-              showSidebar: true,
-              onPressed: widget.showSidebar
-                  ? () => _setSidebarCollapsed(false)
-                  : () => _setSidebarOverlayOpen(true),
             ),
           ),
       ],
@@ -1891,6 +1920,77 @@ class _TopicViewSnapshot {
   );
 }
 
+class _TopicViewHeader extends StatelessWidget {
+  const _TopicViewHeader({
+    required this.title,
+    required this.siteUrl,
+    required this.canReturnToSidebar,
+    this.sidebarVisible = false,
+    this.onToggleSidebar,
+  });
+
+  final String title;
+  final String? siteUrl;
+  final bool canReturnToSidebar;
+  final bool sidebarVisible;
+  final VoidCallback? onToggleSidebar;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final controller = ShellScope.read(context);
+    final titleStyle = theme.textTheme.titleSmall?.copyWith(
+      fontWeight: FontWeight.w600,
+    );
+    return Container(
+      key: const ValueKey('topic-content-header'),
+      height: shellHeaderHeight,
+      padding: const EdgeInsets.only(left: 8, right: 8),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: theme.shell.divider)),
+      ),
+      child: Row(
+        children: [
+          DButton.iconOnly(
+            onPressed: () =>
+                controller.handleBack(canReturnToSidebar: canReturnToSidebar),
+            icon: const DIcon(DIcons.arrowLeft, size: 20),
+            tooltip: 'Back',
+            variant: DButtonVariant.flat,
+            size: DButtonSize.small,
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: siteUrl == null
+                ? Text(
+                    title,
+                    key: const ValueKey('topic-header-title'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: titleStyle,
+                  )
+                : TopicTitle(
+                    title,
+                    key: const ValueKey('topic-header-title'),
+                    siteUrl: siteUrl!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: titleStyle,
+                  ),
+          ),
+          if (onToggleSidebar case final onPressed?) ...[
+            const SizedBox(width: 8),
+            _TopicSidebarToggle(
+              showSidebar: !sidebarVisible,
+              onPressed: onPressed,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _TopicSidebarPanel extends StatelessWidget {
   const _TopicSidebarPanel({
     required this.siteUrl,
@@ -1899,7 +1999,7 @@ class _TopicSidebarPanel extends StatelessWidget {
     required this.loading,
     required this.selected,
     required this.onSelected,
-    required this.onCollapsed,
+    this.onCollapsed,
     required this.route,
     required this.canReply,
     required this.bookmarkBusy,
@@ -1916,7 +2016,7 @@ class _TopicSidebarPanel extends StatelessWidget {
   final bool loading;
   final TopicRecommendationSourceId selected;
   final ValueChanged<TopicRecommendationSourceId> onSelected;
-  final VoidCallback onCollapsed;
+  final VoidCallback? onCollapsed;
   final ContentRoute? route;
   final bool canReply;
   final bool bookmarkBusy;
@@ -1958,7 +2058,7 @@ class _TopicSidebarPanel extends StatelessWidget {
                 registry: registry,
               ),
             ],
-            if (recommendations != null || loading) ...[
+            if (recommendations?.isNotEmpty == true || loading) ...[
               const SizedBox(height: 12),
               _TopicSidebarCard(
                 key: const ValueKey('topic-more-topics-card'),
@@ -2005,7 +2105,7 @@ class _TopicSidebarActions extends StatelessWidget {
     required this.bookmarkBusy,
     required this.isConnected,
     required this.registry,
-    required this.onCollapsed,
+    this.onCollapsed,
   });
 
   final String? siteUrl;
@@ -2015,7 +2115,7 @@ class _TopicSidebarActions extends StatelessWidget {
   final bool bookmarkBusy;
   final bool isConnected;
   final PluginRegistry registry;
-  final VoidCallback onCollapsed;
+  final VoidCallback? onCollapsed;
 
   @override
   Widget build(BuildContext context) {
@@ -2026,29 +2126,31 @@ class _TopicSidebarActions extends StatelessWidget {
         ? const <PostFlagType>[]
         : controller.availableTopicFlagTypes(siteUrl, topic);
     final theme = Theme.of(context);
+    Widget replyButton() => DButton(
+      key: const ValueKey('topic-reply-button'),
+      onPressed: controller.openReply,
+      icon: const DIcon(DIcons.reply, size: 18),
+      label: const Text('Reply'),
+      tooltip: 'Reply to this topic',
+      variant: DButtonVariant.primary,
+      size: DButtonSize.small,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            if (topic != null && canReply)
-              Expanded(
-                child: DButton(
-                  key: const ValueKey('topic-reply-button'),
-                  onPressed: controller.openReply,
-                  icon: const DIcon(DIcons.reply, size: 18),
-                  label: const Text('Reply'),
-                  tooltip: 'Reply to this topic',
-                  variant: DButtonVariant.primary,
-                  size: DButtonSize.small,
-                ),
-              )
-            else
-              const Spacer(),
-            const SizedBox(width: 8),
-            _TopicSidebarToggle(showSidebar: false, onPressed: onCollapsed),
-          ],
-        ),
+        if (onCollapsed case final onPressed?)
+          Row(
+            children: [
+              if (topic != null && canReply)
+                Expanded(child: replyButton())
+              else
+                const Spacer(),
+              const SizedBox(width: 8),
+              _TopicSidebarToggle(showSidebar: false, onPressed: onPressed),
+            ],
+          )
+        else if (topic != null && canReply)
+          replyButton(),
         if (topic != null && siteUrl != null) ...[
           const SizedBox(height: 8),
           Row(

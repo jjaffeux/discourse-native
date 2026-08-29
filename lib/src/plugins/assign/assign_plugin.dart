@@ -10,7 +10,6 @@ import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/pill.dart';
 import '../../shell/post_action.dart';
 import '../../shell/shell_sheet.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'assign_data.dart';
@@ -220,14 +219,35 @@ final class AssignPlugin
         label: summary,
         onTap: openAssignments,
         child: ExcludeSemantics(
-          child: DButton(
+          child: InkWell(
             key: const Key('assign-topic-property'),
-            label: const Text('Assign'),
-            icon: const DIcon(DIcons.userPlus, size: 18),
-            tooltip: 'Assign topic',
-            onPressed: openAssignments,
-            variant: DButtonVariant.link,
-            size: DButtonSize.small,
+            onTap: openAssignments,
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
+              child: Builder(
+                builder: (context) {
+                  final theme = Theme.of(context);
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DIcon(
+                        DIcons.userPlus,
+                        size: 14,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Assign',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
           ),
         ),
       );

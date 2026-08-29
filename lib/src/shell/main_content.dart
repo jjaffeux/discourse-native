@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../models/bookmark.dart';
 import '../models/category_feed.dart';
 import '../models/content_route.dart';
-import '../models/post.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../plugin_api/plugin_registry.dart';
@@ -97,12 +96,11 @@ class _MainContentBody extends StatelessWidget {
         child: Column(
           children: [
             if (forumTabsEnabled) const CurrentForumTabsBar(),
-            if (!pluginOwnsChrome)
+            if (!pluginOwnsChrome && !route.isTopic)
               _ContentHeader(
                 layout: layout,
                 route: route,
                 siteUrl: state.siteUrl,
-                topic: state.topic,
                 canPop: state.canPop,
                 showCreateTopicAction: pluginContent == null,
                 isConnected: state.isConnected,
@@ -221,6 +219,7 @@ class _ContentViewport extends StatelessWidget {
     if (route.isTopic) {
       return TopicView(
         showSidebar: layout == ShellLayout.expanded,
+        canReturnToSidebar: layout.isCompact,
         route: route,
         canReply: canReply,
         bookmarkBusy: bookmarkBusy,
@@ -276,7 +275,6 @@ class _ContentHeader extends StatelessWidget {
     required this.layout,
     required this.route,
     required this.siteUrl,
-    required this.topic,
     required this.canPop,
     required this.showCreateTopicAction,
     required this.isConnected,
@@ -286,7 +284,6 @@ class _ContentHeader extends StatelessWidget {
   final ShellLayout layout;
   final ContentRoute route;
   final String? siteUrl;
-  final TopicDetail? topic;
   final bool canPop;
   final bool showCreateTopicAction;
   final bool isConnected;
@@ -296,14 +293,6 @@ class _ContentHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (route.isTopic && siteUrl != null && topic != null) {
-      return _TopicContentHeader(
-        layout: layout,
-        siteUrl: siteUrl!,
-        topic: topic!,
-      );
-    }
-
     final theme = Theme.of(context);
     final controller = ShellScope.read(context);
     final contentHeader = registry.contentHeaderActions(context, route);
@@ -454,57 +443,6 @@ class _ContentHeader extends StatelessWidget {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-class _TopicContentHeader extends StatelessWidget {
-  const _TopicContentHeader({
-    required this.layout,
-    required this.siteUrl,
-    required this.topic,
-  });
-
-  final ShellLayout layout;
-  final String siteUrl;
-  final TopicDetail topic;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final controller = ShellScope.read(context);
-    return Container(
-      key: const ValueKey('topic-content-header'),
-      height: shellHeaderHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: theme.shell.divider)),
-      ),
-      child: Row(
-        children: [
-          DButton.iconOnly(
-            onPressed: () =>
-                controller.handleBack(canReturnToSidebar: layout.isCompact),
-            icon: const DIcon(DIcons.arrowLeft, size: 20),
-            tooltip: 'Back',
-            variant: DButtonVariant.flat,
-            size: DButtonSize.small,
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: TopicTitle(
-              topic.title,
-              key: const ValueKey('topic-header-title'),
-              siteUrl: siteUrl,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -765,7 +703,6 @@ class _MainContentSnapshot {
     required this.siteUrl,
     required this.activeTabId,
     required this.route,
-    required this.topic,
     required this.composer,
     required this.canPop,
     required this.canReply,
@@ -780,7 +717,6 @@ class _MainContentSnapshot {
         siteUrl: controller.currentInstance?.url,
         activeTabId: controller.activeTabId,
         route: controller.currentContent,
-        topic: controller.currentTopic,
         composer: controller.visibleComposer,
         canPop: controller.canPopContent,
         canReply: controller.canReplyHere,
@@ -818,7 +754,6 @@ class _MainContentSnapshot {
   final String? siteUrl;
   final String? activeTabId;
   final ContentRoute? route;
-  final TopicDetail? topic;
   final ComposerController? composer;
   final bool canPop;
   final bool canReply;
@@ -833,7 +768,6 @@ class _MainContentSnapshot {
       siteUrl == other.siteUrl &&
       activeTabId == other.activeTabId &&
       identical(route, other.route) &&
-      identical(topic, other.topic) &&
       identical(composer, other.composer) &&
       canPop == other.canPop &&
       canReply == other.canReply &&
@@ -847,7 +781,6 @@ class _MainContentSnapshot {
     siteUrl,
     activeTabId,
     identityHashCode(route),
-    identityHashCode(topic),
     identityHashCode(composer),
     canPop,
     canReply,
