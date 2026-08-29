@@ -3027,7 +3027,6 @@ class _MoreTopics extends StatelessWidget {
     ];
     if (available.isEmpty) return const SizedBox.shrink();
     final selection = _effectiveSelection(available);
-    final hasTabs = available.length > 1;
     final theme = Theme.of(context);
 
     return Padding(
@@ -3035,7 +3034,7 @@ class _MoreTopics extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (hasTabs)
+          if (available.length > 1)
             DecoratedBox(
               decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: theme.shell.divider)),
@@ -3056,26 +3055,13 @@ class _MoreTopics extends StatelessWidget {
                     ),
                 ],
               ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-              child: Row(
-                children: [
-                  if (selection.definition.icon case final icon?) ...[
-                    DIcon(
-                      icon,
-                      size: 14,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 6),
-                  ],
-                  Text(selection.label, style: theme.textTheme.titleSmall),
-                ],
-              ),
             ),
           for (var index = 0; index < selection.topics.length; index++) ...[
-            TopicListRow(topic: selection.topics[index], siteUrl: siteUrl),
+            TopicListRow(
+              topic: selection.topics[index],
+              siteUrl: siteUrl,
+              titleStyle: theme.textTheme.titleSmall,
+            ),
             if (index < selection.topics.length - 1)
               Divider(height: 1, color: theme.shell.divider),
           ],

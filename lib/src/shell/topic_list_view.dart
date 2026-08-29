@@ -718,6 +718,7 @@ class TopicListRow extends StatelessWidget {
     this.forum,
     this.siteUrl,
     this.onTap,
+    this.titleStyle,
   }) : assert(forum == null || siteUrl == null);
 
   /// One title line, one metadata line, their gap, and the row padding.
@@ -733,6 +734,9 @@ class TopicListRow extends StatelessWidget {
   /// than whichever forum happens to be ambient in the shell.
   final String? siteUrl;
   final VoidCallback? onTap;
+
+  /// Overrides the title typography while retaining topic-state colors.
+  final TextStyle? titleStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -767,6 +771,7 @@ class TopicListRow extends StatelessWidget {
         siteUrl: siteUrl,
         forum: owningForum,
         onTap: onTap ?? () => controller.openTopic(topic),
+        titleStyle: titleStyle,
       ),
     );
   }
@@ -796,6 +801,7 @@ class _TopicRowBody extends StatelessWidget {
     required this.siteUrl,
     required this.onTap,
     this.forum,
+    this.titleStyle,
   });
 
   final Topic topic;
@@ -803,10 +809,12 @@ class _TopicRowBody extends StatelessWidget {
   final String siteUrl;
   final VoidCallback onTap;
   final DiscourseInstance? forum;
+  final TextStyle? titleStyle;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final effectiveTitleStyle = titleStyle ?? theme.textTheme.titleMedium;
 
     final row = InkWell(
       onTap: onTap,
@@ -898,7 +906,7 @@ class _TopicRowBody extends StatelessWidget {
                               ),
                             ],
                           ],
-                          style: theme.textTheme.titleMedium?.copyWith(
+                          style: effectiveTitleStyle?.copyWith(
                             // Core dims only rows whose last visible post has
                             // been read. Tracking level controls the badge, not
                             // the title treatment.
