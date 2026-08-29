@@ -4609,6 +4609,35 @@ void main() {
       expect(tester.getRect(sidebar), sidebarRect);
     });
 
+    testWidgets('uses a thin scrollbar for topic posts', (tester) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {7: detail()},
+        );
+
+        await pumpShell(tester, desktop, api: api);
+        await tester.tap(find.text('A real topic'));
+        await tester.pumpAndSettle();
+
+        final scrollbar = find.descendant(
+          of: find.byType(TopicView),
+          matching: find.byType(Scrollbar),
+        );
+        expect(scrollbar, findsOneWidget);
+        expect(
+          ScrollbarTheme.of(
+            tester.element(scrollbar),
+          ).thickness?.resolve(const <WidgetState>{}),
+          4,
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+
     testWidgets(
       'topic actions promote sharing and overflow administrative actions',
       (tester) async {
