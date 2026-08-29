@@ -4631,100 +4631,181 @@ void main() {
       },
     );
 
-    testWidgets('empty editable sidebar tags open the picker and save a tag', (
+    testWidgets('empty editable sidebar tags open a popover and save a tag', (
       tester,
     ) async {
-      const design = TopicTag(id: 8, name: 'design');
-      const mobile = TopicTag(id: 9, name: 'mobile');
-      final base = detail();
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {
-          7: (
-            detail: base.detail.copyWith(canEditTags: true),
-            posts: base.posts,
+      final previousPlatform = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        const design = TopicTag(id: 8, name: 'design');
+        const mobile = TopicTag(id: 9, name: 'mobile');
+        final base = detail();
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {
+            7: (
+              detail: base.detail.copyWith(canEditTags: true),
+              posts: base.posts,
+            ),
+          },
+          composerCapabilities: const TopicComposerCapabilities(
+            canTagTopics: true,
+            maxTagsPerTopic: 5,
           ),
-        },
-        composerCapabilities: const TopicComposerCapabilities(
-          canTagTopics: true,
-          maxTagsPerTopic: 5,
-        ),
-        topicTagSearches: const {
-          '': TopicTagSearch(tags: [design, mobile]),
-        },
-      );
-      const reader = DiscourseUser(id: 1, username: 'reader');
-      final authenticator = FakeAuthenticator()
-        ..keys['https://meta.discourse.org'] = 'meta-key';
+          topicTagSearches: const {
+            '': TopicTagSearch(tags: [design, mobile]),
+          },
+        );
+        const reader = DiscourseUser(id: 1, username: 'reader');
+        final authenticator = FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key';
 
-      await pumpShell(
-        tester,
-        desktop,
-        instances: [instance('meta.discourse.org').copyWith(user: reader)],
-        api: api,
-        authenticator: authenticator,
-      );
-      await tester.tap(contentText('A real topic'));
-      await tester.pumpAndSettle();
+        await pumpShell(
+          tester,
+          desktop,
+          instances: [instance('meta.discourse.org').copyWith(user: reader)],
+          api: api,
+          authenticator: authenticator,
+        );
+        await tester.tap(contentText('A real topic'));
+        await tester.pumpAndSettle();
 
-      final tagsProperty = find.byKey(
-        const ValueKey('topic-sidebar-tags-property'),
-      );
-      expect(tagsProperty, findsOneWidget);
-      expect(find.byTooltip('Edit topic tags'), findsOneWidget);
-      expect(find.text('Add tags'), findsOneWidget);
+        final tagsProperty = find.byKey(
+          const ValueKey('topic-sidebar-tags-property'),
+        );
+        expect(tagsProperty, findsOneWidget);
+        expect(find.byTooltip('Edit topic tags'), findsOneWidget);
+        expect(find.text('Add tag'), findsOneWidget);
 
-      await tester.tap(tagsProperty);
-      await tester.pumpAndSettle();
+        await tester.tap(tagsProperty);
+        await tester.pumpAndSettle();
 
-      final composer = find.byType(ComposerPanel);
-      expect(composer, findsOneWidget);
-      expect(
-        find.descendant(of: composer, matching: find.text('Edit topic tags')),
-        findsOneWidget,
-      );
-      final tagsButton = find.descendant(
-        of: composer,
-        matching: find.widgetWithText(OutlinedButton, 'Tags'),
-      );
-      expect(tagsButton, findsOneWidget);
-      await tester.tap(tagsButton);
-      await tester.pumpAndSettle();
+        final picker = find.byKey(const ValueKey('topic-tag-picker-popover'));
+        expect(picker, findsOneWidget);
+        expect(find.byType(ComposerPanel), findsNothing);
+        expect(
+          find.descendant(
+            of: picker,
+            matching: find.byKey(
+              const ValueKey(('topic-tag-picker-option', 'mobile')),
+            ),
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(
+          find.descendant(
+            of: picker,
+            matching: find.byKey(
+              const ValueKey(('topic-tag-picker-option', 'mobile')),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      final picker = find.byWidgetPredicate(
-        (widget) => widget is Dialog || widget is BottomSheet,
-        description: 'tag picker dialog or sheet',
-      );
-      expect(picker, findsOneWidget);
-      await tester.tap(
-        find.descendant(
-          of: picker,
-          matching: find.widgetWithText(CheckboxListTile, 'mobile'),
-        ),
-      );
-      await tester.pump();
-      await tester.tap(
-        find.descendant(of: picker, matching: find.byTooltip('Close')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.descendant(
-          of: composer,
-          matching: find.widgetWithText(FilledButton, 'Save'),
-        ),
-      );
-      await tester.pumpAndSettle();
+        expect(api.topicTagsUpdated.single, {
+          'topicId': 7,
+          'tags': const [mobile],
+        });
+        expect(
+          find.byKey(const ValueKey(('topic-sidebar-tag', 'mobile'))),
+          findsOneWidget,
+        );
+        expect(find.text('mobile'), findsOneWidget);
+        expect(picker, findsNothing);
+        expect(find.byType(ComposerPanel), findsNothing);
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = previousPlatform;
+      }
+    });
 
-      expect(api.topicTagsUpdated.single, {
-        'topicId': 7,
-        'tags': const [mobile],
-      });
-      expect(
-        find.byKey(const ValueKey(('topic-sidebar-tag', 'mobile'))),
-        findsOneWidget,
-      );
-      expect(find.byType(ComposerPanel), findsNothing);
-      expect(tester.takeException(), isNull);
+    testWidgets('sidebar tag popover creates and removes tags', (tester) async {
+      final previousPlatform = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        const design = TopicTag(id: 8, name: 'design');
+        final base = detail();
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {
+            7: (
+              detail: base.detail.copyWith(
+                canEditTags: true,
+                tags: const [design],
+              ),
+              posts: base.posts,
+            ),
+          },
+          composerCapabilities: const TopicComposerCapabilities(
+            canTagTopics: true,
+            canCreateTag: true,
+            maxTagLength: 20,
+            maxTagsPerTopic: 5,
+          ),
+          topicTagSearches: const {
+            '': TopicTagSearch(tags: [design]),
+            'mobile': TopicTagSearch(),
+          },
+        );
+        const reader = DiscourseUser(id: 1, username: 'reader');
+        final authenticator = FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key';
+
+        await pumpShell(
+          tester,
+          desktop,
+          instances: [instance('meta.discourse.org').copyWith(user: reader)],
+          api: api,
+          authenticator: authenticator,
+        );
+        await tester.tap(contentText('A real topic'));
+        await tester.pumpAndSettle();
+
+        final tagsProperty = find.byKey(
+          const ValueKey('topic-sidebar-tags-property'),
+        );
+        await tester.tap(tagsProperty);
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('topic-tag-picker-query')),
+          'mobile',
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Create new tag: “mobile”'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('topic-tag-picker-create')));
+        await tester.pumpAndSettle();
+
+        expect(api.topicTagsUpdated.single, {
+          'topicId': 7,
+          'tags': const [design, TopicTag(name: 'mobile')],
+        });
+        expect(
+          find.byKey(const ValueKey(('topic-sidebar-tag', 'mobile'))),
+          findsOneWidget,
+        );
+
+        await tester.tap(tagsProperty);
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey(('topic-tag-picker-option', 'design'))),
+        );
+        await tester.pumpAndSettle();
+
+        expect(api.topicTagsUpdated, hasLength(2));
+        expect(api.topicTagsUpdated.last, {
+          'topicId': 7,
+          'tags': const [TopicTag(name: 'mobile')],
+        });
+        expect(
+          find.byKey(const ValueKey(('topic-sidebar-tag', 'design'))),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = previousPlatform;
+      }
     });
 
     testWidgets('only a topic bookmark gives its action the core accent', (

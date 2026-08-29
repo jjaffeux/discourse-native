@@ -42,6 +42,7 @@ import 'topic_change_owner.dart';
 import 'topic_list_view.dart';
 import 'topic_move_posts.dart';
 import 'topic_progress.dart';
+import 'topic_tag_picker.dart';
 import 'topic_title.dart';
 import 'user_card.dart';
 import 'user_menu_button.dart';
@@ -2302,28 +2303,39 @@ class _TopicPropertiesCard extends StatelessWidget {
                       : null,
                 ),
               ),
-              _TopicPropertyRow(
-                key: const ValueKey('topic-sidebar-tags-property'),
-                label: 'Tags',
-                onTap: topic.canEditTags ? controller.openTagsEdit : null,
-                tooltip: topic.canEditTags ? 'Edit topic tags' : null,
-                child: topic.tags.isEmpty
-                    ? topic.canEditTags
-                          ? const _EditableEmptyTopicTags()
-                          : const _EmptyTopicProperty('No tags')
-                    : Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          for (final tag in topic.tags)
-                            _TopicSidebarTag(tag: tag),
-                          if (topic.canEditTags)
-                            const _TopicPropertyEditIndicator(
-                              keyName: 'topic-sidebar-tags-edit-indicator',
-                            ),
-                        ],
-                      ),
+              TopicTagMenuAnchor(
+                siteUrl: siteUrl,
+                topicId: topic.id,
+                categoryId: topic.categoryId,
+                tags: topic.tags,
+                enabled: topic.canEditTags,
+                builder: (context, openMenu, saving) => _TopicPropertyRow(
+                  key: const ValueKey('topic-sidebar-tags-property'),
+                  label: 'Tags',
+                  onTap: openMenu,
+                  tooltip: saving
+                      ? 'Saving topic tags'
+                      : topic.canEditTags
+                      ? 'Edit topic tags'
+                      : null,
+                  child: topic.tags.isEmpty
+                      ? topic.canEditTags
+                            ? _EditableEmptyTopicTags(saving: saving)
+                            : const _EmptyTopicProperty('No tags')
+                      : Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            for (final tag in topic.tags)
+                              _TopicSidebarTag(tag: tag),
+                            if (saving)
+                              const _TopicTagsSavingIndicator()
+                            else if (topic.canEditTags)
+                              const _TopicTagsAddIndicator(),
+                          ],
+                        ),
+                ),
               ),
               for (final section in pluginSections)
                 _TopicPropertyRow(
@@ -2722,43 +2734,98 @@ class _TopicSidebarTag extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       key: ValueKey(('topic-sidebar-tag', tag.name)),
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHigh,
         border: Border.all(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(5),
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        '#${tag.name}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.outline,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 180),
+            child: Text(
+              tag.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _EditableEmptyTopicTags extends StatelessWidget {
-  const _EditableEmptyTopicTags();
+  const _EditableEmptyTopicTags({required this.saving});
+
+  final bool saving;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = theme.colorScheme.primary;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        DIcon(DIcons.plus, size: 12, color: color),
-        const SizedBox(width: 5),
-        Text(
-          'Add tags',
-          style: theme.textTheme.labelMedium?.copyWith(color: color),
-        ),
-      ],
+    final color = theme.colorScheme.onSurfaceVariant;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (saving)
+            const SizedBox.square(
+              dimension: 13,
+              child: CircularProgressIndicator(strokeWidth: 1.5),
+            )
+          else
+            DIcon(DIcons.tag, size: 13, color: color),
+          const SizedBox(width: 6),
+          Text(
+            saving ? 'Saving…' : 'Add tag',
+            style: theme.textTheme.labelMedium?.copyWith(color: color),
+          ),
+        ],
+      ),
     );
   }
+}
+
+class _TopicTagsAddIndicator extends StatelessWidget {
+  const _TopicTagsAddIndicator();
+
+  @override
+  Widget build(BuildContext context) => DIcon(
+    DIcons.plus,
+    key: const ValueKey('topic-sidebar-tags-edit-indicator'),
+    size: 13,
+    color: Theme.of(context).colorScheme.onSurfaceVariant,
+  );
+}
+
+class _TopicTagsSavingIndicator extends StatelessWidget {
+  const _TopicTagsSavingIndicator();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.square(
+    dimension: 13,
+    child: CircularProgressIndicator(strokeWidth: 1.5),
+  );
 }
 
 class _TopicPropertyEditIndicator extends StatelessWidget {

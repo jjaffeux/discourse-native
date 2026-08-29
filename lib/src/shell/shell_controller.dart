@@ -2012,6 +2012,14 @@ class ShellController extends FrameSafeNotifier
   TopicComposerCapabilities topicComposerCapabilities(String siteUrl) =>
       _topicComposerCapabilities[siteUrl] ?? const TopicComposerCapabilities();
 
+  /// Loads the site limits needed by the lightweight sidebar tag editor.
+  Future<TopicComposerCapabilities> prepareTopicTagEditor(
+    String siteUrl,
+  ) async {
+    await _ensureTopicComposerCapabilities(siteUrl);
+    return topicComposerCapabilities(siteUrl);
+  }
+
   /// Category badge for a topic, once categories have been fetched.
   TopicCategory? categoryFor(int? categoryId, {String? siteUrl}) {
     final sourceSite = siteUrl ?? currentInstance?.url;
@@ -5273,6 +5281,31 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  /// Searches tags for a focused editor which does not occupy the composer.
+  Future<TopicTagSearch> searchTopicTagsForEditor({
+    required String siteUrl,
+    required int? categoryId,
+    required Iterable<TopicTag> selectedTags,
+    required String term,
+  }) async {
+    final lease = lifecycle.capture(siteUrl);
+    final held = await _readSessionValue(
+      lease,
+      () => _credentialForWrite(siteUrl),
+    );
+    if (held == null || !lease.isCurrent) return const TopicTagSearch();
+    if (held.value.failure case final failure?) throw failure;
+    return api.searchTopicTags(
+      siteUrl: siteUrl,
+      apiKey: held.value.apiKey!,
+      term: term,
+      categoryId: categoryId,
+      selectedTagIds: selectedTags.map((tag) => tag.id).whereType<int>(),
+      limit: siteConfigFor(siteUrl).maxTagSearchResults
+          .clamp(1, TopicTagSearch.maximumResults),
+    );
+  }
+
   Future<void> changeComposerCategory(
     ComposerController composer,
     int? categoryId,
@@ -5668,6 +5701,53 @@ class ShellController extends FrameSafeNotifier
           0,
     );
     _notify();
+  }
+
+  /// Persists one lightweight edit made directly from the topic sidebar.
+  ///
+  /// This deliberately stays independent from [_composer]: opening a small
+  /// property menu must not replace an unfinished reply or summon a second
+  /// editor elsewhere on screen.
+  Future<String?> updateTopicTagsFromSidebar({
+    required String siteUrl,
+    required int topicId,
+    required Iterable<TopicTag> tags,
+  }) async {
+    if (currentInstance?.url != siteUrl ||
+        currentContent?.topicId != topicId ||
+        currentTopic?.canEditTags != true) {
+      return 'Topic tags can no longer be edited.';
+    }
+    final next = List<TopicTag>.unmodifiable(tags);
+    final lease = lifecycle.capture(siteUrl);
+    final credential = await _credentialForWrite(siteUrl);
+    if (!lease.isCurrent) return 'The site changed before tags were saved.';
+    if (credential.failure case final failure?) return failure.message;
+    try {
+      await api.updateTopicTags(
+        siteUrl: siteUrl,
+        apiKey: credential.apiKey!,
+        topicId: topicId,
+        tags: next,
+      );
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'topicSidebar.editTopicTags',
+        );
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    }
+    if (!lease.isCurrent) return 'The site changed before tags were saved.';
+    lease.commit(() {
+      _applyTopicTags(siteUrl, topicId, next);
+      _notify();
+    });
+    return null;
   }
 
   Future<void> _ensureTopicComposerCapabilities(String siteUrl) async {
@@ -8450,18 +8530,22 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     lease.commit(() {
-      store.update<TopicDetail>(
-        target.siteUrl,
-        target.topicId,
-        (detail) => detail.copyWith(tags: composer.tags),
-      );
-      store.update<Topic>(
-        target.siteUrl,
-        target.topicId,
-        (topic) => topic.copyWith(tags: composer.tags),
-      );
+      _applyTopicTags(target.siteUrl, target.topicId, composer.tags);
       _closeSubmittedComposer(composer);
     });
+  }
+
+  void _applyTopicTags(String siteUrl, int topicId, List<TopicTag> tags) {
+    store.update<TopicDetail>(
+      siteUrl,
+      topicId,
+      (detail) => detail.copyWith(tags: tags),
+    );
+    store.update<Topic>(
+      siteUrl,
+      topicId,
+      (topic) => topic.copyWith(tags: tags),
+    );
   }
 
   Future<void> _submitCategoryEdit(
