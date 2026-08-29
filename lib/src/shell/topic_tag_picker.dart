@@ -6,10 +6,8 @@ import '../models/topic.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import 'anchored_layout.dart';
-import 'platform.dart';
+import 'anchored_picker.dart';
 import 'shell_scope.dart';
-import 'shell_sheet.dart';
 
 typedef TopicTagMenuAnchorBuilder =
     Widget Function(BuildContext context, VoidCallback? openMenu, bool saving);
@@ -118,121 +116,14 @@ Future<List<TopicTag>?> showTopicTagPicker({
     onSelected: Navigator.of(pickerContext).pop,
   );
 
-  if (context.isTouch) {
-    return showShellSheet<List<TopicTag>>(
-      context: context,
-      title: 'Tags',
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 20),
-      builder: picker,
-    );
-  }
-
-  final navigator = Navigator.of(context);
-  final overlay = navigator.overlay?.context.findRenderObject() as RenderBox?;
-  final anchor = anchorRect(
-    anchor: anchorContext.findRenderObject() as RenderBox?,
-    overlay: overlay,
+  return showAnchoredPicker<List<TopicTag>>(
+    context: context,
+    anchorContext: anchorContext,
+    title: 'Tags',
+    barrierLabel: 'Dismiss tag picker',
+    popoverKey: const ValueKey('topic-tag-picker-popover'),
+    builder: picker,
   );
-  final media = MediaQuery.of(context);
-  final alignment = anchor == null
-      ? Alignment.center
-      : Alignment(
-          anchor.center.dx > media.size.width / 2 ? 1 : -1,
-          anchor.center.dy > media.size.height / 2 ? 1 : -1,
-        );
-  final duration = media.disableAnimations
-      ? Duration.zero
-      : discourseMenuOpenDuration;
-
-  return navigator.push<List<TopicTag>>(
-    PageRouteBuilder<List<TopicTag>>(
-      opaque: false,
-      barrierDismissible: true,
-      barrierLabel: 'Dismiss tag picker',
-      barrierColor: Colors.transparent,
-      transitionDuration: duration,
-      reverseTransitionDuration: media.disableAnimations
-          ? Duration.zero
-          : discourseMenuCloseDuration,
-      pageBuilder: (routeContext, animation, secondaryAnimation) =>
-          CustomSingleChildLayout(
-            delegate: AnchoredLayout(
-              anchor: anchor,
-              maxWidth: _TopicTagPickerSurface.width,
-              gap: 4,
-              margin: 10,
-            ),
-            child: _TopicTagPickerTransition(
-              animation: animation,
-              alignment: alignment,
-              child: _TopicTagPickerSurface(child: picker(routeContext)),
-            ),
-          ),
-    ),
-  );
-}
-
-class _TopicTagPickerTransition extends StatelessWidget {
-  const _TopicTagPickerTransition({
-    required this.animation,
-    required this.alignment,
-    required this.child,
-  });
-
-  final Animation<double> animation;
-  final Alignment alignment;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final curved = CurvedAnimation(
-      parent: animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
-    return FadeTransition(
-      opacity: curved,
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.97, end: 1).animate(curved),
-        alignment: alignment,
-        child: child,
-      ),
-    );
-  }
-}
-
-class _TopicTagPickerSurface extends StatelessWidget {
-  const _TopicTagPickerSurface({required this.child});
-
-  static const double width = 360;
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    const radius = BorderRadius.all(Radius.circular(12));
-    return Material(
-      key: const ValueKey('topic-tag-picker-popover'),
-      color: theme.shell.floating,
-      elevation: 8,
-      shadowColor: Colors.black.withValues(alpha: 0.4),
-      borderRadius: radius,
-      clipBehavior: Clip.antiAlias,
-      child: Container(
-        width: width,
-        constraints: const BoxConstraints(maxHeight: 440),
-        decoration: BoxDecoration(
-          border: Border.all(color: theme.shell.divider),
-          borderRadius: radius,
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(10),
-          child: child,
-        ),
-      ),
-    );
-  }
 }
 
 /// Search and choice rows shared by the pointer popover and touch sheet.
