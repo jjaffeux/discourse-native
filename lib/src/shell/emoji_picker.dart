@@ -819,15 +819,7 @@ class _SearchAndTone extends StatelessWidget {
                   padding: EdgeInsets.all(11),
                   child: DIcon(DIcons.magnifyingGlass, size: 17),
                 ),
-                suffixIcon: controller.searchPending
-                    ? const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : search.text.isEmpty
+                suffixIcon: search.text.isEmpty
                     ? null
                     : IconButton(
                         key: const ValueKey('emoji-picker-clear-search'),

@@ -320,6 +320,59 @@ void main() {
     expect(dismissed, isTrue);
   });
 
+  testWidgets('search loading uses only the results spinner', (tester) async {
+    final controller = EmojiPickerController(
+      siteUrl: _siteUrl,
+      context: CoreEmojiUsageContexts.topic,
+      store: EmojiPickerStore(persistence: _MemoryPersistence()),
+      loadCatalog: ({refresh = false}) async => _catalog,
+      loadSearchAliases: ({refresh = false}) async => const {},
+      searchDebounce: const Duration(seconds: 1),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: SizedBox(
+            width: 405,
+            height: 360,
+            child: EmojiPicker(
+              controller: controller,
+              touch: false,
+              onPicked: (_) {},
+              onDismiss: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final search = find.byKey(const ValueKey('emoji-picker-search'));
+    await tester.enterText(search, 'waiting');
+    await tester.pump();
+
+    expect(controller.searchPending, isTrue);
+    expect(
+      find.descendant(
+        of: search,
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsNothing,
+    );
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('emoji-picker-clear-search')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('emoji-picker-clear-search')));
+    await tester.pump();
+    expect(controller.searchPending, isFalse);
+  });
+
   testWidgets('grouped keyboard navigation preserves the nearest column', (
     tester,
   ) async {
