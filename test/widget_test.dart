@@ -4460,8 +4460,23 @@ void main() {
         expect(headerRect.right, topicRect.right);
         expect(surfaceRect, sidebarRect);
         expect(
-          tester.widget<SingleChildScrollView>(sidebarSurface).padding,
+          tester.widget<Padding>(sidebarSurface).padding,
           const EdgeInsets.fromLTRB(12, 12, 12, 16),
+        );
+        expect(
+          find.descendant(
+            of: sidebar,
+            matching: find.byType(SingleChildScrollView),
+          ),
+          findsNothing,
+        );
+        expect(
+          tester.getRect(find.byType(SuperListView)).right,
+          topicRect.right,
+        );
+        expect(
+          tester.widget<SuperListView>(find.byType(SuperListView)).padding,
+          const EdgeInsets.only(right: 344),
         );
         expect(titleRect.right, lessThanOrEqualTo(moreRect.left));
         expect(shareRect.right, lessThanOrEqualTo(bookmarkRect.left));
@@ -4548,6 +4563,51 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+
+    testWidgets('keeps the pinned sidebar outside the topic scroll view', (
+      tester,
+    ) async {
+      final longBody = List.generate(
+        80,
+        (index) => 'Scrollable post line $index',
+      ).join('<br>');
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: [post(1, 1, longBody)],
+          ),
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      final topicView = find.byType(TopicView);
+      final sidebar = find.byKey(const ValueKey('topic-sidebar-panel'));
+      final verticalScrollables = find.descendant(
+        of: topicView,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        ),
+      );
+      expect(verticalScrollables, findsOneWidget);
+      final sidebarRect = tester.getRect(sidebar);
+      final postStream = tester.widget<SuperListView>(
+        find.byType(SuperListView),
+      );
+
+      await tester.drag(find.byType(SuperListView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+
+      expect(postStream.controller!.position.pixels, greaterThan(0));
+      expect(tester.getRect(sidebar), sidebarRect);
+    });
 
     testWidgets(
       'topic actions promote sharing and overflow administrative actions',
@@ -6344,7 +6404,7 @@ void main() {
       expect(find.text('A suggested topic'), findsOneWidget);
       expect(
         tester.getSize(find.byType(SuperListView)).width,
-        loadingPostWidth,
+        loadingPostWidth + 344,
       );
       semantics.dispose();
     });
@@ -6413,7 +6473,13 @@ void main() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
       expect(find.text('Remembered suggestion'), findsOneWidget);
-      final dockedPostWidth = tester.getSize(find.byType(SuperListView)).width;
+      final postViewportWidth = tester
+          .getSize(find.byType(SuperListView))
+          .width;
+      expect(
+        tester.widget<SuperListView>(find.byType(SuperListView)).padding,
+        const EdgeInsets.only(right: 344),
+      );
 
       await tester.tap(find.byTooltip('Hide topic sidebar'));
       await tester.pumpAndSettle();
@@ -6422,7 +6488,11 @@ void main() {
       expect(find.text('Remembered suggestion'), findsNothing);
       expect(
         tester.getSize(find.byType(SuperListView)).width,
-        greaterThan(dockedPostWidth + 300),
+        postViewportWidth,
+      );
+      expect(
+        tester.widget<SuperListView>(find.byType(SuperListView)).padding,
+        EdgeInsets.zero,
       );
       // The UI intentionally fires this optional preference write without
       // blocking. Read through the same serialized store boundary so the
@@ -6573,6 +6643,53 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsNothing);
     });
+
+    testWidgets(
+      'automatically unpins the sidebar when an expanded shell is too narrow',
+      (tester) async {
+        final recommendations = suggestedRecommendations(
+          const Topic(
+            id: 8,
+            title: 'Responsive suggestion',
+            slug: 'responsive-suggestion',
+          ),
+        );
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {7: detail(recommendations: recommendations)},
+        );
+
+        await pumpShell(tester, desktop, api: api);
+        await tester.tap(find.text('A real topic'));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('topic-sidebar-panel')),
+          findsOneWidget,
+        );
+
+        // This remains above the shell's expanded breakpoint, but its topic
+        // viewport can no longer leave 640px for posts beside the 344px panel.
+        tester.view.physicalSize = const Size(1240, 800);
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsNothing);
+        expect(find.text('Responsive suggestion'), findsOneWidget);
+        expect(find.byTooltip('Show topic sidebar'), findsOneWidget);
+        expect(
+          tester.widget<SuperListView>(find.byType(SuperListView)).padding,
+          EdgeInsets.zero,
+        );
+
+        await tester.tap(find.byTooltip('Show topic sidebar'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('topic-sidebar-panel')),
+          findsOneWidget,
+        );
+        expect(find.byTooltip('Hide topic sidebar'), findsOneWidget);
+      },
+    );
 
     testWidgets('gets more topics with the final page of a long topic', (
       tester,

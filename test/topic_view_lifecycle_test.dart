@@ -679,6 +679,9 @@ void main() {
   testWidgets('showing the recommendations panel keeps one scroll attachment', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final site = instance('meta.example');
     final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
     final controller = ShellController(
