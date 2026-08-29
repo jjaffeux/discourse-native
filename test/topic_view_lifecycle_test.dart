@@ -1270,6 +1270,70 @@ void main() {
     expect(controller.currentPostIds, [for (var id = 35; id <= 64; id++) id]);
   });
 
+  test('post paging keeps an existing more-topics snapshot', () async {
+    final site = instance('meta.example');
+    final allPosts = {
+      for (var number = 1; number <= 41; number++)
+        number: Post(
+          id: number,
+          postNumber: number,
+          username: 'sam',
+          cooked: '<p>Post $number</p>',
+        ),
+    };
+    const recommendations = TopicRecommendations(
+      sources: [
+        TopicRecommendationSource(
+          definition: coreSuggestedTopicRecommendationSource,
+          topics: [Topic(id: 50, title: 'Keep me', slug: 'keep-me')],
+        ),
+      ],
+    );
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      postsById: allPosts,
+      // If post paging asks for another recommendation snapshot, this empty
+      // result reproduces the disappearing More topics card.
+      postRecommendations: const {
+        1: TopicRecommendations(
+          sources: [
+            TopicRecommendationSource(
+              definition: coreSuggestedTopicRecommendationSource,
+            ),
+          ],
+        ),
+      },
+    );
+    final controller = _controller(site, api);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (var id = 1; id <= 41; id++) id],
+          postsCount: 41,
+          recommendations: recommendations,
+        ),
+      )
+      ..putAll(site.url, [for (var id = 1; id <= 20; id++) allPosts[id]!]);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    await controller.loadMorePosts();
+    await controller.loadMorePosts();
+
+    expect(api.postFetches, [
+      [for (var id = 21; id <= 40; id++) id],
+      [41],
+    ]);
+    expect(controller.currentPostIds, [for (var id = 1; id <= 41; id++) id]);
+    expect(controller.currentTopic?.recommendations, recommendations);
+  });
+
   test('post paging clamps caller batches to one server chunk', () async {
     final site = instance('meta.example');
     final allPosts = {
