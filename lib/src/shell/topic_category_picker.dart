@@ -175,7 +175,7 @@ class _TopicCategoryPickerState extends State<TopicCategoryPicker> {
           for (final category in visible)
             AnchoredPickerOption(
               key: ValueKey('topic-category-option-${category.id}'),
-              indent: category.parentCategoryId == null ? 0 : 24,
+              indent: category.parentCategoryId == null ? 0 : 16,
               selected: category.id == widget.selectedCategoryId,
               showSelectionIndicator: true,
               leading: Container(

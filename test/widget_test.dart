@@ -4718,10 +4718,17 @@ void main() {
             color: '0088CC',
             permission: 1,
           );
+          const supportDocs = TopicCategory(
+            id: 6,
+            name: 'Support docs',
+            color: '00AEEF',
+            parentCategoryId: 5,
+            permission: 1,
+          );
           final base = detail();
           final api = FakeDiscourseApi(
             feeds: {'/latest.json': listed},
-            categoryList: const [support],
+            categoryList: const [support, supportDocs],
             topics: {
               7: (detail: base.detail.copyWith(canEdit: true), posts: base.posts),
             },
@@ -4826,6 +4833,16 @@ void main() {
           expect(
             supportTile.titleTextStyle?.fontSize,
             DiscourseTypography.fontDown1,
+          );
+          final supportDocsTile = tester.widget<ListTile>(
+            find.descendant(
+              of: find.byKey(const ValueKey('topic-category-option-6')),
+              matching: find.byType(ListTile),
+            ),
+          );
+          expect(
+            supportDocsTile.contentPadding,
+            const EdgeInsets.only(left: 26, right: 10),
           );
           await tester.tap(supportOption);
           await tester.pumpAndSettle();
