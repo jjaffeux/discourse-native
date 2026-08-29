@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'post_quote.dart';
+import 'route_aware_selection_area.dart';
 import 'shell_scope.dart';
 
 /// Makes one post body selectable and offers Discourse's quote actions.
@@ -150,8 +151,8 @@ class _PostTextSelectionState extends State<PostTextSelection> {
           onCopyQuote: _copyQuote,
         );
       },
-      child: SelectionArea(
-        key: _selectionKey,
+      child: RouteAwareSelectionArea(
+        selectionAreaKey: _selectionKey,
         // The app-owned overlay is also shown after a precise mouse drag. Keep
         // Flutter's platform menu disabled so touch does not draw both.
         contextMenuBuilder: (context, selectableRegionState) =>
