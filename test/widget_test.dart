@@ -4445,8 +4445,13 @@ void main() {
         final notificationRect = tester.getRect(notificationLevel);
         final bookmarkRect = tester.getRect(bookmark);
         final shareRect = tester.getRect(share);
-        final replyRect = tester.getRect(
-          find.byKey(const ValueKey('topic-reply-button')),
+        final replyButton = find.byKey(
+          const ValueKey('topic-reply-button'),
+        );
+        final replyRect = tester.getRect(replyButton);
+        expect(
+          tester.widget<DButton>(replyButton).alignment,
+          Alignment.centerLeft,
         );
         final moreRect = tester.getRect(more);
         expect(sidebarRect.top, headerRect.bottom);
@@ -4457,11 +4462,9 @@ void main() {
         expect(sidebarRect.right - surfaceRect.right, 12);
         expect(surfaceRect.top - sidebarRect.top, 12);
         expect(sidebarRect.bottom - surfaceRect.bottom, 12);
-        final surface = tester.widget<Material>(sidebarSurface);
-        expect(surface.color, Theme.of(tester.element(sidebar)).shell.floating);
         expect(
-          (surface.shape! as RoundedRectangleBorder).borderRadius,
-          BorderRadius.circular(18),
+          tester.widget<SingleChildScrollView>(sidebarSurface).padding,
+          const EdgeInsets.fromLTRB(12, 12, 12, 16),
         );
         expect(titleRect.right, lessThanOrEqualTo(moreRect.left));
         expect(shareRect.right, lessThanOrEqualTo(bookmarkRect.left));

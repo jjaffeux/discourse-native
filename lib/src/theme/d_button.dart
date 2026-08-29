@@ -311,6 +311,7 @@ class DButton extends StatelessWidget {
     this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
+    this.alignment = Alignment.center,
   }) : _iconOnly = false;
 
   const DButton.iconOnly({
@@ -325,6 +326,7 @@ class DButton extends StatelessWidget {
     this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
+    this.alignment = Alignment.center,
   }) : label = const SizedBox.shrink(),
        loadingLabel = null,
        // The public constructor keeps this non-nullable for icon-only use.
@@ -347,6 +349,7 @@ class DButton extends StatelessWidget {
   final String? semanticLabel;
   final FocusNode? focusNode;
   final bool autofocus;
+  final AlignmentGeometry alignment;
   final bool _iconOnly;
 
   static const double minimumDimension = 48;
@@ -438,7 +441,7 @@ class DButton extends StatelessWidget {
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       splashFactory: NoSplash.splashFactory,
       mouseCursor: WidgetStateMouseCursor.clickable,
-      alignment: Alignment.center,
+      alignment: alignment,
       backgroundBuilder: (context, states, child) {
         if (!states.contains(WidgetState.focused)) return child!;
         return DecoratedBox(
