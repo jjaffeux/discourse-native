@@ -4,6 +4,7 @@ import 'package:html/dom.dart' as dom;
 import '../../shell/avatar_image.dart';
 import '../../shell/cooked_dom.dart';
 import '../../shell/cooked_html.dart';
+import '../../shell/inline_action.dart';
 import '../../shell/open_link.dart';
 import '../../shell/quote_panel.dart';
 import '../../shell/site_url.dart';
@@ -318,14 +319,11 @@ class _TranscriptLink extends StatelessWidget {
     final text = Text(label, style: style);
     if (href == null) return text;
 
-    return Semantics(
-      link: true,
-      label: label,
-      child: InkWell(
-        onTap: () => openLink(context, href!, siteUrl: siteUrl),
-        borderRadius: BorderRadius.circular(2),
-        child: ExcludeSemantics(child: text),
-      ),
+    return InlineAction.link(
+      onTap: () => openLink(context, href!, siteUrl: siteUrl),
+      semanticLabel: label,
+      excludeChildSemantics: true,
+      child: text,
     );
   }
 }

@@ -13,6 +13,7 @@ import 'anchored_layout.dart';
 import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'external_link.dart';
+import 'inline_action.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_menu_message.dart';
@@ -31,7 +32,7 @@ class UserCardTarget extends StatelessWidget {
     required this.child,
     this.siteUrl,
     this.semanticLabel,
-  }) : _backgroundFeedback = true;
+  });
 
   /// An avatar target that only switches to the hand cursor under a pointer.
   ///
@@ -42,42 +43,27 @@ class UserCardTarget extends StatelessWidget {
     required this.child,
     this.siteUrl,
     this.semanticLabel,
-  }) : _backgroundFeedback = false;
+  });
 
   final String username;
   final Widget child;
   final String? siteUrl;
   final String? semanticLabel;
-  final bool _backgroundFeedback;
 
   @override
   Widget build(BuildContext context) {
     if (username.isEmpty) return child;
-    final theme = Theme.of(context);
 
     void open() => unawaited(
       showUserCard(context: context, username: username, siteUrl: siteUrl),
     );
 
-    return Semantics(
-      container: true,
-      button: true,
-      label: semanticLabel ?? 'View profile for @$username',
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          mouseCursor: SystemMouseCursors.click,
-          borderRadius: BorderRadius.circular(4),
-          hoverColor: _backgroundFeedback
-              ? theme.shell.hover
-              : Colors.transparent,
-          focusColor: theme.shell.hover,
-          highlightColor: _backgroundFeedback ? null : Colors.transparent,
-          splashColor: _backgroundFeedback ? null : Colors.transparent,
-          onTap: open,
-          child: ExcludeSemantics(child: child),
-        ),
-      ),
+    return InlineAction(
+      onTap: open,
+      semanticLabel: semanticLabel ?? 'View profile for @$username',
+      excludeChildSemantics: true,
+      borderRadius: BorderRadius.circular(4),
+      child: child,
     );
   }
 }
@@ -713,7 +699,12 @@ class _CardDetail extends StatelessWidget {
       ],
     );
     if (onTap == null) return child;
-    return InkWell(onTap: onTap, child: child);
+    return InlineAction.link(
+      onTap: onTap!,
+      semanticLabel: label,
+      excludeChildSemantics: true,
+      child: child,
+    );
   }
 }
 

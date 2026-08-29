@@ -237,6 +237,11 @@ void main() {
           );
           expect(ink, findsOneWidget);
           expect(
+            tester.widget<InkWell>(ink).mouseCursor,
+            SystemMouseCursors.click,
+          );
+          expect(tester.widget<InkWell>(ink).hoverColor, Colors.transparent);
+          expect(
             tester.widget<InkWell>(ink).focusColor,
             Theme.of(tester.element(target)).shell.hover,
           );
