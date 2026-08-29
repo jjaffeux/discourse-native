@@ -4411,12 +4411,35 @@ void main() {
           const Size.square(9),
         );
         for (final tag in tags) {
+          final tagPill = find.byKey(
+            ValueKey(('topic-sidebar-tag', tag.name)),
+          );
           expect(
             find.descendant(
               of: properties,
-              matching: find.byKey(ValueKey(('topic-sidebar-tag', tag.name))),
+              matching: tagPill,
             ),
             findsOneWidget,
+          );
+          final tagText = tester.widget<Text>(
+            find.descendant(of: tagPill, matching: find.text(tag.name)),
+          );
+          expect(
+            tagText.style?.fontSize,
+            Theme.of(tester.element(tagPill)).textTheme.labelSmall?.fontSize,
+          );
+          expect(
+            find.descendant(
+              of: tagPill,
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is Container &&
+                    widget.decoration is BoxDecoration &&
+                    (widget.decoration! as BoxDecoration).shape ==
+                        BoxShape.circle,
+              ),
+            ),
+            findsNothing,
           );
         }
         expect(
