@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_tooltip.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -411,6 +412,24 @@ void main() {
         theme.dropdownMenuTheme.menuStyle!.backgroundColor!.resolve({}),
         theme.shell.floating,
       );
+    }
+  });
+
+  test('tooltips use the floating surface and readable app typography', () {
+    for (final theme in [AppTheme.light, AppTheme.dark]) {
+      final tooltip = theme.tooltipTheme;
+      final decoration = tooltip.decoration! as BoxDecoration;
+
+      expect(tooltip.constraints, DTooltip.defaultConstraints);
+      expect(tooltip.padding, DTooltip.defaultPadding);
+      expect(tooltip.margin, DTooltip.defaultMargin);
+      expect(tooltip.verticalOffset, DTooltip.defaultVerticalOffset);
+      expect(tooltip.textStyle?.fontSize, theme.textTheme.bodyMedium?.fontSize);
+      expect(tooltip.textStyle?.color, theme.colorScheme.onSurface);
+      expect(decoration.color, theme.shell.floating);
+      expect(decoration.border, Border.all(color: theme.shell.divider));
+      expect(decoration.borderRadius, BorderRadius.circular(10));
+      expect(decoration.boxShadow, isNotEmpty);
     }
   });
 

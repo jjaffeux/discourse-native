@@ -1,6 +1,8 @@
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
+import 'package:discourse_native/src/theme/d_tooltip.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -121,6 +123,38 @@ void main() {
         SystemMouseCursors.basic,
       );
     }
+  });
+
+  testWidgets('shortcut tooltips render platform keycaps', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+        home: const Scaffold(
+          body: Center(
+            child: DButton(
+              label: Text('Reply'),
+              tooltip: 'Reply to this topic',
+              shortcut: SingleActivator(LogicalKeyboardKey.keyR, shift: true),
+              onPressed: _noop,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final tooltip = find.byType(RawTooltip);
+    expect(
+      tester.widget<RawTooltip>(tooltip).semanticsTooltip,
+      'Reply to this topic',
+    );
+
+    tester.state<RawTooltipState>(tooltip).ensureTooltipVisible();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+
+    expect(find.byType(DKbd), findsNWidgets(2));
+    expect(find.text('⇧'), findsOneWidget);
+    expect(find.text('R'), findsOneWidget);
   });
 
   testWidgets('loading labels keep progress visible on text buttons', (

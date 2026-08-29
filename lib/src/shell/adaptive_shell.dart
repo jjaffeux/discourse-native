@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../app_shortcuts.dart';
 import '../data/diagnostics_panel_width_store.dart';
 import '../data/sidebar_width_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
@@ -112,6 +113,18 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     if (event is! KeyDownEvent) return false;
 
     final keyboard = HardwareKeyboard.instance;
+    if (topicReplyShortcut.accepts(event, keyboard)) {
+      final controller = ShellScope.read(context);
+      if (controller.rootMode != ShellRootMode.forum ||
+          controller.currentContent?.isTopic != true ||
+          !controller.canReplyHere ||
+          _editableTextHasFocus) {
+        return false;
+      }
+      controller.openReply();
+      return true;
+    }
+
     final usesMetaModifier = defaultTargetPlatform == TargetPlatform.macOS;
     final modifierPressed = usesMetaModifier
         ? keyboard.isMetaPressed
@@ -162,6 +175,13 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
     controller.selectTab(tabs[tabIndex].id);
     return true;
+  }
+
+  bool get _editableTextHasFocus {
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    if (focusContext == null) return false;
+    return focusContext.widget is EditableText ||
+        focusContext.findAncestorWidgetOfExactType<EditableText>() != null;
   }
 
   Future<void> _restoreDiagnosticsWidth() async {
