@@ -82,6 +82,7 @@ import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/user_activity.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
@@ -6153,6 +6154,51 @@ void main() {
 
       expect(api.topicsOpened, [7, 9]);
       expect(renderedText('Related topic body'), findsOneWidget);
+    });
+
+    testWidgets('hides a lone recommendation tab and compacts topic titles', (
+      tester,
+    ) async {
+      const recommendations = TopicRecommendations(
+        sources: [
+          TopicRecommendationSource(
+            definition: coreSuggestedTopicRecommendationSource,
+            topics: [
+              Topic(
+                id: 8,
+                title: 'A compact suggested topic',
+                slug: 'a-compact-suggested-topic',
+              ),
+            ],
+          ),
+          TopicRecommendationSource(
+            definition: discourseAiRelatedTopicRecommendationSource,
+          ),
+        ],
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(recommendations: recommendations)},
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('More topics'), findsOneWidget);
+      expect(find.text('Suggested'), findsNothing);
+      final compactTitle = tester.widget<TopicTitle>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is TopicTitle &&
+              widget.title == 'A compact suggested topic',
+        ),
+      );
+      expect(compactTitle.style?.fontSize, DiscourseTypography.base);
+      expect(
+        compactTitle.style?.fontSize,
+        lessThan(DiscourseTypography.fontUp1),
+      );
     });
 
     testWidgets('omits More topics when every source is empty', (tester) async {
