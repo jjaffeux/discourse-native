@@ -553,10 +553,10 @@ Medium and compact layouts keep the same controls available through a transient
 right-side overlay instead of shrinking the reading column.
 
 When core grants `can_edit`, the category value becomes an action and opens a
-focused topic-category picker. `can_edit_tags` does the same for Tags with
-the current selection. Topics without the corresponding permission keep the
-same read-only property, so the sidebar never implies a write the site will
-reject.
+focused topic-category picker. Tags are editable when core grants either that
+whole-topic permission or the narrower `can_edit_tags` capability. Topics
+without the corresponding permission keep the same read-only property, so the
+sidebar never implies a write the site will reject.
 
 Topic-list rows carry `last_read_post_number` and `highest_post_number`. Like
 Discourse's web client, an unread row opens at `last_read_post_number + 1`,
