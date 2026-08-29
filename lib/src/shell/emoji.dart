@@ -108,14 +108,14 @@ class _EmojiImageState extends State<EmojiImage> {
   }
 }
 
-/// How much bigger than the prose an emoji is drawn.
+/// How large an inline emoji is relative to the surrounding prose.
 ///
-/// Discourse's stylesheet fixes `img.emoji` at 20px against a 15px body. Here
-/// the surrounding style varies — a post is `bodyMedium`, an onebox body and a
-/// user card bio are `bodySmall` — so the ratio is kept rather than the pixels,
-/// the way [InlineCode] keeps `0.875`. Public because the composer draws the
-/// same artwork over a shortcode someone is typing, and the two must agree.
-const double emojiScale = 1.35;
+/// Discourse's stylesheet sizes `img.emoji` at `1em`. Here the surrounding
+/// style varies — a post is `bodyMedium`, an onebox body and a user card bio
+/// are `bodySmall` — so the ratio is kept rather than a pixel size, the way
+/// [InlineCode] keeps `0.875`. Public because the composer draws the same
+/// artwork over a shortcode someone is typing, and the two must agree.
+const double emojiScale = 1;
 
 /// Hands `<img class="emoji">` to [EmojiImage], for
 /// [HtmlWidget.customWidgetBuilder].
