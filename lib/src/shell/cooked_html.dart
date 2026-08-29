@@ -152,6 +152,7 @@ class CookedHtml extends StatelessWidget {
   static Map<String, String>? _customStyles(
     dom.Element element,
     bool compactParagraphs,
+    String horizontalRuleColor,
     String? insertedBackground,
     String? deletedBackground,
   ) {
@@ -159,6 +160,13 @@ class CookedHtml extends StatelessWidget {
 
     if (element.localName == 'a') {
       styles['text-decoration'] = 'none';
+    }
+
+    // Core draws `<hr>` with `--content-border-color`. HtmlWidget's default
+    // border has no explicit colour, so it inherits the foreground text colour
+    // and becomes much more prominent, especially in dark themes.
+    if (element.localName == 'hr') {
+      styles['border-top'] = '1px solid $horizontalRuleColor';
     }
 
     // `.chat-cooked > p`: nested paragraphs retain their ordinary cooked
@@ -195,6 +203,7 @@ class CookedHtml extends StatelessWidget {
     final theme = Theme.of(context);
     final style = textStyle ?? theme.textTheme.bodyMedium;
     final surface = theme.colorScheme.surface;
+    final horizontalRuleColor = _cssColor(theme.shell.divider);
     final insertedBackground = revisionDiff
         ? _cssColor(
             Color.alphaBlend(
@@ -245,6 +254,7 @@ class CookedHtml extends StatelessWidget {
         customStylesBuilder: (element) => _customStyles(
           element,
           compactParagraphs,
+          horizontalRuleColor,
           insertedBackground,
           deletedBackground,
         ),
@@ -259,6 +269,7 @@ class CookedHtml extends StatelessWidget {
           resolvedRegistry,
           compactParagraphs,
           revisionDiff,
+          horizontalRuleColor,
           insertedBackground,
           deletedBackground,
           mentionedUserStatuses,

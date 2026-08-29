@@ -211,6 +211,19 @@ void main() {
     expect(styles(paragraphs.last), {'margin': '0.5em 0 0.1em'});
   });
 
+  testWidgets('horizontal rules use Discourse content border color', (
+    tester,
+  ) async {
+    const html = '<p>Before</p><hr><p>After</p>';
+    await pumpCooked(tester, html);
+
+    final renderer = tester.widget<HtmlWidget>(find.byType(HtmlWidget));
+    final styles = renderer.customStylesBuilder!;
+    final rule = html_parser.parseFragment(html).querySelector('hr')!;
+
+    expect(styles(rule), {'border-top': '1px solid #2b2e35'});
+  });
+
   testWidgets('revision diff markers receive insert and delete backgrounds', (
     tester,
   ) async {
