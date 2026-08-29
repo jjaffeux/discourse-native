@@ -4568,6 +4568,14 @@ class ShellController extends FrameSafeNotifier
     final boundedBatch = batchSize.clamp(1, TopicDetail.maximumInitialPosts);
     final pending = _pendingPostIds(instance.url, detail);
     if (pending.isEmpty) return;
+    final requestIds = pending.take(boundedBatch).toList();
+    // Suggestions are a dynamic query, not immutable topic data. Asking for
+    // them with every post window can replace a useful snapshot with a later
+    // empty answer and make the More topics card disappear while the reader
+    // is still in the topic. Resolve them only when they are not already in
+    // hand and this request reaches the end of the stream.
+    final resolveRecommendations =
+        detail.recommendations == null && requestIds.length == pending.length;
     final lease = lifecycle.capture(instance.url);
     final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
 
@@ -4580,12 +4588,22 @@ class ShellController extends FrameSafeNotifier
         () => authenticator.apiKeyFor(instance.url),
       );
       if (credential == null || !lease.isCurrent) return;
-      final page = await api.topicPosts(
-        siteUrl: instance.url,
-        topicId: topicId,
-        ids: pending.take(boundedBatch).toList(),
-        apiKey: credential.value,
-      );
+      final page = resolveRecommendations
+          ? await api.topicPosts(
+              siteUrl: instance.url,
+              topicId: topicId,
+              ids: requestIds,
+              apiKey: credential.value,
+            )
+          : (
+              posts: await api.posts(
+                siteUrl: instance.url,
+                topicId: topicId,
+                ids: requestIds,
+                apiKey: credential.value,
+              ),
+              recommendations: null,
+            );
       lease.commit(() {
         _putTopicPosts(
           instance.url,
@@ -4597,7 +4615,12 @@ class ShellController extends FrameSafeNotifier
           store.update<TopicDetail>(
             instance.url,
             topicId,
-            (detail) => detail.withRecommendations(recommendations),
+            // A topic refetch may have supplied a snapshot while this post
+            // page was in flight. Paging only fills an unresolved value; it
+            // never replaces a recommendation set that arrived later.
+            (detail) => detail.recommendations == null
+                ? detail.withRecommendations(recommendations)
+                : detail,
           );
         }
       });
