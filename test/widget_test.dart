@@ -4692,6 +4692,10 @@ void main() {
           tester.getSize(addTag).width,
           lessThan(tester.getSize(tagsProperty).width * 0.75),
         );
+        expect(
+          tester.getCenter(find.text('Tags')).dy,
+          closeTo(tester.getCenter(addTag).dy, 1),
+        );
 
         final tagsRect = tester.getRect(tagsProperty);
         await tester.tapAt(Offset(tagsRect.left + 12, tagsRect.center.dy));

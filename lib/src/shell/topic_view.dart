@@ -2805,37 +2805,43 @@ class _EditableEmptyTopicTags extends StatelessWidget {
     const shape = StadiumBorder();
     return Align(
       alignment: Alignment.centerLeft,
-      child: Tooltip(
-        message: saving ? 'Saving topic tags' : 'Add tag',
-        child: Material(
-          color: theme.colorScheme.surfaceContainerHigh,
-          shape: shape,
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            key: const ValueKey('topic-sidebar-add-tag'),
-            onTap: onTap,
-            mouseCursor: onTap == null
-                ? MouseCursor.defer
-                : SystemMouseCursors.click,
-            customBorder: shape,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (saving)
-                    const SizedBox.square(
-                      dimension: 11,
-                      child: CircularProgressIndicator(strokeWidth: 1.5),
-                    )
-                  else
-                    DIcon(DIcons.tag, size: 11, color: color),
-                  const SizedBox(width: 4),
-                  Text(
-                    saving ? 'Saving…' : 'Add tag',
-                    style: theme.textTheme.labelSmall?.copyWith(color: color),
-                  ),
-                ],
+      child: Padding(
+        padding: const EdgeInsets.only(top: 3),
+        child: Tooltip(
+          message: saving ? 'Saving topic tags' : 'Add tag',
+          child: Material(
+            color: theme.colorScheme.surfaceContainerHigh,
+            shape: shape,
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: const ValueKey('topic-sidebar-add-tag'),
+              onTap: onTap,
+              mouseCursor: onTap == null
+                  ? MouseCursor.defer
+                  : SystemMouseCursors.click,
+              customBorder: shape,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 2,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (saving)
+                      const SizedBox.square(
+                        dimension: 11,
+                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                      )
+                    else
+                      DIcon(DIcons.tag, size: 11, color: color),
+                    const SizedBox(width: 4),
+                    Text(
+                      saving ? 'Saving…' : 'Add tag',
+                      style: theme.textTheme.labelSmall?.copyWith(color: color),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
