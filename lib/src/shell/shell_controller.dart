@@ -3547,6 +3547,10 @@ class ShellController extends FrameSafeNotifier
 
   void openSearchResult(SearchPostHit hit) {
     search.clear();
+    if (currentContent?.topicId == hit.topicId) {
+      openCurrentTopicPost(hit.postNumber, loadAroundPost: true);
+      return;
+    }
     _openTopic(
       hit.topicId,
       hit.topicSlug,
