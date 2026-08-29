@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_picker.dart';
+import 'platform.dart';
 import 'shell_scope.dart';
 
 typedef TopicTagMenuAnchorBuilder =
@@ -122,6 +122,8 @@ Future<List<TopicTag>?> showTopicTagPicker({
     title: 'Tags',
     barrierLabel: 'Dismiss tag picker',
     popoverKey: const ValueKey('topic-tag-picker-popover'),
+    popoverWidth: 280,
+    popoverPadding: EdgeInsets.zero,
     builder: picker,
   );
 }
@@ -285,6 +287,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final compact = !context.isTouch;
     final newTag = _newTag;
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -294,22 +297,38 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
           key: const ValueKey('topic-tag-picker-query'),
           controller: _query,
           autofocus: true,
+          style: compact ? theme.textTheme.bodySmall : null,
           textInputAction: TextInputAction.done,
           onChanged: (value) {
             _changed(value);
             setState(() {});
           },
           onSubmitted: (_) => _submitQuery(),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'Add tags…',
             border: InputBorder.none,
+            isDense: compact,
+            contentPadding: compact
+                ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
+                : null,
           ),
         ),
-        Divider(height: 1, color: theme.shell.divider),
+        Divider(
+          key: const ValueKey('topic-tag-picker-divider'),
+          height: 1,
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.14),
+        ),
         if (_loading)
-          const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: CircularProgressIndicator.adaptive()),
+          Padding(
+            padding: EdgeInsets.all(compact ? 14 : 24),
+            child: Center(
+              child: compact
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                    )
+                  : const CircularProgressIndicator.adaptive(),
+            ),
           )
         else ...[
           if (_result.explanation case final message?)
@@ -326,6 +345,14 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
             ListTile(
               key: const ValueKey('topic-tag-picker-create'),
               dense: true,
+              visualDensity: compact ? VisualDensity.compact : null,
+              minTileHeight: compact ? 36 : null,
+              minLeadingWidth: compact ? 16 : null,
+              horizontalTitleGap: compact ? 8 : null,
+              contentPadding: compact
+                  ? const EdgeInsets.symmetric(horizontal: 12)
+                  : null,
+              titleTextStyle: compact ? theme.textTheme.bodySmall : null,
               leading: const DIcon(DIcons.plus, size: 16),
               title: Text('Create new tag: “${newTag.name}”'),
               onTap: () => _choose(newTag),
@@ -334,6 +361,13 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
             ListTile(
               key: ValueKey(('topic-tag-picker-option', tag.name)),
               dense: true,
+              visualDensity: compact ? VisualDensity.compact : null,
+              minTileHeight: compact ? 36 : null,
+              contentPadding: compact
+                  ? const EdgeInsets.symmetric(horizontal: 12)
+                  : null,
+              titleTextStyle: compact ? theme.textTheme.bodySmall : null,
+              subtitleTextStyle: compact ? theme.textTheme.labelSmall : null,
               enabled: !tag.disabled && (_selected(tag) || !_atMaximum),
               title: Text(tag.name),
               subtitle: tag.disabledReason == null

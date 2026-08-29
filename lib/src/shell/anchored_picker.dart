@@ -17,6 +17,8 @@ Future<T?> showAnchoredPicker<T>({
   required String barrierLabel,
   required Key popoverKey,
   required WidgetBuilder builder,
+  double popoverWidth = _AnchoredPickerSurface.defaultWidth,
+  EdgeInsetsGeometry popoverPadding = const EdgeInsets.all(10),
 }) {
   if (context.isTouch) {
     return showShellSheet<T>(
@@ -58,7 +60,7 @@ Future<T?> showAnchoredPicker<T>({
           CustomSingleChildLayout(
             delegate: AnchoredLayout(
               anchor: anchor,
-              maxWidth: _AnchoredPickerSurface.width,
+              maxWidth: popoverWidth,
               gap: 4,
               margin: 10,
             ),
@@ -67,6 +69,8 @@ Future<T?> showAnchoredPicker<T>({
               alignment: alignment,
               child: _AnchoredPickerSurface(
                 key: popoverKey,
+                width: popoverWidth,
+                padding: popoverPadding,
                 child: builder(routeContext),
               ),
             ),
@@ -105,10 +109,17 @@ class _AnchoredPickerTransition extends StatelessWidget {
 }
 
 class _AnchoredPickerSurface extends StatelessWidget {
-  const _AnchoredPickerSurface({super.key, required this.child});
+  const _AnchoredPickerSurface({
+    super.key,
+    required this.width,
+    required this.padding,
+    required this.child,
+  });
 
-  static const double width = 360;
+  static const double defaultWidth = 360;
 
+  final double width;
+  final EdgeInsetsGeometry padding;
   final Widget child;
 
   @override
@@ -128,10 +139,7 @@ class _AnchoredPickerSurface extends StatelessWidget {
           border: Border.all(color: theme.shell.divider),
           borderRadius: radius,
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(10),
-          child: child,
-        ),
+        child: SingleChildScrollView(padding: padding, child: child),
       ),
     );
   }

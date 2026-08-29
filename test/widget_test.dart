@@ -4896,6 +4896,20 @@ void main() {
 
         final picker = find.byKey(const ValueKey('topic-tag-picker-popover'));
         expect(picker, findsOneWidget);
+        expect(tester.getSize(picker).width, 280);
+
+        final query = find.byKey(const ValueKey('topic-tag-picker-query'));
+        final queryWidget = tester.widget<TextField>(query);
+        expect(queryWidget.style?.fontSize, DiscourseTypography.fontDown1);
+        expect(tester.getSize(query).height, lessThan(40));
+
+        final divider = find.descendant(
+          of: picker,
+          matching: find.byKey(const ValueKey('topic-tag-picker-divider')),
+        );
+        expect(divider, findsOneWidget);
+        expect(tester.getSize(divider).width, tester.getSize(picker).width - 2);
+
         expect(
           find.descendant(of: picker, matching: find.dIcon(DIcons.tag)),
           findsNothing,
@@ -4909,6 +4923,19 @@ void main() {
             ),
           ),
           findsOneWidget,
+        );
+        final mobileOption = tester.widget<ListTile>(
+          find.descendant(
+            of: picker,
+            matching: find.byKey(
+              const ValueKey(('topic-tag-picker-option', 'mobile')),
+            ),
+          ),
+        );
+        expect(mobileOption.minTileHeight, 36);
+        expect(
+          mobileOption.titleTextStyle?.fontSize,
+          DiscourseTypography.fontDown1,
         );
         await tester.tap(
           find.descendant(
