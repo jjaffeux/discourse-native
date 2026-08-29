@@ -284,6 +284,17 @@ final class PluginContainingTopic {
   final int id;
   final String slug;
   final bool archived;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PluginContainingTopic &&
+          id == other.id &&
+          slug == other.slug &&
+          archived == other.archived;
+
+  @override
+  int get hashCode => Object.hash(id, slug, archived);
 }
 
 /// Owner-scoped rendering state for a plugin marker in a post body.

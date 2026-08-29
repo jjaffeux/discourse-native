@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:discourse_native/src/data/site_image_repository.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -9,17 +12,334 @@ import 'package:discourse_native/src/plugins/discourse_lazy_videos/discourse_laz
 import 'package:discourse_native/src/shell/loading_skeleton.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
 
 void main() {
+  testWidgets(
+    'an image relayout cancels a read receipt queued for posts it covered',
+    (tester) async {
+      final site = instance('meta.example');
+      final imageResponse = Completer<http.Response>();
+      final lifecycle = SiteLifecycle();
+      final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+      final siteImages = SiteImageRepository(
+        credentials: authenticator,
+        lifecycle: lifecycle,
+        client: MockClient((_) => imageResponse.future),
+      );
+      final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([site]),
+        api: api,
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        lifecycle: lifecycle,
+        siteImages: siteImages,
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      controller.store
+        ..put(
+          site.url,
+          const TopicDetail(
+            id: 1,
+            title: 'One',
+            stream: [1, 2, 3, 4],
+            postsCount: 4,
+          ),
+        )
+        ..putAll(site.url, [
+          const Post(
+            id: 1,
+            postNumber: 1,
+            username: 'sam',
+            cooked:
+                '<p>Post 1</p><img style="display:block" '
+                'src="/uploads/tall.png" alt="Tall image">',
+          ),
+          for (var id = 2; id <= 4; id++)
+            Post(
+              id: id,
+              postNumber: id,
+              username: 'sam',
+              cooked: '<p>Post $id</p>',
+            ),
+        ])
+        ..put(
+          site.url,
+          const Topic(
+            id: 1,
+            title: 'One',
+            slug: 'one',
+            unreadPosts: 4,
+            highestPostNumber: 4,
+          ),
+        );
+      controller.pushContent(
+        ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+      );
+
+      await tester.pumpWidget(_topicView(controller));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final list = tester.widget<SuperListView>(find.byType(SuperListView));
+      expect(_lastVisiblePost(list), greaterThan(1));
+      expect(api.topicReadsRecorded, isEmpty);
+
+      final siteImage = tester.widget<SiteImage>(find.byType(SiteImage));
+      final ImageProvider<Object> imageProvider = siteImage.cacheWidth == null
+          ? MemoryImage(_tallPng)
+          : ResizeImage(
+              MemoryImage(_tallPng),
+              width: siteImage.cacheWidth,
+              policy: ResizeImagePolicy.fit,
+            );
+      await tester.runAsync(
+        () => precacheImage(
+          imageProvider,
+          tester.element(find.byType(TopicView)),
+        ),
+      );
+      imageResponse.complete(
+        http.Response.bytes(
+          _tallPng,
+          200,
+          headers: const {'content-type': 'image/png'},
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final cookedImage = find.descendant(
+        of: find.byType(SiteImage),
+        matching: find.byType(Image),
+      );
+      expect(tester.getSize(cookedImage).height, greaterThan(600));
+      expect(_lastVisiblePost(list), 1);
+
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(api.topicReadsRecorded, isEmpty);
+    },
+  );
+
+  testWidgets('late media reapplies a saved position inside a long post', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final imageResponse = Completer<http.Response>();
+    final lifecycle = SiteLifecycle();
+    final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+    final siteImages = SiteImageRepository(
+      credentials: authenticator,
+      lifecycle: lifecycle,
+      client: MockClient((_) => imageResponse.future),
+    );
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([site]),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      authenticator: authenticator,
+      drafts: FakeDraftStore(),
+      lifecycle: lifecycle,
+      siteImages: siteImages,
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        const TopicDetail(id: 1, title: 'One', stream: [1], postsCount: 1),
+      )
+      ..put(
+        site.url,
+        const Post(
+          id: 1,
+          postNumber: 1,
+          username: 'sam',
+          cooked:
+              '<p>Before</p><img style="display:block" '
+              'src="/uploads/tall.png" alt="Tall image"><p>After</p>',
+        ),
+      );
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+    controller.saveTopicScrollPost(1, 1, viewportOffset: -600);
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pump();
+    await tester.pump();
+    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    expect(list.controller!.position.pixels, 0);
+
+    final siteImage = tester.widget<SiteImage>(find.byType(SiteImage));
+    final ImageProvider<Object> imageProvider = siteImage.cacheWidth == null
+        ? MemoryImage(_tallPng)
+        : ResizeImage(
+            MemoryImage(_tallPng),
+            width: siteImage.cacheWidth,
+            policy: ResizeImagePolicy.fit,
+          );
+    await tester.runAsync(
+      () =>
+          precacheImage(imageProvider, tester.element(find.byType(TopicView))),
+    );
+    imageResponse.complete(
+      http.Response.bytes(
+        _tallPng,
+        200,
+        headers: const {'content-type': 'image/png'},
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.pump();
+
+    expect(list.controller!.position.pixels, closeTo(600, 1));
+  });
+
+  testWidgets('a glimpse of a tall final post does not mark it read', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+    final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([site]),
+      api: api,
+      authenticator: authenticator,
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        const TopicDetail(id: 1, title: 'One', stream: [1, 2], postsCount: 2),
+      )
+      ..putAll(site.url, [
+        Post(
+          id: 1,
+          postNumber: 1,
+          username: 'sam',
+          cooked: List.filled(8, '<p>First post</p>').join(),
+        ),
+        Post(
+          id: 2,
+          postNumber: 2,
+          username: 'sam',
+          cooked: List.filled(100, '<p>Tall final post</p>').join(),
+        ),
+      ]);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    expect(_lastVisiblePost(list), 2);
+    await tester.pump(const Duration(milliseconds: 600));
+
+    expect(api.topicReadsRecorded.last, (topicId: 1, postNumber: 1));
+
+    list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+
+    expect(api.topicReadsRecorded.last, (topicId: 1, postNumber: 2));
+  });
+
+  testWidgets('an around-post replacement invalidates retained extents', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final topicGate = Completer<void>();
+    final replacement = [
+      for (var number = 71; number <= 90; number++)
+        Post(
+          id: number,
+          postNumber: number,
+          username: 'sam',
+          cooked: '<p>Short replacement $number</p>',
+        ),
+    ];
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      topicGate: topicGate,
+      topics: {
+        1: topicPayload(
+          id: 1,
+          title: 'One',
+          posts: replacement,
+          stream: [for (var number = 1; number <= 100; number++) number],
+          postsCount: 100,
+        ),
+      },
+    );
+    final controller = _controller(site, api);
+    addTearDown(controller.dispose);
+    await controller.load();
+    final original = [
+      for (var number = 1; number <= 20; number++)
+        Post(
+          id: number,
+          postNumber: number,
+          username: 'sam',
+          cooked: number == 1
+              ? List.filled(140, '<p>Very tall old first post</p>').join()
+              : '<p>Old post $number</p>',
+        ),
+    ];
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (var number = 1; number <= 100; number++) number],
+          postsCount: 100,
+        ),
+      )
+      ..putAll(site.url, original);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+    controller.openCurrentTopicPost(80, loadAroundPost: true);
+    await tester.pump();
+    await tester.pump();
+    final loadingList = tester.widget<SuperListView>(
+      find.byType(SuperListView),
+    );
+    final loadingKey = loadingList.key;
+    final whileLoading = loadingList.listController!.totalExtent;
+
+    topicGate.complete();
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    expect(find.byKey(const ValueKey(80)), findsOneWidget);
+    expect(list.key, isNot(loadingKey));
+    expect(list.listController!.totalExtent, lessThan(whileLoading / 2));
+  });
+
   testWidgets('scrolling records the latest read post and reopening uses it', (
     tester,
   ) async {
@@ -1556,6 +1876,22 @@ void main() {
     expect(find.byKey(const ValueKey('topic-progress-slider')), findsNothing);
   });
 }
+
+int _lastVisiblePost(SuperListView list) {
+  final range = list.listController!.visibleRange!;
+  final lastPostChild = range.$2.isEven ? range.$2 : range.$2 - 1;
+  return lastPostChild ~/ 2 + 1;
+}
+
+final _tallPng = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAGQAAAPoAQMAAAAStskpAAAAIGNIUk0AAHomAACAhAAA'
+  '+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAADUExURf8AABniCTcAAAAHdElNRQfq'
+  'CB0MKy5KtF8FAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDI2LTA4LTI5VDEyOjQzOjQ2KzAw'
+  'OjAwP6wYkgAAACV0RVh0ZGF0ZTptb2RpZnkAMjAyNi0wOC0yOVQxMjo0Mzo0NiswMDow'
+  'ME7xoC4AAAAodEVYdGRhdGU6dGltZXN0YW1wADIwMjYtMDgtMjlUMTI6NDM6NDYrMDA6'
+  'MDAZ5IHxAAAAJElEQVRo3u3BMQEAAADCoPVPbQhfoAAAAAAAAAAAAAAAAADgNzawAAFD'
+  'bdGrAAAAAElFTkSuQmCC',
+);
 
 Future<
   ({ShellController controller, FakeDiscourseApi api, Completer<void> postGate})

@@ -122,10 +122,12 @@ class LightboxImage {
     final imageTitle = img?.attributes['title'].orNull;
     final anchorTitle = anchor.attributes['title'].orNull;
 
-    final layoutSize = parseSafeImageLayoutSize(
-      img?.attributes['width'],
-      img?.attributes['height'],
-    );
+    final layoutSize =
+        parseSafeImageLayoutSize(
+          img?.attributes['width'],
+          img?.attributes['height'],
+        ) ??
+        parseSafeImageInformationSize(informations?.text);
     return LightboxImage(
       fullSrc: fullSrc,
       thumbnailSrc: img?.attributes['src'].orNull,
@@ -230,6 +232,10 @@ class LightboxThumbnail extends StatelessWidget {
     Widget tile = LightboxTile(
       anchor: anchor,
       image: image,
+      // A standalone post image should never crop authored content. This is
+      // especially important when defensive ratio bounds shorten the reserved
+      // slot for an unusually tall screenshot.
+      fit: BoxFit.contain,
       fillsBox: ratio != null,
       siteUrl: siteUrl,
     );

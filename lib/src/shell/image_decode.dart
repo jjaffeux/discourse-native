@@ -38,6 +38,16 @@ Size? parseSafeImageLayoutSize(String? width, String? height) =>
       double.tryParse(height ?? ''),
     );
 
+/// Parses the leading `1920×1080` (or `1920x1080`) in Discourse's image
+/// information text.
+Size? parseSafeImageInformationSize(String? text) {
+  if (text == null) return null;
+  final dimensions = text.trim().split(' ').first;
+  final parts = dimensions.split(RegExp('x|×'));
+  if (parts.length != 2) return null;
+  return parseSafeImageLayoutSize(parts[0], parts[1]);
+}
+
 /// Converts a logical image bound into the decoder's physical-pixel hint.
 int imagePhysicalPixels(BuildContext context, double logicalPixels) {
   final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);

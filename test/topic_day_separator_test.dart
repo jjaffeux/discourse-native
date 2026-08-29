@@ -86,6 +86,15 @@ void main() {
       findsNothing,
       reason: 'the web rule is strictly greater than the seven-day default',
     );
+
+    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    list.listController!.jumpToItem(
+      index: 2 * 2,
+      scrollController: list.controller!,
+      alignment: 1,
+    );
+    await tester.pumpAndSettle();
+
     expect(find.byKey(const ValueKey(('topic-time-gap', 3))), findsOneWidget);
     expect(find.text('8 days later'), findsOneWidget);
   });

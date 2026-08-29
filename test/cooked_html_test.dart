@@ -154,6 +154,9 @@ void main() {
   testWidgets('loads a secure cooked image with the connected account', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
     const siteUrl = 'https://meta.discourse.org';
     final authenticator = FakeAuthenticator()..keys[siteUrl] = 'account-key';
     final lifecycle = SiteLifecycle();
@@ -179,10 +182,25 @@ void main() {
     expect(sent.url, Uri.parse('$siteUrl/secure-uploads/original/image.png'));
     expect(sent.headers['User-Api-Key'], 'account-key');
     expect(sent.headers['User-Api-Client-Id'], 'test-client');
-    expect(
-      tester.widgetList<Image>(find.byType(Image)).map((image) => image.image),
-      contains(isA<MemoryImage>()),
+    final image = tester
+        .widgetList<Image>(find.byType(Image))
+        .firstWhere((image) => image.image is ResizeImage);
+    final provider = image.image as ResizeImage;
+    expect(provider.width, 800);
+    expect(provider.imageProvider, isA<MemoryImage>());
+  });
+
+  test('containing topics have value semantics for HTML rebuild triggers', () {
+    final id = int.parse('1');
+    final first = PluginContainingTopic(id: id, slug: 'topic', archived: false);
+    final second = PluginContainingTopic(
+      id: id,
+      slug: 'topic',
+      archived: false,
     );
+
+    expect(first, second);
+    expect(first.hashCode, second.hashCode);
   });
 
   testWidgets('chat paragraphs use Discourse compact outer margins', (
