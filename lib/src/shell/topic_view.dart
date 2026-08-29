@@ -1094,7 +1094,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                       right: 0,
                       bottom: 0,
                       child: _TopicSidebarPanel(
-                        elevation: 8,
                         width: _sidebarOverlayWidth(context),
                         siteUrl: snapshot.siteUrl,
                         topic: null,
@@ -1434,7 +1433,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                   right: 0,
                   bottom: 0,
                   child: _TopicSidebarPanel(
-                    elevation: 8,
                     width: _sidebarOverlayWidth(context),
                     siteUrl: siteUrl,
                     topic: snapshot.topic!,
@@ -2090,7 +2088,6 @@ class _TopicSidebarPanel extends StatelessWidget {
     required this.canReply,
     required this.registry,
     this.width = dockedWidth,
-    this.elevation = 1,
   }) : assert(recommendations == null || siteUrl != null);
 
   static const double dockedWidth = 344;
@@ -2106,7 +2103,6 @@ class _TopicSidebarPanel extends StatelessWidget {
   final bool canReply;
   final PluginRegistry registry;
   final double width;
-  final double elevation;
 
   @override
   Widget build(BuildContext context) {
@@ -2116,72 +2112,62 @@ class _TopicSidebarPanel extends StatelessWidget {
       width: width,
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Material(
+        child: SingleChildScrollView(
           key: const ValueKey('topic-sidebar-surface'),
-          color: theme.shell.floating,
-          elevation: elevation,
-          shadowColor: theme.shadowColor.withValues(alpha: 0.18),
-          shape: RoundedRectangleBorder(
-            side: BorderSide(color: theme.shell.divider),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _TopicSidebarActions(
-                  siteUrl: siteUrl,
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _TopicSidebarActions(
+                siteUrl: siteUrl,
+                topic: topic,
+                canReply: canReply,
+                registry: registry,
+                onCollapsed: onCollapsed,
+              ),
+              if (topic case final topic? when siteUrl != null) ...[
+                const SizedBox(height: 12),
+                _TopicPropertiesCard(
+                  siteUrl: siteUrl!,
                   topic: topic,
-                  canReply: canReply,
+                  route: route,
                   registry: registry,
-                  onCollapsed: onCollapsed,
                 ),
-                if (topic case final topic? when siteUrl != null) ...[
-                  const SizedBox(height: 12),
-                  _TopicPropertiesCard(
-                    siteUrl: siteUrl!,
-                    topic: topic,
-                    route: route,
-                    registry: registry,
-                  ),
-                ],
-                if (recommendations?.isNotEmpty == true || loading) ...[
-                  const SizedBox(height: 12),
-                  _TopicSidebarCard(
-                    key: const ValueKey('topic-more-topics-card'),
-                    child: switch (recommendations) {
-                      final recommendations? => Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 13, 14, 8),
-                            child: Text(
-                              'More topics',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          _MoreTopics(
-                            key: const ValueKey(
-                              'topic-sidebar-more-topics-list',
-                            ),
-                            siteUrl: siteUrl!,
-                            recommendations: recommendations,
-                            selected: selected,
-                            onSelected: onSelected,
-                            topPadding: 0,
-                          ),
-                        ],
-                      ),
-                      null => const _MoreTopicsLoadingSkeleton(),
-                    },
-                  ),
-                ],
               ],
-            ),
+              if (recommendations?.isNotEmpty == true || loading) ...[
+                const SizedBox(height: 12),
+                _TopicSidebarCard(
+                  key: const ValueKey('topic-more-topics-card'),
+                  child: switch (recommendations) {
+                    final recommendations? => Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 13, 14, 8),
+                          child: Text(
+                            'More topics',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        _MoreTopics(
+                          key: const ValueKey(
+                            'topic-sidebar-more-topics-list',
+                          ),
+                          siteUrl: siteUrl!,
+                          recommendations: recommendations,
+                          selected: selected,
+                          onSelected: onSelected,
+                          topPadding: 0,
+                        ),
+                      ],
+                    ),
+                    null => const _MoreTopicsLoadingSkeleton(),
+                  },
+                ),
+              ],
+            ],
           ),
         ),
       ),
@@ -2234,6 +2220,7 @@ class _TopicSidebarActions extends StatelessWidget {
         shortcut: topicReplyShortcut,
         variant: DButtonVariant.primary,
         size: DButtonSize.small,
+        alignment: Alignment.centerLeft,
       ),
     );
     return Column(
