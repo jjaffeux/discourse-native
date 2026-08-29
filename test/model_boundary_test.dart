@@ -19,6 +19,28 @@ import 'support/bundled_plugins.dart';
 const siteUrl = 'https://meta.discourse.org';
 
 void main() {
+  test('whole-topic edit permission includes tag editing', () {
+    TopicDetail detail(Map<String, Object?> permissions) => TopicDetail.parse({
+      'id': 7,
+      'title': 'A topic',
+      'post_stream': {
+        'stream': <int>[],
+        'posts': <Object?>[],
+      },
+      'details': permissions,
+    }, siteUrl).detail;
+
+    final editor = detail({'can_edit': true});
+    expect(editor.canEdit, isTrue);
+    expect(editor.canEditTags, isTrue);
+
+    final tagEditor = detail({'can_edit_tags': true});
+    expect(tagEditor.canEdit, isFalse);
+    expect(tagEditor.canEditTags, isTrue);
+
+    expect(detail(const {}).canEditTags, isFalse);
+  });
+
   test('user cards retain plugin-owned serializer records', () {
     final enabled = UserCard.fromJson(
       const {'username': 'sam', 'can_chat_user': true},

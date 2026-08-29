@@ -747,7 +747,11 @@ class TopicDetail with Storable<TopicDetail> {
         // answer — there is no key to post with.
         canCreatePost: details['can_create_post'] == true,
         canEdit: details['can_edit'] == true,
-        canEditTags: details['can_edit_tags'] == true,
+        // Core only emits the narrower capability when the reader cannot edit
+        // the whole topic. A topic editor may edit tags too, so the absent
+        // specialized flag must not turn their sidebar into a read-only one.
+        canEditTags:
+            details['can_edit'] == true || details['can_edit_tags'] == true,
         tags: List.unmodifiable(
           jsonArray(json['tags']).map(TopicTag.parse).whereType<TopicTag>(),
         ),
