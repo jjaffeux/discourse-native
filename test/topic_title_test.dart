@@ -58,6 +58,27 @@ void main() {
     );
   });
 
+  testWidgets('sizes inline emoji to the topic title text', (tester) async {
+    final controller = _controller();
+    addTearDown(controller.dispose);
+    EmojiCache.instance = EmojiCache(
+      client: MockClient((_) async => http.Response('', 404)),
+    );
+    addTearDown(EmojiCache.instance.clear);
+
+    await tester.pumpWidget(
+      _TestTitle(
+        controller: controller,
+        title: 'Announcements :high_voltage:',
+        style: const TextStyle(fontSize: 20),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final emoji = tester.widget<SiteEmojiImage>(find.byType(SiteEmojiImage));
+    expect(emoji.size, 20);
+  });
+
   testWidgets('recognizes adjacent emoji and skin tones', (tester) async {
     final controller = _controller();
     addTearDown(controller.dispose);
@@ -102,17 +123,28 @@ ShellController _controller() => ShellController(
 );
 
 class _TestTitle extends StatelessWidget {
-  const _TestTitle({required this.controller, required this.title});
+  const _TestTitle({
+    required this.controller,
+    required this.title,
+    this.style,
+  });
 
   final ShellController controller;
   final String title;
+  final TextStyle? style;
 
   @override
   Widget build(BuildContext context) => ShellScope(
     controller: controller,
     child: MaterialApp(
       theme: AppTheme.light,
-      home: Scaffold(body: TopicTitle(title, siteUrl: 'https://meta.example')),
+      home: Scaffold(
+        body: TopicTitle(
+          title,
+          siteUrl: 'https://meta.example',
+          style: style,
+        ),
+      ),
     ),
   );
 }
