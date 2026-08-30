@@ -8,12 +8,48 @@ import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
 
 void main() {
+  testWidgets('skips reveal for a sliver child without a layout offset', (
+    tester,
+  ) async {
+    const targetKey = ValueKey('target');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CustomScrollView(
+          slivers: [
+            SliverList.list(
+              children: const [SizedBox(key: targetKey, height: 100)],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final target = tester.renderObject<RenderBox>(find.byKey(targetKey));
+    final viewport = RenderAbstractViewport.of(target);
+    expect(getOffsetToRevealIfLaidOut(viewport, target, 0), isNotNull);
+
+    RenderObject sliverChild = target;
+    while (sliverChild.parent is! RenderSliver) {
+      sliverChild = sliverChild.parent!;
+    }
+    expect(sliverChild.parent, isA<RenderSliverMultiBoxAdaptor>());
+    final parentData =
+        sliverChild.parentData! as SliverMultiBoxAdaptorParentData;
+    final layoutOffset = parentData.layoutOffset;
+    expect(layoutOffset, isNotNull);
+
+    parentData.layoutOffset = null;
+    expect(getOffsetToRevealIfLaidOut(viewport, target, 0), isNull);
+    parentData.layoutOffset = layoutOffset;
+  });
+
   testWidgets('only the rendered date is clickable', (tester) async {
     var taps = 0;
     await tester.pumpWidget(
