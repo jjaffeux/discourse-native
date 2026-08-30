@@ -1025,6 +1025,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   Offset? _pointerDownPosition;
   int _pointerSequence = 0;
   bool _dragging = false;
+  bool _hoveringMention = false;
   ComposerImageBlock? _selectedImage;
   final TextEditingController _imageAlt = TextEditingController();
   final ScrollController _scroll = ScrollController();
@@ -1070,6 +1071,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _pointerDownSyntax = null;
     _pointerDownAfterBlockSyntax = null;
     _pointerDownPosition = null;
+    _hoveringMention = false;
     _selectedImage = null;
     if (identical(oldWidget.composer.text.imageScrollController, _scroll)) {
       oldWidget.composer.text.imageScrollController = null;
@@ -1166,10 +1168,21 @@ class _ComposerEditorState extends State<ComposerEditor> {
     });
   }
 
+  void _updateEditorHover(Offset? globalPosition) {
+    widget.composer.text.updateSyntaxHoverAtGlobalPosition(globalPosition);
+    final hoveringMention = globalPosition != null &&
+        widget.composer.text.isMentionPillAtGlobalPosition(globalPosition);
+    if (_hoveringMention == hoveringMention) return;
+    setState(() => _hoveringMention = hoveringMention);
+  }
+
   Widget _field() => MouseRegion(
-    onHover: (event) =>
-        widget.composer.text.updateSyntaxHoverAtGlobalPosition(event.position),
-    onExit: (_) => widget.composer.text.updateSyntaxHoverAtGlobalPosition(null),
+    key: const ValueKey('composer-editor-pointer'),
+    cursor: _hoveringMention
+        ? SystemMouseCursors.click
+        : MouseCursor.defer,
+    onHover: (event) => _updateEditorHover(event.position),
+    onExit: (_) => _updateEditorHover(null),
     child: Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: _onEditorPointerDown,
