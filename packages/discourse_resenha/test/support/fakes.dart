@@ -48,6 +48,7 @@ import 'package:discourse_native/src/plugin_api/live_channels.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
@@ -582,6 +583,7 @@ class FakeDiscourseApi
     this.pollVoteFailure,
     this.pollVoteGate,
     this.directMessageChannelsByUsername = const {},
+    this.chatDirectMessageSearches = const {},
     this.chatChannelsBySite = const {},
     this.chatChannelsById = const {},
     this.chatChannelUpdateResponse,
@@ -1121,6 +1123,9 @@ class FakeDiscourseApi
   final Map<String, ChatChannel> directMessageChannelsByUsername;
 
   final List<String> directMessageChannelsRequested = [];
+
+  final Map<String, ChatDirectMessageSearchResults> chatDirectMessageSearches;
+  final List<String> chatDirectMessageSearchesRequested = [];
 
   /// Site urls passed to [chatChannels], in order.
   final List<String> chatChannelsRequested = [];
@@ -2734,6 +2739,18 @@ class FakeDiscourseApi
       throw const WriteException(WriteFailure.unreachable);
     }
     return found;
+  }
+
+  @override
+  Future<ChatDirectMessageSearchResults> searchChatDirectMessages({
+    required String siteUrl,
+    required String apiKey,
+    required String term,
+    String? clientId,
+  }) async {
+    chatDirectMessageSearchesRequested.add(term);
+    return chatDirectMessageSearches[term] ??
+        ChatDirectMessageSearchResults(const []);
   }
 
   @override

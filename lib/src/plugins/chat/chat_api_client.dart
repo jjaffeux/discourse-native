@@ -4,6 +4,7 @@ import '../../data/plugin_transport.dart';
 import '../../models/json.dart';
 import 'chat_api.dart';
 import 'chat_channel.dart';
+import 'chat_direct_message_search.dart';
 import 'chat_message.dart';
 import 'chat_pin.dart';
 import 'chat_reactors.dart';
@@ -45,6 +46,32 @@ final class ChatApiClient implements ChatApi {
     body: body,
     clientId: clientId,
   );
+
+  /// People and existing conversations offered by core Chat's new-DM picker.
+  @override
+  Future<ChatDirectMessageSearchResults> searchChatDirectMessages({
+    required String siteUrl,
+    required String apiKey,
+    required String term,
+    String? clientId,
+  }) async {
+    _validateComposerLookupValue(term);
+    final body = await _getObject(
+      Uri.parse('$siteUrl/chat/api/chatables').replace(
+        queryParameters: {
+          'term': term,
+          'include_users': 'true',
+          'include_groups': 'false',
+          'include_category_channels': 'false',
+          'include_direct_message_channels': 'true',
+        },
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return ChatDirectMessageSearchResults.fromJson(body, siteUrl);
+  }
 
   /// Finds or creates a direct-message channel with one user.
   ///

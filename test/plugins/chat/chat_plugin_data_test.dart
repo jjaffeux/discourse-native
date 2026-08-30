@@ -36,6 +36,7 @@ void main() {
       'id': 7,
       'username': 'sam',
       'has_chat_enabled': true,
+      'can_direct_message': true,
       'ignored_users': ['hawk', false, 'kris', null],
       'custom_fields': {'last_chat_channel_id': '42'},
       'user_option': {'chat_header_indicator_preference': 'only_mentions'},
@@ -45,6 +46,7 @@ void main() {
       user.chatCurrentUser,
       const ChatCurrentUser(
         hasChatEnabled: true,
+        canDirectMessage: true,
         headerIndicatorPreference: ChatHeaderIndicatorPreference.onlyMentions,
         lastChannelId: 42,
         ignoredUsernames: ['hawk', 'kris'],
@@ -57,6 +59,7 @@ void main() {
       'username': 'sam',
     }, 'https://forum.example');
     expect(absent.chatCurrentUser?.hasChatEnabled, isFalse);
+    expect(absent.canDirectMessage, isFalse);
   });
 
   test('namespaced settings and current user round-trip without flat keys', () {
@@ -75,6 +78,7 @@ void main() {
       'plugins': {
         chatCurrentUserDataKey.id: const {
           'hasChatEnabled': true,
+          'canDirectMessage': true,
           'headerIndicatorPreference': 'dm_and_mentions',
           'lastChannelId': 17,
           'ignoredUsernames': ['hawk', 'kris'],
@@ -99,6 +103,7 @@ void main() {
     expect(storedUser['plugins'], {
       chatCurrentUserDataKey.id: {
         'hasChatEnabled': true,
+        'canDirectMessage': true,
         'headerIndicatorPreference': 'dm_and_mentions',
         'lastChannelId': 17,
         'ignoredUsernames': ['hawk', 'kris'],
