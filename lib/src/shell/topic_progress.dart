@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import 'shell_controller.dart';
 import 'shell_sheet.dart';
 
@@ -170,23 +171,20 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            OutlinedButton(
+            DButton(
+              label: const Text('First post'),
               onPressed: _jumping ? null : () => unawaited(_jump(1)),
-              child: const Text('First post'),
             ),
-            FilledButton(
+            DButton(
               key: const ValueKey('topic-progress-jump'),
-              onPressed: _jumping ? null : () => unawaited(_jump()),
-              child: _jumping
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                    )
-                  : const Text('Jump'),
+              label: const Text('Jump'),
+              onPressed: () => unawaited(_jump()),
+              variant: DButtonVariant.primary,
+              loading: _jumping,
             ),
-            OutlinedButton(
+            DButton(
+              label: const Text('Latest post'),
               onPressed: _jumping ? null : () => unawaited(_jump(widget.total)),
-              child: const Text('Latest post'),
             ),
           ],
         ),

@@ -19,6 +19,7 @@ import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -2063,6 +2064,25 @@ void main() {
     expect(find.byKey(const ValueKey('topic-progress-slider')), findsOneWidget);
     expect(find.text('First post'), findsOneWidget);
     expect(find.text('Latest post'), findsOneWidget);
+    final actions = ['First post', 'Jump', 'Latest post']
+        .map(
+          (label) => find.ancestor(
+            of: find.text(label),
+            matching: find.byType(DButton),
+          ),
+        )
+        .toList();
+    for (final action in actions) {
+      expect(action, findsOneWidget);
+    }
+    expect(
+      actions.map((action) => tester.widget<DButton>(action).variant),
+      [
+        DButtonVariant.standard,
+        DButtonVariant.primary,
+        DButtonVariant.standard,
+      ],
+    );
 
     await tester.tap(find.text('Latest post'));
     await tester.pumpAndSettle();
