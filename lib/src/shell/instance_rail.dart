@@ -120,6 +120,7 @@ const double _railListPadding = 12;
 const double _railItemExtent = 52;
 const double _railAvatarSize = 44;
 const double _railSourceOpacity = 0.3;
+const double _railInsertionLineOpacity = 0.6;
 const double _railAutoScrollVelocityScalar = 50;
 
 /// Owns one reorder interaction for the whole scrolling forum viewport.
@@ -531,7 +532,9 @@ class _InstanceRailListState extends State<_InstanceRailList> {
                   after:
                       visibleSlot == widget.state.instances.length &&
                       index == widget.state.instances.length - 1,
-                  color: indicatorColor,
+                  color: indicatorColor.withValues(
+                    alpha: _railInsertionLineOpacity,
+                  ),
                   child: _draggableItem(itemContext, index, instance, item),
                 ),
               ),
