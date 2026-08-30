@@ -25,6 +25,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_tooltip.dart';
 import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'inline_action.dart';
@@ -3143,7 +3144,7 @@ class _TopicSidebarActions extends StatelessWidget {
         icon: const DIcon(DIcons.reply, size: 18),
         label: const Text('Reply'),
         tooltip: 'Reply to this topic',
-        shortcut: topicReplyShortcut,
+        shortcut: const DShortcut(topicReplyShortcut),
         variant: DButtonVariant.primary,
         size: DButtonSize.small,
         alignment: Alignment.centerLeft,

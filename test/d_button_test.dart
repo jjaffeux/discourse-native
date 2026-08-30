@@ -134,7 +134,9 @@ void main() {
             child: DButton(
               label: Text('Reply'),
               tooltip: 'Reply to this topic',
-              shortcut: SingleActivator(LogicalKeyboardKey.keyR, shift: true),
+              shortcut: DShortcut(
+                SingleActivator(LogicalKeyboardKey.keyR, shift: true),
+              ),
               onPressed: _noop,
             ),
           ),
@@ -155,6 +157,82 @@ void main() {
     expect(find.byType(DKbd), findsNWidgets(2));
     expect(find.text('⇧'), findsOneWidget);
     expect(find.text('R'), findsOneWidget);
+
+    DKbd keycap(int index) =>
+        tester.widget<DKbd>(find.byKey(ValueKey('shortcut-key-0-$index')));
+
+    expect(keycap(0).highlighted, isFalse);
+    expect(keycap(1).highlighted, isFalse);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    expect(keycap(0).highlighted, isTrue);
+    expect(keycap(1).highlighted, isFalse);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyR);
+    await tester.pump();
+    expect(keycap(0).highlighted, isTrue);
+    expect(keycap(1).highlighted, isTrue);
+
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyR);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    expect(keycap(0).highlighted, isFalse);
+    expect(keycap(1).highlighted, isFalse);
+  });
+
+  testWidgets('shortcut sequences retain completed key highlights', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const Scaffold(
+          body: Center(
+            child: DTooltip(
+              message: 'Open projects',
+              shortcut: DShortcut.sequence(
+                SingleActivator(LogicalKeyboardKey.keyP),
+                [SingleActivator(LogicalKeyboardKey.keyK)],
+              ),
+              child: Text('Projects'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final tooltip = find.byType(RawTooltip);
+    tester.state<RawTooltipState>(tooltip).ensureTooltipVisible();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+
+    DKbd keycap(int step) =>
+        tester.widget<DKbd>(find.byKey(ValueKey('shortcut-key-$step-0')));
+
+    expect(find.byType(DKbd), findsNWidgets(2));
+    expect(keycap(0).highlighted, isFalse);
+    expect(keycap(1).highlighted, isFalse);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyP);
+    await tester.pump();
+    expect(keycap(0).highlighted, isTrue);
+    expect(keycap(1).highlighted, isFalse);
+
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyP);
+    await tester.pump();
+    expect(keycap(0).highlighted, isTrue);
+    expect(keycap(1).highlighted, isFalse);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyK);
+    await tester.pump();
+    expect(keycap(0).highlighted, isTrue);
+    expect(keycap(1).highlighted, isTrue);
+
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyK);
+    await tester.pump();
+    expect(keycap(0).highlighted, isFalse);
+    expect(keycap(1).highlighted, isFalse);
   });
 
   testWidgets('loading labels keep progress visible on text buttons', (

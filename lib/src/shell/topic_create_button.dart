@@ -137,7 +137,7 @@ class _TopicCreateControl extends StatelessWidget {
 
     final mainButton = DTooltip(
       message: 'New topic',
-      shortcut: newTopicShortcut,
+      shortcut: const DShortcut(newTopicShortcut),
       excludeFromSemantics: true,
       child: showLabel
           ? FilledButton.icon(

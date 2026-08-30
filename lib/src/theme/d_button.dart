@@ -345,7 +345,7 @@ class DButton extends StatelessWidget {
   final bool loading;
   final Widget? loadingLabel;
   final String? tooltip;
-  final SingleActivator? shortcut;
+  final DShortcut? shortcut;
   final String? semanticLabel;
   final FocusNode? focusNode;
   final bool autofocus;
