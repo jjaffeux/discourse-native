@@ -529,6 +529,68 @@ void main() {
     expect(diagnostics.panelState.sources, isEmpty);
   });
 
+  testWidgets('starts, stops, and copies a topic scroll capture', (
+    tester,
+  ) async {
+    final copied = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied.add(
+            (call.arguments as Map<Object?, Object?>)['text']! as String,
+          );
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    final diagnostics = await _controller();
+    await _pumpApp(tester, const Size(1000, 800), diagnostics);
+    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Topic scroll'));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('topic-scroll-capture-panel')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('topic-scroll-capture-start')));
+    await tester.pumpAndSettle();
+
+    expect(diagnostics.topicScrollCapture.isRecording, isTrue);
+    expect(diagnostics.isPanelOpen, isFalse);
+    diagnostics.topicScrollCapture.recordTopicEvent(
+      'scroll.notification',
+      const {'pixels': 120.0},
+    );
+
+    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Recording'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('topic-scroll-capture-stop')));
+    await tester.pump();
+    expect(find.text('Capture ready'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('topic-scroll-capture-copy')));
+    await tester.runAsync(() async {
+      for (var attempt = 0; attempt < 100 && copied.isEmpty; attempt += 1) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pump();
+    expect(copied, hasLength(1));
+    expect(copied.single, contains('"kind": "topic-scroll-capture"'));
+    expect(copied.single, contains('scroll.notification'));
+  });
+
   testWidgets('Escape returns from details, then closes the panel', (
     tester,
   ) async {

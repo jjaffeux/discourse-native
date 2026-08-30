@@ -7,6 +7,7 @@ import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_redactor.dart';
 import 'package:discourse_native/src/diagnostics/recording_http.dart';
+import 'package:discourse_native/src/diagnostics/topic_scroll_capture.dart';
 import 'package:discourse_native/src/foundation/frame_safe_notifier.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart';
@@ -470,6 +471,10 @@ final class DiagnosticsController
   final FrameSafeValueNotifier<bool> _panelOpenNotifier;
   final FrameSafeValueNotifier<int> _unseenErrorCountNotifier;
   final Map<String, int> _httpGenerations = {};
+
+  /// Opt-in high-frequency trace kept separate from persisted diagnostics.
+  final TopicScrollCaptureController topicScrollCapture =
+      TopicScrollCaptureController();
 
   /// The retained events by id, mirroring [_events] exactly.
   ///
@@ -1029,6 +1034,7 @@ final class DiagnosticsController
     disposeNotifier(_panelStateNotifier);
     disposeNotifier(_panelOpenNotifier);
     disposeNotifier(_unseenErrorCountNotifier);
+    disposeNotifier(topicScrollCapture);
 
     if (firstError != null) {
       Error.throwWithStackTrace(firstError!, firstStackTrace!);

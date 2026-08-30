@@ -10,6 +10,8 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import '../app_shortcuts.dart';
 import '../data/topic_recommendations_tab_store.dart';
 import '../data/topic_sidebar_store.dart';
+import '../diagnostics/diagnostics_scope.dart';
+import '../diagnostics/topic_scroll_capture.dart';
 import '../foundation/calendar_day.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
@@ -174,6 +176,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   int _extentGeneration = 0;
   int? _anchorRestorePostId;
   double _anchorRestoreViewportOffset = 0;
+  TopicScrollCaptureController? _scrollCapture;
+  TopicScrollCaptureController? _reportedScrollCaptureController;
+  int? _reportedScrollCaptureId;
 
   TopicPostIndexProjection _postIndexes(List<int> postIds) {
     final held = _postIndexProjection;
@@ -185,6 +190,194 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final held = _streamIndexProjection;
     if (held != null && held.represents(postIds)) return held;
     return _streamIndexProjection = TopicPostIndexProjection(postIds);
+  }
+
+  bool get _isScrollCaptureRecording => _scrollCapture?.isRecording == true;
+
+  void _recordTopicScrollEvent(String name, Map<String, Object?> data) {
+    final capture = _scrollCapture;
+    if (capture == null || !capture.isRecording) return;
+    if (!identical(_reportedScrollCaptureController, capture) ||
+        _reportedScrollCaptureId != capture.captureId) {
+      _reportedScrollCaptureController = capture;
+      _reportedScrollCaptureId = capture.captureId;
+      final snapshot = _laidOutSnapshot;
+      capture.recordTopicEvent('topic.capture.context', {
+        'topicId': _topicIdentity?.$2 ?? snapshot?.topicId,
+        'navigationRevision': _topicIdentity?.$3,
+        'viewportLogicalSize': {
+          'width': MediaQuery.sizeOf(context).width,
+          'height': MediaQuery.sizeOf(context).height,
+        },
+        'devicePixelRatio': MediaQuery.devicePixelRatioOf(context),
+        'list': {
+          'widget': 'SuperListView.separated',
+          'sliver': 'SuperSliverList',
+          'listController': 'ListController',
+          'scrollController': 'ScrollController',
+          'physics': 'SuperRangeMaintainingScrollPhysics',
+          'postExtentEstimate': 199,
+          'separatorExtentEstimate': 1,
+        },
+        if (snapshot != null) 'topicWindow': _topicWindowData(snapshot),
+      });
+    }
+    capture.recordTopicEvent(name, data);
+  }
+
+  Map<String, Object?> _topicWindowData(_TopicViewSnapshot snapshot) => {
+    'topicId': snapshot.topicId,
+    'navigationRevision': snapshot.navigationRevision,
+    'loadedPostCount': snapshot.postIds.length,
+    'streamPostCount': snapshot.streamIds.length,
+    'loading': snapshot.loading,
+    'loadingEarlier': snapshot.loadingEarlier,
+    'loadingMore': snapshot.loadingMore,
+    'hasEarlier': snapshot.hasEarlier,
+    'hasMore': snapshot.hasMore,
+    'restored': _restored,
+    'restoring': _restoring,
+    'userDragging': _userDragging,
+    'applyingAnchorRestore': _applyingAnchorRestore,
+    'extentGeneration': _extentGeneration,
+  };
+
+  Map<String, Object?> _scrollMetricsData(ScrollMetrics metrics) {
+    try {
+      return {
+        'type': metrics.runtimeType.toString(),
+        'axis': metrics.axis.name,
+        'axisDirection': metrics.axisDirection.name,
+        'pixels': metrics.pixels,
+        'minScrollExtent': metrics.minScrollExtent,
+        'maxScrollExtent': metrics.maxScrollExtent,
+        'viewportDimension': metrics.viewportDimension,
+        'extentBefore': metrics.extentBefore,
+        'extentInside': metrics.extentInside,
+        'extentAfter': metrics.extentAfter,
+        'atEdge': metrics.atEdge,
+        'outOfRange': metrics.outOfRange,
+        'hasContentDimensions': metrics.hasContentDimensions,
+        'devicePixelRatio': metrics.devicePixelRatio,
+        if (metrics is ScrollPosition) ...{
+          'isScrolling': metrics.isScrollingNotifier.value,
+          'userScrollDirection': metrics.userScrollDirection.name,
+        },
+      };
+    } on Object catch (error) {
+      return {'unavailable': error.runtimeType.toString()};
+    }
+  }
+
+  Map<String, Object?> _sliverLayoutData() {
+    final list = _list;
+    final scroll = _scroll;
+    final data = <String, Object?>{
+      'listAttached': list?.isAttached ?? false,
+      'scrollAttached': scroll?.hasClients ?? false,
+      'attachedPostCount': _postContexts.length,
+    };
+    if (list != null && list.isAttached) {
+      try {
+        final range = list.visibleRange;
+        final unobstructed = list.unobstructedVisibleRange;
+        final visibleChildExtents = <Map<String, Object?>>[];
+        if (range != null) {
+          for (
+            var childIndex = range.$1;
+            childIndex <= range.$2;
+            childIndex++
+          ) {
+            final extent = list.extentForIndex(childIndex);
+            visibleChildExtents.add({
+              'index': childIndex,
+              'extent': extent.$1,
+              'estimated': extent.$2,
+            });
+          }
+        }
+        data.addAll({
+          'visibleRange': range == null ? null : [range.$1, range.$2],
+          'unobstructedVisibleRange': unobstructed == null
+              ? null
+              : [unobstructed.$1, unobstructed.$2],
+          'numberOfItems': list.numberOfItems,
+          'estimatedItemCount': list.numberOfItemsWithEstimatedExtent,
+          'totalExtent': list.totalExtent,
+          'isLocked': list.isLocked,
+          if (range != null) 'visibleChildExtents': visibleChildExtents,
+        });
+      } on Object catch (error) {
+        data['sliverReadError'] = error.runtimeType.toString();
+      }
+    }
+    if (scroll != null && scroll.hasClients) {
+      data['scrollMetrics'] = _scrollMetricsData(scroll.position);
+    }
+    return data;
+  }
+
+  void _recordScrollNotification(ScrollNotification notification) {
+    final data = <String, Object?>{
+      'notification': notification.runtimeType.toString(),
+      'depth': notification.depth,
+      'metrics': _scrollMetricsData(notification.metrics),
+      if (notification is ScrollStartNotification)
+        'drag': notification.dragDetails != null,
+      if (notification is ScrollUpdateNotification) ...{
+        'scrollDelta': notification.scrollDelta,
+        'drag': notification.dragDetails != null,
+      },
+      if (notification is OverscrollNotification) ...{
+        'overscroll': notification.overscroll,
+        'velocity': notification.velocity,
+        'drag': notification.dragDetails != null,
+      },
+      if (notification is ScrollEndNotification)
+        'drag': notification.dragDetails != null,
+      if (notification is UserScrollNotification)
+        'direction': notification.direction.name,
+    };
+    _recordTopicScrollEvent('scroll.notification', data);
+  }
+
+  void _recordViewportInspection(_TopicViewSnapshot snapshot) {
+    final list = _list;
+    final visiblePosts = <Map<String, Object?>>[];
+    if (list != null && list.isAttached) {
+      final range = list.visibleRange;
+      if (range != null) {
+        final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
+        for (var childIndex = range.$1; childIndex <= range.$2; childIndex++) {
+          if (childIndex.isOdd) continue;
+          final postIndex = childIndex ~/ 2 - leading;
+          if (postIndex < 0 || postIndex >= snapshot.postIds.length) continue;
+          final postId = snapshot.postIds[postIndex];
+          final post = _controller?.store.read<Post>(snapshot.siteUrl!, postId);
+          final bounds = _postViewportBounds(postId);
+          visiblePosts.add({
+            'childIndex': childIndex,
+            'postIndex': postIndex,
+            'postId': postId,
+            'postNumber': post?.postNumber,
+            if (bounds != null) ...{
+              'top': bounds.top,
+              'bottom': bounds.bottom,
+              'height': bounds.bottom - bounds.top,
+            },
+          });
+        }
+      }
+    }
+    _recordTopicScrollEvent('viewport.inspected', {
+      'topicWindow': _topicWindowData(snapshot),
+      'sliverLayout': _sliverLayoutData(),
+      'visiblePosts': visiblePosts,
+      'savedAnchorPostNumber': _savedAnchorPostNumber,
+      'progressPosition': _progressPosition,
+      'anchorRestorePostId': _anchorRestorePostId,
+      'anchorRestoreViewportOffset': _anchorRestoreViewportOffset,
+    });
   }
 
   @override
@@ -209,6 +402,17 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         _tabId == controller.activeTabId &&
         identical(_controller, controller)) {
       return;
+    }
+
+    if (_isScrollCaptureRecording) {
+      _recordTopicScrollEvent('topic.controllers.sync', {
+        'previousTopicId': _topicIdentity?.$2,
+        'previousNavigationRevision': _topicIdentity?.$3,
+        'topicId': topicIdentity.$2,
+        'navigationRevision': topicIdentity.$3,
+        'controllerChanged': !identical(_controller, controller),
+        'tabChanged': _tabId != controller.activeTabId,
+      });
     }
 
     _creditReaderNow();
@@ -337,18 +541,59 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   void _jumpTo(int index, {double viewportOffset = 0}) {
     final list = _list;
     final scroll = _scroll;
-    if (list == null || scroll == null) return;
-    if (!list.isAttached || !scroll.hasClients) return;
+    if (list == null || scroll == null) {
+      if (_isScrollCaptureRecording) {
+        _recordTopicScrollEvent('scroll.jump.skipped', {
+          'reason': 'controllers-unavailable',
+          'itemIndex': index,
+          'viewportOffset': viewportOffset,
+        });
+      }
+      return;
+    }
+    if (!list.isAttached || !scroll.hasClients) {
+      if (_isScrollCaptureRecording) {
+        _recordTopicScrollEvent('scroll.jump.skipped', {
+          'reason': 'controllers-detached',
+          'itemIndex': index,
+          'viewportOffset': viewportOffset,
+          'sliverLayout': _sliverLayoutData(),
+        });
+      }
+      return;
+    }
+    if (_isScrollCaptureRecording) {
+      _recordTopicScrollEvent('scroll.jump.requested', {
+        'itemIndex': index,
+        'expandedChildIndex': index * 2,
+        'viewportOffset': viewportOffset,
+        'before': _sliverLayoutData(),
+      });
+    }
     // `separated` interleaves a separator after every logical item, and the
     // ListController addresses that expanded child list.
     list.jumpToItem(index: index * 2, scrollController: scroll, alignment: 0);
-    if (viewportOffset == 0 || !scroll.hasClients) return;
+    if (viewportOffset == 0 || !scroll.hasClients) {
+      if (_isScrollCaptureRecording) {
+        _recordTopicScrollEvent('scroll.jump.completed', {
+          'itemIndex': index,
+          'after': _sliverLayoutData(),
+        });
+      }
+      return;
+    }
     final position = scroll.position;
     scroll.jumpTo(
       (position.pixels - viewportOffset)
           .clamp(position.minScrollExtent, position.maxScrollExtent)
           .toDouble(),
     );
+    if (_isScrollCaptureRecording) {
+      _recordTopicScrollEvent('scroll.jump.completed', {
+        'itemIndex': index,
+        'after': _sliverLayoutData(),
+      });
+    }
   }
 
   bool _isCurrent(
@@ -366,6 +611,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final scroll = _scroll;
     final list = _list;
     if (scroll == null && list == null) return;
+
+    if (_isScrollCaptureRecording) {
+      _recordTopicScrollEvent('topic.controllers.disposeScheduled', {
+        'sliverLayout': _sliverLayoutData(),
+      });
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       scroll?.dispose();
@@ -504,6 +755,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       _syncFloatingDay(snapshot);
       _noteWhatIsOnScreen(controller, snapshot, saveAnchor: saveAnchor);
       _schedulePagingForViewport(controller, snapshot);
+      if (_isScrollCaptureRecording) _recordViewportInspection(snapshot);
     });
   }
 
@@ -782,6 +1034,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           viewportOffset: viewportOffset,
         );
         _savedAnchorPostNumber = post.postNumber;
+        if (_isScrollCaptureRecording) {
+          _recordTopicScrollEvent('viewport.anchor.saved', {
+            'postId': post.id,
+            'postNumber': post.postNumber,
+            'viewportOffset': viewportOffset,
+            'saveAfterScrollEnd': saveAnchor,
+          });
+        }
       }
       break;
     }
@@ -854,6 +1114,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
   void _setProgressPosition(int position) {
     if (_progressPosition == position || !mounted) return;
+    if (_isScrollCaptureRecording) {
+      _recordTopicScrollEvent('topic.progress.changed', {
+        'previous': _progressPosition,
+        'current': position,
+      });
+    }
     setState(() => _progressPosition = position);
   }
 
@@ -896,6 +1162,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   }
 
   void _onListLayoutChanged() {
+    if (_isScrollCaptureRecording) {
+      // This can notify more than once inside one layout. Keep the marker
+      // cheap; _scheduleLook coalesces the full geometry read after the frame.
+      _recordTopicScrollEvent('sliver.layout.changed', {
+        'listAttached': _list?.isAttached ?? false,
+        'scrollAttached': _scroll?.hasClients ?? false,
+      });
+    }
     // Extents and the visible range are both published after sliver layout.
     // Coalesce their notifications into one exact viewport inspection.
     _scheduleLook();
@@ -906,23 +1180,52 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final list = _list;
     if (list == null || !list.isAttached) return;
     if (!list.isLocked) {
+      if (_isScrollCaptureRecording) {
+        _recordTopicScrollEvent('sliver.extents.invalidated', {
+          'deferred': false,
+          'before': _sliverLayoutData(),
+        });
+      }
       list.invalidateAllExtents();
       return;
+    }
+    if (_isScrollCaptureRecording) {
+      _recordTopicScrollEvent('sliver.extentInvalidation.deferred', {
+        'before': _sliverLayoutData(),
+      });
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final current = _list;
       if (current == null || !current.isAttached || current.isLocked) return;
+      if (_isScrollCaptureRecording) {
+        _recordTopicScrollEvent('sliver.extents.invalidated', {
+          'deferred': true,
+          'before': _sliverLayoutData(),
+        });
+      }
       current.invalidateAllExtents();
     });
   }
 
   void _registerPostContext(int postId, BuildContext context) {
     _postContexts[postId] = context;
+    if (_isScrollCaptureRecording) {
+      _recordTopicScrollEvent('sliver.post.attached', {
+        'postId': postId,
+        'attachedPostCount': _postContexts.length,
+      });
+    }
   }
 
   void _unregisterPostContext(int postId, BuildContext context) {
     if (identical(_postContexts[postId], context)) {
       _postContexts.remove(postId);
+      if (_isScrollCaptureRecording) {
+        _recordTopicScrollEvent('sliver.post.detached', {
+          'postId': postId,
+          'attachedPostCount': _postContexts.length,
+        });
+      }
     }
   }
 
@@ -950,10 +1253,23 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _anchorRestoreToken = token;
     _anchorRestorePostId = postId;
     _anchorRestoreViewportOffset = viewportOffset;
+    if (_isScrollCaptureRecording) {
+      _recordTopicScrollEvent('viewport.anchor.held', {
+        'postId': postId,
+        'viewportOffset': viewportOffset,
+      });
+    }
     _scheduleAnchorCorrection();
   }
 
   void _cancelViewportAnchor() {
+    if (_isScrollCaptureRecording && _anchorRestoreToken != null) {
+      _recordTopicScrollEvent('viewport.anchor.cancelled', {
+        'postId': _anchorRestorePostId,
+        'viewportOffset': _anchorRestoreViewportOffset,
+        'userDragging': _userDragging,
+      });
+    }
     _anchorRestoreToken = null;
     _anchorRestorePostId = null;
     _anchorCorrectionScheduled = false;
@@ -962,6 +1278,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   void _scheduleAnchorCorrection() {
     if (_anchorRestoreToken == null || _anchorCorrectionScheduled) return;
     _anchorCorrectionScheduled = true;
+    if (_isScrollCaptureRecording) {
+      _recordTopicScrollEvent('viewport.anchor.correctionScheduled', {
+        'postId': _anchorRestorePostId,
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _anchorCorrectionScheduled = false;
       _correctViewportAnchor();
@@ -998,6 +1319,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
       _applyingAnchorRestore = true;
       try {
+        if (_isScrollCaptureRecording) {
+          _recordTopicScrollEvent('viewport.anchor.jumpToItem', {
+            'postId': postId,
+            'postIndex': postIndex,
+            'leadingItemCount': leading,
+            'viewportOffset': _anchorRestoreViewportOffset,
+          });
+        }
         _jumpTo(
           postIndex + leading,
           viewportOffset: _anchorRestoreViewportOffset,
@@ -1012,9 +1341,28 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         (position.pixels + currentOffset - _anchorRestoreViewportOffset)
             .clamp(position.minScrollExtent, position.maxScrollExtent)
             .toDouble();
-    if ((target - position.pixels).abs() < 0.5) return;
+    if ((target - position.pixels).abs() < 0.5) {
+      if (_isScrollCaptureRecording) {
+        _recordTopicScrollEvent('viewport.anchor.aligned', {
+          'postId': postId,
+          'pixels': position.pixels,
+          'currentViewportOffset': currentOffset,
+          'requestedViewportOffset': _anchorRestoreViewportOffset,
+        });
+      }
+      return;
+    }
     _applyingAnchorRestore = true;
     try {
+      if (_isScrollCaptureRecording) {
+        _recordTopicScrollEvent('viewport.anchor.correcting', {
+          'postId': postId,
+          'fromPixels': position.pixels,
+          'toPixels': target,
+          'currentViewportOffset': currentOffset,
+          'requestedViewportOffset': _anchorRestoreViewportOffset,
+        });
+      }
       scroll.jumpTo(target);
     } finally {
       _applyingAnchorRestore = false;
@@ -1069,6 +1417,22 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       }
     }
     final headerChanged = previousHasHeader != hasHeader && samePosts;
+    if (_isScrollCaptureRecording &&
+        previousPostIds.isNotEmpty &&
+        (!samePosts || headerChanged)) {
+      _recordTopicScrollEvent('topic.window.changed', {
+        'previousPostCount': previousPostIds.length,
+        'currentPostCount': snapshot.postIds.length,
+        'previousFirstPostId': previousPostIds.firstOrNull,
+        'previousLastPostId': previousPostIds.lastOrNull,
+        'currentFirstPostId': snapshot.postIds.firstOrNull,
+        'currentLastPostId': snapshot.postIds.lastOrNull,
+        'previousFirstIndex': previousFirstIndex,
+        'prepended': prepended,
+        'appendOnly': appendOnly,
+        'headerChanged': headerChanged,
+      });
+    }
     if (previousPostIds.isNotEmpty && (!appendOnly || headerChanged)) {
       // SuperSliverList retains extents by numeric index. A prepend keeps the
       // keyed rows mounted while marking those values estimated; an unrelated
@@ -1078,6 +1442,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         _invalidateRetainedExtents();
       } else {
         _extentGeneration++;
+        if (_isScrollCaptureRecording) {
+          _recordTopicScrollEvent('sliver.extentManager.replaced', {
+            'extentGeneration': _extentGeneration,
+            'reason': 'topic-window-replaced',
+          });
+        }
       }
     }
     _laidOutPostIds = List.of(snapshot.postIds);
@@ -1093,7 +1463,16 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       previousPostIds,
       hasHeader: previousHasHeader,
     );
-    if (anchor == null) return;
+    if (anchor == null) {
+      if (_isScrollCaptureRecording) {
+        _recordTopicScrollEvent('viewport.prependAnchor.unavailable', {
+          'prepended': prepended,
+          'headerChanged': headerChanged,
+          'sliverLayout': _sliverLayoutData(),
+        });
+      }
+      return;
+    }
 
     final identity = (
       snapshot.siteUrl!,
@@ -1162,6 +1541,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final token = Object();
     _loadMoreToken = token;
     _loadMoreTarget = target;
+    if (_isScrollCaptureRecording) {
+      _recordTopicScrollEvent('paging.newer.scheduled', {
+        'topicId': topicId,
+        'loadedPostCount': snapshot.postIds.length,
+        'sliverLayout': _sliverLayoutData(),
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!identical(_loadMoreToken, token)) return;
       _loadMoreToken = null;
@@ -1169,7 +1555,19 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           !identical(ShellScope.read(context), controller) ||
           _TopicViewSnapshot.from(controller) != snapshot) {
         if (_loadMoreTarget == target) _loadMoreTarget = null;
+        if (_isScrollCaptureRecording) {
+          _recordTopicScrollEvent('paging.newer.cancelled', {
+            'topicId': topicId,
+            'loadedPostCount': snapshot.postIds.length,
+          });
+        }
         return;
+      }
+      if (_isScrollCaptureRecording) {
+        _recordTopicScrollEvent('paging.newer.dispatched', {
+          'topicId': topicId,
+          'loadedPostCount': snapshot.postIds.length,
+        });
       }
       unawaited(controller.loadMorePosts());
     });
@@ -1183,7 +1581,15 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final topicId = snapshot.topicId;
     if (siteUrl == null || topicId == null) return;
     final target = (siteUrl, topicId, snapshot.postIds.length);
-    if (_loadMoreTarget == target) _loadMoreTarget = null;
+    if (_loadMoreTarget == target) {
+      _loadMoreTarget = null;
+      if (_isScrollCaptureRecording) {
+        _recordTopicScrollEvent('paging.newer.retryArmed', {
+          'topicId': topicId,
+          'loadedPostCount': snapshot.postIds.length,
+        });
+      }
+    }
   }
 
   void _scheduleLoadEarlier(
@@ -1224,6 +1630,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final token = Object();
     _loadEarlierToken = token;
     _loadEarlierTarget = target;
+    if (_isScrollCaptureRecording) {
+      _recordTopicScrollEvent('paging.earlier.scheduled', {
+        'topicId': topicId,
+        'firstLoadedPostId': snapshot.postIds.first,
+        'loadedPostCount': snapshot.postIds.length,
+        'sliverLayout': _sliverLayoutData(),
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!identical(_loadEarlierToken, token)) return;
       _loadEarlierToken = null;
@@ -1232,7 +1646,19 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           !identical(ShellScope.read(context), controller) ||
           _TopicViewSnapshot.from(controller) != snapshot) {
         if (_loadEarlierTarget == target) _loadEarlierTarget = null;
+        if (_isScrollCaptureRecording) {
+          _recordTopicScrollEvent('paging.earlier.cancelled', {
+            'topicId': topicId,
+            'firstLoadedPostId': snapshot.postIds.first,
+          });
+        }
         return;
+      }
+      if (_isScrollCaptureRecording) {
+        _recordTopicScrollEvent('paging.earlier.dispatched', {
+          'topicId': topicId,
+          'firstLoadedPostId': snapshot.postIds.first,
+        });
       }
       unawaited(controller.loadEarlierPosts());
     });
@@ -1248,7 +1674,15 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final topicId = snapshot.topicId;
     if (siteUrl == null || topicId == null || snapshot.postIds.isEmpty) return;
     final target = (siteUrl, topicId, snapshot.postIds.first);
-    if (_loadEarlierTarget == target) _loadEarlierTarget = null;
+    if (_loadEarlierTarget == target) {
+      _loadEarlierTarget = null;
+      if (_isScrollCaptureRecording) {
+        _recordTopicScrollEvent('paging.earlier.retryArmed', {
+          'topicId': topicId,
+          'firstLoadedPostId': snapshot.postIds.first,
+        });
+      }
+    }
   }
 
   Widget _build(
@@ -1267,6 +1701,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   ) {
     final theme = Theme.of(context);
     final controller = ShellScope.read(context);
+    _scrollCapture = DiagnosticsScope.maybeRead(context)?.topicScrollCapture;
     if (snapshot.siteUrl case final siteUrl?) {
       _syncRecommendationsSite(siteUrl);
     }
@@ -1425,16 +1860,44 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     };
     _restoreInitialPost(controller, snapshot);
     _restoreViewportAfterPrepend(controller, snapshot, hasHeader: showHeader);
+    if (_isScrollCaptureRecording) {
+      _recordTopicScrollEvent('topic.view.built', {
+        'viewportWidth': viewportWidth,
+        'pinnedSidebarInset': pinnedSidebarInset,
+        'showHeader': showHeader,
+        'showFooter': showFooter,
+        'showRecommendations': showRecommendations,
+        'itemCount':
+            postIds.length +
+            (showHeader ? 1 : 0) +
+            (showFooter ? 1 : 0) +
+            (showRecommendations && (!widget.showSidebar || !canPinSidebar)
+                ? 1
+                : 0),
+        'topicWindow': _topicWindowData(snapshot),
+      });
+    }
     _scheduleLook();
 
     final postStreamContent = NotificationListener<ScrollMetricsNotification>(
       onNotification: (notification) {
-        if (notification.depth == 0) _scheduleLook();
+        if (notification.depth == 0) {
+          if (_isScrollCaptureRecording) {
+            _recordTopicScrollEvent('scroll.metricsChanged', {
+              'depth': notification.depth,
+              'metrics': _scrollMetricsData(notification.metrics),
+            });
+          }
+          _scheduleLook();
+        }
         return false;
       },
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
           if (notification.depth == 0) {
+            if (_isScrollCaptureRecording) {
+              _recordScrollNotification(notification);
+            }
             if (notification is ScrollStartNotification &&
                 notification.dragDetails != null) {
               _userDragging = true;
@@ -1516,7 +1979,16 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             if (key is! ValueKey<int>) return null;
             final postIndex = postIndexes[key.value];
             if (postIndex == null) return null;
-            return (postIndex + (showHeader ? 1 : 0)) * 2;
+            final childIndex = (postIndex + (showHeader ? 1 : 0)) * 2;
+            if (_isScrollCaptureRecording) {
+              _recordTopicScrollEvent('sliver.childIndex.resolved', {
+                'postId': key.value,
+                'postIndex': postIndex,
+                'childIndex': childIndex,
+                'showHeader': showHeader,
+              });
+            }
+            return childIndex;
           },
           // Lazy, like the topic list: a 500-post topic builds only what shows.
           itemCount:
@@ -1528,6 +2000,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                   : 0),
           separatorBuilder: (context, index) {
             final nextPostIndex = index + 1 - (showHeader ? 1 : 0);
+            if (_isScrollCaptureRecording) {
+              _recordTopicScrollEvent('sliver.separator.built', {
+                'separatorIndex': index,
+                'nextPostIndex': nextPostIndex,
+                'isDayBoundary': dayByPostIndex.containsKey(nextPostIndex),
+              });
+            }
             if (dayByPostIndex.containsKey(nextPostIndex)) {
               // The calendar marker is the boundary; a second rule immediately
               // above it would make the separation look doubled.
@@ -1537,6 +2016,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           },
           itemBuilder: (context, index) {
             if (showHeader && index == 0) {
+              if (_isScrollCaptureRecording) {
+                _recordTopicScrollEvent('sliver.child.built', {
+                  'itemIndex': index,
+                  'kind': 'earlier-posts',
+                  'loading': snapshot.loadingEarlier,
+                });
+              }
               return _EarlierPostsRow(loading: snapshot.loadingEarlier);
             }
 
@@ -1544,7 +2030,19 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             if (postIndex >= postIds.length) {
               final trailingIndex = postIndex - postIds.length;
               if (showFooter && trailingIndex == 0) {
+                if (_isScrollCaptureRecording) {
+                  _recordTopicScrollEvent('sliver.child.built', {
+                    'itemIndex': index,
+                    'kind': 'loading-more',
+                  });
+                }
                 return const _LoadingPostsRow();
+              }
+              if (_isScrollCaptureRecording) {
+                _recordTopicScrollEvent('sliver.child.built', {
+                  'itemIndex': index,
+                  'kind': 'recommendations',
+                });
               }
               return _MoreTopics(
                 key: ValueKey((siteUrl, snapshot.topicId, 'more-topics')),
@@ -1557,6 +2055,18 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
             final postId = postIds[postIndex];
             final day = dayByPostIndex[postIndex];
+            if (_isScrollCaptureRecording) {
+              final post = controller.store.read<Post>(siteUrl, postId);
+              _recordTopicScrollEvent('sliver.child.built', {
+                'itemIndex': index,
+                'postIndex': postIndex,
+                'postId': postId,
+                'postNumber': post?.postNumber,
+                'wasAttached': _postContexts.containsKey(postId),
+                'hasDayBoundary': day != null,
+                'hasTimeGap': timeGapByPostIndex.containsKey(postIndex),
+              });
+            }
             return _TopicPostItem(
               key: ValueKey(postId),
               postId: postId,
