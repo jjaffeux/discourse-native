@@ -287,13 +287,17 @@ class _DirectoryControls extends StatelessWidget {
       key: const ValueKey('groups-search'),
       controller: searchController,
       focusNode: searchFocus,
+      autofocus: true,
       onChanged: onSearchChanged,
       onSubmitted: onSearchSubmitted,
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
-        labelText: 'Search groups',
-        hintText: 'Name or description',
-        prefixIcon: const DIcon(DIcons.magnifyingGlass, size: 16),
+        isDense: true,
+        hintText: 'Search groups',
+        prefixIcon: const Padding(
+          padding: EdgeInsets.all(12),
+          child: DIcon(DIcons.magnifyingGlass, size: 18),
+        ),
         suffixIcon: searchController.text.isEmpty
             ? null
             : IconButton(
@@ -304,6 +308,7 @@ class _DirectoryControls extends StatelessWidget {
                 },
                 icon: const DIcon(DIcons.xmark, size: 16),
               ),
+        border: const OutlineInputBorder(),
       ),
     );
     final typeFilter = _GroupTypeFilter(

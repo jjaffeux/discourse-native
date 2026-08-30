@@ -1,6 +1,8 @@
 import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/shell/groups_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -53,6 +55,24 @@ void main() {
     expect(find.byKey(const ValueKey('group-card-support')), findsOneWidget);
     expect(find.text('Support Team'), findsOneWidget);
     expect(find.text('12 members'), findsOneWidget);
+
+    final searchField = tester.widget<TextField>(
+      find.byKey(const ValueKey('groups-search')),
+    );
+    expect(searchField.autofocus, isTrue);
+    expect(searchField.focusNode?.hasFocus, isTrue);
+    expect(searchField.decoration?.labelText, isNull);
+    expect(searchField.decoration?.hintText, 'Search groups');
+    expect(searchField.decoration?.border, isA<OutlineInputBorder>());
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('groups-search')),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.magnifyingGlass,
+        ),
+      ),
+      findsOneWidget,
+    );
 
     await tester.enterText(
       find.byKey(const ValueKey('groups-search')),
