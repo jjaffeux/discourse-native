@@ -145,10 +145,33 @@ void main() {
     expect(find.byType(AggregateView), findsOneWidget);
     expect(find.byType(InstanceSidebar), findsNothing);
     expect(find.byType(MainContent), findsNothing);
+    expect(find.text('Every forum. One shared feed.'), findsOneWidget);
+    final hero = tester.widget<Container>(
+      find.byKey(const ValueKey('aggregate-hero')),
+    );
+    final heroGradient = (hero.decoration! as BoxDecoration).gradient!;
+    expect((heroGradient as LinearGradient).colors, const [
+      Color(0xFF3B285E),
+      Color(0xFF2B1C47),
+    ]);
+    expect(
+      Theme.of(
+        tester.element(find.byKey(const ValueKey('aggregate-hero'))),
+      ).colorScheme.primary,
+      const Color(0xFF7B5FE2),
+    );
     expect(find.byType(TopicListRow), findsNWidgets(2));
     expect(find.text('Fresh cross-forum topic'), findsNWidgets(2));
     expect(find.text('One'), findsOneWidget);
     expect(find.text('Two'), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('aggregate-topic-card-${forums[0].url}-42')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(ValueKey('aggregate-topic-card-${forums[1].url}-42')),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
     await tester.pumpAndSettle();
     expect(find.text('Aggregate filters'), findsOneWidget);
