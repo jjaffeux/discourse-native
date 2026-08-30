@@ -102,13 +102,11 @@ class TopicShareButton extends StatelessWidget {
     required this.siteUrl,
     required this.topic,
     this.route,
-    this.showLabel = true,
   });
 
   final String siteUrl;
   final TopicDetail topic;
   final ContentRoute? route;
-  final bool showLabel;
 
   void _share(BuildContext context) {
     final controller = ShellScope.read(context);
@@ -145,21 +143,10 @@ class TopicShareButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!showLabel) {
-      return DButton.iconOnly(
-        key: const ValueKey('topic-share-button'),
-        onPressed: () => _share(context),
-        icon: const DIcon(DIcons.share, size: 18),
-        tooltip: 'Share topic',
-        variant: DButtonVariant.flat,
-        size: DButtonSize.small,
-      );
-    }
-    return DButton(
+    return DButton.iconOnly(
       key: const ValueKey('topic-share-button'),
       onPressed: () => _share(context),
-      icon: const DIcon(DIcons.share, size: 18),
-      label: const Text('Share'),
+      icon: const DIcon(DIcons.link, size: 18),
       tooltip: 'Share topic',
       variant: DButtonVariant.flat,
       size: DButtonSize.small,

@@ -5399,6 +5399,14 @@ void main() {
         );
         expect(find.descendant(of: header, matching: bookmark), findsOneWidget);
         expect(find.descendant(of: header, matching: share), findsOneWidget);
+        expect(
+          find.descendant(of: share, matching: find.dIcon(DIcons.link)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: share, matching: find.text('Share')),
+          findsNothing,
+        );
         expect(find.descendant(of: header, matching: more), findsOneWidget);
         expect(
           find.descendant(of: header, matching: find.text('Tracking')),
