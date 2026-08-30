@@ -191,7 +191,9 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
     ShellController controller,
   ) async {
     try {
-      return _SiteCheckResult.success(await controller.api.lookup(term));
+      return _SiteCheckResult.success(
+        await controller.api.siteLookup.lookup(term),
+      );
     } catch (error, stackTrace) {
       return _SiteCheckResult.failure(error, stackTrace);
     }

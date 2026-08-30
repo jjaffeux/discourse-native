@@ -30,6 +30,8 @@ dependency_overrides:
     path: third_party/flutter_webrtc
 
 dev_dependencies:
+  discourse_plugin_api:
+    path: ../discourse_plugin_api
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter

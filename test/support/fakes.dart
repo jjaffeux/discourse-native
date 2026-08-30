@@ -473,7 +473,8 @@ final class _FakeSiteMessageBusSubscription
 /// Answers lookups from a map of term to result, with no network involved.
 class FakeDiscourseApi
     implements
-        DiscourseApi,
+        ShellApiCapabilities,
+        DiscourseApiConfiguration,
         ChatApi,
         GifsApi,
         PollsApi,

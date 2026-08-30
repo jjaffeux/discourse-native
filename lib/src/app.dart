@@ -52,7 +52,7 @@ class DiscourseApp extends StatefulWidget {
        );
 
   final InstanceStore? store;
-  final DiscourseApi? api;
+  final ShellApiCapabilities? api;
   final Authenticator? authenticator;
   final DraftStore? drafts;
   final ForumTabStore? forumTabs;
@@ -72,7 +72,7 @@ class DiscourseApp extends StatefulWidget {
 class _DiscourseAppState extends State<DiscourseApp>
     with WidgetsBindingObserver {
   late InstanceStore _store;
-  late DiscourseApi _api;
+  late ShellApiCapabilities _api;
   late Authenticator _authenticator;
   late DraftStore _drafts;
   late ForumTabStore _forumTabs;

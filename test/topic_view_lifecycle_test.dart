@@ -683,9 +683,7 @@ void main() {
     await diagnostics.close();
   });
 
-  testWidgets('records post detach without an ancestor lookup', (
-    tester,
-  ) async {
+  testWidgets('records post detach without an ancestor lookup', (tester) async {
     final site = instance('meta.example');
     final controller = ShellController(
       instanceStore: FakeInstanceStore([site]),

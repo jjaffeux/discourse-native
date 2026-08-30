@@ -178,6 +178,32 @@ while Resenha retains only its room-to-thread association and room UI. The
 viewing handle is released when that UI closes and pruned when its room leaves
 the directory, so hidden rooms retain no Chat subscription or read receipt.
 
+## Plugin test boundaries
+
+Plugin transport tests use `RecordingPluginTransport` from
+`package:discourse_plugin_api/testing.dart`. The recorder is owned by the same
+pure-Dart package as `PluginApiTransport`, so an external plugin can test its
+route and payload contract without importing the application's `DiscourseApi`
+or copying the application's test fakes. It records immutable request
+snapshots, exposes read-only read/write views, and keeps mutable object, list,
+failure, and asynchronous-responder route tables. Missing routes and response
+shape mismatches fail at the transport boundary.
+
+Tests which need a real host session, navigation, or app lifecycle use the
+separate `package:discourse_native/discourse_plugin_test.dart` entrypoint. Its
+`PluginHostHarness` composes deterministic accounts and core host facilities
+around a supplied manifest and transport. This entrypoint is test-only;
+production plugins continue to import `discourse_plugin_sdk.dart`. External
+plugin packages do not import files below core's `test/` directory and do not
+copy its broad `FakeDiscourseApi`.
+
+Bundled modules always adapt the shared transport to their owned API clients,
+or accept an explicit typed API factory in tests. A transport object does not
+gain Chat, GIF, Poll, or Reactions behavior through runtime type checks. This
+keeps the transport port narrow and makes optional fake behavior an explicit
+choice at the test composition root instead of an implicit property of every
+transport fake.
+
 ## Persistence and compatibility
 
 The instance snapshot stores plugin values under a `plugins` object keyed by

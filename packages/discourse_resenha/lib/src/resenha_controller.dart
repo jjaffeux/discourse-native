@@ -231,7 +231,7 @@ final class ResenhaController extends ChangeNotifier {
   final Map<String, Object> _directoryRequests = {};
   final Map<String, Object> _chatRequests = {};
   final Map<String, int> _roomVideoWatchers = {};
-  Future<void> _joinTail = Future<void>.value();
+  Future<void>? _joinTail;
   Future<void>? _pendingJoin;
   String? _pendingJoinKey;
   String? _pendingJoinCorrelationId;
@@ -949,21 +949,23 @@ final class ResenhaController extends ChangeNotifier {
       correlationId: correlationId,
       data: _rawRoomDiagnosticData(siteUrl, room, siteName: siteName),
     );
+    final previousJoin = _joinTail;
+    Future<void> runJoin() => _runPublicOperation(
+      () => _join(
+        siteUrl: siteUrl,
+        siteName: siteName,
+        room: room,
+        siteSession: siteSession,
+        correlationId: correlationId,
+      ),
+      'resenha.join',
+      correlationId: correlationId,
+    );
     final operation = _reporter.runOperation(
       'resenha.join',
-      () => _joinTail.then(
-        (_) => _runPublicOperation(
-          () => _join(
-            siteUrl: siteUrl,
-            siteName: siteName,
-            room: room,
-            siteSession: siteSession,
-            correlationId: correlationId,
-          ),
-          'resenha.join',
-          correlationId: correlationId,
-        ),
-      ),
+      () => previousJoin == null
+          ? runJoin()
+          : previousJoin.then((_) => runJoin()),
       correlationId: correlationId,
     );
     // Room taps can arrive while the preceding transport is still connecting.
@@ -3266,7 +3268,8 @@ final class ResenhaController extends ChangeNotifier {
       // Invalidating [_joinRevision] above makes it clean that media up;
       // waiting here keeps a half-created native session from escaping
       // PluginSession.close.
-      await _joinTail;
+      final joinTail = _joinTail;
+      if (joinTail != null) await joinTail;
       final lateLeave = _leaveOperation;
       if (lateLeave != null) await lateLeave;
       if (_call case final lateCall?) {

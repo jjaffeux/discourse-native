@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/discourse_api_contracts.dart';
-import '../data/plugin_transport.dart';
 import '../data/store.dart';
 import '../models/discourse_user.dart';
 import '../models/post.dart';

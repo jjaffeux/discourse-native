@@ -1,14 +1,11 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
-import 'package:discourse_native/src/app.dart';
-import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:discourse_resenha/src/resenha_diagnostics.dart';
 import 'package:discourse_resenha/src/resenha_diagnostics_plugin.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'support/fakes.dart';
 
 void main() {
   testWidgets('injected Resenha diagnostics remains caller-owned', (
@@ -34,27 +31,14 @@ void main() {
     addTearDown(second.close);
     await first.startCapture();
 
-    final store = FakeInstanceStore();
-    final api = FakeDiscourseApi();
-    final authenticator = FakeAuthenticator();
-    final drafts = FakeDraftStore();
-    final forumTabs = FakeForumTabStore();
-    final trackers = FakeSiteTracker.reset();
-    final updater = FakeUpdater();
-    final updateStore = FakeUpdateStore();
+    final host = await PluginHostHarness.forApp(
+      transport: RecordingPluginTransport(),
+    );
+    addTearDown(host.close);
 
-    Widget app(ResenhaDiagnosticsController diagnostics) => DiscourseApp(
+    Widget app(ResenhaDiagnosticsController diagnostics) => host.buildApp(
       key: key,
-      store: store,
-      api: api,
-      authenticator: authenticator,
-      drafts: drafts,
-      forumTabs: forumTabs,
-      trackers: trackers,
-      updater: updater,
-      updateStore: updateStore,
-      initialRootMode: ShellRootMode.forum,
-      pluginManifest: PluginManifest([_ResenhaDiagnosticsModule(diagnostics)]),
+      manifest: PluginManifest([_ResenhaDiagnosticsModule(diagnostics)]),
     );
 
     await tester.pumpWidget(app(first));

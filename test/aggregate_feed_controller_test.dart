@@ -336,7 +336,7 @@ void main() {
 }
 
 AggregateFeedController _controller(
-  DiscourseApi api,
+  TopicFeedsApi api,
   FakeApiCredentialReader credentials, {
   AggregatePreferencesStore? preferences,
 }) => AggregateFeedController(

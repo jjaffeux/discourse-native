@@ -9,8 +9,12 @@ import 'polls_api.dart';
 
 const pollModule = PollModule();
 
+typedef PollsApiFactory = PollsApi Function(PluginApiTransport transport);
+
 final class PollModule implements PluginModule {
-  const PollModule();
+  const PollModule({this.apiFactory});
+
+  final PollsApiFactory? apiFactory;
 
   @override
   PluginDescriptor get descriptor =>
@@ -24,9 +28,7 @@ final class PollModule implements PluginModule {
     registrar.addSession(
       (bindings, _) {
         final transport = bindings.require(corePluginTransportPort);
-        final PollsApi pollApi = transport is PollsApi
-            ? transport as PollsApi
-            : PollApi(transport);
+        final pollApi = apiFactory?.call(transport) ?? PollApi(transport);
         final controller = PollController(
           api: pollApi,
           requests: bindings.require(corePluginRequestPort),

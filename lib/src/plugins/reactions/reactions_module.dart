@@ -1,5 +1,6 @@
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../plugin_api/core_plugin_host.dart';
+import '../../plugin_api/discourse_model_codec.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import 'reactions_api.dart';
 import 'reactions_api_client.dart';
@@ -9,8 +10,16 @@ import 'reactions_services.dart';
 
 const reactionsModule = ReactionsModule();
 
+typedef ReactionsApiFactory =
+    ({ReactionsApi reads, ReactionsWriteApi writes}) Function(
+      PluginApiTransport transport,
+      DiscourseModelCodec models,
+    );
+
 final class ReactionsModule implements PluginModule {
-  const ReactionsModule();
+  const ReactionsModule({this.apiFactory});
+
+  final ReactionsApiFactory? apiFactory;
 
   @override
   PluginDescriptor get descriptor =>
@@ -22,24 +31,18 @@ final class ReactionsModule implements PluginModule {
     registrar.addSession(
       (bindings, _) {
         final transport = bindings.require(corePluginTransportPort);
-        final ReactionsApi api;
-        final ReactionsWriteApi writes;
-        if (transport case final ReactionsApi reactionsApi
-            when transport is ReactionsWriteApi) {
-          api = reactionsApi;
-          writes = transport as ReactionsWriteApi;
-        } else {
-          final client = ReactionsApiClient(
-            transport,
-            bindings.require(corePluginModelCodecPort),
-          );
-          api = client;
-          writes = client;
-        }
+        final models = bindings.require(corePluginModelCodecPort);
+        final clients = switch (apiFactory) {
+          final factory? => factory(transport, models),
+          null => () {
+            final client = ReactionsApiClient(transport, models);
+            return (reads: client, writes: client);
+          }(),
+        };
         final emoji = bindings.require(corePluginEmojiPort);
         final controller = ReactionsController(
-          api: api,
-          writes: writes,
+          api: clients.reads,
+          writes: clients.writes,
           requests: bindings.require(corePluginRequestPort),
           posts: bindings.require(corePluginPostPort),
           siteState: bindings.require(corePluginSiteStatePort),

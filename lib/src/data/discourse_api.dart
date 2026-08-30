@@ -37,78 +37,18 @@ import '../plugin_api/discourse_model_codec.dart';
 import 'discourse_api_contracts.dart';
 import 'discourse_transport.dart';
 import 'http_transport.dart';
-import 'plugin_transport.dart';
 import 'site_appearance_loader.dart';
 
 export 'discourse_api_contracts.dart';
 export 'plugin_transport.dart';
-
-/// A category-list response plus whether its authenticated site metadata also
-/// arrived. A partial list is still useful for badges/navigation, but callers
-/// should leave it retryable so lazy-loaded user choices can be filled in.
-final class CategoryLoadResult {
-  factory CategoryLoadResult(
-    Iterable<TopicCategory> categories, {
-    bool complete = true,
-    Iterable<int>? rootCategoryIds,
-    bool canCreateTopic = false,
-    SitePostActionCatalog? postActionCatalog,
-  }) {
-    final immutableCategories = List<TopicCategory>.unmodifiable(categories);
-    return CategoryLoadResult._(
-      immutableCategories,
-      List<int>.unmodifiable(
-        rootCategoryIds ??
-            immutableCategories
-                .where((category) => category.parentCategoryId == null)
-                .map((category) => category.id),
-      ),
-      complete,
-      canCreateTopic,
-      postActionCatalog,
-    );
-  }
-
-  CategoryLoadResult._(
-    this.categories,
-    this.rootCategoryIds,
-    this.complete,
-    this.canCreateTopic,
-    this.postActionCatalog,
-  );
-
-  final List<TopicCategory> categories;
-
-  /// Category ids represented as roots by this page's category-list response.
-  ///
-  /// Nested categories and the page-one `site.json` supplement remain in
-  /// [categories] for identity lookup, but must not become category cards.
-  final List<int> rootCategoryIds;
-  final bool complete;
-  final bool canCreateTopic;
-
-  /// Authenticated post-action metadata from the page-one `/site.json` read.
-  /// Null means that metadata was not requested or did not arrive.
-  final SitePostActionCatalog? postActionCatalog;
-}
+export 'shell_api_ports.dart';
 
 /// Talks to a Discourse site.
 ///
 /// The lookup mirrors DiscourseMobile's `Site.fromTerm`: probe
 /// `/user-api-key/new` to confirm it is a Discourse new enough to expose the
 /// user API, then read `/site/basic-info.json` for the details we display.
-class DiscourseApi
-    implements
-        AccountActivityApi,
-        BookmarksWriteApi,
-        DoNotDisturbApi,
-        DraftsApi,
-        UserSummariesApi,
-        TopicFeedsApi,
-        TopicReadsApi,
-        UserPreferencesApi,
-        PluginApiTransport,
-        PluginJsonListTransport {
+class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
   DiscourseApi({
     http.Client? client,
     this.models = const DiscourseModelCodec.core(),
@@ -122,7 +62,7 @@ class DiscourseApi
            : SafeHttpClient.owned(client);
 
   static const int minimumApiVersion = 2;
-  static const int maximumSearchTermLength = 2048;
+  static const int maximumSearchTermLength = maximumDiscourseSearchTermLength;
   static const int maximumAutocompleteResults = TopicTagSearch.maximumResults;
   static const int maximumCategorySearchTermLength = 250;
   static const int maximumCategorySearchResults = 25;
@@ -133,7 +73,9 @@ class DiscourseApi
   static const int _maxRedirects = 5;
 
   final SafeHttpClient _client;
+  @override
   final DiscourseModelCodec models;
+  @override
   final Duration timeout;
 
   /// Largest buffered API response accepted from a site.
@@ -209,6 +151,7 @@ class DiscourseApi
     }
   }
 
+  @override
   Future<DiscourseInstance> lookup(String term) async {
     final probe = normalize(term).resolve('/user-api-key/new');
 
@@ -323,6 +266,7 @@ class DiscourseApi
   /// Needs the `session_info` scope. Throws [SiteLookupFailure.unreachable] on
   /// a network problem and [SiteLookupFailure.notDiscourse] if the key was
   /// rejected — the caller treats the latter as "reconnect".
+  @override
   Future<DiscourseUser> currentUser({
     required String siteUrl,
     required String apiKey,
@@ -416,6 +360,7 @@ class DiscourseApi
   /// together, plus its built-in Community section. The model parser excludes
   /// that built-in so callers can append this result without duplicating the
   /// app's native Community routes.
+  @override
   Future<List<SidebarSection>> customSidebarSections({
     required String siteUrl,
     required String apiKey,
@@ -454,6 +399,7 @@ class DiscourseApi
   /// The colors Discourse resolved for this site and, when connected, the
   /// account named by [username]. Missing theme metadata is an optional
   /// capability and answers null rather than preventing the site from loading.
+  @override
   Future<SiteAppearance?> siteAppearance({
     required String siteUrl,
     String? username,
@@ -806,6 +752,7 @@ class DiscourseApi
   }
 
   /// The small, faceted result set Discourse serves under its header search.
+  @override
   Future<SearchResults> searchPosts({
     required String siteUrl,
     required String term,
@@ -849,6 +796,7 @@ class DiscourseApi
   /// This is intentionally separate from composer mention completion. The
   /// composer only offers people it can safely mention; a search modifier may
   /// scope to either a person or a visible group.
+  @override
   Future<FoundUsersAndGroups> searchUsersAndGroups({
     required String siteUrl,
     required String term,
@@ -883,6 +831,7 @@ class DiscourseApi
   }
 
   /// The five most recent searches exposed by core's initial search menu.
+  @override
   Future<List<String>> recentSearches({
     required String siteUrl,
     required String apiKey,
@@ -901,6 +850,7 @@ class DiscourseApi
     );
   }
 
+  @override
   Future<void> resetRecentSearches({
     required String siteUrl,
     required String apiKey,
@@ -918,6 +868,7 @@ class DiscourseApi
 
   /// Credits a selected autocomplete result to the search log that produced
   /// it, matching core's `/search/click` write.
+  @override
   Future<void> logSearchClick({
     required String siteUrl,
     required String apiKey,
@@ -942,6 +893,7 @@ class DiscourseApi
   }
 
   /// A topic with its first chunk of posts (20) and the full list of post ids.
+  @override
   Future<TopicPayload> topic({
     required String siteUrl,
     required String slug,
@@ -1013,6 +965,7 @@ class DiscourseApi
   }
 
   /// Changes how closely the current account follows one topic.
+  @override
   Future<void> updateTopicNotificationLevel({
     required String siteUrl,
     required String apiKey,
@@ -1032,6 +985,7 @@ class DiscourseApi
   }
 
   /// Changes this account's pin preference through the same two routes as web.
+  @override
   Future<void> updateTopicPinForUser({
     required String siteUrl,
     required String apiKey,
@@ -1051,6 +1005,7 @@ class DiscourseApi
   }
 
   /// Changes one guardian-approved topic status through core's admin route.
+  @override
   Future<void> updateTopicStatus({
     required String siteUrl,
     required String apiKey,
@@ -1071,6 +1026,7 @@ class DiscourseApi
   }
 
   /// Soft-deletes a topic through its first post, as core's topic model does.
+  @override
   Future<void> deleteTopic({
     required String siteUrl,
     required String apiKey,
@@ -1090,6 +1046,7 @@ class DiscourseApi
 
   /// Irreversibly deletes a soft-deleted topic after core's preflight accepts
   /// the current administrator and cooldown.
+  @override
   Future<void> permanentlyDeleteTopic({
     required String siteUrl,
     required String apiKey,
@@ -1108,6 +1065,7 @@ class DiscourseApi
   }
 
   /// Recovers a soft-deleted topic through core's topic-specific route.
+  @override
   Future<void> recoverTopic({
     required String siteUrl,
     required String apiKey,
@@ -1129,6 +1087,7 @@ class DiscourseApi
   ///
   /// [includeRaw] asks for the markdown alongside the cooked HTML. Reading
   /// never needs it; comparing what was posted against what was typed does.
+  @override
   Future<List<Post>> posts({
     required String siteUrl,
     required int topicId,
@@ -1156,6 +1115,7 @@ class DiscourseApi
   /// Discourse only serializes these when the requested window reaches the
   /// end. Installed model extensions contribute optional sources beside
   /// core's suggestions.
+  @override
   Future<TopicPostsPayload> topicPosts({
     required String siteUrl,
     required int topicId,
@@ -1215,6 +1175,7 @@ class DiscourseApi
   /// the opaque adjacent values returned by this same endpoint rather than a
   /// locally inferred version, because hidden revisions can leave gaps for a
   /// reader who is not allowed to see them.
+  @override
   Future<PostRevision> postRevision({
     required String siteUrl,
     required int postId,
@@ -1240,6 +1201,7 @@ class DiscourseApi
   ///
   /// `card.json` is the cheap endpoint for this — a full profile carries far
   /// more than a popup needs.
+  @override
   Future<UserCard> userCard({
     required String siteUrl,
     required String username,
@@ -1264,6 +1226,7 @@ class DiscourseApi
   }
 
   /// Sets the connected account's custom status.
+  @override
   Future<void> setUserStatus({
     required String siteUrl,
     required String apiKey,
@@ -1302,6 +1265,7 @@ class DiscourseApi
   }
 
   /// Clears the connected account's custom status.
+  @override
   Future<void> clearUserStatus({
     required String siteUrl,
     required String apiKey,
@@ -1361,6 +1325,7 @@ class DiscourseApi
   ///
   /// Core's `User.save(["hide_presence"])` sends this option at the top level
   /// of the ordinary user update, rather than nesting it under `user_option`.
+  @override
   Future<void> updateHidePresence({
     required String siteUrl,
     required String apiKey,
@@ -1390,6 +1355,7 @@ class DiscourseApi
   /// and callers are expected to swallow them. Every field of [SiteConfig] has
   /// a default that is core's default, so a site that will not answer is drawn
   /// as core rather than drawn as broken.
+  @override
   Future<SiteConfig> siteConfig({
     required String siteUrl,
     String? apiKey,
@@ -1426,6 +1392,7 @@ class DiscourseApi
   ///
   /// The payload has been seen in two shapes — an object of name to URL, and
   /// a list of `{name, url}` entries — so both are read.
+  @override
   Future<Map<String, String>> customEmojis({
     required String siteUrl,
     String? apiKey,
@@ -1470,6 +1437,7 @@ class DiscourseApi
   /// Groups are deliberately not asked for. Mentioning one is a different act
   /// with its own permissions, and offering something we cannot check the
   /// reader is allowed to do is worse than not offering it.
+  @override
   Future<List<FoundUser>> searchUsers({
     required String siteUrl,
     required String term,
@@ -1511,6 +1479,7 @@ class DiscourseApi
   }
 
   /// Tags matching a value being typed on the topic filter page.
+  @override
   Future<List<TopicFilterLookupValue>> searchFilterTags({
     required String siteUrl,
     required String term,
@@ -1551,6 +1520,7 @@ class DiscourseApi
   }
 
   /// Visible tag groups matching a value typed on the topic filter page.
+  @override
   Future<List<TopicFilterLookupValue>> searchFilterTagGroups({
     required String siteUrl,
     required String term,
@@ -1596,6 +1566,7 @@ class DiscourseApi
   }
 
   /// Groups visible to the connected account for `group:` completions.
+  @override
   Future<List<TopicFilterLookupValue>> searchFilterGroups({
     required String siteUrl,
     required String term,
@@ -1638,7 +1609,7 @@ class DiscourseApi
   /// How many refs one lookup may carry, matching Discourse's own cap
   /// (`HashtagsController::HASHTAGS_PER_REQUEST`). A request over it is
   /// rejected outright rather than truncated.
-  static const int hashtagsPerRequest = 20;
+  static const int hashtagsPerRequest = maximumDiscourseHashtagsPerRequest;
 
   /// The order hashtag results are ranked in, and the set of types asked for.
   ///
@@ -1646,12 +1617,13 @@ class DiscourseApi
   /// is served by `/site.json` — this app reads `/site/settings.json` and so
   /// does not have it. Core's default for the composer is what is sent, which
   /// is what the overwhelming majority of sites run.
-  static const List<String> hashtagOrder = ['category', 'tag'];
+  static const List<String> hashtagOrder = defaultDiscourseHashtagOrder;
 
   /// Hashtag targets matching [term], best first.
   ///
   /// `order[]` is not optional decoration: `HashtagsController#search` does
   /// `params.require(:order)` and answers 400 without it.
+  @override
   Future<List<FoundHashtag>> searchHashtags({
     required String siteUrl,
     required String term,
@@ -1702,6 +1674,7 @@ class DiscourseApi
   /// flattened back out here: which type a ref turned out to be is already on
   /// the item. [order] declares every core or plugin-owned type the server
   /// should try, in the same priority order as [searchHashtags].
+  @override
   Future<List<FoundHashtag>> lookupHashtags({
     required String siteUrl,
     required Iterable<String> refs,
@@ -1769,6 +1742,7 @@ class DiscourseApi
   /// cooks as a pill too. `user_reasons` is deliberately ignored: a name the
   /// reader cannot notify *here* is still a real account, and Discourse still
   /// links it.
+  @override
   Future<Set<String>> checkMentions({
     required String siteUrl,
     required Iterable<String> names,
@@ -1820,6 +1794,7 @@ class DiscourseApi
   /// `/emojis.json` is already filtered by the site's deny list and includes
   /// custom uploads in their configured groups. Group identifiers are opaque:
   /// core names and theme/plugin-defined names travel through unchanged.
+  @override
   Future<SiteEmojiCatalog> emojiCatalog({
     required String siteUrl,
     String? apiKey,
@@ -1869,6 +1844,7 @@ class DiscourseApi
   }
 
   /// Localized and base-language search aliases keyed by canonical emoji name.
+  @override
   Future<Map<String, List<String>>> emojiSearchAliases({
     required String siteUrl,
     String? apiKey,
@@ -1909,6 +1885,7 @@ class DiscourseApi
 
   /// Categories, flattened — subcategories arrive nested but the topic rows
   /// need to look any of them up by id.
+  @override
   Future<List<TopicCategory>> categories({
     required String siteUrl,
     String? apiKey,
@@ -1921,6 +1898,7 @@ class DiscourseApi
     page: page,
   )).categories;
 
+  @override
   Future<CategoryLoadResult> loadCategories({
     required String siteUrl,
     String? apiKey,
@@ -2001,6 +1979,7 @@ class DiscourseApi
   /// that id can belong to a root or subcategory on a later page, so the
   /// category badge cannot rely on the categories destination having been
   /// scrolled far enough first.
+  @override
   Future<List<TopicCategory>> findCategories({
     required String siteUrl,
     required Iterable<int> ids,
@@ -2031,6 +2010,7 @@ class DiscourseApi
   }
 
   /// The bounded server-side search used by core's lazy category chooser.
+  @override
   Future<List<TopicCategory>> searchCategories({
     required String siteUrl,
     required String term,
@@ -2079,6 +2059,7 @@ class DiscourseApi
   }
 
   /// Session-scoped permissions and validation data used by a topic composer.
+  @override
   Future<TopicComposerCapabilities> topicComposerCapabilities({
     required String siteUrl,
     required String apiKey,
@@ -2099,6 +2080,7 @@ class DiscourseApi
   /// `max_tag_search_results` and answers 400 for anything larger, so callers
   /// pass that setting through. Its default is core's own, not this client's
   /// autocomplete ceiling, so an unaware caller cannot be rejected.
+  @override
   Future<TopicTagSearch> searchTopicTags({
     required String siteUrl,
     required String apiKey,
@@ -2141,6 +2123,7 @@ class DiscourseApi
   /// wall clock since the composer opened is [composerOpenDuration].
   ///
   /// Never retry a failure from here. See [_write].
+  @override
   Future<PostCreation> createPost({
     required String siteUrl,
     required String apiKey,
@@ -2185,6 +2168,7 @@ class DiscourseApi
 
   /// Creates a topic. The tag objects deliberately retain both id and name:
   /// current Discourse servers no longer accept the old list of bare strings.
+  @override
   Future<PostCreation> createTopic({
     required String siteUrl,
     required String apiKey,
@@ -2227,6 +2211,7 @@ class DiscourseApi
   }
 
   /// Updates topic metadata before a first-post body edit.
+  @override
   Future<void> updateTopic({
     required String siteUrl,
     required String apiKey,
@@ -2256,6 +2241,7 @@ class DiscourseApi
     );
   }
 
+  @override
   Future<void> updateTopicTags({
     required String siteUrl,
     required String apiKey,
@@ -2278,6 +2264,7 @@ class DiscourseApi
   ///
   /// Safe to retry, unlike [createPost]: the same raw sent twice leaves the
   /// post saying the same thing, so a timeout here needs no reconciliation.
+  @override
   Future<Post> updatePost({
     required String siteUrl,
     required String apiKey,
@@ -2320,6 +2307,7 @@ class DiscourseApi
   /// gets a placeholder that is swept away later, and the last post in some
   /// topics goes for good. So nothing is returned — the caller re-reads the
   /// post to find out which of those happened.
+  @override
   Future<void> deletePost({
     required String siteUrl,
     required String apiKey,
@@ -2342,6 +2330,7 @@ class DiscourseApi
   /// The serializer flag only says the action is worth offering. Core still
   /// applies its five-minute/different-admin constraint immediately before the
   /// destructive write and returns a localized reason when it refuses.
+  @override
   Future<({bool allowed, String? reason})> checkPermanentPostDeletion({
     required String siteUrl,
     required String apiKey,
@@ -2362,6 +2351,7 @@ class DiscourseApi
   }
 
   /// Irreversibly deletes one soft-deleted reply.
+  @override
   Future<void> permanentlyDeletePost({
     required String siteUrl,
     required String apiKey,
@@ -2382,6 +2372,7 @@ class DiscourseApi
   }
 
   /// Deletes the posts selected in a topic's moderation mode.
+  @override
   Future<void> deletePosts({
     required String siteUrl,
     required String apiKey,
@@ -2400,6 +2391,7 @@ class DiscourseApi
   }
 
   /// Merges selected replies into the first selected post.
+  @override
   Future<void> mergePosts({
     required String siteUrl,
     required String apiKey,
@@ -2418,6 +2410,7 @@ class DiscourseApi
   }
 
   /// Moves selected posts to an existing topic or splits them into a new one.
+  @override
   Future<String> movePosts({
     required String siteUrl,
     required String apiKey,
@@ -2479,6 +2472,7 @@ class DiscourseApi
   }
 
   /// Reassigns posts by one author to another account.
+  @override
   Future<void> changePostOwners({
     required String siteUrl,
     required String apiKey,
@@ -2511,6 +2505,7 @@ class DiscourseApi
   }
 
   /// Makes a post collaboratively editable, or returns it to ordinary edits.
+  @override
   Future<void> updatePostWiki({
     required String siteUrl,
     required String apiKey,
@@ -2530,6 +2525,7 @@ class DiscourseApi
   }
 
   /// Prevents or permits further edits to one post.
+  @override
   Future<void> updatePostLocked({
     required String siteUrl,
     required String apiKey,
@@ -2549,6 +2545,7 @@ class DiscourseApi
   }
 
   /// Restores a post automatically hidden by the flagging system.
+  @override
   Future<void> unhidePost({
     required String siteUrl,
     required String apiKey,
@@ -2567,6 +2564,7 @@ class DiscourseApi
   }
 
   /// Converts an ordinary post to a moderator post, or reverts it.
+  @override
   Future<void> updatePostType({
     required String siteUrl,
     required String apiKey,
@@ -2590,6 +2588,7 @@ class DiscourseApi
   }
 
   /// Adds, changes, or removes the staff notice shown above a post.
+  @override
   Future<void> updatePostNotice({
     required String siteUrl,
     required String apiKey,
@@ -2613,6 +2612,7 @@ class DiscourseApi
   ///
   /// Safe to retry: a second like from the same account is refused as one it
   /// already has, and the post is left saying what it said.
+  @override
   Future<Post?> likePost({
     required String siteUrl,
     required String apiKey,
@@ -2639,6 +2639,7 @@ class DiscourseApi
   /// The response is unwrapped, like the like route. Unlike an undo, creation
   /// is expected to return a post; accepting an empty body as success would
   /// close the editor without any authoritative state to display.
+  @override
   Future<Post> createPostFlag({
     required String siteUrl,
     required String apiKey,
@@ -2675,6 +2676,7 @@ class DiscourseApi
   /// The id is deliberately the topic id and `flag_topic` selects the bridge;
   /// sending the first loaded post id instead would lose core's topic-level
   /// visibility and permission checks.
+  @override
   Future<void> createTopicFlag({
     required String siteUrl,
     required String apiKey,
@@ -2705,6 +2707,7 @@ class DiscourseApi
   /// The type goes in the query string rather than the body. Discourse reads
   /// it out of either, and a DELETE is the one request whose body nothing
   /// between here and the site is obliged to forward.
+  @override
   Future<Post?> unlikePost({
     required String siteUrl,
     required String apiKey,
@@ -2743,6 +2746,7 @@ class DiscourseApi
   /// [limit] is what stops a much-liked post from answering with a few hundred
   /// accounts for a popup that shows a handful. The post's own like count
   /// stays the total, so the caller can say how many were left out.
+  @override
   Future<PostLikers> postLikers({
     required String siteUrl,
     required int postId,
@@ -2768,6 +2772,7 @@ class DiscourseApi
   }
 
   /// Puts a deleted post back, where the site allows it.
+  @override
   Future<void> recoverPost({
     required String siteUrl,
     required String apiKey,
@@ -2792,6 +2797,7 @@ class DiscourseApi
   /// from another client, or a post that advanced it. The text in front of the
   /// user is the one they are looking at, so it wins, and the save is repeated
   /// with `force_save`. That is what the web composer does too.
+  @override
   Future<int?> saveDraft({
     required String siteUrl,
     required String apiKey,
@@ -2830,6 +2836,7 @@ class DiscourseApi
   }
 
   /// Uploads one composer image while reporting progress over the file bytes.
+  @override
   Future<ComposerUploadResult> uploadComposerImage({
     required String siteUrl,
     required String apiKey,
@@ -2940,6 +2947,7 @@ class DiscourseApi
   }
 
   /// Resolves the compact `upload://` URLs stored in raw post markdown.
+  @override
   Future<Map<String, String>> lookupUploadUrls({
     required String siteUrl,
     required String apiKey,
@@ -2994,6 +3002,7 @@ class DiscourseApi
   }
 
   /// Restores a server draft, including drafts created on another client.
+  @override
   Future<({ComposerDraft? draft, int sequence})> draft({
     required String siteUrl,
     required String apiKey,
@@ -3288,6 +3297,7 @@ class DiscourseApi
 
   /// Tells the site to forget the key, so deleting our copy does not leave a
   /// live key sitting in the user's authorized-apps list forever.
+  @override
   Future<void> revokeApiKey({
     required String siteUrl,
     required String apiKey,
@@ -3341,6 +3351,7 @@ class DiscourseApi
     return '$baseUrl${icon.startsWith('/') ? '' : '/'}$icon';
   }
 
+  @override
   void close() {
     _transport.close();
     _client.close();
