@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderEditable;
@@ -36,6 +38,8 @@ import 'shell_scope.dart';
 import 'shell_sheet.dart';
 import 'site_image.dart';
 
+const double _composerPanelRadius = 22;
+
 /// The contents of the floating reply composer.
 ///
 /// A panel rather than a sheet, which is the other thing the shell offers: the
@@ -54,7 +58,6 @@ class ComposerPanel extends StatelessWidget {
     this.onMove,
     this.onMoveEnd,
     this.pickImages = pickComposerImages,
-    this.highlightResizeBorder = false,
   });
 
   final ComposerController composer;
@@ -62,7 +65,6 @@ class ComposerPanel extends StatelessWidget {
   final ValueChanged<Offset>? onMove;
   final VoidCallback? onMoveEnd;
   final ComposerImagePicker pickImages;
-  final bool highlightResizeBorder;
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +94,7 @@ class ComposerPanel extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: theme.shell.content,
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(_composerPanelRadius),
             border: Border.all(color: theme.shell.divider),
             boxShadow: [
               BoxShadow(
@@ -102,15 +104,6 @@ class ComposerPanel extends StatelessWidget {
               ),
             ],
           ),
-          foregroundDecoration: highlightResizeBorder
-              ? BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: theme.colorScheme.primary,
-                    width: 2,
-                  ),
-                )
-              : null,
           child: CallbackShortcuts(
             bindings: {
               // Both, because the app runs on macOS and will run elsewhere.
@@ -300,7 +293,8 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   static const double _minimumReplyHeight = 180;
   static const double _minimumTopicHeight = 300;
   static const double _edgeHandleExtent = 16;
-  static const double _cornerHandleExtent = 32;
+  static const double _cornerHandleExtent =
+      _edgeHandleExtent + _composerPanelRadius;
   static const Duration _geometryRestoreDeadline = Duration(milliseconds: 100);
 
   Size? _size;
@@ -308,7 +302,6 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   ComposerGeometryPreference? _restoredPreference;
   bool _geometryLoaded = false;
   bool _geometryChanged = false;
-  final Set<Key> _hoveredResizeHandles = {};
   Future<void> _pendingGeometryWrite = Future.value();
 
   @override
@@ -348,7 +341,6 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                     height: geometry.size.height,
                     onMove: (delta) => _move(delta, bounds),
                     onMoveEnd: () => _persistGeometry(bounds),
-                    highlightResizeBorder: _hoveredResizeHandles.isNotEmpty,
                   ),
                 ),
                 _resizeHandle(
@@ -391,46 +383,50 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                   onResize: (delta) => _resize(delta, bounds, right: true),
                   onResizeEnd: () => _persistGeometry(bounds),
                 ),
-                _resizeHandle(
+                _cornerResizeHandle(
                   key: const ValueKey('composer-resize-top-left'),
-                  cursor: SystemMouseCursors.resizeUpLeftDownRight,
-                  top: 0,
-                  left: 0,
-                  width: _cornerHandleExtent,
-                  height: _cornerHandleExtent,
+                  cursor: _cornerResizeCursor(
+                    macOS: SystemMouseCursors.resizeLeft,
+                    otherwise: SystemMouseCursors.resizeUpLeftDownRight,
+                  ),
+                  top: true,
+                  left: true,
                   onResize: (delta) =>
                       _resize(delta, bounds, top: true, left: true),
                   onResizeEnd: () => _persistGeometry(bounds),
                 ),
-                _resizeHandle(
+                _cornerResizeHandle(
                   key: const ValueKey('composer-resize-top-right'),
-                  cursor: SystemMouseCursors.resizeUpRightDownLeft,
-                  top: 0,
-                  right: 0,
-                  width: _cornerHandleExtent,
-                  height: _cornerHandleExtent,
+                  cursor: _cornerResizeCursor(
+                    macOS: SystemMouseCursors.resizeRight,
+                    otherwise: SystemMouseCursors.resizeUpRightDownLeft,
+                  ),
+                  top: true,
+                  left: false,
                   onResize: (delta) =>
                       _resize(delta, bounds, top: true, right: true),
                   onResizeEnd: () => _persistGeometry(bounds),
                 ),
-                _resizeHandle(
+                _cornerResizeHandle(
                   key: const ValueKey('composer-resize-bottom-left'),
-                  cursor: SystemMouseCursors.resizeUpRightDownLeft,
-                  bottom: 0,
-                  left: 0,
-                  width: _cornerHandleExtent,
-                  height: _cornerHandleExtent,
+                  cursor: _cornerResizeCursor(
+                    macOS: SystemMouseCursors.resizeLeft,
+                    otherwise: SystemMouseCursors.resizeUpRightDownLeft,
+                  ),
+                  top: false,
+                  left: true,
                   onResize: (delta) =>
                       _resize(delta, bounds, bottom: true, left: true),
                   onResizeEnd: () => _persistGeometry(bounds),
                 ),
-                _resizeHandle(
+                _cornerResizeHandle(
                   key: const ValueKey('composer-resize-bottom-right'),
-                  cursor: SystemMouseCursors.resizeUpLeftDownRight,
-                  bottom: 0,
-                  right: 0,
-                  width: _cornerHandleExtent,
-                  height: _cornerHandleExtent,
+                  cursor: _cornerResizeCursor(
+                    macOS: SystemMouseCursors.resizeRight,
+                    otherwise: SystemMouseCursors.resizeUpLeftDownRight,
+                  ),
+                  top: false,
+                  left: false,
                   onResize: (delta) =>
                       _resize(delta, bounds, bottom: true, right: true),
                   onResizeEnd: () => _persistGeometry(bounds),
@@ -462,30 +458,85 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
     left: left,
     width: width,
     height: height,
-    child: MouseRegion(
+    child: _resizeRegion(
+      key: key,
       cursor: cursor,
-      onEnter: (_) => _setResizeHandleHovered(key, true),
-      onExit: (_) => _setResizeHandleHovered(key, false),
-      child: GestureDetector(
-        key: key,
-        behavior: HitTestBehavior.opaque,
-        onPanUpdate: (details) => onResize(details.delta),
-        onPanEnd: (_) => onResizeEnd(),
-        child: child,
+      onResize: onResize,
+      onResizeEnd: onResizeEnd,
+      child: child,
+    ),
+  );
+
+  Widget _cornerResizeHandle({
+    required Key key,
+    required MouseCursor cursor,
+    required bool top,
+    required bool left,
+    required ValueChanged<Offset> onResize,
+    required VoidCallback onResizeEnd,
+  }) => Positioned(
+    top: top ? 0 : null,
+    right: left ? null : 0,
+    bottom: top ? null : 0,
+    left: left ? 0 : null,
+    width: _cornerHandleExtent,
+    height: _cornerHandleExtent,
+    child: SizedBox.expand(
+      key: key,
+      child: Stack(
+        children: [
+          Positioned(
+            top: top ? _edgeHandleExtent / 2 : null,
+            right: 0,
+            bottom: top ? null : _edgeHandleExtent / 2,
+            left: 0,
+            height: _edgeHandleExtent,
+            child: _resizeRegion(
+              cursor: cursor,
+              onResize: onResize,
+              onResizeEnd: onResizeEnd,
+            ),
+          ),
+          Positioned(
+            top: 0,
+            right: left ? null : _edgeHandleExtent / 2,
+            bottom: 0,
+            left: left ? _edgeHandleExtent / 2 : null,
+            width: _edgeHandleExtent,
+            child: _resizeRegion(
+              cursor: cursor,
+              onResize: onResize,
+              onResizeEnd: onResizeEnd,
+            ),
+          ),
+        ],
       ),
     ),
   );
 
-  void _setResizeHandleHovered(Key key, bool hovered) {
-    if (_hoveredResizeHandles.contains(key) == hovered) return;
-    setState(() {
-      if (hovered) {
-        _hoveredResizeHandles.add(key);
-      } else {
-        _hoveredResizeHandles.remove(key);
-      }
-    });
-  }
+  Widget _resizeRegion({
+    Key? key,
+    required MouseCursor cursor,
+    required ValueChanged<Offset> onResize,
+    required VoidCallback onResizeEnd,
+    Widget? child,
+  }) => MouseRegion(
+    cursor: cursor,
+    child: GestureDetector(
+      key: key,
+      behavior: HitTestBehavior.opaque,
+      onPanUpdate: (details) => onResize(details.delta),
+      onPanEnd: (_) => onResizeEnd(),
+      child: child,
+    ),
+  );
+
+  MouseCursor _cornerResizeCursor({
+    required MouseCursor macOS,
+    required MouseCursor otherwise,
+  }) => !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS
+      ? macOS
+      : otherwise;
 
   _ComposerGeometry _geometryFor(Size bounds) {
     final horizontalInset = math.min(_inset, bounds.width / 2);
