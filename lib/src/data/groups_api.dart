@@ -400,6 +400,45 @@ final class GroupsApi {
     );
   }
 
+  Future<GroupInvite> createInvite({
+    required String siteUrl,
+    required String apiKey,
+    required int groupId,
+    String? email,
+    String? customMessage,
+    int maxRedemptionsAllowed = 1,
+    DateTime? expiresAt,
+    String? clientId,
+  }) async {
+    final normalizedEmail = _optionalQuery(email, 'email');
+    final normalizedMessage = _optionalQuery(customMessage, 'customMessage');
+    if (maxRedemptionsAllowed < 1) {
+      throw RangeError.value(
+        maxRedemptionsAllowed,
+        'maxRedemptionsAllowed',
+        'Must be positive.',
+      );
+    }
+    return GroupInvite.fromWire(
+      await _write(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        path: '/invites.json',
+        method: 'POST',
+        body: {
+          'group_ids': '${_positiveId(groupId, 'groupId')}',
+          'email': ?normalizedEmail,
+          'custom_message': ?normalizedMessage,
+          if (normalizedEmail == null)
+            'max_redemptions_allowed': maxRedemptionsAllowed,
+          if (expiresAt != null)
+            'expires_at': expiresAt.toUtc().toIso8601String(),
+        },
+      ),
+    );
+  }
+
   Future<GroupMembershipMutationResult> removeMembers({
     required String siteUrl,
     required String apiKey,

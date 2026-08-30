@@ -1,9 +1,11 @@
+import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/group_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -195,6 +197,159 @@ void main() {
           .selected,
       isTrue,
     );
+  });
+
+  testWidgets('member parity tools expose metadata and management actions', (
+    tester,
+  ) async {
+    String? filtered;
+    GroupMemberAction? memberAction;
+    List<String>? addedUsernames;
+    String? switchedGroup;
+    final member = GroupMember(
+      id: 3,
+      username: 'sam',
+      name: 'Sam Example',
+      owner: true,
+      addedAt: DateTime(2023, 2, 16),
+      lastPostedAt: DateTime.now().subtract(const Duration(days: 3)),
+      lastSeenAt: DateTime.now().subtract(const Duration(hours: 13)),
+    );
+
+    await _pump(
+      tester,
+      GroupPage(
+        siteUrl: 'https://meta.discourse.org',
+        route: GroupRoute.detail('support'),
+        registry: PluginRegistry.empty,
+        data: GroupPageData(
+          detail: const GroupDetail(
+            group: _group,
+            visibleGroupNames: ['support', 'design'],
+          ),
+          members: GroupMembersPage(members: [member], total: 1),
+          canInviteToForum: true,
+          currentUserStaff: true,
+          loaded: true,
+        ),
+        onSwitchGroup: (name) => switchedGroup = name,
+        onMemberFilterChanged: (value) => filtered = value,
+        onMemberSortChanged: (_, _) {},
+        onSearchUsers: (_) async => const [
+          FoundUser(username: 'lee', name: 'Lee Example'),
+        ],
+        onAddMembers: (usernames, emails) async {
+          addedUsernames = usernames;
+          return GroupMembershipMutationResult(usernames: usernames);
+        },
+        onCreateInvite: ({email, customMessage}) async =>
+            const GroupInvite(id: 8, link: '/invites/native'),
+        onMemberAction: (_, action) async {
+          memberAction = action;
+          return true;
+        },
+        onOpenMember: _ignoreMember,
+      ),
+      size: const Size(1180, 900),
+    );
+
+    expect(find.text('Added'), findsOneWidget);
+    expect(find.text('Last post'), findsOneWidget);
+    expect(find.text('Last seen'), findsOneWidget);
+    expect(find.textContaining('Feb 16'), findsOneWidget);
+    expect(find.byKey(const ValueKey('add-group-members')), findsOneWidget);
+    expect(find.byKey(const ValueKey('invite-group-members')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('group-member-search')),
+      'sam',
+    );
+    await tester.pump(const Duration(milliseconds: 310));
+    expect(filtered, 'sam');
+
+    await tester.tap(find.byKey(const ValueKey('group-switcher')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('switch-group-design')));
+    await tester.pumpAndSettle();
+    expect(switchedGroup, 'design');
+
+    await tester.tap(find.byKey(const ValueKey('add-group-members')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('add-members-search')),
+      'lee',
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('add-user-lee')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('submit-add-members')));
+    await tester.pumpAndSettle();
+    expect(addedUsernames, ['lee']);
+
+    await tester.tap(find.byKey(const ValueKey('invite-group-members')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('create-group-invite')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('https://meta.discourse.org/invites/native'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('manage-member-sam')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Make primary group'));
+    await tester.pumpAndSettle();
+    expect(memberAction, GroupMemberAction.makePrimary);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('admin deletion requires an exact group-name confirmation', (
+    tester,
+  ) async {
+    var deleted = false;
+    await _pump(
+      tester,
+      GroupPage(
+        siteUrl: 'https://meta.discourse.org',
+        route: GroupRoute.detail('support'),
+        registry: PluginRegistry.empty,
+        data: const GroupPageData(
+          detail: _detail,
+          members: GroupMembersPage(members: [_member], total: 1),
+          isAdmin: true,
+          loaded: true,
+        ),
+        onDeleteGroup: () async {
+          deleted = true;
+          return true;
+        },
+        onOpenMember: _ignoreMember,
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('group-more-actions')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete group'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<DButton>(find.byKey(const ValueKey('confirm-delete-group')))
+          .onPressed,
+      isNull,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('group-delete-confirmation')),
+      'support',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('confirm-delete-group')));
+    await tester.pumpAndSettle();
+
+    expect(deleted, isTrue);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('all manage subtabs are present and tag changes are submitted', (

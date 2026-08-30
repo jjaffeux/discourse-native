@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/plugin_transport.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/shell/groups_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -98,6 +99,67 @@ void main() {
     );
   });
 
+  test(
+    'member roles update every sorted cache after a confirmed write',
+    () async {
+      final transport = _ControlledGroupTransport()
+        ..objects.add(
+          _completed({
+            'members': [
+              {'id': 1, 'username': 'sam'},
+            ],
+            'owners': <Object?>[],
+            'meta': {'total': 1, 'limit': 50, 'offset': 0},
+          }),
+        );
+      final credentials = FakeApiCredentialReader(
+        clientIdValue: 'native-client',
+      )..keys[_site] = 'secret';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+      const group = Group(id: 7, name: 'support');
+
+      await controller.loadMembers(
+        _connectedInstance,
+        group.name,
+        order: 'last_seen_at',
+        ascending: false,
+      );
+      final member = controller
+          .membersState(
+            _site,
+            group.name,
+            order: 'last_seen_at',
+            ascending: false,
+          )
+          .members
+          .single;
+      final saved = await controller.setMemberOwner(
+        _connectedInstance,
+        group,
+        member,
+        owner: true,
+      );
+
+      expect(saved, isTrue);
+      expect(
+        controller
+            .membersState(
+              _site,
+              group.name,
+              order: 'last_seen_at',
+              ascending: false,
+            )
+            .members
+            .single
+            .owner,
+        isTrue,
+      );
+      expect(transport.writes.single.path, '/groups/7/owners.json');
+      expect(transport.writes.single.clientId, 'native-client');
+    },
+  );
+
   test('permissions remain available to an anonymous group visitor', () async {
     final transport = _ControlledGroupTransport()
       ..lists.add(
@@ -182,6 +244,10 @@ final class _ControlledGroupTransport
   final List<Completer<List<Map<String, dynamic>>>> lists = [];
   final List<({String path, String? apiKey, String? clientId})> gets = [];
   final List<({String path, String? apiKey, String? clientId})> listGets = [];
+  final List<
+    ({String path, String method, Map<String, Object?> body, String? clientId})
+  >
+  writes = [];
 
   @override
   Future<Map<String, dynamic>> pluginGetJson({
@@ -213,5 +279,8 @@ final class _ControlledGroupTransport
     required String apiKey,
     required Map<String, Object?> body,
     String? clientId,
-  }) => throw UnimplementedError();
+  }) async {
+    writes.add((path: path, method: method, body: body, clientId: clientId));
+    return const {};
+  }
 }
