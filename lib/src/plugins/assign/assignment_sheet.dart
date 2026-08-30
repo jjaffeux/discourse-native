@@ -8,6 +8,7 @@ import '../../shell/anchored_picker.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/select.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'assign_services.dart';
@@ -418,10 +419,11 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
               if (_suggestions == null && !_loadingSuggestions)
                 Align(
                   alignment: AlignmentDirectional.centerEnd,
-                  child: TextButton(
+                  child: DButton(
                     key: const Key('assignment-retry-suggestions'),
+                    label: const Text('Retry'),
                     onPressed: _saving ? null : _retrySuggestions,
-                    child: const Text('Retry'),
+                    variant: DButtonVariant.link,
                   ),
                 ),
             ],
@@ -432,29 +434,20 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
               runSpacing: 8,
               children: [
                 if (widget.remove != null)
-                  FilledButton(
+                  DButton(
                     key: const Key('assignment-unassign'),
-                    onPressed: _saving ? null : _remove,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: theme.colorScheme.error,
-                      foregroundColor: theme.colorScheme.onError,
-                    ),
-                    child: const Text('Unassign'),
+                    label: const Text('Unassign'),
+                    onPressed: _remove,
+                    variant: DButtonVariant.danger,
+                    loading: _saving,
                   ),
-                FilledButton.icon(
+                DButton(
                   key: const Key('assignment-save'),
-                  onPressed: _saving || _searching || _selected == null
-                      ? null
-                      : _save,
-                  icon: _saving
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const DIcon(DIcons.check),
                   label: Text(widget.existing == null ? 'Assign' : 'Save'),
+                  onPressed: _searching || _selected == null ? null : _save,
+                  icon: const DIcon(DIcons.check),
+                  variant: DButtonVariant.primary,
+                  loading: _saving,
                 ),
               ],
             ),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../theme/d_button.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 
@@ -135,19 +136,16 @@ class _ChannelTitleDialogState extends State<_ChannelTitleDialog> {
       ),
     ),
     actions: [
-      TextButton(
+      DButton(
+        label: const Text('Cancel'),
         onPressed: _saving ? null : () => Navigator.of(context).pop(),
-        child: const Text('Cancel'),
       ),
-      FilledButton(
+      DButton(
         key: const ValueKey('chat-channel-title-save'),
+        label: const Text('Save'),
         onPressed: _canSave ? () => unawaited(_save()) : null,
-        child: _saving
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-              )
-            : const Text('Save'),
+        variant: DButtonVariant.primary,
+        loading: _saving,
       ),
     ],
   );
@@ -246,19 +244,16 @@ class _ChannelDescriptionDialogState extends State<_ChannelDescriptionDialog> {
       ),
     ),
     actions: [
-      TextButton(
+      DButton(
+        label: const Text('Cancel'),
         onPressed: _saving ? null : () => Navigator.of(context).pop(),
-        child: const Text('Cancel'),
       ),
-      FilledButton(
+      DButton(
         key: const ValueKey('chat-channel-description-save'),
+        label: const Text('Save'),
         onPressed: _canSave ? () => unawaited(_save()) : null,
-        child: _saving
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-              )
-            : const Text('Save'),
+        variant: DButtonVariant.primary,
+        loading: _saving,
       ),
     ],
   );

@@ -8,6 +8,7 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/route_aware_selection_area.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'ai_summary.dart';
@@ -104,8 +105,9 @@ class _AiSummaryButton extends StatelessWidget {
   final AiSummaryAvailability availability;
 
   @override
-  Widget build(BuildContext context) => OutlinedButton.icon(
+  Widget build(BuildContext context) => DButton(
     key: const ValueKey('ai-topic-summary-button'),
+    label: const Text('Summarize'),
     onPressed: () {
       final controller = PluginUiScope.require(
         context,
@@ -124,7 +126,6 @@ class _AiSummaryButton extends StatelessWidget {
       );
     },
     icon: const DIcon(DiscourseAiIcons.sparkles, size: 15),
-    label: const Text('Summarize'),
   );
 }
 
@@ -272,16 +273,16 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
       ),
       actions: [
         if (_error != null)
-          TextButton(onPressed: _load, child: const Text('Try again')),
+          DButton(label: const Text('Try again'), onPressed: _load),
         if (summary?.outdated == true && summary?.canRegenerate == true)
-          OutlinedButton.icon(
+          DButton(
+            label: const Text('Regenerate'),
             onPressed: _loading ? null : () => _load(regenerate: true),
             icon: const DIcon(DIcons.arrowsRotate, size: 14),
-            label: const Text('Regenerate'),
           ),
-        TextButton(
+        DButton(
+          label: const Text('Close'),
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
         ),
       ],
     );

@@ -24,6 +24,11 @@ const _support = AssignmentGroup(
   fullName: 'Support team',
 );
 
+FilledButton _materialButton(WidgetTester tester, Key key) =>
+    tester.widget<FilledButton>(
+      find.descendant(of: find.byKey(key), matching: find.byType(FilledButton)),
+    );
+
 void main() {
   testWidgets('uses an anchored picker on desktop', (tester) async {
     final controller = await _openAssignmentEditor(
@@ -91,7 +96,7 @@ void main() {
     expect(note.decoration?.border, isA<OutlineInputBorder>());
 
     final unassignFinder = find.byKey(const Key('assignment-unassign'));
-    final unassign = tester.widget<FilledButton>(unassignFinder);
+    final unassign = _materialButton(tester, const Key('assignment-unassign'));
     final theme = Theme.of(tester.element(unassignFinder));
     expect(
       unassign.style?.backgroundColor?.resolve(<WidgetState>{}),
@@ -219,9 +224,7 @@ void main() {
     await tester.tap(find.byKey(const Key('assignment-assignee-user:sam')));
     await tester.pump();
     expect(
-      tester
-          .widget<FilledButton>(find.byKey(const Key('assignment-save')))
-          .onPressed,
+      _materialButton(tester, const Key('assignment-save')).onPressed,
       isNotNull,
     );
 
@@ -235,9 +238,7 @@ void main() {
     );
     expect(staleChoice.enabled, isFalse);
     expect(
-      tester
-          .widget<FilledButton>(find.byKey(const Key('assignment-save')))
-          .onPressed,
+      _materialButton(tester, const Key('assignment-save')).onPressed,
       isNull,
     );
     await tester.enterText(find.byKey(const Key('assignment-search')), 'new');
@@ -256,9 +257,7 @@ void main() {
     expect(find.text('New result'), findsOneWidget);
     expect(find.text('Old result'), findsNothing);
     expect(
-      tester
-          .widget<FilledButton>(find.byKey(const Key('assignment-save')))
-          .onPressed,
+      _materialButton(tester, const Key('assignment-save')).onPressed,
       isNotNull,
     );
   });
@@ -335,9 +334,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('The assignment could not be saved.'), findsOneWidget);
-    final button = tester.widget<FilledButton>(
-      find.byKey(const Key('assignment-save')),
-    );
+    final button = _materialButton(tester, const Key('assignment-save'));
     expect(button.onPressed, isNotNull);
     expect(
       tester

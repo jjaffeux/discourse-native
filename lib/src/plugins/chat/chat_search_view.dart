@@ -129,9 +129,9 @@ class _ChatSearchViewState extends State<ChatSearchView> {
                   Text(error, textAlign: TextAlign.center),
                   const SizedBox(height: 8),
                 ],
-                OutlinedButton(
+                DButton(
+                  label: Text(state.error == null ? 'Load more' : 'Try again'),
                   onPressed: () => _search.loadMore(widget.siteUrl),
-                  child: Text(state.error == null ? 'Load more' : 'Try again'),
                 ),
               ],
             ),
@@ -369,7 +369,7 @@ class _SearchFailure extends StatelessWidget {
       children: [
         Text(message),
         const SizedBox(height: 12),
-        OutlinedButton(onPressed: onRetry, child: const Text('Try again')),
+        DButton(label: const Text('Try again'), onPressed: onRetry),
       ],
     ),
   );

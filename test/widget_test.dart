@@ -2523,10 +2523,11 @@ void main() {
       await tester.pump();
 
       expect(find.text('Signing in…'), findsOneWidget);
+      final signIn = find.byKey(const ValueKey('private-forum-sign-in'));
       expect(
         tester
             .widget<FilledButton>(
-              find.byKey(const ValueKey('private-forum-sign-in')),
+              find.descendant(of: signIn, matching: find.byType(FilledButton)),
             )
             .onPressed,
         isNull,
@@ -8088,14 +8089,14 @@ void main() {
 
       final signUp = tester.getRect(find.byKey(UserMenuButton.signUpKey));
       final signUpLabel = tester.getRect(find.text('Sign up'));
-      expect(signUpLabel.left - signUp.left, 9);
-      expect(signUp.right - signUpLabel.right, 9);
+      expect(signUpLabel.left - signUp.left, moreOrLessEquals(11.4));
+      expect(signUp.right - signUpLabel.right, moreOrLessEquals(11.4));
 
       final signIn = tester.getRect(find.byKey(UserMenuButton.signInKey));
       final signInIcon = tester.getRect(find.dIcon(DIcons.user));
       final signInLabel = tester.getRect(find.text('Sign in'));
-      expect(signInIcon.left - signIn.left, 9);
-      expect(signIn.right - signInLabel.right, 9);
+      expect(signInIcon.left - signIn.left, moreOrLessEquals(11.4));
+      expect(signIn.right - signInLabel.right, moreOrLessEquals(11.4));
     });
 
     testWidgets('aggregate hides forum account actions', (tester) async {
@@ -18226,13 +18227,17 @@ void main() {
           findsOneWidget,
         );
         final retryButton = tester.widget<FilledButton>(
-          find.byKey(const ValueKey('unavailable-forum-retry')),
+          find.descendant(
+            of: find.byKey(const ValueKey('unavailable-forum-retry')),
+            matching: find.byType(FilledButton),
+          ),
         );
-        final removeButton = tester.widget<OutlinedButton>(
-          find.byKey(const ValueKey('unavailable-forum-remove')),
+        final removeButton = tester.widget<FilledButton>(
+          find.descendant(
+            of: find.byKey(const ValueKey('unavailable-forum-remove')),
+            matching: find.byType(FilledButton),
+          ),
         );
-        // Desktop's compact density otherwise removes the theme's 7px of
-        // vertical padding, leaving the outlined action visibly cramped.
         expect(retryButton.style?.visualDensity, VisualDensity.standard);
         expect(removeButton.style?.visualDensity, VisualDensity.standard);
 

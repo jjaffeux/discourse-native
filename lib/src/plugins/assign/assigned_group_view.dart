@@ -303,11 +303,12 @@ class _AssignedControls extends StatelessWidget {
             if (members.hasMore)
               Align(
                 alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: members.loadingMore ? null : onLoadMoreMembers,
-                  child: Text(
-                    members.loadingMore ? 'Loading people…' : 'More people',
-                  ),
+                child: DButton(
+                  label: const Text('More people'),
+                  onPressed: onLoadMoreMembers,
+                  variant: DButtonVariant.link,
+                  loading: members.loadingMore,
+                  loadingLabel: const Text('Loading people…'),
                 ),
               ),
             const SizedBox(height: 10),
@@ -434,7 +435,11 @@ class _AssignedError extends StatelessWidget {
         const DIcon(DIcons.triangleExclamation, size: 18),
         const SizedBox(width: 8),
         Expanded(child: Text(message)),
-        TextButton(onPressed: onRetry, child: const Text('Try again')),
+        DButton(
+          label: const Text('Try again'),
+          onPressed: onRetry,
+          variant: DButtonVariant.link,
+        ),
       ],
     ),
   );

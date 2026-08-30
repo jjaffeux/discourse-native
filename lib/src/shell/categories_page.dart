@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/category_feed.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'shell_controller.dart';
@@ -481,7 +482,11 @@ class _CategoryErrorBanner extends StatelessWidget {
           ),
           const SizedBox(width: 9),
           Expanded(child: Text(message)),
-          TextButton(onPressed: onRetry, child: const Text('Retry')),
+          DButton(
+            label: const Text('Retry'),
+            onPressed: onRetry,
+            variant: DButtonVariant.link,
+          ),
         ],
       ),
     );
@@ -519,7 +524,7 @@ class _CategoryPageState extends StatelessWidget {
             ),
             if (actionLabel case final label?) ...[
               const SizedBox(height: 16),
-              FilledButton.tonal(onPressed: onAction, child: Text(label)),
+              DButton(label: Text(label), onPressed: onAction),
             ],
           ],
         ),

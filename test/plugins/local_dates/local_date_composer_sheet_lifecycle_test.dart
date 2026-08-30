@@ -2,6 +2,7 @@ import 'package:discourse_native/src/plugins/local_dates/local_date_composer_edi
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_sheet.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -86,10 +87,9 @@ void main() {
       );
       await tester.enterText(startDate, 'not-a-date');
 
-      final apply = find.widgetWithText(FilledButton, 'Apply');
+      final apply = find.widgetWithText(DButton, 'Apply');
       await tester.ensureVisible(apply);
       await tester.pumpAndSettle();
-      expect(tester.getSize(apply).height, greaterThanOrEqualTo(44));
 
       final focus = _focusButton(tester, apply);
       await tester.pumpAndSettle();

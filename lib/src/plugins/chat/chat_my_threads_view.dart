@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/user_status.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_controller.dart';
@@ -114,11 +115,11 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
                     Text(message, textAlign: TextAlign.center),
                     const SizedBox(height: 8),
                   ],
-                  OutlinedButton(
+                  DButton(
+                    label: Text(error == null ? 'Load more' : 'Try again'),
                     onPressed: () => unawaited(
                       _chat.loadMyThreads(widget.siteUrl, more: true),
                     ),
-                    child: Text(error == null ? 'Load more' : 'Try again'),
                   ),
                 ],
               ),
@@ -316,7 +317,7 @@ class ChatThreadListMessage extends StatelessWidget {
           Text(message, textAlign: TextAlign.center),
           if (action case final label?) ...[
             const SizedBox(height: 12),
-            OutlinedButton(onPressed: onAction, child: Text(label)),
+            DButton(label: Text(label), onPressed: onAction),
           ],
         ],
       ),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/sidebar_tag.dart';
 import '../models/tag_directory_feed.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'shell_scope.dart';
@@ -210,7 +211,11 @@ class _TagErrorBanner extends StatelessWidget {
           ),
           const SizedBox(width: 9),
           Expanded(child: Text(message)),
-          TextButton(onPressed: onRetry, child: const Text('Retry')),
+          DButton(
+            label: const Text('Retry'),
+            onPressed: onRetry,
+            variant: DButtonVariant.link,
+          ),
         ],
       ),
     );
@@ -244,7 +249,7 @@ class _TagPageState extends StatelessWidget {
             Text(title, textAlign: TextAlign.center),
             if (actionLabel case final label?) ...[
               const SizedBox(height: 12),
-              FilledButton.tonal(onPressed: onAction, child: Text(label)),
+              DButton(label: Text(label), onPressed: onAction),
             ],
           ],
         ),

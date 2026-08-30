@@ -6,6 +6,7 @@ import '../../shell/platform.dart';
 import '../../shell/select.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/d_button.dart';
 import 'local_date.dart';
 import 'local_date_composer_editor.dart';
 import 'local_date_environment.dart';
@@ -498,18 +499,23 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
     runSpacing: 8,
     children: [
       if (!widget.draft.isNew) ...[
-        TextButton(
+        DButton(
+          label: const Text('Remove'),
           onPressed: () => Navigator.of(
             context,
           ).pop(const LocalDateComposerSheetAction.remove()),
-          child: const Text('Remove'),
+          variant: DButtonVariant.danger,
         ),
       ],
-      TextButton(
+      DButton(
+        label: const Text('Cancel'),
         onPressed: () => Navigator.of(context).pop(),
-        child: const Text('Cancel'),
       ),
-      FilledButton(onPressed: _apply, child: const Text('Apply')),
+      DButton(
+        label: const Text('Apply'),
+        onPressed: _apply,
+        variant: DButtonVariant.primary,
+      ),
     ],
   );
 

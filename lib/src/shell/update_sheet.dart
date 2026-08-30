@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/app_release.dart';
 import '../data/updater.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
@@ -146,15 +147,16 @@ class _Status extends StatelessWidget {
             _UpdateError(message: error),
           ],
           const SizedBox(height: 16),
-          FilledButton(
-            onPressed: updates.download,
+          DButton(
             // "Switch to" rather than "Update to" when the offer is older than
             // what is running, which is what moving canary -> stable means.
-            child: Text(
+            label: Text(
               release.isDowngrade
                   ? 'Switch to ${release.version}'
                   : 'Download ${release.version}',
             ),
+            onPressed: updates.download,
+            variant: DButtonVariant.primary,
           ),
         ],
       ),
@@ -202,9 +204,10 @@ class _Status extends StatelessWidget {
             _UpdateError(message: error),
           ],
           const SizedBox(height: 16),
-          FilledButton(
+          DButton(
+            label: const Text('Restart and install'),
             onPressed: updates.installAndRestart,
-            child: const Text('Restart and install'),
+            variant: DButtonVariant.primary,
           ),
         ],
       ),
@@ -238,9 +241,10 @@ class _Status extends StatelessWidget {
               // Not decoration. The Linux update path is preview-grade, and
               // someone whose in-app update is broken must not be left with no
               // way to get the build at all.
-              TextButton(
+              DButton(
+                label: const Text('Open the releases page'),
                 onPressed: () => openExternalLink(AppRelease.releasesUrl),
-                child: const Text('Open the releases page'),
+                variant: DButtonVariant.link,
               ),
             ],
           ),
@@ -283,24 +287,12 @@ class _CheckButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final updates = ShellScope.read(context).updates;
 
-    return MergeSemantics(
-      child: Semantics(
-        liveRegion: checking,
-        label: checking ? 'Checking for updates' : null,
-        child: FilledButton(
-          onPressed: checking ? null : updates.check,
-          child: checking
-              // Same shape as the connecting state in _AddInstanceForm.
-              ? const ExcludeSemantics(
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                  ),
-                )
-              : Text(label),
-        ),
-      ),
+    return DButton(
+      label: Text(label),
+      onPressed: updates.check,
+      variant: DButtonVariant.primary,
+      loading: checking,
+      semanticLabel: checking ? 'Checking for updates' : null,
     );
   }
 }

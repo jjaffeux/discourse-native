@@ -235,14 +235,15 @@ class TopicStatusButton extends StatelessWidget {
             'to recover it later.',
           ),
           actions: [
-            TextButton(
+            DButton(
+              label: const Text('Cancel'),
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
             ),
-            FilledButton(
+            DButton(
               key: const ValueKey('topic-delete-confirm'),
+              label: const Text('Delete'),
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Delete'),
+              variant: DButtonVariant.danger,
             ),
           ],
         ),

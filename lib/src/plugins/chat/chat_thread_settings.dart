@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../shell/shell_sheet.dart';
+import '../../theme/d_button.dart';
 import 'chat_controller.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread.dart';
@@ -114,15 +115,12 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
         const SizedBox(height: 16),
         Align(
           alignment: Alignment.centerLeft,
-          child: FilledButton(
+          child: DButton(
             key: const ValueKey('chat-thread-title-save'),
-            onPressed: _saving ? null : () => unawaited(_save()),
-            child: _saving
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                  )
-                : const Text('Save'),
+            label: const Text('Save'),
+            onPressed: () => unawaited(_save()),
+            variant: DButtonVariant.primary,
+            loading: _saving,
           ),
         ),
       ],

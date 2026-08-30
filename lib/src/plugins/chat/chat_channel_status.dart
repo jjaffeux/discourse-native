@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../theme/d_button.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 
@@ -84,19 +85,16 @@ class _ChannelStatusDialogState extends State<_ChannelStatusDialog> {
       ],
     ),
     actions: [
-      TextButton(
+      DButton(
+        label: const Text('Cancel'),
         onPressed: _saving ? null : () => Navigator.of(context).pop(),
-        child: const Text('Cancel'),
       ),
-      FilledButton(
+      DButton(
         key: const ValueKey('chat-channel-status-confirm'),
-        onPressed: _saving ? null : () => unawaited(_save()),
-        child: _saving
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-              )
-            : Text(_closing ? 'Close channel' : 'Open channel'),
+        label: Text(_closing ? 'Close channel' : 'Open channel'),
+        onPressed: () => unawaited(_save()),
+        variant: _closing ? DButtonVariant.danger : DButtonVariant.primary,
+        loading: _saving,
       ),
     ],
   );

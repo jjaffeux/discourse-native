@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
@@ -153,19 +154,20 @@ class _InstanceActionsState extends State<InstanceActions> {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
+                    child: DButton(
+                      label: const Text('Move up'),
                       onPressed: widget.onMoveUp == null
                           ? null
                           : () => Navigator.of(
                               sheetContext,
                             ).pop(_InstanceSheetAction.moveUp),
                       icon: const DIcon(DIcons.arrowUp, size: 18),
-                      label: const Text('Move up'),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: OutlinedButton.icon(
+                    child: DButton(
+                      label: const Text('Move down'),
                       onPressed: widget.onMoveDown == null
                           ? null
                           : () => Navigator.of(
@@ -175,22 +177,18 @@ class _InstanceActionsState extends State<InstanceActions> {
                         quarterTurns: 2,
                         child: DIcon(DIcons.arrowUp, size: 18),
                       ),
-                      label: const Text('Move down'),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
             ],
-            FilledButton.icon(
+            DButton(
+              label: const Text('Remove forum'),
               onPressed: () =>
                   Navigator.of(sheetContext).pop(_InstanceSheetAction.remove),
-              style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.error,
-                foregroundColor: theme.colorScheme.onError,
-              ),
               icon: const DIcon(DIcons.trashCan, size: 18),
-              label: const Text('Remove forum'),
+              variant: DButtonVariant.danger,
             ),
           ],
         );

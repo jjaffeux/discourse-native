@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
@@ -181,16 +182,17 @@ class _AggregateViewState extends State<AggregateView> {
           footerBuilder: (footerContext) => Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextButton(
+              DButton(
+                label: const Text('Cancel'),
                 onPressed: () => Navigator.of(footerContext).pop(),
-                child: const Text('Cancel'),
               ),
               const SizedBox(width: 8),
-              FilledButton(
+              DButton(
+                label: const Text('Save filters'),
                 onPressed: () => Navigator.of(
                   footerContext,
                 ).pop((includedForums: {...selected}, queries: {...queries})),
-                child: const Text('Save filters'),
+                variant: DButtonVariant.primary,
               ),
             ],
           ),
@@ -213,7 +215,8 @@ class _AggregateViewState extends State<AggregateView> {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      TextButton(
+                      DButton(
+                        label: const Text('All'),
                         onPressed: connected.isEmpty
                             ? null
                             : () => setSheetState(
@@ -221,13 +224,14 @@ class _AggregateViewState extends State<AggregateView> {
                                   for (final forum in connected) forum.url,
                                 },
                               ),
-                        child: const Text('All'),
+                        variant: DButtonVariant.link,
                       ),
-                      TextButton(
+                      DButton(
+                        label: const Text('None'),
                         onPressed: selected.isEmpty
                             ? null
                             : () => setSheetState(() => selected = {}),
-                        child: const Text('None'),
+                        variant: DButtonVariant.link,
                       ),
                     ],
                   ),
@@ -462,7 +466,11 @@ class _PartialFailureBanner extends StatelessWidget {
         title: Text(
           '$failed ${failed == 1 ? 'forum could' : 'forums could'} not be refreshed.',
         ),
-        trailing: TextButton(onPressed: onRetry, child: const Text('Retry')),
+        trailing: DButton(
+          label: const Text('Retry'),
+          onPressed: onRetry,
+          variant: DButtonVariant.link,
+        ),
       ),
     );
   }
@@ -512,7 +520,11 @@ class _AggregateEmptyState extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              FilledButton(onPressed: onAction, child: Text(actionLabel)),
+              DButton(
+                label: Text(actionLabel),
+                onPressed: onAction,
+                variant: DButtonVariant.primary,
+              ),
             ],
           ),
         ),

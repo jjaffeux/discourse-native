@@ -7,6 +7,7 @@ import '../models/group.dart';
 import '../models/group_route.dart';
 import '../plugin_api/plugin_data.dart';
 import '../plugin_api/plugin_registry.dart';
+import '../theme/d_button.dart';
 import 'group_page.dart';
 import 'groups_controller.dart';
 import 'groups_page.dart';
@@ -363,13 +364,14 @@ class _GroupPageHostState extends State<GroupPageHost> {
               decoration: const InputDecoration(labelText: 'Reason'),
             ),
             actions: [
-              TextButton(
+              DButton(
+                label: const Text('Cancel'),
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
               ),
-              FilledButton(
+              DButton(
+                label: const Text('Send request'),
                 onPressed: () => Navigator.pop(context, controller.text),
-                child: const Text('Send request'),
+                variant: DButtonVariant.primary,
               ),
             ],
           ),

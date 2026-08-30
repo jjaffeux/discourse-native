@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/found_user.dart';
 import '../models/post.dart';
+import '../theme/d_button.dart';
 import 'avatar_image.dart';
 import 'shell_controller.dart';
 
@@ -219,21 +220,18 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        DButton(
+          label: const Text('Cancel'),
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
         ),
-        FilledButton(
+        DButton(
           key: const ValueKey('topic-change-owner-submit'),
+          label: const Text('Change owner'),
           onPressed: !_saving && _selected != null
               ? () => unawaited(_changeOwner())
               : null,
-          child: _saving
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                )
-              : const Text('Change owner'),
+          variant: DButtonVariant.primary,
+          loading: _saving,
         ),
       ],
     );
