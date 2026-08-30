@@ -401,7 +401,9 @@ class _ContentHeader extends StatelessWidget {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                          if (route.subtitle case final subtitle?)
+                          if (route.isGroups && siteUrl != null)
+                            _GroupsDirectoryCount(siteUrl: siteUrl!)
+                          else if (route.subtitle case final subtitle?)
                             Text(
                               subtitle,
                               maxLines: 1,
@@ -448,6 +450,34 @@ class _ContentHeader extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _GroupsDirectoryCount extends StatelessWidget {
+  const _GroupsDirectoryCount({required this.siteUrl});
+
+  final String siteUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = ShellScope.read(context).groups;
+    return ListenableBuilder(
+      listenable: groups,
+      builder: (context, _) {
+        final state = groups.presentedDirectoryState(siteUrl);
+        if (state == null || !state.loaded) return const SizedBox.shrink();
+        final count = state.totalRows;
+        return Text(
+          key: const ValueKey('groups-header-count'),
+          count == 1 ? '1 group' : '$count groups',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        );
+      },
     );
   }
 }

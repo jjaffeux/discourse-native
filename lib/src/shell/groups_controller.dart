@@ -10,31 +10,19 @@ import '../models/group.dart';
 
 @immutable
 final class GroupDirectoryQuery {
-  const GroupDirectoryQuery({
-    this.filter = '',
-    this.type,
-    this.order = 'name',
-    this.ascending = true,
-    this.username,
-  });
+  const GroupDirectoryQuery({this.filter = '', this.type, this.username});
 
   final String filter;
   final String? type;
-  final String order;
-  final bool ascending;
   final String? username;
 
   GroupDirectoryQuery copyWith({
     String? filter,
     Object? type = _absent,
-    String? order,
-    bool? ascending,
     Object? username = _absent,
   }) => GroupDirectoryQuery(
     filter: filter ?? this.filter,
     type: identical(type, _absent) ? this.type : type as String?,
-    order: order ?? this.order,
-    ascending: ascending ?? this.ascending,
     username: identical(username, _absent)
         ? this.username
         : username as String?,
@@ -45,12 +33,10 @@ final class GroupDirectoryQuery {
       other is GroupDirectoryQuery &&
       other.filter == filter &&
       other.type == type &&
-      other.order == order &&
-      other.ascending == ascending &&
       other.username == username;
 
   @override
-  int get hashCode => Object.hash(filter, type, order, ascending, username);
+  int get hashCode => Object.hash(filter, type, username);
 }
 
 const Object _absent = Object();
@@ -233,6 +219,7 @@ final class GroupsController extends FrameSafeNotifier {
   final Map<_ActivityKey, GroupActivityState> _activities = {};
   final Map<_GroupKey, GroupPermissionsState> _permissions = {};
   final Map<_GroupKey, GroupLogsState> _logs = {};
+  final Map<String, GroupDirectoryQuery> _presentedDirectoryQueries = {};
   final Map<Object, Object> _requests = {};
   final Map<_GroupKey, Object> _mutations = {};
 
@@ -242,6 +229,16 @@ final class GroupsController extends FrameSafeNotifier {
   ) =>
       _directories[(siteUrl: siteUrl, query: query)] ??
       const GroupDirectoryState();
+
+  /// The directory state currently represented by the controls for a site.
+  ///
+  /// The shell header lives outside the directory host, so this small
+  /// pointer lets it present the matching result count without duplicating the
+  /// host's query ownership or persisting filter state in navigation history.
+  GroupDirectoryState? presentedDirectoryState(String siteUrl) {
+    final query = _presentedDirectoryQueries[siteUrl];
+    return query == null ? null : directoryState(siteUrl, query);
+  }
 
   GroupDetailState detailState(String siteUrl, String groupName) =>
       _details[_groupKey(siteUrl, groupName)] ?? const GroupDetailState();
@@ -289,9 +286,12 @@ final class GroupsController extends FrameSafeNotifier {
   }) async {
     final key = (siteUrl: instance.url, query: query);
     final held = directoryState(instance.url, query);
+    final presentedChanged = _presentedDirectoryQueries[instance.url] != query;
+    _presentedDirectoryQueries[instance.url] = query;
     if (_requests.containsKey(key) ||
         (!refresh && !more && held.loaded) ||
         (more && (!held.loaded || !held.hasMore))) {
+      if (presentedChanged) notifySafely();
       return;
     }
     final token = _start(key, instance.url);
@@ -317,8 +317,6 @@ final class GroupsController extends FrameSafeNotifier {
         page: more ? held.nextPage : 0,
         filter: query.filter,
         type: query.type,
-        order: query.order,
-        ascending: query.ascending,
         username: query.username,
       );
       _commit(token, () {
@@ -892,6 +890,7 @@ final class GroupsController extends FrameSafeNotifier {
     _activities.removeWhere((key, _) => key.siteUrl == siteUrl);
     _permissions.removeWhere((key, _) => key.siteUrl == siteUrl);
     _logs.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _presentedDirectoryQueries.remove(siteUrl);
     _mutations.removeWhere((key, _) => key.siteUrl == siteUrl);
     _requests.removeWhere((key, _) => _requestSite[key] == siteUrl);
     _requestSite.removeWhere((_, value) => value == siteUrl);

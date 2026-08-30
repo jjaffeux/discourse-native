@@ -55,9 +55,10 @@ void main() {
       expect(state.groups.map((group) => group.id), [1, 2]);
       expect(state.totalRows, 2);
       expect(state.hasMore, isFalse);
+      expect(controller.presentedDirectoryState(_site), same(state));
       expect(transport.gets.map((request) => request.path), [
-        '/groups.json?order=name',
-        '/groups.json?page=1&order=name',
+        '/groups.json',
+        '/groups.json?page=1',
       ]);
       expect(transport.gets.every((request) => request.apiKey == null), isTrue);
     },

@@ -17,6 +17,7 @@ class DiscourseUser {
     this.status,
     this.draftCount = 0,
     this.canCreateTopic = false,
+    this.canCreateGroup = false,
     this.canChangePostOwner = false,
     this.admin = false,
     this.staff = false,
@@ -55,6 +56,7 @@ class DiscourseUser {
     status: _storedStatus(json['status']),
     draftCount: jsonInt(json['draftCount']),
     canCreateTopic: json['canCreateTopic'] == true,
+    canCreateGroup: json['canCreateGroup'] == true,
     canChangePostOwner: json['canChangePostOwner'] == true,
     admin: json['admin'] == true,
     staff: json['staff'] == true,
@@ -113,6 +115,9 @@ class DiscourseUser {
   /// Unlike a topic-list's contextual `can_create_topic`, this remains valid
   /// while Messages, a topic, or another non-list route is on screen.
   final bool canCreateTopic;
+
+  /// Whether the account may create a custom group.
+  final bool canCreateGroup;
 
   /// Core's account-level guardian for reassigning post authorship.
   final bool canChangePostOwner;
@@ -225,6 +230,7 @@ class DiscourseUser {
       'status': status?.toJson(),
       'draftCount': draftCount,
       'canCreateTopic': canCreateTopic,
+      'canCreateGroup': canCreateGroup,
       'canChangePostOwner': canChangePostOwner,
       'admin': admin,
       'staff': staff,
@@ -261,6 +267,7 @@ class DiscourseUser {
     status: status,
     draftCount: draftCount,
     canCreateTopic: canCreateTopic,
+    canCreateGroup: canCreateGroup,
     canChangePostOwner: canChangePostOwner,
     admin: admin,
     staff: staff,
@@ -292,6 +299,7 @@ class DiscourseUser {
     status: status,
     draftCount: draftCount,
     canCreateTopic: canCreateTopic,
+    canCreateGroup: canCreateGroup,
     canChangePostOwner: canChangePostOwner,
     admin: admin,
     staff: staff,
@@ -331,6 +339,7 @@ class DiscourseUser {
     status: status,
     draftCount: draftCount,
     canCreateTopic: canCreateTopic,
+    canCreateGroup: canCreateGroup,
     canChangePostOwner: canChangePostOwner,
     admin: admin,
     staff: staff,
@@ -365,6 +374,7 @@ class DiscourseUser {
     status: status,
     draftCount: draftCount,
     canCreateTopic: canCreateTopic,
+    canCreateGroup: canCreateGroup,
     canChangePostOwner: canChangePostOwner,
     admin: admin,
     staff: staff,
@@ -396,6 +406,7 @@ class DiscourseUser {
     status: status,
     draftCount: draftCount,
     canCreateTopic: canCreateTopic,
+    canCreateGroup: canCreateGroup,
     canChangePostOwner: canChangePostOwner,
     admin: admin,
     staff: staff,
@@ -429,6 +440,7 @@ class DiscourseUser {
       other.status == status &&
       other.draftCount == draftCount &&
       other.canCreateTopic == canCreateTopic &&
+      other.canCreateGroup == canCreateGroup &&
       other.canChangePostOwner == canChangePostOwner &&
       other.admin == admin &&
       other.staff == staff &&
@@ -463,6 +475,7 @@ class DiscourseUser {
     status,
     draftCount,
     canCreateTopic,
+    canCreateGroup,
     canChangePostOwner,
     admin,
     staff,
