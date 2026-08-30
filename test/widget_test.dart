@@ -2606,7 +2606,7 @@ void main() {
               indicatorTheme.colorScheme.primary,
               indicatorTheme.shell.railForeground,
             ],
-          ),
+          ).withValues(alpha: 0.6),
         );
         expect(dragFeedback('meta.discourse.org'), findsOneWidget);
         expect(
