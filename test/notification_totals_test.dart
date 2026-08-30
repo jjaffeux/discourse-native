@@ -30,6 +30,20 @@ Map<String, Object?> published({
 };
 
 void main() {
+  test('selects the web sidebar topic count in both New modes', () {
+    expect(
+      const NotificationTotals(
+        topicTrackingUnread: 12,
+        topicTrackingNew: 7,
+      ).topicTrackingSidebarCount,
+      12,
+    );
+    expect(
+      const NotificationTotals(topicTrackingNew: 19).topicTrackingSidebarCount,
+      19,
+    );
+  });
+
   test('account identity and plugin counters participate in equality', () {
     const baseline = NotificationTotals(username: 'sam');
 

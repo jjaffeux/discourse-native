@@ -1567,6 +1567,7 @@ class ShellController extends FrameSafeNotifier
     if (totals == null) return 0;
 
     return switch (destinationId) {
+      'latest' => totals.topicTrackingSidebarCount,
       'messages' => totals.unreadPersonalMessages,
       _ => 0,
     };

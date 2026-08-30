@@ -7944,12 +7944,19 @@ void main() {
     });
 
     testWidgets('counters appear once connected', (tester) async {
+      const user = DiscourseUser(
+        id: 7,
+        username: 'joffreyj',
+        name: 'Joffrey',
+        draftCount: 4,
+      );
       final api = FakeDiscourseApi(
+        user: user,
         totals: const NotificationTotals(
           unreadNotifications: 3,
           unreadPersonalMessages: 2,
-          topicTrackingUnread: 12,
-          topicTrackingNew: 7,
+          // Unified New reports the combined topic total under `new`.
+          topicTrackingNew: 19,
         ),
       );
 
@@ -7957,12 +7964,15 @@ void main() {
       await tester.tap(userMenu);
       await tester.pumpAndSettle();
 
-      // Messages is the one sidebar entry with a count of its own.
-      expect(find.text('2'), findsOneWidget);
-      // Topic tracking has no entry to sit on: the sidebar collapses Latest,
-      // New and Unread into a single Topics destination.
-      expect(find.text('12'), findsNothing);
-      expect(find.text('7'), findsNothing);
+      Finder countFor(String destinationId, String count) => find.descendant(
+        of: find.byKey(ValueKey(destinationId)),
+        matching: find.text(count),
+      );
+
+      // Core's unified Topics row carries the combined unread and new total.
+      expect(countFor('latest', '19'), findsOneWidget);
+      expect(countFor('messages', '2'), findsOneWidget);
+      expect(countFor('drafts', '4'), findsOneWidget);
       // Rail and account badges both show things addressed to you: 3 + 2.
       expect(find.text('5'), findsNWidgets(2));
       // All of it from the one totals call.
