@@ -4,7 +4,7 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_resenha/discourse_resenha.dart';
 
-final PluginManifest _fullManifest = PluginManifest([
+final PluginManifest fullManifest = PluginManifest([
   ...bundledPluginManifest.modules,
   resenhaModule,
 ]);
@@ -12,7 +12,7 @@ final PluginManifest _fullManifest = PluginManifest([
 InstalledPlugins? _installedPlugins;
 
 InstalledPlugins get installedPlugins =>
-    _installedPlugins ??= PluginInstaller.install(_fullManifest);
+    _installedPlugins ??= PluginInstaller.install(fullManifest);
 
 PluginRegistry get pluginRegistry => installedPlugins.registry;
 

@@ -1,13 +1,11 @@
+import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:discourse_native/src/models/content_route.dart';
-import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_resenha/src/resenha_settings.dart';
 import 'package:discourse_resenha/src/resenha_shell_service.dart';
-import 'package:discourse_native/src/shell/shell_controller.dart';
-import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +13,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
-import 'support/fakes.dart';
 import 'support/finders.dart';
 
 void main() {
@@ -24,40 +21,38 @@ void main() {
   testWidgets('opening the current Resenha room twice needs only one Back', (
     tester,
   ) async {
-    final site = instance('voice.example');
-    final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
-    final shell = ShellController(
-      instanceStore: FakeInstanceStore([site]),
-      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
-      authenticator: authenticator,
-      drafts: FakeDraftStore(),
-      trackers: FakeSiteTracker.reset(),
-      plugins: installedPlugins,
+    const siteUrl = 'https://voice.example';
+    final host = await PluginHostHarness.open(
+      transport: RecordingPluginTransport(),
+      manifest: fullManifest,
+      sites: const [PluginHostSite(url: siteUrl, apiKey: 'key')],
     );
-    addTearDown(shell.dispose);
-    await shell.load();
-    final destination = shell.currentContent;
+    addTearDown(host.close);
+    final destination = host.currentContent;
     const room = ContentRoute(
       id: 'resenha-room-7',
       title: 'Watercooler',
       icon: DIcons.microphoneLines,
     );
 
-    final resenha = shell.pluginSession.require(resenhaShellService);
-    resenha.openRoom(siteUrl: site.url, route: room);
-    resenha.openRoom(siteUrl: site.url, route: room);
+    final resenha = host.require(resenhaShellService);
+    resenha.openRoom(siteUrl: siteUrl, route: room);
+    resenha.openRoom(siteUrl: siteUrl, route: room);
 
-    expect(shell.contentStack, hasLength(2));
-    expect(shell.currentContent?.id, room.id);
-    expect(shell.handleBack(canReturnToSidebar: false), isTrue);
-    expect(shell.currentContent?.id, destination?.id);
+    expect(host.contentStack, hasLength(2));
+    expect(host.currentContent?.id, room.id);
+    expect(host.popContent(), isTrue);
+    expect(host.currentContent?.id, destination?.id);
   });
 
   testWidgets('a cooked room hashtag navigates through Resenha', (
     tester,
   ) async {
-    final site = instance('voice.example').copyWith(
-      user: const DiscourseUser(id: 1, username: 'reader'),
+    const siteUrl = 'https://voice.example';
+    final site = PluginHostSite(
+      url: siteUrl,
+      apiKey: 'key',
+      user: const PluginHostUser(id: 1, username: 'reader'),
       config: SiteConfig(
         plugins: PluginData.none.withValue(
           resenhaSettingsDataKey,
@@ -65,37 +60,27 @@ void main() {
         ),
       ),
     );
-    final api = FakeDiscourseApi(
-      feeds: const {'/latest.json': []},
-      pluginResponses: {
+    final transport = RecordingPluginTransport(
+      responses: {
         'GET /resenha/rooms.json': {
           'rooms': [_room],
           'can_create_room': false,
         },
       },
     );
-    final shell = ShellController(
-      instanceStore: FakeInstanceStore([site]),
-      api: api,
-      authenticator: FakeAuthenticator()..keys[site.url] = 'key',
-      drafts: FakeDraftStore(),
-      trackers: FakeSiteTracker.reset(),
-      plugins: installedPlugins,
+    final host = await PluginHostHarness.open(
+      transport: transport,
+      manifest: fullManifest,
+      sites: [site],
     );
-    addTearDown(shell.dispose);
-    await shell.load();
+    addTearDown(host.close);
 
     await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
+      host.scope(
         child: MaterialApp(
           theme: AppTheme.dark,
           home: Scaffold(
-            body: CookedHtml(
-              html: _roomHashtag,
-              siteUrl: site.url,
-              registry: installedPlugins.registry,
-            ),
+            body: CookedHtml(html: _roomHashtag, siteUrl: siteUrl),
           ),
         ),
       ),
@@ -107,9 +92,12 @@ void main() {
     await tester.tap(find.text('Watercooler'));
     await tester.pumpAndSettle();
 
-    expect(shell.currentContent?.id, 'resenha-room-7');
-    expect(shell.currentContent?.title, 'Watercooler');
-    expect(api.pluginReadPaths, contains('/resenha/rooms.json'));
+    expect(host.currentContent?.id, 'resenha-room-7');
+    expect(host.currentContent?.title, 'Watercooler');
+    expect(
+      transport.reads.map((request) => request.path),
+      contains('/resenha/rooms.json'),
+    );
   });
 
   testWidgets('a cooked room without Resenha falls back to its safe link', (
@@ -127,26 +115,25 @@ void main() {
     });
     addTearDown(() => messenger.setMockMethodCallHandler(launcher, null));
 
-    final site = instance(
-      'voice.example',
-    ).copyWith(user: const DiscourseUser(id: 1, username: 'reader'));
-    final shell = ShellController(
-      instanceStore: FakeInstanceStore([site]),
-      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
-      authenticator: FakeAuthenticator()..keys[site.url] = 'key',
-      drafts: FakeDraftStore(),
-      trackers: FakeSiteTracker.reset(),
+    const siteUrl = 'https://voice.example';
+    final host = await PluginHostHarness.open(
+      transport: RecordingPluginTransport(),
+      sites: const [
+        PluginHostSite(
+          url: siteUrl,
+          apiKey: 'key',
+          user: PluginHostUser(id: 1, username: 'reader'),
+        ),
+      ],
     );
-    addTearDown(shell.dispose);
-    await shell.load();
+    addTearDown(host.close);
 
     await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
+      host.scope(
         child: MaterialApp(
           theme: AppTheme.dark,
           home: Scaffold(
-            body: CookedHtml(html: _roomHashtag, siteUrl: site.url),
+            body: CookedHtml(html: _roomHashtag, siteUrl: siteUrl),
           ),
         ),
       ),

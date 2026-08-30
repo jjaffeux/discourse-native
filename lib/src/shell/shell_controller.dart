@@ -9,13 +9,14 @@ import 'package:flutter/scheduler.dart';
 
 import '../data/aggregate_preferences_store.dart';
 import '../data/authenticator.dart';
-import '../data/discourse_api.dart';
+import '../data/discourse_api_contracts.dart';
 import '../data/draft_store.dart';
 import '../data/emoji_picker_store.dart';
 import '../data/forum_tab_store.dart';
 import '../data/groups_api.dart';
 import '../data/http_transport.dart';
 import '../data/instance_store.dart';
+import '../data/shell_api_ports.dart';
 import '../data/site_image_repository.dart';
 import '../data/site_lifecycle.dart';
 import '../data/site_tracker.dart';
@@ -145,7 +146,7 @@ class ShellController extends FrameSafeNotifier
     implements PluginNavigationHost, BookmarkHost, PluginNotificationFeedHost {
   ShellController({
     required this.instanceStore,
-    required this.api,
+    required ShellApiCapabilities api,
     required this.authenticator,
     required this.drafts,
     EmojiPickerStore? emojiPickerStore,
@@ -164,7 +165,8 @@ class ShellController extends FrameSafeNotifier
     ShellRootMode initialRootMode = ShellRootMode.forum,
     InstalledPlugins? plugins,
     PluginDiagnosticsReporter? pluginDiagnosticsReporter,
-  }) : forumTabs = forumTabs ?? ForumTabStore.memory(),
+  }) : api = ShellApiPorts.fromCapabilities(api),
+       forumTabs = forumTabs ?? ForumTabStore.memory(),
        aggregatePreferences =
            aggregatePreferences ?? AggregatePreferencesStore(),
        emojiPickerStore = emojiPickerStore ?? EmojiPickerStore(),
@@ -201,7 +203,7 @@ class ShellController extends FrameSafeNotifier
   @override
   final Store store;
 
-  final DiscourseApi api;
+  final ShellApiPorts api;
 
   /// Whether disposing this controller also closes [api].
   ///
@@ -255,7 +257,7 @@ class ShellController extends FrameSafeNotifier
 
   late final PluginSession _pluginSession = plugins.openSession(
     PluginHostBindings(<PluginHostPort<Object>>[
-      PluginHostPort<Object>(corePluginTransportPort, api),
+      PluginHostPort<Object>(corePluginTransportPort, api.pluginTransport),
       PluginHostPort<Object>(corePluginModelCodecPort, api.models),
       PluginHostPort<Object>(
         corePluginRequestPort,
@@ -619,7 +621,7 @@ class ShellController extends FrameSafeNotifier
   /// listen here instead of invalidating every [ShellScope] dependent.
   late final AccountActivityController accountActivity =
       AccountActivityController(
-        api: api,
+        api: api.accountActivity,
         credentials: authenticator,
         lifecycle: lifecycle,
         onTotalsLoaded: _onTotalsLoaded,
@@ -628,7 +630,7 @@ class ShellController extends FrameSafeNotifier
 
   /// Per-site notification pauses, isolated from shell navigation rebuilds.
   late final DoNotDisturbController doNotDisturb = DoNotDisturbController(
-    api: api,
+    api: api.doNotDisturb,
     credentials: authenticator,
     lifecycle: lifecycle,
     onCommitted: _commitDoNotDisturb,
@@ -636,7 +638,7 @@ class ShellController extends FrameSafeNotifier
 
   /// The connected account's server-side drafts for the full-page destination.
   late final DraftListController draftList = DraftListController(
-    api: api,
+    api: api.drafts,
     credentials: authenticator,
     lifecycle: lifecycle,
   );
@@ -644,7 +646,7 @@ class ShellController extends FrameSafeNotifier
   /// The connected account's profile summary, independent from shell-wide
   /// navigation so refreshes do not rebuild the rail or inactive tabs.
   late final UserSummaryController userSummary = UserSummaryController(
-    api: api,
+    api: api.userSummaries,
     credentials: authenticator,
     lifecycle: lifecycle,
   );
@@ -652,7 +654,7 @@ class ShellController extends FrameSafeNotifier
   /// Group directory, detail, and subpage state changes independently from
   /// shell navigation and topic feeds.
   late final GroupsController groups = GroupsController(
-    api: GroupsApi(api, api.models),
+    api: GroupsApi(api.pluginTransport, api.models),
     credentials: authenticator,
     lifecycle: lifecycle,
   );
@@ -662,7 +664,7 @@ class ShellController extends FrameSafeNotifier
   /// Form edits and network progress remain on this independent notifier so
   /// typing in Preferences cannot rebuild the rail, sidebar, or topic view.
   late final PreferencesController preferences = PreferencesController(
-    api: api,
+    api: api.userPreferences,
     credentials: authenticator,
     lifecycle: lifecycle,
     onSaved: _onPreferencesSaved,
@@ -680,7 +682,7 @@ class ShellController extends FrameSafeNotifier
   /// Its notifier is intentionally independent: paging this global list
   /// should not rebuild the rail, sidebar, forum tabs, or inactive topics.
   late final AggregateFeedController aggregate = AggregateFeedController(
-    api: api,
+    api: api.topicFeeds,
     credentials: authenticator,
     lifecycle: lifecycle,
     store: store,
@@ -692,7 +694,7 @@ class ShellController extends FrameSafeNotifier
 
   TopicFeedController _createTopicFeedController() {
     return TopicFeedController(
-      api: api,
+      api: api.topicFeeds,
       credentials: authenticator,
       lifecycle: lifecycle,
       store: store,
@@ -711,7 +713,7 @@ class ShellController extends FrameSafeNotifier
 
   /// Optimistic topic read positions and their serialized server receipts.
   late final TopicReadController _topicReads = TopicReadController(
-    api: api,
+    api: api.topicReads,
     credentials: authenticator,
     lifecycle: lifecycle,
     store: store,
@@ -728,7 +730,7 @@ class ShellController extends FrameSafeNotifier
   /// The one global, transient search interaction. Its notifier is consumed by
   /// the field and result panel alone, so typing never redraws the shell.
   late final ShellSearchController search = ShellSearchController(
-    api: api,
+    api: api.search,
     credentials: authenticator,
     lifecycle: lifecycle,
   );
@@ -777,7 +779,7 @@ class ShellController extends FrameSafeNotifier
     // their public colors, but must never forward that leftover credential.
     final instance = _instanceAt(siteUrl);
     final authenticate = apiKey != null && instance?.isConnected == true;
-    return api.siteAppearance(
+    return api.site.siteAppearance(
       siteUrl: siteUrl,
       username: authenticate ? instance!.user!.username : null,
       apiKey: authenticate ? apiKey : null,
@@ -795,7 +797,7 @@ class ShellController extends FrameSafeNotifier
     // only for the site's public client settings.
     final authenticate =
         apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
-    return api.siteConfig(
+    return api.site.siteConfig(
       siteUrl: siteUrl,
       apiKey: authenticate ? apiKey : null,
       clientId: authenticate ? clientId : null,
@@ -809,7 +811,7 @@ class ShellController extends FrameSafeNotifier
   }) {
     final authenticate =
         apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
-    return api.customEmojis(
+    return api.site.customEmojis(
       siteUrl: siteUrl,
       apiKey: authenticate ? apiKey : null,
       clientId: authenticate ? clientId : null,
@@ -823,7 +825,7 @@ class ShellController extends FrameSafeNotifier
   }) {
     final authenticate =
         apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
-    return api.emojiCatalog(
+    return api.site.emojiCatalog(
       siteUrl: siteUrl,
       apiKey: authenticate ? apiKey : null,
       clientId: authenticate ? clientId : null,
@@ -837,7 +839,7 @@ class ShellController extends FrameSafeNotifier
   }) {
     final authenticate =
         apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
-    return api.emojiSearchAliases(
+    return api.site.emojiSearchAliases(
       siteUrl: siteUrl,
       apiKey: authenticate ? apiKey : null,
       clientId: authenticate ? clientId : null,
@@ -1674,7 +1676,7 @@ class ShellController extends FrameSafeNotifier
         return;
       }
       _customSidebarSectionAttemptedAt[siteUrl] = DateTime.now();
-      final sections = await api.customSidebarSections(
+      final sections = await api.site.customSidebarSections(
         siteUrl: siteUrl,
         apiKey: apiKey,
         clientId: identity.value,
@@ -2144,7 +2146,7 @@ class ShellController extends FrameSafeNotifier
   }) => _filterLookup(
     siteUrl,
     'topics.filter.tags',
-    (apiKey, clientId) => api.searchFilterTags(
+    (apiKey, clientId) => api.lookups.searchFilterTags(
       siteUrl: siteUrl,
       term: term,
       apiKey: apiKey,
@@ -2158,7 +2160,7 @@ class ShellController extends FrameSafeNotifier
   }) => _filterLookup(
     siteUrl,
     'topics.filter.tagGroups',
-    (apiKey, clientId) => api.searchFilterTagGroups(
+    (apiKey, clientId) => api.lookups.searchFilterTagGroups(
       siteUrl: siteUrl,
       term: term,
       apiKey: apiKey,
@@ -2174,7 +2176,7 @@ class ShellController extends FrameSafeNotifier
     'topics.filter.groups',
     (apiKey, clientId) => apiKey == null
         ? Future.value(const [])
-        : api.searchFilterGroups(
+        : api.lookups.searchFilterGroups(
             siteUrl: siteUrl,
             term: term,
             apiKey: apiKey,
@@ -2189,7 +2191,7 @@ class ShellController extends FrameSafeNotifier
     siteUrl,
     'topics.filter.users',
     (apiKey, clientId) async => [
-      for (final user in await api.searchUsers(
+      for (final user in await api.lookups.searchUsers(
         siteUrl: siteUrl,
         term: term,
         apiKey: apiKey,
@@ -2527,7 +2529,7 @@ class ShellController extends FrameSafeNotifier
         () => authenticator.apiKeyFor(siteUrl),
       );
       if (credential == null || !lease.isCurrent) return;
-      final posts = await api.posts(
+      final posts = await api.topicContent.posts(
         siteUrl: siteUrl,
         topicId: topicId,
         ids: wanted,
@@ -2789,7 +2791,10 @@ class ShellController extends FrameSafeNotifier
 
     final DiscourseUser responseUser;
     try {
-      responseUser = await api.currentUser(siteUrl: siteUrl, apiKey: apiKey);
+      responseUser = await api.site.currentUser(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+      );
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return null;
       _reportOperationalError(
@@ -3050,7 +3055,7 @@ class ShellController extends FrameSafeNotifier
       }
       final identity = await _readSessionValue(lease, authenticator.clientId);
       if (identity == null || !isCurrent()) return;
-      await api.updateHidePresence(
+      await api.site.updateHidePresence(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
         username: user.username,
@@ -3165,7 +3170,7 @@ class ShellController extends FrameSafeNotifier
       if (credential.failure case final failure?) return failure.message;
       final clientId = await authenticator.clientId();
       if (!lease.isCurrent || isDisposed) return null;
-      await api.setUserStatus(
+      await api.site.setUserStatus(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
         description: description,
@@ -3234,7 +3239,7 @@ class ShellController extends FrameSafeNotifier
       if (credential.failure case final failure?) return failure.message;
       final clientId = await authenticator.clientId();
       if (!lease.isCurrent || isDisposed) return null;
-      await api.clearUserStatus(
+      await api.site.clearUserStatus(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
         clientId: clientId,
@@ -3778,7 +3783,7 @@ class ShellController extends FrameSafeNotifier
         );
         if (credential == null || !isCurrent()) return false;
         final bookmarkVersion = _bookmarkVersion(instance.url, topic.id);
-        final fetched = await api.posts(
+        final fetched = await api.topicContent.posts(
           siteUrl: instance.url,
           topicId: topic.id,
           ids: [targetId],
@@ -3923,7 +3928,7 @@ class ShellController extends FrameSafeNotifier
       );
       if (credential == null || !lease.isCurrent) return;
       final fetched = await _awaitTopicLoadStage(
-        api.topic(
+        api.topicContent.topic(
           siteUrl: instance.url,
           slug: slug,
           id: topicId,
@@ -4111,7 +4116,7 @@ class ShellController extends FrameSafeNotifier
         () => authenticator.apiKeyFor(instance.url),
       );
       if (credential == null || !lease.isCurrent) return;
-      final fetched = await api.posts(
+      final fetched = await api.topicContent.posts(
         siteUrl: instance.url,
         topicId: topicId,
         ids: requestIds,
@@ -4243,7 +4248,7 @@ class ShellController extends FrameSafeNotifier
         write.complete(false);
         return;
       }
-      await api.updateTopicNotificationLevel(
+      await api.topicMutations.updateTopicNotificationLevel(
         siteUrl: write.siteUrl,
         apiKey: credential.apiKey!,
         topicId: write.topicId,
@@ -4358,7 +4363,7 @@ class ShellController extends FrameSafeNotifier
       }
       final clientId = await authenticator.clientId();
       if (!lease.isCurrent || isDisposed) return null;
-      await api.updateTopicPinForUser(
+      await api.topicMutations.updateTopicPinForUser(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
         topicId: topicId,
@@ -4416,7 +4421,7 @@ class ShellController extends FrameSafeNotifier
       if (credential.failure case final failure?) return failure.message;
       final clientId = await authenticator.clientId();
       if (!lease.isCurrent || isDisposed) return null;
-      await api.updateTopicStatus(
+      await api.topicMutations.updateTopicStatus(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
         topicId: topicId,
@@ -4488,14 +4493,14 @@ class ShellController extends FrameSafeNotifier
       final clientId = await authenticator.clientId();
       if (!lease.isCurrent || isDisposed) return null;
       if (deleted) {
-        await api.deleteTopic(
+        await api.topicMutations.deleteTopic(
           siteUrl: siteUrl,
           apiKey: credential.apiKey!,
           topicId: topicId,
           clientId: clientId,
         );
       } else {
-        await api.recoverTopic(
+        await api.topicMutations.recoverTopic(
           siteUrl: siteUrl,
           apiKey: credential.apiKey!,
           topicId: topicId,
@@ -4607,14 +4612,14 @@ class ShellController extends FrameSafeNotifier
       );
       if (credential == null || !lease.isCurrent) return;
       final page = resolveRecommendations
-          ? await api.topicPosts(
+          ? await api.topicContent.topicPosts(
               siteUrl: instance.url,
               topicId: topicId,
               ids: requestIds,
               apiKey: credential.value,
             )
           : (
-              posts: await api.posts(
+              posts: await api.topicContent.posts(
                 siteUrl: instance.url,
                 topicId: topicId,
                 ids: requestIds,
@@ -4685,7 +4690,7 @@ class ShellController extends FrameSafeNotifier
         () => authenticator.apiKeyFor(instance.url),
       );
       if (credential == null || !lease.isCurrent) return;
-      final posts = await api.posts(
+      final posts = await api.topicContent.posts(
         siteUrl: instance.url,
         topicId: topicId,
         ids: pending,
@@ -4756,7 +4761,7 @@ class ShellController extends FrameSafeNotifier
         () => authenticator.apiKeyFor(instance.url),
       );
       if (credential == null || !lease.isCurrent) return null;
-      final payload = await api.topic(
+      final payload = await api.topicContent.topic(
         siteUrl: instance.url,
         slug: currentContent?.slug ?? '',
         id: topic.id,
@@ -5004,8 +5009,11 @@ class ShellController extends FrameSafeNotifier
       apiKey = credential.apiKey!;
       try {
         final results = await Future.wait<Object>([
-          api.topicComposerCapabilities(siteUrl: instance.url, apiKey: apiKey),
-          api.categories(siteUrl: instance.url, apiKey: apiKey),
+          api.topicComposerQueries.topicComposerCapabilities(
+            siteUrl: instance.url,
+            apiKey: apiKey,
+          ),
+          api.categories.categories(siteUrl: instance.url, apiKey: apiKey),
         ]);
         capabilities = results[0] as TopicComposerCapabilities;
         categories = results[1] as List<TopicCategory>;
@@ -5043,7 +5051,7 @@ class ShellController extends FrameSafeNotifier
           apiKey = credential.apiKey;
         }
         if (apiKey == null) return;
-        final result = await api.searchTopicTags(
+        final result = await api.topicComposerQueries.searchTopicTags(
           siteUrl: instance.url,
           apiKey: apiKey,
           term: link!.slug,
@@ -5276,7 +5284,7 @@ class ShellController extends FrameSafeNotifier
     if (held.value.failure case final failure?) {
       throw failure;
     }
-    return api.searchTopicTags(
+    return api.topicComposerQueries.searchTopicTags(
       siteUrl: target.siteUrl,
       apiKey: held.value.apiKey!,
       term: term,
@@ -5304,7 +5312,7 @@ class ShellController extends FrameSafeNotifier
     );
     if (held == null || !lease.isCurrent) return const TopicTagSearch();
     if (held.value.failure case final failure?) throw failure;
-    return api.searchTopicTags(
+    return api.topicComposerQueries.searchTopicTags(
       siteUrl: siteUrl,
       apiKey: held.value.apiKey!,
       term: term,
@@ -5329,7 +5337,7 @@ class ShellController extends FrameSafeNotifier
     if (held == null || !lease.isCurrent) return const [];
     if (held.value.failure case final failure?) throw failure;
 
-    final categories = await api.searchCategories(
+    final categories = await api.categories.searchCategories(
       siteUrl: siteUrl,
       apiKey: held.value.apiKey!,
       term: term,
@@ -5623,7 +5631,7 @@ class ShellController extends FrameSafeNotifier
     if (credential.failure case final failure?) return failure.message;
 
     try {
-      await api.updateTopic(
+      await api.topicMutations.updateTopic(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
         topicId: topicId,
@@ -5688,7 +5696,7 @@ class ShellController extends FrameSafeNotifier
     if (!lease.isCurrent) return 'The forum changed before the category saved.';
 
     try {
-      await api.updateTopic(
+      await api.topicMutations.updateTopic(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
         topicId: topicId,
@@ -5735,7 +5743,7 @@ class ShellController extends FrameSafeNotifier
     final kept = <TopicTag>[];
     for (final tag in selected) {
       try {
-        final result = await api.searchTopicTags(
+        final result = await api.topicComposerQueries.searchTopicTags(
           siteUrl: siteUrl,
           apiKey: apiKey,
           term: tag.name,
@@ -5819,7 +5827,7 @@ class ShellController extends FrameSafeNotifier
     if (!lease.isCurrent) return 'The site changed before tags were saved.';
     if (credential.failure case final failure?) return failure.message;
     try {
-      await api.updateTopicTags(
+      await api.topicMutations.updateTopicTags(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
         topicId: topicId,
@@ -5851,10 +5859,11 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent || credential.failure != null) return;
-      final capabilities = await api.topicComposerCapabilities(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey!,
-      );
+      final capabilities = await api.topicComposerQueries
+          .topicComposerCapabilities(
+            siteUrl: siteUrl,
+            apiKey: credential.apiKey!,
+          );
       lease.commit(() {
         _topicComposerCapabilities[siteUrl] = capabilities;
         _notify();
@@ -5983,7 +5992,7 @@ class ShellController extends FrameSafeNotifier
           !identical(_composer, composer)) {
         return;
       }
-      final fetched = await api.posts(
+      final fetched = await api.topicContent.posts(
         siteUrl: target.siteUrl,
         topicId: target.topicId,
         ids: [post.id],
@@ -6108,8 +6117,11 @@ class ShellController extends FrameSafeNotifier
       siteUrl,
       topicId,
       posts,
-      (apiKey, ids) =>
-          api.deletePosts(siteUrl: siteUrl, apiKey: apiKey, postIds: ids),
+      (apiKey, ids) => api.postMutations.deletePosts(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        postIds: ids,
+      ),
     );
   }
 
@@ -6127,8 +6139,11 @@ class ShellController extends FrameSafeNotifier
       siteUrl,
       topicId,
       posts,
-      (apiKey, ids) =>
-          api.mergePosts(siteUrl: siteUrl, apiKey: apiKey, postIds: ids),
+      (apiKey, ids) => api.postMutations.mergePosts(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        postIds: ids,
+      ),
     );
   }
 
@@ -6154,7 +6169,7 @@ class ShellController extends FrameSafeNotifier
       );
     }
     try {
-      final results = await api.searchPosts(
+      final results = await api.search.searchPosts(
         siteUrl: siteUrl,
         term: trimmed,
         typeFilter: 'topic',
@@ -6220,7 +6235,7 @@ class ShellController extends FrameSafeNotifier
       apiKey,
       ids,
     ) async {
-      destinationUrl = await api.movePosts(
+      destinationUrl = await api.postMutations.movePosts(
         siteUrl: siteUrl,
         apiKey: apiKey,
         topicId: topicId,
@@ -6261,7 +6276,7 @@ class ShellController extends FrameSafeNotifier
       apiKey,
       ids,
     ) async {
-      destinationUrl = await api.movePosts(
+      destinationUrl = await api.postMutations.movePosts(
         siteUrl: siteUrl,
         apiKey: apiKey,
         topicId: topicId,
@@ -6303,7 +6318,7 @@ class ShellController extends FrameSafeNotifier
       siteUrl,
       topicId,
       posts,
-      (apiKey, ids) => api.changePostOwners(
+      (apiKey, ids) => api.postMutations.changePostOwners(
         siteUrl: siteUrl,
         apiKey: apiKey,
         topicId: topicId,
@@ -6336,7 +6351,7 @@ class ShellController extends FrameSafeNotifier
     }
     return _mutatePost(
       post,
-      (siteUrl, apiKey) => api.changePostOwners(
+      (siteUrl, apiKey) => api.postMutations.changePostOwners(
         siteUrl: siteUrl,
         apiKey: apiKey,
         topicId: topic.id,
@@ -6359,8 +6374,11 @@ class ShellController extends FrameSafeNotifier
 
     final error = await _mutatePost(
       post,
-      (siteUrl, apiKey) =>
-          api.deletePost(siteUrl: siteUrl, apiKey: apiKey, postId: post.id),
+      (siteUrl, apiKey) => api.postMutations.deletePost(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        postId: post.id,
+      ),
     );
 
     // Editing something that has just been deleted is writing into a hole, and
@@ -6405,7 +6423,7 @@ class ShellController extends FrameSafeNotifier
       if (!lease.isCurrent || isDisposed) {
         return 'Your connection changed. Reopen the action and try again.';
       }
-      final result = await api.checkPermanentPostDeletion(
+      final result = await api.postMutations.checkPermanentPostDeletion(
         siteUrl: instance.url,
         apiKey: credential.apiKey!,
         postId: post.id,
@@ -6438,7 +6456,7 @@ class ShellController extends FrameSafeNotifier
     if (post.postNumber != 1) {
       return _mutatePost(
         post,
-        (siteUrl, apiKey) => api.permanentlyDeletePost(
+        (siteUrl, apiKey) => api.postMutations.permanentlyDeletePost(
           siteUrl: siteUrl,
           apiKey: apiKey,
           topicId: topic.id,
@@ -6462,7 +6480,7 @@ class ShellController extends FrameSafeNotifier
       if (credential.failure case final failure?) return failure.message;
       final clientId = await authenticator.clientId();
       if (!lease.isCurrent || isDisposed) return null;
-      await api.permanentlyDeleteTopic(
+      await api.topicMutations.permanentlyDeleteTopic(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
         topicId: topic.id,
@@ -6504,8 +6522,11 @@ class ShellController extends FrameSafeNotifier
     }
     return _mutatePost(
       post,
-      (siteUrl, apiKey) =>
-          api.recoverPost(siteUrl: siteUrl, apiKey: apiKey, postId: post.id),
+      (siteUrl, apiKey) => api.postMutations.recoverPost(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        postId: post.id,
+      ),
     );
   }
 
@@ -6514,7 +6535,7 @@ class ShellController extends FrameSafeNotifier
     if (!post.canWiki || post.wiki == wiki) return Future.value();
     return _mutatePost(
       post,
-      (siteUrl, apiKey) => api.updatePostWiki(
+      (siteUrl, apiKey) => api.postMutations.updatePostWiki(
         siteUrl: siteUrl,
         apiKey: apiKey,
         postId: post.id,
@@ -6530,7 +6551,7 @@ class ShellController extends FrameSafeNotifier
     if (!canLockPost(post) || post.locked == locked) return Future.value();
     return _mutatePost(
       post,
-      (siteUrl, apiKey) => api.updatePostLocked(
+      (siteUrl, apiKey) => api.postMutations.updatePostLocked(
         siteUrl: siteUrl,
         apiKey: apiKey,
         postId: post.id,
@@ -6546,8 +6567,11 @@ class ShellController extends FrameSafeNotifier
     if (!canUnhidePost(post)) return Future.value();
     return _mutatePost(
       post,
-      (siteUrl, apiKey) =>
-          api.unhidePost(siteUrl: siteUrl, apiKey: apiKey, postId: post.id),
+      (siteUrl, apiKey) => api.postMutations.unhidePost(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        postId: post.id,
+      ),
     );
   }
 
@@ -6561,7 +6585,7 @@ class ShellController extends FrameSafeNotifier
         : Post.moderatorPostType;
     return _mutatePost(
       post,
-      (siteUrl, apiKey) => api.updatePostType(
+      (siteUrl, apiKey) => api.postMutations.updatePostType(
         siteUrl: siteUrl,
         apiKey: apiKey,
         postId: post.id,
@@ -6585,7 +6609,7 @@ class ShellController extends FrameSafeNotifier
     if (next == post.notice?.raw) return Future.value();
     return _mutatePost(
       post,
-      (siteUrl, apiKey) => api.updatePostNotice(
+      (siteUrl, apiKey) => api.postMutations.updatePostNotice(
         siteUrl: siteUrl,
         apiKey: apiKey,
         postId: post.id,
@@ -6650,7 +6674,7 @@ class ShellController extends FrameSafeNotifier
       if (credential.failure case final failure?) return failure.message;
 
       try {
-        final fresh = await api.createPostFlag(
+        final fresh = await api.postMutations.createPostFlag(
           siteUrl: siteUrl,
           apiKey: credential.apiKey!,
           postId: held.id,
@@ -6731,7 +6755,7 @@ class ShellController extends FrameSafeNotifier
       if (credential.failure case final failure?) return failure.message;
 
       try {
-        await api.createTopicFlag(
+        await api.postMutations.createTopicFlag(
           siteUrl: siteUrl,
           apiKey: credential.apiKey!,
           topicId: held.id,
@@ -6834,12 +6858,12 @@ class ShellController extends FrameSafeNotifier
 
     try {
       final fresh = liked
-          ? await api.likePost(
+          ? await api.postMutations.likePost(
               siteUrl: siteUrl,
               apiKey: apiKey,
               postId: post.id,
             )
-          : await api.unlikePost(
+          : await api.postMutations.unlikePost(
               siteUrl: siteUrl,
               apiKey: apiKey,
               postId: post.id,
@@ -7132,7 +7156,7 @@ class ShellController extends FrameSafeNotifier
           BookmarkAutoDeletePreference.clearReminder;
       final int id;
       try {
-        id = await api.createBookmark(
+        id = await api.bookmarks.createBookmark(
           siteUrl: siteUrl,
           apiKey: credential.apiKey!,
           targetType: targetType,
@@ -7260,7 +7284,7 @@ class ShellController extends FrameSafeNotifier
         return BookmarkWriteResult.refused(failure.message);
       }
       try {
-        await api.updateBookmark(
+        await api.bookmarks.updateBookmark(
           siteUrl: siteUrl,
           apiKey: credential.apiKey!,
           bookmarkId: bookmark.id,
@@ -7386,7 +7410,7 @@ class ShellController extends FrameSafeNotifier
       }
       final bool? topicBookmarked;
       try {
-        topicBookmarked = await api.deleteBookmark(
+        topicBookmarked = await api.bookmarks.deleteBookmark(
           siteUrl: siteUrl,
           apiKey: credential.apiKey!,
           bookmarkId: bookmark.id,
@@ -7491,7 +7515,7 @@ class ShellController extends FrameSafeNotifier
         return BookmarkWriteResult.refused(failure.message);
       }
       try {
-        await api.deleteTopicBookmarks(
+        await api.bookmarks.deleteTopicBookmarks(
           siteUrl: siteUrl,
           apiKey: credential.apiKey!,
           topicId: topicId,
@@ -7745,7 +7769,7 @@ class ShellController extends FrameSafeNotifier
         () => authenticator.apiKeyFor(targetSite),
       );
       if (credential == null || !lease.isCurrent) return;
-      final fetched = await api.postLikers(
+      final fetched = await api.topicContent.postLikers(
         siteUrl: targetSite,
         postId: postId,
         // Read inside the guard, not before it: storage that refuses —
@@ -7811,7 +7835,7 @@ class ShellController extends FrameSafeNotifier
         () => authenticator.apiKeyFor(siteUrl),
       );
       if (credential == null || !lease.isCurrent) return null;
-      final fetched = await api.postRevision(
+      final fetched = await api.topicContent.postRevision(
         siteUrl: siteUrl,
         postId: postId,
         revision: revision,
@@ -7950,7 +7974,7 @@ class ShellController extends FrameSafeNotifier
     try {
       for (var start = 0; start < postIds.length; start += 20) {
         final end = start + 20 < postIds.length ? start + 20 : postIds.length;
-        final fetched = await api.posts(
+        final fetched = await api.topicContent.posts(
           siteUrl: siteUrl,
           topicId: topicId,
           ids: postIds.sublist(start, end),
@@ -8008,7 +8032,7 @@ class ShellController extends FrameSafeNotifier
   ) async {
     List<Post> fetched;
     try {
-      fetched = await api.posts(
+      fetched = await api.topicContent.posts(
         siteUrl: siteUrl,
         topicId: topicId,
         ids: [postId],
@@ -8147,7 +8171,7 @@ class ShellController extends FrameSafeNotifier
         final clientId = await authenticator.clientId();
         if (!lease.isCurrent) return null;
 
-        final sequence = await api.saveDraft(
+        final sequence = await api.composerPersistence.saveDraft(
           siteUrl: target.siteUrl,
           apiKey: apiKey,
           draftKey: target.draftKey,
@@ -8209,7 +8233,7 @@ class ShellController extends FrameSafeNotifier
     if (credential.failure case final failure?) {
       throw ComposerUploadException(failure.message);
     }
-    return api.uploadComposerImage(
+    return api.composerPersistence.uploadComposerImage(
       siteUrl: target.siteUrl,
       apiKey: credential.apiKey!,
       clientId: await authenticator.clientId(),
@@ -8235,7 +8259,7 @@ class ShellController extends FrameSafeNotifier
     }
     final identity = await _readSessionValue(lease, authenticator.clientId);
     if (identity == null || !lease.isCurrent) return const {};
-    return api.lookupUploadUrls(
+    return api.composerPersistence.lookupUploadUrls(
       siteUrl: target.siteUrl,
       apiKey: held.value.apiKey!,
       clientId: identity.value,
@@ -8274,7 +8298,7 @@ class ShellController extends FrameSafeNotifier
         );
         if (held == null || !isCurrent()) return;
         if (held.value.failure == null) {
-          final found = await api.draft(
+          final found = await api.composerPersistence.draft(
             siteUrl: target.siteUrl,
             apiKey: held.value.apiKey!,
             draftKey: target.draftKey,
@@ -8353,7 +8377,7 @@ class ShellController extends FrameSafeNotifier
     final PostCreation creation;
     try {
       creation = target.createsTopic
-          ? await api.createTopic(
+          ? await api.composerPersistence.createTopic(
               siteUrl: target.siteUrl,
               apiKey: apiKey,
               title: composer.title.text.trim(),
@@ -8365,7 +8389,7 @@ class ShellController extends FrameSafeNotifier
               targetRecipients: target.targetRecipients,
               draftKey: target.draftKey,
             )
-          : await api.createPost(
+          : await api.composerPersistence.createPost(
               siteUrl: target.siteUrl,
               apiKey: apiKey,
               topicId: target.topicId,
@@ -8482,7 +8506,7 @@ class ShellController extends FrameSafeNotifier
 
     if (target.editsTopicMetadata && composer.metadataChanged) {
       try {
-        await api.updateTopic(
+        await api.topicMutations.updateTopic(
           siteUrl: target.siteUrl,
           apiKey: apiKey,
           topicId: target.topicId,
@@ -8542,7 +8566,7 @@ class ShellController extends FrameSafeNotifier
 
     final Post updated;
     try {
-      updated = await api.updatePost(
+      updated = await api.composerPersistence.updatePost(
         siteUrl: target.siteUrl,
         apiKey: apiKey,
         postId: target.editingPostId!,
@@ -8606,7 +8630,7 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     try {
-      await api.updateTopicTags(
+      await api.topicMutations.updateTopicTags(
         siteUrl: target.siteUrl,
         apiKey: credential.apiKey!,
         topicId: target.topicId,
@@ -8656,7 +8680,7 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     try {
-      await api.updateTopic(
+      await api.topicMutations.updateTopic(
         siteUrl: target.siteUrl,
         apiKey: credential.apiKey!,
         topicId: target.topicId,
@@ -8758,7 +8782,7 @@ class ShellController extends FrameSafeNotifier
     final apiKey = credential.apiKey!;
 
     try {
-      final retained = await api.draft(
+      final retained = await api.composerPersistence.draft(
         siteUrl: target.siteUrl,
         apiKey: apiKey,
         draftKey: target.draftKey,
@@ -8780,7 +8804,7 @@ class ShellController extends FrameSafeNotifier
       final recentPath = target.isPrivateMessage
           ? '/topics/private-messages-sent/${Uri.encodeComponent(username)}.json'
           : '/topics/created-by/${Uri.encodeComponent(username)}.json';
-      final recent = await api.topicList(
+      final recent = await api.topicFeeds.topicList(
         siteUrl: target.siteUrl,
         path: recentPath,
         apiKey: apiKey,
@@ -8790,7 +8814,7 @@ class ShellController extends FrameSafeNotifier
           in recent.topics
               .where((topic) => topic.title == composer.title.text.trim())
               .take(_reconcileWindow)) {
-        final payload = await api.topic(
+        final payload = await api.topicContent.topic(
           siteUrl: target.siteUrl,
           slug: row.slug,
           id: row.id,
@@ -8798,7 +8822,7 @@ class ShellController extends FrameSafeNotifier
         );
         final firstId = payload.detail.stream.firstOrNull;
         if (firstId == null) continue;
-        final posts = await api.posts(
+        final posts = await api.topicContent.posts(
           siteUrl: target.siteUrl,
           topicId: row.id,
           ids: [firstId],
@@ -8879,7 +8903,7 @@ class ShellController extends FrameSafeNotifier
     late List<Post> posts;
     Post? landed;
     try {
-      topic = await api.topic(
+      topic = await api.topicContent.topic(
         siteUrl: target.siteUrl,
         slug: target.slug,
         id: target.topicId,
@@ -8893,7 +8917,7 @@ class ShellController extends FrameSafeNotifier
           ? stream
           : stream.sublist(stream.length - _reconcileWindow);
 
-      posts = await api.posts(
+      posts = await api.topicContent.posts(
         siteUrl: target.siteUrl,
         topicId: target.topicId,
         ids: tail,
@@ -9100,7 +9124,7 @@ class ShellController extends FrameSafeNotifier
         () => authenticator.apiKeyFor(siteUrl),
       );
       if (credential == null || !lease.isCurrent) return;
-      final topic = await api.topic(
+      final topic = await api.topicContent.topic(
         siteUrl: siteUrl,
         slug: slug,
         id: topicId,
@@ -9196,7 +9220,7 @@ class ShellController extends FrameSafeNotifier
         () => authenticator.apiKeyFor(targetSite),
       );
       if (credential == null || !lease.isCurrent) return;
-      final card = await api.userCard(
+      final card = await api.site.userCard(
         siteUrl: targetSite,
         username: username,
         // Read inside the guard, the way `loadLikers` does: storage that
@@ -9305,13 +9329,15 @@ class ShellController extends FrameSafeNotifier
 
   List<String> _composerHashtagTypes() {
     final types = <String>{
-      ...DiscourseApi.hashtagOrder,
+      ...defaultDiscourseHashtagOrder,
       ...plugins.registry.pluginHashtagWireTypes,
     };
     // The endpoint rejects the entire request above its fixed bound. Core
     // kinds stay first; installed registrations retain manifest order after
     // them. Servers without one of those data sources simply filter it out.
-    return types.take(DiscourseApi.hashtagsPerRequest).toList(growable: false);
+    return types
+        .take(maximumDiscourseHashtagsPerRequest)
+        .toList(growable: false);
   }
 
   /// Hashtag targets matching [term].
@@ -9332,7 +9358,7 @@ class ShellController extends FrameSafeNotifier
       if (credential == null) return const [];
       final identity = await _readSessionValue(lease, authenticator.clientId);
       if (identity == null || !lease.isCurrent) return const [];
-      found = await api.searchHashtags(
+      found = await api.search.searchHashtags(
         siteUrl: siteUrl,
         term: term,
         order: _composerHashtagTypes(),
@@ -9414,7 +9440,7 @@ class ShellController extends FrameSafeNotifier
       if (credential == null) return;
       final identity = await _readSessionValue(lease, authenticator.clientId);
       if (identity == null || !lease.isCurrent) return;
-      final found = await api.lookupHashtags(
+      final found = await api.lookups.lookupHashtags(
         siteUrl: siteUrl,
         refs: ask,
         order: _composerHashtagTypes(),
@@ -9473,7 +9499,7 @@ class ShellController extends FrameSafeNotifier
       if (credential == null) return;
       final identity = await _readSessionValue(lease, authenticator.clientId);
       if (identity == null || !lease.isCurrent) return;
-      final real = await api.checkMentions(
+      final real = await api.lookups.checkMentions(
         siteUrl: siteUrl,
         names: ask,
         topicId: topicId,
@@ -9522,7 +9548,7 @@ class ShellController extends FrameSafeNotifier
       if (credential == null) return const [];
       final identity = await _readSessionValue(lease, authenticator.clientId);
       if (identity == null || !lease.isCurrent) return const [];
-      found = await api.searchUsers(
+      found = await api.lookups.searchUsers(
         siteUrl: siteUrl,
         term: term,
         topicId: topicId,
@@ -9706,7 +9732,7 @@ class ShellController extends FrameSafeNotifier
 
         List<TopicCategory> found;
         try {
-          found = await api.findCategories(
+          found = await api.categories.findCategories(
             siteUrl: instance.url,
             ids: batch,
             apiKey: apiKey,
@@ -9787,7 +9813,7 @@ class ShellController extends FrameSafeNotifier
     _notify();
 
     try {
-      final result = await api.loadCategories(
+      final result = await api.categories.loadCategories(
         siteUrl: instance.url,
         apiKey: apiKey,
         clientId: clientId,
@@ -9880,7 +9906,7 @@ class ShellController extends FrameSafeNotifier
         return;
       }
 
-      final result = await api.loadCategories(
+      final result = await api.categories.loadCategories(
         siteUrl: siteUrl,
         apiKey: credential.value,
         clientId: identity?.value,
@@ -9983,7 +10009,10 @@ class ShellController extends FrameSafeNotifier
       // use.
       if (previousKey != null && previousKey != connectedCredentials.key) {
         try {
-          await api.revokeApiKey(siteUrl: instance.url, apiKey: previousKey);
+          await api.site.revokeApiKey(
+            siteUrl: instance.url,
+            apiKey: previousKey,
+          );
         } catch (error, stackTrace) {
           if (lease.isCurrent) {
             _reportOperationalError(
@@ -9997,7 +10026,7 @@ class ShellController extends FrameSafeNotifier
       }
       if (!lease.isCurrent) return;
 
-      final responseUser = await api.currentUser(
+      final responseUser = await api.site.currentUser(
         siteUrl: instance.url,
         apiKey: connectedCredentials.key,
       );
@@ -10154,7 +10183,7 @@ class ShellController extends FrameSafeNotifier
 
   Future<bool> _discardCredentials(String siteUrl, String apiKey) async {
     try {
-      await api.revokeApiKey(siteUrl: siteUrl, apiKey: apiKey);
+      await api.site.revokeApiKey(siteUrl: siteUrl, apiKey: apiKey);
     } catch (error, stackTrace) {
       _reportOperationalError(
         error,
@@ -10266,7 +10295,7 @@ class ShellController extends FrameSafeNotifier
     if (!lease.isCurrent) return lease;
     if (apiKey != null) {
       try {
-        await api.revokeApiKey(siteUrl: instance.url, apiKey: apiKey);
+        await api.site.revokeApiKey(siteUrl: instance.url, apiKey: apiKey);
       } catch (error, stackTrace) {
         if (lease.isCurrent) {
           _reportOperationalError(

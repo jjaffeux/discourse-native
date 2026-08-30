@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
-import '../data/discourse_api.dart';
+import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/found_group.dart';
@@ -153,7 +153,7 @@ class ShellSearchController extends ChangeNotifier {
     caseSensitive: false,
   );
 
-  final DiscourseApi api;
+  final ShellSearchApi api;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
   final Duration debounceDuration;
@@ -334,11 +334,11 @@ class ShellSearchController extends ChangeNotifier {
       return;
     }
     _panelOpen = true;
-    if (validatedTerm.length > DiscourseApi.maximumSearchTermLength) {
+    if (validatedTerm.length > maximumDiscourseSearchTermLength) {
       _phase = SearchSessionPhase.refused;
       _message =
           'Searches can be at most '
-          '${DiscourseApi.maximumSearchTermLength} characters.';
+          '$maximumDiscourseSearchTermLength characters.';
       _notify();
       return;
     }
@@ -531,7 +531,7 @@ class ShellSearchController extends ChangeNotifier {
           siteUrl: request.siteUrl,
           term: match.query,
           order: _taggingEnabled
-              ? DiscourseApi.hashtagOrder
+              ? defaultDiscourseHashtagOrder
               : const ['category'],
           apiKey: apiKey,
           clientId: clientId,

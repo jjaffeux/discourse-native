@@ -17,9 +17,13 @@ import 'chat_shell_service.dart';
 
 const chatModule = ChatModule();
 
+typedef ChatApiFactory = ChatApi Function(PluginApiTransport transport);
+
 /// Complete production registration for the bundled Chat feature.
 final class ChatModule implements PluginModule {
-  const ChatModule();
+  const ChatModule({this.apiFactory});
+
+  final ChatApiFactory? apiFactory;
 
   @override
   PluginDescriptor get descriptor => PluginDescriptor(
@@ -49,9 +53,7 @@ final class ChatModule implements PluginModule {
         final siteState = bindings.require(corePluginSiteStatePort);
         final accountEvents = bindings.require(corePluginAccountEventsPort);
         final composerHost = bindings.require(corePluginComposerPort);
-        final chatApi = transport is ChatApi
-            ? transport as ChatApi
-            : ChatApiClient(transport);
+        final chatApi = apiFactory?.call(transport) ?? ChatApiClient(transport);
         final gifs = dependencies.maybe(gifsPickerSessionService);
         final controller = ChatController(
           api: chatApi,

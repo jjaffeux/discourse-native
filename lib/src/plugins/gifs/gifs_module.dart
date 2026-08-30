@@ -8,8 +8,12 @@ import 'gifs_services.dart';
 
 const gifsModule = GifsModule();
 
+typedef GifsApiFactory = GifsApi Function(PluginApiTransport transport);
+
 final class GifsModule implements PluginModule {
-  const GifsModule();
+  const GifsModule({this.apiFactory});
+
+  final GifsApiFactory? apiFactory;
 
   @override
   PluginDescriptor get descriptor => const PluginDescriptor(id: gifsPluginId);
@@ -26,9 +30,7 @@ final class GifsModule implements PluginModule {
             PluginService<Object>(
               gifsPickerSessionService,
               createGifPickerSession(
-                api: transport is GifsApi
-                    ? transport as GifsApi
-                    : GifsApiClient(transport),
+                api: apiFactory?.call(transport) ?? GifsApiClient(transport),
                 requests: bindings.require(corePluginRequestPort),
                 siteConfigFor: bindings
                     .require(corePluginSiteStatePort)

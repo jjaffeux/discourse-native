@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/aggregate_preferences_store.dart';
 import '../data/api_credentials.dart';
-import '../data/discourse_api.dart';
+import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
 import '../diagnostics/diagnostics_controller.dart';
@@ -125,7 +125,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
     _activeTabId = tab.id;
   }
 
-  final DiscourseApi api;
+  final TopicFeedsApi api;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
   final Store store;

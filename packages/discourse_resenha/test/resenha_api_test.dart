@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:discourse_plugin_api/testing.dart';
 import 'package:discourse_resenha/src/resenha_api.dart';
 import 'package:discourse_resenha/src/resenha_models.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'support/fakes.dart';
 
 Map<String, dynamic> fixture(String name) =>
     jsonDecode(File('test/fixtures/resenha/$name.json').readAsStringSync())
@@ -16,14 +15,14 @@ void main() {
   const key = 'api-key';
 
   test('uses the directory/show/join contract routes', () async {
-    final fake = FakeDiscourseApi(
-      pluginResponses: {
+    final transport = RecordingPluginTransport(
+      responses: {
         'GET /resenha/rooms.json': fixture('directory'),
         'GET /resenha/rooms/conf-room-1.json': {'room': fixture('room')},
         'POST /resenha/rooms/7/join.json': fixture('join_mesh'),
       },
     );
-    final api = ResenhaApi(fake);
+    final api = ResenhaApi(transport);
 
     final directory = await api.rooms(siteUrl: site, apiKey: key);
     final room = await api.room(
@@ -42,9 +41,9 @@ void main() {
     expect(room.slug, 'conf-room-1');
     expect(join.transport, ResenhaTransport.mesh);
     expect(join.participantSessionId, 'mesh-participant-session');
-    expect(fake.pluginWrites.single.path, '/resenha/rooms/7/join.json');
+    expect(transport.writes.single.path, '/resenha/rooms/7/join.json');
     expect(
-      fake.pluginWrites.single.body['participant_session_id'],
+      transport.writes.single.body['participant_session_id'],
       'existing-participant-session',
     );
   });
@@ -72,8 +71,8 @@ void main() {
           ],
         },
       };
-      final fake = FakeDiscourseApi(pluginResponses: responses);
-      final api = ResenhaApi(fake);
+      final transport = RecordingPluginTransport(responses: responses);
+      final api = ResenhaApi(transport);
 
       await api.signal(
         siteUrl: site,
@@ -127,21 +126,18 @@ void main() {
       );
       expect(await api.notifyModeratorsFlagType(siteUrl: site, apiKey: key), 7);
 
-      expect(
-        fake.pluginWrites.map((write) => '${write.method} ${write.path}'),
-        [
-          'POST /resenha/rooms/7/signal.json',
-          'POST /resenha/rooms/7/state.json',
-          'POST /resenha/rooms/7/request_to_speak.json',
-          'DELETE /resenha/rooms/7/request_to_speak.json',
-          'DELETE /resenha/rooms/7/kick.json',
-          'POST /resenha/rooms/7/flag.json',
-          'POST /resenha/rooms/7/recording.json',
-          'DELETE /resenha/rooms/7/recording.json',
-        ],
-      );
+      expect(transport.writes.map((write) => '${write.method} ${write.path}'), [
+        'POST /resenha/rooms/7/signal.json',
+        'POST /resenha/rooms/7/state.json',
+        'POST /resenha/rooms/7/request_to_speak.json',
+        'DELETE /resenha/rooms/7/request_to_speak.json',
+        'DELETE /resenha/rooms/7/kick.json',
+        'POST /resenha/rooms/7/flag.json',
+        'POST /resenha/rooms/7/recording.json',
+        'DELETE /resenha/rooms/7/recording.json',
+      ]);
       expect(recording?.active, isTrue);
-      for (final write in fake.pluginWrites.take(4)) {
+      for (final write in transport.writes.take(4)) {
         expect(
           write.body['participant_session_id'],
           'participant-session',
@@ -173,8 +169,8 @@ void main() {
         'PUT /resenha/rooms/7/memberships/8.json': {},
         'DELETE /resenha/rooms/7/memberships/8.json': {},
       };
-      final fake = FakeDiscourseApi(pluginResponses: responses);
-      final api = ResenhaApi(fake);
+      final transport = RecordingPluginTransport(responses: responses);
+      final api = ResenhaApi(transport);
       const draft = ResenhaRoomDraft(
         name: 'Conf Room 1',
         isPublic: false,
@@ -253,14 +249,14 @@ void main() {
         '/resenha/rooms/7/leave.json',
       ]) {
         expect(
-          fake.pluginWrites
+          transport.writes
               .singleWhere((write) => write.path == path)
               .body['participant_session_id'],
           'participant-session',
         );
       }
 
-      final create = fake.pluginWrites.firstWhere(
+      final create = transport.writes.firstWhere(
         (write) => write.path == '/resenha/rooms.json',
       );
       expect(

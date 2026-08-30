@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:discourse_native/discourse_plugin_test.dart'
+    show PluginTestRequestHost;
+import 'package:discourse_plugin_api/testing.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_contract.dart';
@@ -23,7 +26,6 @@ import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:flutter_webrtc/src/native/media_stream_track_impl.dart';
 
 import 'support/fake_chat_conversations.dart';
-import 'support/fakes.dart';
 
 const _siteUrl = 'https://voice.example.com';
 
@@ -299,7 +301,7 @@ void main() {
 
     await tester.tap(find.text('Remove from room'));
     await tester.pumpAndSettle();
-    final kick = harness.transport.pluginWrites.singleWhere(
+    final kick = harness.transport.writes.singleWhere(
       (write) => write.path == '/resenha/rooms/7/kick.json',
     );
     expect(kick.method, 'DELETE');
@@ -413,7 +415,7 @@ void main() {
       _app(harness.controller, room: room, followCall: true),
     );
     expect(
-      harness.transport.pluginWrites.where(
+      harness.transport.writes.where(
         (write) => write.path.endsWith('/state.json'),
       ),
       isEmpty,
@@ -422,7 +424,7 @@ void main() {
     await tester.tap(find.text('Join room'));
     await tester.pumpAndSettle();
 
-    var stateWrites = harness.transport.pluginWrites
+    var stateWrites = harness.transport.writes
         .where((write) => write.path.endsWith('/state.json'))
         .toList();
     expect(stateWrites, isNotEmpty);
@@ -431,7 +433,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
     await tester.pump();
 
-    stateWrites = harness.transport.pluginWrites
+    stateWrites = harness.transport.writes
         .where((write) => write.path.endsWith('/state.json'))
         .toList();
     expect(stateWrites.last.body['watching'], isFalse);
@@ -775,8 +777,8 @@ void main() {
   testWidgets('room chat pages messages and sends trimmed composer text', (
     tester,
   ) async {
-    final transport = FakeDiscourseApi(
-      pluginResponses: const {
+    final transport = RecordingPluginTransport(
+      responses: const {
         'GET /resenha/rooms/7/chat_session.json': {
           'channel_id': 42,
           'thread_id': 99,
@@ -832,7 +834,6 @@ void main() {
     expect(find.text('Lee'), findsOneWidget);
     expect(find.text('Load older messages'), findsNothing);
     expect(conversation.loadOlderCalls, 1);
-    expect(transport.chatThreadMessagesRequested, isEmpty);
 
     final composer = find.widgetWithText(TextField, 'Message the room');
     await tester.enterText(composer, '  hello room  ');
@@ -841,7 +842,6 @@ void main() {
 
     expect(tester.widget<TextField>(composer).controller?.text, isEmpty);
     expect(conversation.sentMessages, ['hello room']);
-    expect(transport.chatMessagesSent, isEmpty);
 
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
@@ -852,8 +852,8 @@ void main() {
   testWidgets('member management adds, updates, and removes memberships', (
     tester,
   ) async {
-    final transport = FakeDiscourseApi(
-      pluginResponses: {
+    final transport = RecordingPluginTransport(
+      responses: {
         'GET /resenha/rooms/7/memberships.json': {
           'memberships': const [
             {
@@ -919,7 +919,7 @@ void main() {
     await tester.tap(find.byTooltip('Add member'));
     await tester.pumpAndSettle();
     expect(
-      transport.pluginWrites.where(
+      transport.writes.where(
         (write) => write.path.endsWith('/memberships.json'),
       ),
       isEmpty,
@@ -940,9 +940,7 @@ void main() {
     await tester.tap(find.byTooltip('Add member'));
     await tester.pumpAndSettle();
 
-    final add = transport.pluginWrites.singleWhere(
-      (write) => write.method == 'POST',
-    );
+    final add = transport.writes.singleWhere((write) => write.method == 'POST');
     expect(add.body['username'], 'jordan');
     expect(add.body['role'], 'moderator');
     expect(tester.widget<TextField>(username).controller?.text, isEmpty);
@@ -961,7 +959,7 @@ void main() {
           .last,
     );
     await tester.pumpAndSettle();
-    final update = transport.pluginWrites.singleWhere(
+    final update = transport.writes.singleWhere(
       (write) => write.method == 'PUT',
     );
     expect(update.path, '/resenha/rooms/7/memberships/9.json');
@@ -971,7 +969,7 @@ void main() {
       find.descendant(of: leeTile, matching: find.byTooltip('Remove member')),
     );
     await tester.pumpAndSettle();
-    final remove = transport.pluginWrites.singleWhere(
+    final remove = transport.writes.singleWhere(
       (write) => write.method == 'DELETE',
     );
     expect(remove.path, '/resenha/rooms/7/memberships/9.json');
@@ -1055,7 +1053,7 @@ void main() {
 
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
-    expect(harness.transport.pluginWrites, isEmpty);
+    expect(harness.transport.writes, isEmpty);
     semantics.dispose();
   });
 
@@ -1099,9 +1097,9 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
 
-    expect(original.transport.pluginWrites, isEmpty);
+    expect(original.transport.writes, isEmpty);
     expect(
-      replacement.transport.pluginWrites.map((write) => write.path),
+      replacement.transport.writes.map((write) => write.path),
       contains('/resenha/rooms/7.json'),
     );
   });
@@ -1148,13 +1146,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      original.transport.pluginWrites.where(
+      original.transport.writes.where(
         (write) => write.path.endsWith('/flag.json'),
       ),
       isEmpty,
     );
     expect(
-      replacement.transport.pluginWrites.where(
+      replacement.transport.writes.where(
         (write) => write.path.endsWith('/flag.json'),
       ),
       hasLength(1),
@@ -1206,13 +1204,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        original.transport.pluginWrites.where(
+        original.transport.writes.where(
           (write) => write.path.endsWith('/recording.json'),
         ),
         isEmpty,
       );
       expect(
-        replacement.transport.pluginWrites.where(
+        replacement.transport.writes.where(
           (write) => write.path.endsWith('/recording.json'),
         ),
         hasLength(1),
@@ -1359,7 +1357,7 @@ final class _Harness {
     ResenhaRoom? joinRoom,
     ResenhaTransport joinTransport = ResenhaTransport.mesh,
     Set<int> speakingIds = const {},
-    FakeDiscourseApi? discourseApi,
+    RecordingPluginTransport? discourseApi,
     _Preferences? preferences,
     FakeChatConversationCapability? chatConversations,
   }) : preferences = preferences ?? _Preferences(),
@@ -1367,8 +1365,8 @@ final class _Harness {
            chatConversations ?? FakeChatConversationCapability(),
        transport =
            discourseApi ??
-           FakeDiscourseApi(
-             pluginResponses: {
+           RecordingPluginTransport(
+             responses: {
                if (joinRoom != null)
                  'POST /resenha/rooms/7/join.json': _joinPayload(
                    joinRoom,
@@ -1387,11 +1385,10 @@ final class _Harness {
              },
            ),
        media = _MediaFactory(speakingIds) {
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
     controller = ResenhaController(
       api: ResenhaApi(transport),
       chatConversations: this.chatConversations,
-      requests: FakePluginRequestHost(credentials: credentials),
+      requests: PluginTestRequestHost(apiKeys: const {_siteUrl: 'key'}),
       trackerFor: (_) => null,
       userIdFor: (_) => 1,
       onCallSiteChanged: () {},
@@ -1402,7 +1399,7 @@ final class _Harness {
     );
   }
 
-  final FakeDiscourseApi transport;
+  final RecordingPluginTransport transport;
   final _MediaFactory media;
   final _Preferences preferences;
   final FakeChatConversationCapability chatConversations;
@@ -1451,10 +1448,10 @@ final class _RouteHost implements PluginRouteNavigationHost {
   void selectInstance(int index) => currentSite = sites[index];
 }
 
-final class _GatedMembershipTransport extends FakeDiscourseApi {
+final class _GatedMembershipTransport extends RecordingPluginTransport {
   _GatedMembershipTransport()
     : super(
-        pluginResponses: const {
+        responses: const {
           'GET /resenha/rooms/7/memberships.json': {'memberships': <Object>[]},
           'POST /resenha/rooms/7/memberships.json': <String, Object?>{},
         },
@@ -1504,10 +1501,10 @@ final class _GatedMembershipTransport extends FakeDiscourseApi {
   }
 }
 
-final class _GatedChatTransport extends FakeDiscourseApi {
+final class _GatedChatTransport extends RecordingPluginTransport {
   _GatedChatTransport()
     : super(
-        pluginResponses: const {
+        responses: const {
           'GET /resenha/rooms/7/chat_session.json': <String, Object?>{},
         },
       );

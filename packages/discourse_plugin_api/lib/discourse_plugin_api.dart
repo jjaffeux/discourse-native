@@ -1,5 +1,7 @@
 import 'dart:async';
 
+export 'src/plugin_transport.dart';
+
 abstract interface class PluginCapability {
   String get name;
 }

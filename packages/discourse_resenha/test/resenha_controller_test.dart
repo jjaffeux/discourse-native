@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:discourse_native/discourse_plugin_test.dart'
+    show RecordingPluginLiveChannels;
+import 'package:discourse_plugin_api/testing.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
-import 'package:discourse_native/src/data/site_tracker.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/live_channels.dart';
@@ -22,20 +24,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
 import 'support/fake_chat_conversations.dart';
-import 'support/fakes.dart';
 
 Map<String, dynamic> fixture(String name) =>
     jsonDecode(File('test/fixtures/resenha/$name.json').readAsStringSync())
         as Map<String, dynamic>;
 
-FakeSiteTracker tracker(String siteUrl) => FakeSiteTracker(
-  siteUrl: siteUrl,
-  onIncomingTopics: () {},
-  onNotifications: (_) {},
-  onReviewableCounts: (_) {},
-  userId: 1,
-  apiKey: 'key',
-);
+RecordingPluginLiveChannels tracker(String _) => RecordingPluginLiveChannels();
 
 final class FakeResenhaMediaFactory implements ResenhaMediaFactory {
   final List<FakeResenhaMediaSession> sessions = [];
@@ -465,12 +459,11 @@ final class FakeResenhaSystemCall implements ResenhaSystemCall {
 
 final class _AwaitableResenhaSubscription
     implements
-        SiteMessageBusSubscription,
         PluginLiveChannelSubscription,
         ResenhaAwaitableSubscriptionTeardown {
   _AwaitableResenhaSubscription(this._delegate, this._cancelAndWait);
 
-  final SiteMessageBusSubscription _delegate;
+  final PluginLiveChannelSubscription _delegate;
   final Future<void> Function() _cancelAndWait;
   Future<void>? _cancellation;
 
@@ -488,48 +481,28 @@ final class _AwaitableResenhaSubscription
   }
 }
 
-final class _AwaitableSubscriptionTracker extends FakeSiteTracker {
-  _AwaitableSubscriptionTracker({required super.siteUrl})
-    : super(
-        onIncomingTopics: _ignoreIncomingTopics,
-        onNotifications: _ignoreTrackerMessage,
-        onReviewableCounts: _ignoreTrackerMessage,
-        userId: 1,
-        apiKey: 'key',
-      );
-
+final class _AwaitableSubscriptionTracker extends RecordingPluginLiveChannels {
   final Completer<void> firstCancellationStarted = Completer<void>();
   final Completer<void> cancellationGate = Completer<void>();
   int cancellationsStarted = 0;
 
   @override
-  SiteMessageBusSubscription watchPluginChannel(
-    String channel,
-    void Function(Object? data) onMessage, {
-    int? lastId,
-  }) => _wrap(super.watchPluginChannel(channel, onMessage, lastId: lastId));
-
-  @override
-  SiteMessageBusSubscription watchPluginChannelWithPosition(
+  PluginLiveChannelSubscription subscribe(
     String channel,
     void Function(Object? data, int messageId) onMessage, {
     int? lastId,
-  }) => _wrap(
-    super.watchPluginChannelWithPosition(channel, onMessage, lastId: lastId),
-  );
+  }) => _wrap(super.subscribe(channel, onMessage, lastId: lastId));
 
-  SiteMessageBusSubscription _wrap(SiteMessageBusSubscription subscription) =>
-      _AwaitableResenhaSubscription(subscription, () async {
-        cancellationsStarted++;
-        if (!firstCancellationStarted.isCompleted) {
-          firstCancellationStarted.complete();
-        }
-        await cancellationGate.future;
-      });
+  PluginLiveChannelSubscription _wrap(
+    PluginLiveChannelSubscription subscription,
+  ) => _AwaitableResenhaSubscription(subscription, () async {
+    cancellationsStarted++;
+    if (!firstCancellationStarted.isCompleted) {
+      firstCancellationStarted.complete();
+    }
+    await cancellationGate.future;
+  });
 }
-
-void _ignoreIncomingTopics() {}
-void _ignoreTrackerMessage(Object? _) {}
 
 final class _PendingPluginGet {
   _PendingPluginGet(this.path);
@@ -552,8 +525,8 @@ typedef _TransportDiagnosticContext = ({
   String? correlationId,
 });
 
-final class _ControlledResenhaTransport extends FakeDiscourseApi {
-  _ControlledResenhaTransport({super.pluginResponses, super.chatMessagesByKey});
+final class _ControlledResenhaTransport extends RecordingPluginTransport {
+  _ControlledResenhaTransport({super.responses});
 
   final Set<String> heldPluginPaths = {};
   final Set<String> heldPluginWritePaths = {};
@@ -647,14 +620,14 @@ ChatMessagePage _chatPage(int id, {bool canLoadMorePast = false}) => (
 void main() {
   const firstSite = 'https://one.example.com';
   const secondSite = 'https://two.example.com';
-  late FakeDiscourseApi transport;
+  late RecordingPluginTransport transport;
   late PluginRequestHost requests;
   late FakeResenhaPreferences preferences;
   late FakeResenhaMediaFactory mediaFactory;
   late FakeResenhaSystemCall systemCall;
   late FakeResenhaDiagnosticsRecorder diagnostics;
-  late FakeSiteTracker firstTracker;
-  late FakeSiteTracker secondTracker;
+  late RecordingPluginLiveChannels firstTracker;
+  late RecordingPluginLiveChannels secondTracker;
   late FakeChatConversationCapability chatConversations;
   late ResenhaController controller;
 
@@ -674,7 +647,7 @@ void main() {
   }
 
   void useTransport(
-    FakeDiscourseApi value, {
+    RecordingPluginTransport value, {
     ResenhaCapabilityResolver? capabilityEnabledFor,
     FakeChatConversationCapability? conversations,
   }) {
@@ -708,8 +681,8 @@ void main() {
   setUp(() {
     final joinPayload = fixture('join_mesh');
     (joinPayload['room'] as Map<String, dynamic>)['room_type'] = 'stage';
-    transport = FakeDiscourseApi(
-      pluginResponses: {
+    transport = RecordingPluginTransport(
+      responses: {
         'GET /resenha/rooms.json': fixture('directory'),
         'POST /resenha/rooms/7/join.json': joinPayload,
         'POST /resenha/rooms/7/heartbeat.json': {},
@@ -753,7 +726,7 @@ void main() {
     final joinPayload = fixture('join_mesh');
     (joinPayload['room'] as Map<String, dynamic>)['room_type'] = 'stage';
     return _ControlledResenhaTransport(
-      pluginResponses: {
+      responses: {
         'POST /resenha/rooms/7/join.json': joinPayload,
         'DELETE /resenha/rooms/7/leave.json': <String, dynamic>{},
         'POST /resenha/rooms/7/heartbeat.json': <String, dynamic>{},
@@ -823,7 +796,7 @@ void main() {
     'does not probe room routes when site settings disable Resenha',
     () async {
       final controlled = _ControlledResenhaTransport(
-        pluginResponses: {'GET /resenha/rooms.json': fixture('directory')},
+        responses: {'GET /resenha/rooms.json': fixture('directory')},
       );
       useTransport(controlled, capabilityEnabledFor: (_) async => false);
 
@@ -842,7 +815,7 @@ void main() {
 
   test('still probes when site settings could not be resolved', () async {
     final controlled = _ControlledResenhaTransport(
-      pluginResponses: {'GET /resenha/rooms.json': fixture('directory')},
+      responses: {'GET /resenha/rooms.json': fixture('directory')},
     );
     useTransport(controlled, capabilityEnabledFor: (_) async => null);
 
@@ -855,7 +828,7 @@ void main() {
   test('an unreachable directory remains retryable', () async {
     final controlled =
         _ControlledResenhaTransport(
-            pluginResponses: {'GET /resenha/rooms.json': fixture('directory')},
+            responses: {'GET /resenha/rooms.json': fixture('directory')},
           )
           ..pluginGetFailures['/resenha/rooms.json'] =
               const SiteLookupException(
@@ -881,7 +854,7 @@ void main() {
     () async {
       final counting = _CountingRequestHost();
       final controlled = _ControlledResenhaTransport(
-        pluginResponses: {'GET /resenha/rooms.json': fixture('directory')},
+        responses: {'GET /resenha/rooms.json': fixture('directory')},
       );
       requests = counting;
       useTransport(controlled);
@@ -915,7 +888,7 @@ void main() {
       gate.complete();
       await joining;
 
-      expect(controlled.pluginWrites, isEmpty);
+      expect(controlled.writes, isEmpty);
       expect(controller.call, isNull);
       expect(mediaFactory.sessions, isEmpty);
     },
@@ -1023,7 +996,7 @@ void main() {
         siteName: 'One',
         room: ResenhaRoom.fromJson(fixture('room')),
       );
-      final writesBefore = controlled.pluginWrites.length;
+      final writesBefore = controlled.writes.length;
       final getsBefore = controlled.pluginGets.length;
 
       gated.gateNextRead = true;
@@ -1035,8 +1008,7 @@ void main() {
       await pumpEventQueue();
 
       final paths = <String>{
-        for (final write in controlled.pluginWrites.skip(writesBefore))
-          write.path,
+        for (final write in controlled.writes.skip(writesBefore)) write.path,
         ...controlled.pluginGets.skip(getsBefore),
       };
       expect(paths.intersection(action.paths), isEmpty);
@@ -1093,7 +1065,7 @@ void main() {
       await operation;
 
       expect(
-        controlled.pluginWrites.where((write) => write.path == action.path),
+        controlled.writes.where((write) => write.path == action.path),
         isEmpty,
       );
       expect(
@@ -1618,7 +1590,7 @@ void main() {
       await load;
 
       expect(controller.directory(firstSite), isNull);
-      expect(firstTracker.pluginChannelLastIds, isEmpty);
+      expect(firstTracker.lastIds, isEmpty);
     },
   );
 
@@ -1643,9 +1615,8 @@ void main() {
   test(
     'a forgotten site cannot be restored by a late room-chat response',
     () async {
-      final controlled = _ControlledResenhaTransport(
-        chatMessagesByKey: {'thread-42-99': _chatPage(10)},
-      )..heldPluginPaths.add('/resenha/rooms/7/chat_session.json');
+      final controlled = _ControlledResenhaTransport()
+        ..heldPluginPaths.add('/resenha/rooms/7/chat_session.json');
       useTransport(controlled);
 
       final load = controller.openChat(firstSite, 7);
@@ -1657,13 +1628,13 @@ void main() {
       await load;
 
       expect(controller.chat(firstSite, 7), isNull);
-      expect(firstTracker.pluginChannelLastIds, isEmpty);
+      expect(firstTracker.lastIds, isEmpty);
     },
   );
 
   test('a late room save cannot restore a forgotten site', () async {
     final controlled = _ControlledResenhaTransport(
-      pluginResponses: {'GET /resenha/rooms.json': fixture('directory')},
+      responses: {'GET /resenha/rooms.json': fixture('directory')},
     )..heldPluginWritePaths.add('/resenha/rooms.json');
     useTransport(controlled);
 
@@ -1738,9 +1709,7 @@ void main() {
 
   test('chat paging stays behind the Chat conversation capability', () async {
     final controlled = _ControlledResenhaTransport(
-      pluginResponses: {
-        'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
-      },
+      responses: {'GET /resenha/rooms/7/chat_session.json': fixture('chat')},
     );
     final countingRequests = _CountingRequestHost();
     requests = countingRequests;
@@ -1761,7 +1730,6 @@ void main() {
     );
     expect(conversation.loadOlderCalls, 1);
     expect(countingRequests.credentialCalls, 1);
-    expect(controlled.chatThreadMessagesRequested, isEmpty);
   });
 
   test(
@@ -1769,10 +1737,10 @@ void main() {
     () async {
       await controller.ensureLoaded(firstSite);
 
-      expect(firstTracker.pluginChannelLastIds['/resenha/rooms/index'], 144);
-      expect(firstTracker.pluginChannelLastIds['/resenha/rooms/7'], 91);
+      expect(firstTracker.lastIds['/resenha/rooms/index'], 144);
+      expect(firstTracker.lastIds['/resenha/rooms/7'], 91);
 
-      firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+      firstTracker.deliver('/resenha/rooms/7', {
         'type': 'participants',
         'participants': [
           {'id': 2, 'username': 'lee', 'role': 'speaker'},
@@ -1783,7 +1751,7 @@ void main() {
         'lee',
       );
 
-      firstTracker.deliverPluginMessage('/resenha/rooms/index', {
+      firstTracker.deliver('/resenha/rooms/index', {
         'type': 'updated',
         'room': {
           'id': 7,
@@ -1807,15 +1775,15 @@ void main() {
     controller.attachTracker(firstSite, replacement);
 
     for (final channel in const ['/resenha/rooms/index', '/resenha/rooms/7']) {
-      expect(firstTracker.pluginChannelCallbacks[channel], isEmpty);
-      expect(replacement.pluginChannelCallbacks[channel], isNotEmpty);
+      expect(firstTracker.subscriberCount(channel), 0);
+      expect(replacement.subscriberCount(channel), greaterThan(0));
     }
-    expect(firstTracker.pluginChannelCallbacks['/chat/42'], isNull);
-    expect(replacement.pluginChannelCallbacks['/chat/42'], isNull);
-    expect(replacement.pluginChannelLastIds['/resenha/rooms/index'], 144);
-    expect(replacement.pluginChannelLastIds['/resenha/rooms/7'], 91);
+    expect(firstTracker.subscriberCount('/chat/42'), 0);
+    expect(replacement.subscriberCount('/chat/42'), 0);
+    expect(replacement.lastIds['/resenha/rooms/index'], 144);
+    expect(replacement.lastIds['/resenha/rooms/7'], 91);
 
-    firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+    firstTracker.deliver('/resenha/rooms/7', {
       'type': 'participants',
       'participants': [
         {'id': 2, 'username': 'old', 'role': 'speaker'},
@@ -1829,7 +1797,7 @@ void main() {
       ['sam'],
     );
 
-    replacement.deliverPluginMessage('/resenha/rooms/7', {
+    replacement.deliver('/resenha/rooms/7', {
       'type': 'participants',
       'participants': [
         {'id': 3, 'username': 'new', 'role': 'speaker'},
@@ -1849,7 +1817,7 @@ void main() {
       );
       final media = mediaFactory.sessions.single;
 
-      firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+      firstTracker.deliver('/resenha/rooms/7', {
         'type': 'participants',
         'participants': [
           {'id': 1, 'username': 'sam', 'role': 'participant'},
@@ -1858,7 +1826,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(media.audioPublishingAllowed, isFalse);
 
-      firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+      firstTracker.deliver('/resenha/rooms/7', {
         'type': 'role_change',
         'user_id': 1,
         'role': 'speaker',
@@ -1866,7 +1834,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(media.audioPublishingAllowed, isTrue);
 
-      firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+      firstTracker.deliver('/resenha/rooms/7', {
         'type': 'participants',
         'participants': [
           {'id': 1, 'username': 'sam', 'role': 'speaker'},
@@ -1882,9 +1850,7 @@ void main() {
     controller.watchRoomVideo(siteUrl: firstSite, roomId: 7);
 
     expect(
-      transport.pluginWrites.where(
-        (write) => write.path.endsWith('/state.json'),
-      ),
+      transport.writes.where((write) => write.path.endsWith('/state.json')),
       isEmpty,
     );
 
@@ -1896,7 +1862,7 @@ void main() {
     );
     await pumpEventQueue();
 
-    var stateWrites = transport.pluginWrites
+    var stateWrites = transport.writes
         .where((write) => write.path.endsWith('/state.json'))
         .toList();
     expect(stateWrites, isNotEmpty);
@@ -1913,7 +1879,7 @@ void main() {
       room: controller.room(firstSite, 7)!,
     );
     await pumpEventQueue();
-    stateWrites = transport.pluginWrites
+    stateWrites = transport.writes
         .where((write) => write.path.endsWith('/state.json'))
         .toList();
     expect(stateWrites.last.body['watching'], isTrue);
@@ -1921,15 +1887,13 @@ void main() {
     controller.stopWatchingRoomVideo(siteUrl: firstSite, roomId: 7);
     await pumpEventQueue();
     expect(
-      transport.pluginWrites.where(
-        (write) => write.path.endsWith('/state.json'),
-      ),
+      transport.writes.where((write) => write.path.endsWith('/state.json')),
       hasLength(stateWrites.length),
     );
 
     controller.stopWatchingRoomVideo(siteUrl: firstSite, roomId: 7);
     await pumpEventQueue();
-    stateWrites = transport.pluginWrites
+    stateWrites = transport.writes
         .where((write) => write.path.endsWith('/state.json'))
         .toList();
     expect(stateWrites.last.body['watching'], isFalse);
@@ -1962,12 +1926,12 @@ void main() {
       ..muteFailure = StateError('mute rejected')
       ..participantSyncFailure = StateError('roster rejected');
 
-    firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+    firstTracker.deliver('/resenha/rooms/7', {
       'type': 'signal',
       'sender_id': 2,
       'data': {'type': 'offer'},
     });
-    firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+    firstTracker.deliver('/resenha/rooms/7', {
       'type': 'participants',
       'participants': [
         {'id': 1, 'username': 'sam', 'role': 'participant'},
@@ -2001,8 +1965,8 @@ void main() {
         {'id': 1, 'username': 'sam', 'role': 'participant'},
       ];
       useTransport(
-        FakeDiscourseApi(
-          pluginResponses: {
+        RecordingPluginTransport(
+          responses: {
             'GET /resenha/rooms.json': fixture('directory'),
             'POST /resenha/rooms/7/join.json': joinPayload,
             'POST /resenha/rooms/7/state.json': <String, dynamic>{},
@@ -2018,7 +1982,7 @@ void main() {
         room: controller.room(firstSite, 7)!,
       );
 
-      firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+      firstTracker.deliver('/resenha/rooms/7', {
         'type': 'signal',
         'sender_id': 2,
         'sender': {'id': 2, 'username': 'early'},
@@ -2043,7 +2007,7 @@ void main() {
   );
 
   test('sends the joined participant session on protected writes', () async {
-    transport.pluginResponses.addAll({
+    transport.responses.addAll({
       'POST /resenha/rooms/7/signal.json': <String, dynamic>{},
       'POST /resenha/rooms/7/request_to_speak.json': <String, dynamic>{},
     });
@@ -2060,7 +2024,7 @@ void main() {
     await controller.setMuted(true);
     await controller.leave();
 
-    final protected = transport.pluginWrites.where(
+    final protected = transport.writes.where(
       (write) => {
         '/resenha/rooms/7/signal.json',
         '/resenha/rooms/7/request_to_speak.json',
@@ -2094,8 +2058,8 @@ void main() {
         'participant_session_id': 'rotated-livekit-session',
       };
       useTransport(
-        FakeDiscourseApi(
-          pluginResponses: {
+        RecordingPluginTransport(
+          responses: {
             'GET /resenha/rooms.json': fixture('directory'),
             'POST /resenha/rooms/7/join.json': fixture('join_livekit'),
             'POST /resenha/rooms/7/livekit_token.json': tokenResponse,
@@ -2118,7 +2082,7 @@ void main() {
       await controller.setMuted(true);
       await controller.leave();
 
-      final stateAndLeave = transport.pluginWrites.where(
+      final stateAndLeave = transport.writes.where(
         (write) =>
             write.path.endsWith('/state.json') ||
             write.path.endsWith('/leave.json'),
@@ -2154,7 +2118,6 @@ void main() {
 
     await controller.sendChatMessage(firstSite, 7, '  hello room  ');
     expect(conversation.sentMessages, ['hello room']);
-    expect(transport.chatMessagesSent, isEmpty);
   });
 
   test(
@@ -2201,8 +2164,9 @@ void main() {
   });
 
   test('temporary Chat sends retain capability-reported failures', () async {
-    transport.pluginResponses['POST /resenha/rooms/7/chat_session.json'] =
-        fixture('chat');
+    transport.responses['POST /resenha/rooms/7/chat_session.json'] = fixture(
+      'chat',
+    );
     final conversation = chatConversations.find(
       siteUrl: firstSite,
       channelId: 42,
@@ -2225,7 +2189,7 @@ void main() {
       threadId: 99,
     )!;
 
-    firstTracker.deliverPluginMessage('/resenha/rooms/index', {
+    firstTracker.deliver('/resenha/rooms/index', {
       'type': 'destroyed',
       'room': (fixture('directory')['rooms'] as List<dynamic>).first,
     });
@@ -2239,7 +2203,8 @@ void main() {
       'GET /resenha/rooms.json': fixture('directory'),
       'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
     };
-    useTransport(FakeDiscourseApi(pluginResponses: responses));
+    final mutableTransport = RecordingPluginTransport(responses: responses);
+    useTransport(mutableTransport);
     await controller.ensureLoaded(firstSite);
     await controller.openChat(firstSite, 7);
     final conversation = chatConversations.find(
@@ -2247,7 +2212,7 @@ void main() {
       channelId: 42,
       threadId: 99,
     )!;
-    responses['GET /resenha/rooms.json'] = {
+    mutableTransport.responses['GET /resenha/rooms.json'] = {
       ...fixture('directory'),
       'rooms': <Object>[],
     };
@@ -2267,13 +2232,14 @@ void main() {
         'GET /resenha/rooms.json': fixture('directory'),
         'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
       };
-      useTransport(FakeDiscourseApi(pluginResponses: responses));
+      final mutableTransport = RecordingPluginTransport(responses: responses);
+      useTransport(mutableTransport);
       await controller.ensureLoaded(firstSite);
       gated.gateNextRead = true;
 
       final opening = controller.openChat(firstSite, 7);
       await gated.readStarted.future;
-      responses['GET /resenha/rooms.json'] = {
+      mutableTransport.responses['GET /resenha/rooms.json'] = {
         ...fixture('directory'),
         'rooms': <Object>[],
       };
@@ -2308,7 +2274,7 @@ void main() {
     expect(systemCall.starts, 2);
     expect(systemCall.ends, 1);
     expect(
-      transport.pluginWrites
+      transport.writes
           .where((write) => write.path.endsWith('/leave.json'))
           .single
           .siteUrl,
@@ -2317,7 +2283,7 @@ void main() {
   });
 
   test('waits out a rate-limited room join and retries it once', () async {
-    transport.pluginWriteFailures['POST /resenha/rooms/7/join.json'] =
+    transport.failures['POST /resenha/rooms/7/join.json'] =
         const WriteException(
           WriteFailure.rateLimited,
           statusCode: 429,
@@ -2334,9 +2300,7 @@ void main() {
     expect(controller.call?.room.id, 7);
     expect(controller.call?.status, ResenhaCallStatus.connected);
     expect(
-      transport.pluginWrites.where(
-        (write) => write.path.endsWith('/join.json'),
-      ),
+      transport.writes.where((write) => write.path.endsWith('/join.json')),
       hasLength(2),
     );
     expect(controller.errorFor(firstSite), isNull);
@@ -2413,7 +2377,7 @@ void main() {
     );
 
     void deliver(String sdp) {
-      firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+      firstTracker.deliver('/resenha/rooms/7', {
         'type': 'signal',
         'sender_id': 2,
         'data': {'type': 'offer', 'sdp': sdp},
@@ -2478,7 +2442,7 @@ void main() {
       final muteGate = Completer<void>();
       media.muteGate = muteGate;
       systemCall.systemMuted = null;
-      final stateWritesBefore = transport.pluginWrites
+      final stateWritesBefore = transport.writes
           .where((write) => write.path.endsWith('/state.json'))
           .length;
 
@@ -2491,9 +2455,7 @@ void main() {
       expect(media.disposeCount, 1);
       expect(systemCall.systemMuted, isNull);
       expect(
-        transport.pluginWrites.where(
-          (write) => write.path.endsWith('/state.json'),
-        ),
+        transport.writes.where((write) => write.path.endsWith('/state.json')),
         hasLength(stateWritesBefore),
       );
     },
@@ -2506,8 +2468,7 @@ void main() {
       ..['id'] = 8
       ..['name'] = 'Breakroom'
       ..['slug'] = 'breakroom';
-    transport.pluginResponses['POST /resenha/rooms/8/join.json'] =
-        secondJoinPayload;
+    transport.responses['POST /resenha/rooms/8/join.json'] = secondJoinPayload;
 
     await controller.ensureLoaded(firstSite);
     await controller.join(
@@ -2522,7 +2483,7 @@ void main() {
       siteName: 'One',
       room: ResenhaRoom.fromJson(secondRoomJson),
     );
-    firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+    firstTracker.deliver('/resenha/rooms/7', {
       'type': 'participants',
       'participants': const <Object?>[],
     });
@@ -2550,7 +2511,7 @@ void main() {
 
       final breakroom = joinPayloadFor(8, 'Breakroom', 'breakroom');
       final kitchen = joinPayloadFor(9, 'Kitchen', 'kitchen');
-      transport.pluginResponses
+      transport.responses
         ..['POST /resenha/rooms/8/join.json'] = breakroom
         ..['DELETE /resenha/rooms/8/leave.json'] = <String, dynamic>{}
         ..['POST /resenha/rooms/9/join.json'] = kitchen;
@@ -2617,7 +2578,7 @@ void main() {
       expect(mediaFactory.sessions.single.muted, isTrue);
       expect(systemCall.systemMuted, isTrue);
       expect(
-        transport.pluginWrites.where(
+        transport.writes.where(
           (write) => write.path.endsWith('/heartbeat.json'),
         ),
         isNotEmpty,
@@ -2638,7 +2599,7 @@ void main() {
     final joinPayload = fixture('join_mesh');
     (joinPayload['room'] as Map<String, dynamic>)['room_type'] = 'stage';
     final controlled = _ControlledResenhaTransport(
-      pluginResponses: {
+      responses: {
         'GET /resenha/rooms.json': fixture('directory'),
         'POST /resenha/rooms/7/join.json': joinPayload,
         'POST /resenha/rooms/7/heartbeat.json': <String, dynamic>{},
@@ -2697,7 +2658,7 @@ void main() {
     // Long enough for any scheduled heartbeat to fire while the call is away
     // from connected, which is the moment the chain historically died.
     await Future<void>.delayed(const Duration(milliseconds: 60));
-    final heartbeatsBefore = transport.pluginWrites
+    final heartbeatsBefore = transport.writes
         .where((write) => write.path.endsWith('/heartbeat.json'))
         .length;
 
@@ -2707,7 +2668,7 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 60));
 
     expect(
-      transport.pluginWrites
+      transport.writes
           .where((write) => write.path.endsWith('/heartbeat.json'))
           .length,
       greaterThan(heartbeatsBefore),
@@ -2723,10 +2684,10 @@ void main() {
         siteName: 'One',
         room: controller.room(firstSite, 7)!,
       );
-      final stateWritesBefore = transport.pluginWrites
+      final stateWritesBefore = transport.writes
           .where((write) => write.path.endsWith('/state.json'))
           .length;
-      transport.pluginWriteFailures['POST /resenha/rooms/7/state.json'] =
+      transport.failures['POST /resenha/rooms/7/state.json'] =
           const WriteException(
             WriteFailure.rateLimited,
             statusCode: 429,
@@ -2740,9 +2701,7 @@ void main() {
       expect(mediaFactory.sessions.single.camera, isTrue);
       await Future<void>.delayed(const Duration(milliseconds: 200));
       expect(
-        transport.pluginWrites.where(
-          (write) => write.path.endsWith('/state.json'),
-        ),
+        transport.writes.where((write) => write.path.endsWith('/state.json')),
         hasLength(stateWritesBefore + 2),
       );
     },
@@ -2764,7 +2723,7 @@ void main() {
       media.muteFailure = StateError('mute rejected');
 
       final unmuting = controller.setMuted(false);
-      firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+      firstTracker.deliver('/resenha/rooms/7', {
         'type': 'participants',
         'participants': [
           {'id': 1, 'username': 'sam', 'role': 'moderator'},
@@ -2803,7 +2762,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     expect(controller.call?.screenSharing, isFalse);
-    final stateWrites = transport.pluginWrites
+    final stateWrites = transport.writes
         .where((write) => write.path.endsWith('/state.json'))
         .toList();
     expect(stateWrites.last.body['screen'], isFalse);
@@ -2820,7 +2779,7 @@ void main() {
       );
       final media = mediaFactory.sessions.single;
 
-      firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+      firstTracker.deliver('/resenha/rooms/7', {
         'type': 'participants',
         'participants': const <Object?>[],
       });
@@ -2836,9 +2795,7 @@ void main() {
         'rosterRemoval',
       );
       expect(
-        transport.pluginWrites.where(
-          (write) => write.path.endsWith('/leave.json'),
-        ),
+        transport.writes.where((write) => write.path.endsWith('/leave.json')),
         isEmpty,
       );
     },
@@ -2860,7 +2817,7 @@ void main() {
     }
     expect(controller.call?.status, ResenhaCallStatus.joining);
 
-    firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+    firstTracker.deliver('/resenha/rooms/7', {
       'type': 'participants',
       'participants': const <Object?>[],
     });
@@ -2884,7 +2841,7 @@ void main() {
       final joinPayload = fixture('join_mesh');
       (joinPayload['room'] as Map<String, dynamic>)['room_type'] = 'stage';
       final controlled = _ControlledResenhaTransport(
-        pluginResponses: {
+        responses: {
           'GET /resenha/rooms.json': fixture('directory'),
           'POST /resenha/rooms/7/join.json': joinPayload,
           'POST /resenha/rooms/7/heartbeat.json': <String, dynamic>{},
@@ -2893,9 +2850,7 @@ void main() {
           'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
         },
       )..heldPluginWritePaths.add('/resenha/rooms/7/leave.json');
-      final awaitableTracker = _AwaitableSubscriptionTracker(
-        siteUrl: firstSite,
-      );
+      final awaitableTracker = _AwaitableSubscriptionTracker();
       firstTracker = awaitableTracker;
       useTransport(controlled);
 
@@ -2932,10 +2887,7 @@ void main() {
       unawaited(closing.then((_) => completed = true));
       expect(controller.close(), same(closing));
       await awaitableTracker.firstCancellationStarted.future;
-      expect(
-        awaitableTracker.pluginChannelCallbacks.values.expand((value) => value),
-        isEmpty,
-      );
+      expect(awaitableTracker.channels, isEmpty);
       expect(completed, isFalse);
 
       while (controlled.pendingPluginWrites.isEmpty) {
@@ -3066,21 +3018,19 @@ void main() {
       }
 
       await join();
-      firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+      firstTracker.deliver('/resenha/rooms/7', {
         'type': 'kicked',
         'room_id': 7,
       });
       await Future<void>.delayed(Duration.zero);
       expect(controller.call, isNull);
       expect(
-        transport.pluginWrites.where(
-          (write) => write.path.endsWith('/leave.json'),
-        ),
+        transport.writes.where((write) => write.path.endsWith('/leave.json')),
         isEmpty,
       );
 
       await join();
-      firstTracker.deliverPluginMessage('/resenha/rooms/index', {
+      firstTracker.deliver('/resenha/rooms/index', {
         'type': 'destroyed',
         'room': (fixture('directory')['rooms'] as List<dynamic>).first,
       });

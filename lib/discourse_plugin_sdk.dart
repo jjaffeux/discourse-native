@@ -6,7 +6,26 @@
 library;
 
 export 'src/data/app_release.dart';
-export 'src/data/discourse_api_contracts.dart';
+export 'src/data/discourse_api_contracts.dart'
+    hide
+        CategoryLoadResult,
+        CategoryQueriesApi,
+        ComposerPersistenceApi,
+        DiscourseApiConfiguration,
+        DiscourseApiLifecycle,
+        DiscourseApiModels,
+        PostMutationsApi,
+        ShellApiCapabilities,
+        ShellLookupApi,
+        ShellSearchApi,
+        ShellSiteApi,
+        SiteLookupApi,
+        TopicComposerQueriesApi,
+        TopicContentApi,
+        TopicMutationsApi,
+        defaultDiscourseHashtagOrder,
+        maximumDiscourseHashtagsPerRequest,
+        maximumDiscourseSearchTermLength;
 export 'src/data/plugin_transport.dart';
 export 'src/data/serial_operation_queue.dart';
 export 'src/diagnostics/diagnostic_event.dart';

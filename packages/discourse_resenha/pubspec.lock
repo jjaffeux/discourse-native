@@ -193,7 +193,7 @@ packages:
     source: path
     version: "1.0.0+1"
   discourse_plugin_api:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       path: "../discourse_plugin_api"
       relative: true
