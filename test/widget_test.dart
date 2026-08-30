@@ -6637,7 +6637,9 @@ void main() {
       expect(find.text('Summarize'), findsOneWidget);
     });
 
-    testWidgets('offers the cached Discourse AI topic summary', (tester) async {
+    testWidgets('prefers the Discourse AI summary over the core summary', (
+      tester,
+    ) async {
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {
@@ -6645,6 +6647,7 @@ void main() {
             id: 7,
             title: 'A real topic',
             posts: [post(1, 1, 'First post body')],
+            hasSummary: true,
             plugins: PluginData.none.withValue(
               aiSummaryAvailabilityDataKey,
               const AiSummaryAvailability(
@@ -6670,6 +6673,8 @@ void main() {
 
       final action = find.byKey(const ValueKey('ai-topic-summary-button'));
       expect(action, findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-summary-button')), findsNothing);
+      expect(find.text('Summarize'), findsOneWidget);
       await tester.tap(action);
       await tester.pumpAndSettle();
 

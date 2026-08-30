@@ -4765,7 +4765,7 @@ class _TopicMap extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               if (readTime != null) _TopicReadTime(minutes: readTime),
-              if (topic.hasSummary)
+              if (topic.hasSummary && !pluginActions.replacesSummary)
                 OutlinedButton.icon(
                   key: const ValueKey('topic-summary-button'),
                   onPressed: summaryLoading
@@ -4784,7 +4784,7 @@ class _TopicMap extends StatelessWidget {
                         ),
                   label: Text(summary ? 'Show all' : 'Summarize'),
                 ),
-              ...pluginActions,
+              ...pluginActions.actions,
             ],
           );
 
