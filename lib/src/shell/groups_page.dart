@@ -146,14 +146,6 @@ class _GroupsPageState extends State<GroupsPage> {
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
-    if (!data.loaded && data.groups.isEmpty && data.loading) {
-      return const Center(
-        child: CircularProgressIndicator.adaptive(
-          key: ValueKey('groups-loading'),
-        ),
-      );
-    }
-
     return RefreshIndicator(
       onRefresh: _refresh,
       child: NotificationListener<ScrollNotification>(
@@ -188,7 +180,16 @@ class _GroupsPageState extends State<GroupsPage> {
                   onRetry: widget.onRefresh,
                 ),
               ),
-            if (data.groups.isEmpty && data.loaded && data.error == null)
+            if (!data.loaded && data.groups.isEmpty && data.loading)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: CircularProgressIndicator.adaptive(
+                    key: ValueKey('groups-loading'),
+                  ),
+                ),
+              )
+            else if (data.groups.isEmpty && data.loaded && data.error == null)
               const SliverFillRemaining(
                 hasScrollBody: false,
                 child: _EmptyDirectory(),
@@ -301,7 +302,7 @@ class _DirectoryControls extends StatelessWidget {
         ),
         prefixIconConstraints: const BoxConstraints(
           minWidth: 42,
-          minHeight: 0,
+          minHeight: 37,
         ),
         suffixIcon: searchController.text.isEmpty
             ? null
@@ -321,7 +322,7 @@ class _DirectoryControls extends StatelessWidget {
               ),
         suffixIconConstraints: const BoxConstraints(
           minWidth: 42,
-          minHeight: 0,
+          minHeight: 37,
         ),
         contentPadding: const EdgeInsets.symmetric(vertical: 9),
         border: const OutlineInputBorder(),
