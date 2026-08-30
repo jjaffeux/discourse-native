@@ -23,6 +23,7 @@ import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
+import '../models/topic_tracking_state.dart';
 import '../models/user_activity.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
@@ -268,6 +269,15 @@ abstract interface class ShellSiteApi {
   Future<DiscourseUser> currentUser({
     required String siteUrl,
     required String apiKey,
+    String? clientId,
+  });
+
+  /// The connected account's complete new/unread topic snapshot, used for
+  /// the same per-category and per-tag sidebar badges as the web client.
+  Future<TopicTrackingState> topicTrackingState({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
     String? clientId,
   });
 

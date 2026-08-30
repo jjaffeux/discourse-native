@@ -115,6 +115,9 @@ final class DiscourseModelCodec {
           ?SidebarTag.fromJson(value),
       ]),
       displaySidebarTags: json['display_sidebar_tags'] == true,
+      unifiedNewEnabled: json['unified_new_enabled'] == true,
+      sidebarShowCountOfNewItems:
+          userOption['sidebar_show_count_of_new_items'] == true,
       trackedCategoryIds: _categoryIds(json['tracked_category_ids']),
       watchedCategoryIds: _categoryIds(json['watched_category_ids']),
       watchedFirstPostCategoryIds: _categoryIds(

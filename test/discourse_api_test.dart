@@ -6418,6 +6418,70 @@ void _writeGroups() {
       expect(() => user.sidebarCategoryIds.add(13), throwsUnsupportedError);
     });
 
+    test('reads the current account sidebar count modes', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'current_user': {
+                'id': 7,
+                'username': 'sam',
+                'unified_new_enabled': true,
+                'user_option': {'sidebar_show_count_of_new_items': true},
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final user = await api.currentUser(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+      );
+      final stored = DiscourseUser.fromJson(user.toJson());
+
+      expect(user.unifiedNewEnabled, isTrue);
+      expect(user.sidebarShowCountOfNewItems, isTrue);
+      expect(stored, user);
+    });
+
+    test('loads the per-topic sidebar tracking snapshot', () async {
+      Uri? requested;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requested = request.url;
+          return http.Response(
+            jsonEncode([
+              {
+                'topic_id': 42,
+                'highest_post_number': 4,
+                'last_read_post_number': 2,
+                'category_id': 5,
+                'notification_level': 2,
+                'tags': [
+                  {'id': 9},
+                ],
+              },
+            ]),
+            200,
+          );
+        }),
+      );
+
+      final tracking = await api.topicTrackingState(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        username: 'Sam Name',
+      );
+
+      expect(requested?.path, '/u/Sam%20Name/topic-tracking-state.json');
+      expect(
+        tracking.tagBadge(tagId: 9, unifiedNew: false, showCount: true),
+        const SidebarBadge.count(1),
+      );
+    });
+
     test('reads and persists the current account sidebar tags', () async {
       final api = DiscourseApi(
         client: MockClient(

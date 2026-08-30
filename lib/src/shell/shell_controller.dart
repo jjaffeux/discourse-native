@@ -62,6 +62,7 @@ import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../models/topic_filter.dart';
 import '../models/topic_link.dart';
+import '../models/topic_tracking_state.dart';
 import '../models/user_activity.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
@@ -129,6 +130,12 @@ typedef _TagSidebarCache = ({
   String? username,
   SidebarSection section,
 });
+
+int? _destinationNumericId(String destinationId, String prefix) {
+  if (!destinationId.startsWith(prefix)) return null;
+  final id = int.tryParse(destinationId.substring(prefix.length));
+  return id != null && id > 0 ? id : null;
+}
 
 sealed class _BookmarkWriteContext {
   const _BookmarkWriteContext();
@@ -1565,22 +1572,63 @@ class ShellController extends FrameSafeNotifier
   int railBadgeFor(DiscourseInstance instance) =>
       accountActivity.totalsFor(instance.url)?.badge ?? 0;
 
-  /// Number beside a sidebar entry, or 0 when there is nothing to show.
+  /// Activity beside a sidebar entry, or [SidebarBadge.none] when there is
+  /// nothing to show.
   ///
-  /// It comes from the one totals call rather than a request per section.
-  int sidebarBadgeFor(String destinationId) {
+  /// Fixed destinations come from the one totals call. Category and tag rows
+  /// use core's per-topic tracking snapshot because aggregate totals cannot
+  /// say which section owns an unread topic.
+  SidebarBadge sidebarBadgeFor(String destinationId) {
     if (destinationId == 'drafts') {
-      return draftCountFor(currentInstance?.url);
+      return SidebarBadge.count(draftCountFor(currentInstance?.url));
     }
     final totals = currentTotals;
-    if (totals == null) return 0;
+    if (destinationId == 'latest') {
+      return SidebarBadge.count(totals?.topicTrackingSidebarCount ?? 0);
+    }
+    if (destinationId == 'messages') {
+      return SidebarBadge.count(totals?.unreadPersonalMessages ?? 0);
+    }
 
-    return switch (destinationId) {
-      'latest' => totals.topicTrackingSidebarCount,
-      'messages' => totals.unreadPersonalMessages,
-      _ => 0,
-    };
+    final instance = currentInstance;
+    final user = instance?.user;
+    final tracking = instance == null
+        ? null
+        : _topicTrackingBySite[instance.url];
+    if (instance == null || user == null || tracking == null) {
+      return SidebarBadge.none;
+    }
+    final showCount = user.sidebarShowCountOfNewItems;
+    final unifiedNew = user.unifiedNewEnabled;
+
+    if (_destinationNumericId(destinationId, 'category-') case final id?) {
+      return tracking.categoryBadge(
+        categoryId: id,
+        categories: _categoriesBySite[instance.url] ?? const [],
+        unifiedNew: unifiedNew,
+        showCount: showCount,
+      );
+    }
+    if (_destinationNumericId(destinationId, 'tag-') case final id?) {
+      final tags = <SidebarTag>[
+        ...user.sidebarTags,
+        ...?_siteTopTagsBySite[instance.url],
+        ...?_anonymousDefaultTagsBySite[instance.url],
+      ];
+      if (tags.any((tag) => tag.id == id && tag.pmOnly)) {
+        return SidebarBadge.none;
+      }
+      return tracking.tagBadge(
+        tagId: id,
+        unifiedNew: unifiedNew,
+        showCount: showCount,
+      );
+    }
+    return SidebarBadge.none;
   }
+
+  int topicTrackingRevisionFor(String siteUrl) =>
+      _topicTrackingRevisions[siteUrl] ?? 0;
 
   int draftCountFor(String? siteUrl) {
     if (siteUrl == null) return 0;
@@ -1904,6 +1952,10 @@ class ShellController extends FrameSafeNotifier
   /// in the store; this only remembers not to ask again.
   final Set<String> _categorised = {};
   final Map<String, List<TopicCategory>> _categoriesBySite = {};
+  final Map<String, TopicTrackingState> _topicTrackingBySite = {};
+  final Map<String, int> _topicTrackingRevisions = {};
+  final Set<String> _topicTrackingLoads = {};
+  final Map<String, List<Object?>> _topicTrackingPendingEvents = {};
   final Map<String, CategoryFeed> _categoryFeeds = {};
   final Set<(String, int)> _categoryIdsLoading = {};
   final Map<String, _CategorySidebarCache> _categorySidebarCache = {};
@@ -2687,7 +2739,8 @@ class ShellController extends FrameSafeNotifier
 
     lease.commit(() {
       _trackersStarting.remove(siteUrl);
-      if (isDisposed || _instanceAt(siteUrl) == null) return;
+      final current = _instanceAt(siteUrl);
+      if (isDisposed || current == null) return;
 
       // Credential lookup can outlive the lifecycle state that asked for this
       // tracker. SiteTracker starts its message bus in the constructor, so
@@ -2705,6 +2758,15 @@ class ShellController extends FrameSafeNotifier
 
       void commit(SiteMutation mutation) {
         if (!isDisposed) lease.commit(mutation);
+      }
+
+      final trackingUsername = apiKey == null ? null : current.user?.username;
+      final shouldLoadTopicTracking =
+          trackingUsername != null &&
+          !_topicTrackingBySite.containsKey(siteUrl) &&
+          _topicTrackingLoads.add(siteUrl);
+      if (shouldLoadTopicTracking) {
+        _topicTrackingPendingEvents[siteUrl] = <Object?>[];
       }
 
       final SiteTracker tracker;
@@ -2730,11 +2792,41 @@ class ShellController extends FrameSafeNotifier
           ),
         );
       } catch (error, stackTrace) {
+        if (shouldLoadTopicTracking) {
+          _topicTrackingLoads.remove(siteUrl);
+          _topicTrackingPendingEvents.remove(siteUrl);
+        }
         _reportOperationalError(error, stackTrace, 'messageBus.start');
         return;
       }
       _trackers[siteUrl] = tracker;
       if (apiKey != null) {
+        if (userId != null) {
+          try {
+            tracker.watchTopicTrackingState(
+              userId,
+              (data) => commit(() => _applyTopicTrackingMessage(siteUrl, data)),
+            );
+          } catch (error, stackTrace) {
+            _reportOperationalError(
+              error,
+              stackTrace,
+              'messageBus.subscribeTopicTracking',
+              severity: DiagnosticSeverity.warning,
+            );
+          }
+        }
+        if (shouldLoadTopicTracking) {
+          unawaited(
+            _loadTopicTrackingState(
+              siteUrl: siteUrl,
+              username: trackingUsername,
+              apiKey: apiKey,
+              clientId: clientId,
+              lease: lease,
+            ),
+          );
+        }
         try {
           tracker.watchPluginChannel(
             '/user-status',
@@ -2797,6 +2889,73 @@ class ShellController extends FrameSafeNotifier
         _syncTopicWatch(siteUrl, tracker);
       }
     });
+  }
+
+  Future<void> _loadTopicTrackingState({
+    required String siteUrl,
+    required String username,
+    required String apiKey,
+    required String clientId,
+    required SiteLease lease,
+  }) async {
+    try {
+      final snapshot = await api.site.topicTrackingState(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        username: username,
+        clientId: clientId,
+      );
+      if (!lease.isCurrent || isDisposed) return;
+      final currentUsername = _instanceAt(siteUrl)?.user?.username;
+      if (currentUsername?.toLowerCase() != username.toLowerCase()) return;
+
+      // The bus is attached before the HTTP request starts. Replaying anything
+      // received while it was in flight closes the snapshot/message race; the
+      // operations are idempotent when the response already included one.
+      for (final event
+          in _topicTrackingPendingEvents[siteUrl] ?? const <Object?>[]) {
+        snapshot.applyMessage(event);
+      }
+      lease.commit(() {
+        _topicTrackingBySite[siteUrl] = snapshot;
+        _topicTrackingRevisions.update(
+          siteUrl,
+          (value) => value + 1,
+          ifAbsent: () => 1,
+        );
+        if (currentInstance?.url == siteUrl) _notify();
+      });
+    } catch (error, stackTrace) {
+      if (!isDisposed && lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'topicTracking.load',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+    } finally {
+      lease.commit(() {
+        _topicTrackingLoads.remove(siteUrl);
+        _topicTrackingPendingEvents.remove(siteUrl);
+      });
+    }
+  }
+
+  void _applyTopicTrackingMessage(String siteUrl, Object? data) {
+    _topicTrackingPendingEvents[siteUrl]?.add(data);
+    final tracking = _topicTrackingBySite.putIfAbsent(
+      siteUrl,
+      TopicTrackingState.new,
+    );
+    if (tracking.applyMessage(data) && currentInstance?.url == siteUrl) {
+      _topicTrackingRevisions.update(
+        siteUrl,
+        (value) => value + 1,
+        ifAbsent: () => 1,
+      );
+      _notify();
+    }
   }
 
   /// The account id for a connected site, asking the site for it if what was
@@ -2912,7 +3071,13 @@ class ShellController extends FrameSafeNotifier
       _hidePresenceErrors.remove(siteUrl);
       if (previousUser != committedUser || accountChanged) {
         changed = true;
-        if (accountChanged) accountActivity.forget(siteUrl);
+        if (accountChanged) {
+          accountActivity.forget(siteUrl);
+          _topicTrackingBySite.remove(siteUrl);
+          _topicTrackingRevisions.remove(siteUrl);
+          _topicTrackingLoads.remove(siteUrl);
+          _topicTrackingPendingEvents.remove(siteUrl);
+        }
         _replaceInstance(
           fresh,
           fresh.copyWith(
@@ -10582,6 +10747,10 @@ class ShellController extends FrameSafeNotifier
 
     _categorised.remove(siteUrl);
     _categoriesBySite.remove(siteUrl);
+    _topicTrackingBySite.remove(siteUrl);
+    _topicTrackingRevisions.remove(siteUrl);
+    _topicTrackingLoads.remove(siteUrl);
+    _topicTrackingPendingEvents.remove(siteUrl);
     _categoryFeeds.remove(siteUrl);
     _categoryIdsLoading.removeWhere((entry) => entry.$1 == siteUrl);
     _categoryPageRequests.remove(siteUrl);

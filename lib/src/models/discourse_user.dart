@@ -27,6 +27,8 @@ class DiscourseUser {
     this.sidebarCategoryIds = const [],
     this.sidebarTags = const [],
     this.displaySidebarTags = false,
+    this.unifiedNewEnabled = false,
+    this.sidebarShowCountOfNewItems = false,
     this.trackedCategoryIds,
     this.watchedCategoryIds,
     this.watchedFirstPostCategoryIds,
@@ -73,6 +75,8 @@ class DiscourseUser {
         ?SidebarTag.fromJson(value),
     ]),
     displaySidebarTags: json['displaySidebarTags'] == true,
+    unifiedNewEnabled: json['unifiedNewEnabled'] == true,
+    sidebarShowCountOfNewItems: json['sidebarShowCountOfNewItems'] == true,
     trackedCategoryIds: _storedCategoryIds(json, 'trackedCategoryIds'),
     watchedCategoryIds: _storedCategoryIds(json, 'watchedCategoryIds'),
     watchedFirstPostCategoryIds: _storedCategoryIds(
@@ -150,6 +154,13 @@ class DiscourseUser {
   final List<SidebarTag> sidebarTags;
   final bool displaySidebarTags;
 
+  /// Whether the account combines unread and new topics into core's unified
+  /// New list and its sidebar counts.
+  final bool unifiedNewEnabled;
+
+  /// Whether core renders numeric sidebar counts instead of unread dots.
+  final bool sidebarShowCountOfNewItems;
+
   /// Direct category preferences at or above core's Tracking level.
   ///
   /// Null means this account was persisted before the current-user serializer
@@ -224,6 +235,8 @@ class DiscourseUser {
       'sidebarCategoryIds': sidebarCategoryIds,
       'sidebarTags': [for (final tag in sidebarTags) tag.toJson()],
       'displaySidebarTags': displaySidebarTags,
+      'unifiedNewEnabled': unifiedNewEnabled,
+      'sidebarShowCountOfNewItems': sidebarShowCountOfNewItems,
       if (trackedCategoryIds != null) 'trackedCategoryIds': trackedCategoryIds,
       if (watchedCategoryIds != null) 'watchedCategoryIds': watchedCategoryIds,
       if (watchedFirstPostCategoryIds != null)
@@ -258,6 +271,8 @@ class DiscourseUser {
     sidebarCategoryIds: sidebarCategoryIds,
     sidebarTags: sidebarTags,
     displaySidebarTags: displaySidebarTags,
+    unifiedNewEnabled: unifiedNewEnabled,
+    sidebarShowCountOfNewItems: sidebarShowCountOfNewItems,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -287,6 +302,8 @@ class DiscourseUser {
     sidebarCategoryIds: sidebarCategoryIds,
     sidebarTags: sidebarTags,
     displaySidebarTags: displaySidebarTags,
+    unifiedNewEnabled: unifiedNewEnabled,
+    sidebarShowCountOfNewItems: sidebarShowCountOfNewItems,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -324,6 +341,8 @@ class DiscourseUser {
     sidebarCategoryIds: sidebarCategoryIds,
     sidebarTags: sidebarTags,
     displaySidebarTags: displaySidebarTags,
+    unifiedNewEnabled: unifiedNewEnabled,
+    sidebarShowCountOfNewItems: sidebarShowCountOfNewItems,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -356,6 +375,8 @@ class DiscourseUser {
     sidebarCategoryIds: sidebarCategoryIds,
     sidebarTags: sidebarTags,
     displaySidebarTags: displaySidebarTags,
+    unifiedNewEnabled: unifiedNewEnabled,
+    sidebarShowCountOfNewItems: sidebarShowCountOfNewItems,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -385,6 +406,8 @@ class DiscourseUser {
     sidebarCategoryIds: sidebarCategoryIds,
     sidebarTags: sidebarTags,
     displaySidebarTags: displaySidebarTags,
+    unifiedNewEnabled: unifiedNewEnabled,
+    sidebarShowCountOfNewItems: sidebarShowCountOfNewItems,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -416,6 +439,8 @@ class DiscourseUser {
       listEquals(other.sidebarCategoryIds, sidebarCategoryIds) &&
       listEquals(other.sidebarTags, sidebarTags) &&
       other.displaySidebarTags == displaySidebarTags &&
+      other.unifiedNewEnabled == unifiedNewEnabled &&
+      other.sidebarShowCountOfNewItems == sidebarShowCountOfNewItems &&
       listEquals(other.trackedCategoryIds, trackedCategoryIds) &&
       listEquals(other.watchedCategoryIds, watchedCategoryIds) &&
       listEquals(
@@ -448,6 +473,8 @@ class DiscourseUser {
     Object.hashAll(sidebarCategoryIds),
     Object.hashAll(sidebarTags),
     displaySidebarTags,
+    unifiedNewEnabled,
+    sidebarShowCountOfNewItems,
     Object.hashAll(trackedCategoryIds ?? const <int>[]),
     Object.hashAll(watchedCategoryIds ?? const <int>[]),
     Object.hashAll(watchedFirstPostCategoryIds ?? const <int>[]),

@@ -25,9 +25,11 @@ import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
+import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
@@ -1853,6 +1855,79 @@ void main() {
     expect(controller.destinationId, 'category-2');
     expect(controller.currentContent?.feedPath, '/c/parent/child/2.json');
     expect(find.text('A category topic'), findsOneWidget);
+  });
+
+  testWidgets('shows live unread counts beside category and tag rows', (
+    tester,
+  ) async {
+    const tag = SidebarTag(id: 9, name: 'priority', slug: 'priority');
+    const user = DiscourseUser(
+      id: 7,
+      username: 'joffreyj',
+      sidebarCategoryIds: [1],
+      sidebarTags: [tag],
+      displaySidebarTags: true,
+      sidebarShowCountOfNewItems: true,
+    );
+    final site = instance(
+      'meta.discourse.org',
+      title: 'Discourse Meta',
+    ).copyWith(user: user);
+    final auth = FakeAuthenticator()..keys[site.url] = 'api-key';
+    final api = FakeDiscourseApi(
+      user: user,
+      feeds: const {'/latest.json': []},
+      categoryList: const [
+        TopicCategory(id: 1, name: 'Support', color: '0088CC'),
+      ],
+      trackingState: TopicTrackingState.fromJson(const [
+        {
+          'topic_id': 42,
+          'highest_post_number': 3,
+          'last_read_post_number': 1,
+          'category_id': 1,
+          'notification_level': 2,
+          'tags': [
+            {'id': 9},
+          ],
+        },
+      ]),
+    );
+
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [site],
+      api: api,
+      authenticator: auth,
+    );
+
+    Finder row(String label) => find
+        .ancestor(of: sidebarDestination(label), matching: find.byType(InkWell))
+        .first;
+    Finder count(String label, int value) =>
+        find.descendant(of: row(label), matching: find.text('$value'));
+
+    expect(api.topicTrackingRequests, [site.url]);
+    expect(count('Support', 1), findsOneWidget);
+    expect(count('priority', 1), findsOneWidget);
+
+    FakeSiteTracker.built.single.deliverTopicTracking(const {
+      'topic_id': 43,
+      'message_type': 'unread',
+      'payload': {
+        'highest_post_number': 2,
+        'category_id': 1,
+        'notification_level': 2,
+        'tags': [
+          {'id': 9},
+        ],
+      },
+    });
+    await tester.pump();
+
+    expect(count('Support', 2), findsOneWidget);
+    expect(count('priority', 2), findsOneWidget);
   });
 
   testWidgets('loads categories even when the default topic feed fails', (

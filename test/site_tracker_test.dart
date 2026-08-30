@@ -100,6 +100,34 @@ void main() {
     ]);
   });
 
+  test('mirrors core topic-tracking channels through one callback', () async {
+    final bus = _FakeMessageBusSession();
+    final tracker = _tracker(bus, userId: 42, apiKey: 'secret');
+    addTearDown(tracker.dispose);
+    final messages = <Object?>[];
+
+    tracker.watchTopicTrackingState(42, messages.add);
+
+    expect(bus.channels, {
+      '/latest',
+      '/new',
+      '/unread',
+      '/unread/42',
+      '/delete',
+      '/recover',
+      '/destroy',
+      '/notification/42',
+      '/reviewable_counts/42',
+    });
+
+    const latest = {'topic_id': 7, 'message_type': 'new_topic'};
+    const unread = {'topic_id': 8, 'message_type': 'unread'};
+    bus.deliver('/latest', latest);
+    bus.deliver('/unread/42', unread);
+
+    expect(messages, [latest, unread]);
+  });
+
   test('signed-out trackers only subscribe to public topics', () async {
     final bus = _FakeMessageBusSession();
     final tracker = _tracker(bus, userId: 42);
