@@ -9,6 +9,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -78,13 +79,14 @@ void main() {
       find.byKey(const ValueKey('composer-resize-left')),
     );
     expect(top.height, 16);
-    expect(top.bottom, initial.top);
+    expect(top.center.dy, initial.top);
     expect(right.width, 16);
-    expect(right.left, initial.right);
+    expect(right.center.dx, initial.right);
     expect(bottom.height, 16);
-    expect(bottom.top, initial.bottom);
+    expect(bottom.center.dy, initial.bottom);
     expect(left.width, 16);
-    expect(left.right, initial.left);
+    expect(left.center.dx, initial.left);
+    expect(top.contains(initial.topCenter + const Offset(0, 1)), isTrue);
 
     final corners = {
       'composer-resize-top-left': initial.topLeft,
@@ -102,7 +104,7 @@ void main() {
       find.byKey(const ValueKey('composer-frame')),
     );
     final border = (frame.decoration! as BoxDecoration).border! as Border;
-    expect(border.top.width, 2);
+    expect(border.top.width, 1);
 
     await tester.drag(
       find.byKey(const ValueKey('composer-resize-left')),
@@ -139,6 +141,77 @@ void main() {
     final fromBottom = tester.getRect(find.byType(ComposerPanel));
     expect(fromBottom.top, closeTo(fromTop.top, 1));
     expect(fromBottom.bottom, closeTo(fromTop.bottom - 40, 1));
+  });
+
+  testWidgets('highlights the rounded frame only over resize borders', (
+    tester,
+  ) async {
+    final composer = ComposerController(_replyTarget);
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    await _pumpFloatingPanel(tester, shell, composer);
+
+    final frameFinder = find.byKey(const ValueKey('composer-frame'));
+    final theme = Theme.of(tester.element(frameFinder));
+    Border frameBorder() {
+      final frame = tester.widget<Container>(frameFinder);
+      return (frame.decoration! as BoxDecoration).border! as Border;
+    }
+
+    Border? resizeBorder() {
+      final frame = tester.widget<Container>(frameFinder);
+      return (frame.foregroundDecoration as BoxDecoration?)?.border as Border?;
+    }
+
+    expect(frameBorder().top.color, theme.shell.divider);
+    expect(frameBorder().top.width, 1);
+    expect(resizeBorder(), isNull);
+
+    final panel = tester.getRect(find.byType(ComposerPanel));
+    final header = tester.getRect(
+      find.byKey(const ValueKey('composer-drag-handle')),
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+
+    await mouse.moveTo(panel.topCenter + const Offset(0, 1));
+    await tester.pump();
+
+    expect(resizeBorder()!.top.color, theme.colorScheme.primary);
+    expect(resizeBorder()!.top.width, 2);
+    expect(
+      tester.getRect(find.byKey(const ValueKey('composer-drag-handle'))),
+      header,
+    );
+    expect(
+      RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+      SystemMouseCursors.resizeUpDown,
+    );
+
+    await mouse.moveTo(panel.center);
+    await tester.pump();
+
+    expect(resizeBorder(), isNull);
+
+    await mouse.moveTo(panel.topLeft + const Offset(7, 7));
+    await tester.pump();
+
+    expect(resizeBorder()!.top.color, theme.colorScheme.primary);
+    expect(resizeBorder()!.top.width, 2);
+    expect(
+      RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+      SystemMouseCursors.resizeUpLeftDownRight,
+    );
+
+    await mouse.moveTo(Offset.zero);
+    await tester.pump();
+
+    expect(resizeBorder(), isNull);
+    expect(frameBorder().top.color, theme.shell.divider);
+    expect(frameBorder().top.width, 1);
+    expect(tester.getRect(find.byType(ComposerPanel)), panel);
   });
 
   testWidgets('resizes diagonally from opposite corners', (tester) async {
