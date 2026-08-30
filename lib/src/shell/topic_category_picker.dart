@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
@@ -44,20 +46,20 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
     _showing = true;
     try {
       final shell = ShellScope.read(context);
-      await shell.loadAllCategories(widget.siteUrl);
       final anchorContext = _anchorKey.currentContext;
       if (!mounted || !widget.enabled || anchorContext == null) return;
       if (!anchorContext.mounted) return;
 
-      final feed = shell.categoryFeedFor(widget.siteUrl);
       final selected = await showTopicCategoryPicker(
         context: context,
         anchorContext: anchorContext,
         selectedCategoryId: widget.categoryId,
-        categories: _editableTopicCategories(
-          shell.topicComposerCategories(widget.siteUrl),
+        search: (term) async => _editableTopicCategories(
+          await shell.searchTopicCategoriesForEditor(
+            siteUrl: widget.siteUrl,
+            term: term,
+          ),
         ),
-        errorMessage: feed.error,
       );
       if (!mounted || selected == null || selected == widget.categoryId) return;
 
@@ -88,13 +90,15 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
   );
 }
 
+typedef TopicCategorySearchCallback =
+    Future<List<TopicCategory>> Function(String term);
+
 /// Opens the lightweight category chooser used by the topic sidebar.
 Future<int?> showTopicCategoryPicker({
   required BuildContext context,
   required BuildContext anchorContext,
   required int? selectedCategoryId,
-  required List<TopicCategory> categories,
-  String? errorMessage,
+  required TopicCategorySearchCallback search,
 }) => showAnchoredPicker<int>(
   context: context,
   anchorContext: anchorContext,
@@ -103,8 +107,7 @@ Future<int?> showTopicCategoryPicker({
   popoverKey: const ValueKey('topic-category-picker-popover'),
   builder: (pickerContext) => TopicCategoryPicker(
     selectedCategoryId: selectedCategoryId,
-    categories: categories,
-    errorMessage: errorMessage,
+    search: search,
     onSelected: Navigator.of(pickerContext).pop,
   ),
 );
@@ -114,15 +117,13 @@ class TopicCategoryPicker extends StatefulWidget {
   const TopicCategoryPicker({
     super.key,
     required this.selectedCategoryId,
-    required this.categories,
+    required this.search,
     required this.onSelected,
-    this.errorMessage,
   });
 
   final int? selectedCategoryId;
-  final List<TopicCategory> categories;
+  final TopicCategorySearchCallback search;
   final ValueChanged<int> onSelected;
-  final String? errorMessage;
 
   @override
   State<TopicCategoryPicker> createState() => _TopicCategoryPickerState();
@@ -130,49 +131,93 @@ class TopicCategoryPicker extends StatefulWidget {
 
 class _TopicCategoryPickerState extends State<TopicCategoryPicker> {
   final TextEditingController _query = TextEditingController();
+  Timer? _debounce;
+  int _revision = 0;
+  bool _searchRunning = false;
+  ({int revision, String term})? _queuedSearch;
+  List<TopicCategory> _results = const [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_search(''));
+  }
 
   @override
   void dispose() {
+    _debounce?.cancel();
+    _queuedSearch = null;
     _query.dispose();
     super.dispose();
   }
 
-  List<TopicCategory> get _visibleCategories {
-    final term = _query.text.trim().toLowerCase();
-    if (term.isEmpty) return widget.categories;
-    final names = {
-      for (final category in widget.categories) category.id: category.name,
-    };
-    return [
-      for (final category in widget.categories)
-        if (category.name.toLowerCase().contains(term) ||
-            (names[category.parentCategoryId]?.toLowerCase().contains(term) ??
-                false))
-          category,
-    ];
+  void _changed(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), () => _search(value));
+  }
+
+  Future<void> _search(String term) async {
+    final revision = ++_revision;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    if (_searchRunning) {
+      _queuedSearch = (revision: revision, term: term);
+      return;
+    }
+    await _runSearch(revision, term);
+  }
+
+  Future<void> _runSearch(int revision, String term) async {
+    _searchRunning = true;
+    try {
+      final result = await widget.search(term.trim());
+      if (!mounted || revision != _revision) return;
+      setState(() {
+        _results = result;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted || revision != _revision) return;
+      setState(() {
+        _results = const [];
+        _loading = false;
+        _error = "Couldn't load categories.";
+      });
+    } finally {
+      _searchRunning = false;
+      final queued = _queuedSearch;
+      _queuedSearch = null;
+      if (queued != null && mounted && queued.revision == _revision) {
+        unawaited(_runSearch(queued.revision, queued.term));
+      }
+    }
   }
 
   void _submitQuery() {
-    final visible = _visibleCategories;
-    if (visible.isNotEmpty) widget.onSelected(visible.first.id);
+    if (_results.isNotEmpty) widget.onSelected(_results.first.id);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final visible = _visibleCategories;
     return AnchoredPickerContent(
       queryKey: const ValueKey('topic-category-picker-query'),
       queryController: _query,
       queryHint: 'Search categories…',
-      onQueryChanged: (_) => setState(() {}),
+      onQueryChanged: _changed,
       onQuerySubmitted: (_) => _submitQuery(),
       separatorKey: const ValueKey('topic-category-picker-divider'),
       children: [
-        if (widget.errorMessage case final error? when visible.isEmpty)
+        if (_loading)
+          const AnchoredPickerProgress()
+        else if (_error case final error?)
           AnchoredPickerMessage(error, color: theme.colorScheme.error)
         else ...[
-          for (final category in visible)
+          for (final category in _results)
             AnchoredPickerOption(
               key: ValueKey('topic-category-option-${category.id}'),
               indent: category.parentCategoryId == null ? 0 : 16,
@@ -189,7 +234,7 @@ class _TopicCategoryPickerState extends State<TopicCategoryPicker> {
               title: Text(category.name),
               onTap: () => widget.onSelected(category.id),
             ),
-          if (visible.isEmpty)
+          if (_results.isEmpty)
             AnchoredPickerMessage(
               _query.text.trim().isEmpty
                   ? 'No categories are available.'

@@ -498,11 +498,13 @@ class FakeDiscourseApi
     this.userPreferencesWriteGate,
     this.userPreferencesFailure,
     this.feeds = const {},
+    this.feedCategoriesByPath = const {},
     this.filterOptionsByPath = const {},
     this.creatableFeedPaths = const {},
     this.categoryList = const [],
     this.categoryPages = const {},
     this.categoryLookupList = const [],
+    this.categorySearches = const {},
     this.categoryLoadComplete = true,
     this.categoryCanCreateTopic = false,
     this.categoryPostActionCatalog,
@@ -755,6 +757,7 @@ class FakeDiscourseApi
 
   /// Returned by [topicList], keyed by path; a missing path fails.
   final Map<String, List<Topic>> feeds;
+  final Map<String, List<TopicCategory>> feedCategoriesByPath;
   final Map<String, List<TopicFilterOption>> filterOptionsByPath;
   final Set<String> creatableFeedPaths;
 
@@ -762,6 +765,7 @@ class FakeDiscourseApi
   final List<TopicCategory> categoryList;
   final Map<int, List<TopicCategory>> categoryPages;
   final List<TopicCategory> categoryLookupList;
+  final Map<String, List<TopicCategory>> categorySearches;
   final bool categoryLoadComplete;
   final bool categoryCanCreateTopic;
   final SitePostActionCatalog? categoryPostActionCatalog;
@@ -769,6 +773,7 @@ class FakeDiscourseApi
   final List<String> categoryRequests = [];
   final List<int> categoryPagesRequested = [];
   final List<List<int>> categoryIdsRequested = [];
+  final List<String> categorySearchTerms = [];
   final List<String> topicComposerCapabilityRequests = [];
   final Map<String, TopicTagSearch> topicTagSearches;
 
@@ -1654,6 +1659,7 @@ class FakeDiscourseApi
     }
     return TopicList(
       topics: topics,
+      categories: feedCategoriesByPath[path] ?? const [],
       moreTopicsUrl: nextPages[path],
       canCreateTopic: creatableFeedPaths.contains(path),
       filterOptions: filterOptionsByPath[path] ?? const [],
@@ -1949,6 +1955,18 @@ class FakeDiscourseApi
       for (final category in categoryLookupList)
         if (requested.contains(category.id)) category,
     ];
+  }
+
+  @override
+  Future<List<TopicCategory>> searchCategories({
+    required String siteUrl,
+    required String term,
+    required String apiKey,
+    bool includeUncategorized = true,
+    String? clientId,
+  }) async {
+    categorySearchTerms.add(term);
+    return categorySearches[term] ?? const [];
   }
 
   @override

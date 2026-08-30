@@ -177,6 +177,66 @@ final class DiscourseTransport {
     }
   }
 
+  /// Performs an idempotent read whose route uses POST and whose successful
+  /// payload must be a JSON object. Core's category search is one such route:
+  /// it is POST only so a potentially private search term stays out of URLs.
+  Future<Map<String, dynamic>> postObject(
+    Uri url, {
+    required String siteUrl,
+    required String apiKey,
+    required Map<String, Object?> body,
+    String? clientId,
+  }) async {
+    final http.Response response;
+    try {
+      final request = http.Request('POST', url)
+        ..body = jsonEncode({
+          for (final entry in body.entries)
+            if (entry.value != null) entry.key: entry.value,
+        });
+      response = await sendAuthenticated(
+        request,
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+      );
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
+    }
+
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw SiteLookupException(
+        SiteLookupFailure.notDiscourse,
+        siteUrl,
+        statusCode: response.statusCode,
+      );
+    }
+    if (response.statusCode != 200) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        statusCode: response.statusCode,
+      );
+    }
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+      throw const FormatException('Expected a JSON object');
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
+    }
+  }
+
   /// Sends one non-idempotent JSON write and maps every refusal to the stable
   /// write failure contract consumed by composers and plugin controllers.
   ///

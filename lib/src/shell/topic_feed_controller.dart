@@ -15,6 +15,7 @@ typedef TopicFeedLoaded =
     void Function(
       DiscourseInstance instance,
       String? apiKey,
+      Iterable<TopicCategory> categories,
       Iterable<int> categoryIds,
     );
 
@@ -165,7 +166,12 @@ final class TopicFeedController extends FrameSafeNotifier {
         // Do not let its post-load hook start category work for a replacement
         // shell after that ownership boundary.
         if (!isDisposed) {
-          onFeedLoaded?.call(instance, apiKey, _categoryIds(list.topics));
+          onFeedLoaded?.call(
+            instance,
+            apiKey,
+            list.categories,
+            _categoryIds(list.topics),
+          );
         }
       });
     } on SiteLookupException catch (error, stackTrace) {
@@ -273,7 +279,12 @@ final class TopicFeedController extends FrameSafeNotifier {
         _rows[key] = 0;
         notifySafely();
         if (!isDisposed) {
-          onFeedLoaded?.call(instance, apiKey, _categoryIds(list.topics));
+          onFeedLoaded?.call(
+            instance,
+            apiKey,
+            list.categories,
+            _categoryIds(list.topics),
+          );
         }
       });
     } catch (error, stackTrace) {
@@ -355,7 +366,12 @@ final class TopicFeedController extends FrameSafeNotifier {
           clearError: true,
         );
         if (!isDisposed) {
-          onFeedLoaded?.call(instance, apiKey, _categoryIds(next.topics));
+          onFeedLoaded?.call(
+            instance,
+            apiKey,
+            next.categories,
+            _categoryIds(next.topics),
+          );
         }
       });
     } catch (error, stackTrace) {

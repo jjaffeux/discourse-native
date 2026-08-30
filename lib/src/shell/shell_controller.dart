@@ -696,7 +696,11 @@ class ShellController extends FrameSafeNotifier
       credentials: authenticator,
       lifecycle: lifecycle,
       store: store,
-      onFeedLoaded: (instance, apiKey, categoryIds) {
+      onFeedLoaded: (instance, apiKey, categories, categoryIds) {
+        if (categories.isNotEmpty) {
+          _mergeCategories(instance.url, categories);
+          _notify();
+        }
         unawaited(_ensureCategoriesFor(instance));
         unawaited(_ensureCategoryIds(instance, apiKey, categoryIds));
       },
@@ -5312,6 +5316,33 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  /// Searches the server-side category index used by core's lazy chooser.
+  Future<List<TopicCategory>> searchTopicCategoriesForEditor({
+    required String siteUrl,
+    required String term,
+  }) async {
+    final lease = lifecycle.capture(siteUrl);
+    final held = await _readSessionValue(
+      lease,
+      () => _credentialForWrite(siteUrl),
+    );
+    if (held == null || !lease.isCurrent) return const [];
+    if (held.value.failure case final failure?) throw failure;
+
+    final categories = await api.searchCategories(
+      siteUrl: siteUrl,
+      apiKey: held.value.apiKey!,
+      term: term,
+      includeUncategorized: siteConfigFor(siteUrl).allowUncategorizedTopics,
+    );
+    if (!lease.isCurrent) return const [];
+    lease.commit(() {
+      _mergeCategories(siteUrl, categories);
+      _notify();
+    });
+    return categories;
+  }
+
   Future<void> changeComposerCategory(
     ComposerController composer,
     int? categoryId,
@@ -9589,48 +9620,8 @@ class ShellController extends FrameSafeNotifier
     if (instance != null) await _ensureCategoriesFor(instance);
   }
 
-  /// Finishes the lazy category list before presenting a chooser that must be
-  /// able to browse every destination, not just the categories page's first
-  /// viewport.
-  Future<void> loadAllCategories(String siteUrl) async {
-    await loadCategories(siteUrl);
-    while (true) {
-      final before = categoryFeedFor(siteUrl);
-      final page = before.nextPage;
-      if (page == null || before.loadingMore) break;
-      await loadMoreCategories(siteUrl);
-      if (categoryFeedFor(siteUrl).nextPage == page) break;
-    }
-
-    final instance = _instanceAt(siteUrl);
-    if (instance == null) return;
-    final childIds = <int>{
-      for (final category
-          in _categoriesBySite[siteUrl] ?? const <TopicCategory>[])
-        ...category.subcategoryIds,
-    };
-    if (childIds.isEmpty) return;
-
-    try {
-      final lease = lifecycle.capture(siteUrl);
-      final apiKey = instance.isConnected
-          ? await authenticator.apiKeyFor(siteUrl)
-          : null;
-      if (!lease.isCurrent) return;
-      await _ensureCategoryIds(instance, apiKey, childIds);
-    } catch (error, stackTrace) {
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'categories.readPickerCredentials',
-        severity: DiagnosticSeverity.warning,
-      );
-    }
-  }
-
-  /// Resolves only the category ids a topic page actually uses. Lazy category
-  /// sites can place those ids on any categories page, and downloading every
-  /// page for each topic feed would defeat the server's pagination.
+  /// Resolves a category id only when an older or non-core topic endpoint did
+  /// not embed the category badges supplied by current lazy-loading responses.
   Future<void> _ensureCategoryIds(
     DiscourseInstance instance,
     String? apiKey,
