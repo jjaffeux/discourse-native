@@ -489,9 +489,7 @@ void main() {
     final projectedRect = composer.text.collapsedGalleryGlobalRect(
       parsedGallery,
     )!;
-    final galleryTap = tester
-        .getRect(find.byType(ComposerImageGalleryControl))
-        .center;
+    final galleryTap = Offset(projectedRect.right - 8, projectedRect.top + 8);
     expect(
       tester.getRect(find.byType(EditableText)).contains(galleryTap),
       isTrue,
@@ -525,8 +523,13 @@ void main() {
       find.byKey(const ValueKey('composer-gallery-toolbar')),
       findsOneWidget,
     );
+    expect(
+      tester.widget<ComposerImageGalleryPreview>(preview).highlighted,
+      isTrue,
+    );
     expect(find.byTooltip('Add images to gallery'), findsOneWidget);
     expect(find.byTooltip('Remove gallery, keep images'), findsOneWidget);
+    expect(find.byTooltip('Close gallery controls'), findsNothing);
     await tester.tap(find.byTooltip('Carousel gallery mode'));
     await tester.pump();
     expect(composer.text.text, contains('[grid mode=carousel]'));
@@ -554,6 +557,14 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(composer.text.keyboardSelectedImage?.url, 'upload://one');
+    expect(
+      tester.widget<ComposerImageGalleryPreview>(preview).highlighted,
+      isFalse,
+    );
+    expect(
+      find.byKey(const ValueKey('composer-gallery-toolbar')),
+      findsNothing,
+    );
     expect(find.byTooltip('Move image outside gallery'), findsOneWidget);
     expect(find.byTooltip('Delete image'), findsOneWidget);
     expect(find.byTooltip('Decrease image size'), findsNothing);
@@ -611,7 +622,7 @@ void main() {
       );
       expect(previewRect.left, greaterThanOrEqualTo(editableRect.left));
       expect(previewRect.right, lessThanOrEqualTo(editableRect.right));
-      await tester.tap(find.byType(ComposerImageGalleryControl));
+      await tester.tapAt(Offset(previewRect.right - 8, previewRect.top + 8));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
@@ -631,7 +642,7 @@ void main() {
         of: toolbar,
         matching: find.byType(IconButton),
       );
-      expect(iconButtons, findsNWidgets(5));
+      expect(iconButtons, findsNWidgets(4));
       for (final button in iconButtons.evaluate()) {
         final size = tester.getSize(find.byWidget(button.widget));
         final tooltip = (button.widget as IconButton).tooltip;
@@ -676,6 +687,40 @@ void main() {
     } finally {
       semantics.dispose();
     }
+  });
+
+  testWidgets('gallery tiles can be reordered by drag and drop', (
+    tester,
+  ) async {
+    final composer = ComposerController(
+      _target,
+      resolveUploadUrls: (_) async => const {},
+    );
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    composer.text.text =
+        '[grid]\n'
+        '![one](upload://one)\n'
+        '![two](upload://two)\n'
+        '![three](upload://three)\n'
+        '[/grid]';
+
+    await _pumpPanel(tester, shell, composer);
+    await tester.pumpAndSettle();
+
+    final tiles = find.byType(ComposerImageGalleryTile);
+    final first = tester.getCenter(tiles.at(0));
+    final last = tester.getCenter(tiles.at(2));
+    await tester.dragFrom(first, last - first);
+    await tester.pumpAndSettle();
+
+    expect(
+      parseComposerImageGalleries(
+        composer.text.text,
+      ).single.images.map((image) => image.url),
+      ['upload://two', 'upload://three', 'upload://one'],
+    );
   });
 
   testWidgets('a gallery can import multiple standalone draft images', (

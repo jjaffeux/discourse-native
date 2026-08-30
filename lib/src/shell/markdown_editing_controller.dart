@@ -105,6 +105,12 @@ class MarkdownEditingController extends TextEditingController {
   /// [imageScrollController]: the text controller can outlive one editor.
   ValueChanged<ComposerImageGalleryBlock>? onEditImageGallery;
 
+  /// Invoked when a gallery tile is dropped on another tile. The composer UI
+  /// owns the source mutation so uploads and draft bookkeeping remain in the
+  /// same path as every other gallery edit.
+  void Function(ComposerImageGalleryBlock, ComposerImageBlock, int)?
+  onReorderImageGallery;
+
   String? _galleryScanned;
   List<ComposerImageGalleryBlock> _galleryBlocks = const [];
   Set<int> _collapsedGalleryStarts = const {};
@@ -1211,9 +1217,9 @@ class MarkdownEditingController extends TextEditingController {
       );
     }
 
-    final galleryHeight = ComposerImageGalleryPreview.displaySize(
+    final galleryHeight = ComposerImageGalleryPreview.displayHeight(
       items.length,
-    ).height;
+    );
     final lineHeight = (base.fontSize ?? 14) * (base.height ?? 1.4);
     final breaks = (galleryHeight / lineHeight).ceil().clamp(
       1,
@@ -1237,9 +1243,14 @@ class MarkdownEditingController extends TextEditingController {
               gallery: gallery,
               items: items,
               siteUrl: imageSiteUrl,
+              highlighted: _sameProjection(_caretSuppressedGallery, gallery),
               onEdit: onEditImageGallery == null
                   ? null
                   : () => onEditImageGallery!(gallery),
+              onReorder: onReorderImageGallery == null
+                  ? null
+                  : (image, newIndex) =>
+                        onReorderImageGallery!(gallery, image, newIndex),
             ),
           ),
         ),

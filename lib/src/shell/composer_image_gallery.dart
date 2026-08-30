@@ -40,20 +40,24 @@ class ComposerImageGalleryPreview extends StatelessWidget {
     required this.gallery,
     required this.items,
     this.siteUrl,
+    this.highlighted = false,
     this.onEdit,
+    this.onReorder,
   });
 
   final ComposerImageGalleryBlock gallery;
   final List<ComposerImageGalleryItem> items;
   final String? siteUrl;
+  final bool highlighted;
   final VoidCallback? onEdit;
+  final void Function(ComposerImageBlock image, int newIndex)? onReorder;
 
   static const double tileExtent = 56;
   static const double gap = 6;
   static const double inset = 8;
   static const double verticalMargin = 4;
-  // Three tiles plus the gallery control fit inside the compact 280px
-  // composer, keeping the common three-image gallery to one visible row.
+  // Three tiles fit inside the compact composer, keeping the common
+  // three-image gallery to one visible row.
   static const int maxColumns = 3;
 
   static int columnCount(int itemCount) =>
@@ -69,102 +73,83 @@ class ComposerImageGalleryPreview extends StatelessWidget {
     );
   }
 
-  /// The exact inline size used by the projection, including its margin.
+  /// The exact inline height used by the projection, including its margin.
   /// Keeping this independent of image decoding lets the editable reserve the
-  /// same scroll height before and after the artwork arrives.
-  static Size displaySize(int itemCount) {
+  /// same scroll height before and after the artwork arrives. The width is
+  /// supplied by the editable so the gallery fills the composer.
+  static double displayHeight(int itemCount) {
     final tiles = _tileAreaSize(itemCount);
-    final contentWidth =
-        tiles.width +
-        (itemCount == 0 ? 0 : gap) +
+    final tileSpacing = itemCount == 0 ? 0 : gap;
+    return verticalMargin * 2 +
+        inset * 2 +
+        tiles.height +
+        tileSpacing +
         ComposerImageGalleryControl.extent;
-    final contentHeight = math.max(
-      tiles.height,
-      ComposerImageGalleryControl.extent,
-    );
-    return Size(
-      inset * 2 + contentWidth,
-      verticalMargin * 2 + inset * 2 + contentHeight,
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = displaySize(items.length);
+    final height = displayHeight(items.length);
     final tileArea = _tileAreaSize(items.length);
     final scheme = Theme.of(context).colorScheme;
 
     return SizedBox(
-      width: size.width,
-      height: size.height,
-      child: Stack(
-        children: [
-          // Let EditableText receive pointer events over the gallery artwork.
-          // It uses the independently keyed tile bounds to select a member.
-          // The edit control is overlaid below and remains directly tappable.
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Semantics(
-                container: true,
-                explicitChildNodes: true,
-                label:
-                    'Image gallery, ${items.length} ${items.length == 1 ? 'image' : 'images'}',
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: verticalMargin),
-                  child: CustomPaint(
-                    foregroundPainter: _DashedGalleryBorder(
-                      color: scheme.outlineVariant,
-                    ),
-                    child: Container(
-                      width: size.width,
-                      height: size.height - verticalMargin * 2,
-                      padding: const EdgeInsets.all(inset),
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+      width: double.infinity,
+      height: height,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: verticalMargin),
+        child: Semantics(
+          container: true,
+          explicitChildNodes: true,
+          label:
+              'Image gallery, ${items.length} ${items.length == 1 ? 'image' : 'images'}',
+          selected: highlighted,
+          child: CustomPaint(
+            foregroundPainter: _GalleryBorder(
+              color: highlighted ? scheme.primary : scheme.outlineVariant,
+              highlighted: highlighted,
+            ),
+            child: Container(
+              width: double.infinity,
+              height: height - verticalMargin * 2,
+              padding: const EdgeInsets.all(inset),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (items.isNotEmpty) ...[
+                    SizedBox(
+                      width: tileArea.width,
+                      height: tileArea.height,
+                      child: Wrap(
+                        spacing: gap,
+                        runSpacing: gap,
                         children: [
-                          if (items.isNotEmpty) ...[
-                            SizedBox(
-                              width: tileArea.width,
-                              height: tileArea.height,
-                              child: Wrap(
-                                spacing: gap,
-                                runSpacing: gap,
-                                children: [
-                                  for (final item in items)
-                                    ComposerImageGalleryTile(
-                                      item: item,
-                                      siteUrl: siteUrl,
-                                    ),
-                                ],
-                              ),
+                          for (final (index, item) in items.indexed)
+                            _ReorderableGalleryTile(
+                              item: item,
+                              index: index,
+                              siteUrl: siteUrl,
+                              onReorder: onReorder,
                             ),
-                            const SizedBox(width: gap),
-                          ],
-                          const SizedBox.square(
-                            dimension: ComposerImageGalleryControl.extent,
-                          ),
                         ],
                       ),
                     ),
+                    const SizedBox(height: gap),
+                  ],
+                  ComposerImageGalleryControl(
+                    key: const ValueKey('composer-gallery-control'),
+                    imageCount: items.length,
+                    onEdit: onEdit,
                   ),
-                ),
+                ],
               ),
             ),
           ),
-          Positioned(
-            right: inset,
-            top: verticalMargin + inset,
-            child: ComposerImageGalleryControl(
-              key: const ValueKey('composer-gallery-control'),
-              imageCount: items.length,
-              onEdit: onEdit,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -172,9 +157,8 @@ class ComposerImageGalleryPreview extends StatelessWidget {
 
 /// The gallery-level target that opens membership and layout controls.
 ///
-/// Keeping this target outside every keyed image tile makes direct and
-/// editor-level hit-testing unambiguous. [onEdit] also gives assistive
-/// technologies a real activation action instead of a button-shaped label.
+/// Keeping this target on its own line after every keyed image tile makes
+/// direct and editor-level hit-testing unambiguous.
 class ComposerImageGalleryControl extends StatelessWidget {
   const ComposerImageGalleryControl({
     super.key,
@@ -185,70 +169,97 @@ class ComposerImageGalleryControl extends StatelessWidget {
   final int imageCount;
   final VoidCallback? onEdit;
 
-  static const double extent = 44;
+  static const double extent = 40;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final count = '$imageCount ${imageCount == 1 ? 'image' : 'images'}';
 
     return MergeSemantics(
       child: Semantics(
-        label: 'Edit image gallery',
         hint: '$count. Add or remove images.',
-        child: IconButton(
+        child: TextButton(
           onPressed: onEdit,
-          constraints: const BoxConstraints.tightFor(
-            width: extent,
-            height: extent,
-          ),
-          padding: EdgeInsets.zero,
-          style: IconButton.styleFrom(
-            fixedSize: const Size.square(extent),
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, extent),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            backgroundColor: scheme.primaryContainer.withValues(alpha: 0.45),
-            disabledBackgroundColor: scheme.primaryContainer.withValues(
-              alpha: 0.45,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-              side: BorderSide(color: scheme.outlineVariant),
-            ),
           ),
-          icon: SizedBox.square(
-            dimension: 28,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(
-                  Icons.photo_library_outlined,
-                  size: 22,
-                  color: scheme.onPrimaryContainer,
-                ),
-                Positioned(
-                  right: 1,
-                  bottom: 1,
-                  child: Icon(
-                    Icons.edit,
-                    size: 12,
-                    color: scheme.onPrimaryContainer,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          child: const Text('Gallery options'),
         ),
       ),
     );
   }
 }
 
+class _ReorderableGalleryTile extends StatelessWidget {
+  const _ReorderableGalleryTile({
+    required this.item,
+    required this.index,
+    required this.siteUrl,
+    required this.onReorder,
+  });
+
+  final ComposerImageGalleryItem item;
+  final int index;
+  final String? siteUrl;
+  final void Function(ComposerImageBlock image, int newIndex)? onReorder;
+
+  @override
+  Widget build(BuildContext context) => DragTarget<ComposerImageBlock>(
+    onWillAcceptWithDetails: (details) =>
+        onReorder != null &&
+        (details.data.start != item.image.start ||
+            details.data.end != item.image.end),
+    onAcceptWithDetails: (details) => onReorder?.call(details.data, index),
+    builder: (context, candidates, _) {
+      final tile = ComposerImageGalleryTile(
+        item: item,
+        siteUrl: siteUrl,
+        dropTarget: candidates.isNotEmpty,
+      );
+      if (onReorder == null) return tile;
+      return Draggable<ComposerImageBlock>(
+        data: item.image,
+        dragAnchorStrategy: pointerDragAnchorStrategy,
+        feedback: ExcludeSemantics(
+          child: Material(
+            color: Colors.transparent,
+            elevation: 6,
+            borderRadius: BorderRadius.circular(6),
+            child: Opacity(
+              opacity: 0.9,
+              child: ComposerImageGalleryTile(
+                item: ComposerImageGalleryItem(
+                  image: item.image,
+                  url: item.url,
+                  imageKey: UniqueKey(),
+                  highlighted: false,
+                ),
+                siteUrl: siteUrl,
+              ),
+            ),
+          ),
+        ),
+        childWhenDragging: Opacity(opacity: 0.35, child: tile),
+        child: MouseRegion(cursor: SystemMouseCursors.grab, child: tile),
+      );
+    },
+  );
+}
+
 /// A square, independently keyed image within a composer gallery.
 class ComposerImageGalleryTile extends StatelessWidget {
-  const ComposerImageGalleryTile({super.key, required this.item, this.siteUrl});
+  const ComposerImageGalleryTile({
+    super.key,
+    required this.item,
+    this.siteUrl,
+    this.dropTarget = false,
+  });
 
   final ComposerImageGalleryItem item;
   final String? siteUrl;
+  final bool dropTarget;
 
   @override
   Widget build(BuildContext context) {
@@ -271,8 +282,10 @@ class ComposerImageGalleryTile extends StatelessWidget {
             color: scheme.surfaceContainerHighest,
             borderRadius: radius,
             border: Border.all(
-              color: item.highlighted ? scheme.primary : scheme.outlineVariant,
-              width: item.highlighted ? 2 : 1,
+              color: item.highlighted || dropTarget
+                  ? scheme.primary
+                  : scheme.outlineVariant,
+              width: item.highlighted || dropTarget ? 2 : 1,
             ),
           ),
           child: source == null
@@ -322,10 +335,11 @@ class ComposerImageGalleryTile extends StatelessWidget {
   }
 }
 
-class _DashedGalleryBorder extends CustomPainter {
-  const _DashedGalleryBorder({required this.color});
+class _GalleryBorder extends CustomPainter {
+  const _GalleryBorder({required this.color, required this.highlighted});
 
   final Color color;
+  final bool highlighted;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -336,7 +350,12 @@ class _DashedGalleryBorder extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
+      ..strokeWidth = highlighted ? 2.5 : 1.5;
+
+    if (highlighted) {
+      canvas.drawPath(path, paint);
+      return;
+    }
 
     const dash = 5.0;
     const gap = 4.0;
@@ -353,6 +372,6 @@ class _DashedGalleryBorder extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_DashedGalleryBorder oldDelegate) =>
-      oldDelegate.color != color;
+  bool shouldRepaint(_GalleryBorder oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.highlighted != highlighted;
 }
