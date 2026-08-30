@@ -361,6 +361,33 @@ void main() {
       expect(find.text('1920×1080 234 KB'), findsOneWidget);
     });
 
+    testWidgets('keeps the caption readable over every image', (tester) async {
+      await pumpCooked(tester, singleImage);
+      await tester.tap(thumbnail());
+      await tester.pumpAndSettle();
+
+      final captionSurfaces = tester
+          .widgetList<DecoratedBox>(
+            find.ancestor(
+              of: find.text('1920×1080 234 KB'),
+              matching: find.byType(DecoratedBox),
+            ),
+          )
+          .map((widget) => widget.decoration)
+          .whereType<BoxDecoration>();
+
+      expect(
+        captionSurfaces,
+        contains(
+          isA<BoxDecoration>().having(
+            (decoration) => decoration.color,
+            'background color',
+            const Color(0xCC000000),
+          ),
+        ),
+      );
+    });
+
     testWidgets('offers a download for an upload', (tester) async {
       await pumpCooked(tester, singleImage);
       await tester.tap(thumbnail());
