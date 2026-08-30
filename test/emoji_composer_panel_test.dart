@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -5,11 +8,15 @@ import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 
@@ -73,6 +80,48 @@ Future<void> _pumpComposer(WidgetTester tester, ShellController shell) async {
 }
 
 void main() {
+  testWidgets('topic composer deletes rendered emoji atomically', (
+    tester,
+  ) async {
+    final previousCache = EmojiCache.instance;
+    addTearDown(() => EmojiCache.instance = previousCache);
+    EmojiCache.instance = EmojiCache(
+      client: MockClient((_) async => http.Response.bytes(_pngBytes, 200)),
+    );
+    final shell = await _openComposer();
+    addTearDown(shell.dispose);
+    await EmojiCache.instance.load(shell.emojiUrlFor(_site, 'wave'));
+    final composer = shell.visibleComposer!;
+    composer.text.value = const TextEditingValue(
+      text: ':wave:',
+      selection: TextSelection.collapsed(offset: 6),
+    );
+    await _pumpComposer(tester, shell);
+    await tester.pump();
+
+    expect(find.byType(EmojiImage), findsOneWidget);
+    composer.focus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pump();
+
+    expect(composer.text.text, isEmpty);
+
+    composer.text.value = const TextEditingValue(
+      text: ':wave:',
+      selection: TextSelection.collapsed(offset: 0),
+    );
+    await tester.pump();
+    expect(find.byType(EmojiImage), findsOneWidget);
+    composer.focus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await tester.pump();
+
+    expect(composer.text.text, isEmpty);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('topic composer inserts a picker selection at captured caret', (
     tester,
   ) async {
@@ -179,3 +228,8 @@ void main() {
     );
   });
 }
+
+final _pngBytes = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
+  'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+);
