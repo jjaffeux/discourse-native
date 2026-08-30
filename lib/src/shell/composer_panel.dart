@@ -1687,6 +1687,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
         keyboard.isShiftPressed;
     final selectedPill = _keyboardSelectedPill;
     if (selectedPill != null) {
+      final isPlainEscape =
+          selectedPill is ComposerImageBlock &&
+          event is KeyDownEvent &&
+          !hasModifier &&
+          event.logicalKey == LogicalKeyboardKey.escape;
+      if (isPlainEscape) {
+        _clearKeyboardPillSelection();
+        return KeyEventResult.handled;
+      }
       final isArrowPress = event is KeyDownEvent || event is KeyRepeatEvent;
       final isPlainHorizontalArrow =
           isArrowPress &&
@@ -1725,8 +1734,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
         _removePill(selectedPill);
         return KeyEventResult.handled;
       }
-      // The ancestor CallbackShortcuts (submit, close) and focus traversal
-      // must stay reachable while a pill is selected, so Escape, Tab and
+      // The ancestor CallbackShortcuts (submit and, for non-image pills,
+      // close) and focus traversal must stay reachable, so Escape, Tab and
       // modified chords pass through. Deletion chords are the exception:
       // released to the editing shortcuts they would word-delete into the
       // collapsed raw markup behind the pill.

@@ -233,6 +233,42 @@ void main() {
     expect(find.byTooltip('Save alt text'), findsOneWidget);
   });
 
+  testWidgets('escape unselects an upload before closing the composer', (
+    tester,
+  ) async {
+    final composer = ComposerController(
+      _target,
+      resolveUploadUrls: (_) async => const {},
+    );
+    final shell = await _InteractionTrackingShellController.create();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    composer.text.text = '![old|640x480](upload://photo)';
+    await _pumpPanel(tester, shell, composer);
+
+    final image = composer.text.imageBlocks.single;
+    composer.text.selection = TextSelection.collapsed(offset: image.end);
+    composer.focus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+
+    expect(composer.text.keyboardSelectedImage, isNotNull);
+    expect(find.byTooltip('Save alt text'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+
+    expect(composer.text.keyboardSelectedImage, isNull);
+    expect(find.byTooltip('Save alt text'), findsNothing);
+    expect(find.byKey(const ValueKey('composer-frame')), findsOneWidget);
+    expect(shell.closeCalls, 0);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(shell.closeCalls, 1);
+  });
+
   testWidgets('selecting a projected image shows its editing controls', (
     tester,
   ) async {
@@ -471,4 +507,26 @@ class _PanelUploadCall {
 
   final void Function(double) onProgress;
   final Completer<ComposerUploadResult> result = Completer();
+}
+
+final class _InteractionTrackingShellController extends ShellController {
+  _InteractionTrackingShellController()
+    : super(
+        instanceStore: FakeInstanceStore(),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+
+  int closeCalls = 0;
+
+  static Future<_InteractionTrackingShellController> create() async {
+    final shell = _InteractionTrackingShellController();
+    await shell.load();
+    return shell;
+  }
+
+  @override
+  void closeComposer() => closeCalls++;
 }
