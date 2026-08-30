@@ -286,10 +286,38 @@ void main() {
     composer.text.selection = TextSelection.collapsed(offset: image.end - 1);
     await tester.pump();
     expect(find.byType(ComposerImagePreview), findsOneWidget);
+    final altField = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField &&
+          widget.decoration?.hintText == 'Add image description',
+    );
+    await tester.enterText(altField, 'draft alt');
 
     await tester.tap(find.byTooltip('Decrease image size'));
     await tester.pump();
+    await tester.pump();
     expect(composer.text.text, '![old|640x480, 75%](upload://photo)');
+    expect(composer.text.keyboardSelectedImage, isNotNull);
+    expect(
+      tester
+          .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
+          .highlighted,
+      isTrue,
+    );
+    expect(find.byTooltip('Save alt text'), findsOneWidget);
+    expect(tester.widget<TextField>(altField).controller!.text, 'draft alt');
+
+    await tester.tap(find.byTooltip('Decrease image size'));
+    await tester.pump();
+    await tester.pump();
+    expect(composer.text.text, '![old|640x480, 50%](upload://photo)');
+    expect(composer.text.keyboardSelectedImage, isNotNull);
+    expect(find.byTooltip('Save alt text'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(composer.text.keyboardSelectedImage, isNull);
+    expect(find.byTooltip('Save alt text'), findsNothing);
 
     final resizedImage = composer.text.imageBlocks.single;
     composer.text.selection = TextSelection.collapsed(
@@ -346,7 +374,7 @@ void main() {
         )
         .onPressed!();
     await tester.pump();
-    expect(composer.text.text, r'![new \[alt\]|640x480, 75%](upload://photo)');
+    expect(composer.text.text, r'![new \[alt\]|640x480, 50%](upload://photo)');
 
     composer.focus.requestFocus();
     await tester.pump();

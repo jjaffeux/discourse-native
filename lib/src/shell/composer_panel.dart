@@ -1623,13 +1623,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _showImageMenu(image);
   }
 
-  void _showImageMenu(ComposerImageBlock image) {
+  void _showImageMenu(ComposerImageBlock image, {bool refreshAlt = true}) {
     if (_selectedImage case final selected?
         when selected.start != image.start || selected.source != image.source) {
       widget.composer.text.releaseImagePointerEdit(selected);
     }
     widget.composer.text.keepImageCollapsedForPointerEdit(image);
-    _imageAlt.text = image.alt;
+    if (refreshAlt) _imageAlt.text = image.alt;
     setState(() => _selectedImage = image);
     // If pointer-down already moved the caret into the image, the editable
     // needs one frame to project it again before its render box can anchor the
@@ -1658,7 +1658,14 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (image == null) return;
     widget.composer.text.releaseImagePointerEdit(image);
     widget.composer.setImageScale(image, scale);
-    setState(() => _selectedImage = null);
+    final resizedImage = widget.composer.text.imageBlocks
+        .where((candidate) => candidate.start == image.start)
+        .firstOrNull;
+    if (resizedImage == null) {
+      setState(() => _selectedImage = null);
+    } else {
+      _selectPillForKeyboard(resizedImage, refreshImageAlt: false);
+    }
     widget.composer.focus.requestFocus();
   }
 
@@ -1844,11 +1851,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
   }
 
-  void _selectPillForKeyboard(Object pill) {
+  void _selectPillForKeyboard(Object pill, {bool refreshImageAlt = true}) {
     widget.composer.autocomplete.dismiss();
     widget.composer.text.selectPillForKeyboard(pill);
     if (pill case final ComposerImageBlock image) {
-      _showImageMenu(image);
+      _showImageMenu(image, refreshAlt: refreshImageAlt);
     }
   }
 
