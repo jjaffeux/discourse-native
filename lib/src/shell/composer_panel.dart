@@ -2924,18 +2924,19 @@ class _ExistingGalleryImagesDialogState
       ),
     ),
     actions: [
-      TextButton(
+      DButton(
+        label: const Text('Cancel'),
         onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
       ),
-      FilledButton(
+      DButton(
+        label: const Text('Add selected'),
+        variant: DButtonVariant.primary,
         onPressed: _selectedStarts.isEmpty
             ? null
             : () => Navigator.pop(context, [
                 for (final image in widget.images)
                   if (_selectedStarts.contains(image.start)) image,
               ]),
-        child: const Text('Add selected'),
       ),
     ],
   );

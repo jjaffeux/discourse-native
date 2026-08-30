@@ -727,9 +727,9 @@ class _DeleteGroupDialogState extends State<_DeleteGroupDialog> {
       ],
     ),
     actions: [
-      TextButton(
+      DButton(
+        label: const Text('Cancel'),
         onPressed: () => Navigator.pop(context, false),
-        child: const Text('Cancel'),
       ),
       DButton(
         key: const ValueKey('confirm-delete-group'),
@@ -1726,9 +1726,9 @@ class _MemberActions extends StatelessWidget {
             'This member will lose access granted by ${group.label}.',
           ),
           actions: [
-            TextButton(
+            DButton(
+              label: const Text('Cancel'),
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
             ),
             DButton(
               label: const Text('Remove member'),
