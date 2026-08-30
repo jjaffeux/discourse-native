@@ -2027,6 +2027,11 @@ they switch forums and is restored after a relaunch. Narrow windows temporarily
 constrain it to preserve room for the main content without replacing the saved
 preference.
 
+Accounts whose current-user guardian permits topic creation get a **New Topic**
+action immediately below **Messages** in the forum sidebar. The action is
+omitted when the account cannot post. It opens the composer without replacing
+the route on screen; on compact layouts it also reveals the content pane.
+
 Three ways to show something, and they are not interchangeable:
 
 - **Replace the main content** — navigating deeper, e.g. a topic list to a

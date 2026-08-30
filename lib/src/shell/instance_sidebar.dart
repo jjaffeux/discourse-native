@@ -27,6 +27,7 @@ final class _SidebarSnapshot {
     required this.name,
     required this.destinationId,
     required this.draftCount,
+    required this.canCreateTopic,
     required this.sections,
     required this.presentationToken,
   });
@@ -35,6 +36,7 @@ final class _SidebarSnapshot {
   final String? name;
   final String? destinationId;
   final int draftCount;
+  final bool canCreateTopic;
   final List<SidebarSection> sections;
   final Object? presentationToken;
 
@@ -45,6 +47,7 @@ final class _SidebarSnapshot {
         name != other.name ||
         destinationId != other.destinationId ||
         draftCount != other.draftCount ||
+        canCreateTopic != other.canCreateTopic ||
         !identical(presentationToken, other.presentationToken) ||
         sections.length != other.sections.length) {
       return false;
@@ -61,10 +64,19 @@ final class _SidebarSnapshot {
     name,
     destinationId,
     draftCount,
+    canCreateTopic,
     identityHashCode(presentationToken),
     Object.hashAll(sections.map(identityHashCode)),
   );
 }
+
+const String _newTopicDestinationId = 'new-topic';
+
+const SidebarDestination _newTopicDestination = SidebarDestination(
+  id: _newTopicDestinationId,
+  label: 'New Topic',
+  icon: DIcons.plus,
+);
 
 /// Native equivalents of the spacing tokens in core's sidebar stylesheets.
 ///
@@ -121,6 +133,7 @@ class InstanceSidebar extends StatelessWidget {
         name: instance?.title,
         destinationId: controller.destinationId,
         draftCount: instance?.user?.draftCount ?? 0,
+        canCreateTopic: instance?.user?.canCreateTopic ?? false,
         presentationToken: instance == null
             ? null
             : controller.presentationTokenFor(instance.url),
@@ -178,7 +191,23 @@ class InstanceSidebar extends StatelessWidget {
                                 store: sectionStore,
                                 selectedId: sidebar.destinationId,
                                 badgeFor: controller.sidebarBadgeFor,
+                                insertedDestination:
+                                    sidebar.canCreateTopic &&
+                                        section.destinations.any(
+                                          (destination) =>
+                                              destination.id == 'messages',
+                                        )
+                                    ? _newTopicDestination
+                                    : null,
+                                insertAfterDestinationId: 'messages',
                                 onSelect: (destination) {
+                                  if (destination.id ==
+                                      _newTopicDestinationId) {
+                                    unawaited(
+                                      controller.openNewTopicFromSidebar(),
+                                    );
+                                    return;
+                                  }
                                   final url = destination.url;
                                   if (url == null) {
                                     controller.selectDestination(destination);
@@ -357,6 +386,8 @@ class _Section extends StatefulWidget {
     required this.selectedId,
     required this.badgeFor,
     required this.onSelect,
+    this.insertedDestination,
+    this.insertAfterDestinationId,
   });
 
   final String siteUrl;
@@ -366,6 +397,8 @@ class _Section extends StatefulWidget {
   final String? selectedId;
   final int Function(String destinationId) badgeFor;
   final ValueChanged<SidebarDestination> onSelect;
+  final SidebarDestination? insertedDestination;
+  final String? insertAfterDestinationId;
 
   @override
   State<_Section> createState() => _SectionState();
@@ -422,9 +455,21 @@ class _SectionState extends State<_Section> {
     final section = widget.section;
     final rowHeight = _SidebarSpacing.rowHeight(context);
     final sectionPadding = _SidebarSpacing.sectionPadding(context);
-    final rows = !section.collapsible || !_collapsed
+    final sectionRows = !section.collapsible || !_collapsed
         ? section.destinations
         : const <SidebarDestination>[];
+    final rows = switch ((
+      widget.insertedDestination,
+      widget.insertAfterDestinationId,
+    )) {
+      (final inserted?, final after?) => <SidebarDestination>[
+        for (final destination in sectionRows) ...[
+          destination,
+          if (destination.id == after) inserted,
+        ],
+      ],
+      _ => sectionRows,
+    };
     final rowIndexes = <String, int>{
       for (var index = 0; index < rows.length; index++) rows[index].id: index,
     };

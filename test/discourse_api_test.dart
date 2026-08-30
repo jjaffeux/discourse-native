@@ -6201,6 +6201,37 @@ void _writeGroups() {
       },
     );
 
+    test('reads and persists the account-level topic guardian', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'current_user': {
+                'id': 7,
+                'username': 'sam',
+                'can_create_topic': true,
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final user = await api.currentUser(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+      );
+      final stored = DiscourseUser.fromJson(user.toJson());
+
+      expect(user.canCreateTopic, isTrue);
+      expect(stored, user);
+      expect(stored.hashCode, user.hashCode);
+      expect(
+        DiscourseUser.fromJson(const {'username': 'old'}).canCreateTopic,
+        isFalse,
+      );
+    });
+
     test('reads the current account sidebar category ids safely', () async {
       final api = DiscourseApi(
         client: MockClient(
