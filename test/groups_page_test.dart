@@ -145,6 +145,7 @@ void main() {
           siteUrl: 'https://meta.discourse.org',
           data: const GroupsPageData(
             typeFilters: ['my', 'public'],
+            query: 'support',
             loaded: true,
             canCreateGroup: true,
           ),
@@ -166,6 +167,8 @@ void main() {
 
       expect(searchRect.left, 16);
       expect(createRect.right, 1384);
+      expect(searchRect.height, lessThanOrEqualTo(filterRect.height));
+      expect(searchRect.height, lessThanOrEqualTo(createRect.height));
       expect(filterRect.height, createRect.height);
       expect(tester.takeException(), isNull);
     },
