@@ -66,6 +66,23 @@ void main() {
     expect(find.byKey(const ValueKey('plugin-header-action')), findsOneWidget);
     expect(find.text('Standard route'), findsOneWidget);
   });
+
+  testWidgets('content tiles paint ink on the main content surface', (
+    tester,
+  ) async {
+    final shell = await _shellWith(const _ListTilePlugin());
+    const route = ContentRoute(
+      id: 'test-list-tile',
+      title: 'List tile route',
+      icon: DIcons.comment,
+    );
+    shell.pushContent(route);
+
+    await _pump(tester, shell);
+
+    expect(find.byType(CheckboxListTile), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _pump(WidgetTester tester, ShellController shell) async {
@@ -176,4 +193,22 @@ class _HeaderActionPlugin
   @override
   List<Widget> contentHeaderActions(BuildContext context, ContentRoute route) =>
       const [SizedBox(key: ValueKey('plugin-header-action'))];
+}
+
+class _ListTilePlugin implements SitePlugin, ContentPlugin {
+  const _ListTilePlugin();
+
+  @override
+  String get name => 'list-tile-test';
+
+  @override
+  Widget? content(BuildContext context, ContentRoute route) =>
+      route.id == 'test-list-tile'
+      ? CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          value: false,
+          onChanged: (_) {},
+          title: const Text('Choice'),
+        )
+      : null;
 }

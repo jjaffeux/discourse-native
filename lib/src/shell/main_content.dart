@@ -90,7 +90,7 @@ class _MainContentBody extends StatelessWidget {
       route.postNumber,
     ));
 
-    return ColoredBox(
+    return Material(
       color: theme.shell.content,
       child: SafeArea(
         left: false,
