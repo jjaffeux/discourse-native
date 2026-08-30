@@ -145,7 +145,6 @@ void main() {
           siteUrl: 'https://meta.discourse.org',
           data: const GroupsPageData(
             typeFilters: ['my', 'public'],
-            query: 'support',
             loaded: true,
             canCreateGroup: true,
           ),
@@ -167,12 +166,85 @@ void main() {
 
       expect(searchRect.left, 16);
       expect(createRect.right, 1384);
-      expect(searchRect.height, lessThanOrEqualTo(filterRect.height));
-      expect(searchRect.height, lessThanOrEqualTo(createRect.height));
+      expect(searchRect.height, filterRect.height);
+      expect(searchRect.height, createRect.height);
       expect(filterRect.height, createRect.height);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('search stays mounted while only directory results update', (
+    tester,
+  ) async {
+    var data = const GroupsPageData(groups: [_support], loaded: true);
+    late StateSetter update;
+
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return GroupsPage(
+            siteUrl: 'https://meta.discourse.org',
+            data: data,
+            onSearchChanged: (_) {},
+          );
+        },
+      ),
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('groups-search')),
+      'moderators',
+    );
+    final editable = tester.state<EditableTextState>(
+      find.descendant(
+        of: find.byKey(const ValueKey('groups-search')),
+        matching: find.byType(EditableText),
+      ),
+    );
+
+    update(() {
+      data = const GroupsPageData(query: 'moderators', loading: true);
+    });
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('groups-search')), findsOneWidget);
+    expect(find.byKey(const ValueKey('groups-loading')), findsOneWidget);
+    expect(
+      tester.state<EditableTextState>(
+        find.descendant(
+          of: find.byKey(const ValueKey('groups-search')),
+          matching: find.byType(EditableText),
+        ),
+      ),
+      same(editable),
+    );
+    expect(editable.widget.controller.text, 'moderators');
+    expect(editable.widget.focusNode.hasFocus, isTrue);
+
+    update(() {
+      data = const GroupsPageData(
+        groups: [_moderators],
+        query: 'moderators',
+        loaded: true,
+      );
+    });
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('groups-loading')), findsNothing);
+    expect(find.byKey(const ValueKey('group-card-moderators')), findsOneWidget);
+    expect(
+      tester.state<EditableTextState>(
+        find.descendant(
+          of: find.byKey(const ValueKey('groups-search')),
+          matching: find.byType(EditableText),
+        ),
+      ),
+      same(editable),
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('empty filtered directory is a stable scrollable state', (
     tester,
