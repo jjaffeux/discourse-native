@@ -179,6 +179,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   TopicScrollCaptureController? _scrollCapture;
   TopicScrollCaptureController? _reportedScrollCaptureController;
   int? _reportedScrollCaptureId;
+  late Size _viewportLogicalSize;
+  late double _devicePixelRatio;
 
   TopicPostIndexProjection _postIndexes(List<int> postIds) {
     final held = _postIndexProjection;
@@ -206,10 +208,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         'topicId': _topicIdentity?.$2 ?? snapshot?.topicId,
         'navigationRevision': _topicIdentity?.$3,
         'viewportLogicalSize': {
-          'width': MediaQuery.sizeOf(context).width,
-          'height': MediaQuery.sizeOf(context).height,
+          'width': _viewportLogicalSize.width,
+          'height': _viewportLogicalSize.height,
         },
-        'devicePixelRatio': MediaQuery.devicePixelRatioOf(context),
+        'devicePixelRatio': _devicePixelRatio,
         'list': {
           'widget': 'SuperListView.separated',
           'sliver': 'SuperSliverList',
@@ -384,6 +386,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _viewportLogicalSize = MediaQuery.sizeOf(context);
+    _devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
   }
 
   @override

@@ -683,6 +683,44 @@ void main() {
     await diagnostics.close();
   });
 
+  testWidgets('records post detach without an ancestor lookup', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([site]),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    final diagnostics = await DiagnosticsController.create(
+      persistence: MemoryDiagnosticsPersistence(),
+      sessionId: 'topic-scroll-detach-test',
+    );
+    addTearDown(controller.dispose);
+    addTearDown(diagnostics.close);
+    await controller.load();
+    _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    await tester.pumpWidget(_topicView(controller, diagnostics: diagnostics));
+    await tester.pumpAndSettle();
+    diagnostics.topicScrollCapture.start();
+
+    await tester.pumpWidget(const SizedBox.shrink());
+
+    expect(tester.takeException(), isNull);
+    expect(
+      diagnostics.topicScrollCapture.events.map((event) => event.name),
+      contains('sliver.post.detached'),
+    );
+    diagnostics.topicScrollCapture.stop();
+    await diagnostics.close();
+  });
+
   testWidgets('each topic starts with its own scroll position', (tester) async {
     final site = instance('meta.example');
     final controller = ShellController(
