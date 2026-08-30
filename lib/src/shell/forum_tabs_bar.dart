@@ -836,7 +836,9 @@ class _ForumTabState extends State<_ForumTab> {
                 : Colors.transparent,
             border: widget.dropTarget
                 ? Border.all(color: theme.colorScheme.primary, width: 2)
-                : null,
+                : widget.selected
+                ? null
+                : Border.all(color: theme.shell.divider),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
           ),
           child: Stack(
