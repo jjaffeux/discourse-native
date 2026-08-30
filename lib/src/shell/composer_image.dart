@@ -49,6 +49,13 @@ class ComposerImagePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = displaySize(image);
     final source = url;
+    final borderRadius = BorderRadius.circular(8);
+    final border = Border.all(
+      color: highlighted
+          ? Theme.of(context).colorScheme.primary
+          : Theme.of(context).colorScheme.outlineVariant,
+      width: highlighted ? 2 : 1,
+    );
 
     return Semantics(
       // A pending upload has no resolved URL yet, but it is still an image
@@ -60,16 +67,18 @@ class ComposerImagePreview extends StatelessWidget {
         width: size.width,
         height: size.height,
         margin: const EdgeInsets.symmetric(vertical: 4),
+        // Preserve the inset previously supplied by the background border.
+        padding: border.dimensions,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: highlighted
-                ? Theme.of(context).colorScheme.primary
-                : Theme.of(context).colorScheme.outlineVariant,
-            width: highlighted ? 2 : 1,
-          ),
+          borderRadius: borderRadius,
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        ),
+        // Keep the image clipped to the rounded surface, then paint the stroke
+        // above it so image pixels cannot cover the selected border.
+        foregroundDecoration: BoxDecoration(
+          borderRadius: borderRadius,
+          border: border,
         ),
         child: source == null
             ? _ImageFallback(label: image.alt)
