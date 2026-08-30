@@ -7,7 +7,9 @@ import '../data/emoji_cache.dart';
 import '../models/composer_upload.dart';
 import '../plugin_api/composer_syntax.dart';
 import '../plugin_api/hashtag_kind.dart';
+import 'composer_galleries.dart';
 import 'composer_image.dart';
+import 'composer_image_gallery.dart';
 import 'composer_images.dart';
 import 'composer_pills.dart';
 import 'composer_quotes.dart';
@@ -41,6 +43,7 @@ class MarkdownEditingController extends TextEditingController {
     this.resolveUploadUrls,
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
+    this.enableImageGalleries = true,
   });
 
   /// The site whose upload URLs are embedded in this draft.
@@ -76,6 +79,13 @@ class MarkdownEditingController extends TextEditingController {
   final int maxImageWidth;
   final int maxImageHeight;
 
+  /// Whether `[grid]` blocks are projected as editable image galleries.
+  ///
+  /// Core topic/post/private-message composers enable this. Plugin-owned
+  /// surfaces, including chat attachment composers, keep the markup raw
+  /// because gallery syntax is not part of their target contract.
+  final bool enableImageGalleries;
+
   String? _imageScanned;
   List<ComposerImageBlock> _imageBlocks = const [];
   Set<int> _collapsedImageStarts = const {};
@@ -89,6 +99,17 @@ class MarkdownEditingController extends TextEditingController {
   final Map<String, Size> _naturalImageSizes = {};
   ScrollController? _imageScrollController;
   ScrollController? get imageScrollController => _imageScrollController;
+
+  /// Invoked by the gallery's explicit edit control when this controller is
+  /// hosted by a composer UI. Kept mutable for the same lifecycle reason as
+  /// [imageScrollController]: the text controller can outlive one editor.
+  ValueChanged<ComposerImageGalleryBlock>? onEditImageGallery;
+
+  String? _galleryScanned;
+  List<ComposerImageGalleryBlock> _galleryBlocks = const [];
+  Set<int> _collapsedGalleryStarts = const {};
+  ComposerImageGalleryBlock? _caretSuppressedGallery;
+  final Map<int, GlobalKey> _galleryKeys = {};
 
   /// Holds the source caret and composing range still while a pill is selected.
   /// Pointer and source-revealing or removing actions clear the pill selection
@@ -138,6 +159,15 @@ class MarkdownEditingController extends TextEditingController {
 
   ComposerImageBlock? imageAtOffset(int offset) =>
       imageAtComposerOffset(_imageBlocksFor(text), offset);
+
+  List<ComposerImageGalleryBlock> get galleryBlocks =>
+      List.unmodifiable(_galleryBlocksFor(text));
+
+  ComposerImageGalleryBlock? galleryAtOffset(int offset) =>
+      galleryAtComposerOffset(_galleryBlocksFor(text), offset);
+
+  bool isGalleryCollapsed(ComposerImageGalleryBlock gallery) =>
+      _collapsedGalleryStarts.contains(gallery.start);
 
   bool isImageCollapsed(ComposerImageBlock image) =>
       _collapsedImageStarts.contains(image.start);
@@ -201,6 +231,18 @@ class MarkdownEditingController extends TextEditingController {
     artworkArrived();
   }
 
+  void keepGalleryCollapsedForPointerEdit(ComposerImageGalleryBlock gallery) {
+    if (_sameProjection(_caretSuppressedGallery, gallery)) return;
+    _caretSuppressedGallery = gallery;
+    artworkArrived();
+  }
+
+  void releaseGalleryPointerEdit(ComposerImageGalleryBlock gallery) {
+    if (!_sameProjection(_caretSuppressedGallery, gallery)) return;
+    _caretSuppressedGallery = null;
+    artworkArrived();
+  }
+
   ComposerImageBlock? collapsedImageAtOffset(int offset) {
     final image = imageAtOffset(offset);
     if (image == null ||
@@ -229,6 +271,25 @@ class MarkdownEditingController extends TextEditingController {
     return renderObject.localToGlobal(Offset.zero) & renderObject.size;
   }
 
+  ComposerImageGalleryBlock? collapsedGalleryAtGlobalPosition(
+    Offset globalPosition,
+  ) {
+    for (final gallery in _galleryBlocksFor(text)) {
+      if (!isGalleryCollapsed(gallery)) continue;
+      final rect = collapsedGalleryGlobalRect(gallery);
+      if (rect?.contains(globalPosition) == true) return gallery;
+    }
+    return null;
+  }
+
+  Rect? collapsedGalleryGlobalRect(ComposerImageGalleryBlock gallery) {
+    if (!isGalleryCollapsed(gallery)) return null;
+    final renderObject = _galleryKeys[gallery.start]?.currentContext
+        ?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+  }
+
   void cacheImageUrl(String shortUrl, String url) {
     if (_imageUrls[shortUrl] == url) return;
     _imageUrls[shortUrl] = url;
@@ -251,6 +312,46 @@ class MarkdownEditingController extends TextEditingController {
     );
     _retainPillKeys(_imageKeys, _imageBlocks, blocks, (block) => block.start);
     return _imageBlocks = blocks;
+  }
+
+  List<ComposerImageGalleryBlock> _galleryBlocksFor(String source) {
+    if (!enableImageGalleries) return const [];
+    if (_galleryScanned == source) return _galleryBlocks;
+    _galleryScanned = source;
+    final parsed = parseComposerImageGalleries(
+      source,
+      codeRanges: _codeRangesFor(source),
+    );
+    // The gallery parser is deliberately standalone and therefore discovers
+    // its own image objects. Canonicalise those members to this controller's
+    // image scan so every public lookup, keyboard selection, and tile hit-test
+    // returns the same [ComposerImageBlock] instance.
+    final imagesByRange = {
+      for (final image in _imageBlocksFor(source))
+        (image.start, image.end): image,
+    };
+    final blocks = [
+      for (final gallery in parsed)
+        ComposerImageGalleryBlock(
+          start: gallery.start,
+          end: gallery.end,
+          contentStart: gallery.contentStart,
+          contentEnd: gallery.contentEnd,
+          source: gallery.source,
+          mode: gallery.mode,
+          images: List.unmodifiable([
+            for (final image in gallery.images)
+              imagesByRange[(image.start, image.end)] ?? image,
+          ]),
+        ),
+    ];
+    _retainPillKeys(
+      _galleryKeys,
+      _galleryBlocks,
+      blocks,
+      (block) => block.start,
+    );
+    return _galleryBlocks = blocks;
   }
 
   String? _syntaxScanned;
@@ -711,17 +812,49 @@ class MarkdownEditingController extends TextEditingController {
       ),
     );
 
+    final galleries = _galleryBlocksFor(source);
+    final collapsedGalleries = [
+      for (final gallery in galleries)
+        if (!_galleryNeedsRawSource(
+          gallery,
+          value,
+          suppressCollapsedCaret:
+              _sameProjection(_caretSuppressedGallery, gallery) ||
+              gallery.images.any(
+                (image) =>
+                    _sameProjection(_caretSuppressedImage, image) ||
+                    isPillSelectedForKeyboard(image),
+              ),
+        ))
+          gallery,
+    ];
+    _collapsedGalleryStarts = {
+      for (final gallery in collapsedGalleries) gallery.start,
+    };
+    final galleryImageStarts = {
+      for (final gallery in galleries)
+        for (final image in gallery.images) image.start,
+    };
+
     final images = _imageBlocksFor(source);
     final collapsedImages = [
       for (final image in images)
-        if (!_imageNeedsRawSource(
-          image,
-          value,
-          suppressCollapsedCaret: _sameProjection(_caretSuppressedImage, image),
-        ))
+        if (!galleryImageStarts.contains(image.start) &&
+            !_imageNeedsRawSource(
+              image,
+              value,
+              suppressCollapsedCaret: _sameProjection(
+                _caretSuppressedImage,
+                image,
+              ),
+            ))
           image,
     ];
-    _collapsedImageStarts = {for (final image in collapsedImages) image.start};
+    _collapsedImageStarts = {
+      for (final image in collapsedImages) image.start,
+      for (final gallery in collapsedGalleries)
+        for (final image in gallery.images) image.start,
+    };
     final imageProjection = Object.hashAll(
       collapsedImages.map(
         (image) => Object.hash(
@@ -733,6 +866,28 @@ class MarkdownEditingController extends TextEditingController {
           image.scale,
           resolvedImageUrl(image),
           isPillSelectedForKeyboard(image),
+        ),
+      ),
+    );
+    final galleryProjection = Object.hashAll(
+      collapsedGalleries.map(
+        (gallery) => Object.hash(
+          gallery.start,
+          gallery.end,
+          gallery.mode,
+          Object.hashAll(
+            gallery.images.map(
+              (image) => Object.hash(
+                image.start,
+                image.end,
+                image.alt,
+                image.width,
+                image.height,
+                resolvedImageUrl(image),
+                isPillSelectedForKeyboard(image),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -757,6 +912,7 @@ class MarkdownEditingController extends TextEditingController {
           quoteProjection: quoteProjection,
           syntaxProjection: syntaxProjection,
           imageProjection: imageProjection,
+          galleryProjection: galleryProjection,
         )) {
       return cached.span;
     }
@@ -852,6 +1008,12 @@ class MarkdownEditingController extends TextEditingController {
             highlighted: isPillSelectedForKeyboard(image),
           ),
         ),
+      for (final gallery in collapsedGalleries)
+        _SpanProjection(
+          gallery.start,
+          gallery.end,
+          () => _buildGallerySpans(gallery, base, unresolvedImages),
+        ),
     ]..sort((a, b) => a.start.compareTo(b.start));
 
     var sourceOffset = 0;
@@ -897,6 +1059,7 @@ class MarkdownEditingController extends TextEditingController {
       quoteProjection: quoteProjection,
       syntaxProjection: syntaxProjection,
       imageProjection: imageProjection,
+      galleryProjection: galleryProjection,
       span: span,
     );
     return span;
@@ -1018,6 +1181,86 @@ class MarkdownEditingController extends TextEditingController {
     ];
   }
 
+  List<InlineSpan> _buildGallerySpans(
+    ComposerImageGalleryBlock gallery,
+    TextStyle base,
+    Set<String> unresolved,
+  ) {
+    final items = <ComposerImageGalleryItem>[];
+    for (final image in gallery.images) {
+      final url = resolvedImageUrl(image);
+      if (image.url.startsWith('upload://') && url == null) {
+        unresolved.add(image.url);
+      }
+      items.add(
+        ComposerImageGalleryItem(
+          image: image,
+          url: url,
+          imageKey: _imageKeys.putIfAbsent(
+            image.start,
+            () =>
+                GlobalKey(debugLabel: 'composer-gallery-image-${image.start}'),
+          ),
+          highlighted: isPillSelectedForKeyboard(image),
+          onNaturalSize: (size) {
+            if (_naturalImageSizes[image.url] == size) return;
+            _naturalImageSizes[image.url] = size;
+            artworkArrived();
+          },
+        ),
+      );
+    }
+
+    final galleryHeight = ComposerImageGalleryPreview.displaySize(
+      items.length,
+    ).height;
+    final lineHeight = (base.fontSize ?? 14) * (base.height ?? 1.4);
+    final breaks = (galleryHeight / lineHeight).ceil().clamp(
+      1,
+      gallery.end - gallery.start - 1,
+    );
+
+    return [
+      WidgetSpan(
+        alignment: PlaceholderAlignment.top,
+        style: base,
+        child: _FollowEditorScroll(
+          controller: _imageScrollController,
+          child: KeyedSubtree(
+            key: _galleryKeys.putIfAbsent(
+              gallery.start,
+              () => GlobalKey(
+                debugLabel: 'composer-image-gallery-${gallery.start}',
+              ),
+            ),
+            child: ComposerImageGalleryPreview(
+              gallery: gallery,
+              items: items,
+              siteUrl: imageSiteUrl,
+              onEdit: onEditImageGallery == null
+                  ? null
+                  : () => onEditImageGallery!(gallery),
+            ),
+          ),
+        ),
+      ),
+      TextSpan(
+        text: List.filled(breaks, '\n').join(),
+        style: TextStyle(
+          color: const Color(0x00000000),
+          fontFamily: base.fontFamily,
+          fontFamilyFallback: base.fontFamilyFallback,
+          fontSize: base.fontSize,
+          height: base.height,
+        ),
+      ),
+      TextSpan(
+        text: text.substring(gallery.start + breaks + 1, gallery.end),
+        style: _hidden,
+      ),
+    ];
+  }
+
   void _resolveImageUrls(Set<String> urls) {
     final resolver = resolveUploadUrls;
     final fresh = urls
@@ -1078,6 +1321,25 @@ class MarkdownEditingController extends TextEditingController {
     return selection.start < image.end && selection.end > image.start;
   }
 
+  static bool _galleryNeedsRawSource(
+    ComposerImageGalleryBlock gallery,
+    TextEditingValue value, {
+    bool suppressCollapsedCaret = false,
+  }) {
+    final selection = value.selection;
+    if (!selection.isValid) return false;
+    if (selection.isCollapsed) {
+      if (selection.extentOffset == gallery.start ||
+          selection.extentOffset == gallery.end) {
+        return false;
+      }
+      return !suppressCollapsedCaret &&
+          selection.extentOffset > gallery.start &&
+          selection.extentOffset < gallery.end;
+    }
+    return selection.start < gallery.end && selection.end > gallery.start;
+  }
+
   /// Something a run was waiting on has landed: repaint.
   ///
   /// Notifying with the value unchanged is what redraws the field, and it is
@@ -1100,6 +1362,8 @@ class MarkdownEditingController extends TextEditingController {
           a.start == b.start && a.end == b.end && a.source == b.source,
         (ComposerSyntaxOccurrence a, ComposerSyntaxOccurrence b) => a.sameAs(b),
         (ComposerQuoteBlock a, ComposerQuoteBlock b) =>
+          a.start == b.start && a.end == b.end && a.source == b.source,
+        (ComposerImageGalleryBlock a, ComposerImageGalleryBlock b) =>
           a.start == b.start && a.end == b.end && a.source == b.source,
         _ => false,
       };
@@ -1440,6 +1704,7 @@ class _CachedMarkdownSpan {
     required this.quoteProjection,
     required this.syntaxProjection,
     required this.imageProjection,
+    required this.galleryProjection,
     required this.span,
   });
 
@@ -1452,6 +1717,7 @@ class _CachedMarkdownSpan {
   final int quoteProjection;
   final int syntaxProjection;
   final int imageProjection;
+  final int galleryProjection;
   final TextSpan span;
 
   bool matches({
@@ -1464,6 +1730,7 @@ class _CachedMarkdownSpan {
     required int quoteProjection,
     required int syntaxProjection,
     required int imageProjection,
+    required int galleryProjection,
   }) =>
       this.source == source &&
       this.style == style &&
@@ -1473,7 +1740,8 @@ class _CachedMarkdownSpan {
       this.artwork == artwork &&
       this.quoteProjection == quoteProjection &&
       this.syntaxProjection == syntaxProjection &&
-      this.imageProjection == imageProjection;
+      this.imageProjection == imageProjection &&
+      this.galleryProjection == galleryProjection;
 }
 
 class _SpanProjection {

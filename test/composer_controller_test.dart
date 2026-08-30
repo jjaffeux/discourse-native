@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer_galleries.dart';
 import 'package:discourse_native/src/shell/composer_triggers.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -208,6 +209,77 @@ void main() {
     composer.text.text = 'restored twice';
     expect(composer.typingDuration, const Duration(seconds: 1));
   });
+
+  test(
+    'gallery markup survives draft restore and edit loading losslessly',
+    () async {
+      const source =
+          'Before\n\n'
+          '[grid mode=carousel]\n'
+          '\n'
+          '![one](upload://one)\n'
+          ' \t\n'
+          '![two|640x480](upload://two)\n'
+          '[/grid]\n\n'
+          'After';
+      final saves = <ComposerDraftSave>[];
+      final writer = ComposerController(
+        _target,
+        onSaveDraft: (save) async {
+          saves.add(save);
+          return save.sequence + 1;
+        },
+      );
+      addTearDown(writer.dispose);
+
+      writer.text.text = source;
+      await writer.flushDraft();
+
+      expect(saves.single.draft.reply, source);
+
+      final restored = ComposerController(_target);
+      addTearDown(restored.dispose);
+      restored.restore(saves.single.draft);
+
+      expect(restored.text.text, source);
+      expect(
+        restored.text.galleryBlocks.single.mode,
+        ComposerGalleryMode.carousel,
+      );
+      expect(
+        restored.text.galleryBlocks.single.images.map((image) => image.url),
+        ['upload://one', 'upload://two'],
+      );
+
+      final editor = ComposerController(
+        const ComposerTarget(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 7,
+          slug: 'a-topic',
+          topicTitle: 'A topic',
+          editingPostId: 11,
+          editingPostNumber: 2,
+          mode: ComposerMode.postEdit,
+        ),
+      );
+      addTearDown(editor.dispose);
+      editor.loadedBody(restored.text.text);
+
+      expect(editor.text.text, source);
+      expect(editor.originalRaw, source);
+      editor.setGalleryMode(
+        editor.text.galleryBlocks.single,
+        ComposerGalleryMode.grid,
+      );
+      editor.setGalleryMode(
+        editor.text.galleryBlocks.single,
+        ComposerGalleryMode.carousel,
+      );
+
+      expect(editor.text.text, source);
+      expect(editor.originalRaw, source);
+    },
+  );
 
   testWidgets('clearing an enqueued reply does not save an empty draft', (
     tester,
@@ -605,6 +677,847 @@ void main() {
   });
 
   group('image uploads', () {
+    testWidgets('automatically groups three accepted images in picker order', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+        canUploadImage: (filename) => filename.endsWith('.png'),
+        enableAutoGridImages: true,
+      );
+      addTearDown(composer.dispose);
+      composer.text.text = 'beforeAFTER';
+
+      composer.addImages([
+        _file('one.png'),
+        _file('notes.txt'),
+        _file('two.png'),
+        _file('three.png'),
+      ], 6);
+      expect(calls, hasLength(3));
+
+      calls[2].complete(_result('three'));
+      calls[1].complete(_result('two'));
+      await tester.pump();
+      expect(composer.text.text, 'beforeAFTER');
+
+      calls[0].complete(_result('one'));
+      await tester.pump();
+
+      expect(
+        composer.text.text,
+        'before\n'
+        '[grid]\n'
+        '![one|640x480](upload://one)\n'
+        '![two|640x480](upload://two)\n'
+        '![three|640x480](upload://three)\n'
+        '[/grid]\n'
+        'AFTER',
+      );
+      expect(parseComposerImageGalleries(composer.text.text), hasLength(1));
+    });
+
+    testWidgets('does not auto-group when the site setting is disabled', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+        enableAutoGridImages: false,
+      );
+      addTearDown(composer.dispose);
+
+      composer.addImages([
+        _file('one.png'),
+        _file('two.png'),
+        _file('three.png'),
+      ], 0);
+      for (var index = 0; index < calls.length; index++) {
+        calls[index].complete(_result(['one', 'two', 'three'][index]));
+      }
+      await tester.pump();
+
+      expect(composer.text.text, isNot(contains('[grid]')));
+      expect(parseComposerImageGalleries(composer.text.text), isEmpty);
+    });
+
+    testWidgets('a live disabled setting demotes a pending automatic gallery', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+        enableAutoGridImages: true,
+      );
+      addTearDown(composer.dispose);
+
+      composer.addImages([
+        _file('one.png'),
+        _file('two.png'),
+        _file('three.png'),
+      ], 0);
+      composer.updateEnableAutoGridImages(false);
+      for (var index = 0; index < calls.length; index++) {
+        calls[index].complete(_result(['one', 'two', 'three'][index]));
+      }
+      await tester.pump();
+
+      expect(parseComposerImageGalleries(composer.text.text), isEmpty);
+      expect(composer.text.imageBlocks.map((image) => image.url), [
+        'upload://one',
+        'upload://two',
+        'upload://three',
+      ]);
+    });
+
+    testWidgets('a live disabled setting does not unwrap a created gallery', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+        enableAutoGridImages: true,
+      );
+      addTearDown(composer.dispose);
+
+      composer.addImages([
+        _file('one.png'),
+        _file('two.png'),
+        _file('three.png'),
+      ], 0);
+      calls.first.complete(_result('one'));
+      await tester.pump();
+      expect(parseComposerImageGalleries(composer.text.text), hasLength(1));
+
+      composer.updateEnableAutoGridImages(false);
+      calls[1].complete(_result('two'));
+      calls[2].complete(_result('three'));
+      await tester.pump();
+
+      expect(
+        parseComposerImageGalleries(
+          composer.text.text,
+        ).single.images.map((image) => image.url),
+        ['upload://one', 'upload://two', 'upload://three'],
+      );
+    });
+
+    testWidgets('never auto-groups uploads for a plugin composer target', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _markdownPluginTarget,
+        imageUploader: _recordingUploader(calls),
+        enableAutoGridImages: true,
+      );
+      addTearDown(composer.dispose);
+
+      composer.addImages([
+        _file('one.png'),
+        _file('two.png'),
+        _file('three.png'),
+      ], 0);
+      for (var index = 0; index < calls.length; index++) {
+        calls[index].complete(_result(['one', 'two', 'three'][index]));
+      }
+      await tester.pump();
+
+      expect(composer.text.text, isNot(contains('[grid]')));
+      expect(composer.text.imageBlocks.map((image) => image.url), [
+        'upload://one',
+        'upload://two',
+        'upload://three',
+      ]);
+    });
+
+    test('plugin composers keep grid source outside gallery APIs', () {
+      final composer = ComposerController(_markdownPluginTarget);
+      addTearDown(composer.dispose);
+      composer.text.text =
+          '[grid]\n'
+          '![one](upload://one)\n'
+          '[/grid]';
+
+      expect(composer.text.galleryBlocks, isEmpty);
+      expect(
+        composer.galleryForImage(composer.text.imageBlocks.single),
+        isNull,
+      );
+      expect(composer.standaloneImages, hasLength(1));
+    });
+
+    testWidgets('does not nest an auto-gallery in a mixed raw grid', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+        enableAutoGridImages: true,
+      );
+      addTearDown(composer.dispose);
+      composer.text.text = '[grid]\na caption\n[/grid]';
+
+      composer.addImages([
+        _file('one.png'),
+        _file('two.png'),
+        _file('three.png'),
+      ], composer.text.text.indexOf('caption'));
+      for (var index = 0; index < calls.length; index++) {
+        calls[index].complete(_result(['one', 'two', 'three'][index]));
+      }
+      await tester.pump();
+
+      expect(RegExp(r'\[grid\]').allMatches(composer.text.text), hasLength(1));
+      expect(parseComposerImageGalleries(composer.text.text), isEmpty);
+    });
+
+    testWidgets('rechecks a pending auto-gallery against raw grid edits', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+        enableAutoGridImages: true,
+      );
+      addTearDown(composer.dispose);
+      composer.text.text = 'caption';
+      composer.addImages([
+        _file('one.png'),
+        _file('two.png'),
+        _file('three.png'),
+      ], 0);
+
+      composer.text.text = '[grid]\n${composer.text.text}';
+      composer.text.text = '${composer.text.text}\n[/grid]';
+      for (var index = 0; index < calls.length; index++) {
+        calls[index].complete(_result(['one', 'two', 'three'][index]));
+      }
+      await tester.pump();
+
+      expect(RegExp(r'\[grid\]').allMatches(composer.text.text), hasLength(1));
+    });
+
+    testWidgets(
+      'grid text in code and image URLs does not suppress auto-grid',
+      (tester) async {
+        final calls = <_UploadCall>[];
+        final composer = ComposerController(
+          _target,
+          imageUploader: _recordingUploader(calls),
+          enableAutoGridImages: true,
+        );
+        addTearDown(composer.dispose);
+        composer.text.text =
+            '`[grid]`\n\n'
+            '```text\n[grid]\n```\n\n'
+            r'\[grid]'
+            '\n\n'
+            '![sample](https://example.com/[grid].png)\n\n';
+
+        composer.addImages([
+          _file('one.png'),
+          _file('two.png'),
+          _file('three.png'),
+        ], composer.text.text.length);
+        for (var index = 0; index < calls.length; index++) {
+          calls[index].complete(_result(['one', 'two', 'three'][index]));
+        }
+        await tester.pump();
+
+        expect(parseComposerImageGalleries(composer.text.text), hasLength(1));
+      },
+    );
+
+    testWidgets('a failed auto-gallery member retries into its original slot', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+        enableAutoGridImages: true,
+      );
+      addTearDown(composer.dispose);
+
+      composer.addImages([
+        _file('one.png'),
+        _file('two.png'),
+        _file('three.png'),
+      ], 0);
+      calls[2].complete(_result('three'));
+      calls[1].complete(_result('two'));
+      calls[0].fail(const ComposerUploadException('Retry one.'));
+      await tester.pump();
+
+      expect(
+        parseComposerImageGalleries(
+          composer.text.text,
+        ).single.images.map((image) => image.url),
+        ['upload://two', 'upload://three'],
+      );
+
+      composer.retryUpload(composer.uploads.single.id);
+      calls.last.complete(_result('one'));
+      await tester.pump();
+
+      expect(
+        parseComposerImageGalleries(
+          composer.text.text,
+        ).single.images.map((image) => image.url),
+        ['upload://one', 'upload://two', 'upload://three'],
+      );
+    });
+
+    testWidgets('uploads append to an existing gallery without nesting', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+        enableAutoGridImages: true,
+      );
+      addTearDown(composer.dispose);
+      composer.text.text =
+          '[grid mode=carousel]\n'
+          '![existing](upload://existing)\n'
+          '[/grid]';
+      final gallery = parseComposerImageGalleries(composer.text.text).single;
+
+      composer.addImagesToGallery([
+        _file('one.png'),
+        _file('two.png'),
+        _file('three.png'),
+      ], gallery);
+      for (var index = 0; index < calls.length; index++) {
+        calls[index].complete(_result(['one', 'two', 'three'][index]));
+      }
+      await tester.pump();
+
+      final galleries = parseComposerImageGalleries(composer.text.text);
+      expect(galleries, hasLength(1));
+      expect(galleries.single.mode, ComposerGalleryMode.carousel);
+      expect(galleries.single.images.map((image) => image.url), [
+        'upload://existing',
+        'upload://one',
+        'upload://two',
+        'upload://three',
+      ]);
+    });
+
+    testWidgets('a stale gallery picker resolves the surviving gallery', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+      composer.text.text =
+          '[grid]\n'
+          '![existing](upload://existing)\n'
+          '[/grid]';
+      final captured = parseComposerImageGalleries(composer.text.text).single;
+      composer.setGalleryMode(captured, ComposerGalleryMode.carousel);
+
+      composer.addImagesToGallery([_file('late.png')], captured);
+      expect(calls, hasLength(1));
+      calls.single.complete(_result('late'));
+      await tester.pump();
+
+      final gallery = parseComposerImageGalleries(composer.text.text).single;
+      expect(gallery.mode, ComposerGalleryMode.carousel);
+      expect(gallery.images.map((image) => image.url), [
+        'upload://existing',
+        'upload://late',
+      ]);
+    });
+
+    testWidgets('ambiguous duplicate member URLs do not retarget a picker', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+      composer.text.text =
+          '[grid]\n'
+          '![same](upload://same)\n'
+          '[/grid]';
+      final captured = parseComposerImageGalleries(composer.text.text).single;
+      composer.text.text =
+          '[grid mode=carousel]\n'
+          '![same](upload://same)\n'
+          '[/grid]\n'
+          '[grid]\n'
+          '![same](upload://same)\n'
+          '![same](upload://same)\n'
+          '[/grid]';
+
+      composer.addImagesToGallery([_file('late.png')], captured);
+      calls.single.complete(_result('late'));
+      await tester.pump();
+
+      expect(composer.notice, contains('gallery changed'));
+      expect(
+        parseComposerImageGalleries(
+          composer.text.text,
+        ).map((gallery) => gallery.images.length),
+        [1, 2],
+      );
+      expect(composer.standaloneImages.single.url, 'upload://late');
+    });
+
+    testWidgets('an empty gallery survives a shift before the picker returns', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+      composer.text.text = '[grid]\n[/grid]';
+      final captured = parseComposerImageGalleries(composer.text.text).single;
+      composer.text.text = 'before\n${composer.text.text}';
+
+      composer.addImagesToGallery([_file('late.png')], captured);
+      expect(calls, hasLength(1));
+      calls.single.complete(_result('late'));
+      await tester.pump();
+
+      expect(
+        parseComposerImageGalleries(
+          composer.text.text,
+        ).single.images.single.url,
+        'upload://late',
+      );
+    });
+
+    testWidgets('a removed stale gallery falls back without losing files', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+        enableAutoGridImages: true,
+      );
+      addTearDown(composer.dispose);
+      composer.text.text =
+          '[grid]\n'
+          '![existing](upload://existing)\n'
+          '[/grid]\n'
+          'Following prose.';
+      final captured = parseComposerImageGalleries(composer.text.text).single;
+      composer.unwrapGallery(captured);
+
+      composer.addImagesToGallery([
+        _file('one.png'),
+        _file('two.png'),
+        _file('three.png'),
+      ], captured);
+      expect(calls, hasLength(3));
+      expect(
+        composer.notice,
+        'That gallery changed, so the images will be added outside it.',
+      );
+      for (var index = 0; index < calls.length; index++) {
+        calls[index].complete(_result(['one', 'two', 'three'][index]));
+      }
+      await tester.pump();
+
+      expect(parseComposerImageGalleries(composer.text.text), isEmpty);
+      expect(composer.text.imageBlocks.map((image) => image.url), [
+        'upload://existing',
+        'upload://one',
+        'upload://two',
+        'upload://three',
+      ]);
+      expect(
+        composer.text.text.indexOf('upload://three'),
+        lessThan(composer.text.text.indexOf('Following prose.')),
+      );
+    });
+
+    test('a cancelled stale gallery picker returns without a notice', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.text.text =
+          '[grid]\n'
+          '![existing](upload://existing)\n'
+          '[/grid]';
+      final captured = parseComposerImageGalleries(composer.text.text).single;
+      composer.unwrapGallery(captured);
+
+      composer.addImagesToGallery(const [], captured);
+
+      expect(composer.notice, isNull);
+    });
+
+    testWidgets('gallery uploads follow membership edits while pending', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+      composer.text.text =
+          '![standalone](upload://standalone)\n'
+          '[grid]\n'
+          '![existing](upload://existing)\n'
+          '[/grid]';
+      final gallery = parseComposerImageGalleries(composer.text.text).single;
+      final standalone = composer.standaloneImages.single;
+
+      composer.addImagesToGallery([_file('late.png')], gallery);
+      composer.addExistingImagesToGallery(gallery, [standalone]);
+      calls.single.complete(_result('late'));
+      await tester.pump();
+
+      expect(
+        parseComposerImageGalleries(
+          composer.text.text,
+        ).single.images.map((image) => image.url),
+        ['upload://existing', 'upload://standalone', 'upload://late'],
+      );
+    });
+
+    testWidgets('stale Add selected resolves a gallery changed by an upload', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+      composer.text.text =
+          '![standalone](upload://standalone)\n'
+          '[grid]\n'
+          '![existing](upload://existing)\n'
+          '[/grid]';
+      final capturedGallery = parseComposerImageGalleries(
+        composer.text.text,
+      ).single;
+      final capturedStandalone = composer.standaloneImages.single;
+
+      composer.addImagesToGallery([_file('uploaded.png')], capturedGallery);
+      calls.single.complete(_result('uploaded'));
+      await tester.pump();
+      composer.addExistingImagesToGallery(capturedGallery, [
+        capturedStandalone,
+      ]);
+
+      expect(
+        parseComposerImageGalleries(
+          composer.text.text,
+        ).single.images.map((image) => image.url),
+        ['upload://existing', 'upload://uploaded', 'upload://standalone'],
+      );
+    });
+
+    test('Add selected rejects a partly stale image selection atomically', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.text.text =
+          '![one](upload://one)\n'
+          '![two](upload://two)\n'
+          '[grid]\n'
+          '![existing](upload://existing)\n'
+          '[/grid]';
+      final gallery = parseComposerImageGalleries(composer.text.text).single;
+      final selected = composer.standaloneImages;
+      composer.setImageAlt(selected.last, 'changed');
+      final changed = composer.text.text;
+
+      composer.addExistingImagesToGallery(gallery, selected);
+
+      expect(composer.text.text, changed);
+      expect(
+        parseComposerImageGalleries(
+          composer.text.text,
+        ).single.images.single.url,
+        'upload://existing',
+      );
+    });
+
+    testWidgets('unwrapping retargets an in-flight gallery upload standalone', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+      composer.text.text =
+          '[grid]\n'
+          '![existing](upload://existing)\n'
+          '[/grid]';
+      final gallery = parseComposerImageGalleries(composer.text.text).single;
+
+      composer.addImagesToGallery([_file('late.png')], gallery);
+      composer.unwrapGallery(gallery);
+      calls.single.complete(_result('late'));
+      await tester.pump();
+
+      expect(parseComposerImageGalleries(composer.text.text), isEmpty);
+      expect(composer.text.imageBlocks.map((image) => image.url), [
+        'upload://existing',
+        'upload://late',
+      ]);
+    });
+
+    testWidgets(
+      'dissolving the final member demotes a pending gallery upload',
+      (tester) async {
+        final calls = <_UploadCall>[];
+        final composer = ComposerController(
+          _target,
+          imageUploader: _recordingUploader(calls),
+        );
+        addTearDown(composer.dispose);
+        composer.text.text =
+            '[grid]\n'
+            '![existing](upload://existing)\n'
+            '[/grid]';
+        final gallery = parseComposerImageGalleries(composer.text.text).single;
+
+        composer.addImagesToGallery([_file('late.png')], gallery);
+        composer.removeImage(gallery.images.single);
+        calls.single.complete(_result('late'));
+        await tester.pump();
+
+        expect(parseComposerImageGalleries(composer.text.text), isEmpty);
+        expect(composer.text.imageBlocks.single.url, 'upload://late');
+      },
+    );
+
+    testWidgets('concurrent batches at one anchor keep launch order', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+
+      composer.addImages([_file('one.png')], 0);
+      composer.addImages([_file('two.png')], 0);
+      calls[1].complete(_result('two'));
+      await tester.pump();
+      expect(composer.text.imageBlocks.single.url, 'upload://two');
+
+      calls[0].complete(_result('one'));
+      await tester.pump();
+      expect(composer.text.imageBlocks.map((image) => image.url), [
+        'upload://one',
+        'upload://two',
+      ]);
+    });
+
+    testWidgets('concurrent batches keep order after their anchor moves', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+      composer.text.text = 'tail';
+
+      composer.addImages([_file('one.png')], 0);
+      composer.text.text = 'prefix tail';
+      composer.addImages([_file('two.png')], 'prefix '.length);
+      calls[1].complete(_result('two'));
+      await tester.pump();
+      calls[0].complete(_result('one'));
+      await tester.pump();
+
+      expect(composer.text.imageBlocks.map((image) => image.url), [
+        'upload://one',
+        'upload://two',
+      ]);
+    });
+
+    testWidgets('concurrent auto-grid batches remain separate and ordered', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+        enableAutoGridImages: true,
+      );
+      addTearDown(composer.dispose);
+
+      composer.addImages([
+        _file('one.png'),
+        _file('two.png'),
+        _file('three.png'),
+      ], 0);
+      composer.addImages([
+        _file('four.png'),
+        _file('five.png'),
+        _file('six.png'),
+      ], 0);
+      for (var index = 3; index < 6; index++) {
+        calls[index].complete(_result(['four', 'five', 'six'][index - 3]));
+      }
+      await tester.pump();
+      for (var index = 0; index < 3; index++) {
+        calls[index].complete(_result(['one', 'two', 'three'][index]));
+      }
+      await tester.pump();
+
+      final galleries = parseComposerImageGalleries(composer.text.text);
+      expect(galleries, hasLength(2));
+      expect(
+        galleries.expand((gallery) => gallery.images).map((image) => image.url),
+        [
+          'upload://one',
+          'upload://two',
+          'upload://three',
+          'upload://four',
+          'upload://five',
+          'upload://six',
+        ],
+      );
+    });
+
+    testWidgets('concurrent gallery batches keep launch order', (tester) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+      composer.text.text =
+          '[grid]\n'
+          '![existing](upload://existing)\n'
+          '[/grid]';
+      final gallery = parseComposerImageGalleries(composer.text.text).single;
+
+      composer.addImagesToGallery([_file('one.png')], gallery);
+      composer.addImagesToGallery([_file('two.png')], gallery);
+      calls[1].complete(_result('two'));
+      await tester.pump();
+      expect(
+        parseComposerImageGalleries(
+          composer.text.text,
+        ).single.images.map((image) => image.url),
+        ['upload://existing', 'upload://two'],
+      );
+
+      calls[0].complete(_result('one'));
+      await tester.pump();
+      expect(
+        parseComposerImageGalleries(
+          composer.text.text,
+        ).single.images.map((image) => image.url),
+        ['upload://existing', 'upload://one', 'upload://two'],
+      );
+    });
+
+    testWidgets('an older failed batch retries before a later result', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+
+      composer.addImages([_file('one.png')], 0);
+      composer.addImages([_file('two.png')], 0);
+      calls[0].fail(const ComposerUploadException('Retry one.'));
+      calls[1].complete(_result('two'));
+      await tester.pump();
+      expect(composer.text.imageBlocks.single.url, 'upload://two');
+
+      composer.retryUpload(composer.uploads.single.id);
+      calls.last.complete(_result('one'));
+      await tester.pump();
+      expect(composer.text.imageBlocks.map((image) => image.url), [
+        'upload://one',
+        'upload://two',
+      ]);
+    });
+
+    testWidgets('removing an older failed batch leaves the later result', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+
+      composer.addImages([_file('one.png')], 0);
+      composer.addImages([_file('two.png')], 0);
+      calls[0].fail(const ComposerUploadException('Remove one.'));
+      calls[1].complete(_result('two'));
+      await tester.pump();
+
+      composer.removeUpload(composer.uploads.single.id);
+      expect(composer.text.imageBlocks.single.url, 'upload://two');
+      expect(composer.uploads, isEmpty);
+    });
+
+    testWidgets(
+      'auto-gallery members stay before a later explicit gallery batch',
+      (tester) async {
+        final calls = <_UploadCall>[];
+        final composer = ComposerController(
+          _target,
+          imageUploader: _recordingUploader(calls),
+          enableAutoGridImages: true,
+        );
+        addTearDown(composer.dispose);
+
+        composer.addImages([
+          _file('one.png'),
+          _file('two.png'),
+          _file('three.png'),
+        ], 0);
+        calls[0].complete(_result('one'));
+        await tester.pump();
+        final gallery = parseComposerImageGalleries(composer.text.text).single;
+
+        composer.addImagesToGallery([_file('later.png')], gallery);
+        calls[3].complete(_result('later'));
+        await tester.pump();
+        calls[2].complete(_result('three'));
+        calls[1].complete(_result('two'));
+        await tester.pump();
+
+        expect(
+          parseComposerImageGalleries(
+            composer.text.text,
+          ).single.images.map((image) => image.url),
+          ['upload://one', 'upload://two', 'upload://three', 'upload://later'],
+        );
+      },
+    );
+
     testWidgets(
       'keeps the drop anchor through typing and inserts a batch in drop order',
       (tester) async {
@@ -817,6 +1730,28 @@ void main() {
       expect(composer.text.text, isEmpty);
     });
 
+    testWidgets('cancelling an earlier slot flushes a ready later upload', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+
+      composer.addImages([_file('one.png'), _file('two.png')], 0);
+      calls[1].complete(_result('two'));
+      await tester.pump();
+      expect(composer.text.text, isEmpty);
+
+      composer.cancelUpload(composer.uploads.first.id);
+      await tester.pump();
+
+      expect(composer.text.imageBlocks.single.url, 'upload://two');
+      expect(composer.uploads, isEmpty);
+    });
+
     testWidgets('disposing aborts every active request', (tester) async {
       final calls = <_UploadCall>[];
       final composer = ComposerController(
@@ -861,6 +1796,72 @@ void main() {
       );
       composer.removeImage(composer.text.imageBlocks.single);
       expect(composer.text.text, isEmpty);
+    });
+
+    test(
+      'edits gallery membership, mode, and wrapper without deleting images',
+      () {
+        final composer = ComposerController(_target);
+        addTearDown(composer.dispose);
+        composer.text.text =
+            '![standalone](upload://standalone)\n'
+            '[grid]\n'
+            '![one](upload://one)\n'
+            '![two](upload://two)\n'
+            '[/grid]';
+
+        var gallery = parseComposerImageGalleries(composer.text.text).single;
+        composer.addExistingImagesToGallery(gallery, [
+          composer.standaloneImages.single,
+        ]);
+        gallery = parseComposerImageGalleries(composer.text.text).single;
+        expect(gallery.images.map((image) => image.url), [
+          'upload://one',
+          'upload://two',
+          'upload://standalone',
+        ]);
+
+        composer.setGalleryMode(gallery, ComposerGalleryMode.carousel);
+        gallery = parseComposerImageGalleries(composer.text.text).single;
+        expect(gallery.mode, ComposerGalleryMode.carousel);
+        expect(composer.text.text, contains('[grid mode=carousel]'));
+
+        composer.moveImageOutOfGallery(gallery, gallery.images[1]);
+        gallery = parseComposerImageGalleries(composer.text.text).single;
+        expect(gallery.images.map((image) => image.url), [
+          'upload://one',
+          'upload://standalone',
+        ]);
+        expect(composer.standaloneImages.single.url, 'upload://two');
+
+        composer.unwrapGallery(gallery);
+        expect(parseComposerImageGalleries(composer.text.text), isEmpty);
+        expect(composer.text.imageBlocks.map((image) => image.url), [
+          'upload://one',
+          'upload://standalone',
+          'upload://two',
+        ]);
+      },
+    );
+
+    test('changes only the gallery opening tag when switching mode', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.text.text =
+          '[grid]\n'
+          '\n'
+          '![one](upload://one)\n'
+          ' \t\n'
+          '[/grid]';
+      final before = composer.text.text;
+      final gallery = parseComposerImageGalleries(before).single;
+
+      composer.setGalleryMode(gallery, ComposerGalleryMode.carousel);
+
+      expect(
+        composer.text.text,
+        '[grid mode=carousel]${before.substring('[grid]'.length)}',
+      );
     });
   });
 }
@@ -978,6 +1979,27 @@ final _attachmentTarget = ComposerTarget.plugin(
         context.raw.trim().isNotEmpty || context.completedUploadCount > 0,
     emojiUsageContext: const EmojiUsageContext(
       owner: PluginId('attachments'),
+      name: 'message',
+    ),
+  ),
+);
+
+final _markdownPluginTarget = ComposerTarget.plugin(
+  siteUrl: 'https://meta.discourse.org',
+  topicTitle: 'Markdown plugin message',
+  policy: ComposerTargetPolicy(
+    kind: const ComposerTargetKind(
+      owner: PluginId('markdown-plugin'),
+      name: 'message',
+    ),
+    draftKey: 'markdown-plugin/message',
+    uploadType: const ComposerUploadType('composer'),
+    uploadDisposition: ComposerUploadDisposition.insertMarkdown,
+    uploadsEnabled: true,
+    supportsEditing: true,
+    validate: (context) => context.raw.trim().isNotEmpty,
+    emojiUsageContext: const EmojiUsageContext(
+      owner: PluginId('markdown-plugin'),
       name: 'message',
     ),
   ),

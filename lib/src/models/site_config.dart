@@ -22,6 +22,7 @@ class SiteConfig {
     this.simultaneousUploads = defaultSimultaneousUploads,
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
+    this.enableAutoGridImages = true,
     this.minSearchTermLength = defaultMinSearchTermLength,
     this.logSearchQueries = true,
     this.groupDirectoryEnabled = true,
@@ -115,6 +116,7 @@ class SiteConfig {
       simultaneousUploads: _simultaneousUploads(json['simultaneous_uploads']),
       maxImageWidth: _positiveInt(json['max_image_width'], 690),
       maxImageHeight: _positiveInt(json['max_image_height'], 500),
+      enableAutoGridImages: json['enable_auto_grid_images'] != false,
       minSearchTermLength:
           jsonIntOrNull(json['min_search_term_length'])?.clamp(1, 100) ??
           defaultMinSearchTermLength,
@@ -179,6 +181,7 @@ class SiteConfig {
     simultaneousUploads: _simultaneousUploads(json['simultaneousUploads']),
     maxImageWidth: _positiveInt(json['maxImageWidth'], 690),
     maxImageHeight: _positiveInt(json['maxImageHeight'], 500),
+    enableAutoGridImages: json['enableAutoGridImages'] != false,
     minSearchTermLength:
         jsonIntOrNull(json['minSearchTermLength'])?.clamp(1, 100) ??
         defaultMinSearchTermLength,
@@ -230,6 +233,7 @@ class SiteConfig {
       'simultaneousUploads': simultaneousUploads,
       'maxImageWidth': maxImageWidth,
       'maxImageHeight': maxImageHeight,
+      'enableAutoGridImages': enableAutoGridImages,
       'minSearchTermLength': minSearchTermLength,
       'logSearchQueries': logSearchQueries,
       'groupDirectoryEnabled': groupDirectoryEnabled,
@@ -276,6 +280,9 @@ class SiteConfig {
   final int simultaneousUploads;
   final int maxImageWidth;
   final int maxImageHeight;
+
+  /// Whether batches of images should be grouped using core's grid markup.
+  final bool enableAutoGridImages;
   final int minSearchTermLength;
   final bool logSearchQueries;
   final bool groupDirectoryEnabled;
@@ -387,6 +394,7 @@ class SiteConfig {
     simultaneousUploads: simultaneousUploads,
     maxImageWidth: maxImageWidth,
     maxImageHeight: maxImageHeight,
+    enableAutoGridImages: enableAutoGridImages,
     minSearchTermLength: minSearchTermLength,
     logSearchQueries: logSearchQueries,
     groupDirectoryEnabled: groupDirectoryEnabled,
@@ -428,6 +436,7 @@ class SiteConfig {
       other.simultaneousUploads == simultaneousUploads &&
       other.maxImageWidth == maxImageWidth &&
       other.maxImageHeight == maxImageHeight &&
+      other.enableAutoGridImages == enableAutoGridImages &&
       other.minSearchTermLength == minSearchTermLength &&
       other.logSearchQueries == logSearchQueries &&
       other.groupDirectoryEnabled == groupDirectoryEnabled &&
@@ -465,6 +474,7 @@ class SiteConfig {
     simultaneousUploads,
     maxImageWidth,
     maxImageHeight,
+    enableAutoGridImages,
     minSearchTermLength,
     logSearchQueries,
     groupDirectoryEnabled,
