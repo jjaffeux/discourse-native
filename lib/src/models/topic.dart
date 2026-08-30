@@ -552,8 +552,12 @@ class TopicList {
   /// Core's topic poster summary contains at most five users per topic.
   static const int maximumUsersPerPage = maximumPageSize * 5;
 
+  /// Lazy topic lists embed at most each topic's category and one parent.
+  static const int maximumCategoriesPerPage = maximumPageSize * 2;
+
   const TopicList({
     required this.topics,
+    this.categories = const [],
     this.moreTopicsUrl,
     this.canCreateTopic = false,
     this.filterOptions = const [],
@@ -585,6 +589,13 @@ class TopicList {
           if (value is Map<String, dynamic>)
             Topic.fromJson(value, avatars, siteUrl, extensions: extensions),
       ]),
+      categories: List.unmodifiable([
+        for (final value
+            in jsonObjects(
+              list['categories'],
+            ).take(maximumCategoriesPerPage))
+          TopicCategory.fromJson(value),
+      ]),
       moreTopicsUrl: jsonText(list['more_topics_url']),
       canCreateTopic: list['can_create_topic'] == true,
       filterOptions: List.unmodifiable([
@@ -595,6 +606,10 @@ class TopicList {
   }
 
   final List<Topic> topics;
+
+  /// Category badges core embeds for this page when lazy loading is enabled.
+  /// The set contains the categories used by the topics and their parents.
+  final List<TopicCategory> categories;
 
   /// Where the next page lives, as Discourse reports it, or null at the end.
   final String? moreTopicsUrl;
@@ -713,7 +728,6 @@ class TopicCategory with Storable<TopicCategory> {
     required this.color,
     this.slug = '',
     this.parentCategoryId,
-    this.subcategoryIds = const [],
     this.permission,
     this.minimumRequiredTags = 0,
     this.styleType = 'square',
@@ -735,10 +749,6 @@ class TopicCategory with Storable<TopicCategory> {
     parentCategoryId: json['parent_category_id'] == null
         ? null
         : jsonInt(json['parent_category_id']),
-    subcategoryIds: List.unmodifiable([
-      for (final value in jsonArray(json['subcategory_ids']))
-        if (jsonIntOrNull(value) case final id? when id > 0) id,
-    ]),
     permission: jsonIntOrNull(json['permission']),
     minimumRequiredTags: jsonInt(json['minimum_required_tags']),
     styleType: jsonText(json['style_type']) ?? 'square',
@@ -769,11 +779,6 @@ class TopicCategory with Storable<TopicCategory> {
   /// subcategory — parent on the left, child on the right — and which
   /// therefore needs a second colour to look up.
   final int? parentCategoryId;
-
-  /// Every direct child advertised by a category-list page. Lazy category
-  /// responses embed only the first few children, so callers use these ids to
-  /// resolve the rest in one exact lookup.
-  final List<int> subcategoryIds;
 
   /// `1` is Discourse's full permission: topics may be created here.
   final int? permission;
@@ -820,7 +825,6 @@ class TopicCategory with Storable<TopicCategory> {
           other.color == color &&
           other.slug == slug &&
           other.parentCategoryId == parentCategoryId &&
-          listEquals(other.subcategoryIds, subcategoryIds) &&
           other.permission == permission &&
           other.minimumRequiredTags == minimumRequiredTags &&
           other.styleType == styleType &&
@@ -840,7 +844,6 @@ class TopicCategory with Storable<TopicCategory> {
     color,
     slug,
     parentCategoryId,
-    Object.hashAll(subcategoryIds),
     permission,
     minimumRequiredTags,
     styleType,

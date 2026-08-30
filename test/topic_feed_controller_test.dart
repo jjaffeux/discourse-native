@@ -385,7 +385,7 @@ void main() {
       credentials: credentials,
       lifecycle: SiteLifecycle(),
       store: store,
-      onFeedLoaded: (_, _, _) => loaded = true,
+      onFeedLoaded: (_, _, _, _) => loaded = true,
     );
 
     final loading = guarded.load(

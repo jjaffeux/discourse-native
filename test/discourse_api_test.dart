@@ -1847,6 +1847,14 @@ void _feedGroups() {
                 'topic_list': {
                   'can_create_topic': true,
                   'more_topics_url': '/latest?page=1',
+                  'categories': [
+                    {
+                      'id': 5,
+                      'name': 'Support docs',
+                      'color': '00AEEF',
+                      'parent_category_id': 2,
+                    },
+                  ],
                   'topics': [
                     {
                       'id': 42,
@@ -1897,6 +1905,9 @@ void _feedGroups() {
         ]);
         expect(list.moreTopicsUrl, '/latest?page=1');
         expect(list.canCreateTopic, isTrue);
+        expect(list.categories.single.id, 5);
+        expect(list.categories.single.name, 'Support docs');
+        expect(list.categories.single.parentCategoryId, 2);
 
         // Site-relative templates are absolutised, absolute ones left alone, and
         // a poster with no matching user is dropped rather than crashing.
@@ -1983,7 +1994,6 @@ void _feedGroups() {
                       'topic_count': '12',
                       'position': 3,
                       'notification_level': 0,
-                      'subcategory_ids': [2, 4],
                       'topics': [
                         {
                           'id': 101,
@@ -2058,7 +2068,6 @@ void _feedGroups() {
         expect(categories.first.topicCount, 12);
         expect(categories.first.position, 3);
         expect(categories.first.notificationLevel, 0);
-        expect(categories.first.subcategoryIds, [2, 4]);
         expect(categories.first.isMuted, isTrue);
         expect(categories.first.featuredTopics.map((topic) => topic.id), [
           101,
@@ -2163,7 +2172,6 @@ void _feedGroups() {
         int position = 3,
         bool isUncategorized = false,
         int notificationLevel = 0,
-        List<int> subcategoryIds = const [2],
         List<CategoryFeaturedTopic> featuredTopics = const [
           CategoryFeaturedTopic(id: 101, title: 'A topic', slug: 'a-topic'),
         ],
@@ -2179,7 +2187,6 @@ void _feedGroups() {
         position: position,
         isUncategorized: isUncategorized,
         notificationLevel: notificationLevel,
-        subcategoryIds: subcategoryIds,
         featuredTopics: featuredTopics,
       );
 
@@ -2201,7 +2208,6 @@ void _feedGroups() {
         category(position: 4),
         category(isUncategorized: true),
         category(notificationLevel: 1),
-        category(subcategoryIds: const [3]),
         category(
           featuredTopics: const [
             CategoryFeaturedTopic(
@@ -2225,7 +2231,6 @@ void _feedGroups() {
         'topic_count': 'many',
         'position': false,
         'notification_level': false,
-        'subcategory_ids': [null, false, 0, -1, 'oops'],
         'topics': [
           null,
           'topic',
@@ -2242,7 +2247,6 @@ void _feedGroups() {
       expect(category.position, isNull);
       expect(category.isUncategorized, isFalse);
       expect(category.notificationLevel, 1);
-      expect(category.subcategoryIds, isEmpty);
       expect(category.isMuted, isFalse);
       expect(category.featuredTopics, isEmpty);
     });
@@ -2417,6 +2421,50 @@ void _feedGroups() {
       expect(requested.single.queryParametersAll['ids[]'], ['6']);
       expect(categories.single.id, 6);
       expect(categories.single.parentCategoryId, 5);
+      expect(categories.single.canCreateTopic, isTrue);
+    });
+
+    test('server-searches a bounded lazy category chooser page', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'categories': [
+                {
+                  'id': 6,
+                  'name': 'Support docs',
+                  'color': '00AEEF',
+                  'parent_category_id': 5,
+                  'permission': 1,
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final categories = await api.searchCategories(
+        siteUrl: 'https://example.com',
+        term: '  support docs  ',
+        includeUncategorized: false,
+        apiKey: 'key',
+        clientId: 'client',
+      );
+
+      expect(sent.method, 'POST');
+      expect(sent.url.path, '/categories/search.json');
+      expect(sent.headers['User-Api-Key'], 'key');
+      expect(sent.headers['User-Api-Client-Id'], 'client');
+      expect(jsonDecode(sent.body), {
+        'term': 'support docs',
+        'include_uncategorized': false,
+        'include_subcategories': true,
+        'limit': 25,
+      });
+      expect(categories.single.id, 6);
       expect(categories.single.canCreateTopic, isTrue);
     });
 

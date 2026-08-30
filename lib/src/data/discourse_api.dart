@@ -124,6 +124,8 @@ class DiscourseApi
   static const int minimumApiVersion = 2;
   static const int maximumSearchTermLength = 2048;
   static const int maximumAutocompleteResults = TopicTagSearch.maximumResults;
+  static const int maximumCategorySearchTermLength = 250;
+  static const int maximumCategorySearchResults = 25;
   static const int maximumRecentNotifications = 60;
   static const int maximumUserMenuBookmarkRows = 20;
   static const int maximumUserActivityPageSize = UserActivityPage.maximumItems;
@@ -2021,6 +2023,36 @@ class DiscourseApi
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
+    );
+    return List.unmodifiable([
+      for (final category in jsonObjects(body['categories']))
+        TopicCategory.fromJson(category),
+    ]);
+  }
+
+  /// The bounded server-side search used by core's lazy category chooser.
+  Future<List<TopicCategory>> searchCategories({
+    required String siteUrl,
+    required String term,
+    required String apiKey,
+    bool includeUncategorized = true,
+    String? clientId,
+  }) async {
+    final normalized = term.trim();
+    final bounded = normalized.length <= maximumCategorySearchTermLength
+        ? normalized
+        : normalized.substring(0, maximumCategorySearchTermLength);
+    final body = await _transport.postObject(
+      Uri.parse('$siteUrl/categories/search.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'term': bounded,
+        'include_uncategorized': includeUncategorized,
+        'include_subcategories': true,
+        'limit': maximumCategorySearchResults,
+      },
     );
     return List.unmodifiable([
       for (final category in jsonObjects(body['categories']))

@@ -3445,7 +3445,7 @@ void main() {
       );
     });
 
-    testWidgets('category badges resolve an off-page subcategory by id', (
+    testWidgets('category badges use an embedded off-page subcategory', (
       tester,
     ) async {
       final api = FakeDiscourseApi(
@@ -3462,14 +3462,17 @@ void main() {
         categoryList: const [
           TopicCategory(id: 5, name: 'Support', color: '0088CC'),
         ],
-        categoryLookupList: const [
-          TopicCategory(
-            id: 6,
-            name: 'Support docs',
-            color: '00AEEF',
-            parentCategoryId: 5,
-          ),
-        ],
+        feedCategoriesByPath: const {
+          '/latest.json': [
+            TopicCategory(id: 5, name: 'Support', color: '0088CC'),
+            TopicCategory(
+              id: 6,
+              name: 'Support docs',
+              color: '00AEEF',
+              parentCategoryId: 5,
+            ),
+          ],
+        },
       );
 
       await pumpShell(tester, desktop, api: api);
@@ -3481,7 +3484,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(api.categoryIdsRequested.any((ids) => ids.contains(6)), isTrue);
+      expect(api.categoryIdsRequested, isEmpty);
     });
 
     testWidgets('topic tags render after the category in server order', (
@@ -4746,7 +4749,7 @@ void main() {
     );
 
     testWidgets(
-      'uncategorized sidebar picker loads a paginated subcategory and saves it',
+      'uncategorized sidebar picker server-searches and saves a subcategory',
       (tester) async {
         final previousPlatform = debugDefaultTargetPlatformOverride;
         debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
@@ -4755,7 +4758,6 @@ void main() {
             id: 5,
             name: 'Support',
             color: '0088CC',
-            subcategoryIds: [6],
             permission: 1,
           );
           const supportDocs = TopicCategory(
@@ -4768,11 +4770,11 @@ void main() {
           final base = detail();
           final api = FakeDiscourseApi(
             feeds: {'/latest.json': listed},
-            categoryPages: const {
-              1: [support],
-              2: [],
+            categoryList: const [support],
+            categorySearches: const {
+              '': [support],
+              'docs': [supportDocs],
             },
-            categoryLookupList: const [supportDocs],
             topics: {
               7: (detail: base.detail.copyWith(canEdit: true), posts: base.posts),
             },
@@ -4878,6 +4880,9 @@ void main() {
             supportTile.titleTextStyle?.fontSize,
             DiscourseTypography.fontDown1,
           );
+          await tester.enterText(categoryQuery, 'docs');
+          await tester.pump(const Duration(milliseconds: 250));
+          await tester.pumpAndSettle();
           final supportDocsTile = tester.widget<ListTile>(
             find.descendant(
               of: find.byKey(const ValueKey('topic-category-option-6')),
@@ -4888,11 +4893,8 @@ void main() {
             supportDocsTile.contentPadding,
             const EdgeInsets.only(left: 26, right: 10),
           );
-          expect(api.categoryPagesRequested, [1, 2]);
-          expect(
-            api.categoryIdsRequested.any((ids) => ids.contains(6)),
-            isTrue,
-          );
+          expect(api.categoryPagesRequested, isNot(contains(2)));
+          expect(api.categorySearchTerms, ['', 'docs']);
           await tester.tap(
             find.byKey(const ValueKey('topic-category-option-6')),
           );
