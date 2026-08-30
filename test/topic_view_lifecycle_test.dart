@@ -2075,14 +2075,11 @@ void main() {
     for (final action in actions) {
       expect(action, findsOneWidget);
     }
-    expect(
-      actions.map((action) => tester.widget<DButton>(action).variant),
-      [
-        DButtonVariant.standard,
-        DButtonVariant.primary,
-        DButtonVariant.standard,
-      ],
-    );
+    expect(actions.map((action) => tester.widget<DButton>(action).variant), [
+      DButtonVariant.standard,
+      DButtonVariant.primary,
+      DButtonVariant.standard,
+    ]);
 
     await tester.tap(find.text('Latest post'));
     await tester.pumpAndSettle();

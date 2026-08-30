@@ -484,9 +484,7 @@ ContentRoute _topic(int id, String title) =>
 
 SidebarDestination _destination(DiscourseInstance forum, String id) => forum
     .sections
-    .expand(
-      (section) => [...section.destinations, ...section.moreDestinations],
-    )
+    .expand((section) => [...section.destinations, ...section.moreDestinations])
     .singleWhere((destination) => destination.id == id);
 
 List<String> _routeIds(ShellController controller) => [

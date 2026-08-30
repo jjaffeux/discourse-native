@@ -427,11 +427,7 @@ void main() {
         () => TopicTrackingState.fromJson(loose),
         loose,
       );
-      probe(
-        'TrackedTopicState',
-        () => TrackedTopicState.fromJson(json),
-        json,
-      );
+      probe('TrackedTopicState', () => TrackedTopicState.fromJson(json), json);
       probe(
         'TopicComposerCapabilities',
         () => TopicComposerCapabilities.fromJson(json),

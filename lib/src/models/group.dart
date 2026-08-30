@@ -746,12 +746,7 @@ final class GroupMembershipMutationResult {
 /// One forum invitation scoped to this group.
 @immutable
 final class GroupInvite {
-  const GroupInvite({
-    required this.id,
-    this.link,
-    this.email,
-    this.expiresAt,
-  });
+  const GroupInvite({required this.id, this.link, this.email, this.expiresAt});
 
   factory GroupInvite.fromWire(Map<String, dynamic> json) => GroupInvite(
     id: jsonInt(json['id']),
