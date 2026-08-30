@@ -311,8 +311,9 @@ void main() {
         expect(style.minimumSize?.resolve({}), const Size(0, 32));
         expect(
           style.padding?.resolve({}),
-          const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+          const EdgeInsets.symmetric(horizontal: 11.4, vertical: 9),
         );
+        expect(style.visualDensity, VisualDensity.standard);
       }
 
       expect(theme.bottomSheetTheme.modalBackgroundColor, source.secondary);

@@ -617,12 +617,22 @@ abstract final class AppTheme {
     final buttonGeometry = ButtonStyle(
       minimumSize: const WidgetStatePropertyAll(Size(0, 32)),
       padding: const WidgetStatePropertyAll(
-        EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        EdgeInsets.symmetric(
+          // Keep Material call sites at the same regular, font-relative
+          // geometry as DButton. The extra pixel accounts for the border
+          // Flutter paints inside an outlined button's layout box.
+          horizontal: DiscourseTypography.base * 0.65 + 1,
+          vertical: DiscourseTypography.base * 0.5 + 1,
+        ),
       ),
       shape: WidgetStatePropertyAll(buttonShape),
       textStyle: const WidgetStatePropertyAll(
         TextStyle(fontWeight: FontWeight.normal),
       ),
+      // Flutter's desktop density removes eight pixels of vertical padding,
+      // making ordinary actions look substantially smaller than DButtons.
+      // Compact toolbars opt into compact density at their own call sites.
+      visualDensity: VisualDensity.standard,
     );
     // Flutter cannot express core's 0 8px 60px CSS shadow directly through a
     // dialog theme. Elevation 24 gives these native surfaces comparable depth.
