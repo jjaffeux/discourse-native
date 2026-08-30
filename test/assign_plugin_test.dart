@@ -282,7 +282,7 @@ void main() {
     expect(contribution?.entries.single.onInvokeAnchored, isNotNull);
   });
 
-  testWidgets('unassigned topic uses the first row of a standalone section', (
+  testWidgets('unassigned topic uses an Assign button in its section', (
     tester,
   ) async {
     const registry = PluginRegistry([AssignPlugin()]);
@@ -313,7 +313,9 @@ void main() {
 
     expect(section.layout, TopicPropertySectionLayout.standalone);
     expect(section.values, hasLength(1));
-    expect(find.text('Topic · Unassigned'), findsOneWidget);
+    expect(find.text('Topic · Unassigned'), findsNothing);
+    expect(find.text('Assign'), findsOneWidget);
+    expect(find.byTooltip('Assign topic'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(const Key('assign-topic-property')),
@@ -324,30 +326,32 @@ void main() {
       findsOneWidget,
     );
     final action = find.byKey(const Key('assign-topic-property'));
+    final button = find.byKey(const Key('assign-topic-button'));
     final icon = tester.widget<DIcon>(
       find.descendant(
-        of: action,
+        of: button,
         matching: find.byWidgetPredicate(
           (widget) => widget is DIcon && widget.icon == DIcons.userPlus,
         ),
       ),
     );
     final label = tester.widget<Text>(
-      find.descendant(of: action, matching: find.text('Topic · Unassigned')),
+      find.descendant(of: button, matching: find.text('Assign')),
     );
-    final inkWell = tester.widget<InkWell>(
-      find.descendant(of: action, matching: find.byType(InkWell)),
-    );
-    expect(icon.size, 14);
+    final inkWell = tester.widget<InkWell>(button);
+    expect(icon.size, 11);
     expect(
       label.style?.fontSize,
-      AppTheme.light.textTheme.labelMedium?.fontSize,
+      AppTheme.light.textTheme.labelSmall?.fontSize,
     );
     expect(inkWell.mouseCursor, SystemMouseCursors.click);
-    expect(inkWell.hoverColor, Colors.transparent);
-    expect(tester.getSize(action).height, lessThanOrEqualTo(30));
+    expect(tester.getSize(button).height, lessThanOrEqualTo(24));
     expect(
-      tester.getSemantics(action),
+      tester.getSize(button).width,
+      lessThan(tester.getSize(action).width * 0.75),
+    );
+    expect(
+      tester.getSemantics(button),
       isSemantics(
         label: 'Topic unassigned. Assign topic',
         isButton: true,

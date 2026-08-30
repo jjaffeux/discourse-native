@@ -191,28 +191,37 @@ final class AssignPlugin
         label: 'Assignments',
         layout: TopicPropertySectionLayout.standalone,
         values: [
-          _TopicAssignmentPropertyRow(
-            key: const Key('assign-topic-property'),
-            targetLabel: 'Topic',
-            assignment: direct,
-            actionLabel: canAssign
-                ? direct == null
-                      ? 'Assign topic'
-                      : 'Edit topic assignment'
-                : null,
-            actionIcon: canAssign && direct != null ? DIcons.pencil : null,
-            onTap: canAssign
-                ? (anchorContext) => unawaited(
-                    showAssignmentEditor(
-                      context: anchorContext,
-                      anchorContext: anchorContext,
-                      siteUrl: siteUrl,
-                      target: target,
-                      existing: direct,
-                    ),
-                  )
-                : null,
-          ),
+          if (direct == null && canAssign)
+            _AssignTopicButton(
+              key: const Key('assign-topic-property'),
+              onTap: (anchorContext) => unawaited(
+                showAssignmentEditor(
+                  context: anchorContext,
+                  anchorContext: anchorContext,
+                  siteUrl: siteUrl,
+                  target: target,
+                ),
+              ),
+            )
+          else
+            _TopicAssignmentPropertyRow(
+              key: const Key('assign-topic-property'),
+              targetLabel: 'Topic',
+              assignment: direct,
+              actionLabel: canAssign ? 'Edit topic assignment' : null,
+              actionIcon: canAssign ? DIcons.pencil : null,
+              onTap: canAssign
+                  ? (anchorContext) => unawaited(
+                      showAssignmentEditor(
+                        context: anchorContext,
+                        anchorContext: anchorContext,
+                        siteUrl: siteUrl,
+                        target: target,
+                        existing: direct,
+                      ),
+                    )
+                  : null,
+            ),
           for (final assignment in postAssignments)
             _TopicAssignmentPropertyRow(
               key: Key(
@@ -506,6 +515,64 @@ class _AssignmentRows extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _AssignTopicButton extends StatelessWidget {
+  const _AssignTopicButton({super.key, required this.onTap});
+
+  final ValueChanged<BuildContext> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.onSurfaceVariant;
+    const shape = StadiumBorder();
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Builder(
+        builder: (anchorContext) => Semantics(
+          button: true,
+          label: 'Topic unassigned. Assign topic',
+          onTap: () => onTap(anchorContext),
+          child: ExcludeSemantics(
+            child: Tooltip(
+              message: 'Assign topic',
+              child: Material(
+                color: theme.colorScheme.surfaceContainerHigh,
+                shape: shape,
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  key: const Key('assign-topic-button'),
+                  onTap: () => onTap(anchorContext),
+                  mouseCursor: SystemMouseCursors.click,
+                  customBorder: shape,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DIcon(DIcons.userPlus, size: 11, color: color),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Assign',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: color,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _TopicAssignmentPropertyRow extends StatelessWidget {
