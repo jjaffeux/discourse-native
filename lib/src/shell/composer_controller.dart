@@ -1335,6 +1335,32 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     );
   }
 
+  /// Moves one member to [newIndex] while retaining the gallery and every
+  /// image's lossless Markdown source.
+  void reorderGalleryImage(
+    ComposerImageGalleryBlock gallery,
+    ComposerImageBlock image,
+    int newIndex,
+  ) {
+    final current = _currentGallery(gallery);
+    if (current == null || current.images.length < 2) return;
+    final oldIndex = current.images.indexWhere(
+      (candidate) =>
+          candidate.start == image.start &&
+          candidate.end == image.end &&
+          candidate.source == image.source,
+    );
+    if (oldIndex < 0 || newIndex < 0 || newIndex >= current.images.length) {
+      return;
+    }
+    if (oldIndex == newIndex) return;
+
+    final reordered = current.images.toList();
+    final member = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, member);
+    _replaceGallery(current, _galleryMarkdown(current.mode, reordered));
+  }
+
   /// Moves standalone [images] into [gallery] in their document order.
   void addExistingImagesToGallery(
     ComposerImageGalleryBlock gallery,

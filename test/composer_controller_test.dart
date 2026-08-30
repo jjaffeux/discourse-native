@@ -1863,6 +1863,29 @@ void main() {
         '[grid mode=carousel]${before.substring('[grid]'.length)}',
       );
     });
+
+    test('reorders gallery members without changing their image source', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.text.text =
+          '[grid mode=carousel]\n'
+          '![one|640x480](upload://one)\n'
+          '![two](upload://two)\n'
+          '![three](upload://three)\n'
+          '[/grid]';
+      final gallery = parseComposerImageGalleries(composer.text.text).single;
+
+      composer.reorderGalleryImage(gallery, gallery.images.first, 2);
+
+      final reordered = parseComposerImageGalleries(composer.text.text).single;
+      expect(reordered.mode, ComposerGalleryMode.carousel);
+      expect(reordered.images.map((image) => image.url), [
+        'upload://two',
+        'upload://three',
+        'upload://one',
+      ]);
+      expect(reordered.images.last.source, '![one|640x480](upload://one)');
+    });
   });
 }
 

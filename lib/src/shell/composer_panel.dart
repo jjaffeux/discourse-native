@@ -1175,6 +1175,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
   final TextEditingController _imageAlt = TextEditingController();
   final ScrollController _scroll = ScrollController();
   late final ValueChanged<ComposerImageGalleryBlock> _editImageGallery;
+  late final void Function(ComposerImageGalleryBlock, ComposerImageBlock, int)
+  _reorderImageGallery;
   late final TextInputFormatter _selectedPillInputFormatter;
   late final TextInputFormatter _renderedEmojiInputFormatter;
   TextSelection _lastQuoteSelection = const TextSelection.collapsed(offset: -1);
@@ -1184,6 +1186,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   void initState() {
     super.initState();
     _editImageGallery = _selectGallery;
+    _reorderImageGallery = _reorderGalleryImage;
     _selectedPillInputFormatter = _SelectedPillInputFormatter(
       () => _keyboardSelectedPill != null || _currentSelectedGallery != null,
     );
@@ -1195,6 +1198,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _lastQuoteSelection = widget.composer.text.selection;
     widget.composer.text.imageScrollController = _scroll;
     widget.composer.text.onEditImageGallery = _editImageGallery;
+    widget.composer.text.onReorderImageGallery = _reorderImageGallery;
     widget.composer.text.addListener(_syncSelectionToolbar);
     widget.composer.focus.addListener(_syncSelectionToolbar);
     _scroll.addListener(_syncSelectionToolbar);
@@ -1212,6 +1216,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _editImageGallery,
     )) {
       oldWidget.composer.text.onEditImageGallery = null;
+    }
+    if (identical(
+      oldWidget.composer.text.onReorderImageGallery,
+      _reorderImageGallery,
+    )) {
+      oldWidget.composer.text.onReorderImageGallery = null;
     }
     oldWidget.composer.text.clearKeyboardPillSelection();
     if (_pointerDownImage case final image?) {
@@ -1248,6 +1258,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
     widget.composer.text.imageScrollController = _scroll;
     widget.composer.text.onEditImageGallery = _editImageGallery;
+    widget.composer.text.onReorderImageGallery = _reorderImageGallery;
     _lastQuoteSelection = widget.composer.text.selection;
     widget.composer.text.addListener(_syncSelectionToolbar);
     widget.composer.focus.addListener(_syncSelectionToolbar);
@@ -1262,6 +1273,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
     widget.composer.focus.removeListener(_syncSelectionToolbar);
     if (identical(widget.composer.text.onEditImageGallery, _editImageGallery)) {
       widget.composer.text.onEditImageGallery = null;
+    }
+    if (identical(
+      widget.composer.text.onReorderImageGallery,
+      _reorderImageGallery,
+    )) {
+      widget.composer.text.onReorderImageGallery = null;
     }
     widget.composer.text.clearKeyboardPillSelection();
     _releasePointerDownPillCollapse();
@@ -1792,6 +1809,19 @@ class _ComposerEditorState extends State<ComposerEditor> {
     widget.composer.text.releaseImagePointerEdit(image);
     setState(() => _selectedImage = null);
     widget.composer.moveImageOutOfGallery(gallery, image);
+    widget.composer.focus.requestFocus();
+  }
+
+  void _reorderGalleryImage(
+    ComposerImageGalleryBlock gallery,
+    ComposerImageBlock image,
+    int newIndex,
+  ) {
+    if (_selectedImage case final selected?) {
+      widget.composer.text.releaseImagePointerEdit(selected);
+      setState(() => _selectedImage = null);
+    }
+    widget.composer.reorderGalleryImage(gallery, image, newIndex);
     widget.composer.focus.requestFocus();
   }
 
@@ -2847,18 +2877,6 @@ class _GalleryComposerMenu extends StatelessWidget {
                       style: const ButtonStyle(
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.standard,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: onDismiss,
-                      icon: const Icon(Icons.close, size: 18),
-                      tooltip: 'Close gallery controls',
-                      constraints: const BoxConstraints.tightFor(
-                        width: 44,
-                        height: 44,
-                      ),
-                      style: const ButtonStyle(
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                     ),
                   ],

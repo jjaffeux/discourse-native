@@ -2,6 +2,7 @@ import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_galleries.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_image_gallery.dart';
+import 'package:discourse_native/src/shell/composer_images.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -23,7 +24,7 @@ const _source =
     'After';
 
 void main() {
-  testWidgets('draws one dashed gallery made of square cropped tiles', (
+  testWidgets('draws one full-width gallery with options below square tiles', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
@@ -72,16 +73,18 @@ void main() {
     final galleryRect = tester.getRect(
       find.byType(ComposerImageGalleryPreview),
     );
+    expect(galleryRect.width, tester.getSize(find.byType(Scaffold)).width);
     final controlRect = tester.getRect(
       find.byType(ComposerImageGalleryControl),
     );
-    expect(controlRect.size, const Size(44, 44));
+    expect(controlRect.height, ComposerImageGalleryControl.extent);
     expect(galleryRect.contains(controlRect.center), isTrue);
     for (final key in keys) {
       final tileRect = tester.getRect(find.byKey(key));
       expect(galleryRect.contains(tileRect.topLeft), isTrue);
       expect(galleryRect.contains(tileRect.bottomRight), isTrue);
       expect(tileRect.overlaps(controlRect), isFalse);
+      expect(controlRect.top, greaterThan(tileRect.bottom));
     }
 
     expect(find.bySemanticsLabel('Image gallery, 3 images'), findsOneWidget);
@@ -96,9 +99,9 @@ void main() {
       ),
     );
     expect(
-      tester.getSemantics(find.bySemanticsLabel('Edit image gallery')),
+      tester.getSemantics(find.bySemanticsLabel('Gallery options')),
       isSemantics(
-        label: 'Edit image gallery',
+        label: 'Gallery options',
         hint: '3 images. Add or remove images.',
         isButton: true,
         hasEnabledState: true,
@@ -112,7 +115,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pump();
     expect(
-      tester.getSemantics(find.bySemanticsLabel('Edit image gallery')),
+      tester.getSemantics(find.bySemanticsLabel('Gallery options')),
       isSemantics(isFocusable: true, isFocused: true),
     );
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -151,7 +154,7 @@ void main() {
     expect(artwork.height, ComposerImageGalleryPreview.tileExtent);
   });
 
-  testWidgets('fits tiles and its control in a narrow composer', (
+  testWidgets('fills a narrow composer with options below the tiles', (
     tester,
   ) async {
     final gallery = parseComposerImageGalleries(_source).single;
@@ -183,14 +186,12 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(
-      tester.getSize(find.byType(ComposerImageGalleryPreview)).width,
-      lessThanOrEqualTo(280),
-    );
+    expect(tester.getSize(find.byType(ComposerImageGalleryPreview)).width, 280);
     expect(find.byType(ComposerImageGalleryTile), findsNWidgets(3));
+    expect(find.text('Gallery options'), findsOneWidget);
     expect(
-      tester.getSize(find.byType(ComposerImageGalleryControl)),
-      const Size(44, 44),
+      tester.getSize(find.byType(ComposerImageGalleryControl)).height,
+      ComposerImageGalleryControl.extent,
     );
   });
 
@@ -391,9 +392,10 @@ void main() {
     expect(find.byType(ComposerImageGalleryPreview), findsOneWidget);
     expect(find.byType(ComposerImageGalleryTile), findsNothing);
     expect(find.byType(ComposerImageGalleryControl), findsOneWidget);
+    expect(find.text('Gallery options'), findsOneWidget);
     expect(
-      tester.getSize(find.byType(ComposerImageGalleryControl)),
-      const Size(44, 44),
+      tester.getSize(find.byType(ComposerImageGalleryControl)).height,
+      ComposerImageGalleryControl.extent,
     );
     final editable = tester.state<EditableTextState>(find.byType(EditableText));
     expect(editable.renderEditable.plainText.length, source.length);
@@ -457,6 +459,55 @@ void main() {
       find.byKey(const ValueKey('composer-gallery-toolbar')),
       findsOneWidget,
     );
+    expect(
+      tester
+          .widget<ComposerImageGalleryPreview>(
+            find.byType(ComposerImageGalleryPreview),
+          )
+          .highlighted,
+      isTrue,
+    );
+  });
+
+  testWidgets('dragging a tile onto another requests a reorder', (
+    tester,
+  ) async {
+    final gallery = parseComposerImageGalleries(_source).single;
+    ComposerImageBlock? moved;
+    int? destination;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: ComposerImageGalleryPreview(
+            gallery: gallery,
+            items: [
+              for (final image in gallery.images)
+                ComposerImageGalleryItem(
+                  image: image,
+                  url: null,
+                  imageKey: GlobalKey(),
+                  highlighted: false,
+                ),
+            ],
+            onReorder: (image, newIndex) {
+              moved = image;
+              destination = newIndex;
+            },
+          ),
+        ),
+      ),
+    );
+
+    final tiles = find.byType(ComposerImageGalleryTile);
+    final first = tester.getCenter(tiles.at(0));
+    final last = tester.getCenter(tiles.at(2));
+    await tester.dragFrom(first, last - first);
+    await tester.pumpAndSettle();
+
+    expect(moved, same(gallery.images.first));
+    expect(destination, 2);
   });
 }
 
