@@ -83,7 +83,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  # Drives the real app on a device, against the real network.
+  # Exercises platform integration on a real device.
   # Run with: flutter test integration_test -d <device>
   integration_test:
     sdk: flutter
