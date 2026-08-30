@@ -89,6 +89,7 @@ Widget? mentionWidgetBuilder(
   final username = label.startsWith('@')
       ? label.substring(1).toLowerCase()
       : label.toLowerCase();
+  final isGroupMention = element.classes.contains('mention-group');
 
   return InlineCustomWidget(
     // Baseline rather than middle: the pill has a real `Text` inside it, so it
@@ -96,9 +97,30 @@ Widget? mentionWidgetBuilder(
     child: MentionPill(
       label: label,
       baseStyle: baseStyle,
-      href: element.attributes['href'],
+      href: _mentionTarget(
+        element.attributes['href'],
+        isGroupMention: isGroupMention,
+      ),
       siteUrl: siteUrl,
       status: userStatuses[username],
     ),
   );
+}
+
+/// Discourse cooks group mentions as `/groups/:name`, which redirects to the
+/// canonical `/g/:name` page in a browser. The native router has no redirect
+/// round-trip, so give this one known piece of markup its canonical target.
+/// Ordinary `/groups` links remain untouched and continue through the normal
+/// link fallback.
+String? _mentionTarget(String? href, {required bool isGroupMention}) {
+  if (!isGroupMention || href == null) return href;
+  final uri = Uri.tryParse(href);
+  if (uri == null) return href;
+  final segments = uri.pathSegments;
+  if (segments.length != 2 ||
+      segments.first != 'groups' ||
+      segments.last.isEmpty) {
+    return href;
+  }
+  return uri.replace(pathSegments: ['', 'g', segments.last]).toString();
 }

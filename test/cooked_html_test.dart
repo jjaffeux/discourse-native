@@ -392,6 +392,10 @@ void main() {
 
       expect(find.byType(MentionPill), findsOneWidget);
       expect(find.text('@staff'), findsOneWidget);
+      expect(
+        tester.widget<MentionPill>(find.byType(MentionPill)).href,
+        '/g/staff',
+      );
     });
 
     testWidgets('one the site could not resolve stays text', (tester) async {
