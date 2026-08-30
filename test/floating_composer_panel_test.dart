@@ -7,6 +7,7 @@ import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -96,8 +97,8 @@ void main() {
     };
     for (final MapEntry(:key, :value) in corners.entries) {
       final corner = tester.getRect(find.byKey(ValueKey(key)));
-      expect(corner.size, const Size.square(32));
-      expect(corner.center, value);
+      expect(corner.size, const Size.square(38));
+      expect(corner.contains(value), isTrue);
     }
 
     final frame = tester.widget<Container>(
@@ -143,76 +144,195 @@ void main() {
     expect(fromBottom.bottom, closeTo(fromTop.bottom - 40, 1));
   });
 
-  testWidgets('highlights the rounded frame only over resize borders', (
+  testWidgets('uses visible macOS cursors across every rounded resize corner', (
     tester,
   ) async {
-    final composer = ComposerController(_replyTarget);
-    final shell = await _shell();
-    addTearDown(composer.dispose);
-    addTearDown(shell.dispose);
-    await _pumpFloatingPanel(tester, shell, composer);
+    await _withTargetPlatform(TargetPlatform.macOS, () async {
+      final composer = ComposerController(_replyTarget);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpFloatingPanel(tester, shell, composer);
 
-    final frameFinder = find.byKey(const ValueKey('composer-frame'));
-    final theme = Theme.of(tester.element(frameFinder));
-    Border frameBorder() {
-      final frame = tester.widget<Container>(frameFinder);
-      return (frame.decoration! as BoxDecoration).border! as Border;
-    }
+      final frameFinder = find.byKey(const ValueKey('composer-frame'));
+      final theme = Theme.of(tester.element(frameFinder));
+      Container frame() => tester.widget<Container>(frameFinder);
+      final restingDecoration = frame().decoration! as BoxDecoration;
+      final restingBorder = restingDecoration.border! as Border;
+      expect(restingBorder.top.color, theme.shell.divider);
+      expect(restingBorder.top.width, 1);
+      expect(frame().foregroundDecoration, isNull);
 
-    Border? resizeBorder() {
-      final frame = tester.widget<Container>(frameFinder);
-      return (frame.foregroundDecoration as BoxDecoration?)?.border as Border?;
-    }
+      final panel = tester.getRect(find.byType(ComposerPanel));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
 
-    expect(frameBorder().top.color, theme.shell.divider);
-    expect(frameBorder().top.width, 1);
-    expect(resizeBorder(), isNull);
+      await mouse.moveTo(panel.topCenter + const Offset(0, 1));
+      await tester.pump();
 
-    final panel = tester.getRect(find.byType(ComposerPanel));
-    final header = tester.getRect(
-      find.byKey(const ValueKey('composer-drag-handle')),
-    );
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: Offset.zero);
-    addTearDown(mouse.removePointer);
+      expect(
+        RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+        SystemMouseCursors.resizeUpDown,
+      );
+      expect(frame().decoration, restingDecoration);
+      expect(frame().foregroundDecoration, isNull);
 
-    await mouse.moveTo(panel.topCenter + const Offset(0, 1));
-    await tester.pump();
+      await mouse.moveTo(panel.center);
+      await tester.pump();
 
-    expect(resizeBorder()!.top.color, theme.colorScheme.primary);
-    expect(resizeBorder()!.top.width, 2);
-    expect(
-      tester.getRect(find.byKey(const ValueKey('composer-drag-handle'))),
-      header,
-    );
-    expect(
-      RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
-      SystemMouseCursors.resizeUpDown,
-    );
+      expect(frame().decoration, restingDecoration);
+      expect(frame().foregroundDecoration, isNull);
 
-    await mouse.moveTo(panel.center);
-    await tester.pump();
+      // The frame has a 22-pixel radius. Sampling from one tangent, through the
+      // midpoint, to the other tangent catches gaps that one center point misses.
+      const topLeftArc = [
+        Offset(21, 1),
+        Offset(14, 2),
+        Offset(7, 7),
+        Offset(2, 14),
+        Offset(1, 21),
+      ];
+      final corners = [
+        (
+          origin: panel.topLeft,
+          arc: topLeftArc,
+          cursor: SystemMouseCursors.resizeLeft,
+        ),
+        (
+          origin: panel.topRight,
+          arc: [for (final point in topLeftArc) Offset(-point.dx, point.dy)],
+          cursor: SystemMouseCursors.resizeRight,
+        ),
+        (
+          origin: panel.bottomLeft,
+          arc: [for (final point in topLeftArc) Offset(point.dx, -point.dy)],
+          cursor: SystemMouseCursors.resizeLeft,
+        ),
+        (
+          origin: panel.bottomRight,
+          arc: [for (final point in topLeftArc) -point],
+          cursor: SystemMouseCursors.resizeRight,
+        ),
+      ];
+      for (final corner in corners) {
+        for (final point in corner.arc) {
+          await mouse.moveTo(corner.origin + point);
+          await tester.pump();
 
-    expect(resizeBorder(), isNull);
+          expect(
+            RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+            corner.cursor,
+            reason: 'The visible rounded border at ${corner.origin + point}',
+          );
+          expect(frame().decoration, restingDecoration);
+          expect(frame().foregroundDecoration, isNull);
+        }
+      }
 
-    await mouse.moveTo(panel.topLeft + const Offset(7, 7));
-    await tester.pump();
+      await mouse.moveTo(Offset.zero);
+      await tester.pump();
 
-    expect(resizeBorder()!.top.color, theme.colorScheme.primary);
-    expect(resizeBorder()!.top.width, 2);
-    expect(
-      RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
-      SystemMouseCursors.resizeUpLeftDownRight,
-    );
-
-    await mouse.moveTo(Offset.zero);
-    await tester.pump();
-
-    expect(resizeBorder(), isNull);
-    expect(frameBorder().top.color, theme.shell.divider);
-    expect(frameBorder().top.width, 1);
-    expect(tester.getRect(find.byType(ComposerPanel)), panel);
+      expect(frame().decoration, restingDecoration);
+      expect(frame().foregroundDecoration, isNull);
+      expect(tester.getRect(find.byType(ComposerPanel)), panel);
+    });
   });
+
+  testWidgets(
+    'keeps diagonal resize cursors where the platform supports them',
+    (tester) async {
+      await _withTargetPlatform(TargetPlatform.linux, () async {
+        final composer = ComposerController(_replyTarget);
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        await _pumpFloatingPanel(tester, shell, composer);
+
+        final panel = tester.getRect(find.byType(ComposerPanel));
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+
+        await mouse.moveTo(panel.topLeft + const Offset(7, 7));
+        await tester.pump();
+        expect(
+          RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+          SystemMouseCursors.resizeUpLeftDownRight,
+        );
+
+        await mouse.moveTo(panel.topRight + const Offset(-7, 7));
+        await tester.pump();
+        expect(
+          RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+          SystemMouseCursors.resizeUpRightDownLeft,
+        );
+      });
+    },
+  );
+
+  testWidgets(
+    'top-right resize corner leaves the visible Close target usable',
+    (tester) async {
+      final composer = ComposerController(_replyTarget);
+      final shell = await _InteractionTrackingShellController.create();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpFloatingPanel(tester, shell, composer);
+
+      final close = tester.getRect(find.byTooltip('Close composer'));
+      final corner = tester.getRect(
+        find.byKey(const ValueKey('composer-resize-top-right')),
+      );
+      final overlap = close.intersect(corner);
+      expect(overlap.isEmpty, isFalse);
+
+      final visibleClosePoint = overlap.center;
+      await tester.tapAt(visibleClosePoint);
+      await tester.pump();
+
+      expect(
+        shell.closeCalls,
+        1,
+        reason:
+            'Close $close must win the hit test at its visible overlap '
+            '$visibleClosePoint with resize corner $corner.',
+      );
+    },
+  );
+
+  testWidgets(
+    'bottom-right resize corner leaves the visible submit target usable',
+    (tester) async {
+      final composer = ComposerController(_replyTarget);
+      composer.text.text = 'A reply';
+      final shell = await _InteractionTrackingShellController.create();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpFloatingPanel(tester, shell, composer);
+
+      final submitFinder = find.widgetWithText(FilledButton, 'Reply');
+      expect(tester.widget<FilledButton>(submitFinder).onPressed, isNotNull);
+      final submit = tester.getRect(submitFinder);
+      final corner = tester.getRect(
+        find.byKey(const ValueKey('composer-resize-bottom-right')),
+      );
+      final overlap = submit.intersect(corner);
+      expect(overlap.isEmpty, isFalse);
+
+      final visibleSubmitPoint = overlap.center;
+      await tester.tapAt(visibleSubmitPoint);
+      await tester.pump();
+
+      expect(
+        shell.submitCalls,
+        1,
+        reason:
+            'Submit $submit must win the hit test at its visible overlap '
+            '$visibleSubmitPoint with resize corner $corner.',
+      );
+    },
+  );
 
   testWidgets('resizes diagonally from opposite corners', (tester) async {
     final composer = ComposerController(_replyTarget);
@@ -418,6 +538,19 @@ void main() {
   });
 }
 
+Future<T> _withTargetPlatform<T>(
+  TargetPlatform platform,
+  Future<T> Function() body,
+) async {
+  final previous = debugDefaultTargetPlatformOverride;
+  debugDefaultTargetPlatformOverride = platform;
+  try {
+    return await body();
+  } finally {
+    debugDefaultTargetPlatformOverride = previous;
+  }
+}
+
 Future<ShellController> _shell() async {
   final shell = ShellController(
     instanceStore: FakeInstanceStore(),
@@ -454,6 +587,32 @@ Future<void> _pumpFloatingPanel(
     ),
   );
   await tester.pump();
+}
+
+final class _InteractionTrackingShellController extends ShellController {
+  _InteractionTrackingShellController()
+    : super(
+        instanceStore: FakeInstanceStore(),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+
+  int closeCalls = 0;
+  int submitCalls = 0;
+
+  static Future<_InteractionTrackingShellController> create() async {
+    final shell = _InteractionTrackingShellController();
+    await shell.load();
+    return shell;
+  }
+
+  @override
+  void closeComposer() => closeCalls++;
+
+  @override
+  Future<void> submitComposer() async => submitCalls++;
 }
 
 final class _DelayedComposerGeometryPersistence
