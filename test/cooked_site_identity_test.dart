@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -142,6 +143,27 @@ void main() {
 
     expect(api.sites, [sourceSite]);
     expect(controller.currentInstance?.url, selectedSite);
+  });
+
+  testWidgets('group mention taps open the source site group natively', (
+    tester,
+  ) async {
+    final launched = watchBrowser(tester);
+    final controller = await pumpCookedFromSource(
+      tester,
+      '<p><a class="mention-group" href="/groups/staff">@staff</a></p>',
+    );
+
+    controller.selectInstance(1);
+    await tester.pump();
+    expect(controller.currentInstance?.url, selectedSite);
+
+    await tester.tap(find.text('@staff'));
+    await tester.pump();
+
+    expect(controller.currentInstance?.url, sourceSite);
+    expect(controller.currentContent?.groupRoute, GroupRoute.detail('staff'));
+    expect(launched, isEmpty);
   });
 
   testWidgets('category art and navigation use the source site', (
