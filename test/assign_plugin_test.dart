@@ -335,11 +335,16 @@ void main() {
     final label = tester.widget<Text>(
       find.descendant(of: action, matching: find.text('Topic · Unassigned')),
     );
+    final inkWell = tester.widget<InkWell>(
+      find.descendant(of: action, matching: find.byType(InkWell)),
+    );
     expect(icon.size, 14);
     expect(
       label.style?.fontSize,
       AppTheme.light.textTheme.labelMedium?.fontSize,
     );
+    expect(inkWell.mouseCursor, SystemMouseCursors.click);
+    expect(inkWell.hoverColor, Colors.transparent);
     expect(tester.getSize(action).height, lessThanOrEqualTo(30));
     expect(
       tester.getSemantics(action),
