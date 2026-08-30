@@ -168,6 +168,52 @@ void main() {
   });
 
   testWidgets(
+    'grows with the draft, scrolls at the core viewport limit, and collapses after sending',
+    (tester) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      final bar = find.byKey(const ValueKey('chat-composer'));
+      final initialHeight = tester.getSize(bar).height;
+      expect(initialHeight, 58);
+      expect(_field(tester).expands, isFalse);
+      expect(_field(tester).minLines, 1);
+      expect(_field(tester).maxLines, isNull);
+
+      await tester.enterText(
+        _composerField(),
+        [for (var word = 0; word < 80; word++) 'word$word'].join(' '),
+      );
+      await tester.pump();
+
+      expect(tester.getSize(bar).height, greaterThan(initialHeight));
+
+      await tester.enterText(
+        _composerField(),
+        [for (var line = 0; line < 80; line++) 'line $line'].join('\n'),
+      );
+      await tester.pump();
+
+      final viewportHeight = MediaQuery.sizeOf(tester.element(bar)).height;
+      final fieldHeight = tester.getSize(_composerField()).height;
+      expect(fieldHeight, closeTo(viewportHeight * 0.25, 1));
+      expect(
+        _field(tester).scrollController!.position.maxScrollExtent,
+        greaterThan(0),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+      await tester.pumpAndSettle();
+
+      expect(tester.getSize(bar).height, initialHeight);
+    },
+  );
+
+  testWidgets(
     'the whole channel accepts an image and sends it as a chat attachment',
     (tester) async {
       const upload = ComposerUploadResult(
@@ -260,7 +306,7 @@ void main() {
       final message = ChatMessage(
         id: 7,
         channelId: 9,
-        raw: '**before**',
+        raw: '**before**\nsecond line\nthird line',
         cooked: '<p><strong>before</strong></p>',
         author: const ChatMessageAuthor(id: 7, username: 'reader'),
         createdAt: DateTime.utc(2026, 8, 11),
@@ -291,6 +337,9 @@ void main() {
       await tester.pumpWidget(_TestView(shell: fixture.shell));
       await tester.pumpAndSettle();
 
+      final compactComposerHeight = tester
+          .getSize(find.byKey(const ValueKey('chat-composer')))
+          .height;
       await tester.enterText(_composerField(), 'unrelated draft');
       final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await pointer.addPointer(location: Offset.zero);
@@ -310,7 +359,11 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Editing @reader'), findsOneWidget);
-      expect(_text(tester), '**before**');
+      expect(_text(tester), '**before**\nsecond line\nthird line');
+      expect(
+        tester.getSize(find.byKey(const ValueKey('chat-composer'))).height,
+        greaterThan(compactComposerHeight),
+      );
       expect(find.text('photo.png'), findsOneWidget);
       expect(find.byTooltip('Save edit'), findsOneWidget);
 
@@ -325,6 +378,10 @@ void main() {
       expect(request.uploadIds, [31]);
       expect(find.byKey(const ValueKey('chat-composer-editing')), findsNothing);
       expect(_text(tester), isEmpty);
+      expect(
+        tester.getSize(find.byKey(const ValueKey('chat-composer'))).height,
+        compactComposerHeight,
+      );
       expect(find.text('photo.png'), findsNothing);
     },
   );

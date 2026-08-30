@@ -650,48 +650,57 @@ class _ChatComposerState extends State<ChatComposer> {
       },
       child: Container(
         key: const ValueKey('chat-composer'),
-        height: 58,
+        constraints: const BoxConstraints(minHeight: 58),
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: theme.shell.divider),
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 excludeFromSemantics: true,
                 onTap: composer.focus.requestFocus,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 15, 0, 15),
-                  child: ComposerEditor(
-                    composer: composer,
-                    enableDropTarget: widget.uploadDropController == null,
-                    onSuggestionAction:
-                        ({
-                          required context,
-                          required composer,
-                          required suggestion,
-                          anchor,
-                        }) async {
-                          if (suggestion.action !=
-                              ComposerSuggestionAction.openEmojiPicker) {
-                            return;
-                          }
-                          await _pickEmoji(
-                            pickerContext: context,
-                            initialQuery:
-                                composer.autocomplete.trigger?.query ??
-                                suggestion.value,
-                            anchor: anchor,
-                          );
-                        },
-                    hintText: hint,
-                    textStyle: theme.textTheme.bodyMedium,
-                    hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 56),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 15, 0, 15),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.sizeOf(context).height * 0.25,
+                      ),
+                      child: ComposerEditor(
+                        composer: composer,
+                        expands: false,
+                        enableDropTarget: widget.uploadDropController == null,
+                        onSuggestionAction:
+                            ({
+                              required context,
+                              required composer,
+                              required suggestion,
+                              anchor,
+                            }) async {
+                              if (suggestion.action !=
+                                  ComposerSuggestionAction.openEmojiPicker) {
+                                return;
+                              }
+                              await _pickEmoji(
+                                pickerContext: context,
+                                initialQuery:
+                                    composer.autocomplete.trigger?.query ??
+                                    suggestion.value,
+                                anchor: anchor,
+                              );
+                            },
+                        hintText: hint,
+                        textStyle: theme.textTheme.bodyMedium,
+                        hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -707,6 +716,7 @@ class _ChatComposerState extends State<ChatComposer> {
                 return emojiEnabled
                     ? EmojiPickerAnchor(
                         child: Center(
+                          heightFactor: 1,
                           child: Builder(
                             builder: (buttonContext) => DButton.iconOnly(
                               key: const ValueKey('chat-composer-emoji'),
@@ -744,6 +754,7 @@ class _ChatComposerState extends State<ChatComposer> {
                 final gifs = PluginUiScope.maybe(context, chatGifsService);
                 return gifs?.isAvailable(widget.siteUrl) ?? false
                     ? Center(
+                        heightFactor: 1,
                         child: DButton.iconOnly(
                           key: const ValueKey('chat-composer-gif'),
                           onPressed:
@@ -769,6 +780,7 @@ class _ChatComposerState extends State<ChatComposer> {
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: composer.text,
               builder: (context, _, _) => Center(
+                heightFactor: 1,
                 child: DButton.iconOnly(
                   key: const ValueKey('chat-composer-send'),
                   onPressed:
@@ -800,7 +812,7 @@ class _ChatComposerState extends State<ChatComposer> {
               behavior: HitTestBehavior.opaque,
               excludeFromSemantics: true,
               onTap: composer.focus.requestFocus,
-              child: const SizedBox(width: 4),
+              child: const SizedBox(width: 4, height: 56),
             ),
           ],
         ),

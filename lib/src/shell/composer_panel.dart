@@ -987,6 +987,7 @@ class ComposerEditor extends StatefulWidget {
     required this.hintStyle,
     this.autofocus = true,
     this.enableDropTarget = true,
+    this.expands = true,
     this.onSuggestionAction,
   });
 
@@ -996,6 +997,11 @@ class ComposerEditor extends StatefulWidget {
   final TextStyle? hintStyle;
   final bool autofocus;
   final bool enableDropTarget;
+
+  /// Whether the field fills its parent's height instead of sizing to its
+  /// content. Compact surfaces can turn this off and impose a maximum height
+  /// to get a textarea-style editor that grows before it starts scrolling.
+  final bool expands;
   final ComposerSuggestionActionHandler? onSuggestionAction;
 
   @override
@@ -1159,6 +1165,67 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _selectionPortal.show();
     });
   }
+
+  Widget _field() => MouseRegion(
+    onHover: (event) =>
+        widget.composer.text.updateSyntaxHoverAtGlobalPosition(event.position),
+    onExit: (_) => widget.composer.text.updateSyntaxHoverAtGlobalPosition(null),
+    child: Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: _onEditorPointerDown,
+      onPointerMove: _onEditorPointerMove,
+      onPointerUp: _onEditorPointerUp,
+      onPointerCancel: (_) => _cancelEditorPointer(),
+      child: ComposerSuggestionField(
+        composer: widget.composer,
+        onAction: widget.onSuggestionAction,
+        field: ClipRect(
+          child: Focus(
+            onKeyEvent: _onEditorKeyEvent,
+            child: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: widget.composer.text,
+              builder: (_, _, _) => TextField(
+                // Not decoration: a new key builds a new editable, and with it
+                // a new undo stack. It is the only way to stop undo reaching
+                // back into a reply that has already been sent.
+                key: ValueKey(widget.composer.fieldGeneration),
+                controller: widget.composer.text,
+                scrollController: _scroll,
+                focusNode: widget.composer.focus,
+                autofocus: widget.autofocus,
+                expands: widget.expands,
+                maxLines: null,
+                minLines: widget.expands ? null : 1,
+                textAlignVertical: TextAlignVertical.top,
+                keyboardType: TextInputType.multiline,
+                textCapitalization: TextCapitalization.sentences,
+                inputFormatters: [
+                  _selectedPillInputFormatter,
+                  const ComposerQuoteInputFormatter(),
+                  ...widget.composer.text.syntaxInputFormatters,
+                ],
+                showCursor:
+                    widget
+                        .composer
+                        .text
+                        .keyboardSelectedSyntax
+                        ?.projection
+                        .hidesCursorWhenSelected !=
+                    true,
+                onTapAlwaysCalled: true,
+                onTap: _activatePointerDownPill,
+                style: widget.textStyle,
+                // InputDecorator only gives the editable one text line when
+                // the TextField expands. The composer draws its hint separately
+                // so either viewport mode fills the available editor width.
+                decoration: null,
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 
   bool _canFormat(TextSelection selection) =>
       (widget.composer.focus.hasFocus || _selectionToolbarFocused) &&
@@ -1748,69 +1815,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
                       : const SizedBox.shrink(),
                 ),
               ),
-              Positioned.fill(
-                child: MouseRegion(
-                  onHover: (event) => widget.composer.text
-                      .updateSyntaxHoverAtGlobalPosition(event.position),
-                  onExit: (_) => widget.composer.text
-                      .updateSyntaxHoverAtGlobalPosition(null),
-                  child: Listener(
-                    behavior: HitTestBehavior.translucent,
-                    onPointerDown: _onEditorPointerDown,
-                    onPointerMove: _onEditorPointerMove,
-                    onPointerUp: _onEditorPointerUp,
-                    onPointerCancel: (_) => _cancelEditorPointer(),
-                    child: ComposerSuggestionField(
-                      composer: widget.composer,
-                      onAction: widget.onSuggestionAction,
-                      field: ClipRect(
-                        child: Focus(
-                          onKeyEvent: _onEditorKeyEvent,
-                          child: ValueListenableBuilder<TextEditingValue>(
-                            valueListenable: widget.composer.text,
-                            builder: (_, _, _) => TextField(
-                              // Not decoration: a new key builds a new editable, and
-                              // with it a new undo stack. It is the only way to stop undo
-                              // reaching back into a reply that has already been sent.
-                              key: ValueKey(widget.composer.fieldGeneration),
-                              controller: widget.composer.text,
-                              scrollController: _scroll,
-                              focusNode: widget.composer.focus,
-                              autofocus: widget.autofocus,
-                              expands: true,
-                              maxLines: null,
-                              minLines: null,
-                              textAlignVertical: TextAlignVertical.top,
-                              keyboardType: TextInputType.multiline,
-                              textCapitalization: TextCapitalization.sentences,
-                              inputFormatters: [
-                                _selectedPillInputFormatter,
-                                const ComposerQuoteInputFormatter(),
-                                ...widget.composer.text.syntaxInputFormatters,
-                              ],
-                              showCursor:
-                                  widget
-                                      .composer
-                                      .text
-                                      .keyboardSelectedSyntax
-                                      ?.projection
-                                      .hidesCursorWhenSelected !=
-                                  true,
-                              onTapAlwaysCalled: true,
-                              onTap: _activatePointerDownPill,
-                              style: widget.textStyle,
-                              // InputDecorator only gives the editable one text line
-                              // even when the TextField expands. The composer draws
-                              // its hint separately so this viewport fills the editor.
-                              decoration: null,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              if (widget.expands)
+                Positioned.fill(child: _field())
+              else
+                _field(),
               if (imageMenuPosition case (final left, final top))
                 Positioned(
                   left: left,
