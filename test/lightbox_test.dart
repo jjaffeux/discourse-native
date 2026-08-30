@@ -2,6 +2,7 @@ import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/image_download.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
+import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -13,7 +14,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 import 'package:photo_view/photo_view.dart';
-import 'package:photo_view/photo_view_gallery.dart';
 
 import 'cooked_html_test.dart' show pumpCooked, renderedText;
 import 'support/finders.dart';
@@ -84,6 +84,50 @@ Finder thumbnail([int index = 0]) => find.descendant(
   matching: find.byType(InkWell),
 );
 
+Future<void> pumpGallery(
+  WidgetTester tester, {
+  List<LightboxImage>? images,
+  int initialIndex = 0,
+  TargetPlatform platform = TargetPlatform.macOS,
+}) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.dark.copyWith(platform: platform),
+      home: LightboxGallery(
+        images: images ?? [parse(singleImage)],
+        initialIndex: initialIndex,
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
+Finder photoViewAt(int index) => find.byWidgetPredicate((widget) {
+  final key = widget.key;
+  return widget is PhotoView && key is ObjectKey && key.value == index;
+});
+
+PhotoViewControllerBase<PhotoViewControllerValue> photoControllerAt(
+  WidgetTester tester,
+  int index,
+) => tester.widget<PhotoView>(photoViewAt(index)).controller!;
+
+Finder fullImageAt(int index) =>
+    find.descendant(of: photoViewAt(index), matching: find.byType(SiteImage));
+
+Finder galleryButton(String tooltip) => find.byWidgetPredicate(
+  (widget) => widget is IconButton && widget.tooltip == tooltip,
+);
+
+IconButton galleryButtonWidget(WidgetTester tester, String tooltip) =>
+    tester.widget<IconButton>(galleryButton(tooltip));
+
+double containedScale(Size viewport, Size image) {
+  final widthScale = viewport.width / image.width;
+  final heightScale = viewport.height / image.height;
+  return widthScale < heightScale ? widthScale : heightScale;
+}
+
 void main() {
   group('LightboxImage.from', () {
     test('reads the full-size image off the anchor, not the thumbnail', () {
@@ -117,6 +161,43 @@ void main() {
       expect(image.width, 690);
       expect(image.height, 388);
       expect(image.aspectRatio, closeTo(690 / 388, 0.0001));
+    });
+
+    test('keeps the full image size separate from its thumbnail slot', () {
+      final image = parse(singleImage);
+
+      expect(image.fullSize, const Size(1920, 1080));
+      expect(image.width, 690);
+      expect(image.height, 388);
+    });
+
+    test('prefers target dimensions for the full image size', () {
+      final image = parse('''
+        <a class="lightbox" href="full.png" data-target-width="2560" data-target-height="1440">
+          <img src="thumb.png" width="690" height="388">
+          <span class="informations">1920×1080 1 MB</span>
+        </a>
+      ''');
+
+      expect(image.fullSize, const Size(2560, 1440));
+      expect(image.width, 690);
+      expect(image.height, 388);
+    });
+
+    test('falls back through intrinsic and thumbnail dimensions safely', () {
+      final intrinsic = parse('''
+        <a class="lightbox" href="full.png" data-target-width="bad" data-target-height="1440">
+          <img src="thumb.png" width="640" height="480">
+          <span class="informations">1600x1200 1 MB</span>
+        </a>
+      ''');
+      final thumbnail = parse(
+        '<a class="lightbox" href="full.png">'
+        '<img src="thumb.png" width="640" height="480"></a>',
+      );
+
+      expect(intrinsic.fullSize, const Size(1600, 1200));
+      expect(thumbnail.fullSize, const Size(640, 480));
     });
 
     test(
@@ -345,7 +426,7 @@ void main() {
       await tester.tap(thumbnail(2));
       await tester.pumpAndSettle();
 
-      expect(find.byType(PhotoViewGallery), findsOneWidget);
+      expect(photoViewAt(2), findsOneWidget);
       expect(find.text('3 / 3'), findsOneWidget);
       expect(find.text('three.png'), findsOneWidget);
     });
@@ -386,6 +467,407 @@ void main() {
           ),
         ),
       );
+    });
+
+    testWidgets('keeps extreme full-image geometry for PhotoView transforms', (
+      tester,
+    ) async {
+      final image = parse('''
+        <a class="lightbox" href="full.png" data-target-width="2000" data-target-height="100">
+          <img src="thumb.png" width="2000" height="100">
+        </a>
+      ''');
+
+      // Post layout remains defensive, but full-screen transform math must not
+      // reshape a legitimate panorama to that 4:1 layout bound.
+      expect(image.aspectRatio, 4);
+      await pumpGallery(tester, images: [image]);
+
+      final childSize = tester.widget<PhotoView>(photoViewAt(0)).childSize!;
+      expect(childSize, const Size(2000, 100));
+      expect(childSize.width / childSize.height, 20);
+    });
+
+    testWidgets(
+      'defers a late natural size and resets the zoom to its bounds',
+      (tester) async {
+        final image = parse('''
+        <a class="lightbox" href="full.png" data-target-width="1000" data-target-height="1000">
+          <img src="thumb.png" width="1000" height="1000">
+        </a>
+      ''');
+        await pumpGallery(tester, images: [image]);
+        final controller = photoControllerAt(tester, 0);
+        final pointer =
+            tester.getCenter(photoViewAt(0)) + const Offset(120, 80);
+
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: pointer,
+            scrollDelta: const Offset(0, -100),
+          ),
+        );
+        await tester.pump();
+        final zoomedScale = controller.scale!;
+        expect(controller.position.distance, greaterThan(0));
+
+        const naturalSize = Size(2000, 1000);
+        tester.widget<SiteImage>(fullImageAt(0)).onNaturalSize!(naturalSize);
+
+        expect(
+          tester.widget<PhotoView>(photoViewAt(0)).childSize,
+          const Size(1000, 1000),
+        );
+        expect(controller.scale, zoomedScale);
+
+        await tester.pump();
+        await tester.pump();
+
+        expect(tester.widget<PhotoView>(photoViewAt(0)).childSize, naturalSize);
+        expect(
+          controller.scale,
+          closeTo(
+            containedScale(tester.getSize(photoViewAt(0)), naturalSize),
+            0.001,
+          ),
+        );
+        expect(controller.position, Offset.zero);
+      },
+    );
+
+    testWidgets('resizing the viewport resets the current zoom and position', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(800, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final image = parse('''
+        <a class="lightbox" href="full.png" data-target-width="1000" data-target-height="1000">
+          <img src="thumb.png" width="1000" height="1000">
+        </a>
+      ''');
+      await pumpGallery(tester, images: [image]);
+      final controller = photoControllerAt(tester, 0);
+
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(photoViewAt(0)) + const Offset(120, 80),
+          scrollDelta: const Offset(0, -100),
+        ),
+      );
+      await tester.pump();
+      expect(controller.position.distance, greaterThan(0));
+
+      tester.view.physicalSize = const Size(400, 600);
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        controller.scale,
+        closeTo(
+          containedScale(
+            tester.getSize(photoViewAt(0)),
+            const Size(1000, 1000),
+          ),
+          0.001,
+        ),
+      );
+      expect(controller.position, Offset.zero);
+    });
+
+    testWidgets('labels the full image and exposes accessible zoom controls', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await pumpGallery(tester);
+
+      final image = tester.getSemantics(find.bySemanticsLabel('screenshot'));
+      expect(image.getSemanticsData().flagsCollection.isImage, isTrue);
+
+      for (final label in const ['Zoom out', 'Reset zoom', 'Zoom in']) {
+        final target = find.bySemanticsLabel(label);
+        final button = galleryButton(label);
+        expect(find.byTooltip(label), findsOneWidget);
+        expect(target, findsOneWidget);
+        expect(button, findsOneWidget);
+        expect(
+          tester
+              .getSemantics(button)
+              .getSemanticsData()
+              .flagsCollection
+              .isButton,
+          isTrue,
+        );
+        expect(tester.getSize(button).width, greaterThanOrEqualTo(44));
+        expect(tester.getSize(button).height, greaterThanOrEqualTo(44));
+      }
+
+      expect(
+        tester
+            .getSemantics(galleryButton('Zoom in'))
+            .getSemanticsData()
+            .hasAction(SemanticsAction.tap),
+        isTrue,
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('zooms with the visible controls and resets', (tester) async {
+      await pumpGallery(tester);
+      final controller = photoControllerAt(tester, 0);
+      final initialScale = controller.scale!;
+
+      await tester.tap(find.byTooltip('Zoom in'));
+      await tester.pumpAndSettle();
+      expect(controller.scale, greaterThan(initialScale));
+
+      await tester.tap(find.byTooltip('Zoom out'));
+      await tester.pumpAndSettle();
+      expect(controller.scale, closeTo(initialScale, 0.001));
+
+      await tester.tap(find.byTooltip('Zoom in'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Reset zoom'));
+      await tester.pumpAndSettle();
+      expect(controller.scale, closeTo(initialScale, 0.001));
+    });
+
+    testWidgets('disables zoom controls at their scale bounds', (tester) async {
+      await pumpGallery(tester);
+
+      expect(galleryButtonWidget(tester, 'Zoom out').onPressed, isNull);
+      expect(galleryButtonWidget(tester, 'Reset zoom').onPressed, isNull);
+      expect(galleryButtonWidget(tester, 'Zoom in').onPressed, isNotNull);
+
+      await tester.tap(galleryButton('Zoom in'));
+      await tester.pump();
+      expect(galleryButtonWidget(tester, 'Zoom out').onPressed, isNotNull);
+      expect(galleryButtonWidget(tester, 'Reset zoom').onPressed, isNotNull);
+
+      var zoomIns = 1;
+      while (galleryButtonWidget(tester, 'Zoom in').onPressed != null &&
+          zoomIns < 20) {
+        await tester.tap(galleryButton('Zoom in'));
+        await tester.pump();
+        zoomIns++;
+      }
+
+      expect(zoomIns, lessThan(20));
+      expect(galleryButtonWidget(tester, 'Zoom in').onPressed, isNull);
+      expect(galleryButtonWidget(tester, 'Zoom out').onPressed, isNotNull);
+      expect(galleryButtonWidget(tester, 'Reset zoom').onPressed, isNotNull);
+    });
+
+    testWidgets('styles disabled zoom controls with inherited muted color', (
+      tester,
+    ) async {
+      await pumpGallery(tester);
+      final button = galleryButtonWidget(tester, 'Zoom out');
+      final icon = tester.widget<DIcon>(
+        find.descendant(
+          of: galleryButton('Zoom out'),
+          matching: find.byType(DIcon),
+        ),
+      );
+
+      expect(button.onPressed, isNull);
+      expect(
+        button.style?.foregroundColor?.resolve({WidgetState.disabled}),
+        Colors.white38,
+      );
+      expect(icon.color, isNull);
+    });
+
+    testWidgets('zooms with keyboard shortcuts', (tester) async {
+      await pumpGallery(tester);
+      final controller = photoControllerAt(tester, 0);
+      final initialScale = controller.scale!;
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+      await tester.pumpAndSettle();
+      expect(controller.scale, greaterThan(initialScale));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+      await tester.pumpAndSettle();
+      expect(controller.scale, closeTo(initialScale, 0.001));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
+      await tester.pumpAndSettle();
+      expect(controller.scale, closeTo(initialScale, 0.001));
+    });
+
+    testWidgets('zooms around an off-center pointer with the mouse wheel', (
+      tester,
+    ) async {
+      await pumpGallery(tester);
+      final controller = photoControllerAt(tester, 0);
+      final initialScale = controller.scale!;
+      final pointer = tester.getCenter(photoViewAt(0)) + const Offset(120, 80);
+
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: pointer,
+          scrollDelta: const Offset(0, -100),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(controller.scale, greaterThan(initialScale));
+      expect(controller.position.dx, lessThan(0));
+      expect(controller.position.dy, lessThan(0));
+
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: pointer,
+          scrollDelta: const Offset(0, 100),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(controller.scale, closeTo(initialScale, 0.001));
+      expect(controller.position, Offset.zero);
+    });
+
+    testWidgets('diagonal mouse-wheel zoom does not change the gallery page', (
+      tester,
+    ) async {
+      await pumpGallery(
+        tester,
+        images: LightboxImage.galleryFor(anchorIn(threeImages)),
+      );
+      final first = photoControllerAt(tester, 0);
+
+      await tester.tap(galleryButton('Zoom in'));
+      await tester.pump();
+      final zoomedScale = first.scale!;
+
+      // Downward wheel input would advance a scrollable from its first page if
+      // the gallery did not claim it for image zooming.
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(photoViewAt(0)),
+          scrollDelta: const Offset(30, 100),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(first.scale, lessThan(zoomedScale));
+      expect(find.text('1 / 3'), findsOneWidget);
+      expect(find.text('2 / 3'), findsNothing);
+    });
+
+    testWidgets('mouse-wheel zoom works over a toolbar button', (tester) async {
+      await pumpGallery(tester);
+      final controller = photoControllerAt(tester, 0);
+      final initialScale = controller.scale!;
+
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(galleryButton('Zoom in')),
+          scrollDelta: const Offset(0, -100),
+        ),
+      );
+      await tester.pump();
+
+      expect(controller.scale, greaterThan(initialScale));
+    });
+
+    testWidgets('ignores a modified mouse wheel', (tester) async {
+      await pumpGallery(tester);
+      final controller = photoControllerAt(tester, 0);
+      final initialScale = controller.scale!;
+      final pointer = tester.getCenter(photoViewAt(0)) + const Offset(120, 80);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      try {
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: pointer,
+            scrollDelta: const Offset(0, -100),
+          ),
+        );
+        await tester.pump();
+      } finally {
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      }
+
+      expect(controller.scale, closeTo(initialScale, 0.001));
+      expect(controller.position, Offset.zero);
+    });
+
+    testWidgets('resets the zoom when changing pages', (tester) async {
+      await pumpGallery(
+        tester,
+        images: LightboxImage.galleryFor(anchorIn(threeImages)),
+      );
+      final first = photoControllerAt(tester, 0);
+      final initialScale = first.scale!;
+
+      await tester.tap(find.byTooltip('Zoom in'));
+      await tester.pumpAndSettle();
+      expect(first.scale, greaterThan(initialScale));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(find.text('2 / 3'), findsOneWidget);
+      expect(first.scale, closeTo(initialScale, 0.001));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(find.text('1 / 3'), findsOneWidget);
+      expect(first.scale, closeTo(initialScale, 0.001));
+    });
+
+    testWidgets('double tap still zooms after returning to minimum scale', (
+      tester,
+    ) async {
+      await pumpGallery(tester);
+      final controller = photoControllerAt(tester, 0);
+      final initialScale = controller.scale!;
+
+      await tester.tap(galleryButton('Zoom in'));
+      await tester.pump();
+      await tester.tap(galleryButton('Zoom out'));
+      await tester.pumpAndSettle();
+      expect(controller.scale, closeTo(initialScale, 0.001));
+
+      final target = tester.getCenter(photoViewAt(0));
+
+      await tester.tapAt(target);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(target);
+      await tester.pumpAndSettle();
+
+      expect(controller.scale, greaterThan(initialScale));
+    });
+
+    testWidgets('pinches the image to zoom in with two touch pointers', (
+      tester,
+    ) async {
+      await pumpGallery(tester, platform: TargetPlatform.iOS);
+      final controller = photoControllerAt(tester, 0);
+      final initialScale = controller.scale!;
+      final center = tester.getCenter(photoViewAt(0));
+      final first = await tester.startGesture(
+        center - const Offset(40, 0),
+        pointer: 1,
+        kind: PointerDeviceKind.touch,
+      );
+      final second = await tester.startGesture(
+        center + const Offset(40, 0),
+        pointer: 2,
+        kind: PointerDeviceKind.touch,
+      );
+
+      await first.moveTo(center - const Offset(120, 0));
+      await second.moveTo(center + const Offset(120, 0));
+      await tester.pump();
+      await first.up();
+      await second.up();
+      await tester.pumpAndSettle();
+
+      expect(controller.scale, greaterThan(initialScale));
     });
 
     testWidgets('offers a download for an upload', (tester) async {
@@ -442,6 +924,40 @@ void main() {
       }
     });
 
+    testWidgets('fits gallery controls at 320px with 2x text scaling', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final mediaQuery = MediaQueryData.fromView(
+        tester.view,
+      ).copyWith(textScaler: const TextScaler.linear(2));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+          home: MediaQuery(
+            data: mediaQuery,
+            child: LightboxGallery(
+              images: [
+                parse(singleImage),
+                ...LightboxImage.galleryFor(anchorIn(threeImages)),
+              ],
+              initialIndex: 0,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('1 / 4'), findsOneWidget);
+      expect(galleryButton('Zoom in'), findsOneWidget);
+      expect(find.dIcon(DIcons.download), findsOneWidget);
+      expect(find.dIcon(DIcons.xmark), findsOneWidget);
+    });
+
     testWidgets('offers no download for an image that carries no link', (
       tester,
     ) async {
@@ -469,7 +985,7 @@ void main() {
       await tester.tap(find.dIcon(DIcons.xmark));
       await tester.pumpAndSettle();
 
-      expect(find.byType(PhotoViewGallery), findsNothing);
+      expect(find.byType(PhotoView), findsNothing);
     });
 
     testWidgets('reveals hidden controls when the pointer moves', (
@@ -526,7 +1042,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
 
-      expect(find.byType(PhotoViewGallery), findsNothing);
+      expect(find.byType(PhotoView), findsNothing);
     });
 
     testWidgets('steps between images with the arrow keys', (tester) async {
