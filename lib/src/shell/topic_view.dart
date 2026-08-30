@@ -114,6 +114,30 @@ typedef _RetainedTopicPostExtent = ({
   int readTimeWordCount,
 });
 
+/// Returns a reveal offset only when every sliver ancestor has completed
+/// laying out the child that leads to [target].
+///
+/// Virtualized sliver children can remain attached while their layout offset
+/// is temporarily cleared. Flutter's reveal calculation force-unwraps those
+/// offsets, so callers must wait for the next settled frame in that state.
+@visibleForTesting
+RevealedOffset? getOffsetToRevealIfLaidOut(
+  RenderAbstractViewport viewport,
+  RenderObject target,
+  double alignment,
+) {
+  var child = target;
+  while (child.parent != viewport) {
+    final parent = child.parent;
+    if (parent == null) return null;
+    if (parent is RenderSliver && parent.childScrollOffset(child) == null) {
+      return null;
+    }
+    child = parent;
+  }
+  return viewport.getOffsetToReveal(target, alignment);
+}
+
 /// The inverse of one immutable post stream, used to retain keyed list rows.
 ///
 /// A page inserted before the viewport makes the sliver resolve every retained
@@ -1331,12 +1355,16 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final scroll = _scroll;
     if (context == null || scroll == null || !scroll.hasClients) return null;
     final renderObject = context.findRenderObject();
-    if (renderObject is! RenderBox || !renderObject.attached) return null;
+    if (renderObject is! RenderBox ||
+        !renderObject.attached ||
+        !renderObject.hasSize) {
+      return null;
+    }
     final viewport = RenderAbstractViewport.maybeOf(renderObject);
     if (viewport == null) return null;
-    final top =
-        viewport.getOffsetToReveal(renderObject, 0).offset -
-        scroll.position.pixels;
+    final revealed = getOffsetToRevealIfLaidOut(viewport, renderObject, 0);
+    if (revealed == null) return null;
+    final top = revealed.offset - scroll.position.pixels;
     return (top: top, bottom: top + renderObject.size.height);
   }
 
