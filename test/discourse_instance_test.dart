@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -18,6 +19,35 @@ void main() {
       final title = 'Alpha Beta ${List.filled(200000, 'ignored').join(' ')}';
 
       expect(monogram(title), 'AB');
+    });
+  });
+
+  group('DiscourseInstance.sections', () {
+    test('keeps core secondary community links in More', () {
+      final section = const DiscourseInstance(
+        url: 'https://example.com',
+        title: 'Example',
+      ).sections.single;
+
+      expect(section.destinations.map((destination) => destination.id), [
+        'latest',
+      ]);
+      expect(section.moreDestinations.map((destination) => destination.id), [
+        'groups',
+        'filter',
+      ]);
+    });
+
+    test('removes Groups from More when the directory is disabled', () {
+      final section = const DiscourseInstance(
+        url: 'https://example.com',
+        title: 'Example',
+        config: SiteConfig(groupDirectoryEnabled: false),
+      ).sections.single;
+
+      expect(section.moreDestinations.map((destination) => destination.id), [
+        'filter',
+      ]);
     });
   });
 }

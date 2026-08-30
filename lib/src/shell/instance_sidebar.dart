@@ -75,11 +75,18 @@ final class _SidebarSnapshot {
 }
 
 const String _newTopicDestinationId = 'new-topic';
+const String _moreDestinationId = 'sidebar-more-destinations';
 
 const SidebarDestination _newTopicDestination = SidebarDestination(
   id: _newTopicDestinationId,
   label: 'New Topic',
   icon: DIcons.plus,
+);
+
+const SidebarDestination _moreDestination = SidebarDestination(
+  id: _moreDestinationId,
+  label: 'More',
+  icon: DIcons.ellipsisVertical,
 );
 
 /// Native equivalents of the spacing tokens in core's sidebar stylesheets.
@@ -138,7 +145,9 @@ class InstanceSidebar extends StatelessWidget {
       return _SidebarSnapshot(
         siteUrl: instance?.url,
         name: instance?.title,
-        destinationId: controller.destinationId,
+        destinationId: controller.currentContent?.groupRoute != null
+            ? 'groups'
+            : controller.destinationId,
         draftCount: instance?.user?.draftCount ?? 0,
         canCreateTopic: instance?.user?.canCreateTopic ?? false,
         presentationToken: instance == null
@@ -467,8 +476,17 @@ class _SectionState extends State<_Section> {
     final rowHeight = _SidebarSpacing.rowHeight(context);
     final sectionPadding = _SidebarSpacing.sectionPadding(context);
     final sectionRows = !section.collapsible || !_collapsed
-        ? section.destinations
+        ? <SidebarDestination>[
+            ...section.destinations,
+            for (final destination in section.moreDestinations)
+              if (destination.id == widget.selectedId) destination,
+            if (section.moreDestinations.isNotEmpty) _moreDestination,
+          ]
         : const <SidebarDestination>[];
+    final menuDestinations = [
+      for (final destination in section.moreDestinations)
+        if (destination.id != widget.selectedId) destination,
+    ];
     final rows = switch ((
       widget.insertedDestination,
       widget.insertAfterDestinationId,
@@ -527,6 +545,15 @@ class _SectionState extends State<_Section> {
                 key is ValueKey<String> ? rowIndexes[key.value] : null,
             itemBuilder: (context, index) {
               final destination = rows[index];
+              if (destination.id == _moreDestinationId) {
+                return _MoreDestinationsTile(
+                  key: ValueKey(destination.id),
+                  destinations: menuDestinations,
+                  rowHeight: rowHeight,
+                  gapAfter: _SidebarSpacing.rowGap,
+                  onSelect: widget.onSelect,
+                );
+              }
               return _DestinationTile(
                 key: ValueKey(destination.id),
                 destination: destination,
@@ -541,6 +568,52 @@ class _SectionState extends State<_Section> {
         if (bottomSectionPadding > 0)
           SliverToBoxAdapter(child: SizedBox(height: bottomSectionPadding)),
       ],
+    );
+  }
+}
+
+class _MoreDestinationsTile extends StatelessWidget {
+  const _MoreDestinationsTile({
+    super.key,
+    required this.destinations,
+    required this.rowHeight,
+    required this.gapAfter,
+    required this.onSelect,
+  });
+
+  final List<SidebarDestination> destinations;
+  final double rowHeight;
+  final double gapAfter;
+  final ValueChanged<SidebarDestination> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return MenuAnchor(
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
+      menuChildren: [
+        for (final destination in destinations)
+          MenuItemButton(
+            leadingIcon: DIcon(
+              destination.icon,
+              size: 18,
+              color: destination.iconColor,
+            ),
+            onPressed: destination.enabled ? () => onSelect(destination) : null,
+            child: Text(destination.label),
+          ),
+      ],
+      builder: (context, menu, child) => _DestinationTile(
+        destination: _moreDestination,
+        selected: false,
+        badge: SidebarBadge.none,
+        rowHeight: rowHeight,
+        gapAfter: gapAfter,
+        onTap: menu.open,
+      ),
     );
   }
 }

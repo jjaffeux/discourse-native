@@ -17,6 +17,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/models/found_user.dart';
+import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -1446,6 +1447,57 @@ void main() {
     expect(find.text('Discourse Meta'), findsNothing);
   });
 
+  testWidgets('keeps Groups in More until the group route is active', (
+    tester,
+  ) async {
+    await pumpShell(tester, desktop);
+
+    expect(sidebarDestination('Groups'), findsNothing);
+    expect(sidebarDestination('Filter'), findsNothing);
+    expect(sidebarDestination('More'), findsOneWidget);
+
+    await tester.tap(sidebarDestination('More'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(MenuItemButton, 'Groups'), findsOneWidget);
+    expect(find.widgetWithText(MenuItemButton, 'Filter'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(MenuItemButton, 'Groups'));
+    await tester.pumpAndSettle();
+
+    expect(sidebarDestination('Groups'), findsOneWidget);
+    expect(sidebarDestination('More'), findsOneWidget);
+
+    await tester.tap(sidebarDestination('More'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(MenuItemButton, 'Groups'), findsNothing);
+    expect(find.widgetWithText(MenuItemButton, 'Filter'), findsOneWidget);
+  });
+
+  testWidgets('promotes Groups for a group detail opened over another route', (
+    tester,
+  ) async {
+    await pumpShell(tester, desktop);
+
+    final controller = ShellScope.read(
+      tester.element(find.byType(MainContent)),
+    );
+    controller.pushContent(
+      ContentRoute.group(
+        GroupRoute.detail(
+          'staff',
+          section: GroupRoute.activity,
+          subsection: GroupRoute.posts,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(controller.destinationId, 'latest');
+    expect(sidebarDestination('Groups'), findsOneWidget);
+  });
+
   testWidgets('rail marker grows from idle dot through hover to active pill', (
     tester,
   ) async {
@@ -1541,9 +1593,9 @@ void main() {
 
     expect(find.text('PROJECTS'), findsOneWidget);
     expect(sidebarDestination('Roadmap'), findsOneWidget);
-    final filterTile = find
+    final moreTile = find
         .ancestor(
-          of: sidebarDestination('Filter'),
+          of: sidebarDestination('More'),
           matching: find.byType(InkWell),
         )
         .first;
@@ -1551,7 +1603,7 @@ void main() {
         .ancestor(of: find.text('PROJECTS'), matching: find.byType(InkWell))
         .first;
     expect(
-      tester.getRect(projectsHeader).top - tester.getRect(filterTile).bottom,
+      tester.getRect(projectsHeader).top - tester.getRect(moreTile).bottom,
       closeTo(9, 0.01),
     );
     final roadmapTile = find
@@ -2168,7 +2220,7 @@ void main() {
   ) async {
     await pumpShell(tester, desktop);
 
-    final destination = sidebarDestination('Filter');
+    final destination = sidebarDestination('More');
     final inkWell = find
         .ancestor(of: destination, matching: find.byType(InkWell))
         .first;

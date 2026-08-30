@@ -193,6 +193,7 @@ class SidebarSection {
     required this.id,
     required this.title,
     required this.destinations,
+    this.moreDestinations = const [],
     this.showHeader = true,
     this.collapsible = true,
     this.actionIcon,
@@ -258,6 +259,13 @@ class SidebarSection {
 
   final String title;
   final List<SidebarDestination> destinations;
+
+  /// Secondary links kept in the section's More menu until one is active.
+  ///
+  /// Core promotes the active secondary link into the section itself so the
+  /// current route stays visible without making every secondary destination a
+  /// permanent sidebar row.
+  final List<SidebarDestination> moreDestinations;
 
   /// Whether the section title and its optional action are visible.
   ///
