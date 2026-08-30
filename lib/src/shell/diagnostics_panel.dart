@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../diagnostics/diagnostic_event.dart';
 import '../diagnostics/diagnostics_controller.dart';
+import '../diagnostics/topic_scroll_capture.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -48,11 +49,14 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
   final ScrollController _timeline = ScrollController();
   late PluginDiagnosticsReadExportHost _pluginDiagnostics;
   DiagnosticsPlugin? _selectedPlugin;
+  bool _showTopicScrollCapture = false;
 
   @override
   void initState() {
     super.initState();
     _pluginDiagnostics = PluginDiagnosticsReadExportHost(widget.controller);
+    _showTopicScrollCapture =
+        widget.controller.topicScrollCapture.state.hasCapture;
   }
 
   @override
@@ -61,6 +65,8 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
     if (!identical(widget.controller, oldWidget.controller)) {
       _pluginDiagnostics = PluginDiagnosticsReadExportHost(widget.controller);
       _search.text = widget.controller.panelState.query;
+      _showTopicScrollCapture =
+          widget.controller.topicScrollCapture.state.hasCapture;
     }
     if (!widget.plugins.contains(_selectedPlugin)) {
       final selectedId = _selectedPlugin?.diagnosticsId;
@@ -88,7 +94,8 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.escape) {
-          if (_selectedPlugin == null &&
+          if (!_showTopicScrollCapture &&
+              _selectedPlugin == null &&
               widget.controller.panelState.selectedEventId != null) {
             widget.controller.selectEvent(null);
           } else {
@@ -125,8 +132,12 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                 children: [
                   _PanelHeader(
                     frozen: panelState.frozen,
-                    showingDetail: _selectedPlugin == null && selected != null,
-                    showGeneralActions: _selectedPlugin == null,
+                    showingDetail:
+                        !_showTopicScrollCapture &&
+                        _selectedPlugin == null &&
+                        selected != null,
+                    showGeneralActions:
+                        !_showTopicScrollCapture && _selectedPlugin == null,
                     onBack: () => widget.controller.selectEvent(null),
                     onToggleFrozen: () =>
                         widget.controller.setFrozen(!panelState.frozen),
@@ -135,17 +146,31 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                     onClose: widget.onClose,
                   ),
                   Divider(height: 1, color: theme.shell.divider),
-                  if (widget.plugins.isNotEmpty) ...[
-                    _DiagnosticsTabs(
-                      plugins: widget.plugins,
-                      selected: _selectedPlugin,
-                      onChanged: (plugin) =>
-                          setState(() => _selectedPlugin = plugin),
-                    ),
-                    Divider(height: 1, color: theme.shell.divider),
-                  ],
+                  _DiagnosticsTabs(
+                    plugins: widget.plugins,
+                    selectedPlugin: _selectedPlugin,
+                    topicScrollSelected: _showTopicScrollCapture,
+                    onGeneralSelected: () => setState(() {
+                      _showTopicScrollCapture = false;
+                      _selectedPlugin = null;
+                    }),
+                    onTopicScrollSelected: () => setState(() {
+                      _showTopicScrollCapture = true;
+                      _selectedPlugin = null;
+                    }),
+                    onPluginSelected: (plugin) => setState(() {
+                      _showTopicScrollCapture = false;
+                      _selectedPlugin = plugin;
+                    }),
+                  ),
+                  Divider(height: 1, color: theme.shell.divider),
                   Expanded(
-                    child: _selectedPlugin != null
+                    child: _showTopicScrollCapture
+                        ? _TopicScrollCapturePanel(
+                            controller: widget.controller.topicScrollCapture,
+                            onCaptureStarted: widget.onClose,
+                          )
+                        : _selectedPlugin != null
                         ? _selectedPlugin!.buildDiagnostics(
                             context,
                             _pluginDiagnostics,
@@ -458,13 +483,19 @@ class _PanelHeader extends StatelessWidget {
 class _DiagnosticsTabs extends StatelessWidget {
   const _DiagnosticsTabs({
     required this.plugins,
-    required this.selected,
-    required this.onChanged,
+    required this.selectedPlugin,
+    required this.topicScrollSelected,
+    required this.onGeneralSelected,
+    required this.onTopicScrollSelected,
+    required this.onPluginSelected,
   });
 
   final List<DiagnosticsPlugin> plugins;
-  final DiagnosticsPlugin? selected;
-  final ValueChanged<DiagnosticsPlugin?> onChanged;
+  final DiagnosticsPlugin? selectedPlugin;
+  final bool topicScrollSelected;
+  final VoidCallback onGeneralSelected;
+  final VoidCallback onTopicScrollSelected;
+  final ValueChanged<DiagnosticsPlugin> onPluginSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -476,23 +507,195 @@ class _DiagnosticsTabs extends StatelessWidget {
           key: const ValueKey('diagnostics-top-level-tabs'),
           segments: [
             const ButtonSegment(value: 0, label: Text('General')),
+            const ButtonSegment(value: 1, label: Text('Topic scroll')),
             for (var index = 0; index < plugins.length; index++)
               ButtonSegment(
-                value: index + 1,
+                value: index + 2,
                 label: Text(plugins[index].diagnosticsLabel),
               ),
           ],
-          selected: {selected == null ? 0 : plugins.indexOf(selected!) + 1},
+          selected: {
+            topicScrollSelected
+                ? 1
+                : selectedPlugin == null
+                ? 0
+                : plugins.indexOf(selectedPlugin!) + 2,
+          },
           showSelectedIcon: false,
           onSelectionChanged: (selection) {
             final index = selection.first;
-            onChanged(index == 0 ? null : plugins[index - 1]);
+            if (index == 0) {
+              onGeneralSelected();
+            } else if (index == 1) {
+              onTopicScrollSelected();
+            } else {
+              onPluginSelected(plugins[index - 2]);
+            }
           },
         ),
       ),
     );
   }
 }
+
+class _TopicScrollCapturePanel extends StatelessWidget {
+  const _TopicScrollCapturePanel({
+    required this.controller,
+    required this.onCaptureStarted,
+  });
+
+  final TopicScrollCaptureController controller;
+  final VoidCallback onCaptureStarted;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: controller,
+    builder: (context, _) {
+      final state = controller.state;
+      return ListView(
+        key: const ValueKey('topic-scroll-capture-panel'),
+        padding: const EdgeInsets.all(20),
+        children: [
+          Text(
+            'Topic scroll capture',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Record a short, high-detail trace while reproducing scrolling, '
+            'layout, or scrollbar problems in a topic. The capture stays in '
+            'memory and never includes post bodies, titles, site URLs, or '
+            'credentials.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 20),
+          if (state.isRecording) ...[
+            _CaptureStatus(
+              label: 'Recording',
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Close Diagnostics, reproduce the issue in a topic, then return '
+              'here and stop the capture. Recording stops automatically after '
+              '${controller.maximumDuration.inMinutes} minutes or '
+              '${controller.maximumEvents} events.',
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              key: const ValueKey('topic-scroll-capture-stop'),
+              onPressed: controller.stop,
+              child: const Text('Stop capture'),
+            ),
+          ] else if (state.hasCapture) ...[
+            _CaptureStatus(
+              label: _captureStopLabel(state.stopReason),
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 12),
+            _CaptureSummary(state: state),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              key: const ValueKey('topic-scroll-capture-copy'),
+              onPressed: () => _copyCapture(context),
+              icon: const DIcon(DIcons.copy, size: 15),
+              label: const Text('Copy capture'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              key: const ValueKey('topic-scroll-capture-restart'),
+              onPressed: _startCapture,
+              child: const Text('Start a new capture'),
+            ),
+            TextButton(
+              key: const ValueKey('topic-scroll-capture-clear'),
+              onPressed: controller.clear,
+              child: const Text('Discard capture'),
+            ),
+          ] else ...[
+            Text(
+              'The trace includes every topic scroll notification, post-sliver '
+              'visible range and geometry update, paging and anchor decision, '
+              'row attachment change, and Flutter frame timing reported during '
+              'the capture.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              key: const ValueKey('topic-scroll-capture-start'),
+              onPressed: _startCapture,
+              child: const Text('Start capture'),
+            ),
+          ],
+        ],
+      );
+    },
+  );
+
+  void _startCapture() {
+    controller.start();
+    onCaptureStarted();
+  }
+
+  Future<void> _copyCapture(BuildContext context) async {
+    final report = await controller.buildJsonReport();
+    await Clipboard.setData(ClipboardData(text: report));
+    if (!context.mounted) return;
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('Scroll capture copied')));
+  }
+}
+
+class _CaptureStatus extends StatelessWidget {
+  const _CaptureStatus({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      DIcon(DIcons.circle, size: 10, color: color),
+      const SizedBox(width: 8),
+      Text(
+        label,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(color: color),
+      ),
+    ],
+  );
+}
+
+class _CaptureSummary extends StatelessWidget {
+  const _CaptureSummary({required this.state});
+
+  final TopicScrollCaptureState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = state.duration ?? Duration.zero;
+    final seconds = duration.inMilliseconds / 1000;
+    return Text(
+      '${state.eventCount} events over ${seconds.toStringAsFixed(1)}s\n'
+      '${state.topicEventCount} topic events · ${state.frameCount} frames\n'
+      '${state.slowBuildFrameCount} slow builds · '
+      '${state.slowRasterFrameCount} slow rasters',
+      key: const ValueKey('topic-scroll-capture-summary'),
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
+    );
+  }
+}
+
+String _captureStopLabel(TopicScrollCaptureStopReason? reason) =>
+    switch (reason) {
+      TopicScrollCaptureStopReason.durationLimit => 'Stopped at time limit',
+      TopicScrollCaptureStopReason.eventLimit => 'Stopped at event limit',
+      TopicScrollCaptureStopReason.manual || null => 'Capture ready',
+    };
 
 class _MultiSelectMenu extends StatelessWidget {
   const _MultiSelectMenu({

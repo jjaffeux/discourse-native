@@ -12,6 +12,7 @@ export 'src/data/serial_operation_queue.dart';
 export 'src/diagnostics/diagnostic_event.dart';
 export 'src/diagnostics/diagnostics_controller.dart';
 export 'src/diagnostics/diagnostics_persistence.dart';
+export 'src/diagnostics/topic_scroll_capture.dart';
 export 'src/foundation/loopback_host.dart';
 export 'src/foundation/private_file_permissions.dart';
 export 'src/models/content_route.dart';

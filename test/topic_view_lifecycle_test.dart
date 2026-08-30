@@ -3,6 +3,9 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_scope.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -628,6 +631,57 @@ void main() {
       ));
     },
   );
+
+  testWidgets('captures topic scroll, sliver, and viewport activity', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([site]),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    final diagnostics = await DiagnosticsController.create(
+      persistence: MemoryDiagnosticsPersistence(),
+      sessionId: 'topic-scroll-capture-test',
+    );
+    addTearDown(controller.dispose);
+    addTearDown(diagnostics.close);
+    await controller.load();
+    _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+    diagnostics.topicScrollCapture.start();
+
+    await tester.pumpWidget(_topicView(controller, diagnostics: diagnostics));
+    await tester.pumpAndSettle();
+    final vertical = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.down,
+    );
+    await tester.drag(vertical.first, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    diagnostics.topicScrollCapture.stop();
+
+    final events = diagnostics.topicScrollCapture.events;
+    final names = events.map((event) => event.name).toSet();
+    expect(names, contains('topic.capture.context'));
+    expect(names, contains('topic.view.built'));
+    expect(names, contains('sliver.layout.changed'));
+    expect(names, contains('sliver.child.built'));
+    expect(names, contains('sliver.post.attached'));
+    expect(names, contains('scroll.notification'));
+    expect(names, contains('viewport.inspected'));
+    final report = await tester.runAsync(
+      diagnostics.topicScrollCapture.buildJsonReport,
+    );
+    expect(report, isNot(contains(site.url)));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await diagnostics.close();
+  });
 
   testWidgets('each topic starts with its own scroll position', (tester) async {
     final site = instance('meta.example');
@@ -1949,13 +2003,21 @@ ShellController _controller(DiscourseInstance site, FakeDiscourseApi api) =>
       trackers: FakeSiteTracker.reset(),
     );
 
-Widget _topicView(ShellController controller) => ShellScope(
-  controller: controller,
-  child: MaterialApp(
-    theme: AppTheme.light,
-    home: const Scaffold(body: TopicView()),
-  ),
-);
+Widget _topicView(
+  ShellController controller, {
+  DiagnosticsController? diagnostics,
+}) {
+  final view = ShellScope(
+    controller: controller,
+    child: MaterialApp(
+      theme: AppTheme.light,
+      home: const Scaffold(body: TopicView()),
+    ),
+  );
+  return diagnostics == null
+      ? view
+      : DiagnosticsScope(controller: diagnostics, child: view);
+}
 
 final class _LazyVideosTestModule implements PluginModule {
   const _LazyVideosTestModule();
