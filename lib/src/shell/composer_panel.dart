@@ -1595,6 +1595,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
 
     final caret = selection.extentOffset;
+    if (!hasModifier && event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      final pill = _collapsedPillEndingAt(caret);
+      if (pill is ComposerImageBlock) {
+        _selectPillForKeyboard(pill);
+        return KeyEventResult.handled;
+      }
+    }
     final isPlainHorizontalArrow =
         !hasModifier &&
         (event.logicalKey == LogicalKeyboardKey.arrowLeft ||

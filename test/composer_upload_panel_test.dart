@@ -61,6 +61,64 @@ void main() {
     expect(find.text('photo.png'), findsNothing);
   });
 
+  testWidgets('arrow up after an upload selects the projected image', (
+    tester,
+  ) async {
+    final calls = <_PanelUploadCall>[];
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) {
+        final call = _PanelUploadCall(onProgress);
+        calls.add(call);
+        return call.result.future;
+      },
+    );
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    await _pumpPanel(tester, shell, composer);
+
+    composer.addDroppedImages([_file], 0);
+    calls.single.result.complete(
+      const ComposerUploadResult(
+        id: 42,
+        originalFilename: 'photo.png',
+        shortUrl: 'upload://photo',
+        url: 'https://meta.discourse.org/uploads/photo.png',
+        width: 640,
+        height: 480,
+      ),
+    );
+    await tester.pump();
+
+    final image = composer.text.imageBlocks.single;
+    final source = composer.text.text;
+    expect(composer.text.selection, TextSelection.collapsed(offset: image.end));
+    expect(composer.text.keyboardSelectedImage, isNull);
+    expect(
+      tester
+          .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
+          .highlighted,
+      isFalse,
+    );
+
+    composer.focus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+
+    expect(composer.text.text, source);
+    expect(composer.text.selection, TextSelection.collapsed(offset: image.end));
+    expect(composer.text.keyboardSelectedImage, isNotNull);
+    expect(find.byType(ComposerImagePreview), findsOneWidget);
+    expect(
+      tester
+          .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
+          .highlighted,
+      isTrue,
+    );
+  });
+
   testWidgets('click edits a projected image and backspace removes it', (
     tester,
   ) async {
