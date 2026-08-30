@@ -164,21 +164,16 @@ class _GroupsPageState extends State<GroupsPage> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1180),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                    child: _DirectoryControls(
-                      data: data,
-                      searchController: _searchController,
-                      searchFocus: _searchFocus,
-                      onSearchChanged: _search,
-                      onSearchSubmitted: _submitSearch,
-                      onTypeChanged: widget.onTypeChanged,
-                      onCreateGroup: widget.onCreateGroup,
-                    ),
-                  ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                child: _DirectoryControls(
+                  data: data,
+                  searchController: _searchController,
+                  searchFocus: _searchFocus,
+                  onSearchChanged: _search,
+                  onSearchSubmitted: _submitSearch,
+                  onTypeChanged: widget.onTypeChanged,
+                  onCreateGroup: widget.onCreateGroup,
                 ),
               ),
             ),
@@ -411,7 +406,6 @@ class _GroupTypeFilter extends StatelessWidget {
           ],
         ),
         tooltip: 'Filter by group type',
-        size: DButtonSize.small,
         onPressed: openMenu,
       ),
     );
