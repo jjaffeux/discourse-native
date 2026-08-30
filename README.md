@@ -893,6 +893,14 @@ plain `Focus` rather than a second `CallbackShortcuts`, which reports a key
 handled whenever one of its activators matches, open or not — binding Escape
 that way would close the composer instead of the list and throw away the reply.
 
+Image uploads enter one queue whether they came from a desktop drop or the
+toolbar's native multiple-file picker. Both adapters stop at
+`ComposerUploadFile`; site extension checks, batch limits, progress, retry and
+markdown insertion therefore cannot drift between the two entry points. The
+picker captures the current caret before opening the platform dialog, so a
+completed upload lands where the user asked for it even though the editor lost
+focus while that dialog was open.
+
 ### Likes
 
 There is no `like_count` on a post. Likes arrive in `actions_summary`, the array

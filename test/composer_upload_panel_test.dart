@@ -4,6 +4,7 @@ import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer_upload_picker.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -15,6 +16,115 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 void main() {
+  testWidgets('the upload button picks images at the captured caret', (
+    tester,
+  ) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    final pickerResult = Completer<List<ComposerUploadFile>>();
+    final calls = <_PanelUploadCall>[];
+    var pickerCalls = 0;
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) {
+        final call = _PanelUploadCall(onProgress);
+        calls.add(call);
+        return call.result.future;
+      },
+    );
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    composer.text.value = const TextEditingValue(
+      text: 'BeforeAfter',
+      selection: TextSelection.collapsed(offset: 6),
+    );
+    await _pumpPanel(
+      tester,
+      shell,
+      composer,
+      pickImages: () {
+        pickerCalls++;
+        return pickerResult.future;
+      },
+    );
+
+    expect(find.byTooltip('Upload images'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('composer-upload')));
+    await tester.pump();
+    expect(pickerCalls, 1);
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const ValueKey('composer-upload')))
+          .onPressed,
+      isNull,
+    );
+
+    // Crossing the compact footer breakpoint while the platform dialog owns
+    // the window must not replace the button state that is awaiting it.
+    final pixelRatio = tester.view.devicePixelRatio;
+    tester.view.physicalSize = Size(390 * pixelRatio, 844 * pixelRatio);
+    await tester.pump();
+
+    // The native dialog owns focus while it is open. Its result still belongs
+    // at the caret from when the user pressed Upload.
+    composer.text.selection = const TextSelection.collapsed(offset: 11);
+    pickerResult.complete([_file]);
+    await tester.pump();
+    expect(calls, hasLength(1));
+
+    calls.single.result.complete(
+      const ComposerUploadResult(
+        id: 1,
+        originalFilename: 'photo.png',
+        shortUrl: 'upload://photo',
+        url: 'https://meta.discourse.org/uploads/photo.png',
+        thumbnailWidth: 640,
+        thumbnailHeight: 480,
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      composer.text.text,
+      'Before\n![photo|640x480](upload://photo)\nAfter',
+    );
+    expect(composer.focus.hasFocus, isTrue);
+  });
+
+  testWidgets('the upload button follows composer availability', (
+    tester,
+  ) async {
+    final shell = await _shell();
+    final unavailable = ComposerController(_target);
+    addTearDown(shell.dispose);
+    addTearDown(unavailable.dispose);
+    await _pumpPanel(tester, shell, unavailable);
+    expect(find.byKey(const ValueKey('composer-upload')), findsNothing);
+
+    final available = ComposerController(
+      _target,
+      imageUploader: (_, {required onProgress, required abortTrigger}) =>
+          Completer<ComposerUploadResult>().future,
+    )..beginLoadingBody();
+    addTearDown(available.dispose);
+    await _pumpPanel(tester, shell, available);
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const ValueKey('composer-upload')))
+          .onPressed,
+      isNull,
+    );
+
+    available.loadedBody('Existing body');
+    await tester.pump();
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const ValueKey('composer-upload')))
+          .onPressed,
+      isNotNull,
+    );
+  });
+
   testWidgets('the panel shows progress and failed upload actions', (
     tester,
   ) async {
@@ -34,7 +144,7 @@ void main() {
 
     expect(find.text('Write a reply…'), findsOneWidget);
     composer.text.text = 'body';
-    composer.addDroppedImages([_file], 4);
+    composer.addImages([_file], 4);
     calls.single.onProgress(0.37);
     await tester.pump();
 
@@ -287,16 +397,21 @@ Future<ShellController> _shell() async {
 Future<void> _pumpPanel(
   WidgetTester tester,
   ShellController shell,
-  ComposerController composer,
-) => tester.pumpWidget(
+  ComposerController composer, {
+  ComposerImagePicker pickImages = _cancelImagePick,
+}) => tester.pumpWidget(
   MaterialApp(
     theme: AppTheme.dark,
     home: ShellScope(
       controller: shell,
-      child: Scaffold(body: ComposerPanel(composer: composer)),
+      child: Scaffold(
+        body: ComposerPanel(composer: composer, pickImages: pickImages),
+      ),
     ),
   ),
 );
+
+Future<List<ComposerUploadFile>> _cancelImagePick() async => const [];
 
 const _target = ComposerTarget(
   siteUrl: 'https://meta.discourse.org',

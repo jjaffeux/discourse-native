@@ -107,6 +107,7 @@ discourse-bookmark-clock
 # --- Composer
 bold
 italic
+upload
 
 # --- Oneboxes
 tag

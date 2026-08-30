@@ -617,7 +617,7 @@ void main() {
         addTearDown(composer.dispose);
         composer.text.text = 'leftRIGHT';
 
-        composer.addDroppedImages([_file('one.png'), _file('two.png')], 4);
+        composer.addImages([_file('one.png'), _file('two.png')], 4);
         expect(calls, hasLength(2));
         expect(composer.uploads.map((upload) => upload.file.name), [
           'one.png',
@@ -658,7 +658,7 @@ void main() {
         );
         addTearDown(composer.dispose);
 
-        composer.addDroppedImages([_file('one.png'), _file('two.png')], 0);
+        composer.addImages([_file('one.png'), _file('two.png')], 0);
         calls[1].complete(_result('two'));
         await tester.pump();
         expect(composer.completedUploads, isEmpty);
@@ -696,7 +696,7 @@ void main() {
       );
       addTearDown(composer.dispose);
       composer.text.text = 'body';
-      composer.addDroppedImages([_file('photo.png')], 4);
+      composer.addImages([_file('photo.png')], 4);
 
       calls.single.onProgress(0.42);
       expect(composer.uploads.single.progress, 0.42);
@@ -734,7 +734,7 @@ void main() {
         imageUploader: _recordingUploader(calls),
       );
       addTearDown(composer.dispose);
-      composer.addDroppedImages([_file('photo.png')], 0);
+      composer.addImages([_file('photo.png')], 0);
 
       final upload = composer.uploads.single;
       composer.retryUpload(upload.id);
@@ -756,7 +756,7 @@ void main() {
       );
       addTearDown(composer.dispose);
 
-      composer.addDroppedImages([_file('photo.png')], 0);
+      composer.addImages([_file('photo.png')], 0);
       await tester.pump();
 
       expect(composer.uploads.single.status, ComposerUploadStatus.failed);
@@ -774,7 +774,7 @@ void main() {
         );
         addTearDown(composer.dispose);
         composer.text.text = 'body';
-        composer.addDroppedImages([_file('one.png'), _file('two.png')], 4);
+        composer.addImages([_file('one.png'), _file('two.png')], 4);
 
         calls[1].complete(_result('two'));
         calls[0].fail(const ComposerUploadException('Try one again.'));
@@ -805,7 +805,7 @@ void main() {
         imageUploader: _recordingUploader(calls),
       );
       addTearDown(composer.dispose);
-      composer.addDroppedImages([_file('photo.png')], 0);
+      composer.addImages([_file('photo.png')], 0);
 
       var aborted = false;
       unawaited(calls.single.abort.then((_) => aborted = true));
@@ -823,7 +823,7 @@ void main() {
         _target,
         imageUploader: _recordingUploader(calls),
       );
-      composer.addDroppedImages([_file('one.png'), _file('two.png')], 0);
+      composer.addImages([_file('one.png'), _file('two.png')], 0);
 
       composer.dispose();
 
@@ -840,10 +840,10 @@ void main() {
       );
       addTearDown(composer.dispose);
 
-      composer.addDroppedImages([_file('notes.txt')], 0);
+      composer.addImages([_file('notes.txt')], 0);
       expect(composer.notice, contains('not allowed'));
-      composer.addDroppedImages([_file('one.png'), _file('two.png')], 0);
-      expect(composer.notice, 'Drop at most 1 images at a time.');
+      composer.addImages([_file('one.png'), _file('two.png')], 0);
+      expect(composer.notice, 'Upload at most one image at a time.');
       expect(calls, isEmpty);
     });
 

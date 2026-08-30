@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart' show RenderEditable;
 import 'package:flutter/services.dart';
 
 import '../data/composer_geometry_store.dart';
+import '../diagnostics/diagnostics_controller.dart';
 import '../models/composer_upload.dart';
 import '../models/topic.dart';
 import '../plugin_api/composer_syntax.dart';
@@ -24,6 +25,7 @@ import 'composer_images.dart';
 import 'composer_marks.dart';
 import 'composer_quotes.dart';
 import 'composer_suggestions.dart';
+import 'composer_upload_picker.dart';
 import 'emoji_composer.dart';
 import 'emoji_picker.dart';
 import 'image_decode.dart';
@@ -51,12 +53,14 @@ class ComposerPanel extends StatelessWidget {
     this.height,
     this.onMove,
     this.onMoveEnd,
+    this.pickImages = pickComposerImages,
   });
 
   final ComposerController composer;
   final double? height;
   final ValueChanged<Offset>? onMove;
   final VoidCallback? onMoveEnd;
+  final ComposerImagePicker pickImages;
 
   @override
   Widget build(BuildContext context) {
@@ -211,6 +215,7 @@ class ComposerPanel extends StatelessWidget {
                   ComposerUploadQueue(composer: composer),
                 _Footer(
                   composer: composer,
+                  pickImages: pickImages,
                   // Only ever says something when there is something to say.
                   // "Draft saved" every two seconds is noise; not being saved
                   // is worth interrupting for, because it changes what closing
@@ -1300,7 +1305,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
     final files = composerUploadFilesFromDrop(details.files);
     setState(() => _dragging = false);
-    widget.composer.addDroppedImages(
+    widget.composer.addImages(
       files,
       widget.composer.text.selection.extentOffset,
     );
@@ -2211,9 +2216,10 @@ class _Header extends StatelessWidget {
 /// Bold and italic live beside selected text in [ComposerEditor], keeping this
 /// persistent row for actions that create richer blocks.
 class _Toolbar extends StatelessWidget {
-  const _Toolbar({required this.composer});
+  const _Toolbar({required this.composer, required this.pickImages});
 
   final ComposerController composer;
+  final ComposerImagePicker pickImages;
 
   @override
   Widget build(BuildContext context) => ShellSelector<int>(
@@ -2237,12 +2243,17 @@ class _Toolbar extends StatelessWidget {
         ShellScope.read(
           context,
         ).siteConfigFor(composer.target.siteUrl).emojiEnabled;
-    if (!emojiEnabled && actions.isEmpty) return const SizedBox.shrink();
+    final uploadsEnabled = composer.imageUploader != null;
+    if (!uploadsEnabled && !emojiEnabled && actions.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
-      child: Row(
+      child: Wrap(
         children: [
+          if (uploadsEnabled)
+            _ComposerUploadButton(composer: composer, pickImages: pickImages),
           if (emojiEnabled)
             EmojiPickerAnchor(
               child: Builder(
@@ -2273,6 +2284,72 @@ class _Toolbar extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _ComposerUploadButton extends StatefulWidget {
+  const _ComposerUploadButton({
+    required this.composer,
+    required this.pickImages,
+  });
+
+  final ComposerController composer;
+  final ComposerImagePicker pickImages;
+
+  @override
+  State<_ComposerUploadButton> createState() => _ComposerUploadButtonState();
+}
+
+class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
+  bool _picking = false;
+
+  Future<void> _pick() async {
+    final composer = widget.composer;
+    final selection = composer.text.selection;
+    final offset = selection.isValid
+        ? selection.extentOffset
+        : composer.text.text.length;
+    setState(() => _picking = true);
+    try {
+      final files = await widget.pickImages();
+      if (!mounted || !identical(widget.composer, composer)) return;
+      composer.addImages(files, offset);
+    } catch (error, stackTrace) {
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'composer.pickImages',
+        source: 'platform',
+        severity: DiagnosticSeverity.warning,
+        handled: true,
+        degraded: true,
+      );
+      if (mounted && identical(widget.composer, composer)) {
+        composer.showNotice("Couldn't open the image picker.");
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _picking = false);
+        if (identical(widget.composer, composer)) {
+          composer.focus.requestFocus();
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return IconButton(
+      key: const ValueKey('composer-upload'),
+      onPressed: widget.composer.loadingBody || _picking
+          ? null
+          : () => unawaited(_pick()),
+      icon: const DIcon(DIcons.upload, size: 18),
+      tooltip: 'Upload images',
+      visualDensity: VisualDensity.compact,
+      color: theme.colorScheme.onSurfaceVariant,
     );
   }
 }
@@ -2460,6 +2537,7 @@ class _ComposerUploadThumbnail extends StatelessWidget {
 class _Footer extends StatelessWidget {
   const _Footer({
     required this.composer,
+    required this.pickImages,
     required this.message,
     required this.isError,
     required this.busy,
@@ -2468,47 +2546,72 @@ class _Footer extends StatelessWidget {
   });
 
   final ComposerController composer;
+  final ComposerImagePicker pickImages;
   final String? message;
   final bool isError;
   final bool busy;
   final String label;
   final VoidCallback? onSubmit;
 
+  static const double _stackedBreakpoint = 400;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final status = message == null
+        ? const SizedBox.shrink()
+        : Text(
+            message!,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: isError
+                  ? theme.colorScheme.error
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+          );
+    final submit = FilledButton(
+      // Disabled while anything is in flight, because there is no way to take
+      // a second post back.
+      onPressed: busy ? null : onSubmit,
+      child: busy
+          ? const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+            )
+          : Text(label),
+    );
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 0, 14, 10),
-      child: Row(
-        children: [
-          if (!composer.target.isTaxonomyEdit) _Toolbar(composer: composer),
-          Expanded(
-            child: message == null
-                ? const SizedBox.shrink()
-                : Text(
-                    message!,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: isError
-                          ? theme.colorScheme.error
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-          ),
-          const SizedBox(width: 8),
-          FilledButton(
-            // Disabled while anything is in flight, because there is no way to
-            // take a second post back.
-            onPressed: busy ? null : onSubmit,
-            child: busy
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                  )
-                : Text(label),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final toolbar = _Toolbar(composer: composer, pickImages: pickImages);
+          final statusAndSubmit = Row(
+            children: [
+              Expanded(child: status),
+              const SizedBox(width: 8),
+              submit,
+            ],
+          );
+          final stacked =
+              !composer.target.isTaxonomyEdit &&
+              constraints.maxWidth < _stackedBreakpoint;
+          return Flex(
+            direction: stacked ? Axis.vertical : Axis.horizontal,
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: stacked
+                ? CrossAxisAlignment.stretch
+                : CrossAxisAlignment.center,
+            children: [
+              if (!composer.target.isTaxonomyEdit) toolbar,
+              if (stacked)
+                statusAndSubmit
+              else
+                Expanded(child: statusAndSubmit),
+            ],
+          );
+        },
       ),
     );
   }
