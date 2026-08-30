@@ -5,6 +5,11 @@ import 'package:flutter/widgets.dart';
 ///
 /// Keeping the activator beside the UI that describes it prevents displayed
 /// key combinations from drifting away from the keys the shell accepts.
+const newTopicShortcut = SingleActivator(
+  LogicalKeyboardKey.keyC,
+  includeRepeats: false,
+);
+
 const topicReplyShortcut = SingleActivator(
   LogicalKeyboardKey.keyR,
   shift: true,

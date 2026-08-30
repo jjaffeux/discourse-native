@@ -3,11 +3,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../app_shortcuts.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_draft.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_tooltip.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_title.dart';
@@ -115,8 +117,8 @@ class _TopicCreateControl extends StatelessWidget {
     return FilledButton.styleFrom(
       minimumSize: const Size(44, 44),
       padding: padding,
-      backgroundColor: theme.colorScheme.surfaceContainerHighest,
-      foregroundColor: theme.colorScheme.onSurface,
+      backgroundColor: theme.colorScheme.primary,
+      foregroundColor: theme.colorScheme.onPrimary,
       shape: RoundedRectangleBorder(borderRadius: borderRadius),
     );
   }
@@ -133,8 +135,9 @@ class _TopicCreateControl extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: showLabel ? 14 : 10),
     );
 
-    final mainButton = Tooltip(
+    final mainButton = DTooltip(
       message: 'New topic',
+      shortcut: newTopicShortcut,
       excludeFromSemantics: true,
       child: showLabel
           ? FilledButton.icon(

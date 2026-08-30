@@ -31,7 +31,6 @@ void main() {
 
       _expectAccessibleTarget(tester, create);
       _expectAccessibleTarget(tester, drafts);
-      expect(find.byTooltip('New topic'), findsOneWidget);
       expect(find.byTooltip('Open the latest drafts menu'), findsOneWidget);
       expect(
         tester.getSemantics(create),

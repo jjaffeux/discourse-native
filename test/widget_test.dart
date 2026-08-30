@@ -3451,8 +3451,8 @@ void main() {
 
       await pumpShell(tester, desktop, api: api, authenticator: authenticator);
 
-      expect(find.byTooltip('New topic'), findsOneWidget);
-      await tester.tap(find.byTooltip('New topic'));
+      expect(find.byKey(TopicCreateButton.buttonKey), findsOneWidget);
+      await tester.tap(find.byKey(TopicCreateButton.buttonKey));
       await tester.pumpAndSettle();
 
       expect(find.text('Create a new topic'), findsOneWidget);
@@ -3467,7 +3467,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(ComposerPanel), findsNothing);
 
-      await tester.tap(find.byTooltip('New topic'));
+      await tester.tap(find.byKey(TopicCreateButton.buttonKey));
       expect(
         ShellScope.read(
           tester.element(find.byType(MainContent)),
@@ -3569,7 +3569,7 @@ void main() {
 
         await tester.tap(messages);
         await tester.pumpAndSettle();
-        expect(find.byTooltip('New topic'), findsNothing);
+        expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
 
         await tester.tap(newTopic);
         await tester.pumpAndSettle();
@@ -3581,6 +3581,109 @@ void main() {
         expect(shell.visibleComposer?.target.originFeedId, 'latest');
       },
     );
+
+    testWidgets('C opens New Topic across forum routes but not Aggregate', (
+      tester,
+    ) async {
+      const user = DiscourseUser(
+        id: 7,
+        username: 'joffreyj',
+        name: 'Joffrey',
+        canCreateTopic: true,
+      );
+      final api = FakeDiscourseApi(
+        user: user,
+        feeds: {
+          '/latest.json': latest,
+          inbox: const [Topic(id: 9, title: 'A private message', slug: 'a-pm')],
+        },
+        creatableFeedPaths: const {'/latest.json'},
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [instance('meta.discourse.org').copyWith(user: user)],
+        api: api,
+        authenticator: authenticator,
+      );
+
+      await tester.tap(sidebarDestination('Messages'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ComposerPanel), findsNothing);
+
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyC), isTrue);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      expect(shell.currentContent?.isMessages, isTrue);
+      expect(shell.visibleComposer?.target.isNewTopic, isTrue);
+
+      await tester.tap(find.byTooltip('Close composer'));
+      await tester.pumpAndSettle();
+      shell.selectAggregate();
+      await tester.pumpAndSettle();
+
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyC), isFalse);
+      await tester.pump();
+      expect(find.byType(ComposerPanel), findsNothing);
+    });
+
+    testWidgets('C leaves focused forum form controls alone', (tester) async {
+      const user = DiscourseUser(
+        id: 7,
+        username: 'joffreyj',
+        name: 'Joffrey',
+        canCreateTopic: true,
+      );
+      final api = FakeDiscourseApi(
+        user: user,
+        feeds: {'/latest.json': latest},
+        creatableFeedPaths: const {'/latest.json'},
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [instance('meta.discourse.org').copyWith(user: user)],
+        api: api,
+        authenticator: authenticator,
+      );
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      shell.openPreferences('https://meta.discourse.org');
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const ValueKey(('like-notification-frequency', 1))),
+      );
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+      await tester.pumpAndSettle();
+      expect(find.byType(ComposerPanel), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.tap(
+        find.byKey(const ValueKey('preferences-section-profile')),
+      );
+      await tester.pumpAndSettle();
+      final timezone = find.descendant(
+        of: find.byKey(const ValueKey('preferences-timezone')),
+        matching: find.byType(EditableText),
+      );
+      await tester.tap(timezone);
+      await tester.pump();
+      expect(tester.widget<EditableText>(timezone).focusNode.hasFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+      await tester.pumpAndSettle();
+      expect(find.byType(ComposerPanel), findsNothing);
+    });
 
     testWidgets('the sidebar hides New Topic when the account cannot post', (
       tester,
@@ -3836,7 +3939,7 @@ void main() {
         await tester.tap(sidebarDestination('Messages'));
         await tester.pumpAndSettle();
 
-        expect(find.byTooltip('New topic'), findsNothing);
+        expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
       },
     );
 
@@ -8876,14 +8979,14 @@ void main() {
         authenticator: signedIn(),
       );
 
-      expect(find.byTooltip('New topic'), findsOneWidget);
+      expect(find.byKey(TopicCreateButton.buttonKey), findsOneWidget);
       expect(find.byTooltip('Open the latest drafts menu'), findsOneWidget);
 
       await openProfileSection(tester);
       await tester.tap(find.byKey(const ValueKey('user-menu-row-preferences')));
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip('New topic'), findsNothing);
+      expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
       expect(find.byTooltip('Open the latest drafts menu'), findsNothing);
       expect(
         ShellScope.read(
