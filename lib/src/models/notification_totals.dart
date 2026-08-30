@@ -182,10 +182,19 @@ class NotificationTotals {
   final int unreadPersonalMessages;
   final int unseenReviewables;
 
-  /// Topics with unread posts, and topics never seen — the two numbers the
-  /// sidebar's Unread and New entries show.
+  /// Topics with unread posts, and topics never seen — the two sources for the
+  /// Topics sidebar count.
   final int topicTrackingUnread;
   final int topicTrackingNew;
+
+  /// The number core's Topics sidebar row shows.
+  ///
+  /// Legacy New prioritizes unread topics and falls back to new topics. With
+  /// unified New the server puts the combined new-and-unread total in
+  /// [topicTrackingNew] and omits [topicTrackingUnread], so the same selection
+  /// works for both modes without retaining another current-user preference.
+  int get topicTrackingSidebarCount =>
+      topicTrackingUnread > 0 ? topicTrackingUnread : topicTrackingNew;
 
   final String? username;
   final PluginNotificationCounters pluginCounters;
