@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
@@ -73,125 +75,9 @@ class InstanceRail extends StatelessWidget {
                         ),
                       ),
                       InstanceLoadStatus.failed => const _RailLoadFailure(),
-                      InstanceLoadStatus.ready => ListView.builder(
-                        // The traffic lights are cleared by the title bar above
-                        // the shell, so the rail only needs this padding.
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        itemCount: state.instances.length,
-                        findChildIndexCallback: (key) {
-                          if (key is! ValueKey<String>) return null;
-                          final index = state.instances.indexWhere(
-                            (instance) => instance.url == key.value,
-                          );
-                          return index < 0 ? null : index;
-                        },
-                        itemBuilder: (context, index) {
-                          final instance = state.instances[index];
-                          final moveUp = index == 0
-                              ? null
-                              : () => _moveInstance(
-                                  context,
-                                  controller,
-                                  instance,
-                                  index - 1,
-                                );
-                          final moveDown = index == state.instances.length - 1
-                              ? null
-                              : () => _moveInstance(
-                                  context,
-                                  controller,
-                                  instance,
-                                  index + 1,
-                                );
-                          final item = _RailItem(
-                            instance: instance,
-                            appearance: state.appearances[index],
-                            selected:
-                                state.rootMode == ShellRootMode.forum &&
-                                index == state.selectedIndex,
-                            badgeCount: controller.railBadgeFor(instance),
-                            onTap: () => controller.selectInstance(index),
-                            onMoveUp: moveUp,
-                            onMoveDown: moveDown,
-                          );
-                          return KeyedSubtree(
-                            key: ValueKey(instance.url),
-                            child: Semantics(
-                              customSemanticsActions: {
-                                const CustomSemanticsAction(label: 'Move up'):
-                                    ?moveUp,
-                                const CustomSemanticsAction(label: 'Move down'):
-                                    ?moveDown,
-                              },
-                              // A desktop pointer can drag the site itself. On
-                              // touch, long press remains the established route
-                              // to site actions; its sheet carries Move buttons.
-                              child:
-                                  !context.isTouch && state.instances.length > 1
-                                  ? DragTarget<String>(
-                                      onWillAcceptWithDetails: (details) =>
-                                          details.data != instance.url,
-                                      onAcceptWithDetails: (details) {
-                                        // A background flow can remove the
-                                        // dragged site mid-drag while its
-                                        // avatar lives on, so the drop must
-                                        // tolerate the site being gone.
-                                        final dragged = state.instances
-                                            .where(
-                                              (item) =>
-                                                  item.url == details.data,
-                                            )
-                                            .firstOrNull;
-                                        if (dragged == null) return;
-                                        _moveInstance(
-                                          context,
-                                          controller,
-                                          dragged,
-                                          index,
-                                        );
-                                      },
-                                      builder:
-                                          (
-                                            context,
-                                            candidates,
-                                            rejected,
-                                          ) => Draggable<String>(
-                                            data: instance.url,
-                                            axis: Axis.vertical,
-                                            dragAnchorStrategy:
-                                                pointerDragAnchorStrategy,
-                                            feedback: Transform.translate(
-                                              offset: const Offset(-22, -22),
-                                              child: _RailDragFeedback(
-                                                instance: instance,
-                                                appearance:
-                                                    state.appearances[index],
-                                                selected:
-                                                    state.rootMode ==
-                                                        ShellRootMode.forum &&
-                                                    index ==
-                                                        state.selectedIndex,
-                                              ),
-                                            ),
-                                            child: DecoratedBox(
-                                              decoration: BoxDecoration(
-                                                color: candidates.isEmpty
-                                                    ? Colors.transparent
-                                                    : theme.shell.railForeground
-                                                          .withValues(
-                                                            alpha: 0.08,
-                                                          ),
-                                                borderRadius:
-                                                    BorderRadius.circular(16),
-                                              ),
-                                              child: item,
-                                            ),
-                                          ),
-                                    )
-                                  : item,
-                            ),
-                          );
-                        },
+                      InstanceLoadStatus.ready => _InstanceRailList(
+                        state: state,
+                        controller: controller,
                       ),
                     },
                   ),
@@ -228,6 +114,637 @@ class InstanceRail extends StatelessWidget {
       );
     }());
   }
+}
+
+const double _railListPadding = 12;
+const double _railItemExtent = 52;
+const double _railAvatarSize = 44;
+const double _railSourceOpacity = 0.3;
+const double _railAutoScrollVelocityScalar = 50;
+
+/// Owns one reorder interaction for the whole scrolling forum viewport.
+///
+/// A single target remains stable while edge scrolling moves lazy rows beneath
+/// a stationary finger. The insertion slot is derived from the pointer and the
+/// fixed row geometry, so the line and the eventual drop always share one
+/// answer.
+class _InstanceRailList extends StatefulWidget {
+  const _InstanceRailList({required this.state, required this.controller});
+
+  final _RailSnapshot state;
+  final ShellController controller;
+
+  @override
+  State<_InstanceRailList> createState() => _InstanceRailListState();
+}
+
+class _InstanceRailListState extends State<_InstanceRailList> {
+  final GlobalKey _viewportKey = GlobalKey();
+
+  String? _draggedUrl;
+  Offset? _pointerGlobal;
+  int? _insertionSlot;
+  ScrollableState? _scrollable;
+  EdgeDraggingAutoScroller? _autoScroller;
+  bool _touchDrag = false;
+  bool _touchReorderIntent = false;
+  int _dragGeneration = 0;
+
+  bool get _canReorder => widget.state.instances.length > 1;
+
+  @override
+  void didUpdateWidget(covariant _InstanceRailList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller, widget.controller) ||
+        !_canReorder ||
+        (_draggedUrl != null &&
+            !widget.state.instances.any((item) => item.url == _draggedUrl))) {
+      _clearDrag(notify: false);
+    } else if (_pointerGlobal != null) {
+      _insertionSlot = _slotFor(_pointerGlobal!);
+    }
+  }
+
+  @override
+  void dispose() {
+    _clearDrag(notify: false);
+    super.dispose();
+  }
+
+  bool _startDrag(
+    String url,
+    ScrollableState scrollable, {
+    required bool touch,
+  }) {
+    if (_draggedUrl != null) return false;
+    _clearDrag(notify: false);
+    _draggedUrl = url;
+    _scrollable = scrollable;
+    _touchDrag = touch;
+    scrollable.position.addListener(_scrollPositionChanged);
+    _createAutoScroller();
+    setState(() {});
+    return true;
+  }
+
+  void _createAutoScroller() {
+    final scrollable = _scrollable;
+    if (!_touchDrag || scrollable == null || _autoScroller != null) return;
+    final generation = ++_dragGeneration;
+    _autoScroller = EdgeDraggingAutoScroller(
+      scrollable,
+      velocityScalar: _railAutoScrollVelocityScalar,
+      onScrollViewScrolled: () {
+        if (!mounted || generation != _dragGeneration) return;
+        _recomputeInsertion();
+        _driveAutoScroll();
+      },
+    );
+  }
+
+  void _invalidateAutoScroller() {
+    _dragGeneration++;
+    _autoScroller?.stopAutoScroll();
+    _autoScroller = null;
+  }
+
+  void _updateDrag(
+    String url,
+    DragUpdateDetails details, {
+    required bool canReorder,
+  }) {
+    if (_draggedUrl != url) return;
+    _pointerGlobal = details.globalPosition;
+    _touchReorderIntent = !_touchDrag || canReorder;
+    if (!_touchReorderIntent) {
+      _autoScroller?.stopAutoScroll();
+      if (_insertionSlot != null) {
+        setState(() => _insertionSlot = null);
+      }
+      return;
+    }
+    _recomputeInsertion();
+    _driveAutoScroll();
+  }
+
+  void _scrollPositionChanged() {
+    if (_draggedUrl == null || _pointerGlobal == null) return;
+    _recomputeInsertion();
+  }
+
+  void _recomputeInsertion() {
+    final pointer = _pointerGlobal;
+    final slot = pointer == null ? null : _slotFor(pointer);
+    if (slot == _insertionSlot || !mounted) return;
+    setState(() => _insertionSlot = slot);
+  }
+
+  void _moveOverViewport(DragTargetDetails<String> details) {
+    if (details.data != _draggedUrl) return;
+    _pointerGlobal = details.offset;
+    if (_touchDrag && !_touchReorderIntent) return;
+    _recomputeInsertion();
+    _driveAutoScroll();
+  }
+
+  int? _slotFor(Offset globalPosition) {
+    final viewportContext = _viewportKey.currentContext;
+    final scrollable = _scrollable;
+    final renderObject = viewportContext?.findRenderObject();
+    if (renderObject is! RenderBox ||
+        !renderObject.hasSize ||
+        scrollable == null ||
+        !scrollable.position.hasPixels) {
+      return null;
+    }
+
+    final local = renderObject.globalToLocal(globalPosition);
+    if (local.dx < 0 ||
+        local.dx > renderObject.size.width ||
+        local.dy < 0 ||
+        local.dy > renderObject.size.height) {
+      return null;
+    }
+
+    final contentY = local.dy + scrollable.position.pixels - _railListPadding;
+    return ((contentY + _railItemExtent / 2) / _railItemExtent)
+        .floor()
+        .clamp(0, widget.state.instances.length)
+        .toInt();
+  }
+
+  void _driveAutoScroll() {
+    final pointer = _pointerGlobal;
+    final renderObject = _viewportKey.currentContext?.findRenderObject();
+    if (!_touchDrag ||
+        !_touchReorderIntent ||
+        pointer == null ||
+        _slotFor(pointer) == null ||
+        renderObject is! RenderBox ||
+        renderObject.size.height < _railAvatarSize) {
+      _autoScroller?.stopAutoScroll();
+      return;
+    }
+    _createAutoScroller();
+    _autoScroller?.startAutoScrollIfNecessary(
+      Rect.fromCenter(
+        center: pointer,
+        width: _railAvatarSize,
+        height: _railAvatarSize,
+      ),
+    );
+  }
+
+  int? _destinationForSlot(int? slot, String? draggedUrl) {
+    if (slot == null || draggedUrl == null) return null;
+    final sourceIndex = widget.state.instances.indexWhere(
+      (item) => item.url == draggedUrl,
+    );
+    if (sourceIndex < 0) return null;
+    return slot > sourceIndex ? slot - 1 : slot;
+  }
+
+  int? get _visibleInsertionSlot {
+    final slot = _insertionSlot;
+    final destination = _destinationForSlot(slot, _draggedUrl);
+    final sourceIndex = widget.state.instances.indexWhere(
+      (item) => item.url == _draggedUrl,
+    );
+    if (slot == null || destination == null || destination == sourceIndex) {
+      return null;
+    }
+    return slot;
+  }
+
+  void _acceptDrop(DragTargetDetails<String> details) {
+    if (details.data != _draggedUrl) {
+      return;
+    }
+    if (_touchDrag && !_touchReorderIntent) {
+      _clearDrag();
+      return;
+    }
+    _pointerGlobal = details.offset;
+    final slot = _slotFor(details.offset);
+    final destination = _destinationForSlot(slot, details.data);
+    final sourceIndex = widget.state.instances.indexWhere(
+      (item) => item.url == details.data,
+    );
+    if (sourceIndex < 0 || destination == null || destination == sourceIndex) {
+      _clearDrag();
+      return;
+    }
+    final dragged = widget.state.instances[sourceIndex];
+    final controller = widget.controller;
+    _clearDrag();
+    InstanceRail._moveInstance(context, controller, dragged, destination);
+  }
+
+  void _leaveViewport(String? data) {
+    if (data != _draggedUrl) return;
+    _invalidateAutoScroller();
+    _pointerGlobal = null;
+    if (_insertionSlot != null && mounted) {
+      setState(() => _insertionSlot = null);
+    }
+  }
+
+  void _finishDrag(String url) {
+    if (url != _draggedUrl) return;
+    _clearDrag();
+  }
+
+  void _clearDrag({bool notify = true}) {
+    _invalidateAutoScroller();
+    final scrollable = _scrollable;
+    if (scrollable != null) {
+      scrollable.position.removeListener(_scrollPositionChanged);
+    }
+    _draggedUrl = null;
+    _pointerGlobal = null;
+    _insertionSlot = null;
+    _scrollable = null;
+    _touchDrag = false;
+    _touchReorderIntent = false;
+    if (notify && mounted) setState(() {});
+  }
+
+  Widget _draggableItem(
+    BuildContext itemContext,
+    int index,
+    DiscourseInstance instance,
+    Widget item,
+  ) {
+    final appearance = widget.state.appearances[index];
+    final selected =
+        widget.state.rootMode == ShellRootMode.forum &&
+        index == widget.state.selectedIndex;
+    final feedback = _RailDragFeedback(
+      key: ValueKey('instance-rail-drag-feedback-${instance.url}'),
+      instance: instance,
+      appearance: appearance,
+      selected: selected,
+    );
+    final actions = InstanceActions(
+      instance: instance,
+      onMoveUp: index == 0
+          ? null
+          : () => InstanceRail._moveInstance(
+              itemContext,
+              widget.controller,
+              instance,
+              index - 1,
+            ),
+      onMoveDown: index == widget.state.instances.length - 1
+          ? null
+          : () => InstanceRail._moveInstance(
+              itemContext,
+              widget.controller,
+              instance,
+              index + 1,
+            ),
+      touchGestureBuilder: _canReorder && itemContext.isTouch
+          ? (child, openActions) => _TouchRailDraggable(
+              data: instance.url,
+              enabled: _draggedUrl == null || _draggedUrl == instance.url,
+              feedback: Transform.translate(
+                offset: const Offset(-22, -56),
+                child: feedback,
+              ),
+              onDragStarted: () => _startDrag(
+                instance.url,
+                Scrollable.of(itemContext),
+                touch: true,
+              ),
+              onDragUpdate: (details, {required canReorder}) =>
+                  _updateDrag(instance.url, details, canReorder: canReorder),
+              onDragFinished: () => _finishDrag(instance.url),
+              openActions: openActions,
+              child: child,
+            )
+          : null,
+      child: item,
+    );
+    if (!_canReorder || itemContext.isTouch) return actions;
+
+    return Draggable<String>(
+      data: instance.url,
+      maxSimultaneousDrags: _draggedUrl == null || _draggedUrl == instance.url
+          ? 1
+          : 0,
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      feedback: Transform.translate(
+        offset: const Offset(-22, -22),
+        child: feedback,
+      ),
+      onDragStarted: () =>
+          _startDrag(instance.url, Scrollable.of(itemContext), touch: false),
+      onDragUpdate: (details) =>
+          _updateDrag(instance.url, details, canReorder: true),
+      onDragEnd: (_) => _finishDrag(instance.url),
+      onDragCompleted: () => _finishDrag(instance.url),
+      onDraggableCanceled: (_, _) => _finishDrag(instance.url),
+      childWhenDragging: Opacity(
+        key: ValueKey('instance-rail-drag-source-${instance.url}'),
+        opacity: _railSourceOpacity,
+        child: actions,
+      ),
+      child: Opacity(
+        key: ValueKey('instance-rail-drag-source-${instance.url}'),
+        opacity: 1,
+        child: actions,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleSlot = _visibleInsertionSlot;
+    final theme = Theme.of(context);
+    final scaffold = opaqueColorOnCanvas(
+      theme.scaffoldBackgroundColor,
+      theme.brightness,
+    );
+    final indicatorColor = contrastSafeForeground(
+      background: theme.shell.rail,
+      backdrop: scaffold,
+      preferred: [theme.colorScheme.primary, theme.shell.railForeground],
+    );
+
+    return SizedBox.expand(
+      key: _viewportKey,
+      child: DragTarget<String>(
+        onWillAcceptWithDetails: (details) =>
+            widget.state.instances.any((item) => item.url == details.data),
+        onMove: _moveOverViewport,
+        onAcceptWithDetails: _acceptDrop,
+        onLeave: _leaveViewport,
+        builder: (context, candidates, rejected) => ListView.builder(
+          // The traffic lights are cleared by the title bar above the shell,
+          // so the rail only needs this padding.
+          padding: const EdgeInsets.symmetric(vertical: _railListPadding),
+          itemExtent: _railItemExtent,
+          itemCount: widget.state.instances.length,
+          findChildIndexCallback: (key) {
+            if (key is! ValueKey<String>) return null;
+            final index = widget.state.instances.indexWhere(
+              (instance) => instance.url == key.value,
+            );
+            return index < 0 ? null : index;
+          },
+          itemBuilder: (itemContext, index) {
+            final instance = widget.state.instances[index];
+            final moveUp = index == 0
+                ? null
+                : () => InstanceRail._moveInstance(
+                    itemContext,
+                    widget.controller,
+                    instance,
+                    index - 1,
+                  );
+            final moveDown = index == widget.state.instances.length - 1
+                ? null
+                : () => InstanceRail._moveInstance(
+                    itemContext,
+                    widget.controller,
+                    instance,
+                    index + 1,
+                  );
+            final item = _RailItem(
+              instance: instance,
+              appearance: widget.state.appearances[index],
+              selected:
+                  widget.state.rootMode == ShellRootMode.forum &&
+                  index == widget.state.selectedIndex,
+              badgeCount: widget.controller.railBadgeFor(instance),
+              onTap: () => widget.controller.selectInstance(index),
+            );
+            return KeyedSubtree(
+              key: ValueKey(instance.url),
+              child: Semantics(
+                customSemanticsActions: {
+                  const CustomSemanticsAction(label: 'Move up'): ?moveUp,
+                  const CustomSemanticsAction(label: 'Move down'): ?moveDown,
+                },
+                child: _RailInsertionSlot(
+                  before: visibleSlot == index,
+                  after:
+                      visibleSlot == widget.state.instances.length &&
+                      index == widget.state.instances.length - 1,
+                  color: indicatorColor,
+                  child: _draggableItem(itemContext, index, instance, item),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _RailInsertionSlot extends StatelessWidget {
+  const _RailInsertionSlot({
+    required this.before,
+    required this.after,
+    required this.color,
+    required this.child,
+  });
+
+  final bool before;
+  final bool after;
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    clipBehavior: Clip.none,
+    children: [
+      child,
+      if (before || after)
+        Positioned(
+          top: before ? -1 : null,
+          bottom: after ? -1 : null,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: Container(
+              key: const ValueKey('instance-rail-drop-indicator'),
+              width: _railAvatarSize,
+              height: 2,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ),
+        ),
+    ],
+  );
+}
+
+class _TouchRailDraggable extends StatefulWidget {
+  const _TouchRailDraggable({
+    required this.data,
+    required this.enabled,
+    required this.feedback,
+    required this.onDragStarted,
+    required this.onDragUpdate,
+    required this.onDragFinished,
+    required this.openActions,
+    required this.child,
+  });
+
+  final String data;
+  final bool enabled;
+  final Widget feedback;
+  final bool Function() onDragStarted;
+  final void Function(DragUpdateDetails details, {required bool canReorder})
+  onDragUpdate;
+  final VoidCallback onDragFinished;
+  final ValueChanged<Offset> openActions;
+  final Widget child;
+
+  @override
+  State<_TouchRailDraggable> createState() => _TouchRailDraggableState();
+}
+
+class _TouchRailDraggableState extends State<_TouchRailDraggable> {
+  final Set<int> _downPointers = <int>{};
+  int? _pointer;
+  Offset? _pointerDownGlobal;
+  Offset? _pointerDownLocal;
+  double _maximumDistance = 0;
+  double _maximumVerticalDistance = 0;
+  bool _pointerCanceled = false;
+  bool _dragActive = false;
+  bool _ownsDrag = false;
+  bool _multitouchInvalidated = false;
+
+  void _pointerDown(PointerDownEvent event) {
+    _downPointers.add(event.pointer);
+    if (_downPointers.length > 1) {
+      if (!_multitouchInvalidated) {
+        _multitouchInvalidated = true;
+        _finishOwnedDrag();
+        setState(() {});
+      }
+      return;
+    }
+    _pointer = event.pointer;
+    _pointerDownGlobal = event.position;
+    _pointerDownLocal = event.localPosition;
+    _maximumDistance = 0;
+    _maximumVerticalDistance = 0;
+    _pointerCanceled = false;
+  }
+
+  void _pointerUp(PointerUpEvent event) {
+    _downPointers.remove(event.pointer);
+    if (event.pointer == _pointer && !_dragActive) _resetPointer();
+    _restoreAfterPointersLeave();
+  }
+
+  void _pointerCancel(PointerCancelEvent event) {
+    _downPointers.remove(event.pointer);
+    if (event.pointer == _pointer) {
+      _pointerCanceled = true;
+      if (!_dragActive) _resetPointer();
+    }
+    _restoreAfterPointersLeave();
+  }
+
+  void _restoreAfterPointersLeave() {
+    if (_downPointers.isNotEmpty || !_multitouchInvalidated) return;
+    _multitouchInvalidated = false;
+    if (mounted) setState(() {});
+  }
+
+  void _dragStarted() {
+    _dragActive = true;
+    _ownsDrag = !_multitouchInvalidated && widget.onDragStarted();
+  }
+
+  void _dragUpdate(DragUpdateDetails details) {
+    final origin = _pointerDownGlobal ?? details.globalPosition;
+    final displacement = details.globalPosition - origin;
+    _maximumDistance = math.max(_maximumDistance, displacement.distance);
+    _maximumVerticalDistance = math.max(
+      _maximumVerticalDistance,
+      displacement.dy.abs(),
+    );
+    if (_ownsDrag) {
+      widget.onDragUpdate(
+        details,
+        canReorder: _maximumVerticalDistance > kTouchSlop,
+      );
+    }
+  }
+
+  void _dragEnd(DraggableDetails details) {
+    final openAt = _pointerDownLocal;
+    final stationary =
+        _ownsDrag && details.wasAccepted && _maximumDistance <= kTouchSlop;
+    _finishOwnedDrag();
+    if (!stationary || openAt == null) {
+      _resetPointer();
+      return;
+    }
+
+    // A cancel and a normal pointer-up both end the draggable. Defer the
+    // fallback until raw pointer dispatch has identified which one occurred.
+    scheduleMicrotask(() {
+      if (mounted && !_pointerCanceled) widget.openActions(openAt);
+      _resetPointer();
+    });
+  }
+
+  void _finishOwnedDrag() {
+    final owned = _ownsDrag;
+    _dragActive = false;
+    _ownsDrag = false;
+    if (owned) widget.onDragFinished();
+  }
+
+  void _resetPointer() {
+    _pointer = null;
+    _pointerDownGlobal = null;
+    _pointerDownLocal = null;
+    _maximumDistance = 0;
+    _maximumVerticalDistance = 0;
+    _pointerCanceled = false;
+    _dragActive = false;
+    _ownsDrag = false;
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    onPointerDown: _pointerDown,
+    onPointerUp: _pointerUp,
+    onPointerCancel: _pointerCancel,
+    child: LongPressDraggable<String>(
+      data: widget.data,
+      maxSimultaneousDrags: widget.enabled && !_multitouchInvalidated ? 1 : 0,
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      feedback: widget.feedback,
+      onDragStarted: _dragStarted,
+      onDragUpdate: _dragUpdate,
+      onDragEnd: _dragEnd,
+      onDragCompleted: _finishOwnedDrag,
+      onDraggableCanceled: (_, _) => _finishOwnedDrag(),
+      childWhenDragging: Opacity(
+        key: ValueKey('instance-rail-drag-source-${widget.data}'),
+        opacity: _railSourceOpacity,
+        child: widget.child,
+      ),
+      child: Opacity(
+        key: ValueKey('instance-rail-drag-source-${widget.data}'),
+        opacity: 1,
+        child: widget.child,
+      ),
+    ),
+  );
 }
 
 class _RailSnapshot {
@@ -644,6 +1161,7 @@ class _UpdateButton extends StatelessWidget {
 /// part of the drag lifecycle.
 class _RailDragFeedback extends StatelessWidget {
   const _RailDragFeedback({
+    super.key,
     required this.instance,
     required this.appearance,
     required this.selected,
@@ -702,8 +1220,6 @@ class _RailItem extends StatefulWidget {
     required this.selected,
     required this.badgeCount,
     required this.onTap,
-    required this.onMoveUp,
-    required this.onMoveDown,
   });
 
   final DiscourseInstance instance;
@@ -711,8 +1227,6 @@ class _RailItem extends StatefulWidget {
   final bool selected;
   final int badgeCount;
   final VoidCallback onTap;
-  final VoidCallback? onMoveUp;
-  final VoidCallback? onMoveDown;
 
   @override
   State<_RailItem> createState() => _RailItemState();
@@ -784,45 +1298,40 @@ class _RailItemState extends State<_RailItem> {
             ),
           ),
           Center(
-            child: InstanceActions(
+            child: _RailTooltip(
               instance: widget.instance,
-              onMoveUp: widget.onMoveUp,
-              onMoveDown: widget.onMoveDown,
-              child: _RailTooltip(
-                instance: widget.instance,
-                accent: accent,
-                child: InkWell(
-                  onTap: widget.onTap,
-                  onHover: _handleHover,
-                  mouseCursor: context.isTouch ? null : SystemMouseCursors.grab,
-                  borderRadius: BorderRadius.circular(16),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      SizedBox.square(
-                        dimension: 44,
-                        child: _InstanceAvatar(
-                          instance: widget.instance,
-                          foreground: avatarForeground,
-                          background: avatarBackground,
-                          selected: widget.selected,
+              accent: accent,
+              child: InkWell(
+                onTap: widget.onTap,
+                onHover: _handleHover,
+                mouseCursor: context.isTouch ? null : SystemMouseCursors.grab,
+                borderRadius: BorderRadius.circular(16),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    SizedBox.square(
+                      dimension: 44,
+                      child: _InstanceAvatar(
+                        instance: widget.instance,
+                        foreground: avatarForeground,
+                        background: avatarBackground,
+                        selected: widget.selected,
+                      ),
+                    ),
+                    if (widget.badgeCount > 0)
+                      Positioned(
+                        right: -2,
+                        bottom: -2,
+                        child: _CountBadge(
+                          key: ValueKey(
+                            'instance-rail-badge-${widget.instance.url}',
+                          ),
+                          count: widget.badgeCount,
+                          background: badgeBackground,
+                          foreground: badgeForeground,
                         ),
                       ),
-                      if (widget.badgeCount > 0)
-                        Positioned(
-                          right: -2,
-                          bottom: -2,
-                          child: _CountBadge(
-                            key: ValueKey(
-                              'instance-rail-badge-${widget.instance.url}',
-                            ),
-                            count: widget.badgeCount,
-                            background: badgeBackground,
-                            foreground: badgeForeground,
-                          ),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ),

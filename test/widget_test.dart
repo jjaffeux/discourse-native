@@ -88,13 +88,18 @@ import 'package:discourse_native/src/shell/user_activity.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/color_contrast.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart'
-    show PointerEnterEvent, PointerExitEvent, kSecondaryButton;
+    show
+        PointerEnterEvent,
+        PointerExitEvent,
+        kLongPressTimeout,
+        kSecondaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -2511,6 +2516,31 @@ void main() {
   group('ordering sites', () {
     Finder railItem(String host) =>
         find.byKey(ValueKey<String>('https://$host'));
+    Finder dragSource(String host) =>
+        find.byKey(ValueKey<String>('instance-rail-drag-source-https://$host'));
+    Finder dragFeedback(String host) => find.byKey(
+      ValueKey<String>('instance-rail-drag-feedback-https://$host'),
+    );
+    const dropIndicator = ValueKey<String>('instance-rail-drop-indicator');
+    List<DiscourseInstance> overflowingSites() => [
+      for (var index = 0; index < 24; index++)
+        instance(
+          'site-${index.toString().padLeft(2, '0')}.example',
+          title: 'Site $index',
+        ),
+    ];
+    Future<void> onPlatform(
+      TargetPlatform platform,
+      Future<void> Function() body,
+    ) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = platform;
+      try {
+        await body();
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    }
 
     testWidgets('dragging saves the order and restores it after restart', (
       tester,
@@ -2518,11 +2548,14 @@ void main() {
       final previous = debugDefaultTargetPlatformOverride;
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       try {
-        final store = FakeInstanceStore(twoSites);
+        final community = instance('community.example', title: 'Community');
+        final support = instance('support.example', title: 'Support');
+        final store = FakeInstanceStore([...twoSites, community, support]);
         await pumpShell(tester, desktop, store: store);
 
         final meta = railItem('meta.discourse.org');
         final team = railItem('team.discourse.org');
+        final target = railItem('community.example');
         await tester.tap(team);
         await tester.pumpAndSettle();
         final controller = ShellScope.read(tester.element(team));
@@ -2530,6 +2563,7 @@ void main() {
         final metaTooltipElement = tester.element(
           find.descendant(of: meta, matching: find.byType(RawTooltip)),
         );
+        final targetRect = tester.getRect(target);
 
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: Offset.zero);
@@ -2537,15 +2571,78 @@ void main() {
         await mouse.moveTo(tester.getCenter(meta));
         await mouse.down(tester.getCenter(meta));
         await tester.pump();
-        // Drop in the upper part of Team's row. The drag avatar is centred on
-        // the pointer, but target hit testing must remain at the pointer.
-        for (var step = 0; step < 2; step++) {
-          await mouse.moveBy(const Offset(0, 16));
-          await tester.pump(const Duration(milliseconds: 50));
-        }
+        await mouse.moveBy(const Offset(0, 16));
+        await tester.pump();
+        expect(find.byKey(dropIndicator), findsNothing);
+
+        // Each half of a row names a different insertion point. The pointer,
+        // rather than the centred feedback avatar, decides which half wins.
+        final topHalfPointer = Offset(
+          targetRect.center.dx,
+          targetRect.top + 4,
+        );
+        await mouse.moveTo(topHalfPointer);
+        await tester.pump();
+
+        final indicator = find.byKey(dropIndicator);
+        expect(indicator, findsOneWidget);
+        expect(tester.getSize(indicator), const Size(44, 2));
+        expect(
+          tester.getRect(indicator).center.dy,
+          closeTo(targetRect.top, 0.1),
+        );
+        final indicatorDecoration =
+            tester.widget<Container>(indicator).decoration! as BoxDecoration;
+        final indicatorTheme = Theme.of(tester.element(indicator));
+        expect(
+          indicatorDecoration.color,
+          contrastSafeForeground(
+            background: indicatorTheme.shell.rail,
+            backdrop: opaqueColorOnCanvas(
+              indicatorTheme.scaffoldBackgroundColor,
+              indicatorTheme.brightness,
+            ),
+            preferred: [
+              indicatorTheme.colorScheme.primary,
+              indicatorTheme.shell.railForeground,
+            ],
+          ),
+        );
+        expect(dragFeedback('meta.discourse.org'), findsOneWidget);
+        expect(
+          tester.getCenter(dragFeedback('meta.discourse.org')),
+          topHalfPointer,
+        );
+        final fadedSource = tester.widget<Opacity>(
+          dragSource('meta.discourse.org'),
+        );
+        expect(fadedSource.opacity, 0.3);
+        expect(store.saveCount, 0);
+
+        final bottomHalfPointer = Offset(
+          targetRect.center.dx,
+          targetRect.bottom - 4,
+        );
+        await mouse.moveTo(bottomHalfPointer);
+        await tester.pump();
+
+        expect(indicator, findsOneWidget);
+        expect(
+          tester.getRect(indicator).center.dy,
+          closeTo(targetRect.bottom, 0.1),
+        );
+        expect(
+          tester.getCenter(dragFeedback('meta.discourse.org')),
+          bottomHalfPointer,
+        );
+        expect(store.saveCount, 0);
+
         await mouse.up();
         await tester.pumpAndSettle();
 
+        expect(indicator, findsNothing);
+        expect(dragFeedback('meta.discourse.org'), findsNothing);
+        expect(store.saveCount, 1);
         expect(
           tester.getTopLeft(team).dy,
           lessThan(tester.getTopLeft(meta).dy),
@@ -2560,7 +2657,9 @@ void main() {
         expect(controller.currentContent, same(content));
         expect((await store.load()).map((site) => site.url), [
           'https://team.discourse.org',
+          community.url,
           'https://meta.discourse.org',
+          support.url,
         ]);
 
         await pumpShell(
@@ -2593,7 +2692,9 @@ void main() {
         await pumpShell(tester, desktop, store: store);
 
         final meta = railItem('meta.discourse.org');
+        final team = railItem('team.discourse.org');
         final controller = ShellScope.read(tester.element(meta));
+        final teamRect = tester.getRect(team);
 
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: Offset.zero);
@@ -2601,10 +2702,10 @@ void main() {
         await mouse.moveTo(tester.getCenter(meta));
         await mouse.down(tester.getCenter(meta));
         await tester.pump();
-        for (var step = 0; step < 2; step++) {
-          await mouse.moveBy(const Offset(0, 16));
-          await tester.pump(const Duration(milliseconds: 50));
-        }
+        await mouse.moveBy(const Offset(0, 16));
+        await tester.pump();
+        await mouse.moveTo(Offset(teamRect.center.dx, teamRect.bottom - 4));
+        await tester.pump();
 
         // A background flow takes the dragged site away mid-drag. The drag
         // avatar outlives its Draggable, so the drop still arrives — over a
@@ -2629,6 +2730,431 @@ void main() {
       }
     });
 
+    for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+      testWidgets('a quick ${platform.name} swipe scrolls instead of dragging', (
+        tester,
+      ) async {
+        await onPlatform(platform, () async {
+          final sites = overflowingSites();
+          final store = FakeInstanceStore(sites);
+          await pumpShell(tester, phone, store: store);
+
+          final scrollable = find.descendant(
+            of: find.byType(InstanceRail),
+            matching: find.byType(Scrollable),
+          );
+          final position = tester.state<ScrollableState>(scrollable).position;
+          final source = find.byKey(ValueKey<String>(sites[6].url));
+          final touch = await tester.startGesture(
+            tester.getCenter(source),
+            kind: PointerDeviceKind.touch,
+          );
+
+          // Moving past touch slop before the long-press deadline must let the
+          // rail's ListView win the gesture arena.
+          await tester.pump(const Duration(milliseconds: 100));
+          await touch.moveBy(const Offset(0, -40));
+          await tester.pump(const Duration(milliseconds: 16));
+          await touch.moveBy(const Offset(0, -120));
+          await tester.pump(const Duration(milliseconds: 16));
+
+          expect(position.pixels, greaterThan(0));
+          expect(dragFeedback('site-06.example'), findsNothing);
+          expect(find.byKey(dropIndicator), findsNothing);
+          expect(find.text('More Options'), findsNothing);
+          expect(store.saveCount, 0);
+
+          await touch.up();
+          await tester.pumpAndSettle();
+
+          expect(position.pixels, greaterThan(0));
+          expect(store.saveCount, 0);
+          expect((await store.load()).map((site) => site.url), [
+            for (final site in sites) site.url,
+          ]);
+        });
+      });
+    }
+
+    testWidgets('an Android touch long press reorders only on drop', (
+      tester,
+    ) async {
+      await onPlatform(TargetPlatform.android, () async {
+        final store = FakeInstanceStore(twoSites);
+        await pumpShell(tester, phone, store: store);
+
+        final meta = railItem('meta.discourse.org');
+        final team = railItem('team.discourse.org');
+        final teamRect = tester.getRect(team);
+        final touch = await tester.startGesture(
+          tester.getCenter(meta),
+          kind: PointerDeviceKind.touch,
+        );
+
+        await tester.pump(kLongPressTimeout);
+
+        expect(dragFeedback('meta.discourse.org'), findsOneWidget);
+        expect(find.text('More Options'), findsNothing);
+        final pointer = Offset(teamRect.center.dx, teamRect.bottom - 4);
+        await touch.moveTo(pointer);
+        await tester.pump();
+
+        final indicator = find.byKey(dropIndicator);
+        expect(indicator, findsOneWidget);
+        expect(
+          tester.getRect(indicator).center.dy,
+          greaterThan(teamRect.center.dy),
+        );
+        final feedbackRect = tester.getRect(
+          dragFeedback('meta.discourse.org'),
+        );
+        expect(feedbackRect.center.dx, pointer.dx);
+        expect(feedbackRect.bottom, pointer.dy - 12);
+        final fadedSource = tester.widget<Opacity>(
+          dragSource('meta.discourse.org'),
+        );
+        expect(fadedSource.opacity, 0.3);
+        expect(store.saveCount, 0);
+        expect(find.text('More Options'), findsNothing);
+
+        await touch.up();
+        await tester.pumpAndSettle();
+
+        expect(indicator, findsNothing);
+        expect(dragFeedback('meta.discourse.org'), findsNothing);
+        expect(find.text('More Options'), findsNothing);
+        expect(store.saveCount, 1);
+        expect((await store.load()).map((site) => site.url), [
+          'https://team.discourse.org',
+          'https://meta.discourse.org',
+        ]);
+      });
+    });
+
+    testWidgets('canceling a touch drag neither moves nor opens actions', (
+      tester,
+    ) async {
+      final store = FakeInstanceStore(twoSites);
+      await pumpShell(tester, phone, store: store);
+
+      final meta = railItem('meta.discourse.org');
+      final teamRect = tester.getRect(railItem('team.discourse.org'));
+      final touch = await tester.startGesture(
+        tester.getCenter(meta),
+        kind: PointerDeviceKind.touch,
+      );
+      await tester.pump(kLongPressTimeout);
+      await touch.moveTo(Offset(teamRect.center.dx, teamRect.bottom - 4));
+      await tester.pump();
+
+      expect(find.byKey(dropIndicator), findsOneWidget);
+      expect(dragFeedback('meta.discourse.org'), findsOneWidget);
+      expect(store.saveCount, 0);
+
+      await touch.cancel();
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(dropIndicator), findsNothing);
+      expect(dragFeedback('meta.discourse.org'), findsNothing);
+      expect(find.text('More Options'), findsNothing);
+      expect(store.saveCount, 0);
+      expect((await store.load()).map((site) => site.url), [
+        'https://meta.discourse.org',
+        'https://team.discourse.org',
+      ]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a touch drop outside the rail does not open actions or save', (
+      tester,
+    ) async {
+      final store = FakeInstanceStore(twoSites);
+      await pumpShell(tester, phone, store: store);
+
+      final meta = railItem('meta.discourse.org');
+      final railRect = tester.getRect(find.byType(InstanceRail));
+      final touch = await tester.startGesture(
+        tester.getCenter(meta),
+        kind: PointerDeviceKind.touch,
+      );
+      await tester.pump(kLongPressTimeout);
+      await touch.moveTo(
+        Offset(tester.getCenter(meta).dx, railRect.bottom - 2),
+      );
+      await tester.pump();
+
+      expect(find.byKey(dropIndicator), findsNothing);
+      expect(dragFeedback('meta.discourse.org'), findsOneWidget);
+      expect(store.saveCount, 0);
+
+      await touch.up();
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(dropIndicator), findsNothing);
+      expect(dragFeedback('meta.discourse.org'), findsNothing);
+      expect(find.text('More Options'), findsNothing);
+      expect(store.saveCount, 0);
+      expect((await store.load()).map((site) => site.url), [
+        'https://meta.discourse.org',
+        'https://team.discourse.org',
+      ]);
+    });
+
+    testWidgets(
+      'holding a touch drag at the edge reveals a later drop target',
+      (tester) async {
+        final sites = overflowingSites();
+        final store = FakeInstanceStore(sites);
+        await pumpShell(tester, phone, store: store);
+
+        Finder item(int index) =>
+            find.byKey(ValueKey<String>(sites[index].url));
+        final scrollable = find.descendant(
+          of: find.byType(InstanceRail),
+          matching: find.byType(Scrollable),
+        );
+        expect(scrollable, findsOneWidget);
+        final position = tester.state<ScrollableState>(scrollable).position;
+        final viewport = tester.getRect(scrollable);
+        expect(position.maxScrollExtent, greaterThan(0));
+
+        final source = item(0);
+        final target = item(20);
+        final controller = ShellScope.read(tester.element(source));
+        final content = controller.currentContent;
+        final touch = await tester.startGesture(
+          tester.getCenter(source),
+          kind: PointerDeviceKind.touch,
+        );
+        await tester.pump(kLongPressTimeout);
+        await touch.moveTo(Offset(viewport.center.dx, viewport.bottom - 2));
+        await tester.pump();
+
+        bool targetComfortablyVisible() {
+          if (target.evaluate().isEmpty) return false;
+          final center = tester.getCenter(target);
+          return center.dy > viewport.top + 30 &&
+              center.dy < viewport.bottom - 30;
+        }
+
+        for (
+          var frame = 0;
+          frame < 180 && !targetComfortablyVisible();
+          frame++
+        ) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+
+        expect(position.pixels, greaterThan(0));
+        expect(targetComfortablyVisible(), isTrue);
+        expect(store.saveCount, 0);
+        expect(dragFeedback('site-00.example'), findsOneWidget);
+
+        final targetRect = tester.getRect(target);
+        await touch.moveTo(Offset(targetRect.center.dx, targetRect.bottom - 4));
+        await tester.pump();
+
+        expect(find.byKey(dropIndicator), findsOneWidget);
+        expect(
+          tester.getRect(find.byKey(dropIndicator)).center.dy,
+          greaterThan(targetRect.center.dy),
+        );
+        expect(store.saveCount, 0);
+
+        await touch.up();
+        await tester.pumpAndSettle();
+
+        expect(store.saveCount, 1);
+        expect(controller.currentInstance?.url, sites.first.url);
+        expect(controller.currentContent, same(content));
+        expect((await store.load()).map((site) => site.url), [
+          for (var index = 1; index <= 20; index++) sites[index].url,
+          sites.first.url,
+          for (var index = 21; index < sites.length; index++) sites[index].url,
+        ]);
+      },
+    );
+
+    testWidgets(
+      'an iOS touch drag auto-scrolls upward to an earlier target',
+      (tester) async {
+        await onPlatform(TargetPlatform.iOS, () async {
+          final sites = overflowingSites();
+          final store = FakeInstanceStore(sites);
+          await pumpShell(tester, phone, store: store);
+
+          Finder item(int index) =>
+              find.byKey(ValueKey<String>(sites[index].url));
+          final scrollable = find.descendant(
+            of: find.byType(InstanceRail),
+            matching: find.byType(Scrollable),
+          );
+          final position = tester.state<ScrollableState>(scrollable).position;
+          final viewport = tester.getRect(scrollable);
+          final startingPixels = position.maxScrollExtent;
+          position.jumpTo(startingPixels);
+          await tester.pump();
+
+          final source = item(23);
+          final target = item(3);
+          final controller = ShellScope.read(tester.element(source));
+          final content = controller.currentContent;
+          final touch = await tester.startGesture(
+            tester.getCenter(source),
+            kind: PointerDeviceKind.touch,
+          );
+          await tester.pump(kLongPressTimeout);
+          await touch.moveTo(Offset(viewport.center.dx, viewport.top + 2));
+          await tester.pump();
+
+          bool targetComfortablyVisible() {
+            if (target.evaluate().isEmpty) return false;
+            final center = tester.getCenter(target);
+            return center.dy > viewport.top + 30 &&
+                center.dy < viewport.bottom - 30;
+          }
+
+          for (
+            var frame = 0;
+            frame < 180 && !targetComfortablyVisible();
+            frame++
+          ) {
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+
+          expect(position.pixels, lessThan(startingPixels));
+          expect(targetComfortablyVisible(), isTrue);
+          expect(store.saveCount, 0);
+          expect(dragFeedback('site-23.example'), findsOneWidget);
+
+          final targetRect = tester.getRect(target);
+          await touch.moveTo(Offset(targetRect.center.dx, targetRect.top + 4));
+          await tester.pump();
+
+          expect(find.byKey(dropIndicator), findsOneWidget);
+          expect(
+            tester.getRect(find.byKey(dropIndicator)).center.dy,
+            lessThan(targetRect.center.dy),
+          );
+          expect(store.saveCount, 0);
+
+          await touch.up();
+          await tester.pumpAndSettle();
+
+          expect(store.saveCount, 1);
+          expect(controller.currentInstance?.url, sites.first.url);
+          expect(controller.currentContent, same(content));
+          expect((await store.load()).map((site) => site.url), [
+            for (var index = 0; index < 3; index++) sites[index].url,
+            sites.last.url,
+            for (var index = 3; index < 23; index++) sites[index].url,
+          ]);
+        });
+      },
+    );
+
+    testWidgets('canceling an edge drag stops auto-scroll permanently', (
+      tester,
+    ) async {
+      final sites = overflowingSites();
+      final store = FakeInstanceStore(sites);
+      await pumpShell(tester, phone, store: store);
+
+      final scrollable = find.descendant(
+        of: find.byType(InstanceRail),
+        matching: find.byType(Scrollable),
+      );
+      final position = tester.state<ScrollableState>(scrollable).position;
+      final viewport = tester.getRect(scrollable);
+      final source = find.byKey(ValueKey<String>(sites.first.url));
+      final touch = await tester.startGesture(
+        tester.getCenter(source),
+        kind: PointerDeviceKind.touch,
+      );
+      await tester.pump(kLongPressTimeout);
+      await touch.moveTo(Offset(viewport.center.dx, viewport.bottom - 2));
+
+      for (var frame = 0; frame < 12; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(position.pixels, greaterThan(0));
+
+      await touch.cancel();
+      await tester.pumpAndSettle();
+      final stoppedPixels = position.pixels;
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(position.pixels, stoppedPixels);
+      expect(find.byKey(dropIndicator), findsNothing);
+      expect(dragFeedback('site-00.example'), findsNothing);
+      expect(find.text('More Options'), findsNothing);
+      expect(store.saveCount, 0);
+    });
+
+    testWidgets('a second finger invalidates one row gesture safely', (
+      tester,
+    ) async {
+      final store = FakeInstanceStore(twoSites);
+      await pumpShell(tester, phone, store: store);
+
+      final meta = railItem('meta.discourse.org');
+      final center = tester.getCenter(meta);
+      final first = await tester.startGesture(
+        center,
+        pointer: 1,
+        kind: PointerDeviceKind.touch,
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      final second = await tester.startGesture(
+        center + const Offset(1, 1),
+        pointer: 2,
+        kind: PointerDeviceKind.touch,
+      );
+      await tester.pump();
+      await tester.pump(kLongPressTimeout);
+
+      expect(dragFeedback('meta.discourse.org'), findsNothing);
+      expect(find.byKey(dropIndicator), findsNothing);
+      expect(find.text('More Options'), findsNothing);
+
+      await first.up();
+      await second.up();
+      await tester.pumpAndSettle();
+
+      expect(store.saveCount, 0);
+      expect((await store.load()).map((site) => site.url), [
+        'https://meta.discourse.org',
+        'https://team.discourse.org',
+      ]);
+
+      // Once both pointers leave, the next ordinary stationary hold works.
+      await tester.longPress(meta);
+      await tester.pumpAndSettle();
+      expect(find.text('More Options'), findsOneWidget);
+    });
+
+    testWidgets('one forum keeps its stationary touch actions', (
+      tester,
+    ) async {
+      final only = instance('only.example', title: 'Only Forum');
+      final store = FakeInstanceStore([only]);
+      await pumpShell(tester, phone, store: store);
+
+      await tester.longPress(railItem('only.example'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('More Options'), findsOneWidget);
+      expect(find.byKey(dropIndicator), findsNothing);
+      expect(dragFeedback('only.example'), findsNothing);
+      expect(store.saveCount, 0);
+
+      await tester.tap(find.text('More Options'));
+      await tester.pumpAndSettle();
+      expect(find.text('Move up'), findsNothing);
+      expect(find.text('Move down'), findsNothing);
+      expect(find.text('Remove forum'), findsOneWidget);
+    });
+
     testWidgets('the touch actions can move a site without taking its slot', (
       tester,
     ) async {
@@ -2639,6 +3165,15 @@ void main() {
       final team = railItem('team.discourse.org');
       await tester.longPress(meta);
       await tester.pumpAndSettle();
+
+      expect(store.saveCount, 0);
+      expect((await store.load()).map((site) => site.url), [
+        'https://meta.discourse.org',
+        'https://team.discourse.org',
+      ]);
+      expect(find.byKey(dropIndicator), findsNothing);
+      expect(dragFeedback('meta.discourse.org'), findsNothing);
+      expect(find.text('More Options'), findsOneWidget);
       await tester.tap(find.text('More Options'));
       await tester.pumpAndSettle();
 

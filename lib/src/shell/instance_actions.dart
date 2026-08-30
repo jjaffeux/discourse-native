@@ -58,6 +58,13 @@ Future<void> confirmInstanceRemoval(
   );
 }
 
+/// Wraps an action child when its owner needs to arbitrate touch gestures.
+///
+/// [openActions] opens the anchored action menu at an [Offset] local to
+/// [child].
+typedef InstanceTouchGestureBuilder =
+    Widget Function(Widget child, ValueChanged<Offset> openActions);
+
 /// What can be done with one site in the rail, kept behind the gesture each
 /// platform already means "what else can this do": a right click with a
 /// pointer, a long press on a touch screen.
@@ -77,12 +84,21 @@ class InstanceActions extends StatefulWidget {
     required this.child,
     this.onMoveUp,
     this.onMoveDown,
+    this.touchGestureBuilder,
   });
 
   final DiscourseInstance instance;
   final Widget child;
   final VoidCallback? onMoveUp;
   final VoidCallback? onMoveDown;
+
+  /// Optionally owns touch gesture recognition around [child].
+  ///
+  /// This is ignored on pointer platforms. On touch platforms, supplying it
+  /// disables this widget's built-in long-press recognizer so the builder is
+  /// the sole owner of that gesture. Calling the provided callback opens the
+  /// existing More Options popover at an offset local to the provided child.
+  final InstanceTouchGestureBuilder? touchGestureBuilder;
 
   @override
   State<InstanceActions> createState() => _InstanceActionsState();
@@ -242,6 +258,25 @@ class _InstanceActionsState extends State<InstanceActions> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isTouch = context.isTouch;
+    final touchGestureBuilder = isTouch ? widget.touchGestureBuilder : null;
+    final actionChild = GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      // Each gesture is wired only where it means something: holding a mouse
+      // button down on a desktop is not a request for a menu, and a touch
+      // screen has no second button to press. A touch wrapper owns long press
+      // exclusively when one is supplied, avoiding competing recognizers.
+      onLongPressStart: isTouch && touchGestureBuilder == null
+          ? (details) => _open(details.localPosition)
+          : null,
+      onSecondaryTapDown: isTouch
+          ? null
+          : (details) => _open(details.localPosition),
+      child: widget.child,
+    );
+    final interactionChild = touchGestureBuilder == null
+        ? actionChild
+        : touchGestureBuilder(actionChild, _open);
 
     return MenuAnchor(
       controller: _menu,
@@ -260,19 +295,7 @@ class _InstanceActionsState extends State<InstanceActions> {
               const SingleActivator(LogicalKeyboardKey.f10, shift: true):
                   _openFromKeyboard,
             },
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              // Each gesture is wired only where it means something: holding a
-              // mouse button down on a desktop is not a request for a menu, and
-              // a touch screen has no second button to press.
-              onLongPressStart: context.isTouch
-                  ? (details) => _open(details.localPosition)
-                  : null,
-              onSecondaryTapDown: context.isTouch
-                  ? null
-                  : (details) => _open(details.localPosition),
-              child: widget.child,
-            ),
+            child: interactionChild,
           ),
         ),
       ),

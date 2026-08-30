@@ -2077,6 +2077,17 @@ The two do not lead to the same place, deliberately:
 | desktop | right click | **Remove forum** | confirmation |
 | touch | long press | More Options | sheet → **Remove forum** → confirmation |
 
+When there is more than one forum, drag its rail avatar on desktop to reorder
+it. A thin insertion line marks the exact boundary that will be used when the
+pointer is released. On touch, hold and then move vertically to reorder, or
+finish a stationary hold to open the same More Options popover. Holding near a
+rail edge scrolls long lists while keeping the insertion point current.
+
+`InstanceActions` accepts an optional `touchGestureBuilder` for this
+coordination and gives that wrapper exclusive ownership of the touch long
+press, avoiding competing gesture recognizers. Without a wrapper, its original
+long-press behavior is unchanged.
+
 A pointer lands on a small menu row exactly where it was aimed; a thumb does
 not, and the press that opened the menu ends up somewhere inside it. So on
 touch the destructive button is one deliberate tap further away, full width in
