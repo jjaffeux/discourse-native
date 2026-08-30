@@ -54,6 +54,7 @@ class ComposerPanel extends StatelessWidget {
     this.onMove,
     this.onMoveEnd,
     this.pickImages = pickComposerImages,
+    this.highlightResizeBorder = false,
   });
 
   final ComposerController composer;
@@ -61,6 +62,7 @@ class ComposerPanel extends StatelessWidget {
   final ValueChanged<Offset>? onMove;
   final VoidCallback? onMoveEnd;
   final ComposerImagePicker pickImages;
+  final bool highlightResizeBorder;
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +93,7 @@ class ComposerPanel extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.shell.content,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: theme.shell.divider, width: 2),
+            border: Border.all(color: theme.shell.divider),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.2),
@@ -100,6 +102,15 @@ class ComposerPanel extends StatelessWidget {
               ),
             ],
           ),
+          foregroundDecoration: highlightResizeBorder
+              ? BoxDecoration(
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: theme.colorScheme.primary,
+                    width: 2,
+                  ),
+                )
+              : null,
           child: CallbackShortcuts(
             bindings: {
               // Both, because the app runs on macOS and will run elsewhere.
@@ -297,6 +308,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   ComposerGeometryPreference? _restoredPreference;
   bool _geometryLoaded = false;
   bool _geometryChanged = false;
+  final Set<Key> _hoveredResizeHandles = {};
   Future<void> _pendingGeometryWrite = Future.value();
 
   @override
@@ -316,8 +328,8 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
       return Stack(
         clipBehavior: Clip.none,
         children: [
-          // The panel inset doubles as an exterior resize gutter. Keeping the
-          // straight-edge targets outside avoids covering composer controls.
+          // The panel inset leaves room for resize targets centered over the
+          // frame, so the painted border itself activates the resize cursor.
           Positioned(
             left: geometry.position.dx - _edgeHandleExtent,
             top: geometry.position.dy - _edgeHandleExtent,
@@ -336,12 +348,13 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                     height: geometry.size.height,
                     onMove: (delta) => _move(delta, bounds),
                     onMoveEnd: () => _persistGeometry(bounds),
+                    highlightResizeBorder: _hoveredResizeHandles.isNotEmpty,
                   ),
                 ),
                 _resizeHandle(
                   key: const ValueKey('composer-resize-top'),
                   cursor: SystemMouseCursors.resizeUpDown,
-                  top: 0,
+                  top: _edgeHandleExtent / 2,
                   left: _cornerHandleExtent,
                   right: _cornerHandleExtent,
                   height: _edgeHandleExtent,
@@ -351,7 +364,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                 _resizeHandle(
                   key: const ValueKey('composer-resize-bottom'),
                   cursor: SystemMouseCursors.resizeUpDown,
-                  bottom: 0,
+                  bottom: _edgeHandleExtent / 2,
                   left: _cornerHandleExtent,
                   right: _cornerHandleExtent,
                   height: _edgeHandleExtent,
@@ -363,7 +376,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                   cursor: SystemMouseCursors.resizeLeftRight,
                   top: _cornerHandleExtent,
                   bottom: _cornerHandleExtent,
-                  left: 0,
+                  left: _edgeHandleExtent / 2,
                   width: _edgeHandleExtent,
                   onResize: (delta) => _resize(delta, bounds, left: true),
                   onResizeEnd: () => _persistGeometry(bounds),
@@ -373,7 +386,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                   cursor: SystemMouseCursors.resizeLeftRight,
                   top: _cornerHandleExtent,
                   bottom: _cornerHandleExtent,
-                  right: 0,
+                  right: _edgeHandleExtent / 2,
                   width: _edgeHandleExtent,
                   onResize: (delta) => _resize(delta, bounds, right: true),
                   onResizeEnd: () => _persistGeometry(bounds),
@@ -451,6 +464,8 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
     height: height,
     child: MouseRegion(
       cursor: cursor,
+      onEnter: (_) => _setResizeHandleHovered(key, true),
+      onExit: (_) => _setResizeHandleHovered(key, false),
       child: GestureDetector(
         key: key,
         behavior: HitTestBehavior.opaque,
@@ -460,6 +475,17 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
       ),
     ),
   );
+
+  void _setResizeHandleHovered(Key key, bool hovered) {
+    if (_hoveredResizeHandles.contains(key) == hovered) return;
+    setState(() {
+      if (hovered) {
+        _hoveredResizeHandles.add(key);
+      } else {
+        _hoveredResizeHandles.remove(key);
+      }
+    });
+  }
 
   _ComposerGeometry _geometryFor(Size bounds) {
     final horizontalInset = math.min(_inset, bounds.width / 2);
