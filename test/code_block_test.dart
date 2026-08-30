@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -264,8 +265,12 @@ void main() {
         ),
       );
 
-      expect(find.byTooltip('Copy code'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('code-block-copy')));
+      const copyButton = ValueKey('code-block-copy');
+      expect(
+        tester.widget<DButton>(find.byKey(copyButton)).tooltip,
+        'Copy code',
+      );
+      await tester.tap(find.byKey(copyButton));
       await tester.pump();
 
       expect(
@@ -274,10 +279,13 @@ void main() {
         '  return if url.blank?\n\n'
         'end',
       );
-      expect(find.byTooltip('Copied!'), findsOneWidget);
+      expect(tester.widget<DButton>(find.byKey(copyButton)).tooltip, 'Copied!');
 
       await tester.pump(const Duration(seconds: 3));
-      expect(find.byTooltip('Copy code'), findsOneWidget);
+      expect(
+        tester.widget<DButton>(find.byKey(copyButton)).tooltip,
+        'Copy code',
+      );
     });
 
     testWidgets('opens a full-screen viewer with copy and close controls', (
@@ -290,14 +298,18 @@ void main() {
         ),
       );
 
-      expect(find.byTooltip('View code full screen'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('code-block-fullscreen')));
+      const fullscreenButton = ValueKey('code-block-fullscreen');
+      expect(
+        tester.widget<DButton>(find.byKey(fullscreenButton)).tooltip,
+        'View code full screen',
+      );
+      await tester.tap(find.byKey(fullscreenButton));
       await tester.pumpAndSettle();
 
       expect(find.byType(CodeBlockFullscreen), findsOneWidget);
       expect(find.text('View code'), findsOneWidget);
-      expect(find.byTooltip('Copy code'), findsOneWidget);
-      expect(find.byTooltip('View code full screen'), findsNothing);
+      expect(find.byKey(const ValueKey('code-block-copy')), findsOneWidget);
+      expect(find.byKey(fullscreenButton), findsNothing);
       expect(find.text('def hello'), findsOneWidget);
 
       await tester.tap(
@@ -306,7 +318,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(CodeBlockFullscreen), findsNothing);
-      expect(find.byTooltip('View code full screen'), findsOneWidget);
+      expect(
+        tester.widget<DButton>(find.byKey(fullscreenButton)).tooltip,
+        'View code full screen',
+      );
     });
 
     testWidgets('a onebox containing code gets the native block', (

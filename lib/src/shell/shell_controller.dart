@@ -5310,8 +5310,9 @@ class ShellController extends FrameSafeNotifier
       term: term,
       categoryId: categoryId,
       selectedTagIds: selectedTags.map((tag) => tag.id).whereType<int>(),
-      limit: siteConfigFor(siteUrl).maxTagSearchResults
-          .clamp(1, TopicTagSearch.maximumResults),
+      limit: siteConfigFor(
+        siteUrl,
+      ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
     );
   }
 
@@ -5740,8 +5741,9 @@ class ShellController extends FrameSafeNotifier
           term: tag.name,
           categoryId: categoryId,
           selectedTagIds: selected.map((item) => item.id).whereType<int>(),
-          limit: siteConfigFor(siteUrl).maxTagSearchResults
-              .clamp(1, TopicTagSearch.maximumResults),
+          limit: siteConfigFor(
+            siteUrl,
+          ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
         );
         final match = result.results
             .where(
@@ -9723,8 +9725,7 @@ class ShellController extends FrameSafeNotifier
         });
         pending.removeAll(batch);
         pending.addAll([
-          for (final category in found)
-            ?category.parentCategoryId,
+          for (final category in found) ?category.parentCategoryId,
         ]);
       }
     } catch (error, stackTrace) {

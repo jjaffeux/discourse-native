@@ -71,9 +71,9 @@ class DiscourseUserOnebox extends StatelessWidget {
                         excludeChildSemantics: true,
                         child: Text(
                           data.websiteName!,
-                          style: _mutedStyle(theme)?.copyWith(
-                            color: theme.colorScheme.primary,
-                          ),
+                          style: _mutedStyle(
+                            theme,
+                          )?.copyWith(color: theme.colorScheme.primary),
                         ),
                       ),
                   ],

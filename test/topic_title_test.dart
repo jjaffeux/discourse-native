@@ -261,11 +261,7 @@ ShellController _controller() => ShellController(
 );
 
 class _TestTitle extends StatelessWidget {
-  const _TestTitle({
-    required this.controller,
-    required this.title,
-    this.style,
-  });
+  const _TestTitle({required this.controller, required this.title, this.style});
 
   final ShellController controller;
   final String title;
@@ -277,11 +273,7 @@ class _TestTitle extends StatelessWidget {
     child: MaterialApp(
       theme: AppTheme.light,
       home: Scaffold(
-        body: TopicTitle(
-          title,
-          siteUrl: 'https://meta.example',
-          style: style,
-        ),
+        body: TopicTitle(title, siteUrl: 'https://meta.example', style: style),
       ),
     ),
   );

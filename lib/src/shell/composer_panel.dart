@@ -1170,7 +1170,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   void _updateEditorHover(Offset? globalPosition) {
     widget.composer.text.updateSyntaxHoverAtGlobalPosition(globalPosition);
-    final hoveringMention = globalPosition != null &&
+    final hoveringMention =
+        globalPosition != null &&
         widget.composer.text.isMentionPillAtGlobalPosition(globalPosition);
     if (_hoveringMention == hoveringMention) return;
     setState(() => _hoveringMention = hoveringMention);
@@ -1225,9 +1226,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                 onTap: _activatePointerDownPill,
                 // TextField owns the deepest cursor region. Changing only the
                 // editor-level hover region leaves its text cursor in front.
-                mouseCursor: _hoveringMention
-                    ? SystemMouseCursors.click
-                    : null,
+                mouseCursor: _hoveringMention ? SystemMouseCursors.click : null,
                 style: widget.textStyle,
                 // InputDecorator only gives the editable one text line when
                 // the TextField expands. The composer draws its hint separately

@@ -2613,8 +2613,7 @@ class _TopicPropertiesCard extends StatelessWidget {
       final pluginSections = registry.topicProperties(context, siteUrl, topic);
       final inlineSections = pluginSections
           .where(
-            (section) =>
-                section.layout == TopicPropertySectionLayout.inline,
+            (section) => section.layout == TopicPropertySectionLayout.inline,
           )
           .toList(growable: false);
       final standaloneSections = pluginSections

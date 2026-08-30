@@ -306,8 +306,7 @@ void main() {
 
     expect(ink.mouseCursor, SystemMouseCursors.click);
     expect(ink.hoverColor, Colors.transparent);
-    expect(ink.highlightColor, Colors.transparent);
-    expect(ink.splashColor, Colors.transparent);
+    expect(ink.focusColor, Theme.of(tester.element(avatar)).shell.hover);
   });
 
   for (final activation in [

@@ -436,8 +436,7 @@ final class TopicFeedController extends FrameSafeNotifier {
   }
 
   Iterable<int> _categoryIds(Iterable<Topic> topics) => <int>{
-    for (final topic in topics)
-      ?topic.categoryId,
+    for (final topic in topics) ?topic.categoryId,
   };
 
   void _commit(SiteLease lease, void Function() mutation) {
