@@ -22,6 +22,11 @@ void main() {
     title: 'Team chat',
     icon: DIcons.comments,
   );
+  const third = ForumTabItem(
+    id: 'updates-3',
+    title: 'Updates',
+    icon: DIcons.bell,
+  );
 
   testWidgets('matches shell geometry and places add after the final tab', (
     tester,
@@ -72,10 +77,7 @@ void main() {
     expect(selectedDecoration.color, theme.shell.content);
     expect(selectedDecoration.border, isNull);
     expect(ordinaryDecoration.color, Colors.transparent);
-    final ordinaryBorder = ordinaryDecoration.border! as Border;
-    expect(ordinaryBorder.isUniform, isTrue);
-    expect(ordinaryBorder.top.color, theme.shell.divider);
-    expect(ordinaryBorder.top.width, 1);
+    expect(ordinaryDecoration.border, isNull);
     expect(tester.getSize(indicator).height, 2);
     expect(_decoration(tester, indicator).color, theme.colorScheme.primary);
     expect(
@@ -104,6 +106,38 @@ void main() {
       tester.getSize(close).height,
       greaterThanOrEqualTo(ForumTabsBar.minimumActionTarget),
     );
+  });
+
+  testWidgets('separates neighboring inactive tabs without outlining them', (
+    tester,
+  ) async {
+    await _pumpBar(
+      tester,
+      items: const [first, second, third],
+      selectedId: third.id,
+      theme: AppTheme.dark,
+    );
+
+    final firstTab = find.byKey(const ValueKey('forum-tab-item-topic-1'));
+    final secondTab = find.byKey(const ValueKey('forum-tab-item-chat-2'));
+    final selectedTab = find.byKey(const ValueKey('forum-tab-item-updates-3'));
+    final divider = find.byKey(const ValueKey('forum-tab-divider-topic-1'));
+    final theme = Theme.of(tester.element(divider));
+
+    expect(divider, findsOneWidget);
+    expect(tester.getSize(divider), const Size(1, 24));
+    expect(tester.widget<Container>(divider).color, theme.shell.divider);
+    expect(
+      tester.getCenter(divider).dy,
+      moreOrLessEquals(tester.getCenter(firstTab).dy),
+    );
+    expect(
+      find.byKey(const ValueKey('forum-tab-divider-chat-2')),
+      findsNothing,
+    );
+    expect(_decoration(tester, firstTab).border, isNull);
+    expect(_decoration(tester, secondTab).border, isNull);
+    expect(_decoration(tester, selectedTab).border, isNull);
   });
 
   testWidgets('delegates add, selection, and separate close actions by ID', (
@@ -660,10 +694,11 @@ Future<void> _pumpBar(
   ValueChanged<String>? onCloseOthers,
   void Function(String id, String title)? onRename,
   double width = 500,
+  ThemeData? theme,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light,
+      theme: theme ?? AppTheme.light,
       home: Scaffold(
         body: Align(
           alignment: Alignment.topLeft,

@@ -102,6 +102,9 @@ class ForumTabsBar extends StatefulWidget {
 }
 
 class _ForumTabsBarState extends State<ForumTabsBar> {
+  static const _tabGap = 1.0;
+  static const _inactiveTabDividerHeight = 24.0;
+
   final Map<String, GlobalKey> _itemKeys = {};
   final GlobalKey _addKey = GlobalKey();
   double? _lastViewportWidth;
@@ -148,6 +151,21 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     });
   }
 
+  Widget _gapAfter(int index, Color dividerColor) {
+    final left = widget.items[index];
+    final right = widget.items[index + 1];
+    if (left.id == widget.selectedId || right.id == widget.selectedId) {
+      return const SizedBox(width: _tabGap);
+    }
+
+    return Container(
+      key: ValueKey('forum-tab-divider-${left.id}'),
+      width: _tabGap,
+      height: _inactiveTabDividerHeight,
+      color: dividerColor,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -168,13 +186,12 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
             _scheduleRevealSelected();
           }
           const addWidth = ForumTabsBar.minimumActionTarget;
-          const tabGap = 1.0;
           const newTabGap = 4.0;
           final tabViewportWidth = math.max(
             0.0,
             constraints.maxWidth - addWidth - newTabGap,
           );
-          final gapsWidth = math.max(0, widget.items.length - 1) * tabGap;
+          final gapsWidth = math.max(0, widget.items.length - 1) * _tabGap;
           final equalShare = widget.items.isEmpty
               ? 70.0
               : (tabViewportWidth - gapsWidth) / widget.items.length;
@@ -235,7 +252,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                             ),
                           ),
                           if (index != widget.items.length - 1)
-                            const SizedBox(width: tabGap),
+                            _gapAfter(index, theme.shell.divider),
                         ],
                       ],
                     ),
@@ -836,9 +853,7 @@ class _ForumTabState extends State<_ForumTab> {
                 : Colors.transparent,
             border: widget.dropTarget
                 ? Border.all(color: theme.colorScheme.primary, width: 2)
-                : widget.selected
-                ? null
-                : Border.all(color: theme.shell.divider),
+                : null,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
           ),
           child: Stack(
