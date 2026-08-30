@@ -5143,6 +5143,7 @@ class ShellController extends FrameSafeNotifier
         staff: currentUserFor(target.siteUrl)?.staff == true,
       ),
       simultaneousUploads: config.simultaneousUploads,
+      enableAutoGridImages: config.enableAutoGridImages,
       maxImageWidth: config.maxImageWidth,
       maxImageHeight: config.maxImageHeight,
       minimumRequiredTags: minimumRequiredTags,
@@ -9955,6 +9956,9 @@ class ShellController extends FrameSafeNotifier
     }
     if (!config.emojiEnabled && _composer?.target.siteUrl == siteUrl) {
       _composer?.closeEmojiAutocomplete();
+    }
+    if (_composer?.target.siteUrl == siteUrl) {
+      _composer?.updateEnableAutoGridImages(config.enableAutoGridImages);
     }
     final held = _instanceAt(siteUrl);
     if (held == null) return;

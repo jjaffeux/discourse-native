@@ -23,6 +23,7 @@ import 'anchored_layout.dart';
 import 'composer_autocomplete.dart';
 import 'composer_controller.dart';
 import 'composer_drop.dart';
+import 'composer_galleries.dart';
 import 'composer_images.dart';
 import 'composer_marks.dart';
 import 'composer_quotes.dart';
@@ -176,6 +177,7 @@ class ComposerPanel extends StatelessWidget {
                       padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
                       child: ComposerEditor(
                         composer: composer,
+                        pickImages: pickImages,
                         onSuggestionAction:
                             ({
                               required context,
@@ -1118,6 +1120,7 @@ class ComposerEditor extends StatefulWidget {
     this.autofocus = true,
     this.enableDropTarget = true,
     this.expands = true,
+    this.pickImages = pickComposerImages,
     this.onSuggestionAction,
   });
 
@@ -1127,6 +1130,7 @@ class ComposerEditor extends StatefulWidget {
   final TextStyle? hintStyle;
   final bool autofocus;
   final bool enableDropTarget;
+  final ComposerImagePicker pickImages;
 
   /// Whether the field fills its parent's height instead of sizing to its
   /// content. Compact surfaces can turn this off and impose a maximum height
@@ -1142,6 +1146,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
   static const _menuWidth = 88.0;
   static const _menuHeight = 44.0;
   static const _menuGap = 4.0;
+  static const _imageMenuPreferredWidth = 310.0;
+  static const _imageMenuHeight = 98.0;
+  static const _galleryMenuPreferredWidth = 280.0;
+  static const _galleryMenuHeight = 52.0;
 
   final GlobalKey _stackKey = GlobalKey();
   final OverlayPortalController _selectionPortal = OverlayPortalController();
@@ -1150,15 +1158,22 @@ class _ComposerEditorState extends State<ComposerEditor> {
   bool _selectionToolbarFocused = false;
   ComposerQuoteBlock? _pointerDownQuote;
   ComposerImageBlock? _pointerDownImage;
+  ComposerImageGalleryBlock? _pointerDownGallery;
   ComposerSyntaxOccurrence? _pointerDownSyntax;
   ComposerSyntaxOccurrence? _pointerDownAfterBlockSyntax;
   Offset? _pointerDownPosition;
   int _pointerSequence = 0;
   bool _dragging = false;
+  ComposerImageGalleryBlock? _dropGallery;
   bool _hoveringMention = false;
   ComposerImageBlock? _selectedImage;
+  ComposerImageGalleryBlock? _selectedGallery;
+  bool _reconcilingSelectedGallery = false;
+  bool _galleryRefreshScheduled = false;
+  bool _pickingGalleryImages = false;
   final TextEditingController _imageAlt = TextEditingController();
   final ScrollController _scroll = ScrollController();
+  late final ValueChanged<ComposerImageGalleryBlock> _editImageGallery;
   late final TextInputFormatter _selectedPillInputFormatter;
   late final TextInputFormatter _renderedEmojiInputFormatter;
   TextSelection _lastQuoteSelection = const TextSelection.collapsed(offset: -1);
@@ -1167,17 +1182,18 @@ class _ComposerEditorState extends State<ComposerEditor> {
   @override
   void initState() {
     super.initState();
+    _editImageGallery = _selectGallery;
     _selectedPillInputFormatter = _SelectedPillInputFormatter(
-      () => _keyboardSelectedPill != null,
+      () => _keyboardSelectedPill != null || _currentSelectedGallery != null,
     );
     _renderedEmojiInputFormatter = _RenderedEmojiInputFormatter(
-      endingAt: (offset) =>
-          widget.composer.text.renderedEmojiEndingAt(offset),
+      endingAt: (offset) => widget.composer.text.renderedEmojiEndingAt(offset),
       startingAt: (offset) =>
           widget.composer.text.renderedEmojiStartingAt(offset),
     );
     _lastQuoteSelection = widget.composer.text.selection;
     widget.composer.text.imageScrollController = _scroll;
+    widget.composer.text.onEditImageGallery = _editImageGallery;
     widget.composer.text.addListener(_syncSelectionToolbar);
     widget.composer.focus.addListener(_syncSelectionToolbar);
     _scroll.addListener(_syncSelectionToolbar);
@@ -1190,9 +1206,18 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (identical(oldWidget.composer, widget.composer)) return;
     oldWidget.composer.text.removeListener(_syncSelectionToolbar);
     oldWidget.composer.focus.removeListener(_syncSelectionToolbar);
+    if (identical(
+      oldWidget.composer.text.onEditImageGallery,
+      _editImageGallery,
+    )) {
+      oldWidget.composer.text.onEditImageGallery = null;
+    }
     oldWidget.composer.text.clearKeyboardPillSelection();
     if (_pointerDownImage case final image?) {
       oldWidget.composer.text.releaseImagePointerEdit(image);
+    }
+    if (_pointerDownGallery case final gallery?) {
+      oldWidget.composer.text.releaseGalleryPointerEdit(gallery);
     }
     if (_pointerDownSyntax case final syntax?) {
       oldWidget.composer.text.releaseSyntaxPointerEdit(syntax);
@@ -1203,17 +1228,25 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (_selectedImage case final image?) {
       oldWidget.composer.text.releaseImagePointerEdit(image);
     }
+    if (_selectedGallery case final gallery?) {
+      oldWidget.composer.text.releaseGalleryPointerEdit(gallery);
+    }
     _pointerDownQuote = null;
     _pointerDownImage = null;
+    _pointerDownGallery = null;
     _pointerDownSyntax = null;
     _pointerDownAfterBlockSyntax = null;
     _pointerDownPosition = null;
     _hoveringMention = false;
     _selectedImage = null;
+    _selectedGallery = null;
+    _dropGallery = null;
+    _pickingGalleryImages = false;
     if (identical(oldWidget.composer.text.imageScrollController, _scroll)) {
       oldWidget.composer.text.imageScrollController = null;
     }
     widget.composer.text.imageScrollController = _scroll;
+    widget.composer.text.onEditImageGallery = _editImageGallery;
     _lastQuoteSelection = widget.composer.text.selection;
     widget.composer.text.addListener(_syncSelectionToolbar);
     widget.composer.focus.addListener(_syncSelectionToolbar);
@@ -1226,10 +1259,16 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _imageAlt.dispose();
     widget.composer.text.removeListener(_syncSelectionToolbar);
     widget.composer.focus.removeListener(_syncSelectionToolbar);
+    if (identical(widget.composer.text.onEditImageGallery, _editImageGallery)) {
+      widget.composer.text.onEditImageGallery = null;
+    }
     widget.composer.text.clearKeyboardPillSelection();
     _releasePointerDownPillCollapse();
     if (_selectedImage case final image?) {
       widget.composer.text.releaseImagePointerEdit(image);
+    }
+    if (_selectedGallery case final gallery?) {
+      widget.composer.text.releaseGalleryPointerEdit(gallery);
     }
     _scroll.removeListener(_syncSelectionToolbar);
     if (identical(widget.composer.text.imageScrollController, _scroll)) {
@@ -1241,6 +1280,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   void _syncSelectionToolbar() {
+    _reconcileSelectedGallery();
     if (!_normalizingQuoteSelection) {
       final current = widget.composer.text.selection;
       final normalized = widget.composer.text.protectQuoteSelection(
@@ -1415,6 +1455,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   void _moveDropCaret(Offset globalPosition) {
+    final gallery = widget.composer.text.collapsedGalleryAtGlobalPosition(
+      globalPosition,
+    );
+    if (gallery != null) {
+      _dropGallery = gallery;
+      widget.composer.focus.requestFocus();
+      return;
+    }
+    _dropGallery = null;
     final editable = _renderEditable;
     if (editable == null) return;
     final position = editable.getPositionForPoint(globalPosition);
@@ -1430,16 +1479,25 @@ class _ComposerEditorState extends State<ComposerEditor> {
       widget.composer.showNotice('Folders cannot be uploaded here.');
     }
     final files = composerUploadFilesFromDrop(details.files);
-    setState(() => _dragging = false);
-    widget.composer.addImages(
-      files,
-      widget.composer.text.selection.extentOffset,
-    );
+    final gallery = _dropGallery;
+    setState(() {
+      _dragging = false;
+      _dropGallery = null;
+    });
+    if (gallery != null) {
+      widget.composer.addImagesToGallery(files, gallery);
+    } else {
+      widget.composer.addImages(
+        files,
+        widget.composer.text.selection.extentOffset,
+      );
+    }
   }
 
   bool get _hasPointerDownPill =>
       _pointerDownQuote != null ||
       _pointerDownImage != null ||
+      _pointerDownGallery != null ||
       _pointerDownSyntax != null ||
       _pointerDownAfterBlockSyntax != null;
 
@@ -1456,7 +1514,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _pointerDownImage = _pointerDownQuote == null
         ? widget.composer.text.collapsedImageAtGlobalPosition(position)
         : null;
-    _pointerDownSyntax = _pointerDownQuote == null && _pointerDownImage == null
+    _pointerDownGallery = _pointerDownQuote == null && _pointerDownImage == null
+        ? widget.composer.text.collapsedGalleryAtGlobalPosition(position)
+        : null;
+    _pointerDownSyntax =
+        _pointerDownQuote == null &&
+            _pointerDownImage == null &&
+            _pointerDownGallery == null
         ? widget.composer.text.collapsedSyntaxAtGlobalPosition(position)
         : null;
     _pointerDownAfterBlockSyntax = !_hasPointerDownPill
@@ -1472,8 +1536,17 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _pointerDownImage = _pointerDownQuote == null
           ? widget.composer.text.collapsedImageAtOffset(offset)
           : null;
+      final gallery = _pointerDownQuote == null && _pointerDownImage == null
+          ? widget.composer.text.galleryAtOffset(offset)
+          : null;
+      _pointerDownGallery =
+          gallery != null && widget.composer.text.isGalleryCollapsed(gallery)
+          ? gallery
+          : null;
       _pointerDownSyntax =
-          _pointerDownQuote == null && _pointerDownImage == null
+          _pointerDownQuote == null &&
+              _pointerDownImage == null &&
+              _pointerDownGallery == null
           ? widget.composer.text.collapsedSyntaxAtOffset(offset)
           : null;
     }
@@ -1510,6 +1583,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final text = widget.composer.text;
     if (_pointerDownImage case final image?) {
       text.keepImageCollapsedForPointerEdit(image);
+    } else if (_pointerDownGallery case final gallery?) {
+      text.keepGalleryCollapsedForPointerEdit(gallery);
     } else if ((_pointerDownSyntax ?? _pointerDownAfterBlockSyntax)
         case final syntax?) {
       text.keepSyntaxCollapsedForPointerEdit(syntax);
@@ -1520,6 +1595,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final text = widget.composer.text;
     if (_pointerDownImage case final image?) {
       text.releaseImagePointerEdit(image);
+    }
+    if (_pointerDownGallery case final gallery?) {
+      text.releaseGalleryPointerEdit(gallery);
     }
     if (_pointerDownSyntax case final syntax?) {
       text.releaseSyntaxPointerEdit(syntax);
@@ -1533,14 +1611,21 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (releaseCollapse) _releasePointerDownPillCollapse();
     _pointerDownQuote = null;
     _pointerDownImage = null;
+    _pointerDownGallery = null;
     _pointerDownSyntax = null;
     _pointerDownAfterBlockSyntax = null;
     _pointerDownPosition = null;
   }
 
   void _activatePointerDownPill() {
+    // `TextField.onTapAlwaysCalled` and the outer Listener can both settle the
+    // same pointer sequence. Once the first activation clears its captured
+    // position, a second callback must be inert rather than dismissing the
+    // gallery or image it just selected.
+    if (!_hasPointerDownPill && _pointerDownPosition == null) return;
     final quote = _pointerDownQuote;
     final image = _pointerDownImage;
+    final gallery = _pointerDownGallery;
     final syntax = _pointerDownSyntax;
     final afterBlockSyntax = _pointerDownAfterBlockSyntax;
     final position = _pointerDownPosition;
@@ -1550,6 +1635,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
         widget.composer.text.releaseImagePointerEdit(selected);
         setState(() => _selectedImage = null);
       }
+      _dismissGallery(requestFocus: false);
       if (position != null &&
           widget.composer.text.isQuoteRemoveAtGlobalPosition(quote, position)) {
         widget.composer.removeQuote(quote);
@@ -1561,13 +1647,23 @@ class _ComposerEditorState extends State<ComposerEditor> {
       return;
     }
     if (image != null) {
+      _dismissGallery(requestFocus: false);
       _selectImageForKeyboard(image);
+      return;
+    }
+    if (gallery != null) {
+      if (_selectedImage case final selected?) {
+        widget.composer.text.releaseImagePointerEdit(selected);
+        setState(() => _selectedImage = null);
+      }
+      _selectGallery(gallery);
       return;
     }
     if (_selectedImage case final selected?) {
       widget.composer.text.releaseImagePointerEdit(selected);
       setState(() => _selectedImage = null);
     }
+    _dismissGallery(requestFocus: false);
     if (afterBlockSyntax != null) {
       try {
         _moveCaretAfterSyntax(afterBlockSyntax);
@@ -1678,6 +1774,216 @@ class _ComposerEditorState extends State<ComposerEditor> {
     widget.composer.focus.requestFocus();
   }
 
+  void _deleteSelectedImage() {
+    final image = _selectedImage;
+    if (image == null) return;
+    widget.composer.text.releaseImagePointerEdit(image);
+    setState(() => _selectedImage = null);
+    widget.composer.removeImage(image);
+    widget.composer.focus.requestFocus();
+  }
+
+  void _moveSelectedImageOutOfGallery() {
+    final image = _selectedImage;
+    if (image == null) return;
+    final gallery = widget.composer.galleryForImage(image);
+    if (gallery == null) return;
+    widget.composer.text.releaseImagePointerEdit(image);
+    setState(() => _selectedImage = null);
+    widget.composer.moveImageOutOfGallery(gallery, image);
+    widget.composer.focus.requestFocus();
+  }
+
+  void _selectGallery(ComposerImageGalleryBlock gallery) {
+    if (_selectedGallery case final selected?
+        when selected.start != gallery.start ||
+            selected.source != gallery.source) {
+      widget.composer.text.releaseGalleryPointerEdit(selected);
+    }
+    widget.composer.text.keepGalleryCollapsedForPointerEdit(gallery);
+    widget.composer.text.selection = TextSelection.collapsed(
+      offset: gallery.end,
+    );
+    setState(() => _selectedGallery = gallery);
+  }
+
+  void _dismissGallery({bool requestFocus = true}) {
+    final selected = _selectedGallery;
+    if (selected == null) return;
+    final current = _resolveSelectedGallery(selected);
+    widget.composer.text.releaseGalleryPointerEdit(selected);
+    if (current != null &&
+        (current.start != selected.start ||
+            current.source != selected.source)) {
+      widget.composer.text.releaseGalleryPointerEdit(current);
+    }
+    setState(() => _selectedGallery = null);
+    if (requestFocus) widget.composer.focus.requestFocus();
+  }
+
+  ComposerImageGalleryBlock? get _currentSelectedGallery {
+    final selected = _selectedGallery;
+    if (selected == null) return null;
+    return _resolveSelectedGallery(selected);
+  }
+
+  ComposerImageGalleryBlock? _resolveSelectedGallery(
+    ComposerImageGalleryBlock selected,
+  ) {
+    final galleries = widget.composer.text.galleryBlocks;
+    if (galleries.isEmpty) return null;
+
+    final exact = galleries
+        .where(
+          (gallery) =>
+              gallery.start == selected.start &&
+              gallery.source == selected.source,
+        )
+        .firstOrNull;
+    if (exact != null) return exact;
+
+    // Typing before a selected gallery moves its source range without
+    // changing the gallery itself. Prefer the same lossless source before
+    // considering a coincidental block which has since moved to its old
+    // offset.
+    final sameSource =
+        galleries.where((gallery) => gallery.source == selected.source).toList()
+          ..sort(
+            (left, right) => (left.start - selected.start).abs().compareTo(
+              (right.start - selected.start).abs(),
+            ),
+          );
+    if (sameSource.isNotEmpty) return sameSource.first;
+
+    final selectedUrls = {for (final image in selected.images) image.url};
+    if (selectedUrls.isNotEmpty) {
+      final related = <(ComposerImageGalleryBlock, int)>[
+        for (final gallery in galleries)
+          (
+            gallery,
+            gallery.images
+                .where((image) => selectedUrls.contains(image.url))
+                .length,
+          ),
+      ]..removeWhere((candidate) => candidate.$2 == 0);
+      related.sort((left, right) {
+        final overlap = right.$2.compareTo(left.$2);
+        if (overlap != 0) return overlap;
+        return (left.$1.start - selected.start).abs().compareTo(
+          (right.$1.start - selected.start).abs(),
+        );
+      });
+      if (related.isNotEmpty) return related.first.$1;
+    }
+
+    // Empty galleries have no member identity. Appending their first upload
+    // leaves the opening tag at the same offset, which is sufficient to
+    // reconcile the toolbar without guessing across unrelated galleries.
+    return galleries
+        .where((gallery) => gallery.start == selected.start)
+        .firstOrNull;
+  }
+
+  void _reconcileSelectedGallery() {
+    if (_reconcilingSelectedGallery) return;
+    final selected = _selectedGallery;
+    if (selected == null) return;
+    final current = _resolveSelectedGallery(selected);
+    if (current != null &&
+        current.start == selected.start &&
+        current.source == selected.source) {
+      return;
+    }
+
+    _reconcilingSelectedGallery = true;
+    try {
+      widget.composer.text.releaseGalleryPointerEdit(selected);
+      _selectedGallery = current;
+      if (current != null) {
+        widget.composer.text.keepGalleryCollapsedForPointerEdit(current);
+      }
+    } finally {
+      _reconcilingSelectedGallery = false;
+    }
+    if (_galleryRefreshScheduled) return;
+    _galleryRefreshScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _galleryRefreshScheduled = false;
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _setSelectedGalleryMode(ComposerGalleryMode mode) {
+    final gallery = _currentSelectedGallery;
+    if (gallery == null) {
+      _dismissGallery();
+      return;
+    }
+    widget.composer.text.releaseGalleryPointerEdit(gallery);
+    widget.composer.setGalleryMode(gallery, mode);
+    widget.composer.focus.requestFocus();
+  }
+
+  void _unwrapSelectedGallery() {
+    final gallery = _currentSelectedGallery;
+    if (gallery == null) {
+      _dismissGallery();
+      return;
+    }
+    widget.composer.text.releaseGalleryPointerEdit(gallery);
+    setState(() => _selectedGallery = null);
+    widget.composer.unwrapGallery(gallery);
+    widget.composer.focus.requestFocus();
+  }
+
+  Future<void> _pickImagesForSelectedGallery() async {
+    final gallery = _currentSelectedGallery;
+    if (gallery == null || _pickingGalleryImages) return;
+    final composer = widget.composer;
+    setState(() => _pickingGalleryImages = true);
+    try {
+      final files = await widget.pickImages();
+      if (!mounted || !identical(widget.composer, composer)) return;
+      composer.addImagesToGallery(files, gallery);
+    } catch (error, stackTrace) {
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'composer.gallery.pickImages',
+        source: 'platform',
+        severity: DiagnosticSeverity.warning,
+        handled: true,
+        degraded: true,
+      );
+      if (mounted && identical(widget.composer, composer)) {
+        composer.showNotice("Couldn't open the image picker.");
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _pickingGalleryImages = false);
+        if (identical(widget.composer, composer)) {
+          composer.focus.requestFocus();
+        }
+      }
+    }
+  }
+
+  Future<void> _addExistingImagesToSelectedGallery() async {
+    final gallery = _currentSelectedGallery;
+    if (gallery == null) return;
+    final images = widget.composer.standaloneImages;
+    if (images.isEmpty) return;
+    final selected = await showDialog<List<ComposerImageBlock>>(
+      context: context,
+      builder: (context) => _ExistingGalleryImagesDialog(images: images),
+    );
+    if (!mounted || selected == null || selected.isEmpty) return;
+    widget.composer.text.releaseGalleryPointerEdit(gallery);
+    setState(() => _selectedGallery = null);
+    widget.composer.addExistingImagesToGallery(gallery, selected);
+    widget.composer.focus.requestFocus();
+  }
+
   KeyEventResult _onEditorKeyEvent(FocusNode _, KeyEvent event) {
     final keyboard = HardwareKeyboard.instance;
     final hasModifier =
@@ -1685,6 +1991,46 @@ class _ComposerEditorState extends State<ComposerEditor> {
         keyboard.isControlPressed ||
         keyboard.isAltPressed ||
         keyboard.isShiftPressed;
+    final selectedGallery = _currentSelectedGallery;
+    if (_selectedGallery != null && selectedGallery == null) {
+      _dismissGallery(requestFocus: false);
+    } else if (selectedGallery case final gallery?) {
+      final isKeyPress = event is KeyDownEvent || event is KeyRepeatEvent;
+      if (isKeyPress && !hasModifier) {
+        if (event.logicalKey == LogicalKeyboardKey.escape) {
+          _dismissGallery();
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+            event.logicalKey == LogicalKeyboardKey.arrowRight) {
+          final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+          _dismissGallery(requestFocus: false);
+          widget.composer.text.selection = TextSelection.collapsed(
+            offset: moveLeft ? gallery.start : gallery.end,
+          );
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.backspace ||
+            event.logicalKey == LogicalKeyboardKey.delete) {
+          return KeyEventResult.handled;
+        }
+      }
+      final isDeletion =
+          event.logicalKey == LogicalKeyboardKey.backspace ||
+          event.logicalKey == LogicalKeyboardKey.delete;
+      if (event.logicalKey == LogicalKeyboardKey.escape ||
+          event.logicalKey == LogicalKeyboardKey.tab) {
+        return KeyEventResult.ignored;
+      }
+      if ((keyboard.isMetaPressed ||
+              keyboard.isControlPressed ||
+              keyboard.isAltPressed) &&
+          !isDeletion) {
+        return KeyEventResult.ignored;
+      }
+      // Keep ordinary typing and deletion out of the collapsed raw BBCode.
+      return KeyEventResult.handled;
+    }
     final selectedPill = _keyboardSelectedPill;
     if (selectedPill != null) {
       final isPlainEscape =
@@ -1768,6 +2114,22 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
 
     final caret = selection.extentOffset;
+    if (!hasModifier &&
+        (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+            event.logicalKey == LogicalKeyboardKey.arrowRight)) {
+      final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+      final gallery = widget.composer.text.galleryBlocks
+          .where(
+            (candidate) =>
+                widget.composer.text.isGalleryCollapsed(candidate) &&
+                (moveLeft ? candidate.end == caret : candidate.start == caret),
+          )
+          .firstOrNull;
+      if (gallery != null) {
+        _selectGallery(gallery);
+        return KeyEventResult.handled;
+      }
+    }
     if (!hasModifier && event.logicalKey == LogicalKeyboardKey.arrowUp) {
       final pill = _collapsedPillEndingAt(caret);
       if (pill is ComposerImageBlock) {
@@ -1793,6 +2155,19 @@ class _ComposerEditorState extends State<ComposerEditor> {
         event.logicalKey == LogicalKeyboardKey.backspace ||
         event.logicalKey == LogicalKeyboardKey.delete;
     if (deletes) {
+      final boundaryGallery = widget.composer.text.galleryBlocks
+          .where(
+            (gallery) =>
+                widget.composer.text.isGalleryCollapsed(gallery) &&
+                (event.logicalKey == LogicalKeyboardKey.backspace
+                    ? gallery.end == caret
+                    : gallery.start == caret),
+          )
+          .firstOrNull;
+      if (boundaryGallery != null) {
+        _selectGallery(boundaryGallery);
+        return KeyEventResult.handled;
+      }
       final boundarySyntax = event.logicalKey == LogicalKeyboardKey.backspace
           ? _collapsedPillEndingAt(caret)
           : _collapsedPillStartingAt(caret);
@@ -1951,8 +2326,34 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (stack is! RenderBox || !stack.hasSize || rect == null) return null;
     final topLeft = stack.globalToLocal(rect.topLeft);
     final bottomRight = stack.globalToLocal(rect.bottomRight);
-    const width = 310.0;
-    const height = 92.0;
+    final width = math.min(_imageMenuPreferredWidth, constraints.maxWidth);
+    const height = _imageMenuHeight;
+    final left = topLeft.dx.clamp(
+      0.0,
+      constraints.maxWidth > width ? constraints.maxWidth - width : 0.0,
+    );
+    var top = topLeft.dy - height - _menuGap;
+    if (top < 0) top = bottomRight.dy + _menuGap;
+    return (
+      left,
+      top.clamp(
+        0.0,
+        constraints.maxHeight > height ? constraints.maxHeight - height : 0.0,
+      ),
+    );
+  }
+
+  (double, double)? _galleryMenuPosition(BoxConstraints constraints) {
+    final gallery = _currentSelectedGallery;
+    final stack = _stackKey.currentContext?.findRenderObject();
+    final rect = gallery == null
+        ? null
+        : widget.composer.text.collapsedGalleryGlobalRect(gallery);
+    if (stack is! RenderBox || !stack.hasSize || rect == null) return null;
+    final topLeft = stack.globalToLocal(rect.topLeft);
+    final bottomRight = stack.globalToLocal(rect.bottomRight);
+    final width = math.min(_galleryMenuPreferredWidth, constraints.maxWidth);
+    const height = _galleryMenuHeight;
     final left = topLeft.dx.clamp(
       0.0,
       constraints.maxWidth > width ? constraints.maxWidth - width : 0.0,
@@ -1972,6 +2373,16 @@ class _ComposerEditorState extends State<ComposerEditor> {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final imageMenuPosition = _imageMenuPosition(constraints);
+      final imageMenuWidth = math.min(
+        _imageMenuPreferredWidth,
+        constraints.maxWidth,
+      );
+      final selectedGallery = _currentSelectedGallery;
+      final galleryMenuPosition = _galleryMenuPosition(constraints);
+      final galleryMenuWidth = math.min(
+        _galleryMenuPreferredWidth,
+        constraints.maxWidth,
+      );
       return OverlayPortal(
         controller: _selectionPortal,
         overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
@@ -1994,11 +2405,20 @@ class _ComposerEditorState extends State<ComposerEditor> {
           enable: widget.enableDropTarget && !context.isTouch,
           onDragEntered: (details) {
             _moveDropCaret(details.globalPosition);
-            if (!_dragging) setState(() => _dragging = true);
+            setState(() => _dragging = true);
           },
-          onDragUpdated: (details) => _moveDropCaret(details.globalPosition),
+          onDragUpdated: (details) {
+            final previous = _dropGallery?.start;
+            _moveDropCaret(details.globalPosition);
+            if (previous != _dropGallery?.start) setState(() {});
+          },
           onDragExited: (_) {
-            if (_dragging) setState(() => _dragging = false);
+            if (_dragging) {
+              setState(() {
+                _dragging = false;
+                _dropGallery = null;
+              });
+            }
           },
           onDragDone: _dropImages,
           child: Stack(
@@ -2030,11 +2450,34 @@ class _ComposerEditorState extends State<ComposerEditor> {
                   left: left,
                   top: top,
                   child: _ImageComposerMenu(
+                    width: imageMenuWidth,
                     image: _selectedImage!,
+                    gallery: widget.composer.galleryForImage(_selectedImage!),
                     alt: _imageAlt,
                     onSaveAlt: _saveImageAlt,
                     onScale: _scaleImage,
+                    onDelete: _deleteSelectedImage,
+                    onMoveOutsideGallery: _moveSelectedImageOutOfGallery,
                     onDismiss: _dismissImage,
+                  ),
+                ),
+              if (galleryMenuPosition case (final left, final top))
+                Positioned(
+                  left: left,
+                  top: top,
+                  child: _GalleryComposerMenu(
+                    width: galleryMenuWidth,
+                    gallery: selectedGallery!,
+                    hasStandaloneImages:
+                        widget.composer.standaloneImages.isNotEmpty,
+                    pickingImages: _pickingGalleryImages,
+                    onMode: _setSelectedGalleryMode,
+                    onUploadImages: () =>
+                        unawaited(_pickImagesForSelectedGallery()),
+                    onAddExistingImages: () =>
+                        unawaited(_addExistingImagesToSelectedGallery()),
+                    onUnwrap: _unwrapSelectedGallery,
+                    onDismiss: _dismissGallery,
                   ),
                 ),
               if (_dragging)
@@ -2051,11 +2494,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
                         ),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Align(
+                      child: Align(
                         alignment: Alignment.topCenter,
                         child: Padding(
-                          padding: EdgeInsets.all(8),
-                          child: Text('Drop images to upload'),
+                          padding: const EdgeInsets.all(8),
+                          child: Text(
+                            _dropGallery == null
+                                ? 'Drop images to upload'
+                                : 'Drop images into this gallery',
+                          ),
                         ),
                       ),
                     ),
@@ -2119,6 +2566,7 @@ class _SelectionFormattingMenu extends StatelessWidget {
                     ),
                     style: const ButtonStyle(
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.standard,
                     ),
                     color: theme.colorScheme.onSurface,
                   ),
@@ -2133,17 +2581,25 @@ class _SelectionFormattingMenu extends StatelessWidget {
 
 class _ImageComposerMenu extends StatelessWidget {
   const _ImageComposerMenu({
+    required this.width,
     required this.image,
+    required this.gallery,
     required this.alt,
     required this.onSaveAlt,
     required this.onScale,
+    required this.onDelete,
+    required this.onMoveOutsideGallery,
     required this.onDismiss,
   });
 
+  final double width;
   final ComposerImageBlock image;
+  final ComposerImageGalleryBlock? gallery;
   final TextEditingController alt;
   final VoidCallback onSaveAlt;
   final void Function(int scale) onScale;
+  final VoidCallback onDelete;
+  final VoidCallback onMoveOutsideGallery;
   final VoidCallback onDismiss;
 
   @override
@@ -2160,36 +2616,66 @@ class _ImageComposerMenu extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         clipBehavior: Clip.antiAlias,
         child: SizedBox(
-          width: 310,
-          height: 92,
+          width: width,
+          height: _ComposerEditorState._imageMenuHeight,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 4, 6),
             child: Column(
               children: [
                 Row(
                   children: [
-                    IconButton(
-                      onPressed: scaleIndex > 0
-                          ? () => onScale(scales[scaleIndex - 1])
-                          : null,
-                      icon: const Icon(Icons.zoom_out, size: 18),
-                      tooltip: 'Decrease image size',
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    Text('$scale%', style: theme.textTheme.labelMedium),
-                    IconButton(
-                      onPressed: scaleIndex < scales.length - 1
-                          ? () => onScale(scales[scaleIndex + 1])
-                          : null,
-                      icon: const Icon(Icons.zoom_in, size: 18),
-                      tooltip: 'Increase image size',
-                      visualDensity: VisualDensity.compact,
-                    ),
+                    if (gallery == null) ...[
+                      IconButton(
+                        onPressed: scaleIndex > 0
+                            ? () => onScale(scales[scaleIndex - 1])
+                            : null,
+                        icon: const Icon(Icons.zoom_out, size: 18),
+                        tooltip: 'Decrease image size',
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 44,
+                          height: 44,
+                        ),
+                      ),
+                      Text('$scale%', style: theme.textTheme.labelMedium),
+                      IconButton(
+                        onPressed: scaleIndex < scales.length - 1
+                            ? () => onScale(scales[scaleIndex + 1])
+                            : null,
+                        icon: const Icon(Icons.zoom_in, size: 18),
+                        tooltip: 'Increase image size',
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 44,
+                          height: 44,
+                        ),
+                      ),
+                    ] else
+                      IconButton(
+                        onPressed: onMoveOutsideGallery,
+                        icon: const Icon(Icons.grid_off_outlined, size: 18),
+                        tooltip: 'Move image outside gallery',
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 44,
+                          height: 44,
+                        ),
+                      ),
                     const Spacer(),
+                    IconButton(
+                      onPressed: onDelete,
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      tooltip: 'Delete image',
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 44,
+                        height: 44,
+                      ),
+                    ),
                   ],
                 ),
                 SizedBox(
-                  height: 34,
+                  height: 44,
                   child: TextField(
                     controller: alt,
                     textInputAction: TextInputAction.done,
@@ -2197,10 +2683,19 @@ class _ImageComposerMenu extends StatelessWidget {
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: 'Add image description',
+                      suffixIconConstraints: const BoxConstraints.tightFor(
+                        width: 44,
+                        height: 44,
+                      ),
                       suffixIcon: IconButton(
                         onPressed: onSaveAlt,
                         tooltip: 'Save alt text',
                         icon: const Icon(Icons.check, size: 16),
+                        constraints: const BoxConstraints.tightFor(
+                          width: 44,
+                          height: 44,
+                        ),
+                        padding: EdgeInsets.zero,
                       ),
                     ),
                   ),
@@ -2212,6 +2707,237 @@ class _ImageComposerMenu extends StatelessWidget {
       ),
     );
   }
+}
+
+enum _GalleryAddChoice { upload, existing }
+
+class _GalleryComposerMenu extends StatelessWidget {
+  const _GalleryComposerMenu({
+    required this.width,
+    required this.gallery,
+    required this.hasStandaloneImages,
+    required this.pickingImages,
+    required this.onMode,
+    required this.onUploadImages,
+    required this.onAddExistingImages,
+    required this.onUnwrap,
+    required this.onDismiss,
+  });
+
+  final double width;
+  final ComposerImageGalleryBlock gallery;
+  final bool hasStandaloneImages;
+  final bool pickingImages;
+  final ValueChanged<ComposerGalleryMode> onMode;
+  final VoidCallback onUploadImages;
+  final VoidCallback onAddExistingImages;
+  final VoidCallback onUnwrap;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return CallbackShortcuts(
+      bindings: {const SingleActivator(LogicalKeyboardKey.escape): onDismiss},
+      child: TextFieldTapRegion(
+        child: Material(
+          key: const ValueKey('composer-gallery-toolbar'),
+          elevation: 5,
+          color: theme.colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(8),
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            width: width,
+            height: _ComposerEditorState._galleryMenuHeight,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: math.max(width, 220),
+                height: _ComposerEditorState._galleryMenuHeight,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      isSelected: gallery.mode == ComposerGalleryMode.grid,
+                      onPressed: () => onMode(ComposerGalleryMode.grid),
+                      icon: const Icon(Icons.grid_view_outlined, size: 18),
+                      selectedIcon: const Icon(Icons.grid_view, size: 18),
+                      tooltip: 'Grid gallery mode',
+                      constraints: const BoxConstraints.tightFor(
+                        width: 44,
+                        height: 44,
+                      ),
+                      style: const ButtonStyle(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.standard,
+                      ),
+                    ),
+                    IconButton(
+                      isSelected: gallery.mode == ComposerGalleryMode.carousel,
+                      onPressed: () => onMode(ComposerGalleryMode.carousel),
+                      icon: const Icon(Icons.view_carousel_outlined, size: 18),
+                      selectedIcon: const Icon(Icons.view_carousel, size: 18),
+                      tooltip: 'Carousel gallery mode',
+                      constraints: const BoxConstraints.tightFor(
+                        width: 44,
+                        height: 44,
+                      ),
+                      style: const ButtonStyle(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.standard,
+                      ),
+                    ),
+                    PopupMenuButton<_GalleryAddChoice>(
+                      enabled: !pickingImages,
+                      tooltip: 'Add images to gallery',
+                      padding: EdgeInsets.zero,
+                      style: const ButtonStyle(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.standard,
+                        fixedSize: WidgetStatePropertyAll(Size.square(44)),
+                      ),
+                      icon: pickingImages
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator.adaptive(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.add_photo_alternate_outlined,
+                              size: 18,
+                            ),
+                      onSelected: (choice) {
+                        switch (choice) {
+                          case _GalleryAddChoice.upload:
+                            onUploadImages();
+                          case _GalleryAddChoice.existing:
+                            onAddExistingImages();
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: _GalleryAddChoice.upload,
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.upload_outlined),
+                            title: Text('Upload new images'),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: _GalleryAddChoice.existing,
+                          enabled: hasStandaloneImages,
+                          child: const ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.photo_library_outlined),
+                            title: Text('Add existing draft images'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      onPressed: onUnwrap,
+                      icon: const Icon(Icons.grid_off_outlined, size: 18),
+                      tooltip: 'Remove gallery, keep images',
+                      constraints: const BoxConstraints.tightFor(
+                        width: 44,
+                        height: 44,
+                      ),
+                      style: const ButtonStyle(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.standard,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: onDismiss,
+                      icon: const Icon(Icons.close, size: 18),
+                      tooltip: 'Close gallery controls',
+                      constraints: const BoxConstraints.tightFor(
+                        width: 44,
+                        height: 44,
+                      ),
+                      style: const ButtonStyle(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExistingGalleryImagesDialog extends StatefulWidget {
+  const _ExistingGalleryImagesDialog({required this.images});
+
+  final List<ComposerImageBlock> images;
+
+  @override
+  State<_ExistingGalleryImagesDialog> createState() =>
+      _ExistingGalleryImagesDialogState();
+}
+
+class _ExistingGalleryImagesDialogState
+    extends State<_ExistingGalleryImagesDialog> {
+  final Set<int> _selectedStarts = {};
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Add existing images'),
+    content: SizedBox(
+      width: 360,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 320),
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: widget.images.length,
+          itemBuilder: (context, index) {
+            final image = widget.images[index];
+            final selected = _selectedStarts.contains(image.start);
+            return CheckboxListTile(
+              key: ValueKey('gallery-existing-image-${image.start}'),
+              value: selected,
+              controlAffinity: ListTileControlAffinity.leading,
+              secondary: const Icon(Icons.image_outlined),
+              title: Text(
+                image.alt.isEmpty ? 'Image ${index + 1}' : image.alt,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onChanged: (value) {
+                setState(() {
+                  if (value == true) {
+                    _selectedStarts.add(image.start);
+                  } else {
+                    _selectedStarts.remove(image.start);
+                  }
+                });
+              },
+            );
+          },
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: _selectedStarts.isEmpty
+            ? null
+            : () => Navigator.pop(context, [
+                for (final image in widget.images)
+                  if (_selectedStarts.contains(image.start)) image,
+              ]),
+        child: const Text('Add selected'),
+      ),
+    ],
+  );
 }
 
 class _Header extends StatelessWidget {

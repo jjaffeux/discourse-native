@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer_galleries.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
+import 'package:discourse_native/src/shell/composer_image_gallery.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/composer_upload_picker.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -231,6 +234,10 @@ void main() {
     expect(find.byTooltip('Decrease image size'), findsOneWidget);
     expect(find.byTooltip('Increase image size'), findsOneWidget);
     expect(find.byTooltip('Save alt text'), findsOneWidget);
+    expect(
+      tester.getSize(find.byTooltip('Save alt text')),
+      const Size.square(44),
+    );
   });
 
   testWidgets('escape unselects an upload before closing the composer', (
@@ -317,7 +324,7 @@ void main() {
     );
     expect(find.byTooltip('Decrease image size'), findsOneWidget);
     expect(find.byTooltip('Increase image size'), findsOneWidget);
-    expect(find.byTooltip('Remove image'), findsNothing);
+    expect(find.byTooltip('Delete image'), findsOneWidget);
     expect(find.byTooltip('Save alt text'), findsOneWidget);
     composer.text.selection = TextSelection.collapsed(offset: image.end - 1);
     await tester.pump();
@@ -456,6 +463,509 @@ void main() {
     expect(scrollState.position.pixels, greaterThan(0));
     expect(tester.getTopLeft(preview).dy, lessThan(oldTop));
   });
+
+  testWidgets('gallery and member toolbars edit mode and membership', (
+    tester,
+  ) async {
+    final composer = ComposerController(
+      _target,
+      resolveUploadUrls: (_) async => const {},
+    );
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    composer.text.text =
+        '[grid]\n'
+        '![one|640x480](upload://one)\n'
+        '![two|640x480](upload://two)\n'
+        '[/grid]';
+    composer.text.selection = const TextSelection.collapsed(offset: 0);
+    await _pumpPanel(tester, shell, composer);
+    await tester.pumpAndSettle();
+
+    final preview = find.byType(ComposerImageGalleryPreview);
+    expect(preview, findsOneWidget);
+    final parsedGallery = composer.text.galleryBlocks.single;
+    final projectedRect = composer.text.collapsedGalleryGlobalRect(
+      parsedGallery,
+    )!;
+    final galleryTap = tester
+        .getRect(find.byType(ComposerImageGalleryControl))
+        .center;
+    expect(
+      tester.getRect(find.byType(EditableText)).contains(galleryTap),
+      isTrue,
+      reason: 'the gallery control should be inside the editor viewport',
+    );
+    expect(
+      projectedRect.contains(galleryTap),
+      isTrue,
+      reason: 'the visible gallery control should be hit-testable',
+    );
+    expect(
+      composer.text.collapsedGalleryAtGlobalPosition(galleryTap),
+      isNotNull,
+    );
+    await tester.tapAt(galleryTap);
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      composer.text.selection.extentOffset,
+      composer.text.galleryBlocks.single.end,
+      reason: 'a gallery background tap should select the gallery',
+    );
+    expect(
+      composer.text.collapsedGalleryGlobalRect(
+        composer.text.galleryBlocks.single,
+      ),
+      isNotNull,
+    );
+    expect(
+      find.byKey(const ValueKey('composer-gallery-toolbar')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Add images to gallery'), findsOneWidget);
+    expect(find.byTooltip('Remove gallery, keep images'), findsOneWidget);
+    await tester.tap(find.byTooltip('Carousel gallery mode'));
+    await tester.pump();
+    expect(composer.text.text, contains('[grid mode=carousel]'));
+    expect(
+      find.byKey(const ValueKey('composer-gallery-toolbar')),
+      findsOneWidget,
+    );
+
+    final currentGallery = parseComposerImageGalleries(
+      composer.text.text,
+    ).single;
+    final firstImageRect = composer.text.collapsedImageGlobalRect(
+      currentGallery.images.first,
+    )!;
+    final imageTap = Offset(firstImageRect.center.dx, firstImageRect.top + 22);
+    expect(composer.text.collapsedImageAtGlobalPosition(imageTap), isNotNull);
+    expect(
+      tester
+          .getRect(find.byKey(const ValueKey('composer-gallery-toolbar')))
+          .contains(imageTap),
+      isFalse,
+      reason: 'an image member must retain a 44px interaction target',
+    );
+    await tester.tapAt(imageTap);
+    await tester.pump();
+    await tester.pump();
+    expect(composer.text.keyboardSelectedImage?.url, 'upload://one');
+    expect(find.byTooltip('Move image outside gallery'), findsOneWidget);
+    expect(find.byTooltip('Delete image'), findsOneWidget);
+    expect(find.byTooltip('Decrease image size'), findsNothing);
+
+    await tester.tap(find.byTooltip('Move image outside gallery'));
+    await tester.pump();
+    final gallery = parseComposerImageGalleries(composer.text.text).single;
+    expect(gallery.images.single.url, 'upload://two');
+    expect(composer.standaloneImages.single.url, 'upload://one');
+
+    final remainingRect = composer.text.collapsedImageGlobalRect(
+      gallery.images.single,
+    )!;
+    await tester.tapAt(remainingRect.center);
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.byTooltip('Delete image'));
+    await tester.pump();
+    expect(composer.text.galleryBlocks, isEmpty);
+    expect(composer.text.imageBlocks.map((image) => image.url), [
+      'upload://one',
+    ]);
+  });
+
+  testWidgets('gallery toolbar stays usable in a narrow composer', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      addTearDown(tester.view.resetPhysicalSize);
+      final pixelRatio = tester.view.devicePixelRatio;
+      tester.view.physicalSize = Size(280 * pixelRatio, 700 * pixelRatio);
+      final composer = ComposerController(
+        _target,
+        resolveUploadUrls: (_) async => const {},
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.value = const TextEditingValue(
+        text:
+            '[grid]\n'
+            '![one](upload://one)\n'
+            '![two](upload://two)\n'
+            '![three](upload://three)\n'
+            '[/grid]',
+        selection: TextSelection.collapsed(offset: 0),
+      );
+
+      await _pumpPanel(tester, shell, composer);
+      await tester.pumpAndSettle();
+      final editableRect = tester.getRect(find.byType(EditableText));
+      final previewRect = tester.getRect(
+        find.byType(ComposerImageGalleryPreview),
+      );
+      expect(previewRect.left, greaterThanOrEqualTo(editableRect.left));
+      expect(previewRect.right, lessThanOrEqualTo(editableRect.right));
+      await tester.tap(find.byType(ComposerImageGalleryControl));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      final toolbar = find.byKey(const ValueKey('composer-gallery-toolbar'));
+      expect(toolbar, findsOneWidget);
+      final toolbarRect = tester.getRect(toolbar);
+      final viewport = Rect.fromLTWH(
+        0,
+        0,
+        tester.view.physicalSize.width / pixelRatio,
+        tester.view.physicalSize.height / pixelRatio,
+      );
+      expect(viewport.contains(toolbarRect.topLeft), isTrue);
+      expect(viewport.contains(toolbarRect.bottomRight), isTrue);
+
+      final iconButtons = find.descendant(
+        of: toolbar,
+        matching: find.byType(IconButton),
+      );
+      expect(iconButtons, findsNWidgets(5));
+      for (final button in iconButtons.evaluate()) {
+        final size = tester.getSize(find.byWidget(button.widget));
+        final tooltip = (button.widget as IconButton).tooltip;
+        expect(size.width, greaterThanOrEqualTo(44), reason: tooltip);
+        expect(size.height, greaterThanOrEqualTo(44), reason: tooltip);
+      }
+
+      Finder modeButton(String tooltip) => find
+          .ancestor(
+            of: find.byTooltip(tooltip),
+            matching: find.byType(IconButton),
+          )
+          .first;
+      expect(
+        tester.getSemantics(modeButton('Grid gallery mode')),
+        isSemantics(
+          tooltip: 'Grid gallery mode',
+          isButton: true,
+          hasSelectedState: true,
+          isSelected: true,
+        ),
+      );
+      expect(
+        tester.getSemantics(modeButton('Carousel gallery mode')),
+        isSemantics(
+          tooltip: 'Carousel gallery mode',
+          isButton: true,
+          hasSelectedState: true,
+          isSelected: false,
+        ),
+      );
+      await tester.tap(find.byTooltip('Carousel gallery mode'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(modeButton('Grid gallery mode')),
+        isSemantics(hasSelectedState: true, isSelected: false),
+      );
+      expect(
+        tester.getSemantics(modeButton('Carousel gallery mode')),
+        isSemantics(hasSelectedState: true, isSelected: true),
+      );
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('a gallery can import multiple standalone draft images', (
+    tester,
+  ) async {
+    final composer = ComposerController(
+      _target,
+      resolveUploadUrls: (_) async => const {},
+    );
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    composer.text.text =
+        '![outside one](upload://outside-one)\n'
+        '![outside two](upload://outside-two)\n'
+        '[grid]\n'
+        '![inside](upload://inside)\n'
+        '[/grid]';
+    composer.text.selection = TextSelection.collapsed(
+      offset: parseComposerImageGalleries(composer.text.text).single.end,
+    );
+    await _pumpPanel(tester, shell, composer);
+    await tester.pumpAndSettle();
+
+    composer.focus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('composer-gallery-toolbar')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byTooltip('Add images to gallery'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add existing draft images'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(CheckboxListTile).at(0));
+    await tester.tap(find.byType(CheckboxListTile).at(1));
+    await tester.pump();
+    await tester.tap(find.text('Add selected'));
+    await tester.pumpAndSettle();
+
+    final gallery = parseComposerImageGalleries(composer.text.text).single;
+    expect(gallery.images.map((image) => image.url), [
+      'upload://inside',
+      'upload://outside-one',
+      'upload://outside-two',
+    ]);
+    expect(composer.standaloneImages, isEmpty);
+  });
+
+  testWidgets('removing a gallery keeps its images in order', (tester) async {
+    final composer = ComposerController(
+      _target,
+      resolveUploadUrls: (_) async => const {},
+    );
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    composer.text.text =
+        '[grid]\n'
+        '![one](upload://one)\n'
+        '![two](upload://two)\n'
+        '[/grid]';
+    composer.text.selection = TextSelection.collapsed(
+      offset: composer.text.galleryBlocks.single.end,
+    );
+    await _pumpPanel(tester, shell, composer);
+    composer.focus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Remove gallery, keep images'));
+    await tester.pump();
+
+    expect(composer.text.galleryBlocks, isEmpty);
+    expect(composer.text.imageBlocks.map((image) => image.url), [
+      'upload://one',
+      'upload://two',
+    ]);
+    expect(composer.text.text, isNot(contains('[grid')));
+  });
+
+  testWidgets('gallery controls survive changes while its picker is open', (
+    tester,
+  ) async {
+    final picker = Completer<List<ComposerUploadFile>>();
+    final calls = <_PanelUploadCall>[];
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) {
+        final call = _PanelUploadCall(onProgress);
+        calls.add(call);
+        return call.result.future;
+      },
+    );
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    composer.text.text =
+        '[grid]\n'
+        '![inside](upload://inside)\n'
+        '[/grid]';
+    composer.text.selection = TextSelection.collapsed(
+      offset: composer.text.galleryBlocks.single.end,
+    );
+    await _pumpPanel(tester, shell, composer, pickImages: () => picker.future);
+    composer.focus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Add images to gallery'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Upload new images'));
+    await tester.pump();
+
+    final captured = composer.text.galleryBlocks.single;
+    composer.setGalleryMode(captured, ComposerGalleryMode.carousel);
+    await tester.pump();
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('composer-gallery-toolbar')),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is IconButton &&
+            widget.tooltip == 'Carousel gallery mode' &&
+            widget.isSelected == true,
+      ),
+      findsOneWidget,
+    );
+
+    picker.complete([_file]);
+    await tester.pump();
+    expect(calls, hasLength(1));
+    calls.single.result.complete(
+      const ComposerUploadResult(
+        id: 73,
+        originalFilename: 'photo.png',
+        shortUrl: 'upload://picked',
+        url: 'https://meta.discourse.org/uploads/picked.png',
+        width: 640,
+        height: 480,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final gallery = composer.text.galleryBlocks.single;
+    expect(gallery.mode, ComposerGalleryMode.carousel);
+    expect(gallery.images.map((image) => image.url), [
+      'upload://inside',
+      'upload://picked',
+    ]);
+    expect(
+      find.byKey(const ValueKey('composer-gallery-toolbar')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Ctrl+Enter submits while gallery controls are selected', (
+    tester,
+  ) async {
+    final composer = ComposerController(
+      _target,
+      resolveUploadUrls: (_) async => const {},
+    );
+    final shell = await _InteractionTrackingShellController.create();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    composer.text.text =
+        '[grid]\n'
+        '![inside](upload://inside)\n'
+        '[/grid]';
+    composer.text.selection = TextSelection.collapsed(
+      offset: composer.text.galleryBlocks.single.end,
+    );
+    await _pumpPanel(tester, shell, composer);
+    composer.focus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('composer-gallery-toolbar')),
+      findsOneWidget,
+    );
+
+    final selectedValue = composer.text.value;
+    final caret = selectedValue.selection.extentOffset;
+    tester.testTextInput.updateEditingValue(
+      selectedValue.copyWith(
+        text: selectedValue.text.replaceRange(caret, caret, 'pasted text'),
+        selection: TextSelection.collapsed(
+          offset: caret + 'pasted text'.length,
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(composer.text.value, selectedValue);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(shell.submitCalls, 1);
+    expect(composer.text.galleryBlocks, hasLength(1));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('composer-gallery-toolbar')),
+      findsNothing,
+    );
+    expect(shell.closeCalls, 0);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(shell.closeCalls, 1);
+  });
+
+  testWidgets('dropping an image over a gallery appends it there', (
+    tester,
+  ) async {
+    final calls = <_PanelUploadCall>[];
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) {
+        final call = _PanelUploadCall(onProgress);
+        calls.add(call);
+        return call.result.future;
+      },
+    );
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    composer.text.text =
+        '[grid]\n'
+        '![inside](upload://inside)\n'
+        '[/grid]';
+    await _pumpPanel(tester, shell, composer);
+    await tester.pumpAndSettle();
+
+    final position = tester
+        .getRect(find.byType(ComposerImageGalleryControl))
+        .center;
+    final dropTarget = tester.widget<DropTarget>(find.byType(DropTarget));
+    dropTarget.onDragEntered!(
+      DropEventDetails(localPosition: position, globalPosition: position),
+    );
+    await tester.pump();
+    expect(find.text('Drop images into this gallery'), findsOneWidget);
+
+    dropTarget.onDragDone!(
+      DropDoneDetails(
+        files: [
+          DropItemFile(
+            '/tmp/dropped.png',
+            bytes: Uint8List.fromList(const [1, 2, 3]),
+          ),
+        ],
+        localPosition: position,
+        globalPosition: position,
+      ),
+    );
+    await tester.pump();
+    expect(calls, hasLength(1));
+    calls.single.result.complete(
+      const ComposerUploadResult(
+        id: 74,
+        originalFilename: 'dropped.png',
+        shortUrl: 'upload://dropped',
+        url: 'https://meta.discourse.org/uploads/dropped.png',
+        width: 640,
+        height: 480,
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      composer.text.galleryBlocks.single.images.map((image) => image.url),
+      ['upload://inside', 'upload://dropped'],
+    );
+    expect(composer.standaloneImages, isEmpty);
+  });
 }
 
 Future<ShellController> _shell() async {
@@ -520,6 +1030,7 @@ final class _InteractionTrackingShellController extends ShellController {
       );
 
   int closeCalls = 0;
+  int submitCalls = 0;
 
   static Future<_InteractionTrackingShellController> create() async {
     final shell = _InteractionTrackingShellController();
@@ -529,4 +1040,7 @@ final class _InteractionTrackingShellController extends ShellController {
 
   @override
   void closeComposer() => closeCalls++;
+
+  @override
+  Future<void> submitComposer() async => submitCalls++;
 }
