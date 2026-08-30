@@ -909,19 +909,6 @@ class _PostActionsMenu extends StatelessWidget {
                                 : null),
                       ),
                       style: ButtonStyle(
-                        backgroundColor: WidgetStateProperty.resolveWith((
-                          states,
-                        ) {
-                          if (states.contains(WidgetState.disabled)) {
-                            return Colors.transparent;
-                          }
-                          if (states.contains(WidgetState.hovered) ||
-                              states.contains(WidgetState.focused) ||
-                              states.contains(WidgetState.pressed)) {
-                            return theme.shell.hover;
-                          }
-                          return Colors.transparent;
-                        }),
                         foregroundColor: action.destructive
                             ? WidgetStatePropertyAll(theme.colorScheme.error)
                             : null,

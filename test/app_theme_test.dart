@@ -2,6 +2,7 @@ import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_tooltip.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -401,6 +402,7 @@ void main() {
         menuButton.backgroundColor!.resolve({WidgetState.hovered}),
         hoverColor,
       );
+      expect(theme.hoverColor, hoverColor);
       expect(menuButton.backgroundColor!.resolve({}), Colors.transparent);
       expect(menuButton.overlayColor!.resolve({}), Colors.transparent);
       expect(menuButton.mouseCursor!.resolve({}), SystemMouseCursors.click);
@@ -413,6 +415,50 @@ void main() {
         theme.shell.floating,
       );
     }
+  });
+
+  testWidgets('menu rows paint their shared hover treatment', (tester) async {
+    final controller = MenuController();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: MenuAnchor(
+            controller: controller,
+            menuChildren: [
+              MenuItemButton(onPressed: () {}, child: const Text('Action')),
+            ],
+            builder: (context, controller, child) => TextButton(
+              onPressed: controller.open,
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    controller.open();
+    await tester.pumpAndSettle();
+
+    final action = find.widgetWithText(MenuItemButton, 'Action');
+    final material = find.descendant(
+      of: action,
+      matching: find.byType(Material),
+    );
+    expect(tester.widget<Material>(material).color, Colors.transparent);
+
+    final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await pointer.addPointer(location: Offset.zero);
+    addTearDown(pointer.removePointer);
+    await pointer.moveTo(tester.getCenter(action));
+    await tester.pumpAndSettle();
+
+    final theme = Theme.of(tester.element(action));
+    final hoverColor = theme.menuButtonTheme.style!.backgroundColor!.resolve({
+      WidgetState.hovered,
+    });
+    expect(tester.widget<Material>(material).color, hoverColor);
+    expect(hoverColor, isNot(Colors.transparent));
   });
 
   test('tooltips use the floating surface and readable app typography', () {
