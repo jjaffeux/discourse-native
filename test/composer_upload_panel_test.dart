@@ -205,6 +205,7 @@ void main() {
     final source = composer.text.text;
     expect(composer.text.selection, TextSelection.collapsed(offset: image.end));
     expect(composer.text.keyboardSelectedImage, isNull);
+    expect(find.byTooltip('Save alt text'), findsNothing);
     expect(
       tester
           .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
@@ -227,9 +228,12 @@ void main() {
           .highlighted,
       isTrue,
     );
+    expect(find.byTooltip('Decrease image size'), findsOneWidget);
+    expect(find.byTooltip('Increase image size'), findsOneWidget);
+    expect(find.byTooltip('Save alt text'), findsOneWidget);
   });
 
-  testWidgets('click selects a projected image and Enter edits it', (
+  testWidgets('selecting a projected image shows its editing controls', (
     tester,
   ) async {
     final composer = ComposerController(
@@ -275,11 +279,6 @@ void main() {
           .highlighted,
       isTrue,
     );
-    expect(find.byTooltip('Save alt text'), findsNothing);
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pump();
-
     expect(find.byTooltip('Decrease image size'), findsOneWidget);
     expect(find.byTooltip('Increase image size'), findsOneWidget);
     expect(find.byTooltip('Remove image'), findsNothing);
@@ -308,6 +307,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pump();
     expect(composer.text.selection.extentOffset, resizedImage.start);
+    expect(find.byTooltip('Save alt text'), findsOneWidget);
     expect(
       tester
           .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
@@ -318,6 +318,7 @@ void main() {
     await tester.pump();
     expect(composer.text.selection.extentOffset, resizedImage.end);
     expect(composer.text.keyboardSelectedImage, isNull);
+    expect(find.byTooltip('Save alt text'), findsNothing);
     expect(
       tester
           .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
@@ -327,8 +328,6 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pump();
     expect(composer.text.keyboardSelectedImage, isNotNull);
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pump();
     expect(find.byTooltip('Save alt text'), findsOneWidget);
     await tester.enterText(
       find.byWidgetPredicate(
