@@ -188,7 +188,7 @@ void main() {
     addTearDown(shell.dispose);
     await _pumpPanel(tester, shell, composer);
 
-    composer.addDroppedImages([_file], 0);
+    composer.addImages([_file], 0);
     calls.single.result.complete(
       const ComposerUploadResult(
         id: 42,

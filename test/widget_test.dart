@@ -3575,9 +3575,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(ComposerPanel), findsOneWidget);
-        final shell = ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        );
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         expect(shell.currentContent?.isMessages, isTrue);
         expect(shell.visibleComposer?.target.isNewTopic, isTrue);
         expect(shell.visibleComposer?.target.originFeedId, 'latest');
@@ -3639,9 +3637,7 @@ void main() {
       expect(find.byType(MainContent), findsOneWidget);
       expect(find.byType(ComposerPanel), findsOneWidget);
       expect(
-        ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        ).mobilePane,
+        ShellScope.read(tester.element(find.byType(MainContent))).mobilePane,
         MobilePane.content,
       );
     });
