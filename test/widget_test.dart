@@ -3508,10 +3508,143 @@ void main() {
       );
     });
 
-    /// Messages is the only destination the sidebar offers besides Topics, and
-    /// the inbox is named after the signed-in user, so reaching it means
+    /// The inbox is named after the signed-in user, so reaching Messages means
     /// connecting first.
     const inbox = '/topics/private-messages/joffreyj.json';
+
+    testWidgets(
+      'the sidebar puts New Topic below Messages and opens it globally',
+      (tester) async {
+        const user = DiscourseUser(
+          id: 7,
+          username: 'joffreyj',
+          name: 'Joffrey',
+          canCreateTopic: true,
+        );
+        final api = FakeDiscourseApi(
+          user: user,
+          feeds: {
+            '/latest.json': latest,
+            inbox: [
+              const Topic(id: 9, title: 'A private message', slug: 'a-pm'),
+            ],
+          },
+          creatableFeedPaths: const {'/latest.json'},
+        );
+        final authenticator = FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key';
+
+        await pumpShell(
+          tester,
+          desktop,
+          instances: [
+            instance(
+              'meta.discourse.org',
+              title: 'Discourse Meta',
+            ).copyWith(user: user),
+          ],
+          api: api,
+          authenticator: authenticator,
+        );
+
+        final messages = sidebarDestination('Messages');
+        final newTopic = sidebarDestination('New Topic');
+        final drafts = sidebarDestination('Drafts');
+        expect(newTopic, findsOneWidget);
+        expect(
+          tester.getTopLeft(messages).dy,
+          lessThan(tester.getTopLeft(newTopic).dy),
+        );
+        expect(
+          tester.getTopLeft(newTopic).dy,
+          lessThan(tester.getTopLeft(drafts).dy),
+        );
+        final newTopicTile = find
+            .ancestor(of: newTopic, matching: find.byType(InkWell))
+            .first;
+        expect(
+          find.descendant(of: newTopicTile, matching: find.dIcon(DIcons.plus)),
+          findsOneWidget,
+        );
+
+        await tester.tap(messages);
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('New topic'), findsNothing);
+
+        await tester.tap(newTopic);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ComposerPanel), findsOneWidget);
+        final shell = ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        );
+        expect(shell.currentContent?.isMessages, isTrue);
+        expect(shell.visibleComposer?.target.isNewTopic, isTrue);
+        expect(shell.visibleComposer?.target.originFeedId, 'latest');
+      },
+    );
+
+    testWidgets('the sidebar hides New Topic when the account cannot post', (
+      tester,
+    ) async {
+      const user = DiscourseUser(
+        id: 7,
+        username: 'joffreyj',
+        canCreateTopic: false,
+      );
+      final api = FakeDiscourseApi(user: user, feeds: {'/latest.json': latest});
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [instance('meta.discourse.org').copyWith(user: user)],
+        api: api,
+        authenticator: authenticator,
+      );
+
+      expect(sidebarDestination('New Topic'), findsNothing);
+    });
+
+    testWidgets('compact New Topic reveals the composer pane', (tester) async {
+      const user = DiscourseUser(
+        id: 7,
+        username: 'joffreyj',
+        canCreateTopic: true,
+      );
+      final api = FakeDiscourseApi(
+        user: user,
+        feeds: {'/latest.json': latest},
+        creatableFeedPaths: const {'/latest.json'},
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: [instance('meta.discourse.org').copyWith(user: user)],
+        api: api,
+        authenticator: authenticator,
+      );
+
+      expect(find.byType(InstanceSidebar), findsOneWidget);
+      expect(find.byType(MainContent), findsNothing);
+
+      await tester.tap(sidebarDestination('New Topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(InstanceSidebar), findsNothing);
+      expect(find.byType(MainContent), findsOneWidget);
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).mobilePane,
+        MobilePane.content,
+      );
+    });
 
     testWidgets('picking a destination fetches its own list', (tester) async {
       final api = FakeDiscourseApi(
@@ -4194,6 +4327,7 @@ void main() {
 
       expect(sidebarDestination('Messages'), findsNothing);
       expect(sidebarDestination('Drafts'), findsNothing);
+      expect(sidebarDestination('New Topic'), findsNothing);
       expect(api.feedPaths, ['/latest.json']);
     });
 

@@ -1976,6 +1976,14 @@ class ShellController extends FrameSafeNotifier
     return currentFeed?.canCreateTopic ?? false;
   }
 
+  /// Whether the connected account can create a topic from persistent chrome.
+  ///
+  /// The current-user guardian is deliberately broader than
+  /// [canCreateTopicHere]: the sidebar action remains meaningful while a
+  /// message inbox, topic, or profile route is on screen.
+  bool get canCreateTopicFromSidebar =>
+      currentInstance?.user?.canCreateTopic == true;
+
   CategoryFeed categoryFeedFor(String siteUrl) =>
       _categoryFeeds[siteUrl] ?? const CategoryFeed();
 
@@ -4983,7 +4991,22 @@ class ShellController extends FrameSafeNotifier
   }
 
   /// Opens a new-topic composer while leaving the originating list in place.
-  Future<void> openNewTopic() async {
+  Future<void> openNewTopic() =>
+      _openNewTopic(permitted: canCreateTopicHere, revealContent: false);
+
+  /// Opens the account-level new-topic action contributed by the sidebar.
+  ///
+  /// Unlike the contextual header action, this remains available on Messages,
+  /// topics, and profile routes. Compact layouts reveal the content pane only
+  /// once the composer is ready, so a failed capability read does not move the
+  /// reader away from the sidebar.
+  Future<void> openNewTopicFromSidebar() =>
+      _openNewTopic(permitted: canCreateTopicFromSidebar, revealContent: true);
+
+  Future<void> _openNewTopic({
+    required bool permitted,
+    required bool revealContent,
+  }) async {
     final instance = currentInstance;
     final route = currentContent;
     final feedId = currentFeedId;
@@ -4992,9 +5015,12 @@ class ShellController extends FrameSafeNotifier
         route == null ||
         feedId == null ||
         tabId == null ||
-        !canCreateTopicHere) {
+        !permitted) {
       return;
     }
+    final originFeedId = revealContent && !canCreateTopicHere
+        ? instance.defaultDestination.id
+        : feedId;
 
     final lease = lifecycle.capture(instance.url);
     var capabilities = _topicComposerCapabilities[instance.url];
@@ -5083,7 +5109,7 @@ class ShellController extends FrameSafeNotifier
       slug: '',
       topicTitle: 'New topic',
       mode: ComposerMode.newTopic,
-      originFeedId: feedId,
+      originFeedId: originFeedId,
       initialCategoryId: categoryId,
       initialTags: tags,
     );
@@ -5098,6 +5124,7 @@ class ShellController extends FrameSafeNotifier
           0,
     );
     _composer = composer;
+    if (revealContent) _mobilePane = MobilePane.content;
     _notify();
     _startComposerDraftRestore(composer);
   }
