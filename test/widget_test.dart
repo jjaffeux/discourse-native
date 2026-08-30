@@ -14402,6 +14402,7 @@ void main() {
       final tracker = FakeSiteTracker.built.last;
       expect(tracker.watchedTopic, 7);
       expect(tracker.watchedChannels, [
+        '/topic/7',
         '/topic/7/reactions',
         '/polls/7',
         '/staff/topic-assignment',
