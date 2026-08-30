@@ -337,15 +337,13 @@ void main() {
         .first;
     final editButton = tester.widget<MenuItemButton>(editAction);
     final theme = Theme.of(tester.element(editAction));
+    expect(editButton.style?.backgroundColor, isNull);
     expect(
-      editButton.style!.backgroundColor!.resolve({WidgetState.hovered}),
-      theme.shell.hover,
+      theme.menuButtonTheme.style!.backgroundColor!.resolve({
+        WidgetState.hovered,
+      }),
+      theme.hoverColor,
     );
-    expect(
-      editButton.style!.backgroundColor!.resolve({WidgetState.focused}),
-      theme.shell.hover,
-    );
-    expect(editButton.style!.backgroundColor!.resolve({}), Colors.transparent);
   });
 }
 

@@ -685,6 +685,10 @@ abstract final class AppTheme {
       ).noDefault(),
       // The backdrop the panels sit on, visible above them and behind the rail.
       scaffoldBackgroundColor: shell.rail,
+      // PopupMenuItem and DropdownButton rows still read ThemeData directly,
+      // while MenuItemButton reads menuButtonTheme below. Give both menu
+      // implementations the same visible pointer treatment.
+      hoverColor: menuItemHoverColor,
       extensions: [
         shell,
         code,

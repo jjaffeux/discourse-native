@@ -692,7 +692,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await _hoverMessage(tester);
+    final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await pointer.addPointer(location: Offset.zero);
+    addTearDown(pointer.removePointer);
+    await pointer.moveTo(tester.getCenter(find.byKey(_messageTileKey)));
+    await tester.pump();
 
     final toolbar = find.byType(HoverActionToolbar);
     expect(
@@ -724,12 +728,25 @@ void main() {
     await tester.tap(more);
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(MenuItemButton, 'Copy link'), findsOneWidget);
+    final copyLink = find.widgetWithText(MenuItemButton, 'Copy link');
+    expect(copyLink, findsOneWidget);
     expect(find.widgetWithText(MenuItemButton, 'Bookmark'), findsNothing);
     expect(
       find.widgetWithText(MenuItemButton, 'Reply in thread'),
       findsNothing,
     );
+
+    final material = find.descendant(
+      of: copyLink,
+      matching: find.byType(Material),
+    );
+    expect(tester.widget<Material>(material).color, Colors.transparent);
+
+    await pointer.moveTo(tester.getCenter(copyLink));
+    await tester.pumpAndSettle();
+
+    final theme = Theme.of(tester.element(copyLink));
+    expect(tester.widget<Material>(material).color, theme.hoverColor);
   });
 
   testWidgets('the secondary action menu stays open after mouseleave', (
