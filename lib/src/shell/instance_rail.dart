@@ -850,7 +850,7 @@ class _AggregateRailButtonState extends State<_AggregateRailButton> {
                   ),
                 ),
                 child: DIcon(
-                  DIcons.layerGroup,
+                  DIcons.house,
                   size: 20,
                   color: widget.selected ? theme.shell.rail : foreground,
                 ),

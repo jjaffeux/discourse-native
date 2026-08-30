@@ -1498,6 +1498,17 @@ void main() {
     expect(sidebarDestination('Groups'), findsOneWidget);
   });
 
+  testWidgets('uses a home icon for the aggregate route', (tester) async {
+    await pumpShell(tester, desktop);
+
+    final aggregateButton = find.byKey(const ValueKey('aggregate-rail-button'));
+
+    expect(
+      find.descendant(of: aggregateButton, matching: find.dIcon(DIcons.house)),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('rail marker grows from idle dot through hover to active pill', (
     tester,
   ) async {
