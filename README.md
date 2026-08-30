@@ -2050,8 +2050,10 @@ app-wide Aggregate workspace uses the same tab ordering interaction.
 Workspaces are isolated by forum and account. Switching forums restores that
 workspace's tab list and active tab, and versioned local persistence restores
 route stacks and logical scroll anchors after launch. A composer belongs to
-the tab that opened it: switching tabs hides it without changing its origin,
-and closing its tab flushes the draft before disposal.
+the tab that opened it: navigation within that tab keeps it visible, switching
+tabs hides it without changing its origin, and closing its tab flushes the
+draft before disposal. Switching forums or opening Aggregate likewise hides
+the composer until its forum and tab are selected again.
 
 Forum tabs are a native-desktop capability, independent of window width. On a
 compact desktop layout, the strip stays with the main content pane and scrolls

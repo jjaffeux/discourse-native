@@ -4789,28 +4789,25 @@ class ShellController extends FrameSafeNotifier
   ComposerController? _composer;
   Future<void>? _composerDraftRestore;
 
-  /// The open composer, but only when it belongs to what is on screen.
+  /// The open composer, but only while its forum and tab are on screen.
   ///
-  /// Navigating away leaves it open and out of sight rather than throwing away
-  /// what was written, and it stays bound to the site it was opened on.
+  /// Routes within a tab share one writing surface, so navigating deeper or
+  /// elsewhere in that tab keeps the composer visible. Switching forums,
+  /// tabs, or to Aggregate hides it without throwing away what was written;
+  /// returning to its owning context reveals the same composer again.
   ComposerController? get visibleComposer {
     final composer = _composer;
     final instance = currentInstance;
-    if (composer == null || instance == null) return null;
+    if (_rootMode != ShellRootMode.forum ||
+        composer == null ||
+        instance == null) {
+      return null;
+    }
     if (composer.target.siteUrl != instance.url) return null;
     if (composer.target.tabId case final tabId?) {
       if (tabId != activeTabId) return null;
     }
-    if (composer.target.createsTopic) {
-      if (composer.target.originTopicId case final topicId?) {
-        return currentContent?.topicId == topicId ? composer : null;
-      }
-      return currentContent?.isTopic == false &&
-              currentFeedId == composer.target.originFeedId
-          ? composer
-          : null;
-    }
-    return currentContent?.topicId == composer.target.topicId ? composer : null;
+    return composer;
   }
 
   /// Whether a reply affordance should be offered for the topic on screen.
@@ -5176,7 +5173,7 @@ class ShellController extends FrameSafeNotifier
     final route = currentContent;
     final tabId = activeTabId;
     final feedId = currentFeedId;
-    if (route?.id != sourceRouteId) {
+    if (!forumActive || route?.id != sourceRouteId) {
       return OpenComposerResult.sourceChanged;
     }
     if (request.seed.raw.trim().isEmpty ||
@@ -5192,7 +5189,8 @@ class ShellController extends FrameSafeNotifier
       loadCategories(siteUrl),
       _ensureTopicComposerCapabilities(siteUrl),
     ]);
-    if (!lease.isCurrent ||
+    if (!forumActive ||
+        !lease.isCurrent ||
         currentInstance?.url != siteUrl ||
         currentContent?.id != sourceRouteId ||
         activeTabId != tabId ||
@@ -5242,7 +5240,8 @@ class ShellController extends FrameSafeNotifier
     } catch (_) {
       // A local draft failure must not discard an otherwise valid seed.
     }
-    if (!lease.isCurrent ||
+    if (!forumActive ||
+        !lease.isCurrent ||
         !identical(_composer, composer) ||
         currentContent?.id != sourceRouteId ||
         activeTabId != tabId) {
