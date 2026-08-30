@@ -1010,6 +1010,47 @@ class _SelectedPillInputFormatter extends TextInputFormatter {
   ) => isSelected() ? oldValue : newValue;
 }
 
+/// Expands a one-character deletion over rendered emoji source.
+class _RenderedEmojiInputFormatter extends TextInputFormatter {
+  const _RenderedEmojiInputFormatter({
+    required this.endingAt,
+    required this.startingAt,
+  });
+
+  final TextRange? Function(int offset) endingAt;
+  final TextRange? Function(int offset) startingAt;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final selection = oldValue.selection;
+    if (!selection.isValid ||
+        !selection.isCollapsed ||
+        oldValue.text.length != newValue.text.length + 1 ||
+        (oldValue.isComposingRangeValid && !oldValue.composing.isCollapsed)) {
+      return newValue;
+    }
+
+    final caret = selection.extentOffset;
+    TextRange? emoji;
+    if (caret > 0 &&
+        newValue.text == oldValue.text.replaceRange(caret - 1, caret, '')) {
+      emoji = endingAt(caret);
+    } else if (caret < oldValue.text.length &&
+        newValue.text == oldValue.text.replaceRange(caret, caret + 1, '')) {
+      emoji = startingAt(caret);
+    }
+    if (emoji == null) return newValue;
+
+    return TextEditingValue(
+      text: oldValue.text.replaceRange(emoji.start, emoji.end, ''),
+      selection: TextSelection.collapsed(offset: emoji.start),
+    );
+  }
+}
+
 /// The shared markdown editor used by supported composer surfaces.
 ///
 /// The surrounding composer decides its geometry and submission behavior. The
@@ -1068,6 +1109,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   final TextEditingController _imageAlt = TextEditingController();
   final ScrollController _scroll = ScrollController();
   late final TextInputFormatter _selectedPillInputFormatter;
+  late final TextInputFormatter _renderedEmojiInputFormatter;
   TextSelection _lastQuoteSelection = const TextSelection.collapsed(offset: -1);
   bool _normalizingQuoteSelection = false;
 
@@ -1076,6 +1118,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
     super.initState();
     _selectedPillInputFormatter = _SelectedPillInputFormatter(
       () => _keyboardSelectedPill != null,
+    );
+    _renderedEmojiInputFormatter = _RenderedEmojiInputFormatter(
+      endingAt: (offset) =>
+          widget.composer.text.renderedEmojiEndingAt(offset),
+      startingAt: (offset) =>
+          widget.composer.text.renderedEmojiStartingAt(offset),
     );
     _lastQuoteSelection = widget.composer.text.selection;
     widget.composer.text.imageScrollController = _scroll;
@@ -1249,6 +1297,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                 textCapitalization: TextCapitalization.sentences,
                 inputFormatters: [
                   _selectedPillInputFormatter,
+                  _renderedEmojiInputFormatter,
                   const ComposerQuoteInputFormatter(),
                   ...widget.composer.text.syntaxInputFormatters,
                 ],

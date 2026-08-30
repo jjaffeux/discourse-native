@@ -478,6 +478,28 @@ class MarkdownEditingController extends TextEditingController {
   /// permanent record here would prevent its cooldown retry from ever running.
   final Set<String> _loadingEmoji = {};
 
+  /// Emoji ranges that the last span build actually painted as artwork.
+  ///
+  /// Keeping the rendered ranges, rather than deriving them only from the
+  /// Markdown scan, excludes unresolved shortcodes and emoji source hidden
+  /// inside a larger projection. Those must keep ordinary text deletion.
+  String? _renderedEmojiDocument;
+  Set<TextRange> _renderedEmojiRanges = const {};
+
+  TextRange? renderedEmojiEndingAt(int offset) =>
+      _renderedEmojiAt(offset, endsAt: true);
+
+  TextRange? renderedEmojiStartingAt(int offset) =>
+      _renderedEmojiAt(offset, endsAt: false);
+
+  TextRange? _renderedEmojiAt(int offset, {required bool endsAt}) {
+    if (_renderedEmojiDocument != text) return null;
+    for (final range in _renderedEmojiRanges) {
+      if ((endsAt ? range.end : range.start) == offset) return range;
+    }
+    return null;
+  }
+
   bool _disposed = false;
 
   List<MarkdownRun>? _runs;
@@ -617,7 +639,12 @@ class MarkdownEditingController extends TextEditingController {
     required bool withComposing,
   }) {
     final source = value.text;
-    if (source.isEmpty) return TextSpan(style: style);
+    if (source.isEmpty) {
+      _renderedEmojiDocument = source;
+      _renderedEmojiRanges = const {};
+      _cachedSpan = null;
+      return TextSpan(style: style);
+    }
 
     final theme = Theme.of(context);
     final base = style ?? const TextStyle();
@@ -740,6 +767,7 @@ class MarkdownEditingController extends TextEditingController {
     final unresolvedRefs = <String>{};
     final unresolvedNames = <String>{};
     final unresolvedImages = <String>{};
+    final renderedEmojiRanges = <TextRange>{};
 
     final children = <InlineSpan>[];
 
@@ -753,6 +781,9 @@ class MarkdownEditingController extends TextEditingController {
           ? null
           : _artworkFor(run, base, theme, unresolvedRefs, unresolvedNames);
       if (artwork != null) {
+        if (run.has(Md.emoji)) {
+          renderedEmojiRanges.add(TextRange(start: run.start, end: run.end));
+        }
         children.addAll(artwork);
         return;
       }
@@ -831,6 +862,9 @@ class MarkdownEditingController extends TextEditingController {
       sourceOffset = projection.end;
     }
     appendMarkdown(sourceOffset, source.length);
+
+    _renderedEmojiDocument = source;
+    _renderedEmojiRanges = Set.unmodifiable(renderedEmojiRanges);
 
     final span = TextSpan(style: base, children: children);
     // The one thing that must never drift.

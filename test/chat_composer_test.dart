@@ -1,8 +1,9 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -23,6 +24,7 @@ import 'package:discourse_native/src/plugins/gifs/gifs_contract.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
+import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
@@ -30,7 +32,10 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
@@ -53,6 +58,36 @@ const _gif = GifResult(
 );
 
 void main() {
+  testWidgets('chat composer deletes a rendered emoji atomically', (
+    tester,
+  ) async {
+    final previousCache = EmojiCache.instance;
+    addTearDown(() => EmojiCache.instance = previousCache);
+    EmojiCache.instance = EmojiCache(
+      client: MockClient((_) async => http.Response.bytes(_pngBytes, 200)),
+    );
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+    );
+    addTearDown(fixture.shell.dispose);
+    await EmojiCache.instance.load(fixture.shell.emojiUrlFor(_site, 'smile'));
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+    await tester.enterText(_composerField(), ':smile:');
+    await tester.pump();
+
+    expect(find.byType(EmojiImage), findsOneWidget);
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: ':smile',
+        selection: TextSelection.collapsed(offset: 6),
+      ),
+    );
+    await tester.pump();
+
+    expect(_text(tester), isEmpty);
+  });
+
   testWidgets(
     'site config listenable is narrow and ignores another site changes',
     (tester) async {
@@ -1028,6 +1063,11 @@ void main() {
     expect(field.controller!.text, '*format* me');
   });
 }
+
+final _pngBytes = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
+  'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+);
 
 const ChatMessagePage _emptyPage = (
   messages: [],
