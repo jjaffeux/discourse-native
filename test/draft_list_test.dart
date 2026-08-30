@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/app.dart';
+import 'package:discourse_native/src/app_shortcuts.dart';
 import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -20,16 +21,20 @@ import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/theme/d_tooltip.dart';
 import 'package:flutter/material.dart'
     show
         ConstrainedBox,
+        FilledButton,
         Focus,
         InkWell,
         MaterialApp,
         MouseRegion,
         Row,
         Size,
-        ValueKey;
+        Theme,
+        ValueKey,
+        WidgetState;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -58,7 +63,32 @@ void main() {
   ) async {
     await _pump(tester);
 
+    final button = tester.widget<FilledButton>(
+      find.byKey(TopicCreateButton.buttonKey),
+    );
+    final theme = Theme.of(
+      tester.element(find.byKey(TopicCreateButton.buttonKey)),
+    );
     expect(find.text('New topic'), findsOneWidget);
+    expect(
+      button.style?.backgroundColor?.resolve(<WidgetState>{}),
+      theme.colorScheme.primary,
+    );
+    expect(
+      button.style?.foregroundColor?.resolve(<WidgetState>{}),
+      theme.colorScheme.onPrimary,
+    );
+    expect(
+      tester
+          .widget<DTooltip>(
+            find.ancestor(
+              of: find.byKey(TopicCreateButton.buttonKey),
+              matching: find.byType(DTooltip),
+            ),
+          )
+          .shortcut,
+      newTopicShortcut,
+    );
     expect(
       find.descendant(
         of: find.byKey(TopicCreateButton.buttonKey),
@@ -79,7 +109,13 @@ void main() {
 
     expect(find.byKey(TopicCreateButton.buttonKey), findsOneWidget);
     expect(find.text('New topic'), findsNothing);
-    expect(find.byTooltip('New topic'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.byKey(TopicCreateButton.buttonKey),
+        matching: find.byType(DTooltip),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('the attached menu loads and resumes a recent draft', (

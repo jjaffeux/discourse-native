@@ -113,12 +113,23 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     if (event is! KeyDownEvent) return false;
 
     final keyboard = HardwareKeyboard.instance;
+    if (newTopicShortcut.accepts(event, keyboard)) {
+      final controller = ShellScope.read(context);
+      if (controller.rootMode != ShellRootMode.forum ||
+          !controller.canCreateTopicFromSidebar ||
+          _formControlHasFocus) {
+        return false;
+      }
+      unawaited(controller.openNewTopicFromSidebar());
+      return true;
+    }
+
     if (topicReplyShortcut.accepts(event, keyboard)) {
       final controller = ShellScope.read(context);
       if (controller.rootMode != ShellRootMode.forum ||
           controller.currentContent?.isTopic != true ||
           !controller.canReplyHere ||
-          _editableTextHasFocus) {
+          _formControlHasFocus) {
         return false;
       }
       controller.openReply();
@@ -177,11 +188,52 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     return true;
   }
 
-  bool get _editableTextHasFocus {
-    final focusContext = FocusManager.instance.primaryFocus?.context;
-    if (focusContext == null) return false;
-    return focusContext.widget is EditableText ||
-        focusContext.findAncestorWidgetOfExactType<EditableText>() != null;
+  bool get _formControlHasFocus {
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    final focusContext = primaryFocus?.context;
+    if (primaryFocus == null ||
+        primaryFocus is FocusScopeNode ||
+        focusContext == null) {
+      return false;
+    }
+    // A select moves primary focus into its popup route while the originating
+    // form control remains open underneath it.
+    if (ModalRoute.of(focusContext) is PopupRoute<Object?>) return true;
+
+    bool isFormControl(Widget widget) =>
+        widget is EditableText ||
+        widget is FormField<Object?> ||
+        widget is DropdownButton<Object?> ||
+        widget is DropdownMenu<Object?> ||
+        widget is Checkbox ||
+        widget is CheckboxListTile ||
+        widget is Radio<Object?> ||
+        widget is RadioListTile<Object?> ||
+        widget is Switch ||
+        widget is SwitchListTile ||
+        widget is Slider ||
+        widget is RangeSlider ||
+        widget is SegmentedButton<Object?> ||
+        widget is ToggleButtons;
+
+    if (isFormControl(focusContext.widget)) return true;
+    var found = false;
+    focusContext.visitAncestorElements((element) {
+      found = isFormControl(element.widget);
+      return !found;
+    });
+    if (found || focusContext is! Element) return found;
+
+    // Some controls attach their FocusNode to a wrapper above the actual
+    // control, so inspect that focused wrapper's subtree as well as its path.
+    void visitFocusedSubtree(Element element) {
+      if (found) return;
+      found = isFormControl(element.widget);
+      if (!found) element.visitChildElements(visitFocusedSubtree);
+    }
+
+    focusContext.visitChildElements(visitFocusedSubtree);
+    return found;
   }
 
   Future<void> _restoreDiagnosticsWidth() async {
