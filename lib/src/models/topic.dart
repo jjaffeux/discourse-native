@@ -590,10 +590,9 @@ class TopicList {
             Topic.fromJson(value, avatars, siteUrl, extensions: extensions),
       ]),
       categories: List.unmodifiable([
-        for (final value
-            in jsonObjects(
-              list['categories'],
-            ).take(maximumCategoriesPerPage))
+        for (final value in jsonObjects(
+          list['categories'],
+        ).take(maximumCategoriesPerPage))
           TopicCategory.fromJson(value),
       ]),
       moreTopicsUrl: jsonText(list['more_topics_url']),

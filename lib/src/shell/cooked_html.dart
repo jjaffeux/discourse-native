@@ -203,7 +203,9 @@ class CookedHtml extends StatelessWidget {
     final theme = Theme.of(context);
     final style = textStyle ?? theme.textTheme.bodyMedium;
     final surface = theme.colorScheme.surface;
-    final horizontalRuleColor = _cssColor(theme.shell.divider);
+    final horizontalRuleColor = _cssColor(
+      theme.extension<ShellColors>()?.divider ?? theme.dividerColor,
+    );
     final insertedBackground = revisionDiff
         ? _cssColor(
             Color.alphaBlend(

@@ -2577,10 +2577,7 @@ void main() {
 
         // Each half of a row names a different insertion point. The pointer,
         // rather than the centred feedback avatar, decides which half wins.
-        final topHalfPointer = Offset(
-          targetRect.center.dx,
-          targetRect.top + 4,
-        );
+        final topHalfPointer = Offset(targetRect.center.dx, targetRect.top + 4);
         await mouse.moveTo(topHalfPointer);
         await tester.pump();
 
@@ -2805,9 +2802,7 @@ void main() {
           tester.getRect(indicator).center.dy,
           greaterThan(teamRect.center.dy),
         );
-        final feedbackRect = tester.getRect(
-          dragFeedback('meta.discourse.org'),
-        );
+        final feedbackRect = tester.getRect(dragFeedback('meta.discourse.org'));
         expect(feedbackRect.center.dx, pointer.dx);
         expect(feedbackRect.bottom, pointer.dy - 12);
         final fadedSource = tester.widget<Opacity>(
@@ -2975,83 +2970,82 @@ void main() {
       },
     );
 
-    testWidgets(
-      'an iOS touch drag auto-scrolls upward to an earlier target',
-      (tester) async {
-        await onPlatform(TargetPlatform.iOS, () async {
-          final sites = overflowingSites();
-          final store = FakeInstanceStore(sites);
-          await pumpShell(tester, phone, store: store);
+    testWidgets('an iOS touch drag auto-scrolls upward to an earlier target', (
+      tester,
+    ) async {
+      await onPlatform(TargetPlatform.iOS, () async {
+        final sites = overflowingSites();
+        final store = FakeInstanceStore(sites);
+        await pumpShell(tester, phone, store: store);
 
-          Finder item(int index) =>
-              find.byKey(ValueKey<String>(sites[index].url));
-          final scrollable = find.descendant(
-            of: find.byType(InstanceRail),
-            matching: find.byType(Scrollable),
-          );
-          final position = tester.state<ScrollableState>(scrollable).position;
-          final viewport = tester.getRect(scrollable);
-          final startingPixels = position.maxScrollExtent;
-          position.jumpTo(startingPixels);
-          await tester.pump();
+        Finder item(int index) =>
+            find.byKey(ValueKey<String>(sites[index].url));
+        final scrollable = find.descendant(
+          of: find.byType(InstanceRail),
+          matching: find.byType(Scrollable),
+        );
+        final position = tester.state<ScrollableState>(scrollable).position;
+        final viewport = tester.getRect(scrollable);
+        final startingPixels = position.maxScrollExtent;
+        position.jumpTo(startingPixels);
+        await tester.pump();
 
-          final source = item(23);
-          final target = item(3);
-          final controller = ShellScope.read(tester.element(source));
-          final content = controller.currentContent;
-          final touch = await tester.startGesture(
-            tester.getCenter(source),
-            kind: PointerDeviceKind.touch,
-          );
-          await tester.pump(kLongPressTimeout);
-          await touch.moveTo(Offset(viewport.center.dx, viewport.top + 2));
-          await tester.pump();
+        final source = item(23);
+        final target = item(3);
+        final controller = ShellScope.read(tester.element(source));
+        final content = controller.currentContent;
+        final touch = await tester.startGesture(
+          tester.getCenter(source),
+          kind: PointerDeviceKind.touch,
+        );
+        await tester.pump(kLongPressTimeout);
+        await touch.moveTo(Offset(viewport.center.dx, viewport.top + 2));
+        await tester.pump();
 
-          bool targetComfortablyVisible() {
-            if (target.evaluate().isEmpty) return false;
-            final center = tester.getCenter(target);
-            return center.dy > viewport.top + 30 &&
-                center.dy < viewport.bottom - 30;
-          }
+        bool targetComfortablyVisible() {
+          if (target.evaluate().isEmpty) return false;
+          final center = tester.getCenter(target);
+          return center.dy > viewport.top + 30 &&
+              center.dy < viewport.bottom - 30;
+        }
 
-          for (
-            var frame = 0;
-            frame < 180 && !targetComfortablyVisible();
-            frame++
-          ) {
-            await tester.pump(const Duration(milliseconds: 16));
-          }
+        for (
+          var frame = 0;
+          frame < 180 && !targetComfortablyVisible();
+          frame++
+        ) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
 
-          expect(position.pixels, lessThan(startingPixels));
-          expect(targetComfortablyVisible(), isTrue);
-          expect(store.saveCount, 0);
-          expect(dragFeedback('site-23.example'), findsOneWidget);
+        expect(position.pixels, lessThan(startingPixels));
+        expect(targetComfortablyVisible(), isTrue);
+        expect(store.saveCount, 0);
+        expect(dragFeedback('site-23.example'), findsOneWidget);
 
-          final targetRect = tester.getRect(target);
-          await touch.moveTo(Offset(targetRect.center.dx, targetRect.top + 4));
-          await tester.pump();
+        final targetRect = tester.getRect(target);
+        await touch.moveTo(Offset(targetRect.center.dx, targetRect.top + 4));
+        await tester.pump();
 
-          expect(find.byKey(dropIndicator), findsOneWidget);
-          expect(
-            tester.getRect(find.byKey(dropIndicator)).center.dy,
-            lessThan(targetRect.center.dy),
-          );
-          expect(store.saveCount, 0);
+        expect(find.byKey(dropIndicator), findsOneWidget);
+        expect(
+          tester.getRect(find.byKey(dropIndicator)).center.dy,
+          lessThan(targetRect.center.dy),
+        );
+        expect(store.saveCount, 0);
 
-          await touch.up();
-          await tester.pumpAndSettle();
+        await touch.up();
+        await tester.pumpAndSettle();
 
-          expect(store.saveCount, 1);
-          expect(controller.currentInstance?.url, sites.first.url);
-          expect(controller.currentContent, same(content));
-          expect((await store.load()).map((site) => site.url), [
-            for (var index = 0; index < 3; index++) sites[index].url,
-            sites.last.url,
-            for (var index = 3; index < 23; index++) sites[index].url,
-          ]);
-        });
-      },
-    );
+        expect(store.saveCount, 1);
+        expect(controller.currentInstance?.url, sites.first.url);
+        expect(controller.currentContent, same(content));
+        expect((await store.load()).map((site) => site.url), [
+          for (var index = 0; index < 3; index++) sites[index].url,
+          sites.last.url,
+          for (var index = 3; index < 23; index++) sites[index].url,
+        ]);
+      });
+    });
 
     testWidgets('canceling an edge drag stops auto-scroll permanently', (
       tester,
@@ -3133,9 +3127,7 @@ void main() {
       expect(find.text('More Options'), findsOneWidget);
     });
 
-    testWidgets('one forum keeps its stationary touch actions', (
-      tester,
-    ) async {
+    testWidgets('one forum keeps its stationary touch actions', (tester) async {
       final only = instance('only.example', title: 'Only Forum');
       final store = FakeInstanceStore([only]);
       await pumpShell(tester, phone, store: store);
@@ -4918,10 +4910,7 @@ void main() {
         final api = FakeDiscourseApi(
           feeds: {'/latest.json': listed},
           topics: {
-            7: (
-              detail: base.detail.copyWith(canEdit: true),
-              posts: base.posts,
-            ),
+            7: (detail: base.detail.copyWith(canEdit: true), posts: base.posts),
           },
         );
         const reader = DiscourseUser(id: 1, username: 'reader');
@@ -4972,9 +4961,7 @@ void main() {
             'originalTags': tags,
           },
         ]);
-        final shell = ShellScope.read(
-          tester.element(find.byType(TopicView)),
-        );
+        final shell = ShellScope.read(tester.element(find.byType(TopicView)));
         expect(shell.currentTopic?.title, 'Renamed topic');
         expect(shell.currentContent?.title, 'Renamed topic');
         expect(find.byType(ComposerPanel), findsNothing);
@@ -5129,9 +5116,7 @@ void main() {
         final notificationRect = tester.getRect(notificationLevel);
         final bookmarkRect = tester.getRect(bookmark);
         final shareRect = tester.getRect(share);
-        final replyButton = find.byKey(
-          const ValueKey('topic-reply-button'),
-        );
+        final replyButton = find.byKey(const ValueKey('topic-reply-button'));
         final replyRect = tester.getRect(replyButton);
         expect(
           tester.widget<DButton>(replyButton).alignment,
@@ -5530,7 +5515,10 @@ void main() {
               'docs': [supportDocs],
             },
             topics: {
-              7: (detail: base.detail.copyWith(canEdit: true), posts: base.posts),
+              7: (
+                detail: base.detail.copyWith(canEdit: true),
+                posts: base.posts,
+              ),
             },
           );
           const reader = DiscourseUser(id: 1, username: 'reader');
@@ -5599,7 +5587,9 @@ void main() {
           expect(
             find.descendant(
               of: picker,
-              matching: find.byKey(const ValueKey('topic-category-picker-query')),
+              matching: find.byKey(
+                const ValueKey('topic-category-picker-query'),
+              ),
             ),
             findsOneWidget,
           );
@@ -5611,7 +5601,10 @@ void main() {
             tester.widget<TextField>(categoryQuery).style?.fontSize,
             DiscourseTypography.fontDown1,
           );
-          expect(tester.getSize(categoryQuery).height, inInclusiveRange(34, 42));
+          expect(
+            tester.getSize(categoryQuery).height,
+            inInclusiveRange(34, 42),
+          );
           final categoryDivider = find.byKey(
             const ValueKey('topic-category-picker-divider'),
           );
@@ -5624,10 +5617,7 @@ void main() {
           );
           expect(supportOption, findsOneWidget);
           final supportTile = tester.widget<ListTile>(
-            find.descendant(
-              of: supportOption,
-              matching: find.byType(ListTile),
-            ),
+            find.descendant(of: supportOption, matching: find.byType(ListTile)),
           );
           expect(supportTile.minTileHeight, 32);
           expect(
@@ -6290,9 +6280,7 @@ void main() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
-      final emoji = tester.widget<SiteEmojiImage>(
-        find.byType(SiteEmojiImage),
-      );
+      final emoji = tester.widget<SiteEmojiImage>(find.byType(SiteEmojiImage));
       expect(emoji.name, 'mega');
       expect(
         find.bySemanticsLabel("Keegan's Weekly Updates (2025) :mega:"),
@@ -10410,33 +10398,36 @@ void main() {
       expect(shell.visibleComposer?.target.replyToPostNumber, isNull);
     });
 
-    testWidgets('Shift R does not retarget a reply while its editor has focus', (
-      tester,
-    ) async {
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {7: detail()},
-      );
+    testWidgets(
+      'Shift R does not retarget a reply while its editor has focus',
+      (tester) async {
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {7: detail()},
+        );
 
-      await openTopic(tester, api);
-      await hoverPost(tester);
-      await tester.tap(find.byTooltip('Reply to this post'));
-      await tester.pumpAndSettle();
+        await openTopic(tester, api);
+        await hoverPost(tester);
+        await tester.tap(find.byTooltip('Reply to this post'));
+        await tester.pumpAndSettle();
 
-      final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
-      expect(shell.visibleComposer?.target.replyToPostNumber, 1);
-      expect(
-        tester.widget<TextField>(find.byType(TextField)).focusNode?.hasFocus,
-        isTrue,
-      );
+        final shell = ShellScope.read(
+          tester.element(find.byType(ComposerPanel)),
+        );
+        expect(shell.visibleComposer?.target.replyToPostNumber, 1);
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).focusNode?.hasFocus,
+          isTrue,
+        );
 
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-      await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pump();
 
-      expect(shell.visibleComposer?.target.replyToPostNumber, 1);
-    });
+        expect(shell.visibleComposer?.target.replyToPostNumber, 1);
+      },
+    );
 
     testWidgets('replying to a topic posts what was typed', (tester) async {
       final api = FakeDiscourseApi(
@@ -11104,61 +11095,58 @@ void main() {
       expect(find.byTooltip('Reply to this post'), findsOneWidget);
     });
 
-    testWidgets(
-      'a recycled post stays closed under a stationary pointer',
-      (tester) async {
-        final api = FakeDiscourseApi(
-          feeds: {'/latest.json': listed},
-          topics: {
-            7: topicPayload(
-              id: 7,
-              title: 'A real topic',
-              posts: [
-                for (var i = 1; i <= 30; i++)
-                  Post(
-                    id: i,
-                    postNumber: i,
-                    username: 'sam',
-                    cooked: '<p>Post body $i</p>',
-                  ),
-              ],
-              stream: [for (var i = 1; i <= 30; i++) i],
-              postsCount: 30,
-              canCreatePost: true,
-            ),
-          },
-        );
+    testWidgets('a recycled post stays closed under a stationary pointer', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: [
+              for (var i = 1; i <= 30; i++)
+                Post(
+                  id: i,
+                  postNumber: i,
+                  username: 'sam',
+                  cooked: '<p>Post body $i</p>',
+                ),
+            ],
+            stream: [for (var i = 1; i <= 30; i++) i],
+            postsCount: 30,
+            canCreatePost: true,
+          ),
+        },
+      );
 
-        await openTopic(tester, api);
-        final list = find.byType(SuperListView);
-        final pointer = await tester.createGesture(
-          kind: PointerDeviceKind.mouse,
-        );
-        await pointer.addPointer(location: Offset.zero);
-        addTearDown(pointer.removePointer);
-        await pointer.moveTo(tester.getCenter(list));
-        await tester.pump();
-        expect(find.byTooltip('Reply to this post'), findsOneWidget);
+      await openTopic(tester, api);
+      final list = find.byType(SuperListView);
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await pointer.addPointer(location: Offset.zero);
+      addTearDown(pointer.removePointer);
+      await pointer.moveTo(tester.getCenter(list));
+      await tester.pump();
+      expect(find.byTooltip('Reply to this post'), findsOneWidget);
 
-        final scrollable = find
-            .descendant(of: list, matching: find.byType(Scrollable))
-            .first;
-        final position = tester.state<ScrollableState>(scrollable).position;
-        position.jumpTo(1200);
-        await tester.pump();
-        await tester.pump();
+      final scrollable = find
+          .descendant(of: list, matching: find.byType(Scrollable))
+          .first;
+      final position = tester.state<ScrollableState>(scrollable).position;
+      position.jumpTo(1200);
+      await tester.pump();
+      await tester.pump();
 
-        // A synchronous jump can build a fresh row after scrolling has
-        // already ended. Its synthetic enter must not be mistaken for real
-        // pointer movement and create an overlay during mouse hit testing.
-        expect(find.byTooltip('Reply to this post'), findsNothing);
-        expect(tester.takeException(), isNull);
+      // A synchronous jump can build a fresh row after scrolling has
+      // already ended. Its synthetic enter must not be mistaken for real
+      // pointer movement and create an overlay during mouse hit testing.
+      expect(find.byTooltip('Reply to this post'), findsNothing);
+      expect(tester.takeException(), isNull);
 
-        await pointer.moveBy(const Offset(0, 1));
-        await tester.pump();
-        expect(find.byTooltip('Reply to this post'), findsOneWidget);
-      },
-    );
+      await pointer.moveBy(const Offset(0, 1));
+      await tester.pump();
+      expect(find.byTooltip('Reply to this post'), findsOneWidget);
+    });
 
     testWidgets('the menu goes when its post scrolls out of sight', (
       tester,

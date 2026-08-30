@@ -23,10 +23,7 @@ void main() {
     TopicDetail detail(Map<String, Object?> permissions) => TopicDetail.parse({
       'id': 7,
       'title': 'A topic',
-      'post_stream': {
-        'stream': <int>[],
-        'posts': <Object?>[],
-      },
+      'post_stream': {'stream': <int>[], 'posts': <Object?>[]},
       'details': permissions,
     }, siteUrl).detail;
 
