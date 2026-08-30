@@ -4765,7 +4765,6 @@ void main() {
             name: 'Support docs',
             color: '00AEEF',
             parentCategoryId: 5,
-            permission: 1,
           );
           final base = detail();
           final api = FakeDiscourseApi(
@@ -4773,6 +4772,7 @@ void main() {
             categoryList: const [support],
             categorySearches: const {
               '': [support],
+              'support': [support],
               'docs': [supportDocs],
             },
             topics: {
@@ -4880,12 +4880,23 @@ void main() {
             supportTile.titleTextStyle?.fontSize,
             DiscourseTypography.fontDown1,
           );
+          await tester.enterText(categoryQuery, 'support');
+          await tester.pump(const Duration(milliseconds: 250));
+          await tester.pumpAndSettle();
+          expect(supportOption, findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('topic-category-option-6')),
+            findsNothing,
+          );
           await tester.enterText(categoryQuery, 'docs');
           await tester.pump(const Duration(milliseconds: 250));
           await tester.pumpAndSettle();
+          final supportDocsOption = find.byKey(
+            const ValueKey('topic-category-option-6'),
+          );
           final supportDocsTile = tester.widget<ListTile>(
             find.descendant(
-              of: find.byKey(const ValueKey('topic-category-option-6')),
+              of: supportDocsOption,
               matching: find.byType(ListTile),
             ),
           );
@@ -4893,8 +4904,15 @@ void main() {
             supportDocsTile.contentPadding,
             const EdgeInsets.only(left: 26, right: 10),
           );
+          expect(
+            find.descendant(
+              of: supportDocsOption,
+              matching: find.text('Support > Support docs'),
+            ),
+            findsOneWidget,
+          );
           expect(api.categoryPagesRequested, isNot(contains(2)));
-          expect(api.categorySearchTerms, ['', 'docs']);
+          expect(api.categorySearchTerms, ['', 'support', 'docs']);
           await tester.tap(
             find.byKey(const ValueKey('topic-category-option-6')),
           );

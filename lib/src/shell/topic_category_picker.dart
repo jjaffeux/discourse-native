@@ -54,12 +54,21 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
         context: context,
         anchorContext: anchorContext,
         selectedCategoryId: widget.categoryId,
-        search: (term) async => _editableTopicCategories(
-          await shell.searchTopicCategoriesForEditor(
-            siteUrl: widget.siteUrl,
-            term: term,
-          ),
+        search: (term) => shell.searchTopicCategoriesForEditor(
+          siteUrl: widget.siteUrl,
+          term: term,
         ),
+        labelFor: (category) {
+          final parentId = category.parentCategoryId;
+          if (parentId == null) return category.name;
+          final parent = shell
+              .topicComposerCategories(widget.siteUrl)
+              .where((candidate) => candidate.id == parentId)
+              .firstOrNull;
+          return parent == null
+              ? category.name
+              : '${parent.name} > ${category.name}';
+        },
       );
       if (!mounted || selected == null || selected == widget.categoryId) return;
 
@@ -99,6 +108,7 @@ Future<int?> showTopicCategoryPicker({
   required BuildContext anchorContext,
   required int? selectedCategoryId,
   required TopicCategorySearchCallback search,
+  String Function(TopicCategory category)? labelFor,
 }) => showAnchoredPicker<int>(
   context: context,
   anchorContext: anchorContext,
@@ -108,6 +118,7 @@ Future<int?> showTopicCategoryPicker({
   builder: (pickerContext) => TopicCategoryPicker(
     selectedCategoryId: selectedCategoryId,
     search: search,
+    labelFor: labelFor,
     onSelected: Navigator.of(pickerContext).pop,
   ),
 );
@@ -119,11 +130,13 @@ class TopicCategoryPicker extends StatefulWidget {
     required this.selectedCategoryId,
     required this.search,
     required this.onSelected,
+    this.labelFor,
   });
 
   final int? selectedCategoryId;
   final TopicCategorySearchCallback search;
   final ValueChanged<int> onSelected;
+  final String Function(TopicCategory category)? labelFor;
 
   @override
   State<TopicCategoryPicker> createState() => _TopicCategoryPickerState();
@@ -231,7 +244,7 @@ class _TopicCategoryPickerState extends State<TopicCategoryPicker> {
                   borderRadius: BorderRadius.circular(5),
                 ),
               ),
-              title: Text(category.name),
+              title: Text(widget.labelFor?.call(category) ?? category.name),
               onTap: () => widget.onSelected(category.id),
             ),
           if (_results.isEmpty)
@@ -244,36 +257,4 @@ class _TopicCategoryPickerState extends State<TopicCategoryPicker> {
       ],
     );
   }
-}
-
-List<TopicCategory> _editableTopicCategories(
-  Iterable<TopicCategory> categories,
-) {
-  final permitted = categories.where((category) => category.canCreateTopic);
-  final permittedIds = permitted.map((category) => category.id).toSet();
-  final ordered = <TopicCategory>[];
-  final visited = <int>{};
-
-  void appendChildren(int? parentId) {
-    final children =
-        permitted
-            .where(
-              (category) => parentId == null
-                  ? category.parentCategoryId == null ||
-                        !permittedIds.contains(category.parentCategoryId)
-                  : category.parentCategoryId == parentId,
-            )
-            .toList()
-          ..sort(
-            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-          );
-    for (final child in children) {
-      if (!visited.add(child.id)) continue;
-      ordered.add(child);
-      appendChildren(child.id);
-    }
-  }
-
-  appendChildren(null);
-  return ordered;
 }
