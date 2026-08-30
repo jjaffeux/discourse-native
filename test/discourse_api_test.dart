@@ -6371,6 +6371,7 @@ void _writeGroups() {
                 'id': 7,
                 'username': 'sam',
                 'can_create_topic': true,
+                'can_create_group': true,
               },
             }),
             200,
@@ -6385,10 +6386,15 @@ void _writeGroups() {
       final stored = DiscourseUser.fromJson(user.toJson());
 
       expect(user.canCreateTopic, isTrue);
+      expect(user.canCreateGroup, isTrue);
       expect(stored, user);
       expect(stored.hashCode, user.hashCode);
       expect(
         DiscourseUser.fromJson(const {'username': 'old'}).canCreateTopic,
+        isFalse,
+      );
+      expect(
+        DiscourseUser.fromJson(const {'username': 'old'}).canCreateGroup,
         isFalse,
       );
     });

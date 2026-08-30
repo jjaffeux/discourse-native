@@ -7,6 +7,7 @@ import '../models/group.dart';
 import '../models/group_route.dart';
 import '../plugin_api/plugin_data.dart';
 import '../plugin_api/plugin_registry.dart';
+import 'external_link.dart';
 import 'group_page.dart';
 import 'groups_controller.dart';
 import 'groups_page.dart';
@@ -90,26 +91,22 @@ class _GroupsDirectoryHostState extends State<GroupsDirectoryHost> {
             totalRows: state.totalRows,
             query: _query.filter,
             type: _query.type,
-            order: _query.order == GroupDirectoryOrder.memberCount.wireName
-                ? GroupDirectoryOrder.memberCount
-                : GroupDirectoryOrder.name,
-            ascending: _query.ascending,
             loading: state.loading,
             loadingMore: state.loadingMore,
             loaded: state.loaded,
             hasMore: state.hasMore,
             error: state.error,
             pageError: state.pageError,
+            canCreateGroup:
+                shell.currentUserFor(widget.siteUrl)?.canCreateGroup == true,
           ),
           onSearchChanged: (value) =>
               _replaceQuery(_query.copyWith(filter: value)),
           onTypeChanged: (value) => _replaceQuery(_query.copyWith(type: value)),
-          onOrderChanged: (value) =>
-              _replaceQuery(_query.copyWith(order: value.wireName)),
-          onAscendingChanged: (value) =>
-              _replaceQuery(_query.copyWith(ascending: value)),
           onRefresh: () => _load(refresh: true),
           onLoadMore: () => unawaited(_load(more: true)),
+          onCreateGroup: () =>
+              unawaited(openExternalLink('${widget.siteUrl}/g/custom/new')),
         );
       },
     );

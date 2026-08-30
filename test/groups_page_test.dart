@@ -23,15 +23,12 @@ const _moderators = Group(
 );
 
 void main() {
-  testWidgets('directory exposes search, type, ordering, paging and cards', (
-    tester,
-  ) async {
+  testWidgets('directory exposes new group and type dropdown', (tester) async {
     String? search;
     String? type = 'unset';
-    GroupDirectoryOrder? order;
-    bool? ascending;
     Group? opened;
     var loadMore = 0;
+    var createGroup = 0;
 
     await _pump(
       tester,
@@ -43,13 +40,13 @@ void main() {
           totalRows: 2,
           loaded: true,
           hasMore: true,
+          canCreateGroup: true,
         ),
         onSearchChanged: (value) => search = value,
         onTypeChanged: (value) => type = value,
-        onOrderChanged: (value) => order = value,
-        onAscendingChanged: (value) => ascending = value,
         onOpenGroup: (value) => opened = value,
         onLoadMore: () => loadMore++,
+        onCreateGroup: () => createGroup++,
       ),
     );
 
@@ -64,17 +61,19 @@ void main() {
     await tester.pump(const Duration(milliseconds: 301));
     expect(search, 'support');
 
-    await tester.tap(find.byKey(const ValueKey('group-type-my')));
+    expect(find.text('Groups'), findsNothing);
+    expect(find.text('2 groups'), findsNothing);
+    expect(find.byKey(const ValueKey('groups-order')), findsNothing);
+    expect(find.byKey(const ValueKey('groups-order-direction')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('groups-type-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey(('choice-menu-option', 'my'))));
+    await tester.pumpAndSettle();
     expect(type, 'my');
 
-    await tester.tap(find.byKey(const ValueKey('groups-order')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Members').last);
-    await tester.pumpAndSettle();
-    expect(order, GroupDirectoryOrder.memberCount);
-
-    await tester.tap(find.byKey(const ValueKey('groups-order-direction')));
-    expect(ascending, isFalse);
+    await tester.tap(find.byKey(const ValueKey('create-group')));
+    expect(createGroup, 1);
 
     await tester.tap(find.byKey(const ValueKey('group-card-support')));
     expect(opened, same(_support));
@@ -82,6 +81,38 @@ void main() {
     await tester.ensureVisible(find.byKey(const ValueKey('groups-load-more')));
     await tester.tap(find.byKey(const ValueKey('groups-load-more')));
     expect(loadMore, greaterThanOrEqualTo(1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('type dropdown clears back to all groups on compact layouts', (
+    tester,
+  ) async {
+    String? type = 'automatic';
+    await _pump(
+      tester,
+      GroupsPage(
+        siteUrl: 'https://meta.discourse.org',
+        data: const GroupsPageData(
+          typeFilters: ['my', 'automatic'],
+          type: 'automatic',
+          loaded: true,
+          canCreateGroup: true,
+        ),
+        onTypeChanged: (value) => type = value,
+        onCreateGroup: () {},
+      ),
+      size: const Size(390, 700),
+    );
+
+    expect(find.text('Automatic groups'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('groups-type-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey(('choice-menu-option', '__all_group_types__'))),
+    );
+    await tester.pumpAndSettle();
+
+    expect(type, isNull);
     expect(tester.takeException(), isNull);
   });
 

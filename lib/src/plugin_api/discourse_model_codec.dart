@@ -90,6 +90,7 @@ final class DiscourseModelCodec {
       status: UserStatus.fromJson(json['status']),
       draftCount: jsonInt(json['draft_count']),
       canCreateTopic: json['can_create_topic'] == true,
+      canCreateGroup: json['can_create_group'] == true,
       canChangePostOwner: json['can_change_post_owner'] == true,
       admin: json['admin'] == true,
       staff:

@@ -7,18 +7,8 @@ import '../theme/app_theme.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'choice_menu.dart';
 import 'shell_scope.dart';
-
-/// Sorts exposed by Discourse's group directory.
-enum GroupDirectoryOrder {
-  name('name', 'Name'),
-  memberCount('user_count', 'Members');
-
-  const GroupDirectoryOrder(this.wireName, this.label);
-
-  final String wireName;
-  final String label;
-}
 
 /// Render state for the native `/g` directory.
 ///
@@ -33,8 +23,6 @@ final class GroupsPageData {
     this.totalRows = 0,
     this.query = '',
     this.type,
-    this.order = GroupDirectoryOrder.name,
-    this.ascending = true,
     this.loading = false,
     this.loadingMore = false,
     this.loaded = false,
@@ -49,8 +37,6 @@ final class GroupsPageData {
   final int totalRows;
   final String query;
   final String? type;
-  final GroupDirectoryOrder order;
-  final bool ascending;
   final bool loading;
   final bool loadingMore;
   final bool loaded;
@@ -60,7 +46,7 @@ final class GroupsPageData {
   final bool canCreateGroup;
 }
 
-/// Native group directory with server-backed search, type and sort controls.
+/// Native group directory with server-backed search and type controls.
 class GroupsPage extends StatefulWidget {
   const GroupsPage({
     super.key,
@@ -68,8 +54,6 @@ class GroupsPage extends StatefulWidget {
     required this.data,
     this.onSearchChanged,
     this.onTypeChanged,
-    this.onOrderChanged,
-    this.onAscendingChanged,
     this.onRefresh,
     this.onLoadMore,
     this.onOpenGroup,
@@ -80,8 +64,6 @@ class GroupsPage extends StatefulWidget {
   final GroupsPageData data;
   final ValueChanged<String>? onSearchChanged;
   final ValueChanged<String?>? onTypeChanged;
-  final ValueChanged<GroupDirectoryOrder>? onOrderChanged;
-  final ValueChanged<bool>? onAscendingChanged;
   final Future<void> Function()? onRefresh;
   final VoidCallback? onLoadMore;
   final ValueChanged<Group>? onOpenGroup;
@@ -194,8 +176,6 @@ class _GroupsPageState extends State<GroupsPage> {
                       onSearchChanged: _search,
                       onSearchSubmitted: _submitSearch,
                       onTypeChanged: widget.onTypeChanged,
-                      onOrderChanged: widget.onOrderChanged,
-                      onAscendingChanged: widget.onAscendingChanged,
                       onCreateGroup: widget.onCreateGroup,
                     ),
                   ),
@@ -293,8 +273,6 @@ class _DirectoryControls extends StatelessWidget {
     required this.onSearchChanged,
     required this.onSearchSubmitted,
     required this.onTypeChanged,
-    required this.onOrderChanged,
-    required this.onAscendingChanged,
     required this.onCreateGroup,
   });
 
@@ -304,124 +282,159 @@ class _DirectoryControls extends StatelessWidget {
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String> onSearchSubmitted;
   final ValueChanged<String?>? onTypeChanged;
-  final ValueChanged<GroupDirectoryOrder>? onOrderChanged;
-  final ValueChanged<bool>? onAscendingChanged;
   final VoidCallback? onCreateGroup;
 
   @override
   Widget build(BuildContext context) {
-    final resultLabel = data.totalRows == 1
-        ? '1 group'
-        : '${data.totalRows} groups';
     final types = <String>{...data.typeFilters};
     if (data.type case final selected?) types.add(selected);
+    final search = TextField(
+      key: const ValueKey('groups-search'),
+      controller: searchController,
+      focusNode: searchFocus,
+      onChanged: onSearchChanged,
+      onSubmitted: onSearchSubmitted,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        labelText: 'Search groups',
+        hintText: 'Name or description',
+        prefixIcon: const DIcon(DIcons.magnifyingGlass, size: 16),
+        suffixIcon: searchController.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Clear search',
+                onPressed: () {
+                  searchController.clear();
+                  onSearchSubmitted('');
+                },
+                icon: const DIcon(DIcons.xmark, size: 16),
+              ),
+      ),
+    );
+    final typeFilter = _GroupTypeFilter(
+      types: types,
+      selected: data.type,
+      onChanged: onTypeChanged,
+    );
+    final createGroup = data.canCreateGroup
+        ? DButton(
+            key: const ValueKey('create-group'),
+            label: const Text('New Group'),
+            icon: const DIcon(DIcons.plus, size: 16),
+            variant: DButtonVariant.standard,
+            onPressed: onCreateGroup,
+          )
+        : null;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 600) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              search,
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.spaceBetween,
+                children: [typeFilter, ?createGroup],
+              ),
+            ],
+          );
+        }
+        return Row(
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Groups',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    resultLabel,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-            if (data.canCreateGroup)
-              DButton(
-                key: const ValueKey('create-group'),
-                label: const Text('New group'),
-                icon: const DIcon(DIcons.plus, size: 16),
-                variant: DButtonVariant.primary,
-                onPressed: onCreateGroup,
-              ),
+            Expanded(child: search),
+            const SizedBox(width: 12),
+            typeFilter,
+            if (createGroup != null) ...[const SizedBox(width: 8), createGroup],
           ],
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          key: const ValueKey('groups-search'),
-          controller: searchController,
-          focusNode: searchFocus,
-          onChanged: onSearchChanged,
-          onSubmitted: onSearchSubmitted,
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            labelText: 'Search groups',
-            hintText: 'Name or description',
-            prefixIcon: const DIcon(DIcons.magnifyingGlass, size: 16),
-            suffixIcon: searchController.text.isEmpty
-                ? null
-                : IconButton(
-                    tooltip: 'Clear search',
-                    onPressed: () {
-                      searchController.clear();
-                      onSearchSubmitted('');
-                    },
-                    icon: const DIcon(DIcons.xmark, size: 16),
-                  ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            ChoiceChip(
-              key: const ValueKey('group-type-all'),
-              label: const Text('All'),
-              selected: data.type == null,
-              onSelected: (_) => onTypeChanged?.call(null),
-            ),
-            for (final type in types)
-              ChoiceChip(
-                key: ValueKey('group-type-$type'),
-                label: Text(_humanize(type)),
-                selected: data.type == type,
-                onSelected: (_) => onTypeChanged?.call(type),
-              ),
-            const SizedBox(width: 8),
-            DropdownButton<GroupDirectoryOrder>(
-              key: const ValueKey('groups-order'),
-              value: data.order,
-              underline: const SizedBox.shrink(),
-              onChanged: onOrderChanged == null
-                  ? null
-                  : (value) {
-                      if (value != null) onOrderChanged!(value);
-                    },
-              items: [
-                for (final order in GroupDirectoryOrder.values)
-                  DropdownMenuItem(value: order, child: Text(order.label)),
-              ],
-            ),
-            IconButton(
-              key: const ValueKey('groups-order-direction'),
-              tooltip: data.ascending ? 'Sort descending' : 'Sort ascending',
-              onPressed: onAscendingChanged == null
-                  ? null
-                  : () => onAscendingChanged!(!data.ascending),
-              icon: Icon(
-                data.ascending ? Icons.arrow_upward : Icons.arrow_downward,
-                size: 19,
-              ),
-            ),
-          ],
-        ),
-      ],
+        );
+      },
     );
   }
 }
+
+const String _allGroupTypes = '__all_group_types__';
+
+class _GroupTypeFilter extends StatelessWidget {
+  const _GroupTypeFilter({
+    required this.types,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final Set<String> types;
+  final String? selected;
+  final ValueChanged<String?>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final options = [
+      const ChoiceMenuOption(
+        value: _allGroupTypes,
+        title: 'All groups',
+        description: 'Show every visible group',
+      ),
+      for (final type in types.where((type) => type != _allGroupTypes))
+        ChoiceMenuOption(
+          value: type,
+          title: _groupTypeLabel(type),
+          description: _groupTypeDescription(type),
+        ),
+    ];
+    final value = selected ?? _allGroupTypes;
+
+    return ChoiceMenuAnchor<String>(
+      title: 'Filter by group type',
+      showPopoverTitle: false,
+      value: value,
+      options: options,
+      enabled: onChanged != null,
+      onSelected: (choice) =>
+          onChanged?.call(choice == _allGroupTypes ? null : choice),
+      builder: (context, openMenu) => DButton(
+        key: const ValueKey('groups-type-filter'),
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                selected == null ? 'All groups' : _groupTypeLabel(selected!),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const DIcon(DIcons.chevronDown, size: 14),
+          ],
+        ),
+        tooltip: 'Filter by group type',
+        size: DButtonSize.small,
+        onPressed: openMenu,
+      ),
+    );
+  }
+}
+
+String _groupTypeLabel(String type) => switch (type) {
+  'my' => 'My groups',
+  'owner' => 'Groups I own',
+  'public' => 'Public groups',
+  'close' || 'closed' => 'Closed groups',
+  'automatic' => 'Automatic groups',
+  _ => '${_humanize(type)} groups',
+};
+
+String _groupTypeDescription(String type) => switch (type) {
+  'my' => 'Groups you belong to',
+  'owner' => 'Groups you own',
+  'public' => 'Groups visible to everyone',
+  'close' || 'closed' => 'Groups with closed membership',
+  'automatic' => 'Groups managed automatically',
+  _ => 'Show ${_groupTypeLabel(type).toLowerCase()}',
+};
 
 class _GroupDirectoryCard extends StatelessWidget {
   const _GroupDirectoryCard({
