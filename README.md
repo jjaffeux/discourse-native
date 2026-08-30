@@ -131,6 +131,21 @@ Refreshed on launch for every connected site, after connecting, and when
 switching to a site. A failure is swallowed: counters are decoration and a site
 being down must not break the shell.
 
+### Sidebar tags
+
+The Tags section follows Discourse's own navigation choices. A connected
+account uses `sidebar_tags` when present and otherwise the site's
+`navigation_menu_site_top_tags`; signed-out readers prefer
+`anonymous_default_navigation_menu_tags` before the same top-tag fallback.
+`display_sidebar_tags` remains the authority for whether a connected account
+sees the section. Individual rows open native tag topic feeds, private-message
+tags use their account-scoped route, and **All tags** opens a native directory
+backed by `/tags.json`.
+
+Tag rows intentionally have no topic-count badge. Core's sidebar number is a
+personalized unread/new calculation from its per-topic tracking map, not the
+directory's total topic count; this client does not carry that full map.
+
 Per-topic unread state does *not* need a separate call — `/latest.json` is
 personalized when authenticated and each topic carries `unread_posts` and
 `last_read_post_number`.

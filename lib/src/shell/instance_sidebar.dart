@@ -128,6 +128,9 @@ class InstanceSidebar extends StatelessWidget {
       final categorySection = instance == null
           ? null
           : controller.categorySidebarSectionFor(instance.url);
+      final tagSection = instance == null
+          ? null
+          : controller.tagSidebarSectionFor(instance.url);
       return _SidebarSnapshot(
         siteUrl: instance?.url,
         name: instance?.title,
@@ -143,6 +146,7 @@ class InstanceSidebar extends StatelessWidget {
                 ...instance.sections,
                 ...controller.customSidebarSectionsFor(instance.url),
                 ?categorySection,
+                ?tagSection,
               ],
       );
     },

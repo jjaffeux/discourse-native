@@ -15,6 +15,7 @@ import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/post_revision.dart';
 import 'package:discourse_native/src/models/search_results.dart';
+import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -96,6 +97,10 @@ const _keys = [
   'can_undo',
   'acted',
   'count',
+  'topic_count',
+  'pm_count',
+  'pm_only',
+  'pmOnly',
   'color',
   'text_color',
   'bookmarkable_url',
@@ -417,6 +422,7 @@ void main() {
       );
       probe('TopicTagSearch', () => TopicTagSearch.fromJson(json), json);
       probe('TopicTag', () => TopicTag.parse(loose), loose);
+      probe('SidebarTag', () => SidebarTag.fromJson(loose), loose);
       probe(
         'TopicNotificationLevel',
         () => TopicNotificationLevel.fromJson(loose),

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../plugin_api/plugin_data.dart';
 import 'bookmark.dart';
 import 'json.dart';
+import 'sidebar_tag.dart';
 import 'user_status.dart';
 
 /// The account an API key belongs to, from `/session/current.json`.
@@ -24,6 +25,8 @@ class DiscourseUser {
     this.groups = const [],
     this.messageGroupNames = const [],
     this.sidebarCategoryIds = const [],
+    this.sidebarTags = const [],
+    this.displaySidebarTags = false,
     this.trackedCategoryIds,
     this.watchedCategoryIds,
     this.watchedFirstPostCategoryIds,
@@ -65,6 +68,11 @@ class DiscourseUser {
       for (final value in jsonArray(json['sidebarCategoryIds']))
         ?jsonIntOrNull(value),
     ]),
+    sidebarTags: List.unmodifiable([
+      for (final value in jsonArray(json['sidebarTags']))
+        ?SidebarTag.fromJson(value),
+    ]),
+    displaySidebarTags: json['displaySidebarTags'] == true,
     trackedCategoryIds: _storedCategoryIds(json, 'trackedCategoryIds'),
     watchedCategoryIds: _storedCategoryIds(json, 'watchedCategoryIds'),
     watchedFirstPostCategoryIds: _storedCategoryIds(
@@ -133,6 +141,14 @@ class DiscourseUser {
   /// The categories this account chose for its sidebar. Core derives display
   /// order from the site's category ordering rather than this list's order.
   final List<int> sidebarCategoryIds;
+
+  /// The tags this account chose for its navigation sidebar.
+  ///
+  /// An empty list means core falls back to the site's top tags. The separate
+  /// [displaySidebarTags] flag retains the server's permission-aware answer to
+  /// whether the section itself is meaningful when that fallback is empty.
+  final List<SidebarTag> sidebarTags;
+  final bool displaySidebarTags;
 
   /// Direct category preferences at or above core's Tracking level.
   ///
@@ -206,6 +222,8 @@ class DiscourseUser {
       'groups': groups,
       'messageGroupNames': messageGroupNames,
       'sidebarCategoryIds': sidebarCategoryIds,
+      'sidebarTags': [for (final tag in sidebarTags) tag.toJson()],
+      'displaySidebarTags': displaySidebarTags,
       if (trackedCategoryIds != null) 'trackedCategoryIds': trackedCategoryIds,
       if (watchedCategoryIds != null) 'watchedCategoryIds': watchedCategoryIds,
       if (watchedFirstPostCategoryIds != null)
@@ -238,6 +256,8 @@ class DiscourseUser {
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
+    sidebarTags: sidebarTags,
+    displaySidebarTags: displaySidebarTags,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -265,6 +285,8 @@ class DiscourseUser {
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
+    sidebarTags: sidebarTags,
+    displaySidebarTags: displaySidebarTags,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -300,6 +322,8 @@ class DiscourseUser {
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
+    sidebarTags: sidebarTags,
+    displaySidebarTags: displaySidebarTags,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -330,6 +354,8 @@ class DiscourseUser {
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
+    sidebarTags: sidebarTags,
+    displaySidebarTags: displaySidebarTags,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -357,6 +383,8 @@ class DiscourseUser {
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
+    sidebarTags: sidebarTags,
+    displaySidebarTags: displaySidebarTags,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -386,6 +414,8 @@ class DiscourseUser {
       listEquals(other.groups, groups) &&
       listEquals(other.messageGroupNames, messageGroupNames) &&
       listEquals(other.sidebarCategoryIds, sidebarCategoryIds) &&
+      listEquals(other.sidebarTags, sidebarTags) &&
+      other.displaySidebarTags == displaySidebarTags &&
       listEquals(other.trackedCategoryIds, trackedCategoryIds) &&
       listEquals(other.watchedCategoryIds, watchedCategoryIds) &&
       listEquals(
@@ -416,6 +446,8 @@ class DiscourseUser {
     Object.hashAll(groups),
     Object.hashAll(messageGroupNames),
     Object.hashAll(sidebarCategoryIds),
+    Object.hashAll(sidebarTags),
+    displaySidebarTags,
     Object.hashAll(trackedCategoryIds ?? const <int>[]),
     Object.hashAll(watchedCategoryIds ?? const <int>[]),
     Object.hashAll(watchedFirstPostCategoryIds ?? const <int>[]),

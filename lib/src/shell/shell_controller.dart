@@ -52,9 +52,12 @@ import '../models/post_likers.dart';
 import '../models/post_revision.dart';
 import '../models/search_results.dart';
 import '../models/sidebar.dart';
+import '../models/sidebar_tag.dart';
 import '../models/site_appearance.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
+import '../models/tag_directory_feed.dart';
+import '../models/tag_sidebar.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../models/topic_filter.dart';
@@ -118,6 +121,12 @@ typedef _CategorySidebarCache = ({
   List<TopicCategory> categories,
   DiscourseUser? user,
   SiteConfig config,
+  SidebarSection section,
+});
+typedef _TagSidebarCache = ({
+  List<SidebarTag> tags,
+  bool display,
+  String? username,
   SidebarSection section,
 });
 
@@ -1898,6 +1907,11 @@ class ShellController extends FrameSafeNotifier
   final Map<String, CategoryFeed> _categoryFeeds = {};
   final Set<(String, int)> _categoryIdsLoading = {};
   final Map<String, _CategorySidebarCache> _categorySidebarCache = {};
+  final Map<String, List<SidebarTag>> _siteTopTagsBySite = {};
+  final Map<String, List<SidebarTag>> _anonymousDefaultTagsBySite = {};
+  final Map<String, _TagSidebarCache> _tagSidebarCache = {};
+  final Map<String, TagDirectoryFeed> _tagDirectoryFeeds = {};
+  final Map<String, Object> _tagDirectoryRequests = {};
   final Map<String, TopicComposerCapabilities> _topicComposerCapabilities = {};
   final Map<String, SitePostActionCatalog> _postActionCatalogs = {};
 
@@ -2025,6 +2039,54 @@ class ShellController extends FrameSafeNotifier
     );
     return section;
   }
+
+  /// The built-in Tags section, following core's personalized/default rules.
+  ///
+  /// A connected account's explicit tags win. An empty explicit set falls
+  /// back to the site's top tags; anonymous readers first get the configured
+  /// anonymous defaults. Core still shows the connected section with only its
+  /// All tags row when `display_sidebar_tags` says tags are browsable.
+  SidebarSection? tagSidebarSectionFor(String siteUrl) {
+    final instance = _instanceAt(siteUrl);
+    if (instance == null || !siteConfigFor(siteUrl).taggingEnabled) return null;
+
+    final user = instance.user;
+    final siteTop = _siteTopTagsBySite[siteUrl] ?? const <SidebarTag>[];
+    final anonymousDefaults =
+        _anonymousDefaultTagsBySite[siteUrl] ?? const <SidebarTag>[];
+    final tags = user == null
+        ? (anonymousDefaults.isNotEmpty ? anonymousDefaults : siteTop)
+        : (user.sidebarTags.isNotEmpty ? user.sidebarTags : siteTop);
+    final display = user == null ? tags.isNotEmpty : user.displaySidebarTags;
+
+    final held = _tagSidebarCache[siteUrl];
+    if (held != null &&
+        identical(held.tags, tags) &&
+        held.display == display &&
+        held.username == user?.username) {
+      return held.section;
+    }
+
+    final section = buildTagSidebarSection(
+      tags: tags,
+      display: display,
+      username: user?.username,
+    );
+    if (section == null) {
+      _tagSidebarCache.remove(siteUrl);
+      return null;
+    }
+    _tagSidebarCache[siteUrl] = (
+      tags: tags,
+      display: display,
+      username: user?.username,
+      section: section,
+    );
+    return section;
+  }
+
+  TagDirectoryFeed tagDirectoryFeedFor(String siteUrl) =>
+      _tagDirectoryFeeds[siteUrl] ?? const TagDirectoryFeed();
 
   TopicComposerCapabilities topicComposerCapabilities(String siteUrl) =>
       _topicComposerCapabilities[siteUrl] ?? const TopicComposerCapabilities();
@@ -3560,6 +3622,21 @@ class ShellController extends FrameSafeNotifier
     final route = ContentRoute.fromDestination(
       buildCategoryDestination(category, categoriesById: byId),
     );
+    if (currentContent?.id == route.id) return;
+    pushContent(route);
+    unawaited(loadFeed(route.id));
+  }
+
+  /// Pushes one tag's native topic list over the full tags directory.
+  void openTag(SidebarTag tag) {
+    final instance = currentInstance;
+    if (instance == null) return;
+    final destination = buildTagDestination(
+      tag,
+      username: instance.user?.username,
+    );
+    if (destination == null) return;
+    final route = ContentRoute.fromDestination(destination);
     if (currentContent?.id == route.id) return;
     pushContent(route);
     unawaited(loadFeed(route.id));
@@ -9732,6 +9809,74 @@ class ShellController extends FrameSafeNotifier
     if (instance != null) await _ensureCategoriesFor(instance);
   }
 
+  /// Loads the native All tags directory once for this site.
+  Future<void> loadTags(String siteUrl, {bool force = false}) async {
+    final instance = _instanceAt(siteUrl);
+    if (instance == null || (instance.loginRequired && !instance.isConnected)) {
+      return;
+    }
+    if (!siteConfigFor(siteUrl).taggingEnabled) {
+      final held = tagDirectoryFeedFor(siteUrl);
+      if (!held.loaded || held.tags.isNotEmpty || held.error != null) {
+        _tagDirectoryFeeds[siteUrl] = const TagDirectoryFeed(loaded: true);
+        _notify();
+      }
+      return;
+    }
+    final held = tagDirectoryFeedFor(siteUrl);
+    if (!force && held.loaded) return;
+    if (_tagDirectoryRequests.containsKey(siteUrl)) return;
+    final request = Object();
+    _tagDirectoryRequests[siteUrl] = request;
+
+    final lease = lifecycle.capture(siteUrl);
+    _tagDirectoryFeeds[siteUrl] = held.refreshing();
+    _notify();
+    try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
+      );
+      if (credential == null || !lease.isCurrent) return;
+      final identity = credential.value == null
+          ? null
+          : await _readSessionValue(lease, authenticator.clientId);
+      if (credential.value != null && (identity == null || !lease.isCurrent)) {
+        return;
+      }
+      final tags = await api.tags.tags(
+        siteUrl: siteUrl,
+        apiKey: credential.value,
+        clientId: identity?.value,
+      );
+      final visibleTags = instance.user == null
+          ? tags.where((tag) => !tag.pmOnly)
+          : tags;
+      lease.commit(() {
+        _tagDirectoryFeeds[siteUrl] = held.withTags(visibleTags);
+        _notify();
+      });
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'tags.load',
+        severity: DiagnosticSeverity.warning,
+      );
+      lease.commit(() {
+        _tagDirectoryFeeds[siteUrl] = held.withError(
+          "Couldn't load tags from ${instance.host}.",
+        );
+        _notify();
+      });
+    } finally {
+      if (identical(_tagDirectoryRequests[siteUrl], request)) {
+        _tagDirectoryRequests.remove(siteUrl);
+      }
+    }
+  }
+
   /// Resolves a category id only when an older or non-core topic endpoint did
   /// not embed the category badges supplied by current lazy-loading responses.
   Future<void> _ensureCategoryIds(
@@ -9864,6 +10009,14 @@ class ShellController extends FrameSafeNotifier
         );
         if (result.postActionCatalog case final catalog?) {
           _postActionCatalogs[instance.url] = catalog;
+        }
+        if (result.siteTopTags case final tags?) {
+          _siteTopTagsBySite[instance.url] = tags;
+          _tagSidebarCache.remove(instance.url);
+        }
+        if (result.anonymousDefaultTags case final tags?) {
+          _anonymousDefaultTagsBySite[instance.url] = tags;
+          _tagSidebarCache.remove(instance.url);
         }
         if (!result.complete) _categorised.remove(instance.url);
         _notify();
@@ -10433,6 +10586,11 @@ class ShellController extends FrameSafeNotifier
     _categoryIdsLoading.removeWhere((entry) => entry.$1 == siteUrl);
     _categoryPageRequests.remove(siteUrl);
     _categorySidebarCache.remove(siteUrl);
+    _siteTopTagsBySite.remove(siteUrl);
+    _anonymousDefaultTagsBySite.remove(siteUrl);
+    _tagSidebarCache.remove(siteUrl);
+    _tagDirectoryFeeds.remove(siteUrl);
+    _tagDirectoryRequests.remove(siteUrl);
     _topicComposerCapabilities.remove(siteUrl);
     _postActionCatalogs.remove(siteUrl);
     _customSidebarSections.remove(siteUrl);
@@ -10783,7 +10941,11 @@ class ShellController extends FrameSafeNotifier
     _syncTopicChannels();
     _notify();
 
-    unawaited(loadFeed(destination.id, force: refresh));
+    if (destination.id == 'all-tags') {
+      if (refresh) unawaited(loadTags(instance.url, force: true));
+    } else {
+      unawaited(loadFeed(destination.id, force: refresh));
+    }
   }
 
   /// Switches laterally between sections of the group currently on screen.

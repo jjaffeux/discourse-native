@@ -32,6 +32,7 @@ import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/post_revision.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
+import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
@@ -509,6 +510,9 @@ class FakeDiscourseApi
     this.categoryLoadComplete = true,
     this.categoryCanCreateTopic = false,
     this.categoryPostActionCatalog,
+    this.categorySiteTopTags = const [],
+    this.categoryAnonymousDefaultTags = const [],
+    this.tagList = const [],
     this.composerCapabilities = const TopicComposerCapabilities(),
     this.topicTagSearches = const {},
     this.serverDrafts = const {},
@@ -771,8 +775,12 @@ class FakeDiscourseApi
   final bool categoryLoadComplete;
   final bool categoryCanCreateTopic;
   final SitePostActionCatalog? categoryPostActionCatalog;
+  final List<SidebarTag> categorySiteTopTags;
+  final List<SidebarTag> categoryAnonymousDefaultTags;
+  final List<SidebarTag> tagList;
   final TopicComposerCapabilities composerCapabilities;
   final List<String> categoryRequests = [];
+  final List<String> tagRequests = [];
   final List<int> categoryPagesRequested = [];
   final List<List<int>> categoryIdsRequested = [];
   final List<String> categorySearchTerms = [];
@@ -1950,7 +1958,19 @@ class FakeDiscourseApi
       complete: categoryLoadComplete,
       canCreateTopic: categoryCanCreateTopic,
       postActionCatalog: categoryPostActionCatalog,
+      siteTopTags: categorySiteTopTags,
+      anonymousDefaultTags: categoryAnonymousDefaultTags,
     );
+  }
+
+  @override
+  Future<List<SidebarTag>> tags({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    tagRequests.add(siteUrl);
+    return tagList;
   }
 
   @override

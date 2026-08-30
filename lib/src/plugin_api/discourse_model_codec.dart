@@ -5,6 +5,7 @@ import '../models/json.dart';
 import '../models/notification_totals.dart';
 import '../models/post.dart';
 import '../models/post_creation.dart';
+import '../models/sidebar_tag.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../models/user_card.dart';
@@ -109,6 +110,11 @@ final class DiscourseModelCodec {
         for (final value in jsonArray(json['sidebar_category_ids']))
           ?jsonIntOrNull(value),
       ]),
+      sidebarTags: List.unmodifiable([
+        for (final value in jsonArray(json['sidebar_tags']))
+          ?SidebarTag.fromJson(value),
+      ]),
+      displaySidebarTags: json['display_sidebar_tags'] == true,
       trackedCategoryIds: _categoryIds(json['tracked_category_ids']),
       watchedCategoryIds: _categoryIds(json['watched_category_ids']),
       watchedFirstPostCategoryIds: _categoryIds(

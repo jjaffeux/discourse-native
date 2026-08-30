@@ -20,6 +20,7 @@ export 'src/data/discourse_api_contracts.dart'
         ShellSearchApi,
         ShellSiteApi,
         SiteLookupApi,
+        TagQueriesApi,
         TopicComposerQueriesApi,
         TopicContentApi,
         TopicMutationsApi,

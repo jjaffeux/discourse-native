@@ -17,6 +17,7 @@ import '../models/post_likers.dart';
 import '../models/post_revision.dart';
 import '../models/search_results.dart';
 import '../models/sidebar.dart';
+import '../models/sidebar_tag.dart';
 import '../models/site_appearance.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
@@ -149,9 +150,10 @@ class WriteException implements Exception, DiagnosticErrorCause {
       'retryAfter: $retryAfter)';
 }
 
-/// A category-list response plus whether its authenticated site metadata also
+/// A category-list response plus whether its page-one site metadata also
 /// arrived. A partial list is still useful for badges/navigation, but callers
-/// should leave it retryable so lazy-loaded user choices can be filled in.
+/// should leave it retryable so lazy-loaded navigation choices can be filled
+/// in.
 final class CategoryLoadResult {
   factory CategoryLoadResult(
     Iterable<TopicCategory> categories, {
@@ -159,6 +161,8 @@ final class CategoryLoadResult {
     Iterable<int>? rootCategoryIds,
     bool canCreateTopic = false,
     SitePostActionCatalog? postActionCatalog,
+    Iterable<SidebarTag>? siteTopTags,
+    Iterable<SidebarTag>? anonymousDefaultTags,
   }) {
     final immutableCategories = List<TopicCategory>.unmodifiable(categories);
     return CategoryLoadResult._(
@@ -172,6 +176,10 @@ final class CategoryLoadResult {
       complete,
       canCreateTopic,
       postActionCatalog,
+      siteTopTags == null ? null : List<SidebarTag>.unmodifiable(siteTopTags),
+      anonymousDefaultTags == null
+          ? null
+          : List<SidebarTag>.unmodifiable(anonymousDefaultTags),
     );
   }
 
@@ -181,6 +189,8 @@ final class CategoryLoadResult {
     this.complete,
     this.canCreateTopic,
     this.postActionCatalog,
+    this.siteTopTags,
+    this.anonymousDefaultTags,
   );
 
   final List<TopicCategory> categories;
@@ -192,6 +202,13 @@ final class CategoryLoadResult {
   final List<int> rootCategoryIds;
   final bool complete;
   final bool canCreateTopic;
+
+  /// Navigation metadata carried by the page-one `/site.json` supplement.
+  ///
+  /// Null means that optional request failed or was not made (later pages),
+  /// while an empty list is the server-confirmed absence of fallback tags.
+  final List<SidebarTag>? siteTopTags;
+  final List<SidebarTag>? anonymousDefaultTags;
 
   /// Authenticated post-action metadata from the page-one `/site.json` read.
   /// Null means that metadata was not requested or did not arrive.
@@ -214,6 +231,7 @@ abstract interface class ShellApiCapabilities
         ShellSearchApi,
         ShellLookupApi,
         CategoryQueriesApi,
+        TagQueriesApi,
         TopicComposerQueriesApi,
         TopicContentApi,
         TopicMutationsApi,
@@ -407,6 +425,15 @@ abstract interface class CategoryQueriesApi {
     required String term,
     required String apiKey,
     bool includeUncategorized = true,
+    String? clientId,
+  });
+}
+
+/// Browsable tag navigation and the native all-tags directory.
+abstract interface class TagQueriesApi {
+  Future<List<SidebarTag>> tags({
+    required String siteUrl,
+    String? apiKey,
     String? clientId,
   });
 }

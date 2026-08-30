@@ -17,6 +17,7 @@ final class ShellApiPorts {
     required this.search,
     required this.lookups,
     required this.categories,
+    required this.tags,
     required this.topicComposerQueries,
     required this.topicContent,
     required this.topicMutations,
@@ -42,6 +43,7 @@ final class ShellApiPorts {
       search: capabilities,
       lookups: capabilities,
       categories: capabilities,
+      tags: capabilities,
       topicComposerQueries: capabilities,
       topicContent: capabilities,
       topicMutations: capabilities,
@@ -66,6 +68,7 @@ final class ShellApiPorts {
   final ShellSearchApi search;
   final ShellLookupApi lookups;
   final CategoryQueriesApi categories;
+  final TagQueriesApi tags;
   final TopicComposerQueriesApi topicComposerQueries;
   final TopicContentApi topicContent;
   final TopicMutationsApi topicMutations;

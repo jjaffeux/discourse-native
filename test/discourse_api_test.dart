@@ -12,6 +12,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
+import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
@@ -2353,6 +2354,77 @@ void _feedGroups() {
       },
     );
 
+    test('reads public navigation tag metadata from site.json', () async {
+      final requested = <String>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requested.add(request.url.path);
+          if (request.url.path == '/categories.json') {
+            return http.Response(
+              jsonEncode({
+                'category_list': {'categories': <Object?>[]},
+              }),
+              200,
+            );
+          }
+          expect(request.url.path, '/site.json');
+          expect(request.headers.containsKey('User-Api-Key'), isFalse);
+          return http.Response(
+            jsonEncode({
+              'navigation_menu_site_top_tags': [
+                {
+                  'id': 8,
+                  'name': 'popular',
+                  'slug': 'most-popular',
+                  'description': 'Frequently used',
+                  'pm_only': false,
+                },
+                {'id': 0, 'name': 'not-a-tag'},
+              ],
+              'anonymous_default_navigation_menu_tags': [
+                {
+                  'id': 12,
+                  'name': 'private-priority',
+                  'slug': 'private-priority',
+                  'pm_only': true,
+                },
+                {'id': '13', 'name': 'announcements'},
+                {'name': 'missing-id'},
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final result = await api.loadCategories(siteUrl: 'https://example.com');
+
+      expect(requested, ['/categories.json', '/site.json']);
+      expect(result.siteTopTags, const [
+        SidebarTag(
+          id: 8,
+          name: 'popular',
+          slug: 'most-popular',
+          description: 'Frequently used',
+        ),
+      ]);
+      expect(result.anonymousDefaultTags, const [
+        SidebarTag(
+          id: 12,
+          name: 'private-priority',
+          slug: 'private-priority',
+          pmOnly: true,
+        ),
+        SidebarTag(id: 13, name: 'announcements', slug: 'announcements'),
+      ]);
+      expect(
+        () => result.siteTopTags!.add(
+          const SidebarTag(id: 14, name: 'later', slug: 'later'),
+        ),
+        throwsUnsupportedError,
+      );
+    });
+
     test(
       'dispatches both authenticated category reads before yielding',
       () async {
@@ -2579,6 +2651,95 @@ void _feedGroups() {
       expect(result.complete, isFalse);
       expect(result.categories.map((category) => category.id), [1]);
       expect(result.postActionCatalog, isNull);
+    });
+  });
+
+  group('tags', () {
+    test('flattens, deduplicates, and orders the tag directory', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'tags': [
+                {
+                  'id': 30,
+                  'name': 'Zulu',
+                  'slug': 'zulu',
+                  'count': 2,
+                  'description': 'Root record wins',
+                },
+              ],
+              'extras': {
+                'tag_groups': [
+                  {
+                    'id': 4,
+                    'name': 'Priorities',
+                    'tags': [
+                      {
+                        'id': 20,
+                        'name': 'Beta',
+                        'slug': 'beta',
+                        'count': 0,
+                        'pm_count': '4',
+                        'pm_only': true,
+                      },
+                      {'id': -1, 'name': 'invalid'},
+                    ],
+                  },
+                ],
+                'categories': [
+                  {
+                    'id': 9,
+                    'tags': [
+                      {
+                        'id': 30,
+                        'name': 'Duplicate Zulu',
+                        'slug': 'duplicate-zulu',
+                        'count': 99,
+                      },
+                      {
+                        'id': 10,
+                        'name': 'alpha',
+                        'slug': 'alpha',
+                        'topic_count': 7,
+                      },
+                    ],
+                  },
+                ],
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final tags = await api.tags(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        clientId: 'client',
+      );
+
+      expect(sent.method, 'GET');
+      expect(sent.url.path, '/tags.json');
+      expect(sent.headers['User-Api-Key'], 'key');
+      expect(sent.headers['User-Api-Client-Id'], 'client');
+      expect(tags, const [
+        SidebarTag(id: 10, name: 'alpha', slug: 'alpha', count: 7),
+        SidebarTag(id: 20, name: 'Beta', slug: 'beta', pmOnly: true, count: 4),
+        SidebarTag(
+          id: 30,
+          name: 'Zulu',
+          slug: 'zulu',
+          description: 'Root record wins',
+          count: 2,
+        ),
+      ]);
+      expect(
+        () => tags.add(const SidebarTag(id: 40, name: 'later', slug: 'later')),
+        throwsUnsupportedError,
+      );
     });
   });
 
@@ -6255,6 +6416,67 @@ void _writeGroups() {
 
       expect(user.sidebarCategoryIds, [5, 8]);
       expect(() => user.sidebarCategoryIds.add(13), throwsUnsupportedError);
+    });
+
+    test('reads and persists the current account sidebar tags', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'current_user': {
+                'id': 7,
+                'username': 'sam',
+                'display_sidebar_tags': true,
+                'sidebar_tags': [
+                  {
+                    'id': 11,
+                    'name': 'priority-high',
+                    'slug': 'priority-high',
+                    'description': 'High priority topics',
+                    'pm_only': false,
+                  },
+                  {'id': '12', 'name': 'private-work', 'pm_only': true},
+                  {'id': 0, 'name': 'invalid'},
+                  {'name': 'missing-id'},
+                  false,
+                ],
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final user = await api.currentUser(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+      );
+      final stored = DiscourseUser.fromJson(user.toJson());
+
+      expect(user.displaySidebarTags, isTrue);
+      expect(user.sidebarTags, const [
+        SidebarTag(
+          id: 11,
+          name: 'priority-high',
+          slug: 'priority-high',
+          description: 'High priority topics',
+        ),
+        SidebarTag(
+          id: 12,
+          name: 'private-work',
+          slug: 'private-work',
+          pmOnly: true,
+        ),
+      ]);
+      expect(() => user.sidebarTags.clear(), throwsUnsupportedError);
+      expect(stored, user);
+      expect(stored.hashCode, user.hashCode);
+      expect(stored.displaySidebarTags, isTrue);
+      expect(stored.sidebarTags, user.sidebarTags);
+      expect(
+        DiscourseUser.fromJson(const {'username': 'old'}).displaySidebarTags,
+        isFalse,
+      );
     });
 
     test('reads category tracking levels used by Aggregate safely', () async {
