@@ -145,25 +145,80 @@ void main() {
     expect(find.byType(AggregateView), findsOneWidget);
     expect(find.byType(InstanceSidebar), findsNothing);
     expect(find.byType(MainContent), findsNothing);
-    expect(find.text('Every forum. One shared feed.'), findsOneWidget);
-    final hero = tester.widget<Container>(
-      find.byKey(const ValueKey('aggregate-hero')),
-    );
+    expect(find.text('Discourse'), findsOneWidget);
+    expect(find.text('Every forum. One shared feed.'), findsNothing);
+    final heroFinder = find.byKey(const ValueKey('aggregate-hero'));
+    final hero = tester.widget<Container>(heroFinder);
+    expect(tester.getSize(heroFinder).height, 64);
     final heroGradient = (hero.decoration! as BoxDecoration).gradient!;
     expect((heroGradient as LinearGradient).colors, const [
-      Color(0xFF3B285E),
-      Color(0xFF2B1C47),
+      Color(0xFF503281),
+      Color(0xFF39245C),
     ]);
+    expect(
+      find.descendant(of: heroFinder, matching: find.byType(ImageFiltered)),
+      findsNWidgets(2),
+    );
+    expect(
+      find.descendant(
+        of: heroFinder,
+        matching: find.byKey(const ValueKey('aggregate-hero-badge-bell')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: heroFinder,
+        matching: find.byKey(const ValueKey('aggregate-hero-badge-quote')),
+      ),
+      findsOneWidget,
+    );
     expect(
       Theme.of(
         tester.element(find.byKey(const ValueKey('aggregate-hero'))),
       ).colorScheme.primary,
       const Color(0xFF7B5FE2),
     );
+    expect(
+      find.descendant(
+        of: heroFinder,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.comments,
+        ),
+      ),
+      findsNothing,
+    );
     expect(find.byType(TopicListRow), findsNWidgets(2));
     expect(find.text('Fresh cross-forum topic'), findsNWidgets(2));
     expect(find.text('One'), findsOneWidget);
     expect(find.text('Two'), findsOneWidget);
+    final toolbarFinder = find.byKey(const ValueKey('aggregate-tab-toolbar'));
+    final firstCardFinder = find.byKey(
+      ValueKey('aggregate-topic-card-${forums[0].url}-42'),
+    );
+    expect(find.text('2 topics from 2 forums'), findsOneWidget);
+    expect(
+      tester.getBottomLeft(heroFinder).dy,
+      lessThanOrEqualTo(tester.getTopLeft(toolbarFinder).dy),
+    );
+    expect(
+      tester.getBottomLeft(toolbarFinder).dy,
+      lessThanOrEqualTo(tester.getTopLeft(firstCardFinder).dy),
+    );
+    expect(
+      find.descendant(
+        of: toolbarFinder,
+        matching: find.byKey(const ValueKey('aggregate-filter-button')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: toolbarFinder,
+        matching: find.byKey(const ValueKey('aggregate-refresh-button')),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.byKey(ValueKey('aggregate-topic-card-${forums[0].url}-42')),
       findsOneWidget,
@@ -253,6 +308,17 @@ void main() {
       expect(
         tester.widget<ForumTabsBar>(find.byType(ForumTabsBar)).items,
         hasLength(1),
+      );
+      final heroFinder = find.byKey(const ValueKey('aggregate-hero'));
+      final tabsFinder = find.byKey(const ValueKey('aggregate-tabs'));
+      final toolbarFinder = find.byKey(const ValueKey('aggregate-tab-toolbar'));
+      expect(
+        tester.getBottomLeft(heroFinder).dy,
+        lessThanOrEqualTo(tester.getTopLeft(tabsFinder).dy),
+      );
+      expect(
+        tester.getBottomLeft(tabsFinder).dy,
+        lessThanOrEqualTo(tester.getTopLeft(toolbarFinder).dy),
       );
       expect(
         find.descendant(

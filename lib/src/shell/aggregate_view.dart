@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -20,8 +21,8 @@ abstract final class _AggregateTheme {
   static const purple = Color(0xFF7B5FE2);
   static const yellow = Color(0xFFF8DE6A);
   static const orange = Color(0xFFF15D3A);
-  static const heroStart = Color(0xFF3B285E);
-  static const heroEnd = Color(0xFF2B1C47);
+  static const heroStart = Color(0xFF503281);
+  static const heroEnd = Color(0xFF39245C);
 
   static ThemeData from(ThemeData base) {
     final isDark = base.brightness == Brightness.dark;
@@ -171,15 +172,16 @@ class _AggregateViewState extends State<AggregateView> {
             final activeTabId = controller.activeAggregateTabId;
             return Column(
               children: [
-                _AggregateHeader(
+                const _AggregateHeader(),
+                if (controller.forumTabsEnabled)
+                  _AggregateTabsBar(controller: controller),
+                _AggregateTabToolbar(
                   state: state,
                   onFilter: () => _showForumFilter(context, controller),
                   onRefresh: state.loading || state.refreshing
                       ? null
                       : () => unawaited(controller.refreshAggregate()),
                 ),
-                if (controller.forumTabsEnabled)
-                  _AggregateTabsBar(controller: controller),
                 if (state.refreshing)
                   const LinearProgressIndicator(minHeight: 2),
                 Expanded(child: _body(context, controller, state, activeTabId)),
@@ -444,7 +446,118 @@ class _AggregateTabsBar extends StatelessWidget {
 }
 
 class _AggregateHeader extends StatelessWidget {
-  const _AggregateHeader({
+  const _AggregateHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('aggregate-hero'),
+      height: 64,
+      clipBehavior: Clip.antiAlias,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_AggregateTheme.heroStart, _AggregateTheme.heroEnd],
+        ),
+      ),
+      child: Stack(
+        children: [
+          const Positioned.fill(child: ColoredBox(color: Color(0x33000000))),
+          const Positioned(
+            right: 72,
+            top: -28,
+            child: _AggregateHeroBadge(
+              key: ValueKey('aggregate-hero-badge-bell'),
+              size: 62,
+              color: Color(0xFFFFF470),
+              icon: DIcons.bell,
+              angle: 0.7,
+              blurSigma: 5,
+            ),
+          ),
+          const Positioned(
+            right: -82,
+            top: -46,
+            child: _AggregateHeroBadge(
+              key: ValueKey('aggregate-hero-badge-quote'),
+              size: 155,
+              color: Color(0xFFD5342A),
+              icon: DIcons.quoteLeft,
+              angle: -0.35,
+              blurSigma: 3,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Discourse',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.45,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AggregateHeroBadge extends StatelessWidget {
+  const _AggregateHeroBadge({
+    super.key,
+    required this.size,
+    required this.color,
+    required this.icon,
+    required this.angle,
+    required this.blurSigma,
+  });
+
+  final double size;
+  final Color color;
+  final DIconData icon;
+  final double angle;
+  final double blurSigma;
+
+  @override
+  Widget build(BuildContext context) {
+    return ImageFiltered(
+      imageFilter: ui.ImageFilter.blur(
+        sigmaX: blurSigma,
+        sigmaY: blurSigma,
+        tileMode: TileMode.decal,
+      ),
+      child: Opacity(
+        opacity: 0.4,
+        child: Transform.rotate(
+          angle: angle,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(size * 8 / 31),
+            ),
+            alignment: Alignment.center,
+            child: DIcon(
+              icon,
+              size: size * 0.52,
+              color: const Color(0xFFFFFEF5),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AggregateTabToolbar extends StatelessWidget {
+  const _AggregateTabToolbar({
     required this.state,
     required this.onFilter,
     required this.onRefresh,
@@ -454,259 +567,83 @@ class _AggregateHeader extends StatelessWidget {
   final VoidCallback onFilter;
   final VoidCallback? onRefresh;
 
+  String get _summary {
+    if (!state.loaded) {
+      return state.loading ? 'Loading topics…' : 'Topics from saved filters';
+    }
+    return '${state.topics.length} '
+        '${state.topics.length == 1 ? 'topic' : 'topics'} from '
+        '${state.includedForums} '
+        '${state.includedForums == 1 ? 'forum' : 'forums'}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final subtitle = state.loaded
-        ? '${state.topics.length} ${state.topics.length == 1 ? 'topic' : 'topics'} '
-              'from ${state.includedForums} '
-              '${state.includedForums == 1 ? 'forum' : 'forums'}'
-        : 'Topics from your saved forum filters';
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 620;
-        return Container(
-          key: const ValueKey('aggregate-hero'),
-          height: compact ? 126 : 142,
-          clipBehavior: Clip.antiAlias,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [_AggregateTheme.heroStart, _AggregateTheme.heroEnd],
-            ),
-          ),
-          child: Stack(
+    return Container(
+      key: const ValueKey('aggregate-tab-toolbar'),
+      padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+      decoration: BoxDecoration(
+        color: theme.shell.content,
+        border: Border(bottom: BorderSide(color: theme.shell.divider)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 520;
+          return Row(
             children: [
-              Positioned(
-                right: compact ? 54 : 230,
-                top: -64,
-                child: const _AggregateHeroOrb(
-                  size: 142,
-                  color: Color(0x287B5FE2),
+              Expanded(
+                child: Text(
+                  _summary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-              const Positioned(
-                right: -42,
-                bottom: -76,
-                child: _AggregateHeroOrb(size: 172, color: Color(0x20F8DE6A)),
-              ),
-              if (!compact)
-                const Positioned(
-                  right: 262,
-                  bottom: 18,
-                  child: _AggregateHeroGlyph(),
+              const SizedBox(width: 12),
+              if (compact)
+                DButton.iconOnly(
+                  key: const ValueKey('aggregate-filter-button'),
+                  icon: const DIcon(DIcons.filter, size: 15),
+                  tooltip: 'Configure forum filters',
+                  onPressed: onFilter,
+                  variant: DButtonVariant.primary,
+                  size: DButtonSize.small,
+                )
+              else
+                DButton(
+                  key: const ValueKey('aggregate-filter-button'),
+                  label: const Text('Filters'),
+                  icon: const DIcon(DIcons.filter, size: 15),
+                  tooltip: 'Configure forum filters',
+                  onPressed: onFilter,
+                  variant: DButtonVariant.primary,
+                  size: DButtonSize.small,
                 ),
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: compact ? 16 : 28,
-                  vertical: compact ? 15 : 18,
+              const SizedBox(width: 8),
+              if (compact)
+                DButton.iconOnly(
+                  key: const ValueKey('aggregate-refresh-button'),
+                  icon: const DIcon(DIcons.arrowsRotate, size: 15),
+                  tooltip: 'Refresh',
+                  onPressed: onRefresh,
+                  size: DButtonSize.small,
+                )
+              else
+                DButton(
+                  key: const ValueKey('aggregate-refresh-button'),
+                  label: const Text('Refresh'),
+                  icon: const DIcon(DIcons.arrowsRotate, size: 15),
+                  tooltip: 'Refresh',
+                  onPressed: onRefresh,
+                  size: DButtonSize.small,
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.16),
-                              ),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                DIcon(
-                                  DIcons.layerGroup,
-                                  size: 12,
-                                  color: _AggregateTheme.yellow,
-                                ),
-                                SizedBox(width: 7),
-                                Text(
-                                  'AGGREGATE',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1.1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            compact
-                                ? 'Every forum. One feed.'
-                                : 'Every forum. One shared feed.',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              color: Colors.white,
-                              fontSize: compact ? 22 : 28,
-                              height: 1.05,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.7,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.70),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(width: compact ? 10 : 28),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _AggregateHeroAction(
-                          key: const ValueKey('aggregate-filter-button'),
-                          icon: DIcons.filter,
-                          label: 'Filters',
-                          tooltip: 'Configure forum filters',
-                          showLabel: !compact,
-                          emphasized: true,
-                          onPressed: onFilter,
-                        ),
-                        const SizedBox(width: 8),
-                        _AggregateHeroAction(
-                          key: const ValueKey('aggregate-refresh-button'),
-                          icon: DIcons.arrowsRotate,
-                          label: 'Refresh',
-                          tooltip: 'Refresh',
-                          showLabel: !compact,
-                          onPressed: onRefresh,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
             ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _AggregateHeroOrb extends StatelessWidget {
-  const _AggregateHeroOrb({required this.size, required this.color});
-
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-  );
-}
-
-class _AggregateHeroGlyph extends StatelessWidget {
-  const _AggregateHeroGlyph();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 30,
-    height: 30,
-    decoration: BoxDecoration(
-      color: _AggregateTheme.orange,
-      borderRadius: BorderRadius.circular(9),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x33000000),
-          blurRadius: 10,
-          offset: Offset(0, 4),
-        ),
-      ],
-    ),
-    child: const Center(
-      child: DIcon(DIcons.comments, size: 14, color: Colors.white),
-    ),
-  );
-}
-
-class _AggregateHeroAction extends StatelessWidget {
-  const _AggregateHeroAction({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.tooltip,
-    required this.showLabel,
-    required this.onPressed,
-    this.emphasized = false,
-  });
-
-  final DIconData icon;
-  final String label;
-  final String tooltip;
-  final bool showLabel;
-  final VoidCallback? onPressed;
-  final bool emphasized;
-
-  @override
-  Widget build(BuildContext context) {
-    final foreground = onPressed == null
-        ? Colors.white.withValues(alpha: 0.42)
-        : Colors.white;
-    return Tooltip(
-      message: tooltip,
-      child: Semantics(
-        button: true,
-        enabled: onPressed != null,
-        label: label,
-        child: Material(
-          color: emphasized
-              ? _AggregateTheme.purple
-              : Colors.white.withValues(alpha: 0.08),
-          shape: StadiumBorder(
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onPressed,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: showLabel ? 16 : 13),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    DIcon(icon, size: 16, color: foreground),
-                    if (showLabel) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        label,
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              color: foreground,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -769,8 +706,9 @@ class _AggregateTopicRow extends StatelessWidget {
                 'That topic is no longer available.',
             };
             if (message != null) {
-              ScaffoldMessenger.maybeOf(context)
-                  ?.showSnackBar(SnackBar(content: Text(message)));
+              ScaffoldMessenger.maybeOf(
+                context,
+              )?.showSnackBar(SnackBar(content: Text(message)));
             }
           },
         );
