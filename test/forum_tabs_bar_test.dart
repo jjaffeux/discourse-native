@@ -67,8 +67,15 @@ void main() {
     expect(ordinaryRect.top, selectedRect.top);
     expect(ordinaryRect.bottom, selectedRect.bottom);
 
-    expect(_decoration(tester, selected).color, theme.shell.content);
-    expect(_decoration(tester, ordinary).color, Colors.transparent);
+    final selectedDecoration = _decoration(tester, selected);
+    final ordinaryDecoration = _decoration(tester, ordinary);
+    expect(selectedDecoration.color, theme.shell.content);
+    expect(selectedDecoration.border, isNull);
+    expect(ordinaryDecoration.color, Colors.transparent);
+    final ordinaryBorder = ordinaryDecoration.border! as Border;
+    expect(ordinaryBorder.isUniform, isTrue);
+    expect(ordinaryBorder.top.color, theme.shell.divider);
+    expect(ordinaryBorder.top.width, 1);
     expect(tester.getSize(indicator).height, 2);
     expect(_decoration(tester, indicator).color, theme.colorScheme.primary);
     expect(
