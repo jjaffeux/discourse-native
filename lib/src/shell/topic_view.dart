@@ -2260,25 +2260,37 @@ class _TopicViewHeader extends StatelessWidget {
               child: Row(
                 children: [
                   Flexible(
-                    child: Tooltip(
-                      message: title,
-                      child: siteUrl == null
-                          ? Text(
-                              title,
-                              key: const ValueKey('topic-header-title'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: titleStyle,
-                            )
-                          : TopicTitle(
-                              title,
-                              key: const ValueKey('topic-header-title'),
+                    child: topic?.canEdit == true && siteUrl != null
+                        ? InlineTopicTitleEditor(
+                            key: const ValueKey('topic-header-title'),
+                            title: title,
+                            siteUrl: siteUrl,
+                            style: titleStyle,
+                            onSave: (title) => controller.saveTopicTitle(
                               siteUrl: siteUrl,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: titleStyle,
+                              topicId: topic!.id,
+                              title: title,
                             ),
-                    ),
+                          )
+                        : Tooltip(
+                            message: title,
+                            child: siteUrl == null
+                                ? Text(
+                                    title,
+                                    key: const ValueKey('topic-header-title'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: titleStyle,
+                                  )
+                                : TopicTitle(
+                                    title,
+                                    key: const ValueKey('topic-header-title'),
+                                    siteUrl: siteUrl,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: titleStyle,
+                                  ),
+                          ),
                   ),
                   if (topic != null && siteUrl != null) ...[
                     const SizedBox(width: 4),

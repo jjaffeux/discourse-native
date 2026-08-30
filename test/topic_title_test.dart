@@ -10,6 +10,7 @@ import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -99,6 +100,143 @@ void main() {
       ['wave:t3', 'sparkles'],
     );
   });
+
+  testWidgets(
+    'inline editor keeps its presentation and places the first caret by click',
+    (tester) async {
+      final controller = _controller();
+      addTearDown(controller.dispose);
+      final saved = <String>[];
+      const style = TextStyle(fontSize: 18, fontWeight: FontWeight.w600);
+
+      await tester.pumpWidget(
+        _TestEditor(
+          controller: controller,
+          title: 'An ordinary topic with a deliberately long title',
+          width: 180,
+          style: style,
+          onSave: (title) async {
+            saved.add(title);
+            return null;
+          },
+        ),
+      );
+
+      final editor = find.byType(InlineTopicTitleEditor);
+      final field = find.byKey(const ValueKey('topic-header-title-field'));
+      final pointer = tester.widget<MouseRegion>(
+        find.byKey(const ValueKey('topic-header-title-pointer')),
+      );
+      final textField = tester.widget<TextField>(field);
+      final displayTitle = tester.widget<TopicTitle>(
+        find.descendant(of: editor, matching: find.byType(TopicTitle)),
+      );
+      final idleSize = tester.getSize(editor);
+      expect(pointer.cursor, SystemMouseCursors.text);
+      expect(textField.style, style);
+      expect(textField.decoration?.isCollapsed, isTrue);
+      expect(textField.decoration?.border, InputBorder.none);
+      expect(displayTitle.maxLines, 1);
+      expect(displayTitle.overflow, TextOverflow.ellipsis);
+      expect(idleSize.width, 180);
+
+      final editorRect = tester.getRect(editor);
+      await tester.tapAt(Offset(editorRect.left + 1, editorRect.center.dy));
+      await tester.pump();
+
+      expect(textField.focusNode?.hasFocus, isTrue);
+      expect(textField.controller?.selection.isCollapsed, isTrue);
+      expect(textField.controller?.selection.baseOffset, 0);
+      expect(tester.getSize(editor), idleSize);
+
+      await tester.enterText(field, 'A clearer topic title');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(saved, ['A clearer topic title']);
+      expect(textField.focusNode?.hasFocus, isFalse);
+      expect(
+        tester
+            .widget<TopicTitle>(
+              find.descendant(of: editor, matching: find.byType(TopicTitle)),
+            )
+            .title,
+        'A clearer topic title',
+      );
+    },
+  );
+
+  testWidgets('failed inline save keeps the edit focused and Escape cancels', (
+    tester,
+  ) async {
+    final controller = _controller();
+    addTearDown(controller.dispose);
+    final attempted = <String>[];
+
+    await tester.pumpWidget(
+      _TestEditor(
+        controller: controller,
+        title: 'Original title',
+        onSave: (title) async {
+          attempted.add(title);
+          return 'The title could not be saved.';
+        },
+      ),
+    );
+
+    final field = find.byKey(const ValueKey('topic-header-title-field'));
+    await tester.tap(field);
+    await tester.enterText(field, 'Retained edit');
+    await tester.tap(find.byKey(const ValueKey('outside-title-editor')));
+    await tester.pumpAndSettle();
+
+    var textField = tester.widget<TextField>(field);
+    expect(attempted, ['Retained edit']);
+    expect(textField.controller?.text, 'Retained edit');
+    expect(textField.focusNode?.hasFocus, isTrue);
+    expect(find.text('The title could not be saved.'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+
+    textField = tester.widget<TextField>(field);
+    expect(textField.controller?.text, 'Original title');
+    expect(textField.focusNode?.hasFocus, isFalse);
+    expect(attempted, ['Retained edit']);
+  });
+
+  testWidgets('inline editor preserves registered site emoji artwork', (
+    tester,
+  ) async {
+    final controller = _controller();
+    addTearDown(controller.dispose);
+    EmojiCache.instance = EmojiCache(
+      client: MockClient((_) async => http.Response.bytes(_emojiPng, 200)),
+    );
+    addTearDown(EmojiCache.instance.clear);
+
+    await tester.pumpWidget(
+      _TestEditor(
+        controller: controller,
+        title: 'Lightning :high_voltage: talks',
+        onSave: (_) async => null,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final field = find.byKey(const ValueKey('topic-header-title-field'));
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(of: field, matching: find.byType(SiteEmojiImage)),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<TextField>(field).controller?.text,
+      'Lightning :high_voltage: talks',
+    );
+  });
 }
 
 ShellController _controller() => ShellController(
@@ -143,6 +281,51 @@ class _TestTitle extends StatelessWidget {
           title,
           siteUrl: 'https://meta.example',
           style: style,
+        ),
+      ),
+    ),
+  );
+}
+
+class _TestEditor extends StatelessWidget {
+  const _TestEditor({
+    required this.controller,
+    required this.title,
+    required this.onSave,
+    this.style,
+    this.width,
+  });
+
+  final ShellController controller;
+  final String title;
+  final Future<String?> Function(String title) onSave;
+  final TextStyle? style;
+  final double? width;
+
+  @override
+  Widget build(BuildContext context) => ShellScope(
+    controller: controller,
+    child: MaterialApp(
+      theme: AppTheme.light,
+      home: Scaffold(
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: width,
+              child: InlineTopicTitleEditor(
+                title: title,
+                siteUrl: 'https://meta.example',
+                style: style,
+                onSave: onSave,
+              ),
+            ),
+            TextButton(
+              key: const ValueKey('outside-title-editor'),
+              onPressed: () {},
+              child: const Text('Outside'),
+            ),
+          ],
         ),
       ),
     ),
