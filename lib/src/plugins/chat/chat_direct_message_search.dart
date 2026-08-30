@@ -80,6 +80,34 @@ final class ChatDirectMessageChannel extends ChatDirectMessageSearchItem {
 }
 
 @immutable
+final class ChatDirectMessageGroup extends ChatDirectMessageSearchItem {
+  const ChatDirectMessageGroup({
+    required super.identifier,
+    required super.matchQuality,
+    required super.enabled,
+    required this.name,
+    required this.memberCount,
+    this.fullName,
+  });
+
+  factory ChatDirectMessageGroup.fromJson(Map<String, dynamic> json) {
+    final model = jsonObject(json['model']);
+    return ChatDirectMessageGroup(
+      identifier: jsonText(json['identifier']) ?? '',
+      matchQuality: jsonIntOrNull(json['match_quality']) ?? 3,
+      enabled: model['can_chat'] == true,
+      name: jsonString(model['name']),
+      fullName: jsonText(model['full_name']),
+      memberCount: jsonInt(model['chat_enabled_user_count']),
+    );
+  }
+
+  final String name;
+  final String? fullName;
+  final int memberCount;
+}
+
+@immutable
 final class ChatDirectMessageSearchResults {
   ChatDirectMessageSearchResults(Iterable<ChatDirectMessageSearchItem> items)
     : items = List.unmodifiable(items);
@@ -96,6 +124,10 @@ final class ChatDirectMessageSearchResults {
     for (final channel in jsonObjects(json['direct_message_channels'])) {
       final candidate = ChatDirectMessageChannel.fromJson(channel, siteUrl);
       if (candidate.channel.id > 0) items.add(candidate);
+    }
+    for (final group in jsonObjects(json['groups'])) {
+      final candidate = ChatDirectMessageGroup.fromJson(group);
+      if (candidate.name.isNotEmpty) items.add(candidate);
     }
     items.sort(_compareItems);
     return ChatDirectMessageSearchResults(items.take(10));
@@ -120,5 +152,6 @@ final class ChatDirectMessageSearchResults {
   static int _typePriority(ChatDirectMessageSearchItem item) => switch (item) {
     ChatDirectMessageUser() => 0,
     ChatDirectMessageChannel() => 1,
+    ChatDirectMessageGroup() => 2,
   };
 }

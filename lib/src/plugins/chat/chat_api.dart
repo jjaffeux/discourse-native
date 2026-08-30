@@ -16,13 +16,18 @@ abstract interface class ChatApi {
     required String siteUrl,
     required String apiKey,
     required String term,
+    bool includeGroups = false,
+    bool includeDirectMessageChannels = true,
     String? clientId,
   });
 
-  Future<ChatChannel> upsertChatDirectMessageChannel({
+  Future<ChatChannel> createChatDirectMessageChannel({
     required String siteUrl,
     required String apiKey,
-    required String username,
+    required List<String> usernames,
+    List<String> groups = const [],
+    String? name,
+    bool upsert = false,
     String? clientId,
   });
 

@@ -587,6 +587,7 @@ class FakeDiscourseApi
     this.pollVoteFailure,
     this.pollVoteGate,
     this.directMessageChannelsByUsername = const {},
+    this.directMessageGroupChannel,
     this.chatDirectMessageSearches = const {},
     this.chatChannelsBySite = const {},
     this.chatChannelsById = const {},
@@ -1133,13 +1134,22 @@ class FakeDiscourseApi
   chatChannelStatusesUpdated = [];
   final List<int> chatChannelDetailsRequested = [];
 
-  /// Returned by [upsertChatDirectMessageChannel], keyed by target username.
+  /// Returned for a one-to-one upsert, keyed by target username.
   final Map<String, ChatChannel> directMessageChannelsByUsername;
+  final ChatChannel? directMessageGroupChannel;
 
   final List<String> directMessageChannelsRequested = [];
+  final List<
+    ({List<String> usernames, List<String> groups, String? name, bool upsert})
+  >
+  directMessageChannelRequests = [];
 
   final Map<String, ChatDirectMessageSearchResults> chatDirectMessageSearches;
   final List<String> chatDirectMessageSearchesRequested = [];
+  final List<
+    ({String term, bool includeGroups, bool includeDirectMessageChannels})
+  >
+  chatDirectMessageSearchRequests = [];
 
   /// Site urls passed to [chatChannels], in order.
   final List<String> chatChannelsRequested = [];
@@ -2772,14 +2782,30 @@ class FakeDiscourseApi
   }
 
   @override
-  Future<ChatChannel> upsertChatDirectMessageChannel({
+  Future<ChatChannel> createChatDirectMessageChannel({
     required String siteUrl,
     required String apiKey,
-    required String username,
+    required List<String> usernames,
+    List<String> groups = const [],
+    String? name,
+    bool upsert = false,
     String? clientId,
   }) async {
-    directMessageChannelsRequested.add(username);
-    final found = directMessageChannelsByUsername[username];
+    directMessageChannelRequests.add((
+      usernames: List.unmodifiable(usernames),
+      groups: List.unmodifiable(groups),
+      name: name,
+      upsert: upsert,
+    ));
+    final oneToOne =
+        upsert &&
+        usernames.length == 1 &&
+        groups.isEmpty &&
+        (name == null || name.isEmpty);
+    if (oneToOne) directMessageChannelsRequested.add(usernames.single);
+    final found = oneToOne
+        ? directMessageChannelsByUsername[usernames.single]
+        : directMessageGroupChannel;
     if (found == null) {
       throw const WriteException(WriteFailure.unreachable);
     }
@@ -2791,9 +2817,16 @@ class FakeDiscourseApi
     required String siteUrl,
     required String apiKey,
     required String term,
+    bool includeGroups = false,
+    bool includeDirectMessageChannels = true,
     String? clientId,
   }) async {
     chatDirectMessageSearchesRequested.add(term);
+    chatDirectMessageSearchRequests.add((
+      term: term,
+      includeGroups: includeGroups,
+      includeDirectMessageChannels: includeDirectMessageChannels,
+    ));
     return chatDirectMessageSearches[term] ??
         ChatDirectMessageSearchResults(const []);
   }

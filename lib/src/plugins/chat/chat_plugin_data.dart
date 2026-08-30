@@ -26,13 +26,20 @@ final class ChatSettings {
     this.searchEnabled = false,
     this.channelRetentionDays = 0,
     this.directMessageRetentionDays = 0,
+    this.maximumDirectMessageUsers = defaultMaximumDirectMessageUsers,
   });
+
+  static const int defaultMaximumDirectMessageUsers = 20;
+  static const int maximumDirectMessageUsersLimit = 100;
 
   factory ChatSettings.fromSettings(Map<String, dynamic> json) => ChatSettings(
     uploadsEnabled: json['chat_allow_uploads'] != false,
     searchEnabled: json['chat_search_enabled'] == true,
     channelRetentionDays: _retentionDays(json['chat_channel_retention_days']),
     directMessageRetentionDays: _retentionDays(json['chat_dm_retention_days']),
+    maximumDirectMessageUsers: _maximumDirectMessageUsers(
+      json['chat_max_direct_message_users'],
+    ),
   );
 
   factory ChatSettings.fromStored(Map<String, dynamic> json) => ChatSettings(
@@ -42,18 +49,23 @@ final class ChatSettings {
     directMessageRetentionDays: _retentionDays(
       json['directMessageRetentionDays'],
     ),
+    maximumDirectMessageUsers: _maximumDirectMessageUsers(
+      json['maximumDirectMessageUsers'],
+    ),
   );
 
   final bool uploadsEnabled;
   final bool searchEnabled;
   final int channelRetentionDays;
   final int directMessageRetentionDays;
+  final int maximumDirectMessageUsers;
 
   Map<String, Object?> toStored() => {
     'uploadsEnabled': uploadsEnabled,
     'searchEnabled': searchEnabled,
     'channelRetentionDays': channelRetentionDays,
     'directMessageRetentionDays': directMessageRetentionDays,
+    'maximumDirectMessageUsers': maximumDirectMessageUsers,
   };
 
   @override
@@ -62,7 +74,8 @@ final class ChatSettings {
       other.uploadsEnabled == uploadsEnabled &&
       other.searchEnabled == searchEnabled &&
       other.channelRetentionDays == channelRetentionDays &&
-      other.directMessageRetentionDays == directMessageRetentionDays;
+      other.directMessageRetentionDays == directMessageRetentionDays &&
+      other.maximumDirectMessageUsers == maximumDirectMessageUsers;
 
   @override
   int get hashCode => Object.hash(
@@ -70,6 +83,7 @@ final class ChatSettings {
     searchEnabled,
     channelRetentionDays,
     directMessageRetentionDays,
+    maximumDirectMessageUsers,
   );
 }
 
@@ -205,6 +219,9 @@ final class ChatSettingsPersistenceCodec
           directMessageRetentionDays: _retentionDays(
             json['chatDmRetentionDays'],
           ),
+          maximumDirectMessageUsers: _maximumDirectMessageUsers(
+            json['chatMaximumDirectMessageUsers'],
+          ),
         )
       : null;
 }
@@ -291,6 +308,9 @@ extension ChatSiteConfigData on SiteConfig {
   int get chatChannelRetentionDays => chatSettings.channelRetentionDays;
 
   int get chatDmRetentionDays => chatSettings.directMessageRetentionDays;
+
+  int get chatMaximumDirectMessageUsers =>
+      chatSettings.maximumDirectMessageUsers;
 }
 
 extension ChatDiscourseUserData on DiscourseUser {
@@ -315,6 +335,7 @@ const Set<String> _legacyChatSettingsKeys = {
   'chatSearchEnabled',
   'chatChannelRetentionDays',
   'chatDmRetentionDays',
+  'chatMaximumDirectMessageUsers',
 };
 
 const Set<String> _legacyChatCurrentUserKeys = {
@@ -329,6 +350,10 @@ int _retentionDays(Object? raw) => switch (jsonIntOrNull(raw)) {
   final value? when value >= 0 => value,
   _ => 0,
 };
+
+int _maximumDirectMessageUsers(Object? raw) =>
+    jsonIntOrNull(raw)?.clamp(0, ChatSettings.maximumDirectMessageUsersLimit) ??
+    ChatSettings.defaultMaximumDirectMessageUsers;
 
 List<String> _usernames(Object? raw) =>
     List.unmodifiable(jsonArray(raw).map(jsonText).whereType<String>());

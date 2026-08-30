@@ -17,6 +17,7 @@ void main() {
       'chat_search_enabled': true,
       'chat_channel_retention_days': 180,
       'chat_dm_retention_days': 30,
+      'chat_max_direct_message_users': 35,
     }, extensions: _registry);
 
     expect(
@@ -26,6 +27,7 @@ void main() {
         searchEnabled: true,
         channelRetentionDays: 180,
         directMessageRetentionDays: 30,
+        maximumDirectMessageUsers: 35,
       ),
     );
   });
@@ -70,6 +72,7 @@ void main() {
           'searchEnabled': true,
           'channelRetentionDays': 90,
           'directMessageRetentionDays': 14,
+          'maximumDirectMessageUsers': 30,
         },
       },
     }, extensions: _registry);
@@ -95,6 +98,7 @@ void main() {
         'searchEnabled': true,
         'channelRetentionDays': 90,
         'directMessageRetentionDays': 14,
+        'maximumDirectMessageUsers': 30,
       },
     });
     expect(storedUser, isNot(contains('hasChatEnabled')));
@@ -120,6 +124,7 @@ void main() {
       'chatSearchEnabled': true,
       'chatChannelRetentionDays': 45,
       'chatDmRetentionDays': 7,
+      'chatMaximumDirectMessageUsers': 12,
     }, extensions: _registry);
     final user = DiscourseUser.fromJson(const {
       'username': 'sam',
@@ -136,6 +141,7 @@ void main() {
         searchEnabled: true,
         channelRetentionDays: 45,
         directMessageRetentionDays: 7,
+        maximumDirectMessageUsers: 12,
       ),
     );
     expect(
