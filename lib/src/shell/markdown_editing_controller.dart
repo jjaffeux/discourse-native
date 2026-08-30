@@ -520,6 +520,23 @@ class MarkdownEditingController extends TextEditingController {
   String? _codeRangesScanned;
   CodeRanges _codeRanges = CodeRanges.none;
 
+  /// Render anchors for resolved mentions currently painted as pills.
+  ///
+  /// Widget spans inside an editable do not participate in pointer hit
+  /// testing, so the editor-level mouse region uses these boxes to choose the
+  /// cursor without taking pointer handling away from [EditableText].
+  final Map<int, GlobalKey> _mentionPillKeys = {};
+
+  bool isMentionPillAtGlobalPosition(Offset globalPosition) {
+    for (final key in _mentionPillKeys.values) {
+      final renderObject = key.currentContext?.findRenderObject();
+      if (renderObject is! RenderBox || !renderObject.hasSize) continue;
+      final rect = renderObject.localToGlobal(Offset.zero) & renderObject.size;
+      if (rect.contains(globalPosition)) return true;
+    }
+    return false;
+  }
+
   /// Where code is in [source], derived from the scan this controller already
   /// ran rather than from one of its own.
   ///
@@ -543,6 +560,11 @@ class MarkdownEditingController extends TextEditingController {
       deferHighlight: (body, language) =>
           deferred.add((body: body, language: language)),
     );
+    final mentionStarts = {
+      for (final run in runs)
+        if (run.has(Md.mention)) run.start,
+    };
+    _mentionPillKeys.removeWhere((start, _) => !mentionStarts.contains(start));
     _scheduleFenceHighlight(source, deferred);
     return _runs = runs;
   }
@@ -1220,7 +1242,16 @@ class MarkdownEditingController extends TextEditingController {
     return _placeholder(
       run,
       base,
-      MentionPill(label: text.substring(run.start, run.end), baseStyle: base),
+      KeyedSubtree(
+        key: _mentionPillKeys.putIfAbsent(
+          run.start,
+          () => GlobalKey(debugLabel: 'mention-pill-${run.start}'),
+        ),
+        child: MentionPill(
+          label: text.substring(run.start, run.end),
+          baseStyle: base,
+        ),
+      ),
     );
   }
 
