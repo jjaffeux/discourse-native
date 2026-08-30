@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:photo_view/photo_view.dart';
-import 'package:photo_view/photo_view_gallery.dart';
 
 import '../foundation/diagnostic_errors.dart';
 import '../theme/app_theme.dart';
@@ -17,6 +18,54 @@ import 'image_download.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
+
+const double _maximumPhotoViewDimension = 10000;
+const double _maximumPhotoViewAspectRatio = 10000;
+
+/// Normalizes untrusted image dimensions for transform math without changing
+/// their aspect ratio.
+///
+/// Post layout deliberately clamps extreme ratios, but the full-screen viewer
+/// must retain them so wide panoramas and tall screenshots pan and zoom against
+/// their real geometry. Values too extreme for useful finite transform math are
+/// rejected instead of being reshaped.
+Size? _safePhotoViewImageSize(double? width, double? height) {
+  if (width == null ||
+      height == null ||
+      !width.isFinite ||
+      !height.isFinite ||
+      width < 1 ||
+      height < 1) {
+    return null;
+  }
+
+  final ratio = width / height;
+  if (!ratio.isFinite ||
+      ratio < 1 / _maximumPhotoViewAspectRatio ||
+      ratio > _maximumPhotoViewAspectRatio) {
+    return null;
+  }
+
+  final normalization = math.min(
+    1.0,
+    _maximumPhotoViewDimension / math.max(width, height),
+  );
+  return Size(width * normalization, height * normalization);
+}
+
+Size? _parsePhotoViewImageSize(String? width, String? height) =>
+    _safePhotoViewImageSize(
+      double.tryParse(width ?? ''),
+      double.tryParse(height ?? ''),
+    );
+
+Size? _parsePhotoViewInformationSize(String? text) {
+  if (text == null) return null;
+  final dimensions = text.trim().split(' ').first;
+  final parts = dimensions.split(RegExp('x|×'));
+  if (parts.length != 2) return null;
+  return _parsePhotoViewImageSize(parts[0], parts[1]);
+}
 
 /// Renders Discourse's post images, and the gallery behind them.
 ///
@@ -57,6 +106,8 @@ class LightboxImage {
     required this.width,
     required this.height,
     required this.heroTag,
+    this.fullWidth,
+    this.fullHeight,
   });
 
   /// The full-size image the gallery shows.
@@ -86,6 +137,15 @@ class LightboxImage {
   final double? width;
   final double? height;
 
+  /// The full image's intrinsic size, when the cooked markup declares it.
+  ///
+  /// Kept separate from [width] and [height]: those size the post thumbnail,
+  /// while this size gives the gallery the correct scale and pan boundaries.
+  /// Chat uploads only carry one size, so [fullSize] falls back to the thumbnail
+  /// fields for callers which construct a [LightboxImage] directly.
+  final double? fullWidth;
+  final double? fullHeight;
+
   /// Identity shared by the post's thumbnail and the gallery's page, so the
   /// image flies between them. Comes from [_heroTags] rather than the URL: the
   /// same image can appear twice in one post, and two [Hero]s alive at once
@@ -98,6 +158,10 @@ class LightboxImage {
   }
 
   double? get layoutWidth => safeImageLayoutSize(width, height)?.width;
+
+  Size? get fullSize =>
+      _safePhotoViewImageSize(fullWidth, fullHeight) ??
+      _safePhotoViewImageSize(width, height);
 
   /// Reads [anchor], which must be the `a.lightbox` element itself. Null when
   /// there is no image to point at, which is not markup Discourse writes but is
@@ -122,12 +186,29 @@ class LightboxImage {
     final imageTitle = img?.attributes['title'].orNull;
     final anchorTitle = anchor.attributes['title'].orNull;
 
-    final layoutSize =
-        parseSafeImageLayoutSize(
-          img?.attributes['width'],
-          img?.attributes['height'],
+    final thumbnailSize = parseSafeImageLayoutSize(
+      img?.attributes['width'],
+      img?.attributes['height'],
+    );
+    final thumbnailTransformSize = _parsePhotoViewImageSize(
+      img?.attributes['width'],
+      img?.attributes['height'],
+    );
+    // Match core's PhotoSwipe item-data filter: explicit target dimensions are
+    // authoritative, then the `.informations` line supplies the original size.
+    // If neither exists, retain the thumbnail's unclamped aspect ratio for
+    // chat and older cooked markup which only declares one pair of dimensions.
+    final fullSize =
+        _parsePhotoViewImageSize(
+          anchor.attributes['data-target-width'],
+          anchor.attributes['data-target-height'],
         ) ??
-        parseSafeImageInformationSize(informations?.text);
+        _parsePhotoViewInformationSize(informations?.text) ??
+        thumbnailTransformSize;
+    // Preserve the old defensive thumbnail fallback for malformed/sizeless
+    // markup, without losing the distinction when both sizes are present.
+    final layoutSize =
+        thumbnailSize ?? safeImageLayoutSize(fullSize?.width, fullSize?.height);
     return LightboxImage(
       fullSrc: fullSrc,
       thumbnailSrc: img?.attributes['src'].orNull,
@@ -138,6 +219,8 @@ class LightboxImage {
       width: layoutSize?.width,
       height: layoutSize?.height,
       heroTag: _heroTag(anchor),
+      fullWidth: fullSize?.width,
+      fullHeight: fullSize?.height,
     );
   }
 
@@ -406,18 +489,45 @@ class LightboxGallery extends StatefulWidget {
 }
 
 class _LightboxGalleryState extends State<LightboxGallery> {
+  static const double _zoomStep = 1.25;
+
+  final GlobalKey _viewportKey = GlobalKey();
   late final PageController _controller = PageController(
     initialPage: widget.initialIndex,
   );
+  late final List<PhotoViewController> _photoControllers;
+  late final List<PhotoViewScaleStateController> _scaleControllers;
+  late final List<Size?> _fullImageSizes;
   late int _index = widget.initialIndex;
+  Size? _viewportSize;
   bool _chromeVisible = true;
   bool _downloading = false;
   late final LightboxImageDownloader _imageDownloader =
       widget.imageDownloader ?? NativeLightboxImageDownloader();
 
   @override
+  void initState() {
+    super.initState();
+    _photoControllers = List.generate(
+      widget.images.length,
+      (_) => PhotoViewController(),
+    );
+    _scaleControllers = List.generate(
+      widget.images.length,
+      (_) => PhotoViewScaleStateController(),
+    );
+    _fullImageSizes = [for (final image in widget.images) image.fullSize];
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
+    for (final controller in _photoControllers) {
+      controller.dispose();
+    }
+    for (final controller in _scaleControllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -473,6 +583,158 @@ class _LightboxGalleryState extends State<LightboxGallery> {
     );
   }
 
+  void _pageChanged(int index) {
+    _resetZoom(_index);
+    setState(() => _index = index);
+  }
+
+  void _rememberFullImageSize(int index, Size naturalSize) {
+    if (index < 0 || index >= _fullImageSizes.length) return;
+    final safeSize = _safePhotoViewImageSize(
+      naturalSize.width,
+      naturalSize.height,
+    );
+    if (safeSize == null || safeSize == _fullImageSizes[index]) return;
+
+    // A cached ImageStream may report its dimensions synchronously while the
+    // descendant SiteImage is building. Reconcile after that frame so this
+    // ancestor never calls setState during a descendant build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          index >= _fullImageSizes.length ||
+          safeSize == _fullImageSizes[index]) {
+        return;
+      }
+      setState(() => _fullImageSizes[index] = safeSize);
+      // New transform bounds invalidate both the old raw scale and pan offset.
+      _resetZoom(index);
+    });
+  }
+
+  void _rememberViewportSize(Size viewport) {
+    final previous = _viewportSize;
+    if (previous == viewport) return;
+    _viewportSize = viewport;
+    if (previous == null) return;
+
+    // PhotoView retains its controller value across layout changes. Reset once
+    // the new bounds have been built so rotation/window resizing cannot leave
+    // an image outside its new min/max scale or pan range.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _viewportSize != viewport) return;
+      for (var index = 0; index < widget.images.length; index++) {
+        _resetZoom(index);
+      }
+    });
+  }
+
+  ({double minimum, double maximum}) _scaleBounds(int index, Size viewport) {
+    final imageSize = _fullImageSizes[index] ?? viewport;
+    final contained = math.min(
+      viewport.width / imageSize.width,
+      viewport.height / imageSize.height,
+    );
+    final covered = math.max(
+      viewport.width / imageSize.width,
+      viewport.height / imageSize.height,
+    );
+    return (minimum: contained, maximum: math.max(contained, covered * 3));
+  }
+
+  void _zoomCurrent(double factor, {Offset? focalPoint}) {
+    final viewport = _viewportSize;
+    if (viewport == null) return;
+    _zoom(_index, factor, viewport: viewport, focalPoint: focalPoint);
+  }
+
+  void _zoom(
+    int index,
+    double factor, {
+    required Size viewport,
+    Offset? focalPoint,
+  }) {
+    final controller = _photoControllers[index];
+    final bounds = _scaleBounds(index, viewport);
+    final currentScale = controller.scale ?? bounds.minimum;
+    if (!currentScale.isFinite || currentScale <= 0) return;
+
+    var targetScale = (currentScale * factor).clamp(
+      bounds.minimum,
+      bounds.maximum,
+    );
+    final tolerance = bounds.maximum * 1e-9;
+    if (targetScale <= bounds.minimum + tolerance) {
+      targetScale = bounds.minimum;
+    } else if (targetScale >= bounds.maximum - tolerance) {
+      targetScale = bounds.maximum;
+    }
+    final scaleChange = targetScale / currentScale;
+    final focalFromCenter =
+        (focalPoint ?? viewport.center(Offset.zero)) -
+        viewport.center(Offset.zero);
+    final targetPosition = targetScale == bounds.minimum
+        ? Offset.zero
+        : focalFromCenter -
+              (focalFromCenter - controller.position) * scaleChange;
+
+    controller.updateMultiple(scale: targetScale, position: targetPosition);
+    _scaleControllers[index].setInvisibly(
+      targetScale == bounds.minimum
+          ? PhotoViewScaleState.initial
+          : PhotoViewScaleState.zoomedIn,
+    );
+  }
+
+  void _resetZoom([int? index]) {
+    final target = index ?? _index;
+    final viewport = _viewportSize;
+    if (viewport == null) {
+      _photoControllers[target].reset();
+    } else {
+      _photoControllers[target].updateMultiple(
+        position: Offset.zero,
+        scale: _scaleBounds(target, viewport).minimum,
+      );
+    }
+    _scaleControllers[target].setInvisibly(PhotoViewScaleState.initial);
+  }
+
+  bool get _hasKeyboardModifier {
+    final keyboard = HardwareKeyboard.instance;
+    return keyboard.isAltPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isMetaPressed ||
+        keyboard.isShiftPressed;
+  }
+
+  void _pointerSignal(PointerSignalEvent signal, Size viewport) {
+    if (signal is! PointerScrollEvent ||
+        signal.scrollDelta.dy == 0 ||
+        signal.scrollDelta.dy.abs() <= signal.scrollDelta.dx.abs() ||
+        _hasKeyboardModifier) {
+      return;
+    }
+    GestureBinding.instance.pointerSignalResolver.register(
+      signal,
+      (event) => _handlePointerScroll(event, viewport),
+    );
+  }
+
+  void _handlePointerScroll(PointerEvent event, Size viewport) {
+    final scroll = event as PointerScrollEvent;
+    final renderObject = _viewportKey.currentContext?.findRenderObject();
+    final focalPoint = renderObject is RenderBox && renderObject.hasSize
+        ? renderObject.globalToLocal(scroll.position)
+        : viewport.center(Offset.zero);
+    _zoom(
+      _index,
+      math.exp(-scroll.scrollDelta.dy / kDefaultMouseScrollToScaleFactor),
+      viewport: viewport,
+      focalPoint: focalPoint,
+    );
+    scroll.respond(allowPlatformDefault: false);
+  }
+
   void _revealChrome() {
     if (_chromeVisible) return;
     setState(() => _chromeVisible = true);
@@ -488,93 +750,157 @@ class _LightboxGalleryState extends State<LightboxGallery> {
             Navigator.of(context).maybePop(),
         const SingleActivator(LogicalKeyboardKey.arrowLeft): () => _step(-1),
         const SingleActivator(LogicalKeyboardKey.arrowRight): () => _step(1),
+        const CharacterActivator('+'): () => _zoomCurrent(_zoomStep),
+        const CharacterActivator('='): () => _zoomCurrent(_zoomStep),
+        const SingleActivator(LogicalKeyboardKey.equal): () =>
+            _zoomCurrent(_zoomStep),
+        const SingleActivator(LogicalKeyboardKey.numpadAdd): () =>
+            _zoomCurrent(_zoomStep),
+        const SingleActivator(LogicalKeyboardKey.numpadEqual): () =>
+            _zoomCurrent(_zoomStep),
+        const CharacterActivator('-'): () => _zoomCurrent(1 / _zoomStep),
+        const SingleActivator(LogicalKeyboardKey.minus): () =>
+            _zoomCurrent(1 / _zoomStep),
+        const SingleActivator(LogicalKeyboardKey.numpadSubtract): () =>
+            _zoomCurrent(1 / _zoomStep),
+        const CharacterActivator('0'): _resetZoom,
+        const SingleActivator(LogicalKeyboardKey.digit0): _resetZoom,
+        const SingleActivator(LogicalKeyboardKey.numpad0): _resetZoom,
       },
       child: Focus(
         autofocus: true,
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          body: MouseRegion(
-            onEnter: (_) => _revealChrome(),
-            onHover: (_) => _revealChrome(),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _pages(),
-                _Chrome(
-                  visible: _chromeVisible,
-                  index: _index,
-                  total: widget.images.length,
-                  image: _current,
-                  downloading: _downloading,
-                  onDownload: _download,
-                  onStep: _step,
-                  onClose: () => Navigator.of(context).maybePop(),
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              final viewport = constraints.biggest;
+              _rememberViewportSize(viewport);
+              return MouseRegion(
+                onEnter: (_) => _revealChrome(),
+                onHover: (_) => _revealChrome(),
+                child: Listener(
+                  key: _viewportKey,
+                  behavior: HitTestBehavior.opaque,
+                  onPointerSignal: (signal) => _pointerSignal(signal, viewport),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [_pages(viewport), _chrome(viewport)],
+                  ),
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  Widget _pages() {
-    return PhotoViewGallery.builder(
-      itemCount: widget.images.length,
-      pageController: _controller,
-      onPageChanged: (index) => setState(() => _index = index),
-      // The route's barrier is the background.
-      backgroundDecoration: const BoxDecoration(color: Colors.transparent),
-      loadingBuilder: (context, event) => const Center(
-        child: SizedBox.square(
-          dimension: 24,
-          child: AdaptiveActivityIndicator(
-            color: Colors.white,
-            cupertinoRadius: 12,
-            materialStrokeWidth: 2,
-          ),
-        ),
-      ),
-      builder: (context, index) {
-        final image = widget.images[index];
-        return PhotoViewGalleryPageOptions.customChild(
-          child: SiteImage(
-            url: image.fullSrc,
-            siteUrl: widget.siteUrl,
-            fit: BoxFit.contain,
-            width: double.infinity,
-            height: double.infinity,
-            excludeFromSemantics: true,
-            loadingBuilder: (context) => const Center(
-              child: SizedBox.square(
-                dimension: 24,
-                child: AdaptiveActivityIndicator(
-                  color: Colors.white,
-                  cupertinoRadius: 12,
-                  materialStrokeWidth: 2,
+  Widget _chrome(Size viewport) {
+    final controller = _photoControllers[_index];
+    return StreamBuilder<PhotoViewControllerValue>(
+      key: ValueKey(_index),
+      stream: controller.outputStateStream,
+      initialData: controller.value,
+      builder: (context, snapshot) {
+        final value = snapshot.data ?? controller.value;
+        final bounds = _scaleBounds(_index, viewport);
+        final scale = value.scale ?? bounds.minimum;
+        final tolerance = bounds.maximum * 1e-9;
+        final canZoomOut = scale > bounds.minimum + tolerance;
+        final canZoomIn = scale < bounds.maximum - tolerance;
+        final canReset =
+            (scale - bounds.minimum).abs() > tolerance ||
+            value.position.distanceSquared > 1e-12;
+        return _Chrome(
+          visible: _chromeVisible,
+          index: _index,
+          total: widget.images.length,
+          image: _current,
+          downloading: _downloading,
+          onDownload: _download,
+          onZoomOut: canZoomOut ? () => _zoomCurrent(1 / _zoomStep) : null,
+          onResetZoom: canReset ? _resetZoom : null,
+          onZoomIn: canZoomIn ? () => _zoomCurrent(_zoomStep) : null,
+          onStep: _step,
+          onClose: () => Navigator.of(context).maybePop(),
+        );
+      },
+    );
+  }
+
+  Widget _pages(Size viewport) {
+    // Keep the pointer listener inside PageView's Scrollable. The deepest
+    // pointer-signal listener wins, so vertical-dominant diagonal trackpad
+    // events zoom while horizontal-dominant events remain available to page.
+    return PhotoViewGestureDetectorScope(
+      axis: Axis.horizontal,
+      child: PageView.builder(
+        controller: _controller,
+        onPageChanged: _pageChanged,
+        itemCount: widget.images.length,
+        itemBuilder: (context, index) => Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerSignal: (signal) => _pointerSignal(signal, viewport),
+          child: ClipRect(
+            child: PhotoView.customChild(
+              key: ObjectKey(index),
+              childSize: _fullImageSizes[index],
+              controller: _photoControllers[index],
+              scaleStateController: _scaleControllers[index],
+              backgroundDecoration: const BoxDecoration(
+                color: Colors.transparent,
+              ),
+              heroAttributes: PhotoViewHeroAttributes(
+                tag: widget.images[index].heroTag,
+              ),
+              initialScale: PhotoViewComputedScale.contained,
+              minScale: PhotoViewComputedScale.contained,
+              maxScale: PhotoViewComputedScale.covered * 3,
+              gestureDetectorBehavior: HitTestBehavior.opaque,
+              onTapUp: (context, details, value) =>
+                  setState(() => _chromeVisible = !_chromeVisible),
+              child: Semantics(
+                image: true,
+                label:
+                    widget.images[index].description ??
+                    widget.images[index].title,
+                child: ExcludeSemantics(
+                  child: SiteImage(
+                    url: widget.images[index].fullSrc,
+                    siteUrl: widget.siteUrl,
+                    fit: BoxFit.contain,
+                    width: double.infinity,
+                    height: double.infinity,
+                    excludeFromSemantics: true,
+                    onNaturalSize: (size) =>
+                        _rememberFullImageSize(index, size),
+                    loadingBuilder: (context) => const Center(
+                      child: SizedBox.square(
+                        dimension: 24,
+                        child: AdaptiveActivityIndicator(
+                          color: Colors.white,
+                          cupertinoRadius: 12,
+                          materialStrokeWidth: 2,
+                        ),
+                      ),
+                    ),
+                    errorBuilder: (context, error, stackTrace) {
+                      reportImageError(
+                        error,
+                        stackTrace,
+                        operation: 'lightbox.fullImage',
+                      );
+                      return const Center(
+                        child: UnavailableImage(color: Colors.white54),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
-            errorBuilder: (context, error, stackTrace) {
-              reportImageError(
-                error,
-                stackTrace,
-                operation: 'lightbox.fullImage',
-              );
-              return const Center(
-                child: UnavailableImage(color: Colors.white54),
-              );
-            },
           ),
-          heroAttributes: PhotoViewHeroAttributes(tag: image.heroTag),
-          semanticLabel: image.title,
-          initialScale: PhotoViewComputedScale.contained,
-          minScale: PhotoViewComputedScale.contained,
-          maxScale: PhotoViewComputedScale.covered * 3,
-          onTapUp: (context, details, value) =>
-              setState(() => _chromeVisible = !_chromeVisible),
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -588,6 +914,9 @@ class _Chrome extends StatelessWidget {
     required this.image,
     required this.downloading,
     required this.onDownload,
+    required this.onZoomOut,
+    required this.onResetZoom,
+    required this.onZoomIn,
     required this.onStep,
     required this.onClose,
   });
@@ -598,6 +927,9 @@ class _Chrome extends StatelessWidget {
   final LightboxImage image;
   final bool downloading;
   final VoidCallback onDownload;
+  final VoidCallback? onZoomOut;
+  final VoidCallback? onResetZoom;
+  final VoidCallback? onZoomIn;
   final void Function(int delta) onStep;
   final VoidCallback onClose;
 
@@ -653,16 +985,36 @@ class _Chrome extends StatelessWidget {
         child: Row(
           children: [
             if (total > 1)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  '${index + 1} / $total',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    '${index + 1} / $total',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                  ),
                 ),
-              ),
-            const Spacer(),
+              )
+            else
+              const Spacer(),
+            _Button(
+              icon: DIcons.circleMinus,
+              tooltip: 'Zoom out',
+              onTap: onZoomOut,
+            ),
+            _Button(
+              icon: DIcons.expand,
+              tooltip: 'Reset zoom',
+              onTap: onResetZoom,
+            ),
+            _Button(
+              icon: DIcons.circlePlus,
+              tooltip: 'Zoom in',
+              onTap: onZoomIn,
+            ),
             if (downloadHref != null)
               _Button(
                 icon: DIcons.download,
@@ -731,8 +1083,9 @@ class _Button extends StatelessWidget {
       style: IconButton.styleFrom(
         backgroundColor: const Color(0xBB000000),
         foregroundColor: Colors.white,
+        disabledForegroundColor: Colors.white38,
       ),
-      icon: DIcon(icon, size: 18, color: Colors.white, semanticLabel: tooltip),
+      icon: DIcon(icon, size: 18, semanticLabel: tooltip),
     );
   }
 }
