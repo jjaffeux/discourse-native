@@ -10,6 +10,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/topic_filter_controller.dart';
 import 'package:discourse_native/src/shell/topic_filter_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -500,6 +501,14 @@ void main() {
         );
         expect(tester.getSize(firstRow).height, greaterThanOrEqualTo(44));
         expect(tester.getSize(secondRow).height, greaterThanOrEqualTo(44));
+        expect(
+          find.descendant(of: firstRow, matching: find.byType(DIcon)),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: secondRow, matching: find.byType(DIcon)),
+          findsNothing,
+        );
 
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer();
