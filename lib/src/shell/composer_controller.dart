@@ -639,8 +639,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         upload.status == ComposerUploadStatus.retrying,
   );
 
-  /// Starts valid images at the text position underneath the drop pointer.
-  void addDroppedImages(Iterable<ComposerUploadFile> files, int offset) {
+  /// Starts valid images at the requested text position.
+  void addImages(Iterable<ComposerUploadFile> files, int offset) {
     if (_disposed || imageUploader == null) return;
     final all = files.toList();
     final valid = all
@@ -656,7 +656,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     }
     if (valid.isEmpty) return;
     if (simultaneousUploads > 0 && valid.length > simultaneousUploads) {
-      showNotice('Drop at most $simultaneousUploads images at a time.');
+      final limit = simultaneousUploads == 1
+          ? 'one image'
+          : '$simultaneousUploads images';
+      showNotice('Upload at most $limit at a time.');
       return;
     }
 
