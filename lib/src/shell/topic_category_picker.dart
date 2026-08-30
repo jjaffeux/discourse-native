@@ -44,7 +44,7 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
     _showing = true;
     try {
       final shell = ShellScope.read(context);
-      await shell.loadCategories(widget.siteUrl);
+      await shell.loadAllCategories(widget.siteUrl);
       final anchorContext = _anchorKey.currentContext;
       if (!mounted || !widget.enabled || anchorContext == null) return;
       if (!anchorContext.mounted) return;

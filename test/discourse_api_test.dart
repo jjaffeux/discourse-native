@@ -1983,6 +1983,7 @@ void _feedGroups() {
                       'topic_count': '12',
                       'position': 3,
                       'notification_level': 0,
+                      'subcategory_ids': [2, 4],
                       'topics': [
                         {
                           'id': 101,
@@ -2057,6 +2058,7 @@ void _feedGroups() {
         expect(categories.first.topicCount, 12);
         expect(categories.first.position, 3);
         expect(categories.first.notificationLevel, 0);
+        expect(categories.first.subcategoryIds, [2, 4]);
         expect(categories.first.isMuted, isTrue);
         expect(categories.first.featuredTopics.map((topic) => topic.id), [
           101,
@@ -2161,6 +2163,7 @@ void _feedGroups() {
         int position = 3,
         bool isUncategorized = false,
         int notificationLevel = 0,
+        List<int> subcategoryIds = const [2],
         List<CategoryFeaturedTopic> featuredTopics = const [
           CategoryFeaturedTopic(id: 101, title: 'A topic', slug: 'a-topic'),
         ],
@@ -2176,6 +2179,7 @@ void _feedGroups() {
         position: position,
         isUncategorized: isUncategorized,
         notificationLevel: notificationLevel,
+        subcategoryIds: subcategoryIds,
         featuredTopics: featuredTopics,
       );
 
@@ -2197,6 +2201,7 @@ void _feedGroups() {
         category(position: 4),
         category(isUncategorized: true),
         category(notificationLevel: 1),
+        category(subcategoryIds: const [3]),
         category(
           featuredTopics: const [
             CategoryFeaturedTopic(
@@ -2220,6 +2225,7 @@ void _feedGroups() {
         'topic_count': 'many',
         'position': false,
         'notification_level': false,
+        'subcategory_ids': [null, false, 0, -1, 'oops'],
         'topics': [
           null,
           'topic',
@@ -2236,6 +2242,7 @@ void _feedGroups() {
       expect(category.position, isNull);
       expect(category.isUncategorized, isFalse);
       expect(category.notificationLevel, 1);
+      expect(category.subcategoryIds, isEmpty);
       expect(category.isMuted, isFalse);
       expect(category.featuredTopics, isEmpty);
     });
@@ -2376,6 +2383,42 @@ void _feedGroups() {
         expect(result.postActionCatalog?.postFlags, isEmpty);
       },
     );
+
+    test('finds exact category ids outside the paginated list', () async {
+      final requested = <Uri>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requested.add(request.url);
+          expect(request.headers['User-Api-Key'], 'key');
+          return http.Response(
+            jsonEncode({
+              'categories': [
+                {
+                  'id': 6,
+                  'name': 'Support docs',
+                  'color': '00AEEF',
+                  'parent_category_id': 5,
+                  'permission': 1,
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final categories = await api.findCategories(
+        siteUrl: 'https://example.com',
+        ids: const [6, 6],
+        apiKey: 'key',
+      );
+
+      expect(requested.single.path, '/categories/find.json');
+      expect(requested.single.queryParametersAll['ids[]'], ['6']);
+      expect(categories.single.id, 6);
+      expect(categories.single.parentCategoryId, 5);
+      expect(categories.single.canCreateTopic, isTrue);
+    });
 
     test('requests page two without reading the site supplement', () async {
       final requested = <Uri>[];

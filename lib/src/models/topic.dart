@@ -713,6 +713,7 @@ class TopicCategory with Storable<TopicCategory> {
     required this.color,
     this.slug = '',
     this.parentCategoryId,
+    this.subcategoryIds = const [],
     this.permission,
     this.minimumRequiredTags = 0,
     this.styleType = 'square',
@@ -734,6 +735,10 @@ class TopicCategory with Storable<TopicCategory> {
     parentCategoryId: json['parent_category_id'] == null
         ? null
         : jsonInt(json['parent_category_id']),
+    subcategoryIds: List.unmodifiable([
+      for (final value in jsonArray(json['subcategory_ids']))
+        if (jsonIntOrNull(value) case final id? when id > 0) id,
+    ]),
     permission: jsonIntOrNull(json['permission']),
     minimumRequiredTags: jsonInt(json['minimum_required_tags']),
     styleType: jsonText(json['style_type']) ?? 'square',
@@ -764,6 +769,11 @@ class TopicCategory with Storable<TopicCategory> {
   /// subcategory — parent on the left, child on the right — and which
   /// therefore needs a second colour to look up.
   final int? parentCategoryId;
+
+  /// Every direct child advertised by a category-list page. Lazy category
+  /// responses embed only the first few children, so callers use these ids to
+  /// resolve the rest in one exact lookup.
+  final List<int> subcategoryIds;
 
   /// `1` is Discourse's full permission: topics may be created here.
   final int? permission;
@@ -810,6 +820,7 @@ class TopicCategory with Storable<TopicCategory> {
           other.color == color &&
           other.slug == slug &&
           other.parentCategoryId == parentCategoryId &&
+          listEquals(other.subcategoryIds, subcategoryIds) &&
           other.permission == permission &&
           other.minimumRequiredTags == minimumRequiredTags &&
           other.styleType == styleType &&
@@ -829,6 +840,7 @@ class TopicCategory with Storable<TopicCategory> {
     color,
     slug,
     parentCategoryId,
+    Object.hashAll(subcategoryIds),
     permission,
     minimumRequiredTags,
     styleType,

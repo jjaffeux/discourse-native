@@ -3445,6 +3445,45 @@ void main() {
       );
     });
 
+    testWidgets('category badges resolve an off-page subcategory by id', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [
+            const Topic(
+              id: 3,
+              title: 'Off-page child topic',
+              slug: 'off-page-child-topic',
+              categoryId: 6,
+            ),
+          ],
+        },
+        categoryList: const [
+          TopicCategory(id: 5, name: 'Support', color: '0088CC'),
+        ],
+        categoryLookupList: const [
+          TopicCategory(
+            id: 6,
+            name: 'Support docs',
+            color: '00AEEF',
+            parentCategoryId: 5,
+          ),
+        ],
+      );
+
+      await pumpShell(tester, desktop, api: api);
+
+      expect(
+        find.descendant(
+          of: find.byType(TopicListView),
+          matching: find.text('Support docs'),
+        ),
+        findsOneWidget,
+      );
+      expect(api.categoryIdsRequested.any((ids) => ids.contains(6)), isTrue);
+    });
+
     testWidgets('topic tags render after the category in server order', (
       tester,
     ) async {
@@ -4707,7 +4746,7 @@ void main() {
     );
 
     testWidgets(
-      'uncategorized editable sidebar opens the picker and saves a category',
+      'uncategorized sidebar picker loads a paginated subcategory and saves it',
       (tester) async {
         final previousPlatform = debugDefaultTargetPlatformOverride;
         debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
@@ -4716,6 +4755,7 @@ void main() {
             id: 5,
             name: 'Support',
             color: '0088CC',
+            subcategoryIds: [6],
             permission: 1,
           );
           const supportDocs = TopicCategory(
@@ -4728,7 +4768,11 @@ void main() {
           final base = detail();
           final api = FakeDiscourseApi(
             feeds: {'/latest.json': listed},
-            categoryList: const [support, supportDocs],
+            categoryPages: const {
+              1: [support],
+              2: [],
+            },
+            categoryLookupList: const [supportDocs],
             topics: {
               7: (detail: base.detail.copyWith(canEdit: true), posts: base.posts),
             },
@@ -4844,20 +4888,30 @@ void main() {
             supportDocsTile.contentPadding,
             const EdgeInsets.only(left: 26, right: 10),
           );
-          await tester.tap(supportOption);
+          expect(api.categoryPagesRequested, [1, 2]);
+          expect(
+            api.categoryIdsRequested.any((ids) => ids.contains(6)),
+            isTrue,
+          );
+          await tester.tap(
+            find.byKey(const ValueKey('topic-category-option-6')),
+          );
           await tester.pumpAndSettle();
 
           expect(api.topicsUpdated.single, {
             'topicId': 7,
             'title': 'A real topic',
             'originalTitle': 'A real topic',
-            'categoryId': 5,
+            'categoryId': 6,
             'tags': const <TopicTag>[],
             'originalTags': const <TopicTag>[],
           });
           expect(api.topicTagsUpdated, isEmpty);
           expect(
-            find.descendant(of: categoryProperty, matching: find.text('Support')),
+            find.descendant(
+              of: categoryProperty,
+              matching: find.text('Support docs'),
+            ),
             findsOneWidget,
           );
           expect(picker, findsNothing);

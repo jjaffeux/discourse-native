@@ -696,8 +696,9 @@ class ShellController extends FrameSafeNotifier
       credentials: authenticator,
       lifecycle: lifecycle,
       store: store,
-      onFeedLoaded: (instance, _) {
+      onFeedLoaded: (instance, apiKey, categoryIds) {
         unawaited(_ensureCategoriesFor(instance));
+        unawaited(_ensureCategoryIds(instance, apiKey, categoryIds));
       },
       readPersonalizationVersion: _siteBookmarkVersion,
       prepareTopicForStore: _prepareTopicForStore,
@@ -1888,6 +1889,7 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _categorised = {};
   final Map<String, List<TopicCategory>> _categoriesBySite = {};
   final Map<String, CategoryFeed> _categoryFeeds = {};
+  final Set<(String, int)> _categoryIdsLoading = {};
   final Map<String, _CategorySidebarCache> _categorySidebarCache = {};
   final Map<String, TopicComposerCapabilities> _topicComposerCapabilities = {};
   final Map<String, SitePostActionCatalog> _postActionCatalogs = {};
@@ -9587,6 +9589,108 @@ class ShellController extends FrameSafeNotifier
     if (instance != null) await _ensureCategoriesFor(instance);
   }
 
+  /// Finishes the lazy category list before presenting a chooser that must be
+  /// able to browse every destination, not just the categories page's first
+  /// viewport.
+  Future<void> loadAllCategories(String siteUrl) async {
+    await loadCategories(siteUrl);
+    while (true) {
+      final before = categoryFeedFor(siteUrl);
+      final page = before.nextPage;
+      if (page == null || before.loadingMore) break;
+      await loadMoreCategories(siteUrl);
+      if (categoryFeedFor(siteUrl).nextPage == page) break;
+    }
+
+    final instance = _instanceAt(siteUrl);
+    if (instance == null) return;
+    final childIds = <int>{
+      for (final category
+          in _categoriesBySite[siteUrl] ?? const <TopicCategory>[])
+        ...category.subcategoryIds,
+    };
+    if (childIds.isEmpty) return;
+
+    try {
+      final lease = lifecycle.capture(siteUrl);
+      final apiKey = instance.isConnected
+          ? await authenticator.apiKeyFor(siteUrl)
+          : null;
+      if (!lease.isCurrent) return;
+      await _ensureCategoryIds(instance, apiKey, childIds);
+    } catch (error, stackTrace) {
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'categories.readPickerCredentials',
+        severity: DiagnosticSeverity.warning,
+      );
+    }
+  }
+
+  /// Resolves only the category ids a topic page actually uses. Lazy category
+  /// sites can place those ids on any categories page, and downloading every
+  /// page for each topic feed would defeat the server's pagination.
+  Future<void> _ensureCategoryIds(
+    DiscourseInstance instance,
+    String? apiKey,
+    Iterable<int> categoryIds,
+  ) async {
+    if (instance.loginRequired && !instance.isConnected) return;
+    final lease = lifecycle.capture(instance.url);
+    String? clientId;
+    try {
+      if (apiKey != null) clientId = await authenticator.clientId();
+      if (!lease.isCurrent) return;
+
+      var pending = categoryIds.toSet();
+      while (pending.isNotEmpty) {
+        pending.removeWhere(
+          (id) => store.read<TopicCategory>(instance.url, id) != null,
+        );
+        final batch = <int>[];
+        for (final id in pending) {
+          if (batch.length == 100) break;
+          if (_categoryIdsLoading.add((instance.url, id))) batch.add(id);
+        }
+        if (batch.isEmpty) return;
+
+        List<TopicCategory> found;
+        try {
+          found = await api.findCategories(
+            siteUrl: instance.url,
+            ids: batch,
+            apiKey: apiKey,
+            clientId: clientId,
+          );
+        } finally {
+          for (final id in batch) {
+            _categoryIdsLoading.remove((instance.url, id));
+          }
+        }
+        if (!lease.isCurrent) return;
+
+        lease.commit(() {
+          _mergeCategories(instance.url, found);
+          _notify();
+        });
+        pending.removeAll(batch);
+        pending.addAll([
+          for (final category in found)
+            ?category.parentCategoryId,
+        ]);
+      }
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'categories.find',
+        severity: DiagnosticSeverity.warning,
+      );
+    }
+  }
+
   Future<void> _ensureCategoriesFor(DiscourseInstance instance) async {
     if (instance.loginRequired && !instance.isConnected) return;
 
@@ -10221,6 +10325,7 @@ class ShellController extends FrameSafeNotifier
     _categorised.remove(siteUrl);
     _categoriesBySite.remove(siteUrl);
     _categoryFeeds.remove(siteUrl);
+    _categoryIdsLoading.removeWhere((entry) => entry.$1 == siteUrl);
     _categoryPageRequests.remove(siteUrl);
     _categorySidebarCache.remove(siteUrl);
     _topicComposerCapabilities.remove(siteUrl);
