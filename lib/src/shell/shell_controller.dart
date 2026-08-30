@@ -2577,13 +2577,20 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
-    final channels = plugins.registry.topicChannels(topicId);
-    if (channels.isEmpty) {
-      tracker.unwatchTopic();
-      return;
-    }
+    // Core publishes every post-stream mutation here. In particular, changing
+    // a topic status creates a small-action post and publishes `type: created`;
+    // that is how the web client makes "closed this topic" appear without a
+    // manual reload. Plugin channels are additional topic-scoped hints.
+    final coreChannel = '/topic/$topicId';
+    final channels = [coreChannel, ...plugins.registry.topicChannels(topicId)];
 
     tracker.watchTopic(topicId, channels, (channel, data) {
+      if (channel == coreChannel && _coreTopicMessageRefreshesStream(data)) {
+        final route = currentContent;
+        if (route?.topicId == topicId) {
+          unawaited(_refetchTopic(siteUrl, topicId, route?.slug ?? ''));
+        }
+      }
       if (plugins.registry.staleTopic(topicId, channel, data)) {
         final route = currentContent;
         if (route?.topicId == topicId) {
@@ -2595,6 +2602,16 @@ class ShellController extends FrameSafeNotifier
         unawaited(_refreshPosts(siteUrl, topicId, stale));
       }
     });
+  }
+
+  /// Whether one of core's topic messages invalidates the post stream.
+  ///
+  /// A newly created post supplies only its id, and `reload_topic` explicitly
+  /// asks clients to replace the topic snapshot. Both need the serializer's
+  /// authoritative stream before the new row can be drawn in the right place.
+  static bool _coreTopicMessageRefreshesStream(Object? data) {
+    if (data is! Map) return false;
+    return data['type'] == 'created' || data['reload_topic'] == true;
   }
 
   /// Reads posts a live message said have changed.

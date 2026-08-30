@@ -143,6 +143,16 @@ Post _post(String cooked, {bool canDelete = false, bool canLike = false}) =>
       canLike: canLike,
     );
 
+const _closedAction = Post(
+  id: 2,
+  postNumber: 2,
+  username: 'author',
+  name: 'Author',
+  cooked: '',
+  postType: Post.smallActionPostType,
+  actionCode: 'closed.enabled',
+);
+
 TopicList _page(int id) => TopicList(
   topics: [Topic(id: id, title: 'Topic $id', slug: 'topic-$id')],
 );
@@ -289,6 +299,37 @@ void main() {
     await pumpEventQueue();
 
     expect(shell.store.read<Post>(_siteUrl, 1)?.cooked, 'newer');
+  });
+
+  test('a core created event reveals the closed-topic small action', () async {
+    final topics = <int, TopicPayload>{
+      7: topicPayload(id: 7, title: 'A topic', posts: [_post('initial')]),
+    };
+    final api = FakeDiscourseApi(
+      feeds: const {
+        '/latest.json': [Topic(id: 7, title: 'A topic', slug: 'a-topic')],
+      },
+      topics: topics,
+    );
+    final shell = await _loadShell(api);
+    addTearDown(shell.dispose);
+    final tracker = await _openTopic(shell);
+    expect(tracker.watchedChannels.first, '/topic/7');
+
+    topics[7] = topicPayload(
+      id: 7,
+      title: 'A topic',
+      posts: [_post('initial'), _closedAction],
+      closed: true,
+    );
+    tracker.deliverTopicMessage('/topic/7', const {'type': 'created', 'id': 2});
+    await pumpEventQueue();
+
+    expect(api.topicsOpened, [7, 7]);
+    expect(shell.currentTopic?.stream, [1, 2]);
+    expect(shell.store.read<Post>(_siteUrl, 2), _closedAction);
+    expect(shell.store.read<Post>(_siteUrl, 2)?.isSmallAction, isTrue);
+    expect(shell.store.read<Post>(_siteUrl, 2)?.actionCode, 'closed.enabled');
   });
 
   test('live invalidation waits for an active delete to settle', () async {
