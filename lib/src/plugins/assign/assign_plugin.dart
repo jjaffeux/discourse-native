@@ -549,6 +549,8 @@ class _TopicAssignmentPropertyRow extends StatelessWidget {
               color: Colors.transparent,
               child: InkWell(
                 onTap: invoke,
+                mouseCursor: invoke == null ? null : SystemMouseCursors.click,
+                hoverColor: Colors.transparent,
                 borderRadius: BorderRadius.circular(4),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 5),
