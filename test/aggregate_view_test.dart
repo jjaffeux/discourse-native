@@ -145,7 +145,7 @@ void main() {
     expect(find.byType(AggregateView), findsOneWidget);
     expect(find.byType(InstanceSidebar), findsNothing);
     expect(find.byType(MainContent), findsNothing);
-    expect(find.text('Discourse'), findsOneWidget);
+    expect(find.text('Discourse (alpha)'), findsOneWidget);
     expect(find.text('Every forum. One shared feed.'), findsNothing);
     final heroFinder = find.byKey(const ValueKey('aggregate-hero'));
     final hero = tester.widget<Container>(heroFinder);
