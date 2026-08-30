@@ -116,6 +116,41 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'wide directory controls use the available width and matching heights',
+    (tester) async {
+      await _pump(
+        tester,
+        GroupsPage(
+          siteUrl: 'https://meta.discourse.org',
+          data: const GroupsPageData(
+            typeFilters: ['my', 'public'],
+            loaded: true,
+            canCreateGroup: true,
+          ),
+          onTypeChanged: (_) {},
+          onCreateGroup: () {},
+        ),
+        size: const Size(1400, 760),
+      );
+
+      final searchRect = tester.getRect(
+        find.byKey(const ValueKey('groups-search')),
+      );
+      final filterRect = tester.getRect(
+        find.byKey(const ValueKey('groups-type-filter')),
+      );
+      final createRect = tester.getRect(
+        find.byKey(const ValueKey('create-group')),
+      );
+
+      expect(searchRect.left, 16);
+      expect(createRect.right, 1384);
+      expect(filterRect.height, createRect.height);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('empty filtered directory is a stable scrollable state', (
     tester,
   ) async {
