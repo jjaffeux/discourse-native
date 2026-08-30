@@ -65,7 +65,9 @@ class SiteEmojiText extends StatefulWidget {
   /// leaving it immediately after the title's final word.
   final List<Widget> trailing;
 
-  static final RegExp _shortcode = RegExp(r':([a-z0-9_+-]+(?::t[1-6])?):');
+  static final RegExp shortcodePattern = RegExp(
+    r':([a-z0-9_+-]+(?::t[1-6])?):',
+  );
 
   @override
   State<SiteEmojiText> createState() => _SiteEmojiTextState();
@@ -78,7 +80,7 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
   @override
   Widget build(BuildContext context) {
     final text = widget.runs.map((run) => run.text).join();
-    if (!SiteEmojiText._shortcode.hasMatch(text)) {
+    if (!SiteEmojiText.shortcodePattern.hasMatch(text)) {
       return _resolved(context, text, const []);
     }
 
@@ -94,7 +96,7 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
           _requestCatalog(controller);
         }
         return _resolved(context, text, [
-          for (final match in SiteEmojiText._shortcode.allMatches(text))
+          for (final match in SiteEmojiText.shortcodePattern.allMatches(text))
             if (controller.emojiNameFor(widget.siteUrl, match.group(1)!)
                 case final name?)
               (match: match, name: name),

@@ -4356,10 +4356,117 @@ void main() {
       expect(api.topicsOpened, [7]);
       expect(find.byType(TopicView), findsOneWidget);
       expect(find.byType(TopicListView), findsNothing);
+      expect(find.byType(InlineTopicTitleEditor), findsNothing);
+      expect(
+        find.byKey(const ValueKey('topic-header-title-field')),
+        findsNothing,
+      );
       // The cooked HTML is rendered, not shown as markup.
       expect(renderedText('First post body'), findsOneWidget);
       expect(renderedText('<p>'), findsNothing);
     });
+
+    testWidgets(
+      'editable topic header saves title and preserves topic metadata',
+      (tester) async {
+        const tags = [
+          TopicTag(id: 8, name: 'design'),
+          TopicTag(id: 9, name: 'mobile'),
+        ];
+        final base = topicPayload(
+          id: 7,
+          title: 'A real topic',
+          posts: [post(1, 1, 'First post body')],
+          categoryId: 5,
+          tags: tags,
+        );
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {
+            7: (
+              detail: base.detail.copyWith(canEdit: true),
+              posts: base.posts,
+            ),
+          },
+        );
+        const reader = DiscourseUser(id: 1, username: 'reader');
+        final authenticator = FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key';
+
+        await pumpShell(
+          tester,
+          desktop,
+          instances: [instance('meta.discourse.org').copyWith(user: reader)],
+          api: api,
+          authenticator: authenticator,
+        );
+        await tester.tap(contentText('A real topic'));
+        await tester.pumpAndSettle();
+
+        final editor = find.byType(InlineTopicTitleEditor);
+        final field = find.byKey(const ValueKey('topic-header-title-field'));
+        expect(editor, findsOneWidget);
+        expect(field, findsOneWidget);
+        expect(
+          tester
+              .widget<MouseRegion>(
+                find.byKey(const ValueKey('topic-header-title-pointer')),
+              )
+              .cursor,
+          SystemMouseCursors.text,
+        );
+
+        final editorRect = tester.getRect(editor);
+        await tester.tapAt(Offset(editorRect.left + 1, editorRect.center.dy));
+        await tester.pump();
+        var textField = tester.widget<TextField>(field);
+        expect(textField.focusNode?.hasFocus, isTrue);
+        expect(textField.controller?.selection.baseOffset, 0);
+
+        await tester.enterText(field, '  Renamed topic  ');
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
+
+        expect(api.topicsUpdated, [
+          {
+            'topicId': 7,
+            'title': 'Renamed topic',
+            'originalTitle': 'A real topic',
+            'categoryId': 5,
+            'tags': tags,
+            'originalTags': tags,
+          },
+        ]);
+        final shell = ShellScope.read(
+          tester.element(find.byType(TopicView)),
+        );
+        expect(shell.currentTopic?.title, 'Renamed topic');
+        expect(shell.currentContent?.title, 'Renamed topic');
+        expect(find.byType(ComposerPanel), findsNothing);
+        textField = tester.widget<TextField>(field);
+        expect(textField.focusNode?.hasFocus, isFalse);
+
+        await tester.tap(field);
+        await tester.enterText(field, ' Renamed topic ');
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
+        expect(api.topicsUpdated, hasLength(1));
+        expect(
+          tester.widget<TextField>(field).controller?.text,
+          'Renamed topic',
+        );
+
+        await tester.tap(field);
+        await tester.enterText(field, '');
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
+        textField = tester.widget<TextField>(field);
+        expect(api.topicsUpdated, hasLength(1));
+        expect(textField.controller?.text, '');
+        expect(textField.focusNode?.hasFocus, isTrue);
+        expect(find.text('A topic title is required.'), findsOneWidget);
+      },
+    );
 
     testWidgets(
       'topic header spans the floating sidebar and keeps actions ordered',

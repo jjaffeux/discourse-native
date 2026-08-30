@@ -5598,6 +5598,68 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
+  /// Updates a topic's title without opening the first-post composer.
+  ///
+  /// The topic serializer owns the edit capability, so this rechecks
+  /// [TopicDetail.canEdit] immediately before writing rather than trusting the
+  /// header that exposed the field. Category and tags travel with the title
+  /// because core's topic update route treats them as one metadata record.
+  Future<String?> saveTopicTitle({
+    required String siteUrl,
+    required int topicId,
+    required String title,
+  }) async {
+    final detail = store.read<TopicDetail>(siteUrl, topicId);
+    if (detail?.canEdit != true) {
+      return 'This topic can no longer be edited.';
+    }
+    final nextTitle = title.trim();
+    if (nextTitle.isEmpty) return 'A topic title is required.';
+    if (nextTitle == detail!.title.trim()) return null;
+
+    final lease = lifecycle.capture(siteUrl);
+    final credential = await _credentialForWrite(siteUrl);
+    if (!lease.isCurrent) return 'The forum changed before the title saved.';
+    if (credential.failure case final failure?) return failure.message;
+
+    try {
+      await api.updateTopic(
+        siteUrl: siteUrl,
+        apiKey: credential.apiKey!,
+        topicId: topicId,
+        title: nextTitle,
+        originalTitle: detail.title,
+        categoryId: detail.categoryId,
+        tags: detail.tags,
+        originalTags: detail.tags,
+      );
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(error, stackTrace, 'topic.editTitle');
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    }
+    if (!lease.isCurrent) return 'The forum changed before the title saved.';
+
+    lease.commit(() {
+      store.update<TopicDetail>(
+        siteUrl,
+        topicId,
+        (topic) => topic.copyWith(title: nextTitle),
+      );
+      store.update<Topic>(
+        siteUrl,
+        topicId,
+        (topic) => topic.copyWith(title: nextTitle),
+      );
+      _updateTopicRouteMetadata(siteUrl, topicId, nextTitle, detail.categoryId);
+      _notify();
+    });
+    return null;
+  }
+
   /// Updates a topic's category without opening a writing surface.
   ///
   /// Category is topic metadata, so its focused picker writes the same topic
