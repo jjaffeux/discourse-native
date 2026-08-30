@@ -1165,6 +1165,108 @@ void main() {
     },
   );
 
+  testWidgets(
+    'an asynchronously rebuilt post above the viewport does not hide the current post',
+    (tester) async {
+      final site = instance('meta.example');
+      final controller = _controller(
+        site,
+        FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      controller.store
+        ..put(
+          site.url,
+          const TopicDetail(
+            id: 1,
+            title: 'One',
+            stream: [1, 2, 3],
+            postsCount: 3,
+          ),
+        )
+        ..putAll(site.url, [
+          Post(
+            id: 1,
+            postNumber: 1,
+            username: 'sam',
+            cooked: List.filled(
+              450,
+              '<p>A tall asynchronous first post</p>',
+            ).join(),
+          ),
+          Post(
+            id: 2,
+            postNumber: 2,
+            username: 'sam',
+            cooked: List.filled(
+              500,
+              '<p>A tall asynchronous second post</p>',
+            ).join(),
+          ),
+          const Post(
+            id: 3,
+            postNumber: 3,
+            username: 'sam',
+            cooked: '<p>Last post</p>',
+          ),
+        ]);
+      controller.pushContent(
+        ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+      );
+
+      await tester.pumpWidget(_topicView(controller));
+      await tester.pump();
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(seconds: 1)),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final list = tester.widget<SuperListView>(find.byType(SuperListView));
+      final scroll = list.controller!;
+      list.listController!.jumpToItem(
+        index: 2,
+        scrollController: scroll,
+        alignment: 0,
+      );
+      await tester.pump();
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(seconds: 1)),
+      );
+      await tester.pump();
+      await tester.pump();
+      scroll.jumpTo(scroll.position.pixels + 600);
+      await tester.pump();
+      await tester.pump();
+
+      final firstPost = find.byKey(const ValueKey(1));
+      final secondPost = find.byKey(const ValueKey(2));
+      expect(firstPost, findsNothing);
+      expect(secondPost, findsOneWidget);
+      final secondTopBeforeScroll = tester.getTopLeft(secondPost).dy;
+
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(find.byType(SuperListView)),
+          scrollDelta: const Offset(0, -400),
+        ),
+      );
+      await tester.pump();
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(seconds: 1)),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(secondPost, findsOneWidget);
+      expect(
+        tester.getTopLeft(secondPost).dy,
+        closeTo(secondTopBeforeScroll + 400, 1),
+      );
+    },
+  );
+
   testWidgets('loading earlier posts uses a post skeleton', (tester) async {
     final site = instance('meta.example');
     final posts = {

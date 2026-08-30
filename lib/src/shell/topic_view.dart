@@ -104,6 +104,15 @@ class TopicView extends StatefulWidget {
 
 typedef _TopicDayStart = ({DateTime day, int postIndex});
 typedef _TopicTimeGap = ({int daysSince, int postIndex});
+typedef _RetainedTopicPostExtent = ({
+  double width,
+  double height,
+  Post post,
+  TopicDetail topic,
+  bool summary,
+  bool summaryLoading,
+  int readTimeWordCount,
+});
 
 /// The inverse of one immutable post stream, used to retain keyed list rows.
 ///
@@ -173,6 +182,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   TopicPostIndexProjection? _streamIndexProjection;
   _TopicViewSnapshot? _laidOutSnapshot;
   final Map<int, BuildContext> _postContexts = {};
+  final Map<int, _RetainedTopicPostExtent> _retainedPostExtents = {};
+  double _laidOutPostWidth = 0;
   int _extentGeneration = 0;
   int? _anchorRestorePostId;
   double _anchorRestoreViewportOffset = 0;
@@ -463,6 +474,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _streamIndexProjection = null;
     _laidOutSnapshot = null;
     _postContexts.clear();
+    _retainedPostExtents.clear();
+    _laidOutPostWidth = 0;
     _extentGeneration = 0;
     _sidebarOverlayOpen = false;
     _scroll = ScrollController();
@@ -1228,6 +1241,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
   void _unregisterPostContext(int postId, BuildContext context) {
     if (identical(_postContexts[postId], context)) {
+      _rememberPostExtent(postId);
       _postContexts.remove(postId);
       if (_isScrollCaptureRecording) {
         _recordTopicScrollEvent('sliver.post.detached', {
@@ -1236,6 +1250,80 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         });
       }
     }
+  }
+
+  void _rememberPostExtent(int postId) {
+    final snapshot = _laidOutSnapshot;
+    final controller = _controller;
+    final list = _list;
+    if (snapshot == null ||
+        controller == null ||
+        list == null ||
+        !list.isAttached) {
+      return;
+    }
+    final postIndex = snapshot.postIds.indexOf(postId);
+    if (postIndex < 0) return;
+    final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
+    final childIndex = (postIndex + leading) * 2;
+    if (childIndex >= list.numberOfItems) return;
+    final extent = list.extentForIndex(childIndex);
+    if (extent.$2) return;
+    final post = controller.store.read<Post>(snapshot.siteUrl!, postId);
+    final topic = snapshot.topic;
+    if (post == null ||
+        topic == null ||
+        !CookedHtml.buildsAsynchronously(post.cooked)) {
+      return;
+    }
+    final width = _laidOutPostWidth;
+    final height = extent.$1;
+    final retained = (
+      width: width,
+      height: height,
+      post: post,
+      topic: topic,
+      summary: snapshot.summary,
+      summaryLoading: snapshot.summaryLoading,
+      readTimeWordCount: snapshot.readTimeWordCount,
+    );
+    final previous = _retainedPostExtents[postId];
+    // Do not let the asynchronous loading frame replace a settled extent for
+    // the same post. A changed post or topic gets a fresh measurement instead.
+    if (previous != null &&
+        identical(previous.post, post) &&
+        identical(previous.topic, topic) &&
+        previous.summary == snapshot.summary &&
+        previous.summaryLoading == snapshot.summaryLoading &&
+        previous.readTimeWordCount == snapshot.readTimeWordCount &&
+        (previous.width - width).abs() < 0.5 &&
+        previous.height > height) {
+      return;
+    }
+    _retainedPostExtents[postId] = retained;
+  }
+
+  double? _retainedPostMinimumHeight({
+    required int postId,
+    required Post? post,
+    required TopicDetail topic,
+    required double width,
+    required bool summary,
+    required bool summaryLoading,
+    required int readTimeWordCount,
+  }) {
+    final retained = _retainedPostExtents[postId];
+    if (retained == null ||
+        post == null ||
+        !identical(retained.post, post) ||
+        !identical(retained.topic, topic) ||
+        retained.summary != summary ||
+        retained.summaryLoading != summaryLoading ||
+        retained.readTimeWordCount != readTimeWordCount ||
+        (retained.width - width).abs() >= 0.5) {
+      return null;
+    }
+    return retained.height;
   }
 
   ({double top, double bottom})? _postViewportBounds(int postId) {
@@ -1722,6 +1810,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final pinnedSidebarInset = showPinnedSidebar
         ? _TopicSidebarPanel.dockedWidth
         : 0.0;
+    _laidOutPostWidth = viewportWidth - pinnedSidebarInset;
 
     if (snapshot.topicId == null) {
       if (snapshot.loading) {
@@ -2064,8 +2153,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
             final postId = postIds[postIndex];
             final day = dayByPostIndex[postIndex];
+            final post = controller.store.read<Post>(siteUrl, postId);
             if (_isScrollCaptureRecording) {
-              final post = controller.store.read<Post>(siteUrl, postId);
               _recordTopicScrollEvent('sliver.child.built', {
                 'itemIndex': index,
                 'postIndex': postIndex,
@@ -2079,6 +2168,15 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             return _TopicPostItem(
               key: ValueKey(postId),
               postId: postId,
+              retainedMinimumHeight: _retainedPostMinimumHeight(
+                postId: postId,
+                post: post,
+                topic: snapshot.topic!,
+                width: viewportWidth - pinnedSidebarInset,
+                summary: snapshot.summary,
+                summaryLoading: snapshot.summaryLoading,
+                readTimeWordCount: snapshot.readTimeWordCount,
+              ),
               day: day,
               timeGapDays: timeGapByPostIndex[postIndex],
               hideDay: day != null && day == _floatingDay,
@@ -3796,6 +3894,7 @@ class _TopicPostItem extends StatefulWidget {
   const _TopicPostItem({
     super.key,
     required this.postId,
+    required this.retainedMinimumHeight,
     required this.day,
     required this.timeGapDays,
     required this.hideDay,
@@ -3810,6 +3909,7 @@ class _TopicPostItem extends StatefulWidget {
   });
 
   final int postId;
+  final double? retainedMinimumHeight;
   final DateTime? day;
   final int? timeGapDays;
   final bool hideDay;
@@ -3827,17 +3927,29 @@ class _TopicPostItem extends StatefulWidget {
 }
 
 class _TopicPostItemState extends State<_TopicPostItem> {
+  double? _retainedMinimumHeight;
+  bool _releaseScheduled = false;
+
   @override
   void initState() {
     super.initState();
+    _retainedMinimumHeight = widget.retainedMinimumHeight;
     widget.onAttach(widget.postId, context);
   }
 
   @override
   void didUpdateWidget(_TopicPostItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.postId == widget.postId) return;
+    if (oldWidget.postId == widget.postId) {
+      if (oldWidget.retainedMinimumHeight != widget.retainedMinimumHeight) {
+        _retainedMinimumHeight = widget.retainedMinimumHeight;
+        _releaseScheduled = false;
+      }
+      return;
+    }
     oldWidget.onDetach(oldWidget.postId, context);
+    _retainedMinimumHeight = widget.retainedMinimumHeight;
+    _releaseScheduled = false;
     widget.onAttach(widget.postId, context);
   }
 
@@ -3850,7 +3962,7 @@ class _TopicPostItemState extends State<_TopicPostItem> {
   @override
   Widget build(BuildContext context) {
     final day = widget.day;
-    return Column(
+    final child = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (widget.gapBefore.isNotEmpty)
@@ -3885,6 +3997,26 @@ class _TopicPostItemState extends State<_TopicPostItem> {
           ),
       ],
     );
+    final retainedMinimumHeight = _retainedMinimumHeight;
+    return _RetainedMinimumHeight(
+      minimumHeight: retainedMinimumHeight ?? 0,
+      onNaturalHeightRestored: retainedMinimumHeight == null
+          ? null
+          : _releaseRetainedMinimumHeight,
+      child: child,
+    );
+  }
+
+  void _releaseRetainedMinimumHeight() {
+    if (_releaseScheduled) return;
+    _releaseScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _retainedMinimumHeight = null;
+        _releaseScheduled = false;
+      });
+    });
   }
 }
 
@@ -4783,6 +4915,74 @@ class _TopicReadTime extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// Keeps a rebuilt long post at its last settled height without imposing that
+/// minimum on the child, so the async body can report when it is ready again.
+class _RetainedMinimumHeight extends SingleChildRenderObjectWidget {
+  const _RetainedMinimumHeight({
+    required this.minimumHeight,
+    required this.onNaturalHeightRestored,
+    required super.child,
+  });
+
+  final double minimumHeight;
+  final VoidCallback? onNaturalHeightRestored;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderRetainedMinimumHeight(
+        minimumHeight: minimumHeight,
+        onNaturalHeightRestored: onNaturalHeightRestored,
+      );
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderRetainedMinimumHeight renderObject,
+  ) {
+    renderObject
+      ..minimumHeight = minimumHeight
+      ..onNaturalHeightRestored = onNaturalHeightRestored;
+  }
+}
+
+class _RenderRetainedMinimumHeight extends RenderProxyBox {
+  _RenderRetainedMinimumHeight({
+    required this._minimumHeight,
+    required this._onNaturalHeightRestored,
+  });
+
+  double _minimumHeight;
+  VoidCallback? _onNaturalHeightRestored;
+
+  set minimumHeight(double value) {
+    if (value == _minimumHeight) return;
+    _minimumHeight = value;
+    markNeedsLayout();
+  }
+
+  set onNaturalHeightRestored(VoidCallback? value) {
+    _onNaturalHeightRestored = value;
+  }
+
+  @override
+  void performLayout() {
+    final child = this.child;
+    if (child == null) {
+      size = constraints.constrain(Size(0, _minimumHeight));
+      return;
+    }
+    child.layout(constraints.copyWith(minHeight: 0), parentUsesSize: true);
+    final childSize = child.size;
+    size = constraints.constrain(
+      Size(childSize.width, math.max(childSize.height, _minimumHeight)),
+    );
+    if (_onNaturalHeightRestored case final callback?
+        when childSize.height >= _minimumHeight - 0.5) {
+      callback();
+    }
   }
 }
 
