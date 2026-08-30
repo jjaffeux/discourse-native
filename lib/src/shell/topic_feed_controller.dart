@@ -12,7 +12,11 @@ import '../models/topic.dart';
 import '../models/topic_feed.dart';
 
 typedef TopicFeedLoaded =
-    void Function(DiscourseInstance instance, String? apiKey);
+    void Function(
+      DiscourseInstance instance,
+      String? apiKey,
+      Iterable<int> categoryIds,
+    );
 
 typedef _FeedKey = (String siteUrl, String destinationId);
 typedef _FeedLoad = ({
@@ -160,7 +164,9 @@ final class TopicFeedController extends FrameSafeNotifier {
         // Publishing can synchronously dispose this owner through a listener.
         // Do not let its post-load hook start category work for a replacement
         // shell after that ownership boundary.
-        if (!isDisposed) onFeedLoaded?.call(instance, apiKey);
+        if (!isDisposed) {
+          onFeedLoaded?.call(instance, apiKey, _categoryIds(list.topics));
+        }
       });
     } on SiteLookupException catch (error, stackTrace) {
       if (!requestIsCurrent()) return;
@@ -266,6 +272,9 @@ final class TopicFeedController extends FrameSafeNotifier {
         incoming.clear(destinationId, ids);
         _rows[key] = 0;
         notifySafely();
+        if (!isDisposed) {
+          onFeedLoaded?.call(instance, apiKey, _categoryIds(list.topics));
+        }
       });
     } catch (error, stackTrace) {
       if (!requestIsCurrent()) return;
@@ -345,6 +354,9 @@ final class TopicFeedController extends FrameSafeNotifier {
               next.nextPagePath == feed.nextPagePath,
           clearError: true,
         );
+        if (!isDisposed) {
+          onFeedLoaded?.call(instance, apiKey, _categoryIds(next.topics));
+        }
       });
     } catch (error, stackTrace) {
       if (!requestIsCurrent()) return;
@@ -406,6 +418,11 @@ final class TopicFeedController extends FrameSafeNotifier {
             ],
     );
   }
+
+  Iterable<int> _categoryIds(Iterable<Topic> topics) => <int>{
+    for (final topic in topics)
+      ?topic.categoryId,
+  };
 
   void _commit(SiteLease lease, void Function() mutation) {
     if (isDisposed || !lease.isCurrent) return;

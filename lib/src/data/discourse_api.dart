@@ -1993,6 +1993,41 @@ class DiscourseApi
     );
   }
 
+  /// Resolves category ids that were not present in a lazy category-list page.
+  ///
+  /// Topic lists carry only `category_id`. On sites with lazy category loading,
+  /// that id can belong to a root or subcategory on a later page, so the
+  /// category badge cannot rely on the categories destination having been
+  /// scrolled far enough first.
+  Future<List<TopicCategory>> findCategories({
+    required String siteUrl,
+    required Iterable<int> ids,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final uniqueIds = <int>{};
+    for (final id in ids) {
+      _requirePositiveId(id, 'categoryId');
+      uniqueIds.add(id);
+    }
+    if (uniqueIds.isEmpty) return const [];
+
+    final body = await _getObject(
+      Uri.parse('$siteUrl/categories/find.json').replace(
+        queryParameters: {
+          'ids[]': uniqueIds.map((id) => '$id').toList(growable: false),
+        },
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return List.unmodifiable([
+      for (final category in jsonObjects(body['categories']))
+        TopicCategory.fromJson(category),
+    ]);
+  }
+
   Future<({Map<String, dynamic>? body, bool complete})> _categorySiteMetadata({
     required String siteUrl,
     required String apiKey,

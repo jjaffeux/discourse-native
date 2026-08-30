@@ -502,6 +502,7 @@ class FakeDiscourseApi
     this.creatableFeedPaths = const {},
     this.categoryList = const [],
     this.categoryPages = const {},
+    this.categoryLookupList = const [],
     this.categoryLoadComplete = true,
     this.categoryCanCreateTopic = false,
     this.categoryPostActionCatalog,
@@ -760,12 +761,14 @@ class FakeDiscourseApi
   /// Returned by [categories].
   final List<TopicCategory> categoryList;
   final Map<int, List<TopicCategory>> categoryPages;
+  final List<TopicCategory> categoryLookupList;
   final bool categoryLoadComplete;
   final bool categoryCanCreateTopic;
   final SitePostActionCatalog? categoryPostActionCatalog;
   final TopicComposerCapabilities composerCapabilities;
   final List<String> categoryRequests = [];
   final List<int> categoryPagesRequested = [];
+  final List<List<int>> categoryIdsRequested = [];
   final List<String> topicComposerCapabilityRequests = [];
   final Map<String, TopicTagSearch> topicTagSearches;
 
@@ -1931,6 +1934,21 @@ class FakeDiscourseApi
       canCreateTopic: categoryCanCreateTopic,
       postActionCatalog: categoryPostActionCatalog,
     );
+  }
+
+  @override
+  Future<List<TopicCategory>> findCategories({
+    required String siteUrl,
+    required Iterable<int> ids,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final requested = ids.toSet();
+    categoryIdsRequested.add(List.unmodifiable(requested));
+    return [
+      for (final category in categoryLookupList)
+        if (requested.contains(category.id)) category,
+    ];
   }
 
   @override
