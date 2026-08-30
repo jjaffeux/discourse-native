@@ -182,6 +182,9 @@ class _PillState extends State<Pill> {
             child: InkWell(
               onTap: onTap,
               onFocusChange: _setFocused,
+              // InkWell's adaptive macOS default is the basic arrow, and its
+              // cursor region sits inside the hover region below.
+              mouseCursor: SystemMouseCursors.click,
               borderRadius: radius,
               child: pill,
             ),

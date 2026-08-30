@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
@@ -20,6 +21,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
@@ -367,6 +369,21 @@ void main() {
       // pill's own Text builds one saying exactly `@sam`.
       expect(paragraphOf(tester, 'about it'), contains('￼'));
       expect(paragraphOf(tester, 'about it'), isNot(contains('@sam')));
+    });
+
+    testWidgets('use the hand cursor in cooked posts', (tester) async {
+      await pumpCooked(tester, sam);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.text('@sam')));
+      await tester.pump();
+
+      expect(
+        RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+        SystemMouseCursors.click,
+      );
     });
 
     testWidgets('keep the case the post was written in', (tester) async {

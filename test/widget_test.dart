@@ -14457,7 +14457,6 @@ void main() {
       await tester.enterText(find.byType(TextField), 'hey @sam there');
       await tester.pumpAndSettle();
 
-      final pointer = find.byKey(const ValueKey('composer-editor-pointer'));
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
       addTearDown(mouse.removePointer);
@@ -14465,13 +14464,16 @@ void main() {
       await mouse.moveTo(tester.getCenter(find.text('@sam')));
       await tester.pump();
       expect(
-        tester.widget<MouseRegion>(pointer).cursor,
+        RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
         SystemMouseCursors.click,
       );
 
       await mouse.moveTo(tester.getCenter(find.byType(TextField)));
       await tester.pump();
-      expect(tester.widget<MouseRegion>(pointer).cursor, MouseCursor.defer);
+      expect(
+        RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+        SystemMouseCursors.text,
+      );
     });
 
     testWidgets('a hand-typed name is checked once, then pills', (
