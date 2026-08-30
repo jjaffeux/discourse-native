@@ -1461,7 +1461,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       return;
     }
     if (image != null) {
-      _selectImage(image);
+      _selectImageForKeyboard(image);
       return;
     }
     if (_selectedImage case final selected?) {
@@ -1506,6 +1506,17 @@ class _ComposerEditorState extends State<ComposerEditor> {
       end <= text.length &&
       start <= end &&
       text.substring(start, end) == source;
+
+  void _selectImageForKeyboard(ComposerImageBlock image) {
+    final text = widget.composer.text;
+    if (_selectedImage case final selected?) {
+      text.releaseImagePointerEdit(selected);
+      setState(() => _selectedImage = null);
+    }
+    text.selection = TextSelection.collapsed(offset: image.end);
+    text.releaseImagePointerEdit(image);
+    _selectPillForKeyboard(image);
+  }
 
   void _selectImage(ComposerImageBlock image) {
     widget.composer.text.keepImageCollapsedForPointerEdit(image);

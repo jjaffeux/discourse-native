@@ -229,7 +229,7 @@ void main() {
     );
   });
 
-  testWidgets('click edits a projected image and backspace removes it', (
+  testWidgets('click selects a projected image and Enter edits it', (
     tester,
   ) async {
     final composer = ComposerController(
@@ -266,11 +266,24 @@ void main() {
     await tester.pump();
     await tester.pump();
 
+    final image = composer.text.imageBlocks.single;
+    expect(composer.text.selection, TextSelection.collapsed(offset: image.end));
+    expect(composer.text.keyboardSelectedImage, isNotNull);
+    expect(
+      tester
+          .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
+          .highlighted,
+      isTrue,
+    );
+    expect(find.byTooltip('Save alt text'), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+
     expect(find.byTooltip('Decrease image size'), findsOneWidget);
     expect(find.byTooltip('Increase image size'), findsOneWidget);
     expect(find.byTooltip('Remove image'), findsNothing);
     expect(find.byTooltip('Save alt text'), findsOneWidget);
-    final image = composer.text.imageBlocks.single;
     composer.text.selection = TextSelection.collapsed(offset: image.end - 1);
     await tester.pump();
     expect(find.byType(ComposerImagePreview), findsOneWidget);
