@@ -1982,11 +1982,10 @@ certificate for the team the project names. Signing stays configured for Debug
 on purpose — development builds are custom-signed, see [macOS
 keychain](#macos-keychain) — so it is CI that opts out, not the project.
 
-Two suites need more than that:
+One suite needs more than that:
 
 ```sh
-flutter test --tags live --run-skipped    # hits meta.discourse.org
-flutter test integration_test -d <device> # core storage/network integration
+flutter test integration_test -d <device> # platform keychain integration
 ```
 
 And one check that is about upstream rather than about this code:
@@ -2008,9 +2007,7 @@ configuration sits beside Resenha in
 `packages/discourse_resenha/tool/vendor_contract.json`; the root provenance
 runner contains no WebRTC semantics.
 
-The live tests are skipped by default (see `dart_test.yaml`) so an offline or CI
-run stays green. The integration test is the only one that covers real HTTP,
-real redirects and real persistence together.
+The integration test exercises platform keychain persistence on a real device.
 
 ## Shell layout
 
