@@ -251,6 +251,10 @@ class DiscourseInstance {
               for (final destination in section.destinations)
                 if (destination.id != 'groups') destination,
             ],
+            moreDestinations: [
+              for (final destination in section.moreDestinations)
+                if (destination.id != 'groups') destination,
+            ],
             showHeader: section.showHeader,
             collapsible: section.collapsible,
             actionIcon: section.actionIcon,
@@ -273,9 +277,9 @@ class DiscourseInstance {
           label: 'Topics',
           icon: DIcons.layerGroup,
         ),
+      ],
+      moreDestinations: [
         SidebarDestination(id: 'groups', label: 'Groups', icon: DIcons.users),
-        // Core keeps Filter in the secondary Community links. Native has no
-        // More drawer, so its equivalent is the final visible row.
         SidebarDestination(id: 'filter', label: 'Filter', icon: DIcons.filter),
       ],
     ),
@@ -295,15 +299,15 @@ class DiscourseInstance {
           label: 'Topics',
           icon: DIcons.layerGroup,
         ),
-        SidebarDestination(id: 'groups', label: 'Groups', icon: DIcons.users),
         SidebarDestination(
           id: 'messages',
           label: 'Messages',
           icon: DIcons.inbox,
         ),
         SidebarDestination(id: 'drafts', label: 'Drafts', icon: DIcons.pencil),
-        // Core keeps Filter in the secondary Community links. Native has no
-        // More drawer, so its equivalent is the final visible row.
+      ],
+      moreDestinations: [
+        SidebarDestination(id: 'groups', label: 'Groups', icon: DIcons.users),
         SidebarDestination(id: 'filter', label: 'Filter', icon: DIcons.filter),
       ],
     ),

@@ -375,6 +375,11 @@ directory, detail, member, activity, and permission reads work without an API
 key, while the server-authored capability fields on the group guard every
 authenticated mutation and management surface.
 
+Like core, Groups and Filter are secondary Community links in the sidebar's
+**More** menu. A secondary link is promoted to a selected row immediately above
+More while its route is active; that includes every nested group route, even
+when a group link was opened over another sidebar destination.
+
 Core parses only the built-in group namespace: Members, Activity
 (Posts/Topics/Mentions), Requests, Messages (Inbox/Archive), Permissions, and
 Manage (Profile/Membership/Interaction/Email/Categories/Tags/Logs). Optional
