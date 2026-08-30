@@ -1114,13 +1114,19 @@ fetch.
 The Direct messages section appears after the channel snapshot even when it is
 empty, but its `+` action exists only when the current-user payload says
 `can_direct_message` (staff retain core's override). The picker queries
-`GET /chat/api/chatables` for users and existing direct-message channels, keeps
-core's match-quality/type ordering, and leaves recipients with Chat disabled
-visible but unavailable. Choosing an existing conversation opens it directly;
-choosing a user posts to `/chat/api/direct-message-channels.json` with
-`upsert: true`, commits the returned channel to the shared store and opens it
-without another channel-list fetch. Picker text is transient and stale search
-answers are discarded when the query or account session changes.
+`GET /chat/api/chatables` for users, visible groups, and existing direct-message
+channels, keeps core's match-quality/type ordering, and leaves recipients with
+Chat disabled visible but unavailable. Choosing an existing conversation opens
+it directly; choosing a user posts to
+`/chat/api/direct-message-channels.json` with `upsert: true`. When
+`chat_max_direct_message_users` permits groups (with core's staff override),
+the picker also exposes New group chat: selected users and visible groups are
+posted as `target_usernames`/`target_groups`, with an optional name and
+`upsert: false`, so matching membership does not collapse distinct group
+conversations. Either creation path commits the returned channel to the shared
+store and opens it without another channel-list fetch. Picker text is transient
+and stale search answers are discarded when the query or account session
+changes.
 
 **It cannot use the enablement rule the rest of that interface turns on.** A
 post arrives whether or not you care about reactions, so its payload can be the

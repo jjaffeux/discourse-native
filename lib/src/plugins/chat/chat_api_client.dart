@@ -53,6 +53,8 @@ final class ChatApiClient implements ChatApi {
     required String siteUrl,
     required String apiKey,
     required String term,
+    bool includeGroups = false,
+    bool includeDirectMessageChannels = true,
     String? clientId,
   }) async {
     _validateComposerLookupValue(term);
@@ -61,9 +63,9 @@ final class ChatApiClient implements ChatApi {
         queryParameters: {
           'term': term,
           'include_users': 'true',
-          'include_groups': 'false',
+          'include_groups': '$includeGroups',
           'include_category_channels': 'false',
-          'include_direct_message_channels': 'true',
+          'include_direct_message_channels': '$includeDirectMessageChannels',
         },
       ),
       siteUrl: siteUrl,
@@ -73,19 +75,27 @@ final class ChatApiClient implements ChatApi {
     return ChatDirectMessageSearchResults.fromJson(body, siteUrl);
   }
 
-  /// Finds or creates a direct-message channel with one user.
+  /// Creates a direct-message channel from users and visible groups.
   ///
-  /// This is the same upsert route used by Chat's web user-card button. The
-  /// server remains authoritative for both permission and whether an existing
-  /// one-to-one channel can be reused.
+  /// One-to-one callers opt into [upsert], while group composition deliberately
+  /// leaves it false so the same people can have more than one group chat.
   @override
-  Future<ChatChannel> upsertChatDirectMessageChannel({
+  Future<ChatChannel> createChatDirectMessageChannel({
     required String siteUrl,
     required String apiKey,
-    required String username,
+    required List<String> usernames,
+    List<String> groups = const [],
+    String? name,
+    bool upsert = false,
     String? clientId,
   }) async {
-    _validateComposerLookupValue(username);
+    if (usernames.isEmpty && groups.isEmpty) {
+      throw ArgumentError('A direct-message target is required.');
+    }
+    for (final value in [...usernames, ...groups]) {
+      _validateComposerLookupValue(value);
+    }
+    if (name != null) _validateComposerLookupValue(name, allowEmpty: true);
     final body = await _write(
       Uri.parse('$siteUrl/chat/api/direct-message-channels.json'),
       siteUrl: siteUrl,
@@ -93,8 +103,10 @@ final class ChatApiClient implements ChatApi {
       apiKey: apiKey,
       clientId: clientId,
       body: {
-        'target_usernames': [username],
-        'upsert': true,
+        if (usernames.isNotEmpty) 'target_usernames': usernames,
+        if (groups.isNotEmpty) 'target_groups': groups,
+        'upsert': upsert,
+        'name': name,
       },
     );
     final channel = body['channel'];

@@ -3392,7 +3392,20 @@ void _feedGroups() {
                   },
                 },
               ],
-              'groups': const <Object?>[],
+              'groups': [
+                {
+                  'identifier': 'g-8',
+                  'type': 'group',
+                  'match_quality': 2,
+                  'model': {
+                    'id': 8,
+                    'name': 'sam-fans',
+                    'full_name': 'Sam fans',
+                    'can_chat': true,
+                    'chat_enabled_user_count': 4,
+                  },
+                },
+              ],
               'direct_message_channels': [
                 {
                   'identifier': 'c-55',
@@ -3418,20 +3431,22 @@ void _feedGroups() {
         apiKey: 'key',
         clientId: 'client',
         term: 'sam',
+        includeGroups: true,
       );
 
       expect(seen.url.path, '/chat/api/chatables');
       expect(seen.url.queryParameters, {
         'term': 'sam',
         'include_users': 'true',
-        'include_groups': 'false',
+        'include_groups': 'true',
         'include_category_channels': 'false',
         'include_direct_message_channels': 'true',
       });
-      expect(results.items, hasLength(2));
+      expect(results.items, hasLength(3));
       expect(results.items.first, isA<ChatDirectMessageUser>());
       expect((results.items.first as ChatDirectMessageUser).username, 'sam');
-      expect((results.items.last as ChatDirectMessageChannel).channel.id, 55);
+      expect((results.items[1] as ChatDirectMessageChannel).channel.id, 55);
+      expect((results.items.last as ChatDirectMessageGroup).name, 'sam-fans');
     });
 
     test('upserts a DM channel for the user-card Chat action', () async {
@@ -3458,11 +3473,12 @@ void _feedGroups() {
         }),
       );
 
-      final channel = await ChatApiClient(api).upsertChatDirectMessageChannel(
+      final channel = await ChatApiClient(api).createChatDirectMessageChannel(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         clientId: 'client',
-        username: 'sam',
+        usernames: const ['sam'],
+        upsert: true,
       );
 
       expect(seen.method, 'POST');
@@ -3473,6 +3489,46 @@ void _feedGroups() {
       });
       expect(channel.id, 55);
       expect(channel.isDirectMessage, isTrue);
+    });
+
+    test('creates a named group DM from users and visible groups', () async {
+      late http.Request seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(
+            jsonEncode({
+              'channel': {
+                'id': 56,
+                'title': 'Triage',
+                'chatable_type': 'DirectMessage',
+                'chatable': {'group': true, 'users': const <Object?>[]},
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final channel = await ChatApiClient(api).createChatDirectMessageChannel(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        clientId: 'client',
+        usernames: const ['sam', 'kris'],
+        groups: const ['moderators'],
+        name: 'Triage',
+      );
+
+      expect(seen.method, 'POST');
+      expect(seen.url.path, '/chat/api/direct-message-channels.json');
+      expect(jsonDecode(seen.body), {
+        'target_usernames': ['sam', 'kris'],
+        'target_groups': ['moderators'],
+        'upsert': false,
+        'name': 'Triage',
+      });
+      expect(channel.id, 56);
+      expect(channel.isGroup, isTrue);
     });
   });
 

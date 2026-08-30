@@ -197,6 +197,9 @@ const _keys = [
   'identifier',
   'match_quality',
   'has_chat_enabled',
+  'can_chat',
+  'chat_enabled_user_count',
+  'full_name',
   'timezone',
   'like_notification_frequency',
   'notify_on_linked_posts',
@@ -438,6 +441,11 @@ void main() {
       probe(
         'ChatDirectMessageChannel',
         () => ChatDirectMessageChannel.fromJson(json, site),
+        json,
+      );
+      probe(
+        'ChatDirectMessageGroup',
+        () => ChatDirectMessageGroup.fromJson(json),
         json,
       );
       probe(

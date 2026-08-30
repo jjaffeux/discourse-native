@@ -1289,9 +1289,33 @@ class ChatController extends FrameSafeNotifier {
   Future<ChatChannel?> upsertDirectMessageChannel(
     String siteUrl,
     String username,
-  ) async {
-    final target = username.trim();
-    if (isDisposed || target.isEmpty) return null;
+  ) => createDirectMessageChannel(siteUrl, usernames: [username], upsert: true);
+
+  /// Creates a one-to-one or group direct-message channel.
+  ///
+  /// Group composition uses [upsert] false, matching core: two groups with the
+  /// same membership remain distinct. The server expands visible [groups] and
+  /// remains authoritative for permissions and the configured member limit.
+  Future<ChatChannel?> createDirectMessageChannel(
+    String siteUrl, {
+    required Iterable<String> usernames,
+    Iterable<String> groups = const [],
+    String? name,
+    bool upsert = false,
+  }) async {
+    final targets = <String>{
+      for (final username in usernames)
+        if (username.trim().isNotEmpty) username.trim(),
+    }.toList(growable: false);
+    final targetGroups = <String>{
+      for (final group in groups)
+        if (group.trim().isNotEmpty) group.trim(),
+    }.toList(growable: false);
+    final channelName = switch (name?.trim()) {
+      final value? when value.isNotEmpty => value,
+      _ => null,
+    };
+    if (isDisposed || targets.isEmpty && targetGroups.isEmpty) return null;
     final lease = _requests.capture(siteUrl);
 
     try {
@@ -1303,11 +1327,14 @@ class ChatController extends FrameSafeNotifier {
       }
       final clientId = requestCredentials.clientId;
       if (isDisposed || !lease.isCurrent) return null;
-      final channel = await api.upsertChatDirectMessageChannel(
+      final channel = await api.createChatDirectMessageChannel(
         siteUrl: siteUrl,
         apiKey: apiKey,
         clientId: clientId,
-        username: target,
+        usernames: targets,
+        groups: targetGroups,
+        name: channelName,
+        upsert: upsert,
       );
       if (isDisposed || !lease.isCurrent || channel.id <= 0) return null;
 
@@ -1326,7 +1353,7 @@ class ChatController extends FrameSafeNotifier {
       return channel;
     } catch (error, stackTrace) {
       if (!isDisposed && lease.isCurrent) {
-        _report(error, stackTrace, 'chat.upsertDirectMessage');
+        _report(error, stackTrace, 'chat.createDirectMessage');
       }
       rethrow;
     }
@@ -1341,8 +1368,10 @@ class ChatController extends FrameSafeNotifier {
   /// changed while the request was in flight are discarded.
   Future<ChatDirectMessageSearchResults> searchDirectMessages(
     String siteUrl,
-    String term,
-  ) async {
+    String term, {
+    bool includeGroups = false,
+    bool includeDirectMessageChannels = true,
+  }) async {
     final query = term.trim();
     if (isDisposed || query.isEmpty) {
       return ChatDirectMessageSearchResults(const []);
@@ -1359,6 +1388,8 @@ class ChatController extends FrameSafeNotifier {
       apiKey: apiKey,
       clientId: requestCredentials.clientId,
       term: query,
+      includeGroups: includeGroups,
+      includeDirectMessageChannels: includeDirectMessageChannels,
     );
     if (isDisposed || !lease.isCurrent) {
       return ChatDirectMessageSearchResults(const []);

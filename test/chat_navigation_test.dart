@@ -132,6 +132,16 @@ void main() {
             ),
           ),
         ]),
+        'team': ChatDirectMessageSearchResults(const [
+          ChatDirectMessageGroup(
+            identifier: 'g-8',
+            matchQuality: 1,
+            enabled: true,
+            name: 'moderators',
+            fullName: 'Moderators',
+            memberCount: 3,
+          ),
+        ]),
       },
       directMessageChannelsByUsername: const {
         'sam': ChatChannel(
@@ -143,6 +153,14 @@ void main() {
           tracking: ChatTracking(),
         ),
       },
+      directMessageGroupChannel: const ChatChannel(
+        id: 57,
+        title: 'Triage crew',
+        kind: ChatChannelKind.directMessage,
+        isGroup: true,
+        membership: ChatMembership(following: true),
+        tracking: ChatTracking(),
+      ),
       chatThreadsByKey: {
         FakeDiscourseApi.chatThreadKey(9, 3): _thread(9, 3),
         FakeDiscourseApi.chatThreadKey(9, 4): _thread(9, 4),
@@ -745,6 +763,111 @@ void main() {
     expect(api.chatDirectMessageSearchesRequested, ['sam', 'previous']);
     expect(api.directMessageChannelsRequested, ['sam']);
     expect(shell.currentContent?.id, 'chat-c-56');
+  });
+
+  testWidgets('Direct messages + creates a named group from users and groups', (
+    tester,
+  ) async {
+    await shell.chat.loadChannels(_site);
+    shell.accountActivity.applyCounts(_site, (_) => chatNotificationTotals());
+    late SidebarSection directMessages;
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: PluginUiScope.own(
+            chatPluginId,
+            Scaffold(
+              body: Builder(
+                builder: (context) {
+                  directMessages = const ChatPlugin()
+                      .sidebarSections(context)
+                      .singleWhere(
+                        (section) => section.id == 'direct-messages',
+                      );
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    directMessages.onAction!();
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('chat-new-group-direct-message')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('New group chat'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey('chat-create-group-direct-message')),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('chat-new-direct-message-search')),
+      'sam',
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('chat-new-direct-message-user-sam')),
+    );
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('chat-new-group-member-u-2')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('chat-new-direct-message-search')),
+      'team',
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('chat-new-direct-message-group-moderators')),
+    );
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('chat-new-group-member-g-8')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('chat-new-group-name')),
+      'Triage crew',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('chat-create-group-direct-message')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(api.directMessageChannelRequests, hasLength(1));
+    final request = api.directMessageChannelRequests.single;
+    expect(request.usernames, ['sam']);
+    expect(request.groups, ['moderators']);
+    expect(request.name, 'Triage crew');
+    expect(request.upsert, isFalse);
+    expect(
+      api.chatDirectMessageSearchRequests.map(
+        (request) => (
+          request.term,
+          request.includeGroups,
+          request.includeDirectMessageChannels,
+        ),
+      ),
+      [('sam', true, false), ('team', true, false)],
+    );
+    expect(shell.currentContent?.id, 'chat-c-57');
   });
 
   testWidgets('channel header opens its live thread list and preserves Back', (
