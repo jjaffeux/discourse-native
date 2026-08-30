@@ -5,6 +5,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
@@ -39,13 +40,14 @@ Future<void> pumpCooked(
   WidgetTester tester,
   String html, {
   PluginRegistry? registry,
+  Post? post,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.dark,
       home: Scaffold(
         body: SingleChildScrollView(
-          child: CookedHtml(html: html, registry: registry),
+          child: CookedHtml(html: html, registry: registry, post: post),
         ),
       ),
     ),
@@ -307,6 +309,77 @@ void main() {
   });
 
   group('links', () {
+    testWidgets('show the server click count beside a matching cooked link', (
+      tester,
+    ) async {
+      const post = Post(
+        id: 1,
+        postNumber: 1,
+        username: 'sam',
+        cooked: '',
+        linkCounts: [
+          PostLinkCount(url: 'https://hotel.example/tour', clicks: 9),
+        ],
+      );
+
+      await pumpCooked(
+        tester,
+        '<p>Take the <a href="https://hotel.example/tour">virtual tour</a>'
+        ' today.</p>',
+        post: post,
+      );
+
+      expect(renderedText('9'), findsOneWidget);
+      expect(
+        paragraphOf(tester, 'virtual tour'),
+        contains('virtual tour\u{fffc}'),
+      );
+      expect(styleOf(tester, '9').fontSize, DiscourseTypography.fontDown2);
+      expect(styleOf(tester, '9').color, AppTheme.dark.discourse.whisper);
+    });
+
+    testWidgets('matches internal links before query parameters', (
+      tester,
+    ) async {
+      const post = Post(
+        id: 1,
+        postNumber: 1,
+        username: 'sam',
+        cooked: '',
+        linkCounts: [
+          PostLinkCount(url: '/t/launch/1', clicks: 1250, internal: true),
+        ],
+      );
+
+      await pumpCooked(
+        tester,
+        '<p><a href="/t/launch/1?u=sam">Launch topic</a></p>',
+        post: post,
+      );
+
+      expect(renderedText('1.3k'), findsOneWidget);
+    });
+
+    testWidgets('omit counts from links core excludes from click tracking', (
+      tester,
+    ) async {
+      const post = Post(
+        id: 1,
+        postNumber: 1,
+        username: 'sam',
+        cooked: '',
+        linkCounts: [PostLinkCount(url: '/skip', clicks: 7)],
+      );
+
+      await pumpCooked(
+        tester,
+        '<p><a class="no-track-link" href="/skip">Skip me</a></p>',
+        post: post,
+      );
+
+      expect(paragraphOf(tester, 'Skip me'), isNot(contains('7')));
+    });
+
     testWidgets('are not underlined, the way Discourse draws them', (
       tester,
     ) async {

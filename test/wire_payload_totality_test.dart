@@ -314,6 +314,7 @@ void main() {
       );
       probe('Post', () => Post.fromJson(json, site), json);
       probe('PostNotice', () => PostNotice.fromJson(loose), loose);
+      probe('PostLinkCount', () => PostLinkCount.fromJson(json), json);
       probe('PostInboundLink', () => PostInboundLink.fromJson(json), json);
       probe(
         'PostRevisionChange',

@@ -193,7 +193,7 @@ void main() {
       expect(topic.links.single.clicks, 7);
     });
 
-    test('keeps only visible internal post linkbacks', () {
+    test('keeps click counts and only visible internal post linkbacks', () {
       final parsed = Post.fromJson(const {
         'id': 1,
         'post_number': 1,
@@ -212,11 +212,16 @@ void main() {
             'title': 'Outbound',
             'internal': false,
             'reflection': false,
+            'clicks': 9,
           },
           {'url': '/t/untitled/10', 'internal': true, 'reflection': true},
         ],
       }, site);
 
+      expect(parsed.linkCounts, [
+        const PostLinkCount(url: '/t/source/9', clicks: 2, internal: true),
+        const PostLinkCount(url: 'https://example.com', clicks: 9),
+      ]);
       expect(parsed.inboundLinks, [
         const PostInboundLink(
           url: '/t/source/9',

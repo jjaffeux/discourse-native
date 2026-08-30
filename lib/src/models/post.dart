@@ -77,6 +77,7 @@ class Post with Storable<Post> {
     this.liked = false,
     this.canLike = false,
     this.canUnlike = false,
+    this.linkCounts = const [],
     this.inboundLinks = const [],
     this.postActions = const [],
     this.raw,
@@ -97,8 +98,8 @@ class Post with Storable<Post> {
   /// and 2 everywhere, flags being the other numbers in that table.
   static const int likeActionId = 2;
 
-  /// A defensive ceiling for reflected topics retained with one post.
-  static const int maximumInboundLinks = 100;
+  /// A defensive ceiling for click-count records retained with one post.
+  static const int maximumLinkCounts = 100;
 
   factory Post.fromJson(
     Map<String, dynamic> json,
@@ -106,6 +107,9 @@ class Post with Storable<Post> {
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
   }) {
     final like = _likeSummary(json['actions_summary']);
+    final linkCountJson = jsonObjects(json['link_counts'])
+        .take(maximumLinkCounts)
+        .toList(growable: false);
     return Post(
       id: jsonInt(json['id']),
       postNumber: jsonInt(json['post_number']),
@@ -157,11 +161,11 @@ class Post with Storable<Post> {
       liked: like.acted,
       canLike: like.canAct,
       canUnlike: like.canUndo,
+      linkCounts: List.unmodifiable([
+        for (final link in linkCountJson) ?PostLinkCount.fromJson(link),
+      ]),
       inboundLinks: List.unmodifiable([
-        for (final link in jsonObjects(
-          json['link_counts'],
-        ).take(maximumInboundLinks))
-          ?PostInboundLink.fromJson(link),
+        for (final link in linkCountJson) ?PostInboundLink.fromJson(link),
       ]),
       postActions: _postActionSummaries(json['actions_summary']),
       // Only present when asked for. Reading needs the cooked HTML; writing
@@ -284,6 +288,13 @@ class Post with Storable<Post> {
   /// false once the site's undo window has run out on a like already given.
   final bool canLike;
   final bool canUnlike;
+
+  /// Click totals for links in this post's cooked body.
+  ///
+  /// Core's client attaches these to matching anchors after cooking, because
+  /// the server keeps volatile click totals out of the cooked HTML itself.
+  /// Entries without a positive count are omitted at the model boundary.
+  final List<PostLinkCount> linkCounts;
 
   /// Visible topics which link back to this post.
   ///
@@ -472,6 +483,7 @@ class Post with Storable<Post> {
     liked: liked ?? this.liked,
     canLike: canLike ?? this.canLike,
     canUnlike: canUnlike ?? this.canUnlike,
+    linkCounts: linkCounts,
     inboundLinks: inboundLinks == null
         ? this.inboundLinks
         : List.unmodifiable(inboundLinks),
@@ -521,6 +533,7 @@ class Post with Storable<Post> {
           other.liked == liked &&
           other.canLike == canLike &&
           other.canUnlike == canUnlike &&
+          listEquals(other.linkCounts, linkCounts) &&
           listEquals(other.inboundLinks, inboundLinks) &&
           listEquals(other.postActions, postActions) &&
           other.raw == raw &&
@@ -563,12 +576,48 @@ class Post with Storable<Post> {
     liked,
     canLike,
     canUnlike,
+    Object.hashAll(linkCounts),
     Object.hashAll(inboundLinks),
     Object.hashAll(postActions),
     raw,
     bookmark,
     plugins,
   ]);
+}
+
+/// A positive click total for one link in a post's cooked body.
+@immutable
+class PostLinkCount {
+  const PostLinkCount({
+    required this.url,
+    required this.clicks,
+    this.internal = false,
+  });
+
+  static PostLinkCount? fromJson(Map<String, dynamic> json) {
+    final url = jsonText(json['url']);
+    final clicks = jsonInt(json['clicks']);
+    if (url == null || clicks < 1) return null;
+    return PostLinkCount(
+      url: url,
+      clicks: clicks,
+      internal: json['internal'] == true,
+    );
+  }
+
+  final String url;
+  final int clicks;
+  final bool internal;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PostLinkCount &&
+      other.url == url &&
+      other.clicks == clicks &&
+      other.internal == internal;
+
+  @override
+  int get hashCode => Object.hash(url, clicks, internal);
 }
 
 /// One internal topic which links back to a post.
