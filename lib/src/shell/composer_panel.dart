@@ -1395,7 +1395,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _pointerDownAfterBlockSyntax != null;
 
   void _onEditorPointerDown(PointerDownEvent event) {
-    widget.composer.text.clearKeyboardPillSelection();
+    _clearKeyboardPillSelection();
     _releasePointerDownPillCollapse();
     _pointerDownAfterBlockSyntax = null;
     _pointerSequence++;
@@ -1570,8 +1570,16 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   void _selectImage(ComposerImageBlock image) {
-    widget.composer.text.keepImageCollapsedForPointerEdit(image);
     widget.composer.text.selection = TextSelection.collapsed(offset: image.end);
+    _showImageMenu(image);
+  }
+
+  void _showImageMenu(ComposerImageBlock image) {
+    if (_selectedImage case final selected?
+        when selected.start != image.start || selected.source != image.source) {
+      widget.composer.text.releaseImagePointerEdit(selected);
+    }
+    widget.composer.text.keepImageCollapsedForPointerEdit(image);
     _imageAlt.text = image.alt;
     setState(() => _selectedImage = image);
     // If pointer-down already moved the caret into the image, the editable
@@ -1631,7 +1639,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
               event.logicalKey == LogicalKeyboardKey.arrowRight);
       if (isPlainHorizontalArrow) {
         final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
-        widget.composer.text.clearKeyboardPillSelection();
+        _clearKeyboardPillSelection();
         if (moveLeft) {
           widget.composer.text.selection = TextSelection.collapsed(
             offset: _pillStart(selectedPill),
@@ -1657,7 +1665,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       if (event is KeyDownEvent &&
           event.logicalKey == LogicalKeyboardKey.backspace &&
           !hasModifier) {
-        widget.composer.text.clearKeyboardPillSelection();
+        _clearKeyboardPillSelection();
         _removePill(selectedPill);
         return KeyEventResult.handled;
       }
@@ -1777,9 +1785,22 @@ class _ComposerEditorState extends State<ComposerEditor> {
       widget.composer.text.keyboardSelectedImage ??
       widget.composer.text.keyboardSelectedSyntax;
 
+  void _clearKeyboardPillSelection() {
+    final hadSelectedImage = widget.composer.text.keyboardSelectedImage != null;
+    widget.composer.text.clearKeyboardPillSelection();
+    final image = _selectedImage;
+    if (hadSelectedImage && image != null) {
+      widget.composer.text.releaseImagePointerEdit(image);
+      setState(() => _selectedImage = null);
+    }
+  }
+
   void _selectPillForKeyboard(Object pill) {
     widget.composer.autocomplete.dismiss();
     widget.composer.text.selectPillForKeyboard(pill);
+    if (pill case final ComposerImageBlock image) {
+      _showImageMenu(image);
+    }
   }
 
   Object? _collapsedPillEndingAt(int caret) {
