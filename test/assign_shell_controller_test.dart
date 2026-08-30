@@ -320,6 +320,61 @@ void main() {
     },
   );
 
+  testWidgets('a sidebar post assignment loads around its exact post', (
+    tester,
+  ) async {
+    const assignment = Assignment(
+      assignee: AssignmentUser(username: 'sam', name: 'Sam'),
+      postId: 12,
+      postNumber: 2,
+    );
+    final api = FakeDiscourseApi(
+      user: _assignUser(),
+      feeds: const {'/latest.json': <Topic>[]},
+      topics: {
+        7: _payload(
+          canAssignTopic: false,
+          canAssignPost: false,
+          postAssignment: assignment,
+        ),
+      },
+      siteConfigs: const {_site: SiteConfig.unknown()},
+    );
+    final shell = (await tester.runAsync(() => _loadShell(api)))!;
+    addTearDown(shell.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: ShellScope(
+          controller: shell,
+          child: Scaffold(
+            body: Builder(
+              builder: (context) => Column(
+                children: [
+                  for (final section
+                      in PluginScope.of(context).registry.topicProperties(
+                        context,
+                        _site,
+                        shell.currentTopic!,
+                      ))
+                    ...section.values,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('assign-topic-property-post-12')));
+    await tester.pumpAndSettle();
+
+    expect(api.topicsOpened, [7, 7]);
+    expect(api.topicPostNumbersOpened, [null, 2]);
+    expect(shell.currentContent?.postNumber, 2);
+  });
+
   testWidgets(
     'a legacy 404 rebuilds away topic properties and post-menu contributions',
     (tester) async {

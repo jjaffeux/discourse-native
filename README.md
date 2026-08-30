@@ -544,11 +544,16 @@ Topic chrome keeps navigation separate from context. The fixed header contains
 Back, a single-line title, an icon-only notification-level menu and its
 right-aligned sidebar toggle. On expanded layouts a full-height 344-point right
 sidebar holds Reply with the adjacent guardian-gated topic menu, followed by
-bookmarks and other account actions; category, tags and plugin-owned properties
-such as Assignments share one untitled card; and non-empty recommendation
-sources such as Related and Suggested share a second card with tabs. The
-panel-shaped toggle removes the entire sidebar from the layout, and that
-preference is remembered per forum.
+bookmarks and other account actions; category, tags and inline plugin-owned
+properties share one untitled card; and non-empty recommendation sources such
+as Related and Suggested share a second card with tabs. Assignments use their
+own titled card: the topic is always the first compact row, followed by one row
+per assigned post in post order. The topic row opens the shared anchored picker
+to set, update, or remove its assignment, while a numbered post row navigates
+to that post. On pointer layouts the editor is a 360-point user/group popover
+with Note and optional Status fields; touch layouts use the shared bottom
+sheet. The panel-shaped toggle removes the entire sidebar from the layout, and
+that preference is remembered per forum.
 Medium and compact layouts keep the same controls available through a transient
 right-side overlay instead of shrinking the reading column.
 

@@ -464,7 +464,7 @@ void main() {
     const registry = PluginRegistry([
       _SurfacePlugin('first'),
       _NamedPlugin('unrelated'),
-      _SurfacePlugin('second'),
+      _SurfacePlugin('second', layout: TopicPropertySectionLayout.standalone),
     ]);
     late List<Widget> decorations;
     late List<Widget> metadata;
@@ -508,6 +508,10 @@ void main() {
     ]) {
       expect(find.text(label), findsOneWidget);
     }
+    expect(properties.map((section) => section.layout), [
+      TopicPropertySectionLayout.inline,
+      TopicPropertySectionLayout.standalone,
+    ]);
   });
 
   testWidgets('aggregates topic-property rebuild signals', (tester) async {
@@ -641,7 +645,12 @@ final class _SurfacePlugin extends _NamedPlugin
         PostDecorationPlugin,
         TopicListMetadataPlugin,
         TopicPropertiesPlugin {
-  const _SurfacePlugin(super.name);
+  const _SurfacePlugin(
+    super.name, {
+    this.layout = TopicPropertySectionLayout.inline,
+  });
+
+  final TopicPropertySectionLayout layout;
 
   @override
   List<Widget> postDecorations(
@@ -664,7 +673,11 @@ final class _SurfacePlugin extends _NamedPlugin
     String siteUrl,
     TopicDetail topic,
   ) => [
-    TopicPropertySection(label: name, values: [Text('$name-properties')]),
+    TopicPropertySection(
+      label: name,
+      values: [Text('$name-properties')],
+      layout: layout,
+    ),
   ];
 }
 

@@ -9,7 +9,6 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/pill.dart';
 import '../../shell/post_action.dart';
-import '../../shell/shell_sheet.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'assign_data.dart';
@@ -176,147 +175,66 @@ final class AssignPlugin
       target,
       assignments?.canAssign,
     );
-    final hasAssignments = assignments?.hasAssignments == true;
-    final visibleAssignments =
-        assignments?.all.toList(growable: false) ?? const <Assignment>[];
-
-    final assignmentCount = assignments?.all.length ?? 0;
-    final summary = hasAssignments
-        ? 'View $assignmentCount '
-              '${assignmentCount == 1 ? 'assignment' : 'assignments'}'
-        : 'Assign this topic';
-
-    void openAssignments() {
-      if (!hasAssignments) {
-        unawaited(
-          showAssignmentEditor(
-            context: context,
-            siteUrl: siteUrl,
-            target: target,
-          ),
-        );
-        return;
-      }
-      unawaited(
-        _showAssignments(
-          context: context,
-          siteUrl: siteUrl,
-          topic: topic,
-          assignments: assignments!,
-          canAssign: _canAssignRecord(
-            context,
-            siteUrl,
-            target,
-            assignments.canAssign,
-          ),
-        ),
-      );
+    final direct = assignments?.direct;
+    final postAssignments = [...?assignments?.postAssignments.values]
+      ..sort(_comparePostAssignments);
+    if (direct == null && postAssignments.isEmpty && !canAssign) {
+      return const [];
     }
 
-    if (!hasAssignments) {
-      Widget button() => Semantics(
-        button: true,
-        label: summary,
-        onTap: openAssignments,
-        child: ExcludeSemantics(
-          child: InkWell(
-            key: const Key('assign-topic-property'),
-            onTap: openAssignments,
-            borderRadius: BorderRadius.circular(4),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
-              child: Builder(
-                builder: (context) {
-                  final theme = Theme.of(context);
-                  return Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DIcon(
-                        DIcons.userPlus,
-                        size: 14,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Assign',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
-        ),
-      );
-      if (!canAssign) return const [];
-      return [
-        TopicPropertySection(label: 'Assignments', values: [button()]),
-      ];
-    }
-
+    final navigation = PluginUiScope.maybe(
+      context,
+      assignGroupNavigationService,
+    );
     return [
       TopicPropertySection(
         label: 'Assignments',
+        layout: TopicPropertySectionLayout.standalone,
         values: [
-          for (var index = 0; index < visibleAssignments.length; index++)
-            Semantics(
-              key: index == 0
-                  ? const Key('assign-topic-property')
-                  : Key('assign-topic-property-$index'),
-              button: true,
-              label: index == 0
-                  ? summary
-                  : 'View assignment for '
-                        '${visibleAssignments[index].assignee.displayName}',
-              onTap: openAssignments,
-              child: ExcludeSemantics(
-                child: Tooltip(
-                  message: 'View assignments',
-                  child: Builder(
-                    builder: (context) {
-                      final theme = Theme.of(context);
-                      return InkWell(
-                        onTap: openAssignments,
-                        borderRadius: BorderRadius.circular(4),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 2,
-                            vertical: 3,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              DIcon(
-                                visibleAssignments[index].assignee.isGroup
-                                    ? DIcons.users
-                                    : DIcons.userPlus,
-                                size: 14,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  _propertyAssignmentLabel(
-                                    visibleAssignments[index],
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.labelMedium?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
+          _TopicAssignmentPropertyRow(
+            key: const Key('assign-topic-property'),
+            targetLabel: 'Topic',
+            assignment: direct,
+            actionLabel: canAssign
+                ? direct == null
+                      ? 'Assign topic'
+                      : 'Edit topic assignment'
+                : null,
+            actionIcon: canAssign && direct != null ? DIcons.pencil : null,
+            onTap: canAssign
+                ? (anchorContext) => unawaited(
+                    showAssignmentEditor(
+                      context: anchorContext,
+                      anchorContext: anchorContext,
+                      siteUrl: siteUrl,
+                      target: target,
+                      existing: direct,
+                    ),
+                  )
+                : null,
+          ),
+          for (final assignment in postAssignments)
+            _TopicAssignmentPropertyRow(
+              key: Key(
+                'assign-topic-property-post-${assignment.postId ?? 'unknown'}',
               ),
+              targetLabel: _postLabel(_validPostNumber(assignment)),
+              assignment: assignment,
+              actionLabel:
+                  navigation != null && _validPostNumber(assignment) != null
+                  ? 'Open ${_postLabel(_validPostNumber(assignment))}'
+                  : null,
+              actionIcon:
+                  navigation != null && _validPostNumber(assignment) != null
+                  ? DIcons.chevronRight
+                  : null,
+              onTap: navigation != null && _validPostNumber(assignment) != null
+                  ? (_) => navigation.openTopicPost(
+                      siteUrl: siteUrl,
+                      topicId: topic.id,
+                      postNumber: _validPostNumber(assignment)!,
+                    )
+                  : null,
             ),
         ],
       ),
@@ -358,11 +276,14 @@ final class AssignPlugin
                   assignment: direct,
                   label: 'Topic',
                   onTap: canEdit
-                      ? () => showAssignmentEditor(
-                          context: context,
-                          siteUrl: siteUrl,
-                          target: AssignmentTarget.topic(topic.id),
-                          existing: direct,
+                      ? (anchorContext) => unawaited(
+                          showAssignmentEditor(
+                            context: anchorContext,
+                            anchorContext: anchorContext,
+                            siteUrl: siteUrl,
+                            target: AssignmentTarget.topic(topic.id),
+                            existing: direct,
+                          ),
                         )
                       : null,
                 ),
@@ -397,11 +318,17 @@ final class AssignPlugin
               assignment: assignment,
               label: _postLabel(assignment.postNumber ?? post.postNumber),
               onTap: canEdit
-                  ? () => showAssignmentEditor(
-                      context: context,
-                      siteUrl: siteUrl,
-                      target: AssignmentTarget.post(post.id, topicId: topic.id),
-                      existing: assignment,
+                  ? (anchorContext) => unawaited(
+                      showAssignmentEditor(
+                        context: anchorContext,
+                        anchorContext: anchorContext,
+                        siteUrl: siteUrl,
+                        target: AssignmentTarget.post(
+                          post.id,
+                          topicId: topic.id,
+                        ),
+                        existing: assignment,
+                      ),
                     )
                   : null,
             ),
@@ -447,6 +374,16 @@ final class AssignPlugin
       _ => false,
     };
 
+    void openEditor({Rect? anchor}) => unawaited(
+      showAssignmentEditor(
+        context: context,
+        anchor: anchor,
+        siteUrl: siteUrl,
+        target: AssignmentTarget.post(post.id, topicId: topic.id),
+        existing: existing,
+      ),
+    );
+
     return PostMenuContribution(
       rebuildOn: assignmentController,
       entries: [
@@ -461,14 +398,8 @@ final class AssignPlugin
           tooltip: existing == null
               ? 'Assign this post'
               : 'Edit this post assignment',
-          onInvoke: () => unawaited(
-            showAssignmentEditor(
-              context: context,
-              siteUrl: siteUrl,
-              target: AssignmentTarget.post(post.id, topicId: topic.id),
-              existing: existing,
-            ),
-          ),
+          onInvoke: openEditor,
+          onInvokeAnchored: (anchor) => openEditor(anchor: anchor),
         ),
       ],
     );
@@ -546,7 +477,7 @@ class _AssignmentRowData {
 
   final Assignment assignment;
   final String label;
-  final VoidCallback? onTap;
+  final ValueChanged<BuildContext>? onTap;
 }
 
 class _AssignmentRows extends StatelessWidget {
@@ -562,10 +493,14 @@ class _AssignmentRows extends StatelessWidget {
       children: [
         for (var index = 0; index < rows.length; index++) ...[
           if (index > 0) const SizedBox(height: 8),
-          AssignmentDetailRow(
-            assignment: rows[index].assignment,
-            targetLabel: rows[index].label,
-            onTap: rows[index].onTap,
+          Builder(
+            builder: (anchorContext) => AssignmentDetailRow(
+              assignment: rows[index].assignment,
+              targetLabel: rows[index].label,
+              onTap: rows[index].onTap == null
+                  ? null
+                  : () => rows[index].onTap!(anchorContext),
+            ),
           ),
         ],
       ],
@@ -573,66 +508,91 @@ class _AssignmentRows extends StatelessWidget {
   );
 }
 
-Future<void> _showAssignments({
-  required BuildContext context,
-  required String siteUrl,
-  required TopicDetail topic,
-  required Assignments assignments,
-  required bool canAssign,
-}) => showShellSheet<void>(
-  context: context,
-  title: 'Assignments',
-  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-  builder: (sheetContext) => Column(
-    mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      if (assignments.direct case final direct?)
-        AssignmentDetailRow(
-          assignment: direct,
-          targetLabel: 'Topic',
-          onTap: canAssign
-              ? () {
-                  Navigator.of(sheetContext).pop();
-                  unawaited(
-                    showAssignmentEditor(
-                      context: context,
-                      siteUrl: siteUrl,
-                      target: AssignmentTarget.topic(topic.id),
-                      existing: direct,
-                    ),
-                  );
-                }
-              : null,
-        ),
-      for (final assignment in assignments.postAssignments.values) ...[
-        const SizedBox(height: 8),
-        AssignmentDetailRow(
-          assignment: assignment,
-          targetLabel: _postLabel(assignment.postNumber),
-        ),
-      ],
-      if (assignments.direct == null && canAssign) ...[
-        if (assignments.postAssignments.isNotEmpty) const SizedBox(height: 16),
-        FilledButton.icon(
-          key: const Key('assign-topic-from-overview'),
-          onPressed: () {
-            Navigator.of(sheetContext).pop();
-            unawaited(
-              showAssignmentEditor(
-                context: context,
-                siteUrl: siteUrl,
-                target: AssignmentTarget.topic(topic.id),
+class _TopicAssignmentPropertyRow extends StatelessWidget {
+  const _TopicAssignmentPropertyRow({
+    super.key,
+    required this.targetLabel,
+    required this.assignment,
+    required this.actionLabel,
+    required this.actionIcon,
+    required this.onTap,
+  });
+
+  final String targetLabel;
+  final Assignment? assignment;
+  final String? actionLabel;
+  final DIconData? actionIcon;
+  final ValueChanged<BuildContext>? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final assigneeLabel = assignment?.assignee.displayName ?? 'Unassigned';
+    final semanticLabel = [
+      if (assignment case final assignment?)
+        assignmentSummary(assignment, targetLabel)
+      else
+        '$targetLabel unassigned',
+      ?actionLabel,
+    ].join('. ');
+
+    return Builder(
+      builder: (anchorContext) {
+        final invoke = onTap == null ? null : () => onTap!(anchorContext);
+        return Semantics(
+          container: true,
+          button: invoke != null,
+          label: semanticLabel,
+          onTap: invoke,
+          child: ExcludeSemantics(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: invoke,
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DIcon(
+                        assignment?.assignee.isGroup == true
+                            ? DIcons.users
+                            : DIcons.userPlus,
+                        size: 14,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: Text(
+                          '$targetLabel · $assigneeLabel',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      if (actionIcon case final actionIcon?) ...[
+                        const SizedBox(width: 6),
+                        DIcon(
+                          actionIcon,
+                          size: 12,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-            );
-          },
-          icon: const DIcon(DIcons.userPlus),
-          label: const Text('Assign topic'),
-        ),
-      ],
-    ],
-  ),
-);
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
 
 Widget _assignmentPermissionBuilder({
   required BuildContext context,
@@ -663,10 +623,21 @@ bool _canAssignRecord(
 String _postLabel(int? postNumber) =>
     postNumber == null ? 'Post' : 'Post #$postNumber';
 
-String _propertyAssignmentLabel(Assignment assignment) =>
-    assignment.isPostAssignment
-    ? '${_postLabel(assignment.postNumber)} · ${assignment.assignee.displayName}'
-    : 'Assigned to ${assignment.assignee.displayName}';
+int _comparePostAssignments(Assignment left, Assignment right) {
+  final leftNumber = _validPostNumber(left);
+  final rightNumber = _validPostNumber(right);
+  if (leftNumber != rightNumber) {
+    if (leftNumber == null) return 1;
+    if (rightNumber == null) return -1;
+    return leftNumber.compareTo(rightNumber);
+  }
+  return (left.postId ?? 0).compareTo(right.postId ?? 0);
+}
+
+int? _validPostNumber(Assignment assignment) {
+  final postNumber = assignment.postNumber;
+  return postNumber != null && postNumber > 0 ? postNumber : null;
+}
 
 String _compactLabel(Assignment assignment) {
   final prefix = assignment.isPostAssignment

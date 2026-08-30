@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../data/discourse_api_contracts.dart';
 import '../../plugin_api/plugin_scope.dart';
+import '../../shell/anchored_picker.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/select.dart';
-import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -37,6 +37,8 @@ Future<void> showAssignmentEditor({
   required String siteUrl,
   required AssignmentTarget target,
   Assignment? existing,
+  BuildContext? anchorContext,
+  Rect? anchor,
   bool nested = false,
 }) {
   final controller = PluginUiScope.require(
@@ -69,63 +71,20 @@ Future<void> showAssignmentEditor({
         : () => controller.unassign(siteUrl, target),
     onComplete: () => Navigator.of(presentationContext).pop(),
   );
-  final isTouch = switch (Theme.of(context).platform) {
-    TargetPlatform.iOS || TargetPlatform.android => true,
-    _ => false,
-  };
-
-  if (isTouch) {
-    return showShellSheet<void>(
-      context: context,
-      title: title,
-      nested: nested,
-      builder: editor,
-    );
-  }
-
-  return showDialog<void>(
+  return showAnchoredPicker<void>(
     context: context,
-    builder: (dialogContext) => Dialog(
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 720),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: Theme.of(dialogContext).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    icon: const DIcon(DIcons.xmark),
-                    tooltip: 'Close',
-                  ),
-                ],
-              ),
-            ),
-            Divider(color: Theme.of(dialogContext).shell.divider, height: 1),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                child: editor(dialogContext),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
+    anchorContext: anchorContext,
+    anchor: anchor,
+    title: title,
+    barrierLabel: 'Dismiss $targetName assignment picker',
+    popoverKey: const ValueKey('assignment-picker-popover'),
+    popoverWidth: 360,
+    nested: nested,
+    // A drag closes ModalBottomSheetRoute with Navigator.pop, bypassing the
+    // editor's PopScope while a write owns the target. Close, barrier, and
+    // system back all use maybePop and remain available whenever it is safe.
+    sheetEnableDrag: false,
+    builder: editor,
   );
 }
 
@@ -397,48 +356,121 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
 
     return PopScope(
       canPop: !_saving,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextField(
-            key: const Key('assignment-search'),
-            controller: _searchController,
-            enabled: !_saving,
-            onChanged: _onSearchChanged,
-            textInputAction: TextInputAction.search,
-            decoration: const InputDecoration(
-              labelText: 'User or group',
-              hintText: 'Search by name',
-              prefixIcon: DIcon(DIcons.magnifyingGlass),
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (_loadingSuggestions)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: CircularProgressIndicator.adaptive(),
+      child: AnchoredPickerContent(
+        queryKey: const Key('assignment-search'),
+        queryController: _searchController,
+        queryHint: 'Search users or groups…',
+        queryEnabled: !_saving,
+        onQueryChanged: _onSearchChanged,
+        onQuerySubmitted: _onSearchChanged,
+        footer: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              key: const Key('assignment-note'),
+              controller: _noteController,
+              enabled: !_saving,
+              minLines: 2,
+              maxLines: 4,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Note (optional)',
+                alignLabelWithHint: true,
               ),
-            )
+            ),
+            if (widget.statusesEnabled && statuses.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              DSelectField<String>(
+                key: const Key('assignment-status'),
+                initialValue: _status,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Status'),
+                items: [
+                  for (final status in statuses)
+                    DropdownMenuItem(
+                      value: status,
+                      child: Text(
+                        status,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: _saving
+                    ? null
+                    : (value) => setState(() => _status = _nullableText(value)),
+              ),
+            ],
+            if (_error case final error?) ...[
+              const SizedBox(height: 12),
+              Semantics(
+                liveRegion: true,
+                container: true,
+                child: Text(
+                  error,
+                  key: const Key('assignment-error'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ),
+              if (_suggestions == null && !_loadingSuggestions)
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: TextButton(
+                    key: const Key('assignment-retry-suggestions'),
+                    onPressed: _saving ? null : _retrySuggestions,
+                    child: const Text('Retry'),
+                  ),
+                ),
+            ],
+            const SizedBox(height: 20),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (widget.remove != null)
+                  OutlinedButton.icon(
+                    key: const Key('assignment-unassign'),
+                    onPressed: _saving ? null : _remove,
+                    icon: const DIcon(DIcons.circleMinus),
+                    label: const Text('Unassign'),
+                  ),
+                FilledButton.icon(
+                  key: const Key('assignment-save'),
+                  onPressed: _saving || _searching || _selected == null
+                      ? null
+                      : _save,
+                  icon: _saving
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const DIcon(DIcons.check),
+                  label: Text(widget.existing == null ? 'Assign' : 'Save'),
+                ),
+              ],
+            ),
+          ],
+        ),
+        children: [
+          if (_loadingSuggestions)
+            const AnchoredPickerProgress()
           else if (_suggestions != null) ...[
             if (_searching) const LinearProgressIndicator(),
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 220),
+              constraints: const BoxConstraints(maxHeight: 180),
               child: _results.isEmpty && !_searching
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: Semantics(
-                        container: true,
-                        liveRegion: true,
-                        child: Text(
-                          'No matching users or groups.',
-                          key: const Key('assignment-empty-results'),
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
+                  ? Semantics(
+                      key: const Key('assignment-empty-results'),
+                      container: true,
+                      liveRegion: true,
+                      child: const AnchoredPickerMessage(
+                        'No matching users or groups.',
                       ),
                     )
                   : ListView.builder(
@@ -460,95 +492,6 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
                     ),
             ),
           ],
-          const SizedBox(height: 12),
-          TextField(
-            key: const Key('assignment-note'),
-            controller: _noteController,
-            enabled: !_saving,
-            minLines: 2,
-            maxLines: 4,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              labelText: 'Note (optional)',
-              alignLabelWithHint: true,
-            ),
-          ),
-          if (widget.statusesEnabled && statuses.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            DSelectField<String>(
-              key: const Key('assignment-status'),
-              initialValue: _status,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Status'),
-              items: [
-                for (final status in statuses)
-                  DropdownMenuItem(
-                    value: status,
-                    child: Text(
-                      status,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-              onChanged: _saving
-                  ? null
-                  : (value) => setState(() => _status = _nullableText(value)),
-            ),
-          ],
-          if (_error case final error?) ...[
-            const SizedBox(height: 12),
-            Semantics(
-              liveRegion: true,
-              container: true,
-              child: Text(
-                error,
-                key: const Key('assignment-error'),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              ),
-            ),
-            if (_suggestions == null && !_loadingSuggestions)
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: TextButton(
-                  key: const Key('assignment-retry-suggestions'),
-                  onPressed: _saving ? null : _retrySuggestions,
-                  child: const Text('Retry'),
-                ),
-              ),
-          ],
-          const SizedBox(height: 20),
-          Wrap(
-            alignment: WrapAlignment.end,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (widget.remove != null)
-                OutlinedButton.icon(
-                  key: const Key('assignment-unassign'),
-                  onPressed: _saving ? null : _remove,
-                  icon: const DIcon(DIcons.circleMinus),
-                  label: const Text('Unassign'),
-                ),
-              FilledButton.icon(
-                key: const Key('assignment-save'),
-                onPressed: _saving || _searching || _selected == null
-                    ? null
-                    : _save,
-                icon: _saving
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const DIcon(DIcons.check),
-                label: Text(widget.existing == null ? 'Assign' : 'Save'),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -581,14 +524,13 @@ class _AssigneeChoice extends StatelessWidget {
       label: '${assignee.displayName}, $subtitle',
       onTap: enabled ? onTap : null,
       child: ExcludeSemantics(
-        child: ListTile(
+        child: AnchoredPickerOption(
           enabled: enabled,
           selected: selected,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+          showSelectionIndicator: true,
           leading: AssignmentAssigneeAvatar(assignee: assignee, size: 32),
           title: Text(assignee.displayName),
           subtitle: Text(subtitle),
-          trailing: selected ? const DIcon(DIcons.check) : null,
           onTap: enabled ? onTap : null,
         ),
       ),

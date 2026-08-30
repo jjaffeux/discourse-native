@@ -4612,11 +4612,19 @@ void main() {
           tester.widget<Padding>(sidebarSurface).padding,
           const EdgeInsets.fromLTRB(12, 12, 12, 16),
         );
+        final sidebarScroll = find.byKey(
+          const ValueKey('topic-sidebar-scroll-view'),
+        );
         expect(
-          find.descendant(
-            of: sidebar,
-            matching: find.byType(SingleChildScrollView),
-          ),
+          find.descendant(of: sidebar, matching: sidebarScroll),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: sidebarScroll, matching: properties),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: sidebarScroll, matching: replyButton),
           findsNothing,
         );
         expect(
@@ -4676,14 +4684,21 @@ void main() {
             findsNothing,
           );
         }
+        final topicAssignment = find.byKey(const Key('assign-topic-property'));
         expect(
-          find.descendant(
-            of: properties,
-            matching: find.byKey(const Key('assign-topic-property')),
-          ),
+          find.descendant(of: properties, matching: topicAssignment),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: sidebarScroll, matching: topicAssignment),
           findsOneWidget,
         );
-        expect(find.text('Assigned to Sam Example'), findsOneWidget);
+        expect(find.text('Assignments'), findsOneWidget);
+        expect(find.text('Topic · Sam Example'), findsOneWidget);
+        expect(
+          tester.getRect(topicAssignment).top,
+          greaterThan(tester.getRect(properties).bottom),
+        );
 
         expect(
           find.descendant(
@@ -4745,7 +4760,14 @@ void main() {
               widget.axisDirection == AxisDirection.down,
         ),
       );
-      expect(verticalScrollables, findsOneWidget);
+      expect(verticalScrollables, findsNWidgets(2));
+      expect(
+        find.descendant(
+          of: sidebar,
+          matching: find.byKey(const ValueKey('topic-sidebar-scroll-view')),
+        ),
+        findsOneWidget,
+      );
       final sidebarRect = tester.getRect(sidebar);
       final postStream = tester.widget<SuperListView>(
         find.byType(SuperListView),
@@ -4757,6 +4779,96 @@ void main() {
       expect(postStream.controller!.position.pixels, greaterThan(0));
       expect(tester.getRect(sidebar), sidebarRect);
     });
+
+    testWidgets(
+      'scrolls the maximum assignment card below fixed sidebar actions',
+      (tester) async {
+        final plugins = PluginData.none.withValue(
+          assignmentsDataKey,
+          Assignments(
+            canAssign: false,
+            postAssignments: {
+              for (var id = 2; id <= Assignments.maximumPerTopic + 1; id++)
+                id: Assignment(
+                  assignee: AssignmentUser(
+                    username: 'assignee-$id',
+                    name: 'Assignee $id',
+                  ),
+                  postId: id,
+                  postNumber: id,
+                ),
+            },
+          ),
+        );
+        const recommendations = TopicRecommendations(
+          sources: [
+            TopicRecommendationSource(
+              definition: coreSuggestedTopicRecommendationSource,
+              topics: [
+                Topic(id: 8, title: 'Reachable related topic', slug: 'related'),
+              ],
+            ),
+          ],
+        );
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {
+            7: topicPayload(
+              id: 7,
+              title: 'A real topic',
+              posts: [post(1, 1, 'First post body')],
+              canCreatePost: true,
+              recommendations: recommendations,
+              plugins: plugins,
+            ),
+          },
+        );
+        const reader = DiscourseUser(id: 1, username: 'reader');
+        final authenticator = FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key';
+
+        await pumpShell(
+          tester,
+          desktop,
+          instances: [instance('meta.discourse.org').copyWith(user: reader)],
+          api: api,
+          authenticator: authenticator,
+        );
+        await tester.tap(find.text('A real topic'));
+        await tester.pumpAndSettle();
+
+        final sidebarScroll = find.byKey(
+          const ValueKey('topic-sidebar-scroll-view'),
+        );
+        final reply = find.byKey(const ValueKey('topic-reply-button'));
+        final moreTopics = find.text('More topics');
+        final sidebarScrollable = find.descendant(
+          of: sidebarScroll,
+          matching: find.byType(Scrollable),
+        );
+        final sidebarPosition = tester
+            .state<ScrollableState>(sidebarScrollable)
+            .position;
+        final postPosition = tester
+            .widget<SuperListView>(find.byType(SuperListView))
+            .controller!
+            .position;
+        final replyRect = tester.getRect(reply);
+        final postPixels = postPosition.pixels;
+
+        expect(sidebarPosition.maxScrollExtent, greaterThan(0));
+        expect(moreTopics.hitTestable(), findsNothing);
+
+        await tester.drag(sidebarScroll, const Offset(0, -5000));
+        await tester.pumpAndSettle();
+
+        expect(sidebarPosition.pixels, greaterThan(0));
+        expect(moreTopics.hitTestable(), findsOneWidget);
+        expect(tester.getRect(reply), replyRect);
+        expect(postPosition.pixels, postPixels);
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets('uses a thin scrollbar for topic posts', (tester) async {
       final previous = debugDefaultTargetPlatformOverride;
@@ -4772,7 +4884,7 @@ void main() {
         await tester.pumpAndSettle();
 
         final scrollbar = find.descendant(
-          of: find.byType(TopicView),
+          of: find.byType(SuperListView),
           matching: find.byType(Scrollbar),
         );
         expect(scrollbar, findsOneWidget);

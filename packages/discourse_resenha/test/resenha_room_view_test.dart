@@ -1441,6 +1441,13 @@ final class _RouteHost implements PluginRouteNavigationHost {
   void replaceCurrentContent(ContentRoute route) => currentContent = route;
 
   @override
+  void openTopicPost({
+    required String siteUrl,
+    required int topicId,
+    required int postNumber,
+  }) {}
+
+  @override
   void selectInstance(int index) => currentSite = sites[index];
 }
 

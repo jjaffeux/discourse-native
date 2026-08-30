@@ -4,7 +4,6 @@ import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -236,7 +235,54 @@ void main() {
     expect(contribution?.entries, isEmpty);
   });
 
-  testWidgets('unassigned topic property uses a label-scale Assign action', (
+  testWidgets('post assignment actions expose a pointer anchor callback', (
+    tester,
+  ) async {
+    const registry = PluginRegistry([AssignPlugin()]);
+    final post = Post(
+      id: 22,
+      postNumber: 2,
+      username: 'author',
+      cooked: '',
+      plugins: registry.readPost(const {
+        'id': 22,
+        'post_number': 2,
+        'can_assign': true,
+      }, _siteUrl),
+    );
+    final topic = TopicDetail(
+      id: 10,
+      title: 'Assignable topic',
+      stream: const [11, 22],
+      plugins: registry.readTopic(const {'can_assign': false}, _siteUrl),
+    );
+    PostMenuContribution? contribution;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Builder(
+          builder: (context) {
+            contribution = _plugin.postMenu(
+              PostMenuContext(
+                buildContext: context,
+                siteUrl: _siteUrl,
+                post: post,
+                topic: topic,
+                currentUser: null,
+              ),
+            );
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    expect(contribution?.entries, hasLength(1));
+    expect(contribution?.entries.single.onInvokeAnchored, isNotNull);
+  });
+
+  testWidgets('unassigned topic uses the first row of a standalone section', (
     tester,
   ) async {
     const registry = PluginRegistry([AssignPlugin()]);
@@ -247,23 +293,27 @@ void main() {
       stream: const [11],
       plugins: plugins,
     );
+    late TopicPropertySection section;
 
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
         home: Scaffold(
           body: Builder(
-            builder: (context) => Row(
-              children: _plugin
+            builder: (context) {
+              section = _plugin
                   .topicProperties(context, _siteUrl, topic)
-                  .single
-                  .values,
-            ),
+                  .single;
+              return Column(children: section.values);
+            },
           ),
         ),
       ),
     );
 
+    expect(section.layout, TopicPropertySectionLayout.standalone);
+    expect(section.values, hasLength(1));
+    expect(find.text('Topic · Unassigned'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(const Key('assign-topic-property')),
@@ -283,36 +333,40 @@ void main() {
       ),
     );
     final label = tester.widget<Text>(
-      find.descendant(of: action, matching: find.text('Assign')),
+      find.descendant(of: action, matching: find.text('Topic · Unassigned')),
     );
     expect(icon.size, 14);
     expect(
       label.style?.fontSize,
       AppTheme.light.textTheme.labelMedium?.fontSize,
     );
-    expect(tester.getSize(action).height, lessThan(30));
+    expect(tester.getSize(action).height, lessThanOrEqualTo(30));
+    expect(
+      tester.getSemantics(action),
+      isSemantics(
+        label: 'Topic unassigned. Assign topic',
+        isButton: true,
+        hasTapAction: true,
+      ),
+    );
   });
 
-  testWidgets('topic property has a concise actionable semantic label', (
+  testWidgets('post-only sections retain a read-only topic row first', (
     tester,
   ) async {
-    final semanticsHandle = tester.ensureSemantics();
     const registry = PluginRegistry([AssignPlugin()]);
     final plugins = registry.readTopic(const {
       'can_assign': false,
-      'assigned_to_user': {'username': 'sam', 'name': 'Sam'},
-      'assignment_note': 'A deliberately long topic note',
       'indirectly_assigned_to': {
         '22': {
-          'assigned_to': {'name': 'support'},
+          'assigned_to': {'username': 'sam', 'name': 'Sam'},
           'post_number': 2,
-          'assignment_note': 'Another deliberately long post note',
         },
       },
     }, _siteUrl);
     final topic = TopicDetail(
       id: 10,
-      title: 'Assigned topic',
+      title: 'Post-only assignment',
       stream: const [11, 22],
       plugins: plugins,
     );
@@ -322,7 +376,7 @@ void main() {
         theme: AppTheme.light,
         home: Scaffold(
           body: Builder(
-            builder: (context) => Row(
+            builder: (context) => Column(
               children: _plugin
                   .topicProperties(context, _siteUrl, topic)
                   .single
@@ -333,28 +387,116 @@ void main() {
       ),
     );
 
+    final topicRow = find.byKey(const Key('assign-topic-property'));
+    final postRow = find.byKey(const Key('assign-topic-property-post-22'));
+    expect(find.text('Topic · Unassigned'), findsOneWidget);
+    expect(find.text('Post #2 · Sam'), findsOneWidget);
     expect(
-      tester.getSemantics(find.byKey(const Key('assign-topic-property'))),
-      isSemantics(
-        label: 'View 2 assignments',
-        isButton: true,
-        hasTapAction: true,
+      tester.getTopLeft(topicRow).dy,
+      lessThan(tester.getTopLeft(postRow).dy),
+    );
+    final semantics = tester.widget<Semantics>(
+      find.descendant(of: topicRow, matching: find.byType(Semantics)).first,
+    );
+    expect(semantics.properties.onTap, isNull);
+  });
+
+  testWidgets('rows are ordered and expose details only through semantics', (
+    tester,
+  ) async {
+    final semanticsHandle = tester.ensureSemantics();
+    const registry = PluginRegistry([AssignPlugin()]);
+    final plugins = registry.readTopic(const {
+      'can_assign': false,
+      'assigned_to_user': {'username': 'sam', 'name': 'Sam'},
+      'assignment_note': 'A deliberately long topic note',
+      'indirectly_assigned_to': {
+        '30': {
+          'assigned_to': {'username': 'zoe', 'name': 'Zoe'},
+          'post_number': 3,
+        },
+        '32': {
+          'assigned_to': {'username': 'missing', 'name': 'Missing number'},
+        },
+        '31': {
+          'assigned_to': {'username': 'invalid', 'name': 'Invalid number'},
+          'post_number': 0,
+        },
+        '23': {
+          'assigned_to': {'username': 'terry', 'name': 'Terry'},
+          'post_number': 2,
+        },
+        '22': {
+          'assigned_to': {'name': 'support'},
+          'post_number': 2,
+          'assignment_note': 'Another deliberately long post note',
+        },
+      },
+    }, _siteUrl);
+    final topic = TopicDetail(
+      id: 10,
+      title: 'Assigned topic',
+      stream: const [11, 22, 23, 30, 31, 32],
+      plugins: plugins,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Column(
+              children: _plugin
+                  .topicProperties(context, _siteUrl, topic)
+                  .single
+                  .values,
+            ),
+          ),
+        ),
       ),
     );
-    final assignmentProperty = find.byKey(const Key('assign-topic-property'));
+
+    final topicRow = find.byKey(const Key('assign-topic-property'));
+    final supportRow = find.byKey(const Key('assign-topic-property-post-22'));
+    final terryRow = find.byKey(const Key('assign-topic-property-post-23'));
+    final zoeRow = find.byKey(const Key('assign-topic-property-post-30'));
+    final invalidRow = find.byKey(const Key('assign-topic-property-post-31'));
+    final missingRow = find.byKey(const Key('assign-topic-property-post-32'));
+    expect(find.text('Topic · Sam'), findsOneWidget);
+    expect(find.text('Post #2 · support'), findsOneWidget);
+    expect(find.text('Post #2 · Terry'), findsOneWidget);
+    expect(find.text('Post #3 · Zoe'), findsOneWidget);
+    expect(find.text('Post · Invalid number'), findsOneWidget);
+    expect(find.text('Post · Missing number'), findsOneWidget);
     expect(
-      find.descendant(of: assignmentProperty, matching: find.byType(DButton)),
-      findsNothing,
+      tester.getTopLeft(topicRow).dy,
+      lessThan(tester.getTopLeft(supportRow).dy),
     );
-    final icon = tester.widget<DIcon>(
-      find.descendant(of: assignmentProperty, matching: find.byType(DIcon)),
-    );
-    expect(icon.size, 14);
     expect(
-      icon.color,
-      Theme.of(tester.element(assignmentProperty)).colorScheme.onSurfaceVariant,
+      tester.getTopLeft(supportRow).dy,
+      lessThan(tester.getTopLeft(terryRow).dy),
     );
-    expect(find.bySemanticsLabel(RegExp('long')), findsNothing);
+    expect(
+      tester.getTopLeft(terryRow).dy,
+      lessThan(tester.getTopLeft(zoeRow).dy),
+    );
+    expect(
+      tester.getTopLeft(zoeRow).dy,
+      lessThan(tester.getTopLeft(invalidRow).dy),
+    );
+    expect(
+      tester.getTopLeft(invalidRow).dy,
+      lessThan(tester.getTopLeft(missingRow).dy),
+    );
+    expect(find.textContaining('deliberately long'), findsNothing);
+    expect(
+      tester.getSemantics(topicRow).label,
+      contains('note A deliberately long topic note'),
+    );
+    expect(
+      tester.getSemantics(supportRow).label,
+      contains('note Another deliberately long post note'),
+    );
     semanticsHandle.dispose();
   });
 }

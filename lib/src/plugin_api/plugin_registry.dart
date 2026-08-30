@@ -1050,6 +1050,7 @@ final class PluginRegistry
         TopicPropertySection(
           label: section.label,
           values: _ownedAll(plugin, section.values),
+          layout: section.layout,
         ),
   ];
 

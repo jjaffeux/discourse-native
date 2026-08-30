@@ -2391,46 +2391,64 @@ class _TopicSidebarPanel extends StatelessWidget {
               registry: registry,
               onCollapsed: onCollapsed,
             ),
-            if (topic case final topic? when siteUrl != null) ...[
-              const SizedBox(height: 12),
-              _TopicPropertiesCard(
-                siteUrl: siteUrl!,
-                topic: topic,
-                route: route,
-                registry: registry,
-              ),
-            ],
-            if (recommendations?.isNotEmpty == true || loading) ...[
-              const SizedBox(height: 12),
-              _TopicSidebarCard(
-                key: const ValueKey('topic-more-topics-card'),
-                child: switch (recommendations) {
-                  final recommendations? => Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 13, 14, 8),
-                        child: Text(
-                          'More topics',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      _MoreTopics(
-                        key: const ValueKey('topic-sidebar-more-topics-list'),
+            Expanded(
+              child: SingleChildScrollView(
+                key: const ValueKey('topic-sidebar-scroll-view'),
+                primary: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (topic case final topic? when siteUrl != null) ...[
+                      const SizedBox(height: 12),
+                      _TopicPropertiesCard(
                         siteUrl: siteUrl!,
-                        recommendations: recommendations,
-                        selected: selected,
-                        onSelected: onSelected,
-                        topPadding: 0,
+                        topic: topic,
+                        route: route,
+                        registry: registry,
                       ),
                     ],
-                  ),
-                  null => const _MoreTopicsLoadingSkeleton(),
-                },
+                    if (recommendations?.isNotEmpty == true || loading) ...[
+                      const SizedBox(height: 12),
+                      _TopicSidebarCard(
+                        key: const ValueKey('topic-more-topics-card'),
+                        child: switch (recommendations) {
+                          final recommendations? => Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  14,
+                                  13,
+                                  14,
+                                  8,
+                                ),
+                                child: Text(
+                                  'More topics',
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              _MoreTopics(
+                                key: const ValueKey(
+                                  'topic-sidebar-more-topics-list',
+                                ),
+                                siteUrl: siteUrl!,
+                                recommendations: recommendations,
+                                selected: selected,
+                                onSelected: onSelected,
+                                topPadding: 0,
+                              ),
+                            ],
+                          ),
+                          null => const _MoreTopicsLoadingSkeleton(),
+                        },
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -2593,75 +2611,99 @@ class _TopicPropertiesCard extends StatelessWidget {
 
     Widget properties() {
       final pluginSections = registry.topicProperties(context, siteUrl, topic);
-      return _TopicSidebarCard(
-        key: const ValueKey('topic-properties-card'),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Column(
-            children: [
-              TopicCategoryMenuAnchor(
-                siteUrl: siteUrl,
-                topicId: topic.id,
-                categoryId: topic.categoryId,
-                enabled: topic.canEdit,
-                builder: (context, openMenu, saving) => _TopicPropertyRow(
-                  key: const ValueKey('topic-sidebar-category-property'),
-                  label: 'Category',
-                  child: _TopicSidebarCategory(
-                    label: category?.name ?? route?.subtitle ?? 'Uncategorized',
-                    color: category == null
-                        ? route?.color
-                        : Color(category.colorValue),
-                    saving: saving,
-                    onTap: openMenu,
+      final inlineSections = pluginSections
+          .where(
+            (section) =>
+                section.layout == TopicPropertySectionLayout.inline,
+          )
+          .toList(growable: false);
+      final standaloneSections = pluginSections
+          .where(
+            (section) =>
+                section.layout == TopicPropertySectionLayout.standalone,
+          )
+          .toList(growable: false);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _TopicSidebarCard(
+            key: const ValueKey('topic-properties-card'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Column(
+                children: [
+                  TopicCategoryMenuAnchor(
+                    siteUrl: siteUrl,
+                    topicId: topic.id,
+                    categoryId: topic.categoryId,
+                    enabled: topic.canEdit,
+                    builder: (context, openMenu, saving) => _TopicPropertyRow(
+                      key: const ValueKey('topic-sidebar-category-property'),
+                      label: 'Category',
+                      child: _TopicSidebarCategory(
+                        label:
+                            category?.name ??
+                            route?.subtitle ??
+                            'Uncategorized',
+                        color: category == null
+                            ? route?.color
+                            : Color(category.colorValue),
+                        saving: saving,
+                        onTap: openMenu,
+                      ),
+                    ),
                   ),
-                ),
+                  TopicTagMenuAnchor(
+                    siteUrl: siteUrl,
+                    topicId: topic.id,
+                    categoryId: topic.categoryId,
+                    tags: topic.tags,
+                    enabled: topic.canEditTags,
+                    builder: (context, openMenu, saving) => _TopicPropertyRow(
+                      key: const ValueKey('topic-sidebar-tags-property'),
+                      label: 'Tags',
+                      child: topic.tags.isEmpty
+                          ? topic.canEditTags
+                                ? _EditableEmptyTopicTags(
+                                    saving: saving,
+                                    onTap: openMenu,
+                                  )
+                                : const _EmptyTopicProperty('No tags')
+                          : Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                for (final tag in topic.tags)
+                                  _TopicSidebarTag(tag: tag, onTap: openMenu),
+                                if (saving)
+                                  const _TopicTagsSavingIndicator()
+                                else if (topic.canEditTags)
+                                  _TopicTagsAddButton(onTap: openMenu),
+                              ],
+                            ),
+                    ),
+                  ),
+                  for (final section in inlineSections)
+                    _TopicPropertyRow(
+                      label: section.label,
+                      child: section.values.isEmpty
+                          ? const _EmptyTopicProperty('None')
+                          : Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: section.values,
+                            ),
+                    ),
+                ],
               ),
-              TopicTagMenuAnchor(
-                siteUrl: siteUrl,
-                topicId: topic.id,
-                categoryId: topic.categoryId,
-                tags: topic.tags,
-                enabled: topic.canEditTags,
-                builder: (context, openMenu, saving) => _TopicPropertyRow(
-                  key: const ValueKey('topic-sidebar-tags-property'),
-                  label: 'Tags',
-                  child: topic.tags.isEmpty
-                      ? topic.canEditTags
-                            ? _EditableEmptyTopicTags(
-                                saving: saving,
-                                onTap: openMenu,
-                              )
-                            : const _EmptyTopicProperty('No tags')
-                      : Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            for (final tag in topic.tags)
-                              _TopicSidebarTag(tag: tag, onTap: openMenu),
-                            if (saving)
-                              const _TopicTagsSavingIndicator()
-                            else if (topic.canEditTags)
-                              _TopicTagsAddButton(onTap: openMenu),
-                          ],
-                        ),
-                ),
-              ),
-              for (final section in pluginSections)
-                _TopicPropertyRow(
-                  label: section.label,
-                  child: section.values.isEmpty
-                      ? const _EmptyTopicProperty('None')
-                      : Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: section.values,
-                        ),
-                ),
-            ],
+            ),
           ),
-        ),
+          for (final section in standaloneSections) ...[
+            const SizedBox(height: 12),
+            _TopicStandalonePropertyCard(section: section),
+          ],
+        ],
       );
     }
 
@@ -2671,6 +2713,51 @@ class _TopicPropertiesCard extends StatelessWidget {
             listenable: propertiesRebuildOn,
             builder: (context, _) => properties(),
           );
+  }
+}
+
+class _TopicStandalonePropertyCard extends StatelessWidget {
+  const _TopicStandalonePropertyCard({required this.section});
+
+  final TopicPropertySection section;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return _TopicSidebarCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 13, 14, 8),
+            child: Text(
+              section.label,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+            child: section.values.isEmpty
+                ? const _EmptyTopicProperty('None')
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (
+                        var index = 0;
+                        index < section.values.length;
+                        index++
+                      ) ...[
+                        if (index > 0) const SizedBox(height: 6),
+                        section.values[index],
+                      ],
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

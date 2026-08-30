@@ -4,6 +4,7 @@ import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
+import 'package:discourse_native/src/shell/anchored_picker.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/shell_sheet.dart';
@@ -23,20 +24,36 @@ const _support = AssignmentGroup(
 );
 
 void main() {
-  testWidgets('uses a modal on desktop', (tester) async {
+  testWidgets('uses an anchored picker on desktop', (tester) async {
     final controller = await _openAssignmentEditor(
       tester,
       platform: TargetPlatform.macOS,
     );
     addTearDown(controller.dispose);
 
-    expect(find.byType(Dialog), findsOneWidget);
-    expect(find.byType(BottomSheet), findsNothing);
-    expect(find.text('Assign topic'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pumpAndSettle();
     expect(find.byType(Dialog), findsNothing);
+    expect(find.byType(BottomSheet), findsNothing);
+    final picker = find.byKey(const ValueKey('assignment-picker-popover'));
+    expect(picker, findsOneWidget);
+    expect(tester.getSize(picker).width, 360);
+    expect(
+      find.descendant(
+        of: picker,
+        matching: find.byKey(const Key('assignment-search')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: picker,
+        matching: find.byKey(const Key('assignment-note')),
+      ),
+      findsOneWidget,
+    );
+
+    Navigator.of(tester.element(picker)).pop();
+    await tester.pumpAndSettle();
+    expect(picker, findsNothing);
   });
 
   testWidgets('keeps the bottom sheet on touch platforms', (tester) async {
@@ -46,6 +63,10 @@ void main() {
     expect(find.byType(Dialog), findsNothing);
     expect(find.byType(BottomSheet), findsOneWidget);
     expect(find.text('Assign topic'), findsOneWidget);
+    expect(
+      tester.widget<BottomSheet>(find.byType(BottomSheet)).enableDrag,
+      isFalse,
+    );
   });
 
   testWidgets('saves one selected assignee with note and configured status', (
@@ -94,6 +115,53 @@ void main() {
     expect(savedNote, 'Needs triage');
     expect(savedStatus, 'In progress');
     expect(completed, isTrue);
+  });
+
+  testWidgets('selection stays staged until Save', (tester) async {
+    var saves = 0;
+
+    await tester.pumpWidget(
+      _editor(
+        suggestions: AssignmentSuggestions(users: const [_sam]),
+        save: (assignee, {note, status}) async {
+          saves++;
+          return null;
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('assignment-assignee-user:sam')));
+    await tester.pump();
+    expect(saves, 0);
+
+    await tester.tap(find.byKey(const Key('assignment-save')));
+    await tester.pumpAndSettle();
+    expect(saves, 1);
+  });
+
+  testWidgets('clears an existing note when only whitespace is saved', (
+    tester,
+  ) async {
+    String? savedNote = 'not saved';
+
+    await tester.pumpWidget(
+      _editor(
+        suggestions: AssignmentSuggestions(users: const [_sam]),
+        existing: const Assignment(assignee: _sam, note: 'Held note'),
+        save: (assignee, {note, status}) async {
+          savedNote = note;
+          return null;
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('assignment-note')), '   ');
+    await tester.tap(find.byKey(const Key('assignment-save')));
+    await tester.pumpAndSettle();
+
+    expect(savedNote, isNull);
   });
 
   testWidgets('a newer search waits for the active response and owns results', (
@@ -248,6 +316,62 @@ void main() {
           .canPop,
       isTrue,
     );
+  });
+
+  testWidgets('a pending touch write blocks sheet Close and system back', (
+    tester,
+  ) async {
+    final result = Completer<String?>();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.android),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              onPressed: () => unawaited(
+                showAnchoredPicker<void>(
+                  context: context,
+                  title: 'Assign topic',
+                  barrierLabel: 'Dismiss topic assignment picker',
+                  popoverKey: const ValueKey('test-assignment-popover'),
+                  sheetEnableDrag: false,
+                  builder: (sheetContext) => AssignmentEditor(
+                    loadSuggestions: () async =>
+                        AssignmentSuggestions(users: const [_sam]),
+                    searchAssignees: (_, _) async => const [],
+                    save: (assignee, {note, status}) => result.future,
+                    onComplete: () => Navigator.of(sheetContext).pop(),
+                  ),
+                ),
+              ),
+              child: const Text('Open assignment'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open assignment'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('assignment-assignee-user:sam')));
+    await tester.tap(find.byKey(const Key('assignment-save')));
+    await tester.pump();
+
+    final sheet = find.byType(BottomSheet);
+    expect(sheet, findsOneWidget);
+    expect(tester.widget<BottomSheet>(sheet).enableDrag, isFalse);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
+    expect(sheet, findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(sheet, findsOneWidget);
+
+    result.complete(null);
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
   });
 
   testWidgets('failed initial suggestions can be retried in place', (
@@ -523,6 +647,7 @@ Future<ShellController> _openAssignmentEditor(
                   onPressed: () => unawaited(
                     showAssignmentEditor(
                       context: context,
+                      anchorContext: context,
                       siteUrl: _site,
                       target: const AssignmentTarget.topic(7),
                     ),

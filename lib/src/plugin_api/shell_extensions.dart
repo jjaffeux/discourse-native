@@ -48,6 +48,13 @@ abstract interface class PluginRouteNavigationHost {
   void selectInstance(int index);
   void pushContent(ContentRoute route);
   void replaceCurrentContent(ContentRoute route);
+
+  /// Opens one numbered post through core's topic navigation lifecycle.
+  void openTopicPost({
+    required String siteUrl,
+    required int topicId,
+    required int postNumber,
+  });
 }
 
 /// Core-owned feed navigation for a plugin route which is a topic list.

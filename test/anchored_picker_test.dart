@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/shell/anchored_layout.dart';
 import 'package:discourse_native/src/shell/anchored_picker.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -6,8 +7,11 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   Future<TextEditingController> pumpPicker(
     WidgetTester tester,
-    TargetPlatform platform,
-  ) async {
+    TargetPlatform platform, {
+    Widget? footer,
+    bool queryEnabled = true,
+    bool queryAutofocus = true,
+  }) async {
     final controller = TextEditingController();
     addTearDown(controller.dispose);
     await tester.pumpWidget(
@@ -20,6 +24,9 @@ void main() {
             queryHint: 'Search…',
             onQueryChanged: (_) {},
             onQuerySubmitted: (_) {},
+            footer: footer,
+            queryEnabled: queryEnabled,
+            queryAutofocus: queryAutofocus,
             children: [
               AnchoredPickerOption(
                 title: const Text('Choice'),
@@ -77,5 +84,71 @@ void main() {
     expect(option.minTileHeight, isNull);
     expect(option.minLeadingWidth, isNull);
     expect(option.contentPadding, const EdgeInsets.symmetric(horizontal: 16));
+  });
+
+  testWidgets('separates optional form content and configures its query', (
+    tester,
+  ) async {
+    await pumpPicker(
+      tester,
+      TargetPlatform.macOS,
+      footer: const TextField(key: ValueKey('note')),
+      queryEnabled: false,
+      queryAutofocus: false,
+    );
+
+    final query = tester.widget<TextField>(find.byKey(const ValueKey('query')));
+    expect(query.enabled, isFalse);
+    expect(query.autofocus, isFalse);
+    expect(find.byType(Divider), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('note')), findsOneWidget);
+  });
+
+  testWidgets('an explicit rectangle wins over the anchor context', (
+    tester,
+  ) async {
+    const explicitAnchor = Rect.fromLTWH(70, 80, 20, 20);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              onPressed: () => showAnchoredPicker<void>(
+                context: context,
+                anchorContext: context,
+                anchor: explicitAnchor,
+                title: 'Picker',
+                barrierLabel: 'Dismiss picker',
+                popoverKey: const ValueKey('popover'),
+                builder: (_) => const Text('Content'),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final layout = tester.widget<CustomSingleChildLayout>(
+      find.ancestor(
+        of: find.byKey(const ValueKey('popover')),
+        matching: find.byType(CustomSingleChildLayout),
+      ),
+    );
+    expect((layout.delegate as AnchoredLayout).anchor, explicitAnchor);
+    final routeSemantics = tester
+        .widgetList<Semantics>(
+          find.ancestor(
+            of: find.byKey(const ValueKey('popover')),
+            matching: find.byType(Semantics),
+          ),
+        )
+        .singleWhere((widget) => widget.properties.scopesRoute == true);
+    expect(routeSemantics.properties.namesRoute, isTrue);
+    expect(routeSemantics.properties.label, 'Picker');
   });
 }
