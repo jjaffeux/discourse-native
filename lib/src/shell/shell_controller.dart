@@ -5673,11 +5673,6 @@ class ShellController extends FrameSafeNotifier
       return 'This topic can no longer be edited.';
     }
     if (detail!.categoryId == categoryId) return null;
-    final allowed = topicComposerCategories(
-      siteUrl,
-    ).any((category) => category.id == categoryId && category.canCreateTopic);
-    if (!allowed) return 'That category is not available.';
-
     final lease = lifecycle.capture(siteUrl);
     final credential = await _credentialForWrite(siteUrl);
     if (!lease.isCurrent) return 'The forum changed before the category saved.';
