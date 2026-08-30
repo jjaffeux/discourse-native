@@ -290,6 +290,26 @@ void main() {
           isSelected: true,
         ),
       );
+      final previewContainer = tester.widget<Container>(
+        find.descendant(of: target, matching: find.byType(Container)),
+      );
+      final background = previewContainer.decoration! as BoxDecoration;
+      final foreground =
+          previewContainer.foregroundDecoration! as BoxDecoration;
+      final border = foreground.border! as Border;
+      expect(background.border, isNull);
+      expect(foreground.borderRadius, background.borderRadius);
+      expect(previewContainer.padding, border.dimensions);
+      for (final side in [
+        border.top,
+        border.right,
+        border.bottom,
+        border.left,
+      ]) {
+        expect(side.color, AppTheme.light.colorScheme.primary);
+        expect(side.width, 2);
+        expect(side.strokeAlign, BorderSide.strokeAlignInside);
+      }
     } finally {
       semantics.dispose();
     }
