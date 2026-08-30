@@ -67,8 +67,10 @@ class ComposerImagePreview extends StatelessWidget {
         width: size.width,
         height: size.height,
         margin: const EdgeInsets.symmetric(vertical: 4),
-        // Preserve the inset previously supplied by the background border.
-        padding: border.dimensions,
+        // Reserve the selected stroke's full inset in both states. Letting
+        // the one-pixel idle border define this padding makes the image itself
+        // shrink and grow whenever selection changes.
+        padding: const EdgeInsets.all(2),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           borderRadius: borderRadius,

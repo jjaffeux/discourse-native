@@ -315,6 +315,54 @@ void main() {
     }
   });
 
+  testWidgets('selection border does not resize the image content', (
+    tester,
+  ) async {
+    final image = parseComposerImages('![A diagram](upload://pending)').single;
+    var highlighted = false;
+    late StateSetter update;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return ComposerImagePreview(
+                image: image,
+                url: null,
+                highlighted: highlighted,
+                onNaturalSize: (_) {},
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    final preview = find.byType(ComposerImagePreview);
+    final container = find.descendant(
+      of: preview,
+      matching: find.byType(Container),
+    );
+    Container previewContainer() => tester.widget<Container>(container);
+    Border previewBorder() =>
+        (previewContainer().foregroundDecoration! as BoxDecoration).border!
+            as Border;
+
+    final idleSize = tester.getSize(container);
+    final idlePadding = previewContainer().padding;
+    expect(idlePadding, const EdgeInsets.all(2));
+    expect(previewBorder().top.width, 1);
+
+    update(() => highlighted = true);
+    await tester.pump();
+
+    expect(tester.getSize(container), idleSize);
+    expect(previewContainer().padding, idlePadding);
+    expect(previewBorder().top.width, 2);
+  });
+
   testWidgets('reveals ordinary markdown when the caret enters the image', (
     tester,
   ) async {
