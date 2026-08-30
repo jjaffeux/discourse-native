@@ -1077,17 +1077,30 @@ final class PluginRegistry
     };
   }
 
-  List<Widget> topicMapActions(
+  TopicMapActionContribution topicMapActions(
     BuildContext context,
     String siteUrl,
     TopicDetail topic,
-  ) => [
-    for (final plugin in plugins.whereType<TopicMapActionPlugin>())
-      ..._ownedAll(
-        plugin,
-        plugin.topicMapActions(_uiContext(context, plugin), siteUrl, topic),
-      ),
-  ];
+  ) {
+    final actions = <Widget>[];
+    var replacesSummary = false;
+    for (final plugin in plugins.whereType<TopicMapActionPlugin>()) {
+      final contribution = plugin.topicMapActions(
+        _uiContext(context, plugin),
+        siteUrl,
+        topic,
+      );
+      actions.addAll(_ownedAll(plugin, contribution.actions));
+      replacesSummary |= contribution.replacesSummary;
+    }
+    if (actions.isEmpty && !replacesSummary) {
+      return TopicMapActionContribution.none;
+    }
+    return TopicMapActionContribution(
+      actions: actions,
+      replacesSummary: replacesSummary,
+    );
+  }
 
   PostMenuContribution postMenu(
     BuildContext context,

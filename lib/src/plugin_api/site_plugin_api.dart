@@ -469,16 +469,35 @@ abstract interface class TopicPropertiesRebuildPlugin {
   );
 }
 
-/// Adds an action to the topic map beneath the opening post.
+/// Adds actions to the topic map beneath the opening post.
 ///
 /// The map itself is core, while optional features such as Discourse AI attach
-/// their own serializer-gated controls beside its reading time and summary.
+/// their own serializer-gated controls beside its reading time. A feature that
+/// supersedes core's top-replies summary can replace that action explicitly.
 abstract interface class TopicMapActionPlugin {
-  List<Widget> topicMapActions(
+  TopicMapActionContribution topicMapActions(
     BuildContext context,
     String siteUrl,
     TopicDetail topic,
   );
+}
+
+/// A plugin's actions in the topic map.
+@immutable
+class TopicMapActionContribution {
+  const TopicMapActionContribution({
+    this.actions = const [],
+    this.replacesSummary = false,
+  });
+
+  /// For a feature with nothing to add to this topic.
+  static const TopicMapActionContribution none = TopicMapActionContribution();
+
+  /// What to offer, in plugin registration order.
+  final List<Widget> actions;
+
+  /// Whether core's top-replies summary action must give way to [actions].
+  final bool replacesSummary;
 }
 
 /// Contributes optional lists to the more-topics panel.

@@ -44,20 +44,25 @@ final class AiSummaryPlugin
       const [discourseAiRelatedTopicRecommendationSourceCodec];
 
   @override
-  List<Widget> topicMapActions(
+  TopicMapActionContribution topicMapActions(
     BuildContext context,
     String siteUrl,
     TopicDetail topic,
   ) {
     final availability = topic.plugins.get(aiSummaryAvailabilityDataKey);
-    if (availability?.summarizable != true) return const [];
-    return [
-      _AiSummaryButton(
-        siteUrl: siteUrl,
-        topicId: topic.id,
-        availability: availability!,
-      ),
-    ];
+    if (availability?.summarizable != true) {
+      return TopicMapActionContribution.none;
+    }
+    return TopicMapActionContribution(
+      replacesSummary: true,
+      actions: [
+        _AiSummaryButton(
+          siteUrl: siteUrl,
+          topicId: topic.id,
+          availability: availability!,
+        ),
+      ],
+    );
   }
 }
 
