@@ -75,6 +75,7 @@ class ComposerPanel extends StatelessWidget {
         final notice = composer.notice;
 
         return Container(
+          key: const ValueKey('composer-frame'),
           height:
               height ??
               (target.createsTopic || target.editsTopicMetadata
@@ -86,7 +87,7 @@ class ComposerPanel extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.shell.content,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: theme.shell.divider),
+            border: Border.all(color: theme.shell.divider, width: 2),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.2),
@@ -282,8 +283,8 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   static const double _minimumWidth = 360;
   static const double _minimumReplyHeight = 180;
   static const double _minimumTopicHeight = 300;
-  static const double _edgeHandleExtent = 10;
-  static const double _cornerHandleExtent = 22;
+  static const double _edgeHandleExtent = 16;
+  static const double _cornerHandleExtent = 32;
   static const Duration _geometryRestoreDeadline = Duration(milliseconds: 100);
 
   Size? _size;
@@ -310,15 +311,21 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
       return Stack(
         clipBehavior: Clip.none,
         children: [
+          // The panel inset doubles as an exterior resize gutter. Keeping the
+          // straight-edge targets outside avoids covering composer controls.
           Positioned(
-            left: geometry.position.dx,
-            top: geometry.position.dy,
-            width: geometry.size.width,
-            height: geometry.size.height,
+            left: geometry.position.dx - _edgeHandleExtent,
+            top: geometry.position.dy - _edgeHandleExtent,
+            width: geometry.size.width + _edgeHandleExtent * 2,
+            height: geometry.size.height + _edgeHandleExtent * 2,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                Positioned.fill(
+                Positioned(
+                  left: _edgeHandleExtent,
+                  top: _edgeHandleExtent,
+                  width: geometry.size.width,
+                  height: geometry.size.height,
                   child: ComposerPanel(
                     composer: widget.composer,
                     height: geometry.size.height,

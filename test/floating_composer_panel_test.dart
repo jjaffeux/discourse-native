@@ -53,7 +53,7 @@ void main() {
     expect(constrained.top, 16);
   });
 
-  testWidgets('resizes from every edge without a visible affordance', (
+  testWidgets('gives every edge and corner a generous resize target', (
     tester,
   ) async {
     final composer = ComposerController(_replyTarget);
@@ -64,6 +64,45 @@ void main() {
 
     final initial = tester.getRect(find.byType(ComposerPanel));
     expect(find.byIcon(Icons.open_in_full), findsNothing);
+
+    final top = tester.getRect(
+      find.byKey(const ValueKey('composer-resize-top')),
+    );
+    final right = tester.getRect(
+      find.byKey(const ValueKey('composer-resize-right')),
+    );
+    final bottom = tester.getRect(
+      find.byKey(const ValueKey('composer-resize-bottom')),
+    );
+    final left = tester.getRect(
+      find.byKey(const ValueKey('composer-resize-left')),
+    );
+    expect(top.height, 16);
+    expect(top.bottom, initial.top);
+    expect(right.width, 16);
+    expect(right.left, initial.right);
+    expect(bottom.height, 16);
+    expect(bottom.top, initial.bottom);
+    expect(left.width, 16);
+    expect(left.right, initial.left);
+
+    final corners = {
+      'composer-resize-top-left': initial.topLeft,
+      'composer-resize-top-right': initial.topRight,
+      'composer-resize-bottom-left': initial.bottomLeft,
+      'composer-resize-bottom-right': initial.bottomRight,
+    };
+    for (final MapEntry(:key, :value) in corners.entries) {
+      final corner = tester.getRect(find.byKey(ValueKey(key)));
+      expect(corner.size, const Size.square(32));
+      expect(corner.center, value);
+    }
+
+    final frame = tester.widget<Container>(
+      find.byKey(const ValueKey('composer-frame')),
+    );
+    final border = (frame.decoration! as BoxDecoration).border! as Border;
+    expect(border.top.width, 2);
 
     await tester.drag(
       find.byKey(const ValueKey('composer-resize-left')),
@@ -100,6 +139,39 @@ void main() {
     final fromBottom = tester.getRect(find.byType(ComposerPanel));
     expect(fromBottom.top, closeTo(fromTop.top, 1));
     expect(fromBottom.bottom, closeTo(fromTop.bottom - 40, 1));
+  });
+
+  testWidgets('resizes diagonally from opposite corners', (tester) async {
+    final composer = ComposerController(_replyTarget);
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    await _pumpFloatingPanel(tester, shell, composer);
+
+    final initial = tester.getRect(find.byType(ComposerPanel));
+    await tester.drag(
+      find.byKey(const ValueKey('composer-resize-top-left')),
+      const Offset(40, -40),
+    );
+    await tester.pump();
+
+    final fromTopLeft = tester.getRect(find.byType(ComposerPanel));
+    expect(fromTopLeft.left, closeTo(initial.left + 40, 1));
+    expect(fromTopLeft.top, closeTo(initial.top - 40, 1));
+    expect(fromTopLeft.right, closeTo(initial.right, 1));
+    expect(fromTopLeft.bottom, closeTo(initial.bottom, 1));
+
+    await tester.drag(
+      find.byKey(const ValueKey('composer-resize-bottom-right')),
+      const Offset(-40, -40),
+    );
+    await tester.pump();
+
+    final fromBottomRight = tester.getRect(find.byType(ComposerPanel));
+    expect(fromBottomRight.left, closeTo(fromTopLeft.left, 1));
+    expect(fromBottomRight.top, closeTo(fromTopLeft.top, 1));
+    expect(fromBottomRight.right, closeTo(fromTopLeft.right - 40, 1));
+    expect(fromBottomRight.bottom, closeTo(fromTopLeft.bottom - 40, 1));
   });
 
   testWidgets('shows bold and italic only beside selected text', (
