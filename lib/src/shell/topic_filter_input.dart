@@ -347,19 +347,14 @@ class _SuggestionList extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(9, 9, 12, 9),
                         child: Row(
                           children: [
-                            if (suggestion.category case final category?)
+                            if (suggestion.category case final category?) ...[
                               CategorySquare(
                                 color: Color(category.colorValue),
                                 parentColor: _parentColor(category),
                                 size: 16,
-                              )
-                            else
-                              DIcon(
-                                DIcons.filter,
-                                size: 16,
-                                color: theme.colorScheme.onSurfaceVariant,
                               ),
-                            const SizedBox(width: 10),
+                              const SizedBox(width: 10),
+                            ],
                             Flexible(
                               child: Text(
                                 suggestion.category?.name ?? suggestion.name,
