@@ -23,6 +23,7 @@ import '../models/post_likers.dart';
 import '../models/post_revision.dart';
 import '../models/search_results.dart';
 import '../models/sidebar.dart';
+import '../models/sidebar_tag.dart';
 import '../models/site_appearance.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
@@ -1907,10 +1908,10 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
   }) async {
     if (page < 1) throw RangeError.value(page, 'page', 'Must be positive');
 
-    // Start every authenticated request before yielding. A controller lease is
-    // known-current when this method is entered; dispatching a second request
-    // only after the first response could send a key whose session was revoked
-    // while that response was in flight.
+    // Start both page-one requests before yielding. A controller lease is
+    // known-current when this method is entered; dispatching the site metadata
+    // request only after the category response could send a key whose session
+    // was revoked while that response was in flight.
     final categoryRequest = _getObject(
       Uri.parse('$siteUrl/categories.json').replace(
         queryParameters: {
@@ -1923,7 +1924,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
       apiKey: apiKey,
       clientId: clientId,
     );
-    final siteRequest = apiKey == null || page > 1
+    final siteRequest = page > 1
         ? null
         : _categorySiteMetadata(
             siteUrl: siteUrl,
@@ -1967,10 +1968,62 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
       rootCategoryIds: rootCategoryIds,
       complete: siteResult?.complete ?? true,
       canCreateTopic: list['can_create_topic'] == true,
-      postActionCatalog: siteResult?.body == null
+      postActionCatalog: apiKey == null || siteResult?.body == null
           ? null
           : SitePostActionCatalog.fromJson(site),
+      siteTopTags: siteResult?.body == null
+          ? null
+          : _navigationTags(site['navigation_menu_site_top_tags']),
+      anonymousDefaultTags: siteResult?.body == null
+          ? null
+          : _navigationTags(site['anonymous_default_navigation_menu_tags']),
     );
+  }
+
+  /// Every browsable tag for the native tag directory.
+  ///
+  /// Core's `/tags.json` has two shapes: ordinary sites put every tag in the
+  /// root list, while sites that list tags by group split grouped records into
+  /// `extras.tag_groups`. Category extras can repeat root records. Folding by
+  /// id keeps both shapes complete without drawing duplicates.
+  @override
+  Future<List<SidebarTag>> tags({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final body = await _getObject(
+      Uri.parse('$siteUrl/tags.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    final byId = <int, SidebarTag>{};
+
+    void add(Object? values) {
+      for (final json in jsonObjects(values)) {
+        final tag = SidebarTag.fromJson(json);
+        if (tag != null) byId.putIfAbsent(tag.id, () => tag);
+      }
+    }
+
+    add(body['tags']);
+    final extras = jsonObject(body['extras']);
+    for (final group in jsonObjects(extras['tag_groups'])) {
+      add(group['tags']);
+    }
+    for (final category in jsonObjects(extras['categories'])) {
+      add(category['tags']);
+    }
+
+    final result = byId.values.toList(growable: false)
+      ..sort((left, right) {
+        final folded = left.name.toLowerCase().compareTo(
+          right.name.toLowerCase(),
+        );
+        return folded != 0 ? folded : left.name.compareTo(right.name);
+      });
+    return List.unmodifiable(result);
   }
 
   /// Resolves category ids that were not present in a lazy category-list page.
@@ -2042,7 +2095,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
 
   Future<({Map<String, dynamic>? body, bool complete})> _categorySiteMetadata({
     required String siteUrl,
-    required String apiKey,
+    String? apiKey,
     String? clientId,
   }) async {
     try {
@@ -3379,6 +3432,10 @@ Iterable<Map<String, dynamic>> _flattenCategories(Object? categories) sync* {
     pushReversed(category['subcategory_list']);
   }
 }
+
+List<SidebarTag> _navigationTags(Object? values) => List.unmodifiable([
+  for (final json in jsonObjects(values)) ?SidebarTag.fromJson(json),
+]);
 
 class _HeadResult {
   const _HeadResult(this.url, this.statusCode, this.headers);

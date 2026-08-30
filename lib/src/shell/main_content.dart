@@ -28,6 +28,7 @@ import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
+import 'tags_page.dart';
 import 'title_bar.dart';
 import 'topic_create_button.dart';
 import 'topic_filter_page.dart';
@@ -206,6 +207,9 @@ class _ContentViewport extends StatelessWidget {
         siteUrl != null &&
         categoryFeed != null) {
       return CategoriesPage(siteUrl: siteUrl!, feed: categoryFeed!);
+    }
+    if (!route.isTopic && route.id == 'all-tags' && siteUrl != null) {
+      return TagsPage(siteUrl: siteUrl!);
     }
     if (!route.isTopic && route.id == 'filter' && siteUrl != null) {
       return _FeedBackedContent(
