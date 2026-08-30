@@ -9,6 +9,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/shell_sheet.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -66,6 +67,39 @@ void main() {
     expect(
       tester.widget<BottomSheet>(find.byType(BottomSheet)).enableDrag,
       isFalse,
+    );
+  });
+
+  testWidgets('uses a boxed note textarea and an icon-free danger action', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _editor(
+        suggestions: AssignmentSuggestions(users: const [_sam]),
+        existing: const Assignment(assignee: _sam),
+        remove: () async => null,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final note = tester.widget<TextField>(
+      find.byKey(const Key('assignment-note')),
+    );
+    expect(note.minLines, 3);
+    expect(note.decoration?.labelText, isNull);
+    expect(note.decoration?.hintText, 'Note (optional)');
+    expect(note.decoration?.border, isA<OutlineInputBorder>());
+
+    final unassignFinder = find.byKey(const Key('assignment-unassign'));
+    final unassign = tester.widget<FilledButton>(unassignFinder);
+    final theme = Theme.of(tester.element(unassignFinder));
+    expect(
+      unassign.style?.backgroundColor?.resolve(<WidgetState>{}),
+      theme.colorScheme.error,
+    );
+    expect(
+      find.descendant(of: unassignFinder, matching: find.byType(DIcon)),
+      findsNothing,
     );
   });
 

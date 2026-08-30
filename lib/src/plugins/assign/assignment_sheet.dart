@@ -371,12 +371,12 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
               key: const Key('assignment-note'),
               controller: _noteController,
               enabled: !_saving,
-              minLines: 2,
+              minLines: 3,
               maxLines: 4,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
-                labelText: 'Note (optional)',
-                alignLabelWithHint: true,
+                hintText: 'Note (optional)',
+                border: OutlineInputBorder(),
               ),
             ),
             if (widget.statusesEnabled && statuses.isNotEmpty) ...[
@@ -432,11 +432,14 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
               runSpacing: 8,
               children: [
                 if (widget.remove != null)
-                  OutlinedButton.icon(
+                  FilledButton(
                     key: const Key('assignment-unassign'),
                     onPressed: _saving ? null : _remove,
-                    icon: const DIcon(DIcons.circleMinus),
-                    label: const Text('Unassign'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: theme.colorScheme.error,
+                      foregroundColor: theme.colorScheme.onError,
+                    ),
+                    child: const Text('Unassign'),
                   ),
                 FilledButton.icon(
                   key: const Key('assignment-save'),
