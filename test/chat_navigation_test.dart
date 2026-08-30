@@ -27,6 +27,7 @@ import 'package:discourse_native/src/shell/open_link.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -805,7 +806,7 @@ void main() {
     expect(find.text('New group chat'), findsOneWidget);
     expect(
       tester
-          .widget<FilledButton>(
+          .widget<DButton>(
             find.byKey(const ValueKey('chat-create-group-direct-message')),
           )
           .onPressed,

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/do_not_disturb.dart';
+import '../theme/d_button.dart';
 import 'external_link.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -126,13 +127,13 @@ class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        DButton(
+          label: const Text('Set a notification schedule'),
           onPressed: _saving == null ? _openSchedule : null,
-          child: const Text('Set a notification schedule'),
         ),
-        TextButton(
+        DButton(
+          label: const Text('Cancel'),
           onPressed: _saving == null ? () => Navigator.of(context).pop() : null,
-          child: const Text('Cancel'),
         ),
       ],
     );

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
@@ -253,9 +254,9 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
                   Text(error, textAlign: TextAlign.center),
                   const SizedBox(height: 8),
                 ],
-                OutlinedButton(
+                DButton(
+                  label: Text(_error == null ? 'Load more' : 'Try again'),
                   onPressed: () => unawaited(_load(reset: false)),
-                  child: Text(_error == null ? 'Load more' : 'Try again'),
                 ),
               ],
             ),
@@ -380,19 +381,22 @@ class _ChannelCard extends StatelessWidget {
                     Align(
                       alignment: AlignmentDirectional.centerEnd,
                       child: following
-                          ? OutlinedButton(
+                          ? DButton(
                               key: ValueKey('chat-unfollow-${channel.id}'),
-                              onPressed: busy
-                                  ? null
-                                  : () => _changeFollowing(context, false),
-                              child: Text(busy ? 'Saving…' : 'Unfollow'),
+                              label: const Text('Unfollow'),
+                              onPressed: () => _changeFollowing(context, false),
+                              loading: busy,
+                              loadingLabel: const Text('Saving…'),
                             )
-                          : FilledButton(
+                          : DButton(
                               key: ValueKey('chat-join-${channel.id}'),
-                              onPressed: busy || !canJoin
+                              label: const Text('Join'),
+                              onPressed: !canJoin
                                   ? null
                                   : () => _changeFollowing(context, true),
-                              child: Text(busy ? 'Joining…' : 'Join'),
+                              variant: DButtonVariant.primary,
+                              loading: busy,
+                              loadingLabel: const Text('Joining…'),
                             ),
                     ),
                   ],
@@ -448,7 +452,7 @@ class _BrowseMessage extends StatelessWidget {
           Text(message, textAlign: TextAlign.center),
           if (action case final label?) ...[
             const SizedBox(height: 12),
-            OutlinedButton(onPressed: onAction, child: Text(label)),
+            DButton(label: Text(label), onPressed: onAction),
           ],
         ],
       ),

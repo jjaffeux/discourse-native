@@ -6,6 +6,7 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/topic_scroll_capture.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
@@ -584,10 +585,11 @@ class _TopicScrollCapturePanel extends StatelessWidget {
               '${controller.maximumEvents} events.',
             ),
             const SizedBox(height: 16),
-            FilledButton(
+            DButton(
               key: const ValueKey('topic-scroll-capture-stop'),
+              label: const Text('Stop capture'),
               onPressed: controller.stop,
-              child: const Text('Stop capture'),
+              variant: DButtonVariant.danger,
             ),
           ] else if (state.hasCapture) ...[
             _CaptureStatus(
@@ -597,22 +599,24 @@ class _TopicScrollCapturePanel extends StatelessWidget {
             const SizedBox(height: 12),
             _CaptureSummary(state: state),
             const SizedBox(height: 16),
-            FilledButton.icon(
+            DButton(
               key: const ValueKey('topic-scroll-capture-copy'),
+              label: const Text('Copy capture'),
               onPressed: () => _copyCapture(context),
               icon: const DIcon(DIcons.copy, size: 15),
-              label: const Text('Copy capture'),
+              variant: DButtonVariant.primary,
             ),
             const SizedBox(height: 8),
-            OutlinedButton(
+            DButton(
               key: const ValueKey('topic-scroll-capture-restart'),
+              label: const Text('Start a new capture'),
               onPressed: _startCapture,
-              child: const Text('Start a new capture'),
             ),
-            TextButton(
+            DButton(
               key: const ValueKey('topic-scroll-capture-clear'),
+              label: const Text('Discard capture'),
               onPressed: controller.clear,
-              child: const Text('Discard capture'),
+              variant: DButtonVariant.transparentDanger,
             ),
           ] else ...[
             Text(
@@ -625,10 +629,11 @@ class _TopicScrollCapturePanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            FilledButton(
+            DButton(
               key: const ValueKey('topic-scroll-capture-start'),
+              label: const Text('Start capture'),
               onPressed: _startCapture,
-              child: const Text('Start capture'),
+              variant: DButtonVariant.primary,
             ),
           ],
         ],
@@ -894,11 +899,11 @@ class _EventDetail extends StatelessWidget {
                 ],
               ),
             ),
-            OutlinedButton.icon(
+            DButton(
               key: const ValueKey('diagnostics-copy-event'),
+              label: const Text('Copy'),
               onPressed: onCopy,
               icon: const DIcon(DIcons.copy, size: 15),
-              label: const Text('Copy'),
             ),
           ],
         ),

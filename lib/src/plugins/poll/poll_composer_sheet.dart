@@ -6,6 +6,7 @@ import '../../shell/adaptive_dialog_action.dart';
 import '../../shell/select.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/d_button.dart';
 import 'poll_composer_editor.dart';
 import 'poll_composer_parser.dart';
 
@@ -357,12 +358,12 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
         ),
       Align(
         alignment: AlignmentDirectional.centerStart,
-        child: TextButton.icon(
+        child: DButton(
+          label: const Text('Add option'),
           onPressed: _options.length >= widget.maximumOptions
               ? null
               : _addOption,
           icon: const Icon(Icons.add),
-          label: const Text('Add option'),
         ),
       ),
       if (_isMultiple) ...[
@@ -445,16 +446,21 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
     runSpacing: 8,
     children: [
       if (!widget.draft.isNew) ...[
-        TextButton(
+        DButton(
+          label: const Text('Remove'),
           onPressed: () => unawaited(_remove()),
-          child: const Text('Remove'),
+          variant: DButtonVariant.danger,
         ),
       ],
-      TextButton(
+      DButton(
+        label: const Text('Cancel'),
         onPressed: () => Navigator.of(context).pop(),
-        child: const Text('Cancel'),
       ),
-      FilledButton(onPressed: _apply, child: const Text('Apply')),
+      DButton(
+        label: const Text('Apply'),
+        onPressed: _apply,
+        variant: DButtonVariant.primary,
+      ),
     ],
   );
 

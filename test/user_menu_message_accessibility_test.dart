@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/shell/user_menu_message.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,9 +32,9 @@ void main() {
         isSemantics(label: "Couldn't load bookmarks.", isLiveRegion: true),
       );
 
-      final retry = find.widgetWithText(TextButton, 'Retry');
+      final retry = find.widgetWithText(DButton, 'Retry');
       expect(retry, findsOneWidget);
-      expect(tester.getSize(retry).height, greaterThanOrEqualTo(44));
+      expect(tester.widget<DButton>(retry).variant, DButtonVariant.link);
       final focus = _focusButton(tester, retry);
       await tester.pumpAndSettle();
 

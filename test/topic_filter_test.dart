@@ -364,12 +364,11 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(InstanceSidebar),
-          matching: find.text('Filter'),
+          matching: find.text('More'),
         ),
         findsOneWidget,
       );
-      await tester.tap(find.text('Filter'));
-      await tester.pumpAndSettle();
+      await _openFilter(tester);
 
       expect(find.byType(TopicFilterPage), findsOneWidget);
       expect(api.feedPaths, contains('/filter.json'));
@@ -391,8 +390,7 @@ void main() {
 
       await tester.tap(find.text('Topics'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Filter'));
-      await tester.pumpAndSettle();
+      await _openFilter(tester);
       expect(
         tester.widget<TextField>(field).controller!.text,
         'status:open',
@@ -423,8 +421,7 @@ void main() {
       },
     );
     await _pump(tester, api);
-    await tester.tap(find.text('Filter'));
-    await tester.pumpAndSettle();
+    await _openFilter(tester);
 
     final field = find.byKey(const ValueKey('topic-filter-input'));
     await tester.tap(field);
@@ -454,8 +451,7 @@ void main() {
 
     await _pump(tester, api);
     final semantics = tester.ensureSemantics();
-    await tester.tap(find.text('Filter'));
-    await tester.pump();
+    await _openFilter(tester, settle: false);
 
     expect(find.byKey(const ValueKey('topic-filter-input')), findsOneWidget);
     expect(
@@ -490,8 +486,7 @@ void main() {
       );
       try {
         await _pump(tester, api);
-        await tester.tap(find.text('Filter'));
-        await tester.pumpAndSettle();
+        await _openFilter(tester);
 
         final field = find.byKey(const ValueKey('topic-filter-input'));
         await tester.tap(field);
@@ -566,8 +561,7 @@ void main() {
       },
     );
     await _pump(tester, api);
-    await tester.tap(find.text('Filter'));
-    await tester.pumpAndSettle();
+    await _openFilter(tester);
 
     final field = find.byKey(const ValueKey('topic-filter-input'));
     await tester.tap(field);
@@ -599,8 +593,7 @@ void main() {
       ],
     );
     await _pump(tester, api);
-    await tester.tap(find.text('Filter'));
-    await tester.pumpAndSettle();
+    await _openFilter(tester);
 
     final field = find.byKey(const ValueKey('topic-filter-input'));
     await tester.tap(field);
@@ -660,4 +653,22 @@ Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
     ),
   );
   await tester.pumpAndSettle();
+}
+
+Future<void> _openFilter(WidgetTester tester, {bool settle = true}) async {
+  await tester.tap(find.text('More'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Filter'));
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    for (
+      var attempt = 0;
+      attempt < 10 &&
+          find.byKey(const ValueKey('topic-filter-input')).evaluate().isEmpty;
+      attempt++
+    ) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
 }

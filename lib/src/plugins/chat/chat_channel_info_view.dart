@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/user_card.dart';
 import '../../shell/user_status.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
@@ -278,10 +279,11 @@ class _ChannelSettings extends StatelessWidget {
                                 ],
                               ),
                               action: canEdit
-                                  ? TextButton(
+                                  ? DButton(
                                       key: const ValueKey(
                                         'chat-channel-edit-title',
                                       ),
+                                      label: const Text('Edit'),
                                       onPressed: () => unawaited(
                                         showChatChannelTitleEditor(
                                           context: context,
@@ -290,7 +292,7 @@ class _ChannelSettings extends StatelessWidget {
                                           channel: channel,
                                         ),
                                       ),
-                                      child: const Text('Edit'),
+                                      variant: DButtonVariant.link,
                                     )
                                   : null,
                             ),
@@ -306,9 +308,14 @@ class _ChannelSettings extends StatelessWidget {
                                       'Tell people what this channel is about.',
                                 ),
                                 action: canEdit
-                                    ? TextButton(
+                                    ? DButton(
                                         key: const ValueKey(
                                           'chat-channel-edit-description',
+                                        ),
+                                        label: Text(
+                                          channel.description == null
+                                              ? 'Add'
+                                              : 'Edit',
                                         ),
                                         onPressed: () => unawaited(
                                           showChatChannelDescriptionEditor(
@@ -318,11 +325,7 @@ class _ChannelSettings extends StatelessWidget {
                                             channel: channel,
                                           ),
                                         ),
-                                        child: Text(
-                                          channel.description == null
-                                              ? 'Add'
-                                              : 'Edit',
-                                        ),
+                                        variant: DButtonVariant.link,
                                       )
                                     : null,
                               ),
@@ -464,9 +467,14 @@ class _ChannelSettings extends StatelessWidget {
                             if (canChangeStatus)
                               _InfoRow(
                                 label: 'Status',
-                                action: TextButton(
+                                action: DButton(
                                   key: const ValueKey(
                                     'chat-channel-toggle-status',
+                                  ),
+                                  label: Text(
+                                    channel.status == ChatChannelStatus.closed
+                                        ? 'Open channel'
+                                        : 'Close channel',
                                   ),
                                   onPressed: () => unawaited(
                                     showChatChannelStatusDialog(
@@ -476,11 +484,7 @@ class _ChannelSettings extends StatelessWidget {
                                       channel: channel,
                                     ),
                                   ),
-                                  child: Text(
-                                    channel.status == ChatChannelStatus.closed
-                                        ? 'Open channel'
-                                        : 'Close channel',
-                                  ),
+                                  variant: DButtonVariant.link,
                                 ),
                               ),
                           ],
@@ -490,23 +494,15 @@ class _ChannelSettings extends StatelessWidget {
                           const SizedBox(height: 8),
                           Align(
                             alignment: Alignment.centerLeft,
-                            child: FilledButton.icon(
+                            child: DButton(
                               key: const ValueKey('chat-channel-leave'),
-                              onPressed: followingBusy
-                                  ? null
-                                  : () => unawaited(_leave(context, channel)),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.error,
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.onError,
-                              ),
+                              label: const Text('Leave channel'),
+                              onPressed: () =>
+                                  unawaited(_leave(context, channel)),
                               icon: const DIcon(DIcons.rightFromBracket),
-                              label: Text(
-                                followingBusy ? 'Leaving…' : 'Leave channel',
-                              ),
+                              variant: DButtonVariant.danger,
+                              loading: followingBusy,
+                              loadingLabel: const Text('Leaving…'),
                             ),
                           ),
                         ],
@@ -740,9 +736,9 @@ class _ChannelMembersState extends State<_ChannelMembers> {
           children: [
             Text(error, textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            OutlinedButton(
+            DButton(
+              label: const Text('Retry'),
               onPressed: () => unawaited(_load(reset: true)),
-              child: const Text('Retry'),
             ),
           ],
         ),

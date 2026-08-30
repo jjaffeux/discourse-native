@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icons.dart';
 import 'chat_controller.dart';
 import 'chat_my_threads_view.dart';
@@ -145,7 +146,8 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
                     Text(message, textAlign: TextAlign.center),
                     const SizedBox(height: 8),
                   ],
-                  OutlinedButton(
+                  DButton(
+                    label: Text(error == null ? 'Load more' : 'Try again'),
                     onPressed: () => unawaited(
                       _chat.loadChannelThreads(
                         widget.siteUrl,
@@ -153,7 +155,6 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
                         more: true,
                       ),
                     ),
-                    child: Text(error == null ? 'Load more' : 'Try again'),
                   ),
                 ],
               ),

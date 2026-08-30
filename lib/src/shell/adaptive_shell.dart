@@ -12,6 +12,7 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/diagnostics_scope.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'aggregate_view.dart';
@@ -627,21 +628,15 @@ class _PrivateForumSignIn extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 24),
-                  FilledButton.icon(
+                  DButton(
                     key: const ValueKey('private-forum-sign-in'),
-                    onPressed: connecting
-                        ? null
-                        : () => unawaited(controller.connectCurrentInstance()),
-                    icon: connecting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator.adaptive(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const DIcon(DIcons.upRightFromSquare, size: 18),
-                    label: Text(connecting ? 'Signing in…' : 'Sign in'),
+                    label: const Text('Sign in'),
+                    onPressed: () =>
+                        unawaited(controller.connectCurrentInstance()),
+                    icon: const DIcon(DIcons.upRightFromSquare, size: 18),
+                    variant: DButtonVariant.primary,
+                    loading: connecting,
+                    loadingLabel: const Text('Signing in…'),
                   ),
                 ],
               ),
@@ -660,14 +655,6 @@ class _PrivateForumSignIn extends StatelessWidget {
 /// and composers would all imply that part of it remained usable.
 class _UnavailableForum extends StatelessWidget {
   const _UnavailableForum({required this.siteTitle, required this.retrying});
-
-  // The app's button padding matches Discourse's web controls. Flutter's
-  // compact desktop density subtracts 8px from each vertical inset, which
-  // reduces that padding to zero, so keep these prominent recovery actions at
-  // the geometry the theme actually specifies.
-  static const _actionStyle = ButtonStyle(
-    visualDensity: VisualDensity.standard,
-  );
 
   final String siteTitle;
   final bool retrying;
@@ -728,25 +715,19 @@ class _UnavailableForum extends StatelessWidget {
                       spacing: 12,
                       runSpacing: 12,
                       children: [
-                        FilledButton.icon(
+                        DButton(
                           key: const ValueKey('unavailable-forum-retry'),
-                          style: _actionStyle,
-                          onPressed: retrying
-                              ? null
-                              : () => unawaited(controller.retryCurrentForum()),
-                          icon: retrying
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator.adaptive(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const DIcon(DIcons.arrowsRotate, size: 18),
-                          label: Text(retrying ? 'Trying again…' : 'Try again'),
+                          label: const Text('Try again'),
+                          onPressed: () =>
+                              unawaited(controller.retryCurrentForum()),
+                          icon: const DIcon(DIcons.arrowsRotate, size: 18),
+                          variant: DButtonVariant.primary,
+                          loading: retrying,
+                          loadingLabel: const Text('Trying again…'),
                         ),
-                        OutlinedButton.icon(
+                        DButton(
                           key: const ValueKey('unavailable-forum-remove'),
+                          label: const Text('Remove forum'),
                           onPressed: () {
                             final instance = controller.currentInstance;
                             if (instance != null) {
@@ -755,13 +736,8 @@ class _UnavailableForum extends StatelessWidget {
                               );
                             }
                           },
-                          style: _actionStyle.copyWith(
-                            foregroundColor: WidgetStatePropertyAll(
-                              theme.colorScheme.error,
-                            ),
-                          ),
                           icon: const DIcon(DIcons.trashCan, size: 18),
-                          label: const Text('Remove forum'),
+                          variant: DButtonVariant.danger,
                         ),
                       ],
                     ),
@@ -1280,11 +1256,12 @@ class _ShellLoadFailure extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  FilledButton.icon(
+                  DButton(
                     key: const ValueKey('instance-load-retry-panel'),
+                    label: const Text('Retry'),
                     onPressed: ShellScope.read(context).load,
                     icon: const DIcon(DIcons.arrowsRotate, size: 18),
-                    label: const Text('Retry'),
+                    variant: DButtonVariant.primary,
                   ),
                 ],
               ),

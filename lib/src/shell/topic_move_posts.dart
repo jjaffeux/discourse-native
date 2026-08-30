@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/post.dart';
 import '../models/topic.dart';
+import '../theme/d_button.dart';
 import 'shell_controller.dart';
 
 Future<void> showTopicMovePosts({
@@ -215,23 +216,18 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        DButton(
+          label: const Text('Cancel'),
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
         ),
-        FilledButton(
+        DButton(
           key: const ValueKey('topic-move-posts-submit'),
+          label: Text(
+            _mode == _MoveMode.newTopic ? 'Create and move' : 'Move posts',
+          ),
           onPressed: _canSubmit ? () => unawaited(_move()) : null,
-          child: _saving
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                )
-              : Text(
-                  _mode == _MoveMode.newTopic
-                      ? 'Create and move'
-                      : 'Move posts',
-                ),
+          variant: DButtonVariant.primary,
+          loading: _saving,
         ),
       ],
     );

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../models/post.dart';
 import '../models/post_flag.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'cooked_html.dart';
@@ -330,20 +331,17 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
               const SizedBox(height: 20),
               Align(
                 alignment: Alignment.centerLeft,
-                child: FilledButton.icon(
+                child: DButton(
                   key: const ValueKey('post-flag-submit'),
-                  onPressed: _valid && !_saving ? _submit : null,
-                  icon: _saving
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const DIcon(DIcons.flag, size: 16),
                   label: Text(
                     selected?.requireMessage == true
                         ? 'Message'
                         : widget.submitLabel,
                   ),
+                  onPressed: _valid ? _submit : null,
+                  icon: const DIcon(DIcons.flag, size: 16),
+                  variant: DButtonVariant.primary,
+                  loading: _saving,
                 ),
               ),
             ],

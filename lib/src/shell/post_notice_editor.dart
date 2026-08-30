@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
+import '../theme/d_button.dart';
 import 'shell_controller.dart';
 
 Future<void> showPostNoticeEditor({
@@ -102,27 +103,22 @@ class _PostNoticeDialogState extends State<_PostNoticeDialog> {
     ),
     actions: [
       if (widget.post.notice != null)
-        TextButton(
+        DButton(
           key: const ValueKey('post-notice-delete'),
+          label: const Text('Delete notice'),
           onPressed: _saving ? null : () => unawaited(_set(null)),
-          child: Text(
-            'Delete notice',
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
+          variant: DButtonVariant.danger,
         ),
-      TextButton(
+      DButton(
+        label: const Text('Cancel'),
         onPressed: _saving ? null : () => Navigator.of(context).pop(),
-        child: const Text('Cancel'),
       ),
-      FilledButton(
+      DButton(
         key: const ValueKey('post-notice-save'),
+        label: const Text('Save'),
         onPressed: _canSave ? () => unawaited(_set(_text.text)) : null,
-        child: _saving
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-              )
-            : const Text('Save'),
+        variant: DButtonVariant.primary,
+        loading: _saving,
       ),
     ],
   );

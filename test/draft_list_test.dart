@@ -87,7 +87,7 @@ void main() {
             ),
           )
           .shortcut,
-      newTopicShortcut,
+      const DShortcut(newTopicShortcut),
     );
     expect(
       find.descendant(

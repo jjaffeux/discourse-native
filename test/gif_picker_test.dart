@@ -229,7 +229,14 @@ void main() {
       );
       final retry = find.byKey(const ValueKey('gif-picker-retry'));
       expect(retry, findsOneWidget);
-      expect(tester.widget<FilledButton>(retry).onPressed, isNotNull);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.descendant(of: retry, matching: find.byType(FilledButton)),
+            )
+            .onPressed,
+        isNotNull,
+      );
     } finally {
       semantics.dispose();
     }
@@ -263,9 +270,9 @@ void main() {
         tester.getSemantics(error),
         isSemantics(label: _errorMessage, isLiveRegion: true),
       );
-      final retry = find.widgetWithText(TextButton, 'Try again');
+      final retry = find.widgetWithText(FilledButton, 'Try again');
       expect(retry, findsOneWidget);
-      expect(tester.widget<TextButton>(retry).onPressed, isNotNull);
+      expect(tester.widget<FilledButton>(retry).onPressed, isNotNull);
     } finally {
       semantics.dispose();
     }

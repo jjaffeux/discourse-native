@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/user_status.dart';
 import '../plugin_api/emoji_usage.dart';
+import '../theme/d_button.dart';
 import 'emoji_picker.dart';
 import 'shell_scope.dart';
 import 'site_emoji_image.dart';
@@ -336,22 +337,19 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
       ),
       actions: [
         if (widget.initialStatus != null)
-          TextButton(
+          DButton(
+            label: const Text('Clear status'),
             onPressed: _busy ? null : _clear,
-            child: const Text('Clear status'),
           ),
-        TextButton(
+        DButton(
+          label: const Text('Cancel'),
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
         ),
-        FilledButton(
-          onPressed: _busy ? null : _save,
-          child: _busy
-              ? const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                )
-              : const Text('Save'),
+        DButton(
+          label: const Text('Save'),
+          onPressed: _save,
+          variant: DButtonVariant.primary,
+          loading: _busy,
         ),
       ],
     );

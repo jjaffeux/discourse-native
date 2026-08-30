@@ -624,21 +624,15 @@ class _SignedOutMessagesState extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 24),
-                    FilledButton.icon(
+                    DButton(
                       key: const ValueKey('messages-sign-in'),
-                      onPressed: state.connecting
-                          ? null
-                          : () =>
-                                unawaited(controller.connectCurrentInstance()),
-                      icon: state.connecting
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator.adaptive(
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const DIcon(DIcons.user, size: 18),
-                      label: Text(state.connecting ? 'Signing in…' : 'Sign in'),
+                      label: const Text('Sign in'),
+                      onPressed: () =>
+                          unawaited(controller.connectCurrentInstance()),
+                      icon: const DIcon(DIcons.user, size: 18),
+                      variant: DButtonVariant.primary,
+                      loading: state.connecting,
+                      loadingLabel: const Text('Signing in…'),
                     ),
                   ],
                 ),
@@ -696,7 +690,8 @@ class _ContentPlaceholder extends StatelessWidget {
               runSpacing: 8,
               alignment: WrapAlignment.center,
               children: [
-                FilledButton.tonalIcon(
+                DButton(
+                  label: const Text('Replace with deeper view'),
                   onPressed: () => controller.pushContent(
                     ContentRoute(
                       id: '${route.id}-$depth',
@@ -706,9 +701,9 @@ class _ContentPlaceholder extends StatelessWidget {
                     ),
                   ),
                   icon: const DIcon(DIcons.upRightFromSquare, size: 18),
-                  label: const Text('Replace with deeper view'),
                 ),
-                OutlinedButton.icon(
+                DButton(
+                  label: const Text('Show sheet'),
                   onPressed: () => showShellSheet<void>(
                     context: context,
                     title: route.title,
@@ -721,7 +716,6 @@ class _ContentPlaceholder extends StatelessWidget {
                     ),
                   ),
                   icon: const DIcon(DIcons.arrowUp, size: 18),
-                  label: const Text('Show sheet'),
                 ),
               ],
             ),

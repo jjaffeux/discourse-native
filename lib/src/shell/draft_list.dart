@@ -6,6 +6,7 @@ import '../models/discourse_instance.dart';
 import '../models/draft_feed.dart';
 import '../models/topic.dart';
 import '../models/user_draft.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
@@ -352,9 +353,10 @@ class _Drafts extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Expanded(child: Text(error)),
-                  TextButton(
+                  DButton(
+                    label: const Text('Retry'),
                     onPressed: () => unawaited(onRefresh()),
-                    child: const Text('Retry'),
+                    variant: DButtonVariant.link,
                   ),
                 ],
               ),
@@ -399,18 +401,11 @@ class _Drafts extends StatelessWidget {
             Center(
               child: Padding(
                 padding: const EdgeInsets.only(top: 16),
-                child: OutlinedButton(
-                  onPressed: feed.loading
-                      ? null
-                      : () => unawaited(controller.draftList.load(instance)),
-                  child: feed.loading
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text('Load more'),
+                child: DButton(
+                  label: const Text('Load more'),
+                  onPressed: () =>
+                      unawaited(controller.draftList.load(instance)),
+                  loading: feed.loading,
                 ),
               ),
             ),
@@ -719,11 +714,12 @@ class _DraftState extends StatelessWidget {
               ],
               if (actionLabel case final label?) ...[
                 const SizedBox(height: 18),
-                FilledButton(
+                DButton(
+                  label: Text(label),
                   onPressed: onAction == null
                       ? null
                       : () => unawaited(onAction!()),
-                  child: Text(label),
+                  variant: DButtonVariant.primary,
                 ),
               ],
             ],

@@ -6,6 +6,7 @@ import '../data/site_lifecycle.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_summary.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
@@ -980,9 +981,12 @@ class _SummaryErrorBanner extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Expanded(child: Text(error)),
-            TextButton(
-              onPressed: refreshing ? null : () => unawaited(onRetry()),
-              child: Text(refreshing ? 'Refreshing…' : 'Retry'),
+            DButton(
+              label: const Text('Retry'),
+              onPressed: () => unawaited(onRetry()),
+              variant: DButtonVariant.link,
+              loading: refreshing,
+              loadingLabel: const Text('Refreshing…'),
             ),
           ],
         ),
@@ -1027,11 +1031,12 @@ class _SummaryState extends StatelessWidget {
               ),
               if (actionLabel case final label?) ...[
                 const SizedBox(height: 20),
-                FilledButton(
+                DButton(
+                  label: Text(label),
                   onPressed: onAction == null
                       ? null
                       : () => unawaited(onAction!()),
-                  child: Text(label),
+                  variant: DButtonVariant.primary,
                 ),
               ],
             ],

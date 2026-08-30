@@ -4,6 +4,7 @@ import '../../data/discourse_api_contracts.dart';
 import '../../models/user_card.dart';
 import '../../plugin_api/plugin_data.dart';
 import '../../plugin_api/plugin_scope.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_services.dart';
@@ -82,16 +83,13 @@ class _ChatUserCardButtonState extends State<ChatUserCardButton> {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      child: FilledButton.icon(
+      child: DButton(
         key: ValueKey<String>('user-card-chat-${widget.user.username}'),
-        onPressed: _opening ? null : _open,
-        icon: _opening
-            ? const SizedBox.square(
-                dimension: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const DIcon(DIcons.comment, size: 16),
         label: const Text('Chat'),
+        onPressed: _open,
+        icon: const DIcon(DIcons.comment, size: 16),
+        variant: DButtonVariant.primary,
+        loading: _opening,
       ),
     );
   }

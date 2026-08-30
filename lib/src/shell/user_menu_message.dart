@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/d_button.dart';
+
 /// The waiting, empty and failed states a fetching surface shows in place of
 /// its rows, given enough height that it does not collapse to nothing while it
 /// has none.
@@ -62,7 +64,11 @@ class UserMenuMessage extends StatelessWidget {
                         ),
                       ),
                     if (onRetry case final retry?)
-                      TextButton(onPressed: retry, child: const Text('Retry')),
+                      DButton(
+                        label: const Text('Retry'),
+                        onPressed: retry,
+                        variant: DButtonVariant.link,
+                      ),
                   ],
                 ),
               ),

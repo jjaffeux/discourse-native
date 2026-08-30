@@ -9,6 +9,7 @@ import '../models/topic_feed.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
@@ -650,10 +651,11 @@ class _FeedErrorBanner extends StatelessWidget {
             ),
             const SizedBox(width: 9),
             Expanded(child: Text(message)),
-            TextButton(
+            DButton(
               key: const ValueKey('topic-feed-error-retry'),
+              label: const Text('Retry'),
               onPressed: onRetry,
-              child: const Text('Retry'),
+              variant: DButtonVariant.link,
             ),
           ],
         ),
@@ -1256,10 +1258,11 @@ class _Message extends StatelessWidget {
             ),
             if (actionLabel case final label?) ...[
               const SizedBox(height: 8),
-              TextButton(
+              DButton(
                 key: const ValueKey('topic-feed-initial-retry'),
+                label: Text(label),
                 onPressed: onAction,
-                child: Text(label),
+                variant: DButtonVariant.link,
               ),
             ],
           ],

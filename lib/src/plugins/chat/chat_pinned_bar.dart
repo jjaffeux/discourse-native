@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
@@ -146,9 +147,10 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
                 minTileHeight: 48,
                 leading: const DIcon(DIcons.thumbtack, size: 16),
                 title: Text(state.error!),
-                trailing: TextButton(
+                trailing: DButton(
+                  label: const Text('Retry'),
                   onPressed: () => _load(force: true),
-                  child: const Text('Retry'),
+                  variant: DButtonVariant.link,
                 ),
               ),
             );

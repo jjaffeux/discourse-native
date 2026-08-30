@@ -14,6 +14,7 @@ import 'package:webview_all_linux/webview_all_linux.dart';
 import 'package:webview_all_wkwebview/webview_all_wkwebview.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
@@ -784,11 +785,12 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
                 style: TextStyle(color: Colors.white),
               ),
               const SizedBox(height: 8),
-              TextButton(
+              DButton(
+                label: const Text('Open on YouTube'),
                 onPressed: () => unawaited(
                   openExternalLink(widget.data.watchUri.toString()),
                 ),
-                child: const Text('Open on YouTube'),
+                variant: DButtonVariant.link,
               ),
             ],
           ),

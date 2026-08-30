@@ -6,6 +6,7 @@ import '../data/discourse_api.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'shell_controller.dart';
@@ -352,15 +353,11 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
           ),
         ),
         const SizedBox(height: 16),
-        FilledButton(
-          onPressed: _connecting ? null : _connect,
-          child: _connecting
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                )
-              : const Text('Connect'),
+        DButton(
+          label: const Text('Connect'),
+          onPressed: _connect,
+          variant: DButtonVariant.primary,
+          loading: _connecting,
         ),
       ],
     );

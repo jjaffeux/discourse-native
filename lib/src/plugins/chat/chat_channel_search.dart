@@ -189,7 +189,11 @@ class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
                   ),
                 ],
               ],
-              TextButton(onPressed: _close, child: const Text('Done')),
+              DButton(
+                label: const Text('Done'),
+                onPressed: _close,
+                variant: DButtonVariant.link,
+              ),
             ],
           ),
           if (state.phase == ChatSearchPhase.empty)
@@ -201,10 +205,11 @@ class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
             Row(
               children: [
                 Expanded(child: Text(error)),
-                TextButton(
+                DButton(
+                  label: const Text('Try again'),
                   onPressed: () =>
                       _search.retryScoped(widget.siteUrl, widget.channelId),
-                  child: const Text('Try again'),
+                  variant: DButtonVariant.link,
                 ),
               ],
             ),

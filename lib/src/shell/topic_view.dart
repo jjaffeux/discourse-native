@@ -2375,19 +2375,17 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
           title: Text(title),
           content: Text(message),
           actions: [
-            TextButton(
+            DButton(
+              label: const Text('Cancel'),
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
             ),
-            FilledButton(
+            DButton(
               key: ValueKey('topic-selected-${action.toLowerCase()}-confirm'),
-              style: destructive
-                  ? FilledButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.error,
-                    )
-                  : null,
+              label: Text(action),
               onPressed: () => Navigator.of(context).pop(true),
-              child: Text(action),
+              variant: destructive
+                  ? DButtonVariant.danger
+                  : DButtonVariant.primary,
             ),
           ],
         ),
@@ -4761,23 +4759,15 @@ class _TopicMap extends StatelessWidget {
             children: [
               if (readTime != null) _TopicReadTime(minutes: readTime),
               if (topic.hasSummary && !pluginActions.replacesSummary)
-                OutlinedButton.icon(
+                DButton(
                   key: const ValueKey('topic-summary-button'),
-                  onPressed: summaryLoading
-                      ? null
-                      : () => unawaited(_toggleSummary(context)),
-                  icon: summaryLoading
-                      ? const SizedBox.square(
-                          dimension: 14,
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : DIcon(
-                          summary ? DIcons.list : DIcons.layerGroup,
-                          size: 14,
-                        ),
                   label: Text(summary ? 'Show all' : 'Summarize'),
+                  onPressed: () => unawaited(_toggleSummary(context)),
+                  icon: DIcon(
+                    summary ? DIcons.list : DIcons.layerGroup,
+                    size: 14,
+                  ),
+                  loading: summaryLoading,
                 ),
               ...pluginActions.actions,
             ],

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../shell/image_decode.dart';
 import '../../shell/shell_sheet.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'gif.dart';
@@ -263,10 +264,11 @@ class _GifPickerState extends State<GifPicker> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                     )
-                  : TextButton(
+                  : DButton(
                       key: const ValueKey('gif-picker-load-more'),
+                      label: const Text('Load more'),
                       onPressed: controller.loadMore,
-                      child: const Text('Load more'),
+                      variant: DButtonVariant.link,
                     ),
             ),
         ],
@@ -278,10 +280,10 @@ class _GifPickerState extends State<GifPicker> {
         icon: DIcons.triangleExclamation,
         message: error,
         liveRegion: true,
-        action: FilledButton.tonal(
+        action: DButton(
           key: const ValueKey('gif-picker-retry'),
+          label: const Text('Try again'),
           onPressed: controller.retry,
-          child: const Text('Try again'),
         ),
       );
     }
@@ -512,7 +514,11 @@ class _InlineError extends StatelessWidget {
               ),
             ),
           ),
-          TextButton(onPressed: onRetry, child: const Text('Try again')),
+          DButton(
+            label: const Text('Try again'),
+            onPressed: onRetry,
+            variant: DButtonVariant.link,
+          ),
         ],
       ),
     ),

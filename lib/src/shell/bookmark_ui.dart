@@ -10,6 +10,7 @@ import '../models/bookmark_reminder.dart';
 import '../models/post.dart';
 import '../plugin_api/bookmark_host.dart';
 import '../plugin_api/plugin_scope.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
@@ -878,9 +879,9 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
                 ),
               ),
               const SizedBox(width: 8),
-              FilledButton.tonal(
+              DButton(
+                label: const Text('Set'),
                 onPressed: _busy ? null : _setRelative,
-                child: const Text('Set'),
               ),
             ],
           ),
@@ -899,21 +900,16 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextButton(
+              DButton(
+                label: const Text('Cancel'),
                 onPressed: _busy ? null : () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
               ),
               const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _busy ? null : _save,
-                child: _busy
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text('Save'),
+              DButton(
+                label: const Text('Save'),
+                onPressed: _save,
+                variant: DButtonVariant.primary,
+                loading: _busy,
               ),
             ],
           ),
@@ -1093,7 +1089,8 @@ class _TopicBookmarksSheet extends StatelessWidget {
             ),
           if (topic.bookmarks.length > 1) ...[
             const Divider(),
-            TextButton.icon(
+            DButton(
+              label: const Text('Delete all bookmarks'),
               onPressed: snapshot.busyTargets.isNotEmpty
                   ? null
                   : () => Navigator.of(context).pop(
@@ -1102,10 +1099,7 @@ class _TopicBookmarksSheet extends StatelessWidget {
                       ),
                     ),
               icon: const DIcon(DIcons.trashCan),
-              label: const Text('Delete all bookmarks'),
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.error,
-              ),
+              variant: DButtonVariant.danger,
             ),
           ],
         ],

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../models/user_card.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
@@ -356,13 +357,13 @@ class _CardContent extends StatelessWidget {
             final narrow = constraints.maxWidth < 500;
             final profileAction = SizedBox(
               width: double.infinity,
-              child: OutlinedButton.icon(
+              child: DButton(
+                label: const Text('View profile'),
                 onPressed: () {
                   close();
                   unawaited(openExternalLink('$siteUrl${card.path}'));
                 },
                 icon: const DIcon(DIcons.upRightFromSquare, size: 16),
-                label: const Text('View profile'),
               ),
             );
             final actions = [...pluginActions, profileAction];

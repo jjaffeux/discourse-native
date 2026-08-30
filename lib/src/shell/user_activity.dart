@@ -7,6 +7,7 @@ import '../models/topic.dart';
 import '../models/user_activity.dart';
 import '../models/user_activity_feed.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'account_activity_loader.dart';
@@ -402,7 +403,11 @@ class _LoadMoreError extends StatelessWidget {
                 ),
                 const SizedBox(width: 9),
                 Expanded(child: Text(message)),
-                TextButton(onPressed: onRetry, child: const Text('Retry')),
+                DButton(
+                  label: const Text('Retry'),
+                  onPressed: onRetry,
+                  variant: DButtonVariant.link,
+                ),
               ],
             ),
           ),
@@ -515,11 +520,12 @@ class _ActivityState extends StatelessWidget {
                 ],
                 if (actionLabel case final label?) ...[
                   const SizedBox(height: 18),
-                  FilledButton(
+                  DButton(
+                    label: Text(label),
                     onPressed: onAction == null
                         ? null
                         : () => unawaited(onAction!()),
-                    child: Text(label),
+                    variant: DButtonVariant.primary,
                   ),
                 ],
               ],

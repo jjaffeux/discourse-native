@@ -599,7 +599,11 @@ class _DirectoryError extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Expanded(child: Text(message)),
-            TextButton(onPressed: onRetry, child: const Text('Try again')),
+            DButton(
+              label: const Text('Try again'),
+              onPressed: onRetry,
+              variant: DButtonVariant.link,
+            ),
           ],
         ),
       ),

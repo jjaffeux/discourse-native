@@ -9,6 +9,7 @@ import '../models/site_emoji.dart';
 import '../plugin_api/emoji_preferences.dart';
 import '../plugin_api/emoji_usage.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
@@ -422,10 +423,10 @@ class _EmojiPickerState extends State<EmojiPicker> {
         icon: DIcons.triangleExclamation,
         message: error,
         liveRegion: true,
-        action: FilledButton.tonal(
+        action: DButton(
           key: const ValueKey('emoji-picker-retry'),
+          label: const Text('Try again'),
           onPressed: controller.retry,
-          child: const Text('Try again'),
         ),
       );
     }

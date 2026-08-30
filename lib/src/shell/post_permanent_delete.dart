@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
+import '../theme/d_button.dart';
 import 'shell_controller.dart';
 
 const _confirmationPhrase = 'permanently delete';
@@ -22,9 +23,10 @@ Future<void> showPostPermanentDelete({
         title: const Text('Cannot permanently delete'),
         content: Text(refusal),
         actions: [
-          FilledButton(
+          DButton(
+            label: const Text('OK'),
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            variant: DButtonVariant.primary,
           ),
         ],
       ),
@@ -124,22 +126,16 @@ class _PermanentDeleteDialogState extends State<_PermanentDeleteDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        DButton(
+          label: const Text('Cancel'),
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
         ),
-        FilledButton(
+        DButton(
           key: const ValueKey('post-permanent-delete-submit'),
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+          label: const Text('Permanently delete'),
           onPressed: !_saving && _matches ? () => unawaited(_delete()) : null,
-          child: _saving
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                )
-              : const Text('Permanently delete'),
+          variant: DButtonVariant.danger,
+          loading: _saving,
         ),
       ],
     );

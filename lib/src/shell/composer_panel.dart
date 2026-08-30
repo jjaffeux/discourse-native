@@ -17,6 +17,7 @@ import '../plugin_api/composer_syntax.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
@@ -751,7 +752,8 @@ class _TopicTaxonomy extends StatelessWidget {
             child: Row(
               children: [
                 if (!composer.target.isTagsEdit)
-                  OutlinedButton.icon(
+                  DButton(
+                    label: Text(category?.name ?? 'Category'),
                     onPressed: () =>
                         _pickCategory(context, shell, state.categories),
                     icon: category == null
@@ -764,12 +766,18 @@ class _TopicTaxonomy extends StatelessWidget {
                               borderRadius: BorderRadius.circular(3),
                             ),
                           ),
-                    label: Text(category?.name ?? 'Category'),
                   ),
                 if (!composer.target.isTagsEdit) const SizedBox(width: 8),
                 if (state.capabilities.canTagTopics || composer.tags.isNotEmpty)
                   Expanded(
-                    child: OutlinedButton.icon(
+                    child: DButton(
+                      label: Text(
+                        composer.tags.isEmpty
+                            ? 'Tags'
+                            : composer.tags.map((tag) => tag.name).join(', '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       onPressed: () => showShellSheet<void>(
                         context: context,
                         title: 'Tags',
@@ -781,13 +789,6 @@ class _TopicTaxonomy extends StatelessWidget {
                         ),
                       ),
                       icon: const DIcon(DIcons.tag, size: 15),
-                      label: Text(
-                        composer.tags.isEmpty
-                            ? 'Tags'
-                            : composer.tags.map((tag) => tag.name).join(', '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
                     ),
                   ),
               ],
@@ -1171,8 +1172,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       () => _keyboardSelectedPill != null,
     );
     _renderedEmojiInputFormatter = _RenderedEmojiInputFormatter(
-      endingAt: (offset) =>
-          widget.composer.text.renderedEmojiEndingAt(offset),
+      endingAt: (offset) => widget.composer.text.renderedEmojiEndingAt(offset),
       startingAt: (offset) =>
           widget.composer.text.renderedEmojiStartingAt(offset),
     );

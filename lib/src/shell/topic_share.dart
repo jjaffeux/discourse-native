@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart' as sharing;
 
 import '../models/site_config.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'shell_sheet.dart';
@@ -182,27 +183,28 @@ class _TopicShareBody extends StatelessWidget {
           runSpacing: 8,
           children: [
             if (onReplyAsNewTopic != null)
-              OutlinedButton.icon(
+              DButton(
                 key: const ValueKey('topic-share-reply-as-new-topic'),
+                label: const Text('Reply as new topic'),
                 onPressed: () {
                   Navigator.of(context).pop();
                   unawaited(onReplyAsNewTopic!());
                 },
                 icon: const DIcon(DIcons.plus, size: 16),
-                label: const Text('Reply as new topic'),
               ),
-            OutlinedButton.icon(
+            DButton(
               key: const ValueKey('topic-share-copy'),
+              label: const Text('Copy link'),
               onPressed: () => unawaited(_copy(context)),
               icon: const DIcon(DIcons.copy, size: 16),
-              label: const Text('Copy link'),
             ),
             Builder(
-              builder: (buttonContext) => FilledButton.icon(
+              builder: (buttonContext) => DButton(
                 key: const ValueKey('topic-share-system'),
+                label: const Text('Share'),
                 onPressed: () => unawaited(_share(buttonContext)),
                 icon: const DIcon(DIcons.upRightFromSquare, size: 16),
-                label: const Text('Share'),
+                variant: DButtonVariant.primary,
               ),
             ),
           ],

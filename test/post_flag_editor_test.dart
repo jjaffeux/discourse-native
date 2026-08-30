@@ -67,8 +67,12 @@ Future<void> _pumpEditor(
   ),
 );
 
-FilledButton _submit(WidgetTester tester) =>
-    tester.widget<FilledButton>(find.byKey(const ValueKey('post-flag-submit')));
+FilledButton _submit(WidgetTester tester) => tester.widget<FilledButton>(
+  find.descendant(
+    of: find.byKey(const ValueKey('post-flag-submit')),
+    matching: find.byType(FilledButton),
+  ),
+);
 
 void main() {
   testWidgets('a sole reason is preselected and can be submitted', (

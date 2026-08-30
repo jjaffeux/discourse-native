@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/discourse_api_contracts.dart';
 import '../../shell/avatar_image.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_controller.dart';
@@ -356,21 +357,23 @@ class _ChatNewDirectMessageDialogState
       ),
       actions: [
         if (_composingGroup) ...[
-          TextButton(
+          DButton(
+            label: const Text('Back'),
             onPressed: _opening ? null : _cancelGroup,
-            child: const Text('Back'),
           ),
-          FilledButton(
+          DButton(
             key: const ValueKey('chat-create-group-direct-message'),
+            label: const Text('Create group chat'),
             onPressed: _opening || _members.isEmpty
                 ? null
                 : () => unawaited(_createGroup()),
-            child: const Text('Create group chat'),
+            variant: DButtonVariant.primary,
+            loading: _opening,
           ),
         ] else
-          TextButton(
+          DButton(
+            label: const Text('Cancel'),
             onPressed: _opening ? null : () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
           ),
       ],
     );
