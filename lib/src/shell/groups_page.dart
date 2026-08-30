@@ -291,23 +291,39 @@ class _DirectoryControls extends StatelessWidget {
       onChanged: onSearchChanged,
       onSubmitted: onSearchSubmitted,
       textInputAction: TextInputAction.search,
+      style: Theme.of(context).textTheme.labelLarge,
       decoration: InputDecoration(
         isDense: true,
         hintText: 'Search groups',
         prefixIcon: const Padding(
-          padding: EdgeInsets.all(12),
+          padding: EdgeInsets.symmetric(horizontal: 12),
           child: DIcon(DIcons.magnifyingGlass, size: 18),
+        ),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 42,
+          minHeight: 0,
         ),
         suffixIcon: searchController.text.isEmpty
             ? null
             : IconButton(
                 tooltip: 'Clear search',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 42),
+                iconSize: 16,
+                style: IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
                 onPressed: () {
                   searchController.clear();
                   onSearchSubmitted('');
                 },
                 icon: const DIcon(DIcons.xmark, size: 16),
               ),
+        suffixIconConstraints: const BoxConstraints(
+          minWidth: 42,
+          minHeight: 0,
+        ),
+        contentPadding: const EdgeInsets.symmetric(vertical: 9),
         border: const OutlineInputBorder(),
       ),
     );
