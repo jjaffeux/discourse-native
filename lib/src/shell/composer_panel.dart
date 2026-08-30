@@ -1177,10 +1177,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   Widget _field() => MouseRegion(
-    key: const ValueKey('composer-editor-pointer'),
-    cursor: _hoveringMention
-        ? SystemMouseCursors.click
-        : MouseCursor.defer,
     onHover: (event) => _updateEditorHover(event.position),
     onExit: (_) => _updateEditorHover(null),
     child: Listener(
@@ -1227,6 +1223,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
                     true,
                 onTapAlwaysCalled: true,
                 onTap: _activatePointerDownPill,
+                // TextField owns the deepest cursor region. Changing only the
+                // editor-level hover region leaves its text cursor in front.
+                mouseCursor: _hoveringMention
+                    ? SystemMouseCursors.click
+                    : null,
                 style: widget.textStyle,
                 // InputDecorator only gives the editable one text line when
                 // the TextField expands. The composer draws its hint separately
