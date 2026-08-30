@@ -39,6 +39,7 @@ import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
 import 'site_image.dart';
+import 'topic_taxonomy_fields.dart';
 
 const double _composerPanelRadius = 22;
 
@@ -750,37 +751,37 @@ class _TopicTaxonomy extends StatelessWidget {
               .where((item) => item.id == composer.categoryId)
               .firstOrNull;
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
               children: [
                 if (!composer.target.isTagsEdit)
-                  DButton(
-                    label: Text(category?.name ?? 'Category'),
-                    onPressed: () =>
-                        _pickCategory(context, shell, state.categories),
-                    icon: category == null
-                        ? const DIcon(DIcons.folder, size: 15)
-                        : Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: Color(category.colorValue),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                          ),
+                  TopicPropertyRow(
+                    key: const ValueKey('composer-category-property'),
+                    label: 'Category',
+                    child: TopicCategoryValue(
+                      valueKey: const ValueKey('composer-category'),
+                      label: category?.name ?? 'Choose a category',
+                      color: category == null
+                          ? null
+                          : Color(category.colorValue),
+                      colorKey: const ValueKey('composer-category-color'),
+                      actionKey: const ValueKey('composer-category-action'),
+                      tooltip: 'Choose category',
+                      onTap: () =>
+                          _pickCategory(context, shell, state.categories),
+                    ),
                   ),
-                if (!composer.target.isTagsEdit) const SizedBox(width: 8),
                 if (state.capabilities.canTagTopics || composer.tags.isNotEmpty)
-                  Expanded(
-                    child: DButton(
-                      label: Text(
-                        composer.tags.isEmpty
-                            ? 'Tags'
-                            : composer.tags.map((tag) => tag.name).join(', '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      onPressed: () => showShellSheet<void>(
+                  TopicPropertyRow(
+                    key: const ValueKey('composer-tags-property'),
+                    label: 'Tags',
+                    child: TopicTagsValue(
+                      key: const ValueKey('composer-tags'),
+                      tags: composer.tags,
+                      tagKey: (tag) => ValueKey(('composer-tag', tag.name)),
+                      addKey: const ValueKey('composer-add-tag'),
+                      editTooltip: 'Choose tags',
+                      onTap: () => showShellSheet<void>(
                         context: context,
                         title: 'Tags',
                         dialogOnDesktop: true,
@@ -790,7 +791,6 @@ class _TopicTaxonomy extends StatelessWidget {
                           capabilities: state.capabilities,
                         ),
                       ),
-                      icon: const DIcon(DIcons.tag, size: 15),
                     ),
                   ),
               ],

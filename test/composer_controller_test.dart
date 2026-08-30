@@ -450,6 +450,27 @@ void main() {
     expect(composer.tags.single.name, 'mobile');
   });
 
+  test('notifies taxonomy changes before a new topic can submit', () {
+    final composer = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 0,
+        slug: '',
+        topicTitle: 'New topic',
+        mode: ComposerMode.newTopic,
+      ),
+    );
+    addTearDown(composer.dispose);
+    var notifications = 0;
+    composer.addListener(() => notifications++);
+
+    composer.setCategory(3);
+    composer.setTags(const [TopicTag(name: 'mobile')]);
+
+    expect(composer.canSubmit, isFalse);
+    expect(notifications, 2);
+  });
+
   testWidgets('private messages retain their recipient in a portable draft', (
     tester,
   ) async {

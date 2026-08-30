@@ -3,6 +3,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_taxonomy_fields.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -63,16 +64,48 @@ void main() {
     return shell;
   }
 
-  Future<void> open(WidgetTester tester, String button) async {
-    await tester.tap(find.text(button));
+  Future<void> open(WidgetTester tester, Key actionKey) async {
+    await tester.tap(find.byKey(actionKey));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
   }
 
+  testWidgets('uses the topic sidebar taxonomy components', (tester) async {
+    final shell = await pumpComposer(tester, platform: TargetPlatform.macOS);
+
+    expect(find.byType(TopicPropertyRow), findsNWidgets(2));
+    expect(find.byType(TopicCategoryValue), findsOneWidget);
+    expect(find.byType(TopicTagsValue), findsOneWidget);
+    expect(find.text('Choose a category'), findsOneWidget);
+    expect(find.text('Add tag'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('composer-category-color'))),
+      const Size.square(9),
+    );
+
+    shell.visibleComposer!
+      ..setCategory(5)
+      ..setTags(const [TopicTag(name: 'design'), TopicTag(name: 'mobile')]);
+    await tester.pump();
+
+    expect(shell.visibleComposer!.categoryId, 5);
+    expect(find.text('Support'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey(('composer-tag', 'design'))),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey(('composer-tag', 'mobile'))),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('composer-add-tag')), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
   testWidgets('the category picker is a dialog on desktop', (tester) async {
     await pumpComposer(tester, platform: TargetPlatform.macOS);
 
-    await open(tester, 'Category');
+    await open(tester, const ValueKey('composer-category-action'));
 
     expect(find.text('Choose category'), findsOneWidget);
     expect(find.byType(Dialog), findsOneWidget);
@@ -82,7 +115,7 @@ void main() {
   testWidgets('the tag picker is a dialog on desktop', (tester) async {
     await pumpComposer(tester, platform: TargetPlatform.macOS);
 
-    await open(tester, 'Tags');
+    await open(tester, const ValueKey('composer-add-tag'));
 
     expect(find.byType(Dialog), findsOneWidget);
     expect(find.byType(BottomSheet), findsNothing);
@@ -91,7 +124,7 @@ void main() {
   testWidgets('the category picker stays a sheet on touch', (tester) async {
     await pumpComposer(tester, platform: TargetPlatform.iOS);
 
-    await open(tester, 'Category');
+    await open(tester, const ValueKey('composer-category-action'));
 
     expect(find.text('Choose category'), findsOneWidget);
     expect(find.byType(BottomSheet), findsOneWidget);
@@ -101,7 +134,7 @@ void main() {
   testWidgets('the tag picker stays a sheet on touch', (tester) async {
     await pumpComposer(tester, platform: TargetPlatform.iOS);
 
-    await open(tester, 'Tags');
+    await open(tester, const ValueKey('composer-add-tag'));
 
     expect(find.byType(BottomSheet), findsOneWidget);
     expect(find.byType(Dialog), findsNothing);
