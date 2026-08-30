@@ -85,6 +85,14 @@ class CookedHtml extends StatelessWidget {
   /// Statuses embedded beside the resolved mentions in this cooked fragment.
   final Map<String, UserStatusReference> mentionedUserStatuses;
 
+  /// Whether [HtmlWidget] will parse this body off the UI isolate by default.
+  ///
+  /// Long topic posts briefly render the package's empty loading widget when
+  /// virtualization rebuilds them. TopicView uses this same threshold to keep
+  /// their last settled row height until the rebuilt body is ready.
+  static bool buildsAsynchronously(String html) =>
+      html.length > kShouldBuildAsync;
+
   /// Inline code and emoji size themselves against the prose around them, so
   /// unlike the other builders those two need the style the widget was given.
   /// Emoji additionally need the site, to resolve their root-relative `src`.
