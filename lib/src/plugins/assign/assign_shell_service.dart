@@ -47,6 +47,18 @@ final class AssignShellService implements PluginLinkHandler {
     );
   }
 
+  void openTopicPost({
+    required String siteUrl,
+    required int topicId,
+    required int postNumber,
+  }) {
+    _host.openTopicPost(
+      siteUrl: siteUrl,
+      topicId: topicId,
+      postNumber: postNumber,
+    );
+  }
+
   @override
   Future<bool> openPluginUrl(String url) async {
     final absolute = resolveSiteUrl(url, _host.currentSite?.url);

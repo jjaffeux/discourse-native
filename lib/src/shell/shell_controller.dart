@@ -11503,6 +11503,17 @@ final class _ShellPluginRouteNavigationHost
   @override
   void replaceCurrentContent(ContentRoute route) =>
       _shell.replaceCurrentContent(route);
+
+  @override
+  void openTopicPost({
+    required String siteUrl,
+    required int topicId,
+    required int postNumber,
+  }) => _shell.openTopicPost(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    postNumber: postNumber,
+  );
 }
 
 final class _ShellPluginTopicListNavigationHost

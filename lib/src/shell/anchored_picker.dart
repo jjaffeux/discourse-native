@@ -14,18 +14,23 @@ import 'shell_sheet.dart';
 /// and tag editing does not also switch surface geometry or animation.
 Future<T?> showAnchoredPicker<T>({
   required BuildContext context,
-  required BuildContext anchorContext,
   required String title,
   required String barrierLabel,
   required Key popoverKey,
   required WidgetBuilder builder,
+  BuildContext? anchorContext,
+  Rect? anchor,
   double popoverWidth = _AnchoredPickerSurface.defaultWidth,
   EdgeInsetsGeometry popoverPadding = EdgeInsets.zero,
+  bool nested = false,
+  bool sheetEnableDrag = true,
 }) {
   if (context.isTouch) {
     return showShellSheet<T>(
       context: context,
       title: title,
+      nested: nested,
+      enableDrag: sheetEnableDrag,
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 20),
       builder: builder,
     );
@@ -33,16 +38,18 @@ Future<T?> showAnchoredPicker<T>({
 
   final navigator = Navigator.of(context);
   final overlay = navigator.overlay?.context.findRenderObject() as RenderBox?;
-  final anchor = anchorRect(
-    anchor: anchorContext.findRenderObject() as RenderBox?,
-    overlay: overlay,
-  );
+  final resolvedAnchor =
+      anchor ??
+      anchorRect(
+        anchor: (anchorContext ?? context).findRenderObject() as RenderBox?,
+        overlay: overlay,
+      );
   final media = MediaQuery.of(context);
-  final alignment = anchor == null
+  final alignment = resolvedAnchor == null
       ? Alignment.center
       : Alignment(
-          anchor.center.dx > media.size.width / 2 ? 1 : -1,
-          anchor.center.dy > media.size.height / 2 ? 1 : -1,
+          resolvedAnchor.center.dx > media.size.width / 2 ? 1 : -1,
+          resolvedAnchor.center.dy > media.size.height / 2 ? 1 : -1,
         );
   final duration = media.disableAnimations
       ? Duration.zero
@@ -61,7 +68,7 @@ Future<T?> showAnchoredPicker<T>({
       pageBuilder: (routeContext, animation, secondaryAnimation) =>
           CustomSingleChildLayout(
             delegate: AnchoredLayout(
-              anchor: anchor,
+              anchor: resolvedAnchor,
               maxWidth: popoverWidth,
               gap: 4,
               margin: 10,
@@ -69,11 +76,17 @@ Future<T?> showAnchoredPicker<T>({
             child: _AnchoredPickerTransition(
               animation: animation,
               alignment: alignment,
-              child: _AnchoredPickerSurface(
-                key: popoverKey,
-                width: popoverWidth,
-                padding: popoverPadding,
-                child: builder(routeContext),
+              child: Semantics(
+                scopesRoute: true,
+                namesRoute: true,
+                label: title,
+                explicitChildNodes: true,
+                child: _AnchoredPickerSurface(
+                  key: popoverKey,
+                  width: popoverWidth,
+                  padding: popoverPadding,
+                  child: builder(routeContext),
+                ),
               ),
             ),
           ),
@@ -95,6 +108,9 @@ class AnchoredPickerContent extends StatelessWidget {
     required this.onQuerySubmitted,
     required this.children,
     this.separatorKey,
+    this.footer,
+    this.queryEnabled = true,
+    this.queryAutofocus = true,
   });
 
   final Key queryKey;
@@ -104,6 +120,9 @@ class AnchoredPickerContent extends StatelessWidget {
   final ValueChanged<String> onQuerySubmitted;
   final List<Widget> children;
   final Key? separatorKey;
+  final Widget? footer;
+  final bool queryEnabled;
+  final bool queryAutofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +135,8 @@ class AnchoredPickerContent extends StatelessWidget {
         TextField(
           key: queryKey,
           controller: queryController,
-          autofocus: true,
+          enabled: queryEnabled,
+          autofocus: queryAutofocus,
           style: compact ? theme.textTheme.bodySmall : null,
           textInputAction: TextInputAction.done,
           onChanged: onQueryChanged,
@@ -143,6 +163,18 @@ class AnchoredPickerContent extends StatelessWidget {
             children: children,
           ),
         ),
+        if (footer case final footer?) ...[
+          Divider(
+            height: 1,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.14),
+          ),
+          Padding(
+            padding: compact
+                ? const EdgeInsets.fromLTRB(12, 10, 12, 12)
+                : const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            child: footer,
+          ),
+        ],
       ],
     );
   }

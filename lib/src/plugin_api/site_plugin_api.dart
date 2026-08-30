@@ -416,21 +416,37 @@ abstract interface class TopicListMetadataPlugin {
   );
 }
 
+/// How one plugin-owned topic property group is laid out in the sidebar.
+enum TopicPropertySectionLayout {
+  /// Keeps the group beside core properties in the shared property card.
+  inline,
+
+  /// Gives the group a titled card whose values are stacked vertically.
+  standalone,
+}
+
 /// One plugin-owned property group in an open topic's context sidebar.
 @immutable
 final class TopicPropertySection {
-  const TopicPropertySection({required this.label, required this.values});
+  const TopicPropertySection({
+    required this.label,
+    required this.values,
+    this.layout = TopicPropertySectionLayout.inline,
+  });
 
   final String label;
   final List<Widget> values;
+  final TopicPropertySectionLayout layout;
 }
 
 /// Adds labeled properties to the sidebar of an open topic.
 abstract interface class TopicPropertiesPlugin {
   /// Property groups placed after core's category and tags, in plugin order.
   ///
-  /// Values may remain actionable, but must fit within the sidebar's wrapping
-  /// value column. The group label is presentation text, not a persistence id.
+  /// Inline values may remain actionable, but must fit within the sidebar's
+  /// wrapping value column. Standalone values receive the full card width and
+  /// are stacked vertically. The group label is presentation text, not a
+  /// persistence id.
   List<TopicPropertySection> topicProperties(
     BuildContext context,
     String siteUrl,

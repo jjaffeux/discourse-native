@@ -24,6 +24,10 @@ import 'platform.dart';
 /// Pass [footerBuilder] for actions that must remain reachable while a long
 /// body scrolls. The footer stays outside the body's scroll view and accounts
 /// for the bottom safe area on touch platforms.
+///
+/// Set [enableDrag] to false for a body which temporarily guards its route
+/// with [PopScope]. Flutter's drag-to-close path pops directly, while the
+/// header and barrier use the guarded `maybePop` path.
 Future<T?> showShellSheet<T>({
   required BuildContext context,
   required String title,
@@ -40,6 +44,7 @@ Future<T?> showShellSheet<T>({
     vertical: 16,
   ),
   EdgeInsetsGeometry footerPadding = const EdgeInsets.fromLTRB(24, 12, 24, 16),
+  bool enableDrag = true,
 }) {
   if (dialogOnDesktop && !context.isTouch) {
     return showDialog<T>(
@@ -66,7 +71,8 @@ Future<T?> showShellSheet<T>({
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
-    showDragHandle: true,
+    showDragHandle: enableDrag,
+    enableDrag: enableDrag,
     constraints: const BoxConstraints(maxWidth: 640, maxHeight: 640),
     builder: (context) => _SheetBody(
       title: title,
@@ -123,7 +129,7 @@ class _SheetBody extends StatelessWidget {
               children: [
                 if (nested)
                   IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => Navigator.of(context).maybePop(),
                     icon: const DIcon(DIcons.arrowLeft),
                     tooltip: 'Back',
                   ),
@@ -139,7 +145,7 @@ class _SheetBody extends StatelessWidget {
                 // which the arrow already says better than a close box would.
                 if (!nested)
                   IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => Navigator.of(context).maybePop(),
                     icon: const DIcon(DIcons.xmark),
                     tooltip: 'Close',
                   ),
