@@ -51,6 +51,7 @@ import 'topic_list_view.dart';
 import 'topic_move_posts.dart';
 import 'topic_progress.dart';
 import 'topic_tag_picker.dart';
+import 'topic_taxonomy_fields.dart';
 import 'topic_title.dart';
 import 'user_card.dart';
 import 'user_menu_button.dart';
@@ -3275,10 +3276,11 @@ class _TopicPropertiesCard extends StatelessWidget {
                     topicId: topic.id,
                     categoryId: topic.categoryId,
                     enabled: topic.canEdit,
-                    builder: (context, openMenu, saving) => _TopicPropertyRow(
+                    builder: (context, openMenu, saving) => TopicPropertyRow(
                       key: const ValueKey('topic-sidebar-category-property'),
                       label: 'Category',
-                      child: _TopicSidebarCategory(
+                      child: TopicCategoryValue(
+                        valueKey: const ValueKey('topic-sidebar-category'),
                         label:
                             category?.name ??
                             route?.subtitle ??
@@ -3286,6 +3288,12 @@ class _TopicPropertiesCard extends StatelessWidget {
                         color: category == null
                             ? route?.color
                             : Color(category.colorValue),
+                        colorKey: const ValueKey(
+                          'topic-sidebar-category-color',
+                        ),
+                        actionKey: const ValueKey(
+                          'topic-sidebar-category-action',
+                        ),
                         saving: saving,
                         onTap: openMenu,
                       ),
@@ -3297,33 +3305,24 @@ class _TopicPropertiesCard extends StatelessWidget {
                     categoryId: topic.categoryId,
                     tags: topic.tags,
                     enabled: topic.canEditTags,
-                    builder: (context, openMenu, saving) => _TopicPropertyRow(
+                    builder: (context, openMenu, saving) => TopicPropertyRow(
                       key: const ValueKey('topic-sidebar-tags-property'),
                       label: 'Tags',
-                      child: topic.tags.isEmpty
-                          ? topic.canEditTags
-                                ? _EditableEmptyTopicTags(
-                                    saving: saving,
-                                    onTap: openMenu,
-                                  )
-                                : const _EmptyTopicProperty('No tags')
-                          : Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                for (final tag in topic.tags)
-                                  _TopicSidebarTag(tag: tag, onTap: openMenu),
-                                if (saving)
-                                  const _TopicTagsSavingIndicator()
-                                else if (topic.canEditTags)
-                                  _TopicTagsAddButton(onTap: openMenu),
-                              ],
-                            ),
+                      child: TopicTagsValue(
+                        tags: topic.tags,
+                        saving: saving,
+                        onTap: openMenu,
+                        tagKey: (tag) =>
+                            ValueKey(('topic-sidebar-tag', tag.name)),
+                        addKey: const ValueKey('topic-sidebar-add-tag'),
+                        addIconKey: const ValueKey(
+                          'topic-sidebar-tags-edit-indicator',
+                        ),
+                      ),
                     ),
                   ),
                   for (final section in inlineSections)
-                    _TopicPropertyRow(
+                    TopicPropertyRow(
                       label: section.label,
                       child: section.values.isEmpty
                           ? const _EmptyTopicProperty('None')
@@ -3416,257 +3415,6 @@ class _TopicSidebarCard extends StatelessWidget {
       child: ClipRRect(borderRadius: BorderRadius.circular(11), child: child),
     );
   }
-}
-
-class _TopicPropertyRow extends StatelessWidget {
-  const _TopicPropertyRow({
-    super.key,
-    required this.label,
-    required this.child,
-  });
-
-  final String label;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 94,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 3),
-              child: Text(
-                label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
-          Expanded(child: child),
-        ],
-      ),
-    );
-  }
-}
-
-class _TopicSidebarCategory extends StatelessWidget {
-  const _TopicSidebarCategory({
-    required this.label,
-    required this.color,
-    this.saving = false,
-    this.onTap,
-  });
-
-  final String label;
-  final Color? color;
-  final bool saving;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final category = Row(
-      key: const ValueKey('topic-sidebar-category'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          key: const ValueKey('topic-sidebar-category-color'),
-          width: 9,
-          height: 9,
-          decoration: BoxDecoration(
-            color: color ?? theme.colorScheme.outline,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 7),
-        Flexible(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        if (saving) ...[
-          const SizedBox(width: 7),
-          const SizedBox.square(
-            dimension: 12,
-            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-          ),
-        ],
-      ],
-    );
-    if (onTap == null) return category;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Tooltip(
-        message: 'Edit topic category',
-        child: InlineAction(
-          key: const ValueKey('topic-sidebar-category-action'),
-          onTap: onTap!,
-          borderRadius: BorderRadius.circular(5),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: category,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TopicSidebarTag extends StatelessWidget {
-  const _TopicSidebarTag({required this.tag, this.onTap});
-
-  final TopicTag tag;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final shape = StadiumBorder(
-      side: BorderSide(color: theme.colorScheme.outlineVariant),
-    );
-    final pill = Material(
-      key: ValueKey(('topic-sidebar-tag', tag.name)),
-      color: theme.colorScheme.surfaceContainerHigh,
-      shape: shape,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        mouseCursor: onTap == null
-            ? MouseCursor.defer
-            : SystemMouseCursors.click,
-        customBorder: shape,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 180),
-            child: Text(
-              tag.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurface,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    return onTap == null
-        ? pill
-        : Tooltip(message: 'Edit topic tags', child: pill);
-  }
-}
-
-class _EditableEmptyTopicTags extends StatelessWidget {
-  const _EditableEmptyTopicTags({required this.saving, required this.onTap});
-
-  final bool saving;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = theme.colorScheme.onSurfaceVariant;
-    const shape = StadiumBorder();
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(top: 3),
-        child: Tooltip(
-          message: saving ? 'Saving topic tags' : 'Add tag',
-          child: Material(
-            color: theme.colorScheme.surfaceContainerHigh,
-            shape: shape,
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              key: const ValueKey('topic-sidebar-add-tag'),
-              onTap: onTap,
-              mouseCursor: onTap == null
-                  ? MouseCursor.defer
-                  : SystemMouseCursors.click,
-              customBorder: shape,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (saving)
-                      const SizedBox.square(
-                        dimension: 11,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
-                      )
-                    else
-                      DIcon(DIcons.tag, size: 11, color: color),
-                    const SizedBox(width: 4),
-                    Text(
-                      saving ? 'Saving…' : 'Add tag',
-                      style: theme.textTheme.labelSmall?.copyWith(color: color),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TopicTagsAddButton extends StatelessWidget {
-  const _TopicTagsAddButton({required this.onTap});
-
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message: 'Add tag',
-    child: Material(
-      type: MaterialType.transparency,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        key: const ValueKey('topic-sidebar-add-tag'),
-        onTap: onTap,
-        mouseCursor: onTap == null
-            ? MouseCursor.defer
-            : SystemMouseCursors.click,
-        customBorder: const CircleBorder(),
-        child: Padding(
-          padding: const EdgeInsets.all(3),
-          child: DIcon(
-            DIcons.plus,
-            key: const ValueKey('topic-sidebar-tags-edit-indicator'),
-            size: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-class _TopicTagsSavingIndicator extends StatelessWidget {
-  const _TopicTagsSavingIndicator();
-
-  @override
-  Widget build(BuildContext context) => const SizedBox.square(
-    dimension: 13,
-    child: CircularProgressIndicator(strokeWidth: 1.5),
-  );
 }
 
 class _EmptyTopicProperty extends StatelessWidget {

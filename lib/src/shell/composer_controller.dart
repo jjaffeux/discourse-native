@@ -2446,7 +2446,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _draftRevision++;
     _typing.tick();
     _scheduleDraft();
+    final previousCanSubmit = _canSubmit;
     _recomputeCanSubmit();
+    if (_canSubmit == previousCanSubmit) _notify();
   }
 
   void _recomputeCanSubmit() {
