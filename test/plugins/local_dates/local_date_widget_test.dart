@@ -52,6 +52,31 @@ void main() {
     },
   );
 
+  testWidgets('a date-only line stays compact and has no hover fill', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await pump(
+      tester,
+      '<p><span class="discourse-local-date" data-date="2026-09-18" '
+      'data-timezone="Australia/Brisbane">server value</span></p>',
+    );
+
+    final date = find.byType(LocalDateInline);
+    final ink = find.descendant(of: date, matching: find.byType(InkWell));
+    expect(date, findsOneWidget);
+    expect(ink, findsOneWidget);
+    expect(
+      tester.getSize(ink).width,
+      lessThan(tester.getSize(find.byType(CookedHtml)).width),
+    );
+    expect(tester.widget<InkWell>(ink).mouseCursor, SystemMouseCursors.click);
+    expect(tester.widget<InkWell>(ink).hoverColor, Colors.transparent);
+  });
+
   testWidgets('retains server-cooked text for invalid dates and zones', (
     tester,
   ) async {
@@ -107,7 +132,7 @@ void main() {
       'server value</span></p>',
     );
 
-    await tester.tap(find.byType(LocalDateInline));
+    await tester.tap(find.bySemanticsLabel(RegExp('New York:')));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Paris'), findsWidgets);
