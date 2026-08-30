@@ -29,6 +29,7 @@ import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
+import '../models/topic_tracking_state.dart';
 import '../models/user_activity.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
@@ -288,6 +289,38 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
       throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
     }
     return models.currentUser(user, siteUrl);
+  }
+
+  @override
+  Future<TopicTrackingState> topicTrackingState({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse(
+        '$siteUrl/u/${Uri.encodeComponent(username)}/topic-tracking-state.json',
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List<dynamic>) {
+        throw const FormatException('Expected a topic tracking state list');
+      }
+      return TopicTrackingState.fromJson(decoded);
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
+    }
   }
 
   @override

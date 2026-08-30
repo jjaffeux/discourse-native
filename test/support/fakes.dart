@@ -38,6 +38,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
+import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
@@ -343,6 +344,7 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
 
   @override
   final IncomingTopics incoming = IncomingTopics();
+  void Function(Object? data)? _onTopicTrackingState;
 
   bool polling = true;
   int pollNowCalls = 0;
@@ -350,7 +352,19 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
 
   /// One `/latest` or `/new` message, exactly as it would arrive.
   void deliver(Object? message) {
+    _onTopicTrackingState?.call(message);
     if (incoming.notify(message)) onIncomingTopics();
+  }
+
+  void deliverTopicTracking(Object? message) =>
+      _onTopicTrackingState?.call(message);
+
+  @override
+  void watchTopicTrackingState(
+    int accountId,
+    void Function(Object? data) onMessage,
+  ) {
+    _onTopicTrackingState ??= onMessage;
   }
 
   /// One `/notification/{id}` message.
@@ -486,6 +500,7 @@ class FakeDiscourseApi
     this.results = const {},
     this.failure,
     this.user,
+    this.trackingState,
     this.doNotDisturbUntil,
     this.doNotDisturbGate,
     this.doNotDisturbFailure,
@@ -685,6 +700,10 @@ class FakeDiscourseApi
 
   /// Returned by [currentUser]; defaults to a plausible account.
   final DiscourseUser? user;
+
+  /// Returned by [topicTrackingState].
+  final TopicTrackingState? trackingState;
+  final List<String> topicTrackingRequests = [];
 
   final DateTime? doNotDisturbUntil;
   final Completer<void>? doNotDisturbGate;
@@ -1443,6 +1462,17 @@ class FakeDiscourseApi
       // With an id, because that is what names the account's message_bus
       // channels — a user without one gets no live counters.
       const DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+
+  @override
+  Future<TopicTrackingState> topicTrackingState({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    topicTrackingRequests.add(siteUrl);
+    return trackingState ?? TopicTrackingState();
+  }
 
   @override
   Future<UserPreferences> loadUserPreferences({

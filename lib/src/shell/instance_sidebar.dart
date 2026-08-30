@@ -30,6 +30,7 @@ final class _SidebarSnapshot {
     required this.canCreateTopic,
     required this.sections,
     required this.presentationToken,
+    required this.topicTrackingRevision,
   });
 
   final String? siteUrl;
@@ -39,6 +40,7 @@ final class _SidebarSnapshot {
   final bool canCreateTopic;
   final List<SidebarSection> sections;
   final Object? presentationToken;
+  final int topicTrackingRevision;
 
   @override
   bool operator ==(Object other) {
@@ -49,6 +51,7 @@ final class _SidebarSnapshot {
         draftCount != other.draftCount ||
         canCreateTopic != other.canCreateTopic ||
         !identical(presentationToken, other.presentationToken) ||
+        topicTrackingRevision != other.topicTrackingRevision ||
         sections.length != other.sections.length) {
       return false;
     }
@@ -66,6 +69,7 @@ final class _SidebarSnapshot {
     draftCount,
     canCreateTopic,
     identityHashCode(presentationToken),
+    topicTrackingRevision,
     Object.hashAll(sections.map(identityHashCode)),
   );
 }
@@ -140,6 +144,9 @@ class InstanceSidebar extends StatelessWidget {
         presentationToken: instance == null
             ? null
             : controller.presentationTokenFor(instance.url),
+        topicTrackingRevision: instance == null
+            ? 0
+            : controller.topicTrackingRevisionFor(instance.url),
         sections: instance == null
             ? const <SidebarSection>[]
             : [
@@ -399,7 +406,7 @@ class _Section extends StatefulWidget {
   final bool first;
   final SidebarSectionStore store;
   final String? selectedId;
-  final int Function(String destinationId) badgeFor;
+  final SidebarBadge Function(String destinationId) badgeFor;
   final ValueChanged<SidebarDestination> onSelect;
   final SidebarDestination? insertedDestination;
   final String? insertAfterDestinationId;
@@ -524,7 +531,7 @@ class _SectionState extends State<_Section> {
                 key: ValueKey(destination.id),
                 destination: destination,
                 selected: destination.id == widget.selectedId,
-                badgeCount: widget.badgeFor(destination.id),
+                badge: widget.badgeFor(destination.id),
                 rowHeight: rowHeight,
                 gapAfter: _SidebarSpacing.rowGap,
                 onTap: destination.onTap ?? () => widget.onSelect(destination),
@@ -703,7 +710,7 @@ class _DestinationTile extends StatefulWidget {
     super.key,
     required this.destination,
     required this.selected,
-    required this.badgeCount,
+    required this.badge,
     required this.rowHeight,
     required this.gapAfter,
     required this.onTap,
@@ -711,7 +718,7 @@ class _DestinationTile extends StatefulWidget {
 
   final SidebarDestination destination;
   final bool selected;
-  final int badgeCount;
+  final SidebarBadge badge;
   final double rowHeight;
   final double gapAfter;
   final VoidCallback onTap;
@@ -726,7 +733,7 @@ class _DestinationTileState extends State<_DestinationTile> {
 
   SidebarDestination get destination => widget.destination;
   bool get selected => widget.selected;
-  int get badgeCount => widget.badgeCount;
+  SidebarBadge get badge => widget.badge;
   VoidCallback get onTap => widget.onTap;
 
   void _setHovered(bool hovered) {
@@ -831,7 +838,7 @@ class _DestinationTileState extends State<_DestinationTile> {
 
     // A destination built fresh from live state already has the answer; core's
     // `const` sections cannot carry a moving number and ask the shell instead.
-    final badge = destination.badge ?? SidebarBadge.count(badgeCount);
+    final badge = destination.badge ?? this.badge;
 
     return Padding(
       padding: EdgeInsets.only(

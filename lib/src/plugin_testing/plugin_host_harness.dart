@@ -23,6 +23,7 @@ import '../models/site_appearance.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/topic.dart';
+import '../models/topic_tracking_state.dart';
 import '../plugin_api/core_plugin_manifest.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import '../plugin_api/plugin_runtime.dart';
@@ -407,6 +408,14 @@ final class _PluginHostApi extends DiscourseApi {
     }
     return user;
   }
+
+  @override
+  Future<TopicTrackingState> topicTrackingState({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async => TopicTrackingState();
 
   @override
   Future<List<SidebarSection>> customSidebarSections({

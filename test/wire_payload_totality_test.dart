@@ -21,6 +21,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/models/topic_link.dart';
+import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
@@ -74,6 +75,12 @@ const _keys = [
   'post_id',
   'topic_id',
   'category_id',
+  'highest_post_number',
+  'last_read_post_number',
+  'notification_level',
+  'created_in_new_period',
+  'is_seen',
+  'is_category_topic',
   'tags',
   'posters',
   'users',
@@ -415,6 +422,16 @@ void main() {
         json,
       );
       probe('TopicCategory', () => TopicCategory.fromJson(json), json);
+      probe(
+        'TopicTrackingState',
+        () => TopicTrackingState.fromJson(loose),
+        loose,
+      );
+      probe(
+        'TrackedTopicState',
+        () => TrackedTopicState.fromJson(json),
+        json,
+      );
       probe(
         'TopicComposerCapabilities',
         () => TopicComposerCapabilities.fromJson(json),

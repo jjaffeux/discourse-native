@@ -143,6 +143,7 @@ class SiteTracker {
   Future<void>? _disposeFuture;
 
   final IncomingTopics incoming = IncomingTopics();
+  void Function(Object? data)? _onTopicTrackingState;
 
   void _listenForErrors() {
     final bus = _bus;
@@ -313,6 +314,29 @@ class SiteTracker {
     }
   }
 
+  /// Attaches core's per-topic new/unread mirror to this site's existing bus.
+  ///
+  /// `/latest` and `/new` are already subscribed for [incoming]; the callback
+  /// is also fed those payloads, while the remaining channels are registered
+  /// here once the shell has a connected account id.
+  void watchTopicTrackingState(
+    int accountId,
+    void Function(Object? data) onMessage,
+  ) {
+    _ensureActive();
+    if (!_signedIn || _onTopicTrackingState != null) return;
+    _onTopicTrackingState = onMessage;
+    for (final channel in [
+      '/unread',
+      '/unread/$accountId',
+      '/delete',
+      '/recover',
+      '/destroy',
+    ]) {
+      _bus.subscribe(channel, (data, _) => _emitTopicTrackingState(data));
+    }
+  }
+
   /// A cancellable plugin-owned channel, optionally starting at the snapshot
   /// cursor returned by the HTTP endpoint that preceded it.
   SiteMessageBusSubscription watchPluginChannel(
@@ -348,7 +372,12 @@ class SiteTracker {
 
   void _onTopicMessage(Object? data) {
     if (_disposed) return;
+    _emitTopicTrackingState(data);
     if (incoming.notify(data)) onIncomingTopics();
+  }
+
+  void _emitTopicTrackingState(Object? data) {
+    if (!_disposed) _onTopicTrackingState?.call(data);
   }
 
   void _onNotification(Object? data) {
