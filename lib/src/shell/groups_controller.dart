@@ -196,7 +196,14 @@ final class GroupLogsState {
 
 typedef _DirectoryKey = ({String siteUrl, GroupDirectoryQuery query});
 typedef _GroupKey = ({String siteUrl, String groupName});
-typedef _ListKey = ({String siteUrl, String groupName, String filter});
+typedef _MemberListKey = ({
+  String siteUrl,
+  String groupName,
+  String filter,
+  String? order,
+  bool ascending,
+});
+typedef _FilterListKey = ({String siteUrl, String groupName, String filter});
 typedef _ActivityKey = ({String siteUrl, String groupName, bool mentions});
 typedef _GroupCredentials = ({String? apiKey, String? clientId});
 
@@ -214,8 +221,8 @@ final class GroupsController extends FrameSafeNotifier {
 
   final Map<_DirectoryKey, GroupDirectoryState> _directories = {};
   final Map<_GroupKey, GroupDetailState> _details = {};
-  final Map<_ListKey, GroupMembersState> _members = {};
-  final Map<_ListKey, GroupRequestersState> _requesters = {};
+  final Map<_MemberListKey, GroupMembersState> _members = {};
+  final Map<_FilterListKey, GroupRequestersState> _requesters = {};
   final Map<_ActivityKey, GroupActivityState> _activities = {};
   final Map<_GroupKey, GroupPermissionsState> _permissions = {};
   final Map<_GroupKey, GroupLogsState> _logs = {};
@@ -247,8 +254,10 @@ final class GroupsController extends FrameSafeNotifier {
     String siteUrl,
     String groupName, {
     String filter = '',
+    String? order,
+    bool ascending = true,
   }) =>
-      _members[_listKey(siteUrl, groupName, filter)] ??
+      _members[_memberListKey(siteUrl, groupName, filter, order, ascending)] ??
       const GroupMembersState();
 
   GroupRequestersState requestersState(
@@ -256,7 +265,7 @@ final class GroupsController extends FrameSafeNotifier {
     String groupName, {
     String filter = '',
   }) =>
-      _requesters[_listKey(siteUrl, groupName, filter)] ??
+      _requesters[_filterListKey(siteUrl, groupName, filter)] ??
       const GroupRequestersState();
 
   GroupActivityState activityState(
@@ -399,11 +408,25 @@ final class GroupsController extends FrameSafeNotifier {
     DiscourseInstance instance,
     String groupName, {
     String filter = '',
+    String? order,
+    bool ascending = true,
     bool refresh = false,
     bool more = false,
   }) async {
-    final key = _listKey(instance.url, groupName, filter);
-    final held = membersState(instance.url, groupName, filter: filter);
+    final key = _memberListKey(
+      instance.url,
+      groupName,
+      filter,
+      order,
+      ascending,
+    );
+    final held = membersState(
+      instance.url,
+      groupName,
+      filter: filter,
+      order: order,
+      ascending: ascending,
+    );
     if (_requests.containsKey(key) ||
         (!refresh && !more && held.loaded) ||
         (more && (!held.loaded || !held.hasMore))) {
@@ -429,6 +452,8 @@ final class GroupsController extends FrameSafeNotifier {
         apiKey: auth.apiKey,
         clientId: auth.clientId,
         offset: more ? held.nextOffset : 0,
+        order: order,
+        ascending: ascending,
         filter: filter,
       );
       _commit(token, () {
@@ -471,7 +496,7 @@ final class GroupsController extends FrameSafeNotifier {
     bool refresh = false,
     bool more = false,
   }) async {
-    final key = _listKey(instance.url, groupName, filter);
+    final key = _filterListKey(instance.url, groupName, filter);
     final held = requestersState(instance.url, groupName, filter: filter);
     if (_requests.containsKey(('requesters', key)) ||
         (!refresh && !more && held.loaded) ||
@@ -800,6 +825,226 @@ final class GroupsController extends FrameSafeNotifier {
     return result;
   }
 
+  Future<GroupMembershipMutationResult?> addMembers(
+    DiscourseInstance instance,
+    Group group, {
+    Iterable<String> usernames = const [],
+    Iterable<String> emails = const [],
+    String filter = '',
+    String? order,
+    bool ascending = true,
+  }) async {
+    GroupMembershipMutationResult? output;
+    final saved = await _mutate(instance, group, 'groups.members.add', (
+      apiKey,
+      clientId,
+    ) async {
+      output = await api.addMembers(
+        siteUrl: instance.url,
+        apiKey: apiKey,
+        clientId: clientId,
+        groupId: group.id,
+        usernames: usernames,
+        emails: emails,
+      );
+    });
+    if (!saved) return null;
+    await loadMembers(
+      instance,
+      group.name,
+      filter: filter,
+      order: order,
+      ascending: ascending,
+      refresh: true,
+    );
+    return output;
+  }
+
+  Future<GroupInvite?> createInvite(
+    DiscourseInstance instance,
+    Group group, {
+    String? email,
+    String? customMessage,
+    int maxRedemptionsAllowed = 1,
+    DateTime? expiresAt,
+  }) async {
+    GroupInvite? output;
+    final saved = await _mutate(instance, group, 'groups.invite', (
+      apiKey,
+      clientId,
+    ) async {
+      output = await api.createInvite(
+        siteUrl: instance.url,
+        apiKey: apiKey,
+        clientId: clientId,
+        groupId: group.id,
+        email: email,
+        customMessage: customMessage,
+        maxRedemptionsAllowed: maxRedemptionsAllowed,
+        expiresAt: expiresAt,
+      );
+    }, refreshDetail: false);
+    return saved ? output : null;
+  }
+
+  Future<bool> removeMember(
+    DiscourseInstance instance,
+    Group group,
+    GroupMember member,
+  ) async {
+    final saved = await _mutate(
+      instance,
+      group,
+      'groups.members.remove',
+      (apiKey, clientId) => api.removeMembers(
+        siteUrl: instance.url,
+        apiKey: apiKey,
+        clientId: clientId,
+        groupId: group.id,
+        userIds: [member.id],
+      ),
+    );
+    if (saved) {
+      _members.updateAll((key, held) {
+        if (key.siteUrl != instance.url ||
+            key.groupName != _normalize(group.name)) {
+          return held;
+        }
+        final rows = held.members
+            .where((item) => item.id != member.id)
+            .toList(growable: false);
+        return GroupMembersState(
+          members: rows,
+          total: held.total > 0 ? held.total - 1 : 0,
+          nextOffset: held.nextOffset,
+          hasMore: held.hasMore,
+          loaded: true,
+        );
+      });
+      notifySafely();
+    }
+    return saved;
+  }
+
+  Future<bool> setMemberOwner(
+    DiscourseInstance instance,
+    Group group,
+    GroupMember member, {
+    required bool owner,
+  }) async {
+    final saved = await _mutate(
+      instance,
+      group,
+      owner ? 'groups.members.makeOwner' : 'groups.members.removeOwner',
+      (apiKey, clientId) => owner
+          ? api.addOwners(
+              siteUrl: instance.url,
+              apiKey: apiKey,
+              clientId: clientId,
+              groupId: group.id,
+              usernames: [member.username],
+            )
+          : api.removeOwners(
+              siteUrl: instance.url,
+              apiKey: apiKey,
+              clientId: clientId,
+              groupId: group.id,
+              usernames: [member.username],
+            ),
+      refreshDetail: false,
+    );
+    if (saved) _updateMember(instance, group, member, owner: owner);
+    return saved;
+  }
+
+  Future<bool> setMemberPrimary(
+    DiscourseInstance instance,
+    Group group,
+    GroupMember member, {
+    required bool primary,
+  }) async {
+    final saved = await _mutate(
+      instance,
+      group,
+      primary ? 'groups.members.makePrimary' : 'groups.members.removePrimary',
+      (apiKey, clientId) => api.setPrimaryGroup(
+        siteUrl: instance.url,
+        apiKey: apiKey,
+        clientId: clientId,
+        groupId: group.id,
+        usernames: [member.username],
+        primary: primary,
+      ),
+      refreshDetail: false,
+    );
+    if (saved) _updateMember(instance, group, member, primary: primary);
+    return saved;
+  }
+
+  Future<bool> deleteGroup(DiscourseInstance instance, Group group) async {
+    final saved = await _mutate(
+      instance,
+      group,
+      'groups.delete',
+      (apiKey, clientId) => api.deleteGroup(
+        siteUrl: instance.url,
+        apiKey: apiKey,
+        clientId: clientId,
+        groupId: group.id,
+      ),
+      refreshDetail: false,
+    );
+    if (!saved) return false;
+    final normalized = _normalize(group.name);
+    _details.remove(_groupKey(instance.url, group.name));
+    _members.removeWhere(
+      (key, _) => key.siteUrl == instance.url && key.groupName == normalized,
+    );
+    _requesters.removeWhere(
+      (key, _) => key.siteUrl == instance.url && key.groupName == normalized,
+    );
+    _activities.removeWhere(
+      (key, _) => key.siteUrl == instance.url && key.groupName == normalized,
+    );
+    _permissions.remove(_groupKey(instance.url, group.name));
+    _logs.remove(_groupKey(instance.url, group.name));
+    // The group may appear in any directory filter or on an unloaded page.
+    // Dropping the site's directory snapshots makes the destination opened
+    // after deletion fetch authoritative totals and rows.
+    _directories.removeWhere((key, _) => key.siteUrl == instance.url);
+    notifySafely();
+    return true;
+  }
+
+  void _updateMember(
+    DiscourseInstance instance,
+    Group group,
+    GroupMember member, {
+    bool? owner,
+    bool? primary,
+  }) {
+    _members.updateAll((key, held) {
+      if (key.siteUrl != instance.url ||
+          key.groupName != _normalize(group.name)) {
+        return held;
+      }
+      return GroupMembersState(
+        members: List.unmodifiable([
+          for (final item in held.members)
+            if (item.id == member.id)
+              item.copyWith(owner: owner, primary: primary)
+            else
+              item,
+        ]),
+        total: held.total,
+        nextOffset: held.nextOffset,
+        hasMore: held.hasMore,
+        loaded: held.loaded,
+      );
+    });
+    notifySafely();
+  }
+
   Future<bool> updateGroup(
     DiscourseInstance instance,
     Group group,
@@ -982,7 +1227,25 @@ final class GroupsController extends FrameSafeNotifier {
   static _GroupKey _groupKey(String siteUrl, String groupName) =>
       (siteUrl: siteUrl, groupName: _normalize(groupName));
 
-  static _ListKey _listKey(String siteUrl, String groupName, String filter) => (
+  static _MemberListKey _memberListKey(
+    String siteUrl,
+    String groupName,
+    String filter,
+    String? order,
+    bool ascending,
+  ) => (
+    siteUrl: siteUrl,
+    groupName: _normalize(groupName),
+    filter: filter.trim(),
+    order: order?.trim().isEmpty == true ? null : order?.trim(),
+    ascending: ascending,
+  );
+
+  static _FilterListKey _filterListKey(
+    String siteUrl,
+    String groupName,
+    String filter,
+  ) => (
     siteUrl: siteUrl,
     groupName: _normalize(groupName),
     filter: filter.trim(),

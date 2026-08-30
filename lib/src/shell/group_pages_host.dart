@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/groups_api.dart';
+import '../models/content_route.dart';
 import '../models/group.dart';
 import '../models/group_route.dart';
 import '../plugin_api/plugin_data.dart';
@@ -132,6 +133,21 @@ class GroupPageHost extends StatefulWidget {
 }
 
 class _GroupPageHostState extends State<GroupPageHost> {
+  String _memberFilter = '';
+  String _memberOrder = 'last_seen_at';
+  bool _memberAscending = false;
+
+  @override
+  void didUpdateWidget(GroupPageHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.route.groupName != widget.route.groupName) {
+      _memberFilter = '';
+      _memberOrder = 'last_seen_at';
+      _memberAscending = false;
+    }
+  }
+
   Future<void> _load(GroupRoute route, {bool refresh = false}) async {
     final shell = ShellScope.read(context);
     final instance = shell.currentInstance;
@@ -163,6 +179,9 @@ class _GroupPageHostState extends State<GroupPageHost> {
         await shell.groups.loadMembers(
           instance!,
           groupName,
+          filter: _memberFilter,
+          order: _memberOrder,
+          ascending: _memberAscending,
           refresh: refresh,
           more: more,
         );
@@ -218,7 +237,13 @@ class _GroupPageHostState extends State<GroupPageHost> {
   GroupPageData _data(ShellController shell) {
     final groupName = widget.route.groupName!;
     final detail = shell.groups.detailState(widget.siteUrl, groupName);
-    final members = shell.groups.membersState(widget.siteUrl, groupName);
+    final members = shell.groups.membersState(
+      widget.siteUrl,
+      groupName,
+      filter: _memberFilter,
+      order: _memberOrder,
+      ascending: _memberAscending,
+    );
     final requesters = shell.groups.requestersState(widget.siteUrl, groupName);
     final subsection =
         widget.route.subsection ??
@@ -305,7 +330,12 @@ class _GroupPageHostState extends State<GroupPageHost> {
           : null,
       currentUserData: user?.plugins ?? PluginData.none,
       canSendPrivateMessages: user?.canSendPrivateMessages == true,
+      canInviteToForum: user?.canInviteToForum == true,
+      currentUserStaff: user?.staff == true,
       isAdmin: user?.admin == true,
+      memberFilter: _memberFilter,
+      memberOrder: _memberOrder,
+      memberAscending: _memberAscending,
       mentionsEnabled: config.mentionsEnabled,
       smtpEnabled: config.smtpEnabled,
       taggingEnabled: config.taggingEnabled,
@@ -381,6 +411,61 @@ class _GroupPageHostState extends State<GroupPageHost> {
     }
   }
 
+  void _changeMemberFilter(String value) {
+    if (value == _memberFilter) return;
+    setState(() => _memberFilter = value);
+    unawaited(_loadSection(widget.route, refresh: true));
+  }
+
+  void _changeMemberSort(String order, bool ascending) {
+    if (order == _memberOrder && ascending == _memberAscending) return;
+    setState(() {
+      _memberOrder = order;
+      _memberAscending = ascending;
+    });
+    unawaited(_loadSection(widget.route, refresh: true));
+  }
+
+  Future<bool> _memberAction(
+    ShellController shell,
+    Group group,
+    GroupMember member,
+    GroupMemberAction action,
+  ) {
+    final instance = shell.currentInstance!;
+    return switch (action) {
+      GroupMemberAction.remove => shell.groups.removeMember(
+        instance,
+        group,
+        member,
+      ),
+      GroupMemberAction.makeOwner => shell.groups.setMemberOwner(
+        instance,
+        group,
+        member,
+        owner: true,
+      ),
+      GroupMemberAction.removeOwner => shell.groups.setMemberOwner(
+        instance,
+        group,
+        member,
+        owner: false,
+      ),
+      GroupMemberAction.makePrimary => shell.groups.setMemberPrimary(
+        instance,
+        group,
+        member,
+        primary: true,
+      ),
+      GroupMemberAction.removePrimary => shell.groups.setMemberPrimary(
+        instance,
+        group,
+        member,
+        primary: false,
+      ),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.read(context);
@@ -405,6 +490,53 @@ class _GroupPageHostState extends State<GroupPageHost> {
           onLoadMore: () => unawaited(_loadSection(widget.route, more: true)),
           onSelectRoute: shell.selectGroupRoute,
           onMembershipAction: _membership,
+          onSwitchGroup: (name) => shell.replaceCurrentContent(
+            ContentRoute.group(GroupRoute.detail(name)),
+          ),
+          onDeleteGroup: group == null
+              ? null
+              : () async {
+                  final deleted = await shell.groups.deleteGroup(
+                    shell.currentInstance!,
+                    group,
+                  );
+                  if (deleted) {
+                    shell.replaceCurrentContent(
+                      ContentRoute.group(const GroupRoute.directory()),
+                    );
+                  }
+                  return deleted;
+                },
+          onMemberFilterChanged: _changeMemberFilter,
+          onMemberSortChanged: _changeMemberSort,
+          onSearchUsers: (query) => shell.searchUsers(
+            siteUrl: widget.siteUrl,
+            topicId: null,
+            term: query,
+          ),
+          onAddMembers: group == null
+              ? null
+              : (usernames, emails) => shell.groups.addMembers(
+                  shell.currentInstance!,
+                  group,
+                  usernames: usernames,
+                  emails: emails,
+                  filter: _memberFilter,
+                  order: _memberOrder,
+                  ascending: _memberAscending,
+                ),
+          onCreateInvite: group == null
+              ? null
+              : ({String? email, String? customMessage}) =>
+                    shell.groups.createInvite(
+                      shell.currentInstance!,
+                      group,
+                      email: email,
+                      customMessage: customMessage,
+                    ),
+          onMemberAction: group == null
+              ? null
+              : (member, action) => _memberAction(shell, group, member, action),
           onMessageGroup:
               group?.canShowMessages(
                     canSendPrivateMessages:

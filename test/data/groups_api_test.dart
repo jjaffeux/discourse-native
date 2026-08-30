@@ -299,6 +299,50 @@ void main() {
   });
 
   test(
+    'group invitations support both email delivery and one-use links',
+    () async {
+      final transport = _RecordingTransport();
+      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+      transport.writeResponse = {
+        'id': 42,
+        'email': 'lee@example.com',
+        'expires_at': '2026-09-01T12:00:00.000Z',
+      };
+      final emailed = await api.createInvite(
+        siteUrl: siteUrl,
+        apiKey: 'secret',
+        groupId: 7,
+        email: ' lee@example.com ',
+        customMessage: ' Welcome ',
+        expiresAt: DateTime.utc(2026, 9, 1, 12),
+      );
+
+      transport.writeResponse = {'id': 43, 'link': '/invites/abc'};
+      final linked = await api.createInvite(
+        siteUrl: siteUrl,
+        apiKey: 'secret',
+        groupId: 7,
+      );
+
+      expect(emailed.email, 'lee@example.com');
+      expect(transport.writes.first.path, '/invites.json');
+      expect(transport.writes.first.method, 'POST');
+      expect(transport.writes.first.body, {
+        'group_ids': '7',
+        'email': 'lee@example.com',
+        'custom_message': 'Welcome',
+        'expires_at': '2026-09-01T12:00:00.000Z',
+      });
+      expect(linked.link, '/invites/abc');
+      expect(transport.writes.last.body, {
+        'group_ids': '7',
+        'max_redemptions_allowed': 1,
+      });
+    },
+  );
+
+  test(
     'owner, settings, SMTP, count, create, and delete routes are exact',
     () async {
       final transport = _RecordingTransport();

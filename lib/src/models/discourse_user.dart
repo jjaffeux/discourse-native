@@ -23,6 +23,7 @@ class DiscourseUser {
     this.staff = false,
     this.whisperer = false,
     this.canSendPrivateMessages = false,
+    this.canInviteToForum = false,
     this.groups = const [],
     this.messageGroupNames = const [],
     this.sidebarCategoryIds = const [],
@@ -62,6 +63,7 @@ class DiscourseUser {
     staff: json['staff'] == true,
     whisperer: json['whisperer'] == true,
     canSendPrivateMessages: json['canSendPrivateMessages'] == true,
+    canInviteToForum: json['canInviteToForum'] == true,
     groups: List.unmodifiable(
       jsonArray(json['groups']).map(jsonText).whereType<String>(),
     ),
@@ -136,6 +138,9 @@ class DiscourseUser {
 
   /// The server guardian's account-level private-message capability.
   final bool canSendPrivateMessages;
+
+  /// Core's guardian-approved capability for creating forum invitations.
+  final bool canInviteToForum;
 
   /// Group names from the freshly loaded current-user payload.
   final List<String> groups;
@@ -236,6 +241,7 @@ class DiscourseUser {
       'staff': staff,
       'whisperer': whisperer,
       'canSendPrivateMessages': canSendPrivateMessages,
+      'canInviteToForum': canInviteToForum,
       'groups': groups,
       'messageGroupNames': messageGroupNames,
       'sidebarCategoryIds': sidebarCategoryIds,
@@ -273,6 +279,7 @@ class DiscourseUser {
     staff: staff,
     whisperer: whisperer,
     canSendPrivateMessages: canSendPrivateMessages,
+    canInviteToForum: canInviteToForum,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -305,6 +312,7 @@ class DiscourseUser {
     staff: staff,
     whisperer: whisperer,
     canSendPrivateMessages: canSendPrivateMessages,
+    canInviteToForum: canInviteToForum,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -345,6 +353,7 @@ class DiscourseUser {
     staff: staff,
     whisperer: whisperer,
     canSendPrivateMessages: canSendPrivateMessages,
+    canInviteToForum: canInviteToForum,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -380,6 +389,7 @@ class DiscourseUser {
     staff: staff,
     whisperer: whisperer,
     canSendPrivateMessages: canSendPrivateMessages,
+    canInviteToForum: canInviteToForum,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -412,6 +422,7 @@ class DiscourseUser {
     staff: staff,
     whisperer: whisperer,
     canSendPrivateMessages: canSendPrivateMessages,
+    canInviteToForum: canInviteToForum,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -446,6 +457,7 @@ class DiscourseUser {
       other.staff == staff &&
       other.whisperer == whisperer &&
       other.canSendPrivateMessages == canSendPrivateMessages &&
+      other.canInviteToForum == canInviteToForum &&
       listEquals(other.groups, groups) &&
       listEquals(other.messageGroupNames, messageGroupNames) &&
       listEquals(other.sidebarCategoryIds, sidebarCategoryIds) &&
@@ -481,6 +493,7 @@ class DiscourseUser {
     staff,
     whisperer,
     canSendPrivateMessages,
+    canInviteToForum,
     Object.hashAll(groups),
     Object.hashAll(messageGroupNames),
     Object.hashAll(sidebarCategoryIds),

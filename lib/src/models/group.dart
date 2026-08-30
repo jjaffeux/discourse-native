@@ -396,6 +396,21 @@ final class GroupMember {
   final String? timezone;
   final bool owner;
   final bool primary;
+
+  GroupMember copyWith({bool? owner, bool? primary}) => GroupMember(
+    id: id,
+    username: username,
+    name: name,
+    avatarUrl: avatarUrl,
+    title: title,
+    primaryGroupName: primaryGroupName,
+    lastPostedAt: lastPostedAt,
+    lastSeenAt: lastSeenAt,
+    addedAt: addedAt,
+    timezone: timezone,
+    owner: owner ?? this.owner,
+    primary: primary ?? this.primary,
+  );
 }
 
 @immutable
@@ -726,6 +741,29 @@ final class GroupMembershipMutationResult {
   final List<String> usernames;
   final List<String> emails;
   final List<String> skippedUsernames;
+}
+
+/// One forum invitation scoped to this group.
+@immutable
+final class GroupInvite {
+  const GroupInvite({
+    required this.id,
+    this.link,
+    this.email,
+    this.expiresAt,
+  });
+
+  factory GroupInvite.fromWire(Map<String, dynamic> json) => GroupInvite(
+    id: jsonInt(json['id']),
+    link: jsonText(json['link']),
+    email: jsonText(json['email']),
+    expiresAt: jsonDate(json['expires_at']),
+  );
+
+  final int id;
+  final String? link;
+  final String? email;
+  final DateTime? expiresAt;
 }
 
 List<int> _positiveIds(Object? value) => List.unmodifiable([
