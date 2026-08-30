@@ -98,13 +98,14 @@ enum ChatHeaderIndicatorPreference {
 
 /// Chat's contribution to `/session/current.json`.
 ///
-/// [hasChatEnabled] is nullable only for a warm-start account stored before
-/// the capability was persisted. A fresh response always resolves an absent
-/// `has_chat_enabled` key to false, matching Chat's serializer contract.
+/// [hasChatEnabled] and [canDirectMessage] are nullable only for a warm-start
+/// account stored before those capabilities were persisted. A fresh response
+/// resolves absent wire keys to false, matching Chat's serializer contract.
 @immutable
 final class ChatCurrentUser {
   const ChatCurrentUser({
     this.hasChatEnabled,
+    this.canDirectMessage,
     this.headerIndicatorPreference = ChatHeaderIndicatorPreference.allNew,
     this.lastChannelId,
     this.ignoredUsernames = const [],
@@ -115,6 +116,7 @@ final class ChatCurrentUser {
     final customFields = _jsonMap(json['custom_fields']) ?? const {};
     return ChatCurrentUser(
       hasChatEnabled: json['has_chat_enabled'] == true,
+      canDirectMessage: json['can_direct_message'] == true,
       headerIndicatorPreference: ChatHeaderIndicatorPreference.read(
         userOption['chat_header_indicator_preference'],
       ),
@@ -129,6 +131,10 @@ final class ChatCurrentUser {
           final bool value => value,
           _ => null,
         },
+        canDirectMessage: switch (json['canDirectMessage']) {
+          final bool value => value,
+          _ => null,
+        },
         headerIndicatorPreference: ChatHeaderIndicatorPreference.read(
           json['headerIndicatorPreference'],
         ),
@@ -137,6 +143,7 @@ final class ChatCurrentUser {
       );
 
   final bool? hasChatEnabled;
+  final bool? canDirectMessage;
   final ChatHeaderIndicatorPreference headerIndicatorPreference;
   final int? lastChannelId;
 
@@ -145,6 +152,7 @@ final class ChatCurrentUser {
 
   Map<String, Object?> toStored() => {
     'hasChatEnabled': hasChatEnabled,
+    if (canDirectMessage != null) 'canDirectMessage': canDirectMessage,
     'headerIndicatorPreference': headerIndicatorPreference.wireName,
     'lastChannelId': lastChannelId,
     'ignoredUsernames': ignoredUsernames,
@@ -154,6 +162,7 @@ final class ChatCurrentUser {
   bool operator ==(Object other) =>
       other is ChatCurrentUser &&
       other.hasChatEnabled == hasChatEnabled &&
+      other.canDirectMessage == canDirectMessage &&
       other.headerIndicatorPreference == headerIndicatorPreference &&
       other.lastChannelId == lastChannelId &&
       listEquals(other.ignoredUsernames, ignoredUsernames);
@@ -161,6 +170,7 @@ final class ChatCurrentUser {
   @override
   int get hashCode => Object.hash(
     hasChatEnabled,
+    canDirectMessage,
     headerIndicatorPreference,
     lastChannelId,
     Object.hashAll(ignoredUsernames),
@@ -234,6 +244,7 @@ final class ChatCurrentUserPersistenceCodec
 
     return ChatCurrentUser(
       hasChatEnabled: decoded?.hasChatEnabled,
+      canDirectMessage: decoded?.canDirectMessage,
       headerIndicatorPreference:
           decoded?.headerIndicatorPreference ??
           ChatHeaderIndicatorPreference.allNew,
@@ -247,6 +258,10 @@ final class ChatCurrentUserPersistenceCodec
       _containsAny(json, _legacyChatCurrentUserKeys)
       ? ChatCurrentUser(
           hasChatEnabled: switch (json['hasChatEnabled']) {
+            final bool value => value,
+            _ => null,
+          },
+          canDirectMessage: switch (json['canDirectMessage']) {
             final bool value => value,
             _ => null,
           },
@@ -283,6 +298,8 @@ extension ChatDiscourseUserData on DiscourseUser {
 
   bool? get hasChatEnabled => chatCurrentUser?.hasChatEnabled;
 
+  bool? get canDirectMessage => chatCurrentUser?.canDirectMessage;
+
   ChatHeaderIndicatorPreference get chatHeaderIndicatorPreference =>
       chatCurrentUser?.headerIndicatorPreference ??
       ChatHeaderIndicatorPreference.allNew;
@@ -302,6 +319,7 @@ const Set<String> _legacyChatSettingsKeys = {
 
 const Set<String> _legacyChatCurrentUserKeys = {
   'hasChatEnabled',
+  'canDirectMessage',
   'chatHeaderIndicatorPreference',
   'lastChatChannelId',
   'ignoredUsernames',

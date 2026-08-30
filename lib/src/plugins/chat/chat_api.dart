@@ -1,4 +1,5 @@
 import 'chat_channel.dart';
+import 'chat_direct_message_search.dart';
 import 'chat_message.dart';
 import 'chat_pin.dart';
 import 'chat_reactors.dart';
@@ -11,6 +12,13 @@ typedef ChatMessageMove = ({int destinationChannelId, int firstMovedMessageId});
 
 /// Wire contract owned by the Chat module.
 abstract interface class ChatApi {
+  Future<ChatDirectMessageSearchResults> searchChatDirectMessages({
+    required String siteUrl,
+    required String apiKey,
+    required String term,
+    String? clientId,
+  });
+
   Future<ChatChannel> upsertChatDirectMessageChannel({
     required String siteUrl,
     required String apiKey,

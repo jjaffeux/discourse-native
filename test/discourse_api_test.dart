@@ -18,6 +18,7 @@ import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api_client.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
@@ -3369,6 +3370,70 @@ void _feedGroups() {
   });
 
   group('chatDirectMessages', () {
+    test('searches core Chat’s permission-filtered DM targets', () async {
+      late http.Request seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(
+            jsonEncode({
+              'users': [
+                {
+                  'identifier': 'u-2',
+                  'type': 'user',
+                  'match_quality': 1,
+                  'model': {
+                    'id': 2,
+                    'username': 'sam',
+                    'name': 'Sam',
+                    'avatar_template':
+                        '/user_avatar/example.com/sam/{size}/1.png',
+                    'has_chat_enabled': true,
+                  },
+                },
+              ],
+              'groups': const <Object?>[],
+              'direct_message_channels': [
+                {
+                  'identifier': 'c-55',
+                  'type': 'channel',
+                  'match_quality': 2,
+                  'model': {
+                    'id': 55,
+                    'title': 'Sam and Kris',
+                    'chatable_type': 'DirectMessage',
+                    'chatable': {'group': true, 'users': const <Object?>[]},
+                  },
+                },
+              ],
+              'category_channels': const <Object?>[],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final results = await ChatApiClient(api).searchChatDirectMessages(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        clientId: 'client',
+        term: 'sam',
+      );
+
+      expect(seen.url.path, '/chat/api/chatables');
+      expect(seen.url.queryParameters, {
+        'term': 'sam',
+        'include_users': 'true',
+        'include_groups': 'false',
+        'include_category_channels': 'false',
+        'include_direct_message_channels': 'true',
+      });
+      expect(results.items, hasLength(2));
+      expect(results.items.first, isA<ChatDirectMessageUser>());
+      expect((results.items.first as ChatDirectMessageUser).username, 'sam');
+      expect((results.items.last as ChatDirectMessageChannel).channel.id, 55);
+    });
+
     test('upserts a DM channel for the user-card Chat action', () async {
       late http.Request seen;
       final api = DiscourseApi(

@@ -1110,6 +1110,18 @@ updates the card, shared store, sidebar ordering, and live activity
 subscriptions, so a newly joined channel opens natively without a second list
 fetch.
 
+**New direct messages** use the same permission and target search as core Chat.
+The Direct messages section appears after the channel snapshot even when it is
+empty, but its `+` action exists only when the current-user payload says
+`can_direct_message` (staff retain core's override). The picker queries
+`GET /chat/api/chatables` for users and existing direct-message channels, keeps
+core's match-quality/type ordering, and leaves recipients with Chat disabled
+visible but unavailable. Choosing an existing conversation opens it directly;
+choosing a user posts to `/chat/api/direct-message-channels.json` with
+`upsert: true`, commits the returned channel to the shared store and opens it
+without another channel-list fetch. Picker text is transient and stale search
+answers are discarded when the query or account session changes.
+
 **It cannot use the enablement rule the rest of that interface turns on.** A
 post arrives whether or not you care about reactions, so its payload can be the
 gate. A channel list arrives only if you ask, so its absence proves nothing — a
@@ -1125,10 +1137,12 @@ though `chat_enabled` is a client setting: it arrives late, it can be refused,
 and it is not scoped to this reader's own preference, so it would put a Chat
 heading in front of someone who turned chat off.
 
-There is no loading state and no empty heading, for the reason `SiteConfig` has
-neither: a heading that appears and then vanishes is worse than one that arrives
-late, and a section with a spinner in it says something untrue about how many
-channels there are.
+There is no loading state and no empty heading for channel-derived sections,
+for the reason `SiteConfig` has neither: a heading that appears and then
+vanishes is worse than one that arrives late, and a section with a spinner in
+it says something untrue about how many channels there are. The permission-
+backed Direct messages action is the exception: it remains useful before the
+reader has any conversations.
 
 Search is the deliberate exception to the final presentation rule above. The
 separate, headerless Search row and the channel-header action require all of the

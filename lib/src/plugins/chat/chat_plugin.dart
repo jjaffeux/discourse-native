@@ -26,6 +26,7 @@ import 'chat_channel_view.dart';
 import 'chat_emoji_usage.dart';
 import 'chat_header_button.dart';
 import 'chat_my_threads_view.dart';
+import 'chat_new_direct_message.dart';
 import 'chat_notification_counter.dart';
 import 'chat_notifications.dart';
 import 'chat_plugin_data.dart';
@@ -257,6 +258,10 @@ class ChatPlugin
     final searchEnabled =
         chatAvailable && chat.siteConfigFor(siteUrl).chatSearchEnabled == true;
     final myThreadsEnabled = chatAvailable && chat.hasThreads(siteUrl);
+    final canCreateDirectMessage =
+        chatAvailable &&
+        (shell.currentUser?.staff == true ||
+            shell.currentUser?.canDirectMessage == true);
 
     // Nothing before the answer, and nothing after an answer with no channels
     // in it. A heading with no rows under it says something that is not true.
@@ -321,10 +326,23 @@ class ChatPlugin
               destination(channel, siteUrl: siteUrl),
           ],
         ),
-      if (direct.isNotEmpty)
+      if (chat.channelsLoaded(siteUrl) &&
+          (direct.isNotEmpty || canCreateDirectMessage))
         SidebarSection(
           id: 'direct-messages',
           title: 'Direct messages',
+          actionIcon: canCreateDirectMessage ? DIcons.plus : null,
+          actionLabel: canCreateDirectMessage ? 'Start a direct message' : null,
+          onAction: canCreateDirectMessage
+              ? () => unawaited(
+                  showChatNewDirectMessageDialog(
+                    context: context,
+                    siteUrl: siteUrl,
+                    chat: chat,
+                    shell: shell,
+                  ),
+                )
+              : null,
           destinations: [
             for (final channel in direct)
               destination(channel, siteUrl: siteUrl),

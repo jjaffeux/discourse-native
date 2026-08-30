@@ -19,6 +19,7 @@ import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/live_channels.dart';
 import 'chat_api.dart';
 import 'chat_channel.dart';
+import 'chat_direct_message_search.dart';
 import 'chat_message.dart';
 import 'chat_message_timeline.dart';
 import 'chat_pin.dart';
@@ -578,6 +579,9 @@ class ChatController extends FrameSafeNotifier {
 
   List<ChatChannel> directChannels(String siteUrl) =>
       _resolve(siteUrl, _directIds[siteUrl]);
+
+  bool channelsLoaded(String siteUrl) =>
+      _publicIds.containsKey(siteUrl) && _directIds.containsKey(siteUrl);
 
   bool hasThreads(String siteUrl) => _hasThreads[siteUrl] ?? false;
 
@@ -1326,6 +1330,62 @@ class ChatController extends FrameSafeNotifier {
       }
       rethrow;
     }
+  }
+
+  /// Searches the permission-filtered targets used by core Chat's DM picker.
+  ///
+  /// The caller owns transient query state. Existing conversations in the
+  /// answer are adopted before returning because Chat's initial sidebar
+  /// snapshot is capped; navigation still needs a store record for a result
+  /// which fell outside that snapshot. Answers from an account session which
+  /// changed while the request was in flight are discarded.
+  Future<ChatDirectMessageSearchResults> searchDirectMessages(
+    String siteUrl,
+    String term,
+  ) async {
+    final query = term.trim();
+    if (isDisposed || query.isEmpty) {
+      return ChatDirectMessageSearchResults(const []);
+    }
+    final lease = _requests.capture(siteUrl);
+    final requestCredentials = await _requests.credentialsFor(siteUrl);
+    final apiKey = requestCredentials.apiKey;
+    if (isDisposed || !lease.isCurrent) {
+      return ChatDirectMessageSearchResults(const []);
+    }
+    if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
+    final result = await api.searchChatDirectMessages(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: requestCredentials.clientId,
+      term: query,
+    );
+    if (isDisposed || !lease.isCurrent) {
+      return ChatDirectMessageSearchResults(const []);
+    }
+
+    lease.commit(() {
+      final listed = _directIds[siteUrl];
+      var sidebarChanged = false;
+      for (final item in result.items) {
+        if (item case ChatDirectMessageChannel(:final channel)) {
+          final held = _store.read<ChatChannel>(siteUrl, channel.id);
+          _store.put(siteUrl, held?.withServerSettings(channel) ?? channel);
+          if (listed != null &&
+              channel.membership.following &&
+              !listed.contains(channel.id)) {
+            listed.insert(0, channel.id);
+            _adoptChannelCursors(siteUrl, channel, includeActivity: true);
+            sidebarChanged = true;
+          }
+        }
+      }
+      if (sidebarChanged) {
+        _syncNewMessageSubscriptions(siteUrl);
+        notifySafely();
+      }
+    });
+    return result;
   }
 
   static int _notificationContribution(ChatChannel channel) =>

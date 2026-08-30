@@ -9,9 +9,11 @@ import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
@@ -35,10 +37,14 @@ import 'support/fakes.dart';
 
 const String _site = 'https://meta.discourse.org';
 const String _otherSite = 'https://other.example';
-const DiscourseUser _user = DiscourseUser(
+final DiscourseUser _user = DiscourseUser(
   id: 7,
   username: 'reader',
   name: 'Reader',
+  plugins: PluginData.none.withValue(
+    chatCurrentUserDataKey,
+    const ChatCurrentUser(hasChatEnabled: true, canDirectMessage: true),
+  ),
 );
 
 ChatChannel _channel(int id, {String title = 'Support'}) => ChatChannel(
@@ -100,6 +106,41 @@ void main() {
         _otherSite: ChatChannels(
           public: [_channel(12, title: 'Other support')],
           direct: const [],
+        ),
+      },
+      chatDirectMessageSearches: {
+        'sam': ChatDirectMessageSearchResults(const [
+          ChatDirectMessageUser(
+            identifier: 'u-2',
+            matchQuality: 1,
+            enabled: true,
+            username: 'sam',
+            name: 'Sam',
+          ),
+        ]),
+        'previous': ChatDirectMessageSearchResults(const [
+          ChatDirectMessageChannel(
+            identifier: 'c-56',
+            matchQuality: 1,
+            enabled: true,
+            channel: ChatChannel(
+              id: 56,
+              title: 'Previous conversation',
+              kind: ChatChannelKind.directMessage,
+              membership: ChatMembership(following: true),
+              tracking: ChatTracking(),
+            ),
+          ),
+        ]),
+      },
+      directMessageChannelsByUsername: const {
+        'sam': ChatChannel(
+          id: 55,
+          title: 'Sam',
+          kind: ChatChannelKind.directMessage,
+          users: [ChatUser(id: 2, username: 'sam', name: 'Sam')],
+          membership: ChatMembership(following: true),
+          tracking: ChatTracking(),
         ),
       },
       chatThreadsByKey: {
@@ -627,6 +668,83 @@ void main() {
     ]);
     expect(shell.handleBack(), isTrue);
     expect(shell.currentContent?.id, ChatPlugin.myThreadsRouteId);
+  });
+
+  testWidgets('Direct messages + opens new and existing DMs from search', (
+    tester,
+  ) async {
+    await shell.chat.loadChannels(_site);
+    shell.accountActivity.applyCounts(_site, (_) => chatNotificationTotals());
+    late SidebarSection directMessages;
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: PluginUiScope.own(
+            chatPluginId,
+            Scaffold(
+              body: Builder(
+                builder: (context) {
+                  directMessages = const ChatPlugin()
+                      .sidebarSections(context)
+                      .singleWhere(
+                        (section) => section.id == 'direct-messages',
+                      );
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(directMessages.destinations, isEmpty);
+    expect(directMessages.actionLabel, 'Start a direct message');
+    directMessages.onAction!();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('chat-new-direct-message-dialog')),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('chat-new-direct-message-search')),
+      'sam',
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
+    expect(api.chatDirectMessageSearchesRequested, ['sam']);
+    await tester.tap(
+      find.byKey(const ValueKey('chat-new-direct-message-user-sam')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(api.directMessageChannelsRequested, ['sam']);
+    expect(shell.currentContent?.id, 'chat-c-55');
+    expect(
+      find.byKey(const ValueKey('chat-new-direct-message-dialog')),
+      findsNothing,
+    );
+
+    directMessages.onAction!();
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('chat-new-direct-message-search')),
+      'previous',
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('chat-new-direct-message-channel-56')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(api.chatDirectMessageSearchesRequested, ['sam', 'previous']);
+    expect(api.directMessageChannelsRequested, ['sam']);
+    expect(shell.currentContent?.id, 'chat-c-56');
   });
 
   testWidgets('channel header opens its live thread list and preserves Back', (

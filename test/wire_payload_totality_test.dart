@@ -30,6 +30,7 @@ import 'package:discourse_native/src/plugins/assign/assign_data.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
@@ -193,6 +194,9 @@ const _keys = [
   'can_see_summary_stats',
   'can_see_user_actions',
   'user_option',
+  'identifier',
+  'match_quality',
+  'has_chat_enabled',
   'timezone',
   'like_notification_frequency',
   'notify_on_linked_posts',
@@ -426,6 +430,21 @@ void main() {
         loose,
       );
       probe('ChatChannel', () => ChatChannel.fromJson(json, site), json);
+      probe(
+        'ChatDirectMessageUser',
+        () => ChatDirectMessageUser.fromJson(json, site),
+        json,
+      );
+      probe(
+        'ChatDirectMessageChannel',
+        () => ChatDirectMessageChannel.fromJson(json, site),
+        json,
+      );
+      probe(
+        'ChatDirectMessageSearchResults',
+        () => ChatDirectMessageSearchResults.fromJson(json, site),
+        json,
+      );
       probe(
         'ChatChannelBrowsePage',
         () => ChatChannelBrowsePage.fromJson(json, site),
