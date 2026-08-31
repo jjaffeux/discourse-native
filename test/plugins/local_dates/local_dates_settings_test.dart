@@ -9,7 +9,7 @@ final _registry = PluginRegistry([
 ]);
 
 void main() {
-  test('installed plugin decodes its site-settings wire keys', () {
+  test('Local Dates plugin decodes its site-settings wire keys', () {
     final config = SiteConfig.fromSettings(const {
       'discourse_local_dates_enabled': true,
       'discourse_local_dates_default_formats': 'LLL|YYYY-MM-DD [at] HH:mm',
@@ -29,7 +29,7 @@ void main() {
     expect(config.localDateTimezones, ['Etc/UTC', 'Asia/Tokyo']);
   });
 
-  test('namespaced settings round-trip without flat feature keys', () {
+  test('Local Dates settings round-trip without flat feature keys', () {
     final config = SiteConfig.fromJson({
       'plugins': {
         localDatesSettingsDataKey.id: const {
@@ -54,27 +54,30 @@ void main() {
     expect(restored.hashCode, config.hashCode);
   });
 
-  test('legacy flat settings migrate into the plugin namespace', () {
-    final config = SiteConfig.fromJson(const {
-      'localDatesEnabled': true,
-      'localDateFormats': ['LLL', 'YYYY'],
-      'localDateTimezones': ['Etc/UTC', 'Asia/Tokyo'],
-    }, extensions: _registry);
+  test(
+    'legacy flat Local Dates settings migrate into the plugin namespace',
+    () {
+      final config = SiteConfig.fromJson(const {
+        'localDatesEnabled': true,
+        'localDateFormats': ['LLL', 'YYYY'],
+        'localDateTimezones': ['Etc/UTC', 'Asia/Tokyo'],
+      }, extensions: _registry);
 
-    expect(
-      config.localDatesSettings,
-      const LocalDatesSettings(
-        enabled: true,
-        formats: ['LLL', 'YYYY'],
-        timezones: ['Etc/UTC', 'Asia/Tokyo'],
-      ),
-    );
-    expect(config.toJson(extensions: _registry)['plugins'], {
-      localDatesSettingsDataKey.id: {
-        'enabled': true,
-        'formats': ['LLL', 'YYYY'],
-        'timezones': ['Etc/UTC', 'Asia/Tokyo'],
-      },
-    });
-  });
+      expect(
+        config.localDatesSettings,
+        const LocalDatesSettings(
+          enabled: true,
+          formats: ['LLL', 'YYYY'],
+          timezones: ['Etc/UTC', 'Asia/Tokyo'],
+        ),
+      );
+      expect(config.toJson(extensions: _registry)['plugins'], {
+        localDatesSettingsDataKey.id: {
+          'enabled': true,
+          'formats': ['LLL', 'YYYY'],
+          'timezones': ['Etc/UTC', 'Asia/Tokyo'],
+        },
+      });
+    },
+  );
 }

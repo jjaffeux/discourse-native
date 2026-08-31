@@ -122,7 +122,7 @@ void main() {
   });
 
   group('clear', () {
-    test('forgets every id asked for, not only those that came back', () {
+    test('forgets every ID asked for, not only those that came back', () {
       final incoming = IncomingTopics()
         ..notify(newTopic(1))
         ..notify(newTopic(2));

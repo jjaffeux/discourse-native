@@ -12,7 +12,7 @@ import 'package:http/testing.dart';
 import 'support/bundled_plugins.dart';
 
 void main() {
-  group('Assign session capabilities', () {
+  group('Assign session capability state', () {
     test(
       'preserves present true and false values from a fresh session',
       () async {

@@ -47,7 +47,7 @@ List<int> loaded(Store store, TopicDetail topic) => [
 ];
 
 void main() {
-  group('parse', () {
+  group('wire parsing', () {
     test('splits the payload into the topic and its posts', () {
       final payload = TopicDetail.parse(const {
         'id': 7,
@@ -142,6 +142,22 @@ void main() {
       }, site);
 
       expect(payload.detail.canReplyAsNewTopic, isTrue);
+    });
+
+    test('reads and preserves the selected-post guardian capabilities', () {
+      final payload = TopicDetail.parse(const {
+        'id': 7,
+        'title': 'A moderated topic',
+        'details': {'can_move_posts': true, 'can_split_merge_topic': true},
+      }, site);
+
+      expect(payload.detail.canMovePosts, isTrue);
+      expect(payload.detail.canSplitMergeTopic, isTrue);
+      expect(payload.detail.copyWith(closed: true).canMovePosts, isTrue);
+      expect(
+        payload.detail.withPlugins(PluginData.none).canSplitMergeTopic,
+        isTrue,
+      );
     });
 
     test('reads the topic map summary and details', () {
@@ -355,14 +371,14 @@ void main() {
       expect(payload.detail.hasPinPreference, isFalse);
     });
 
-    test('unknown notification levels safely read as normal', () {
+    test('unknown topic notification levels safely read as normal', () {
       expect(
         TopicNotificationLevel.fromJson(99),
         TopicNotificationLevel.normal,
       );
     });
 
-    test('is false when the payload has no details, as when signed out', () {
+    test('withholds topic creation when the payload has no details', () {
       final payload = TopicDetail.parse(const {
         'id': 7,
         'title': 'A real topic',
@@ -459,7 +475,7 @@ void main() {
     });
   });
 
-  group('withPostId', () {
+  group('adding a post', () {
     test('extends the stream and the count, which paging does not', () {
       final topic = detail(stream: [1], postsCount: 1).withPostId(2);
 
@@ -482,7 +498,7 @@ void main() {
     });
   });
 
-  group('withoutPostId', () {
+  group('removing a post', () {
     test('takes the post out of the stream and off the count', () {
       final without = detail(stream: [1, 2], postsCount: 2).withoutPostId(2);
 
@@ -497,7 +513,7 @@ void main() {
     });
   });
 
-  group('withExpandedGap', () {
+  group('revealing a hidden post gap', () {
     test('inserts a bounded leading chunk and retains its remainder', () {
       final hidden = [for (var id = 2; id <= 41; id++) id];
       final topic =
@@ -556,7 +572,7 @@ void main() {
     });
   });
 
-  group('merge', () {
+  group('merging a refetched topic', () {
     test('takes the refetched stream and count', () {
       final merged = detail(
         stream: [1],
@@ -568,7 +584,7 @@ void main() {
       expect(merged.canCreatePost, isTrue);
     });
 
-    test('keeps an id the refetch has not caught up with', () {
+    test('keeps an ID the refetch has not caught up with', () {
       // The reply made a moment ago, at the end of a long topic. A refetch can
       // answer from before it landed; taking that literally would make the post
       // vanish the instant it appeared.
@@ -661,7 +677,7 @@ void main() {
     });
   });
 
-  group('in the store', () {
+  group('store integration', () {
     test('a post fetched twice is one record, and one notification', () {
       final store = Store();
       final ref = store.ref<Post>(site, 1);
@@ -721,7 +737,7 @@ void main() {
       expect(ref.value, isNull);
     });
 
-    test('the same id on two sites is two records', () {
+    test('the same ID on two sites is two records', () {
       final store = Store();
       store.put(site, post(1, 1, raw: 'here'));
       store.put('https://other.example', post(1, 1, raw: 'there'));

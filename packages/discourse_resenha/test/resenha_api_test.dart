@@ -6,267 +6,581 @@ import 'package:discourse_resenha/src/resenha_api.dart';
 import 'package:discourse_resenha/src/resenha_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+const _siteUrl = 'https://voice.example.com';
+const _apiKey = 'api-key';
+const _roomId = 7;
+const _participantSessionId = 'participant-session';
+const _roomDraft = ResenhaRoomDraft(
+  name: 'Conf Room 1',
+  isPublic: false,
+  type: ResenhaRoomType.stage,
+  maxQualityProfile: ResenhaQualityProfile.high,
+);
+
 Map<String, dynamic> fixture(String name) =>
     jsonDecode(File('test/fixtures/resenha/$name.json').readAsStringSync())
         as Map<String, dynamic>;
 
+({ResenhaApi api, RecordingPluginTransport transport}) _apiWithResponses(
+  Map<String, Map<String, dynamic>> responses,
+) {
+  final transport = RecordingPluginTransport(responses: responses);
+  return (api: ResenhaApi(transport), transport: transport);
+}
+
+void _expectRequest(
+  PluginTransportRequest request, {
+  required String method,
+  required String path,
+  Map<String, Object?> body = const {},
+}) {
+  expect(request.siteUrl, _siteUrl);
+  expect(request.apiKey, _apiKey);
+  expect(request.clientId, isNull);
+  expect(request.method, method);
+  expect(request.path, path);
+  expect(request.body, body);
+  expect(request.expectsList, isFalse);
+}
+
 void main() {
-  const site = 'https://voice.example.com';
-  const key = 'api-key';
-
-  test('uses the directory/show/join contract routes', () async {
-    final transport = RecordingPluginTransport(
-      responses: {
+  group('room discovery', () {
+    test('lists rooms', () async {
+      final (:api, :transport) = _apiWithResponses({
         'GET /resenha/rooms.json': fixture('directory'),
+      });
+
+      final directory = await api.rooms(siteUrl: _siteUrl, apiKey: _apiKey);
+
+      expect(directory.messageBusLastId, 144);
+      expect(directory.canCreateRoom, isTrue);
+      expect(directory.rooms.single.slug, 'conf-room-1');
+      _expectRequest(
+        transport.requests.single,
+        method: 'GET',
+        path: '/resenha/rooms.json',
+      );
+    });
+
+    test('reads a room by slug', () async {
+      final (:api, :transport) = _apiWithResponses({
         'GET /resenha/rooms/conf-room-1.json': {'room': fixture('room')},
-        'POST /resenha/rooms/7/join.json': fixture('join_mesh'),
-      },
-    );
-    final api = ResenhaApi(transport);
+      });
 
-    final directory = await api.rooms(siteUrl: site, apiKey: key);
-    final room = await api.room(
-      siteUrl: site,
-      slug: 'conf-room-1',
-      apiKey: key,
-    );
-    final join = await api.join(
-      siteUrl: site,
-      roomId: 7,
-      apiKey: key,
-      participantSessionId: 'existing-participant-session',
-    );
+      final room = await api.room(
+        siteUrl: _siteUrl,
+        slug: 'conf-room-1',
+        apiKey: _apiKey,
+      );
 
-    expect(directory.messageBusLastId, 144);
-    expect(room.slug, 'conf-room-1');
-    expect(join.transport, ResenhaTransport.mesh);
-    expect(join.participantSessionId, 'mesh-participant-session');
-    expect(transport.writes.single.path, '/resenha/rooms/7/join.json');
-    expect(
-      transport.writes.single.body['participant_session_id'],
-      'existing-participant-session',
-    );
+      expect((room.id, room.slug), (_roomId, 'conf-room-1'));
+      _expectRequest(
+        transport.requests.single,
+        method: 'GET',
+        path: '/resenha/rooms/conf-room-1.json',
+      );
+    });
   });
 
-  test(
-    'maps state, signaling, stage, moderation, and recording writes',
-    () async {
-      final responses = <String, Map<String, dynamic>>{
-        for (final key in [
-          'POST /resenha/rooms/7/signal.json',
-          'POST /resenha/rooms/7/state.json',
-          'POST /resenha/rooms/7/request_to_speak.json',
-          'DELETE /resenha/rooms/7/request_to_speak.json',
-          'DELETE /resenha/rooms/7/kick.json',
-          'POST /resenha/rooms/7/flag.json',
-          'DELETE /resenha/rooms/7/recording.json',
-        ])
-          key: <String, dynamic>{},
-        'POST /resenha/rooms/7/recording.json': {
-          'recording': fixture('room')['recording'],
+  group('participant session', () {
+    test('joins a room', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'POST /resenha/rooms/7/join.json': fixture('join_mesh'),
+      });
+
+      final join = await api.join(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
+        participantSessionId: 'existing-participant-session',
+      );
+
+      expect(join.transport, ResenhaTransport.mesh);
+      expect(join.participantSessionId, 'mesh-participant-session');
+      _expectRequest(
+        transport.requests.single,
+        method: 'POST',
+        path: '/resenha/rooms/7/join.json',
+        body: {
+          'skip_status': null,
+          'participant_session_id': 'existing-participant-session',
         },
+      );
+    });
+
+    test('sends a heartbeat', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'POST /resenha/rooms/7/heartbeat.json': {},
+      });
+
+      await api.heartbeat(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
+        idle: ResenhaIdleState.afk,
+        participantSessionId: _participantSessionId,
+      );
+
+      _expectRequest(
+        transport.requests.single,
+        method: 'POST',
+        path: '/resenha/rooms/7/heartbeat.json',
+        body: {
+          'idle_state': 'afk',
+          'participant_session_id': _participantSessionId,
+        },
+      );
+    });
+
+    test('leaves a room', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'DELETE /resenha/rooms/7/leave.json': {},
+      });
+
+      await api.leave(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
+        participantSessionId: _participantSessionId,
+      );
+
+      _expectRequest(
+        transport.requests.single,
+        method: 'DELETE',
+        path: '/resenha/rooms/7/leave.json',
+        body: {'participant_session_id': _participantSessionId},
+      );
+    });
+
+    test('refreshes LiveKit credentials', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'POST /resenha/rooms/7/livekit_token.json': {
+          ...(fixture('join_livekit')['livekit'] as Map<String, dynamic>),
+          'participant_session_id': 'rotated-participant-session',
+        },
+      });
+
+      final credentials = await api.livekitToken(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
+      );
+
+      expect(credentials.url, 'wss://livekit.example.com');
+      expect(credentials.token, 'redacted-fixture-token');
+      expect(credentials.participantSessionId, 'rotated-participant-session');
+      _expectRequest(
+        transport.requests.single,
+        method: 'POST',
+        path: '/resenha/rooms/7/livekit_token.json',
+      );
+    });
+  });
+
+  group('participant media state', () {
+    test('sends signaling payload', () async {
+      const payload = <String, Object?>{
+        'recipient_id': 2,
+        'events': <Object?>[],
+      };
+      final (:api, :transport) = _apiWithResponses({
+        'POST /resenha/rooms/7/signal.json': {},
+      });
+
+      await api.signal(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
+        payload: payload,
+        participantSessionId: _participantSessionId,
+      );
+
+      _expectRequest(
+        transport.requests.single,
+        method: 'POST',
+        path: '/resenha/rooms/7/signal.json',
+        body: {
+          'payload': payload,
+          'participant_session_id': _participantSessionId,
+        },
+      );
+    });
+
+    test('updates participant state', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'POST /resenha/rooms/7/state.json': {},
+      });
+
+      await api.state(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
+        muted: true,
+        screen: false,
+        participantSessionId: _participantSessionId,
+      );
+
+      _expectRequest(
+        transport.requests.single,
+        method: 'POST',
+        path: '/resenha/rooms/7/state.json',
+        body: {
+          'muted': true,
+          'deafened': null,
+          'video': null,
+          'screen': false,
+          'watching': null,
+          'participant_session_id': _participantSessionId,
+        },
+      );
+    });
+  });
+
+  group('stage moderation', () {
+    test('raises and lowers a hand', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'POST /resenha/rooms/7/request_to_speak.json': {},
+        'DELETE /resenha/rooms/7/request_to_speak.json': {},
+      });
+
+      await api.requestToSpeak(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
+        participantSessionId: _participantSessionId,
+      );
+      await api.requestToSpeak(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
+        raised: false,
+        userId: 2,
+        participantSessionId: _participantSessionId,
+      );
+
+      expect(transport.requests, hasLength(2));
+      _expectRequest(
+        transport.requests[0],
+        method: 'POST',
+        path: '/resenha/rooms/7/request_to_speak.json',
+        body: {
+          'user_id': null,
+          'participant_session_id': _participantSessionId,
+        },
+      );
+      _expectRequest(
+        transport.requests[1],
+        method: 'DELETE',
+        path: '/resenha/rooms/7/request_to_speak.json',
+        body: {'user_id': 2, 'participant_session_id': _participantSessionId},
+      );
+    });
+
+    test('kicks a participant', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'DELETE /resenha/rooms/7/kick.json': {},
+      });
+
+      await api.kick(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
+        userId: 2,
+      );
+
+      _expectRequest(
+        transport.requests.single,
+        method: 'DELETE',
+        path: '/resenha/rooms/7/kick.json',
+        body: {'user_id': 2},
+      );
+    });
+
+    test('flags a participant', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'POST /resenha/rooms/7/flag.json': {},
+      });
+
+      await api.flag(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
+        userId: 2,
+        flagTypeId: 7,
+        message: 'Needs attention',
+      );
+
+      _expectRequest(
+        transport.requests.single,
+        method: 'POST',
+        path: '/resenha/rooms/7/flag.json',
+        body: {'user_id': 2, 'flag_type_id': 7, 'message': 'Needs attention'},
+      );
+    });
+
+    test('finds the notify-moderators flag type', () async {
+      final (:api, :transport) = _apiWithResponses({
         'GET /site.json': {
           'post_action_types': [
             {'id': 7, 'name_key': 'notify_moderators'},
           ],
         },
-      };
-      final transport = RecordingPluginTransport(responses: responses);
-      final api = ResenhaApi(transport);
+      });
 
-      await api.signal(
-        siteUrl: site,
-        roomId: 7,
-        apiKey: key,
-        payload: {'recipient_id': 2, 'events': const []},
-        participantSessionId: 'participant-session',
+      final flagTypeId = await api.notifyModeratorsFlagType(
+        siteUrl: _siteUrl,
+        apiKey: _apiKey,
       );
-      await api.state(
-        siteUrl: site,
-        roomId: 7,
-        apiKey: key,
-        muted: true,
-        screen: false,
-        participantSessionId: 'participant-session',
+
+      expect(flagTypeId, 7);
+      _expectRequest(
+        transport.requests.single,
+        method: 'GET',
+        path: '/site.json',
       );
-      await api.requestToSpeak(
-        siteUrl: site,
-        roomId: 7,
-        apiKey: key,
-        participantSessionId: 'participant-session',
-      );
-      await api.requestToSpeak(
-        siteUrl: site,
-        roomId: 7,
-        apiKey: key,
-        raised: false,
-        userId: 2,
-        participantSessionId: 'participant-session',
-      );
-      await api.kick(siteUrl: site, roomId: 7, apiKey: key, userId: 2);
-      await api.flag(
-        siteUrl: site,
-        roomId: 7,
-        apiKey: key,
-        userId: 2,
-        flagTypeId: 7,
-        message: 'Needs attention',
-      );
-      final recording = await api.setRecording(
-        siteUrl: site,
-        roomId: 7,
-        apiKey: key,
+    });
+  });
+
+  group('recording', () {
+    test('starts and stops a recording', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'POST /resenha/rooms/7/recording.json': {
+          'recording': fixture('room')['recording'],
+        },
+        'DELETE /resenha/rooms/7/recording.json': {},
+      });
+
+      final started = await api.setRecording(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
         active: true,
       );
-      await api.setRecording(
-        siteUrl: site,
-        roomId: 7,
-        apiKey: key,
+      final stopped = await api.setRecording(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
         active: false,
       );
-      expect(await api.notifyModeratorsFlagType(siteUrl: site, apiKey: key), 7);
 
-      expect(transport.writes.map((write) => '${write.method} ${write.path}'), [
-        'POST /resenha/rooms/7/signal.json',
-        'POST /resenha/rooms/7/state.json',
-        'POST /resenha/rooms/7/request_to_speak.json',
-        'DELETE /resenha/rooms/7/request_to_speak.json',
-        'DELETE /resenha/rooms/7/kick.json',
-        'POST /resenha/rooms/7/flag.json',
-        'POST /resenha/rooms/7/recording.json',
-        'DELETE /resenha/rooms/7/recording.json',
-      ]);
-      expect(recording?.active, isTrue);
-      for (final write in transport.writes.take(4)) {
-        expect(
-          write.body['participant_session_id'],
-          'participant-session',
-          reason: write.path,
-        );
-      }
-    },
-  );
+      expect(started?.active, isTrue);
+      expect(started?.startedById, 1);
+      expect(stopped, isNull);
+      expect(transport.requests, hasLength(2));
+      _expectRequest(
+        transport.requests[0],
+        method: 'POST',
+        path: '/resenha/rooms/7/recording.json',
+      );
+      _expectRequest(
+        transport.requests[1],
+        method: 'DELETE',
+        path: '/resenha/rooms/7/recording.json',
+      );
+    });
+  });
 
-  test(
-    'maps chat, room CRUD, memberships, heartbeat and LiveKit token',
-    () async {
-      final room = fixture('room');
-      final responses = <String, Map<String, dynamic>>{
-        'POST /resenha/rooms/7/heartbeat.json': {},
-        'DELETE /resenha/rooms/7/leave.json': {},
-        'POST /resenha/rooms/7/livekit_token.json': {
-          ...(fixture('join_livekit')['livekit'] as Map<String, dynamic>),
-          'participant_session_id': 'rotated-participant-session',
-        },
+  group('room Chat', () {
+    test('reads an existing chat session', () async {
+      final (:api, :transport) = _apiWithResponses({
         'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
-        'POST /resenha/rooms/7/chat_session.json': fixture('chat'),
-        'POST /resenha/rooms/7/chat_message.json': fixture('chat'),
-        'POST /resenha/rooms.json': {'room': room},
-        'PUT /resenha/rooms/7.json': {'room': room},
-        'DELETE /resenha/rooms/7.json': {},
-        'GET /resenha/rooms/7/memberships.json': fixture('memberships'),
-        'POST /resenha/rooms/7/memberships.json': {},
-        'PUT /resenha/rooms/7/memberships/8.json': {},
-        'DELETE /resenha/rooms/7/memberships/8.json': {},
-      };
-      final transport = RecordingPluginTransport(responses: responses);
-      final api = ResenhaApi(transport);
-      const draft = ResenhaRoomDraft(
-        name: 'Conf Room 1',
-        isPublic: false,
-        type: ResenhaRoomType.stage,
-        maxQualityProfile: ResenhaQualityProfile.high,
+      });
+
+      final session = await api.chatSession(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
       );
 
-      await api.heartbeat(
-        siteUrl: site,
-        roomId: 7,
-        apiKey: key,
-        participantSessionId: 'participant-session',
+      expect((session.channelId, session.threadId), (42, 99));
+      _expectRequest(
+        transport.requests.single,
+        method: 'GET',
+        path: '/resenha/rooms/7/chat_session.json',
       );
-      await api.leave(
-        siteUrl: site,
-        roomId: 7,
-        apiKey: key,
-        participantSessionId: 'participant-session',
+    });
+
+    test('ensures a chat session exists', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'POST /resenha/rooms/7/chat_session.json': fixture('chat'),
+      });
+
+      final session = await api.chatSession(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
+        ensure: true,
       );
-      final livekit = await api.livekitToken(
-        siteUrl: site,
-        roomId: 7,
-        apiKey: key,
+
+      expect((session.channelId, session.threadId), (42, 99));
+      _expectRequest(
+        transport.requests.single,
+        method: 'POST',
+        path: '/resenha/rooms/7/chat_session.json',
       );
-      expect(livekit.token, 'redacted-fixture-token');
-      expect(livekit.participantSessionId, 'rotated-participant-session');
-      expect(
-        (await api.chatSession(siteUrl: site, roomId: 7, apiKey: key)).threadId,
-        99,
-      );
-      expect(
-        (await api.chatSession(
-          siteUrl: site,
-          roomId: 7,
-          apiKey: key,
-          ensure: true,
-        )).threadId,
-        99,
-      );
-      await api.firstChatMessage(
-        siteUrl: site,
-        roomId: 7,
-        apiKey: key,
+    });
+
+    test('starts a chat with its first message', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'POST /resenha/rooms/7/chat_message.json': fixture('chat'),
+      });
+
+      final session = await api.firstChatMessage(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
         message: 'hello',
       );
-      await api.createRoom(siteUrl: site, apiKey: key, draft: draft);
-      await api.updateRoom(siteUrl: site, roomId: 7, apiKey: key, draft: draft);
-      await api.deleteRoom(siteUrl: site, roomId: 7, apiKey: key);
-      expect(
-        await api.memberships(siteUrl: site, roomId: 7, apiKey: key),
-        hasLength(2),
+
+      expect((session.channelId, session.threadId), (42, 99));
+      _expectRequest(
+        transport.requests.single,
+        method: 'POST',
+        path: '/resenha/rooms/7/chat_message.json',
+        body: {'message': 'hello'},
       );
+    });
+  });
+
+  group('room management', () {
+    test('creates a room', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'POST /resenha/rooms.json': {'room': fixture('room')},
+      });
+
+      final room = await api.createRoom(
+        siteUrl: _siteUrl,
+        apiKey: _apiKey,
+        draft: _roomDraft,
+      );
+
+      expect((room.id, room.type), (_roomId, ResenhaRoomType.stage));
+      _expectRequest(
+        transport.requests.single,
+        method: 'POST',
+        path: '/resenha/rooms.json',
+        body: {'room': _roomDraft.toJson()},
+      );
+    });
+
+    test('updates a room', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'PUT /resenha/rooms/7.json': {'room': fixture('room')},
+      });
+
+      final room = await api.updateRoom(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
+        draft: _roomDraft,
+      );
+
+      expect((room.id, room.type), (_roomId, ResenhaRoomType.stage));
+      _expectRequest(
+        transport.requests.single,
+        method: 'PUT',
+        path: '/resenha/rooms/7.json',
+        body: {'room': _roomDraft.toJson()},
+      );
+    });
+
+    test('deletes a room', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'DELETE /resenha/rooms/7.json': {},
+      });
+
+      await api.deleteRoom(siteUrl: _siteUrl, roomId: _roomId, apiKey: _apiKey);
+
+      _expectRequest(
+        transport.requests.single,
+        method: 'DELETE',
+        path: '/resenha/rooms/7.json',
+      );
+    });
+  });
+
+  group('room membership API', () {
+    test('lists memberships', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'GET /resenha/rooms/7/memberships.json': fixture('memberships'),
+      });
+
+      final memberships = await api.memberships(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
+      );
+
+      expect(memberships.map((membership) => membership.role), [
+        ResenhaRole.moderator,
+        ResenhaRole.speaker,
+      ]);
+      _expectRequest(
+        transport.requests.single,
+        method: 'GET',
+        path: '/resenha/rooms/7/memberships.json',
+      );
+    });
+
+    test('adds a membership', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'POST /resenha/rooms/7/memberships.json': {},
+      });
+
       await api.addMembership(
-        siteUrl: site,
-        roomId: 7,
-        apiKey: key,
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
         username: 'lee',
         role: ResenhaRole.speaker,
       );
+
+      _expectRequest(
+        transport.requests.single,
+        method: 'POST',
+        path: '/resenha/rooms/7/memberships.json',
+        body: {'user_id': null, 'username': 'lee', 'role': 'speaker'},
+      );
+    });
+
+    test('updates a membership', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'PUT /resenha/rooms/7/memberships/8.json': {},
+      });
+
       await api.updateMembership(
-        siteUrl: site,
-        roomId: 7,
+        siteUrl: _siteUrl,
+        roomId: _roomId,
         membershipId: 8,
-        apiKey: key,
+        apiKey: _apiKey,
         role: ResenhaRole.moderator,
       );
+
+      _expectRequest(
+        transport.requests.single,
+        method: 'PUT',
+        path: '/resenha/rooms/7/memberships/8.json',
+        body: {'role': 'moderator'},
+      );
+    });
+
+    test('removes a membership', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'DELETE /resenha/rooms/7/memberships/8.json': {},
+      });
+
       await api.removeMembership(
-        siteUrl: site,
-        roomId: 7,
+        siteUrl: _siteUrl,
+        roomId: _roomId,
         membershipId: 8,
-        apiKey: key,
+        apiKey: _apiKey,
       );
 
-      for (final path in [
-        '/resenha/rooms/7/heartbeat.json',
-        '/resenha/rooms/7/leave.json',
-      ]) {
-        expect(
-          transport.writes
-              .singleWhere((write) => write.path == path)
-              .body['participant_session_id'],
-          'participant-session',
-        );
-      }
-
-      final create = transport.writes.firstWhere(
-        (write) => write.path == '/resenha/rooms.json',
+      _expectRequest(
+        transport.requests.single,
+        method: 'DELETE',
+        path: '/resenha/rooms/7/memberships/8.json',
       );
-      expect(
-        (create.body['room'] as Map<String, Object?>)['room_type'],
-        'stage',
-      );
-      expect(
-        (create.body['room'] as Map<String, Object?>)['max_quality_profile'],
-        'high',
-      );
-    },
-  );
+    });
+  });
 }

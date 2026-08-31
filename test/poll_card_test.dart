@@ -87,265 +87,323 @@ Future<void> pumpPoll(
 );
 
 void main() {
-  test('wire poll normalizes cooked labels once on its immutable models', () {
-    final value = Poll.fromJson({
-      'name': 'lunch',
-      'type': 'ranked_choice',
-      'title': '<strong>  Lunch&nbsp; choice </strong>',
-      'options': [
-        {'id': 'soup', 'html': '<span> Soup &amp; <em>bread</em> </span>'},
-      ],
-      'ranked_choice_outcome': {
-        'winner': true,
-        'winning_candidate': {
-          'digest': 'soup',
-          'html': '<span> Soup &amp; <em>bread</em> </span>',
-        },
-      },
-    }, 'https://site.test')!;
-
-    expect(value.options.single.plainText, 'Soup & bread');
-    expect(
-      value.rankedChoiceOutcome!.winningCandidate!.plainText,
-      'Soup & bread',
-    );
-  });
-
-  test('percentages use voters and preserve upstream rounding', () {
-    expect(
-      calculatePollPercentages(
-        poll(
-          voters: 3,
-          options: const [
-            PollOption(id: 'a', html: 'A', votes: 1),
-            PollOption(id: 'b', html: 'B', votes: 1),
-            PollOption(id: 'c', html: 'C', votes: 1),
-          ],
-        ),
-      ),
-      [34, 33, 33],
-    );
-    expect(
-      calculatePollPercentages(
-        poll(
-          type: PollType.multiple,
-          voters: 2,
-          options: const [
-            PollOption(id: 'a', html: 'A', votes: 2),
-            PollOption(id: 'b', html: 'B', votes: 1),
-          ],
-        ),
-      ),
-      [100, 50],
-    );
-    expect(
-      calculatePollPercentages(
-        poll(
-          voters: 0,
-          options: const [
-            PollOption(id: 'a', html: 'A', votes: 0),
-            PollOption(id: 'b', html: 'B', votes: 0),
-          ],
-        ),
-      ),
-      [0, 0],
-    );
-  });
-
-  test('number average uses the serialized voter count', () {
-    expect(
-      calculateNumberPollAverage(
-        poll(
-          type: PollType.number,
-          voters: 4,
-          options: const [
-            PollOption(id: 'one', html: '1', votes: 1),
-            PollOption(id: 'three', html: '3', votes: 3),
-          ],
-        ),
-      ),
-      2.5,
-    );
-  });
-
-  testWidgets('cooked content and accessible tallies render for pie markup', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-
-    await pumpPoll(
-      tester,
-      poll(
-        title: '<strong>Lunch choice</strong>',
-        chartType: PollChartType.pie,
-        voters: 2,
-        options: const [
-          PollOption(id: 'soup', html: '<em>Soup</em>', votes: 2),
-          PollOption(id: 'salad', html: 'Salad', votes: 0),
+  group('poll models', () {
+    test('normalize cooked labels once on immutable values', () {
+      final value = Poll.fromJson({
+        'name': 'lunch',
+        'type': 'ranked_choice',
+        'title': '<strong>  Lunch&nbsp; choice </strong>',
+        'options': [
+          {'id': 'soup', 'html': '<span> Soup &amp; <em>bread</em> </span>'},
         ],
-      ),
+        'ranked_choice_outcome': {
+          'winner': true,
+          'winning_candidate': {
+            'digest': 'soup',
+            'html': '<span> Soup &amp; <em>bread</em> </span>',
+          },
+        },
+      }, 'https://site.test')!;
+
+      expect(value.options.single.plainText, 'Soup & bread');
+      expect(
+        value.rankedChoiceOutcome!.winningCandidate!.plainText,
+        'Soup & bread',
+      );
+    });
+
+    test('calculate voter-based percentages with upstream rounding', () {
+      expect(
+        calculatePollPercentages(
+          poll(
+            voters: 3,
+            options: const [
+              PollOption(id: 'a', html: 'A', votes: 1),
+              PollOption(id: 'b', html: 'B', votes: 1),
+              PollOption(id: 'c', html: 'C', votes: 1),
+            ],
+          ),
+        ),
+        [34, 33, 33],
+      );
+      expect(
+        calculatePollPercentages(
+          poll(
+            type: PollType.multiple,
+            voters: 2,
+            options: const [
+              PollOption(id: 'a', html: 'A', votes: 2),
+              PollOption(id: 'b', html: 'B', votes: 1),
+            ],
+          ),
+        ),
+        [100, 50],
+      );
+      expect(
+        calculatePollPercentages(
+          poll(
+            voters: 0,
+            options: const [
+              PollOption(id: 'a', html: 'A', votes: 0),
+              PollOption(id: 'b', html: 'B', votes: 0),
+            ],
+          ),
+        ),
+        [0, 0],
+      );
+    });
+
+    test('calculate number averages from the serialized voter count', () {
+      expect(
+        calculateNumberPollAverage(
+          poll(
+            type: PollType.number,
+            voters: 4,
+            options: const [
+              PollOption(id: 'one', html: '1', votes: 1),
+              PollOption(id: 'three', html: '3', votes: 3),
+            ],
+          ),
+        ),
+        2.5,
+      );
+    });
+  });
+
+  group('poll presentation', () {
+    testWidgets(
+      'renders cooked content and accessible tallies for pie markup',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        var semanticsDisposed = false;
+        void disposeSemantics() {
+          if (semanticsDisposed) return;
+          semantics.dispose();
+          semanticsDisposed = true;
+        }
+
+        addTearDown(disposeSemantics);
+        try {
+          await pumpPoll(
+            tester,
+            poll(
+              title: '<strong>Lunch choice</strong>',
+              chartType: PollChartType.pie,
+              voters: 2,
+              options: const [
+                PollOption(id: 'soup', html: '<em>Soup</em>', votes: 2),
+                PollOption(id: 'salad', html: 'Salad', votes: 0),
+              ],
+            ),
+          );
+          await tester.pump();
+
+          expect(find.text('Lunch choice', findRichText: true), findsOneWidget);
+          expect(find.text('Soup', findRichText: true), findsOneWidget);
+          expect(find.text('2 votes'), findsOneWidget);
+          expect(find.text('100%'), findsOneWidget);
+          expect(
+            find.bySemanticsLabel('Soup, 2 votes, 100 percent'),
+            findsOneWidget,
+          );
+        } finally {
+          disposeSemantics();
+        }
+      },
     );
-    await tester.pump();
 
-    expect(find.text('Lunch choice', findRichText: true), findsOneWidget);
-    expect(find.text('Soup', findRichText: true), findsOneWidget);
-    expect(find.text('2 votes'), findsOneWidget);
-    expect(find.text('100%'), findsOneWidget);
-    expect(find.bySemanticsLabel('Soup, 2 votes, 100 percent'), findsOneWidget);
-    semantics.dispose();
+    testWidgets('refreshes title semantics when the model title changes', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      var semanticsDisposed = false;
+      void disposeSemantics() {
+        if (semanticsDisposed) return;
+        semantics.dispose();
+        semanticsDisposed = true;
+      }
+
+      addTearDown(disposeSemantics);
+      try {
+        await pumpPoll(tester, poll(title: '<strong>First title</strong>'));
+        expect(find.bySemanticsLabel('Poll: First title'), findsOneWidget);
+
+        await pumpPoll(tester, poll(title: '<em>Second &amp; final</em>'));
+        expect(find.bySemanticsLabel('Poll: Second & final'), findsOneWidget);
+      } finally {
+        disposeSemantics();
+      }
+    });
+
+    testWidgets('exposes 44-pixel options as native keyboard buttons', (
+      tester,
+    ) async {
+      List<String>? cast;
+      final semantics = tester.ensureSemantics();
+      try {
+        await pumpPoll(
+          tester,
+          poll(),
+          onVote: (_, options) => cast = options,
+          onRemoveVote: (_) {},
+        );
+        await tester.pumpAndSettle();
+
+        final option = find.byKey(const ValueKey('poll-poll-option-a'));
+        final target = find.bySemanticsLabel('Alpha');
+        expect(option, findsOneWidget);
+        expect(target, findsOneWidget);
+        expect(tester.getSize(option).height, 44);
+        expect(
+          tester.getSemantics(target),
+          isSemantics(
+            label: 'Alpha',
+            isButton: true,
+            hasEnabledState: true,
+            isEnabled: true,
+            hasSelectedState: true,
+            isSelected: false,
+            isFocusable: true,
+            hasTapAction: true,
+            hasFocusAction: true,
+          ),
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(
+          tester.getSemantics(target),
+          isSemantics(isFocusable: true, isFocused: true),
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(cast, ['a']);
+        expect(
+          tester.getSemantics(target),
+          isSemantics(label: 'Alpha', hasSelectedState: true, isSelected: true),
+        );
+      } finally {
+        semantics.dispose();
+      }
+    });
+
+    testWidgets(
+      'keeps unavailable counts confidential instead of showing zero',
+      (tester) async {
+        await pumpPoll(
+          tester,
+          poll(
+            voters: 12,
+            results: PollResults.staffOnly,
+            options: const [
+              PollOption(id: 'a', html: 'Alpha'),
+              PollOption(id: 'b', html: 'Beta'),
+            ],
+          ),
+        );
+        await tester.pump();
+
+        expect(find.textContaining('12 voters'), findsOneWidget);
+        expect(find.textContaining('0 votes'), findsNothing);
+        expect(find.text('Results are visible to staff.'), findsOneWidget);
+      },
+    );
+
+    testWidgets('renders a ranked-choice winner and existing rank', (
+      tester,
+    ) async {
+      await pumpPoll(
+        tester,
+        poll(
+          type: PollType.rankedChoice,
+          rankedChoiceOutcome: const RankedChoiceOutcome(
+            winner: true,
+            winningCandidate: PollRankedCandidate(
+              digest: 'a',
+              html: '<strong>Alpha</strong>',
+            ),
+          ),
+          selection: const PollSelection(
+            rankedChoices: [RankedPollSelection(digest: 'b', rank: 1)],
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Winner'), findsOneWidget);
+      expect(find.text('Alpha', findRichText: true), findsNWidgets(2));
+      expect(find.text('1.'), findsOneWidget);
+    });
   });
 
-  testWidgets('poll title semantics refresh when the model title changes', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
+  group('voting lifecycle', () {
+    testWidgets('casts a regular choice immediately', (tester) async {
+      List<String>? cast;
 
-    await pumpPoll(tester, poll(title: '<strong>First title</strong>'));
-    expect(find.bySemanticsLabel('Poll: First title'), findsOneWidget);
-
-    await pumpPoll(tester, poll(title: '<em>Second &amp; final</em>'));
-    expect(find.bySemanticsLabel('Poll: Second & final'), findsOneWidget);
-    semantics.dispose();
-  });
-
-  testWidgets('poll options are 44 pixel native keyboard buttons', (
-    tester,
-  ) async {
-    List<String>? cast;
-    final semantics = tester.ensureSemantics();
-    try {
       await pumpPoll(
         tester,
         poll(),
         onVote: (_, options) => cast = options,
         onRemoveVote: (_) {},
       );
-      await tester.pumpAndSettle();
-
-      final option = find.byKey(const ValueKey('poll-poll-option-a'));
-      final target = find.bySemanticsLabel('Alpha');
-      expect(option, findsOneWidget);
-      expect(target, findsOneWidget);
-      expect(tester.getSize(option).height, 44);
-      expect(
-        tester.getSemantics(target),
-        isSemantics(
-          label: 'Alpha',
-          isButton: true,
-          hasEnabledState: true,
-          isEnabled: true,
-          hasSelectedState: true,
-          isSelected: false,
-          isFocusable: true,
-          hasTapAction: true,
-          hasFocusAction: true,
-        ),
-      );
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.tap(find.byKey(const ValueKey('poll-poll-option-a')));
       await tester.pump();
-      expect(
-        tester.getSemantics(target),
-        isSemantics(isFocusable: true, isFocused: true),
-      );
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-
       expect(cast, ['a']);
-      expect(
-        tester.getSemantics(target),
-        isSemantics(label: 'Alpha', hasSelectedState: true, isSelected: true),
-      );
-    } finally {
-      semantics.dispose();
-    }
-  });
+    });
 
-  testWidgets('missing counts stay confidential rather than becoming zero', (
-    tester,
-  ) async {
-    await pumpPoll(
-      tester,
-      poll(
-        voters: 12,
-        results: PollResults.staffOnly,
-        options: const [
-          PollOption(id: 'a', html: 'Alpha'),
-          PollOption(id: 'b', html: 'Beta'),
-        ],
-      ),
-    );
-    await tester.pump();
-
-    expect(find.textContaining('12 voters'), findsOneWidget);
-    expect(find.textContaining('0 votes'), findsNothing);
-    expect(find.text('Results are visible to staff.'), findsOneWidget);
-  });
-
-  testWidgets(
-    'regular polls save immediately and tapping the saved vote removes it',
-    (tester) async {
-      List<String>? cast;
+    testWidgets('removes a saved regular vote on repeat tap', (tester) async {
       var removals = 0;
 
       await pumpPoll(
         tester,
-        poll(),
-        onVote: (_, options) => cast = options,
-        onRemoveVote: (_) => removals += 1,
-      );
-      await tester.tap(find.byKey(const ValueKey('poll-poll-option-a')));
-      await tester.pump();
-      expect(cast, ['a']);
-
-      await pumpPoll(
-        tester,
         poll(selection: const PollSelection(optionIds: ['a'])),
-        onVote: (_, options) => cast = options,
+        onVote: (_, _) {},
         onRemoveVote: (_) => removals += 1,
       );
       await tester.tap(find.byKey(const ValueKey('poll-poll-option-a')));
       await tester.pump();
       expect(removals, 1);
-    },
-  );
+    });
 
-  testWidgets('a failed immediate vote restores the authoritative selection', (
-    tester,
-  ) async {
-    Object? reported;
-    await pumpPoll(
+    testWidgets(
+      'restores the authoritative selection and forwards the same vote failure',
+      (tester) async {
+        final failure = StateError('reconcile');
+        Object? reported;
+        await pumpPoll(
+          tester,
+          poll(selection: const PollSelection(optionIds: ['a'])),
+          onVote: (_, _) => throw failure,
+          onRemoveVote: (_) {},
+          onVoteError: (error) => reported = error,
+        );
+
+        await tester.tap(find.byKey(const ValueKey('poll-poll-option-b')));
+        await tester.pump();
+
+        expect(reported, same(failure));
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('poll-poll-option-a')),
+            matching: find.byIcon(Icons.radio_button_checked),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('poll-poll-option-b')),
+            matching: find.byIcon(Icons.radio_button_unchecked),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('stages a bounded multiple-choice selection until Cast votes', (
       tester,
-      poll(selection: const PollSelection(optionIds: ['a'])),
-      onVote: (_, _) => throw StateError('reconcile'),
-      onRemoveVote: (_) {},
-      onVoteError: (error) => reported = error,
-    );
-
-    await tester.tap(find.byKey(const ValueKey('poll-poll-option-b')));
-    await tester.pump();
-
-    expect(reported, isA<StateError>());
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('poll-poll-option-a')),
-        matching: find.byIcon(Icons.radio_button_checked),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('poll-poll-option-b')),
-        matching: find.byIcon(Icons.radio_button_unchecked),
-      ),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets(
-    'multiple-choice polls stage a bounded selection until Cast votes',
-    (tester) async {
+    ) async {
       List<String>? cast;
       await pumpPoll(
         tester,
@@ -372,36 +430,58 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('poll-poll-cast')));
       await tester.pump();
       expect(cast, ['a', 'b']);
-    },
-  );
+    });
 
-  testWidgets('an existing multiple-choice ballot can be removed', (
-    tester,
-  ) async {
-    var removals = 0;
-    await pumpPoll(
-      tester,
-      poll(
-        type: PollType.multiple,
-        min: 1,
-        max: 2,
-        selection: const PollSelection(optionIds: ['a']),
-      ),
-      onVote: (_, _) {},
-      onRemoveVote: (_) => removals += 1,
-    );
+    testWidgets('removes an existing multiple-choice ballot', (tester) async {
+      var removals = 0;
+      await pumpPoll(
+        tester,
+        poll(
+          type: PollType.multiple,
+          min: 1,
+          max: 2,
+          selection: const PollSelection(optionIds: ['a']),
+        ),
+        onVote: (_, _) {},
+        onRemoveVote: (_) => removals += 1,
+      );
 
-    await tester.tap(find.byKey(const ValueKey('poll-poll-option-a')));
-    await tester.pump();
-    expect(find.text('Remove votes'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('poll-poll-cast')));
-    await tester.pump();
-    expect(removals, 1);
+      await tester.tap(find.byKey(const ValueKey('poll-poll-option-a')));
+      await tester.pump();
+      expect(find.text('Remove votes'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('poll-poll-cast')));
+      await tester.pump();
+      expect(removals, 1);
+    });
+
+    testWidgets('delegates ranked-choice voting to the web', (tester) async {
+      var opened = false;
+      await pumpPoll(
+        tester,
+        poll(
+          type: PollType.rankedChoice,
+          rankedChoiceOutcome: const RankedChoiceOutcome(
+            winner: true,
+            winningCandidate: PollRankedCandidate(
+              digest: 'a',
+              html: '<strong>Alpha</strong>',
+            ),
+          ),
+          selection: const PollSelection(
+            rankedChoices: [RankedPollSelection(digest: 'b', rank: 1)],
+          ),
+        ),
+        onVoteOnWeb: () => opened = true,
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('Vote on web'));
+      expect(opened, isTrue);
+    });
   });
 
-  testWidgets(
-    'group matching is case insensitive and unknown membership is safe',
-    (tester) async {
+  group('voting eligibility', () {
+    testWidgets('matches group names case-insensitively', (tester) async {
       List<String>? cast;
       final restricted = poll(groups: const ['Team Members']);
       await pumpPoll(
@@ -414,11 +494,15 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('poll-poll-option-a')));
       await tester.pump();
       expect(cast, ['a']);
+    });
 
-      cast = null;
+    testWidgets('denies voting when group membership is unknown', (
+      tester,
+    ) async {
+      List<String>? cast;
       await pumpPoll(
         tester,
-        restricted,
+        poll(groups: const ['Team Members']),
         groups: null,
         onVote: (_, options) => cast = options,
         onRemoveVote: (_) {},
@@ -431,74 +515,47 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('poll-poll-option-a')));
       await tester.pump();
       expect(cast, isNull);
-    },
-  );
+    });
 
-  testWidgets('ranked-choice polls show their outcome and vote on web', (
-    tester,
-  ) async {
-    var opened = false;
-    await pumpPoll(
+    testWidgets('offers account connection when signed out', (tester) async {
+      var connected = false;
+      await pumpPoll(
+        tester,
+        poll(),
+        signedIn: false,
+        onVote: (_, _) {},
+        onRemoveVote: (_) {},
+        onConnectAccount: () => connected = true,
+      );
+      await tester.pump();
+      expect(find.text('Connect an account to vote.'), findsOneWidget);
+      await tester.tap(find.text('Connect account'));
+      expect(connected, isTrue);
+    });
+
+    testWidgets('explains why archived-topic voting is unavailable', (
       tester,
-      poll(
-        type: PollType.rankedChoice,
-        rankedChoiceOutcome: const RankedChoiceOutcome(
-          winner: true,
-          winningCandidate: PollRankedCandidate(
-            digest: 'a',
-            html: '<strong>Alpha</strong>',
-          ),
-        ),
-        selection: const PollSelection(
-          rankedChoices: [RankedPollSelection(digest: 'b', rank: 1)],
-        ),
-      ),
-      onVoteOnWeb: () => opened = true,
-    );
-    await tester.pump();
-
-    expect(find.text('Winner'), findsOneWidget);
-    expect(find.text('Alpha', findRichText: true), findsAtLeastNWidgets(1));
-    expect(find.text('1.'), findsOneWidget);
-    await tester.tap(find.text('Vote on web'));
-    expect(opened, isTrue);
+    ) async {
+      await pumpPoll(
+        tester,
+        poll(),
+        archived: true,
+        onVote: (_, _) {},
+        onRemoveVote: (_) {},
+      );
+      await tester.pump();
+      expect(
+        find.text('Voting is unavailable because this topic is archived.'),
+        findsOneWidget,
+      );
+    });
   });
 
-  testWidgets('signed-out and archived polls explain why they are read only', (
-    tester,
-  ) async {
-    var connected = false;
-    await pumpPoll(
+  group('cooked fallback', () {
+    testWidgets('renders cooked labels without the skeleton zero tally', (
       tester,
-      poll(),
-      signedIn: false,
-      onVote: (_, _) {},
-      onRemoveVote: (_) {},
-      onConnectAccount: () => connected = true,
-    );
-    await tester.pump();
-    expect(find.text('Connect an account to vote.'), findsOneWidget);
-    await tester.tap(find.text('Connect account'));
-    expect(connected, isTrue);
-
-    await pumpPoll(
-      tester,
-      poll(),
-      archived: true,
-      onVote: (_, _) {},
-      onRemoveVote: (_) {},
-    );
-    await tester.pump();
-    expect(
-      find.text('Voting is unavailable because this topic is archived.'),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('the cooked fallback omits the skeleton zero tally', (
-    tester,
-  ) async {
-    final fragment = html_parser.parseFragment('''
+    ) async {
+      final fragment = html_parser.parseFragment('''
       <div class="poll" data-poll-name="missing">
         <div class="poll-title">Favorite <em>berry</em>?</div>
         <div class="poll-container"><ul>
@@ -510,19 +567,20 @@ void main() {
       </div>
     ''');
 
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: Scaffold(
-          body: PollFallbackCard.fromCooked(fragment.querySelector('.poll')!),
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: PollFallbackCard.fromCooked(fragment.querySelector('.poll')!),
+          ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    expect(find.text('Favorite berry?', findRichText: true), findsOneWidget);
-    expect(find.text('Strawberry', findRichText: true), findsOneWidget);
-    expect(find.textContaining('voters'), findsNothing);
-    expect(find.text('0'), findsNothing);
+      expect(find.text('Favorite berry?', findRichText: true), findsOneWidget);
+      expect(find.text('Strawberry', findRichText: true), findsOneWidget);
+      expect(find.textContaining('voters'), findsNothing);
+      expect(find.text('0'), findsNothing);
+    });
   });
 }

@@ -23,12 +23,17 @@ void main() {
     expect(parser.parseDescendant(scope), DateTime.utc(2026, 8, 1, 8, 24));
   });
 
-  test('declines unrelated and malformed cooked markup', () {
+  test('declines cooked markup without a Local Dates descendant', () {
     final unrelated = html
         .parseFragment(
           '<div><time datetime="2026-08-01T10:24:00Z">fallback</time></div>',
         )
         .querySelector('div')!;
+
+    expect(parser.parseDescendant(unrelated), isNull);
+  });
+
+  test('declines a malformed Local Dates descendant', () {
     final malformed = html
         .parseFragment(
           '<div><span class="discourse-local-date" '
@@ -36,7 +41,6 @@ void main() {
         )
         .querySelector('div')!;
 
-    expect(parser.parseDescendant(unrelated), isNull);
     expect(parser.parseDescendant(malformed), isNull);
   });
 }

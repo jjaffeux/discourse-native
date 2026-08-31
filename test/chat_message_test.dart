@@ -269,7 +269,7 @@ void main() {
       },
     );
 
-    test('retains source Markdown and attachment ids for editing', () {
+    test('retains source Markdown and attachment IDs for editing', () {
       final read = messageFrom(
         message(
           raw: '**source**',

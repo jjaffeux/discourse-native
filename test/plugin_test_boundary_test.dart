@@ -28,9 +28,9 @@ final _directiveUri = RegExp(
 void main() {
   test('the plugin API owns the supported recording transport fake', () {
     final transport = RecordingPluginTransport();
+    final PluginApiTransport _ = transport;
+    final PluginJsonListTransport _ = transport;
 
-    expect(transport, isA<PluginApiTransport>());
-    expect(transport, isA<PluginJsonListTransport>());
     expect(
       File('packages/discourse_plugin_api/lib/testing.dart').existsSync(),
       isTrue,

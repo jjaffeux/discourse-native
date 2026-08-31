@@ -84,10 +84,14 @@ void main() {
     tester,
   ) async {
     final previousCache = EmojiCache.instance;
-    addTearDown(() => EmojiCache.instance = previousCache);
-    EmojiCache.instance = EmojiCache(
+    final emojiCache = EmojiCache(
       client: MockClient((_) async => http.Response.bytes(_pngBytes, 200)),
     );
+    EmojiCache.instance = emojiCache;
+    addTearDown(() {
+      emojiCache.clear();
+      EmojiCache.instance = previousCache;
+    });
     final shell = await _openComposer();
     addTearDown(shell.dispose);
     await EmojiCache.instance.load(shell.emojiUrlFor(_site, 'wave'));

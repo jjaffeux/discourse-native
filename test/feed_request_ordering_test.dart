@@ -35,7 +35,12 @@ final class _ControllableFeedApi extends FakeDiscourseApi {
 
   Future<void> waitForRequests(int count) async {
     while (requests.length < count) {
-      await _requestsChanged.future;
+      await _requestsChanged.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw TestFailure(
+          'Expected $count feed requests, but received ${requests.length}.',
+        ),
+      );
     }
   }
 }

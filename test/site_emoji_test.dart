@@ -3,9 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('EmojiSkinTone', () {
-    test('never emits the web picker t1 sentinel', () {
+    test('maps the web picker t1 sentinel to an empty suffix', () {
       expect(EmojiSkinTone.fromCode('t1'), EmojiSkinTone.neutral);
       expect(EmojiSkinTone.neutral.shortcodeSuffix, isEmpty);
+    });
+
+    test('keeps non-neutral web codes and shortcode suffixes', () {
       expect(EmojiSkinTone.t2.shortcodeSuffix, ':t2');
       expect(EmojiSkinTone.t6.code, 't6');
     });

@@ -324,7 +324,11 @@ void main() {
       expect(find.byKey(originalViewportKey), findsNothing);
       expect(find.byKey(slowViewportKey), findsOneWidget);
       final slowContentText = _contentTextOutsideTabs('Slow destination');
-      expect(slowContentText, findsWidgets);
+      expect(
+        slowContentText,
+        findsNWidgets(2),
+        reason: 'the route title appears in the header and placeholder',
+      );
       expect(
         tester.getCenter(slowContentText.first).dy,
         lessThan(tester.getTopLeft(find.byKey(slowViewportKey)).dy),

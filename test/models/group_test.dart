@@ -128,7 +128,7 @@ void main() {
     },
   );
 
-  test('activity, requester, permissions, and logs parse total defaults', () {
+  test('activity decodes posts, categories, and its absent continuation', () {
     final activity = GroupActivityPage.fromWire(const {
       'posts': [
         {
@@ -146,16 +146,34 @@ void main() {
         {'id': 4, 'name': 'Help', 'color': '0088CC'},
       ],
     }, siteUrl);
+
+    expect(activity.posts.single.topicTitle, 'An & B');
+    expect(activity.posts.single.plainExcerpt, 'Hello world');
+    expect(activity.categories.single.id, 4);
+    expect(activity.hasMore, isFalse);
+  });
+
+  test('requesters decode their membership reason', () {
     final requesters = GroupRequestersPage.fromWire(const {
       'members': [
         {'id': 31, 'username': 'new-user', 'reason': 'I can help'},
       ],
       'meta': {'total': 1, 'limit': 50, 'offset': 0},
     }, siteUrl);
+
+    expect(requesters.requesters.single.reason, 'I can help');
+  });
+
+  test('permissions decode the category access level', () {
     final permission = GroupPermission.fromWire(const {
       'permission_type': 2,
       'category': {'id': 4, 'name': 'Help', 'color': '0088CC'},
     });
+
+    expect(permission.type, GroupPermissionType.createPost);
+  });
+
+  test('logs retain the actor and incomplete-page marker', () {
     final logs = GroupLogsPage.fromWire(const {
       'logs': [
         {
@@ -169,12 +187,6 @@ void main() {
       'all_loaded': false,
     }, siteUrl);
 
-    expect(activity.posts.single.topicTitle, 'An & B');
-    expect(activity.posts.single.plainExcerpt, 'Hello world');
-    expect(activity.categories.single.id, 4);
-    expect(activity.hasMore, isFalse);
-    expect(requesters.requesters.single.reason, 'I can help');
-    expect(permission.type, GroupPermissionType.createPost);
     expect(logs.logs.single.actingUser?.username, 'admin');
     expect(logs.allLoaded, isFalse);
   });

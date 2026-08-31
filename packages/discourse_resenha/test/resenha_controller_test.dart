@@ -36,6 +36,7 @@ final class FakeResenhaMediaFactory implements ResenhaMediaFactory {
   final List<String> correlationIds = [];
   final List<ResenhaDiagnosticsRecorder> diagnosticsRecorders = [];
   Completer<void>? nextConnectGate;
+  Completer<void>? nextConnectStarted;
   Object? nextAudioInputFailure;
   Object? nextAudioOutputFailure;
   Object? nextCameraFailure;
@@ -56,11 +57,13 @@ final class FakeResenhaMediaFactory implements ResenhaMediaFactory {
             sendSignal: sendSignal,
             refreshLiveKitCredentials: refreshLiveKitCredentials,
             connectGate: nextConnectGate,
+            connectStarted: nextConnectStarted,
           )
           ..audioInputFailure = nextAudioInputFailure
           ..audioOutputFailure = nextAudioOutputFailure
           ..cameraFailure = nextCameraFailure;
     nextConnectGate = null;
+    nextConnectStarted = null;
     nextAudioInputFailure = null;
     nextAudioOutputFailure = null;
     nextCameraFailure = null;
@@ -145,6 +148,7 @@ final class FakeResenhaMediaSession extends ChangeNotifier
     required this.sendSignal,
     required this.refreshLiveKitCredentials,
     this.connectGate,
+    this.connectStarted,
   });
 
   @override
@@ -152,6 +156,7 @@ final class FakeResenhaMediaSession extends ChangeNotifier
   final ResenhaSignalSender sendSignal;
   final ResenhaLiveKitCredentialRefresher refreshLiveKitCredentials;
   final Completer<void>? connectGate;
+  final Completer<void>? connectStarted;
 
   @override
   ResenhaMediaConnectionState connectionState =
@@ -196,6 +201,9 @@ final class FakeResenhaMediaSession extends ChangeNotifier
   @override
   Future<void> connect() async {
     connectCount++;
+    if (connectStarted case final started? when !started.isCompleted) {
+      started.complete();
+    }
     await connectGate?.future;
   }
 
@@ -534,8 +542,27 @@ final class _ControlledResenhaTransport extends RecordingPluginTransport {
   final List<String> pluginGets = [];
   final List<_PendingPluginGet> pendingPluginGets = [];
   final List<_PendingPluginWrite> pendingPluginWrites = [];
+  final List<({int count, Completer<void> completer})> _writeWaiters = [];
   final List<_TransportDiagnosticContext> diagnosticContexts = [];
   Object? operationFailure;
+
+  Future<void> waitForPendingPluginWrites(int count) {
+    if (pendingPluginWrites.length >= count) return Future<void>.value();
+    final completer = Completer<void>();
+    _writeWaiters.add((count: count, completer: completer));
+    return completer.future.timeout(
+      const Duration(seconds: 1),
+      onTimeout: () {
+        _writeWaiters.removeWhere(
+          (waiter) => identical(waiter.completer, completer),
+        );
+        throw TestFailure(
+          'Expected $count pending plugin writes, but received '
+          '${pendingPluginWrites.length}.',
+        );
+      },
+    );
+  }
 
   @override
   Future<Map<String, dynamic>> pluginGetJson({
@@ -589,6 +616,11 @@ final class _ControlledResenhaTransport extends RecordingPluginTransport {
     }
     final pending = _PendingPluginWrite(method: method, path: path);
     pendingPluginWrites.add(pending);
+    for (final waiter in _writeWaiters.toList()) {
+      if (pendingPluginWrites.length < waiter.count) continue;
+      _writeWaiters.remove(waiter);
+      waiter.completer.complete();
+    }
     return pending.response.future;
   }
 }
@@ -631,7 +663,9 @@ void main() {
   late FakeChatConversationCapability chatConversations;
   late ResenhaController controller;
 
-  FakeChatConversationCapability seededChatConversations() {
+  FakeChatConversationCapability seededChatConversations({
+    ChatConversationSnapshot? snapshotAfterSend,
+  }) {
     final capability = FakeChatConversationCapability();
     capability.seed(
       siteUrl: firstSite,
@@ -641,7 +675,11 @@ void main() {
         messages: _chatPage(10).messages,
         canLoadMorePast: true,
       ),
-      olderMessages: _chatPage(5).messages,
+      snapshotAfterLoadOlder: ChatConversationSnapshot(
+        messages: [..._chatPage(5).messages, ..._chatPage(10).messages],
+        canLoadMorePast: false,
+      ),
+      snapshotAfterSend: snapshotAfterSend,
     );
     return capability;
   }
@@ -650,6 +688,7 @@ void main() {
     RecordingPluginTransport value, {
     ResenhaCapabilityResolver? capabilityEnabledFor,
     FakeChatConversationCapability? conversations,
+    Duration heartbeatInterval = const Duration(days: 1),
   }) {
     controller.dispose();
     transport = value;
@@ -673,7 +712,7 @@ void main() {
       reporter: const PluginDiagnosticsReporter.ambient(),
       diagnostics: diagnostics,
       preferences: preferences,
-      heartbeatInterval: const Duration(milliseconds: 15),
+      heartbeatInterval: heartbeatInterval,
       signalBatchDelay: Duration.zero,
     );
   }
@@ -715,7 +754,7 @@ void main() {
       reporter: const PluginDiagnosticsReporter.ambient(),
       diagnostics: diagnostics,
       preferences: preferences,
-      heartbeatInterval: const Duration(milliseconds: 15),
+      heartbeatInterval: const Duration(days: 1),
       signalBatchDelay: Duration.zero,
     );
   });
@@ -748,110 +787,113 @@ void main() {
     );
   }
 
-  test(
-    'caches a missing or unsupported plugin until the site is forgotten',
-    () async {
-      final unsupportedFailures = <SiteLookupException>[
-        const SiteLookupException(
-          SiteLookupFailure.unreachable,
-          firstSite,
-          statusCode: HttpStatus.notFound,
-        ),
-        const SiteLookupException(
-          SiteLookupFailure.notDiscourse,
-          firstSite,
-          statusCode: HttpStatus.forbidden,
-        ),
-      ];
+  group('directory loading', () {
+    test(
+      'caches confirmed plugin unavailability until the site is forgotten',
+      () async {
+        final unsupportedFailures = <SiteLookupException>[
+          const SiteLookupException(
+            SiteLookupFailure.unreachable,
+            firstSite,
+            statusCode: HttpStatus.notFound,
+          ),
+          const SiteLookupException(
+            SiteLookupFailure.notDiscourse,
+            firstSite,
+            statusCode: HttpStatus.forbidden,
+          ),
+        ];
 
-      for (final failure in unsupportedFailures) {
-        final controlled = _ControlledResenhaTransport()
-          ..pluginGetFailures['/resenha/rooms.json'] = failure;
-        useTransport(controlled);
+        for (final failure in unsupportedFailures) {
+          final controlled = _ControlledResenhaTransport()
+            ..pluginGetFailures['/resenha/rooms.json'] = failure;
+          useTransport(controlled);
+
+          await controller.ensureLoaded(firstSite);
+          await controller.ensureLoaded(firstSite);
+          await controller.ensureLoaded(firstSite, force: true);
+
+          expect(
+            controlled.pluginGets,
+            ['/resenha/rooms.json'],
+            reason:
+                'a confirmed unavailable capability is stable for the session',
+          );
+
+          controller.forget(firstSite);
+          await controller.ensureLoaded(firstSite);
+
+          expect(
+            controlled.pluginGets,
+            ['/resenha/rooms.json', '/resenha/rooms.json'],
+            reason:
+                'forget starts a new site session and clears the capability',
+          );
+        }
+      },
+    );
+
+    test(
+      'skips room-route probes when site settings disable Resenha',
+      () async {
+        final controlled = _ControlledResenhaTransport(
+          responses: {'GET /resenha/rooms.json': fixture('directory')},
+        );
+        useTransport(controlled, capabilityEnabledFor: (_) async => false);
 
         await controller.ensureLoaded(firstSite);
-        await controller.ensureLoaded(firstSite);
-        await controller.ensureLoaded(firstSite, force: true);
-
-        expect(
-          controlled.pluginGets,
-          ['/resenha/rooms.json'],
-          reason:
-              'a confirmed unavailable capability is stable for the session',
+        final linkedRoom = await controller.resolveRoom(
+          firstSite,
+          'conf-room-1',
         );
 
-        controller.forget(firstSite);
-        await controller.ensureLoaded(firstSite);
-
+        expect(controlled.pluginGets, isEmpty);
+        expect(linkedRoom, isNull);
+        expect(controller.directory(firstSite), isNull);
         expect(
-          controlled.pluginGets,
-          ['/resenha/rooms.json', '/resenha/rooms.json'],
-          reason: 'forget starts a new site session and clears the capability',
+          diagnostics.records.map((record) => record.event),
+          contains('room.directory.skipped'),
         );
-      }
-    },
-  );
+      },
+    );
 
-  test(
-    'does not probe room routes when site settings disable Resenha',
-    () async {
+    test('probes room routes when site settings cannot be resolved', () async {
       final controlled = _ControlledResenhaTransport(
         responses: {'GET /resenha/rooms.json': fixture('directory')},
       );
-      useTransport(controlled, capabilityEnabledFor: (_) async => false);
+      useTransport(controlled, capabilityEnabledFor: (_) async => null);
 
       await controller.ensureLoaded(firstSite);
-      final linkedRoom = await controller.resolveRoom(firstSite, 'conf-room-1');
 
-      expect(controlled.pluginGets, isEmpty);
-      expect(linkedRoom, isNull);
-      expect(controller.directory(firstSite), isNull);
-      expect(
-        diagnostics.records.map((record) => record.event),
-        contains('room.directory.skipped'),
-      );
-    },
-  );
+      expect(controlled.pluginGets, ['/resenha/rooms.json']);
+      expect(controller.directory(firstSite), isNotNull);
+    });
 
-  test('still probes when site settings could not be resolved', () async {
-    final controlled = _ControlledResenhaTransport(
-      responses: {'GET /resenha/rooms.json': fixture('directory')},
-    );
-    useTransport(controlled, capabilityEnabledFor: (_) async => null);
+    test('retries after an unreachable directory response', () async {
+      final controlled =
+          _ControlledResenhaTransport(
+              responses: {'GET /resenha/rooms.json': fixture('directory')},
+            )
+            ..pluginGetFailures['/resenha/rooms.json'] =
+                const SiteLookupException(
+                  SiteLookupFailure.unreachable,
+                  firstSite,
+                  statusCode: HttpStatus.serviceUnavailable,
+                );
+      useTransport(controlled);
 
-    await controller.ensureLoaded(firstSite);
+      await controller.ensureLoaded(firstSite);
+      controlled.pluginGetFailures.remove('/resenha/rooms.json');
+      await controller.ensureLoaded(firstSite);
 
-    expect(controlled.pluginGets, ['/resenha/rooms.json']);
-    expect(controller.directory(firstSite), isNotNull);
-  });
+      expect(controlled.pluginGets, [
+        '/resenha/rooms.json',
+        '/resenha/rooms.json',
+      ]);
+      expect(controller.directory(firstSite), isNotNull);
+    });
 
-  test('an unreachable directory remains retryable', () async {
-    final controlled =
-        _ControlledResenhaTransport(
-            responses: {'GET /resenha/rooms.json': fixture('directory')},
-          )
-          ..pluginGetFailures['/resenha/rooms.json'] =
-              const SiteLookupException(
-                SiteLookupFailure.unreachable,
-                firstSite,
-                statusCode: HttpStatus.serviceUnavailable,
-              );
-    useTransport(controlled);
-
-    await controller.ensureLoaded(firstSite);
-    controlled.pluginGetFailures.remove('/resenha/rooms.json');
-    await controller.ensureLoaded(firstSite);
-
-    expect(controlled.pluginGets, [
-      '/resenha/rooms.json',
-      '/resenha/rooms.json',
-    ]);
-    expect(controller.directory(firstSite), isNotNull);
-  });
-
-  test(
-    'directory publication rechecks ownership before credential work',
-    () async {
+    test('rechecks site ownership before reading credentials', () async {
       final counting = _CountingRequestHost();
       final controlled = _ControlledResenhaTransport(
         responses: {'GET /resenha/rooms.json': fixture('directory')},
@@ -866,64 +908,63 @@ void main() {
 
       expect(counting.credentialCalls, 1);
       expect(controlled.pluginGets, isEmpty);
-    },
-  );
+    });
+  });
 
-  test(
-    'forget prevents a credential-gated join from reaching the server',
-    () async {
-      final gate = Completer<void>();
-      requests = _GatedRequestHost(credentialsGate: gate);
-      final controlled = _ControlledResenhaTransport();
-      useTransport(controlled);
+  group('credential and session boundaries', () {
+    test(
+      'prevent a credential-gated join after the site is forgotten',
+      () async {
+        final gate = Completer<void>();
+        requests = _GatedRequestHost(credentialsGate: gate);
+        final controlled = _ControlledResenhaTransport();
+        useTransport(controlled);
 
-      final joining = controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: ResenhaRoom.fromJson(fixture('room')),
-      );
-      await pumpEventQueue();
+        final joining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: ResenhaRoom.fromJson(fixture('room')),
+        );
+        await pumpEventQueue();
 
-      controller.forget(firstSite);
-      gate.complete();
-      await joining;
+        controller.forget(firstSite);
+        gate.complete();
+        await joining;
 
-      expect(controlled.writes, isEmpty);
-      expect(controller.call, isNull);
-      expect(mediaFactory.sessions, isEmpty);
-    },
-  );
+        expect(controlled.writes, isEmpty);
+        expect(controller.call, isNull);
+        expect(mediaFactory.sessions, isEmpty);
+      },
+    );
 
-  test(
-    'forget prevents an in-flight join response from creating media',
-    () async {
-      final controlled = _ControlledResenhaTransport()
-        ..heldPluginWritePaths.add('/resenha/rooms/7/join.json');
-      useTransport(controlled);
+    test(
+      'prevent an in-flight join response from creating media after the site is forgotten',
+      () async {
+        final controlled = _ControlledResenhaTransport()
+          ..heldPluginWritePaths.add('/resenha/rooms/7/join.json');
+        useTransport(controlled);
 
-      final joining = controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: ResenhaRoom.fromJson(fixture('room')),
-      );
-      await pumpEventQueue();
-      expect(controlled.pendingPluginWrites, hasLength(1));
+        final joining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: ResenhaRoom.fromJson(fixture('room')),
+        );
+        await pumpEventQueue();
+        expect(controlled.pendingPluginWrites, hasLength(1));
 
-      controller.forget(firstSite);
-      controlled.pendingPluginWrites.single.response.complete(
-        fixture('join_mesh'),
-      );
-      await joining;
+        controller.forget(firstSite);
+        controlled.pendingPluginWrites.single.response.complete(
+          fixture('join_mesh'),
+        );
+        await joining;
 
-      expect(controller.call, isNull);
-      expect(mediaFactory.sessions, isEmpty);
-      expect(systemCall.starts, 0);
-    },
-  );
+        expect(controller.call, isNull);
+        expect(mediaFactory.sessions, isEmpty);
+        expect(systemCall.starts, 0);
+      },
+    );
 
-  test(
-    'joining publication rechecks ownership before the system call',
-    () async {
+    test('recheck join ownership before starting the system call', () async {
       controller.addListener(() {
         if (controller.call?.status == ResenhaCallStatus.joining) {
           controller.forget(firstSite);
@@ -939,476 +980,530 @@ void main() {
 
       expect(systemCall.starts, 0);
       expect(mediaFactory.sessions.single.disposeCount, 1);
-    },
-  );
+    });
 
-  for (final action
-      in <
-        ({
-          String name,
-          Set<String> paths,
-          Future<void> Function(ResenhaController controller) begin,
-        })
-      >[
-        (
-          name: 'raise-hand write',
-          paths: {'/resenha/rooms/7/request_to_speak.json'},
-          begin: (controller) => controller.requestToSpeak(),
-        ),
-        (
-          name: 'kick write',
-          paths: {'/resenha/rooms/7/kick.json'},
-          begin: (controller) => controller.kick(2),
-        ),
-        (
-          name: 'participant flag',
-          paths: {'/site.json', '/resenha/rooms/7/flag.json'},
-          begin: (controller) async {
+    for (final action
+        in <
+          ({
+            String name,
+            Set<String> paths,
+            Future<void> Function(ResenhaController controller) begin,
+          })
+        >[
+          (
+            name: 'raise-hand write',
+            paths: {'/resenha/rooms/7/request_to_speak.json'},
+            begin: (controller) => controller.requestToSpeak(),
+          ),
+          (
+            name: 'kick write',
+            paths: {'/resenha/rooms/7/kick.json'},
+            begin: (controller) => controller.kick(2),
+          ),
+          (
+            name: 'participant flag',
+            paths: {'/site.json', '/resenha/rooms/7/flag.json'},
+            begin: (controller) async {
+              await controller.flagParticipant(2, 'Please review');
+            },
+          ),
+          (
+            name: 'recording write',
+            paths: {'/resenha/rooms/7/recording.json'},
+            begin: (controller) => controller.setRecording(true),
+          ),
+          (
+            name: 'state write',
+            paths: {'/resenha/rooms/7/state.json'},
+            begin: (controller) => controller.setMuted(true),
+          ),
+          (
+            name: 'heartbeat write',
+            paths: {'/resenha/rooms/7/heartbeat.json'},
+            begin: (controller) async {
+              controller.setForeground(false);
+              await pumpEventQueue();
+            },
+          ),
+        ]) {
+      test(
+        'prevent stale ${action.name} when the site is forgotten during credential lookup',
+        () async {
+          final gated = _NextGatedRequestHost();
+          requests = gated;
+          final controlled = privilegedTransport();
+          useTransport(controlled);
+          await controller.join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: ResenhaRoom.fromJson(fixture('room')),
+          );
+          final writesBefore = controlled.writes.length;
+          final getsBefore = controlled.pluginGets.length;
+
+          gated.gateNextRead = true;
+          final operation = action.begin(controller);
+          await gated.readStarted.future;
+          controller.forget(firstSite);
+          gated.readGate.complete();
+          await operation;
+          await pumpEventQueue();
+
+          final paths = <String>{
+            for (final write in controlled.writes.skip(writesBefore))
+              write.path,
+            ...controlled.pluginGets.skip(getsBefore),
+          };
+          expect(paths.intersection(action.paths), isEmpty);
+        },
+      );
+    }
+
+    for (final action
+        in <
+          ({
+            String name,
+            String path,
+            Future<void> Function(ResenhaController controller) begin,
+          })
+        >[
+          (
+            name: 'membership read',
+            path: '/resenha/rooms/7/memberships.json',
+            begin: (controller) async {
+              await controller.memberships(firstSite, 7);
+            },
+          ),
+          (
+            name: 'membership add',
+            path: '/resenha/rooms/7/memberships.json',
+            begin: (controller) => controller.addMember(
+              firstSite,
+              7,
+              'lee',
+              ResenhaRole.participant,
+            ),
+          ),
+          (
+            name: 'membership update',
+            path: '/resenha/rooms/7/memberships/9.json',
+            begin: (controller) =>
+                controller.updateMember(firstSite, 7, 9, ResenhaRole.speaker),
+          ),
+          (
+            name: 'membership removal',
+            path: '/resenha/rooms/7/memberships/9.json',
+            begin: (controller) => controller.removeMember(firstSite, 7, 9),
+          ),
+        ]) {
+      test(
+        'prevent stale ${action.name} when the site is forgotten during credential lookup',
+        () async {
+          final gated = _NextGatedRequestHost()..gateNextRead = true;
+          requests = gated;
+          final controlled = privilegedTransport();
+          useTransport(controlled);
+
+          final operation = action.begin(controller);
+          await gated.readStarted.future;
+          controller.forget(firstSite);
+          gated.readGate.complete();
+          await operation;
+
+          expect(
+            controlled.writes.where((write) => write.path == action.path),
+            isEmpty,
+          );
+          expect(
+            controlled.pluginGets.where((path) => path == action.path),
+            isEmpty,
+          );
+        },
+      );
+    }
+
+    test(
+      'contain secure-store failures across detached public entry points',
+      () async {
+        const privateCause =
+            'credential-private-user device-private 203.0.113.130';
+        final failingRequests = _FailingRequestHost();
+        requests = failingRequests;
+        useTransport(transport);
+        await controller.openChat(firstSite, 7);
+        final ordinaryDiagnostics = await DiagnosticsController.create(
+          persistence: MemoryDiagnosticsPersistence(),
+          sessionId: 'resenha-public-credentials',
+        );
+        final binding = DiagnosticsSink.install(ordinaryDiagnostics);
+        addTearDown(() async {
+          binding.close();
+          await ordinaryDiagnostics.close();
+        });
+        failingRequests.failure = PlatformException(
+          code: 'secure_store_read',
+          message: privateCause,
+          details: {'account': 'credential-private-user'},
+        );
+
+        final uncaught = await _captureUncaught(() async {
+          unawaited(controller.ensureLoaded(firstSite, force: true));
+          unawaited(
+            controller.join(
+              siteUrl: firstSite,
+              siteName: 'Private site',
+              room: ResenhaRoom.fromJson(fixture('room')),
+            ),
+          );
+          unawaited(controller.openChat(firstSite, 7, force: true));
+          unawaited(controller.loadOlderChat(firstSite, 7));
+          unawaited(controller.sendChatMessage(firstSite, 7, 'hello'));
+          for (var index = 0; index < 8; index++) {
+            await pumpEventQueue();
+          }
+        });
+
+        expect(uncaught, isEmpty);
+        const operations = {
+          'resenha.directory',
+          'resenha.join',
+          'resenha.chat.load',
+        };
+        expect(
+          diagnostics.records
+              .where((record) => record.event == 'runtime.error')
+              .map((record) => record.data['operation'])
+              .toSet(),
+          containsAll(operations),
+        );
+        final reportedOperations = diagnostics.records
+            .where((record) => record.event == 'runtime.error')
+            .map((record) => record.data['operation']);
+        expect(reportedOperations, isNot(contains('resenha.chat.page')));
+        expect(reportedOperations, isNot(contains('resenha.chat.send')));
+        expect(
+          ordinaryDiagnostics.events
+              .whereType<ErrorDiagnosticEvent>()
+              .map((event) => event.operation)
+              .toSet(),
+          containsAll(operations),
+        );
+        expect(diagnostics.rawRecords, isEmpty);
+        expect(
+          ordinaryDiagnostics.buildJsonReport(),
+          isNot(contains(privateCause)),
+        );
+      },
+    );
+
+    test(
+      'contain ignored admin failures behind the safe diagnostics boundary',
+      () async {
+        const privateCause =
+            'admin-private-user membership-987654321 203.0.113.131';
+        final controlled = privilegedTransport();
+        useTransport(controlled);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: ResenhaRoom.fromJson(fixture('room')),
+        );
+        final ordinaryDiagnostics = await DiagnosticsController.create(
+          persistence: MemoryDiagnosticsPersistence(),
+          sessionId: 'resenha-public-admin',
+        );
+        final binding = DiagnosticsSink.install(ordinaryDiagnostics);
+        addTearDown(() async {
+          binding.close();
+          await ordinaryDiagnostics.close();
+        });
+        controlled.operationFailure = PlatformException(
+          code: 'admin_operation',
+          message: privateCause,
+          details: {'userId': 987654321},
+        );
+        final actions = <Future<void> Function()>[
+          () => controller.requestToSpeak(),
+          () => controller.kick(2),
+          () async {
             await controller.flagParticipant(2, 'Please review');
           },
-        ),
-        (
-          name: 'recording write',
-          paths: {'/resenha/rooms/7/recording.json'},
-          begin: (controller) => controller.setRecording(true),
-        ),
-        (
-          name: 'state write',
-          paths: {'/resenha/rooms/7/state.json'},
-          begin: (controller) => controller.setMuted(true),
-        ),
-        (
-          name: 'heartbeat write',
-          paths: {'/resenha/rooms/7/heartbeat.json'},
-          begin: (controller) async {
-            controller.setForeground(false);
-            await pumpEventQueue();
-          },
-        ),
-      ]) {
-    test('forget during credentials prevents stale ${action.name}', () async {
-      final gated = _NextGatedRequestHost();
-      requests = gated;
-      final controlled = privilegedTransport();
-      useTransport(controlled);
-      await controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: ResenhaRoom.fromJson(fixture('room')),
-      );
-      final writesBefore = controlled.writes.length;
-      final getsBefore = controlled.pluginGets.length;
-
-      gated.gateNextRead = true;
-      final operation = action.begin(controller);
-      await gated.readStarted.future;
-      controller.forget(firstSite);
-      gated.readGate.complete();
-      await operation;
-      await pumpEventQueue();
-
-      final paths = <String>{
-        for (final write in controlled.writes.skip(writesBefore)) write.path,
-        ...controlled.pluginGets.skip(getsBefore),
-      };
-      expect(paths.intersection(action.paths), isEmpty);
-    });
-  }
-
-  for (final action
-      in <
-        ({
-          String name,
-          String path,
-          Future<void> Function(ResenhaController controller) begin,
-        })
-      >[
-        (
-          name: 'membership read',
-          path: '/resenha/rooms/7/memberships.json',
-          begin: (controller) async {
+          () => controller.setRecording(true),
+          () async {
             await controller.memberships(firstSite, 7);
           },
-        ),
-        (
-          name: 'membership add',
-          path: '/resenha/rooms/7/memberships.json',
-          begin: (controller) => controller.addMember(
+          () => controller.addMember(
             firstSite,
             7,
-            'lee',
+            'admin-private-user',
             ResenhaRole.participant,
           ),
-        ),
-        (
-          name: 'membership update',
-          path: '/resenha/rooms/7/memberships/9.json',
-          begin: (controller) =>
-              controller.updateMember(firstSite, 7, 9, ResenhaRole.speaker),
-        ),
-        (
-          name: 'membership removal',
-          path: '/resenha/rooms/7/memberships/9.json',
-          begin: (controller) => controller.removeMember(firstSite, 7, 9),
-        ),
-      ]) {
-    test('forget during credentials prevents stale ${action.name}', () async {
-      final gated = _NextGatedRequestHost()..gateNextRead = true;
-      requests = gated;
-      final controlled = privilegedTransport();
-      useTransport(controlled);
-
-      final operation = action.begin(controller);
-      await gated.readStarted.future;
-      controller.forget(firstSite);
-      gated.readGate.complete();
-      await operation;
-
-      expect(
-        controlled.writes.where((write) => write.path == action.path),
-        isEmpty,
-      );
-      expect(
-        controlled.pluginGets.where((path) => path == action.path),
-        isEmpty,
-      );
-    });
-  }
-
-  test(
-    'contains secure-store failures across detached public entry points',
-    () async {
-      const privateCause =
-          'credential-private-user device-private 203.0.113.130';
-      final failingRequests = _FailingRequestHost();
-      requests = failingRequests;
-      useTransport(transport);
-      await controller.openChat(firstSite, 7);
-      final ordinaryDiagnostics = await DiagnosticsController.create(
-        persistence: MemoryDiagnosticsPersistence(),
-        sessionId: 'resenha-public-credentials',
-      );
-      final binding = DiagnosticsSink.install(ordinaryDiagnostics);
-      addTearDown(() async {
-        binding.close();
-        await ordinaryDiagnostics.close();
-      });
-      failingRequests.failure = PlatformException(
-        code: 'secure_store_read',
-        message: privateCause,
-        details: {'account': 'credential-private-user'},
-      );
-
-      final uncaught = await _captureUncaught(() async {
-        unawaited(controller.ensureLoaded(firstSite, force: true));
-        unawaited(
-          controller.join(
-            siteUrl: firstSite,
-            siteName: 'Private site',
-            room: ResenhaRoom.fromJson(fixture('room')),
+          () => controller.updateMember(
+            firstSite,
+            7,
+            987654321,
+            ResenhaRole.speaker,
           ),
+          () => controller.removeMember(firstSite, 7, 987654321),
+        ];
+
+        final uncaught = await _captureUncaught(() async {
+          for (final action in actions) {
+            unawaited(action());
+          }
+          for (var index = 0; index < 8; index++) {
+            await pumpEventQueue();
+          }
+        });
+
+        expect(uncaught, isEmpty);
+        const operations = {
+          'resenha.requestToSpeak',
+          'resenha.kick',
+          'resenha.flag',
+          'resenha.recording',
+          'resenha.memberships',
+          'resenha.membership.add',
+          'resenha.membership.update',
+          'resenha.membership.remove',
+        };
+        expect(
+          diagnostics.records
+              .where((record) => record.event == 'runtime.error')
+              .map((record) => record.data['operation'])
+              .toSet(),
+          containsAll(operations),
         );
-        unawaited(controller.openChat(firstSite, 7, force: true));
-        unawaited(controller.loadOlderChat(firstSite, 7));
-        unawaited(controller.sendChatMessage(firstSite, 7, 'hello'));
-        for (var index = 0; index < 8; index++) {
-          await pumpEventQueue();
-        }
-      });
-
-      expect(uncaught, isEmpty);
-      const operations = {
-        'resenha.directory',
-        'resenha.join',
-        'resenha.chat.load',
-      };
-      expect(
-        diagnostics.records
-            .where((record) => record.event == 'runtime.error')
-            .map((record) => record.data['operation'])
-            .toSet(),
-        containsAll(operations),
-      );
-      final reportedOperations = diagnostics.records
-          .where((record) => record.event == 'runtime.error')
-          .map((record) => record.data['operation']);
-      expect(reportedOperations, isNot(contains('resenha.chat.page')));
-      expect(reportedOperations, isNot(contains('resenha.chat.send')));
-      expect(
-        ordinaryDiagnostics.events
-            .whereType<ErrorDiagnosticEvent>()
-            .map((event) => event.operation)
-            .toSet(),
-        containsAll(operations),
-      );
-      expect(diagnostics.rawRecords, isEmpty);
-      expect(
-        ordinaryDiagnostics.buildJsonReport(),
-        isNot(contains(privateCause)),
-      );
-    },
-  );
-
-  test(
-    'contains ignored admin operation failures behind the safe boundary',
-    () async {
-      const privateCause =
-          'admin-private-user membership-987654321 203.0.113.131';
-      final controlled = privilegedTransport();
-      useTransport(controlled);
-      await controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: ResenhaRoom.fromJson(fixture('room')),
-      );
-      final ordinaryDiagnostics = await DiagnosticsController.create(
-        persistence: MemoryDiagnosticsPersistence(),
-        sessionId: 'resenha-public-admin',
-      );
-      final binding = DiagnosticsSink.install(ordinaryDiagnostics);
-      addTearDown(() async {
-        binding.close();
-        await ordinaryDiagnostics.close();
-      });
-      controlled.operationFailure = PlatformException(
-        code: 'admin_operation',
-        message: privateCause,
-        details: {'userId': 987654321},
-      );
-      final actions = <Future<void> Function()>[
-        () => controller.requestToSpeak(),
-        () => controller.kick(2),
-        () async {
-          await controller.flagParticipant(2, 'Please review');
-        },
-        () => controller.setRecording(true),
-        () async {
-          await controller.memberships(firstSite, 7);
-        },
-        () => controller.addMember(
-          firstSite,
-          7,
-          'admin-private-user',
-          ResenhaRole.participant,
-        ),
-        () => controller.updateMember(
-          firstSite,
-          7,
-          987654321,
-          ResenhaRole.speaker,
-        ),
-        () => controller.removeMember(firstSite, 7, 987654321),
-      ];
-
-      final uncaught = await _captureUncaught(() async {
-        for (final action in actions) {
-          unawaited(action());
-        }
-        for (var index = 0; index < 8; index++) {
-          await pumpEventQueue();
-        }
-      });
-
-      expect(uncaught, isEmpty);
-      const operations = {
-        'resenha.requestToSpeak',
-        'resenha.kick',
-        'resenha.flag',
-        'resenha.recording',
-        'resenha.memberships',
-        'resenha.membership.add',
-        'resenha.membership.update',
-        'resenha.membership.remove',
-      };
-      expect(
-        diagnostics.records
-            .where((record) => record.event == 'runtime.error')
-            .map((record) => record.data['operation'])
-            .toSet(),
-        containsAll(operations),
-      );
-      expect(
-        ordinaryDiagnostics.events
-            .whereType<ErrorDiagnosticEvent>()
-            .map((event) => event.operation)
-            .toSet(),
-        containsAll(operations),
-      );
-      expect(diagnostics.rawRecords, isEmpty);
-      final ordinaryExport = ordinaryDiagnostics.buildJsonReport();
-      expect(ordinaryExport, isNot(contains(privateCause)));
-      expect(ordinaryExport, isNot(contains('admin-private-user')));
-      expect(ordinaryExport, isNot(contains('987654321')));
-    },
-  );
-
-  test('rejected media preferences do not block live call controls', () async {
-    final diagnostics = await DiagnosticsController.create(
-      persistence: MemoryDiagnosticsPersistence(),
-      sessionId: 'resenha-preferences',
-    );
-    final binding = DiagnosticsSink.install(diagnostics);
-    addTearDown(() async {
-      binding.close();
-      await diagnostics.close();
-    });
-    await pumpEventQueue();
-    preferences
-      ..rejectWrites = true
-      ..rejectVolumeReads = true;
-
-    await controller.ensureLoaded(firstSite);
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-    final media = mediaFactory.sessions.single;
-
-    await controller.selectAudioInput('microphone');
-    await controller.selectAudioOutput('speakers');
-    await controller.setPushToTalkEnabled(true);
-    await controller.setParticipantVolume(firstSite, 7, 2, 0.4);
-
-    expect(media.selectedAudioInput, 'microphone');
-    expect(media.selectedAudioOutput, 'speakers');
-    expect(media.muted, isTrue);
-    expect(media.participantVolumes[2], 0.4);
-    expect(await controller.participantVolume(firstSite, 7, 2), 1);
-    expect(
-      diagnostics.events.whereType<ErrorDiagnosticEvent>().map(
-        (event) => event.operation,
-      ),
-      containsAll({
-        'resenha.preferences.audioInput',
-        'resenha.preferences.audioOutput',
-        'resenha.preferences.pushToTalk',
-        'resenha.preferences.writeVolume',
-        'resenha.preferences.readVolume',
-      }),
+        expect(
+          ordinaryDiagnostics.events
+              .whereType<ErrorDiagnosticEvent>()
+              .map((event) => event.operation)
+              .toSet(),
+          containsAll(operations),
+        );
+        expect(diagnostics.rawRecords, isEmpty);
+        final ordinaryExport = ordinaryDiagnostics.buildJsonReport();
+        expect(ordinaryExport, isNot(contains(privateCause)));
+        expect(ordinaryExport, isNot(contains('admin-private-user')));
+        expect(ordinaryExport, isNot(contains('987654321')));
+      },
     );
   });
 
-  for (final captureEnabled in [false, true]) {
-    test('saved stale device failure is privacy-safe with capture '
-        '${captureEnabled ? 'on' : 'off'}', () async {
-      const deviceId = 'private-stale-microphone';
-      const sentinelUsername = 'private-participant-name';
-      const sentinelUserId = '987654321';
-      const sentinelTrackId = 'private-track-id';
-      const sentinelStreamId = 'private-stream-id';
-      const sentinelIp = '203.0.113.77';
-      final ordinaryDiagnostics = await DiagnosticsController.create(
-        persistence: MemoryDiagnosticsPersistence(),
-        sessionId: 'resenha-stale-device-$captureEnabled',
-      );
-      final binding = DiagnosticsSink.install(ordinaryDiagnostics);
-      addTearDown(() async {
-        binding.close();
-        await ordinaryDiagnostics.close();
+  group('media preferences and device selection', () {
+    test(
+      'preserve live call controls when preference operations fail',
+      () async {
+        final diagnostics = await DiagnosticsController.create(
+          persistence: MemoryDiagnosticsPersistence(),
+          sessionId: 'resenha-preferences',
+        );
+        final binding = DiagnosticsSink.install(diagnostics);
+        addTearDown(() async {
+          binding.close();
+          await diagnostics.close();
+        });
+        await pumpEventQueue();
+        preferences
+          ..rejectWrites = true
+          ..rejectVolumeReads = true;
+
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+
+        await controller.selectAudioInput('microphone');
+        await controller.selectAudioOutput('speakers');
+        await controller.setPushToTalkEnabled(true);
+        await controller.setParticipantVolume(firstSite, 7, 2, 0.4);
+
+        expect(media.selectedAudioInput, 'microphone');
+        expect(media.selectedAudioOutput, 'speakers');
+        expect(media.muted, isTrue);
+        expect(media.participantVolumes[2], 0.4);
+        expect(await controller.participantVolume(firstSite, 7, 2), 1);
+        expect(
+          diagnostics.events.whereType<ErrorDiagnosticEvent>().map(
+            (event) => event.operation,
+          ),
+          containsAll({
+            'resenha.preferences.audioInput',
+            'resenha.preferences.audioOutput',
+            'resenha.preferences.pushToTalk',
+            'resenha.preferences.writeVolume',
+            'resenha.preferences.readVolume',
+          }),
+        );
+      },
+    );
+
+    for (final captureEnabled in [false, true]) {
+      test('keep stale saved-device failures private with deep capture '
+          '${captureEnabled ? 'on' : 'off'}', () async {
+        const deviceId = 'private-stale-microphone';
+        const sentinelUsername = 'private-participant-name';
+        const sentinelUserId = '987654321';
+        const sentinelTrackId = 'private-track-id';
+        const sentinelStreamId = 'private-stream-id';
+        const sentinelIp = '203.0.113.77';
+        final ordinaryDiagnostics = await DiagnosticsController.create(
+          persistence: MemoryDiagnosticsPersistence(),
+          sessionId: 'resenha-stale-device-$captureEnabled',
+        );
+        final binding = DiagnosticsSink.install(ordinaryDiagnostics);
+        addTearDown(() async {
+          binding.close();
+          await ordinaryDiagnostics.close();
+        });
+        preferences.devices = const ResenhaDevicePreferences(
+          audioInputDeviceId: deviceId,
+        );
+        diagnostics.captureEnabled = captureEnabled;
+        useTransport(transport);
+        mediaFactory.nextAudioInputFailure = StateError(
+          '$sentinelUsername $sentinelUserId $deviceId $sentinelTrackId '
+          '$sentinelStreamId $sentinelIp',
+        );
+        await pumpEventQueue();
+
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+
+        final failure = diagnostics.records.singleWhere(
+          (record) => record.event == 'media.device_selection.failed',
+        );
+        expect(failure.data['kind'], 'audio_input');
+        expect(failure.data['origin'], 'saved_join');
+        expect(failure.data['errorType'], 'StateError');
+        expect(failure.correlationId, mediaFactory.correlationIds.single);
+
+        final safeExport = jsonEncode([
+          for (final record in diagnostics.records)
+            {
+              'event': record.event,
+              'correlationId': record.correlationId,
+              'data': record.data,
+            },
+        ]);
+        expect(safeExport, isNot(contains(deviceId)));
+        expect(safeExport, isNot(contains(sentinelUsername)));
+        expect(safeExport, isNot(contains(sentinelUserId)));
+        expect(safeExport, isNot(contains(sentinelTrackId)));
+        expect(safeExport, isNot(contains(sentinelStreamId)));
+        expect(safeExport, isNot(contains(sentinelIp)));
+
+        final rawExport = jsonEncode([
+          for (final record in diagnostics.rawRecords)
+            {
+              'event': record.event,
+              'message': record.message,
+              'data': record.data,
+            },
+        ]);
+        expect(
+          rawExport.contains(deviceId),
+          captureEnabled,
+          reason: 'Device IDs belong only to explicit deep capture.',
+        );
+        final ordinaryExport = ordinaryDiagnostics.buildJsonReport();
+        for (final sentinel in [
+          deviceId,
+          sentinelUsername,
+          sentinelUserId,
+          sentinelTrackId,
+          sentinelStreamId,
+          sentinelIp,
+        ]) {
+          expect(ordinaryExport, isNot(contains(sentinel)));
+        }
+        expect(ordinaryExport, contains('StateError'));
+        expect(ordinaryExport, contains('resenha.join'));
       });
-      preferences.devices = const ResenhaDevicePreferences(
-        audioInputDeviceId: deviceId,
-      );
-      diagnostics.captureEnabled = captureEnabled;
-      useTransport(transport);
-      mediaFactory.nextAudioInputFailure = StateError(
-        '$sentinelUsername $sentinelUserId $deviceId $sentinelTrackId '
-        '$sentinelStreamId $sentinelIp',
-      );
-      await pumpEventQueue();
+    }
 
-      await controller.ensureLoaded(firstSite);
-      await controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: controller.room(firstSite, 7)!,
-      );
+    test(
+      'trace saved input and output selection with the call correlation',
+      () async {
+        preferences.devices = const ResenhaDevicePreferences(
+          audioInputDeviceId: 'saved-input',
+          audioOutputDeviceId: 'saved-output',
+        );
+        diagnostics.captureEnabled = true;
+        useTransport(transport);
+        await pumpEventQueue();
 
-      final failure = diagnostics.records.singleWhere(
-        (record) => record.event == 'media.device_selection.failed',
-      );
-      expect(failure.data['kind'], 'audio_input');
-      expect(failure.data['origin'], 'saved_join');
-      expect(failure.data['errorType'], 'StateError');
-      expect(failure.correlationId, mediaFactory.correlationIds.single);
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
 
-      final safeExport = jsonEncode([
-        for (final record in diagnostics.records)
-          {
-            'event': record.event,
-            'correlationId': record.correlationId,
-            'data': record.data,
-          },
-      ]);
-      expect(safeExport, isNot(contains(deviceId)));
-      expect(safeExport, isNot(contains(sentinelUsername)));
-      expect(safeExport, isNot(contains(sentinelUserId)));
-      expect(safeExport, isNot(contains(sentinelTrackId)));
-      expect(safeExport, isNot(contains(sentinelStreamId)));
-      expect(safeExport, isNot(contains(sentinelIp)));
+        final saved = diagnostics.records
+            .where(
+              (record) =>
+                  record.event.startsWith('media.device_selection.') &&
+                  record.data['origin'] == 'saved_join',
+            )
+            .toList();
+        expect(saved, hasLength(4));
+        expect(saved.map((record) => record.data['kind']).toSet(), {
+          'audio_input',
+          'audio_output',
+        });
+        expect(
+          saved.every(
+            (record) =>
+                record.correlationId == mediaFactory.correlationIds.single,
+          ),
+          isTrue,
+        );
+        final raw = jsonEncode([
+          for (final record in diagnostics.rawRecords)
+            {'event': record.event, 'data': record.data},
+        ]);
+        expect(raw, contains('saved-input'));
+        expect(raw, contains('saved-output'));
+      },
+    );
 
-      final rawExport = jsonEncode([
-        for (final record in diagnostics.rawRecords)
-          {
-            'event': record.event,
-            'message': record.message,
-            'data': record.data,
-          },
-      ]);
-      expect(
-        rawExport.contains(deviceId),
-        captureEnabled,
-        reason: 'Device IDs belong only to explicit deep capture.',
-      );
-      final ordinaryExport = ordinaryDiagnostics.buildJsonReport();
-      for (final sentinel in [
-        deviceId,
-        sentinelUsername,
-        sentinelUserId,
-        sentinelTrackId,
-        sentinelStreamId,
-        sentinelIp,
-      ]) {
-        expect(ordinaryExport, isNot(contains(sentinel)));
-      }
-      expect(ordinaryExport, contains('StateError'));
-      expect(ordinaryExport, contains('resenha.join'));
-    });
-  }
-
-  test(
-    'traces saved input and output selection with call correlation',
-    () async {
-      preferences.devices = const ResenhaDevicePreferences(
-        audioInputDeviceId: 'saved-input',
-        audioOutputDeviceId: 'saved-output',
-      );
+    test('trace explicit input, output, and camera selections', () async {
       diagnostics.captureEnabled = true;
-      useTransport(transport);
-      await pumpEventQueue();
-
       await controller.ensureLoaded(firstSite);
       await controller.join(
         siteUrl: firstSite,
         siteName: 'One',
         room: controller.room(firstSite, 7)!,
       );
+      await controller.setCameraEnabled(true);
 
-      final saved = diagnostics.records
+      await controller.selectAudioInput('user-input');
+      await controller.selectAudioOutput('user-output');
+      await controller.selectCamera('user-camera');
+
+      final explicit = diagnostics.records
           .where(
             (record) =>
                 record.event.startsWith('media.device_selection.') &&
-                record.data['origin'] == 'saved_join',
+                record.data['origin'] == 'user',
           )
           .toList();
-      expect(saved, hasLength(4));
-      expect(saved.map((record) => record.data['kind']).toSet(), {
+      expect(explicit, hasLength(6));
+      expect(explicit.map((record) => record.data['kind']).toSet(), {
         'audio_input',
         'audio_output',
+        'camera',
       });
       expect(
-        saved.every(
+        explicit.every(
           (record) =>
               record.correlationId == mediaFactory.correlationIds.single,
         ),
@@ -1418,641 +1513,625 @@ void main() {
         for (final record in diagnostics.rawRecords)
           {'event': record.event, 'data': record.data},
       ]);
-      expect(raw, contains('saved-input'));
-      expect(raw, contains('saved-output'));
-    },
-  );
-
-  test('traces explicit input output and camera selections', () async {
-    diagnostics.captureEnabled = true;
-    await controller.ensureLoaded(firstSite);
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-    await controller.setCameraEnabled(true);
-
-    await controller.selectAudioInput('user-input');
-    await controller.selectAudioOutput('user-output');
-    await controller.selectCamera('user-camera');
-
-    final explicit = diagnostics.records
-        .where(
-          (record) =>
-              record.event.startsWith('media.device_selection.') &&
-              record.data['origin'] == 'user',
-        )
-        .toList();
-    expect(explicit, hasLength(6));
-    expect(explicit.map((record) => record.data['kind']).toSet(), {
-      'audio_input',
-      'audio_output',
-      'camera',
+      expect(raw, contains('user-input'));
+      expect(raw, contains('user-output'));
+      expect(raw, contains('user-camera'));
     });
-    expect(
-      explicit.every(
-        (record) => record.correlationId == mediaFactory.correlationIds.single,
-      ),
-      isTrue,
-    );
-    final raw = jsonEncode([
-      for (final record in diagnostics.rawRecords)
-        {'event': record.event, 'data': record.data},
-    ]);
-    expect(raw, contains('user-input'));
-    expect(raw, contains('user-output'));
-    expect(raw, contains('user-camera'));
-  });
 
-  test(
-    'contains ignored device PlatformExceptions behind the safe boundary',
-    () async {
-      const privateCause = 'device-private-user track-private 203.0.113.132';
-      const inputId = 'private-input-device';
-      const outputId = 'private-output-device';
-      const cameraId = 'private-camera-device';
-      await controller.ensureLoaded(firstSite);
-      await controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: controller.room(firstSite, 7)!,
-      );
-      await controller.setCameraEnabled(true);
-      final media = mediaFactory.sessions.single;
-      final failure = PlatformException(
-        code: 'device_selection',
-        message: privateCause,
-        details: {'deviceId': inputId, 'trackId': 'track-private'},
-      );
-      media
-        ..audioInputFailure = failure
-        ..audioOutputFailure = failure
-        ..cameraFailure = failure;
-      final ordinaryDiagnostics = await DiagnosticsController.create(
-        persistence: MemoryDiagnosticsPersistence(),
-        sessionId: 'resenha-public-devices',
-      );
-      final binding = DiagnosticsSink.install(ordinaryDiagnostics);
-      addTearDown(() async {
-        binding.close();
-        await ordinaryDiagnostics.close();
-      });
+    test(
+      'contain ignored device PlatformExceptions behind the safe diagnostics boundary',
+      () async {
+        const privateCause = 'device-private-user track-private 203.0.113.132';
+        const inputId = 'private-input-device';
+        const outputId = 'private-output-device';
+        const cameraId = 'private-camera-device';
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        await controller.setCameraEnabled(true);
+        final media = mediaFactory.sessions.single;
+        final failure = PlatformException(
+          code: 'device_selection',
+          message: privateCause,
+          details: {'deviceId': inputId, 'trackId': 'track-private'},
+        );
+        media
+          ..audioInputFailure = failure
+          ..audioOutputFailure = failure
+          ..cameraFailure = failure;
+        final ordinaryDiagnostics = await DiagnosticsController.create(
+          persistence: MemoryDiagnosticsPersistence(),
+          sessionId: 'resenha-public-devices',
+        );
+        final binding = DiagnosticsSink.install(ordinaryDiagnostics);
+        addTearDown(() async {
+          binding.close();
+          await ordinaryDiagnostics.close();
+        });
 
-      final uncaught = await _captureUncaught(() async {
-        unawaited(controller.selectAudioInput(inputId));
-        unawaited(controller.selectAudioOutput(outputId));
-        unawaited(controller.selectCamera(cameraId));
-        for (var index = 0; index < 8; index++) {
-          await pumpEventQueue();
+        final uncaught = await _captureUncaught(() async {
+          unawaited(controller.selectAudioInput(inputId));
+          unawaited(controller.selectAudioOutput(outputId));
+          unawaited(controller.selectCamera(cameraId));
+          for (var index = 0; index < 8; index++) {
+            await pumpEventQueue();
+          }
+        });
+
+        expect(uncaught, isEmpty);
+        expect(
+          diagnostics.records
+              .where(
+                (record) => record.event == 'media.device_selection.failed',
+              )
+              .map((record) => record.data['kind'])
+              .toSet(),
+          {'audio_input', 'audio_output', 'camera'},
+        );
+        const operations = {
+          'resenha.media.selectAudioInput',
+          'resenha.media.selectAudioOutput',
+          'resenha.media.selectCamera',
+        };
+        expect(
+          ordinaryDiagnostics.events
+              .whereType<ErrorDiagnosticEvent>()
+              .map((event) => event.operation)
+              .toSet(),
+          containsAll(operations),
+        );
+        expect(diagnostics.rawRecords, isEmpty);
+        final ordinaryExport = ordinaryDiagnostics.buildJsonReport();
+        for (final sentinel in [
+          privateCause,
+          inputId,
+          outputId,
+          cameraId,
+          'track-private',
+        ]) {
+          expect(ordinaryExport, isNot(contains(sentinel)));
         }
-      });
+      },
+    );
 
-      expect(uncaught, isEmpty);
-      expect(
-        diagnostics.records
-            .where((record) => record.event == 'media.device_selection.failed')
-            .map((record) => record.data['kind'])
-            .toSet(),
-        {'audio_input', 'audio_output', 'camera'},
-      );
-      const operations = {
-        'resenha.media.selectAudioInput',
-        'resenha.media.selectAudioOutput',
-        'resenha.media.selectCamera',
-      };
-      expect(
-        ordinaryDiagnostics.events
-            .whereType<ErrorDiagnosticEvent>()
-            .map((event) => event.operation)
-            .toSet(),
-        containsAll(operations),
-      );
-      expect(diagnostics.rawRecords, isEmpty);
-      final ordinaryExport = ordinaryDiagnostics.buildJsonReport();
-      for (final sentinel in [
-        privateCause,
-        inputId,
-        outputId,
-        cameraId,
-        'track-private',
-      ]) {
-        expect(ordinaryExport, isNot(contains(sentinel)));
-      }
-    },
-  );
+    test(
+      'stop after a pending preference write when the controller is disposed',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        final writeStarted = Completer<void>();
+        final writeGate = Completer<void>();
+        preferences
+          ..deviceWriteStarted = writeStarted
+          ..deviceWriteGate = writeGate;
 
-  test(
-    'device selection stops at a pending preference write after disposal',
-    () async {
-      await controller.ensureLoaded(firstSite);
-      await controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: controller.room(firstSite, 7)!,
-      );
-      final media = mediaFactory.sessions.single;
-      final writeStarted = Completer<void>();
-      final writeGate = Completer<void>();
-      preferences
-        ..deviceWriteStarted = writeStarted
-        ..deviceWriteGate = writeGate;
+        final selection = controller.selectAudioInput('late-microphone');
+        await writeStarted.future;
+        controller.dispose();
+        writeGate.complete();
+        await selection;
 
-      final selection = controller.selectAudioInput('late-microphone');
-      await writeStarted.future;
-      controller.dispose();
-      writeGate.complete();
-      await selection;
-
-      expect(media.selectedAudioInput, isNull);
-      final writesAfterDispose = preferences.writes.length;
-      await controller.selectAudioOutput('late-speakers');
-      expect(preferences.writes, hasLength(writesAfterDispose));
-      expect(await controller.mediaDevices(), isEmpty);
-    },
-  );
-
-  test(
-    'a forgotten site cannot be restored by a late directory response',
-    () async {
-      final controlled = _ControlledResenhaTransport()
-        ..heldPluginPaths.add('/resenha/rooms.json');
-      useTransport(controlled);
-
-      final load = controller.ensureLoaded(firstSite);
-      await pumpEventQueue();
-      expect(controlled.pendingPluginGets, hasLength(1));
-
-      controller.forget(firstSite);
-      controlled.pendingPluginGets.single.response.complete(
-        fixture('directory'),
-      );
-      await load;
-
-      expect(controller.directory(firstSite), isNull);
-      expect(firstTracker.lastIds, isEmpty);
-    },
-  );
-
-  test('a forgotten site cannot retain a late linked-room lookup', () async {
-    final controlled = _ControlledResenhaTransport()
-      ..heldPluginPaths.add('/resenha/rooms/conf-room-1.json');
-    useTransport(controlled);
-
-    final lookup = controller.resolveRoom(firstSite, 'conf-room-1');
-    await pumpEventQueue();
-    expect(controlled.pendingPluginGets, hasLength(1));
-
-    controller.forget(firstSite);
-    controlled.pendingPluginGets.single.response.complete({
-      'room': fixture('room'),
-    });
-
-    expect(await lookup, isNull);
-    expect(controller.room(firstSite, 7), isNull);
+        expect(media.selectedAudioInput, isNull);
+        final writesAfterDispose = preferences.writes.length;
+        await controller.selectAudioOutput('late-speakers');
+        expect(preferences.writes, hasLength(writesAfterDispose));
+        expect(await controller.mediaDevices(), isEmpty);
+      },
+    );
   });
 
-  test(
-    'a forgotten site cannot be restored by a late room-chat response',
-    () async {
-      final controlled = _ControlledResenhaTransport()
-        ..heldPluginPaths.add('/resenha/rooms/7/chat_session.json');
+  group('site invalidation', () {
+    test(
+      'discards a late directory response after the site is forgotten',
+      () async {
+        final controlled = _ControlledResenhaTransport()
+          ..heldPluginPaths.add('/resenha/rooms.json');
+        useTransport(controlled);
+
+        final load = controller.ensureLoaded(firstSite);
+        await pumpEventQueue();
+        expect(controlled.pendingPluginGets, hasLength(1));
+
+        controller.forget(firstSite);
+        controlled.pendingPluginGets.single.response.complete(
+          fixture('directory'),
+        );
+        await load;
+
+        expect(controller.directory(firstSite), isNull);
+        expect(firstTracker.lastIds, isEmpty);
+      },
+    );
+
+    test(
+      'discards a late linked-room lookup after the site is forgotten',
+      () async {
+        final controlled = _ControlledResenhaTransport()
+          ..heldPluginPaths.add('/resenha/rooms/conf-room-1.json');
+        useTransport(controlled);
+
+        final lookup = controller.resolveRoom(firstSite, 'conf-room-1');
+        await pumpEventQueue();
+        expect(controlled.pendingPluginGets, hasLength(1));
+
+        controller.forget(firstSite);
+        controlled.pendingPluginGets.single.response.complete({
+          'room': fixture('room'),
+        });
+
+        expect(await lookup, isNull);
+        expect(controller.room(firstSite, 7), isNull);
+      },
+    );
+
+    test(
+      'discards a late room-Chat response after the site is forgotten',
+      () async {
+        final controlled = _ControlledResenhaTransport()
+          ..heldPluginPaths.add('/resenha/rooms/7/chat_session.json');
+        useTransport(controlled);
+
+        final load = controller.openChat(firstSite, 7);
+        await pumpEventQueue();
+        expect(controlled.pendingPluginGets, hasLength(1));
+
+        controller.forget(firstSite);
+        controlled.pendingPluginGets.single.response.complete(fixture('chat'));
+        await load;
+
+        expect(controller.chat(firstSite, 7), isNull);
+        expect(firstTracker.lastIds, isEmpty);
+      },
+    );
+
+    test('discards a late room save after the site is forgotten', () async {
+      final controlled = _ControlledResenhaTransport(
+        responses: {'GET /resenha/rooms.json': fixture('directory')},
+      )..heldPluginWritePaths.add('/resenha/rooms.json');
       useTransport(controlled);
 
-      final load = controller.openChat(firstSite, 7);
+      final save = controller.saveRoom(
+        siteUrl: firstSite,
+        draft: const ResenhaRoomDraft(
+          name: 'Late room',
+          isPublic: true,
+          type: ResenhaRoomType.open,
+        ),
+      );
       await pumpEventQueue();
-      expect(controlled.pendingPluginGets, hasLength(1));
+      expect(controlled.pendingPluginWrites, hasLength(1));
 
       controller.forget(firstSite);
-      controlled.pendingPluginGets.single.response.complete(fixture('chat'));
-      await load;
+      controlled.pendingPluginWrites.single.response.complete({
+        'room': fixture('room'),
+      });
+
+      expect(await save, isNull);
+      expect(controller.directory(firstSite), isNull);
+      expect(controller.errorFor(firstSite), isNull);
+    });
+
+    test('discards a late Chat send after the site is forgotten', () async {
+      final controlled = _ControlledResenhaTransport()
+        ..heldPluginWritePaths.add('/resenha/rooms/7/chat_session.json');
+      useTransport(controlled);
+
+      final send = controller.sendChatMessage(firstSite, 7, 'hello');
+      await pumpEventQueue();
+      expect(controlled.pendingPluginWrites, hasLength(1));
+
+      controller.forget(firstSite);
+      controlled.pendingPluginWrites.single.response.complete(fixture('chat'));
+      await send;
 
       expect(controller.chat(firstSite, 7), isNull);
-      expect(firstTracker.lastIds, isEmpty);
-    },
-  );
-
-  test('a late room save cannot restore a forgotten site', () async {
-    final controlled = _ControlledResenhaTransport(
-      responses: {'GET /resenha/rooms.json': fixture('directory')},
-    )..heldPluginWritePaths.add('/resenha/rooms.json');
-    useTransport(controlled);
-
-    final save = controller.saveRoom(
-      siteUrl: firstSite,
-      draft: const ResenhaRoomDraft(
-        name: 'Late room',
-        isPublic: true,
-        type: ResenhaRoomType.open,
-      ),
-    );
-    await pumpEventQueue();
-    expect(controlled.pendingPluginWrites, hasLength(1));
-
-    controller.forget(firstSite);
-    controlled.pendingPluginWrites.single.response.complete({
-      'room': fixture('room'),
+      expect(controller.errorFor(firstSite), isNull);
     });
-
-    expect(await save, isNull);
-    expect(controller.directory(firstSite), isNull);
-    expect(controller.errorFor(firstSite), isNull);
   });
 
-  test('a late chat send cannot restore a forgotten site', () async {
-    final controlled = _ControlledResenhaTransport()
-      ..heldPluginWritePaths.add('/resenha/rooms/7/chat_session.json');
-    useTransport(controlled);
+  group('room Chat request ordering', () {
+    test(
+      'preserves the newer association when an older response arrives late',
+      () async {
+        final controlled = _ControlledResenhaTransport()
+          ..heldPluginPaths.add('/resenha/rooms/7/chat_session.json');
+        final conversations = FakeChatConversationCapability();
+        conversations.seed(
+          siteUrl: firstSite,
+          channelId: 42,
+          threadId: 99,
+          snapshot: ChatConversationSnapshot(messages: _chatPage(20).messages),
+        );
+        useTransport(controlled, conversations: conversations);
 
-    final send = controller.sendChatMessage(firstSite, 7, 'hello');
-    await pumpEventQueue();
-    expect(controlled.pendingPluginWrites, hasLength(1));
+        final older = controller.openChat(firstSite, 7, force: true);
+        await pumpEventQueue();
+        final newer = controller.openChat(firstSite, 7, force: true);
+        await pumpEventQueue();
+        controlled.pendingPluginGets[1].response.complete(fixture('chat'));
+        await newer;
+        controlled.pendingPluginGets[0].response.complete(fixture('chat'));
+        await older;
 
-    controller.forget(firstSite);
-    controlled.pendingPluginWrites.single.response.complete(fixture('chat'));
-    await send;
+        expect(
+          controller.chat(firstSite, 7)?.messages.map((message) => message.id),
+          [20],
+        );
+        expect(conversations.opened, hasLength(1));
+      },
+    );
 
-    expect(controller.chat(firstSite, 7), isNull);
-    expect(controller.errorFor(firstSite), isNull);
+    test(
+      'pages through the Chat conversation capability without rereading credentials',
+      () async {
+        final controlled = _ControlledResenhaTransport(
+          responses: {
+            'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
+          },
+        );
+        final countingRequests = _CountingRequestHost();
+        requests = countingRequests;
+        useTransport(controlled);
+        await controller.openChat(firstSite, 7);
+        final conversation = chatConversations.find(
+          siteUrl: firstSite,
+          channelId: 42,
+          threadId: 99,
+        )!;
+        expect(countingRequests.credentialCalls, 1);
+
+        await controller.loadOlderChat(firstSite, 7);
+
+        expect(
+          controller.chat(firstSite, 7)?.messages.map((message) => message.id),
+          [5, 10],
+        );
+        expect(conversation.loadOlderCalls, 1);
+        expect(countingRequests.credentialCalls, 1);
+      },
+    );
   });
 
-  test(
-    'an older room association response cannot replace a newer response',
-    () async {
-      final controlled = _ControlledResenhaTransport()
-        ..heldPluginPaths.add('/resenha/rooms/7/chat_session.json');
-      final conversations = FakeChatConversationCapability();
-      conversations.seed(
-        siteUrl: firstSite,
-        channelId: 42,
-        threadId: 99,
-        snapshot: ChatConversationSnapshot(messages: _chatPage(20).messages),
-      );
-      useTransport(controlled, conversations: conversations);
+  group('live tracking and media signaling', () {
+    test(
+      'subscribe from both snapshot cursors and apply live roster updates',
+      () async {
+        await controller.ensureLoaded(firstSite);
 
-      final older = controller.openChat(firstSite, 7, force: true);
-      await pumpEventQueue();
-      final newer = controller.openChat(firstSite, 7, force: true);
-      await pumpEventQueue();
-      controlled.pendingPluginGets[1].response.complete(fixture('chat'));
-      await newer;
-      controlled.pendingPluginGets[0].response.complete(fixture('chat'));
-      await older;
+        expect(firstTracker.lastIds['/resenha/rooms/index'], 144);
+        expect(firstTracker.lastIds['/resenha/rooms/7'], 91);
+
+        firstTracker.deliver('/resenha/rooms/7', {
+          'type': 'participants',
+          'participants': [
+            {'id': 2, 'username': 'lee', 'role': 'speaker'},
+          ],
+        });
+        expect(
+          controller.room(firstSite, 7)?.participants.single.username,
+          'lee',
+        );
+
+        firstTracker.deliver('/resenha/rooms/index', {
+          'type': 'updated',
+          'room': {
+            'id': 7,
+            'name': 'Renamed Room',
+            'slug': 'conf-room-1',
+            'public': false,
+            'ephemeral': false,
+            'room_type': 'stage',
+            'active_participants': const <Object?>[],
+          },
+        });
+        expect(controller.room(firstSite, 7)?.name, 'Renamed Room');
+      },
+    );
+
+    test(
+      'transfer only Resenha-owned watches when the tracker changes',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        await controller.openChat(firstSite, 7);
+        final replacement = tracker(firstSite);
+
+        controller.attachTracker(firstSite, replacement);
+
+        for (final channel in const [
+          '/resenha/rooms/index',
+          '/resenha/rooms/7',
+        ]) {
+          expect(firstTracker.subscriberCount(channel), 0);
+          expect(replacement.subscriberCount(channel), 1);
+        }
+        expect(firstTracker.subscriberCount('/chat/42'), 0);
+        expect(replacement.subscriberCount('/chat/42'), 0);
+        expect(replacement.lastIds['/resenha/rooms/index'], 144);
+        expect(replacement.lastIds['/resenha/rooms/7'], 91);
+
+        firstTracker.deliver('/resenha/rooms/7', {
+          'type': 'participants',
+          'participants': [
+            {'id': 2, 'username': 'old', 'role': 'speaker'},
+          ],
+        });
+        expect(
+          controller
+              .room(firstSite, 7)
+              ?.participants
+              .map((participant) => participant.username),
+          ['sam'],
+        );
+
+        replacement.deliver('/resenha/rooms/7', {
+          'type': 'participants',
+          'participants': [
+            {'id': 3, 'username': 'new', 'role': 'speaker'},
+          ],
+        });
+        expect(
+          controller.room(firstSite, 7)?.participants.single.username,
+          'new',
+        );
+      },
+    );
+
+    test(
+      'update microphone publication when the local stage role changes',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+
+        firstTracker.deliver('/resenha/rooms/7', {
+          'type': 'participants',
+          'participants': [
+            {'id': 1, 'username': 'sam', 'role': 'participant'},
+          ],
+        });
+        await Future<void>.delayed(Duration.zero);
+        expect(media.audioPublishingAllowed, isFalse);
+
+        firstTracker.deliver('/resenha/rooms/7', {
+          'type': 'role_change',
+          'user_id': 1,
+          'role': 'speaker',
+        });
+        await Future<void>.delayed(Duration.zero);
+        expect(media.audioPublishingAllowed, isTrue);
+
+        firstTracker.deliver('/resenha/rooms/7', {
+          'type': 'participants',
+          'participants': [
+            {'id': 1, 'username': 'sam', 'role': 'speaker'},
+          ],
+        });
+        await Future<void>.delayed(Duration.zero);
+        expect(media.audioPublishingAllowed, isTrue);
+      },
+    );
+
+    test('reference-count room video watches across calls', () async {
+      controller.watchRoomVideo(siteUrl: firstSite, roomId: 7);
+      controller.watchRoomVideo(siteUrl: firstSite, roomId: 7);
 
       expect(
-        controller.chat(firstSite, 7)?.messages.map((message) => message.id),
-        [20],
-      );
-      expect(conversations.opened, hasLength(1));
-    },
-  );
-
-  test('chat paging stays behind the Chat conversation capability', () async {
-    final controlled = _ControlledResenhaTransport(
-      responses: {'GET /resenha/rooms/7/chat_session.json': fixture('chat')},
-    );
-    final countingRequests = _CountingRequestHost();
-    requests = countingRequests;
-    useTransport(controlled);
-    await controller.openChat(firstSite, 7);
-    final conversation = chatConversations.find(
-      siteUrl: firstSite,
-      channelId: 42,
-      threadId: 99,
-    )!;
-    expect(countingRequests.credentialCalls, 1);
-
-    await controller.loadOlderChat(firstSite, 7);
-
-    expect(
-      controller.chat(firstSite, 7)?.messages.map((message) => message.id),
-      [5, 10],
-    );
-    expect(conversation.loadOlderCalls, 1);
-    expect(countingRequests.credentialCalls, 1);
-  });
-
-  test(
-    'subscribes from both snapshot cursors and applies live rosters',
-    () async {
-      await controller.ensureLoaded(firstSite);
-
-      expect(firstTracker.lastIds['/resenha/rooms/index'], 144);
-      expect(firstTracker.lastIds['/resenha/rooms/7'], 91);
-
-      firstTracker.deliver('/resenha/rooms/7', {
-        'type': 'participants',
-        'participants': [
-          {'id': 2, 'username': 'lee', 'role': 'speaker'},
-        ],
-      });
-      expect(
-        controller.room(firstSite, 7)?.participants.single.username,
-        'lee',
+        transport.writes.where((write) => write.path.endsWith('/state.json')),
+        isEmpty,
       );
 
-      firstTracker.deliver('/resenha/rooms/index', {
-        'type': 'updated',
-        'room': {
-          'id': 7,
-          'name': 'Renamed Room',
-          'slug': 'conf-room-1',
-          'public': false,
-          'ephemeral': false,
-          'room_type': 'stage',
-          'active_participants': const <Object?>[],
-        },
-      });
-      expect(controller.room(firstSite, 7)?.name, 'Renamed Room');
-    },
-  );
-
-  test('tracker replacement transfers only Resenha-owned watches', () async {
-    await controller.ensureLoaded(firstSite);
-    await controller.openChat(firstSite, 7);
-    final replacement = tracker(firstSite);
-
-    controller.attachTracker(firstSite, replacement);
-
-    for (final channel in const ['/resenha/rooms/index', '/resenha/rooms/7']) {
-      expect(firstTracker.subscriberCount(channel), 0);
-      expect(replacement.subscriberCount(channel), greaterThan(0));
-    }
-    expect(firstTracker.subscriberCount('/chat/42'), 0);
-    expect(replacement.subscriberCount('/chat/42'), 0);
-    expect(replacement.lastIds['/resenha/rooms/index'], 144);
-    expect(replacement.lastIds['/resenha/rooms/7'], 91);
-
-    firstTracker.deliver('/resenha/rooms/7', {
-      'type': 'participants',
-      'participants': [
-        {'id': 2, 'username': 'old', 'role': 'speaker'},
-      ],
-    });
-    expect(
-      controller
-          .room(firstSite, 7)
-          ?.participants
-          .map((participant) => participant.username),
-      ['sam'],
-    );
-
-    replacement.deliver('/resenha/rooms/7', {
-      'type': 'participants',
-      'participants': [
-        {'id': 3, 'username': 'new', 'role': 'speaker'},
-      ],
-    });
-    expect(controller.room(firstSite, 7)?.participants.single.username, 'new');
-  });
-
-  test(
-    'stage role changes acquire and release microphone publication',
-    () async {
       await controller.ensureLoaded(firstSite);
       await controller.join(
         siteUrl: firstSite,
         siteName: 'One',
         room: controller.room(firstSite, 7)!,
       );
-      final media = mediaFactory.sessions.single;
+      await pumpEventQueue();
 
+      var stateWrites = transport.writes
+          .where((write) => write.path.endsWith('/state.json'))
+          .toList();
+      expect(stateWrites, isNotEmpty);
+      expect(
+        stateWrites.every((write) => write.body.containsKey('watching')),
+        isTrue,
+      );
+      expect(stateWrites.last.body['watching'], isTrue);
+
+      await controller.leave();
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      await pumpEventQueue();
+      stateWrites = transport.writes
+          .where((write) => write.path.endsWith('/state.json'))
+          .toList();
+      expect(stateWrites.last.body['watching'], isTrue);
+
+      controller.stopWatchingRoomVideo(siteUrl: firstSite, roomId: 7);
+      await pumpEventQueue();
+      expect(
+        transport.writes.where((write) => write.path.endsWith('/state.json')),
+        hasLength(stateWrites.length),
+      );
+
+      controller.stopWatchingRoomVideo(siteUrl: firstSite, roomId: 7);
+      await pumpEventQueue();
+      stateWrites = transport.writes
+          .where((write) => write.path.endsWith('/state.json'))
+          .toList();
+      expect(stateWrites.last.body['watching'], isFalse);
+      expect(
+        stateWrites.every((write) => write.body.containsKey('watching')),
+        isTrue,
+      );
+    });
+
+    test('report asynchronous signal and roster-media failures', () async {
+      final diagnostics = await DiagnosticsController.create(
+        persistence: MemoryDiagnosticsPersistence(),
+        sessionId: 'resenha-room-events',
+      );
+      final binding = DiagnosticsSink.install(diagnostics);
+      addTearDown(() async {
+        binding.close();
+        await diagnostics.close();
+      });
+      await pumpEventQueue();
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      final media = mediaFactory.sessions.single
+        ..signalFailure = StateError('signal rejected')
+        ..audioPublishingFailure = StateError('publishing rejected')
+        ..muteFailure = StateError('mute rejected')
+        ..participantSyncFailure = StateError('roster rejected');
+
+      firstTracker.deliver('/resenha/rooms/7', {
+        'type': 'signal',
+        'sender_id': 2,
+        'data': {'type': 'offer'},
+      });
       firstTracker.deliver('/resenha/rooms/7', {
         'type': 'participants',
         'participants': [
           {'id': 1, 'username': 'sam', 'role': 'participant'},
         ],
       });
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
+
+      expect(controller.call?.muted, isTrue);
       expect(media.audioPublishingAllowed, isFalse);
-
-      firstTracker.deliver('/resenha/rooms/7', {
-        'type': 'role_change',
-        'user_id': 1,
-        'role': 'speaker',
-      });
-      await Future<void>.delayed(Duration.zero);
-      expect(media.audioPublishingAllowed, isTrue);
-
-      firstTracker.deliver('/resenha/rooms/7', {
-        'type': 'participants',
-        'participants': [
-          {'id': 1, 'username': 'sam', 'role': 'speaker'},
-        ],
-      });
-      await Future<void>.delayed(Duration.zero);
-      expect(media.audioPublishingAllowed, isTrue);
-    },
-  );
-
-  test('room video watching is reference counted across a join', () async {
-    controller.watchRoomVideo(siteUrl: firstSite, roomId: 7);
-    controller.watchRoomVideo(siteUrl: firstSite, roomId: 7);
-
-    expect(
-      transport.writes.where((write) => write.path.endsWith('/state.json')),
-      isEmpty,
-    );
-
-    await controller.ensureLoaded(firstSite);
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-    await pumpEventQueue();
-
-    var stateWrites = transport.writes
-        .where((write) => write.path.endsWith('/state.json'))
-        .toList();
-    expect(stateWrites, isNotEmpty);
-    expect(
-      stateWrites.every((write) => write.body.containsKey('watching')),
-      isTrue,
-    );
-    expect(stateWrites.last.body['watching'], isTrue);
-
-    await controller.leave();
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-    await pumpEventQueue();
-    stateWrites = transport.writes
-        .where((write) => write.path.endsWith('/state.json'))
-        .toList();
-    expect(stateWrites.last.body['watching'], isTrue);
-
-    controller.stopWatchingRoomVideo(siteUrl: firstSite, roomId: 7);
-    await pumpEventQueue();
-    expect(
-      transport.writes.where((write) => write.path.endsWith('/state.json')),
-      hasLength(stateWrites.length),
-    );
-
-    controller.stopWatchingRoomVideo(siteUrl: firstSite, roomId: 7);
-    await pumpEventQueue();
-    stateWrites = transport.writes
-        .where((write) => write.path.endsWith('/state.json'))
-        .toList();
-    expect(stateWrites.last.body['watching'], isFalse);
-    expect(
-      stateWrites.every((write) => write.body.containsKey('watching')),
-      isTrue,
-    );
-  });
-
-  test('reports asynchronous signal and roster media failures', () async {
-    final diagnostics = await DiagnosticsController.create(
-      persistence: MemoryDiagnosticsPersistence(),
-      sessionId: 'resenha-room-events',
-    );
-    final binding = DiagnosticsSink.install(diagnostics);
-    addTearDown(() async {
-      binding.close();
-      await diagnostics.close();
-    });
-    await pumpEventQueue();
-    await controller.ensureLoaded(firstSite);
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-    final media = mediaFactory.sessions.single
-      ..signalFailure = StateError('signal rejected')
-      ..audioPublishingFailure = StateError('publishing rejected')
-      ..muteFailure = StateError('mute rejected')
-      ..participantSyncFailure = StateError('roster rejected');
-
-    firstTracker.deliver('/resenha/rooms/7', {
-      'type': 'signal',
-      'sender_id': 2,
-      'data': {'type': 'offer'},
-    });
-    firstTracker.deliver('/resenha/rooms/7', {
-      'type': 'participants',
-      'participants': [
-        {'id': 1, 'username': 'sam', 'role': 'participant'},
-      ],
-    });
-    await pumpEventQueue();
-
-    expect(controller.call?.muted, isTrue);
-    expect(media.audioPublishingAllowed, isFalse);
-    expect(media.participants.single.id, 1);
-    expect(
-      diagnostics.events.whereType<ErrorDiagnosticEvent>().map(
-        (event) => event.operation,
-      ),
-      containsAll({
-        'resenha.media.signal',
-        'resenha.media.audioPublishing',
-        'resenha.media.rosterMute',
-        'resenha.media.participants',
-      }),
-    );
-  });
-
-  test(
-    'handles ordered signal batches and an early open-room sender',
-    () async {
-      final joinPayload = fixture('join_mesh');
-      final room = joinPayload['room']! as Map<String, dynamic>;
-      room['room_type'] = 'open';
-      room['active_participants'] = [
-        {'id': 1, 'username': 'sam', 'role': 'participant'},
-      ];
-      useTransport(
-        RecordingPluginTransport(
-          responses: {
-            'GET /resenha/rooms.json': fixture('directory'),
-            'POST /resenha/rooms/7/join.json': joinPayload,
-            'POST /resenha/rooms/7/state.json': <String, dynamic>{},
-            'POST /resenha/rooms/7/heartbeat.json': <String, dynamic>{},
-            'DELETE /resenha/rooms/7/leave.json': <String, dynamic>{},
-          },
+      expect(media.participants.single.id, 1);
+      expect(
+        diagnostics.events.whereType<ErrorDiagnosticEvent>().map(
+          (event) => event.operation,
         ),
+        containsAll({
+          'resenha.media.signal',
+          'resenha.media.audioPublishing',
+          'resenha.media.rosterMute',
+          'resenha.media.participants',
+        }),
       );
+    });
+
+    test(
+      'preserve batched signal order and admit an early open-room sender',
+      () async {
+        final joinPayload = fixture('join_mesh');
+        final room = joinPayload['room']! as Map<String, dynamic>;
+        room['room_type'] = 'open';
+        room['active_participants'] = [
+          {'id': 1, 'username': 'sam', 'role': 'participant'},
+        ];
+        useTransport(
+          RecordingPluginTransport(
+            responses: {
+              'GET /resenha/rooms.json': fixture('directory'),
+              'POST /resenha/rooms/7/join.json': joinPayload,
+              'POST /resenha/rooms/7/state.json': <String, dynamic>{},
+              'POST /resenha/rooms/7/heartbeat.json': <String, dynamic>{},
+              'DELETE /resenha/rooms/7/leave.json': <String, dynamic>{},
+            },
+          ),
+        );
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+
+        firstTracker.deliver('/resenha/rooms/7', {
+          'type': 'signal',
+          'sender_id': 2,
+          'sender': {'id': 2, 'username': 'early'},
+          'events': [
+            {'type': 'offer', 'sdp': 'offer'},
+            {
+              'type': 'candidate',
+              'candidate': {'candidate': 'candidate:first'},
+            },
+          ],
+        });
+        await pumpEventQueue();
+
+        final media = mediaFactory.sessions.single;
+        expect(media.participants.map((participant) => participant.id), [1, 2]);
+        expect(media.signals.map((signal) => signal.$2['type']), [
+          'offer',
+          'candidate',
+        ]);
+        expect(controller.call?.room.participants.last.username, 'early');
+      },
+    );
+  });
+
+  group('participant session propagation', () {
+    test('includes the joined session on protected writes', () async {
+      transport.responses.addAll({
+        'POST /resenha/rooms/7/signal.json': <String, dynamic>{},
+        'POST /resenha/rooms/7/request_to_speak.json': <String, dynamic>{},
+      });
       await controller.ensureLoaded(firstSite);
       await controller.join(
         siteUrl: firstSite,
         siteName: 'One',
         room: controller.room(firstSite, 7)!,
       );
-
-      firstTracker.deliver('/resenha/rooms/7', {
-        'type': 'signal',
-        'sender_id': 2,
-        'sender': {'id': 2, 'username': 'early'},
-        'events': [
-          {'type': 'offer', 'sdp': 'offer'},
-          {
-            'type': 'candidate',
-            'candidate': {'candidate': 'candidate:first'},
-          },
-        ],
-      });
-      await pumpEventQueue();
-
       final media = mediaFactory.sessions.single;
-      expect(media.participants.map((participant) => participant.id), [1, 2]);
-      expect(media.signals.map((signal) => signal.$2['type']), [
-        'offer',
-        'candidate',
-      ]);
-      expect(controller.call?.room.participants.last.username, 'early');
-    },
-  );
 
-  test('sends the joined participant session on protected writes', () async {
-    transport.responses.addAll({
-      'POST /resenha/rooms/7/signal.json': <String, dynamic>{},
-      'POST /resenha/rooms/7/request_to_speak.json': <String, dynamic>{},
+      await media.sendSignal(2, {'type': 'offer', 'sdp': 'offer'});
+      await controller.requestToSpeak();
+      await controller.setMuted(true);
+      await controller.leave();
+
+      final protected = transport.writes.where(
+        (write) => {
+          '/resenha/rooms/7/signal.json',
+          '/resenha/rooms/7/request_to_speak.json',
+          '/resenha/rooms/7/state.json',
+          '/resenha/rooms/7/heartbeat.json',
+          '/resenha/rooms/7/leave.json',
+        }.contains(write.path),
+      );
+      expect(protected, isNotEmpty);
+      expect(
+        protected.every(
+          (write) =>
+              write.body['participant_session_id'] ==
+              'mesh-participant-session',
+        ),
+        isTrue,
+      );
+      final signal = protected.singleWhere(
+        (write) => write.path.endsWith('/signal.json'),
+      );
+      expect(
+        (signal.body['payload']! as Map<String, Object?>)['messages'],
+        isNotEmpty,
+      );
     });
-    await controller.ensureLoaded(firstSite);
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-    final media = mediaFactory.sessions.single;
 
-    await media.sendSignal(2, {'type': 'offer', 'sdp': 'offer'});
-    await controller.requestToSpeak();
-    await controller.setMuted(true);
-    await controller.leave();
-
-    final protected = transport.writes.where(
-      (write) => {
-        '/resenha/rooms/7/signal.json',
-        '/resenha/rooms/7/request_to_speak.json',
-        '/resenha/rooms/7/state.json',
-        '/resenha/rooms/7/heartbeat.json',
-        '/resenha/rooms/7/leave.json',
-      }.contains(write.path),
-    );
-    expect(protected, isNotEmpty);
-    expect(
-      protected.every(
-        (write) =>
-            write.body['participant_session_id'] == 'mesh-participant-session',
-      ),
-      isTrue,
-    );
-    final signal = protected.singleWhere(
-      (write) => write.path.endsWith('/signal.json'),
-    );
-    expect(
-      (signal.body['payload']! as Map<String, Object?>)['messages'],
-      isNotEmpty,
-    );
-  });
-
-  test(
-    'adopts a participant session rotated by LiveKit token refresh',
-    () async {
+    test('adopts a session rotated by LiveKit token refresh', () async {
       final tokenResponse = <String, dynamic>{
         ...(fixture('join_livekit')['livekit'] as Map<String, dynamic>),
         'participant_session_id': 'rotated-livekit-session',
@@ -2091,143 +2170,126 @@ void main() {
         stateAndLeave.last.body['participant_session_id'],
         'rotated-livekit-session',
       );
-    },
-  );
-
-  test('loads and pages the associated Discourse Chat thread', () async {
-    await controller.openChat(firstSite, 7);
-    final conversation = chatConversations.find(
-      siteUrl: firstSite,
-      channelId: 42,
-      threadId: 99,
-    )!;
-    expect(
-      controller.chat(firstSite, 7)?.messages.map((message) => message.id),
-      [10],
-    );
-    expect(controller.chat(firstSite, 7)?.canLoadMorePast, isTrue);
-    expect(conversation.refreshCalls, 1);
-
-    await controller.loadOlderChat(firstSite, 7);
-    expect(
-      controller.chat(firstSite, 7)?.messages.map((message) => message.id),
-      [5, 10],
-    );
-    expect(controller.chat(firstSite, 7)?.canLoadMorePast, isFalse);
-    expect(conversation.loadOlderCalls, 1);
-
-    await controller.sendChatMessage(firstSite, 7, '  hello room  ');
-    expect(conversation.sentMessages, ['hello room']);
+    });
   });
 
-  test(
-    'relays live Chat conversation state and releases it with the room site',
-    () async {
+  group('room Chat lifecycle', () {
+    test(
+      'loads, pages, and sends through the associated Discourse Chat thread',
+      () async {
+        await controller.openChat(firstSite, 7);
+        final conversation = chatConversations.find(
+          siteUrl: firstSite,
+          channelId: 42,
+          threadId: 99,
+        )!;
+        expect(
+          controller.chat(firstSite, 7)?.messages.map((message) => message.id),
+          [10],
+        );
+        expect(controller.chat(firstSite, 7)?.canLoadMorePast, isTrue);
+        expect(conversation.refreshCalls, 1);
+
+        await controller.loadOlderChat(firstSite, 7);
+        expect(
+          controller.chat(firstSite, 7)?.messages.map((message) => message.id),
+          [5, 10],
+        );
+        expect(controller.chat(firstSite, 7)?.canLoadMorePast, isFalse);
+        expect(conversation.loadOlderCalls, 1);
+
+        await controller.sendChatMessage(firstSite, 7, '  hello room  ');
+        expect(conversation.sentMessages, ['hello room']);
+      },
+    );
+
+    test(
+      'relays live conversation state and releases it when the site is forgotten',
+      () async {
+        await controller.openChat(firstSite, 7);
+        final conversation = chatConversations.find(
+          siteUrl: firstSite,
+          channelId: 42,
+          threadId: 99,
+        )!;
+        conversation.setSnapshot(
+          ChatConversationSnapshot(
+            messages: _chatPage(20).messages,
+            error: 'Chat is reconnecting.',
+          ),
+        );
+
+        expect(
+          controller.chat(firstSite, 7)?.messages.map((message) => message.id),
+          [20],
+        );
+        expect(controller.chat(firstSite, 7)?.error, 'Chat is reconnecting.');
+
+        controller.forget(firstSite);
+
+        expect(controller.chat(firstSite, 7), isNull);
+        expect(conversation.closeCalls, 1);
+      },
+    );
+
+    test('releases the viewing handle when room Chat closes', () async {
       await controller.openChat(firstSite, 7);
       final conversation = chatConversations.find(
         siteUrl: firstSite,
         channelId: 42,
         threadId: 99,
       )!;
-      conversation.setSnapshot(
-        ChatConversationSnapshot(
-          messages: _chatPage(20).messages,
-          error: 'Chat is reconnecting.',
+
+      controller.closeChat(firstSite, 7);
+
+      expect(conversation.closeCalls, 1);
+      expect(controller.chat(firstSite, 7)?.messages, isEmpty);
+    });
+
+    test('retains failures reported by temporary sends', () async {
+      transport.responses['POST /resenha/rooms/7/chat_session.json'] = fixture(
+        'chat',
+      );
+      final conversations = seededChatConversations(
+        snapshotAfterSend: ChatConversationSnapshot(
+          messages: _chatPage(10).messages,
+          canLoadMorePast: true,
+          error: 'Message not sent.',
         ),
       );
+      useTransport(transport, conversations: conversations);
+      final conversation = chatConversations.find(
+        siteUrl: firstSite,
+        channelId: 42,
+        threadId: 99,
+      )!;
 
-      expect(
-        controller.chat(firstSite, 7)?.messages.map((message) => message.id),
-        [20],
-      );
-      expect(controller.chat(firstSite, 7)?.error, 'Chat is reconnecting.');
+      await controller.sendChatMessage(firstSite, 7, 'hello');
 
-      controller.forget(firstSite);
+      expect(conversation.sentMessages, ['hello']);
+      expect(conversation.closeCalls, 1);
+      expect(controller.chat(firstSite, 7)?.error, 'Message not sent.');
+    });
+
+    test('discards retained associations when rooms are destroyed', () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.openChat(firstSite, 7);
+      final conversation = chatConversations.find(
+        siteUrl: firstSite,
+        channelId: 42,
+        threadId: 99,
+      )!;
+
+      firstTracker.deliver('/resenha/rooms/index', {
+        'type': 'destroyed',
+        'room': (fixture('directory')['rooms'] as List<dynamic>).first,
+      });
 
       expect(controller.chat(firstSite, 7), isNull);
       expect(conversation.closeCalls, 1);
-    },
-  );
-
-  test('releases the Chat viewing handle when the room chat closes', () async {
-    await controller.openChat(firstSite, 7);
-    final conversation = chatConversations.find(
-      siteUrl: firstSite,
-      channelId: 42,
-      threadId: 99,
-    )!;
-
-    controller.closeChat(firstSite, 7);
-
-    expect(conversation.closeCalls, 1);
-    expect(controller.chat(firstSite, 7)?.messages, isEmpty);
-  });
-
-  test('temporary Chat sends retain capability-reported failures', () async {
-    transport.responses['POST /resenha/rooms/7/chat_session.json'] = fixture(
-      'chat',
-    );
-    final conversation = chatConversations.find(
-      siteUrl: firstSite,
-      channelId: 42,
-      threadId: 99,
-    )!..sendError = 'Message not sent.';
-
-    await controller.sendChatMessage(firstSite, 7, 'hello');
-
-    expect(conversation.sentMessages, ['hello']);
-    expect(conversation.closeCalls, 1);
-    expect(controller.chat(firstSite, 7)?.error, 'Message not sent.');
-  });
-
-  test('room destruction discards its retained Chat association', () async {
-    await controller.ensureLoaded(firstSite);
-    await controller.openChat(firstSite, 7);
-    final conversation = chatConversations.find(
-      siteUrl: firstSite,
-      channelId: 42,
-      threadId: 99,
-    )!;
-
-    firstTracker.deliver('/resenha/rooms/index', {
-      'type': 'destroyed',
-      'room': (fixture('directory')['rooms'] as List<dynamic>).first,
     });
 
-    expect(controller.chat(firstSite, 7), isNull);
-    expect(conversation.closeCalls, 1);
-  });
-
-  test('directory refresh prunes removed room Chat associations', () async {
-    final responses = <String, Map<String, dynamic>>{
-      'GET /resenha/rooms.json': fixture('directory'),
-      'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
-    };
-    final mutableTransport = RecordingPluginTransport(responses: responses);
-    useTransport(mutableTransport);
-    await controller.ensureLoaded(firstSite);
-    await controller.openChat(firstSite, 7);
-    final conversation = chatConversations.find(
-      siteUrl: firstSite,
-      channelId: 42,
-      threadId: 99,
-    )!;
-    mutableTransport.responses['GET /resenha/rooms.json'] = {
-      ...fixture('directory'),
-      'rooms': <Object>[],
-    };
-
-    await controller.ensureLoaded(firstSite, force: true);
-
-    expect(controller.chat(firstSite, 7), isNull);
-    expect(conversation.closeCalls, 1);
-  });
-
-  test(
-    'directory refresh invalidates a pre-credential room Chat open',
-    () async {
-      final gated = _NextGatedRequestHost();
-      requests = gated;
+    test('prunes retained associations removed by directory refresh', () async {
       final responses = <String, Map<String, dynamic>>{
         'GET /resenha/rooms.json': fixture('directory'),
         'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
@@ -2235,609 +2297,422 @@ void main() {
       final mutableTransport = RecordingPluginTransport(responses: responses);
       useTransport(mutableTransport);
       await controller.ensureLoaded(firstSite);
-      gated.gateNextRead = true;
-
-      final opening = controller.openChat(firstSite, 7);
-      await gated.readStarted.future;
+      await controller.openChat(firstSite, 7);
+      final conversation = chatConversations.find(
+        siteUrl: firstSite,
+        channelId: 42,
+        threadId: 99,
+      )!;
       mutableTransport.responses['GET /resenha/rooms.json'] = {
         ...fixture('directory'),
         'rooms': <Object>[],
       };
+
       await controller.ensureLoaded(firstSite, force: true);
-      gated.readGate.complete();
-      await opening;
 
       expect(controller.chat(firstSite, 7), isNull);
-      expect(chatConversations.opened, isEmpty);
-    },
-  );
-
-  test('enforces one call globally while switching sites', () async {
-    await controller.ensureLoaded(firstSite);
-    await controller.ensureLoaded(secondSite);
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-    final firstMedia = mediaFactory.sessions.single;
-
-    await controller.join(
-      siteUrl: secondSite,
-      siteName: 'Two',
-      room: controller.room(secondSite, 7)!,
-    );
-
-    expect(controller.call?.siteUrl, secondSite);
-    expect(firstMedia.disposeCount, 1);
-    expect(mediaFactory.sessions, hasLength(2));
-    expect(systemCall.starts, 2);
-    expect(systemCall.ends, 1);
-    expect(
-      transport.writes
-          .where((write) => write.path.endsWith('/leave.json'))
-          .single
-          .siteUrl,
-      firstSite,
-    );
-  });
-
-  test('waits out a rate-limited room join and retries it once', () async {
-    transport.failures['POST /resenha/rooms/7/join.json'] =
-        const WriteException(
-          WriteFailure.rateLimited,
-          statusCode: 429,
-          retryAfter: Duration.zero,
-        );
-
-    await controller.ensureLoaded(firstSite);
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-
-    expect(controller.call?.room.id, 7);
-    expect(controller.call?.status, ResenhaCallStatus.connected);
-    expect(
-      transport.writes.where((write) => write.path.endsWith('/join.json')),
-      hasLength(2),
-    );
-    expect(controller.errorFor(firstSite), isNull);
-  });
-
-  test('propagates one call correlation into media and join HTTP', () async {
-    final controlled = privilegedTransport();
-    useTransport(controlled);
-
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: ResenhaRoom.fromJson(fixture('room')),
-    );
-
-    final correlationId = mediaFactory.correlationIds.single;
-    final joinContext = controlled.diagnosticContexts.singleWhere(
-      (context) => context.path.endsWith('/join.json'),
-    );
-    expect(correlationId, startsWith('resenha-call-'));
-    expect(joinContext.operation, 'resenha.join');
-    expect(joinContext.correlationId, correlationId);
-    expect(mediaFactory.diagnosticsRecorders.single, same(diagnostics));
-  });
-
-  test('records an ordered correlated join and leave lifecycle', () async {
-    diagnostics.captureEnabled = true;
-    await controller.ensureLoaded(firstSite);
-
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-    final correlationId = mediaFactory.correlationIds.single;
-    await controller.leave();
-
-    final events = diagnostics.records
-        .where((record) => record.correlationId == correlationId)
-        .map((record) => record.event)
-        .toList();
-    int index(String event) => events.indexOf(event);
-    expect(index('call.join.requested'), lessThan(index('call.join.started')));
-    expect(index('call.join.started'), lessThan(index('call.join.completed')));
-    expect(index('call.join.completed'), lessThan(index('call.leave.started')));
-    expect(
-      index('call.leave.started'),
-      lessThan(index('call.leave.completed')),
-    );
-    final leave = diagnostics.records.singleWhere(
-      (record) =>
-          record.correlationId == correlationId &&
-          record.event == 'call.leave.started',
-    );
-    expect(leave.data['reason'], 'user');
-    final roster = diagnostics.rawRecords.singleWhere(
-      (record) =>
-          record.correlationId == correlationId &&
-          record.event == 'call.join.initial_roster',
-    );
-    final participants = roster.data['participants']! as List<Object?>;
-    expect(
-      (participants.first! as Map<String, Object?>)['username'],
-      isNotEmpty,
-    );
-  });
-
-  test('captures raw signaling only while deep capture is enabled', () async {
-    await controller.ensureLoaded(firstSite);
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-
-    void deliver(String sdp) {
-      firstTracker.deliver('/resenha/rooms/7', {
-        'type': 'signal',
-        'sender_id': 2,
-        'data': {'type': 'offer', 'sdp': sdp},
-      });
-    }
-
-    deliver('capture-off');
-    await pumpEventQueue();
-    expect(
-      diagnostics.rawRecords.where(
-        (record) => record.event == 'signaling.received.raw',
-      ),
-      isEmpty,
-    );
-
-    diagnostics.captureEnabled = true;
-    deliver('capture-on');
-    await pumpEventQueue();
-    final rawSignal = diagnostics.rawRecords.singleWhere(
-      (record) => record.event == 'signaling.received.raw',
-    );
-    final capturedSignals = rawSignal.data['signals']! as List<Object?>;
-    expect(
-      (capturedSignals.single! as Map<String, dynamic>)['sdp'],
-      'capture-on',
-    );
-  });
-
-  test('dispose during a failing connect tears media down only once', () async {
-    final connectGate = Completer<void>();
-    mediaFactory.nextConnectGate = connectGate;
-
-    final joining = controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: ResenhaRoom.fromJson(fixture('room')),
-    );
-    while (mediaFactory.sessions.isEmpty ||
-        mediaFactory.sessions.single.connectCount == 0) {
-      await Future<void>.delayed(Duration.zero);
-    }
-    final media = mediaFactory.sessions.single;
-
-    controller.dispose();
-    connectGate.completeError(StateError('connection closed by teardown'));
-    await joining;
-    await pumpEventQueue();
-
-    expect(media.disposeCount, 1);
-  });
-
-  test(
-    'dispose during a media setting skips roster and system synchronization',
-    () async {
-      await controller.ensureLoaded(firstSite);
-      await controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: controller.room(firstSite, 7)!,
-      );
-      final media = mediaFactory.sessions.single;
-      final muteGate = Completer<void>();
-      media.muteGate = muteGate;
-      systemCall.systemMuted = null;
-      final stateWritesBefore = transport.writes
-          .where((write) => write.path.endsWith('/state.json'))
-          .length;
-
-      final muting = controller.setMuted(true);
-      controller.dispose();
-      muteGate.complete();
-      await muting;
-      await pumpEventQueue();
-
-      expect(media.disposeCount, 1);
-      expect(systemCall.systemMuted, isNull);
-      expect(
-        transport.writes.where((write) => write.path.endsWith('/state.json')),
-        hasLength(stateWritesBefore),
-      );
-    },
-  );
-
-  test('switches rooms when the old room echoes the explicit leave', () async {
-    final secondJoinPayload = fixture('join_mesh');
-    final secondRoomJson = secondJoinPayload['room'] as Map<String, dynamic>;
-    secondRoomJson
-      ..['id'] = 8
-      ..['name'] = 'Breakroom'
-      ..['slug'] = 'breakroom';
-    transport.responses['POST /resenha/rooms/8/join.json'] = secondJoinPayload;
-
-    await controller.ensureLoaded(firstSite);
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-    final firstMedia = mediaFactory.sessions.single;
-
-    final switching = controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: ResenhaRoom.fromJson(secondRoomJson),
-    );
-    firstTracker.deliver('/resenha/rooms/7', {
-      'type': 'participants',
-      'participants': const <Object?>[],
+      expect(conversation.closeCalls, 1);
     });
-    await switching;
 
-    expect(controller.call?.room.id, 8);
-    expect(controller.call?.room.name, 'Breakroom');
-    expect(firstMedia.disposeCount, 1);
-    expect(systemCall.ends, 1);
-    expect(mediaFactory.sessions, hasLength(2));
-  });
+    test(
+      'invalidates a pre-credential open when directory refresh removes the room',
+      () async {
+        final gated = _NextGatedRequestHost();
+        requests = gated;
+        final responses = <String, Map<String, dynamic>>{
+          'GET /resenha/rooms.json': fixture('directory'),
+          'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
+        };
+        final mutableTransport = RecordingPluginTransport(responses: responses);
+        useTransport(mutableTransport);
+        await controller.ensureLoaded(firstSite);
+        gated.gateNextRead = true;
 
-  test(
-    'serializes another room switch while the first is connecting',
-    () async {
-      Map<String, dynamic> joinPayloadFor(int id, String name, String slug) {
-        final payload = fixture('join_mesh');
-        final room = payload['room'] as Map<String, dynamic>;
-        room
-          ..['id'] = id
-          ..['name'] = name
-          ..['slug'] = slug;
-        return payload;
-      }
+        final opening = controller.openChat(firstSite, 7);
+        await gated.readStarted.future;
+        mutableTransport.responses['GET /resenha/rooms.json'] = {
+          ...fixture('directory'),
+          'rooms': <Object>[],
+        };
+        await controller.ensureLoaded(firstSite, force: true);
+        gated.readGate.complete();
+        await opening;
 
-      final breakroom = joinPayloadFor(8, 'Breakroom', 'breakroom');
-      final kitchen = joinPayloadFor(9, 'Kitchen', 'kitchen');
-      transport.responses
-        ..['POST /resenha/rooms/8/join.json'] = breakroom
-        ..['DELETE /resenha/rooms/8/leave.json'] = <String, dynamic>{}
-        ..['POST /resenha/rooms/9/join.json'] = kitchen;
-
-      await controller.ensureLoaded(firstSite);
-      await controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: controller.room(firstSite, 7)!,
-      );
-
-      final connectGate = Completer<void>();
-      mediaFactory.nextConnectGate = connectGate;
-      final firstSwitch = controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: ResenhaRoom.fromJson(breakroom['room'] as Map<String, dynamic>),
-      );
-      while (mediaFactory.sessions.length < 2) {
-        await Future<void>.delayed(Duration.zero);
-      }
-
-      final secondSwitch = controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: ResenhaRoom.fromJson(kitchen['room'] as Map<String, dynamic>),
-      );
-      final duplicateSecondSwitch = controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: ResenhaRoom.fromJson(kitchen['room'] as Map<String, dynamic>),
-      );
-      await Future<void>.delayed(Duration.zero);
-
-      expect(duplicateSecondSwitch, same(secondSwitch));
-      expect(mediaFactory.sessions, hasLength(2));
-      connectGate.complete();
-      await Future.wait([firstSwitch, secondSwitch]);
-
-      expect(controller.call?.room.id, 9);
-      expect(controller.call?.room.name, 'Kitchen');
-      expect(mediaFactory.sessions, hasLength(3));
-      expect(mediaFactory.sessions[0].disposeCount, 1);
-      expect(mediaFactory.sessions[1].disposeCount, 1);
-      expect(mediaFactory.sessions[2].disposeCount, 0);
-    },
-  );
-
-  test(
-    'heartbeats, synchronizes call controls, and responds to CallKit',
-    () async {
-      await controller.ensureLoaded(firstSite);
-      await controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: controller.room(firstSite, 7)!,
-      );
-      await controller.setMuted(true);
-      await controller.setDeafened(true);
-      await Future<void>.delayed(const Duration(milliseconds: 35));
-
-      expect(controller.call?.muted, isTrue);
-      expect(controller.call?.deafened, isTrue);
-      expect(mediaFactory.sessions.single.muted, isTrue);
-      expect(systemCall.systemMuted, isTrue);
-      expect(
-        transport.writes.where(
-          (write) => write.path.endsWith('/heartbeat.json'),
-        ),
-        isNotEmpty,
-      );
-
-      systemCall.send(ResenhaSystemCallAction.unmute);
-      await Future<void>.delayed(Duration.zero);
-      expect(controller.call?.muted, isFalse);
-
-      systemCall.send(ResenhaSystemCallAction.end);
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
-      expect(controller.call, isNull);
-    },
-  );
-
-  test('a slow heartbeat has only one request in flight', () async {
-    final joinPayload = fixture('join_mesh');
-    (joinPayload['room'] as Map<String, dynamic>)['room_type'] = 'stage';
-    final controlled = _ControlledResenhaTransport(
-      responses: {
-        'GET /resenha/rooms.json': fixture('directory'),
-        'POST /resenha/rooms/7/join.json': joinPayload,
-        'POST /resenha/rooms/7/heartbeat.json': <String, dynamic>{},
-        'DELETE /resenha/rooms/7/leave.json': <String, dynamic>{},
-        'POST /resenha/rooms/7/state.json': <String, dynamic>{},
-        'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
+        expect(controller.chat(firstSite, 7), isNull);
+        expect(chatConversations.opened, isEmpty);
       },
-    )..heldPluginWritePaths.add('/resenha/rooms/7/heartbeat.json');
-    useTransport(controlled);
-
-    Future<void> waitForHeartbeatCount(int count) async {
-      for (var attempt = 0; attempt < 40; attempt++) {
-        if (controlled.pendingPluginWrites.length >= count) return;
-        await Future<void>.delayed(const Duration(milliseconds: 5));
-      }
-    }
-
-    await controller.ensureLoaded(firstSite);
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-    expect(controller.call?.status, ResenhaCallStatus.connected);
-    controller.setForeground(false);
-    await waitForHeartbeatCount(1);
-    expect(controlled.pendingPluginWrites, hasLength(1));
-
-    controller.setForeground(true);
-    controller.setForeground(false);
-    await Future<void>.delayed(const Duration(milliseconds: 30));
-    expect(controlled.pendingPluginWrites, hasLength(1));
-
-    controlled.pendingPluginWrites[0].response.complete({});
-    await waitForHeartbeatCount(2);
-    expect(controlled.pendingPluginWrites, hasLength(2));
-    await Future<void>.delayed(const Duration(milliseconds: 30));
-    expect(controlled.pendingPluginWrites, hasLength(2));
-
-    controlled.pendingPluginWrites[1].response.complete({});
-    await controller.leave();
-  });
-
-  test('heartbeats resume after a media reconnection', () async {
-    await controller.ensureLoaded(firstSite);
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-    final media = mediaFactory.sessions.single;
-
-    media.connectionState = ResenhaMediaConnectionState.reconnecting;
-    media.notifyListeners();
-    expect(controller.call?.status, ResenhaCallStatus.reconnecting);
-    // Long enough for any scheduled heartbeat to fire while the call is away
-    // from connected, which is the moment the chain historically died.
-    await Future<void>.delayed(const Duration(milliseconds: 60));
-    final heartbeatsBefore = transport.writes
-        .where((write) => write.path.endsWith('/heartbeat.json'))
-        .length;
-
-    media.connectionState = ResenhaMediaConnectionState.connected;
-    media.notifyListeners();
-    expect(controller.call?.status, ResenhaCallStatus.connected);
-    await Future<void>.delayed(const Duration(milliseconds: 60));
-
-    expect(
-      transport.writes
-          .where((write) => write.path.endsWith('/heartbeat.json'))
-          .length,
-      greaterThan(heartbeatsBefore),
     );
   });
 
-  test(
-    'keeps a local media setting when roster state is rate limited',
-    () async {
+  group('call orchestration', () {
+    test('enforces one global call while switching sites', () async {
       await controller.ensureLoaded(firstSite);
+      await controller.ensureLoaded(secondSite);
       await controller.join(
         siteUrl: firstSite,
         siteName: 'One',
         room: controller.room(firstSite, 7)!,
       );
-      final stateWritesBefore = transport.writes
-          .where((write) => write.path.endsWith('/state.json'))
-          .length;
-      transport.failures['POST /resenha/rooms/7/state.json'] =
+      final firstMedia = mediaFactory.sessions.single;
+
+      await controller.join(
+        siteUrl: secondSite,
+        siteName: 'Two',
+        room: controller.room(secondSite, 7)!,
+      );
+
+      expect(controller.call?.siteUrl, secondSite);
+      expect(firstMedia.disposeCount, 1);
+      expect(mediaFactory.sessions, hasLength(2));
+      expect(systemCall.starts, 2);
+      expect(systemCall.ends, 1);
+      expect(
+        transport.writes
+            .where((write) => write.path.endsWith('/leave.json'))
+            .single
+            .siteUrl,
+        firstSite,
+      );
+    });
+
+    test('retries one rate-limited join after its delay', () async {
+      transport.failures['POST /resenha/rooms/7/join.json'] =
           const WriteException(
             WriteFailure.rateLimited,
             statusCode: 429,
             retryAfter: Duration.zero,
           );
 
-      await controller.setCameraEnabled(true);
-
-      expect(controller.call?.cameraEnabled, isTrue);
-      expect(controller.call?.error, isNull);
-      expect(mediaFactory.sessions.single.camera, isTrue);
-      await Future<void>.delayed(const Duration(milliseconds: 200));
-      expect(
-        transport.writes.where((write) => write.path.endsWith('/state.json')),
-        hasLength(stateWritesBefore + 2),
-      );
-    },
-  );
-
-  test(
-    'a failed media toggle keeps roster updates that landed while in flight',
-    () async {
       await controller.ensureLoaded(firstSite);
       await controller.join(
         siteUrl: firstSite,
         siteName: 'One',
         room: controller.room(firstSite, 7)!,
       );
-      final media = mediaFactory.sessions.single;
-      expect(controller.call?.muted, isTrue);
-      final muteGate = Completer<void>();
-      media.muteGate = muteGate;
-      media.muteFailure = StateError('mute rejected');
 
-      final unmuting = controller.setMuted(false);
-      firstTracker.deliver('/resenha/rooms/7', {
-        'type': 'participants',
-        'participants': [
-          {'id': 1, 'username': 'sam', 'role': 'moderator'},
-          {'id': 2, 'username': 'lee', 'role': 'participant'},
-        ],
-      });
-      await Future<void>.delayed(Duration.zero);
-      muteGate.complete();
-      await unmuting;
-
-      expect(controller.call?.muted, isTrue);
-      expect(controller.call?.error, 'The media setting was not applied.');
+      expect(controller.call?.room.id, 7);
+      expect(controller.call?.status, ResenhaCallStatus.connected);
       expect(
-        controller.call?.room.participants.map(
-          (participant) => participant.username,
+        transport.writes.where((write) => write.path.endsWith('/join.json')),
+        hasLength(2),
+      );
+      expect(controller.errorFor(firstSite), isNull);
+    });
+
+    test('propagates one correlation ID into media and join HTTP', () async {
+      final controlled = privilegedTransport();
+      useTransport(controlled);
+
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: ResenhaRoom.fromJson(fixture('room')),
+      );
+
+      final correlationId = mediaFactory.correlationIds.single;
+      final joinContext = controlled.diagnosticContexts.singleWhere(
+        (context) => context.path.endsWith('/join.json'),
+      );
+      expect(correlationId, startsWith('resenha-call-'));
+      expect(joinContext.operation, 'resenha.join');
+      expect(joinContext.correlationId, correlationId);
+      expect(mediaFactory.diagnosticsRecorders.single, same(diagnostics));
+    });
+
+    test('records an ordered correlated join-and-leave lifecycle', () async {
+      diagnostics.captureEnabled = true;
+      await controller.ensureLoaded(firstSite);
+
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      final correlationId = mediaFactory.correlationIds.single;
+      await controller.leave();
+
+      final events = diagnostics.records
+          .where((record) => record.correlationId == correlationId)
+          .map((record) => record.event)
+          .toList();
+      int index(String event) => events.indexOf(event);
+      expect(
+        index('call.join.requested'),
+        lessThan(index('call.join.started')),
+      );
+      expect(
+        index('call.join.started'),
+        lessThan(index('call.join.completed')),
+      );
+      expect(
+        index('call.join.completed'),
+        lessThan(index('call.leave.started')),
+      );
+      expect(
+        index('call.leave.started'),
+        lessThan(index('call.leave.completed')),
+      );
+      final leave = diagnostics.records.singleWhere(
+        (record) =>
+            record.correlationId == correlationId &&
+            record.event == 'call.leave.started',
+      );
+      expect(leave.data['reason'], 'user');
+      final roster = diagnostics.rawRecords.singleWhere(
+        (record) =>
+            record.correlationId == correlationId &&
+            record.event == 'call.join.initial_roster',
+      );
+      final participants = roster.data['participants']! as List<Object?>;
+      expect(
+        (participants.first! as Map<String, Object?>)['username'],
+        isNotEmpty,
+      );
+    });
+
+    test('captures raw signaling only while deep capture is enabled', () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+
+      void deliver(String sdp) {
+        firstTracker.deliver('/resenha/rooms/7', {
+          'type': 'signal',
+          'sender_id': 2,
+          'data': {'type': 'offer', 'sdp': sdp},
+        });
+      }
+
+      deliver('capture-off');
+      await pumpEventQueue();
+      expect(
+        diagnostics.rawRecords.where(
+          (record) => record.event == 'signaling.received.raw',
         ),
-        containsAll(['sam', 'lee']),
-      );
-    },
-  );
-
-  test('an externally ended screen share updates roster state', () async {
-    await controller.ensureLoaded(firstSite);
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-    final media = mediaFactory.sessions.single;
-
-    await controller.setScreenSharing(true);
-    expect(controller.call?.screenSharing, isTrue);
-
-    media.screen = false;
-    media.notifyListeners();
-    await Future<void>.delayed(Duration.zero);
-
-    expect(controller.call?.screenSharing, isFalse);
-    final stateWrites = transport.writes
-        .where((write) => write.path.endsWith('/state.json'))
-        .toList();
-    expect(stateWrites.last.body['screen'], isFalse);
-  });
-
-  test(
-    'a roster removal from another client tears the local call down',
-    () async {
-      await controller.ensureLoaded(firstSite);
-      await controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: controller.room(firstSite, 7)!,
-      );
-      final media = mediaFactory.sessions.single;
-
-      firstTracker.deliver('/resenha/rooms/7', {
-        'type': 'participants',
-        'participants': const <Object?>[],
-      });
-      await Future<void>.delayed(Duration.zero);
-
-      expect(controller.call, isNull);
-      expect(media.disposeCount, 1);
-      expect(systemCall.ends, 1);
-      expect(
-        diagnostics.records
-            .singleWhere((record) => record.event == 'call.leave.started')
-            .data['reason'],
-        'rosterRemoval',
-      );
-      expect(
-        transport.writes.where((write) => write.path.endsWith('/leave.json')),
         isEmpty,
       );
-    },
-  );
 
-  test('a stale roster without the local user does not abort a join', () async {
-    await controller.ensureLoaded(firstSite);
-    final connectGate = Completer<void>();
-    mediaFactory.nextConnectGate = connectGate;
-
-    final joining = controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-    while (mediaFactory.sessions.isEmpty ||
-        mediaFactory.sessions.single.connectCount == 0) {
-      await Future<void>.delayed(Duration.zero);
-    }
-    expect(controller.call?.status, ResenhaCallStatus.joining);
-
-    firstTracker.deliver('/resenha/rooms/7', {
-      'type': 'participants',
-      'participants': const <Object?>[],
+      diagnostics.captureEnabled = true;
+      deliver('capture-on');
+      await pumpEventQueue();
+      final rawSignal = diagnostics.rawRecords.singleWhere(
+        (record) => record.event == 'signaling.received.raw',
+      );
+      final capturedSignals = rawSignal.data['signals']! as List<Object?>;
+      expect(
+        (capturedSignals.single! as Map<String, dynamic>)['sdp'],
+        'capture-on',
+      );
     });
-    await Future<void>.delayed(Duration.zero);
-    connectGate.complete();
-    await joining;
 
-    expect(controller.call?.status, ResenhaCallStatus.connected);
-    expect(mediaFactory.sessions.single.disposeCount, 0);
-    expect(
-      diagnostics.records.where(
-        (record) => record.event == 'call.leave.started',
-      ),
-      isEmpty,
+    test(
+      'disposes media once when the controller is disposed during a failed connect',
+      () async {
+        final connectGate = Completer<void>();
+        final connectStarted = Completer<void>();
+        mediaFactory.nextConnectGate = connectGate;
+        mediaFactory.nextConnectStarted = connectStarted;
+
+        final joining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: ResenhaRoom.fromJson(fixture('room')),
+        );
+        await connectStarted.future;
+        final media = mediaFactory.sessions.single;
+
+        controller.dispose();
+        connectGate.completeError(StateError('connection closed by teardown'));
+        await joining;
+        await pumpEventQueue();
+
+        expect(media.disposeCount, 1);
+      },
+    );
+
+    test(
+      'skips roster and system synchronization after disposal interrupts a media setting',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        final muteGate = Completer<void>();
+        media.muteGate = muteGate;
+        systemCall.systemMuted = null;
+        final stateWritesBefore = transport.writes
+            .where((write) => write.path.endsWith('/state.json'))
+            .length;
+
+        final muting = controller.setMuted(true);
+        controller.dispose();
+        muteGate.complete();
+        await muting;
+        await pumpEventQueue();
+
+        expect(media.disposeCount, 1);
+        expect(systemCall.systemMuted, isNull);
+        expect(
+          transport.writes.where((write) => write.path.endsWith('/state.json')),
+          hasLength(stateWritesBefore),
+        );
+      },
+    );
+
+    test(
+      'switches rooms even when the old room echoes the explicit leave',
+      () async {
+        final secondJoinPayload = fixture('join_mesh');
+        final secondRoomJson =
+            secondJoinPayload['room'] as Map<String, dynamic>;
+        secondRoomJson
+          ..['id'] = 8
+          ..['name'] = 'Breakroom'
+          ..['slug'] = 'breakroom';
+        transport.responses['POST /resenha/rooms/8/join.json'] =
+            secondJoinPayload;
+
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final firstMedia = mediaFactory.sessions.single;
+
+        final switching = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: ResenhaRoom.fromJson(secondRoomJson),
+        );
+        firstTracker.deliver('/resenha/rooms/7', {
+          'type': 'participants',
+          'participants': const <Object?>[],
+        });
+        await switching;
+
+        expect(controller.call?.room.id, 8);
+        expect(controller.call?.room.name, 'Breakroom');
+        expect(firstMedia.disposeCount, 1);
+        expect(systemCall.ends, 1);
+        expect(mediaFactory.sessions, hasLength(2));
+      },
+    );
+
+    test(
+      'serializes a second room switch while the first is connecting',
+      () async {
+        Map<String, dynamic> joinPayloadFor(int id, String name, String slug) {
+          final payload = fixture('join_mesh');
+          final room = payload['room'] as Map<String, dynamic>;
+          room
+            ..['id'] = id
+            ..['name'] = name
+            ..['slug'] = slug;
+          return payload;
+        }
+
+        final breakroom = joinPayloadFor(8, 'Breakroom', 'breakroom');
+        final kitchen = joinPayloadFor(9, 'Kitchen', 'kitchen');
+        transport.responses
+          ..['POST /resenha/rooms/8/join.json'] = breakroom
+          ..['DELETE /resenha/rooms/8/leave.json'] = <String, dynamic>{}
+          ..['POST /resenha/rooms/9/join.json'] = kitchen;
+
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+
+        final connectGate = Completer<void>();
+        final connectStarted = Completer<void>();
+        mediaFactory.nextConnectGate = connectGate;
+        mediaFactory.nextConnectStarted = connectStarted;
+        final firstSwitch = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: ResenhaRoom.fromJson(breakroom['room'] as Map<String, dynamic>),
+        );
+        await connectStarted.future;
+
+        final secondSwitch = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: ResenhaRoom.fromJson(kitchen['room'] as Map<String, dynamic>),
+        );
+        final duplicateSecondSwitch = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: ResenhaRoom.fromJson(kitchen['room'] as Map<String, dynamic>),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(duplicateSecondSwitch, same(secondSwitch));
+        expect(mediaFactory.sessions, hasLength(2));
+        connectGate.complete();
+        await Future.wait([firstSwitch, secondSwitch]);
+
+        expect(controller.call?.room.id, 9);
+        expect(controller.call?.room.name, 'Kitchen');
+        expect(mediaFactory.sessions, hasLength(3));
+        expect(mediaFactory.sessions[0].disposeCount, 1);
+        expect(mediaFactory.sessions[1].disposeCount, 1);
+        expect(mediaFactory.sessions[2].disposeCount, 0);
+      },
     );
   });
 
-  test(
-    'session close awaits leave, media, subscriptions, CallKit, and diagnostics',
-    () async {
+  group('active call synchronization', () {
+    test(
+      'sends heartbeats, synchronizes controls, and responds to CallKit',
+      () async {
+        final heartbeatSent = Completer<void>();
+        transport.responders['POST /resenha/rooms/7/heartbeat.json'] = (_) {
+          if (!heartbeatSent.isCompleted) heartbeatSent.complete();
+          return <String, dynamic>{};
+        };
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        await controller.setMuted(true);
+        await controller.setDeafened(true);
+        controller.setForeground(false);
+        await heartbeatSent.future.timeout(const Duration(seconds: 1));
+
+        expect(controller.call?.muted, isTrue);
+        expect(controller.call?.deafened, isTrue);
+        expect(mediaFactory.sessions.single.muted, isTrue);
+        expect(systemCall.systemMuted, isTrue);
+        expect(
+          transport.writes.where(
+            (write) => write.path.endsWith('/heartbeat.json'),
+          ),
+          isNotEmpty,
+        );
+
+        systemCall.send(ResenhaSystemCallAction.unmute);
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.call?.muted, isFalse);
+
+        systemCall.send(ResenhaSystemCallAction.end);
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.call, isNull);
+      },
+    );
+
+    test('keeps at most one slow heartbeat in flight', () async {
       final joinPayload = fixture('join_mesh');
       (joinPayload['room'] as Map<String, dynamic>)['room_type'] = 'stage';
       final controlled = _ControlledResenhaTransport(
@@ -2849,9 +2724,7 @@ void main() {
           'POST /resenha/rooms/7/state.json': <String, dynamic>{},
           'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
         },
-      )..heldPluginWritePaths.add('/resenha/rooms/7/leave.json');
-      final awaitableTracker = _AwaitableSubscriptionTracker();
-      firstTracker = awaitableTracker;
+      )..heldPluginWritePaths.add('/resenha/rooms/7/heartbeat.json');
       useTransport(controlled);
 
       await controller.ensureLoaded(firstSite);
@@ -2860,189 +2733,463 @@ void main() {
         siteName: 'One',
         room: controller.room(firstSite, 7)!,
       );
-      final media = mediaFactory.sessions.single;
-      final mediaDisposeStarted = Completer<void>();
-      final mediaDisposeGate = Completer<void>();
-      media
-        ..disposeStarted = mediaDisposeStarted
-        ..disposeGate = mediaDisposeGate;
-      final endStarted = Completer<void>();
-      final endGate = Completer<void>();
-      final callKitDisposeStarted = Completer<void>();
-      final callKitDisposeGate = Completer<void>();
-      systemCall
-        ..endStarted = endStarted
-        ..endGate = endGate
-        ..disposeStarted = callKitDisposeStarted
-        ..disposeGate = callKitDisposeGate;
-      final diagnosticsFlushStarted = Completer<void>();
-      final diagnosticsFlushGate = Completer<void>();
-      diagnostics
-        ..flushCount = 0
-        ..flushStarted = diagnosticsFlushStarted
-        ..flushGate = diagnosticsFlushGate;
+      expect(controller.call?.status, ResenhaCallStatus.connected);
+      controller.setForeground(false);
+      await controlled.waitForPendingPluginWrites(1);
+      expect(controlled.pendingPluginWrites, hasLength(1));
 
-      var completed = false;
-      final closing = controller.close();
-      unawaited(closing.then((_) => completed = true));
-      expect(controller.close(), same(closing));
-      await awaitableTracker.firstCancellationStarted.future;
-      expect(awaitableTracker.channels, isEmpty);
-      expect(completed, isFalse);
-
-      while (controlled.pendingPluginWrites.isEmpty) {
-        await Future<void>.delayed(Duration.zero);
-      }
-      expect(media.disposeCount, 0);
-      controlled.pendingPluginWrites.single.response.complete({});
-      await mediaDisposeStarted.future;
-      expect(completed, isFalse);
-
-      mediaDisposeGate.complete();
-      await endStarted.future;
-      expect(systemCall.ends, 1);
-      expect(completed, isFalse);
-
-      endGate.complete();
+      controller.setForeground(true);
+      controller.setForeground(false);
       await Future<void>.delayed(Duration.zero);
-      expect(callKitDisposeStarted.isCompleted, isFalse);
-      expect(completed, isFalse);
-
-      awaitableTracker.cancellationGate.complete();
-      await callKitDisposeStarted.future;
-      expect(completed, isFalse);
-
-      callKitDisposeGate.complete();
-      await diagnosticsFlushStarted.future;
-      expect(completed, isFalse);
-
-      diagnosticsFlushGate.complete();
-      await closing;
-
-      expect(completed, isTrue);
-      expect(media.disposeCount, 1);
-      expect(systemCall.disposeCount, 1);
-      expect(diagnostics.flushCount, 1);
       expect(
-        diagnostics.records
-            .singleWhere((record) => record.event == 'call.leave.started')
-            .data['reason'],
-        'sessionClose',
+        controlled.pendingPluginWrites.where(
+          (write) => !write.response.isCompleted,
+        ),
+        hasLength(1),
       );
-    },
-  );
 
-  test('session close reaches every teardown after native failures', () async {
-    await controller.ensureLoaded(firstSite);
-    await controller.join(
-      siteUrl: firstSite,
-      siteName: 'One',
-      room: controller.room(firstSite, 7)!,
-    );
-    final media = mediaFactory.sessions.single
-      ..disposeFailure = StateError('media disposal rejected');
-    systemCall
-      ..endFailure = StateError('system end rejected')
-      ..disposeFailure = StateError('CallKit disposal rejected');
-    diagnostics.flushFailure = StateError('diagnostics flush rejected');
-
-    await controller.close().timeout(const Duration(seconds: 1));
-
-    expect(controller.call, isNull);
-    expect(media.disposeCount, 1);
-    expect(systemCall.ends, 1);
-    expect(systemCall.disposeCount, 1);
-    expect(diagnostics.flushCount, 1);
-    expect(
-      diagnostics.records.where(
-        (record) => record.event == 'session.close.completed',
-      ),
-      hasLength(1),
-    );
-  });
-
-  test(
-    'leave remains terminal and idempotent when native teardown fails',
-    () async {
-      final diagnostics = await DiagnosticsController.create(
-        persistence: MemoryDiagnosticsPersistence(),
-        sessionId: 'resenha-leave',
+      controlled.pendingPluginWrites[0].response.complete({});
+      await controlled.waitForPendingPluginWrites(2);
+      expect(controlled.pendingPluginWrites, hasLength(2));
+      expect(
+        controlled.pendingPluginWrites.where(
+          (write) => !write.response.isCompleted,
+        ),
+        hasLength(1),
       );
-      final binding = DiagnosticsSink.install(diagnostics);
-      addTearDown(() async {
-        binding.close();
-        await diagnostics.close();
-      });
-      await pumpEventQueue();
+
+      controlled.pendingPluginWrites[1].response.complete({});
+      await controller.leave();
+    });
+
+    test('resumes heartbeats after media reconnects', () async {
+      useTransport(
+        transport,
+        heartbeatInterval: const Duration(milliseconds: 15),
+      );
+      final heartbeatAfterReconnect = Completer<void>();
+      var reconnected = false;
+      transport.responders['POST /resenha/rooms/7/heartbeat.json'] = (_) {
+        if (reconnected && !heartbeatAfterReconnect.isCompleted) {
+          heartbeatAfterReconnect.complete();
+        }
+        return <String, dynamic>{};
+      };
       await controller.ensureLoaded(firstSite);
       await controller.join(
         siteUrl: firstSite,
         siteName: 'One',
         room: controller.room(firstSite, 7)!,
       );
-      final media = mediaFactory.sessions.single
-        ..disposeFailure = StateError('media disposal rejected');
-      systemCall.endFailure = StateError('system end rejected');
+      final media = mediaFactory.sessions.single;
 
-      final firstLeave = controller.leave();
-      final duplicateLeave = controller.leave();
+      media.connectionState = ResenhaMediaConnectionState.reconnecting;
+      media.notifyListeners();
+      expect(controller.call?.status, ResenhaCallStatus.reconnecting);
+      // Exercise the same away-from-connected heartbeat path without waiting for
+      // its wall-clock timer.
+      controller.setForeground(false);
+      await Future<void>.delayed(Duration.zero);
+      final heartbeatsBefore = transport.writes
+          .where((write) => write.path.endsWith('/heartbeat.json'))
+          .length;
 
-      expect(duplicateLeave, same(firstLeave));
-      await Future.wait([firstLeave, duplicateLeave]);
-      expect(controller.call, isNull);
-      expect(media.disposeCount, 1);
-      expect(systemCall.ends, 1);
+      reconnected = true;
+      media.connectionState = ResenhaMediaConnectionState.connected;
+      media.notifyListeners();
+      expect(controller.call?.status, ResenhaCallStatus.connected);
+      await heartbeatAfterReconnect.future.timeout(const Duration(seconds: 1));
 
-      await controller.leave();
-      expect(media.disposeCount, 1);
-      expect(systemCall.ends, 1);
       expect(
-        diagnostics.events.whereType<ErrorDiagnosticEvent>().map(
-          (event) => event.operation,
-        ),
-        containsAll({'resenha.media.dispose', 'resenha.systemCall.end'}),
+        transport.writes
+            .where((write) => write.path.endsWith('/heartbeat.json'))
+            .length,
+        greaterThan(heartbeatsBefore),
       );
-    },
-  );
+    });
 
-  test(
-    'kicks, room destruction, and account removal tear media down',
-    () async {
-      Future<void> join() async {
-        await controller.ensureLoaded(firstSite, force: true);
+    test(
+      'keeps a local media setting while roster-state persistence is rate limited',
+      () async {
+        await controller.ensureLoaded(firstSite);
         await controller.join(
           siteUrl: firstSite,
           siteName: 'One',
           room: controller.room(firstSite, 7)!,
         );
-      }
+        final stateWritesBefore = transport.writes
+            .where((write) => write.path.endsWith('/state.json'))
+            .length;
+        transport.failures['POST /resenha/rooms/7/state.json'] =
+            const WriteException(
+              WriteFailure.rateLimited,
+              statusCode: 429,
+              retryAfter: Duration.zero,
+            );
+        final retried = Completer<void>();
+        transport.responders['POST /resenha/rooms/7/state.json'] = (_) {
+          if (!retried.isCompleted) retried.complete();
+          return <String, dynamic>{};
+        };
 
-      await join();
-      firstTracker.deliver('/resenha/rooms/7', {
-        'type': 'kicked',
-        'room_id': 7,
-      });
-      await Future<void>.delayed(Duration.zero);
-      expect(controller.call, isNull);
-      expect(
-        transport.writes.where((write) => write.path.endsWith('/leave.json')),
-        isEmpty,
-      );
+        await controller.setCameraEnabled(true);
 
-      await join();
-      firstTracker.deliver('/resenha/rooms/index', {
-        'type': 'destroyed',
-        'room': (fixture('directory')['rooms'] as List<dynamic>).first,
-      });
-      await Future<void>.delayed(Duration.zero);
-      expect(controller.call, isNull);
+        expect(controller.call?.cameraEnabled, isTrue);
+        expect(controller.call?.error, isNull);
+        expect(mediaFactory.sessions.single.camera, isTrue);
+        await retried.future.timeout(const Duration(seconds: 1));
+        expect(
+          transport.writes.where((write) => write.path.endsWith('/state.json')),
+          hasLength(stateWritesBefore + 2),
+        );
+      },
+    );
 
-      await join();
-      controller.forget(firstSite);
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
-      expect(controller.call, isNull);
-      expect(controller.directory(firstSite), isNull);
-    },
-  );
+    test(
+      'preserves in-flight roster updates when a media toggle fails',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        expect(controller.call?.muted, isTrue);
+        final muteGate = Completer<void>();
+        media.muteGate = muteGate;
+        media.muteFailure = StateError('mute rejected');
+
+        final unmuting = controller.setMuted(false);
+        firstTracker.deliver('/resenha/rooms/7', {
+          'type': 'participants',
+          'participants': [
+            {'id': 1, 'username': 'sam', 'role': 'moderator'},
+            {'id': 2, 'username': 'lee', 'role': 'participant'},
+          ],
+        });
+        await Future<void>.delayed(Duration.zero);
+        muteGate.complete();
+        await unmuting;
+
+        expect(controller.call?.muted, isTrue);
+        expect(controller.call?.error, 'The media setting was not applied.');
+        expect(
+          controller.call?.room.participants.map(
+            (participant) => participant.username,
+          ),
+          containsAll(['sam', 'lee']),
+        );
+      },
+    );
+
+    test(
+      'publishes roster state when screen sharing ends externally',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+
+        await controller.setScreenSharing(true);
+        expect(controller.call?.screenSharing, isTrue);
+
+        media.screen = false;
+        media.notifyListeners();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(controller.call?.screenSharing, isFalse);
+        final stateWrites = transport.writes
+            .where((write) => write.path.endsWith('/state.json'))
+            .toList();
+        expect(stateWrites.last.body['screen'], isFalse);
+      },
+    );
+  });
+
+  group('call teardown', () {
+    test(
+      'ends the local call when another client removes it from the roster',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+
+        firstTracker.deliver('/resenha/rooms/7', {
+          'type': 'participants',
+          'participants': const <Object?>[],
+        });
+        await Future<void>.delayed(Duration.zero);
+
+        expect(controller.call, isNull);
+        expect(media.disposeCount, 1);
+        expect(systemCall.ends, 1);
+        expect(
+          diagnostics.records
+              .singleWhere((record) => record.event == 'call.leave.started')
+              .data['reason'],
+          'rosterRemoval',
+        );
+        expect(
+          transport.writes.where((write) => write.path.endsWith('/leave.json')),
+          isEmpty,
+        );
+      },
+    );
+
+    test(
+      'does not abort an in-progress join for a stale roster without the local user',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        final connectGate = Completer<void>();
+        final connectStarted = Completer<void>();
+        mediaFactory.nextConnectGate = connectGate;
+        mediaFactory.nextConnectStarted = connectStarted;
+
+        final joining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        await connectStarted.future;
+        expect(controller.call?.status, ResenhaCallStatus.joining);
+
+        firstTracker.deliver('/resenha/rooms/7', {
+          'type': 'participants',
+          'participants': const <Object?>[],
+        });
+        await Future<void>.delayed(Duration.zero);
+        connectGate.complete();
+        await joining;
+
+        expect(controller.call?.status, ResenhaCallStatus.connected);
+        expect(mediaFactory.sessions.single.disposeCount, 0);
+        expect(
+          diagnostics.records.where(
+            (record) => record.event == 'call.leave.started',
+          ),
+          isEmpty,
+        );
+      },
+    );
+
+    test(
+      'awaits leave, media, subscriptions, CallKit, and diagnostics during session close',
+      () async {
+        final joinPayload = fixture('join_mesh');
+        (joinPayload['room'] as Map<String, dynamic>)['room_type'] = 'stage';
+        final controlled = _ControlledResenhaTransport(
+          responses: {
+            'GET /resenha/rooms.json': fixture('directory'),
+            'POST /resenha/rooms/7/join.json': joinPayload,
+            'POST /resenha/rooms/7/heartbeat.json': <String, dynamic>{},
+            'DELETE /resenha/rooms/7/leave.json': <String, dynamic>{},
+            'POST /resenha/rooms/7/state.json': <String, dynamic>{},
+            'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
+          },
+        )..heldPluginWritePaths.add('/resenha/rooms/7/leave.json');
+        final awaitableTracker = _AwaitableSubscriptionTracker();
+        firstTracker = awaitableTracker;
+        useTransport(controlled);
+
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        final mediaDisposeStarted = Completer<void>();
+        final mediaDisposeGate = Completer<void>();
+        media
+          ..disposeStarted = mediaDisposeStarted
+          ..disposeGate = mediaDisposeGate;
+        final endStarted = Completer<void>();
+        final endGate = Completer<void>();
+        final callKitDisposeStarted = Completer<void>();
+        final callKitDisposeGate = Completer<void>();
+        systemCall
+          ..endStarted = endStarted
+          ..endGate = endGate
+          ..disposeStarted = callKitDisposeStarted
+          ..disposeGate = callKitDisposeGate;
+        final diagnosticsFlushStarted = Completer<void>();
+        final diagnosticsFlushGate = Completer<void>();
+        diagnostics
+          ..flushCount = 0
+          ..flushStarted = diagnosticsFlushStarted
+          ..flushGate = diagnosticsFlushGate;
+
+        var completed = false;
+        final closing = controller.close();
+        unawaited(closing.then((_) => completed = true));
+        expect(controller.close(), same(closing));
+        await awaitableTracker.firstCancellationStarted.future;
+        expect(awaitableTracker.channels, isEmpty);
+        expect(completed, isFalse);
+
+        await controlled.waitForPendingPluginWrites(1);
+        expect(media.disposeCount, 0);
+        controlled.pendingPluginWrites.single.response.complete({});
+        await mediaDisposeStarted.future;
+        expect(completed, isFalse);
+
+        mediaDisposeGate.complete();
+        await endStarted.future;
+        expect(systemCall.ends, 1);
+        expect(completed, isFalse);
+
+        endGate.complete();
+        await Future<void>.delayed(Duration.zero);
+        expect(callKitDisposeStarted.isCompleted, isFalse);
+        expect(completed, isFalse);
+
+        awaitableTracker.cancellationGate.complete();
+        await callKitDisposeStarted.future;
+        expect(completed, isFalse);
+
+        callKitDisposeGate.complete();
+        await diagnosticsFlushStarted.future;
+        expect(completed, isFalse);
+
+        diagnosticsFlushGate.complete();
+        await closing;
+
+        expect(completed, isTrue);
+        expect(media.disposeCount, 1);
+        expect(systemCall.disposeCount, 1);
+        expect(diagnostics.flushCount, 1);
+        expect(
+          diagnostics.records
+              .singleWhere((record) => record.event == 'call.leave.started')
+              .data['reason'],
+          'sessionClose',
+        );
+      },
+    );
+
+    test(
+      'reaches every teardown step after native session-close failures',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single
+          ..disposeFailure = StateError('media disposal rejected');
+        systemCall
+          ..endFailure = StateError('system end rejected')
+          ..disposeFailure = StateError('CallKit disposal rejected');
+        diagnostics.flushFailure = StateError('diagnostics flush rejected');
+
+        await controller.close().timeout(const Duration(seconds: 1));
+
+        expect(controller.call, isNull);
+        expect(media.disposeCount, 1);
+        expect(systemCall.ends, 1);
+        expect(systemCall.disposeCount, 1);
+        expect(diagnostics.flushCount, 1);
+        expect(
+          diagnostics.records.where(
+            (record) => record.event == 'session.close.completed',
+          ),
+          hasLength(1),
+        );
+      },
+    );
+
+    test(
+      'keeps leave terminal and idempotent when native teardown fails',
+      () async {
+        final diagnostics = await DiagnosticsController.create(
+          persistence: MemoryDiagnosticsPersistence(),
+          sessionId: 'resenha-leave',
+        );
+        final binding = DiagnosticsSink.install(diagnostics);
+        addTearDown(() async {
+          binding.close();
+          await diagnostics.close();
+        });
+        await pumpEventQueue();
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single
+          ..disposeFailure = StateError('media disposal rejected');
+        systemCall.endFailure = StateError('system end rejected');
+
+        final firstLeave = controller.leave();
+        final duplicateLeave = controller.leave();
+
+        expect(duplicateLeave, same(firstLeave));
+        await Future.wait([firstLeave, duplicateLeave]);
+        expect(controller.call, isNull);
+        expect(media.disposeCount, 1);
+        expect(systemCall.ends, 1);
+
+        await controller.leave();
+        expect(media.disposeCount, 1);
+        expect(systemCall.ends, 1);
+        expect(
+          diagnostics.events.whereType<ErrorDiagnosticEvent>().map(
+            (event) => event.operation,
+          ),
+          containsAll({'resenha.media.dispose', 'resenha.systemCall.end'}),
+        );
+      },
+    );
+
+    test(
+      'tears media down after kicks, room destruction, and account removal',
+      () async {
+        Future<void> join() async {
+          await controller.ensureLoaded(firstSite, force: true);
+          await controller.join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: controller.room(firstSite, 7)!,
+          );
+        }
+
+        await join();
+        firstTracker.deliver('/resenha/rooms/7', {
+          'type': 'kicked',
+          'room_id': 7,
+        });
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.call, isNull);
+        expect(
+          transport.writes.where((write) => write.path.endsWith('/leave.json')),
+          isEmpty,
+        );
+
+        await join();
+        firstTracker.deliver('/resenha/rooms/index', {
+          'type': 'destroyed',
+          'room': (fixture('directory')['rooms'] as List<dynamic>).first,
+        });
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.call, isNull);
+
+        await join();
+        controller.forget(firstSite);
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.call, isNull);
+        expect(controller.directory(firstSite), isNull);
+      },
+    );
+  });
 }

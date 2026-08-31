@@ -71,13 +71,14 @@ import 'bundled_plugins.dart';
 /// Keeps instances in memory instead of shared_preferences, which needs a
 /// platform channel.
 class FakeInstanceStore implements InstanceStore {
-  FakeInstanceStore([this._instances = const []]);
+  FakeInstanceStore([Iterable<DiscourseInstance> instances = const []])
+    : _instances = List.of(instances);
 
   List<DiscourseInstance> _instances;
   int saveCount = 0;
 
   @override
-  Future<List<DiscourseInstance>> load() async => _instances;
+  Future<List<DiscourseInstance>> load() async => List.of(_instances);
 
   @override
   Future<void> save(List<DiscourseInstance> instances) async {
@@ -97,7 +98,7 @@ class FakeForumTabStore implements ForumTabStore {
   List<ForumWorkspace> get workspaces => List.unmodifiable(_workspaces);
 
   @override
-  Future<List<ForumWorkspace>> load() async => List.unmodifiable(_workspaces);
+  Future<List<ForumWorkspace>> load() async => List.of(_workspaces);
 
   @override
   Future<void> save(Iterable<ForumWorkspace> workspaces) async {
@@ -467,6 +468,12 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
 
   @override
   Future<void> dispose() async {
+    polling = false;
+    _onTopicTrackingState = null;
+    unwatchTopic();
+    for (final callbacks in pluginChannelCallbacks.values) {
+      callbacks.clear();
+    }
     disposed = true;
   }
 }
@@ -502,8 +509,6 @@ class FakeDiscourseApi
     this.user,
     this.trackingState,
     this.doNotDisturbUntil,
-    this.doNotDisturbGate,
-    this.doNotDisturbFailure,
     this.totals,
     this.notificationList,
     this.replyNotificationList,
@@ -513,24 +518,20 @@ class FakeDiscourseApi
     this.userPreferences,
     this.userPreferencesGate,
     this.userPreferencesWriteGate,
-    this.userPreferencesFailure,
     this.feeds = const {},
     this.feedCategoriesByPath = const {},
     this.filterOptionsByPath = const {},
     this.creatableFeedPaths = const {},
     this.categoryList = const [],
     this.categoryPages = const {},
-    this.categoryLookupList = const [],
     this.categorySearches = const {},
     this.categoryLoadComplete = true,
-    this.categoryCanCreateTopic = false,
     this.categoryPostActionCatalog,
     this.categorySiteTopTags = const [],
     this.categoryAnonymousDefaultTags = const [],
     this.tagList = const [],
     this.composerCapabilities = const TopicComposerCapabilities(),
     this.topicTagSearches = const {},
-    this.serverDrafts = const {},
     this.userDraftList = const [],
     this.userDraftGate,
     this.summary,
@@ -544,9 +545,6 @@ class FakeDiscourseApi
     this.topics = const {},
     this.summaryTopics = const {},
     this.topicGate,
-    this.topicPinGate,
-    this.topicStatusGate,
-    this.topicDeletionGate,
     this.postsById = const {},
     this.postRecommendations = const {},
     this.postGate,
@@ -564,8 +562,6 @@ class FakeDiscourseApi
     this.flagResponses = const {},
     this.flagFailure,
     this.flagGate,
-    this.topicFlagFailure,
-    this.topicFlagGate,
     this.likersById = const {},
     this.likerGate,
     this.postRevisions = const {},
@@ -576,26 +572,14 @@ class FakeDiscourseApi
     this.gifCategoriesBySite = const {},
     this.gifSearchPages = const {},
     this.gifFailure,
-    this.gifGate,
     this.searchResults = const {},
-    this.searchGate,
-    this.searchFailure,
     this.customEmojisBySite = const {},
     this.customEmojiGate,
     this.userSearches = const {},
-    this.userSearchGate,
     this.filterTagSearches = const {},
-    this.filterTagGroupSearches = const {},
-    this.filterGroupSearches = const {},
-    this.filterSuggestionGate,
     this.hashtagSearches = const {},
-    this.hashtagSearchGate,
-    this.hashtagsByRef = const {},
-    this.hashtagLookupGate,
     this.realUsernames = const {},
-    this.mentionCheckGate,
     this.emojiCatalogsBySite = const {},
-    this.emojiSearchAliasesBySite = const {},
     this.emojisBySite = const {},
     this.reactorsById = const {},
     this.reactorGate,
@@ -640,7 +624,6 @@ class FakeDiscourseApi
     this.chatChannelThreadPagesByKey = const {},
     this.chatThreadsByKey = const {},
     this.createdChatThreadsByKey = const {},
-    this.chatThreadMembershipsByKey = const {},
     this.chatMessageGate,
     this.chatReadFailure,
     this.chatSendFailure,
@@ -650,8 +633,6 @@ class FakeDiscourseApi
     this.chatEditGate,
     this.chatMessageMutationFailure,
     this.chatMessageMutationGate,
-    this.chatMoveFailure,
-    this.chatMoveGate,
     this.chatMoveFirstMessageId = 1000,
     this.chatRebakeFailure,
     this.chatRebakeGate,
@@ -661,8 +642,6 @@ class FakeDiscourseApi
     this.chatPinFailure,
     this.chatPinGate,
     this.chatPinsByChannel = const {},
-    this.chatPinsGate,
-    this.chatPinsReadFailure,
     this.chatFlagFailure,
     this.chatFlagGate,
     this.composerUploadResult,
@@ -672,7 +651,6 @@ class FakeDiscourseApi
     this.chatReactorGate,
     this.customSidebarSectionsBySite = const {},
     this.pluginResponses = const {},
-    this.pluginListResponses = const {},
     Map<String, WriteException>? pluginWriteFailures,
   }) : models =
            models ??
@@ -689,7 +667,6 @@ class FakeDiscourseApi
   final Map<String, DiscourseInstance> results;
   final Map<String, List<SidebarSection>> customSidebarSectionsBySite;
   final Map<String, Map<String, dynamic>> pluginResponses;
-  final Map<String, List<Map<String, dynamic>>> pluginListResponses;
   final Map<String, WriteException> pluginWriteFailures;
   final List<
     ({String siteUrl, String method, String path, Map<String, Object?> body})
@@ -706,8 +683,6 @@ class FakeDiscourseApi
   final List<String> topicTrackingRequests = [];
 
   final DateTime? doNotDisturbUntil;
-  final Completer<void>? doNotDisturbGate;
-  final WriteException? doNotDisturbFailure;
 
   /// Returned by [notificationTotals]; null means the call fails.
   final NotificationTotals? totals;
@@ -730,7 +705,6 @@ class FakeDiscourseApi
   UserPreferences? userPreferences;
   final Completer<void>? userPreferencesGate;
   final Completer<void>? userPreferencesWriteGate;
-  final Object? userPreferencesFailure;
   final List<({String siteUrl, String username, String? clientId})>
   userPreferenceLoads = [];
   final List<
@@ -775,7 +749,6 @@ class FakeDiscourseApi
   >
   updatedBookmarks = [];
   final List<int> deletedBookmarks = [];
-  final List<int> clearedBookmarkTopics = [];
 
   /// Ids passed to [markNotificationRead], in order.
   final List<int> markedRead = [];
@@ -789,10 +762,8 @@ class FakeDiscourseApi
   /// Returned by [categories].
   final List<TopicCategory> categoryList;
   final Map<int, List<TopicCategory>> categoryPages;
-  final List<TopicCategory> categoryLookupList;
   final Map<String, List<TopicCategory>> categorySearches;
   final bool categoryLoadComplete;
-  final bool categoryCanCreateTopic;
   final SitePostActionCatalog? categoryPostActionCatalog;
   final List<SidebarTag> categorySiteTopTags;
   final List<SidebarTag> categoryAnonymousDefaultTags;
@@ -808,7 +779,6 @@ class FakeDiscourseApi
 
   /// The `limit` each tag search asked for, in call order.
   final List<int> topicTagSearchLimits = [];
-  final Map<String, ComposerDraft> serverDrafts;
   final List<UserDraft> userDraftList;
   final Completer<void>? userDraftGate;
   final List<({String siteUrl, int offset, int limit})> userDraftRequests = [];
@@ -843,15 +813,6 @@ class FakeDiscourseApi
   /// When set, [topic] waits on it so a test can inspect the initial loading
   /// state before the topic payload arrives.
   final Completer<void>? topicGate;
-
-  /// When set, topic status writes wait so tests can observe their busy gate.
-  final Completer<void>? topicStatusGate;
-
-  /// When set, topic delete/recover writes wait for deterministic UI tests.
-  final Completer<void>? topicDeletionGate;
-
-  /// When set, personalized pin writes wait for deterministic optimistic tests.
-  final Completer<void>? topicPinGate;
 
   /// Returned by [posts], keyed by post id.
   final Map<int, Post> postsById;
@@ -961,8 +922,6 @@ class FakeDiscourseApi
   final Completer<void>? flagGate;
   final List<({int postId, int postActionTypeId, String? message})>
   flagsCreated = [];
-  final WriteException? topicFlagFailure;
-  final Completer<void>? topicFlagGate;
   final List<({int topicId, int postActionTypeId, String? message})>
   topicFlagsCreated = [];
 
@@ -996,7 +955,6 @@ class FakeDiscourseApi
   final Map<String, List<GifCategory>> gifCategoriesBySite;
   final Map<String, GifSearchPage> gifSearchPages;
   final SiteLookupFailure? gifFailure;
-  final Completer<void>? gifGate;
   final List<String> gifCategoryRequests = [];
   final List<
     ({String siteUrl, String query, String fileDetail, String position})
@@ -1007,8 +965,6 @@ class FakeDiscourseApi
       '$query::$position';
 
   final Map<String, SearchResults> searchResults;
-  final Completer<void>? searchGate;
-  final SiteLookupFailure? searchFailure;
   final List<({String siteUrl, String term, String? typeFilter, int? topicId})>
   searchesRequested = [];
   final List<({int searchLogId, Object resultId, SearchResultKind resultKind})>
@@ -1033,17 +989,7 @@ class FakeDiscourseApi
   /// The searches asked for, in order.
   final List<({String term, int? topicId})> userSearchesRequested = [];
 
-  /// When set, [searchUsers] waits on it, so a test can hold an answer in
-  /// flight while the query moves on.
-  final Completer<void>? userSearchGate;
-
   final Map<String, List<TopicFilterLookupValue>> filterTagSearches;
-  final Map<String, List<TopicFilterLookupValue>> filterTagGroupSearches;
-  final Map<String, List<TopicFilterLookupValue>> filterGroupSearches;
-  final Completer<void>? filterSuggestionGate;
-  final List<String> filterTagSearchesRequested = [];
-  final List<String> filterTagGroupSearchesRequested = [];
-  final List<String> filterGroupSearchesRequested = [];
 
   /// Returned by [searchHashtags], keyed by term. A term nobody listed answers
   /// with nothing, the way a real site does for a slug it does not have.
@@ -1055,14 +1001,6 @@ class FakeDiscourseApi
   /// The type orders sent with each hashtag search.
   final List<List<String>> hashtagSearchOrdersRequested = [];
 
-  /// When set, [searchHashtags] waits on it, so a test can hold an answer in
-  /// flight while the query moves on.
-  final Completer<void>? hashtagSearchGate;
-
-  /// What [lookupHashtags] resolves, keyed by ref. A ref nobody listed is
-  /// absent from the reply, which is how a real site says "not one of mine".
-  final Map<String, FoundHashtag> hashtagsByRef;
-
   /// The batches of refs looked up, in order — so a test can show that typing
   /// a ref asks nothing and finishing it asks once.
   final List<Set<String>> hashtagLookupsRequested = [];
@@ -1070,21 +1008,14 @@ class FakeDiscourseApi
   /// The type orders sent with each hashtag lookup.
   final List<List<String>> hashtagLookupOrdersRequested = [];
 
-  final Completer<void>? hashtagLookupGate;
-
   /// The usernames [checkMentions] confirms. Anything else is somebody who
   /// does not exist, and must stay text.
   final Set<String> realUsernames;
 
   final List<Set<String>> mentionChecksRequested = [];
 
-  final Completer<void>? mentionCheckGate;
-
   /// Ordered picker catalogs returned by [emojiCatalog].
   final Map<String, SiteEmojiCatalog> emojiCatalogsBySite;
-
-  /// Localized aliases returned by [emojiSearchAliases].
-  final Map<String, Map<String, List<String>>> emojiSearchAliasesBySite;
 
   /// Legacy flat fixture shorthand, placed into one `default` group.
   final Map<String, List<SiteEmoji>> emojisBySite;
@@ -1092,7 +1023,6 @@ class FakeDiscourseApi
   /// Site urls passed to [emojiCatalog], in order — so a test can show the list is
   /// fetched once and not per keystroke.
   final List<String> emojisRequested = [];
-  final List<String> emojiSearchAliasesRequested = [];
 
   /// Returned by [postReactors], keyed by `PostReactors.key(postId, filter)`;
   /// a missing one fails.
@@ -1262,7 +1192,6 @@ class FakeDiscourseApi
   final Map<String, ChatThreadPage> chatChannelThreadPagesByKey;
   final Map<String, ChatThread> chatThreadsByKey;
   final Map<String, ChatThread> createdChatThreadsByKey;
-  final Map<String, ChatThreadMembership> chatThreadMembershipsByKey;
 
   static String chatThreadKey(int channelId, int threadId) =>
       '$channelId~$threadId';
@@ -1380,8 +1309,6 @@ class FakeDiscourseApi
 
   final WriteException? chatMessageMutationFailure;
   final Completer<void>? chatMessageMutationGate;
-  final WriteException? chatMoveFailure;
-  final Completer<void>? chatMoveGate;
   final int chatMoveFirstMessageId;
   final WriteException? chatRebakeFailure;
   final Completer<void>? chatRebakeGate;
@@ -1402,8 +1329,6 @@ class FakeDiscourseApi
   final List<({int channelId, int messageId, bool pinned})>
   chatMessagePinsUpdated = [];
   final Map<int, ChatPins> chatPinsByChannel;
-  final Completer<void>? chatPinsGate;
-  final WriteException? chatPinsReadFailure;
   final List<int> chatPinsRead = [];
 
   final WriteException? chatFlagFailure;
@@ -1488,8 +1413,6 @@ class FakeDiscourseApi
     ));
     final gate = userPreferencesGate;
     if (gate != null) await gate.future;
-    final failure = userPreferencesFailure;
-    if (failure != null) throw failure;
     return userPreferences ??
         UserPreferences(
           username: username,
@@ -1515,7 +1438,7 @@ class FakeDiscourseApi
     ));
     final gate = userPreferencesWriteGate;
     if (gate != null) await gate.future;
-    final failure = userPreferencesFailure ?? writeFailure;
+    final failure = writeFailure;
     if (failure != null) throw failure;
     final updated = UserPreferences.fromJson({
       'user_option': values,
@@ -1668,7 +1591,6 @@ class FakeDiscourseApi
   }) async {
     final failure = writeFailure;
     if (failure != null) throw failure;
-    clearedBookmarkTopics.add(topicId);
   }
 
   @override
@@ -1773,7 +1695,6 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     topicPinPreferencesUpdated.add((topicId: topicId, pinned: pinned));
-    await topicPinGate?.future;
     final failure = writeFailure;
     if (failure != null) throw failure;
   }
@@ -1815,16 +1736,11 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     doNotDisturbDurations.add(duration);
-    await doNotDisturbGate?.future;
-    final failure = doNotDisturbFailure;
-    if (failure != null) throw failure;
     final configured = doNotDisturbUntil;
     if (configured != null) return configured;
-    final now = DateTime.now();
-    final minutes = duration.minutes;
-    return minutes != null
-        ? now.add(Duration(minutes: minutes))
-        : DateTime(now.year, now.month, now.day, 23, 59, 59).toUtc();
+    throw StateError(
+      'FakeDiscourseApi.enterDoNotDisturb requires doNotDisturbUntil.',
+    );
   }
 
   @override
@@ -1834,9 +1750,6 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     doNotDisturbResumes.add(siteUrl);
-    await doNotDisturbGate?.future;
-    final failure = doNotDisturbFailure;
-    if (failure != null) throw failure;
   }
 
   @override
@@ -1871,7 +1784,6 @@ class FakeDiscourseApi
       status: status,
       enabled: enabled,
     ));
-    await topicStatusGate?.future;
     final failure = writeFailure;
     if (failure != null) throw failure;
   }
@@ -1884,7 +1796,6 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     topicsDeleted.add(topicId);
-    await topicDeletionGate?.future;
     final failure = writeFailure;
     if (failure != null) throw failure;
   }
@@ -1897,7 +1808,6 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     topicsPermanentlyDeleted.add(topicId);
-    await topicDeletionGate?.future;
     final failure = writeFailure;
     if (failure != null) throw failure;
   }
@@ -1910,7 +1820,6 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     topicsRecovered.add(topicId);
-    await topicDeletionGate?.future;
     final failure = writeFailure;
     if (failure != null) throw failure;
   }
@@ -1986,7 +1895,7 @@ class FakeDiscourseApi
     return CategoryLoadResult(
       categories,
       complete: categoryLoadComplete,
-      canCreateTopic: categoryCanCreateTopic,
+      canCreateTopic: false,
       postActionCatalog: categoryPostActionCatalog,
       siteTopTags: categorySiteTopTags,
       anonymousDefaultTags: categoryAnonymousDefaultTags,
@@ -2012,10 +1921,7 @@ class FakeDiscourseApi
   }) async {
     final requested = ids.toSet();
     categoryIdsRequested.add(List.unmodifiable(requested));
-    return [
-      for (final category in categoryLookupList)
-        if (requested.contains(category.id)) category,
-    ];
+    return const [];
   }
 
   @override
@@ -2076,7 +1982,6 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     gifCategoryRequests.add(siteUrl);
-    await gifGate?.future;
     if (gifFailure case final failure?) {
       throw SiteLookupException(failure, siteUrl);
     }
@@ -2098,7 +2003,6 @@ class FakeDiscourseApi
       fileDetail: fileDetail,
       position: position,
     ));
-    await gifGate?.future;
     if (gifFailure case final failure?) {
       throw SiteLookupException(failure, siteUrl);
     }
@@ -2123,10 +2027,6 @@ class FakeDiscourseApi
       typeFilter: typeFilter,
       topicId: topicId,
     ));
-    await searchGate?.future;
-    if (searchFailure case final failure?) {
-      throw SiteLookupException(failure, siteUrl);
-    }
     return searchResults[term] ?? const SearchResults();
   }
 
@@ -2139,7 +2039,6 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     userSearchesRequested.add((term: term, topicId: null));
-    if (userSearchGate != null) await userSearchGate!.future;
     return FoundUsersAndGroups(
       users: (userSearches[term] ?? const []).take(limit).toList(),
     );
@@ -2197,7 +2096,6 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     userSearchesRequested.add((term: term, topicId: topicId));
-    if (userSearchGate != null) await userSearchGate!.future;
     return userSearches[term] ?? const [];
   }
 
@@ -2209,8 +2107,6 @@ class FakeDiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    filterTagSearchesRequested.add(term);
-    await filterSuggestionGate?.future;
     return filterTagSearches[term] ?? const [];
   }
 
@@ -2222,9 +2118,7 @@ class FakeDiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    filterTagGroupSearchesRequested.add(term);
-    await filterSuggestionGate?.future;
-    return filterTagGroupSearches[term] ?? const [];
+    return const [];
   }
 
   @override
@@ -2235,9 +2129,7 @@ class FakeDiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    filterGroupSearchesRequested.add(term);
-    await filterSuggestionGate?.future;
-    return filterGroupSearches[term] ?? const [];
+    return const [];
   }
 
   @override
@@ -2250,7 +2142,6 @@ class FakeDiscourseApi
   }) async {
     hashtagSearchesRequested.add(term);
     hashtagSearchOrdersRequested.add(List.of(order, growable: false));
-    if (hashtagSearchGate != null) await hashtagSearchGate!.future;
     return hashtagSearches[term] ?? const [];
   }
 
@@ -2265,8 +2156,7 @@ class FakeDiscourseApi
     final asked = refs.toSet();
     hashtagLookupsRequested.add(asked);
     hashtagLookupOrdersRequested.add(List.of(order, growable: false));
-    if (hashtagLookupGate != null) await hashtagLookupGate!.future;
-    return [for (final ref in asked) ?hashtagsByRef[ref]];
+    return const [];
   }
 
   @override
@@ -2279,7 +2169,6 @@ class FakeDiscourseApi
   }) async {
     final asked = names.toSet();
     mentionChecksRequested.add(asked);
-    if (mentionCheckGate != null) await mentionCheckGate!.future;
     return asked.intersection(realUsernames);
   }
 
@@ -2305,8 +2194,7 @@ class FakeDiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    emojiSearchAliasesRequested.add(siteUrl);
-    return emojiSearchAliasesBySite[siteUrl] ?? const {};
+    return const {};
   }
 
   @override
@@ -2707,8 +2595,7 @@ class FakeDiscourseApi
       postActionTypeId: postActionTypeId,
       message: message,
     ));
-    await topicFlagGate?.future;
-    final failure = topicFlagFailure ?? writeFailure;
+    final failure = writeFailure;
     if (failure != null) throw failure;
   }
 
@@ -3321,11 +3208,10 @@ class FakeDiscourseApi
       threadId: threadId,
       notificationLevel: notificationLevel,
     ));
-    return chatThreadMembershipsByKey[chatThreadKey(channelId, threadId)] ??
-        ChatThreadMembership(
-          threadId: threadId,
-          notificationLevel: notificationLevel,
-        );
+    return ChatThreadMembership(
+      threadId: threadId,
+      notificationLevel: notificationLevel,
+    );
   }
 
   @override
@@ -3421,9 +3307,6 @@ class FakeDiscourseApi
       destinationChannelId: destinationChannelId,
       messageIds: List.unmodifiable(messageIds),
     ));
-    await chatMoveGate?.future;
-    final failure = chatMoveFailure;
-    if (failure != null) throw failure;
     return (
       destinationChannelId: destinationChannelId,
       firstMovedMessageId: chatMoveFirstMessageId,
@@ -3502,7 +3385,6 @@ class FakeDiscourseApi
     required int channelId,
     String? clientId,
   }) async {
-    await chatPinsGate?.future;
     return chatPinsByChannel[channelId] ??
         (pins: const <ChatPin>[], membership: null);
   }
@@ -3515,8 +3397,6 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     chatPinsRead.add(channelId);
-    final failure = chatPinsReadFailure;
-    if (failure != null) throw failure;
   }
 
   @override
@@ -3679,11 +3559,7 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     pluginReadPaths.add(path);
-    final response = pluginListResponses['GET $path'];
-    if (response == null) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
-    }
-    return response;
+    throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
   }
 
   @override
@@ -3771,7 +3647,7 @@ class FakeDiscourseApi
     required String apiKey,
     required String draftKey,
     String? clientId,
-  }) async => (draft: serverDrafts[draftKey], sequence: 0);
+  }) async => (draft: null, sequence: 0);
 
   @override
   Future<List<UserDraft>> userDrafts({

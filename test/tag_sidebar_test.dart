@@ -37,18 +37,21 @@ void main() {
       expect(SidebarTag.fromJson(tag!.toJson()), tag);
     });
 
-    test('requires a positive id and nonempty name without throwing', () {
-      for (final value in <Object?>[
-        null,
-        'tag',
-        const [],
-        const {},
-        const {'id': 0, 'name': 'zero'},
-        const {'id': -1, 'name': 'negative'},
-        const {'id': 1, 'name': '   '},
-        const {'id': Object(), 'name': 'object'},
+    test('requires a positive ID and nonempty name without throwing', () {
+      for (final (:label, :value) in <({String label, Object? value})>[
+        (label: 'null payload', value: null),
+        (label: 'string payload', value: 'tag'),
+        (label: 'list payload', value: const []),
+        (label: 'empty object', value: const {}),
+        (label: 'zero ID', value: const {'id': 0, 'name': 'zero'}),
+        (label: 'negative ID', value: const {'id': -1, 'name': 'negative'}),
+        (label: 'blank name', value: const {'id': 1, 'name': '   '}),
+        (
+          label: 'non-scalar ID',
+          value: const {'id': Object(), 'name': 'object'},
+        ),
       ]) {
-        expect(SidebarTag.fromJson(value), isNull);
+        expect(SidebarTag.fromJson(value), isNull, reason: label);
       }
     });
 

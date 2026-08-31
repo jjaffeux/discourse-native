@@ -93,7 +93,7 @@ void main() {
       expect(store.length, 2);
     });
 
-    test('keys records independently by site, type, and id', () {
+    test('keys records independently by site, type, and ID', () {
       final store = Store();
       final firstSite = store.ref<_Record>(_site, 1);
       final secondSite = store.ref<_Record>(_otherSite, 1);
@@ -105,7 +105,7 @@ void main() {
 
       expect(firstSite.value?.label, 'first site');
       expect(secondSite.value?.label, 'second site');
-      expect(otherType.value, isNotNull);
+      expect(otherType.value?.id, 1);
       expect(store.length, 3);
     });
 

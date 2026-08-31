@@ -463,7 +463,7 @@ void main() {
       expect(result.selection.extentOffset, 'intro\nx'.length);
     });
 
-    test('handles inserted text matching an indented poll prefix', () {
+    test('inserts a separator before an indented poll-like prefix', () {
       const indentedPoll = ' [poll]\n* A\n* B\n [/poll]';
       const old = TextEditingValue(
         text: indentedPoll,

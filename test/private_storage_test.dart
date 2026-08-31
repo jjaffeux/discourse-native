@@ -212,13 +212,19 @@ void main() {
     });
   });
 
-  test('a custom-signed macOS test process uses the isolated dev service', () {
-    final storage = platformCredentialStorage as AppleKeychainStorage;
+  test(
+    'a custom-signed macOS test process uses the isolated dev service',
+    () {
+      final storage = platformCredentialStorage as AppleKeychainStorage;
 
-    expect(storage.service, appleDevelopmentCredentialService);
-    expect(storage.usesDataProtectionKeychain, isFalse);
-    expect(platformLegacyAppleStorage, isNull);
-  }, skip: !Platform.isMacOS);
+      expect(storage.service, appleDevelopmentCredentialService);
+      expect(storage.usesDataProtectionKeychain, isFalse);
+      expect(platformLegacyAppleStorage, isNull);
+    },
+    skip: !Platform.isMacOS
+        ? 'Requires the macOS Keychain service selected by a locally signed app.'
+        : false,
+  );
 
   group('exact-item migration', () {
     const key = 'api_key::https://one.example';

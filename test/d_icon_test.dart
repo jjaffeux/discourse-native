@@ -48,7 +48,7 @@ void main() {
       );
     });
 
-    testWidgets('takes its size and color from the ambient IconTheme', (
+    testWidgets('takes its size from IconTheme without a paint-time filter', (
       tester,
     ) async {
       await tester.pumpWidget(

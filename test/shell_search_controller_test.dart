@@ -15,489 +15,512 @@ import 'support/fakes.dart';
 void main() {
   const site = 'https://example.com';
 
-  testWidgets('debounces valid terms and lets filter syntax bypass length', (
-    tester,
-  ) async {
-    final api = _SearchApi();
-    final search = _controller(api)..selectSite(site, minimumLength: 5);
-    addTearDown(search.dispose);
+  group('query admission and debounce', () {
+    testWidgets('waits for valid terms and admits short filter syntax', (
+      tester,
+    ) async {
+      final api = _SearchApi();
+      final search = _controller(api)..selectSite(site, minimumLength: 5);
+      addTearDown(search.dispose);
 
-    search.setQuery('four');
-    await tester.pump(const Duration(seconds: 1));
-    expect(api.terms, isEmpty);
-    expect(search.phase, SearchSessionPhase.tooShort);
+      search.setQuery('four');
+      await tester.pump(const Duration(seconds: 1));
+      expect(api.terms, isEmpty);
+      expect(search.phase, SearchSessionPhase.tooShort);
 
-    search.setQuery('  before:2020  ');
-    await tester.pump(const Duration(milliseconds: 399));
-    expect(api.terms, isEmpty);
-    await tester.pump(const Duration(milliseconds: 1));
-    await tester.pump();
-    expect(api.terms, ['  before:2020  ']);
-    expect(api.typeFilters, ['exclude_topics']);
+      search.setQuery('  before:2020  ');
+      await tester.pump(const Duration(milliseconds: 399));
+      expect(api.terms, isEmpty);
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+      expect(api.terms, ['  before:2020  ']);
+      expect(api.typeFilters, ['exclude_topics']);
+    });
+
+    testWidgets('refuses oversized queries before credentials or API work', (
+      tester,
+    ) async {
+      final api = _SearchApi();
+      final credentials = _RecordingCredentials();
+      final search = ShellSearchController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+      )..selectSite(site);
+      addTearDown(search.dispose);
+
+      search.setQuery('x' * (DiscourseApi.maximumSearchTermLength + 1));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(search.phase, SearchSessionPhase.refused);
+      expect(search.message, 'Searches can be at most 2048 characters.');
+      expect(credentials.apiKeySites, isEmpty);
+      expect(credentials.clientIdReads, 0);
+      expect(api.terms, isEmpty);
+    });
   });
 
-  testWidgets('refuses an oversized query without credential or API work', (
-    tester,
-  ) async {
-    final api = _SearchApi();
-    final search = _controller(api)..selectSite(site);
-    addTearDown(search.dispose);
+  group('search interaction', () {
+    testWidgets('shows core facets before switching to topic results', (
+      tester,
+    ) async {
+      final api = _SearchApi();
+      final search = _controller(api)..selectSite(site);
+      addTearDown(search.dispose);
 
-    search.setQuery('x' * (DiscourseApi.maximumSearchTermLength + 1));
-    await tester.pump(const Duration(seconds: 1));
-
-    expect(search.phase, SearchSessionPhase.refused);
-    expect(search.message, 'Searches can be at most 2048 characters.');
-    expect(api.terms, isEmpty);
-  });
-
-  testWidgets('mirrors core facet suggestions before the Enter topic search', (
-    tester,
-  ) async {
-    final api = _SearchApi();
-    final search = _controller(api)..selectSite(site);
-    addTearDown(search.dispose);
-
-    search.setQuery('@sam test');
-    await tester.pump(const Duration(milliseconds: 400));
-    api.complete('@sam test', _facetedResults);
-    await tester.pump();
-
-    expect(search.mode, SearchMode.facets);
-    expect(api.typeFilters, ['exclude_topics']);
-    expect(search.sections.map((section) => section.kind), [
-      SearchResultKind.tag,
-      SearchResultKind.group,
-    ]);
-    expect(search.topicsActionSelected, isFalse);
-    expect(search.selectedResult, isNull);
-
-    expect(search.moveSelection(1), isTrue);
-    expect(search.topicsActionSelected, isTrue);
-    search.moveSelection(1);
-    expect(search.selectedResult, _facetTag);
-    search.moveSelection(-1);
-    expect(search.topicsActionSelected, isTrue);
-    search.moveSelection(-1);
-    expect(search.topicsActionSelected, isFalse);
-    expect(search.selectedResult, isNull);
-    expect(search.moveSelection(-1), isFalse);
-
-    search.showTopics();
-    await tester.pump(const Duration(milliseconds: 1));
-    await tester.pump();
-
-    expect(search.mode, SearchMode.topics);
-    expect(api.terms, ['@sam test', '@sam test']);
-    expect(api.typeFilters, ['exclude_topics', null]);
-    expect(search.sections.map((section) => section.kind), [
-      SearchResultKind.topic,
-    ]);
-    expect(search.selectedResult, isNull);
-  });
-
-  testWidgets('topic focus searches immediately inside only that topic', (
-    tester,
-  ) async {
-    final api = _SearchApi();
-    final search = _controller(api)..selectSite(site);
-    addTearDown(search.dispose);
-
-    search.requestTopicFocus(42);
-    search.setQuery('needle');
-    await tester.pump(const Duration(milliseconds: 400));
-
-    expect(search.topicId, 42);
-    expect(search.mode, SearchMode.topics);
-    expect(api.terms, ['needle']);
-    expect(api.typeFilters, [null]);
-    expect(api.topicIds, [42]);
-
-    search.requestFocus();
-    await tester.pump(const Duration(milliseconds: 400));
-
-    expect(search.topicId, isNull);
-    expect(search.mode, SearchMode.facets);
-    expect(api.terms, ['needle', 'needle']);
-    expect(api.typeFilters, [null, 'exclude_topics']);
-    expect(api.topicIds, [42, null]);
-  });
-
-  testWidgets('uses core assistants for trailing search modifiers', (
-    tester,
-  ) async {
-    final api = _SearchApi();
-    final search = _controller(api)..selectSite(site);
-    addTearDown(search.dispose);
-
-    search.setQuery('look #ra');
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump();
-
-    expect(api.terms, isEmpty);
-    expect(api.hashtagTerms, ['ra']);
-    expect(search.phase, SearchSessionPhase.suggestions);
-    expect(search.suggestions.map((item) => item.completion), [
-      'look #random',
-      'look #random-tag',
-    ]);
-    expect(search.selectedSuggestion, isNull);
-
-    search.moveSelection(1);
-    final category = search.selectedSuggestion!;
-    search.acceptSuggestion(category);
-    await tester.pump(const Duration(milliseconds: 1));
-    await tester.pump();
-
-    expect(search.query, 'look #random');
-    expect(search.mode, SearchMode.topics);
-    expect(api.terms, ['look #random']);
-    expect(api.typeFilters, [null]);
-
-    search.clear();
-    search.setQuery('status:c');
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump();
-    expect(search.suggestions.map((item) => item.label), ['status:closed']);
-
-    search.clear();
-    search.selectSite(site, taggingEnabled: false);
-    search.setQuery('#ra');
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump();
-    expect(api.hashtagOrders.last, ['category']);
-    expect(search.suggestions.map((item) => item.kind), [
-      SearchSuggestionKind.category,
-    ]);
-  });
-
-  testWidgets('uses core user ordering and does not render group rows', (
-    tester,
-  ) async {
-    final api = _SearchApi();
-    final search = _controller(api)..selectSite(site);
-    addTearDown(search.dispose);
-
-    search.setQuery('@team');
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump();
-
-    expect(api.userTerms, ['team']);
-    expect(search.suggestions.map((item) => item.completion), [
-      '@team',
-      '@team-support',
-    ]);
-    expect(search.suggestions.map((item) => item.kind), [
-      SearchSuggestionKind.user,
-      SearchSuggestionKind.user,
-    ]);
-    expect(search.suggestions.map((item) => item.label), [
-      'team',
-      'team-support',
-    ]);
-  });
-
-  testWidgets('does not preselect or wrap topic results and includes More', (
-    tester,
-  ) async {
-    final api = _SearchApi();
-    final search = _controller(api)..selectSite(site);
-    addTearDown(search.dispose);
-
-    search.setQuery('query');
-    await tester.pump(const Duration(milliseconds: 400));
-    api.complete('query', _facetedResults);
-    await tester.pump();
-    search.showTopics();
-    await tester.pump(const Duration(milliseconds: 1));
-    await tester.pump();
-
-    expect(search.selectedResult, isNull);
-    expect(search.hasMoreTopics, isTrue);
-    search.moveSelection(1);
-    expect(search.selectedResult, _facetTopic);
-    search.moveSelection(1);
-    expect(search.moreActionSelected, isTrue);
-    expect(search.moveSelection(1), isFalse);
-    expect(search.moreActionSelected, isTrue);
-    search.moveSelection(-1);
-    expect(search.selectedResult, _facetTopic);
-    search.moveSelection(-1);
-    expect(search.selectedResult, isNull);
-    expect(search.moveSelection(-1), isFalse);
-  });
-
-  testWidgets('editing topic results returns to debounced facet mode', (
-    tester,
-  ) async {
-    final api = _SearchApi();
-    final search = _controller(api)..selectSite(site);
-    addTearDown(search.dispose);
-
-    search.setQuery('query');
-    await tester.pump(const Duration(milliseconds: 400));
-    api.complete('query', _facetedResults);
-    await tester.pump();
-    search.showTopics();
-    await tester.pump(const Duration(milliseconds: 1));
-    await tester.pump();
-    expect(search.mode, SearchMode.topics);
-
-    search.setQuery('changed');
-    expect(search.mode, SearchMode.facets);
-    expect(search.phase, SearchSessionPhase.waiting);
-    await tester.pump(const Duration(milliseconds: 399));
-    expect(api.terms, isNot(contains('changed')));
-    await tester.pump(const Duration(milliseconds: 1));
-    await tester.pump();
-    expect(api.terms.last, 'changed');
-    expect(api.typeFilters.last, 'exclude_topics');
-  });
-
-  testWidgets('loads, reuses, and clears authenticated recent searches', (
-    tester,
-  ) async {
-    final api = _SearchApi()..recent = const ['yellow', 'blue'];
-    final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
-    final search = ShellSearchController(
-      api: api,
-      credentials: credentials,
-      lifecycle: SiteLifecycle(),
-    )..selectSite(site);
-    addTearDown(search.dispose);
-    final field = Object();
-    final unregister = search.registerFocus(field, () {});
-    addTearDown(unregister);
-
-    search.activateField(field);
-    await tester.pump();
-    expect(search.panelOpen, isTrue);
-    expect(search.phase, SearchSessionPhase.idle);
-    expect(search.recentSearches, ['yellow', 'blue']);
-
-    search.useRecentSearch('blue');
-    await tester.pump(const Duration(milliseconds: 1));
-    await tester.pump();
-    expect(search.query, 'blue');
-    expect(search.mode, SearchMode.topics);
-    expect(api.typeFilters.last, isNull);
-
-    api.complete('blue', _facetedResults);
-    await tester.pump();
-    search.clearQuery();
-    await search.resetRecentSearches();
-    expect(search.recentSearches, isEmpty);
-    expect(api.recentResetCount, 1);
-  });
-
-  testWidgets('an older recent-search load cannot replace a newer one', (
-    tester,
-  ) async {
-    const otherSite = 'https://other.example';
-    final api = _SearchApi()..gateRecentSearches = true;
-    final credentials = FakeApiCredentialReader()
-      ..keys[site] = 'first-secret'
-      ..keys[otherSite] = 'other-secret';
-    final search = ShellSearchController(
-      api: api,
-      credentials: credentials,
-      lifecycle: SiteLifecycle(),
-    )..selectSite(site);
-    addTearDown(search.dispose);
-    final field = Object();
-    final unregister = search.registerFocus(field, () {});
-    addTearDown(unregister);
-
-    search.activateField(field);
-    await tester.pump();
-    search.selectSite(otherSite);
-    search.activateField(field);
-    await tester.pump();
-    search.selectSite(site);
-    search.activateField(field);
-    await tester.pump();
-
-    expect(api.recentSites, [site, otherSite, site]);
-    api.completeRecent(2, const ['newest']);
-    await tester.pump();
-    expect(search.recentSearches, ['newest']);
-
-    api.completeRecent(1, const ['other']);
-    api.completeRecent(0, const ['stale']);
-    await tester.pump();
-    expect(search.recentSearches, ['newest']);
-  });
-
-  testWidgets('a failed recent reset keeps a search completed behind it', (
-    tester,
-  ) async {
-    final reset = Completer<void>();
-    final api = _SearchApi()
-      ..recent = const ['old']
-      ..recentReset = reset;
-    final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
-    final search = ShellSearchController(
-      api: api,
-      credentials: credentials,
-      lifecycle: SiteLifecycle(),
-    )..selectSite(site);
-    addTearDown(search.dispose);
-    final field = Object();
-    final unregister = search.registerFocus(field, () {});
-    addTearDown(unregister);
-
-    search.activateField(field);
-    await tester.pump();
-    final resetOperation = search.resetRecentSearches();
-    await tester.pump();
-    expect(search.recentSearches, isEmpty);
-
-    search.setQuery('new');
-    search.showTopics();
-    await tester.pump(const Duration(milliseconds: 1));
-    await tester.pump();
-    expect(api.terms, ['new']);
-    api.complete('new', _results(2, 'New result'));
-    await tester.pump();
-    expect(search.recentSearches, ['new']);
-
-    reset.completeError(StateError('offline'), StackTrace.current);
-    await resetOperation;
-    expect(search.recentSearches, ['new']);
-  });
-
-  testWidgets('credits an opened result to its search log', (tester) async {
-    final api = _SearchApi();
-    final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
-    final search = ShellSearchController(
-      api: api,
-      credentials: credentials,
-      lifecycle: SiteLifecycle(),
-    )..selectSite(site);
-    addTearDown(search.dispose);
-
-    search.setQuery('query');
-    await tester.pump(const Duration(milliseconds: 400));
-    api.complete(
-      'query',
-      const SearchResults(
-        hits: [_facetTopic],
-        sections: [
-          SearchResultSection(
-            kind: SearchResultKind.topic,
-            results: [_facetTopic],
-          ),
-        ],
-        searchLogId: 77,
-      ),
-    );
-    await tester.pump();
-    search.showTopics();
-    await tester.pump(const Duration(milliseconds: 1));
-    await tester.pump();
-
-    search.recordSelection(_facetTopic);
-    await tester.pump();
-    expect(api.searchClicks, [
-      (searchLogId: 77, resultId: 1, resultKind: SearchResultKind.topic),
-    ]);
-  });
-
-  testWidgets('publishes only the newest result when responses cross', (
-    tester,
-  ) async {
-    final api = _SearchApi();
-    final search = _controller(api)..selectSite(site);
-    addTearDown(search.dispose);
-
-    search.setQuery('first');
-    await tester.pump(const Duration(milliseconds: 400));
-    search.setQuery('second');
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(api.terms, ['first', 'second']);
-
-    api.complete('second', _results(2, 'Second result'));
-    await tester.pump();
-    expect(search.hits.single.postId, 2);
-
-    api.complete('first', _results(1, 'Stale result'));
-    await tester.pump();
-    expect(search.hits.single.postId, 2);
-  });
-
-  testWidgets('keeps only the newest query behind two active searches', (
-    tester,
-  ) async {
-    final api = _SearchApi();
-    final search = _controller(api)..selectSite(site);
-    addTearDown(search.dispose);
-
-    for (final term in ['first', 'second', 'third', 'fourth']) {
-      search.setQuery(term);
+      search.setQuery('@sam test');
       await tester.pump(const Duration(milliseconds: 400));
-    }
-    expect(api.terms, ['first', 'second']);
+      api.complete('@sam test', _facetedResults);
+      await tester.pump();
 
-    api.complete('first', _results(1, 'Old'));
-    await tester.pump();
-    expect(api.terms, ['first', 'second', 'fourth']);
-    expect(api.terms, isNot(contains('third')));
-  });
+      expect(search.mode, SearchMode.facets);
+      expect(api.typeFilters, ['exclude_topics']);
+      expect(search.sections.map((section) => section.kind), [
+        SearchResultKind.tag,
+        SearchResultKind.group,
+      ]);
+      expect(search.topicsActionSelected, isFalse);
+      expect(search.selectedResult, isNull);
 
-  testWidgets('switching forum clears the session and rejects late work', (
-    tester,
-  ) async {
-    final api = _SearchApi();
-    final search = _controller(api)..selectSite(site);
-    addTearDown(search.dispose);
+      expect(search.moveSelection(1), isTrue);
+      expect(search.topicsActionSelected, isTrue);
+      search.moveSelection(1);
+      expect(search.selectedResult, _facetTag);
+      search.moveSelection(-1);
+      expect(search.topicsActionSelected, isTrue);
+      search.moveSelection(-1);
+      expect(search.topicsActionSelected, isFalse);
+      expect(search.selectedResult, isNull);
+      expect(search.moveSelection(-1), isFalse);
 
-    search.setQuery('query');
-    await tester.pump(const Duration(milliseconds: 400));
-    search.selectSite('https://other.example');
+      search.showTopics();
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
 
-    expect(search.query, isEmpty);
-    expect(search.panelOpen, isFalse);
-    expect(search.phase, SearchSessionPhase.idle);
+      expect(search.mode, SearchMode.topics);
+      expect(api.terms, ['@sam test', '@sam test']);
+      expect(api.typeFilters, ['exclude_topics', null]);
+      expect(search.sections.map((section) => section.kind), [
+        SearchResultKind.topic,
+      ]);
+      expect(search.selectedResult, isNull);
+    });
 
-    api.complete('query', _results(1, 'Private old result'));
-    await tester.pump();
-    expect(search.hits, isEmpty);
-  });
+    testWidgets('limits searches to a topic and restores global facets', (
+      tester,
+    ) async {
+      final api = _SearchApi();
+      final search = _controller(api)..selectSite(site);
+      addTearDown(search.dispose);
 
-  test('reports a failed search without changing its fallback state', () async {
-    final diagnostics = await _installDiagnostics('search-failure');
-    final api = _SearchApi();
-    final search = ShellSearchController(
-      api: api,
-      credentials: FakeApiCredentialReader(),
-      lifecycle: SiteLifecycle(),
-      debounceDuration: Duration.zero,
-    )..selectSite(site);
-    addTearDown(search.dispose);
+      search.requestTopicFocus(42);
+      search.setQuery('needle');
+      await tester.pump(const Duration(milliseconds: 400));
 
-    search.setQuery('broken');
-    await pumpEventQueue();
-    api.fail('broken', StateError('offline'));
-    await pumpEventQueue();
+      expect(search.topicId, 42);
+      expect(search.mode, SearchMode.topics);
+      expect(api.terms, ['needle']);
+      expect(api.typeFilters, [null]);
+      expect(api.topicIds, [42]);
 
-    expect(search.phase, SearchSessionPhase.failed);
-    expect(search.hits, isEmpty);
-    expect(search.sections, isEmpty);
-    expect(search.results, isEmpty);
-    expect(search.message, "Couldn't search example.com.");
-    expect(
-      diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-      isA<ErrorDiagnosticEvent>()
-          .having((event) => event.operation, 'operation', 'search.load')
-          .having((event) => event.source, 'source', 'search')
-          .having(
-            (event) => event.severity,
-            'severity',
-            DiagnosticSeverity.error,
-          )
-          .having((event) => event.handled, 'handled', isTrue)
-          .having((event) => event.degraded, 'degraded', isTrue),
+      search.requestFocus();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(search.topicId, isNull);
+      expect(search.mode, SearchMode.facets);
+      expect(api.terms, ['needle', 'needle']);
+      expect(api.typeFilters, [null, 'exclude_topics']);
+      expect(api.topicIds, [42, null]);
+    });
+
+    testWidgets('completes trailing modifiers with core assistants', (
+      tester,
+    ) async {
+      final api = _SearchApi();
+      final search = _controller(api)..selectSite(site);
+      addTearDown(search.dispose);
+
+      search.setQuery('look #ra');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+
+      expect(api.terms, isEmpty);
+      expect(api.hashtagTerms, ['ra']);
+      expect(search.phase, SearchSessionPhase.suggestions);
+      expect(search.suggestions.map((item) => item.completion), [
+        'look #random',
+        'look #random-tag',
+      ]);
+      expect(search.selectedSuggestion, isNull);
+
+      search.moveSelection(1);
+      final category = search.selectedSuggestion!;
+      search.acceptSuggestion(category);
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+
+      expect(search.query, 'look #random');
+      expect(search.mode, SearchMode.topics);
+      expect(api.terms, ['look #random']);
+      expect(api.typeFilters, [null]);
+
+      search.clear();
+      search.setQuery('status:c');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      expect(search.suggestions.map((item) => item.label), ['status:closed']);
+
+      search.clear();
+      search.selectSite(site, taggingEnabled: false);
+      search.setQuery('#ra');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      expect(api.hashtagOrders.last, ['category']);
+      expect(search.suggestions.map((item) => item.kind), [
+        SearchSuggestionKind.category,
+      ]);
+    });
+
+    testWidgets('orders user suggestions like core and omits group rows', (
+      tester,
+    ) async {
+      final api = _SearchApi();
+      final search = _controller(api)..selectSite(site);
+      addTearDown(search.dispose);
+
+      search.setQuery('@team');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+
+      expect(api.userTerms, ['team']);
+      expect(search.suggestions.map((item) => item.completion), [
+        '@team',
+        '@team-support',
+      ]);
+      expect(search.suggestions.map((item) => item.kind), [
+        SearchSuggestionKind.user,
+        SearchSuggestionKind.user,
+      ]);
+      expect(search.suggestions.map((item) => item.label), [
+        'team',
+        'team-support',
+      ]);
+    });
+
+    testWidgets(
+      'starts unselected and navigates topic results through More without '
+      'wrapping',
+      (tester) async {
+        final api = _SearchApi();
+        final search = _controller(api)..selectSite(site);
+        addTearDown(search.dispose);
+
+        search.setQuery('query');
+        await tester.pump(const Duration(milliseconds: 400));
+        api.complete('query', _facetedResults);
+        await tester.pump();
+        search.showTopics();
+        await tester.pump(const Duration(milliseconds: 1));
+        await tester.pump();
+
+        expect(search.selectedResult, isNull);
+        expect(search.hasMoreTopics, isTrue);
+        search.moveSelection(1);
+        expect(search.selectedResult, _facetTopic);
+        search.moveSelection(1);
+        expect(search.moreActionSelected, isTrue);
+        expect(search.moveSelection(1), isFalse);
+        expect(search.moreActionSelected, isTrue);
+        search.moveSelection(-1);
+        expect(search.selectedResult, _facetTopic);
+        search.moveSelection(-1);
+        expect(search.selectedResult, isNull);
+        expect(search.moveSelection(-1), isFalse);
+      },
     );
+
+    testWidgets('returns edited topic results to debounced facet mode', (
+      tester,
+    ) async {
+      final api = _SearchApi();
+      final search = _controller(api)..selectSite(site);
+      addTearDown(search.dispose);
+
+      search.setQuery('query');
+      await tester.pump(const Duration(milliseconds: 400));
+      api.complete('query', _facetedResults);
+      await tester.pump();
+      search.showTopics();
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+      expect(search.mode, SearchMode.topics);
+
+      search.setQuery('changed');
+      expect(search.mode, SearchMode.facets);
+      expect(search.phase, SearchSessionPhase.waiting);
+      await tester.pump(const Duration(milliseconds: 399));
+      expect(api.terms, isNot(contains('changed')));
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+      expect(api.terms.last, 'changed');
+      expect(api.typeFilters.last, 'exclude_topics');
+    });
+
+    testWidgets('credits opened results to their originating search log', (
+      tester,
+    ) async {
+      final api = _SearchApi();
+      final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
+      final search = ShellSearchController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+      )..selectSite(site);
+      addTearDown(search.dispose);
+
+      search.setQuery('query');
+      await tester.pump(const Duration(milliseconds: 400));
+      api.complete(
+        'query',
+        const SearchResults(
+          hits: [_facetTopic],
+          sections: [
+            SearchResultSection(
+              kind: SearchResultKind.topic,
+              results: [_facetTopic],
+            ),
+          ],
+          searchLogId: 77,
+        ),
+      );
+      await tester.pump();
+      search.showTopics();
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+
+      search.recordSelection(_facetTopic);
+      await tester.pump();
+      expect(api.searchClicks, [
+        (searchLogId: 77, resultId: 1, resultKind: SearchResultKind.topic),
+      ]);
+    });
+  });
+
+  group('recent-search lifecycle', () {
+    testWidgets('loads, reuses, and clears authenticated searches', (
+      tester,
+    ) async {
+      final api = _SearchApi()..recent = const ['yellow', 'blue'];
+      final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
+      final search = ShellSearchController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+      )..selectSite(site);
+      addTearDown(search.dispose);
+      final field = Object();
+      final unregister = search.registerFocus(field, () {});
+      addTearDown(unregister);
+
+      search.activateField(field);
+      await tester.pump();
+      expect(search.panelOpen, isTrue);
+      expect(search.phase, SearchSessionPhase.idle);
+      expect(search.recentSearches, ['yellow', 'blue']);
+      expect(api.recentSites, [site]);
+
+      search.useRecentSearch('blue');
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+      expect(search.query, 'blue');
+      expect(search.mode, SearchMode.topics);
+      expect(api.typeFilters.last, isNull);
+
+      api.complete('blue', _facetedResults);
+      await tester.pump();
+      search.clearQuery();
+      expect(api.recentSites, [site]);
+      await search.resetRecentSearches();
+      expect(search.recentSearches, isEmpty);
+      expect(api.recentResetCount, 1);
+    });
+
+    testWidgets('ignores older loads after a newer site request completes', (
+      tester,
+    ) async {
+      const otherSite = 'https://other.example';
+      final api = _SearchApi()..gateRecentSearches = true;
+      final credentials = FakeApiCredentialReader()
+        ..keys[site] = 'first-secret'
+        ..keys[otherSite] = 'other-secret';
+      final search = ShellSearchController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+      )..selectSite(site);
+      addTearDown(search.dispose);
+      final field = Object();
+      final unregister = search.registerFocus(field, () {});
+      addTearDown(unregister);
+
+      search.activateField(field);
+      await tester.pump();
+      search.selectSite(otherSite);
+      search.activateField(field);
+      await tester.pump();
+      search.selectSite(site);
+      search.activateField(field);
+      await tester.pump();
+
+      expect(api.recentSites, [site, otherSite, site]);
+      api.completeRecent(2, const ['newest']);
+      await tester.pump();
+      expect(search.recentSearches, ['newest']);
+
+      api.completeRecent(1, const ['other']);
+      api.completeRecent(0, const ['stale']);
+      await tester.pump();
+      expect(search.recentSearches, ['newest']);
+    });
+
+    testWidgets('keeps a completed search when resetting recents fails', (
+      tester,
+    ) async {
+      final reset = Completer<void>();
+      final api = _SearchApi()
+        ..recent = const ['old']
+        ..recentReset = reset;
+      final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
+      final search = ShellSearchController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+      )..selectSite(site);
+      addTearDown(search.dispose);
+      final field = Object();
+      final unregister = search.registerFocus(field, () {});
+      addTearDown(unregister);
+
+      search.activateField(field);
+      await tester.pump();
+      final resetOperation = search.resetRecentSearches();
+      await tester.pump();
+      expect(search.recentSearches, isEmpty);
+
+      search.setQuery('new');
+      search.showTopics();
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+      expect(api.terms, ['new']);
+      api.complete('new', _results(2, 'New result'));
+      await tester.pump();
+      expect(search.recentSearches, ['new']);
+
+      reset.completeError(StateError('offline'), StackTrace.current);
+      await resetOperation;
+      expect(search.recentSearches, ['new']);
+    });
+  });
+
+  group('response ordering and site changes', () {
+    testWidgets('publishes only the newest result when responses cross', (
+      tester,
+    ) async {
+      final api = _SearchApi();
+      final search = _controller(api)..selectSite(site);
+      addTearDown(search.dispose);
+
+      search.setQuery('first');
+      await tester.pump(const Duration(milliseconds: 400));
+      search.setQuery('second');
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(api.terms, ['first', 'second']);
+
+      api.complete('second', _results(2, 'Second result'));
+      await tester.pump();
+      expect(search.hits.single.postId, 2);
+
+      api.complete('first', _results(1, 'Stale result'));
+      await tester.pump();
+      expect(search.hits.single.postId, 2);
+    });
+
+    testWidgets('retains only the newest queued query behind active searches', (
+      tester,
+    ) async {
+      final api = _SearchApi();
+      final search = _controller(api)..selectSite(site);
+      addTearDown(search.dispose);
+
+      for (final term in ['first', 'second', 'third', 'fourth']) {
+        search.setQuery(term);
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+      expect(api.terms, ['first', 'second']);
+
+      api.complete('first', _results(1, 'Old'));
+      await tester.pump();
+      expect(api.terms, ['first', 'second', 'fourth']);
+      expect(api.terms, isNot(contains('third')));
+    });
+
+    testWidgets('clears the session on forum switch and rejects late work', (
+      tester,
+    ) async {
+      final api = _SearchApi();
+      final search = _controller(api)..selectSite(site);
+      addTearDown(search.dispose);
+
+      search.setQuery('query');
+      await tester.pump(const Duration(milliseconds: 400));
+      search.selectSite('https://other.example');
+
+      expect(search.query, isEmpty);
+      expect(search.panelOpen, isFalse);
+      expect(search.phase, SearchSessionPhase.idle);
+
+      api.complete('query', _results(1, 'Private old result'));
+      await tester.pump();
+      expect(search.hits, isEmpty);
+    });
+  });
+
+  group('search failure handling', () {
+    test('reports failures while preserving an empty fallback state', () async {
+      final diagnostics = await _installDiagnostics('search-failure');
+      final api = _SearchApi();
+      final search = ShellSearchController(
+        api: api,
+        credentials: FakeApiCredentialReader(),
+        lifecycle: SiteLifecycle(),
+        debounceDuration: Duration.zero,
+      )..selectSite(site);
+      addTearDown(search.dispose);
+
+      search.setQuery('broken');
+      await pumpEventQueue();
+      api.fail('broken', StateError('offline'));
+      await pumpEventQueue();
+
+      expect(search.phase, SearchSessionPhase.failed);
+      expect(search.hits, isEmpty);
+      expect(search.sections, isEmpty);
+      expect(search.results, isEmpty);
+      expect(search.message, "Couldn't search example.com.");
+      expect(
+        diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
+        isA<ErrorDiagnosticEvent>()
+            .having((event) => event.operation, 'operation', 'search.load')
+            .having((event) => event.source, 'source', 'search')
+            .having(
+              (event) => event.severity,
+              'severity',
+              DiagnosticSeverity.error,
+            )
+            .having((event) => event.handled, 'handled', isTrue)
+            .having((event) => event.degraded, 'degraded', isTrue),
+      );
+    });
   });
 }
 
@@ -559,6 +582,23 @@ const _facetedResults = SearchResults(
     SearchResultSection(kind: SearchResultKind.group, results: [_facetGroup]),
   ],
 );
+
+final class _RecordingCredentials extends FakeApiCredentialReader {
+  final List<String> apiKeySites = [];
+  int clientIdReads = 0;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    apiKeySites.add(siteUrl);
+    return super.apiKeyFor(siteUrl);
+  }
+
+  @override
+  Future<String> clientId() {
+    clientIdReads++;
+    return super.clientId();
+  }
+}
 
 class _SearchApi extends FakeDiscourseApi {
   final List<String> terms = [];

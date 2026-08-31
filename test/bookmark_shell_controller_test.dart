@@ -26,109 +26,247 @@ const _otherSite = 'https://other.example';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('post bookmark lifecycle updates every cached representation', () async {
-    final api = _BookmarkFakeApi();
-    final shell = await _loadShell(api);
-    addTearDown(shell.dispose);
+  group('post bookmark lifecycle', () {
+    test('create updates every cached representation', () async {
+      final reminder = DateTime.utc(2030, 3, 4, 12, 30);
+      final api = _BookmarkFakeApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
 
-    final created = await shell.createBookmark(
-      siteUrl: _site,
-      topicId: 7,
-      targetType: BookmarkTargetType.post,
-      targetId: 12,
-      name: 'Read this',
-      reminderAt: DateTime.now().add(const Duration(days: 1)),
-      autoDeletePreference: BookmarkAutoDeletePreference.whenReminderSent,
-    );
-    await pumpEventQueue();
+      final result = await shell.createBookmark(
+        siteUrl: _site,
+        topicId: 7,
+        targetType: BookmarkTargetType.post,
+        targetId: 12,
+        name: 'Read this',
+        reminderAt: reminder,
+        autoDeletePreference: BookmarkAutoDeletePreference.whenReminderSent,
+      );
+      await pumpEventQueue();
 
-    expect(created.saved, isTrue);
-    expect(shell.store.read<Post>(_site, 12)?.bookmark?.name, 'Read this');
-    expect(
-      shell.store.read<TopicDetail>(_site, 7)?.postBookmarks,
-      hasLength(1),
-    );
-    expect(shell.store.read<Topic>(_site, 7)?.bookmarked, isTrue);
-    expect(api.createdBookmarks, hasLength(1));
-    expect(api.bookmarksRequested, isNotEmpty);
+      expect(result.saved, isTrue);
+      expect(result.bookmark?.bookmarkableId, 12);
+      expect(result.bookmark?.bookmarkableType, 'Post');
+      expect(result.bookmark?.postNumber, 2);
+      expect(result.bookmark?.name, 'Read this');
+      expect(result.bookmark?.reminderAt, reminder);
+      expect(
+        result.bookmark?.autoDeletePreference,
+        BookmarkAutoDeletePreference.whenReminderSent,
+      );
+      final postBookmark = shell.store.read<Post>(_site, 12)?.bookmark;
+      expect(postBookmark?.id, result.bookmark?.id);
+      expect(postBookmark?.name, 'Read this');
+      expect(postBookmark?.reminderAt, reminder);
+      expect(
+        shell.store
+            .read<TopicDetail>(_site, 7)
+            ?.postBookmarks
+            .map((bookmark) => bookmark.id),
+        [result.bookmark?.id],
+      );
+      expect(shell.store.read<Topic>(_site, 7)?.bookmarked, isTrue);
+      expect(api.createdBookmarks, [
+        (
+          targetType: BookmarkTargetType.post,
+          targetId: 12,
+          name: 'Read this',
+          reminderAt: reminder,
+          autoDeletePreference: BookmarkAutoDeletePreference.whenReminderSent,
+        ),
+      ]);
+      expect(api.bookmarksRequested, ['reader']);
+    });
 
-    final updated = await shell.updateBookmark(
-      siteUrl: _site,
-      topicId: 7,
-      bookmark: created.bookmark!,
-      name: 'Keep this',
-      autoDeletePreference: BookmarkAutoDeletePreference.clearReminder,
-    );
-    await pumpEventQueue();
+    test('update replaces cached metadata and clears the reminder', () async {
+      final initial = Bookmark(
+        id: 73,
+        bookmarkableId: 12,
+        bookmarkableType: 'Post',
+        postNumber: 2,
+        name: 'Read this',
+        reminderAt: DateTime.utc(2030, 3, 4, 12, 30),
+        autoDeletePreference: BookmarkAutoDeletePreference.whenReminderSent,
+      );
+      final api = _BookmarkFakeApi(bookmark: initial);
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
 
-    expect(updated.saved, isTrue);
-    expect(shell.store.read<Post>(_site, 12)?.bookmark?.name, 'Keep this');
-    expect(shell.store.read<Post>(_site, 12)?.bookmark?.reminderAt, isNull);
+      final result = await shell.updateBookmark(
+        siteUrl: _site,
+        topicId: 7,
+        bookmark: initial,
+        name: 'Keep this',
+        autoDeletePreference: BookmarkAutoDeletePreference.clearReminder,
+      );
+      await pumpEventQueue();
 
-    final deleted = await shell.deleteBookmark(
-      siteUrl: _site,
-      topicId: 7,
-      bookmark: updated.bookmark!,
-    );
-    await pumpEventQueue();
+      expect(result.saved, isTrue);
+      expect(result.bookmark?.id, 73);
+      expect(result.bookmark?.name, 'Keep this');
+      expect(result.bookmark?.reminderAt, isNull);
+      expect(
+        result.bookmark?.autoDeletePreference,
+        BookmarkAutoDeletePreference.clearReminder,
+      );
+      final postBookmark = shell.store.read<Post>(_site, 12)?.bookmark;
+      expect(postBookmark?.id, 73);
+      expect(postBookmark?.name, 'Keep this');
+      expect(postBookmark?.reminderAt, isNull);
+      expect(api.updatedBookmarks, [
+        (
+          bookmarkId: 73,
+          name: 'Keep this',
+          reminderAt: null,
+          autoDeletePreference: BookmarkAutoDeletePreference.clearReminder,
+        ),
+      ]);
+      expect(api.bookmarksRequested, ['reader']);
+    });
 
-    expect(deleted.saved, isTrue);
-    expect(shell.store.read<Post>(_site, 12)?.bookmark, isNull);
-    expect(shell.store.read<TopicDetail>(_site, 7)?.bookmarks, isEmpty);
-    expect(shell.store.read<Topic>(_site, 7)?.bookmarked, isFalse);
+    test('delete clears every cached representation', () async {
+      const initial = Bookmark(
+        id: 73,
+        bookmarkableId: 12,
+        bookmarkableType: 'Post',
+        postNumber: 2,
+        name: 'Read this',
+      );
+      final api = _BookmarkFakeApi(bookmark: initial);
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+
+      final result = await shell.deleteBookmark(
+        siteUrl: _site,
+        topicId: 7,
+        bookmark: initial,
+      );
+      await pumpEventQueue();
+
+      expect(result.saved, isTrue);
+      expect(shell.store.read<Post>(_site, 12)?.bookmark, isNull);
+      expect(shell.store.read<TopicDetail>(_site, 7)?.bookmarks, isEmpty);
+      expect(shell.store.read<Topic>(_site, 7)?.bookmarked, isFalse);
+      expect(api.deletedBookmarks, [73]);
+      expect(api.bookmarksRequested, ['reader']);
+    });
   });
 
-  test('chat message bookmark lifecycle updates the live message', () async {
-    final api = _ChatBookmarkFakeApi();
-    final shell = await _loadShell(api);
-    addTearDown(shell.dispose);
-    _putChatFixture(shell);
-    final chat = shell.pluginSession.require(chatControllerService);
-    final host = shell.pluginSession.require(chatBookmarkHostService);
+  group('chat bookmark lifecycle', () {
+    test('create updates the live message', () async {
+      final reminder = DateTime.utc(2030, 3, 4, 12, 30);
+      final api = _ChatBookmarkFakeApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      _putChatFixture(shell);
+      final chat = shell.pluginSession.require(chatControllerService);
+      final host = shell.pluginSession.require(chatBookmarkHostService);
 
-    final created = await host.createBookmark(
-      siteUrl: _site,
-      targetId: 42,
-      name: 'Follow up',
-      reminderAt: DateTime.now().add(const Duration(days: 1)),
-      autoDeletePreference: BookmarkAutoDeletePreference.whenReminderSent,
-    );
-    await pumpEventQueue();
+      final result = await host.createBookmark(
+        siteUrl: _site,
+        targetId: 42,
+        name: 'Follow up',
+        reminderAt: reminder,
+        autoDeletePreference: BookmarkAutoDeletePreference.whenReminderSent,
+      );
+      await pumpEventQueue();
 
-    expect(created.saved, isTrue);
-    final heldBookmark = chat.message(_site, 42)?.bookmark;
-    expect(heldBookmark?.id, created.bookmark?.id);
-    expect(heldBookmark?.name, 'Follow up');
-    expect(heldBookmark?.reminderAt, created.bookmark?.reminderAt?.toUtc());
-    expect(api.createdBookmarks.single.targetType, chatMessageBookmarkTarget);
-    expect(api.bookmarksRequested, isNotEmpty);
+      expect(result.saved, isTrue);
+      final heldBookmark = chat.message(_site, 42)?.bookmark;
+      expect(heldBookmark?.id, result.bookmark?.id);
+      expect(heldBookmark?.bookmarkableId, 42);
+      expect(
+        heldBookmark?.bookmarkableType,
+        chatMessageBookmarkTarget.wireName,
+      );
+      expect(heldBookmark?.name, 'Follow up');
+      expect(heldBookmark?.reminderAt, reminder);
+      expect(
+        heldBookmark?.autoDeletePreference,
+        BookmarkAutoDeletePreference.whenReminderSent,
+      );
+      expect(api.createdBookmarks, [
+        (
+          targetType: chatMessageBookmarkTarget,
+          targetId: 42,
+          name: 'Follow up',
+          reminderAt: reminder,
+          autoDeletePreference: BookmarkAutoDeletePreference.whenReminderSent,
+        ),
+      ]);
+      expect(api.bookmarksRequested, ['reader']);
+    });
 
-    final updated = await host.updateBookmark(
-      siteUrl: _site,
-      bookmark: created.bookmark!,
-      name: 'Keep this',
-      autoDeletePreference: BookmarkAutoDeletePreference.clearReminder,
-    );
-    await pumpEventQueue();
+    test('update replaces live metadata and clears the reminder', () async {
+      final initial = Bookmark(
+        id: 73,
+        bookmarkableId: 42,
+        bookmarkableType: chatMessageBookmarkTarget.wireName,
+        name: 'Follow up',
+        reminderAt: DateTime.utc(2030, 3, 4, 12, 30),
+        autoDeletePreference: BookmarkAutoDeletePreference.whenReminderSent,
+      );
+      final api = _ChatBookmarkFakeApi(bookmark: initial);
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      _putChatFixture(shell, bookmark: initial);
+      final chat = shell.pluginSession.require(chatControllerService);
+      final host = shell.pluginSession.require(chatBookmarkHostService);
 
-    expect(updated.saved, isTrue);
-    expect(chat.message(_site, 42)?.bookmark?.name, 'Keep this');
-    expect(chat.message(_site, 42)?.bookmark?.reminderAt, isNull);
+      final result = await host.updateBookmark(
+        siteUrl: _site,
+        bookmark: initial,
+        name: 'Keep this',
+        autoDeletePreference: BookmarkAutoDeletePreference.clearReminder,
+      );
+      await pumpEventQueue();
 
-    final deleted = await host.deleteBookmark(
-      siteUrl: _site,
-      bookmark: updated.bookmark!,
-    );
-    await pumpEventQueue();
+      expect(result.saved, isTrue);
+      expect(result.bookmark?.id, 73);
+      expect(result.bookmark?.name, 'Keep this');
+      expect(result.bookmark?.reminderAt, isNull);
+      final heldBookmark = chat.message(_site, 42)?.bookmark;
+      expect(heldBookmark?.id, 73);
+      expect(heldBookmark?.name, 'Keep this');
+      expect(heldBookmark?.reminderAt, isNull);
+      expect(api.updatedBookmarks, [
+        (
+          bookmarkId: 73,
+          name: 'Keep this',
+          reminderAt: null,
+          autoDeletePreference: BookmarkAutoDeletePreference.clearReminder,
+        ),
+      ]);
+      expect(api.bookmarksRequested, ['reader']);
+    });
 
-    expect(deleted.saved, isTrue);
-    expect(chat.message(_site, 42)?.bookmark, isNull);
-    expect(api.deletedBookmarks, [created.bookmark!.id]);
-  });
+    test('delete clears the live message', () async {
+      final initial = Bookmark(
+        id: 73,
+        bookmarkableId: 42,
+        bookmarkableType: chatMessageBookmarkTarget.wireName,
+        name: 'Follow up',
+      );
+      final api = _ChatBookmarkFakeApi(bookmark: initial);
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      _putChatFixture(shell, bookmark: initial);
+      final chat = shell.pluginSession.require(chatControllerService);
+      final host = shell.pluginSession.require(chatBookmarkHostService);
 
-  test(
-    'chat bookmark actions stay target- and site-bound after a site switch',
-    () async {
+      final result = await host.deleteBookmark(
+        siteUrl: _site,
+        bookmark: initial,
+      );
+      await pumpEventQueue();
+
+      expect(result.saved, isTrue);
+      expect(chat.message(_site, 42)?.bookmark, isNull);
+      expect(api.deletedBookmarks, [73]);
+      expect(api.bookmarksRequested, ['reader']);
+    });
+
+    test('keeps actions site-bound after the selected forum changes', () async {
       final api = _ChatBookmarkFakeApi();
       final authenticator = FakeAuthenticator()
         ..keys[_site] = 'meta-key'
@@ -154,7 +292,6 @@ void main() {
 
       final chat = shell.pluginSession.require(chatControllerService);
       final host = shell.pluginSession.require(chatBookmarkHostService);
-      expect(host, isA<PluginBookmarkHost>());
       expect(host, isNot(isA<BookmarkHost>()));
       expect(host, isNot(isA<BookmarkTargetHost>()));
 
@@ -171,7 +308,7 @@ void main() {
         autoDeletePreference: BookmarkAutoDeletePreference.clearReminder,
       );
       expect(foreign.saved, isFalse);
-      expect(foreign.message, contains('does not belong'));
+      expect(foreign.message, 'This bookmark does not belong to chat message.');
       expect(api.updatedBookmarks, isEmpty);
 
       final created = await host.createBookmark(
@@ -186,12 +323,11 @@ void main() {
       expect(shell.currentInstance?.url, _otherSite);
       expect(chat.message(_site, 42)?.bookmark?.name, 'First forum');
       expect(chat.message(_otherSite, 42), isNull);
-    },
-  );
+    });
+  });
 
-  test(
-    'core bookmark actions cannot supply context for a plugin target',
-    () async {
+  group('bookmark target authority', () {
+    test('core actions reject a plugin target without its context', () async {
       final api = _ChatBookmarkFakeApi();
       final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
       final shell = ShellController(
@@ -216,31 +352,18 @@ void main() {
       );
 
       expect(result.saved, isFalse);
-      expect(result.message, contains('owning context'));
-      expect(api.createdBookmarks, isEmpty);
-    },
-  );
-
-  test(
-    'plugin bookmark factory cannot grant core or foreign target authority',
-    () async {
-      final probe = _BookmarkAuthorityProbeModule();
-      final plugins = PluginInstaller.install(PluginManifest([probe]));
-      final api = _ChatBookmarkFakeApi();
-      final shell = ShellController(
-        instanceStore: FakeInstanceStore([
-          instance(
-            'meta.example',
-          ).copyWith(user: const DiscourseUser(username: 'reader')),
-        ]),
-        api: api,
-        authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
-        drafts: FakeDraftStore(),
-        trackers: FakeSiteTracker.reset(),
-        plugins: plugins,
+      expect(
+        result.message,
+        'This bookmark target requires its owning context.',
       );
+      expect(api.createdBookmarks, isEmpty);
+    });
+
+    test('plugin factory rejects core and foreign target owners', () async {
+      final probe = _BookmarkAuthorityProbeModule();
+      final api = _ChatBookmarkFakeApi();
+      final shell = await _loadProbeShell(api, probe);
       addTearDown(shell.dispose);
-      await shell.load();
 
       // Opening the session materializes the bookmark factory for `probe`.
       final _ = shell.pluginSession;
@@ -249,209 +372,269 @@ void main() {
         BookmarkTargetType.post.id,
         _foreignBookmarkTarget.id,
       });
-
-      // A caller can describe a new target in its own namespace, but that
-      // facade remains inert until the exact target is contributed and
-      // validated. Matching only core's wire name must not confer authority.
-      final spoofed = await probe.spoofedCoreWireHost!.updateBookmark(
-        siteUrl: _site,
-        bookmark: const Bookmark(
-          id: 91,
-          bookmarkableId: 12,
-          bookmarkableType: 'Post',
-        ),
-        autoDeletePreference: BookmarkAutoDeletePreference.clearReminder,
-      );
-
-      expect(spoofed.saved, isFalse);
-      expect(spoofed.message, contains('does not belong'));
+      expect(api.createdBookmarks, isEmpty);
       expect(api.updatedBookmarks, isEmpty);
+    });
 
-      final unavailable = await probe.spoofedCoreWireHost!.createBookmark(
+    test(
+      'a plugin target cannot gain core authority from its wire name',
+      () async {
+        final probe = _BookmarkAuthorityProbeModule();
+        final api = _ChatBookmarkFakeApi();
+        final shell = await _loadProbeShell(api, probe);
+        addTearDown(shell.dispose);
+
+        // Opening the session materializes the bookmark factory for `probe`.
+        final _ = shell.pluginSession;
+
+        // A caller can describe a new target in its own namespace, but that
+        // facade remains inert until the exact target is contributed and
+        // validated. Matching only core's wire name must not confer authority.
+        final spoofed = await probe.spoofedCoreWireHost!.updateBookmark(
+          siteUrl: _site,
+          bookmark: const Bookmark(
+            id: 91,
+            bookmarkableId: 12,
+            bookmarkableType: 'Post',
+          ),
+          autoDeletePreference: BookmarkAutoDeletePreference.clearReminder,
+        );
+
+        expect(spoofed.saved, isFalse);
+        expect(
+          spoofed.message,
+          'This bookmark does not belong to probe record.',
+        );
+        expect(api.updatedBookmarks, isEmpty);
+
+        final unavailable = await probe.spoofedCoreWireHost!.createBookmark(
+          siteUrl: _site,
+          targetId: 12,
+        );
+        expect(unavailable.saved, isFalse);
+        expect(
+          unavailable.message,
+          'This bookmark target is not available in this build.',
+        );
+        expect(api.createdBookmarks, isEmpty);
+      },
+    );
+  });
+
+  group('write coordination', () {
+    test('reconciles an unreachable create without retrying it', () async {
+      final api = FakeDiscourseApi(
+        user: const DiscourseUser(username: 'reader'),
+        feeds: const {
+          '/latest.json': [Topic(id: 7, title: 'Topic', slug: 'topic')],
+        },
+        topics: {7: _payload()},
+        siteConfigs: const {_site: SiteConfig.unknown()},
+        bookmarkList: const [],
+        writeFailure: const WriteException(WriteFailure.unreachable),
+      );
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+
+      final result = await shell.createBookmark(
         siteUrl: _site,
+        topicId: 7,
+        targetType: BookmarkTargetType.post,
         targetId: 12,
       );
-      expect(unavailable.saved, isFalse);
-      expect(unavailable.message, contains('not available'));
+      await pumpEventQueue();
+
+      expect(result.reconciled, isTrue);
+      expect(
+        result.message,
+        "Couldn't confirm whether the bookmark was created. The topic is being refreshed.",
+      );
       expect(api.createdBookmarks, isEmpty);
-    },
-  );
+      expect(api.topicsOpened, [7, 7]);
+    });
 
-  test('an ambiguous create is reconciled and never posted twice', () async {
-    final api = FakeDiscourseApi(
-      user: const DiscourseUser(username: 'reader'),
-      feeds: const {
-        '/latest.json': [Topic(id: 7, title: 'Topic', slug: 'topic')],
-      },
-      topics: {7: _payload()},
-      siteConfigs: const {_site: SiteConfig.unknown()},
-      bookmarkList: const [],
-      writeFailure: const WriteException(WriteFailure.unreachable),
-    );
-    final shell = await _loadShell(api);
-    addTearDown(shell.dispose);
-
-    final result = await shell.createBookmark(
-      siteUrl: _site,
-      topicId: 7,
-      targetType: BookmarkTargetType.post,
-      targetId: 12,
-    );
-    await pumpEventQueue();
-
-    expect(result.reconciled, isTrue);
-    expect(api.createdBookmarks, isEmpty);
-    expect(api.topicsOpened, [7, 7]);
-  });
-
-  test('repeated taps share the post write lock', () async {
-    final api = _GatedCreateBookmarkApi();
-    final shell = await _loadShell(api);
-    addTearDown(shell.dispose);
-
-    final first = shell.createBookmark(
-      siteUrl: _site,
-      topicId: 7,
-      targetType: BookmarkTargetType.post,
-      targetId: 12,
-    );
-    await api.started.future;
-    final duplicate = await shell.createBookmark(
-      siteUrl: _site,
-      topicId: 7,
-      targetType: BookmarkTargetType.post,
-      targetId: 12,
-    );
-
-    expect(duplicate.saved, isFalse);
-    expect(duplicate.message, contains('still finishing'));
-    expect(api.calls, 1);
-
-    api.response.complete(88);
-    expect((await first).saved, isTrue);
-  });
-
-  test('repeated taps share the chat message write lock', () async {
-    final api = _GatedCreateBookmarkApi();
-    final shell = await _loadShell(api);
-    addTearDown(shell.dispose);
-    _putChatFixture(shell);
-    final host = shell.pluginSession.require(chatBookmarkHostService);
-
-    final first = host.createBookmark(siteUrl: _site, targetId: 42);
-    await api.started.future;
-    final duplicate = await host.createBookmark(siteUrl: _site, targetId: 42);
-
-    expect(duplicate.saved, isFalse);
-    expect(duplicate.message, contains('still finishing'));
-    expect(api.calls, 1);
-
-    api.response.complete(88);
-    expect((await first).saved, isTrue);
-  });
-
-  test(
-    'plugin bookmark busy listenable filters unrelated shell changes',
-    () async {
+    test('shares the post write lock between repeated taps', () async {
       final api = _GatedCreateBookmarkApi();
+      addTearDown(() {
+        if (!api.response.isCompleted) api.response.complete(88);
+      });
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+
+      final first = shell.createBookmark(
+        siteUrl: _site,
+        topicId: 7,
+        targetType: BookmarkTargetType.post,
+        targetId: 12,
+      );
+      await api.started.future;
+      final duplicate = await shell.createBookmark(
+        siteUrl: _site,
+        topicId: 7,
+        targetType: BookmarkTargetType.post,
+        targetId: 12,
+      );
+
+      expect(duplicate.saved, isFalse);
+      expect(
+        duplicate.message,
+        'Another action on this bookmark is still finishing.',
+      );
+      expect(api.calls, 1);
+
+      api.response.complete(88);
+      expect((await first).saved, isTrue);
+    });
+
+    test('shares the chat message write lock between repeated taps', () async {
+      final api = _GatedCreateBookmarkApi();
+      addTearDown(() {
+        if (!api.response.isCompleted) api.response.complete(88);
+      });
       final shell = await _loadShell(api);
       addTearDown(shell.dispose);
       _putChatFixture(shell);
       final host = shell.pluginSession.require(chatBookmarkHostService);
-      final busy = host.bookmarkWriteInFlightListenable(
-        siteUrl: _site,
-        targetId: 42,
-      );
-      expect(busy, isNot(isA<ShellController>()));
-      expect(
-        host.bookmarkWriteInFlightListenable(siteUrl: _site, targetId: 42),
-        same(busy),
-      );
-      var notifications = 0;
-      void notified() => notifications++;
-      busy.addListener(notified);
-      addTearDown(() => busy.removeListener(notified));
 
-      shell.pushContent(
-        ContentRoute.topic(topicId: 8, slug: 'other', title: 'Other'),
-      );
-      expect(notifications, 0);
-
-      final write = host.createBookmark(siteUrl: _site, targetId: 42);
+      final first = host.createBookmark(siteUrl: _site, targetId: 42);
       await api.started.future;
-      await pumpEventQueue();
-      expect(busy.value, isTrue);
-      expect(notifications, 1);
+      final duplicate = await host.createBookmark(siteUrl: _site, targetId: 42);
+
+      expect(duplicate.saved, isFalse);
+      expect(
+        duplicate.message,
+        'Another action on this bookmark is still finishing.',
+      );
+      expect(api.calls, 1);
 
       api.response.complete(88);
-      expect((await write).saved, isTrue);
-      await pumpEventQueue();
-      expect(busy.value, isFalse);
-      expect(notifications, 2);
-    },
-  );
+      expect((await first).saved, isTrue);
+    });
 
-  test('a pre-write topic response cannot erase a saved bookmark', () async {
-    final api = _StaleTopicBookmarkApi();
-    final shell = await _loadShell(api);
-    addTearDown(shell.dispose);
+    test(
+      'filters unrelated shell changes from the plugin busy state',
+      () async {
+        final api = _GatedCreateBookmarkApi();
+        addTearDown(() {
+          if (!api.response.isCompleted) api.response.complete(88);
+        });
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        _putChatFixture(shell);
+        final host = shell.pluginSession.require(chatBookmarkHostService);
+        final busy = host.bookmarkWriteInFlightListenable(
+          siteUrl: _site,
+          targetId: 42,
+        );
+        expect(busy, isNot(isA<ShellController>()));
+        expect(
+          host.bookmarkWriteInFlightListenable(siteUrl: _site, targetId: 42),
+          same(busy),
+        );
+        var notifications = 0;
+        void notified() => notifications++;
+        busy.addListener(notified);
+        addTearDown(() => busy.removeListener(notified));
 
-    final stale = shell.loadTopic(7, 'topic', force: true);
-    await api.staleStarted.future;
-    final created = await shell.createBookmark(
-      siteUrl: _site,
-      topicId: 7,
-      targetType: BookmarkTargetType.post,
-      targetId: 12,
+        shell.pushContent(
+          ContentRoute.topic(topicId: 8, slug: 'other', title: 'Other'),
+        );
+        expect(notifications, 0);
+
+        final write = host.createBookmark(siteUrl: _site, targetId: 42);
+        await api.started.future;
+        await pumpEventQueue();
+        expect(busy.value, isTrue);
+        expect(notifications, 1);
+
+        api.response.complete(88);
+        expect((await write).saved, isTrue);
+        await pumpEventQueue();
+        expect(busy.value, isFalse);
+        expect(notifications, 2);
+      },
     );
-    expect(created.saved, isTrue);
-    expect(shell.store.read<Post>(_site, 12)?.bookmark?.id, 91);
-
-    api.staleResponse.complete(_payload());
-    await stale;
-    await pumpEventQueue();
-
-    expect(shell.store.read<Post>(_site, 12)?.bookmark?.id, 91);
-    expect(shell.store.read<TopicDetail>(_site, 7)?.bookmarks, hasLength(1));
-    expect(api.topicCalls, 3);
   });
 
-  test('a same-topic bookmark jump replays behind an active load', () async {
-    final api = _GatedTopicApi();
-    final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
-    final shell = ShellController(
-      instanceStore: FakeInstanceStore([
-        instance(
-          'meta.example',
-        ).copyWith(user: const DiscourseUser(username: 'reader')),
-      ]),
-      api: api,
-      authenticator: authenticator,
-      drafts: FakeDraftStore(),
-      trackers: FakeSiteTracker.reset(),
-      plugins: installedPlugins,
-    );
-    await shell.load();
-    addTearDown(shell.dispose);
-    shell.pushContent(
-      ContentRoute.topic(topicId: 7, slug: 'topic', title: 'Topic'),
-    );
+  group('response ordering', () {
+    test('a pre-write topic response cannot erase a saved bookmark', () async {
+      final api = _StaleTopicBookmarkApi();
+      addTearDown(() {
+        if (!api.staleResponse.isCompleted) {
+          api.staleResponse.complete(_payload());
+        }
+      });
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
 
-    final first = shell.loadTopic(7, 'topic');
-    await pumpEventQueue();
-    expect(api.postNumbers, [null]);
+      final stale = shell.loadTopic(7, 'topic', force: true);
+      await api.staleStarted.future;
+      final created = await shell.createBookmark(
+        siteUrl: _site,
+        topicId: 7,
+        targetType: BookmarkTargetType.post,
+        targetId: 12,
+      );
+      expect(created.saved, isTrue);
+      expect(shell.store.read<Post>(_site, 12)?.bookmark?.id, 91);
 
-    shell.openCurrentTopicPost(42);
-    api.responses.first.complete(_payload());
-    await first;
-    await pumpEventQueue();
+      api.staleResponse.complete(_payload());
+      await stale;
+      await pumpEventQueue();
 
-    expect(api.postNumbers, [null, 42]);
-    api.responses[1].complete(_payloadWithTarget());
-    await pumpEventQueue();
+      expect(shell.store.read<Post>(_site, 12)?.bookmark?.id, 91);
+      expect(
+        shell.store
+            .read<TopicDetail>(_site, 7)
+            ?.bookmarks
+            .map((bookmark) => bookmark.id),
+        [91],
+      );
+      expect(api.topicCalls, 3);
+    });
 
-    expect(shell.currentContent?.postNumber, 42);
-    expect(shell.store.read<Post>(_site, 99)?.postNumber, 42);
+    test('a same-topic bookmark jump replays after an active load', () async {
+      final api = _GatedTopicApi();
+      addTearDown(() {
+        for (final response in api.responses) {
+          if (!response.isCompleted) response.complete(_payloadWithTarget());
+        }
+      });
+      final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance(
+            'meta.example',
+          ).copyWith(user: const DiscourseUser(username: 'reader')),
+        ]),
+        api: api,
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        plugins: installedPlugins,
+      );
+      await shell.load();
+      addTearDown(shell.dispose);
+      shell.pushContent(
+        ContentRoute.topic(topicId: 7, slug: 'topic', title: 'Topic'),
+      );
+
+      final first = shell.loadTopic(7, 'topic');
+      await pumpEventQueue();
+      expect(api.postNumbers, [null]);
+
+      shell.openCurrentTopicPost(42);
+      api.responses.first.complete(_payload());
+      await first;
+      await pumpEventQueue();
+
+      expect(api.postNumbers, [null, 42]);
+      api.responses[1].complete(_payloadWithTarget());
+      await pumpEventQueue();
+
+      expect(shell.currentContent?.postNumber, 42);
+      expect(shell.store.read<Post>(_site, 99)?.postNumber, 42);
+    });
   });
 }
 
@@ -475,6 +658,26 @@ Future<ShellController> _loadShell(FakeDiscourseApi api) async {
     ContentRoute.topic(topicId: 7, slug: 'topic', title: 'Topic'),
   );
   await shell.loadTopic(7, 'topic');
+  return shell;
+}
+
+Future<ShellController> _loadProbeShell(
+  FakeDiscourseApi api,
+  _BookmarkAuthorityProbeModule probe,
+) async {
+  final shell = ShellController(
+    instanceStore: FakeInstanceStore([
+      instance(
+        'meta.example',
+      ).copyWith(user: const DiscourseUser(username: 'reader')),
+    ]),
+    api: api,
+    authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+    plugins: PluginInstaller.install(PluginManifest([probe])),
+  );
+  await shell.load();
   return shell;
 }
 
@@ -506,7 +709,7 @@ ChatMessage _chatMessage([Bookmark? bookmark]) => ChatMessage(
   bookmark: bookmark,
 );
 
-void _putChatFixture(ShellController shell) {
+void _putChatFixture(ShellController shell, {Bookmark? bookmark}) {
   final chat = shell.pluginSession.require(chatControllerService);
   chat.putRecordForTesting(
     _site,
@@ -517,7 +720,7 @@ void _putChatFixture(ShellController shell) {
       membership: ChatMembership(following: true),
     ),
   );
-  chat.putRecordForTesting(_site, _chatMessage());
+  chat.putRecordForTesting(_site, _chatMessage(bookmark));
 }
 
 TopicPayload _payloadWithTarget() {
@@ -659,13 +862,14 @@ final class _StaleTopicBookmarkApi extends FakeDiscourseApi {
 }
 
 final class _BookmarkFakeApi extends FakeDiscourseApi {
-  _BookmarkFakeApi()
-    : super(
+  _BookmarkFakeApi({Bookmark? bookmark})
+    : _bookmark = bookmark,
+      super(
         user: const DiscourseUser(username: 'reader'),
         feeds: const {
           '/latest.json': [Topic(id: 7, title: 'Topic', slug: 'topic')],
         },
-        topics: {7: _payload()},
+        topics: {7: _payload(bookmark: bookmark)},
         siteConfigs: const {_site: SiteConfig.unknown()},
         bookmarkList: const [],
       );
@@ -758,7 +962,7 @@ final class _BookmarkFakeApi extends FakeDiscourseApi {
 }
 
 final class _ChatBookmarkFakeApi extends FakeDiscourseApi {
-  _ChatBookmarkFakeApi()
+  _ChatBookmarkFakeApi({this._bookmark})
     : super(
         user: const DiscourseUser(username: 'reader'),
         feeds: const {

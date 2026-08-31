@@ -15,12 +15,12 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  group('the channel', () {
+  group('update channel preference', () {
     test('reads as no preference when nothing was stored', () async {
       expect(await store.readChannel(), isNull);
     });
 
-    test('survives a round trip', () async {
+    test('persists successive channel selections', () async {
       await store.writeChannel(UpdateChannel.canary);
       expect(await store.readChannel(), UpdateChannel.canary);
 
@@ -107,12 +107,12 @@ void main() {
     );
   });
 
-  group('the last check', () {
+  group('last-checked timestamp', () {
     test('reads as never when nothing was stored', () async {
       expect(await store.readLastChecked(), isNull);
     });
 
-    test('survives a round trip', () async {
+    test('persists the last check time', () async {
       final at = DateTime.fromMillisecondsSinceEpoch(1720000000000);
       await store.writeLastChecked(at);
 
@@ -137,7 +137,7 @@ void main() {
       );
     });
 
-    test('keeps the two facts apart', () async {
+    test('remains independent from the channel preference', () async {
       await store.writeChannel(UpdateChannel.canary);
       final at = DateTime.fromMillisecondsSinceEpoch(1720000000000);
       await store.writeLastChecked(at);

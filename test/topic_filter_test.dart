@@ -511,6 +511,7 @@ void main() {
         );
 
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
         await mouse.addPointer();
         await mouse.moveTo(tester.getCenter(firstRow));
         await tester.pump();

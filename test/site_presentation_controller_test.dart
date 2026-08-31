@@ -16,704 +16,710 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const site = 'https://meta.example';
 
-  test('loads, publishes, persists, and caches site appearance', () async {
-    final api = _PresentationApi();
-    final credentials = _Credentials();
-    final stored = siteAppearance(accent: const Color(0xFF112233));
-    final fetched = siteAppearance(accent: const Color(0xFF445566));
-    api.appearance = fetched;
-    final persisted = <(String, SiteAppearance)>[];
-    final controller = _controller(
-      api,
-      credentials: credentials,
-      persistedAppearances: {site: stored},
-      onAppearanceLoaded: (siteUrl, appearance) async {
-        persisted.add((siteUrl, appearance));
-      },
-    );
-    var notifications = 0;
-    controller.addListener(() => notifications++);
+  group('SitePresentationController', () {
+    group('appearance', () {
+      test('refresh loads, publishes, persists, and caches values', () async {
+        final api = _PresentationApi();
+        final credentials = _Credentials();
+        final stored = siteAppearance(accent: const Color(0xFF112233));
+        final fetched = siteAppearance(accent: const Color(0xFF445566));
+        api.appearance = fetched;
+        final persisted = <(String, SiteAppearance)>[];
+        final controller = _controller(
+          api,
+          credentials: credentials,
+          persistedAppearances: {site: stored},
+          onAppearanceLoaded: (siteUrl, appearance) async {
+            persisted.add((siteUrl, appearance));
+          },
+        );
+        var notifications = 0;
+        controller.addListener(() => notifications++);
 
-    expect(controller.appearanceFor(site), stored);
-    await Future.wait([
-      controller.refreshAppearance(site),
-      controller.refreshAppearance(site),
-    ]);
+        expect(controller.appearanceFor(site), stored);
+        await Future.wait([
+          controller.refreshAppearance(site),
+          controller.refreshAppearance(site),
+        ]);
 
-    expect(api.appearanceCalls, 1);
-    expect(credentials.apiKeySites, [site]);
-    expect(credentials.clientIdCalls, 1);
-    expect(controller.appearanceFor(site), fetched);
-    expect(persisted, [(site, fetched)]);
-    expect(notifications, 1);
+        expect(api.appearanceCalls, 1);
+        expect(credentials.apiKeySites, [site]);
+        expect(credentials.clientIdCalls, 1);
+        expect(controller.appearanceFor(site), fetched);
+        expect(persisted, [(site, fetched)]);
+        expect(notifications, 1);
 
-    await controller.ensureAppearance(site);
-    expect(api.appearanceCalls, 1);
-    controller.dispose();
-  });
-
-  test('warm persisted appearance causes no churn or request', () async {
-    final appearance = siteAppearance();
-    final api = _PresentationApi()..appearance = appearance;
-    var persistenceCalls = 0;
-    final controller = _controller(
-      api,
-      persistedAppearances: {site: appearance},
-      onAppearanceLoaded: (_, _) async => persistenceCalls++,
-    );
-    var notifications = 0;
-    controller.addListener(() => notifications++);
-
-    await controller.ensureAppearance(site);
-
-    expect(controller.appearanceFor(site), appearance);
-    expect(api.appearanceCalls, 0);
-    expect(notifications, 0);
-    expect(persistenceCalls, 0);
-    controller.dispose();
-  });
-
-  test(
-    'failed appearance refresh keeps persisted colors and bounds retries',
-    () async {
-      final diagnostics = await _installDiagnostics('appearance-load');
-      final stored = siteAppearance(accent: const Color(0xFF112233));
-      final api = _PresentationApi()..appearanceError = StateError('offline');
-      var persistenceCalls = 0;
-      final controller = _controller(
-        api,
-        persistedAppearances: {site: stored},
-        persistedFreshness: Duration.zero,
-        onAppearanceLoaded: (_, _) async => persistenceCalls++,
-      );
-      var notifications = 0;
-      controller.addListener(() => notifications++);
-
-      for (var attempt = 0; attempt < 5; attempt++) {
         await controller.ensureAppearance(site);
-      }
-
-      expect(api.appearanceCalls, 3);
-      expect(controller.appearanceFor(site), stored);
-      expect(persistenceCalls, 0);
-      expect(notifications, 0);
-
-      controller.forget(site);
-      await controller.ensureAppearance(site);
-
-      expect(api.appearanceCalls, 4);
-      expect(controller.appearanceFor(site), stored);
-      expect(persistenceCalls, 0);
-      expect(notifications, 0);
-      final events = diagnostics.events.whereType<ErrorDiagnosticEvent>();
-      expect(events, isNotEmpty);
-      expect(events, everyElement(_isAppearanceFailure('siteAppearance.load')));
-      controller.dispose();
-    },
-  );
-
-  test(
-    'failed appearance persistence keeps fetched colors and reports it',
-    () async {
-      final diagnostics = await _installDiagnostics('appearance-persist');
-      final fetched = siteAppearance(accent: const Color(0xFF445566));
-      final api = _PresentationApi()..appearance = fetched;
-      final controller = _controller(
-        api,
-        onAppearanceLoaded: (_, _) async {
-          throw StateError('storage unavailable');
-        },
-      );
-
-      await controller.ensureAppearance(site);
-
-      expect(controller.appearanceFor(site), fetched);
-      expect(
-        diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-        _isAppearanceFailure('siteAppearance.persist'),
-      );
-      controller.dispose();
-    },
-  );
-
-  test('site invalidation rejects a late appearance response', () async {
-    final api = _PresentationApi();
-    final gate = Completer<SiteAppearance?>();
-    api.appearanceGate = gate;
-    final lifecycle = SiteLifecycle();
-    final persisted = <SiteAppearance>[];
-    final controller = _controller(
-      api,
-      lifecycle: lifecycle,
-      onAppearanceLoaded: (_, appearance) async {
-        persisted.add(appearance);
-      },
-    );
-
-    final pending = controller.ensureAppearance(site);
-    await api.appearanceRequestStarted.future;
-    lifecycle.invalidate(site);
-    controller.forget(site);
-    gate.complete(siteAppearance());
-    await pending;
-
-    expect(controller.appearanceFor(site), isNull);
-    expect(persisted, isEmpty);
-    controller.dispose();
-  });
-
-  test('reentrant disposal cannot persist published appearance', () async {
-    final api = _PresentationApi()..appearance = siteAppearance();
-    var persistenceCalls = 0;
-    final controller = _controller(
-      api,
-      onAppearanceLoaded: (_, _) async => persistenceCalls++,
-    );
-    controller.addListener(controller.dispose);
-
-    await controller.ensureAppearance(site);
-
-    expect(persistenceCalls, 0);
-  });
-
-  test('loads, publishes, persists, and caches site config', () async {
-    final api = _PresentationApi();
-    final credentials = _Credentials();
-    const stored = SiteConfig(emojiSet: 'apple');
-    const fetched = SiteConfig(emojiEnabled: false, emojiSet: 'google');
-    api.config = fetched;
-    final persisted = <(String, SiteConfig)>[];
-    final controller = _controller(
-      api,
-      credentials: credentials,
-      persisted: {site: stored},
-      onConfigLoaded: (siteUrl, config) async {
-        persisted.add((siteUrl, config));
-      },
-    );
-    var notifications = 0;
-    controller.addListener(() => notifications++);
-    final initialPresentation = controller.presentationTokenFor(site);
-
-    expect(controller.configFor(site), stored);
-    await Future.wait([
-      controller.refreshConfig(site),
-      controller.refreshConfig(site),
-    ]);
-
-    expect(api.configCalls, 1);
-    expect(credentials.apiKeySites, [site]);
-    expect(credentials.clientIdCalls, 1);
-    expect(controller.configFor(site), fetched);
-    expect(
-      controller.presentationTokenFor(site),
-      isNot(same(initialPresentation)),
-    );
-    expect(persisted, [(site, fetched)]);
-    expect(notifications, 1);
-
-    await controller.ensureConfig(site);
-    expect(api.configCalls, 1);
-    controller.dispose();
-  });
-
-  test('resolves fetched all-default config as known', () async {
-    final api = _PresentationApi()..config = const SiteConfig();
-    final controller = _controller(api);
-
-    final resolved = await Future.wait([
-      controller.resolveConfig(site),
-      controller.resolveConfig(site),
-    ]);
-
-    expect(api.configCalls, 1);
-    expect(resolved, everyElement(const SiteConfig()));
-    controller.dispose();
-  });
-
-  test('does not present fallback defaults as resolved config', () async {
-    final api = _PresentationApi()..configError = StateError('offline');
-    final controller = _controller(api);
-
-    final resolved = await controller.resolveConfig(site);
-
-    expect(resolved, isNull);
-    expect(controller.configFor(site), const SiteConfig.unknown());
-    controller.dispose();
-  });
-
-  test(
-    'warm persisted presentation makes no request until freshness expires',
-    () async {
-      var now = DateTime.utc(2026, 8, 11, 12);
-      final api = _PresentationApi()
-        ..appearance = siteAppearance(accent: const Color(0xFF445566))
-        ..config = const SiteConfig(emojiSet: 'google');
-      final credentials = _Credentials();
-      final controller = _controller(
-        api,
-        credentials: credentials,
-        persisted: const {site: SiteConfig(emojiSet: 'apple')},
-        persistedAppearances: {
-          site: siteAppearance(accent: const Color(0xFF112233)),
-        },
-        clock: () => now,
-      );
-
-      await Future.wait([
-        controller.ensureAppearance(site),
-        controller.ensureAppearance(site),
-        controller.ensureConfig(site),
-        controller.ensureConfig(site),
-      ]);
-
-      expect(api.appearanceCalls, 0);
-      expect(api.configCalls, 0);
-      expect(credentials.apiKeySites, isEmpty);
-      expect(credentials.clientIdCalls, 0);
-
-      now = now.add(
-        SitePresentationController.defaultPersistedFreshness +
-            const Duration(seconds: 1),
-      );
-      await Future.wait([
-        controller.ensureAppearance(site),
-        controller.ensureAppearance(site),
-        controller.ensureConfig(site),
-        controller.ensureConfig(site),
-      ]);
-
-      expect(api.appearanceCalls, 1);
-      expect(api.configCalls, 1);
-      expect(credentials.apiKeySites, [site, site]);
-      expect(credentials.clientIdCalls, 2);
-      controller.dispose();
-    },
-  );
-
-  test('unknown persisted config still loads on first ensure', () async {
-    final api = _PresentationApi()
-      ..config = const SiteConfig(emojiSet: 'google');
-    final controller = _controller(
-      api,
-      persisted: const {site: SiteConfig.unknown()},
-    );
-
-    await controller.ensureConfig(site);
-
-    expect(api.configCalls, 1);
-    expect(controller.configFor(site).emojiSet, 'google');
-    controller.dispose();
-  });
-
-  test('forget invalidates warm persisted presentation', () async {
-    final api = _PresentationApi()
-      ..appearance = siteAppearance(accent: const Color(0xFF445566))
-      ..config = const SiteConfig(emojiSet: 'google');
-    final controller = _controller(
-      api,
-      persisted: const {site: SiteConfig(emojiSet: 'apple')},
-      persistedAppearances: {
-        site: siteAppearance(accent: const Color(0xFF112233)),
-      },
-    );
-
-    await Future.wait([
-      controller.ensureAppearance(site),
-      controller.ensureConfig(site),
-    ]);
-    expect(api.appearanceCalls, 0);
-    expect(api.configCalls, 0);
-
-    controller.forget(site);
-    await Future.wait([
-      controller.ensureAppearance(site),
-      controller.ensureConfig(site),
-    ]);
-
-    expect(api.appearanceCalls, 1);
-    expect(api.configCalls, 1);
-    controller.dispose();
-  });
-
-  test('bounds failed requests and forget resets the retry budget', () async {
-    final api = _PresentationApi()..configError = StateError('offline');
-    final controller = _controller(api);
-
-    for (var i = 0; i < 5; i++) {
-      await controller.ensureConfig(site);
-    }
-    expect(api.configCalls, 3);
-
-    controller.forget(site);
-    await controller.ensureConfig(site);
-    expect(api.configCalls, 4);
-    controller.dispose();
-  });
-
-  test('resolves custom emoji against the site that owns it', () async {
-    final api = _PresentationApi()
-      ..custom = {
-        'party': '/uploads/party.png',
-        'cdn': '//cdn.example/emoji.png',
-        'full': 'https://assets.example/full.png',
-      };
-    final controller = _controller(api);
-    const otherSite = 'https://other.example';
-
-    await controller.ensureCustomEmojis(site);
-    await controller.ensureCustomEmojis(otherSite);
-
-    expect(
-      controller.emojiUrlFor(site, 'party'),
-      'https://meta.example/uploads/party.png',
-    );
-    expect(
-      controller.emojiUrlFor(otherSite, 'party'),
-      'https://other.example/uploads/party.png',
-    );
-    expect(
-      controller.emojiUrlFor(site, 'cdn'),
-      'https://cdn.example/emoji.png',
-    );
-    expect(
-      controller.emojiUrlFor(otherSite, 'full'),
-      'https://assets.example/full.png',
-    );
-    controller.dispose();
-  });
-
-  test('knowsEmoji answers from custom uploads and the catalog', () async {
-    final api = _PresentationApi()
-      ..custom = {'partyparrot': '/uploads/parrot.png'}
-      ..emojis = const [
-        SiteEmoji(name: 'tada', url: 'tada.png'),
-        SiteEmoji(name: 'wave', url: 'wave.png', tonable: true),
-        SiteEmoji(name: 'megaphone', url: 'megaphone.png'),
-      ];
-    final controller = _controller(api);
-
-    // Nothing fetched yet: no name may fabricate an artwork address.
-    expect(controller.knowsEmoji(site, 'tada'), isFalse);
-
-    await controller.ensureCustomEmojis(site);
-    expect(controller.knowsEmoji(site, 'partyparrot'), isTrue);
-    expect(controller.knowsEmoji(site, 'tada'), isFalse);
-
-    await controller.ensureEmojiCatalog(site);
-    expect(controller.knowsEmoji(site, 'tada'), isTrue);
-    expect(controller.knowsEmoji(site, 'wave:t3'), isTrue);
-    expect(controller.emojiNameFor(site, 'mega'), 'megaphone');
-    expect(controller.emojiNameFor(site, 'mega:t3'), 'megaphone:t3');
-    expect(controller.knowsEmoji(site, '30'), isFalse);
-    expect(controller.emojiNameFor(site, 'xray'), isNull);
-    expect(controller.knowsEmoji('https://other.example', 'tada'), isFalse);
-    controller.dispose();
-  });
-
-  test('emoji index shares its request without presentation churn', () async {
-    final api = _PresentationApi();
-    final gate = Completer<List<SiteEmoji>>();
-    api.emojiGate = gate;
-    var presentationNotifications = 0;
-    final controller = _controller(api);
-    controller.addListener(() => presentationNotifications++);
-
-    final first = controller.ensureEmojiCatalog(site);
-    final second = controller.ensureEmojiCatalog(site);
-    expect(second, same(first));
-    await api.emojiRequestStarted.future;
-    gate.complete(const [
-      SiteEmoji(name: 'smiley', url: 'smiley.png'),
-      SiteEmoji(name: 'xsmile', url: 'xsmile.png'),
-      SiteEmoji(name: 'smile', url: 'smile.png'),
-      SiteEmoji(name: 'small', url: 'small.png'),
-    ]);
-    await Future.wait([first, second]);
-
-    expect(api.emojiCalls, 1);
-    expect(presentationNotifications, 0);
-    expect(controller.searchEmojis(site, 'smile'), const [
-      SiteEmoji(name: 'smile', url: 'smile.png'),
-      SiteEmoji(name: 'smiley', url: 'smiley.png'),
-      SiteEmoji(name: 'xsmile', url: 'xsmile.png'),
-    ]);
-    expect(controller.searchEmojis(site, 'sm', limit: 2).length, 2);
-    expect(controller.searchEmojis(site, 'sm', limit: 0), isEmpty);
-    controller.dispose();
-  });
-
-  test('emoji autocomplete retains only the best ordered matches', () async {
-    final api = _PresentationApi()
-      ..emojis = const [
-        SiteEmoji(name: 'party_spark', url: '/uploads/party-spark.png'),
-        SiteEmoji(name: 'sparkler', url: '/uploads/sparkler.png'),
-        SiteEmoji(name: 'sparkling', url: '/images/emoji/sparkling.png'),
-        SiteEmoji(name: 'spark', url: '/uploads/spark.png'),
-        SiteEmoji(name: 'sparkle', url: '/images/emoji/sparkle.png'),
-        SiteEmoji(name: 'sparks', url: '/images/emoji/sparks.png'),
-        SiteEmoji(name: 'x_spark', url: '/uploads/x-spark.png'),
-      ];
-    final controller = _controller(api);
-    await controller.ensureEmojiCatalog(site);
-
-    expect(controller.searchEmojis(site, 'spark', limit: 4), const [
-      SiteEmoji(name: 'spark', url: '/uploads/spark.png'),
-      SiteEmoji(name: 'sparkle', url: '/images/emoji/sparkle.png'),
-      SiteEmoji(name: 'sparkler', url: '/uploads/sparkler.png'),
-      SiteEmoji(name: 'sparkling', url: '/images/emoji/sparkling.png'),
-    ]);
-    controller.dispose();
-  });
-
-  test('emoji search never returns more than the picker ceiling', () async {
-    final api = _PresentationApi()
-      ..emojis = [
-        for (var index = 0; index < 60; index++)
-          SiteEmoji(
-            name: 'match_${index.toString().padLeft(2, '0')}',
-            url: '$index.png',
-          ),
-      ];
-    final controller = _controller(api);
-    await controller.ensureEmojiCatalog(site);
-
-    expect(controller.searchEmojis(site, 'match', limit: 500), hasLength(50));
-    controller.dispose();
-  });
-
-  test(
-    'emoji aliases load independently and follow web search ranking',
-    () async {
-      final api = _PresentationApi()
-        ..emojis = const [
-          SiteEmoji(name: 'glove', url: 'glove.png'),
-          SiteEmoji(name: 'heart', url: 'heart.png'),
-          SiteEmoji(name: 'love_letter', url: 'love-letter.png'),
-        ];
-      final aliasGate = Completer<Map<String, List<String>>>();
-      api.emojiAliasGate = aliasGate;
-      final controller = _controller(api);
-
-      await controller.ensureEmojiCatalog(site);
-      final first = controller.ensureEmojiSearchAliases(site);
-      final second = controller.ensureEmojiSearchAliases(site);
-      expect(second, same(first));
-      aliasGate.complete({
-        'heart': ['love'],
-        // An alias cannot make an emoji absent from the catalog searchable.
-        'missing': ['love'],
+        expect(api.appearanceCalls, 1);
       });
-      await Future.wait([first, second]);
 
-      expect(api.emojiCalls, 1);
-      expect(api.emojiAliasCalls, 1);
-      expect(controller.searchEmojis(site, 'love', limit: 50), const [
-        SiteEmoji(name: 'love_letter', url: 'love-letter.png'),
-        SiteEmoji(name: 'heart', url: 'heart.png'),
-        SiteEmoji(name: 'glove', url: 'glove.png'),
-      ]);
-      controller.dispose();
-    },
-  );
+      test('warm persisted values cause no churn or request', () async {
+        final appearance = siteAppearance();
+        final api = _PresentationApi()..appearance = appearance;
+        var persistenceCalls = 0;
+        final controller = _controller(
+          api,
+          persistedAppearances: {site: appearance},
+          onAppearanceLoaded: (_, _) async => persistenceCalls++,
+        );
+        var notifications = 0;
+        controller.addListener(() => notifications++);
 
-  test('warming the catalog retries a failure but reuses a hit', () async {
-    await _installDiagnostics('emoji-catalog-warm');
-    final api = _PresentationApi()
-      ..emojiError = StateError('catalog unavailable');
-    final controller = _controller(api);
+        await controller.ensureAppearance(site);
 
-    expect(await controller.ensureEmojiCatalog(site), isNull);
-    expect(api.emojiCalls, 1);
+        expect(controller.appearanceFor(site), appearance);
+        expect(api.appearanceCalls, 0);
+        expect(notifications, 0);
+        expect(persistenceCalls, 0);
+      });
 
-    // Prose emoji depend on this catalog, so opening the site again has to be
-    // able to recover; an ensure would keep answering the session-long null.
-    expect(await controller.ensureEmojiCatalog(site), isNull);
-    expect(api.emojiCalls, 1);
+      test(
+        'failed refresh keeps persisted colors and bounds retries',
+        () async {
+          final diagnostics = await _installDiagnostics('appearance-load');
+          final stored = siteAppearance(accent: const Color(0xFF112233));
+          final api = _PresentationApi()
+            ..appearanceError = StateError('offline');
+          var persistenceCalls = 0;
+          final controller = _controller(
+            api,
+            persistedAppearances: {site: stored},
+            persistedFreshness: Duration.zero,
+            onAppearanceLoaded: (_, _) async => persistenceCalls++,
+          );
+          var notifications = 0;
+          controller.addListener(() => notifications++);
 
-    api
-      ..emojiError = null
-      ..emojis = const [SiteEmoji(name: 'wave', url: 'wave.png')];
+          for (var attempt = 0; attempt < 5; attempt++) {
+            await controller.ensureAppearance(site);
+          }
 
-    expect(await controller.warmEmojiCatalog(site), isNotNull);
-    expect(api.emojiCalls, 2);
-    expect(controller.knowsEmoji(site, 'wave'), isTrue);
+          expect(api.appearanceCalls, 3);
+          expect(controller.appearanceFor(site), stored);
+          expect(persistenceCalls, 0);
+          expect(notifications, 0);
 
-    // Held catalogs are not refetched every time a site is selected.
-    expect(await controller.warmEmojiCatalog(site), isNotNull);
-    expect(api.emojiCalls, 2);
-    controller.dispose();
-  });
+          controller.forget(site);
+          await controller.ensureAppearance(site);
 
-  test(
-    'failed emoji metadata returns null and explicit refresh can recover',
-    () async {
-      await _installDiagnostics('emoji-metadata-retry');
-      final api = _PresentationApi()
-        ..emojiError = StateError('catalog unavailable')
-        ..emojiAliasError = StateError('aliases unavailable');
-      final controller = _controller(api);
-
-      expect(await controller.ensureEmojiCatalog(site), isNull);
-      expect(await controller.ensureEmojiSearchAliases(site), isNull);
-      expect(controller.emojiCatalogFor(site), isNull);
-      expect(controller.emojiSearchAliasesFor(site), isNull);
-
-      api
-        ..emojiError = null
-        ..emojiAliasError = null
-        ..emojis = const [SiteEmoji(name: 'wave', url: 'wave.png')]
-        ..emojiAliases = const {
-          'wave': ['hello'],
-        };
-      // A normal ensure call is cache hydration, not an implicit retry loop.
-      // Recovery is user-driven through the picker's explicit retry action.
-      expect(await controller.ensureEmojiCatalog(site), isNull);
-      expect(await controller.ensureEmojiSearchAliases(site), isNull);
-      expect(api.emojiCalls, 1);
-      expect(api.emojiAliasCalls, 1);
-
-      expect(await controller.refreshEmojiCatalog(site), isNotNull);
-      expect(await controller.refreshEmojiSearchAliases(site), isNotNull);
-      expect(controller.searchEmojis(site, 'hello').single.name, 'wave');
-      controller.dispose();
-    },
-  );
-
-  test('site invalidation rejects late catalog and alias responses', () async {
-    final catalogGate = Completer<List<SiteEmoji>>();
-    final aliasGate = Completer<Map<String, List<String>>>();
-    final api = _PresentationApi()
-      ..emojiGate = catalogGate
-      ..emojiAliasGate = aliasGate;
-    final lifecycle = SiteLifecycle();
-    final controller = _controller(api, lifecycle: lifecycle);
-
-    final catalog = controller.ensureEmojiCatalog(site);
-    final aliases = controller.ensureEmojiSearchAliases(site);
-    await Future.wait([
-      api.emojiRequestStarted.future,
-      api.emojiAliasRequestStarted.future,
-    ]);
-    lifecycle.invalidate(site);
-    controller.forget(site);
-    catalogGate.complete(const [SiteEmoji(name: 'wave', url: 'wave.png')]);
-    aliasGate.complete(const {
-      'wave': ['hello'],
-    });
-
-    expect(await catalog, isNull);
-    expect(await aliases, isNull);
-    expect(controller.emojiCatalogFor(site), isNull);
-    expect(controller.emojiSearchAliasesFor(site), isNull);
-    controller.dispose();
-  });
-
-  test(
-    'site invalidation rejects a late response and forget is synchronous',
-    () async {
-      final api = _PresentationApi();
-      final gate = Completer<SiteConfig>();
-      api.configGate = gate;
-      final lifecycle = SiteLifecycle();
-      final persisted = <(String, SiteConfig)>[];
-      final controller = _controller(
-        api,
-        lifecycle: lifecycle,
-        onConfigLoaded: (siteUrl, config) async {
-          persisted.add((siteUrl, config));
+          expect(api.appearanceCalls, 4);
+          expect(controller.appearanceFor(site), stored);
+          expect(persistenceCalls, 0);
+          expect(notifications, 0);
+          final events = diagnostics.events.whereType<ErrorDiagnosticEvent>();
+          expect(events, isNotEmpty);
+          expect(
+            events,
+            everyElement(_isAppearanceFailure('siteAppearance.load')),
+          );
         },
       );
 
-      final pending = controller.ensureConfig(site);
-      await api.configRequestStarted.future;
-      lifecycle.invalidate(site);
-      controller.forget(site);
-      expect(controller.configFor(site), const SiteConfig.unknown());
+      test('failed persistence keeps fetched colors and reports it', () async {
+        final diagnostics = await _installDiagnostics('appearance-persist');
+        final fetched = siteAppearance(accent: const Color(0xFF445566));
+        final api = _PresentationApi()..appearance = fetched;
+        final controller = _controller(
+          api,
+          onAppearanceLoaded: (_, _) async {
+            throw StateError('storage unavailable');
+          },
+        );
 
-      gate.complete(const SiteConfig(emojiSet: 'apple'));
-      await pending;
+        await controller.ensureAppearance(site);
 
-      expect(controller.configFor(site), const SiteConfig.unknown());
-      expect(persisted, isEmpty);
+        expect(controller.appearanceFor(site), fetched);
+        expect(
+          diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
+          _isAppearanceFailure('siteAppearance.persist'),
+        );
+      });
 
-      api
-        ..configGate = null
-        ..config = const SiteConfig(emojiSet: 'google');
-      await controller.ensureConfig(site);
-      expect(controller.configFor(site).emojiSet, 'google');
-      controller.dispose();
-    },
-  );
+      test('site invalidation rejects a late response', () async {
+        final api = _PresentationApi();
+        final gate = Completer<SiteAppearance?>();
+        api.appearanceGate = gate;
+        final lifecycle = SiteLifecycle();
+        final persisted = <SiteAppearance>[];
+        final controller = _controller(
+          api,
+          lifecycle: lifecycle,
+          onAppearanceLoaded: (_, appearance) async {
+            persisted.add(appearance);
+          },
+        );
 
-  test(
-    'reentrant invalidation cannot persist the previous session config',
-    () async {
-      final api = _PresentationApi()
-        ..config = const SiteConfig(emojiSet: 'google');
-      final lifecycle = SiteLifecycle();
-      final persisted = <(String, SiteConfig)>[];
-      final controller = _controller(
-        api,
-        lifecycle: lifecycle,
-        onConfigLoaded: (siteUrl, config) async {
-          persisted.add((siteUrl, config));
-        },
-      );
-      var invalidated = false;
-      controller.addListener(() {
-        if (invalidated) return;
-        invalidated = true;
+        final pending = controller.ensureAppearance(site);
+        await api.appearanceRequestStarted.future;
         lifecycle.invalidate(site);
         controller.forget(site);
+        gate.complete(siteAppearance());
+        await pending;
+
+        expect(controller.appearanceFor(site), isNull);
+        expect(persisted, isEmpty);
       });
 
-      await controller.ensureConfig(site);
+      test(
+        'reentrant disposal prevents persistence after publication',
+        () async {
+          final api = _PresentationApi()..appearance = siteAppearance();
+          var persistenceCalls = 0;
+          final controller = _controller(
+            api,
+            onAppearanceLoaded: (_, _) async => persistenceCalls++,
+            autoDispose: false,
+          );
+          controller.addListener(controller.dispose);
 
-      expect(invalidated, isTrue);
-      expect(persisted, isEmpty);
-      expect(controller.configFor(site), const SiteConfig.unknown());
-      controller.dispose();
-    },
-  );
+          await controller.ensureAppearance(site);
 
-  test('reentrant disposal cannot persist published config', () async {
-    final api = _PresentationApi()
-      ..config = const SiteConfig(emojiSet: 'google');
-    var persistenceCalls = 0;
-    final controller = _controller(
-      api,
-      onConfigLoaded: (_, _) async => persistenceCalls++,
-    );
-    controller.addListener(controller.dispose);
+          expect(persistenceCalls, 0);
+        },
+      );
+    });
 
-    await controller.ensureConfig(site);
+    group('configuration and persistence', () {
+      test(
+        'config refresh loads, publishes, persists, and caches values',
+        () async {
+          final api = _PresentationApi();
+          final credentials = _Credentials();
+          const stored = SiteConfig(emojiSet: 'apple');
+          const fetched = SiteConfig(emojiEnabled: false, emojiSet: 'google');
+          api.config = fetched;
+          final persisted = <(String, SiteConfig)>[];
+          final controller = _controller(
+            api,
+            credentials: credentials,
+            persisted: {site: stored},
+            onConfigLoaded: (siteUrl, config) async {
+              persisted.add((siteUrl, config));
+            },
+          );
+          var notifications = 0;
+          controller.addListener(() => notifications++);
+          final initialPresentation = controller.presentationTokenFor(site);
 
-    expect(persistenceCalls, 0);
-  });
+          expect(controller.configFor(site), stored);
+          await Future.wait([
+            controller.refreshConfig(site),
+            controller.refreshConfig(site),
+          ]);
 
-  test('forget clears custom artwork and autocomplete index', () async {
-    final api = _PresentationApi()
-      ..custom = {'party': '/uploads/party.png'}
-      ..emojis = const [SiteEmoji(name: 'party', url: 'party.png')];
-    final controller = _controller(api);
-    final initialPresentation = controller.presentationTokenFor(site);
-    await controller.ensureCustomEmojis(site);
-    final customPresentation = controller.presentationTokenFor(site);
-    await controller.ensureEmojiCatalog(site);
-    expect(customPresentation, isNot(same(initialPresentation)));
-    expect(controller.presentationTokenFor(site), same(customPresentation));
-    expect(controller.searchEmojis(site, 'party'), isNotEmpty);
+          expect(api.configCalls, 1);
+          expect(credentials.apiKeySites, [site]);
+          expect(credentials.clientIdCalls, 1);
+          expect(controller.configFor(site), fetched);
+          expect(
+            controller.presentationTokenFor(site),
+            isNot(same(initialPresentation)),
+          );
+          expect(persisted, [(site, fetched)]);
+          expect(notifications, 1);
 
-    controller.forget(site);
+          await controller.ensureConfig(site);
+          expect(api.configCalls, 1);
+        },
+      );
 
-    expect(controller.searchEmojis(site, 'party'), isEmpty);
-    expect(
-      controller.emojiUrlFor(site, 'party'),
-      'https://meta.example/images/emoji/twitter/party.png',
-    );
-    expect(controller.presentationTokenFor(site), same(initialPresentation));
-    controller.dispose();
+      test('all-default fetched config resolves as known', () async {
+        final api = _PresentationApi()..config = const SiteConfig();
+        final controller = _controller(api);
+
+        final resolved = await Future.wait([
+          controller.resolveConfig(site),
+          controller.resolveConfig(site),
+        ]);
+
+        expect(api.configCalls, 1);
+        expect(resolved, everyElement(const SiteConfig()));
+      });
+
+      test('fallback defaults do not resolve', () async {
+        final api = _PresentationApi()..configError = StateError('offline');
+        final controller = _controller(api);
+
+        final resolved = await controller.resolveConfig(site);
+
+        expect(resolved, isNull);
+        expect(controller.configFor(site), const SiteConfig.unknown());
+      });
+
+      test(
+        'warm persisted values prevent requests until freshness expires',
+        () async {
+          var now = DateTime.utc(2026, 8, 11, 12);
+          final api = _PresentationApi()
+            ..appearance = siteAppearance(accent: const Color(0xFF445566))
+            ..config = const SiteConfig(emojiSet: 'google');
+          final credentials = _Credentials();
+          final controller = _controller(
+            api,
+            credentials: credentials,
+            persisted: const {site: SiteConfig(emojiSet: 'apple')},
+            persistedAppearances: {
+              site: siteAppearance(accent: const Color(0xFF112233)),
+            },
+            clock: () => now,
+          );
+
+          await Future.wait([
+            controller.ensureAppearance(site),
+            controller.ensureAppearance(site),
+            controller.ensureConfig(site),
+            controller.ensureConfig(site),
+          ]);
+
+          expect(api.appearanceCalls, 0);
+          expect(api.configCalls, 0);
+          expect(credentials.apiKeySites, isEmpty);
+          expect(credentials.clientIdCalls, 0);
+
+          now = now.add(
+            SitePresentationController.defaultPersistedFreshness +
+                const Duration(seconds: 1),
+          );
+          await Future.wait([
+            controller.ensureAppearance(site),
+            controller.ensureAppearance(site),
+            controller.ensureConfig(site),
+            controller.ensureConfig(site),
+          ]);
+
+          expect(api.appearanceCalls, 1);
+          expect(api.configCalls, 1);
+          expect(credentials.apiKeySites, [site, site]);
+          expect(credentials.clientIdCalls, 2);
+        },
+      );
+
+      test('unknown persisted config loads on first ensure', () async {
+        final api = _PresentationApi()
+          ..config = const SiteConfig(emojiSet: 'google');
+        final controller = _controller(
+          api,
+          persisted: const {site: SiteConfig.unknown()},
+        );
+
+        await controller.ensureConfig(site);
+
+        expect(api.configCalls, 1);
+        expect(controller.configFor(site).emojiSet, 'google');
+      });
+
+      test('forget invalidates warm persisted values', () async {
+        final api = _PresentationApi()
+          ..appearance = siteAppearance(accent: const Color(0xFF445566))
+          ..config = const SiteConfig(emojiSet: 'google');
+        final controller = _controller(
+          api,
+          persisted: const {site: SiteConfig(emojiSet: 'apple')},
+          persistedAppearances: {
+            site: siteAppearance(accent: const Color(0xFF112233)),
+          },
+        );
+
+        await Future.wait([
+          controller.ensureAppearance(site),
+          controller.ensureConfig(site),
+        ]);
+        expect(api.appearanceCalls, 0);
+        expect(api.configCalls, 0);
+
+        controller.forget(site);
+        await Future.wait([
+          controller.ensureAppearance(site),
+          controller.ensureConfig(site),
+        ]);
+
+        expect(api.appearanceCalls, 1);
+        expect(api.configCalls, 1);
+      });
+
+      test(
+        'failed requests are bounded and forget resets the retry budget',
+        () async {
+          final api = _PresentationApi()..configError = StateError('offline');
+          final controller = _controller(api);
+
+          for (var i = 0; i < 5; i++) {
+            await controller.ensureConfig(site);
+          }
+          expect(api.configCalls, 3);
+
+          controller.forget(site);
+          await controller.ensureConfig(site);
+          expect(api.configCalls, 4);
+        },
+      );
+    });
+
+    group('emoji metadata', () {
+      test('custom URLs resolve against the site that owns them', () async {
+        final api = _PresentationApi()
+          ..custom = {
+            'party': '/uploads/party.png',
+            'cdn': '//cdn.example/emoji.png',
+            'full': 'https://assets.example/full.png',
+          };
+        final controller = _controller(api);
+        const otherSite = 'https://other.example';
+
+        await controller.ensureCustomEmojis(site);
+        await controller.ensureCustomEmojis(otherSite);
+
+        expect(
+          controller.emojiUrlFor(site, 'party'),
+          'https://meta.example/uploads/party.png',
+        );
+        expect(
+          controller.emojiUrlFor(otherSite, 'party'),
+          'https://other.example/uploads/party.png',
+        );
+        expect(
+          controller.emojiUrlFor(site, 'cdn'),
+          'https://cdn.example/emoji.png',
+        );
+        expect(
+          controller.emojiUrlFor(otherSite, 'full'),
+          'https://assets.example/full.png',
+        );
+      });
+
+      test('name lookups use custom uploads and the catalog', () async {
+        final api = _PresentationApi()
+          ..custom = {'partyparrot': '/uploads/parrot.png'}
+          ..emojis = const [
+            SiteEmoji(name: 'tada', url: 'tada.png'),
+            SiteEmoji(name: 'wave', url: 'wave.png', tonable: true),
+            SiteEmoji(name: 'megaphone', url: 'megaphone.png'),
+          ];
+        final controller = _controller(api);
+
+        // Nothing fetched yet: no name may fabricate an artwork address.
+        expect(controller.knowsEmoji(site, 'tada'), isFalse);
+
+        await controller.ensureCustomEmojis(site);
+        expect(controller.knowsEmoji(site, 'partyparrot'), isTrue);
+        expect(controller.knowsEmoji(site, 'tada'), isFalse);
+
+        await controller.ensureEmojiCatalog(site);
+        expect(controller.knowsEmoji(site, 'tada'), isTrue);
+        expect(controller.knowsEmoji(site, 'wave:t3'), isTrue);
+        expect(controller.emojiNameFor(site, 'mega'), 'megaphone');
+        expect(controller.emojiNameFor(site, 'mega:t3'), 'megaphone:t3');
+        expect(controller.knowsEmoji(site, '30'), isFalse);
+        expect(controller.emojiNameFor(site, 'xray'), isNull);
+        expect(controller.knowsEmoji('https://other.example', 'tada'), isFalse);
+      });
+
+      test('the index shares one request without presentation churn', () async {
+        final api = _PresentationApi();
+        final gate = Completer<List<SiteEmoji>>();
+        api.emojiGate = gate;
+        var presentationNotifications = 0;
+        final controller = _controller(api);
+        controller.addListener(() => presentationNotifications++);
+
+        final first = controller.ensureEmojiCatalog(site);
+        final second = controller.ensureEmojiCatalog(site);
+        expect(second, same(first));
+        await api.emojiRequestStarted.future;
+        gate.complete(const [
+          SiteEmoji(name: 'smiley', url: 'smiley.png'),
+          SiteEmoji(name: 'xsmile', url: 'xsmile.png'),
+          SiteEmoji(name: 'smile', url: 'smile.png'),
+          SiteEmoji(name: 'small', url: 'small.png'),
+        ]);
+        await Future.wait([first, second]);
+
+        expect(api.emojiCalls, 1);
+        expect(presentationNotifications, 0);
+        expect(controller.searchEmojis(site, 'smile'), const [
+          SiteEmoji(name: 'smile', url: 'smile.png'),
+          SiteEmoji(name: 'smiley', url: 'smiley.png'),
+          SiteEmoji(name: 'xsmile', url: 'xsmile.png'),
+        ]);
+        expect(controller.searchEmojis(site, 'sm', limit: 2).length, 2);
+        expect(controller.searchEmojis(site, 'sm', limit: 0), isEmpty);
+      });
+
+      test('autocomplete retains only the best ordered matches', () async {
+        final api = _PresentationApi()
+          ..emojis = const [
+            SiteEmoji(name: 'party_spark', url: '/uploads/party-spark.png'),
+            SiteEmoji(name: 'sparkler', url: '/uploads/sparkler.png'),
+            SiteEmoji(name: 'sparkling', url: '/images/emoji/sparkling.png'),
+            SiteEmoji(name: 'spark', url: '/uploads/spark.png'),
+            SiteEmoji(name: 'sparkle', url: '/images/emoji/sparkle.png'),
+            SiteEmoji(name: 'sparks', url: '/images/emoji/sparks.png'),
+            SiteEmoji(name: 'x_spark', url: '/uploads/x-spark.png'),
+          ];
+        final controller = _controller(api);
+        await controller.ensureEmojiCatalog(site);
+
+        expect(controller.searchEmojis(site, 'spark', limit: 4), const [
+          SiteEmoji(name: 'spark', url: '/uploads/spark.png'),
+          SiteEmoji(name: 'sparkle', url: '/images/emoji/sparkle.png'),
+          SiteEmoji(name: 'sparkler', url: '/uploads/sparkler.png'),
+          SiteEmoji(name: 'sparkling', url: '/images/emoji/sparkling.png'),
+        ]);
+      });
+
+      test('search honors the picker result ceiling', () async {
+        final api = _PresentationApi()
+          ..emojis = [
+            for (var index = 0; index < 60; index++)
+              SiteEmoji(
+                name: 'match_${index.toString().padLeft(2, '0')}',
+                url: '$index.png',
+              ),
+          ];
+        final controller = _controller(api);
+        await controller.ensureEmojiCatalog(site);
+
+        expect(
+          controller.searchEmojis(site, 'match', limit: 500),
+          hasLength(50),
+        );
+      });
+
+      test(
+        'aliases load independently and follow web search ranking',
+        () async {
+          final api = _PresentationApi()
+            ..emojis = const [
+              SiteEmoji(name: 'glove', url: 'glove.png'),
+              SiteEmoji(name: 'heart', url: 'heart.png'),
+              SiteEmoji(name: 'love_letter', url: 'love-letter.png'),
+            ];
+          final aliasGate = Completer<Map<String, List<String>>>();
+          api.emojiAliasGate = aliasGate;
+          final controller = _controller(api);
+
+          await controller.ensureEmojiCatalog(site);
+          final first = controller.ensureEmojiSearchAliases(site);
+          final second = controller.ensureEmojiSearchAliases(site);
+          expect(second, same(first));
+          aliasGate.complete({
+            'heart': ['love'],
+            // An alias cannot make an emoji absent from the catalog searchable.
+            'missing': ['love'],
+          });
+          await Future.wait([first, second]);
+
+          expect(api.emojiCalls, 1);
+          expect(api.emojiAliasCalls, 1);
+          expect(controller.searchEmojis(site, 'love', limit: 50), const [
+            SiteEmoji(name: 'love_letter', url: 'love-letter.png'),
+            SiteEmoji(name: 'heart', url: 'heart.png'),
+            SiteEmoji(name: 'glove', url: 'glove.png'),
+          ]);
+        },
+      );
+
+      test('catalog warming retries a failure but reuses a hit', () async {
+        await _installDiagnostics('emoji-catalog-warm');
+        final api = _PresentationApi()
+          ..emojiError = StateError('catalog unavailable');
+        final controller = _controller(api);
+
+        expect(await controller.ensureEmojiCatalog(site), isNull);
+        expect(api.emojiCalls, 1);
+
+        // Prose emoji depend on this catalog, so opening the site again has to be
+        // able to recover; an ensure would keep answering the session-long null.
+        expect(await controller.ensureEmojiCatalog(site), isNull);
+        expect(api.emojiCalls, 1);
+
+        api
+          ..emojiError = null
+          ..emojis = const [SiteEmoji(name: 'wave', url: 'wave.png')];
+
+        expect(await controller.warmEmojiCatalog(site), isNotNull);
+        expect(api.emojiCalls, 2);
+        expect(controller.knowsEmoji(site, 'wave'), isTrue);
+
+        // Held catalogs are not refetched every time a site is selected.
+        expect(await controller.warmEmojiCatalog(site), isNotNull);
+        expect(api.emojiCalls, 2);
+      });
+
+      test('explicit refresh recovers failed metadata', () async {
+        await _installDiagnostics('emoji-metadata-retry');
+        final api = _PresentationApi()
+          ..emojiError = StateError('catalog unavailable')
+          ..emojiAliasError = StateError('aliases unavailable');
+        final controller = _controller(api);
+
+        expect(await controller.ensureEmojiCatalog(site), isNull);
+        expect(await controller.ensureEmojiSearchAliases(site), isNull);
+        expect(controller.emojiCatalogFor(site), isNull);
+        expect(controller.emojiSearchAliasesFor(site), isNull);
+
+        api
+          ..emojiError = null
+          ..emojiAliasError = null
+          ..emojis = const [SiteEmoji(name: 'wave', url: 'wave.png')]
+          ..emojiAliases = const {
+            'wave': ['hello'],
+          };
+        // A normal ensure call is cache hydration, not an implicit retry loop.
+        // Recovery is user-driven through the picker's explicit retry action.
+        expect(await controller.ensureEmojiCatalog(site), isNull);
+        expect(await controller.ensureEmojiSearchAliases(site), isNull);
+        expect(api.emojiCalls, 1);
+        expect(api.emojiAliasCalls, 1);
+
+        expect(await controller.refreshEmojiCatalog(site), isNotNull);
+        expect(await controller.refreshEmojiSearchAliases(site), isNotNull);
+        expect(controller.searchEmojis(site, 'hello').single.name, 'wave');
+      });
+
+      test(
+        'site invalidation rejects late catalog and alias responses',
+        () async {
+          final catalogGate = Completer<List<SiteEmoji>>();
+          final aliasGate = Completer<Map<String, List<String>>>();
+          final api = _PresentationApi()
+            ..emojiGate = catalogGate
+            ..emojiAliasGate = aliasGate;
+          final lifecycle = SiteLifecycle();
+          final controller = _controller(api, lifecycle: lifecycle);
+
+          final catalog = controller.ensureEmojiCatalog(site);
+          final aliases = controller.ensureEmojiSearchAliases(site);
+          await Future.wait([
+            api.emojiRequestStarted.future,
+            api.emojiAliasRequestStarted.future,
+          ]);
+          lifecycle.invalidate(site);
+          controller.forget(site);
+          catalogGate.complete(const [
+            SiteEmoji(name: 'wave', url: 'wave.png'),
+          ]);
+          aliasGate.complete(const {
+            'wave': ['hello'],
+          });
+
+          expect(await catalog, isNull);
+          expect(await aliases, isNull);
+          expect(controller.emojiCatalogFor(site), isNull);
+          expect(controller.emojiSearchAliasesFor(site), isNull);
+        },
+      );
+    });
+
+    group('lifecycle races and reset', () {
+      test(
+        'rejects a late config response after invalidation and forgets synchronously',
+        () async {
+          final api = _PresentationApi();
+          final gate = Completer<SiteConfig>();
+          api.configGate = gate;
+          final lifecycle = SiteLifecycle();
+          final persisted = <(String, SiteConfig)>[];
+          final controller = _controller(
+            api,
+            lifecycle: lifecycle,
+            onConfigLoaded: (siteUrl, config) async {
+              persisted.add((siteUrl, config));
+            },
+          );
+
+          final pending = controller.ensureConfig(site);
+          await api.configRequestStarted.future;
+          lifecycle.invalidate(site);
+          controller.forget(site);
+          expect(controller.configFor(site), const SiteConfig.unknown());
+
+          gate.complete(const SiteConfig(emojiSet: 'apple'));
+          await pending;
+
+          expect(controller.configFor(site), const SiteConfig.unknown());
+          expect(persisted, isEmpty);
+
+          api
+            ..configGate = null
+            ..config = const SiteConfig(emojiSet: 'google');
+          await controller.ensureConfig(site);
+          expect(controller.configFor(site).emojiSet, 'google');
+        },
+      );
+
+      test(
+        'prevents previous-session config persistence during reentrant invalidation',
+        () async {
+          final api = _PresentationApi()
+            ..config = const SiteConfig(emojiSet: 'google');
+          final lifecycle = SiteLifecycle();
+          final persisted = <(String, SiteConfig)>[];
+          final controller = _controller(
+            api,
+            lifecycle: lifecycle,
+            onConfigLoaded: (siteUrl, config) async {
+              persisted.add((siteUrl, config));
+            },
+          );
+          var invalidated = false;
+          controller.addListener(() {
+            if (invalidated) return;
+            invalidated = true;
+            lifecycle.invalidate(site);
+            controller.forget(site);
+          });
+
+          await controller.ensureConfig(site);
+
+          expect(invalidated, isTrue);
+          expect(persisted, isEmpty);
+          expect(controller.configFor(site), const SiteConfig.unknown());
+        },
+      );
+
+      test('prevents config persistence during reentrant disposal', () async {
+        final api = _PresentationApi()
+          ..config = const SiteConfig(emojiSet: 'google');
+        var persistenceCalls = 0;
+        final controller = _controller(
+          api,
+          onConfigLoaded: (_, _) async => persistenceCalls++,
+          autoDispose: false,
+        );
+        controller.addListener(controller.dispose);
+
+        await controller.ensureConfig(site);
+
+        expect(persistenceCalls, 0);
+      });
+
+      test('forget clears custom artwork and the autocomplete index', () async {
+        final api = _PresentationApi()
+          ..custom = {'party': '/uploads/party.png'}
+          ..emojis = const [SiteEmoji(name: 'party', url: 'party.png')];
+        final controller = _controller(api);
+        final initialPresentation = controller.presentationTokenFor(site);
+        await controller.ensureCustomEmojis(site);
+        final customPresentation = controller.presentationTokenFor(site);
+        await controller.ensureEmojiCatalog(site);
+        expect(customPresentation, isNot(same(initialPresentation)));
+        expect(controller.presentationTokenFor(site), same(customPresentation));
+        expect(controller.searchEmojis(site, 'party'), isNotEmpty);
+
+        controller.forget(site);
+
+        expect(controller.searchEmojis(site, 'party'), isEmpty);
+        expect(
+          controller.emojiUrlFor(site, 'party'),
+          'https://meta.example/images/emoji/twitter/party.png',
+        );
+        expect(
+          controller.presentationTokenFor(site),
+          same(initialPresentation),
+        );
+      });
+    });
   });
 }
 
@@ -748,8 +754,9 @@ SitePresentationController _controller(
   Duration persistedFreshness =
       SitePresentationController.defaultPersistedFreshness,
   DateTime Function()? clock,
+  bool autoDispose = true,
 }) {
-  return SitePresentationController(
+  final controller = SitePresentationController(
     loadAppearance: api.loadAppearance,
     loadConfig: api.loadConfig,
     loadCustomEmojis: api.loadCustomEmojis,
@@ -764,6 +771,8 @@ SitePresentationController _controller(
     persistedFreshness: persistedFreshness,
     clock: clock,
   );
+  if (autoDispose) addTearDown(controller.dispose);
+  return controller;
 }
 
 final class _Credentials implements ApiCredentialReader {

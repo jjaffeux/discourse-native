@@ -394,232 +394,232 @@ void main() {
     },
   );
 
-  testWidgets('new topics track taxonomy in the new_topic draft', (
-    tester,
-  ) async {
-    final composer = ComposerController(
-      const ComposerTarget(
-        siteUrl: 'https://meta.discourse.org',
-        topicId: 0,
-        slug: '',
-        topicTitle: 'New topic',
-        mode: ComposerMode.newTopic,
-        originFeedId: 'latest',
-        initialCategoryId: 4,
-      ),
-    );
-    addTearDown(composer.dispose);
+  group('new topic drafts', () {
+    testWidgets('track taxonomy in the new_topic draft', (tester) async {
+      final composer = ComposerController(
+        const ComposerTarget(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 0,
+          slug: '',
+          topicTitle: 'New topic',
+          mode: ComposerMode.newTopic,
+          originFeedId: 'latest',
+          initialCategoryId: 4,
+        ),
+      );
+      addTearDown(composer.dispose);
 
-    composer.title.text = 'A useful title';
-    composer.text.text = 'The body';
-    composer.setTags(const [TopicTag(id: 7, name: 'feature')]);
+      composer.title.text = 'A useful title';
+      composer.text.text = 'The body';
+      composer.setTags(const [TopicTag(id: 7, name: 'feature')]);
 
-    expect(composer.canSubmit, isTrue);
-    expect(composer.target.draftKey, 'new_topic');
-    expect(composer.draft.action, ComposerDraft.createTopicAction);
-    expect(composer.draft.title, 'A useful title');
-    expect(composer.draft.categoryId, 4);
-    expect(composer.draft.tags.single.toJson(), {'id': 7, 'name': 'feature'});
+      expect(composer.canSubmit, isTrue);
+      expect(composer.target.draftKey, 'new_topic');
+      expect(composer.draft.action, ComposerDraft.createTopicAction);
+      expect(composer.draft.title, 'A useful title');
+      expect(composer.draft.categoryId, 4);
+      expect(composer.draft.tags.single.toJson(), {'id': 7, 'name': 'feature'});
+    });
+
+    testWidgets('restores all new topic draft fields', (tester) async {
+      final composer = ComposerController(
+        const ComposerTarget(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 0,
+          slug: '',
+          topicTitle: 'New topic',
+          mode: ComposerMode.newTopic,
+        ),
+      );
+      addTearDown(composer.dispose);
+
+      composer.restore(
+        const ComposerDraft(
+          action: ComposerDraft.createTopicAction,
+          title: 'Restored',
+          reply: 'Restored body',
+          categoryId: 3,
+          tags: [TopicTag(name: 'mobile')],
+        ),
+      );
+
+      expect(composer.title.text, 'Restored');
+      expect(composer.raw, 'Restored body');
+      expect(composer.categoryId, 3);
+      expect(composer.tags.single.name, 'mobile');
+    });
+
+    test('notify taxonomy changes before a new topic can submit', () {
+      final composer = ComposerController(
+        const ComposerTarget(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 0,
+          slug: '',
+          topicTitle: 'New topic',
+          mode: ComposerMode.newTopic,
+        ),
+      );
+      addTearDown(composer.dispose);
+      var notifications = 0;
+      composer.addListener(() => notifications++);
+
+      composer.setCategory(3);
+      composer.setTags(const [TopicTag(name: 'mobile')]);
+
+      expect(composer.canSubmit, isFalse);
+      expect(notifications, 2);
+    });
   });
 
-  testWidgets('restores all new topic draft fields', (tester) async {
-    final composer = ComposerController(
-      const ComposerTarget(
-        siteUrl: 'https://meta.discourse.org',
-        topicId: 0,
-        slug: '',
-        topicTitle: 'New topic',
-        mode: ComposerMode.newTopic,
-      ),
-    );
-    addTearDown(composer.dispose);
+  group('private message drafts', () {
+    testWidgets('retain their recipient in a portable draft', (tester) async {
+      final composer = ComposerController(
+        const ComposerTarget(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 0,
+          slug: '',
+          topicTitle: 'New message',
+          mode: ComposerMode.privateMessage,
+          originFeedId: 'groups',
+          targetRecipients: 'tech-leads',
+        ),
+      );
+      addTearDown(composer.dispose);
 
-    composer.restore(
-      const ComposerDraft(
-        action: ComposerDraft.createTopicAction,
-        title: 'Restored',
-        reply: 'Restored body',
-        categoryId: 3,
-        tags: [TopicTag(name: 'mobile')],
-      ),
-    );
+      expect(composer.canSubmit, isFalse);
+      composer.title.text = 'A private subject';
+      composer.text.text = 'Hello team';
 
-    expect(composer.title.text, 'Restored');
-    expect(composer.raw, 'Restored body');
-    expect(composer.categoryId, 3);
-    expect(composer.tags.single.name, 'mobile');
+      expect(composer.canSubmit, isTrue);
+      expect(composer.target.draftKey, 'new_private_message');
+      expect(composer.draft.action, ComposerDraft.privateMessageAction);
+      expect(composer.draft.archetypeId, ComposerDraft.privateMessageArchetype);
+      expect(composer.draft.recipients, 'tech-leads');
+      expect(composer.draft.categoryId, isNull);
+      expect(composer.draft.tags, isEmpty);
+    });
+
+    test('cannot be restored for another recipient', () {
+      final composer = ComposerController(
+        const ComposerTarget(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 0,
+          slug: '',
+          topicTitle: 'New message',
+          mode: ComposerMode.privateMessage,
+          targetRecipients: 'tech-leads',
+        ),
+      );
+      addTearDown(composer.dispose);
+
+      composer.restore(
+        const ComposerDraft(
+          reply: 'For another group',
+          title: 'Wrong recipient',
+          action: ComposerDraft.privateMessageAction,
+          archetypeId: ComposerDraft.privateMessageArchetype,
+          recipients: 'moderators',
+        ),
+      );
+
+      expect(composer.raw, isEmpty);
+      expect(composer.title.text, isEmpty);
+    });
   });
 
-  test('notifies taxonomy changes before a new topic can submit', () {
-    final composer = ComposerController(
-      const ComposerTarget(
-        siteUrl: 'https://meta.discourse.org',
-        topicId: 0,
-        slug: '',
-        topicTitle: 'New topic',
-        mode: ComposerMode.newTopic,
-      ),
-    );
-    addTearDown(composer.dispose);
-    var notifications = 0;
-    composer.addListener(() => notifications++);
+  group('editing existing posts and topics', () {
+    testWidgets('distinguishes metadata and body baselines', (tester) async {
+      final composer = ComposerController(
+        const ComposerTarget(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 7,
+          slug: 'a-topic',
+          topicTitle: 'Original',
+          editingPostId: 11,
+          editingPostNumber: 1,
+          mode: ComposerMode.topicEdit,
+          initialCategoryId: 2,
+          initialTags: [TopicTag(id: 4, name: 'old')],
+        ),
+      );
+      addTearDown(composer.dispose);
+      composer.loadedBody('Original body');
 
-    composer.setCategory(3);
-    composer.setTags(const [TopicTag(name: 'mobile')]);
+      expect(composer.canSubmit, isFalse);
+      composer.title.text = 'Changed title';
+      expect(composer.metadataChanged, isTrue);
+      expect(composer.canSubmit, isTrue);
 
-    expect(composer.canSubmit, isFalse);
-    expect(notifications, 2);
-  });
+      composer.metadataSettled();
+      expect(composer.metadataChanged, isFalse);
+      expect(composer.canSubmit, isFalse);
+      composer.text.text = 'Changed body';
+      expect(composer.canSubmit, isTrue);
+    });
 
-  testWidgets('private messages retain their recipient in a portable draft', (
-    tester,
-  ) async {
-    final composer = ComposerController(
-      const ComposerTarget(
-        siteUrl: 'https://meta.discourse.org',
-        topicId: 0,
-        slug: '',
-        topicTitle: 'New message',
-        mode: ComposerMode.privateMessage,
-        originFeedId: 'groups',
-        targetRecipients: 'tech-leads',
-      ),
-    );
-    addTearDown(composer.dispose);
+    test('a failed edit body load keeps sending disabled until the body '
+        'arrives', () {
+      final composer = ComposerController(
+        const ComposerTarget(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 7,
+          slug: 'a-topic',
+          topicTitle: 'A topic',
+          editingPostId: 11,
+          editingPostNumber: 2,
+        ),
+      );
+      addTearDown(composer.dispose);
+      expect(composer.target.mode, ComposerMode.postEdit);
 
-    expect(composer.canSubmit, isFalse);
-    composer.title.text = 'A private subject';
-    composer.text.text = 'Hello team';
+      composer.beginLoadingBody();
+      composer.bodyLoadFailed();
+      composer.text.text = 'typed into the empty field';
+      expect(
+        composer.canSubmit,
+        isFalse,
+        reason: 'sending now would replace the whole post with the typed text',
+      );
 
-    expect(composer.canSubmit, isTrue);
-    expect(composer.target.draftKey, 'new_private_message');
-    expect(composer.draft.action, ComposerDraft.privateMessageAction);
-    expect(composer.draft.archetypeId, ComposerDraft.privateMessageArchetype);
-    expect(composer.draft.recipients, 'tech-leads');
-    expect(composer.draft.categoryId, isNull);
-    expect(composer.draft.tags, isEmpty);
-  });
+      composer.loadedBody('Original body');
+      expect(composer.raw, 'Original body');
+      expect(composer.canSubmit, isFalse);
 
-  test('a private-message draft cannot be restored for another recipient', () {
-    final composer = ComposerController(
-      const ComposerTarget(
-        siteUrl: 'https://meta.discourse.org',
-        topicId: 0,
-        slug: '',
-        topicTitle: 'New message',
-        mode: ComposerMode.privateMessage,
-        targetRecipients: 'tech-leads',
-      ),
-    );
-    addTearDown(composer.dispose);
+      composer.text.text = 'Original body, amended';
+      expect(composer.canSubmit, isTrue);
+    });
 
-    composer.restore(
-      const ComposerDraft(
-        reply: 'For another group',
-        title: 'Wrong recipient',
-        action: ComposerDraft.privateMessageAction,
-        archetypeId: ComposerDraft.privateMessageArchetype,
-        recipients: 'moderators',
-      ),
-    );
+    test('a failed body load blocks a topic edit even when only metadata '
+        'changed', () {
+      final composer = ComposerController(
+        const ComposerTarget(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 7,
+          slug: 'a-topic',
+          topicTitle: 'Original',
+          editingPostId: 11,
+          editingPostNumber: 1,
+          mode: ComposerMode.topicEdit,
+        ),
+      );
+      addTearDown(composer.dispose);
 
-    expect(composer.raw, isEmpty);
-    expect(composer.title.text, isEmpty);
-  });
+      composer.beginLoadingBody();
+      composer.bodyLoadFailed();
+      composer.title.text = 'Changed title';
+      expect(composer.metadataChanged, isTrue);
+      expect(
+        composer.canSubmit,
+        isFalse,
+        reason:
+            'the submit path follows a metadata save with a body update '
+            'whenever the field differs from the baseline, and with no '
+            'baseline that would blank the first post',
+      );
 
-  testWidgets('topic edits distinguish metadata and body baselines', (
-    tester,
-  ) async {
-    final composer = ComposerController(
-      const ComposerTarget(
-        siteUrl: 'https://meta.discourse.org',
-        topicId: 7,
-        slug: 'a-topic',
-        topicTitle: 'Original',
-        editingPostId: 11,
-        editingPostNumber: 1,
-        mode: ComposerMode.topicEdit,
-        initialCategoryId: 2,
-        initialTags: [TopicTag(id: 4, name: 'old')],
-      ),
-    );
-    addTearDown(composer.dispose);
-    composer.loadedBody('Original body');
-
-    expect(composer.canSubmit, isFalse);
-    composer.title.text = 'Changed title';
-    expect(composer.metadataChanged, isTrue);
-    expect(composer.canSubmit, isTrue);
-
-    composer.metadataSettled();
-    expect(composer.metadataChanged, isFalse);
-    expect(composer.canSubmit, isFalse);
-    composer.text.text = 'Changed body';
-    expect(composer.canSubmit, isTrue);
-  });
-
-  test('a failed edit body load keeps sending disabled until the body '
-      'arrives', () {
-    final composer = ComposerController(
-      const ComposerTarget(
-        siteUrl: 'https://meta.discourse.org',
-        topicId: 7,
-        slug: 'a-topic',
-        topicTitle: 'A topic',
-        editingPostId: 11,
-        editingPostNumber: 2,
-      ),
-    );
-    addTearDown(composer.dispose);
-    expect(composer.target.mode, ComposerMode.postEdit);
-
-    composer.beginLoadingBody();
-    composer.bodyLoadFailed();
-    composer.text.text = 'typed into the empty field';
-    expect(
-      composer.canSubmit,
-      isFalse,
-      reason: 'sending now would replace the whole post with the typed text',
-    );
-
-    composer.loadedBody('Original body');
-    expect(composer.raw, 'Original body');
-    expect(composer.canSubmit, isFalse);
-
-    composer.text.text = 'Original body, amended';
-    expect(composer.canSubmit, isTrue);
-  });
-
-  test('a failed body load blocks a topic edit even when only metadata '
-      'changed', () {
-    final composer = ComposerController(
-      const ComposerTarget(
-        siteUrl: 'https://meta.discourse.org',
-        topicId: 7,
-        slug: 'a-topic',
-        topicTitle: 'Original',
-        editingPostId: 11,
-        editingPostNumber: 1,
-        mode: ComposerMode.topicEdit,
-      ),
-    );
-    addTearDown(composer.dispose);
-
-    composer.beginLoadingBody();
-    composer.bodyLoadFailed();
-    composer.title.text = 'Changed title';
-    expect(composer.metadataChanged, isTrue);
-    expect(
-      composer.canSubmit,
-      isFalse,
-      reason:
-          'the submit path follows a metadata save with a body update '
-          'whenever the field differs from the baseline, and with no '
-          'baseline that would blank the first post',
-    );
-
-    composer.loadedBody('Original body');
-    expect(composer.canSubmit, isTrue);
+      composer.loadedBody('Original body');
+      expect(composer.canSubmit, isTrue);
+    });
   });
 
   group('emoji insertion', () {
@@ -997,7 +997,7 @@ void main() {
       );
     });
 
-    testWidgets('uploads append to an existing gallery without nesting', (
+    testWidgets('append to an existing gallery without nesting', (
       tester,
     ) async {
       final calls = <_UploadCall>[];
@@ -1773,17 +1773,23 @@ void main() {
       expect(composer.uploads, isEmpty);
     });
 
-    testWidgets('disposing aborts every active request', (tester) async {
+    testWidgets('disposing aborts both active upload requests', (tester) async {
       final calls = <_UploadCall>[];
       final composer = ComposerController(
         _target,
         imageUploader: _recordingUploader(calls),
       );
       composer.addImages([_file('one.png'), _file('two.png')], 0);
+      expect(calls, hasLength(2));
+      var aborted = 0;
+      for (final call in calls) {
+        unawaited(call.abort.then((_) => aborted++));
+      }
 
       composer.dispose();
+      await tester.pump();
 
-      await Future.wait(calls.map((call) => call.abort));
+      expect(aborted, 2);
     });
 
     test('rejects unsupported images and batches above the site limit', () {

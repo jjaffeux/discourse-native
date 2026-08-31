@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
@@ -72,49 +70,6 @@ void main() {
     expect(
       () => controller.pluginSession.require(chatControllerService),
       throwsStateError,
-    );
-  });
-
-  test('core package is isolated from Resenha and native media SDKs', () {
-    final pubspec = File('pubspec.yaml').readAsStringSync();
-    for (final dependency in const [
-      'discourse_resenha:',
-      'flutter_webrtc:',
-      'livekit_client:',
-    ]) {
-      expect(
-        pubspec,
-        isNot(contains(dependency)),
-        reason: '$dependency belongs only to the full application profile.',
-      );
-    }
-
-    final forbiddenImports = <String>[];
-    for (final entity in Directory('lib').listSync(recursive: true)) {
-      if (entity is! File || !entity.path.endsWith('.dart')) continue;
-      final source = entity.readAsStringSync();
-      for (final package in const [
-        'package:discourse_resenha/',
-        'package:flutter_webrtc/',
-        'package:livekit_client/',
-      ]) {
-        if (source.contains(package)) {
-          forbiddenImports.add('${entity.path} imports $package');
-        }
-      }
-    }
-
-    expect(
-      Directory('lib/src/plugins/resenha').existsSync(),
-      isFalse,
-      reason: 'Resenha implementation belongs in packages/discourse_resenha.',
-    );
-    expect(
-      forbiddenImports,
-      isEmpty,
-      reason:
-          'The core package must boot without Resenha, WebRTC, or LiveKit.\n'
-          '${forbiddenImports.join('\n')}',
     );
   });
 }

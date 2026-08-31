@@ -109,10 +109,10 @@ void main() {
     expect(describe(CoreNotificationTypes.linked).icon, DIcons.link);
   });
 
-  test('every declared core type resolves without the generic fallback', () {
-    for (final type in CoreNotificationTypes.values) {
-      final presentation = describe(type);
-      expect(presentation.icon, isNotNull, reason: type.wireName);
-    }
+  test('every declared core type has exactly one decoder registration', () {
+    expect(
+      coreNotificationTypes.map((definition) => definition.wireType),
+      CoreNotificationTypes.values,
+    );
   });
 }

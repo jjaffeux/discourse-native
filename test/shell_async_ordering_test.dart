@@ -39,7 +39,12 @@ final class _IncomingOrderingApi extends FakeDiscourseApi {
 
   Future<void> waitForRequests(int count) async {
     while (requests.length < count) {
-      await _requestsChanged.future;
+      await _requestsChanged.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw TestFailure(
+          'Expected $count feed requests, but received ${requests.length}.',
+        ),
+      );
     }
   }
 }
@@ -113,7 +118,12 @@ final class _PostOrderingApi extends FakeDiscourseApi {
 
   Future<void> waitForPostRequests(int count) async {
     while (postRequests.length < count) {
-      await _postRequestsChanged.future;
+      await _postRequestsChanged.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw TestFailure(
+          'Expected $count post requests, but received ${postRequests.length}.',
+        ),
+      );
     }
   }
 }
@@ -228,179 +238,195 @@ Future<FakeSiteTracker> _openTopic(ShellController shell) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('an incoming response cannot merge into a newer feed refresh', () async {
-    final (:shell, :api, :tracker) = await _loadIncomingShell();
-    addTearDown(shell.dispose);
+  group('incoming feed ordering', () {
+    test(
+      'keeps a newer refresh when an incoming response completes last',
+      () async {
+        final (:shell, :api, :tracker) = await _loadIncomingShell();
+        addTearDown(shell.dispose);
 
-    tracker.deliver(_created(99));
-    final incoming = shell.showIncoming('latest');
-    await api.waitForRequests(2);
-    expect(api.requests[1].path, '/latest.json?topic_ids=99');
+        tracker.deliver(_created(99));
+        final incoming = shell.showIncoming('latest');
+        await api.waitForRequests(2);
+        expect(api.requests[1].path, '/latest.json?topic_ids=99');
 
-    final refresh = shell.loadFeed('latest', force: true);
-    await api.waitForRequests(3);
-    await _completeFeed(api.requests[2], _page(3));
-    await refresh;
+        final refresh = shell.loadFeed('latest', force: true);
+        await api.waitForRequests(3);
+        await _completeFeed(api.requests[2], _page(3));
+        await refresh;
 
-    await _completeFeed(api.requests[1], _page(99));
-    await incoming;
+        await _completeFeed(api.requests[1], _page(99));
+        await incoming;
 
-    expect(shell.currentFeed?.topicIds, [3]);
-    expect(shell.store.read<Topic>(_siteUrl, 99), isNull);
-  });
-
-  test('an old incoming finalizer cannot release a newer request', () async {
-    final (:shell, :api, :tracker) = await _loadIncomingShell();
-    addTearDown(shell.dispose);
-
-    tracker.deliver(_created(99));
-    final older = shell.showIncoming('latest');
-    await api.waitForRequests(2);
-
-    final refresh = shell.loadFeed('latest', force: true);
-    await api.waitForRequests(3);
-    await _completeFeed(api.requests[2], _page(3));
-    await refresh;
-
-    tracker.deliver(_created(100));
-    final newer = shell.showIncoming('latest');
-    await api.waitForRequests(4);
-    expect(shell.currentFeed?.loadingIncoming, isTrue);
-
-    api.requests[1].response.completeError(StateError('old request failed'));
-    await older;
-
-    expect(shell.currentFeed?.loadingIncoming, isTrue);
-    await shell.showIncoming('latest');
-    expect(api.requests, hasLength(4));
-
-    await _completeFeed(api.requests[3], _page(100));
-    await newer;
-    expect(shell.currentFeed?.topicIds, [100, 3]);
-  });
-
-  test('the newest live post refresh owns the stored snapshot', () async {
-    final api = _PostOrderingApi();
-    final shell = await _loadShell(api);
-    addTearDown(shell.dispose);
-    final tracker = await _openTopic(shell);
-
-    tracker.deliverTopicMessage('/topic/7/reactions', {'post_id': 1});
-    tracker.deliverTopicMessage('/topic/7/reactions', {'post_id': 1});
-    await api.waitForPostRequests(1);
-    await pumpEventQueue();
-    expect(api.postRequests, hasLength(1));
-
-    api.postRequests[0].response.complete([_post('older')]);
-    await api.waitForPostRequests(2);
-    expect(shell.store.read<Post>(_siteUrl, 1)?.cooked, 'initial');
-
-    api.postRequests[1].response.complete([_post('newer')]);
-    await pumpEventQueue();
-
-    expect(shell.store.read<Post>(_siteUrl, 1)?.cooked, 'newer');
-  });
-
-  test('a core created event reveals the closed-topic small action', () async {
-    final topics = <int, TopicPayload>{
-      7: topicPayload(id: 7, title: 'A topic', posts: [_post('initial')]),
-    };
-    final api = FakeDiscourseApi(
-      feeds: const {
-        '/latest.json': [Topic(id: 7, title: 'A topic', slug: 'a-topic')],
+        expect(shell.currentFeed?.topicIds, [3]);
+        expect(shell.store.read<Topic>(_siteUrl, 99), isNull);
       },
-      topics: topics,
     );
-    final shell = await _loadShell(api);
-    addTearDown(shell.dispose);
-    final tracker = await _openTopic(shell);
-    expect(tracker.watchedChannels.first, '/topic/7');
 
-    topics[7] = topicPayload(
-      id: 7,
-      title: 'A topic',
-      posts: [_post('initial'), _closedAction],
-      closed: true,
+    test(
+      'keeps a newer request guarded when an older finalizer runs',
+      () async {
+        final (:shell, :api, :tracker) = await _loadIncomingShell();
+        addTearDown(shell.dispose);
+
+        tracker.deliver(_created(99));
+        final older = shell.showIncoming('latest');
+        await api.waitForRequests(2);
+
+        final refresh = shell.loadFeed('latest', force: true);
+        await api.waitForRequests(3);
+        await _completeFeed(api.requests[2], _page(3));
+        await refresh;
+
+        tracker.deliver(_created(100));
+        final newer = shell.showIncoming('latest');
+        await api.waitForRequests(4);
+        expect(shell.currentFeed?.loadingIncoming, isTrue);
+
+        api.requests[1].response.completeError(
+          StateError('old request failed'),
+        );
+        await older;
+
+        expect(shell.currentFeed?.loadingIncoming, isTrue);
+        await shell.showIncoming('latest');
+        expect(api.requests, hasLength(4));
+
+        await _completeFeed(api.requests[3], _page(100));
+        await newer;
+        expect(shell.currentFeed?.topicIds, [100, 3]);
+      },
     );
-    tracker.deliverTopicMessage('/topic/7', const {'type': 'created', 'id': 2});
-    await pumpEventQueue();
-
-    expect(api.topicsOpened, [7, 7]);
-    expect(shell.currentTopic?.stream, [1, 2]);
-    expect(shell.store.read<Post>(_siteUrl, 2), _closedAction);
-    expect(shell.store.read<Post>(_siteUrl, 2)?.isSmallAction, isTrue);
-    expect(shell.store.read<Post>(_siteUrl, 2)?.actionCode, 'closed.enabled');
   });
 
-  test('live invalidation waits for an active delete to settle', () async {
-    final deleteGate = Completer<void>();
-    final api = _PostOrderingApi(deleteGate: deleteGate);
-    final shell = await _loadShell(api);
-    addTearDown(shell.dispose);
-    final tracker = await _openTopic(shell);
-    final post = shell.store.read<Post>(_siteUrl, 1)!;
+  group('live topic updates', () {
+    test('commits only the newest post refresh', () async {
+      final api = _PostOrderingApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
 
-    final deleting = shell.deletePost(post);
-    await api.deleteStarted.future;
-    tracker.deliverTopicMessage('/topic/7/reactions', {'post_id': 1});
-    await pumpEventQueue();
+      tracker.deliverTopicMessage('/topic/7/reactions', {'post_id': 1});
+      tracker.deliverTopicMessage('/topic/7/reactions', {'post_id': 1});
+      await api.waitForPostRequests(1);
+      await pumpEventQueue();
+      expect(api.postRequests, hasLength(1));
 
-    expect(api.postRequests, isEmpty);
+      api.postRequests[0].response.complete([_post('older')]);
+      await api.waitForPostRequests(2);
+      expect(shell.store.read<Post>(_siteUrl, 1)?.cooked, 'initial');
 
-    deleteGate.complete();
-    await api.waitForPostRequests(1);
-    api.postRequests.single.response.complete([_post('deleted')]);
-    await deleting;
+      api.postRequests[1].response.complete([_post('newer')]);
+      await pumpEventQueue();
 
-    expect(api.postRequests.single.ids, [1]);
+      expect(shell.store.read<Post>(_siteUrl, 1)?.cooked, 'newer');
+    });
+
+    test('reveals a closed-topic small action from a created event', () async {
+      final topics = <int, TopicPayload>{
+        7: topicPayload(id: 7, title: 'A topic', posts: [_post('initial')]),
+      };
+      final api = FakeDiscourseApi(
+        feeds: const {
+          '/latest.json': [Topic(id: 7, title: 'A topic', slug: 'a-topic')],
+        },
+        topics: topics,
+      );
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
+      expect(tracker.watchedChannels.first, '/topic/7');
+
+      topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [_post('initial'), _closedAction],
+        closed: true,
+      );
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'created',
+        'id': 2,
+      });
+      await pumpEventQueue();
+
+      expect(api.topicsOpened, [7, 7]);
+      expect(shell.currentTopic?.stream, [1, 2]);
+      expect(shell.store.read<Post>(_siteUrl, 2), _closedAction);
+      expect(shell.store.read<Post>(_siteUrl, 2)?.isSmallAction, isTrue);
+      expect(shell.store.read<Post>(_siteUrl, 2)?.actionCode, 'closed.enabled');
+    });
+
+    test('waits for an active delete before refreshing', () async {
+      final deleteGate = Completer<void>();
+      final api = _PostOrderingApi(deleteGate: deleteGate);
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
+      final post = shell.store.read<Post>(_siteUrl, 1)!;
+
+      final deleting = shell.deletePost(post);
+      await api.deleteStarted.future;
+      tracker.deliverTopicMessage('/topic/7/reactions', {'post_id': 1});
+      await pumpEventQueue();
+
+      expect(api.postRequests, isEmpty);
+
+      deleteGate.complete();
+      await api.waitForPostRequests(1);
+      api.postRequests.single.response.complete([_post('deleted')]);
+      await deleting;
+
+      expect(api.postRequests.single.ids, [1]);
+    });
+
+    test('does not overwrite an active write with an older read', () async {
+      final likeGate = Completer<void>();
+      final api = _PostOrderingApi(likeGate: likeGate);
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
+      final post = shell.store.read<Post>(_siteUrl, 1)!.copyWith(canLike: true);
+      shell.store.put(_siteUrl, post);
+
+      tracker.deliverTopicMessage('/topic/7/reactions', {'post_id': 1});
+      await api.waitForPostRequests(1);
+
+      final liking = shell.toggleLike(post);
+      await api.likeStarted.future;
+      api.postRequests.single.response.complete([
+        _post('stale', canLike: true),
+      ]);
+      await pumpEventQueue();
+
+      expect(shell.store.read<Post>(_siteUrl, 1)?.liked, isTrue);
+
+      likeGate.complete();
+      expect(await liking, isNull);
+      expect(shell.store.read<Post>(_siteUrl, 1)?.liked, isTrue);
+    });
   });
 
-  test('an active write invalidates an older live post read', () async {
-    final likeGate = Completer<void>();
-    final api = _PostOrderingApi(likeGate: likeGate);
-    final shell = await _loadShell(api);
-    addTearDown(shell.dispose);
-    final tracker = await _openTopic(shell);
-    final post = shell.store.read<Post>(_siteUrl, 1)!.copyWith(canLike: true);
-    shell.store.put(_siteUrl, post);
+  group('session replacement', () {
+    test('discards a credential failure from the old session', () async {
+      final authenticator = _OneShotGatedAuthenticator();
+      final api = _PostOrderingApi();
+      final shell = await _loadShell(api, authenticator: authenticator);
+      addTearDown(shell.dispose);
+      await _openTopic(shell);
+      final post = shell.store.read<Post>(_siteUrl, 1)!.copyWith(canLike: true);
+      shell.store.put(_siteUrl, post);
 
-    tracker.deliverTopicMessage('/topic/7/reactions', {'post_id': 1});
-    await api.waitForPostRequests(1);
+      authenticator.gateNextRead = true;
+      final liking = shell.toggleLike(post);
+      await authenticator.readStarted.future;
+      await shell.disconnectCurrentInstance();
 
-    final liking = shell.toggleLike(post);
-    await api.likeStarted.future;
-    api.postRequests.single.response.complete([_post('stale', canLike: true)]);
-    await pumpEventQueue();
+      authenticator.readGate.complete();
+      expect(await liking, isNull);
+      expect(api.liked, isEmpty);
+    });
 
-    expect(shell.store.read<Post>(_siteUrl, 1)?.liked, isTrue);
-
-    likeGate.complete();
-    expect(await liking, isNull);
-    expect(shell.store.read<Post>(_siteUrl, 1)?.liked, isTrue);
-  });
-
-  test('a credential failure from an old session is discarded', () async {
-    final authenticator = _OneShotGatedAuthenticator();
-    final api = _PostOrderingApi();
-    final shell = await _loadShell(api, authenticator: authenticator);
-    addTearDown(shell.dispose);
-    await _openTopic(shell);
-    final post = shell.store.read<Post>(_siteUrl, 1)!.copyWith(canLike: true);
-    shell.store.put(_siteUrl, post);
-
-    authenticator.gateNextRead = true;
-    final liking = shell.toggleLike(post);
-    await authenticator.readStarted.future;
-    await shell.disconnectCurrentInstance();
-
-    authenticator.readGate.complete();
-    expect(await liking, isNull);
-    expect(api.liked, isEmpty);
-  });
-
-  test(
-    'a completed old-session delete does not read into a new session',
-    () async {
+    test('does not read after an old-session delete completes', () async {
       final deleteGate = Completer<void>();
       final api = _PostOrderingApi(deleteGate: deleteGate);
       final shell = await _loadShell(api);
@@ -416,6 +442,6 @@ void main() {
       await deleting;
 
       expect(api.postRequests, isEmpty);
-    },
-  );
+    });
+  });
 }

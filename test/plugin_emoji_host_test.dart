@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/data/emoji_picker_store.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/chat/chat_emoji_usage.dart';
@@ -13,55 +14,77 @@ import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _site = 'https://meta.example';
+final _catalog = SiteEmojiCatalog(
+  groups: [
+    SiteEmojiGroup(
+      id: 'people',
+      emojis: const [
+        SiteEmoji(name: 'wave', url: 'https://cdn.example/wave.png'),
+        SiteEmoji(name: 'tada', url: 'https://cdn.example/tada.png'),
+      ],
+    ),
+  ],
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test(
-    'emoji preference hosts isolate plugin contexts and share skin tone',
-    () async {
-      final persistence = _MemoryEmojiPersistence();
-      final rawStore = EmojiPickerStore(persistence: persistence);
-      final shell = ShellController(
-        instanceStore: FakeInstanceStore([instance('meta.example')]),
-        api: FakeDiscourseApi(),
-        authenticator: FakeAuthenticator(),
-        drafts: FakeDraftStore(),
-        emojiPickerStore: rawStore,
-        trackers: FakeSiteTracker.reset(),
-        plugins: installedPlugins,
-        ownsApi: false,
-      );
-      addTearDown(shell.dispose);
+  test('emoji preference hosts isolate plugin histories', () async {
+    final (:chat, :reactions) = _hosts();
 
-      final chat = shell.pluginSession.require(chatEmojiHostService);
-      final reactions = shell.pluginSession.require(reactionsEmojiHostService);
+    expect(chat.preferences, isNot(isA<EmojiPickerStore>()));
+    expect(reactions.preferences, isNot(same(chat.preferences)));
 
-      expect(chat.preferences, isNot(isA<EmojiPickerStore>()));
-      expect(reactions.preferences, isNot(same(chat.preferences)));
+    await chat.preferences.trackEmoji(
+      siteUrl: _site,
+      context: chatEmojiUsageContext,
+      emoji: 'wave',
+    );
+    await reactions.preferences.trackEmoji(
+      siteUrl: _site,
+      context: reactionsEmojiUsageContext,
+      emoji: 'tada',
+    );
 
-      await chat.preferences.trackEmoji(
+    expect(
+      await chat.preferences.favoriteEmojiCodes(
         siteUrl: _site,
         context: chatEmojiUsageContext,
-        emoji: 'wave',
-      );
-      await reactions.preferences.trackEmoji(
+        catalog: _catalog,
+      ),
+      ['wave'],
+    );
+    expect(
+      await reactions.preferences.favoriteEmojiCodes(
         siteUrl: _site,
         context: reactionsEmojiUsageContext,
-        emoji: 'tada',
-      );
+        catalog: _catalog,
+      ),
+      ['tada'],
+    );
+  });
 
-      for (final attempt in <Future<void> Function()>[
-        () => chat.preferences.trackEmoji(
+  test('emoji preference hosts reject foreign and malformed contexts', () {
+    final (:chat, :reactions) = _hosts();
+    final attempts = <({String name, Future<void> Function() run})>[
+      (
+        name: 'Chat using the Reactions context',
+        run: () => chat.preferences.trackEmoji(
           siteUrl: _site,
           context: reactionsEmojiUsageContext,
           emoji: 'foreign',
         ),
-        () => reactions.preferences.clearHistory(
+      ),
+      (
+        name: 'Reactions using the Chat context',
+        run: () => reactions.preferences.clearHistory(
           siteUrl: _site,
           context: chatEmojiUsageContext,
         ),
-        () => chat.preferences.trackEmoji(
+      ),
+      (
+        name: 'Chat using a malformed context name',
+        run: () => chat.preferences.trackEmoji(
           siteUrl: _site,
           context: const EmojiUsageContext(
             owner: PluginId('chat'),
@@ -69,47 +92,49 @@ void main() {
           ),
           emoji: 'foreign',
         ),
-      ]) {
-        expect(attempt, throwsA(isA<PluginInstallationException>()));
-      }
+      ),
+    ];
 
-      final catalog = SiteEmojiCatalog(
-        groups: [
-          SiteEmojiGroup(
-            id: 'people',
-            emojis: const [
-              SiteEmoji(name: 'wave', url: 'https://cdn.example/wave.png'),
-              SiteEmoji(name: 'tada', url: 'https://cdn.example/tada.png'),
-            ],
-          ),
-        ],
-      );
+    for (final attempt in attempts) {
       expect(
-        await chat.preferences.favoriteEmojiCodes(
-          siteUrl: _site,
-          context: chatEmojiUsageContext,
-          catalog: catalog,
-        ),
-        ['wave'],
+        attempt.run,
+        throwsA(isA<PluginInstallationException>()),
+        reason: attempt.name,
       );
-      expect(
-        await reactions.preferences.favoriteEmojiCodes(
-          siteUrl: _site,
-          context: reactionsEmojiUsageContext,
-          catalog: catalog,
-        ),
-        ['tada'],
-      );
+    }
+  });
 
-      await chat.preferences.writeSkinTone(
-        siteUrl: _site,
-        tone: EmojiSkinTone.t5,
-      );
-      expect(
-        await reactions.preferences.readSkinTone(siteUrl: _site),
-        EmojiSkinTone.t5,
-      );
-    },
+  test('emoji preference hosts share the forum skin tone', () async {
+    final (:chat, :reactions) = _hosts();
+
+    await chat.preferences.writeSkinTone(
+      siteUrl: _site,
+      tone: EmojiSkinTone.t5,
+    );
+
+    expect(
+      await reactions.preferences.readSkinTone(siteUrl: _site),
+      EmojiSkinTone.t5,
+    );
+  });
+}
+
+({PluginEmojiHost chat, PluginEmojiHost reactions}) _hosts() {
+  final rawStore = EmojiPickerStore(persistence: _MemoryEmojiPersistence());
+  final shell = ShellController(
+    instanceStore: FakeInstanceStore([instance('meta.example')]),
+    api: FakeDiscourseApi(),
+    authenticator: FakeAuthenticator(),
+    drafts: FakeDraftStore(),
+    emojiPickerStore: rawStore,
+    trackers: FakeSiteTracker.reset(),
+    plugins: installedPlugins,
+    ownsApi: false,
+  );
+  addTearDown(shell.dispose);
+  return (
+    chat: shell.pluginSession.require(chatEmojiHostService),
+    reactions: shell.pluginSession.require(reactionsEmojiHostService),
   );
 }
 

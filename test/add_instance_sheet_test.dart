@@ -23,7 +23,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('uses a modal on desktop', (tester) async {
+  testWidgets('uses a dialog on macOS', (tester) async {
     await openAddSite(tester, TargetPlatform.macOS);
 
     expect(find.byType(Dialog), findsOneWidget);
@@ -31,7 +31,7 @@ void main() {
     expect(find.text('Add a site'), findsOneWidget);
   });
 
-  testWidgets('keeps the bottom sheet on touch platforms', (tester) async {
+  testWidgets('uses a bottom sheet on Android', (tester) async {
     await openAddSite(tester, TargetPlatform.android);
 
     expect(find.byType(Dialog), findsNothing);

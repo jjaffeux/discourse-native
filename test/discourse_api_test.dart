@@ -421,7 +421,7 @@ void main() {
   });
 
   group('normalize', () {
-    test('assumes https for a bare host', () {
+    test('assumes HTTPS for a bare host', () {
       expect(
         DiscourseApi.normalize('meta.discourse.org').toString(),
         'https://meta.discourse.org',
@@ -1766,29 +1766,26 @@ void _feedGroups() {
       expect(found.groups.single.flairUrl, 'shield-halved');
     });
 
-    test('loads, clears, and click-tracks core search state', () async {
-      final sent = <http.Request>[];
+    test('recent searches retain the first five string values', () async {
+      late http.Request sent;
       final api = DiscourseApi(
         client: MockClient((request) async {
-          sent.add(request);
-          if (request.method == 'GET') {
-            return http.Response(
-              jsonEncode({
-                'success': 'OK',
-                'recent_searches': [
-                  'one',
-                  'two',
-                  'three',
-                  'four',
-                  'five',
-                  'ignored',
-                  7,
-                ],
-              }),
-              200,
-            );
-          }
-          return http.Response(jsonEncode({'success': 'OK'}), 200);
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'success': 'OK',
+              'recent_searches': [
+                'one',
+                'two',
+                'three',
+                'four',
+                'five',
+                'ignored',
+                7,
+              ],
+            }),
+            200,
+          );
         }),
       );
 
@@ -1797,11 +1794,48 @@ void _feedGroups() {
         apiKey: 'secret',
         clientId: 'client',
       );
-      await api.resetRecentSearches(
-        siteUrl: 'https://example.com',
-        apiKey: 'secret',
-        clientId: 'client',
+
+      expect(recent, ['one', 'two', 'three', 'four', 'five']);
+      expect((sent.method, sent.url.path), ('GET', '/u/recent-searches.json'));
+      expect(sent.headers['User-Api-Key'], 'secret');
+      expect(sent.headers['User-Api-Client-Id'], 'client');
+    });
+
+    test(
+      'resetting recent searches deletes the authenticated endpoint',
+      () async {
+        late http.Request sent;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response(jsonEncode({'success': 'OK'}), 200);
+          }),
+        );
+
+        await api.resetRecentSearches(
+          siteUrl: 'https://example.com',
+          apiKey: 'secret',
+          clientId: 'client',
+        );
+
+        expect(
+          (sent.method, sent.url.path),
+          ('DELETE', '/u/recent-searches.json'),
+        );
+        expect(sent.headers['User-Api-Key'], 'secret');
+        expect(sent.headers['User-Api-Client-Id'], 'client');
+      },
+    );
+
+    test('search click tracking posts the result identity', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
       );
+
       await api.logSearchClick(
         siteUrl: 'https://example.com',
         apiKey: 'secret',
@@ -1811,13 +1845,10 @@ void _feedGroups() {
         clientId: 'client',
       );
 
-      expect(recent, ['one', 'two', 'three', 'four', 'five']);
-      expect(sent.map((request) => (request.method, request.url.path)), [
-        ('GET', '/u/recent-searches.json'),
-        ('DELETE', '/u/recent-searches.json'),
-        ('POST', '/search/click.json'),
-      ]);
-      expect(jsonDecode(sent.last.body), {
+      expect((sent.method, sent.url.path), ('POST', '/search/click.json'));
+      expect(sent.headers['User-Api-Key'], 'secret');
+      expect(sent.headers['User-Api-Client-Id'], 'client');
+      expect(jsonDecode(sent.body), {
         'search_log_id': 22,
         'search_result_id': 91,
         'search_result_type': 'topic',
@@ -2452,7 +2483,12 @@ void _feedGroups() {
           clientId: 'client',
         );
 
-        await siteStarted.future.timeout(const Duration(seconds: 1));
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          siteStarted.isCompleted,
+          isTrue,
+          reason: 'the site request must start while categories are held',
+        );
         releaseCategories.complete();
         final result = await loading;
         expect(result.complete, isTrue);
@@ -2461,7 +2497,7 @@ void _feedGroups() {
       },
     );
 
-    test('finds exact category ids outside the paginated list', () async {
+    test('finds exact category IDs outside the paginated list', () async {
       final requested = <Uri>[];
       final api = DiscourseApi(
         client: MockClient((request) async {
@@ -2586,7 +2622,7 @@ void _feedGroups() {
       expect(result.complete, isTrue);
     });
 
-    test('marks the Uncategorized id supplied by site.json', () async {
+    test('marks the Uncategorized ID supplied by site.json', () async {
       final api = DiscourseApi(
         client: MockClient((request) async {
           if (request.url.path == '/categories.json') {
@@ -3394,7 +3430,7 @@ void _feedGroups() {
   });
 
   group('customEmojis', () {
-    test('reads a payload shaped as an object of name to url', () async {
+    test('reads a payload shaped as an object of name to URL', () async {
       final paths = <String>[];
       final api = DiscourseApi(
         client: MockClient((request) async {
@@ -3498,7 +3534,7 @@ void _feedGroups() {
       expect(post?.reactions?.mine?.id, 'clap');
     });
 
-    test('encodes a reaction that is not url-safe', () async {
+    test('encodes a reaction that is not URL-safe', () async {
       // `+1` is a perfectly ordinary reaction id, and it is a path segment.
       late Uri seen;
       final api = DiscourseApi(
@@ -3855,7 +3891,7 @@ void _feedGroups() {
     });
 
     test(
-      'sends the user api key, an anonymous reader having no channels',
+      'sends the user API key, an anonymous reader having no channels',
       () async {
         late Map<String, String> headers;
         final api = DiscourseApi(client: serving((r) => headers = r.headers));
@@ -4550,7 +4586,9 @@ void _feedGroups() {
       expect(seen.path, '/chat/api/channels/9.json');
       expect(channel.membership.following, isTrue);
     });
+  });
 
+  group('chat channel management', () {
     test('updates channel metadata in core’s channel envelope', () async {
       late http.Request sent;
       final api = DiscourseApi(
@@ -5483,7 +5521,7 @@ void _feedGroups() {
       );
     });
 
-    test('reads the topic by its immutable id', () async {
+    test('reads the topic by its immutable ID', () async {
       final paths = <String>[];
       final topic = await DiscourseApi(
         client: serving(paths),
@@ -5538,7 +5576,7 @@ void _feedGroups() {
       },
     );
 
-    test('asks by id alone when the link carried no slug', () async {
+    test('asks by ID alone when the link carried no slug', () async {
       final paths = <String>[];
       await DiscourseApi(
         client: serving(paths),
@@ -5547,7 +5585,7 @@ void _feedGroups() {
       expect(paths, ['/t/12.json']);
     });
 
-    test('asks for the window around a requested post by id', () async {
+    test('asks for the window around a requested post by ID', () async {
       late Uri asked;
       final api = DiscourseApi(
         client: MockClient((request) async {
@@ -6399,7 +6437,7 @@ void _writeGroups() {
       );
     });
 
-    test('reads the current account sidebar category ids safely', () async {
+    test('reads the current account sidebar category IDs safely', () async {
       final api = DiscourseApi(
         client: MockClient(
           (_) async => http.Response(
@@ -6648,7 +6686,7 @@ void _writeGroups() {
       );
     });
 
-    test('sidebar category ids survive storage and affect user identity', () {
+    test('sidebar category IDs survive storage and affect user identity', () {
       const user = DiscourseUser(username: 'sam', sidebarCategoryIds: [5, 8]);
 
       final stored = DiscourseUser.fromJson(user.toJson());
@@ -6902,7 +6940,7 @@ void _writeGroups() {
       expect(creation.draftSequence, 3);
     });
 
-    test('addresses the reply by post number, not by post id', () async {
+    test('addresses the reply by post number, not by post ID', () async {
       late http.Request sent;
       await create(DiscourseApi(client: accepting(onRequest: (r) => sent = r)));
 

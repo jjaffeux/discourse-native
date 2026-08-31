@@ -114,6 +114,7 @@ void main() {
     final credentials = FakeApiCredentialReader()..keys[siteUrl] = 'old-key';
     final lifecycle = SiteLifecycle();
     final firstResponse = Completer<http.Response>();
+    final firstRequestStarted = Completer<void>();
     final keys = <String?>[];
     var requestCount = 0;
     final repository = SiteImageRepository(
@@ -122,16 +123,17 @@ void main() {
       client: MockClient((request) {
         keys.add(request.headers['User-Api-Key']);
         requestCount++;
-        if (requestCount == 1) return firstResponse.future;
+        if (requestCount == 1) {
+          firstRequestStarted.complete();
+          return firstResponse.future;
+        }
         return Future.value(http.Response.bytes([2], 200));
       }),
     );
     addTearDown(repository.dispose);
 
     final stale = repository.load(siteUrl: siteUrl, url: secureUrl);
-    while (requestCount == 0) {
-      await Future<void>.delayed(Duration.zero);
-    }
+    await firstRequestStarted.future;
 
     lifecycle.invalidate(siteUrl);
     repository.forget(siteUrl);

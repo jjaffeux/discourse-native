@@ -136,7 +136,15 @@ void main() {
         );
 
         expect(appearance?.mode, SiteAppearanceMode.alternate);
-        expect(client.requests, hasLength(7));
+        expect(client.requests.map((request) => request.url.path), [
+          '/site.json',
+          '/u/alice.json',
+          '/color-scheme-stylesheet/20/6.json',
+          '/color-scheme-stylesheet/21/6.json',
+          '/',
+          '/styles/light.css',
+          '/styles/dark.css',
+        ]);
         for (final request in client.requests.take(4)) {
           expect(request.headers['accept'], 'application/json');
           expect(request.headers['user-api-key'], 'secret-key');
@@ -700,7 +708,7 @@ void main() {
       await expectLater(
         SiteAppearanceLoader(
           client: client,
-          timeout: const Duration(milliseconds: 20),
+          timeout: const Duration(milliseconds: 250),
         ).load(siteUrl: 'https://forum.example'),
         _failsWith(SiteAppearanceLoadFailure.timedOut),
       );

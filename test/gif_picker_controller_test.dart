@@ -17,9 +17,8 @@ const _shortCategory = GifCategory(
 );
 
 void main() {
-  testWidgets(
-    'requires three characters, debounces 700ms, and ignores a stale page',
-    (tester) async {
+  group('search admission and ordering', () {
+    testWidgets('requires at least three typed characters', (tester) async {
       final api = _ControllableGifsApi();
       final controller = _controller(
         api,
@@ -31,6 +30,17 @@ void main() {
       await tester.pump(const Duration(milliseconds: 700));
       expect(controller.hasActiveSearch, isFalse);
       expect(api.requests, isEmpty);
+    });
+
+    testWidgets('dispatches an accepted query after exactly 700ms', (
+      tester,
+    ) async {
+      final api = _ControllableGifsApi();
+      final controller = _controller(
+        api,
+        searchDebounce: const Duration(milliseconds: 700),
+      );
+      addTearDown(controller.dispose);
 
       controller.updateQuery('cat');
       expect(controller.searchPending, isTrue);
@@ -38,7 +48,22 @@ void main() {
       expect(api.requests, isEmpty);
       await tester.pump(const Duration(milliseconds: 1));
       expect(api.requests.single.query, 'cat');
+      api.responses.single.complete(GifSearchPage(results: const []));
+      await tester.pump();
+    });
 
+    testWidgets('ignores an older page after a newer query starts', (
+      tester,
+    ) async {
+      final api = _ControllableGifsApi();
+      final controller = _controller(
+        api,
+        searchDebounce: const Duration(milliseconds: 700),
+      );
+      addTearDown(controller.dispose);
+
+      controller.updateQuery('cat');
+      await tester.pump(const Duration(milliseconds: 700));
       controller.updateQuery('dogs');
       await tester.pump(const Duration(milliseconds: 700));
       expect(api.requests.map((request) => request.query), ['cat', 'dogs']);
@@ -51,12 +76,9 @@ void main() {
       await tester.pump();
       expect(controller.results, const [_dogResult]);
       expect(controller.searching, isFalse);
-    },
-  );
+    });
 
-  test(
-    'a short category term remains an active search after loading',
-    () async {
+    test('keeps a short category term as an active search', () async {
       const result = GifResult(
         title: 'Go',
         url: 'https://cdn.example/go-result.webp',
@@ -87,97 +109,9 @@ void main() {
       expect(controller.showingCategories, isFalse);
       expect(controller.results, const [result]);
       expect(api.gifSearchRequests.single.query, 'go');
-    },
-  );
+    });
 
-  test('deduplicates cursor pages and stops at the exact result cap', () async {
-    const duplicate = GifResult(
-      title: 'Duplicate',
-      url: 'https://cdn.example/duplicate.webp',
-      width: 320,
-      height: 180,
-    );
-    const third = GifResult(
-      title: 'Third',
-      url: 'https://cdn.example/third.webp',
-      width: 320,
-      height: 180,
-    );
-    const beyondCap = GifResult(
-      title: 'Beyond cap',
-      url: 'https://cdn.example/beyond.webp',
-      width: 320,
-      height: 180,
-    );
-    final api = FakeDiscourseApi(
-      gifSearchPages: {
-        FakeDiscourseApi.gifSearchKey('cats'): GifSearchPage(
-          results: const [_catResult, duplicate],
-          nextPosition: 'cursor/24',
-        ),
-        FakeDiscourseApi.gifSearchKey(
-          'cats',
-          position: 'cursor/24',
-        ): GifSearchPage(
-          results: const [duplicate, third, beyondCap],
-          nextPosition: 'cursor/48',
-        ),
-      },
-    );
-    final controller = _controller(api, maxResults: 3);
-    addTearDown(controller.dispose);
-
-    await controller.selectCategory(
-      const GifCategory(
-        title: 'Cats',
-        imageUrl: 'https://cdn.example/cats.webp',
-        searchTerm: 'cats',
-      ),
-    );
-    expect(controller.results, const [_catResult, duplicate]);
-    expect(controller.canLoadMore, isTrue);
-
-    await controller.loadMore();
-
-    expect(controller.results, const [_catResult, duplicate, third]);
-    expect(controller.canLoadMore, isFalse);
-    expect(api.gifSearchRequests.map((request) => request.position), [
-      '0',
-      'cursor/24',
-    ]);
-  });
-
-  test('load-more failure keeps results and cursor for a retry', () async {
-    final api = _RetryingPaginationApi();
-    final controller = _controller(api);
-    addTearDown(controller.dispose);
-
-    await controller.selectCategory(
-      const GifCategory(
-        title: 'Cats',
-        imageUrl: 'https://cdn.example/cats.webp',
-        searchTerm: 'cats',
-      ),
-    );
-    expect(controller.results, const [_catResult]);
-
-    await controller.loadMore();
-
-    expect(controller.results, const [_catResult]);
-    expect(controller.error, isNotNull);
-    expect(controller.canLoadMore, isTrue);
-
-    await controller.retry();
-
-    expect(controller.results, const [_catResult, _dogResult]);
-    expect(controller.error, isNull);
-    expect(controller.canLoadMore, isFalse);
-    expect(api.loadMoreAttempts, 2);
-  });
-
-  test(
-    'a short category search exposes its search error, not categories',
-    () async {
+    test('shows a short category search error instead of categories', () async {
       final controller = _controller(_FailingSearchApi());
       addTearDown(controller.dispose);
 
@@ -189,74 +123,172 @@ void main() {
       expect(controller.hasActiveSearch, isTrue);
       expect(controller.showingCategories, isFalse);
       expect(controller.error, 'Too many GIF searches. Try again in a moment.');
-    },
-  );
+    });
+  });
 
-  test(
-    'an invalidated category lease does not claim credentials are missing',
-    () async {
+  group('search pagination', () {
+    test(
+      'deduplicates cursor pages and stops at the exact result cap',
+      () async {
+        const duplicate = GifResult(
+          title: 'Duplicate',
+          url: 'https://cdn.example/duplicate.webp',
+          width: 320,
+          height: 180,
+        );
+        const third = GifResult(
+          title: 'Third',
+          url: 'https://cdn.example/third.webp',
+          width: 320,
+          height: 180,
+        );
+        const beyondCap = GifResult(
+          title: 'Beyond cap',
+          url: 'https://cdn.example/beyond.webp',
+          width: 320,
+          height: 180,
+        );
+        final api = FakeDiscourseApi(
+          gifSearchPages: {
+            FakeDiscourseApi.gifSearchKey('cats'): GifSearchPage(
+              results: const [_catResult, duplicate],
+              nextPosition: 'cursor/24',
+            ),
+            FakeDiscourseApi.gifSearchKey(
+              'cats',
+              position: 'cursor/24',
+            ): GifSearchPage(
+              results: const [duplicate, third, beyondCap],
+              nextPosition: 'cursor/48',
+            ),
+          },
+        );
+        final controller = _controller(api, maxResults: 3);
+        addTearDown(controller.dispose);
+
+        await controller.selectCategory(
+          const GifCategory(
+            title: 'Cats',
+            imageUrl: 'https://cdn.example/cats.webp',
+            searchTerm: 'cats',
+          ),
+        );
+        expect(controller.results, const [_catResult, duplicate]);
+        expect(controller.canLoadMore, isTrue);
+
+        await controller.loadMore();
+
+        expect(controller.results, const [_catResult, duplicate, third]);
+        expect(controller.canLoadMore, isFalse);
+        expect(api.gifSearchRequests.map((request) => request.position), [
+          '0',
+          'cursor/24',
+        ]);
+      },
+    );
+
+    test(
+      'keeps results and cursor for retry after a load-more failure',
+      () async {
+        final api = _RetryingPaginationApi();
+        final controller = _controller(api);
+        addTearDown(controller.dispose);
+
+        await controller.selectCategory(
+          const GifCategory(
+            title: 'Cats',
+            imageUrl: 'https://cdn.example/cats.webp',
+            searchTerm: 'cats',
+          ),
+        );
+        expect(controller.results, const [_catResult]);
+
+        await controller.loadMore();
+
+        expect(controller.results, const [_catResult]);
+        expect(
+          controller.error,
+          "Couldn't load GIFs. Check the connection and try again.",
+        );
+        expect(controller.canLoadMore, isTrue);
+
+        await controller.retry();
+
+        expect(controller.results, const [_catResult, _dogResult]);
+        expect(controller.error, isNull);
+        expect(controller.canLoadMore, isFalse);
+        expect(api.loadMoreAttempts, 2);
+      },
+    );
+  });
+
+  group('request invalidation and disposal', () {
+    test(
+      'does not report missing credentials for an invalidated category lease',
+      () async {
+        final credentials = _GatedCredentials();
+        final lifecycle = SiteLifecycle();
+        final api = FakeDiscourseApi();
+        final controller = _controller(
+          api,
+          credentials: credentials,
+          lifecycle: lifecycle,
+        );
+        addTearDown(controller.dispose);
+
+        final loading = controller.loadCategories();
+        await credentials.started.future;
+        lifecycle.invalidate(_siteUrl);
+        credentials.result.complete('old-key');
+        await loading;
+
+        expect(controller.error, isNull);
+        expect(api.gifCategoryRequests, isEmpty);
+      },
+    );
+
+    test(
+      'does not report missing credentials for an invalidated search lease',
+      () async {
+        final credentials = _GatedCredentials();
+        final lifecycle = SiteLifecycle();
+        final api = FakeDiscourseApi();
+        final controller = _controller(
+          api,
+          credentials: credentials,
+          lifecycle: lifecycle,
+        );
+        addTearDown(controller.dispose);
+
+        final loading = controller.selectCategory(_shortCategory);
+        await credentials.started.future;
+        lifecycle.invalidate(_siteUrl);
+        credentials.result.complete('old-key');
+        await loading;
+
+        expect(controller.hasActiveSearch, isTrue);
+        expect(controller.error, isNull);
+        expect(api.gifSearchRequests, isEmpty);
+      },
+    );
+
+    test('stops API work when disposed during credential lookup', () async {
       final credentials = _GatedCredentials();
-      final lifecycle = SiteLifecycle();
       final api = FakeDiscourseApi();
-      final controller = _controller(
-        api,
-        credentials: credentials,
-        lifecycle: lifecycle,
-      );
-      addTearDown(controller.dispose);
+      final controller = _controller(api, credentials: credentials);
 
       final loading = controller.loadCategories();
       await credentials.started.future;
-      lifecycle.invalidate(_siteUrl);
-      credentials.result.complete('old-key');
+      controller.dispose();
+      credentials.result.complete('stale-key');
       await loading;
 
-      expect(controller.error, isNull);
+      // The host returns one atomic credential snapshot, so it may complete
+      // both private-store reads even though the picker was disposed midway.
+      expect(credentials.clientIdCalls, 1);
       expect(api.gifCategoryRequests, isEmpty);
-    },
-  );
-
-  test(
-    'an invalidated search lease does not claim credentials are missing',
-    () async {
-      final credentials = _GatedCredentials();
-      final lifecycle = SiteLifecycle();
-      final api = FakeDiscourseApi();
-      final controller = _controller(
-        api,
-        credentials: credentials,
-        lifecycle: lifecycle,
-      );
-      addTearDown(controller.dispose);
-
-      final loading = controller.selectCategory(_shortCategory);
-      await credentials.started.future;
-      lifecycle.invalidate(_siteUrl);
-      credentials.result.complete('old-key');
-      await loading;
-
-      expect(controller.hasActiveSearch, isTrue);
       expect(controller.error, isNull);
-      expect(api.gifSearchRequests, isEmpty);
-    },
-  );
-
-  test('dispose during credential lookup stops API work', () async {
-    final credentials = _GatedCredentials();
-    final api = FakeDiscourseApi();
-    final controller = _controller(api, credentials: credentials);
-
-    final loading = controller.loadCategories();
-    await credentials.started.future;
-    controller.dispose();
-    credentials.result.complete('stale-key');
-    await loading;
-
-    // The host returns one atomic credential snapshot, so it may complete
-    // both private-store reads even though the picker was disposed midway.
-    expect(credentials.clientIdCalls, 1);
-    expect(api.gifCategoryRequests, isEmpty);
-    expect(controller.error, isNull);
+    });
   });
 }
 

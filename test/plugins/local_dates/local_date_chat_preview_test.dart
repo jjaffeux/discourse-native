@@ -43,7 +43,10 @@ void main() {
       expect(inspection.blockers, isEmpty);
       expect(inspection.claims, hasLength(1));
       expect(inspection.claims.single.node.featureId, plugin.previewFeatureId);
-      expect(inspection.claims.single.node.fallbackText, contains('[date='));
+      expect(
+        inspection.claims.single.node.fallbackText,
+        '[date=2026-08-12 time=09:30 timezone=Etc/UTC]',
+      );
 
       final projected =
           ChatPreviewEngine(plugins: [plugin]).project(request(raw))
@@ -63,7 +66,7 @@ void main() {
     ).project(request(raw, config: disabled));
 
     expect(inspection.claims, isEmpty);
-    expect(inspection.blockers, isNotEmpty);
+    expect(inspection.blockers, hasLength(1));
     expect(result, isA<SourceFallback>());
   });
 
@@ -75,7 +78,7 @@ void main() {
     ]) {
       final inspection = plugin.inspect(request(raw));
       expect(inspection.claims, isEmpty, reason: raw);
-      expect(inspection.blockers, isNotEmpty, reason: raw);
+      expect(inspection.blockers, hasLength(1), reason: raw);
     }
   });
 

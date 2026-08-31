@@ -129,7 +129,7 @@ void main() {
     composer.dispose();
   });
 
-  testWidgets('rows are named 44 pixel choices in the field keyboard flow', (
+  testWidgets('rows are named 44-pixel choices in the field keyboard flow', (
     tester,
   ) async {
     final composer = _composerWith(['smile', 'smirk']);

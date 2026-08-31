@@ -78,34 +78,33 @@ void main() {
     );
   });
 
-  test(
-    'post actions translate a keychain failure and release their guard',
-    () async {
-      final post = controller.store.read<Post>(_siteUrl, 1)!;
-      authenticator.apiKeyFailure = StateError('keychain unavailable');
+  group('write failures', () {
+    test(
+      'translate a keychain failure and release post action guards',
+      () async {
+        final post = controller.store.read<Post>(_siteUrl, 1)!;
+        authenticator.apiKeyFailure = StateError('keychain unavailable');
 
-      expect(
-        await controller.toggleLike(post, siteUrl: _siteUrl),
-        const WriteException(WriteFailure.unreachable).message,
-      );
-      expect(
-        await controller.toggleLike(post, siteUrl: _siteUrl),
-        const WriteException(WriteFailure.unreachable).message,
-      );
-      expect(
-        await controller.deletePost(post),
-        const WriteException(WriteFailure.unreachable).message,
-      );
+        expect(
+          await controller.toggleLike(post, siteUrl: _siteUrl),
+          const WriteException(WriteFailure.unreachable).message,
+        );
+        expect(
+          await controller.toggleLike(post, siteUrl: _siteUrl),
+          const WriteException(WriteFailure.unreachable).message,
+        );
+        expect(
+          await controller.deletePost(post),
+          const WriteException(WriteFailure.unreachable).message,
+        );
 
-      expect(api.liked, isEmpty);
-      expect(api.deleted, isEmpty);
-      expect(controller.store.read<Post>(_siteUrl, 1), same(post));
-    },
-  );
+        expect(api.liked, isEmpty);
+        expect(api.deleted, isEmpty);
+        expect(controller.store.read<Post>(_siteUrl, 1), same(post));
+      },
+    );
 
-  test(
-    'a keychain failure returns a composer to an editable error state',
-    () async {
+    test('keep the composer editable after a keychain failure', () async {
       controller.openReply();
       final composer = controller.visibleComposer!;
       composer.text.text = 'A reply that should remain local';
@@ -117,54 +116,53 @@ void main() {
       expect(composer.error?.failure, WriteFailure.unreachable);
       expect(composer.raw, 'A reply that should remain local');
       expect(api.created, isEmpty);
-    },
-  );
+    });
 
-  test(
-    'a generic like failure is recorded once and rolls back the optimistic UI',
-    () async {
-      api.likeError = StateError('opaque like transport failure');
+    test(
+      'record an opaque like failure once and roll back optimistic state',
+      () async {
+        api.likeError = StateError('opaque like transport failure');
+        final post = controller.store.read<Post>(_siteUrl, 1)!;
+
+        expect(
+          await controller.toggleLike(post, siteUrl: _siteUrl),
+          const WriteException(WriteFailure.unreachable).message,
+        );
+
+        final held = controller.store.read<Post>(_siteUrl, 1)!;
+        expect(held.liked, isFalse);
+        expect(held.likeCount, 0);
+        expect(held.canLike, isTrue);
+        expect(api.liked, [1]);
+
+        final event = _singleOperation(diagnostics, 'post.toggleLike');
+        expect(event.severity, DiagnosticSeverity.error);
+        expect(event.errorType, 'StateError');
+        expect(event.message, contains('opaque like transport failure'));
+        expect(event.stackTrace, contains('_InstrumentedFailureApi.likePost'));
+      },
+    );
+
+    test('exclude a like failure from a disconnected session', () async {
+      final gate = Completer<void>();
+      api
+        ..likeError = StateError('obsolete like failure')
+        ..opaqueLikeGate = gate;
       final post = controller.store.read<Post>(_siteUrl, 1)!;
 
-      expect(
-        await controller.toggleLike(post, siteUrl: _siteUrl),
-        const WriteException(WriteFailure.unreachable).message,
-      );
+      final write = controller.toggleLike(post, siteUrl: _siteUrl);
+      await api.likeStarted.future;
+      expect(await controller.disconnectInstance(_siteUrl), isTrue);
+      gate.complete();
+      await write;
 
-      final held = controller.store.read<Post>(_siteUrl, 1)!;
-      expect(held.liked, isFalse);
-      expect(held.likeCount, 0);
-      expect(held.canLike, isTrue);
-      expect(api.liked, [1]);
-
-      final event = _singleOperation(diagnostics, 'post.toggleLike');
-      expect(event.severity, DiagnosticSeverity.error);
-      expect(event.errorType, 'StateError');
-      expect(event.message, contains('opaque like transport failure'));
-      expect(event.stackTrace, contains('_InstrumentedFailureApi.likePost'));
-    },
-  );
-
-  test('a like failure from a disconnected session is excluded', () async {
-    final gate = Completer<void>();
-    api
-      ..likeError = StateError('obsolete like failure')
-      ..opaqueLikeGate = gate;
-    final post = controller.store.read<Post>(_siteUrl, 1)!;
-
-    final write = controller.toggleLike(post, siteUrl: _siteUrl);
-    await api.likeStarted.future;
-    expect(await controller.disconnectInstance(_siteUrl), isTrue);
-    gate.complete();
-    await write;
-
-    expect(controller.store.read<Post>(_siteUrl, 1), isNull);
-    expect(_operationEvents(diagnostics, 'post.toggleLike'), isEmpty);
+      expect(controller.store.read<Post>(_siteUrl, 1), isNull);
+      expect(_operationEvents(diagnostics, 'post.toggleLike'), isEmpty);
+    });
   });
 
-  test(
-    'disconnect keeps working when credential read and deletion fail',
-    () async {
+  group('session teardown', () {
+    test('disconnects when credential read and deletion fail', () async {
       // Startup presentation hydration can legitimately use the same injected
       // credential failure. Let that optional work settle before exercising
       // and inspecting the disconnect boundary.
@@ -196,62 +194,62 @@ void main() {
         deletion.stackTrace,
         contains('_InstrumentedAuthenticator.disconnect'),
       );
-    },
-  );
+    });
 
-  test(
-    'disconnect tolerates and records remote key revocation failure',
-    () async {
-      api.revokeError = StateError('remote revoke unavailable');
+    test(
+      'records remote revocation failure without blocking disconnect',
+      () async {
+        api.revokeError = StateError('remote revoke unavailable');
 
-      expect(await controller.disconnectInstance(_siteUrl), isTrue);
+        expect(await controller.disconnectInstance(_siteUrl), isTrue);
 
-      expect(controller.currentInstance?.user, isNull);
-      expect(authenticator.disconnected, [_siteUrl]);
-      expect(api.revoked, [_siteUrl]);
-      final event = _singleOperation(diagnostics, 'authentication.revokeKey');
-      expect(event.severity, DiagnosticSeverity.warning);
-      expect(event.message, contains('remote revoke unavailable'));
-      expect(
-        event.stackTrace,
-        contains('_InstrumentedFailureApi.revokeApiKey'),
-      );
-    },
-  );
+        expect(controller.currentInstance?.user, isNull);
+        expect(authenticator.disconnected, [_siteUrl]);
+        expect(api.revoked, [_siteUrl]);
+        final event = _singleOperation(diagnostics, 'authentication.revokeKey');
+        expect(event.severity, DiagnosticSeverity.warning);
+        expect(event.message, contains('remote revoke unavailable'));
+        expect(
+          event.stackTrace,
+          contains('_InstrumentedFailureApi.revokeApiKey'),
+        );
+      },
+    );
 
-  test(
-    'disconnect aborts before credential removal when drafts cannot clear',
-    () async {
-      const error = FileSystemException('draft boundary unavailable');
-      drafts.clearSiteError = error;
+    test(
+      'aborts disconnect before credential removal when drafts cannot clear',
+      () async {
+        const error = FileSystemException('draft boundary unavailable');
+        drafts.clearSiteError = error;
 
-      expect(await controller.disconnectInstance(_siteUrl), isFalse);
+        expect(await controller.disconnectInstance(_siteUrl), isFalse);
 
-      expect(controller.currentInstance?.user?.username, 'reader');
-      expect(authenticator.keys[_siteUrl], 'api-key');
-      expect(authenticator.disconnected, isEmpty);
-      expect(api.revoked, isEmpty);
-    },
-  );
+        expect(controller.currentInstance?.user?.username, 'reader');
+        expect(authenticator.keys[_siteUrl], 'api-key');
+        expect(authenticator.disconnected, isEmpty);
+        expect(api.revoked, isEmpty);
+      },
+    );
 
-  test(
-    'removal aborts before credential removal when drafts cannot clear',
-    () async {
-      const error = FileSystemException('draft boundary unavailable');
-      drafts.clearSiteError = error;
+    test(
+      'aborts removal before credential removal when drafts cannot clear',
+      () async {
+        const error = FileSystemException('draft boundary unavailable');
+        drafts.clearSiteError = error;
 
-      expect(
-        await controller.removeInstance(controller.currentInstance!),
-        isFalse,
-      );
+        expect(
+          await controller.removeInstance(controller.currentInstance!),
+          isFalse,
+        );
 
-      expect(controller.instances, hasLength(1));
-      expect(controller.currentInstance?.user?.username, 'reader');
-      expect(authenticator.keys[_siteUrl], 'api-key');
-      expect(authenticator.disconnected, isEmpty);
-      expect(api.revoked, isEmpty);
-    },
-  );
+        expect(controller.instances, hasLength(1));
+        expect(controller.currentInstance?.user?.username, 'reader');
+        expect(authenticator.keys[_siteUrl], 'api-key');
+        expect(authenticator.disconnected, isEmpty);
+        expect(api.revoked, isEmpty);
+      },
+    );
+  });
 }
 
 List<ErrorDiagnosticEvent> _operationEvents(

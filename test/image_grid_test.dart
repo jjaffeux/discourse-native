@@ -282,21 +282,22 @@ void main() {
       expect(rects.map((r) => r.top).toSet(), hasLength(2));
     });
 
-    testWidgets('uses two columns for two or four items whatever the room', (
-      tester,
-    ) async {
-      // `Columns#count` — a 2x2 block reads better than a row of four.
-      await pumpGrid(tester, grid(4), width: 900);
+    testWidgets('uses two columns for both two and four items', (tester) async {
+      // `Columns#count` keeps two images abreast and makes four a 2x2 block.
+      for (final count in [2, 4]) {
+        await pumpGrid(tester, grid(count), width: 900);
 
-      final lefts = find
-          .byType(ImageGridTile)
-          .evaluate()
-          .map(
-            (e) =>
-                tester.getTopLeft(find.byWidget(e.widget as ImageGridTile)).dx,
-          )
-          .toSet();
-      expect(lefts, hasLength(2));
+        final lefts = find
+            .byType(ImageGridTile)
+            .evaluate()
+            .map(
+              (e) => tester
+                  .getTopLeft(find.byWidget(e.widget as ImageGridTile))
+                  .dx,
+            )
+            .toSet();
+        expect(lefts, hasLength(2), reason: '$count items');
+      }
     });
 
     testWidgets('ends every column at the same height', (tester) async {
@@ -402,7 +403,7 @@ void main() {
       expect(find.byType(PageView), findsOneWidget);
     });
 
-    testWidgets('shows a dot per image and moves between them', (tester) async {
+    testWidgets('the next control advances one image', (tester) async {
       await pumpGrid(tester, grid(3, mode: 'carousel'));
 
       await tester.tap(find.dIcon(DIcons.chevronRight));

@@ -64,6 +64,11 @@ void main() {
         final lines = highlightLines(source, language);
 
         expect(
+          lines,
+          hasLength(source.split('\n').length),
+          reason: 'line boundaries survived $language',
+        );
+        expect(
           lines.map(textOf).join('\n'),
           source,
           reason: 'text survived $language',

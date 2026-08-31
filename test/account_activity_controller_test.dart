@@ -209,509 +209,557 @@ AccountActivityController _controller(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('refreshes per-site totals and reports capabilities', () async {
-    final totals = NotificationTotals(
-      unreadNotifications: 3,
-      pluginCounters: PluginNotificationCounters.single(_counter),
-    );
-    final api = _AccountApi(totals: totals);
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final loaded = <NotificationTotals>[];
-    final controller = _controller(
-      api,
-      credentials,
-      onTotalsLoaded: (_, totals) => loaded.add(totals),
-    );
-    addTearDown(controller.dispose);
-    var changes = 0;
-    controller.addListener(() => changes++);
-
-    final result = await controller.refresh(_connectedInstance());
-
-    expect(result, totals);
-    expect(controller.totalsFor(_siteUrl), totals);
-    expect(loaded, [totals]);
-    expect(changes, 1);
-  });
-
-  test('reentrant disposal suppresses the totals post-load callback', () async {
-    const totals = NotificationTotals();
-    final api = _AccountApi(totals: totals);
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    var loaded = false;
-    final controller = _controller(
-      api,
-      credentials,
-      onTotalsLoaded: (_, _) => loaded = true,
-    );
-    controller.addListener(controller.dispose);
-
-    final result = await controller.refresh(_connectedInstance());
-
-    expect(result, totals);
-    expect(loaded, isFalse);
-  });
-
-  test(
-    'loads notification, reply, chat, and bookmark feeds independently',
-    () async {
-      final api = _AccountApi(
-        notificationList: const [_notification],
-        replyNotificationList: const [_secondReply],
-        chatNotificationList: const [_chatNotification],
-        bookmarkList: const [_bookmark],
-        reminderList: const [_notification],
+  group('capabilities and independent feeds', () {
+    test('refreshes per-site totals and reports capabilities', () async {
+      final totals = NotificationTotals(
+        unreadNotifications: 3,
+        pluginCounters: PluginNotificationCounters.single(_counter),
       );
+      final api = _AccountApi(totals: totals);
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final loaded = <NotificationTotals>[];
+      final controller = _controller(
+        api,
+        credentials,
+        onTotalsLoaded: (_, totals) => loaded.add(totals),
+      );
+      addTearDown(controller.dispose);
+      var changes = 0;
+      controller.addListener(() => changes++);
+
+      final result = await controller.refresh(_connectedInstance());
+
+      expect(result, totals);
+      expect(controller.totalsFor(_siteUrl), totals);
+      expect(loaded, [totals]);
+      expect(changes, 1);
+    });
+
+    test(
+      'reentrant disposal suppresses the totals post-load callback',
+      () async {
+        const totals = NotificationTotals();
+        final api = _AccountApi(totals: totals);
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        var loaded = false;
+        final controller = _controller(
+          api,
+          credentials,
+          onTotalsLoaded: (_, _) => loaded = true,
+        );
+        controller.addListener(controller.dispose);
+
+        final result = await controller.refresh(_connectedInstance());
+
+        expect(result, totals);
+        expect(loaded, isFalse);
+      },
+    );
+
+    test(
+      'loads notification, reply, chat, and bookmark feeds independently',
+      () async {
+        final api = _AccountApi(
+          notificationList: const [_notification],
+          replyNotificationList: const [_secondReply],
+          chatNotificationList: const [_chatNotification],
+          bookmarkList: const [_bookmark],
+          reminderList: const [_notification],
+        );
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+
+        await Future.wait([
+          controller.loadNotifications(connected),
+          controller.loadReplyNotifications(connected),
+          controller.loadPluginNotifications(connected, chatNotificationFeed),
+          controller.loadBookmarks(connected),
+        ]);
+
+        expect(controller.notificationsFor(_siteUrl).notifications, const [
+          _notification,
+        ]);
+        expect(controller.replyNotificationsFor(_siteUrl).notifications, const [
+          _secondReply,
+        ]);
+        expect(
+          controller
+              .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
+              .notifications,
+          const [_chatNotification],
+        );
+        expect(controller.bookmarksFor(_siteUrl).reminders, const [
+          _notification,
+        ]);
+        expect(controller.bookmarksFor(_siteUrl).bookmarks, const [_bookmark]);
+        expect(api.bookmarksRequested, ['sam']);
+      },
+    );
+
+    test('conflicting plugin feed definitions cannot share state', () async {
+      final api = _AccountApi(chatNotificationList: const [_chatNotification]);
       final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
       final controller = _controller(api, credentials);
       addTearDown(controller.dispose);
       final connected = _connectedInstance();
 
-      await Future.wait([
-        controller.loadNotifications(connected),
-        controller.loadReplyNotifications(connected),
-        controller.loadPluginNotifications(connected, chatNotificationFeed),
-        controller.loadBookmarks(connected),
-      ]);
+      await controller.loadPluginNotifications(connected, chatNotificationFeed);
 
-      expect(controller.notificationsFor(_siteUrl).notifications, const [
-        _notification,
-      ]);
-      expect(controller.replyNotificationsFor(_siteUrl).notifications, const [
-        _secondReply,
-      ]);
-      expect(
-        controller
-            .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
-            .notifications,
-        const [_chatNotification],
+      final conflicting = PluginNotificationFeedSource(
+        id: chatNotificationFeed.id,
+        filterByTypes: const [NotificationTypeName('replied')],
+        reconnectMessage: 'Reconnect.',
+        failureMessage: 'Failed.',
+        emptyMessage: 'Empty.',
       );
-      expect(controller.bookmarksFor(_siteUrl).reminders, const [
-        _notification,
-      ]);
+      await expectLater(
+        controller.loadPluginNotifications(connected, conflicting),
+        throwsStateError,
+      );
+    });
+
+    test('a forced bookmark load replays behind an older request', () async {
+      final api = _SequencedBookmarksApi(2);
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+      final connected = _connectedInstance();
+
+      final first = controller.loadBookmarks(connected);
+      await api.started[0].future;
+      final forced = controller.loadBookmarks(connected, force: true);
+
+      api.answers[0].complete((
+        reminders: const <DiscourseNotification>[],
+        bookmarks: const [_bookmark],
+      ));
+      await first;
+      await api.started[1].future;
       expect(controller.bookmarksFor(_siteUrl).bookmarks, const [_bookmark]);
-      expect(api.bookmarksRequested, ['sam']);
-    },
-  );
 
-  test('conflicting plugin feed definitions cannot share state', () async {
-    final api = _AccountApi(chatNotificationList: const [_chatNotification]);
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-    final connected = _connectedInstance();
+      const fresh = Bookmark(id: 10, title: 'Fresh bookmark');
+      api.answers[1].complete((
+        reminders: const <DiscourseNotification>[],
+        bookmarks: const [fresh],
+      ));
+      await forced;
 
-    await controller.loadPluginNotifications(connected, chatNotificationFeed);
+      expect(controller.bookmarksFor(_siteUrl).bookmarks, const [fresh]);
+      expect(api.calls, 2);
+    });
 
-    final conflicting = PluginNotificationFeedSource(
-      id: chatNotificationFeed.id,
-      filterByTypes: const [NotificationTypeName('replied')],
-      reconnectMessage: 'Reconnect.',
-      failureMessage: 'Failed.',
-      emptyMessage: 'Empty.',
-    );
-    await expectLater(
-      controller.loadPluginNotifications(connected, conflicting),
-      throwsStateError,
-    );
+    test('each activity aspect notifies only its own consumers', () async {
+      final api = _AccountApi(
+        notificationList: const [_notification],
+        replyNotificationList: const [_notification],
+        chatNotificationList: const [_chatNotification],
+        bookmarkList: const [_bookmark],
+        activityPages: const {
+          0: UserActivityPage(items: [_activityTopic], rawItemCount: 1),
+        },
+      );
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+      var totalsChanges = 0;
+      var notificationChanges = 0;
+      var replyNotificationChanges = 0;
+      var chatNotificationChanges = 0;
+      var bookmarkChanges = 0;
+      var userActivityChanges = 0;
+      controller.totalsListenable.addListener(() => totalsChanges++);
+      controller.notificationsListenable.addListener(
+        () => notificationChanges++,
+      );
+      controller.replyNotificationsListenable.addListener(
+        () => replyNotificationChanges++,
+      );
+      controller
+          .pluginNotificationsListenable(chatNotificationFeed.id)
+          .addListener(() => chatNotificationChanges++);
+      controller.bookmarksListenable.addListener(() => bookmarkChanges++);
+      controller.userActivityListenable.addListener(
+        () => userActivityChanges++,
+      );
+
+      await controller.loadNotifications(_connectedInstance());
+
+      expect(totalsChanges, 0);
+      expect(notificationChanges, 2);
+      expect(replyNotificationChanges, 0);
+      expect(chatNotificationChanges, 0);
+      expect(bookmarkChanges, 0);
+      expect(userActivityChanges, 0);
+
+      await controller.loadPluginNotifications(
+        _connectedInstance(),
+        chatNotificationFeed,
+      );
+
+      expect(totalsChanges, 0);
+      expect(notificationChanges, 2);
+      expect(replyNotificationChanges, 0);
+      expect(chatNotificationChanges, 2);
+      expect(bookmarkChanges, 0);
+      expect(userActivityChanges, 0);
+
+      await controller.loadUserActivity(_connectedInstance());
+
+      expect(totalsChanges, 0);
+      expect(notificationChanges, 2);
+      expect(replyNotificationChanges, 0);
+      expect(chatNotificationChanges, 2);
+      expect(bookmarkChanges, 0);
+      expect(userActivityChanges, 2);
+    });
   });
 
-  test('a forced bookmark load replays behind an older request', () async {
-    final api = _SequencedBookmarksApi(2);
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-    final connected = _connectedInstance();
-
-    final first = controller.loadBookmarks(connected);
-    await api.started[0].future;
-    final forced = controller.loadBookmarks(connected, force: true);
-
-    api.answers[0].complete((
-      reminders: const <DiscourseNotification>[],
-      bookmarks: const [_bookmark],
-    ));
-    await first;
-    await api.started[1].future;
-    expect(controller.bookmarksFor(_siteUrl).bookmarks, const [_bookmark]);
-
-    const fresh = Bookmark(id: 10, title: 'Fresh bookmark');
-    api.answers[1].complete((
-      reminders: const <DiscourseNotification>[],
-      bookmarks: const [fresh],
-    ));
-    await forced;
-
-    expect(controller.bookmarksFor(_siteUrl).bookmarks, const [fresh]);
-    expect(api.calls, 2);
-  });
-
-  test('each activity aspect notifies only its own consumers', () async {
-    final api = _AccountApi(
-      notificationList: const [_notification],
-      replyNotificationList: const [_notification],
-      chatNotificationList: const [_chatNotification],
-      bookmarkList: const [_bookmark],
-      activityPages: const {
-        0: UserActivityPage(items: [_activityTopic], rawItemCount: 1),
-      },
-    );
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-    var totalsChanges = 0;
-    var notificationChanges = 0;
-    var replyNotificationChanges = 0;
-    var chatNotificationChanges = 0;
-    var bookmarkChanges = 0;
-    var userActivityChanges = 0;
-    controller.totalsListenable.addListener(() => totalsChanges++);
-    controller.notificationsListenable.addListener(() => notificationChanges++);
-    controller.replyNotificationsListenable.addListener(
-      () => replyNotificationChanges++,
-    );
-    controller
-        .pluginNotificationsListenable(chatNotificationFeed.id)
-        .addListener(() => chatNotificationChanges++);
-    controller.bookmarksListenable.addListener(() => bookmarkChanges++);
-    controller.userActivityListenable.addListener(() => userActivityChanges++);
-
-    await controller.loadNotifications(_connectedInstance());
-
-    expect(totalsChanges, 0);
-    expect(notificationChanges, 2);
-    expect(replyNotificationChanges, 0);
-    expect(chatNotificationChanges, 0);
-    expect(bookmarkChanges, 0);
-    expect(userActivityChanges, 0);
-
-    await controller.loadPluginNotifications(
-      _connectedInstance(),
-      chatNotificationFeed,
-    );
-
-    expect(totalsChanges, 0);
-    expect(notificationChanges, 2);
-    expect(replyNotificationChanges, 0);
-    expect(chatNotificationChanges, 2);
-    expect(bookmarkChanges, 0);
-    expect(userActivityChanges, 0);
-
-    await controller.loadUserActivity(_connectedInstance());
-
-    expect(totalsChanges, 0);
-    expect(notificationChanges, 2);
-    expect(replyNotificationChanges, 0);
-    expect(chatNotificationChanges, 2);
-    expect(bookmarkChanges, 0);
-    expect(userActivityChanges, 2);
-  });
-
-  test('coalesces repeated notification loads for one site', () async {
-    final gate = Completer<void>();
-    final api = _GatedNotificationsApi(gate);
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-
-    final first = controller.loadNotifications(_connectedInstance());
-    final second = controller.loadNotifications(_connectedInstance());
-    await Future<void>.delayed(Duration.zero);
-
-    expect(second, same(first));
-    expect(api.calls, 1);
-    gate.complete();
-    await Future.wait([first, second]);
-  });
-
-  test('coalesces repeated reply notification loads for one site', () async {
-    final gate = Completer<void>();
-    final api = _GatedNotificationsApi(gate);
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-
-    final first = controller.loadReplyNotifications(_connectedInstance());
-    final second = controller.loadReplyNotifications(_connectedInstance());
-    await Future<void>.delayed(Duration.zero);
-
-    expect(second, same(first));
-    expect(api.calls, 1);
-    expect(api.filters.single, userMenuReplyNotificationTypes);
-    gate.complete();
-    await Future.wait([first, second]);
-  });
-
-  test(
-    'coalesces repeated chat notification loads with the exact filter',
-    () async {
+  group('feed request coordination and paging', () {
+    test('coalesces repeated notification loads for one site', () async {
       final gate = Completer<void>();
       final api = _GatedNotificationsApi(gate);
       final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
       final controller = _controller(api, credentials);
       addTearDown(controller.dispose);
 
-      final first = controller.loadPluginNotifications(
-        _connectedInstance(),
-        chatNotificationFeed,
-      );
-      final second = controller.loadPluginNotifications(
-        _connectedInstance(),
-        chatNotificationFeed,
-      );
+      final first = controller.loadNotifications(_connectedInstance());
+      final second = controller.loadNotifications(_connectedInstance());
       await Future<void>.delayed(Duration.zero);
 
       expect(second, same(first));
       expect(api.calls, 1);
-      expect(api.filters.single, chatNotificationFeed.filterByTypes);
       gate.complete();
       await Future.wait([first, second]);
-    },
-  );
+    });
 
-  test('coalesces repeated bookmark loads onto one future', () async {
-    final api = _AccountApi(bookmarkList: const [_bookmark]);
-    final credentials = _GatedCredentialReader();
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-
-    final first = controller.loadBookmarks(_connectedInstance());
-    await credentials.started.future;
-    final second = controller.loadBookmarks(_connectedInstance());
-
-    expect(second, same(first));
-    credentials.result.complete('key');
-    await Future.wait([first, second]);
-    expect(controller.bookmarksFor(_siteUrl).loaded, isTrue);
-  });
-
-  test('activity paginates by raw rows and de-duplicates posts', () async {
-    final api = _AccountApi(
-      activityPages: const {
-        0: UserActivityPage(
-          items: [_activityTopic, _activityReply],
-          rawItemCount: AccountActivityController.userActivityPageSize,
-        ),
-        AccountActivityController.userActivityPageSize: UserActivityPage(
-          items: [_activityReply],
-          rawItemCount: 1,
-        ),
-      },
-    );
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-
-    await controller.loadUserActivity(_connectedInstance());
-    var feed = controller.userActivityFor(_siteUrl);
-
-    expect(feed.items, const [_activityTopic, _activityReply]);
-    expect(feed.nextOffset, AccountActivityController.userActivityPageSize);
-    expect(feed.hasMore, isTrue);
-    expect(api.activityRequests.single.username, 'sam');
-    expect(api.activityRequests.single.offset, 0);
-    expect(api.activityRequests.single.limit, 30);
-
-    await controller.loadUserActivity(_connectedInstance(), loadMore: true);
-    feed = controller.userActivityFor(_siteUrl);
-
-    expect(feed.items, const [_activityTopic, _activityReply]);
-    expect(feed.nextOffset, AccountActivityController.userActivityPageSize + 1);
-    expect(feed.hasMore, isFalse);
-    expect(api.activityRequests.map((request) => request.offset), [0, 30]);
-  });
-
-  test('ordinary overlapping activity loads share one request', () async {
-    final api = _SequencedUserActivityApi(1);
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-
-    final first = controller.loadUserActivity(_connectedInstance());
-    await api.started[0].future;
-    final second = controller.loadUserActivity(_connectedInstance());
-
-    expect(second, same(first));
-    expect(api.calls, 1);
-    api.answers[0].complete(
-      const UserActivityPage(items: [_activityTopic], rawItemCount: 1),
-    );
-    await Future.wait([first, second]);
-  });
-
-  test('an activity refresh supersedes a stale page in flight', () async {
-    final api = _SequencedUserActivityApi(2);
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-
-    final stale = controller.loadUserActivity(_connectedInstance());
-    await api.started[0].future;
-    final fresh = controller.loadUserActivity(
-      _connectedInstance(),
-      refresh: true,
-    );
-    await api.started[1].future;
-
-    api.answers[1].complete(
-      const UserActivityPage(items: [_activityReply], rawItemCount: 1),
-    );
-    await fresh;
-    api.answers[0].complete(
-      const UserActivityPage(items: [_activityTopic], rawItemCount: 1),
-    );
-    await stale;
-
-    expect(controller.userActivityFor(_siteUrl).items, const [_activityReply]);
-    expect(api.offsets, [0, 0]);
-  });
-
-  test('session rotation rejects a stale activity page', () async {
-    final api = _SequencedUserActivityApi(2);
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final lifecycle = SiteLifecycle();
-    final controller = _controller(api, credentials, lifecycle: lifecycle);
-    addTearDown(controller.dispose);
-
-    final stale = controller.loadUserActivity(_connectedInstance());
-    await api.started[0].future;
-    lifecycle.invalidate(_siteUrl);
-    controller.forget(_siteUrl);
-
-    final replacement = controller.loadUserActivity(_connectedInstance());
-    await api.started[1].future;
-    api.answers[1].complete(
-      const UserActivityPage(items: [_activityReply], rawItemCount: 1),
-    );
-    await replacement;
-    api.answers[0].complete(
-      const UserActivityPage(items: [_activityTopic], rawItemCount: 1),
-    );
-    await stale;
-
-    expect(controller.userActivityFor(_siteUrl).items, const [_activityReply]);
-  });
-
-  test('activity failure is retryable without losing a loaded page', () async {
-    final api = _SequencedUserActivityApi(3);
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-
-    final initial = controller.loadUserActivity(_connectedInstance());
-    await api.started[0].future;
-    api.answers[0].complete(
-      const UserActivityPage(
-        items: [_activityTopic],
-        rawItemCount: AccountActivityController.userActivityPageSize,
-      ),
-    );
-    await initial;
-
-    final failedPage = controller.loadUserActivity(
-      _connectedInstance(),
-      loadMore: true,
-    );
-    await api.started[1].future;
-    api.answers[1].completeError(StateError('offline'));
-    await failedPage;
-
-    var feed = controller.userActivityFor(_siteUrl);
-    expect(feed.items, const [_activityTopic]);
-    expect(feed.error, contains("Couldn't load activity"));
-
-    final retry = controller.loadUserActivity(
-      _connectedInstance(),
-      loadMore: true,
-    );
-    await api.started[2].future;
-    api.answers[2].complete(
-      const UserActivityPage(items: [_activityReply], rawItemCount: 1),
-    );
-    await retry;
-
-    feed = controller.userActivityFor(_siteUrl);
-    expect(feed.items, const [_activityTopic, _activityReply]);
-    expect(feed.error, isNull);
-    expect(api.offsets, [0, 30, 30]);
-  });
-
-  test(
-    'failed activity refresh preserves rows and retries from zero',
-    () async {
-      final api = _SequencedUserActivityApi(3);
+    test('coalesces repeated reply notification loads for one site', () async {
+      final gate = Completer<void>();
+      final api = _GatedNotificationsApi(gate);
       final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
       final controller = _controller(api, credentials);
       addTearDown(controller.dispose);
 
-      final initial = controller.loadUserActivity(_connectedInstance());
-      await api.started[0].future;
-      api.answers[0].complete(
-        const UserActivityPage(
-          items: [_activityTopic],
-          rawItemCount: AccountActivityController.userActivityPageSize,
-        ),
-      );
-      await initial;
+      final first = controller.loadReplyNotifications(_connectedInstance());
+      final second = controller.loadReplyNotifications(_connectedInstance());
+      await Future<void>.delayed(Duration.zero);
 
-      final failedRefresh = controller.loadUserActivity(
+      expect(second, same(first));
+      expect(api.calls, 1);
+      expect(api.filters.single, userMenuReplyNotificationTypes);
+      gate.complete();
+      await Future.wait([first, second]);
+    });
+
+    test(
+      'coalesces repeated chat notification loads with the exact filter',
+      () async {
+        final gate = Completer<void>();
+        final api = _GatedNotificationsApi(gate);
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+
+        final first = controller.loadPluginNotifications(
+          _connectedInstance(),
+          chatNotificationFeed,
+        );
+        final second = controller.loadPluginNotifications(
+          _connectedInstance(),
+          chatNotificationFeed,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(second, same(first));
+        expect(api.calls, 1);
+        expect(api.filters.single, chatNotificationFeed.filterByTypes);
+        gate.complete();
+        await Future.wait([first, second]);
+      },
+    );
+
+    test('coalesces repeated bookmark loads onto one future', () async {
+      final api = _AccountApi(bookmarkList: const [_bookmark]);
+      final credentials = _GatedCredentialReader();
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+
+      final first = controller.loadBookmarks(_connectedInstance());
+      await credentials.started.future;
+      final second = controller.loadBookmarks(_connectedInstance());
+
+      expect(second, same(first));
+      credentials.result.complete('key');
+      await Future.wait([first, second]);
+      expect(controller.bookmarksFor(_siteUrl).loaded, isTrue);
+    });
+
+    test('activity paginates by raw rows and de-duplicates posts', () async {
+      final api = _AccountApi(
+        activityPages: const {
+          0: UserActivityPage(
+            items: [_activityTopic, _activityReply],
+            rawItemCount: AccountActivityController.userActivityPageSize,
+          ),
+          AccountActivityController.userActivityPageSize: UserActivityPage(
+            items: [_activityReply],
+            rawItemCount: 1,
+          ),
+        },
+      );
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+
+      await controller.loadUserActivity(_connectedInstance());
+      var feed = controller.userActivityFor(_siteUrl);
+
+      expect(feed.items, const [_activityTopic, _activityReply]);
+      expect(feed.nextOffset, AccountActivityController.userActivityPageSize);
+      expect(feed.hasMore, isTrue);
+      expect(api.activityRequests.single.username, 'sam');
+      expect(api.activityRequests.single.offset, 0);
+      expect(api.activityRequests.single.limit, 30);
+
+      await controller.loadUserActivity(_connectedInstance(), loadMore: true);
+      feed = controller.userActivityFor(_siteUrl);
+
+      expect(feed.items, const [_activityTopic, _activityReply]);
+      expect(
+        feed.nextOffset,
+        AccountActivityController.userActivityPageSize + 1,
+      );
+      expect(feed.hasMore, isFalse);
+      expect(api.activityRequests.map((request) => request.offset), [0, 30]);
+    });
+
+    test('ordinary overlapping activity loads share one request', () async {
+      final api = _SequencedUserActivityApi(1);
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+
+      final first = controller.loadUserActivity(_connectedInstance());
+      await api.started[0].future;
+      final second = controller.loadUserActivity(_connectedInstance());
+
+      expect(second, same(first));
+      expect(api.calls, 1);
+      api.answers[0].complete(
+        const UserActivityPage(items: [_activityTopic], rawItemCount: 1),
+      );
+      await Future.wait([first, second]);
+    });
+
+    test('an activity refresh supersedes a stale page in flight', () async {
+      final api = _SequencedUserActivityApi(2);
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+
+      final stale = controller.loadUserActivity(_connectedInstance());
+      await api.started[0].future;
+      final fresh = controller.loadUserActivity(
         _connectedInstance(),
         refresh: true,
       );
       await api.started[1].future;
-      api.answers[1].completeError(StateError('offline'));
-      await failedRefresh;
 
-      var feed = controller.userActivityFor(_siteUrl);
-      expect(feed.items, const [_activityTopic]);
-      expect(feed.nextOffset, AccountActivityController.userActivityPageSize);
-      expect(feed.retryFromStart, isTrue);
-
-      final retry = controller.loadUserActivity(
-        _connectedInstance(),
-        refresh: feed.retryFromStart,
-      );
-      await api.started[2].future;
-      api.answers[2].complete(
+      api.answers[1].complete(
         const UserActivityPage(items: [_activityReply], rawItemCount: 1),
       );
-      await retry;
+      await fresh;
+      api.answers[0].complete(
+        const UserActivityPage(items: [_activityTopic], rawItemCount: 1),
+      );
+      await stale;
 
-      feed = controller.userActivityFor(_siteUrl);
-      expect(feed.items, const [_activityReply]);
-      expect(feed.retryFromStart, isFalse);
-      expect(api.offsets, [0, 0, 0]);
-    },
-  );
+      expect(controller.userActivityFor(_siteUrl).items, const [
+        _activityReply,
+      ]);
+      expect(api.offsets, [0, 0]);
+    });
 
-  test('ordinary overlapping totals refreshes share one request', () async {
-    final first = Completer<NotificationTotals>();
-    final api = _GatedTotalsApi([first]);
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
+    test('session rotation rejects a stale activity page', () async {
+      final api = _SequencedUserActivityApi(2);
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final lifecycle = SiteLifecycle();
+      final controller = _controller(api, credentials, lifecycle: lifecycle);
+      addTearDown(controller.dispose);
 
-    final older = controller.refresh(_connectedInstance());
-    await api.firstStarted.future;
-    final newer = controller.refresh(_connectedInstance());
-    final newest = controller.refresh(_connectedInstance());
-    await Future<void>.delayed(Duration.zero);
+      final stale = controller.loadUserActivity(_connectedInstance());
+      await api.started[0].future;
+      lifecycle.invalidate(_siteUrl);
+      controller.forget(_siteUrl);
 
-    expect(api._calls, 1);
-    expect(api.secondStarted.isCompleted, isFalse);
-    first.complete(const NotificationTotals(unreadNotifications: 1));
-    await Future.wait([older, newer, newest]);
+      final replacement = controller.loadUserActivity(_connectedInstance());
+      await api.started[1].future;
+      api.answers[1].complete(
+        const UserActivityPage(items: [_activityReply], rawItemCount: 1),
+      );
+      await replacement;
+      api.answers[0].complete(
+        const UserActivityPage(items: [_activityTopic], rawItemCount: 1),
+      );
+      await stale;
 
-    expect(api._calls, 1);
-    expect(controller.totalsFor(_siteUrl)?.unreadNotifications, 1);
+      expect(controller.userActivityFor(_siteUrl).items, const [
+        _activityReply,
+      ]);
+    });
+
+    test(
+      'activity failure is retryable without losing a loaded page',
+      () async {
+        final api = _SequencedUserActivityApi(3);
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+
+        final initial = controller.loadUserActivity(_connectedInstance());
+        await api.started[0].future;
+        api.answers[0].complete(
+          const UserActivityPage(
+            items: [_activityTopic],
+            rawItemCount: AccountActivityController.userActivityPageSize,
+          ),
+        );
+        await initial;
+
+        final failedPage = controller.loadUserActivity(
+          _connectedInstance(),
+          loadMore: true,
+        );
+        await api.started[1].future;
+        api.answers[1].completeError(StateError('offline'));
+        await failedPage;
+
+        var feed = controller.userActivityFor(_siteUrl);
+        expect(feed.items, const [_activityTopic]);
+        expect(feed.error, contains("Couldn't load activity"));
+
+        final retry = controller.loadUserActivity(
+          _connectedInstance(),
+          loadMore: true,
+        );
+        await api.started[2].future;
+        api.answers[2].complete(
+          const UserActivityPage(items: [_activityReply], rawItemCount: 1),
+        );
+        await retry;
+
+        feed = controller.userActivityFor(_siteUrl);
+        expect(feed.items, const [_activityTopic, _activityReply]);
+        expect(feed.error, isNull);
+        expect(api.offsets, [0, 30, 30]);
+      },
+    );
+
+    test(
+      'failed activity refresh preserves rows and retries from zero',
+      () async {
+        final api = _SequencedUserActivityApi(3);
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+
+        final initial = controller.loadUserActivity(_connectedInstance());
+        await api.started[0].future;
+        api.answers[0].complete(
+          const UserActivityPage(
+            items: [_activityTopic],
+            rawItemCount: AccountActivityController.userActivityPageSize,
+          ),
+        );
+        await initial;
+
+        final failedRefresh = controller.loadUserActivity(
+          _connectedInstance(),
+          refresh: true,
+        );
+        await api.started[1].future;
+        api.answers[1].completeError(StateError('offline'));
+        await failedRefresh;
+
+        var feed = controller.userActivityFor(_siteUrl);
+        expect(feed.items, const [_activityTopic]);
+        expect(feed.nextOffset, AccountActivityController.userActivityPageSize);
+        expect(feed.retryFromStart, isTrue);
+
+        final retry = controller.loadUserActivity(
+          _connectedInstance(),
+          refresh: feed.retryFromStart,
+        );
+        await api.started[2].future;
+        api.answers[2].complete(
+          const UserActivityPage(items: [_activityReply], rawItemCount: 1),
+        );
+        await retry;
+
+        feed = controller.userActivityFor(_siteUrl);
+        expect(feed.items, const [_activityReply]);
+        expect(feed.retryFromStart, isFalse);
+        expect(api.offsets, [0, 0, 0]);
+      },
+    );
   });
 
-  test(
-    'a forced refresh queues one reconciliation behind an active one',
-    () async {
+  group('totals refresh lifecycle', () {
+    test('ordinary overlapping totals refreshes share one request', () async {
       final first = Completer<NotificationTotals>();
-      final second = Completer<NotificationTotals>();
-      final api = _GatedTotalsApi([first, second]);
+      final api = _GatedTotalsApi([first]);
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+
+      final older = controller.refresh(_connectedInstance());
+      await api.firstStarted.future;
+      final newer = controller.refresh(_connectedInstance());
+      final newest = controller.refresh(_connectedInstance());
+      await Future<void>.delayed(Duration.zero);
+
+      expect(api._calls, 1);
+      expect(api.secondStarted.isCompleted, isFalse);
+      first.complete(const NotificationTotals(unreadNotifications: 1));
+      await Future.wait([older, newer, newest]);
+
+      expect(api._calls, 1);
+      expect(controller.totalsFor(_siteUrl)?.unreadNotifications, 1);
+    });
+
+    test(
+      'a forced refresh queues one reconciliation behind an active one',
+      () async {
+        final first = Completer<NotificationTotals>();
+        final second = Completer<NotificationTotals>();
+        final api = _GatedTotalsApi([first, second]);
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+
+        final initial = controller.refresh(_connectedInstance());
+        await api.firstStarted.future;
+        final forced = controller.refresh(_connectedInstance(), force: true);
+        final duplicate = controller.refresh(_connectedInstance(), force: true);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(api._calls, 1);
+        first.complete(const NotificationTotals(unreadNotifications: 1));
+        await initial;
+        await api.secondStarted.future;
+        expect(api._calls, 2);
+        second.complete(const NotificationTotals(unreadNotifications: 2));
+        await Future.wait([forced, duplicate]);
+
+        expect(controller.totalsFor(_siteUrl)?.unreadNotifications, 2);
+      },
+    );
+
+    test('forget completes a forced waiter whose replay is active', () async {
+      final first = Completer<NotificationTotals>();
+      final replay = Completer<NotificationTotals>();
+      final api = _GatedTotalsApi([first, replay]);
       final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
       final controller = _controller(api, credentials);
       addTearDown(controller.dispose);
@@ -719,147 +767,275 @@ void main() {
       final initial = controller.refresh(_connectedInstance());
       await api.firstStarted.future;
       final forced = controller.refresh(_connectedInstance(), force: true);
-      final duplicate = controller.refresh(_connectedInstance(), force: true);
-      await Future<void>.delayed(Duration.zero);
 
-      expect(api._calls, 1);
       first.complete(const NotificationTotals(unreadNotifications: 1));
       await initial;
       await api.secondStarted.future;
-      expect(api._calls, 2);
-      second.complete(const NotificationTotals(unreadNotifications: 2));
-      await Future.wait([forced, duplicate]);
 
-      expect(controller.totalsFor(_siteUrl)?.unreadNotifications, 2);
-    },
-  );
+      var forcedCompleted = false;
+      NotificationTotals? forcedResult;
+      unawaited(
+        forced.then<void>((result) {
+          forcedCompleted = true;
+          forcedResult = result;
+        }),
+      );
+      controller.forget(_siteUrl);
+      await Future<void>.delayed(Duration.zero);
 
-  test('forget completes a forced waiter whose replay is active', () async {
-    final first = Completer<NotificationTotals>();
-    final replay = Completer<NotificationTotals>();
-    final api = _GatedTotalsApi([first, replay]);
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
+      expect(forcedCompleted, isTrue);
+      expect(forcedResult, isNull);
 
-    final initial = controller.refresh(_connectedInstance());
-    await api.firstStarted.future;
-    final forced = controller.refresh(_connectedInstance(), force: true);
+      replay.complete(const NotificationTotals(unreadNotifications: 2));
+      await pumpEventQueue();
+      expect(controller.totalsFor(_siteUrl), isNull);
+    });
 
-    first.complete(const NotificationTotals(unreadNotifications: 1));
-    await initial;
-    await api.secondStarted.future;
+    test('dispose completes a forced waiter whose replay is active', () async {
+      final first = Completer<NotificationTotals>();
+      final replay = Completer<NotificationTotals>();
+      final api = _GatedTotalsApi([first, replay]);
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
 
-    var forcedCompleted = false;
-    NotificationTotals? forcedResult;
-    unawaited(
-      forced.then<void>((result) {
-        forcedCompleted = true;
-        forcedResult = result;
-      }),
-    );
-    controller.forget(_siteUrl);
-    await Future<void>.delayed(Duration.zero);
+      final initial = controller.refresh(_connectedInstance());
+      await api.firstStarted.future;
+      final forced = controller.refresh(_connectedInstance(), force: true);
 
-    expect(forcedCompleted, isTrue);
-    expect(forcedResult, isNull);
+      first.complete(const NotificationTotals(unreadNotifications: 1));
+      await initial;
+      await api.secondStarted.future;
 
-    replay.complete(const NotificationTotals(unreadNotifications: 2));
-    await pumpEventQueue();
-    expect(controller.totalsFor(_siteUrl), isNull);
-  });
+      var forcedCompleted = false;
+      NotificationTotals? forcedResult;
+      unawaited(
+        forced.then<void>((result) {
+          forcedCompleted = true;
+          forcedResult = result;
+        }),
+      );
+      controller.dispose();
+      await Future<void>.delayed(Duration.zero);
 
-  test('dispose completes a forced waiter whose replay is active', () async {
-    final first = Completer<NotificationTotals>();
-    final replay = Completer<NotificationTotals>();
-    final api = _GatedTotalsApi([first, replay]);
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
+      expect(forcedCompleted, isTrue);
+      expect(forcedResult, isNull);
 
-    final initial = controller.refresh(_connectedInstance());
-    await api.firstStarted.future;
-    final forced = controller.refresh(_connectedInstance(), force: true);
+      replay.complete(const NotificationTotals(unreadNotifications: 2));
+      await pumpEventQueue();
+    });
 
-    first.complete(const NotificationTotals(unreadNotifications: 1));
-    await initial;
-    await api.secondStarted.future;
-
-    var forcedCompleted = false;
-    NotificationTotals? forcedResult;
-    unawaited(
-      forced.then<void>((result) {
-        forcedCompleted = true;
-        forcedResult = result;
-      }),
-    );
-    controller.dispose();
-    await Future<void>.delayed(Duration.zero);
-
-    expect(forcedCompleted, isTrue);
-    expect(forcedResult, isNull);
-
-    replay.complete(const NotificationTotals(unreadNotifications: 2));
-    await pumpEventQueue();
-  });
-
-  test('recent totals are reused until explicitly refreshed', () async {
-    var now = DateTime(2026, 8, 11, 10);
-    final api = _AccountApi(
-      totals: const NotificationTotals(unreadNotifications: 1),
-    );
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials, clock: () => now);
-    addTearDown(controller.dispose);
-
-    await controller.refresh(_connectedInstance());
-    await controller.refresh(_connectedInstance());
-    expect(api.totalsRequested, hasLength(1));
-
-    now = now.add(const Duration(minutes: 6));
-    await controller.refresh(_connectedInstance());
-    expect(api.totalsRequested, hasLength(2));
-
-    await controller.refresh(_connectedInstance(), force: true);
-    expect(api.totalsRequested, hasLength(3));
-  });
-
-  test('a live counter update survives an older totals response', () async {
-    final gate = Completer<NotificationTotals>();
-    final api = _GatedTotalsApi([gate]);
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-
-    final loading = controller.refresh(_connectedInstance());
-    await api.firstStarted.future;
-    controller.applyPluginCounter(_siteUrl, _counter, (_) => 5);
-    gate.complete(
-      NotificationTotals(
-        unreadNotifications: 1,
-        topicTrackingUnread: 7,
-        pluginCounters: PluginNotificationCounters.single(_counter, count: 1),
-      ),
-    );
-    await loading;
-
-    final totals = controller.totalsFor(_siteUrl)!;
-    expect(totals.unreadNotifications, 1);
-    expect(totals.topicTrackingUnread, 7);
-    expect(totals.pluginCounter(_counter.id), 5);
-    expect(totals.hasPluginCounter(_counter.id), isTrue);
-  });
-
-  test(
-    'reading a notification reconciles every cached feed and totals',
-    () async {
-      const totals = NotificationTotals(unreadNotifications: 0);
+    test('recent totals are reused until explicitly refreshed', () async {
+      var now = DateTime(2026, 8, 11, 10);
       final api = _AccountApi(
-        totals: totals,
+        totals: const NotificationTotals(unreadNotifications: 1),
+      );
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials, clock: () => now);
+      addTearDown(controller.dispose);
+
+      await controller.refresh(_connectedInstance());
+      await controller.refresh(_connectedInstance());
+      expect(api.totalsRequested, hasLength(1));
+
+      now = now.add(const Duration(minutes: 6));
+      await controller.refresh(_connectedInstance());
+      expect(api.totalsRequested, hasLength(2));
+
+      await controller.refresh(_connectedInstance(), force: true);
+      expect(api.totalsRequested, hasLength(3));
+    });
+
+    test('a live counter update survives an older totals response', () async {
+      final gate = Completer<NotificationTotals>();
+      final api = _GatedTotalsApi([gate]);
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+
+      final loading = controller.refresh(_connectedInstance());
+      await api.firstStarted.future;
+      controller.applyPluginCounter(_siteUrl, _counter, (_) => 5);
+      gate.complete(
+        NotificationTotals(
+          unreadNotifications: 1,
+          topicTrackingUnread: 7,
+          pluginCounters: PluginNotificationCounters.single(_counter, count: 1),
+        ),
+      );
+      await loading;
+
+      final totals = controller.totalsFor(_siteUrl)!;
+      expect(totals.unreadNotifications, 1);
+      expect(totals.topicTrackingUnread, 7);
+      expect(totals.pluginCounter(_counter.id), 5);
+      expect(totals.hasPluginCounter(_counter.id), isTrue);
+    });
+  });
+
+  group('mark-read reconciliation', () {
+    test(
+      'reading a notification reconciles every cached feed and totals',
+      () async {
+        const totals = NotificationTotals(unreadNotifications: 0);
+        final api = _AccountApi(
+          totals: totals,
+          notificationList: const [_notification],
+          replyNotificationList: const [_notification],
+          chatNotificationList: const [_notification],
+          bookmarkList: const [_bookmark],
+          reminderList: const [_notification],
+        );
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+        await controller.loadNotifications(connected);
+        await controller.loadReplyNotifications(connected);
+        await controller.loadPluginNotifications(
+          connected,
+          chatNotificationFeed,
+        );
+        await controller.loadBookmarks(connected);
+
+        controller.readNotification(connected, _notification);
+
+        expect(
+          controller.notificationsFor(_siteUrl).notifications.single.read,
+          isTrue,
+        );
+        expect(
+          controller.replyNotificationsFor(_siteUrl).notifications.single.read,
+          isTrue,
+        );
+        expect(
+          controller
+              .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
+              .notifications
+              .single
+              .read,
+          isTrue,
+        );
+        expect(controller.bookmarksFor(_siteUrl).reminders.single.read, isTrue);
+        await Future<void>.delayed(Duration.zero);
+        expect(api.markedRead, [11]);
+        expect(controller.totalsFor(_siteUrl), totals);
+      },
+    );
+
+    test(
+      'a stale refresh cannot restore a locally read notification',
+      () async {
+        final api = _GatedActivityRefreshApi();
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+        await Future.wait([
+          controller.loadNotifications(connected),
+          controller.loadReplyNotifications(connected),
+          controller.loadPluginNotifications(connected, chatNotificationFeed),
+          controller.loadBookmarks(connected),
+        ]);
+
+        final refreshes = Future.wait([
+          controller.loadNotifications(connected),
+          controller.loadReplyNotifications(connected),
+          controller.loadPluginNotifications(connected, chatNotificationFeed),
+          controller.loadBookmarks(connected),
+        ]);
+        await Future.wait([
+          api.notificationsRefreshStarted.future,
+          api.repliesRefreshStarted.future,
+          api.chatRefreshStarted.future,
+          api.bookmarksRefreshStarted.future,
+        ]);
+
+        controller.readNotification(connected, _notification);
+        api.notificationsRefresh.complete();
+        api.repliesRefresh.complete();
+        api.chatRefresh.complete();
+        api.bookmarksRefresh.complete();
+        await refreshes;
+
+        expect(
+          controller.notificationsFor(_siteUrl).notifications.single.read,
+          isTrue,
+        );
+        expect(
+          controller.replyNotificationsFor(_siteUrl).notifications.single.read,
+          isTrue,
+        );
+        expect(
+          controller
+              .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
+              .notifications
+              .single
+              .read,
+          isTrue,
+        );
+        expect(controller.bookmarksFor(_siteUrl).reminders.single.read, isTrue);
+      },
+    );
+
+    test(
+      'a failed read write lets a later response restore unread state',
+      () async {
+        final api = _FailedReadApi();
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+        await Future.wait([
+          controller.loadNotifications(connected),
+          controller.loadReplyNotifications(connected),
+          controller.loadPluginNotifications(connected, chatNotificationFeed),
+          controller.loadBookmarks(connected),
+        ]);
+
+        controller.readNotification(connected, _notification);
+        await api.failed.future;
+        await pumpEventQueue();
+        await Future.wait([
+          controller.loadNotifications(connected),
+          controller.loadReplyNotifications(connected),
+          controller.loadPluginNotifications(connected, chatNotificationFeed),
+          controller.loadBookmarks(connected),
+        ]);
+
+        expect(
+          controller.notificationsFor(_siteUrl).notifications.single.isUnread,
+          isTrue,
+        );
+        expect(
+          controller
+              .replyNotificationsFor(_siteUrl)
+              .notifications
+              .single
+              .isUnread,
+          isTrue,
+        );
+        expect(
+          controller
+              .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
+              .notifications
+              .single
+              .isUnread,
+          isTrue,
+        );
+        expect(
+          controller.bookmarksFor(_siteUrl).reminders.single.isUnread,
+          isTrue,
+        );
+      },
+    );
+
+    test('reading only rebuilds feeds that contain the notification', () async {
+      final api = _AccountApi(
         notificationList: const [_notification],
         replyNotificationList: const [_notification],
-        chatNotificationList: const [_notification],
+        chatNotificationList: const [_chatNotification],
         bookmarkList: const [_bookmark],
-        reminderList: const [_notification],
+        reminderList: const [_reminder],
       );
       final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
       final controller = _controller(api, credentials);
@@ -870,421 +1046,280 @@ void main() {
       await controller.loadPluginNotifications(connected, chatNotificationFeed);
       await controller.loadBookmarks(connected);
 
-      controller.readNotification(connected, _notification);
-
-      expect(
-        controller.notificationsFor(_siteUrl).notifications.single.read,
-        isTrue,
+      var notificationChanges = 0;
+      var replyNotificationChanges = 0;
+      var chatNotificationChanges = 0;
+      var bookmarkChanges = 0;
+      controller.notificationsListenable.addListener(
+        () => notificationChanges++,
       );
-      expect(
-        controller.replyNotificationsFor(_siteUrl).notifications.single.read,
-        isTrue,
+      controller.replyNotificationsListenable.addListener(
+        () => replyNotificationChanges++,
       );
-      expect(
-        controller
-            .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
-            .notifications
-            .single
-            .read,
-        isTrue,
-      );
-      expect(controller.bookmarksFor(_siteUrl).reminders.single.read, isTrue);
-      await Future<void>.delayed(Duration.zero);
-      expect(api.markedRead, [11]);
-      expect(controller.totalsFor(_siteUrl), totals);
-    },
-  );
-
-  test('a stale refresh cannot restore a locally read notification', () async {
-    final api = _GatedActivityRefreshApi();
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-    final connected = _connectedInstance();
-    await Future.wait([
-      controller.loadNotifications(connected),
-      controller.loadReplyNotifications(connected),
-      controller.loadPluginNotifications(connected, chatNotificationFeed),
-      controller.loadBookmarks(connected),
-    ]);
-
-    final refreshes = Future.wait([
-      controller.loadNotifications(connected),
-      controller.loadReplyNotifications(connected),
-      controller.loadPluginNotifications(connected, chatNotificationFeed),
-      controller.loadBookmarks(connected),
-    ]);
-    await Future.wait([
-      api.notificationsRefreshStarted.future,
-      api.repliesRefreshStarted.future,
-      api.chatRefreshStarted.future,
-      api.bookmarksRefreshStarted.future,
-    ]);
-
-    controller.readNotification(connected, _notification);
-    api.notificationsRefresh.complete();
-    api.repliesRefresh.complete();
-    api.chatRefresh.complete();
-    api.bookmarksRefresh.complete();
-    await refreshes;
-
-    expect(
-      controller.notificationsFor(_siteUrl).notifications.single.read,
-      isTrue,
-    );
-    expect(
-      controller.replyNotificationsFor(_siteUrl).notifications.single.read,
-      isTrue,
-    );
-    expect(
       controller
-          .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
-          .notifications
-          .single
-          .read,
-      isTrue,
-    );
-    expect(controller.bookmarksFor(_siteUrl).reminders.single.read, isTrue);
-  });
-
-  test(
-    'a failed read write lets a later response restore unread state',
-    () async {
-      final api = _FailedReadApi();
-      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-      final controller = _controller(api, credentials);
-      addTearDown(controller.dispose);
-      final connected = _connectedInstance();
-      await Future.wait([
-        controller.loadNotifications(connected),
-        controller.loadReplyNotifications(connected),
-        controller.loadPluginNotifications(connected, chatNotificationFeed),
-        controller.loadBookmarks(connected),
-      ]);
+          .pluginNotificationsListenable(chatNotificationFeed.id)
+          .addListener(() => chatNotificationChanges++);
+      controller.bookmarksListenable.addListener(() => bookmarkChanges++);
 
       controller.readNotification(connected, _notification);
-      await api.failed.future;
-      await pumpEventQueue();
-      await Future.wait([
-        controller.loadNotifications(connected),
-        controller.loadReplyNotifications(connected),
-        controller.loadPluginNotifications(connected, chatNotificationFeed),
-        controller.loadBookmarks(connected),
-      ]);
 
-      expect(
-        controller.notificationsFor(_siteUrl).notifications.single.isUnread,
-        isTrue,
-      );
-      expect(
-        controller
-            .replyNotificationsFor(_siteUrl)
-            .notifications
-            .single
-            .isUnread,
-        isTrue,
-      );
-      expect(
-        controller
-            .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
-            .notifications
-            .single
-            .isUnread,
-        isTrue,
-      );
-      expect(
-        controller.bookmarksFor(_siteUrl).reminders.single.isUnread,
-        isTrue,
-      );
-    },
-  );
+      expect(notificationChanges, 1);
+      expect(replyNotificationChanges, 1);
+      expect(chatNotificationChanges, 0);
+      expect(bookmarkChanges, 0);
 
-  test('reading only rebuilds feeds that contain the notification', () async {
-    final api = _AccountApi(
-      notificationList: const [_notification],
-      replyNotificationList: const [_notification],
-      chatNotificationList: const [_chatNotification],
-      bookmarkList: const [_bookmark],
-      reminderList: const [_reminder],
+      notificationChanges = 0;
+      replyNotificationChanges = 0;
+      chatNotificationChanges = 0;
+      controller.readNotification(connected, _reminder);
+
+      expect(notificationChanges, 0);
+      expect(replyNotificationChanges, 0);
+      expect(chatNotificationChanges, 0);
+      expect(bookmarkChanges, 1);
+
+      notificationChanges = 0;
+      replyNotificationChanges = 0;
+      chatNotificationChanges = 0;
+      bookmarkChanges = 0;
+      controller.readNotification(connected, _chatNotification);
+
+      expect(notificationChanges, 0);
+      expect(replyNotificationChanges, 0);
+      expect(chatNotificationChanges, 1);
+      expect(bookmarkChanges, 0);
+      await Future<void>.delayed(Duration.zero);
+      expect(api.markedRead, [11, 12, 14]);
+    });
+
+    test(
+      'coalesces a mark-read write until its reconciliation finishes',
+      () async {
+        final api = _GatedReadApi(2);
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+
+        controller.readNotification(connected, _notification);
+        controller.readNotification(connected, _notification);
+        await api.started[0].future;
+
+        expect(api.markedRead, [11]);
+
+        api.gates[0].complete();
+        await api.reconciled.future;
+        await Future<void>.delayed(Duration.zero);
+        controller.readNotification(connected, _notification);
+        await api.started[1].future;
+
+        expect(api.markedRead, [11, 11]);
+
+        api.gates[1].complete();
+        await api.completed[1].future;
+      },
     );
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-    final connected = _connectedInstance();
-    await controller.loadNotifications(connected);
-    await controller.loadReplyNotifications(connected);
-    await controller.loadPluginNotifications(connected, chatNotificationFeed);
-    await controller.loadBookmarks(connected);
 
-    var notificationChanges = 0;
-    var replyNotificationChanges = 0;
-    var chatNotificationChanges = 0;
-    var bookmarkChanges = 0;
-    controller.notificationsListenable.addListener(() => notificationChanges++);
-    controller.replyNotificationsListenable.addListener(
-      () => replyNotificationChanges++,
-    );
-    controller
-        .pluginNotificationsListenable(chatNotificationFeed.id)
-        .addListener(() => chatNotificationChanges++);
-    controller.bookmarksListenable.addListener(() => bookmarkChanges++);
-
-    controller.readNotification(connected, _notification);
-
-    expect(notificationChanges, 1);
-    expect(replyNotificationChanges, 1);
-    expect(chatNotificationChanges, 0);
-    expect(bookmarkChanges, 0);
-
-    notificationChanges = 0;
-    replyNotificationChanges = 0;
-    chatNotificationChanges = 0;
-    controller.readNotification(connected, _reminder);
-
-    expect(notificationChanges, 0);
-    expect(replyNotificationChanges, 0);
-    expect(chatNotificationChanges, 0);
-    expect(bookmarkChanges, 1);
-
-    notificationChanges = 0;
-    replyNotificationChanges = 0;
-    chatNotificationChanges = 0;
-    bookmarkChanges = 0;
-    controller.readNotification(connected, _chatNotification);
-
-    expect(notificationChanges, 0);
-    expect(replyNotificationChanges, 0);
-    expect(chatNotificationChanges, 1);
-    expect(bookmarkChanges, 0);
-    await Future<void>.delayed(Duration.zero);
-    expect(api.markedRead, [11, 12, 14]);
-  });
-
-  test(
-    'coalesces a mark-read write until its reconciliation finishes',
-    () async {
+    test('an old read completion cannot clear a new session request', () async {
       final api = _GatedReadApi(2);
       final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-      final controller = _controller(api, credentials);
+      final lifecycle = SiteLifecycle();
+      final controller = _controller(api, credentials, lifecycle: lifecycle);
       addTearDown(controller.dispose);
       final connected = _connectedInstance();
 
       controller.readNotification(connected, _notification);
-      controller.readNotification(connected, _notification);
       await api.started[0].future;
-
-      expect(api.markedRead, [11]);
-
-      api.gates[0].complete();
-      await api.reconciled.future;
-      await Future<void>.delayed(Duration.zero);
+      lifecycle.invalidate(_siteUrl);
+      controller.forget(_siteUrl);
       controller.readNotification(connected, _notification);
       await api.started[1].future;
+
+      api.gates[0].complete();
+      await api.completed[0].future;
+      await Future<void>.delayed(Duration.zero);
+      controller.readNotification(connected, _notification);
 
       expect(api.markedRead, [11, 11]);
 
       api.gates[1].complete();
       await api.completed[1].future;
-    },
-  );
-
-  test('an old read completion cannot clear a new session request', () async {
-    final api = _GatedReadApi(2);
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final lifecycle = SiteLifecycle();
-    final controller = _controller(api, credentials, lifecycle: lifecycle);
-    addTearDown(controller.dispose);
-    final connected = _connectedInstance();
-
-    controller.readNotification(connected, _notification);
-    await api.started[0].future;
-    lifecycle.invalidate(_siteUrl);
-    controller.forget(_siteUrl);
-    controller.readNotification(connected, _notification);
-    await api.started[1].future;
-
-    api.gates[0].complete();
-    await api.completed[0].future;
-    await Future<void>.delayed(Duration.zero);
-    controller.readNotification(connected, _notification);
-
-    expect(api.markedRead, [11, 11]);
-
-    api.gates[1].complete();
-    await api.completed[1].future;
-    await api.reconciled.future;
+      await api.reconciled.future;
+    });
   });
 
-  test(
-    'a response from a forgotten account cannot repopulate its feed',
-    () async {
-      final gate = Completer<void>();
-      final api = _GatedNotificationsApi(gate);
-      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-      final lifecycle = SiteLifecycle();
-      final controller = _controller(api, credentials, lifecycle: lifecycle);
-      addTearDown(controller.dispose);
-
-      final loading = controller.loadNotifications(_connectedInstance());
-      await Future<void>.delayed(Duration.zero);
-      lifecycle.invalidate(_siteUrl);
-      controller.forget(_siteUrl);
-      gate.complete();
-      await loading;
-
-      expect(controller.notificationsFor(_siteUrl).loaded, isFalse);
-    },
-  );
-
-  test(
-    'a filtered response from a forgotten account cannot repopulate replies',
-    () async {
-      final gate = Completer<void>();
-      final api = _GatedNotificationsApi(gate);
-      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-      final lifecycle = SiteLifecycle();
-      final controller = _controller(api, credentials, lifecycle: lifecycle);
-      addTearDown(controller.dispose);
-
-      final loading = controller.loadReplyNotifications(_connectedInstance());
-      await Future<void>.delayed(Duration.zero);
-      lifecycle.invalidate(_siteUrl);
-      controller.forget(_siteUrl);
-      gate.complete();
-      await loading;
-
-      expect(controller.replyNotificationsFor(_siteUrl).loaded, isFalse);
-    },
-  );
-
-  test(
-    'a filtered response from a forgotten account cannot repopulate chat',
-    () async {
-      final gate = Completer<void>();
-      final api = _GatedNotificationsApi(gate);
-      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-      final lifecycle = SiteLifecycle();
-      final controller = _controller(api, credentials, lifecycle: lifecycle);
-      addTearDown(controller.dispose);
-
-      final loading = controller.loadPluginNotifications(
-        _connectedInstance(),
-        chatNotificationFeed,
-      );
-      await Future<void>.delayed(Duration.zero);
-      lifecycle.invalidate(_siteUrl);
-      controller.forget(_siteUrl);
-      gate.complete();
-      await loading;
-
-      expect(
-        controller
-            .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
-            .loaded,
-        isFalse,
-      );
-    },
-  );
-
-  test(
-    'a late forgotten load cannot detach replacement load waiters',
-    () async {
-      final api = _SequencedNotificationsApi(2);
-      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-      final lifecycle = SiteLifecycle();
-      final controller = _controller(api, credentials, lifecycle: lifecycle);
-      addTearDown(controller.dispose);
-      final connected = _connectedInstance();
-
-      final forgotten = controller.loadNotifications(connected);
-      await api.started[0].future;
-      lifecycle.invalidate(_siteUrl);
-      controller.forget(_siteUrl);
-
-      final replacement = controller.loadNotifications(connected);
-      await api.started[1].future;
-      api.gates[0].complete();
-      await forgotten;
-
-      final joinedReplacement = controller.loadNotifications(connected);
-      expect(joinedReplacement, same(replacement));
-      expect(api.calls, 2);
-
-      api.gates[1].complete();
-      await Future.wait([replacement, joinedReplacement]);
-      expect(controller.notificationsFor(_siteUrl).loaded, isTrue);
-    },
-  );
-
-  for (final activity
-      in <
-        ({
-          String name,
-          Future<void> Function(
-            AccountActivityController controller,
-            DiscourseInstance instance,
-          )
-          begin,
-        })
-      >[
-        (
-          name: 'totals request',
-          begin: (controller, instance) async {
-            await controller.refresh(instance);
-          },
-        ),
-        (
-          name: 'notification request',
-          begin: (controller, instance) =>
-              controller.loadNotifications(instance),
-        ),
-        (
-          name: 'reply notification request',
-          begin: (controller, instance) =>
-              controller.loadReplyNotifications(instance),
-        ),
-        (
-          name: 'chat notification request',
-          begin: (controller, instance) => controller.loadPluginNotifications(
-            instance,
-            chatNotificationFeed,
-          ),
-        ),
-        (
-          name: 'bookmark request',
-          begin: (controller, instance) => controller.loadBookmarks(instance),
-        ),
-        (
-          name: 'user activity request',
-          begin: (controller, instance) =>
-              controller.loadUserActivity(instance),
-        ),
-        (
-          name: 'mark-read request',
-          begin: (controller, instance) async {
-            controller.readNotification(instance, _notification);
-          },
-        ),
-      ]) {
+  group('account forgetting and session replacement', () {
     test(
-      'forget during credential lookup prevents stale ${activity.name}',
+      'a response from a forgotten account cannot repopulate its feed',
       () async {
-        final api = _CountingAccountApi();
-        final credentials = _GatedCredentialReader();
-        final controller = _controller(api, credentials);
+        final gate = Completer<void>();
+        final api = _GatedNotificationsApi(gate);
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final lifecycle = SiteLifecycle();
+        final controller = _controller(api, credentials, lifecycle: lifecycle);
         addTearDown(controller.dispose);
 
-        final operation = activity.begin(controller, _connectedInstance());
-        await credentials.started.future;
+        final loading = controller.loadNotifications(_connectedInstance());
+        await Future<void>.delayed(Duration.zero);
+        lifecycle.invalidate(_siteUrl);
         controller.forget(_siteUrl);
-        credentials.result.complete('stale-key');
-        await operation;
-        await pumpEventQueue();
+        gate.complete();
+        await loading;
 
-        expect(api.calls, isEmpty);
+        expect(controller.notificationsFor(_siteUrl).loaded, isFalse);
       },
     );
-  }
+
+    test(
+      'a filtered response from a forgotten account cannot repopulate replies',
+      () async {
+        final gate = Completer<void>();
+        final api = _GatedNotificationsApi(gate);
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final lifecycle = SiteLifecycle();
+        final controller = _controller(api, credentials, lifecycle: lifecycle);
+        addTearDown(controller.dispose);
+
+        final loading = controller.loadReplyNotifications(_connectedInstance());
+        await Future<void>.delayed(Duration.zero);
+        lifecycle.invalidate(_siteUrl);
+        controller.forget(_siteUrl);
+        gate.complete();
+        await loading;
+
+        expect(controller.replyNotificationsFor(_siteUrl).loaded, isFalse);
+      },
+    );
+
+    test(
+      'a filtered response from a forgotten account cannot repopulate chat',
+      () async {
+        final gate = Completer<void>();
+        final api = _GatedNotificationsApi(gate);
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final lifecycle = SiteLifecycle();
+        final controller = _controller(api, credentials, lifecycle: lifecycle);
+        addTearDown(controller.dispose);
+
+        final loading = controller.loadPluginNotifications(
+          _connectedInstance(),
+          chatNotificationFeed,
+        );
+        await Future<void>.delayed(Duration.zero);
+        lifecycle.invalidate(_siteUrl);
+        controller.forget(_siteUrl);
+        gate.complete();
+        await loading;
+
+        expect(
+          controller
+              .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
+              .loaded,
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'a late forgotten load cannot detach replacement load waiters',
+      () async {
+        final api = _SequencedNotificationsApi(2);
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final lifecycle = SiteLifecycle();
+        final controller = _controller(api, credentials, lifecycle: lifecycle);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+
+        final forgotten = controller.loadNotifications(connected);
+        await api.started[0].future;
+        lifecycle.invalidate(_siteUrl);
+        controller.forget(_siteUrl);
+
+        final replacement = controller.loadNotifications(connected);
+        await api.started[1].future;
+        api.gates[0].complete();
+        await forgotten;
+
+        final joinedReplacement = controller.loadNotifications(connected);
+        expect(joinedReplacement, same(replacement));
+        expect(api.calls, 2);
+
+        api.gates[1].complete();
+        await Future.wait([replacement, joinedReplacement]);
+        expect(controller.notificationsFor(_siteUrl).loaded, isTrue);
+      },
+    );
+
+    for (final activity
+        in <
+          ({
+            String name,
+            Future<void> Function(
+              AccountActivityController controller,
+              DiscourseInstance instance,
+            )
+            begin,
+          })
+        >[
+          (
+            name: 'totals request',
+            begin: (controller, instance) async {
+              await controller.refresh(instance);
+            },
+          ),
+          (
+            name: 'notification request',
+            begin: (controller, instance) =>
+                controller.loadNotifications(instance),
+          ),
+          (
+            name: 'reply notification request',
+            begin: (controller, instance) =>
+                controller.loadReplyNotifications(instance),
+          ),
+          (
+            name: 'chat notification request',
+            begin: (controller, instance) => controller.loadPluginNotifications(
+              instance,
+              chatNotificationFeed,
+            ),
+          ),
+          (
+            name: 'bookmark request',
+            begin: (controller, instance) => controller.loadBookmarks(instance),
+          ),
+          (
+            name: 'user activity request',
+            begin: (controller, instance) =>
+                controller.loadUserActivity(instance),
+          ),
+          (
+            name: 'mark-read request',
+            begin: (controller, instance) async {
+              controller.readNotification(instance, _notification);
+            },
+          ),
+        ]) {
+      test(
+        'forget during credential lookup prevents stale ${activity.name}',
+        () async {
+          final api = _CountingAccountApi();
+          final credentials = _GatedCredentialReader();
+          final controller = _controller(api, credentials);
+          addTearDown(controller.dispose);
+
+          final operation = activity.begin(controller, _connectedInstance());
+          await credentials.started.future;
+          controller.forget(_siteUrl);
+          credentials.result.complete('stale-key');
+          await operation;
+          await pumpEventQueue();
+
+          expect(api.calls, isEmpty);
+        },
+      );
+    }
+  });
 }
 
 final class _GatedCredentialReader extends FakeApiCredentialReader {

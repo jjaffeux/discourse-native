@@ -10,6 +10,17 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 
+Future<void> _waitFor(
+  bool Function() condition, {
+  required String description,
+}) async {
+  for (var turn = 0; turn < 100; turn++) {
+    if (condition()) return;
+    await Future<void>.delayed(Duration.zero);
+  }
+  throw TestFailure('Did not observe $description within 100 event turns.');
+}
+
 const _siteUrl = 'https://meta.discourse.org';
 const _offTopic = PostFlagType(
   id: 3,
@@ -277,9 +288,13 @@ void main() {
     final post = shell.store.read<Post>(_siteUrl, 42)!;
 
     final flagging = shell.createPostFlag(_siteUrl, post, _offTopic);
-    while (api.flagsCreated.isEmpty) {
-      await pumpEventQueue();
-    }
+    await _waitFor(
+      () => api.flagsCreated.isNotEmpty,
+      description: 'the post flag request',
+    );
+    expect(api.flagsCreated, [
+      (postId: 42, postActionTypeId: 3, message: null),
+    ]);
     expect(shell.postWriteInFlight(42, siteUrl: _siteUrl), isTrue);
 
     expect(await shell.toggleLike(post, siteUrl: _siteUrl), isNull);

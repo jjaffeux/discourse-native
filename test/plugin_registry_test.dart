@@ -20,564 +20,575 @@ const _pluginOnlyIcon = DIconData(
 );
 
 void main() {
-  testWidgets('registry accepts a capability declared against the API seam', (
-    tester,
-  ) async {
-    const registry = PluginRegistry([_ApiFooterPlugin()]);
+  group('capability dispatch and icons', () {
+    testWidgets('registry accepts a capability declared against the API seam', (
+      tester,
+    ) async {
+      const registry = PluginRegistry([_ApiFooterPlugin()]);
 
-    final footer = registry.postFooter('https://example.com', _post);
-    await tester.pumpWidget(MaterialApp(home: footer));
+      final footer = registry.postFooter('https://example.com', _post);
+      await tester.pumpWidget(MaterialApp(home: footer));
 
-    expect(find.text('api-only'), findsOneWidget);
-  });
+      expect(find.text('api-only'), findsOneWidget);
+    });
 
-  test(
-    'icon names resolve through their owner catalog with a core fallback',
-    () {
-      final registry = PluginRegistry.validated(const [_IconPlugin('owner')]);
+    test(
+      'icon names resolve through their owner catalog with a core fallback',
+      () {
+        final registry = PluginRegistry.validated(const [_IconPlugin('owner')]);
 
+        expect(
+          registry.iconNamed('plugin.semantic', fallback: DIcons.circle),
+          _pluginOnlyIcon,
+        );
+        expect(
+          registry.iconNamed('missing', fallback: DIcons.circle),
+          DIcons.circle,
+        );
+        expect(
+          PluginRegistry.empty.iconNamed(
+            'plugin.semantic',
+            fallback: DIcons.circle,
+          ),
+          DIcons.circle,
+        );
+      },
+    );
+
+    test('icon catalogs cannot claim core, foreign, or duplicate names', () {
       expect(
-        registry.iconNamed('plugin.semantic', fallback: DIcons.circle),
-        _pluginOnlyIcon,
+        () => PluginRegistry.validated(const [
+          _IconPlugin('owner', iconName: 'heart'),
+        ]),
+        throwsArgumentError,
       );
       expect(
-        registry.iconNamed('missing', fallback: DIcons.circle),
-        DIcons.circle,
+        () => PluginRegistry.validated(const [
+          _IconPlugin('owner', catalogOwner: 'someone-else'),
+        ]),
+        throwsArgumentError,
       );
       expect(
-        PluginRegistry.empty.iconNamed(
-          'plugin.semantic',
-          fallback: DIcons.circle,
-        ),
-        DIcons.circle,
+        () => PluginRegistry.validated(const [
+          _IconPlugin('first'),
+          _IconPlugin('second'),
+        ]),
+        throwsArgumentError,
       );
-    },
-  );
+    });
 
-  test('icon catalogs cannot claim core, foreign, or duplicate names', () {
-    expect(
-      () => PluginRegistry.validated(const [
-        _IconPlugin('owner', iconName: 'heart'),
-      ]),
-      throwsArgumentError,
+    testWidgets(
+      'dispatches only implemented capabilities and preserves order',
+      (tester) async {
+        const registry = PluginRegistry([
+          _NamedPlugin('metadata-only'),
+          _FooterPlugin('first', claims: false),
+          _FooterPlugin('second', claims: true),
+          _FooterPlugin('third', claims: true),
+          _TopicPlugin('one', staleId: 7),
+          _TopicPlugin('two', staleId: 7),
+          _TopicPlugin('three', staleId: 9),
+        ]);
+
+        final footer = registry.postFooter('https://example.com', _post);
+        await tester.pumpWidget(MaterialApp(home: footer));
+
+        expect(find.text('second'), findsOneWidget);
+        expect(registry.topicChannels(42), [
+          '/topic/42/one',
+          '/topic/42/two',
+          '/topic/42/three',
+        ]);
+        expect(registry.stalePosts('/topic/42/one', null), {7, 9});
+        expect(registry.staleTopic(42, '/topic/42/two', null), isTrue);
+        expect(registry.staleTopic(41, '/topic/42/two', null), isFalse);
+      },
     );
-    expect(
-      () => PluginRegistry.validated(const [
-        _IconPlugin('owner', catalogOwner: 'someone-else'),
-      ]),
-      throwsArgumentError,
-    );
-    expect(
-      () => PluginRegistry.validated(const [
-        _IconPlugin('first'),
-        _IconPlugin('second'),
-      ]),
-      throwsArgumentError,
-    );
-  });
 
-  testWidgets('dispatches only implemented capabilities and preserves order', (
-    tester,
-  ) async {
-    const registry = PluginRegistry([
-      _NamedPlugin('metadata-only'),
-      _FooterPlugin('first', claims: false),
-      _FooterPlugin('second', claims: true),
-      _FooterPlugin('third', claims: true),
-      _TopicPlugin('one', staleId: 7),
-      _TopicPlugin('two', staleId: 7),
-      _TopicPlugin('three', staleId: 9),
-    ]);
+    test('every shipped plugin reads only the channels it asked for', () {
+      // `stalePosts` is asked of every plugin for every message on every topic
+      // channel, so a hook that reads `post_id` without checking the channel
+      // claims other features' payloads. Assign publishes one for a post-level
+      // assignment; a poll and a reactions hook that answered it would each buy
+      // a `/t/{id}/posts.json` read that neither feature needs, and would be
+      // reading a key out of a payload that is none of their business.
+      const topicId = 42;
+      const payload = {'post_id': 9, 'topic_id': topicId};
 
-    final footer = registry.postFooter('https://example.com', _post);
-    await tester.pumpWidget(MaterialApp(home: footer));
-
-    expect(find.text('second'), findsOneWidget);
-    expect(registry.topicChannels(42), [
-      '/topic/42/one',
-      '/topic/42/two',
-      '/topic/42/three',
-    ]);
-    expect(registry.stalePosts('/topic/42/one', null), {7, 9});
-    expect(registry.staleTopic(42, '/topic/42/two', null), isTrue);
-    expect(registry.staleTopic(41, '/topic/42/two', null), isFalse);
-  });
-
-  test('every shipped plugin reads only the channels it asked for', () {
-    // `stalePosts` is asked of every plugin for every message on every topic
-    // channel, so a hook that reads `post_id` without checking the channel
-    // claims other features' payloads. Assign publishes one for a post-level
-    // assignment; a poll and a reactions hook that answered it would each buy
-    // a `/t/{id}/posts.json` read that neither feature needs, and would be
-    // reading a key out of a payload that is none of their business.
-    const topicId = 42;
-    const payload = {'post_id': 9, 'topic_id': topicId};
-
-    for (final plugin in sitePlugins.whereType<TopicLivePlugin>()) {
-      final own = plugin.topicChannels(topicId);
-      for (final other in sitePlugins.whereType<TopicLivePlugin>()) {
-        for (final channel in other.topicChannels(topicId)) {
-          if (own.contains(channel)) continue;
-          expect(
-            plugin.stalePosts(channel, payload),
-            isEmpty,
-            reason: '$plugin claimed a post out of $channel',
-          );
+      for (final plugin in sitePlugins.whereType<TopicLivePlugin>()) {
+        final own = plugin.topicChannels(topicId);
+        for (final other in sitePlugins.whereType<TopicLivePlugin>()) {
+          for (final channel in other.topicChannels(topicId)) {
+            if (own.contains(channel)) continue;
+            expect(
+              plugin.stalePosts(channel, payload),
+              isEmpty,
+              reason: '$plugin claimed a post out of $channel',
+            );
+          }
         }
       }
-    }
 
-    // And the ones that do own a channel still read it.
-    final claiming = [
-      for (final plugin in sitePlugins.whereType<TopicLivePlugin>())
-        for (final channel in plugin.topicChannels(topicId))
-          ...plugin.stalePosts(channel, payload),
-    ];
-    expect(claiming, isNotEmpty);
+      // And the ones that do own a channel still read it.
+      final claiming = [
+        for (final plugin in sitePlugins.whereType<TopicLivePlugin>())
+          for (final channel in plugin.topicChannels(topicId))
+            ...plugin.stalePosts(channel, payload),
+      ];
+      expect(claiming, isNotEmpty);
+    });
   });
 
-  testWidgets('aggregates menu entries and replacement policy in order', (
-    tester,
-  ) async {
-    const registry = PluginRegistry([
-      _MenuPlugin('first'),
-      _NamedPlugin('unrelated'),
-      _MenuPlugin('second', replacesLike: true),
-    ]);
-    PostMenuContribution? contribution;
+  group('post model contributions', () {
+    testWidgets('aggregate menu entries and replacement policy in order', (
+      tester,
+    ) async {
+      const registry = PluginRegistry([
+        _MenuPlugin('first'),
+        _NamedPlugin('unrelated'),
+        _MenuPlugin('second', replacesLike: true),
+      ]);
+      PostMenuContribution? contribution;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) {
-            contribution = registry.postMenu(
-              context,
-              'https://example.com',
-              _post,
-              topic: _topic,
-              currentUser: null,
-            );
-            return const SizedBox.shrink();
-          },
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              contribution = registry.postMenu(
+                context,
+                'https://example.com',
+                _post,
+                topic: _topic,
+                currentUser: null,
+              );
+              return const SizedBox.shrink();
+            },
+          ),
         ),
-      ),
-    );
+      );
 
-    expect(contribution!.entries.map((entry) => entry.label), [
-      'first',
-      'second',
-    ]);
-    expect(contribution!.replacesLike, isTrue);
-  });
-
-  testWidgets('aggregates plugin-owned post menu rebuild signals', (
-    tester,
-  ) async {
-    final first = ChangeNotifier();
-    final second = ChangeNotifier();
-    addTearDown(first.dispose);
-    addTearDown(second.dispose);
-    final registry = PluginRegistry([
-      _MenuPlugin('first', rebuildOn: first),
-      const _NamedPlugin('unrelated'),
-      _MenuPlugin('second', rebuildOn: second),
-    ]);
-    late PostMenuContribution contribution;
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) {
-            contribution = registry.postMenu(
-              context,
-              'https://example.com',
-              _post,
-              topic: _topic,
-              currentUser: null,
-            );
-            return const SizedBox.shrink();
-          },
-        ),
-      ),
-    );
-
-    var notifications = 0;
-    void notified() => notifications++;
-    contribution.rebuildOn!.addListener(notified);
-    addTearDown(() => contribution.rebuildOn?.removeListener(notified));
-
-    first.notifyListeners();
-    second.notifyListeners();
-
-    expect(notifications, 2);
-  });
-
-  test('record parsing and edit merge stay behind the registry', () {
-    const registry = PluginRegistry([_RecordPlugin()]);
-    final held = registry.readPost(const {'value': 'held'}, 'site');
-    final incoming = registry.readPost(const {'value': 'new'}, 'site');
-    final topic = registry.readTopic(const {'topic_value': 'topic'}, 'site');
-
-    expect(held.get(_recordKey)?.value, 'held');
-    expect(topic.get(_recordKey)?.value, 'topic');
-    expect(
-      registry
-          .mergeAfterPostEdit(held: held, incoming: incoming)
-          .get(_recordKey)
-          ?.value,
-      'held',
-    );
-  });
-
-  test('topic recommendation sources preserve registry order', () {
-    final registry = PluginRegistry.validated(const [
-      _RecommendationPlugin(
+      expect(contribution!.entries.map((entry) => entry.label), [
         'first',
-        sourceName: 'nearby',
-        payloadKey: 'nearby_topics',
-        label: 'Nearby',
-      ),
-      _NamedPlugin('unrelated'),
-      _RecommendationPlugin(
         'second',
-        sourceName: 'popular',
-        payloadKey: 'popular_topics',
-        label: 'Popular',
-      ),
-    ]);
+      ]);
+      expect(contribution!.replacesLike, isTrue);
+    });
 
-    final recommendations = TopicRecommendations.fromJson(
-      const {
-        'suggested_topics': [
-          {'id': 1, 'title': 'Suggested', 'slug': 'suggested'},
-        ],
-        'nearby_topics': [
-          {'id': 2, 'title': 'Nearby', 'slug': 'nearby'},
-        ],
-        'popular_topics': [
-          {'id': 3, 'title': 'Popular', 'slug': 'popular'},
-        ],
-      },
-      'https://example.com',
-      extensions: registry,
-      recommendationSources: registry,
-    )!;
+    testWidgets('aggregates plugin-owned post menu rebuild signals', (
+      tester,
+    ) async {
+      final first = ChangeNotifier();
+      final second = ChangeNotifier();
+      addTearDown(first.dispose);
+      addTearDown(second.dispose);
+      final registry = PluginRegistry([
+        _MenuPlugin('first', rebuildOn: first),
+        const _NamedPlugin('unrelated'),
+        _MenuPlugin('second', rebuildOn: second),
+      ]);
+      late PostMenuContribution contribution;
 
-    expect(recommendations.sources.map((source) => source.id.value), [
-      'core/suggested',
-      'first/nearby',
-      'second/popular',
-    ]);
-    expect(recommendations.sources.map((source) => source.label), [
-      'Suggested',
-      'Nearby',
-      'Popular',
-    ]);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              contribution = registry.postMenu(
+                context,
+                'https://example.com',
+                _post,
+                topic: _topic,
+                currentUser: null,
+              );
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
+      var notifications = 0;
+      void notified() => notifications++;
+      contribution.rebuildOn!.addListener(notified);
+      addTearDown(() => contribution.rebuildOn?.removeListener(notified));
+
+      first.notifyListeners();
+      second.notifyListeners();
+
+      expect(notifications, 2);
+    });
+
+    test('record parsing and edit merge stay behind the registry', () {
+      const registry = PluginRegistry([_RecordPlugin()]);
+      final held = registry.readPost(const {'value': 'held'}, 'site');
+      final incoming = registry.readPost(const {'value': 'new'}, 'site');
+      final topic = registry.readTopic(const {'topic_value': 'topic'}, 'site');
+
+      expect(held.get(_recordKey)?.value, 'held');
+      expect(topic.get(_recordKey)?.value, 'topic');
+      expect(
+        registry
+            .mergeAfterPostEdit(held: held, incoming: incoming)
+            .get(_recordKey)
+            ?.value,
+        'held',
+      );
+    });
   });
 
-  test('topic recommendation ids are namespaced and uniquely owned', () {
-    expect(
-      () => PluginRegistry.validated(const [
-        _RecommendationPlugin(
-          'owner',
-          sourceName: 'first',
-          payloadKey: 'first_topics',
-          label: 'First',
-          namespace: 'someone-else',
-        ),
-      ]),
-      throwsArgumentError,
-    );
-    expect(
-      () => PluginRegistry.validated(const [
-        _RecommendationPlugin(
-          'same',
-          sourceName: 'shared',
-          payloadKey: 'first_topics',
-          label: 'First',
-        ),
-        _RecommendationPlugin(
-          'same',
-          sourceName: 'shared',
-          payloadKey: 'second_topics',
-          label: 'Second',
-        ),
-      ]),
-      throwsArgumentError,
-    );
-  });
-
-  test('topic recommendation codecs exclusively own legacy storage ids', () {
-    final registry = PluginRegistry.validated(const [
-      _RecommendationPlugin(
-        'first',
-        sourceName: 'nearby',
-        payloadKey: 'nearby_topics',
-        label: 'Nearby',
-        legacyStoredIds: {'nearby'},
-      ),
-      _RecommendationPlugin(
-        'second',
-        sourceName: 'popular',
-        payloadKey: 'popular_topics',
-        label: 'Popular',
-        legacyStoredIds: {'popular'},
-      ),
-    ]);
-
-    expect(
-      registry.migrateLegacyStoredId('nearby'),
-      const TopicRecommendationSourceId('first/nearby'),
-    );
-    expect(registry.migrateLegacyStoredId('missing'), isNull);
-    expect(
-      () => PluginRegistry.validated(const [
+  group('topic recommendation sources', () {
+    test('preserve registry order', () {
+      final registry = PluginRegistry.validated(const [
         _RecommendationPlugin(
           'first',
           sourceName: 'nearby',
           payloadKey: 'nearby_topics',
           label: 'Nearby',
-          legacyStoredIds: {'shared'},
+        ),
+        _NamedPlugin('unrelated'),
+        _RecommendationPlugin(
+          'second',
+          sourceName: 'popular',
+          payloadKey: 'popular_topics',
+          label: 'Popular',
+        ),
+      ]);
+
+      final recommendations = TopicRecommendations.fromJson(
+        const {
+          'suggested_topics': [
+            {'id': 1, 'title': 'Suggested', 'slug': 'suggested'},
+          ],
+          'nearby_topics': [
+            {'id': 2, 'title': 'Nearby', 'slug': 'nearby'},
+          ],
+          'popular_topics': [
+            {'id': 3, 'title': 'Popular', 'slug': 'popular'},
+          ],
+        },
+        'https://example.com',
+        extensions: registry,
+        recommendationSources: registry,
+      )!;
+
+      expect(recommendations.sources.map((source) => source.id.value), [
+        'core/suggested',
+        'first/nearby',
+        'second/popular',
+      ]);
+      expect(recommendations.sources.map((source) => source.label), [
+        'Suggested',
+        'Nearby',
+        'Popular',
+      ]);
+    });
+
+    test('topic recommendation IDs are namespaced and uniquely owned', () {
+      expect(
+        () => PluginRegistry.validated(const [
+          _RecommendationPlugin(
+            'owner',
+            sourceName: 'first',
+            payloadKey: 'first_topics',
+            label: 'First',
+            namespace: 'someone-else',
+          ),
+        ]),
+        throwsArgumentError,
+      );
+      expect(
+        () => PluginRegistry.validated(const [
+          _RecommendationPlugin(
+            'same',
+            sourceName: 'shared',
+            payloadKey: 'first_topics',
+            label: 'First',
+          ),
+          _RecommendationPlugin(
+            'same',
+            sourceName: 'shared',
+            payloadKey: 'second_topics',
+            label: 'Second',
+          ),
+        ]),
+        throwsArgumentError,
+      );
+    });
+
+    test('topic recommendation codecs exclusively own legacy storage IDs', () {
+      final registry = PluginRegistry.validated(const [
+        _RecommendationPlugin(
+          'first',
+          sourceName: 'nearby',
+          payloadKey: 'nearby_topics',
+          label: 'Nearby',
+          legacyStoredIds: {'nearby'},
         ),
         _RecommendationPlugin(
           'second',
           sourceName: 'popular',
           payloadKey: 'popular_topics',
           label: 'Popular',
-          legacyStoredIds: {'shared'},
+          legacyStoredIds: {'popular'},
         ),
-      ]),
-      throwsArgumentError,
-    );
-    for (final invalid in const [
-      {'suggested'},
-      {' first '},
-      {'old/nearby'},
-    ]) {
+      ]);
+
       expect(
-        () => PluginRegistry.validated([
+        registry.migrateLegacyStoredId('nearby'),
+        const TopicRecommendationSourceId('first/nearby'),
+      );
+      expect(registry.migrateLegacyStoredId('missing'), isNull);
+      expect(
+        () => PluginRegistry.validated(const [
           _RecommendationPlugin(
             'first',
             sourceName: 'nearby',
             payloadKey: 'nearby_topics',
             label: 'Nearby',
-            legacyStoredIds: invalid,
+            legacyStoredIds: {'shared'},
+          ),
+          _RecommendationPlugin(
+            'second',
+            sourceName: 'popular',
+            payloadKey: 'popular_topics',
+            label: 'Popular',
+            legacyStoredIds: {'shared'},
           ),
         ]),
         throwsArgumentError,
       );
-    }
-  });
-
-  test('notification counters decode in registered namespaces', () {
-    final registry = PluginRegistry.validated(const [
-      _CounterPlugin(
-        'alerts',
-        counters: [
-          PluginNotificationCounter(
-            id: PluginNotificationCounterId(
-              owner: PluginId('alerts'),
-              name: 'mentions',
+      for (final invalid in const [
+        {'suggested'},
+        {' first '},
+        {'old/nearby'},
+      ]) {
+        expect(
+          () => PluginRegistry.validated([
+            _RecommendationPlugin(
+              'first',
+              sourceName: 'nearby',
+              payloadKey: 'nearby_topics',
+              label: 'Nearby',
+              legacyStoredIds: invalid,
             ),
-            wireName: 'alert_mentions',
-          ),
-        ],
-      ),
-    ]);
-
-    final counters = registry.readLiveNotificationCounters(const {
-      'alert_mentions': 3,
+          ]),
+          throwsArgumentError,
+        );
+      }
     });
-
-    expect(
-      counters.count(
-        const PluginNotificationCounterId(
-          owner: PluginId('alerts'),
-          name: 'mentions',
-        ),
-      ),
-      3,
-    );
   });
 
-  test('notification counter ids and wire names are uniquely owned', () {
-    const owned = PluginNotificationCounter(
-      id: PluginNotificationCounterId(
-        owner: PluginId('alerts'),
-        name: 'mentions',
-      ),
-      wireName: 'alert_mentions',
-    );
-    expect(
-      () => PluginRegistry.validated(const [
-        _CounterPlugin('alerts', counters: [owned]),
-        _CounterPlugin('alerts', counters: [owned]),
-      ]),
-      throwsArgumentError,
-    );
-    expect(
-      () => PluginRegistry.validated(const [
-        _CounterPlugin('alerts', counters: [owned]),
-        _CounterPlugin(
-          'other',
-          counters: [
-            PluginNotificationCounter(
-              id: PluginNotificationCounterId(
-                owner: PluginId('other'),
-                name: 'other',
-              ),
-              wireName: 'alert_mentions',
-            ),
-          ],
-        ),
-      ]),
-      throwsArgumentError,
-    );
-    expect(
-      () => PluginRegistry.validated(const [
-        _CounterPlugin('wrong-owner', counters: [owned]),
-      ]),
-      throwsArgumentError,
-    );
-    expect(
-      () => PluginRegistry.validated(const [
+  group('notification counters', () {
+    test('decode in registered namespaces', () {
+      final registry = PluginRegistry.validated(const [
         _CounterPlugin(
           'alerts',
           counters: [
             PluginNotificationCounter(
               id: PluginNotificationCounterId(
                 owner: PluginId('alerts'),
-                name: 'core-collision',
+                name: 'mentions',
               ),
-              wireName: 'unread_notifications',
+              wireName: 'alert_mentions',
             ),
           ],
         ),
-      ]),
-      throwsArgumentError,
-    );
-  });
+      ]);
 
-  testWidgets('aggregates additive topic and post surfaces in order', (
-    tester,
-  ) async {
-    const registry = PluginRegistry([
-      _SurfacePlugin('first'),
-      _NamedPlugin('unrelated'),
-      _SurfacePlugin('second', layout: TopicPropertySectionLayout.standalone),
-    ]);
-    late List<Widget> decorations;
-    late List<Widget> metadata;
-    late List<TopicPropertySection> properties;
+      final counters = registry.readLiveNotificationCounters(const {
+        'alert_mentions': 3,
+      });
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) {
-            decorations = registry.postDecorations(
-              context,
-              'site',
-              _topic,
-              _post,
-            );
-            metadata = registry.topicListMetadata(
-              context,
-              'site',
-              const Topic(id: 42, title: 'A topic', slug: 'a-topic'),
-            );
-            properties = registry.topicProperties(context, 'site', _topic);
-            return Column(
-              children: [
-                ...decorations,
-                ...metadata,
-                for (final section in properties) ...section.values,
-              ],
-            );
-          },
+      expect(
+        counters.count(
+          const PluginNotificationCounterId(
+            owner: PluginId('alerts'),
+            name: 'mentions',
+          ),
         ),
-      ),
-    );
-
-    for (final label in const [
-      'first-post',
-      'second-post',
-      'first-list',
-      'second-list',
-      'first-properties',
-      'second-properties',
-    ]) {
-      expect(find.text(label), findsOneWidget);
-    }
-    expect(properties.map((section) => section.layout), [
-      TopicPropertySectionLayout.inline,
-      TopicPropertySectionLayout.standalone,
-    ]);
-  });
-
-  testWidgets('aggregates topic-property rebuild signals', (tester) async {
-    final first = ChangeNotifier();
-    final second = ChangeNotifier();
-    addTearDown(first.dispose);
-    addTearDown(second.dispose);
-    final registry = PluginRegistry([
-      _RebuildingHeaderPlugin('first', first),
-      const _NamedPlugin('unrelated'),
-      _RebuildingHeaderPlugin('second', second),
-    ]);
-    Listenable? rebuildOn;
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) {
-            rebuildOn = registry.topicPropertiesRebuildOn(
-              context,
-              'site',
-              _topic,
-            );
-            return const SizedBox.shrink();
-          },
-        ),
-      ),
-    );
-
-    var notifications = 0;
-    void notified() => notifications++;
-    rebuildOn!.addListener(notified);
-    addTearDown(() => rebuildOn?.removeListener(notified));
-
-    first.notifyListeners();
-    second.notifyListeners();
-
-    expect(notifications, 2);
-  });
-
-  test(
-    'a plugin contribution both classifies and describes a small action',
-    () {
-      const registry = PluginRegistry([_SmallActionPlugin()]);
-      const claimed = Post(
-        id: 2,
-        postNumber: 2,
-        username: 'sam',
-        cooked: '',
-        postType: 4,
-        actionCode: 'assigned.enabled',
+        3,
       );
-      const ordinary = Post(
-        id: 3,
-        postNumber: 3,
-        username: 'sam',
-        cooked: '',
-        postType: 4,
-        actionCode: 'something.else',
+    });
+
+    test('notification counter IDs and wire names are uniquely owned', () {
+      const owned = PluginNotificationCounter(
+        id: PluginNotificationCounterId(
+          owner: PluginId('alerts'),
+          name: 'mentions',
+        ),
+        wireName: 'alert_mentions',
+      );
+      expect(
+        () => PluginRegistry.validated(const [
+          _CounterPlugin('alerts', counters: [owned]),
+          _CounterPlugin('alerts', counters: [owned]),
+        ]),
+        throwsArgumentError,
+      );
+      expect(
+        () => PluginRegistry.validated(const [
+          _CounterPlugin('alerts', counters: [owned]),
+          _CounterPlugin(
+            'other',
+            counters: [
+              PluginNotificationCounter(
+                id: PluginNotificationCounterId(
+                  owner: PluginId('other'),
+                  name: 'other',
+                ),
+                wireName: 'alert_mentions',
+              ),
+            ],
+          ),
+        ]),
+        throwsArgumentError,
+      );
+      expect(
+        () => PluginRegistry.validated(const [
+          _CounterPlugin('wrong-owner', counters: [owned]),
+        ]),
+        throwsArgumentError,
+      );
+      expect(
+        () => PluginRegistry.validated(const [
+          _CounterPlugin(
+            'alerts',
+            counters: [
+              PluginNotificationCounter(
+                id: PluginNotificationCounterId(
+                  owner: PluginId('alerts'),
+                  name: 'core-collision',
+                ),
+                wireName: 'unread_notifications',
+              ),
+            ],
+          ),
+        ]),
+        throwsArgumentError,
+      );
+    });
+  });
+
+  group('widget surfaces', () {
+    testWidgets('aggregate additive topic and post surfaces in order', (
+      tester,
+    ) async {
+      const registry = PluginRegistry([
+        _SurfacePlugin('first'),
+        _NamedPlugin('unrelated'),
+        _SurfacePlugin('second', layout: TopicPropertySectionLayout.standalone),
+      ]);
+      late List<Widget> decorations;
+      late List<Widget> metadata;
+      late List<TopicPropertySection> properties;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              decorations = registry.postDecorations(
+                context,
+                'site',
+                _topic,
+                _post,
+              );
+              metadata = registry.topicListMetadata(
+                context,
+                'site',
+                const Topic(id: 42, title: 'A topic', slug: 'a-topic'),
+              );
+              properties = registry.topicProperties(context, 'site', _topic);
+              return Column(
+                children: [
+                  ...decorations,
+                  ...metadata,
+                  for (final section in properties) ...section.values,
+                ],
+              );
+            },
+          ),
+        ),
       );
 
-      expect(registry.isSmallAction(claimed), isTrue);
-      expect(registry.smallAction(claimed)?.phrase, 'assigned this topic');
-      expect(registry.isSmallAction(ordinary), isFalse);
-    },
-  );
+      for (final label in const [
+        'first-post',
+        'second-post',
+        'first-list',
+        'second-list',
+        'first-properties',
+        'second-properties',
+      ]) {
+        expect(find.text(label), findsOneWidget);
+      }
+      expect(properties.map((section) => section.layout), [
+        TopicPropertySectionLayout.inline,
+        TopicPropertySectionLayout.standalone,
+      ]);
+    });
+
+    testWidgets('aggregates topic-property rebuild signals', (tester) async {
+      final first = ChangeNotifier();
+      final second = ChangeNotifier();
+      addTearDown(first.dispose);
+      addTearDown(second.dispose);
+      final registry = PluginRegistry([
+        _RebuildingHeaderPlugin('first', first),
+        const _NamedPlugin('unrelated'),
+        _RebuildingHeaderPlugin('second', second),
+      ]);
+      Listenable? rebuildOn;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              rebuildOn = registry.topicPropertiesRebuildOn(
+                context,
+                'site',
+                _topic,
+              );
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
+      var notifications = 0;
+      void notified() => notifications++;
+      rebuildOn!.addListener(notified);
+      addTearDown(() => rebuildOn?.removeListener(notified));
+
+      first.notifyListeners();
+      second.notifyListeners();
+
+      expect(notifications, 2);
+    });
+
+    test(
+      'a plugin contribution both classifies and describes a small action',
+      () {
+        const registry = PluginRegistry([_SmallActionPlugin()]);
+        const claimed = Post(
+          id: 2,
+          postNumber: 2,
+          username: 'sam',
+          cooked: '',
+          postType: 4,
+          actionCode: 'assigned.enabled',
+        );
+        const ordinary = Post(
+          id: 3,
+          postNumber: 3,
+          username: 'sam',
+          cooked: '',
+          postType: 4,
+          actionCode: 'something.else',
+        );
+
+        expect(registry.isSmallAction(claimed), isTrue);
+        expect(registry.smallAction(claimed)?.phrase, 'assigned this topic');
+        expect(registry.isSmallAction(ordinary), isFalse);
+      },
+    );
+  });
 }
 
 final class _ApiFooterPlugin implements SitePlugin, PostFooterPlugin {

@@ -25,7 +25,7 @@ void main() {
       expect(read('/c/a/b/c/9'), 'category:c:9:/c/a/b/c/9.json');
     });
 
-    test('reads a category named only by id', () {
+    test('reads a category named only by ID', () {
       expect(read('/c/12'), 'category::12:/c/12.json');
     });
 
@@ -39,7 +39,7 @@ void main() {
     });
 
     test(
-      'reads a bare number after /tag/ as an id, the way Discourse does',
+      'reads a bare number after /tag/ as an ID, the way Discourse does',
       () {
         // `/tag/2024` is genuinely ambiguous — a tag called 2024, or tag id
         // 2024 — and Discourse settles it as the id: its `/tag/:tag_id` route
@@ -57,7 +57,7 @@ void main() {
       expect(read('/c/bug/5/'), 'category:bug:5:/c/bug/5.json');
     });
 
-    test('reads an absolute url', () {
+    test('reads an absolute URL', () {
       expect(
         read('https://meta.discourse.org/c/bug/5'),
         'category:bug:5:/c/bug/5.json',
@@ -91,7 +91,7 @@ void main() {
       expect(read('https://user:secret@meta.discourse.org/tag/ux'), '-');
     });
 
-    test('refuses an id that is not one', () {
+    test('refuses an ID that is not one', () {
       expect(read('/c/bug/0'), '-');
       expect(read('/c/bug/-3'), '-');
     });

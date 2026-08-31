@@ -11,7 +11,7 @@ planned; see [Adding a platform](#adding-a-platform).
 
 ## Requirements
 
-- Flutter 3.47.0 (the exact SDK used by CI and releases is pinned in `.fvmrc`)
+- Flutter 3.47.2 (the exact SDK used by CI and releases is pinned in `.fvmrc`)
 - Xcode 26+ with the command line tools, for the iOS and macOS builds
 - For the Linux build, on Debian or Ubuntu:
 
@@ -1973,6 +1973,9 @@ preference drafts are moved only after the private file write succeeds.
 
 ## Checks
 
+The suite's ownership, naming, assertion, and deterministic-async conventions
+are documented in [`docs/testing.md`](docs/testing.md).
+
 ```sh
 flutter pub get --enforce-lockfile
 (cd packages/discourse_resenha && flutter pub get --enforce-lockfile)
@@ -1983,8 +1986,9 @@ dart format --output=none --set-exit-if-changed \
   packages/discourse_resenha/lib packages/discourse_resenha/test \
   packages/discourse_resenha/tool profiles/full/lib
 flutter analyze
-flutter test
-(cd packages/discourse_resenha && flutter analyze && flutter test)
+flutter test --test-randomize-ordering-seed=random
+(cd packages/discourse_resenha && \
+  flutter analyze && flutter test --test-randomize-ordering-seed=random)
 (cd profiles/full && flutter analyze)
 ```
 
@@ -2013,7 +2017,8 @@ keychain](#macos-keychain) — so it is CI that opts out, not the project.
 One suite needs more than that:
 
 ```sh
-flutter test integration_test -d <device> # platform keychain integration
+# Platform keychain integration:
+flutter test integration_test --test-randomize-ordering-seed=random -d <device>
 ```
 
 And one check that is about upstream rather than about this code:

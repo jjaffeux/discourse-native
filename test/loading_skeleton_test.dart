@@ -123,34 +123,36 @@ void main() {
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
-
-    await tester.pumpWidget(
-      _app(
-        const LoadingSkeleton(
-          semanticsLabel: 'Loading content',
-          child: Column(
-            children: [
-              Text('Decorative stand-in'),
-              LoadingSkeletonBlock(width: 120, height: 9),
-            ],
+    try {
+      await tester.pumpWidget(
+        _app(
+          const LoadingSkeleton(
+            semanticsLabel: 'Loading content',
+            child: Column(
+              children: [
+                Text('Decorative stand-in'),
+                LoadingSkeletonBlock(width: 120, height: 9),
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    final loadingSemantics = find.byWidgetPredicate(
-      (widget) =>
-          widget is Semantics && widget.properties.label == 'Loading content',
-    );
-    expect(loadingSemantics, findsOneWidget);
-    final widget = tester.widget<Semantics>(loadingSemantics);
-    expect(widget.container, isTrue);
-    expect(widget.properties.liveRegion, isTrue);
-    expect(find.bySemanticsLabel('Decorative stand-in'), findsNothing);
+      final loadingSemantics = find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics && widget.properties.label == 'Loading content',
+      );
+      expect(loadingSemantics, findsOneWidget);
+      final widget = tester.widget<Semantics>(loadingSemantics);
+      expect(widget.container, isTrue);
+      expect(widget.properties.liveRegion, isTrue);
+      expect(find.bySemanticsLabel('Decorative stand-in'), findsNothing);
 
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpAndSettle();
-    semantics.dispose();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    } finally {
+      semantics.dispose();
+    }
   });
 
   final customSitePalette = sitePalette();

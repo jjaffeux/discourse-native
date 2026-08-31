@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 const _registry = PluginRegistry([ReactionsPlugin()]);
 
 void main() {
-  test('installed plugin decodes its site-settings wire keys', () {
+  test('Reactions plugin decodes its site-settings wire keys', () {
     final config = SiteConfig.fromSettings(const {
       'discourse_reactions_enabled': true,
       'discourse_reactions_reaction_for_like': 'heart',
@@ -30,7 +30,7 @@ void main() {
     expect(config.desaturatedReactionPanel, isTrue);
   });
 
-  test('namespaced settings round-trip without flat feature keys', () {
+  test('Reactions settings round-trip without flat feature keys', () {
     final config = SiteConfig.fromJson({
       'plugins': {
         reactionsSettingsDataKey.id: const {
@@ -57,7 +57,7 @@ void main() {
     expect(restored.hashCode, config.hashCode);
   });
 
-  test('legacy flat settings migrate into the plugin namespace', () {
+  test('legacy flat Reactions settings migrate into the plugin namespace', () {
     final config = SiteConfig.fromJson(const {
       'mainReaction': '+1',
       'offeredReactions': ['+1', 'laughing'],

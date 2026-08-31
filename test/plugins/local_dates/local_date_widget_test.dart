@@ -112,7 +112,7 @@ void main() {
 
     expect(find.byType(LocalDateInline), findsNWidgets(2));
     expect(find.textContaining('10:30'), findsOneWidget);
-    expect(find.textContaining('(UTC)'), findsWidgets);
+    expect(find.textContaining('(UTC)'), findsOneWidget);
     expect(
       tester.getTopLeft(find.byType(LocalDateInline).first).dy,
       closeTo(tester.getTopLeft(find.byType(LocalDateInline).last).dy, 1),
@@ -135,9 +135,9 @@ void main() {
     await tester.tap(find.bySemanticsLabel(RegExp('New York:')));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Paris'), findsWidgets);
-    expect(find.textContaining('New York'), findsWidgets);
-    expect(find.textContaining('Tokyo'), findsWidgets);
+    expect(find.text('Paris'), findsOneWidget);
+    expect(find.text('New York'), findsOneWidget);
+    expect(find.text('Tokyo'), findsOneWidget);
     expect(find.textContaining('Device'), findsOneWidget);
     expect(find.textContaining('Source'), findsOneWidget);
   });
@@ -150,29 +150,30 @@ void main() {
         'data-time="13:05:00" data-timezone="America/New_York" '
         'data-timezones="Asia/Tokyo" data-calendar="off">server</span></p>';
     final semantics = tester.ensureSemantics();
+    try {
+      for (final key in [LogicalKeyboardKey.enter, LogicalKeyboardKey.space]) {
+        await pump(tester, html);
 
-    for (final key in [LogicalKeyboardKey.enter, LogicalKeyboardKey.space]) {
-      await pump(tester, html);
+        final target = find.bySemanticsLabel(RegExp('New York:'));
+        final data = tester.getSemantics(target).getSemanticsData();
+        expect(data.label, contains('New York:'));
+        expect(data.flagsCollection.isButton, isTrue);
+        expect(data.hasAction(SemanticsAction.tap), isTrue);
+        expect(target, findsOneWidget);
 
-      final target = find.bySemanticsLabel(RegExp('New York:'));
-      final data = tester.getSemantics(target).getSemanticsData();
-      expect(data.label, contains('New York:'));
-      expect(data.flagsCollection.isButton, isTrue);
-      expect(data.hasAction(SemanticsAction.tap), isTrue);
-      expect(target, findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(FocusManager.instance.primaryFocus, isNotNull);
+        await tester.sendKeyEvent(key);
+        await tester.pumpAndSettle();
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
-      expect(FocusManager.instance.primaryFocus, isNotNull);
-      await tester.sendKeyEvent(key);
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('Device'), findsOneWidget, reason: '$key');
-      await tester.tapAt(const Offset(1, 1));
-      await tester.pumpAndSettle();
+        expect(find.textContaining('Device'), findsOneWidget, reason: '$key');
+        await tester.tapAt(const Offset(1, 1));
+        await tester.pumpAndSettle();
+      }
+    } finally {
+      semantics.dispose();
     }
-
-    semantics.dispose();
   });
 
   testWidgets('nested cooked content uses the same date renderer', (

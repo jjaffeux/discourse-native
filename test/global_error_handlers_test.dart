@@ -19,219 +19,243 @@ void main() {
     PlatformDispatcher.instance.onError = originalPlatformHandler;
   });
 
-  test('records Flutter errors, chains the prior handler, and restores it', () {
-    final sink = _RecordingSink();
-    FlutterErrorDetails? forwardedDetails;
-    void previous(FlutterErrorDetails details) {
-      forwardedDetails = details;
-    }
+  group('global error dispatch', () {
+    test(
+      'records Flutter errors, chains the prior handler, and restores it',
+      () {
+        final sink = _RecordingSink();
+        FlutterErrorDetails? forwardedDetails;
+        void previous(FlutterErrorDetails details) {
+          forwardedDetails = details;
+        }
 
-    FlutterError.onError = previous;
-    final binding = DiagnosticsGlobalErrorBinding.install(sink);
-    final error = StateError('framework failure');
-    final stackTrace = StackTrace.current;
-    final details = FlutterErrorDetails(exception: error, stack: stackTrace);
+        FlutterError.onError = previous;
+        final binding = DiagnosticsGlobalErrorBinding.install(sink);
+        addTearDown(binding.close);
+        final error = StateError('framework failure');
+        final stackTrace = StackTrace.current;
+        final details = FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+        );
 
-    FlutterError.onError!(details);
+        FlutterError.onError!(details);
 
-    expect(forwardedDetails, same(details));
-    expect(sink.records, hasLength(1));
-    expect(sink.records.single.error, same(error));
-    expect(sink.records.single.stackTrace, same(stackTrace));
-    expect(sink.records.single.operation, 'unhandled');
-    expect(sink.records.single.source, 'flutter');
-    expect(sink.records.single.handled, isFalse);
-    expect(sink.records.single.degraded, isFalse);
+        expect(forwardedDetails, same(details));
+        expect(sink.records, hasLength(1));
+        expect(sink.records.single.error, same(error));
+        expect(sink.records.single.stackTrace, same(stackTrace));
+        expect(sink.records.single.operation, 'unhandled');
+        expect(sink.records.single.source, 'flutter');
+        expect(sink.records.single.handled, isFalse);
+        expect(sink.records.single.degraded, isFalse);
 
-    binding.close();
-    expect(FlutterError.onError, same(previous));
-    binding.close();
-    expect(FlutterError.onError, same(previous));
-  });
-
-  test('returns the prior platform handled value and false without one', () {
-    final sink = _RecordingSink();
-
-    for (final priorResult in [true, false]) {
-      bool previous(Object _, StackTrace _) => priorResult;
-      PlatformDispatcher.instance.onError = previous;
-      final binding = DiagnosticsGlobalErrorBinding.install(sink);
-
-      expect(
-        PlatformDispatcher.instance.onError!(
-          StateError('platform $priorResult'),
-          StackTrace.current,
-        ),
-        priorResult,
-      );
-
-      binding.close();
-      expect(PlatformDispatcher.instance.onError, same(previous));
-    }
-
-    PlatformDispatcher.instance.onError = null;
-    final binding = DiagnosticsGlobalErrorBinding.install(sink);
-    expect(
-      PlatformDispatcher.instance.onError!(
-        StateError('unhandled platform failure'),
-        StackTrace.current,
-      ),
-      isFalse,
-    );
-    expect(sink.records.last.source, 'platform');
-    binding.close();
-    expect(PlatformDispatcher.instance.onError, isNull);
-  });
-
-  test('recording failures never prevent existing handlers from running', () {
-    final sink = _RecordingSink(throwWhenRecording: true);
-    var flutterCalls = 0;
-    var platformCalls = 0;
-    FlutterError.onError = (_) => flutterCalls += 1;
-    PlatformDispatcher.instance.onError = (_, _) {
-      platformCalls += 1;
-      return true;
-    };
-    final binding = DiagnosticsGlobalErrorBinding.install(sink);
-
-    expect(
-      () => FlutterError.onError!(
-        FlutterErrorDetails(exception: StateError('framework failure')),
-      ),
-      returnsNormally,
-    );
-    expect(
-      PlatformDispatcher.instance.onError!(
-        StateError('platform failure'),
-        StackTrace.current,
-      ),
-      isTrue,
-    );
-    expect(flutterCalls, 1);
-    expect(platformCalls, 1);
-
-    binding.close();
-  });
-
-  test('deduplicates the same error identity for one microtask', () async {
-    final sink = _RecordingSink();
-    PlatformDispatcher.instance.onError = (_, _) => false;
-    final binding = DiagnosticsGlobalErrorBinding.install(sink);
-    final error = StateError('shared platform and zone failure');
-    final stackTrace = StackTrace.current;
-
-    PlatformDispatcher.instance.onError!(error, stackTrace);
-    binding.reportUnhandledError(error, stackTrace, source: 'zone');
-
-    expect(sink.records, hasLength(1));
-    expect(sink.records.single.source, 'platform');
-
-    await Future<void>.value();
-    binding.reportUnhandledError(error, stackTrace, source: 'zone');
-
-    expect(sink.records, hasLength(2));
-    expect(sink.records.last.source, 'zone');
-    binding.close();
-  });
-
-  test('close does not overwrite handlers installed after diagnostics', () {
-    final binding = DiagnosticsGlobalErrorBinding.install(_RecordingSink());
-    void newerFlutterHandler(FlutterErrorDetails _) {}
-
-    bool newerPlatformHandler(Object _, StackTrace _) => true;
-    FlutterError.onError = newerFlutterHandler;
-    PlatformDispatcher.instance.onError = newerPlatformHandler;
-
-    binding.close();
-
-    expect(FlutterError.onError, same(newerFlutterHandler));
-    expect(PlatformDispatcher.instance.onError, same(newerPlatformHandler));
-  });
-
-  test('nested global handlers survive out-of-order teardown', () {
-    void baselineFlutterHandler(FlutterErrorDetails _) {}
-
-    bool baselinePlatformHandler(Object _, StackTrace _) => true;
-    FlutterError.onError = baselineFlutterHandler;
-    PlatformDispatcher.instance.onError = baselinePlatformHandler;
-
-    final older = DiagnosticsGlobalErrorBinding.install(_RecordingSink());
-    final newer = DiagnosticsGlobalErrorBinding.install(_RecordingSink());
-
-    older.close();
-    expect(FlutterError.onError, isNot(same(baselineFlutterHandler)));
-    expect(
-      PlatformDispatcher.instance.onError,
-      isNot(same(baselinePlatformHandler)),
+        binding.close();
+        expect(FlutterError.onError, same(previous));
+        binding.close();
+        expect(FlutterError.onError, same(previous));
+      },
     );
 
-    newer.close();
-    expect(FlutterError.onError, same(baselineFlutterHandler));
-    expect(PlatformDispatcher.instance.onError, same(baselinePlatformHandler));
-  });
+    test('returns the prior platform result or false without a handler', () {
+      final sink = _RecordingSink();
 
-  test('nested sink bindings survive out-of-order teardown', () {
-    final baseline = _RecordingSink();
-    final baselineBinding = DiagnosticsSink.install(baseline);
-    addTearDown(baselineBinding.close);
-    final older = _RecordingSink();
-    final newer = _RecordingSink();
-    final olderBinding = DiagnosticsSink.install(older);
-    final newerBinding = DiagnosticsSink.install(newer);
+      for (final priorResult in [true, false]) {
+        bool previous(Object _, StackTrace _) => priorResult;
+        PlatformDispatcher.instance.onError = previous;
+        final binding = DiagnosticsGlobalErrorBinding.install(sink);
+        addTearDown(binding.close);
 
-    olderBinding.close();
-    expect(DiagnosticsSink.current, same(newer));
+        expect(
+          PlatformDispatcher.instance.onError!(
+            StateError('platform $priorResult'),
+            StackTrace.current,
+          ),
+          priorResult,
+        );
 
-    newerBinding.close();
-    expect(DiagnosticsSink.current, same(baseline));
+        binding.close();
+        expect(PlatformDispatcher.instance.onError, same(previous));
+      }
 
-    final repeated = DiagnosticsSink.install(newer);
-    final repeatedAgain = DiagnosticsSink.install(newer);
-    repeated.close();
-    repeatedAgain.close();
-    expect(DiagnosticsSink.current, same(baseline));
-  });
-
-  testWidgets(
-    'defers diagnostics notifications for errors reported during a frame',
-    (tester) async {
-      final count = ValueNotifier(0);
-      addTearDown(count.dispose);
-      final sink = _NotifyingSink(count);
-      final forwarded = <FlutterErrorDetails>[];
-      FlutterError.onError = forwarded.add;
+      PlatformDispatcher.instance.onError = null;
       final binding = DiagnosticsGlobalErrorBinding.install(sink);
       addTearDown(binding.close);
-      var reported = false;
+      expect(
+        PlatformDispatcher.instance.onError!(
+          StateError('unhandled platform failure'),
+          StackTrace.current,
+        ),
+        isFalse,
+      );
+      expect(sink.records.last.source, 'platform');
+      binding.close();
+      expect(PlatformDispatcher.instance.onError, isNull);
+    });
 
-      tester.binding.addPersistentFrameCallback((_) {
-        if (reported) return;
-        reported = true;
-        FlutterError.reportError(
-          FlutterErrorDetails(
-            exception: StateError('paint failure'),
-            stack: StackTrace.current,
+    test('still runs existing handlers when diagnostics recording fails', () {
+      final sink = _RecordingSink(throwWhenRecording: true);
+      var flutterCalls = 0;
+      var platformCalls = 0;
+      FlutterError.onError = (_) => flutterCalls += 1;
+      PlatformDispatcher.instance.onError = (_, _) {
+        platformCalls += 1;
+        return true;
+      };
+      final binding = DiagnosticsGlobalErrorBinding.install(sink);
+      addTearDown(binding.close);
+
+      expect(
+        () => FlutterError.onError!(
+          FlutterErrorDetails(exception: StateError('framework failure')),
+        ),
+        returnsNormally,
+      );
+      expect(
+        PlatformDispatcher.instance.onError!(
+          StateError('platform failure'),
+          StackTrace.current,
+        ),
+        isTrue,
+      );
+      expect(flutterCalls, 1);
+      expect(platformCalls, 1);
+
+      binding.close();
+    });
+
+    test('deduplicates the same error identity for one microtask', () async {
+      final sink = _RecordingSink();
+      PlatformDispatcher.instance.onError = (_, _) => false;
+      final binding = DiagnosticsGlobalErrorBinding.install(sink);
+      addTearDown(binding.close);
+      final error = StateError('shared platform and zone failure');
+      final stackTrace = StackTrace.current;
+
+      PlatformDispatcher.instance.onError!(error, stackTrace);
+      binding.reportUnhandledError(error, stackTrace, source: 'zone');
+
+      expect(sink.records, hasLength(1));
+      expect(sink.records.single.source, 'platform');
+
+      await Future<void>.value();
+      binding.reportUnhandledError(error, stackTrace, source: 'zone');
+
+      expect(sink.records, hasLength(2));
+      expect(sink.records.last.source, 'zone');
+      binding.close();
+    });
+  });
+
+  group('binding teardown and stacking', () {
+    test('does not overwrite handlers installed after diagnostics', () {
+      final binding = DiagnosticsGlobalErrorBinding.install(_RecordingSink());
+      addTearDown(binding.close);
+      void newerFlutterHandler(FlutterErrorDetails _) {}
+
+      bool newerPlatformHandler(Object _, StackTrace _) => true;
+      FlutterError.onError = newerFlutterHandler;
+      PlatformDispatcher.instance.onError = newerPlatformHandler;
+
+      binding.close();
+
+      expect(FlutterError.onError, same(newerFlutterHandler));
+      expect(PlatformDispatcher.instance.onError, same(newerPlatformHandler));
+    });
+
+    test('preserves nested global handlers through out-of-order teardown', () {
+      void baselineFlutterHandler(FlutterErrorDetails _) {}
+
+      bool baselinePlatformHandler(Object _, StackTrace _) => true;
+      FlutterError.onError = baselineFlutterHandler;
+      PlatformDispatcher.instance.onError = baselinePlatformHandler;
+
+      final older = DiagnosticsGlobalErrorBinding.install(_RecordingSink());
+      final newer = DiagnosticsGlobalErrorBinding.install(_RecordingSink());
+      addTearDown(older.close);
+      addTearDown(newer.close);
+
+      older.close();
+      expect(FlutterError.onError, isNot(same(baselineFlutterHandler)));
+      expect(
+        PlatformDispatcher.instance.onError,
+        isNot(same(baselinePlatformHandler)),
+      );
+
+      newer.close();
+      expect(FlutterError.onError, same(baselineFlutterHandler));
+      expect(
+        PlatformDispatcher.instance.onError,
+        same(baselinePlatformHandler),
+      );
+    });
+
+    test('preserves nested sink bindings through out-of-order teardown', () {
+      final baseline = _RecordingSink();
+      final baselineBinding = DiagnosticsSink.install(baseline);
+      addTearDown(baselineBinding.close);
+      final older = _RecordingSink();
+      final newer = _RecordingSink();
+      final olderBinding = DiagnosticsSink.install(older);
+      final newerBinding = DiagnosticsSink.install(newer);
+      addTearDown(olderBinding.close);
+      addTearDown(newerBinding.close);
+
+      olderBinding.close();
+      expect(DiagnosticsSink.current, same(newer));
+
+      newerBinding.close();
+      expect(DiagnosticsSink.current, same(baseline));
+
+      final repeated = DiagnosticsSink.install(newer);
+      final repeatedAgain = DiagnosticsSink.install(newer);
+      addTearDown(repeated.close);
+      addTearDown(repeatedAgain.close);
+      repeated.close();
+      repeatedAgain.close();
+      expect(DiagnosticsSink.current, same(baseline));
+    });
+  });
+
+  group('frame-safe notification', () {
+    testWidgets(
+      'defers diagnostics changes for errors reported during a frame',
+      (tester) async {
+        final count = ValueNotifier(0);
+        addTearDown(count.dispose);
+        final sink = _NotifyingSink(count);
+        final forwarded = <FlutterErrorDetails>[];
+        FlutterError.onError = forwarded.add;
+        final binding = DiagnosticsGlobalErrorBinding.install(sink);
+        addTearDown(binding.close);
+
+        tester.binding.addPostFrameCallback((_) {
+          FlutterError.reportError(
+            FlutterErrorDetails(
+              exception: StateError('paint failure'),
+              stack: StackTrace.current,
+            ),
+          );
+        });
+
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: ValueListenableBuilder(
+              valueListenable: count,
+              builder: (context, value, child) => Text('$value'),
+            ),
           ),
         );
-      });
+        await tester.pump();
 
-      await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: ValueListenableBuilder(
-            valueListenable: count,
-            builder: (context, value, child) => Text('$value'),
-          ),
-        ),
-      );
-      await tester.pump();
-
-      expect(forwarded, hasLength(1));
-      expect(sink.records, 1);
-      expect(find.text('1'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
+        expect(forwarded, hasLength(1));
+        expect(sink.records, 1);
+        expect(find.text('1'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
 }
 
 final class _RecordingSink implements DiagnosticsSink {

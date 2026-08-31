@@ -148,7 +148,7 @@ void main() {
     );
   });
 
-  group('day separators', () {
+  group('day-separator placement', () {
     test('puts one before the first message of each day', () {
       final items = buildChatStream([
         at(1, day: 5),

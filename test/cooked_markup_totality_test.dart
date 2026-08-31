@@ -400,27 +400,52 @@ void main() {
   // said the widget a half-written onebox produces survives being laid out and
   // painted. Two widths, because the narrow one is where a fixed-size lead
   // image or a row of pills has nowhere to go.
-  testWidgets('and a post draws whatever the site cooked', (tester) async {
+  testWidgets('generated cooked fragments lay out at wide and narrow widths', (
+    tester,
+  ) async {
     final random = Random(20260823);
     const site = 'https://example.com';
     final failures = <String, Object>{};
+    final current = ValueNotifier<({String html, int round, double width})>((
+      html: '',
+      round: -1,
+      width: 600,
+    ));
+    addTearDown(current.dispose);
 
-    for (var round = 0; round < 600; round++) {
-      final html = _fragment(random, 0);
-      if (html.isEmpty) continue;
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark,
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: SizedBox(
-                width: round.isEven ? 600 : 200,
-                child: CookedHtml(html: html, siteUrl: site),
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ValueListenableBuilder(
+              valueListenable: current,
+              builder: (context, value, child) => SizedBox(
+                width: value.width,
+                child: value.html.isEmpty
+                    ? const SizedBox.shrink()
+                    : KeyedSubtree(
+                        // Keep each generated post independent while retaining
+                        // the identical shell around the whole corpus.
+                        key: ValueKey(value.round),
+                        child: CookedHtml(html: value.html, siteUrl: site),
+                      ),
               ),
             ),
           ),
         ),
+      ),
+    );
+
+    for (var round = 0; round < 600; round++) {
+      final html = _fragment(random, 0);
+      if (html.isEmpty) continue;
+      current.value = (
+        html: html,
+        round: round,
+        width: round.isEven ? 600 : 200,
       );
+      await tester.pump();
       Object? thrown = tester.takeException();
       if (thrown == null) {
         // Artwork arrives asynchronously; the frame it lands on is another
@@ -429,11 +454,10 @@ void main() {
         thrown = tester.takeException();
       }
       if (thrown != null) failures[html] = thrown;
-
-      await tester.pumpWidget(const SizedBox.shrink());
-      tester.takeException();
     }
 
+    await tester.pumpWidget(const SizedBox.shrink());
+    tester.takeException();
     expect(failures, isEmpty);
   });
 }

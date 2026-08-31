@@ -32,28 +32,6 @@ extension TestChatShell on ShellController {
   );
   bool openChatChannel(int channelId, {int? messageId}) =>
       _chatShell.openChannel(channelId, messageId: messageId);
-  bool openChatChannelInfo({
-    required String siteUrl,
-    required int channelId,
-    ChatChannelInfoTab tab = ChatChannelInfoTab.settings,
-  }) => _chatShell.openChannelInfo(
-    siteUrl: siteUrl,
-    channelId: channelId,
-    tab: tab,
-  );
-  bool openChatChannelThreads({
-    required String siteUrl,
-    required int channelId,
-  }) => _chatShell.openChannelThreads(siteUrl: siteUrl, channelId: channelId);
-  bool revealChatChannelMessage({
-    required String siteUrl,
-    required int channelId,
-    required int messageId,
-  }) => _chatShell.revealChannelMessage(
-    siteUrl: siteUrl,
-    channelId: channelId,
-    messageId: messageId,
-  );
   Future<String?> openChatQuote(
     String siteUrl,
     int channelId,

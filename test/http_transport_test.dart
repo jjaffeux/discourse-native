@@ -303,14 +303,22 @@ void main() {
 
     test('the deadline covers a body that never finishes', () async {
       var cancelled = false;
+      final bodyStarted = Completer<void>();
+      final bodyCancelled = Completer<void>();
       final body = StreamController<List<int>>(
-        onCancel: () => cancelled = true,
+        onListen: bodyStarted.complete,
+        onCancel: () {
+          cancelled = true;
+          bodyCancelled.complete();
+        },
       );
       addTearDown(body.close);
       final request = http.Request('GET', Uri.https('forum.example', '/data'));
+      final timers = <_ManualTimer>[];
 
-      await expectLater(
-        sendBoundedHttpRequest(
+      final result = _withManualTimers(
+        timers,
+        () => sendBoundedHttpRequest(
           _Client(
             (request) async =>
                 http.StreamedResponse(body.stream, 200, request: request),
@@ -319,7 +327,24 @@ void main() {
           timeout: const Duration(milliseconds: 100),
           maxBodyBytes: 10,
         ),
-        throwsA(isA<TimeoutException>()),
+      );
+      await _expectSignal(
+        bodyStarted,
+        reason: 'the bounded request never started reading its response body',
+      );
+
+      final timesOut = expectLater(result, throwsA(isA<TimeoutException>()));
+      final bodyDeadline = timers.singleWhere((timer) => timer.isActive);
+      expect(bodyDeadline.delay, greaterThan(Duration.zero));
+      expect(
+        bodyDeadline.delay,
+        lessThanOrEqualTo(const Duration(milliseconds: 100)),
+      );
+      bodyDeadline.fire();
+      await timesOut;
+      await _expectSignal(
+        bodyCancelled,
+        reason: 'timing out the response did not cancel its body stream',
       );
 
       expect(cancelled, isTrue);
@@ -330,30 +355,91 @@ void main() {
       () async {
         var cancelled = false;
         final headers = Completer<http.StreamedResponse>();
+        final bodyCancelled = Completer<void>();
         final body = StreamController<List<int>>(
-          onCancel: () => cancelled = true,
+          onCancel: () {
+            cancelled = true;
+            bodyCancelled.complete();
+          },
         );
         addTearDown(body.close);
         final request = http.Request(
           'GET',
           Uri.https('forum.example', '/data'),
         );
+        final timers = <_ManualTimer>[];
 
-        final result = sendBoundedHttpRequest(
-          _Client((request) => headers.future),
-          request,
-          timeout: const Duration(milliseconds: 100),
-          maxBodyBytes: 10,
+        final result = _withManualTimers(
+          timers,
+          () => sendBoundedHttpRequest(
+            _Client((request) => headers.future),
+            request,
+            timeout: const Duration(milliseconds: 100),
+            maxBodyBytes: 10,
+          ),
         );
-        await expectLater(result, throwsA(isA<TimeoutException>()));
+        final timesOut = expectLater(result, throwsA(isA<TimeoutException>()));
+        expect(timers.single.delay, const Duration(milliseconds: 100));
+        timers.single.fire();
+        await timesOut;
 
         headers.complete(http.StreamedResponse(body.stream, 200));
-        await Future<void>.delayed(Duration.zero);
+        await _expectSignal(
+          bodyCancelled,
+          reason: 'a response arriving after the deadline was not cancelled',
+        );
 
         expect(cancelled, isTrue);
       },
     );
   });
+}
+
+Future<void> _expectSignal(
+  Completer<void> signal, {
+  required String reason,
+}) async {
+  for (var turn = 0; turn < 20 && !signal.isCompleted; turn += 1) {
+    await Future<void>.delayed(Duration.zero);
+  }
+  expect(signal.isCompleted, isTrue, reason: reason);
+}
+
+T _withManualTimers<T>(List<_ManualTimer> timers, T Function() body) =>
+    runZoned(
+      body,
+      zoneSpecification: ZoneSpecification(
+        createTimer: (self, parent, zone, duration, callback) {
+          final timer = _ManualTimer(duration, zone.bindCallback(callback));
+          timers.add(timer);
+          return timer;
+        },
+      ),
+    );
+
+final class _ManualTimer implements Timer {
+  _ManualTimer(this.delay, this._callback);
+
+  final Duration delay;
+  final void Function() _callback;
+  bool _active = true;
+  int _tick = 0;
+
+  void fire() {
+    if (!_active) return;
+    _active = false;
+    _tick = 1;
+    _callback();
+  }
+
+  @override
+  void cancel() => _active = false;
+
+  @override
+  bool get isActive => _active;
+
+  @override
+  int get tick => _tick;
 }
 
 final class _Client extends http.BaseClient {

@@ -152,7 +152,7 @@ void main() {
       expect(find.text('Some topic'), findsOneWidget);
       expect(
         find.textContaining('The first post of the topic', findRichText: true),
-        findsWidgets,
+        findsOneWidget,
       );
     });
   });

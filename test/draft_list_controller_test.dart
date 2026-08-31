@@ -96,54 +96,55 @@ final class _GatedApiKeys implements SiteApiKeyReader {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('forget while load credentials are pending sends no request', () async {
-    final api = _RecordingDraftsApi();
-    final credentials = _GatedApiKeys();
-    final controller = DraftListController(
-      api: api,
-      credentials: credentials,
-      lifecycle: SiteLifecycle(),
-    );
-    addTearDown(controller.dispose);
+  group('load credential invalidation', () {
+    test('sends no request after forget during credential lookup', () async {
+      final api = _RecordingDraftsApi();
+      final credentials = _GatedApiKeys();
+      final controller = DraftListController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+      );
+      addTearDown(controller.dispose);
 
-    final load = controller.load(_instance);
-    await pumpEventQueue();
-    controller.forget(_siteUrl);
-    credentials.results.single.complete('stale-key');
-    await load;
+      final load = controller.load(_instance);
+      await pumpEventQueue();
+      controller.forget(_siteUrl);
+      credentials.results.single.complete('stale-key');
+      await load;
 
-    expect(api.loads, isEmpty);
+      expect(api.loads, isEmpty);
+    });
+
+    test('lets a replacement load supersede pending credentials', () async {
+      final oldKey = Completer<String?>();
+      final replacementKey = Completer<String?>();
+      final api = _RecordingDraftsApi();
+      final credentials = _GatedApiKeys([oldKey, replacementKey]);
+      final controller = DraftListController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+      );
+      addTearDown(controller.dispose);
+
+      final oldLoad = controller.load(_instance);
+      await pumpEventQueue();
+      controller.forget(_siteUrl);
+      final replacementLoad = controller.load(_instance);
+      await pumpEventQueue();
+      replacementKey.complete('replacement-key');
+      await replacementLoad;
+
+      oldKey.complete('stale-key');
+      await oldLoad;
+
+      expect(api.loads, [_siteUrl]);
+    });
   });
 
-  test('a replacement load supersedes a pending credential lookup', () async {
-    final oldKey = Completer<String?>();
-    final replacementKey = Completer<String?>();
-    final api = _RecordingDraftsApi();
-    final credentials = _GatedApiKeys([oldKey, replacementKey]);
-    final controller = DraftListController(
-      api: api,
-      credentials: credentials,
-      lifecycle: SiteLifecycle(),
-    );
-    addTearDown(controller.dispose);
-
-    final oldLoad = controller.load(_instance);
-    await pumpEventQueue();
-    controller.forget(_siteUrl);
-    final replacementLoad = controller.load(_instance);
-    await pumpEventQueue();
-    replacementKey.complete('replacement-key');
-    await replacementLoad;
-
-    oldKey.complete('stale-key');
-    await oldLoad;
-
-    expect(api.loads, [_siteUrl]);
-  });
-
-  test(
-    'forget while delete credentials are pending sends no request',
-    () async {
+  group('delete credential invalidation', () {
+    test('sends no request after forget during credential lookup', () async {
       final api = _RecordingDraftsApi();
       final credentials = _GatedApiKeys();
       final controller = DraftListController(
@@ -163,89 +164,88 @@ void main() {
       expect(await deletion, isFalse);
       expect(api.deletions, isEmpty);
       expect(controller.deleting(_siteUrl, _draft.key), isFalse);
-    },
-  );
+    });
 
-  test('a replacement delete supersedes a pending credential lookup', () async {
-    final oldKey = Completer<String?>();
-    final replacementKey = Completer<String?>();
-    final api = _RecordingDraftsApi();
-    final credentials = _GatedApiKeys([oldKey, replacementKey]);
-    final controller = DraftListController(
-      api: api,
-      credentials: credentials,
-      lifecycle: SiteLifecycle(),
-    );
-    addTearDown(controller.dispose);
-
-    final oldDeletion = controller.delete(_instance, _draft);
-    await pumpEventQueue();
-    controller.forget(_siteUrl);
-    final replacementDeletion = controller.delete(_instance, _draft);
-    await pumpEventQueue();
-
-    replacementKey.complete('replacement-key');
-    expect(await replacementDeletion, isTrue);
-
-    oldKey.complete('stale-key');
-    expect(await oldDeletion, isFalse);
-    expect(api.deletions, [(_siteUrl, _draft.key)]);
-  });
-
-  test(
-    'account invalidation while delete credentials are pending sends nothing',
-    () async {
+    test('lets a replacement delete supersede pending credentials', () async {
+      final oldKey = Completer<String?>();
+      final replacementKey = Completer<String?>();
       final api = _RecordingDraftsApi();
-      final credentials = _GatedApiKeys();
-      final lifecycle = SiteLifecycle();
+      final credentials = _GatedApiKeys([oldKey, replacementKey]);
       final controller = DraftListController(
         api: api,
         credentials: credentials,
-        lifecycle: lifecycle,
+        lifecycle: SiteLifecycle(),
       );
       addTearDown(controller.dispose);
 
-      final deletion = controller.delete(_instance, _draft);
+      final oldDeletion = controller.delete(_instance, _draft);
       await pumpEventQueue();
-      lifecycle.invalidate(_siteUrl);
-      credentials.results.single.complete('stale-key');
+      controller.forget(_siteUrl);
+      final replacementDeletion = controller.delete(_instance, _draft);
+      await pumpEventQueue();
 
-      expect(await deletion, isFalse);
-      expect(api.deletions, isEmpty);
-      expect(controller.deleting(_siteUrl, _draft.key), isFalse);
-    },
-  );
+      replacementKey.complete('replacement-key');
+      expect(await replacementDeletion, isTrue);
 
-  test('a draft deleted while a page is in flight stays deleted', () async {
-    final api = _GatedDraftsApi();
-    final controller = DraftListController(
-      api: api,
-      credentials: _ReadyApiKeys(),
-      lifecycle: SiteLifecycle(),
+      oldKey.complete('stale-key');
+      expect(await oldDeletion, isFalse);
+      expect(api.deletions, [(_siteUrl, _draft.key)]);
+    });
+
+    test(
+      'sends nothing after account invalidation during credential lookup',
+      () async {
+        final api = _RecordingDraftsApi();
+        final credentials = _GatedApiKeys();
+        final lifecycle = SiteLifecycle();
+        final controller = DraftListController(
+          api: api,
+          credentials: credentials,
+          lifecycle: lifecycle,
+        );
+        addTearDown(controller.dispose);
+
+        final deletion = controller.delete(_instance, _draft);
+        await pumpEventQueue();
+        lifecycle.invalidate(_siteUrl);
+        credentials.results.single.complete('stale-key');
+
+        expect(await deletion, isFalse);
+        expect(api.deletions, isEmpty);
+        expect(controller.deleting(_siteUrl, _draft.key), isFalse);
+      },
     );
-    addTearDown(controller.dispose);
-
-    final seed = controller.load(_instance);
-    await pumpEventQueue();
-    api.pages.single.complete(const [_draft]);
-    await seed;
-    expect(controller.feedFor(_siteUrl).drafts.single.key, _draft.key);
-
-    final refresh = controller.load(_instance, refresh: true);
-    await pumpEventQueue();
-    expect(await controller.delete(_instance, _draft), isTrue);
-
-    // The refresh response was produced before the server-side delete landed.
-    api.pages[1].complete(const [_draft]);
-    await refresh;
-
-    expect(api.deletions, [(_siteUrl, _draft.key)]);
-    expect(controller.feedFor(_siteUrl).drafts, isEmpty);
   });
 
-  test(
-    'a failed page keeps a deletion that landed while it was in flight',
-    () async {
+  group('stale page reconciliation', () {
+    test('keeps a draft deleted while a page is in flight', () async {
+      final api = _GatedDraftsApi();
+      final controller = DraftListController(
+        api: api,
+        credentials: _ReadyApiKeys(),
+        lifecycle: SiteLifecycle(),
+      );
+      addTearDown(controller.dispose);
+
+      final seed = controller.load(_instance);
+      await pumpEventQueue();
+      api.pages.single.complete(const [_draft]);
+      await seed;
+      expect(controller.feedFor(_siteUrl).drafts.single.key, _draft.key);
+
+      final refresh = controller.load(_instance, refresh: true);
+      await pumpEventQueue();
+      expect(await controller.delete(_instance, _draft), isTrue);
+
+      // The refresh response was produced before the server-side delete landed.
+      api.pages[1].complete(const [_draft]);
+      await refresh;
+
+      expect(api.deletions, [(_siteUrl, _draft.key)]);
+      expect(controller.feedFor(_siteUrl).drafts, isEmpty);
+    });
+
+    test('keeps a concurrent deletion after a failed page', () async {
       final api = _GatedDraftsApi();
       final controller = DraftListController(
         api: api,
@@ -272,65 +272,67 @@ void main() {
       await more;
 
       final feed = controller.feedFor(_siteUrl);
-      expect(feed.error, isNotNull);
+      expect(feed.error, "Couldn't load more drafts from one.example.");
       expect(
         feed.drafts.map((draft) => draft.key),
         isNot(contains(seeded[3].key)),
       );
-    },
-  );
-
-  test('dispose while load credentials are pending sends no request', () async {
-    final api = _RecordingDraftsApi();
-    final credentials = _GatedApiKeys();
-    final controller = DraftListController(
-      api: api,
-      credentials: credentials,
-      lifecycle: SiteLifecycle(),
-    );
-
-    final load = controller.load(_instance);
-    await pumpEventQueue();
-    controller.dispose();
-    credentials.results.single.complete('stale-key');
-    await load;
-
-    expect(api.loads, isEmpty);
+    });
   });
 
-  for (final operation
-      in <
-        ({
-          String name,
-          Future<void> Function(DraftListController controller) begin,
-        })
-      >[
-        (name: 'load', begin: (controller) => controller.load(_instance)),
-        (
-          name: 'delete',
-          begin: (controller) async {
-            await controller.delete(_instance, _draft);
-          },
-        ),
-      ]) {
-    test(
-      'reentrant disposal prevents ${operation.name} credential access',
-      () async {
-        final api = _RecordingDraftsApi();
-        final credentials = _GatedApiKeys();
-        final controller = DraftListController(
-          api: api,
-          credentials: credentials,
-          lifecycle: SiteLifecycle(),
-        );
-        controller.addListener(controller.dispose);
+  group('disposal boundary enforcement', () {
+    test('sends no request when disposed during load credentials', () async {
+      final api = _RecordingDraftsApi();
+      final credentials = _GatedApiKeys();
+      final controller = DraftListController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+      );
 
-        await operation.begin(controller);
+      final load = controller.load(_instance);
+      await pumpEventQueue();
+      controller.dispose();
+      credentials.results.single.complete('stale-key');
+      await load;
 
-        expect(credentials.sites, isEmpty);
-        expect(api.loads, isEmpty);
-        expect(api.deletions, isEmpty);
-      },
-    );
-  }
+      expect(api.loads, isEmpty);
+    });
+
+    for (final operation
+        in <
+          ({
+            String name,
+            Future<void> Function(DraftListController controller) begin,
+          })
+        >[
+          (name: 'load', begin: (controller) => controller.load(_instance)),
+          (
+            name: 'delete',
+            begin: (controller) async {
+              await controller.delete(_instance, _draft);
+            },
+          ),
+        ]) {
+      test(
+        'prevents ${operation.name} credentials after reentrant disposal',
+        () async {
+          final api = _RecordingDraftsApi();
+          final credentials = _GatedApiKeys();
+          final controller = DraftListController(
+            api: api,
+            credentials: credentials,
+            lifecycle: SiteLifecycle(),
+          );
+          controller.addListener(controller.dispose);
+
+          await operation.begin(controller);
+
+          expect(credentials.sites, isEmpty);
+          expect(api.loads, isEmpty);
+          expect(api.deletions, isEmpty);
+        },
+      );
+    }
+  });
 }

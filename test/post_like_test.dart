@@ -91,7 +91,7 @@ void main() {
       expect(liked.canToggleLike, isTrue);
     });
 
-    test('and takes both away again', () {
+    test('removes the like and restores permission to like', () {
       final unliked = post.withLike(true).withLike(false);
 
       expect(unliked.likeCount, 2);

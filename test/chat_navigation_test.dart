@@ -234,751 +234,818 @@ void main() {
       updateStore: FakeUpdateStore(),
       ownsApi: false,
     );
-    addTearDown(shell.dispose);
+    addTearDown(() async {
+      shell.dispose();
+      await shell.pluginTeardown;
+    });
     await shell.load();
-  });
-
-  test(
-    'opens a thread route and hands its message to the mounted view',
-    () async {
-      expect(
-        shell.pluginSession.require(chatShellService),
-        isNot(isA<ShellController>()),
-      );
-      expect(
-        shell.pluginSession.require(chatBookmarkHostService),
-        isNot(isA<ShellController>()),
-      );
-      expect(
-        shell.pluginSession.require(chatNotificationHostService),
-        isNot(isA<ShellController>()),
-      );
-
-      expect(await shell.openChatUrl('$_site/chat/c/-/9/t/3/44'), isTrue);
-
-      expect(shell.destinationId, 'chat-c-9');
-      expect(shell.contentStack.map((route) => route.id), [
-        'chat-c-9',
-        'chat-c-9-t-3',
-      ]);
-      expect(shell.currentContent?.title, 'Thread');
-      expect(shell.currentContent?.subtitle, 'Support');
-      expect(shell.chatNavigation.value?.siteUrl, _site);
-      expect(
-        shell.chatNavigation.value?.route,
-        ChatRoute.thread(channelId: 9, threadId: 3),
-      );
-      expect(shell.chatNavigation.value?.messageId, 44);
-    },
-  );
-
-  test('Chat host ports reject foreign composer and feed namespaces', () async {
-    final composerHost = shell.pluginSession.require(chatComposerHostService);
-    const foreignTarget = ComposerTargetKind(
-      owner: PluginId('foreign'),
-      name: 'message',
-    );
-
-    expect(
-      () => composerHost.buildComposer(
-        const ComposerTargetRequest(
-          kind: foreignTarget,
-          siteUrl: _site,
-          title: 'Foreign message',
-        ),
-      ),
-      throwsA(
-        isA<PluginInstallationException>().having(
-          (error) => error.message,
-          'message',
-          allOf(contains('chat'), contains(foreignTarget.id)),
-        ),
-      ),
-    );
-
-    final composer = composerHost.buildComposer(
-      const ComposerTargetRequest(
-        kind: ChatPlugin.messageComposerTarget,
-        siteUrl: _site,
-        title: 'Support',
-        data: {ChatPlugin.composerChannelId: 9},
-      ),
-    );
-    expect(composer, isNotNull);
-    composer!.dispose();
-
-    final notificationHost = shell.pluginSession.require(
-      chatNotificationHostService,
-    );
-    const foreignFeedId = PluginNotificationFeedId(
-      owner: PluginId('foreign'),
-      name: 'notifications',
-    );
-    const foreignFeed = PluginNotificationFeedSource(
-      id: foreignFeedId,
-      filterByTypes: [NotificationTypeName('chat_message')],
-      reconnectMessage: 'Reconnect.',
-      failureMessage: 'Failed.',
-      emptyMessage: 'Empty.',
-    );
-
-    for (final access in <void Function()>[
-      () => notificationHost.notificationFeedListenable(foreignFeedId),
-      () => notificationHost.notificationFeedFor(foreignFeedId, _site),
-      () => notificationHost.loadPluginNotificationFeed(_site, foreignFeed),
-    ]) {
-      expect(
-        access,
-        throwsA(
-          isA<PluginInstallationException>().having(
-            (error) => error.message,
-            'message',
-            allOf(contains('chat'), contains(foreignFeedId.id)),
-          ),
-        ),
-      );
-    }
-
-    const undeclaredFeedId = PluginNotificationFeedId(
-      owner: PluginId('chat'),
-      name: 'undeclared',
-    );
-    expect(
-      () => notificationHost.notificationFeedFor(undeclaredFeedId, _site),
-      throwsA(
-        isA<PluginInstallationException>().having(
-          (error) => error.message,
-          'message',
-          allOf(contains('chat'), contains(undeclaredFeedId.id)),
-        ),
-      ),
-    );
-    expect(
-      () => notificationHost.loadPluginNotificationFeed(
-        _site,
-        const PluginNotificationFeedSource(
-          id: PluginNotificationFeedId(
-            owner: PluginId('chat'),
-            name: 'notifications',
-          ),
-          filterByTypes: [NotificationTypeName('chat_message')],
-          reconnectMessage: 'Different reconnect message.',
-          failureMessage: 'Different failure message.',
-          emptyMessage: 'Different empty message.',
-        ),
-      ),
-      throwsA(isA<PluginInstallationException>()),
-    );
-
-    expect(
-      notificationHost.notificationFeedListenable(chatNotificationFeed.id),
-      isNotNull,
-    );
-    await notificationHost.loadPluginNotificationFeed(
-      _site,
-      chatNotificationFeed,
-    );
-    expect(
-      notificationHost
-          .notificationFeedFor(chatNotificationFeed.id, _site)
-          .notifications
-          .map((notification) => notification.id),
-      [51],
-    );
-  });
-
-  test(
-    'retargets the same route without adding a duplicate stack entry',
-    () async {
-      await shell.openChatUrl('$_site/chat/c/-/9/t/3/44');
-      final stack = shell.contentStack;
-
-      expect(await shell.openChatUrl('$_site/chat/c/-/9/t/3/45'), isTrue);
-
-      expect(shell.contentStack, same(stack));
-      expect(shell.chatNavigation.value?.messageId, 45);
-    },
-  );
-
-  test('same-route Chat links reactivate compact content', () async {
-    expect(await shell.openChatUrl('$_site/chat/c/-/9/t/3/44'), isTrue);
-    shell.selectInstance(0);
-    expect(shell.mobilePane, MobilePane.sidebar);
-
-    expect(await shell.openChatUrl('$_site/chat/c/-/9/t/3/45'), isTrue);
-
-    expect(shell.mobilePane, MobilePane.content);
-    expect(shell.currentContent?.id, 'chat-c-9-t-3');
-    expect(shell.chatNavigation.value?.messageId, 45);
-  });
-
-  test(
-    'a superseded native Chat open cannot overwrite the latest intent',
-    () async {
-      final channelGate = Completer<void>();
-      final gatedApi = FakeDiscourseApi(
-        user: _user,
-        feeds: const {'/latest.json': []},
-        chatChannelGate: channelGate,
-        chatChannelsBySite: {
-          _site: ChatChannels(public: [_channel(9)]),
-        },
-      );
-      final gated = ShellController(
-        plugins: installedPlugins,
-        instanceStore: FakeInstanceStore([
-          instance('meta.discourse.org').copyWith(user: _user),
-        ]),
-        api: gatedApi,
-        authenticator: FakeAuthenticator()..keys[_site] = 'meta-key',
-        drafts: FakeDraftStore(),
-        trackers: FakeSiteTracker.reset(),
-        updater: FakeUpdater(),
-        updateStore: FakeUpdateStore(),
-        ownsApi: false,
-      );
-      addTearDown(gated.dispose);
-      await gated.load();
-
-      final first = gated.openChatUrl('$_site/chat/c/-/9/44');
-      expect(
-        await gated.openChatUrl('https://unknown.example/chat/c/-/9'),
-        isFalse,
-      );
-      channelGate.complete();
-
-      expect(await first, isFalse);
-      expect(gated.currentContent?.id, 'latest');
-      expect(gated.chatNavigation.value, isNull);
-    },
-  );
-
-  test('a different thread replaces the previous thread history', () async {
-    await shell.openChatUrl('$_site/chat/c/-/9/t/3');
-    await shell.openChatUrl('$_site/chat/c/-/9/t/4');
-
-    expect(shell.contentStack.map((route) => route.id), [
-      'chat-c-9',
-      'chat-c-9-t-4',
-    ]);
-    expect(shell.handleBack(), isTrue);
-    expect(shell.currentContent?.id, 'chat-c-9');
-  });
-
-  test('cross-site Chat links switch only after access is confirmed', () async {
-    expect(await shell.openChatUrl('$_otherSite/chat/c/-/12/88'), isTrue);
-
-    expect(shell.currentInstance?.url, _otherSite);
-    expect(shell.currentContent?.id, 'chat-c-12');
-    expect(shell.chatNavigation.value?.messageId, 88);
-  });
-
-  test(
-    'unknown sites and channels retain browser fallback semantics',
-    () async {
-      expect(
-        await shell.openChatUrl('https://unknown.example/chat/c/-/9'),
-        isFalse,
-      );
-      expect(await shell.openChatUrl('$_otherSite/chat/c/-/99'), isFalse);
-
-      expect(shell.currentInstance?.url, _site);
-      expect(shell.currentContent?.id, 'latest');
-      expect(shell.chatNavigation.value, isNull);
-    },
-  );
-
-  test('an inaccessible thread retains browser fallback semantics', () async {
-    expect(await shell.openChatUrl('$_site/chat/c/-/9/t/99/44'), isFalse);
-
-    expect(shell.currentInstance?.url, _site);
-    expect(shell.currentContent?.id, 'latest');
-    expect(shell.chatNavigation.value, isNull);
-  });
-
-  test('a persisted thread route restores and hydrates its channel', () async {
-    final restoredApi = FakeDiscourseApi(
-      user: _user,
-      feeds: const {'/latest.json': []},
-      chatChannelsBySite: {
-        _site: ChatChannels(public: [_channel(9)], direct: const []),
-      },
-    );
-    final restored = ShellController(
-      plugins: installedPlugins,
-      instanceStore: FakeInstanceStore([
-        instance('meta.discourse.org').copyWith(user: _user),
-      ]),
-      api: restoredApi,
-      authenticator: FakeAuthenticator()..keys[_site] = 'meta-key',
-      drafts: FakeDraftStore(),
-      forumTabs: FakeForumTabStore([
-        ForumWorkspace(
-          siteUrl: _site,
-          accountIdentity: 'user:reader',
-          tabs: [
-            ForumTab(
-              id: 'persisted-tab',
-              rootDestinationId: 'chat-c-9',
-              contentStack: const [
-                ContentRoute(
-                  id: 'chat-c-9',
-                  title: 'Support',
-                  icon: DIcons.comment,
-                ),
-                ContentRoute(
-                  id: 'chat-c-9-t-3',
-                  title: 'Thread',
-                  icon: DIcons.comments,
-                ),
-              ],
-            ),
-          ],
-          activeTabId: 'persisted-tab',
-        ),
-      ]),
-      trackers: FakeSiteTracker.reset(),
-      updater: FakeUpdater(),
-      updateStore: FakeUpdateStore(),
-      ownsApi: false,
-    );
-    addTearDown(restored.dispose);
-
-    await restored.load();
+    // `load` starts account refresh in the background; let its Chat hydration
+    // finish before a randomized widget test owns the runner's first frame.
     for (
       var attempt = 0;
-      attempt < 20 && restored.chat.channel(_site, 9) == null;
+      attempt < 20 && !shell.chat.channelsLoaded(_site);
       attempt++
     ) {
       await Future<void>.delayed(Duration.zero);
     }
-
-    expect(restored.currentContent?.id, 'chat-c-9-t-3');
-    expect(restoredApi.chatChannelsRequested, contains(_site));
-    expect(restored.chat.channel(_site, 9)?.title, 'Support');
   });
 
-  testWidgets('generic openLink dispatches Chat before browser fallback', (
-    tester,
-  ) async {
-    bool? opened;
-    await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          home: Builder(
-            builder: (context) => TextButton(
-              onPressed: () async {
-                opened = await openLink(context, '/chat/c/-/9/t/3/44');
-              },
-              child: const Text('Open'),
-            ),
-          ),
-        ),
-      ),
-    );
+  group('Chat navigation', () {
+    group('plugin host integration', () {
+      test(
+        'opens a thread route and publishes its target message to the view handoff',
+        () async {
+          expect(
+            shell.pluginSession.require(chatShellService),
+            isNot(isA<ShellController>()),
+          );
+          expect(
+            shell.pluginSession.require(chatBookmarkHostService),
+            isNot(isA<ShellController>()),
+          );
+          expect(
+            shell.pluginSession.require(chatNotificationHostService),
+            isNot(isA<ShellController>()),
+          );
 
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
+          expect(await shell.openChatUrl('$_site/chat/c/-/9/t/3/44'), isTrue);
 
-    expect(opened, isTrue);
-    expect(shell.currentContent?.id, 'chat-c-9-t-3');
-    expect(shell.chatNavigation.value?.messageId, 44);
-  });
+          expect(shell.destinationId, 'chat-c-9');
+          expect(shell.contentStack.map((route) => route.id), [
+            'chat-c-9',
+            'chat-c-9-t-3',
+          ]);
+          expect(shell.currentContent?.title, 'Thread');
+          expect(shell.currentContent?.subtitle, 'Support');
+          expect(shell.chatNavigation.value?.siteUrl, _site);
+          expect(
+            shell.chatNavigation.value?.route,
+            ChatRoute.thread(channelId: 9, threadId: 3),
+          );
+          expect(shell.chatNavigation.value?.messageId, 44);
+        },
+      );
 
-  testWidgets('a Chat notification opens natively before browser fallback', (
-    tester,
-  ) async {
-    var opened = false;
-    await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          home: Scaffold(
-            body: PluginNotificationsSection(
+      test('rejects foreign composer target namespaces', () {
+        final composerHost = shell.pluginSession.require(
+          chatComposerHostService,
+        );
+        const foreignTarget = ComposerTargetKind(
+          owner: PluginId('foreign'),
+          name: 'message',
+        );
+
+        expect(
+          () => composerHost.buildComposer(
+            const ComposerTargetRequest(
+              kind: foreignTarget,
               siteUrl: _site,
-              onOpened: () => opened = true,
-              host: shell,
-              source: chatNotificationFeed,
+              title: 'Foreign message',
             ),
           ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byType(NotificationRow));
-    await tester.pumpAndSettle();
-
-    expect(opened, isTrue);
-    expect(api.markedRead, [51]);
-    expect(shell.currentContent?.id, 'chat-c-9-t-3');
-    expect(shell.chatNavigation.value?.messageId, 44);
-  });
-
-  testWidgets('My threads appears, loads account rows, and opens a thread', (
-    tester,
-  ) async {
-    await shell.chat.loadChannels(_site);
-    shell.accountActivity.applyCounts(_site, (_) => chatNotificationTotals());
-    expect(shell.currentTotals?.hasChatEnabled, isTrue);
-    expect(shell.chat.hasThreads(_site), isTrue);
-    late List<SidebarSection> sections;
-    await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: PluginUiScope.own(
-            chatPluginId,
-            Builder(
-              builder: (context) {
-                sections = const ChatPlugin().sidebarSections(context);
-                return const SizedBox.shrink();
-              },
+          throwsA(
+            isA<PluginInstallationException>().having(
+              (error) => error.message,
+              'message',
+              allOf(contains('chat'), contains(foreignTarget.id)),
             ),
           ),
-        ),
-      ),
-    );
-    expect(
-      sections
-          .expand((section) => section.destinations)
-          .map((destination) => destination.id),
-      contains(ChatPlugin.myThreadsRouteId),
-    );
+        );
 
-    shell.selectDestination(
-      const SidebarDestination(
-        id: ChatPlugin.myThreadsRouteId,
-        label: 'My threads',
-        icon: DIcons.comments,
-      ),
-    );
-    await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: Scaffold(body: MainContent(layout: ShellLayout.forWidth(900))),
-        ),
-      ),
-    );
-    for (
-      var attempt = 0;
-      attempt < 20 && find.text('Support thread').evaluate().isEmpty;
-      attempt++
-    ) {
-      await tester.pump();
-    }
+        final composer = composerHost.buildComposer(
+          const ComposerTargetRequest(
+            kind: ChatPlugin.messageComposerTarget,
+            siteUrl: _site,
+            title: 'Support',
+            data: {ChatPlugin.composerChannelId: 9},
+          ),
+        );
+        expect(composer, isNotNull);
+        final activeComposer = composer!;
+        addTearDown(activeComposer.dispose);
+        expect(
+          activeComposer.target.policy?.kind,
+          ChatPlugin.messageComposerTarget,
+        );
+        expect(activeComposer.target.draftKey, 'chat_9');
+      });
 
-    expect(find.text('Support thread'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('chat-my-thread-unread-3')),
-      findsOneWidget,
-    );
+      test('rejects foreign and undeclared notification feeds', () async {
+        final notificationHost = shell.pluginSession.require(
+          chatNotificationHostService,
+        );
+        const foreignFeedId = PluginNotificationFeedId(
+          owner: PluginId('foreign'),
+          name: 'notifications',
+        );
+        const foreignFeed = PluginNotificationFeedSource(
+          id: foreignFeedId,
+          filterByTypes: [NotificationTypeName('chat_message')],
+          reconnectMessage: 'Reconnect.',
+          failureMessage: 'Failed.',
+          emptyMessage: 'Empty.',
+        );
 
-    await tester.tap(find.byKey(const ValueKey('chat-my-thread-3')));
-    await tester.pump();
-    expect(shell.currentContent?.id, 'chat-c-9-t-3');
-    expect(shell.contentStack.map((route) => route.id), [
-      ChatPlugin.myThreadsRouteId,
-      'chat-c-9-t-3',
-    ]);
-    expect(shell.handleBack(), isTrue);
-    expect(shell.currentContent?.id, ChatPlugin.myThreadsRouteId);
-  });
+        for (final access in <void Function()>[
+          () => notificationHost.notificationFeedListenable(foreignFeedId),
+          () => notificationHost.notificationFeedFor(foreignFeedId, _site),
+          () => notificationHost.loadPluginNotificationFeed(_site, foreignFeed),
+        ]) {
+          expect(
+            access,
+            throwsA(
+              isA<PluginInstallationException>().having(
+                (error) => error.message,
+                'message',
+                allOf(contains('chat'), contains(foreignFeedId.id)),
+              ),
+            ),
+          );
+        }
 
-  testWidgets('Direct messages + opens new and existing DMs from search', (
-    tester,
-  ) async {
-    await shell.chat.loadChannels(_site);
-    shell.accountActivity.applyCounts(_site, (_) => chatNotificationTotals());
-    late SidebarSection directMessages;
-    await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: PluginUiScope.own(
-            chatPluginId,
-            Scaffold(
-              body: Builder(
-                builder: (context) {
-                  directMessages = const ChatPlugin()
-                      .sidebarSections(context)
-                      .singleWhere(
-                        (section) => section.id == 'direct-messages',
-                      );
-                  return const SizedBox.shrink();
-                },
+        const undeclaredFeedId = PluginNotificationFeedId(
+          owner: PluginId('chat'),
+          name: 'undeclared',
+        );
+        expect(
+          () => notificationHost.notificationFeedFor(undeclaredFeedId, _site),
+          throwsA(
+            isA<PluginInstallationException>().having(
+              (error) => error.message,
+              'message',
+              allOf(contains('chat'), contains(undeclaredFeedId.id)),
+            ),
+          ),
+        );
+        expect(
+          () => notificationHost.loadPluginNotificationFeed(
+            _site,
+            const PluginNotificationFeedSource(
+              id: PluginNotificationFeedId(
+                owner: PluginId('chat'),
+                name: 'notifications',
+              ),
+              filterByTypes: [NotificationTypeName('chat_message')],
+              reconnectMessage: 'Different reconnect message.',
+              failureMessage: 'Different failure message.',
+              emptyMessage: 'Different empty message.',
+            ),
+          ),
+          throwsA(isA<PluginInstallationException>()),
+        );
+
+        expect(
+          () => notificationHost.notificationFeedListenable(
+            chatNotificationFeed.id,
+          ),
+          returnsNormally,
+        );
+        await notificationHost.loadPluginNotificationFeed(
+          _site,
+          chatNotificationFeed,
+        );
+        expect(
+          notificationHost
+              .notificationFeedFor(chatNotificationFeed.id, _site)
+              .notifications
+              .map((notification) => notification.id),
+          [51],
+        );
+      });
+    });
+
+    group('native URL routing', () {
+      test(
+        'retargets the same route without duplicating its stack entry',
+        () async {
+          await shell.openChatUrl('$_site/chat/c/-/9/t/3/44');
+          final stack = shell.contentStack;
+
+          expect(await shell.openChatUrl('$_site/chat/c/-/9/t/3/45'), isTrue);
+
+          expect(shell.contentStack, same(stack));
+          expect(shell.chatNavigation.value?.messageId, 45);
+        },
+      );
+
+      test('reactivates compact content for same-route links', () async {
+        expect(await shell.openChatUrl('$_site/chat/c/-/9/t/3/44'), isTrue);
+        shell.selectInstance(0);
+        expect(shell.mobilePane, MobilePane.sidebar);
+
+        expect(await shell.openChatUrl('$_site/chat/c/-/9/t/3/45'), isTrue);
+
+        expect(shell.mobilePane, MobilePane.content);
+        expect(shell.currentContent?.id, 'chat-c-9-t-3');
+        expect(shell.chatNavigation.value?.messageId, 45);
+      });
+
+      test(
+        'preserves the latest intent when an earlier native open completes late',
+        () async {
+          final channelGate = Completer<void>();
+          final gatedApi = FakeDiscourseApi(
+            user: _user,
+            feeds: const {'/latest.json': []},
+            chatChannelGate: channelGate,
+            chatChannelsBySite: {
+              _site: ChatChannels(public: [_channel(9)]),
+            },
+          );
+          final gated = ShellController(
+            plugins: installedPlugins,
+            instanceStore: FakeInstanceStore([
+              instance('meta.discourse.org').copyWith(user: _user),
+            ]),
+            api: gatedApi,
+            authenticator: FakeAuthenticator()..keys[_site] = 'meta-key',
+            drafts: FakeDraftStore(),
+            trackers: FakeSiteTracker.reset(),
+            updater: FakeUpdater(),
+            updateStore: FakeUpdateStore(),
+            ownsApi: false,
+          );
+          addTearDown(gated.dispose);
+          await gated.load();
+
+          final first = gated.openChatUrl('$_site/chat/c/-/9/44');
+          expect(
+            await gated.openChatUrl('https://unknown.example/chat/c/-/9'),
+            isFalse,
+          );
+          channelGate.complete();
+
+          expect(await first, isFalse);
+          expect(gated.currentContent?.id, 'latest');
+          expect(gated.chatNavigation.value, isNull);
+        },
+      );
+
+      test(
+        'replaces previous thread history when the thread changes',
+        () async {
+          await shell.openChatUrl('$_site/chat/c/-/9/t/3');
+          await shell.openChatUrl('$_site/chat/c/-/9/t/4');
+
+          expect(shell.contentStack.map((route) => route.id), [
+            'chat-c-9',
+            'chat-c-9-t-4',
+          ]);
+          expect(shell.handleBack(), isTrue);
+          expect(shell.currentContent?.id, 'chat-c-9');
+        },
+      );
+
+      test('switches sites only after channel access is confirmed', () async {
+        expect(await shell.openChatUrl('$_otherSite/chat/c/-/12/88'), isTrue);
+
+        expect(shell.currentInstance?.url, _otherSite);
+        expect(shell.currentContent?.id, 'chat-c-12');
+        expect(shell.chatNavigation.value?.messageId, 88);
+      });
+
+      test(
+        'preserves browser fallback for unknown sites and channels',
+        () async {
+          expect(
+            await shell.openChatUrl('https://unknown.example/chat/c/-/9'),
+            isFalse,
+          );
+          expect(await shell.openChatUrl('$_otherSite/chat/c/-/99'), isFalse);
+
+          expect(shell.currentInstance?.url, _site);
+          expect(shell.currentContent?.id, 'latest');
+          expect(shell.chatNavigation.value, isNull);
+        },
+      );
+
+      test('preserves browser fallback for an inaccessible thread', () async {
+        expect(await shell.openChatUrl('$_site/chat/c/-/9/t/99/44'), isFalse);
+
+        expect(shell.currentInstance?.url, _site);
+        expect(shell.currentContent?.id, 'latest');
+        expect(shell.chatNavigation.value, isNull);
+      });
+
+      test(
+        'restores a persisted thread route and hydrates its channel',
+        () async {
+          final restoredApi = FakeDiscourseApi(
+            user: _user,
+            feeds: const {'/latest.json': []},
+            chatChannelsBySite: {
+              _site: ChatChannels(public: [_channel(9)], direct: const []),
+            },
+          );
+          final restored = ShellController(
+            plugins: installedPlugins,
+            instanceStore: FakeInstanceStore([
+              instance('meta.discourse.org').copyWith(user: _user),
+            ]),
+            api: restoredApi,
+            authenticator: FakeAuthenticator()..keys[_site] = 'meta-key',
+            drafts: FakeDraftStore(),
+            forumTabs: FakeForumTabStore([
+              ForumWorkspace(
+                siteUrl: _site,
+                accountIdentity: 'user:reader',
+                tabs: [
+                  ForumTab(
+                    id: 'persisted-tab',
+                    rootDestinationId: 'chat-c-9',
+                    contentStack: const [
+                      ContentRoute(
+                        id: 'chat-c-9',
+                        title: 'Support',
+                        icon: DIcons.comment,
+                      ),
+                      ContentRoute(
+                        id: 'chat-c-9-t-3',
+                        title: 'Thread',
+                        icon: DIcons.comments,
+                      ),
+                    ],
+                  ),
+                ],
+                activeTabId: 'persisted-tab',
+              ),
+            ]),
+            trackers: FakeSiteTracker.reset(),
+            updater: FakeUpdater(),
+            updateStore: FakeUpdateStore(),
+            ownsApi: false,
+          );
+          addTearDown(restored.dispose);
+
+          await restored.load();
+          for (
+            var attempt = 0;
+            attempt < 20 && restored.chat.channel(_site, 9) == null;
+            attempt++
+          ) {
+            await Future<void>.delayed(Duration.zero);
+          }
+
+          expect(restored.currentContent?.id, 'chat-c-9-t-3');
+          expect(restoredApi.chatChannelsRequested, contains(_site));
+          expect(restored.chat.channel(_site, 9)?.title, 'Support');
+        },
+      );
+    });
+
+    group('entry-point dispatch', () {
+      testWidgets('routes generic openLink to Chat before browser fallback', (
+        tester,
+      ) async {
+        bool? opened;
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              home: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () async {
+                    opened = await openLink(context, '/chat/c/-/9/t/3/44');
+                  },
+                  child: const Text('Open'),
+                ),
               ),
             ),
           ),
-        ),
-      ),
-    );
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
 
-    expect(directMessages.destinations, isEmpty);
-    expect(directMessages.actionLabel, 'Start a direct message');
-    directMessages.onAction!();
-    await tester.pumpAndSettle();
+        expect(opened, isTrue);
+        expect(shell.currentContent?.id, 'chat-c-9-t-3');
+        expect(shell.chatNavigation.value?.messageId, 44);
+      });
 
-    expect(
-      find.byKey(const ValueKey('chat-new-direct-message-dialog')),
-      findsOneWidget,
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('chat-new-direct-message-search')),
-      'sam',
-    );
-    await tester.pump(const Duration(milliseconds: 350));
-    await tester.pumpAndSettle();
-
-    expect(api.chatDirectMessageSearchesRequested, ['sam']);
-    await tester.tap(
-      find.byKey(const ValueKey('chat-new-direct-message-user-sam')),
-    );
-    await tester.pumpAndSettle();
-
-    expect(api.directMessageChannelsRequested, ['sam']);
-    expect(shell.currentContent?.id, 'chat-c-55');
-    expect(
-      find.byKey(const ValueKey('chat-new-direct-message-dialog')),
-      findsNothing,
-    );
-
-    directMessages.onAction!();
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('chat-new-direct-message-search')),
-      'previous',
-    );
-    await tester.pump(const Duration(milliseconds: 350));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('chat-new-direct-message-channel-56')),
-    );
-    await tester.pumpAndSettle();
-
-    expect(api.chatDirectMessageSearchesRequested, ['sam', 'previous']);
-    expect(api.directMessageChannelsRequested, ['sam']);
-    expect(shell.currentContent?.id, 'chat-c-56');
-  });
-
-  testWidgets('Direct messages + creates a named group from users and groups', (
-    tester,
-  ) async {
-    await shell.chat.loadChannels(_site);
-    shell.accountActivity.applyCounts(_site, (_) => chatNotificationTotals());
-    late SidebarSection directMessages;
-    await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: PluginUiScope.own(
-            chatPluginId,
-            Scaffold(
-              body: Builder(
-                builder: (context) {
-                  directMessages = const ChatPlugin()
-                      .sidebarSections(context)
-                      .singleWhere(
-                        (section) => section.id == 'direct-messages',
-                      );
-                  return const SizedBox.shrink();
-                },
+      testWidgets('opens Chat notifications natively before browser fallback', (
+        tester,
+      ) async {
+        var opened = false;
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              home: Scaffold(
+                body: PluginNotificationsSection(
+                  siteUrl: _site,
+                  onOpened: () => opened = true,
+                  host: shell,
+                  source: chatNotificationFeed,
+                ),
               ),
             ),
           ),
-        ),
-      ),
-    );
+        );
+        await tester.pumpAndSettle();
 
-    directMessages.onAction!();
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('chat-new-group-direct-message')),
-    );
-    await tester.pumpAndSettle();
+        await tester.tap(find.byType(NotificationRow));
+        await tester.pumpAndSettle();
 
-    expect(find.text('New group chat'), findsOneWidget);
-    expect(
-      tester
-          .widget<DButton>(
-            find.byKey(const ValueKey('chat-create-group-direct-message')),
-          )
-          .onPressed,
-      isNull,
-    );
+        expect(opened, isTrue);
+        expect(api.markedRead, [51]);
+        expect(shell.currentContent?.id, 'chat-c-9-t-3');
+        expect(shell.chatNavigation.value?.messageId, 44);
+      });
+    });
 
-    await tester.enterText(
-      find.byKey(const ValueKey('chat-new-direct-message-search')),
-      'sam',
-    );
-    await tester.pump(const Duration(milliseconds: 350));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('chat-new-direct-message-user-sam')),
-    );
-    await tester.pump();
-    expect(
-      find.byKey(const ValueKey('chat-new-group-member-u-2')),
-      findsOneWidget,
-    );
+    group('sidebar workflows', () {
+      testWidgets('show My threads, load account rows, and open a thread', (
+        tester,
+      ) async {
+        await shell.chat.loadChannels(_site);
+        shell.accountActivity.applyCounts(
+          _site,
+          (_) => chatNotificationTotals(),
+        );
+        expect(shell.currentTotals?.hasChatEnabled, isTrue);
+        expect(shell.chat.hasThreads(_site), isTrue);
+        late List<SidebarSection> sections;
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: PluginUiScope.own(
+                chatPluginId,
+                Builder(
+                  builder: (context) {
+                    sections = const ChatPlugin().sidebarSections(context);
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+        expect(
+          sections
+              .expand((section) => section.destinations)
+              .map((destination) => destination.id),
+          contains(ChatPlugin.myThreadsRouteId),
+        );
 
-    await tester.enterText(
-      find.byKey(const ValueKey('chat-new-direct-message-search')),
-      'team',
-    );
-    await tester.pump(const Duration(milliseconds: 350));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('chat-new-direct-message-group-moderators')),
-    );
-    await tester.pump();
-    expect(
-      find.byKey(const ValueKey('chat-new-group-member-g-8')),
-      findsOneWidget,
-    );
+        shell.selectDestination(
+          const SidebarDestination(
+            id: ChatPlugin.myThreadsRouteId,
+            label: 'My threads',
+            icon: DIcons.comments,
+          ),
+        );
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: MainContent(layout: ShellLayout.forWidth(900)),
+              ),
+            ),
+          ),
+        );
+        for (
+          var attempt = 0;
+          attempt < 20 && find.text('Support thread').evaluate().isEmpty;
+          attempt++
+        ) {
+          await tester.pump();
+        }
 
-    await tester.enterText(
-      find.byKey(const ValueKey('chat-new-group-name')),
-      'Triage crew',
-    );
-    await tester.tap(
-      find.byKey(const ValueKey('chat-create-group-direct-message')),
-    );
-    await tester.pumpAndSettle();
+        expect(find.text('Support thread'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('chat-my-thread-unread-3')),
+          findsOneWidget,
+        );
 
-    expect(api.directMessageChannelRequests, hasLength(1));
-    final request = api.directMessageChannelRequests.single;
-    expect(request.usernames, ['sam']);
-    expect(request.groups, ['moderators']);
-    expect(request.name, 'Triage crew');
-    expect(request.upsert, isFalse);
-    expect(
-      api.chatDirectMessageSearchRequests.map(
-        (request) => (
-          request.term,
-          request.includeGroups,
-          request.includeDirectMessageChannels,
-        ),
-      ),
-      [('sam', true, false), ('team', true, false)],
-    );
-    expect(shell.currentContent?.id, 'chat-c-57');
-  });
+        await tester.tap(find.byKey(const ValueKey('chat-my-thread-3')));
+        await tester.pump();
+        expect(shell.currentContent?.id, 'chat-c-9-t-3');
+        expect(shell.contentStack.map((route) => route.id), [
+          ChatPlugin.myThreadsRouteId,
+          'chat-c-9-t-3',
+        ]);
+        expect(shell.handleBack(), isTrue);
+        expect(shell.currentContent?.id, ChatPlugin.myThreadsRouteId);
+      });
 
-  testWidgets('channel header opens its live thread list and preserves Back', (
-    tester,
-  ) async {
-    await shell.chat.loadChannels(_site);
-    shell.accountActivity.applyCounts(_site, (_) => chatNotificationTotals());
-    expect(shell.openChatChannel(9), isTrue);
+      testWidgets('open new and existing direct messages from search', (
+        tester,
+      ) async {
+        await shell.chat.loadChannels(_site);
+        shell.accountActivity.applyCounts(
+          _site,
+          (_) => chatNotificationTotals(),
+        );
+        late SidebarSection directMessages;
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: PluginUiScope.own(
+                chatPluginId,
+                Scaffold(
+                  body: Builder(
+                    builder: (context) {
+                      directMessages = const ChatPlugin()
+                          .sidebarSections(context)
+                          .singleWhere(
+                            (section) => section.id == 'direct-messages',
+                          );
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
 
-    await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: Scaffold(body: MainContent(layout: ShellLayout.forWidth(900))),
-        ),
-      ),
-    );
-    await tester.pump();
+        expect(directMessages.destinations, isEmpty);
+        expect(directMessages.actionLabel, 'Start a direct message');
+        directMessages.onAction!();
+        await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('chat-channel-threads-button')),
-      findsOneWidget,
-    );
-    await tester.tap(find.byKey(const ValueKey('chat-channel-threads-button')));
-    await tester.pump();
-    expect(shell.currentContent?.id, ChatPlugin.channelThreadsRouteId(9));
+        expect(
+          find.byKey(const ValueKey('chat-new-direct-message-dialog')),
+          findsOneWidget,
+        );
+        await tester.enterText(
+          find.byKey(const ValueKey('chat-new-direct-message-search')),
+          'sam',
+        );
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
 
-    for (
-      var attempt = 0;
-      attempt < 20 &&
-          find
-              .byKey(const ValueKey('chat-channel-thread-3'))
-              .evaluate()
-              .isEmpty;
-      attempt++
-    ) {
-      await tester.pump();
-    }
-    expect(find.text('Support thread'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('chat-channel-thread-unread-3')),
-      findsOneWidget,
-    );
+        expect(api.chatDirectMessageSearchesRequested, ['sam']);
+        await tester.tap(
+          find.byKey(const ValueKey('chat-new-direct-message-user-sam')),
+        );
+        await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('chat-channel-thread-3')));
-    await tester.pump();
-    expect(shell.contentStack.map((route) => route.id), [
-      'chat-c-9',
-      ChatPlugin.channelThreadsRouteId(9),
-      'chat-c-9-t-3',
-    ]);
+        expect(api.directMessageChannelsRequested, ['sam']);
+        expect(shell.currentContent?.id, 'chat-c-55');
+        expect(
+          find.byKey(const ValueKey('chat-new-direct-message-dialog')),
+          findsNothing,
+        );
 
-    expect(shell.handleBack(), isTrue);
-    await tester.pump();
-    expect(shell.currentContent?.id, ChatPlugin.channelThreadsRouteId(9));
-    expect(find.byKey(const ValueKey('chat-channel-thread-3')), findsOneWidget);
-  });
+        directMessages.onAction!();
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('chat-new-direct-message-search')),
+          'previous',
+        );
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('chat-new-direct-message-channel-56')),
+        );
+        await tester.pumpAndSettle();
 
-  testWidgets('channel header stars and unstars the current channel', (
-    tester,
-  ) async {
-    await shell.chat.loadChannels(_site);
-    expect(shell.openChatChannel(9), isTrue);
+        expect(api.chatDirectMessageSearchesRequested, ['sam', 'previous']);
+        expect(api.directMessageChannelsRequested, ['sam']);
+        expect(shell.currentContent?.id, 'chat-c-56');
+      });
 
-    await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: Scaffold(body: MainContent(layout: ShellLayout.forWidth(900))),
-        ),
-      ),
-    );
-    await tester.pump();
+      testWidgets('create a named group from users and groups', (tester) async {
+        await shell.chat.loadChannels(_site);
+        shell.accountActivity.applyCounts(
+          _site,
+          (_) => chatNotificationTotals(),
+        );
+        late SidebarSection directMessages;
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: PluginUiScope.own(
+                chatPluginId,
+                Scaffold(
+                  body: Builder(
+                    builder: (context) {
+                      directMessages = const ChatPlugin()
+                          .sidebarSections(context)
+                          .singleWhere(
+                            (section) => section.id == 'direct-messages',
+                          );
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
 
-    expect(find.byTooltip('Add to starred channels'), findsOneWidget);
-    await tester.tap(find.byTooltip('Add to starred channels'));
-    await tester.pumpAndSettle();
+        directMessages.onAction!();
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('chat-new-group-direct-message')),
+        );
+        await tester.pumpAndSettle();
 
-    expect(api.chatChannelStarsUpdated, const [(channelId: 9, starred: true)]);
-    expect(shell.chat.channel(_site, 9)?.membership.starred, isTrue);
-    expect(find.byTooltip('Remove from starred channels'), findsOneWidget);
+        expect(find.text('New group chat'), findsOneWidget);
+        expect(
+          tester
+              .widget<DButton>(
+                find.byKey(const ValueKey('chat-create-group-direct-message')),
+              )
+              .onPressed,
+          isNull,
+        );
 
-    await tester.tap(find.byTooltip('Remove from starred channels'));
-    await tester.pumpAndSettle();
-    expect(api.chatChannelStarsUpdated, const [
-      (channelId: 9, starred: true),
-      (channelId: 9, starred: false),
-    ]);
-    expect(shell.chat.channel(_site, 9)?.membership.starred, isFalse);
-  });
+        await tester.enterText(
+          find.byKey(const ValueKey('chat-new-direct-message-search')),
+          'sam',
+        );
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('chat-new-direct-message-user-sam')),
+        );
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey('chat-new-group-member-u-2')),
+          findsOneWidget,
+        );
 
-  test('imperative thread opening selects its owning site', () async {
-    await shell.chat.loadChannels(_otherSite);
+        await tester.enterText(
+          find.byKey(const ValueKey('chat-new-direct-message-search')),
+          'team',
+        );
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(
+            const ValueKey('chat-new-direct-message-group-moderators'),
+          ),
+        );
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey('chat-new-group-member-g-8')),
+          findsOneWidget,
+        );
 
-    shell.openChatThread(
-      siteUrl: _otherSite,
-      channelId: 12,
-      threadId: 7,
-      messageId: 91,
-      focusComposer: true,
-    );
+        await tester.enterText(
+          find.byKey(const ValueKey('chat-new-group-name')),
+          'Triage crew',
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('chat-create-group-direct-message')),
+        );
+        await tester.pumpAndSettle();
 
-    expect(shell.currentInstance?.url, _otherSite);
-    expect(shell.contentStack.map((route) => route.id), [
-      'chat-c-12',
-      'chat-c-12-t-7',
-    ]);
-    expect(shell.chatNavigation.value?.messageId, 91);
-    expect(shell.chatNavigation.value?.focusComposer, isTrue);
+        expect(api.directMessageChannelRequests, hasLength(1));
+        final request = api.directMessageChannelRequests.single;
+        expect(request.usernames, ['sam']);
+        expect(request.groups, ['moderators']);
+        expect(request.name, 'Triage crew');
+        expect(request.upsert, isFalse);
+        expect(
+          api.chatDirectMessageSearchRequests.map(
+            (request) => (
+              request.term,
+              request.includeGroups,
+              request.includeDirectMessageChannels,
+            ),
+          ),
+          [('sam', true, false), ('team', true, false)],
+        );
+        expect(shell.currentContent?.id, 'chat-c-57');
+      });
+    });
+
+    group('channel navigation and controls', () {
+      testWidgets(
+        'open the live thread list from the channel header and preserve Back',
+        (tester) async {
+          await shell.chat.loadChannels(_site);
+          shell.accountActivity.applyCounts(
+            _site,
+            (_) => chatNotificationTotals(),
+          );
+          expect(shell.openChatChannel(9), isTrue);
+
+          await tester.pumpWidget(
+            ShellScope(
+              controller: shell,
+              child: MaterialApp(
+                theme: AppTheme.light,
+                home: Scaffold(
+                  body: MainContent(layout: ShellLayout.forWidth(900)),
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+
+          expect(
+            find.byKey(const ValueKey('chat-channel-threads-button')),
+            findsOneWidget,
+          );
+          await tester.tap(
+            find.byKey(const ValueKey('chat-channel-threads-button')),
+          );
+          await tester.pump();
+          expect(shell.currentContent?.id, ChatPlugin.channelThreadsRouteId(9));
+
+          for (
+            var attempt = 0;
+            attempt < 20 &&
+                find
+                    .byKey(const ValueKey('chat-channel-thread-3'))
+                    .evaluate()
+                    .isEmpty;
+            attempt++
+          ) {
+            await tester.pump();
+          }
+          expect(find.text('Support thread'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('chat-channel-thread-unread-3')),
+            findsOneWidget,
+          );
+
+          await tester.tap(find.byKey(const ValueKey('chat-channel-thread-3')));
+          await tester.pump();
+          expect(shell.contentStack.map((route) => route.id), [
+            'chat-c-9',
+            ChatPlugin.channelThreadsRouteId(9),
+            'chat-c-9-t-3',
+          ]);
+
+          expect(shell.handleBack(), isTrue);
+          await tester.pump();
+          expect(shell.currentContent?.id, ChatPlugin.channelThreadsRouteId(9));
+          expect(
+            find.byKey(const ValueKey('chat-channel-thread-3')),
+            findsOneWidget,
+          );
+        },
+      );
+
+      testWidgets('star and unstar the current channel from its header', (
+        tester,
+      ) async {
+        await shell.chat.loadChannels(_site);
+        expect(shell.openChatChannel(9), isTrue);
+
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: MainContent(layout: ShellLayout.forWidth(900)),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.byTooltip('Add to starred channels'), findsOneWidget);
+        await tester.tap(find.byTooltip('Add to starred channels'));
+        await tester.pumpAndSettle();
+
+        expect(api.chatChannelStarsUpdated, const [
+          (channelId: 9, starred: true),
+        ]);
+        expect(shell.chat.channel(_site, 9)?.membership.starred, isTrue);
+        expect(find.byTooltip('Remove from starred channels'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Remove from starred channels'));
+        await tester.pumpAndSettle();
+        expect(api.chatChannelStarsUpdated, const [
+          (channelId: 9, starred: true),
+          (channelId: 9, starred: false),
+        ]);
+        expect(shell.chat.channel(_site, 9)?.membership.starred, isFalse);
+      });
+
+      test('select the owning site for imperative thread opening', () async {
+        await shell.chat.loadChannels(_otherSite);
+
+        shell.openChatThread(
+          siteUrl: _otherSite,
+          channelId: 12,
+          threadId: 7,
+          messageId: 91,
+          focusComposer: true,
+        );
+
+        expect(shell.currentInstance?.url, _otherSite);
+        expect(shell.contentStack.map((route) => route.id), [
+          'chat-c-12',
+          'chat-c-12-t-7',
+        ]);
+        expect(shell.chatNavigation.value?.messageId, 91);
+        expect(shell.chatNavigation.value?.focusComposer, isTrue);
+      });
+    });
   });
 }

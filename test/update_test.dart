@@ -57,6 +57,18 @@ final class _GatedUpdateStore extends FakeUpdateStore {
   }
 }
 
+final class _OfferThenFailUpdater extends FakeUpdater {
+  _OfferThenFailUpdater() : super(isSupported: true);
+
+  @override
+  Future<UpdateRelease?> check({required UpdateChannel channel}) async {
+    checkCount++;
+    lastCheckedChannel = channel;
+    if (checkCount == 1) return release('1.4.0');
+    throw const UpdateException(UpdateFailure.unreachable);
+  }
+}
+
 void main() {
   // UpdateController defers a notification raised mid-frame to a post-frame
   // callback, which reads SchedulerBinding.instance. These are plain tests
@@ -205,29 +217,23 @@ void main() {
 
       // Nobody asked, so there is nobody to tell and nothing they could do.
       expect(controller.error, isNull);
-      expect(controller.status, isNot(UpdateStatus.failed));
+      expect(controller.status, UpdateStatus.idle);
     });
 
     test(
       'a quiet check that fails leaves an offer already made alone',
       () async {
-        final updater = FakeUpdater(
-          isSupported: true,
-          releases: {UpdateChannel.stable: release('1.4.0')},
-        );
-        final controller = controllerWith(updater: updater);
+        final controller = controllerWith(updater: _OfferThenFailUpdater());
 
         await controller.check();
         expect(controller.status, UpdateStatus.available);
+        expect(controller.available?.version, '1.4.0');
 
-        final failing = controllerWith(
-          updater: FakeUpdater(
-            isSupported: true,
-            checkFailure: const UpdateException(UpdateFailure.unreachable),
-          ),
-        );
-        await failing.check(silent: true);
-        expect(failing.status, UpdateStatus.idle);
+        await controller.check(silent: true);
+
+        expect(controller.status, UpdateStatus.available);
+        expect(controller.available?.version, '1.4.0');
+        expect(controller.error, isNull);
       },
     );
 
@@ -628,8 +634,7 @@ void main() {
       await controller.check();
       await controller.download();
 
-      expect(seen, contains(0.25));
-      expect(seen, contains(0.75));
+      expect(seen, [0, 0.25, 0.5, 0.75]);
     });
 
     test(
@@ -651,7 +656,7 @@ void main() {
 
         // Entering downloading, one move to 50%, one to 75%, one to
         // readyToInstall. The three redundant reports are dropped.
-        expect(notifications, lessThanOrEqualTo(4));
+        expect(notifications, 4);
       },
     );
   });

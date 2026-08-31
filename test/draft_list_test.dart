@@ -58,479 +58,514 @@ const _draft = UserDraft(
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('the wide New topic button has core text and icon', (
-    tester,
-  ) async {
-    await _pump(tester);
+  group('topic creation controls', () {
+    testWidgets('show the core label, icon, colors, and shortcut when wide', (
+      tester,
+    ) async {
+      await _pump(tester);
 
-    final button = tester.widget<FilledButton>(
-      find.byKey(TopicCreateButton.buttonKey),
-    );
-    final theme = Theme.of(
-      tester.element(find.byKey(TopicCreateButton.buttonKey)),
-    );
-    expect(find.text('New topic'), findsOneWidget);
-    expect(
-      button.style?.backgroundColor?.resolve(<WidgetState>{}),
-      theme.colorScheme.primary,
-    );
-    expect(
-      button.style?.foregroundColor?.resolve(<WidgetState>{}),
-      theme.colorScheme.onPrimary,
-    );
-    expect(
-      tester
-          .widget<DTooltip>(
-            find.ancestor(
-              of: find.byKey(TopicCreateButton.buttonKey),
-              matching: find.byType(DTooltip),
-            ),
-          )
-          .shortcut,
-      const DShortcut(newTopicShortcut),
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(TopicCreateButton.buttonKey),
-        matching: find.byWidgetPredicate(
-          (widget) => widget is DIcon && widget.icon == DIcons.farPenToSquare,
-        ),
-      ),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('the New topic text is hidden only below the small breakpoint', (
-    tester,
-  ) async {
-    await _pump(tester, size: const Size(390, 844));
-    await tester.tap(find.byKey(const ValueKey('latest')));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(TopicCreateButton.buttonKey), findsOneWidget);
-    expect(find.text('New topic'), findsNothing);
-    expect(
-      find.ancestor(
-        of: find.byKey(TopicCreateButton.buttonKey),
-        matching: find.byType(DTooltip),
-      ),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('the attached menu loads and resumes a recent draft', (
-    tester,
-  ) async {
-    final fixture = await _pump(tester);
-
-    expect(fixture.api.userDraftRequests, isEmpty);
-    await tester.tap(find.byKey(TopicCreateButton.draftsButtonKey));
-    await tester.pumpAndSettle();
-
-    expect(fixture.api.userDraftRequests, [
-      (siteUrl: _siteUrl, offset: 0, limit: 30),
-    ]);
-    final row = find.byKey(const ValueKey('recent-draft-new_topic'));
-    expect(row, findsOneWidget);
-    expect(
-      find.descendant(
-        of: row,
-        matching: find.byWidgetPredicate(
-          (widget) => widget is DIcon && widget.icon == DIcons.layerGroup,
-        ),
-      ),
-      findsOneWidget,
-    );
-
-    await tester.tap(row);
-    await tester.pumpAndSettle();
-
-    expect(find.byType(ComposerPanel), findsOneWidget);
-    final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
-    expect(shell.visibleComposer?.title.text, 'Native :sparkles: drafts page');
-    expect(shell.visibleComposer?.draftSequence, 4);
-  });
-
-  testWidgets('the attached drafts chevron closes an open menu', (
-    tester,
-  ) async {
-    final fixture = await _pump(tester);
-    final button = find.byKey(TopicCreateButton.draftsButtonKey);
-    final row = find.byKey(const ValueKey('recent-draft-new_topic'));
-
-    await tester.tap(button);
-    await tester.pumpAndSettle();
-
-    expect(row, findsOneWidget);
-    expect(fixture.api.userDraftRequests, hasLength(1));
-
-    await tester.tap(button);
-    await tester.pumpAndSettle();
-
-    expect(row, findsNothing);
-    expect(fixture.api.userDraftRequests, hasLength(1));
-  });
-
-  testWidgets('the recent menu matches core draft icons and four-row limit', (
-    tester,
-  ) async {
-    final drafts = [
-      _draft,
-      const UserDraft(
-        key: 'new_private_message_1',
-        sequence: 5,
-        data: ComposerDraft(reply: 'Private draft', title: 'A message'),
-      ),
-      for (var index = 1; index <= 4; index++)
-        UserDraft(
-          key: 'topic_$index',
-          sequence: index,
-          data: ComposerDraft(reply: 'Reply $index'),
-          topicId: index,
-          title: 'Reply draft $index',
-          slug: 'reply-draft-$index',
-        ),
-    ];
-    await _pump(tester, draftCount: drafts.length, userDrafts: drafts);
-
-    await tester.tap(find.byKey(TopicCreateButton.draftsButtonKey));
-    await tester.pumpAndSettle();
-
-    final privateRow = find.byKey(
-      const ValueKey('recent-draft-new_private_message_1'),
-    );
-    final replyRow = find.byKey(const ValueKey('recent-draft-topic_1'));
-    expect(privateRow, findsOneWidget);
-    expect(replyRow, findsOneWidget);
-    expect(
-      find.descendant(
-        of: privateRow,
-        matching: find.byWidgetPredicate(
-          (widget) => widget is DIcon && widget.icon == DIcons.envelope,
-        ),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: replyRow,
-        matching: find.byWidgetPredicate(
-          (widget) => widget is DIcon && widget.icon == DIcons.reply,
-        ),
-      ),
-      findsOneWidget,
-    );
-    expect(find.byKey(const ValueKey('recent-draft-topic_3')), findsNothing);
-    expect(find.text('+2 other drafts'), findsOneWidget);
-    expect(find.text('view all drafts'), findsOneWidget);
-
-    await tester.tap(find.text('view all drafts'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(DraftListView), findsOneWidget);
-  });
-
-  testWidgets('the sidebar shows the draft count as plain trailing text', (
-    tester,
-  ) async {
-    await _pump(tester);
-
-    final count = find.descendant(
-      of: find.byType(InstanceSidebar),
-      matching: find.text('1'),
-    );
-
-    expect(count, findsOneWidget);
-    Object? parent;
-    tester.element(count).visitAncestorElements((element) {
-      parent = element.widget;
-      return false;
-    });
-    expect(parent, isA<Row>());
-  });
-
-  testWidgets('the sidebar opens the account-backed drafts page', (
-    tester,
-  ) async {
-    final fixture = await _pump(tester);
-
-    await tester.tap(
-      find.descendant(
-        of: find.byType(InstanceSidebar),
-        matching: find.text('Drafts'),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.byType(DraftListView), findsOneWidget);
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is TopicTitle &&
-            widget.title == 'Native :sparkles: drafts page',
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byType(DraftListView),
-        matching: find.text('Support'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is TopicTitle &&
-            widget.title == 'A draft :smiley: from another device',
-      ),
-      findsOneWidget,
-    );
-    expect(
-      tester
-          .widgetList<SiteEmojiImage>(find.byType(SiteEmojiImage))
-          .map((emoji) => emoji.name),
-      ['sparkles', 'smiley'],
-    );
-    expect(find.byTooltip('Edit draft'), findsOneWidget);
-    expect(find.byTooltip('Remove draft'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byType(DraftListView),
-        matching: find.byType(UserMenuAvatar),
-      ),
-      findsNothing,
-    );
-    expect(fixture.api.userDraftRequests, [
-      (siteUrl: _siteUrl, offset: 0, limit: 30),
-    ]);
-  });
-
-  testWidgets('the drafts page uses a draft-row skeleton while loading', (
-    tester,
-  ) async {
-    final gate = Completer<void>();
-    await _pump(tester, userDraftGate: gate);
-    final semantics = tester.ensureSemantics();
-
-    await tester.tap(
-      find.descendant(
-        of: find.byType(InstanceSidebar),
-        matching: find.text('Drafts'),
-      ),
-    );
-    await tester.pump();
-
-    expect(
-      find.byKey(const ValueKey('draft-list-loading-skeleton')),
-      findsOneWidget,
-    );
-    expect(
-      tester
-          .getSize(
-            find.byKey(const ValueKey('draft-list-loading-skeleton-content')),
-          )
-          .height,
-      greaterThanOrEqualTo(
+      final button = tester.widget<FilledButton>(
+        find.byKey(TopicCreateButton.buttonKey),
+      );
+      final theme = Theme.of(
+        tester.element(find.byKey(TopicCreateButton.buttonKey)),
+      );
+      expect(find.text('New topic'), findsOneWidget);
+      expect(
+        button.style?.backgroundColor?.resolve(<WidgetState>{}),
+        theme.colorScheme.primary,
+      );
+      expect(
+        button.style?.foregroundColor?.resolve(<WidgetState>{}),
+        theme.colorScheme.onPrimary,
+      );
+      expect(
         tester
-                .getSize(
-                  find.byKey(const ValueKey('draft-list-loading-skeleton')),
-                )
-                .height -
-            36,
-      ),
-    );
-    final skeletonRows = find.descendant(
-      of: find.byKey(const ValueKey('draft-list-loading-skeleton')),
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is ConstrainedBox &&
-            widget.constraints.minHeight == DraftListView.wideRowMinimumHeight,
-      ),
-    );
-    expect(skeletonRows, findsWidgets);
-    expect(
-      tester.getSize(skeletonRows.first).height,
-      greaterThanOrEqualTo(DraftListView.wideRowMinimumHeight),
-    );
-    expect(find.bySemanticsLabel('Loading drafts'), findsOneWidget);
+            .widget<DTooltip>(
+              find.ancestor(
+                of: find.byKey(TopicCreateButton.buttonKey),
+                matching: find.byType(DTooltip),
+              ),
+            )
+            .shortcut,
+        const DShortcut(newTopicShortcut),
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(TopicCreateButton.buttonKey),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.icon == DIcons.farPenToSquare,
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
 
-    gate.complete();
-    await tester.pumpAndSettle();
+    testWidgets('hide only the label below the small breakpoint', (
+      tester,
+    ) async {
+      await _pump(tester, size: const Size(390, 844));
+      await tester.tap(find.byKey(const ValueKey('latest')));
+      await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('draft-list-loading-skeleton')),
-      findsNothing,
-    );
-    expect(find.byTooltip('Edit draft'), findsOneWidget);
-    final draftRow = find.ancestor(
-      of: find.byTooltip('Edit draft'),
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is ConstrainedBox &&
-            widget.constraints.minHeight == DraftListView.wideRowMinimumHeight,
-      ),
-    );
-    expect(
-      tester.getSize(draftRow.first).height,
-      greaterThanOrEqualTo(DraftListView.wideRowMinimumHeight),
-    );
-    semantics.dispose();
+      expect(find.byKey(TopicCreateButton.buttonKey), findsOneWidget);
+      expect(find.text('New topic'), findsNothing);
+      expect(
+        find.ancestor(
+          of: find.byKey(TopicCreateButton.buttonKey),
+          matching: find.byType(DTooltip),
+        ),
+        findsOneWidget,
+      );
+    });
   });
 
-  testWidgets('compact draft actions are 44 pixel keyboard targets', (
-    tester,
-  ) async {
-    await _pump(tester, size: const Size(390, 844));
-    final controller = ShellScope.read(
-      tester.element(find.byType(MaterialApp)),
-    );
-    controller.openDrafts(_siteUrl);
-    await tester.pumpAndSettle();
+  group('recent-draft menu', () {
+    testWidgets('loads and resumes a recent draft', (tester) async {
+      final fixture = await _pump(tester);
 
-    final edit = find.byTooltip('Edit draft');
-    final remove = find.byTooltip('Remove draft');
-    expect(tester.getSize(edit), const Size.square(44));
-    expect(tester.getSize(remove), const Size.square(44));
-    final row = find.ancestor(
-      of: edit,
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is ConstrainedBox &&
-            widget.constraints.minHeight ==
-                DraftListView.compactRowMinimumHeight,
-      ),
-    );
-    expect(
-      tester.getSize(row.first).height,
-      greaterThanOrEqualTo(DraftListView.compactRowMinimumHeight),
-    );
+      expect(fixture.api.userDraftRequests, isEmpty);
+      await tester.tap(find.byKey(TopicCreateButton.draftsButtonKey));
+      await tester.pumpAndSettle();
 
-    await _focusDraftAction(tester, remove);
-    await tester.sendKeyEvent(LogicalKeyboardKey.space);
-    await tester.pumpAndSettle();
+      expect(fixture.api.userDraftRequests, [
+        (siteUrl: _siteUrl, offset: 0, limit: 30),
+      ]);
+      final row = find.byKey(const ValueKey('recent-draft-new_topic'));
+      expect(row, findsOneWidget);
+      expect(
+        find.descendant(
+          of: row,
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.icon == DIcons.layerGroup,
+          ),
+        ),
+        findsOneWidget,
+      );
 
-    expect(find.text('Remove draft?'), findsOneWidget);
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
+      await tester.tap(row);
+      await tester.pumpAndSettle();
 
-    await _focusDraftAction(tester, edit);
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
+      expect(
+        shell.visibleComposer?.title.text,
+        'Native :sparkles: drafts page',
+      );
+      expect(shell.visibleComposer?.draftSequence, 4);
+    });
 
-    expect(find.byType(ComposerPanel), findsOneWidget);
+    testWidgets('closes when its chevron is pressed again', (tester) async {
+      final fixture = await _pump(tester);
+      final button = find.byKey(TopicCreateButton.draftsButtonKey);
+      final row = find.byKey(const ValueKey('recent-draft-new_topic'));
+
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+
+      expect(row, findsOneWidget);
+      expect(fixture.api.userDraftRequests, hasLength(1));
+
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+
+      expect(row, findsNothing);
+      expect(fixture.api.userDraftRequests, hasLength(1));
+    });
+
+    testWidgets('matches core draft icons and the four-row limit', (
+      tester,
+    ) async {
+      final drafts = [
+        _draft,
+        const UserDraft(
+          key: 'new_private_message_1',
+          sequence: 5,
+          data: ComposerDraft(reply: 'Private draft', title: 'A message'),
+        ),
+        for (var index = 1; index <= 4; index++)
+          UserDraft(
+            key: 'topic_$index',
+            sequence: index,
+            data: ComposerDraft(reply: 'Reply $index'),
+            topicId: index,
+            title: 'Reply draft $index',
+            slug: 'reply-draft-$index',
+          ),
+      ];
+      await _pump(tester, draftCount: drafts.length, userDrafts: drafts);
+
+      await tester.tap(find.byKey(TopicCreateButton.draftsButtonKey));
+      await tester.pumpAndSettle();
+
+      final privateRow = find.byKey(
+        const ValueKey('recent-draft-new_private_message_1'),
+      );
+      final replyRow = find.byKey(const ValueKey('recent-draft-topic_1'));
+      expect(privateRow, findsOneWidget);
+      expect(replyRow, findsOneWidget);
+      expect(
+        find.descendant(
+          of: privateRow,
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.icon == DIcons.envelope,
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: replyRow,
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.icon == DIcons.reply,
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('recent-draft-topic_3')), findsNothing);
+      expect(find.text('+2 other drafts'), findsOneWidget);
+      expect(find.text('view all drafts'), findsOneWidget);
+
+      await tester.tap(find.text('view all drafts'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DraftListView), findsOneWidget);
+    });
   });
 
-  testWidgets('compact drafts skeleton keeps the compact row minimum', (
-    tester,
-  ) async {
-    final gate = Completer<void>();
-    await _pump(tester, size: const Size(390, 844), userDraftGate: gate);
+  group('draft-list entry points', () {
+    testWidgets('show the count as plain sidebar trailing text', (
+      tester,
+    ) async {
+      await _pump(tester);
 
-    await tester.tap(
-      find.descendant(
+      final count = find.descendant(
         of: find.byType(InstanceSidebar),
+        matching: find.text('1'),
+      );
+
+      expect(count, findsOneWidget);
+      Object? parent;
+      tester.element(count).visitAncestorElements((element) {
+        parent = element.widget;
+        return false;
+      });
+      expect(parent, isA<Row>());
+    });
+
+    testWidgets('open the account-backed page from the sidebar', (
+      tester,
+    ) async {
+      final fixture = await _pump(tester);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.text('Drafts'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DraftListView), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is TopicTitle &&
+              widget.title == 'Native :sparkles: drafts page',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(DraftListView),
+          matching: find.text('Support'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is TopicTitle &&
+              widget.title == 'A draft :smiley: from another device',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widgetList<SiteEmojiImage>(find.byType(SiteEmojiImage))
+            .map((emoji) => emoji.name),
+        ['sparkles', 'smiley'],
+      );
+      expect(find.byTooltip('Edit draft'), findsOneWidget);
+      expect(find.byTooltip('Remove draft'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(DraftListView),
+          matching: find.byType(UserMenuAvatar),
+        ),
+        findsNothing,
+      );
+      expect(fixture.api.userDraftRequests, [
+        (siteUrl: _siteUrl, offset: 0, limit: 30),
+      ]);
+    });
+
+    testWidgets('open the same page from the profile row', (tester) async {
+      await _pump(tester);
+
+      await tester.tap(find.byKey(UserMenuButton.avatarKey));
+      await tester.pumpAndSettle();
+      final profileTab = find.byTooltip('Profile');
+      await tester.tap(
+        profileTab.evaluate().isEmpty ? find.text('Profile').last : profileTab,
+      );
+      await tester.pumpAndSettle();
+      final panelDrafts = find.descendant(
+        of: find.byType(UserMenuPanel),
         matching: find.text('Drafts'),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.tap(
+        panelDrafts.evaluate().isEmpty ? find.text('Drafts').last : panelDrafts,
+      );
+      await tester.pumpAndSettle();
 
-    final skeletonRows = find.descendant(
-      of: find.byKey(const ValueKey('draft-list-loading-skeleton')),
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is ConstrainedBox &&
-            widget.constraints.minHeight ==
-                DraftListView.compactRowMinimumHeight,
-      ),
-    );
-    expect(skeletonRows, findsWidgets);
-    expect(
-      tester.getSize(skeletonRows.first).height,
-      greaterThanOrEqualTo(DraftListView.compactRowMinimumHeight),
-    );
-
-    gate.complete();
-    await tester.pumpAndSettle();
+      expect(find.byType(UserMenuPanel), findsNothing);
+      expect(find.byType(DraftListView), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is TopicTitle &&
+              widget.title == 'Native :sparkles: drafts page',
+        ),
+        findsOneWidget,
+      );
+    });
   });
 
-  testWidgets('the profile Drafts row opens the same destination', (
-    tester,
-  ) async {
-    await _pump(tester);
+  group('draft-list presentation', () {
+    testWidgets('uses wide draft-row skeletons while loading', (tester) async {
+      final gate = Completer<void>();
+      await _pump(tester, userDraftGate: gate);
+      final semantics = tester.ensureSemantics();
 
-    await tester.tap(find.byKey(UserMenuButton.avatarKey));
-    await tester.pumpAndSettle();
-    final profileTab = find.byTooltip('Profile');
-    await tester.tap(
-      profileTab.evaluate().isEmpty ? find.text('Profile').last : profileTab,
-    );
-    await tester.pumpAndSettle();
-    final panelDrafts = find.descendant(
-      of: find.byType(UserMenuPanel),
-      matching: find.text('Drafts'),
-    );
-    await tester.tap(
-      panelDrafts.evaluate().isEmpty ? find.text('Drafts').last : panelDrafts,
-    );
-    await tester.pumpAndSettle();
+      try {
+        await tester.tap(
+          find.descendant(
+            of: find.byType(InstanceSidebar),
+            matching: find.text('Drafts'),
+          ),
+        );
+        await tester.pump();
 
-    expect(find.byType(UserMenuPanel), findsNothing);
-    expect(find.byType(DraftListView), findsOneWidget);
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is TopicTitle &&
-            widget.title == 'Native :sparkles: drafts page',
-      ),
-      findsOneWidget,
-    );
+        expect(
+          find.byKey(const ValueKey('draft-list-loading-skeleton')),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .getSize(
+                find.byKey(
+                  const ValueKey('draft-list-loading-skeleton-content'),
+                ),
+              )
+              .height,
+          greaterThanOrEqualTo(
+            tester
+                    .getSize(
+                      find.byKey(const ValueKey('draft-list-loading-skeleton')),
+                    )
+                    .height -
+                36,
+          ),
+        );
+        final skeletonRows = find.descendant(
+          of: find.byKey(const ValueKey('draft-list-loading-skeleton')),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is ConstrainedBox &&
+                widget.constraints.minHeight ==
+                    DraftListView.wideRowMinimumHeight,
+          ),
+        );
+        final skeletonRowCount = skeletonRows.evaluate().length;
+        expect(skeletonRowCount, greaterThan(0));
+        for (var index = 0; index < skeletonRowCount; index += 1) {
+          expect(
+            tester.getSize(skeletonRows.at(index)).height,
+            greaterThanOrEqualTo(DraftListView.wideRowMinimumHeight),
+          );
+        }
+        expect(find.bySemanticsLabel('Loading drafts'), findsOneWidget);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('draft-list-loading-skeleton')),
+          findsNothing,
+        );
+        expect(find.byTooltip('Edit draft'), findsOneWidget);
+        final draftRow = find.ancestor(
+          of: find.byTooltip('Edit draft'),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is ConstrainedBox &&
+                widget.constraints.minHeight ==
+                    DraftListView.wideRowMinimumHeight,
+          ),
+        );
+        expect(
+          tester.getSize(draftRow.first).height,
+          greaterThanOrEqualTo(DraftListView.wideRowMinimumHeight),
+        );
+      } finally {
+        try {
+          if (!gate.isCompleted) {
+            gate.complete();
+            await tester.pumpAndSettle();
+          }
+        } finally {
+          semantics.dispose();
+        }
+      }
+    });
+
+    testWidgets('exposes 44-pixel compact actions to the keyboard', (
+      tester,
+    ) async {
+      await _pump(tester, size: const Size(390, 844));
+      final controller = ShellScope.read(
+        tester.element(find.byType(MaterialApp)),
+      );
+      controller.openDrafts(_siteUrl);
+      await tester.pumpAndSettle();
+
+      final edit = find.byTooltip('Edit draft');
+      final remove = find.byTooltip('Remove draft');
+      expect(tester.getSize(edit), const Size.square(44));
+      expect(tester.getSize(remove), const Size.square(44));
+      final row = find.ancestor(
+        of: edit,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is ConstrainedBox &&
+              widget.constraints.minHeight ==
+                  DraftListView.compactRowMinimumHeight,
+        ),
+      );
+      expect(
+        tester.getSize(row.first).height,
+        greaterThanOrEqualTo(DraftListView.compactRowMinimumHeight),
+      );
+
+      await _focusDraftAction(tester, remove);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Remove draft?'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      await _focusDraftAction(tester, edit);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsOneWidget);
+    });
+
+    testWidgets('keeps compact skeletons at the compact row minimum', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      await _pump(tester, size: const Size(390, 844), userDraftGate: gate);
+
+      try {
+        await tester.tap(
+          find.descendant(
+            of: find.byType(InstanceSidebar),
+            matching: find.text('Drafts'),
+          ),
+        );
+        await tester.pump();
+
+        final skeletonRows = find.descendant(
+          of: find.byKey(const ValueKey('draft-list-loading-skeleton')),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is ConstrainedBox &&
+                widget.constraints.minHeight ==
+                    DraftListView.compactRowMinimumHeight,
+          ),
+        );
+        final skeletonRowCount = skeletonRows.evaluate().length;
+        expect(skeletonRowCount, greaterThan(0));
+        for (var index = 0; index < skeletonRowCount; index += 1) {
+          expect(
+            tester.getSize(skeletonRows.at(index)).height,
+            greaterThanOrEqualTo(DraftListView.compactRowMinimumHeight),
+          );
+        }
+
+        gate.complete();
+        await tester.pumpAndSettle();
+      } finally {
+        if (!gate.isCompleted) {
+          gate.complete();
+          await tester.pumpAndSettle();
+        }
+      }
+    });
   });
 
-  testWidgets('a supported draft resumes in the composer', (tester) async {
-    await _pump(tester);
-    await tester.tap(
-      find.descendant(
-        of: find.byType(InstanceSidebar),
-        matching: find.text('Drafts'),
-      ),
-    );
-    await tester.pumpAndSettle();
+  group('draft lifecycle', () {
+    testWidgets('resumes a supported draft in the composer', (tester) async {
+      await _pump(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.text('Drafts'),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Edit draft'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Edit draft'));
+      await tester.pumpAndSettle();
 
-    expect(find.byType(ComposerPanel), findsOneWidget);
-    final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
-    expect(shell.visibleComposer?.title.text, 'Native :sparkles: drafts page');
-    expect(
-      shell.visibleComposer?.text.text,
-      'A draft :smiley: from another device',
-    );
-    expect(shell.visibleComposer?.draftSequence, 4);
-  });
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
+      expect(
+        shell.visibleComposer?.title.text,
+        'Native :sparkles: drafts page',
+      );
+      expect(
+        shell.visibleComposer?.text.text,
+        'A draft :smiley: from another device',
+      );
+      expect(shell.visibleComposer?.draftSequence, 4);
+    });
 
-  testWidgets('removing a draft updates the page and server count', (
-    tester,
-  ) async {
-    final fixture = await _pump(tester);
-    await tester.tap(
-      find.descendant(
-        of: find.byType(InstanceSidebar),
-        matching: find.text('Drafts'),
-      ),
-    );
-    await tester.pumpAndSettle();
+    testWidgets('removes a draft from the page and server count', (
+      tester,
+    ) async {
+      final fixture = await _pump(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.text('Drafts'),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Remove draft'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Remove'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Remove draft'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Remove'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('No drafts yet'), findsOneWidget);
-    expect(fixture.api.userDraftsDeleted, [
-      (siteUrl: _siteUrl, draftKey: 'new_topic', sequence: 4),
-    ]);
+      expect(find.text('No drafts yet'), findsOneWidget);
+      expect(fixture.api.userDraftsDeleted, [
+        (siteUrl: _siteUrl, draftKey: 'new_topic', sequence: 4),
+      ]);
+    });
   });
 }
 
@@ -543,10 +578,15 @@ Future<_Fixture> _pump(
   List<UserDraft> userDrafts = const [_draft],
   Completer<void>? userDraftGate,
 }) async {
-  EmojiCache.instance = EmojiCache(
+  final previousEmojiCache = EmojiCache.instance;
+  final emojiCache = EmojiCache(
     client: MockClient((_) async => http.Response('', 404)),
   );
-  addTearDown(EmojiCache.instance.clear);
+  EmojiCache.instance = emojiCache;
+  addTearDown(() {
+    emojiCache.clear();
+    EmojiCache.instance = previousEmojiCache;
+  });
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);

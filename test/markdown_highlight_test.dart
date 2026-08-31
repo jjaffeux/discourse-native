@@ -62,18 +62,23 @@ double _stableScanCost(String source) {
   var checksum = scanMarkdown(source).length;
 
   var iterations = 1;
+  late int firstSampleMicros;
   while (true) {
     final calibration = _scanBatch(source, iterations);
     checksum += calibration.checksum;
     if (calibration.elapsedMicros >= _minimumBenchmarkSampleMicros ||
         iterations >= 256) {
+      // This batch has the same duration and iteration count as the samples
+      // below. Keep it as the first sample instead of paying for it and then
+      // discarding it once calibration has finished.
+      firstSampleMicros = calibration.elapsedMicros;
       break;
     }
     iterations *= 2;
   }
 
-  var best = double.infinity;
-  for (var sample = 0; sample < 3; sample += 1) {
+  var best = firstSampleMicros.toDouble();
+  for (var sample = 1; sample < 3; sample += 1) {
     final batch = _scanBatch(source, iterations);
     checksum += batch.checksum;
     if (batch.elapsedMicros < best) {
@@ -209,13 +214,9 @@ void main() {
       expect(annotate('~~struck~~'), '<m>~~</><s>struck</><m>~~</>');
     });
 
-    test('reads three asterisks as both marks, not as a stray one', () {
-      expect(annotate('***both***'), '<m>***</><b+i>both</><m>***</>');
-    });
-
-    test('marks compose, the way the toolbar composes them', () {
+    test('three asterisks compose bold and italic, as the toolbar does', () {
       // What pressing bold and then italic actually leaves in the field.
-      expect(annotate('***say***'), '<m>***</><b+i>say</><m>***</>');
+      expect(annotate('***both***'), '<m>***</><b+i>both</><m>***</>');
     });
 
     test('lets a mark open inside another', () {
@@ -509,7 +510,7 @@ void main() {
       );
     });
 
-    test('and not what Discourse decides after the escape is gone', () {
+    test('escaped Discourse tokens remain recognizable after parsing', () {
       // Mentions, hashtags and emoji are Discourse's own, added through
       // `textPostProcess` — and `pretty-text/text-replace.js` runs that over
       // the *text tokens of the finished inline pass*, by which point `\@sam`
@@ -745,7 +746,7 @@ void main() {
       expect(annotate('##foo'), '##foo');
     });
 
-    test('leaves a url fragment alone', () {
+    test('leaves a URL fragment alone', () {
       expect(
         annotate('https://example.com/a#top'),
         '<url>https://example.com/a#top</>',
@@ -1014,6 +1015,9 @@ void main() {
         '|',
       ];
       final random = Random(20260823);
+      var sourcesWithExpectedLinks = 0;
+      var sourcesWithoutExpectedLinks = 0;
+      var expectedLinkCount = 0;
 
       for (var attempt = 0; attempt < 20000; attempt += 1) {
         final buffer = StringBuffer();
@@ -1028,6 +1032,12 @@ void main() {
             if (match.group(1)!.isNotEmpty)
               '${match.start + 1}:${match.start + 1 + match.group(1)!.length}',
         ];
+        if (expected.isEmpty) {
+          sourcesWithoutExpectedLinks++;
+        } else {
+          sourcesWithExpectedLinks++;
+          expectedLinkCount += expected.length;
+        }
 
         // `Md.linkText` is set by `_links` and nothing else. Adjacent runs of
         // it are one link's text split by whatever marked up the prose.
@@ -1048,6 +1058,10 @@ void main() {
 
         expect(found, expected, reason: 'differed on ${source.codeUnits}');
       }
+
+      expect(sourcesWithExpectedLinks, greaterThan(1000));
+      expect(sourcesWithoutExpectedLinks, greaterThan(1000));
+      expect(expectedLinkCount, greaterThan(1000));
     });
 
     test('a claimed bracket does not hide the link after it', () {

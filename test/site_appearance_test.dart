@@ -5,7 +5,7 @@ import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('SiteAppearance storage', () {
+  group('site appearance persistence', () {
     test('round trips with value equality', () {
       final appearance = SiteAppearance(
         base: palette(),
@@ -59,70 +59,75 @@ void main() {
     });
   });
 
-  test('ResolvedSitePalette derives fields absent from an older snapshot', () {
-    final palette = ResolvedSitePalette.fromJson(const {
-      'primary': 0xFF111111,
-      'secondary': 0xFFFFFFFF,
-      'tertiary': 0xFF0088CC,
+  group('resolved palette persistence', () {
+    test('derives fields absent from an older snapshot', () {
+      final palette = ResolvedSitePalette.fromJson(const {
+        'primary': 0xFF111111,
+        'secondary': 0xFFFFFFFF,
+        'tertiary': 0xFF0088CC,
+      });
+
+      expect(palette.brightness, Brightness.light);
+      expect(palette.borderRadius, defaultDiscourseBorderRadius);
+      expect(palette.quaternary, const Color(0xFF0088CC));
+      expect(palette.accentSubtle, palette.tertiary);
+      expect(palette.headerBackground, const Color(0xFFFFFFFF));
+      expect(palette.primaryLow, const Color(0xFFFFFFFF));
+      expect(palette.metadataColor, palette.primaryHigh);
+      expect(palette.contentBorderColor, palette.primaryLow);
+      expect(palette.selectedForeground, palette.primary);
+      expect(palette.mentionBackground, palette.primaryLow);
+      expect(palette.codeKeyword, palette.tertiary);
     });
 
-    expect(palette.brightness, Brightness.light);
-    expect(palette.borderRadius, defaultDiscourseBorderRadius);
-    expect(palette.quaternary, const Color(0xFF0088CC));
-    expect(palette.accentSubtle, palette.tertiary);
-    expect(palette.headerBackground, const Color(0xFFFFFFFF));
-    expect(palette.primaryLow, const Color(0xFFFFFFFF));
-    expect(palette.metadataColor, palette.primaryHigh);
-    expect(palette.contentBorderColor, palette.primaryLow);
-    expect(palette.selectedForeground, palette.primary);
-    expect(palette.mentionBackground, palette.primaryLow);
-    expect(palette.codeKeyword, palette.tertiary);
-  });
+    test('persists a theme border radius', () {
+      final json = palette().toJson()..['borderRadius'] = 11.5;
+      final decoded = ResolvedSitePalette.fromJson(json);
 
-  test('ResolvedSitePalette persists a theme border radius', () {
-    final json = palette().toJson()..['borderRadius'] = 11.5;
-    final decoded = ResolvedSitePalette.fromJson(json);
+      expect(decoded.borderRadius, 11.5);
+      expect(decoded.toJson()['borderRadius'], 11.5);
+    });
 
-    expect(decoded.borderRadius, 11.5);
-    expect(decoded.toJson()['borderRadius'], 11.5);
-  });
+    test('accepts bounded decimal and hex color text', () {
+      final json = palette().toJson()
+        ..['primary'] = '4294967295'
+        ..['secondary'] = '-2147483648'
+        ..['tertiary'] = ' #123456 '
+        ..['quaternary'] = '#12345678';
 
-  test('ResolvedSitePalette accepts bounded decimal and hex color text', () {
-    final json = palette().toJson()
-      ..['primary'] = '4294967295'
-      ..['secondary'] = '-2147483648'
-      ..['tertiary'] = ' #123456 '
-      ..['quaternary'] = '#12345678';
+      final decoded = ResolvedSitePalette.fromJson(json);
 
-    final decoded = ResolvedSitePalette.fromJson(json);
+      expect(decoded.primary, const Color(0xFFFFFFFF));
+      expect(decoded.secondary, const Color(0x80000000));
+      expect(decoded.tertiary, const Color(0xFF123456));
+      expect(decoded.quaternary, const Color(0x12345678));
+    });
 
-    expect(decoded.primary, const Color(0xFFFFFFFF));
-    expect(decoded.secondary, const Color(0x80000000));
-    expect(decoded.tertiary, const Color(0xFF123456));
-    expect(decoded.quaternary, const Color(0x12345678));
-  });
+    test('reads all-digit six-character color text as hex', () {
+      final json = palette().toJson()..['primary'] = '222222';
 
-  test('ResolvedSitePalette reads all-digit six-char color text as hex', () {
-    final json = palette().toJson()..['primary'] = '222222';
+      expect(
+        ResolvedSitePalette.fromJson(json).primary,
+        const Color(0xFF222222),
+      );
+    });
 
-    expect(ResolvedSitePalette.fromJson(json).primary, const Color(0xFF222222));
-  });
+    test('rejects oversized color text before parsing', () {
+      final oversized = List.filled(200000, '9').join();
+      final optional = palette().toJson()..['quaternary'] = oversized;
+      final required = palette().toJson()..['primary'] = oversized;
 
-  test('ResolvedSitePalette rejects oversized color text before parsing', () {
-    final oversized = List.filled(200000, '9').join();
-    final optional = palette().toJson()..['quaternary'] = oversized;
-    final required = palette().toJson()..['primary'] = oversized;
+      final decoded = ResolvedSitePalette.fromJson(optional);
 
-    final decoded = ResolvedSitePalette.fromJson(optional);
-
-    expect(decoded.quaternary, decoded.tertiary);
-    expect(
-      SiteAppearance.fromJson({
-        'base': required,
-        'alternate': palette(brightness: Brightness.dark).toJson(),
-      }),
-      SiteAppearance(alternate: palette(brightness: Brightness.dark)),
-    );
+      expect(decoded.quaternary, decoded.tertiary);
+      expect(
+        SiteAppearance.fromJson({
+          'base': required,
+          'alternate': palette(brightness: Brightness.dark).toJson(),
+        }),
+        SiteAppearance(alternate: palette(brightness: Brightness.dark)),
+      );
+    });
   });
 }
 

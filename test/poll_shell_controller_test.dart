@@ -187,6 +187,17 @@ PollController _polls(ShellController shell) =>
 ReactionsController _reactions(ShellController shell) =>
     shell.pluginSession.require(reactionsControllerService);
 
+Future<void> _waitFor(
+  bool Function() condition, {
+  required String description,
+}) async {
+  for (var turn = 0; turn < 100; turn++) {
+    if (condition()) return;
+    await Future<void>.delayed(Duration.zero);
+  }
+  throw TestFailure('Did not observe $description within 100 event turns.');
+}
+
 Future<PollVoteWriteResult> _castPollVote(
   ShellController shell,
   Post post,
@@ -216,17 +227,71 @@ Future<PollVoteWriteResult> _removePollVote(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test(
-    'persisted account data is not exposed as this session fresh user',
-    () async {
-      final api = _GatedCurrentUserApi();
-      final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
+  group('session hydration', () {
+    test(
+      'does not treat persisted account data as fresh session data',
+      () async {
+        final api = _GatedCurrentUserApi();
+        final freshUser = _pollUser(
+          id: 1,
+          username: 'reader',
+          staff: true,
+          groups: const ['builders'],
+        );
+        final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
+        final shell = ShellController(
+          plugins: installedPlugins,
+          instanceStore: FakeInstanceStore([
+            instance(
+              'meta.discourse.org',
+            ).copyWith(user: _pollUser(id: 1, username: 'reader')),
+          ]),
+          api: api,
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(shell.dispose);
+        addTearDown(() {
+          if (!api.response.isCompleted) api.response.complete(freshUser);
+        });
+
+        await shell.load();
+        await _waitFor(
+          () => api.calls >= 1,
+          description: 'the current-user request',
+        );
+
+        expect(shell.freshCurrentUserFor(_site), isNull);
+        expect(_polls(shell).canCreatePollFor(_site), isFalse);
+        expect(_polls(shell).freshCurrentUserFor(_site), isNull);
+
+        api.response.complete(freshUser);
+        await pumpEventQueue();
+
+        expect(api.calls, 1);
+        expect(shell.freshCurrentUserFor(_site)?.username, 'reader');
+        expect(shell.freshCurrentUserFor(_site)?.staff, isTrue);
+        expect(shell.freshCurrentUserFor(_site)?.groups, ['builders']);
+        expect(_polls(shell).canCreatePollFor(_site), isTrue);
+        expect(_polls(shell).freshCurrentUserFor(_site)?.groups, ['builders']);
+      },
+    );
+
+    test('hydrates each site account once when selected', () async {
+      final api = _PerSiteCurrentUserApi();
+      final authenticator = FakeAuthenticator()
+        ..keys[_site] = 'meta-key'
+        ..keys[_site2] = 'community-key';
       final shell = ShellController(
         plugins: installedPlugins,
         instanceStore: FakeInstanceStore([
-          instance(
-            'meta.discourse.org',
-          ).copyWith(user: _pollUser(id: 1, username: 'reader')),
+          instance('meta.discourse.org').copyWith(
+            user: const DiscourseUser(id: 1, username: 'stored-reader'),
+          ),
+          instance('community.example.com').copyWith(
+            user: const DiscourseUser(id: 2, username: 'stored-reader2'),
+          ),
         ]),
         api: api,
         authenticator: authenticator,
@@ -236,187 +301,58 @@ void main() {
       addTearDown(shell.dispose);
 
       await shell.load();
-      while (api.calls == 0) {
-        await Future<void>.delayed(Duration.zero);
-      }
-
-      expect(shell.freshCurrentUserFor(_site), isNull);
-      expect(_polls(shell).canCreatePollFor(_site), isFalse);
-      expect(_polls(shell).freshCurrentUserFor(_site), isNull);
-
-      api.response.complete(
-        _pollUser(
-          id: 1,
-          username: 'reader',
-          staff: true,
-          groups: const ['builders'],
-        ),
+      await _waitFor(
+        () => api.calls.isNotEmpty,
+        description: 'the initial site account hydration',
       );
       await pumpEventQueue();
 
-      expect(api.calls, 1);
-      expect(shell.freshCurrentUserFor(_site)?.groups, ['builders']);
+      expect(api.calls, [_site]);
+      expect(shell.freshCurrentUserFor(_site)?.username, 'reader');
+      expect(shell.freshCurrentUserFor(_site)?.groups, ['meta-builders']);
+      expect(shell.freshCurrentUserFor(_site2), isNull);
       expect(_polls(shell).canCreatePollFor(_site), isTrue);
-      expect(_polls(shell).freshCurrentUserFor(_site)?.groups, ['builders']);
-    },
-  );
+      expect(_polls(shell).canCreatePollFor(_site2), isFalse);
 
-  test('session accounts hydrate once when each site is selected', () async {
-    final api = _PerSiteCurrentUserApi();
-    final authenticator = FakeAuthenticator()
-      ..keys[_site] = 'meta-key'
-      ..keys[_site2] = 'community-key';
-    final shell = ShellController(
-      plugins: installedPlugins,
-      instanceStore: FakeInstanceStore([
-        instance(
-          'meta.discourse.org',
-        ).copyWith(user: const DiscourseUser(id: 1, username: 'stored-reader')),
-        instance('community.example.com').copyWith(
-          user: const DiscourseUser(id: 2, username: 'stored-reader2'),
-        ),
-      ]),
-      api: api,
-      authenticator: authenticator,
-      drafts: FakeDraftStore(),
-      trackers: FakeSiteTracker.reset(),
-    );
-    addTearDown(shell.dispose);
-
-    await shell.load();
-    while (api.calls.isEmpty) {
+      shell.selectInstance(1);
+      await _waitFor(
+        () => api.calls.length >= 2,
+        description: 'the selected site account hydration',
+      );
       await pumpEventQueue();
-    }
-    await pumpEventQueue();
 
-    expect(api.calls.where((site) => site == _site), hasLength(1));
-    expect(api.calls.where((site) => site == _site2), isEmpty);
-    expect(shell.freshCurrentUserFor(_site)?.groups, ['meta-builders']);
-    expect(shell.freshCurrentUserFor(_site2), isNull);
-    expect(_polls(shell).canCreatePollFor(_site), isTrue);
-    expect(_polls(shell).canCreatePollFor(_site2), isFalse);
+      expect(api.calls, [_site, _site2]);
+      expect(shell.freshCurrentUserFor(_site2)?.groups, ['community-builders']);
+      expect(_polls(shell).canCreatePollFor(_site2), isTrue);
+      expect(_polls(shell).freshCurrentUserFor(_site2)?.groups, [
+        'community-builders',
+      ]);
 
-    shell.selectInstance(1);
-    while (api.calls.length < 2) {
+      shell.selectInstance(0);
       await pumpEventQueue();
-    }
-    await pumpEventQueue();
 
-    expect(api.calls.where((site) => site == _site2), hasLength(1));
-    expect(shell.freshCurrentUserFor(_site2)?.groups, ['community-builders']);
-    expect(_polls(shell).canCreatePollFor(_site2), isTrue);
-    expect(_polls(shell).freshCurrentUserFor(_site2)?.groups, [
-      'community-builders',
-    ]);
+      expect(api.calls, [_site, _site2]);
+    });
   });
 
-  test('a successful vote merges only the named personalized poll', () async {
-    final initialPoll = _poll();
-    final untouched = _poll(name: 'second', voters: 4, firstVotes: 2);
-    const reactions = Reactions(
-      entries: [Reaction(id: 'clap', count: 3)],
-      mine: Reaction(id: 'clap', canUndo: true),
-      userCount: 3,
-    );
-    final answered = _poll(voters: 2, firstVotes: 1, selected: const ['b']);
-    final key = FakeDiscourseApi.pollVoteKey(11, 'poll');
-    final api = _api(
-      initial: _post(
-        poll: initialPoll,
-        otherPoll: untouched,
-        reactions: reactions,
-      ),
-      voteResponses: {key: _answer(answered)},
-    );
-    final (:shell, :tracker) = await _loadShell(api);
-    addTearDown(shell.dispose);
-
-    final result = await _castPollVote(
-      shell,
-      shell.store.read<Post>(_site, 11)!,
-      initialPoll,
-      const ['b'],
-    );
-
-    expect(result.message, isNull);
-    expect(result.reconciled, isFalse);
-    expect(api.pollVotes, hasLength(1));
-    expect(api.pollVotes.single.postId, 11);
-    expect(api.pollVotes.single.pollName, 'poll');
-    expect(api.pollVotes.single.options, ['b']);
-    final stored = shell.store.read<Post>(_site, 11)!;
-    expect(stored.polls?['poll'], answered);
-    expect(stored.polls?['second'], untouched);
-    expect(stored.reactions, reactions);
-    expect(tracker.watchedChannels, contains('/polls/7'));
-  });
-
-  test('vote removal applies the personalized empty selection', () async {
-    final initialPoll = _poll(selected: const ['a']);
-    final answered = _poll(voters: 0, firstVotes: 0, selected: const []);
-    final key = FakeDiscourseApi.pollVoteKey(11, 'poll');
-    final api = _api(
-      initial: _post(poll: initialPoll),
-      removalResponses: {key: _answer(answered)},
-    );
-    final (:shell, :tracker) = await _loadShell(api);
-    addTearDown(shell.dispose);
-
-    final result = await _removePollVote(
-      shell,
-      shell.store.read<Post>(_site, 11)!,
-      initialPoll,
-    );
-
-    expect(result.message, isNull);
-    expect(result.reconciled, isFalse);
-    expect(api.pollVotesRemoved, [(postId: 11, pollName: 'poll')]);
-    expect(
-      shell.store.read<Post>(_site, 11)?.polls?['poll']?.selection,
-      PollSelection.none,
-    );
-  });
-
-  test(
-    'a definite refusal preserves saved selection and reports the server message',
-    () async {
-      final initialPoll = _poll(selected: const ['a']);
+  group('successful poll writes', () {
+    test('merge only the named personalized poll after voting', () async {
+      final initialPoll = _poll();
+      final untouched = _poll(name: 'second', voters: 4, firstVotes: 2);
+      const reactions = Reactions(
+        entries: [Reaction(id: 'clap', count: 3)],
+        mine: Reaction(id: 'clap', canUndo: true),
+        userCount: 3,
+      );
+      final answered = _poll(voters: 2, firstVotes: 1, selected: const ['b']);
+      final key = FakeDiscourseApi.pollVoteKey(11, 'poll');
       final api = _api(
-        initial: _post(poll: initialPoll),
-        pollFailure: const WriteException(
-          WriteFailure.validation,
-          errors: ['This poll is closed.'],
+        initial: _post(
+          poll: initialPoll,
+          otherPoll: untouched,
+          reactions: reactions,
         ),
-      );
-      final (:shell, :tracker) = await _loadShell(api);
-      addTearDown(shell.dispose);
-
-      final result = await _castPollVote(
-        shell,
-        shell.store.read<Post>(_site, 11)!,
-        initialPoll,
-        const ['b'],
-      );
-
-      expect(result.message, 'This poll is closed.');
-      expect(result.reconciled, isFalse);
-      expect(
-        shell.store.read<Post>(_site, 11)?.polls?['poll']?.selectedOptionIds,
-        ['a'],
-      );
-      expect(api.postFetches, isEmpty);
-    },
-  );
-
-  test(
-    'an unreachable vote refetches because the idempotent write may have landed',
-    () async {
-      final initialPoll = _poll(selected: const ['a']);
-      final reconciled = _poll(voters: 2, firstVotes: 1, selected: const ['b']);
-      final api = _api(
-        initial: _post(poll: initialPoll),
-        pollFailure: const WriteException(WriteFailure.unreachable),
-        postsById: {11: _post(poll: reconciled, cooked: '<p>Refetched</p>')},
+        voteResponses: {key: _answer(answered)},
       );
       final (:shell, :tracker) = await _loadShell(api);
       addTearDown(shell.dispose);
@@ -429,21 +365,123 @@ void main() {
       );
 
       expect(result.message, isNull);
-      expect(result.reconciled, isTrue);
-      expect(api.postFetches, [
-        [11],
-      ]);
-      expect(shell.store.read<Post>(_site, 11)?.cooked, '<p>Refetched</p>');
-      expect(
-        shell.store.read<Post>(_site, 11)?.polls?['poll']?.selectedOptionIds,
-        ['b'],
-      );
-    },
-  );
+      expect(result.reconciled, isFalse);
+      expect(api.pollVotes, hasLength(1));
+      expect(api.pollVotes.single.postId, 11);
+      expect(api.pollVotes.single.pollName, 'poll');
+      expect(api.pollVotes.single.options, ['b']);
+      final stored = shell.store.read<Post>(_site, 11)!;
+      expect(stored.polls?['poll'], answered);
+      expect(stored.polls?['second'], untouched);
+      expect(stored.reactions, reactions);
+      expect(tracker.watchedChannels, contains('/polls/7'));
+    });
 
-  test(
-    'poll invalidations received during a write are queued and replayed',
-    () async {
+    test('apply the personalized empty selection after removal', () async {
+      final initialPoll = _poll(selected: const ['a']);
+      final answered = _poll(voters: 0, firstVotes: 0, selected: const []);
+      final key = FakeDiscourseApi.pollVoteKey(11, 'poll');
+      final api = _api(
+        initial: _post(poll: initialPoll),
+        removalResponses: {key: _answer(answered)},
+      );
+      final (:shell, :tracker) = await _loadShell(api);
+      addTearDown(shell.dispose);
+
+      final result = await _removePollVote(
+        shell,
+        shell.store.read<Post>(_site, 11)!,
+        initialPoll,
+      );
+
+      expect(result.message, isNull);
+      expect(result.reconciled, isFalse);
+      expect(api.pollVotesRemoved, [(postId: 11, pollName: 'poll')]);
+      expect(
+        shell.store.read<Post>(_site, 11)?.polls?['poll']?.selection,
+        PollSelection.none,
+      );
+    });
+  });
+
+  group('failed and uncertain poll writes', () {
+    test(
+      'preserve the saved selection and report a definite refusal',
+      () async {
+        final initialPoll = _poll(selected: const ['a']);
+        final api = _api(
+          initial: _post(poll: initialPoll),
+          pollFailure: const WriteException(
+            WriteFailure.validation,
+            errors: ['This poll is closed.'],
+          ),
+        );
+        final (:shell, :tracker) = await _loadShell(api);
+        addTearDown(shell.dispose);
+
+        final result = await _castPollVote(
+          shell,
+          shell.store.read<Post>(_site, 11)!,
+          initialPoll,
+          const ['b'],
+        );
+
+        expect(result.message, 'This poll is closed.');
+        expect(result.reconciled, isFalse);
+        expect(api.pollVotes.single.postId, 11);
+        expect(api.pollVotes.single.pollName, 'poll');
+        expect(api.pollVotes.single.options, ['b']);
+        expect(
+          shell.store.read<Post>(_site, 11)?.polls?['poll']?.selectedOptionIds,
+          ['a'],
+        );
+        expect(api.postFetches, isEmpty);
+      },
+    );
+
+    test(
+      'refetch after an unreachable vote because the write may have landed',
+      () async {
+        final initialPoll = _poll(selected: const ['a']);
+        final reconciled = _poll(
+          voters: 2,
+          firstVotes: 1,
+          selected: const ['b'],
+        );
+        final api = _api(
+          initial: _post(poll: initialPoll),
+          pollFailure: const WriteException(WriteFailure.unreachable),
+          postsById: {11: _post(poll: reconciled, cooked: '<p>Refetched</p>')},
+        );
+        final (:shell, :tracker) = await _loadShell(api);
+        addTearDown(shell.dispose);
+
+        final result = await _castPollVote(
+          shell,
+          shell.store.read<Post>(_site, 11)!,
+          initialPoll,
+          const ['b'],
+        );
+
+        expect(result.message, isNull);
+        expect(result.reconciled, isTrue);
+        expect(api.pollVotes.single.postId, 11);
+        expect(api.pollVotes.single.pollName, 'poll');
+        expect(api.pollVotes.single.options, ['b']);
+        expect(api.postFetches, [
+          [11],
+        ]);
+        expect(shell.store.read<Post>(_site, 11)?.cooked, '<p>Refetched</p>');
+        expect(
+          shell.store.read<Post>(_site, 11)?.polls?['poll']?.selectedOptionIds,
+          ['b'],
+        );
+      },
+    );
+  });
+
+  group('poll write ordering', () {
+    test('queues and replays invalidations received during a write', () async {
       final gate = Completer<void>();
       final initialPoll = _poll();
       final answered = _poll(voters: 2, firstVotes: 1, selected: const ['b']);
@@ -457,6 +495,9 @@ void main() {
       );
       final (:shell, :tracker) = await _loadShell(api);
       addTearDown(shell.dispose);
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
 
       final voting = _castPollVote(
         shell,
@@ -464,27 +505,24 @@ void main() {
         initialPoll,
         const ['b'],
       );
-      while (api.pollVotes.isEmpty) {
-        await pumpEventQueue();
-      }
+      await _waitFor(
+        () => api.pollVotes.isNotEmpty,
+        description: 'the poll vote request',
+      );
+      expect(api.pollVotes, hasLength(1));
+      expect(api.pollVotes.single.postId, 11);
+      expect(api.pollVotes.single.pollName, 'poll');
+      expect(api.pollVotes.single.options, ['b']);
       expect(shell.postWriteInFlight(11), isTrue);
 
       tracker.deliverTopicMessage('/polls/7', const {'post_id': 11});
       await pumpEventQueue();
       expect(api.postFetches, isEmpty);
 
-      // A second action on the same post is serialized behind the active one.
-      final serialized = await _removePollVote(
-        shell,
-        shell.store.read<Post>(_site, 11)!,
-        initialPoll,
-      );
-      expect(serialized.message, isNull);
-      expect(serialized.reconciled, isTrue);
-      expect(api.pollVotesRemoved, isEmpty);
-
       gate.complete();
-      expect((await voting).message, isNull);
+      final result = await voting;
+      expect(result.message, isNull);
+      expect(result.reconciled, isFalse);
       await pumpEventQueue();
 
       expect(api.postFetches, [
@@ -492,124 +530,187 @@ void main() {
       ]);
       expect(shell.store.read<Post>(_site, 11)?.cooked, '<p>Live</p>');
       expect(shell.store.read<Post>(_site, 11)?.polls?['poll']?.voters, 9);
-    },
-  );
+    });
 
-  test(
-    'a pre-write poll refresh is superseded and replayed after the write',
-    () async {
-      final postGate = Completer<void>();
-      final initialPoll = _poll();
-      final answered = _poll(voters: 2, firstVotes: 1, selected: const ['b']);
-      final live = _poll(voters: 6, firstVotes: 3, selected: const ['b']);
-      final key = FakeDiscourseApi.pollVoteKey(11, 'poll');
-      final api = _api(
-        initial: _post(poll: initialPoll),
-        voteResponses: {key: _answer(answered)},
-        postsById: {11: _post(poll: live, cooked: '<p>Live replay</p>')},
-        postGate: postGate,
-      );
-      final (:shell, :tracker) = await _loadShell(api);
-      addTearDown(shell.dispose);
+    test(
+      'reconciles a competing action without issuing a second write',
+      () async {
+        final gate = Completer<void>();
+        final initialPoll = _poll();
+        final answered = _poll(voters: 2, firstVotes: 1, selected: const ['b']);
+        final key = FakeDiscourseApi.pollVoteKey(11, 'poll');
+        final api = _api(
+          initial: _post(poll: initialPoll),
+          pollGate: gate,
+          voteResponses: {key: _answer(answered)},
+        );
+        final (:shell, tracker: _) = await _loadShell(api);
+        addTearDown(shell.dispose);
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+        });
 
-      tracker.deliverTopicMessage('/polls/7', const {'post_id': 11});
-      while (api.postFetches.isEmpty) {
+        final voting = _castPollVote(
+          shell,
+          shell.store.read<Post>(_site, 11)!,
+          initialPoll,
+          const ['b'],
+        );
+        await _waitFor(
+          () => api.pollVotes.isNotEmpty,
+          description: 'the active poll vote request',
+        );
+
+        final competing = await _removePollVote(
+          shell,
+          shell.store.read<Post>(_site, 11)!,
+          initialPoll,
+        );
+
+        expect(competing.message, isNull);
+        expect(competing.reconciled, isTrue);
+        expect(api.pollVotes, hasLength(1));
+        expect(api.pollVotesRemoved, isEmpty);
+
+        gate.complete();
+        final result = await voting;
+        expect(result.message, isNull);
+        expect(result.reconciled, isFalse);
+        expect(shell.store.read<Post>(_site, 11)?.polls?['poll'], answered);
+      },
+    );
+
+    test(
+      'supersedes a pre-write refresh and replays it after the write',
+      () async {
+        final postGate = Completer<void>();
+        final initialPoll = _poll();
+        final answered = _poll(voters: 2, firstVotes: 1, selected: const ['b']);
+        final live = _poll(voters: 6, firstVotes: 3, selected: const ['b']);
+        final key = FakeDiscourseApi.pollVoteKey(11, 'poll');
+        final api = _api(
+          initial: _post(poll: initialPoll),
+          voteResponses: {key: _answer(answered)},
+          postsById: {11: _post(poll: live, cooked: '<p>Live replay</p>')},
+          postGate: postGate,
+        );
+        final (:shell, :tracker) = await _loadShell(api);
+        addTearDown(shell.dispose);
+        addTearDown(() {
+          if (!postGate.isCompleted) postGate.complete();
+        });
+
+        tracker.deliverTopicMessage('/polls/7', const {'post_id': 11});
+        await _waitFor(
+          () => api.postFetches.isNotEmpty,
+          description: 'the pre-write post refresh',
+        );
+
+        await _castPollVote(
+          shell,
+          shell.store.read<Post>(_site, 11)!,
+          initialPoll,
+          const ['b'],
+        );
+        await _waitFor(
+          () => api.postFetches.length >= 2,
+          description: 'the queued post-write refresh',
+        );
+
+        // The first read was invalidated by the write; the second is its queued
+        // post-write replay and is allowed to land once the shared gate opens.
+        expect(api.postFetches, [
+          [11],
+          [11],
+        ]);
+        postGate.complete();
         await pumpEventQueue();
-      }
 
-      await _castPollVote(
-        shell,
-        shell.store.read<Post>(_site, 11)!,
-        initialPoll,
-        const ['b'],
-      );
-      while (api.postFetches.length < 2) {
-        await pumpEventQueue();
-      }
+        expect(shell.store.read<Post>(_site, 11)?.cooked, '<p>Live replay</p>');
+        expect(shell.store.read<Post>(_site, 11)?.polls?['poll']?.voters, 6);
+      },
+    );
+  });
 
-      // The first read was invalidated by the write; the second is its queued
-      // post-write replay and is allowed to land once the shared gate opens.
-      expect(api.postFetches, [
-        [11],
-        [11],
-      ]);
-      postGate.complete();
-      await pumpEventQueue();
+  group('vote admission', () {
+    test(
+      'rejects an archived topic without calling the plugin route',
+      () async {
+        final initialPoll = _poll();
+        final api = _api(initial: _post(poll: initialPoll));
+        final (:shell, :tracker) = await _loadShell(api);
+        addTearDown(shell.dispose);
+        shell.store.update<TopicDetail>(
+          _site,
+          7,
+          (detail) => detail.copyWith(archived: true),
+        );
 
-      expect(shell.store.read<Post>(_site, 11)?.cooked, '<p>Live replay</p>');
-      expect(shell.store.read<Post>(_site, 11)?.polls?['poll']?.voters, 6);
-    },
-  );
+        final result = await _castPollVote(
+          shell,
+          shell.store.read<Post>(_site, 11)!,
+          initialPoll,
+          const ['b'],
+        );
 
-  test(
-    'an archived topic refuses a vote without calling the plugin route',
-    () async {
-      final initialPoll = _poll();
-      final api = _api(initial: _post(poll: initialPoll));
-      final (:shell, :tracker) = await _loadShell(api);
-      addTearDown(shell.dispose);
-      shell.store.update<TopicDetail>(
-        _site,
-        7,
-        (detail) => detail.copyWith(archived: true),
-      );
+        expect(result.message, 'Voting is unavailable in archived topics.');
+        expect(result.reconciled, isFalse);
+        expect(api.pollVotes, isEmpty);
+      },
+    );
+  });
 
-      final result = await _castPollVote(
-        shell,
-        shell.store.read<Post>(_site, 11)!,
-        initialPoll,
-        const ['b'],
-      );
-
-      expect(result.message, 'Voting is unavailable in archived topics.');
-      expect(api.pollVotes, isEmpty);
-    },
-  );
-
-  test(
-    'reaction rollback restores only Reactions and keeps a concurrent poll refresh',
-    () async {
-      final gate = Completer<void>();
-      final initialPoll = _poll(voters: 1);
-      final refreshedPoll = _poll(voters: 7, firstVotes: 4);
-      const reactions = Reactions(
-        entries: [Reaction(id: 'clap', count: 1)],
-        mine: Reaction(id: 'clap', canUndo: true),
-        userCount: 1,
-      );
-      final api = _api(
-        initial: _post(poll: initialPoll, reactions: reactions),
-        reactionGate: gate,
-        reactionFailure: const WriteException(
-          WriteFailure.validation,
-          errors: ['Reaction refused.'],
-        ),
-      );
-      final (:shell, :tracker) = await _loadShell(api);
-      addTearDown(shell.dispose);
-      final post = shell.store.read<Post>(_site, 11)!;
-
-      final reacting = _reactions(shell).toggle(post, 'clap', siteUrl: _site);
-      while (api.reacted.isEmpty) {
-        await pumpEventQueue();
-      }
-      shell.store.update<Post>(
-        _site,
-        11,
-        (held) => held.withPlugins(
-          held.plugins.withValue(
-            pollsDataKey,
-            Polls(byName: {'poll': refreshedPoll}),
+  group('cross-plugin state isolation', () {
+    test(
+      'restores only reaction state while preserving a concurrent poll refresh',
+      () async {
+        final gate = Completer<void>();
+        final initialPoll = _poll(voters: 1);
+        final refreshedPoll = _poll(voters: 7, firstVotes: 4);
+        const reactions = Reactions(
+          entries: [Reaction(id: 'clap', count: 1)],
+          mine: Reaction(id: 'clap', canUndo: true),
+          userCount: 1,
+        );
+        final api = _api(
+          initial: _post(poll: initialPoll, reactions: reactions),
+          reactionGate: gate,
+          reactionFailure: const WriteException(
+            WriteFailure.validation,
+            errors: ['Reaction refused.'],
           ),
-        ),
-      );
+        );
+        final (:shell, :tracker) = await _loadShell(api);
+        addTearDown(shell.dispose);
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+        });
+        final post = shell.store.read<Post>(_site, 11)!;
 
-      gate.complete();
-      expect(await reacting, 'Reaction refused.');
+        final reacting = _reactions(shell).toggle(post, 'clap', siteUrl: _site);
+        await _waitFor(
+          () => api.reacted.isNotEmpty,
+          description: 'the reaction request',
+        );
+        expect(api.reacted, [(postId: 11, reaction: 'clap')]);
+        shell.store.update<Post>(
+          _site,
+          11,
+          (held) => held.withPlugins(
+            held.plugins.withValue(
+              pollsDataKey,
+              Polls(byName: {'poll': refreshedPoll}),
+            ),
+          ),
+        );
 
-      final stored = shell.store.read<Post>(_site, 11)!;
-      expect(stored.reactions, reactions);
-      expect(stored.polls?['poll'], refreshedPoll);
-    },
-  );
+        gate.complete();
+        expect(await reacting, 'Reaction refused.');
+
+        final stored = shell.store.read<Post>(_site, 11)!;
+        expect(stored.reactions, reactions);
+        expect(stored.polls?['poll'], refreshedPoll);
+      },
+    );
+  });
 }

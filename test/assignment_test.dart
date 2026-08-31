@@ -246,7 +246,6 @@ void main() {
       4,
       5,
     ], reason: 'a malformed raw slot still consumes the server page budget');
-    expect(suggestions.users.map((user) => user.id), isNot(contains(6)));
     expect(
       () => suggestions.users.add(suggestions.users.first),
       throwsUnsupportedError,

@@ -11,7 +11,7 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://meta.example';
 
 void main() {
-  testWidgets('Clear search is a compact 44 pixel keyboard target', (
+  testWidgets('clear search is a compact 44-pixel keyboard target', (
     tester,
   ) async {
     final controller = ShellController(

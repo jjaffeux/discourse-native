@@ -67,10 +67,15 @@ Future<ShellController> pumpCookedInShell(
   SiteLifecycle? lifecycle,
   Widget? child,
 }) async {
-  EmojiCache.instance = EmojiCache(
+  final previousEmojiCache = EmojiCache.instance;
+  final emojiCache = EmojiCache(
     client: emoji ?? MockClient((_) async => http.Response('', 404)),
   );
-  addTearDown(EmojiCache.instance.clear);
+  EmojiCache.instance = emojiCache;
+  addTearDown(() {
+    emojiCache.clear();
+    EmojiCache.instance = previousEmojiCache;
+  });
 
   final siteLifecycle = lifecycle ?? SiteLifecycle();
   final controller = ShellController(
@@ -864,7 +869,7 @@ void main() {
       expect(find.byType(CategorySquare), findsNothing);
     });
 
-    testWidgets('the placeholder svg leaves nothing behind', (tester) async {
+    testWidgets('the placeholder SVG leaves nothing behind', (tester) async {
       // Every cooked hashtag carries the same `square-full` glyph whatever it
       // is — a placeholder Discourse's own client replaces. Drawing it would
       // put a filled square on every tag on the site, beside the real prefix.

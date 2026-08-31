@@ -212,7 +212,6 @@ void main() {
       expect(theme.discourse.love, source.love);
       expect(theme.discourse.primaryHigh, source.primaryHigh);
       expect(theme.discourse.whisper, source.primaryMedium);
-      expect(theme.discourse.primaryHigh, source.primaryHigh);
       expect(theme.discourse.primaryVeryHigh, source.primaryVeryHigh);
     });
 

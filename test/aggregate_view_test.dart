@@ -20,6 +20,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
 
+const _defaultAggregatePath = '/filter.json?per_page=15';
+const _firstFilterPath = '/filter.json?per_page=15&q=status%3Aopen';
+const _secondFilterPath = '/filter.json?per_page=15&q=tag%3Aux';
+const _filterOptions = [
+  TopicFilterOption(name: 'status:', priority: 1),
+  TopicFilterOption(name: 'tag:', type: 'tag', priority: 2),
+];
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -68,79 +76,11 @@ void main() {
     expect(emoji.siteUrl, forum.url);
   });
 
-  testWidgets('starts with a mixed full-width feed and forum picker', (
+  testWidgets('renders a mixed full-width feed above its controls', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({});
-    tester.view.physicalSize = const Size(1000, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
-    const user = DiscourseUser(
-      username: 'sam',
-      trackedCategoryIds: [1],
-      watchedCategoryIds: [],
-      watchedFirstPostCategoryIds: [],
-    );
-    final forums = [
-      instance('one.example', title: 'One').copyWith(user: user),
-      instance('two.example', title: 'Two').copyWith(user: user),
-      instance('signed-out-one.example', title: 'Signed out one'),
-      instance('signed-out-two.example', title: 'Signed out two'),
-      instance('signed-out-three.example', title: 'Signed out three'),
-    ];
-    const defaultAggregatePath = '/filter.json?per_page=15';
-    const firstFilterPath = '/filter.json?per_page=15&q=status%3Aopen';
-    const secondFilterPath = '/filter.json?per_page=15&q=tag%3Aux';
-    const filterOptions = [
-      TopicFilterOption(name: 'status:', priority: 1),
-      TopicFilterOption(name: 'tag:', type: 'tag', priority: 2),
-    ];
-    final authenticator = FakeAuthenticator()
-      ..keys[forums[0].url] = 'one-key'
-      ..keys[forums[1].url] = 'two-key';
-    final api = FakeDiscourseApi(
-      user: user,
-      feeds: {
-        '/latest.json': const [],
-        for (final path in [
-          defaultAggregatePath,
-          firstFilterPath,
-          secondFilterPath,
-        ])
-          path: [
-            Topic(
-              id: 42,
-              title: 'Fresh cross-forum topic',
-              slug: 'fresh-topic',
-              categoryId: 1,
-              seen: false,
-              bumpedAt: DateTime.utc(2026, 1, 1),
-            ),
-          ],
-      },
-      filterOptionsByPath: const {
-        defaultAggregatePath: filterOptions,
-        firstFilterPath: filterOptions,
-        secondFilterPath: filterOptions,
-      },
-      categoryList: const [
-        TopicCategory(id: 1, name: 'Followed', color: '0088CC'),
-      ],
-    );
-    await tester.pumpWidget(
-      DiscourseApp(
-        store: FakeInstanceStore(forums),
-        api: api,
-        authenticator: authenticator,
-        drafts: FakeDraftStore(),
-        forumTabs: FakeForumTabStore(),
-        trackers: FakeSiteTracker.reset(),
-        updater: FakeUpdater(),
-        updateStore: FakeUpdateStore(),
-      ),
-    );
-    await tester.pumpAndSettle();
+    final fixture = await _pumpMixedAggregateView(tester);
+    final forumUrls = fixture.forumUrls;
 
     expect(find.byType(AggregateView), findsOneWidget);
     expect(find.byType(InstanceSidebar), findsNothing);
@@ -194,7 +134,7 @@ void main() {
     expect(find.text('Two'), findsOneWidget);
     final toolbarFinder = find.byKey(const ValueKey('aggregate-tab-toolbar'));
     final firstCardFinder = find.byKey(
-      ValueKey('aggregate-topic-card-${forums[0].url}-42'),
+      ValueKey('aggregate-topic-card-${forumUrls[0]}-42'),
     );
     expect(find.text('2 topics from 2 forums'), findsOneWidget);
     expect(
@@ -220,47 +160,59 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(ValueKey('aggregate-topic-card-${forums[0].url}-42')),
+      find.byKey(ValueKey('aggregate-topic-card-${forumUrls[0]}-42')),
       findsOneWidget,
     );
     expect(
-      find.byKey(ValueKey('aggregate-topic-card-${forums[1].url}-42')),
+      find.byKey(ValueKey('aggregate-topic-card-${forumUrls[1]}-42')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('saves exact per-forum filters and can exclude every forum', (
+    tester,
+  ) async {
+    final fixture = await _pumpMixedAggregateView(tester);
+    final api = fixture.api;
+    final forumUrls = fixture.forumUrls;
+
     await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
     await tester.pumpAndSettle();
     expect(find.text('Aggregate filters'), findsOneWidget);
     expect(
-      find.byKey(ValueKey('aggregate-filter-${forums[0].url}')),
+      find.byKey(ValueKey('aggregate-filter-${forumUrls[0]}')),
       findsOneWidget,
     );
     expect(
-      find.byKey(ValueKey('aggregate-filter-${forums[1].url}')),
+      find.byKey(ValueKey('aggregate-filter-${forumUrls[1]}')),
       findsOneWidget,
     );
     expect(find.byType(TopicFilterInput), findsNWidgets(5));
     expect(find.text('Save filters').hitTestable(), findsOneWidget);
 
     await tester.enterText(
-      find.byKey(ValueKey('aggregate-query-${forums[0].url}')),
+      find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
       'status:open',
     );
     await tester.enterText(
-      find.byKey(ValueKey('aggregate-query-${forums[1].url}')),
+      find.byKey(ValueKey('aggregate-query-${forumUrls[1]}')),
       'tag:ux',
     );
+    final requestsBeforeSave = api.feedPaths.length;
     await tester.tap(find.text('Save filters'));
     await tester.pumpAndSettle();
 
-    expect(api.feedPaths, contains(firstFilterPath));
-    expect(api.feedPaths, contains(secondFilterPath));
+    expect(
+      api.feedPaths.skip(requestsBeforeSave),
+      unorderedEquals([_firstFilterPath, _secondFilterPath]),
+    );
 
     await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
     await tester.pumpAndSettle();
     expect(
       tester
           .widget<TextField>(
-            find.byKey(ValueKey('aggregate-query-${forums[0].url}')),
+            find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
           )
           .controller!
           .text,
@@ -361,4 +313,72 @@ void main() {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }
   });
+}
+
+Future<({List<String> forumUrls, FakeDiscourseApi api})>
+_pumpMixedAggregateView(WidgetTester tester) async {
+  SharedPreferences.setMockInitialValues({});
+  tester.view.physicalSize = const Size(1000, 800);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+
+  const user = DiscourseUser(
+    username: 'sam',
+    trackedCategoryIds: [1],
+    watchedCategoryIds: [],
+    watchedFirstPostCategoryIds: [],
+  );
+  final forums = [
+    instance('one.example', title: 'One').copyWith(user: user),
+    instance('two.example', title: 'Two').copyWith(user: user),
+    instance('signed-out-one.example', title: 'Signed out one'),
+    instance('signed-out-two.example', title: 'Signed out two'),
+    instance('signed-out-three.example', title: 'Signed out three'),
+  ];
+  final authenticator = FakeAuthenticator()
+    ..keys[forums[0].url] = 'one-key'
+    ..keys[forums[1].url] = 'two-key';
+  final api = FakeDiscourseApi(
+    user: user,
+    feeds: {
+      '/latest.json': const [],
+      for (final path in [
+        _defaultAggregatePath,
+        _firstFilterPath,
+        _secondFilterPath,
+      ])
+        path: [
+          Topic(
+            id: 42,
+            title: 'Fresh cross-forum topic',
+            slug: 'fresh-topic',
+            categoryId: 1,
+            seen: false,
+            bumpedAt: DateTime.utc(2026, 1, 1),
+          ),
+        ],
+    },
+    filterOptionsByPath: const {
+      _defaultAggregatePath: _filterOptions,
+      _firstFilterPath: _filterOptions,
+      _secondFilterPath: _filterOptions,
+    },
+    categoryList: const [
+      TopicCategory(id: 1, name: 'Followed', color: '0088CC'),
+    ],
+  );
+  await tester.pumpWidget(
+    DiscourseApp(
+      store: FakeInstanceStore(forums),
+      api: api,
+      authenticator: authenticator,
+      drafts: FakeDraftStore(),
+      forumTabs: FakeForumTabStore(),
+      trackers: FakeSiteTracker.reset(),
+      updater: FakeUpdater(),
+      updateStore: FakeUpdateStore(),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return (forumUrls: forums.map((forum) => forum.url).toList(), api: api);
 }

@@ -140,6 +140,7 @@ void main() {
               UserApiAuthFailure.badReply,
             ),
           ),
+          reason: callback,
         );
       }
     });

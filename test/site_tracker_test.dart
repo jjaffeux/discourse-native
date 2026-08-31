@@ -10,519 +10,536 @@ import 'package:http/testing.dart';
 import 'package:message_bus_client/message_bus_client.dart';
 
 void main() {
-  test('rejects remote HTTP before starting a poll', () {
-    var requestCount = 0;
+  group('SiteTracker', () {
+    group('connection and core-channel setup', () {
+      test('rejects remote HTTP before polling', () {
+        var requestCount = 0;
 
-    expect(
-      () => SiteTracker(
-        siteUrl: 'http://example.com',
-        onIncomingTopics: () {},
-        onNotifications: (_) {},
-        onReviewableCounts: (_) {},
-        httpClient: MockClient((_) async {
-          requestCount += 1;
-          return http.Response('', 200);
-        }),
-      ),
-      throwsA(isA<SiteLookupException>()),
-    );
-    expect(requestCount, 0);
-  });
-
-  test('polls never follow redirects carrying an API key', () async {
-    final firstRequest = Completer<http.Request>();
-    final tracker = SiteTracker(
-      siteUrl: 'https://example.com',
-      apiKey: 'secret',
-      clientId: 'client-id',
-      onIncomingTopics: () {},
-      onNotifications: (_) {},
-      onReviewableCounts: (_) {},
-      shouldLongPoll: () => false,
-      httpClient: MockClient((request) async {
-        if (!firstRequest.isCompleted) firstRequest.complete(request);
-        return http.Response(
-          '',
-          302,
-          headers: {'location': 'http://attacker.example/message-bus/poll'},
+        expect(
+          () => SiteTracker(
+            siteUrl: 'http://example.com',
+            onIncomingTopics: () {},
+            onNotifications: (_) {},
+            onReviewableCounts: (_) {},
+            httpClient: MockClient((_) async {
+              requestCount += 1;
+              return http.Response('', 200);
+            }),
+          ),
+          throwsA(isA<SiteLookupException>()),
         );
-      }),
-    );
-    addTearDown(tracker.dispose);
-
-    final request = await firstRequest.future.timeout(
-      const Duration(seconds: 1),
-    );
-    expect(request.followRedirects, isFalse);
-    expect(request.headers['User-Api-Key'], 'secret');
-    expect(request.headers['User-Api-Client-Id'], 'client-id');
-    expect(request.bodyFields['/latest'], '-1');
-    expect(request.bodyFields['/new'], '-1');
-  });
-
-  test('registers account channels and forwards message data', () async {
-    final bus = _FakeMessageBusSession();
-    var incomingCalls = 0;
-    final notifications = <Object?>[];
-    final reviewableCounts = <Object?>[];
-    final tracker = SiteTracker(
-      siteUrl: 'https://meta.discourse.org',
-      userId: 42,
-      apiKey: 'secret',
-      clientId: 'client-id',
-      onIncomingTopics: () => incomingCalls += 1,
-      onNotifications: notifications.add,
-      onReviewableCounts: reviewableCounts.add,
-      httpClient: MockClient((_) async => http.Response('', 200)),
-      messageBus: bus,
-    );
-    addTearDown(tracker.dispose);
-
-    expect(bus.channels, {
-      '/latest',
-      '/new',
-      '/notification/42',
-      '/reviewable_counts/42',
-    });
-
-    bus.deliver('/latest', {'topic_id': 7, 'message_type': 'new_topic'});
-    bus.deliver('/latest', {'topic_id': 7, 'message_type': 'new_topic'});
-    bus.deliver('/notification/42', {'id': 1});
-    bus.deliver('/reviewable_counts/42', {'pending_count': 3});
-
-    expect(incomingCalls, 1);
-    expect(tracker.incoming.topicIds('latest'), [7]);
-    expect(notifications, [
-      {'id': 1},
-    ]);
-    expect(reviewableCounts, [
-      {'pending_count': 3},
-    ]);
-  });
-
-  test('mirrors core topic-tracking channels through one callback', () async {
-    final bus = _FakeMessageBusSession();
-    final tracker = _tracker(bus, userId: 42, apiKey: 'secret');
-    addTearDown(tracker.dispose);
-    final messages = <Object?>[];
-
-    tracker.watchTopicTrackingState(42, messages.add);
-
-    expect(bus.channels, {
-      '/latest',
-      '/new',
-      '/unread',
-      '/unread/42',
-      '/delete',
-      '/recover',
-      '/destroy',
-      '/notification/42',
-      '/reviewable_counts/42',
-    });
-
-    const latest = {'topic_id': 7, 'message_type': 'new_topic'};
-    const unread = {'topic_id': 8, 'message_type': 'unread'};
-    bus.deliver('/latest', latest);
-    bus.deliver('/unread/42', unread);
-
-    expect(messages, [latest, unread]);
-  });
-
-  test('signed-out trackers only subscribe to public topics', () async {
-    final bus = _FakeMessageBusSession();
-    final tracker = _tracker(bus, userId: 42);
-    addTearDown(tracker.dispose);
-
-    expect(bus.channels, {'/latest'});
-  });
-
-  test('callback diagnostics never retain a message-bus payload', () async {
-    const secretPayload = '{"api_key":"message-bus-payload-secret"}';
-    final diagnostics = await DiagnosticsController.create(
-      persistence: MemoryDiagnosticsPersistence(),
-      sessionId: 'message-bus-privacy',
-    );
-    final binding = DiagnosticsSink.install(diagnostics);
-    addTearDown(() async {
-      binding.close();
-      await diagnostics.close();
-    });
-    final bus = _FakeMessageBusSession();
-    final tracker = _tracker(bus);
-    addTearDown(tracker.dispose);
-
-    bus.emitError(
-      MessageBusCallbackException(
-        '/latest',
-        const FormatException('invalid callback payload', secretPayload, 1),
-        StackTrace.current,
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
-
-    final event = diagnostics.events.whereType<ErrorDiagnosticEvent>().single;
-    expect(event.operation, 'messageBus.callback /latest');
-    expect(event.message, contains('invalid callback payload'));
-    expect(event.toString(), isNot(contains(secretPayload)));
-    expect(diagnostics.buildJsonReport(), isNot(contains(secretPayload)));
-    expect(
-      diagnostics.buildJsonReport(),
-      isNot(contains('message-bus-payload-secret')),
-    );
-  });
-
-  test('start stop and pollNow avoid redundant bus work', () async {
-    final bus = _FakeMessageBusSession();
-    final tracker = _tracker(bus);
-    addTearDown(tracker.dispose);
-
-    tracker.start();
-    tracker.pollNow();
-    tracker.stop();
-    tracker.stop();
-    tracker.pollNow();
-    tracker.start();
-    tracker.start();
-    tracker.pollNow();
-
-    expect(bus.startCalls, 2);
-    expect(bus.stopCalls, 1);
-    expect(bus.pollNowCalls, 2);
-  });
-
-  test('a failed restart remains retryable', () async {
-    final bus = _FakeMessageBusSession();
-    final tracker = _tracker(bus);
-    addTearDown(tracker.dispose);
-    tracker.stop();
-    bus.failNextStart = true;
-
-    expect(tracker.start, throwsStateError);
-    tracker.start();
-    tracker.pollNow();
-
-    expect(bus.startCalls, 3);
-    expect(bus.pollNowCalls, 1);
-  });
-
-  test('a failed stop retains polling state until a retry succeeds', () async {
-    final bus = _FakeMessageBusSession()..failNextStop = true;
-    final tracker = _tracker(bus);
-    addTearDown(tracker.dispose);
-
-    expect(tracker.stop, throwsStateError);
-    tracker.pollNow();
-    tracker.stop();
-    tracker.pollNow();
-
-    expect(bus.stopCalls, 2);
-    expect(bus.pollNowCalls, 1);
-  });
-
-  test(
-    'watchTopic deduplicates channels and suppresses unwatched callbacks',
-    () async {
-      final bus = _FakeMessageBusSession();
-      final tracker = _tracker(bus);
-      addTearDown(tracker.dispose);
-      final messages = <(String, Object?)>[];
-
-      tracker.watchTopic(12, [
-        '/topic/12',
-        '/topic/12',
-        '/topic/12/status',
-      ], (channel, data) => messages.add((channel, data)));
-      final topicCallback = bus.retainedCallback('/topic/12');
-
-      expect(tracker.watchedTopic, 12);
-      expect(bus.activeSubscriptionCount('/topic/12'), 1);
-      expect(bus.activeSubscriptionCount('/topic/12/status'), 1);
-
-      bus.deliver('/topic/12', 'first');
-      tracker.unwatchTopic();
-      topicCallback('late');
-
-      expect(messages, [('/topic/12', 'first')]);
-      expect(tracker.watchedTopic, isNull);
-      expect(bus.activeSubscriptionCount('/topic/12'), 0);
-      expect(bus.activeSubscriptionCount('/topic/12/status'), 0);
-    },
-  );
-
-  test(
-    'switching topics suppresses a callback retained by the old watch',
-    () async {
-      final bus = _FakeMessageBusSession();
-      final tracker = _tracker(bus);
-      addTearDown(tracker.dispose);
-      final messages = <(String, Object?)>[];
-
-      tracker.watchTopic(12, [
-        '/topic/12',
-      ], (channel, data) => messages.add((channel, data)));
-      final oldCallback = bus.retainedCallback('/topic/12');
-      tracker.watchTopic(13, [
-        '/topic/13',
-      ], (channel, data) => messages.add((channel, data)));
-
-      oldCallback('late');
-      bus.deliver('/topic/13', 'current');
-
-      expect(messages, [('/topic/13', 'current')]);
-      expect(tracker.watchedTopic, 13);
-    },
-  );
-
-  test('a failed topic watch rolls back partial subscriptions', () async {
-    final bus = _FakeMessageBusSession()..failingChannel = '/topic/12/status';
-    final tracker = _tracker(bus);
-    addTearDown(tracker.dispose);
-
-    expect(
-      () =>
-          tracker.watchTopic(12, ['/topic/12', '/topic/12/status'], (_, _) {}),
-      throwsStateError,
-    );
-
-    expect(tracker.watchedTopic, isNull);
-    expect(bus.activeSubscriptionCount('/topic/12'), 0);
-  });
-
-  test(
-    'plugin watches forward snapshot cursors and can be cancelled',
-    () async {
-      final bus = _FakeMessageBusSession();
-      final tracker = _tracker(bus);
-      addTearDown(tracker.dispose);
-      final messages = <Object?>[];
-
-      final subscription = tracker.watchPluginChannel(
-        '/resenha/rooms/index',
-        messages.add,
-        lastId: 144,
-      );
-      expect(bus.lastIds['/resenha/rooms/index'], 144);
-
-      final retainedCallback = bus.retainedCallback('/resenha/rooms/index');
-      bus.deliver('/resenha/rooms/index', 'first');
-      subscription.cancel();
-      bus.deliver('/resenha/rooms/index', 'late');
-      retainedCallback('already queued');
-
-      expect(messages, ['first']);
-      expect(bus.activeSubscriptionCount('/resenha/rooms/index'), 0);
-    },
-  );
-
-  test('scoped plugin handles expose only declared live channels', () async {
-    final bus = _FakeMessageBusSession();
-    final tracker = _tracker(bus);
-    addTearDown(tracker.dispose);
-    final messages = <(Object?, int)>[];
-    final handle = tracker.pluginLiveChannels(const [
-      PluginLiveChannelScope.prefix('/chat'),
-    ]);
-
-    expect(handle, isNot(isA<SiteTracker>()));
-    final subscription = handle.subscribe(
-      '/chat/42',
-      (data, messageId) => messages.add((data, messageId)),
-      lastId: 144,
-    );
-    final retainedCallback = bus.retainedCallback('/chat/42');
-    bus.deliver('/chat/42', 'first', messageId: 145);
-    subscription.cancel();
-    bus.deliver('/chat/42', 'late', messageId: 146);
-    retainedCallback('already queued');
-
-    expect(bus.lastIds['/chat/42'], 144);
-    expect(messages, [('first', 145)]);
-    expect(bus.activeSubscriptionCount('/chat/42'), 0);
-  });
-
-  test('scoped plugin handles expose no tracker control surface', () {
-    final tracker = _tracker(_FakeMessageBusSession());
-    addTearDown(tracker.dispose);
-    final dynamic handle = tracker.pluginLiveChannels(const [
-      PluginLiveChannelScope.prefix('/chat'),
-    ]);
-
-    for (final control in <void Function()>[
-      // Deliberately probe the concrete wrapper as hostile dynamic code.
-      // ignore: avoid_dynamic_calls
-      () => handle.start(),
-      // ignore: avoid_dynamic_calls
-      () => handle.stop(),
-      // ignore: avoid_dynamic_calls
-      () => handle.pollNow(),
-      // ignore: avoid_dynamic_calls
-      () => handle.dispose(),
-      // ignore: avoid_dynamic_calls
-      () => handle.watchPluginChannel('/chat/42', (_) {}),
-      // ignore: avoid_dynamic_calls
-      () => handle.watchTopic(42, const ['/chat/42'], (_, _) {}),
-    ]) {
-      expect(control, throwsA(isA<NoSuchMethodError>()));
-    }
-  });
-
-  test('scoped plugin handles reject core, foreign, and spoofed channels', () {
-    final bus = _FakeMessageBusSession();
-    final tracker = _tracker(bus);
-    addTearDown(tracker.dispose);
-    final handle = tracker.pluginLiveChannels(const [
-      PluginLiveChannelScope.prefix('/chat'),
-      // The adapter remains fail-closed even if host validation is bypassed.
-      PluginLiveChannelScope.prefix('/latest'),
-      PluginLiveChannelScope.prefix('/notification'),
-      PluginLiveChannelScope.prefix('/topic'),
-    ]);
-
-    for (final channel in const [
-      '/latest',
-      '/latest/private',
-      '/new',
-      '/notification/42',
-      '/reviewable_counts/42',
-      '/user-status',
-      '/do-not-disturb/42',
-      '/topic/7/reactions',
-      '/resenha/rooms/7',
-      '/chatty/42',
-    ]) {
-      expect(
-        () => handle.subscribe(channel, (_, _) {}),
-        throwsArgumentError,
-        reason: channel,
-      );
-    }
-
-    expect(bus.channels, {'/latest'});
-  });
-
-  test(
-    'reports a failed topic unsubscribe while the tracker is active',
-    () async {
-      final diagnostics = await DiagnosticsController.create(
-        persistence: MemoryDiagnosticsPersistence(),
-        sessionId: 'message-bus-unsubscribe',
-      );
-      final binding = DiagnosticsSink.install(diagnostics);
-      addTearDown(() async {
-        binding.close();
-        await diagnostics.close();
+        expect(requestCount, 0);
       });
-      final bus = _FakeMessageBusSession()
-        ..failingCancellationChannel = '/topic/12';
-      final tracker = _tracker(bus);
-      addTearDown(tracker.dispose);
-      tracker.watchTopic(12, ['/topic/12'], (_, _) {});
 
-      tracker.unwatchTopic();
+      test('disables redirects on polls carrying an API key', () async {
+        final firstRequest = Completer<http.Request>();
+        final tracker = SiteTracker(
+          siteUrl: 'https://example.com',
+          apiKey: 'secret',
+          clientId: 'client-id',
+          onIncomingTopics: () {},
+          onNotifications: (_) {},
+          onReviewableCounts: (_) {},
+          shouldLongPoll: () => false,
+          httpClient: MockClient((request) async {
+            if (!firstRequest.isCompleted) firstRequest.complete(request);
+            return http.Response(
+              '',
+              302,
+              headers: {'location': 'http://attacker.example/message-bus/poll'},
+            );
+          }),
+        );
+        addTearDown(tracker.dispose);
 
-      final event = diagnostics.events.whereType<ErrorDiagnosticEvent>().single;
-      expect(event.operation, 'messageBus.unsubscribeTopic');
-      expect(event.source, 'message_bus');
-      expect(event.errorType, 'StateError');
-      expect(event.message, contains('subscription cancellation failed'));
-      expect(event.severity, DiagnosticSeverity.warning);
-      expect(event.handled, isTrue);
-      expect(event.degraded, isTrue);
-    },
-  );
+        final request = await firstRequest.future.timeout(
+          const Duration(seconds: 1),
+        );
+        expect(request.followRedirects, isFalse);
+        expect(request.headers['User-Api-Key'], 'secret');
+        expect(request.headers['User-Api-Client-Id'], 'client-id');
+        expect(request.bodyFields['/latest'], '-1');
+        expect(request.bodyFields['/new'], '-1');
+      });
 
-  test('a constructor subscription failure closes its partial session', () {
-    final bus = _FakeMessageBusSession()..failingChannel = '/new';
-    var incomingCalls = 0;
+      test('registers account channels and forwards message data', () async {
+        final bus = _FakeMessageBusSession();
+        var incomingCalls = 0;
+        final notifications = <Object?>[];
+        final reviewableCounts = <Object?>[];
+        final tracker = SiteTracker(
+          siteUrl: 'https://meta.discourse.org',
+          userId: 42,
+          apiKey: 'secret',
+          clientId: 'client-id',
+          onIncomingTopics: () => incomingCalls += 1,
+          onNotifications: notifications.add,
+          onReviewableCounts: reviewableCounts.add,
+          httpClient: MockClient((_) async => http.Response('', 200)),
+          messageBus: bus,
+        );
+        addTearDown(tracker.dispose);
 
-    expect(
-      () => _tracker(
-        bus,
-        apiKey: 'secret',
-        onIncomingTopics: () => incomingCalls += 1,
-      ),
-      throwsStateError,
-    );
+        expect(bus.channels, {
+          '/latest',
+          '/new',
+          '/notification/42',
+          '/reviewable_counts/42',
+        });
 
-    expect(bus.startCalls, 0);
-    expect(bus.closeCalls, 1);
-    bus.retainedCallback('/latest')({
-      'topic_id': 7,
-      'message_type': 'new_topic',
+        bus.deliver('/latest', {'topic_id': 7, 'message_type': 'new_topic'});
+        bus.deliver('/latest', {'topic_id': 7, 'message_type': 'new_topic'});
+        bus.deliver('/notification/42', {'id': 1});
+        bus.deliver('/reviewable_counts/42', {'pending_count': 3});
+
+        expect(incomingCalls, 1);
+        expect(tracker.incoming.topicIds('latest'), [7]);
+        expect(notifications, [
+          {'id': 1},
+        ]);
+        expect(reviewableCounts, [
+          {'pending_count': 3},
+        ]);
+      });
+
+      test('mirrors topic-tracking channels through one callback', () async {
+        final bus = _FakeMessageBusSession();
+        final tracker = _tracker(bus, userId: 42, apiKey: 'secret');
+        addTearDown(tracker.dispose);
+        final messages = <Object?>[];
+
+        tracker.watchTopicTrackingState(42, messages.add);
+
+        expect(bus.channels, {
+          '/latest',
+          '/new',
+          '/unread',
+          '/unread/42',
+          '/delete',
+          '/recover',
+          '/destroy',
+          '/notification/42',
+          '/reviewable_counts/42',
+        });
+
+        const latest = {'topic_id': 7, 'message_type': 'new_topic'};
+        const unread = {'topic_id': 8, 'message_type': 'unread'};
+        bus.deliver('/latest', latest);
+        bus.deliver('/unread/42', unread);
+
+        expect(messages, [latest, unread]);
+      });
+
+      test('limits signed-out subscriptions to public topics', () async {
+        final bus = _FakeMessageBusSession();
+        final tracker = _tracker(bus, userId: 42);
+        addTearDown(tracker.dispose);
+
+        expect(bus.channels, {'/latest'});
+      });
+
+      test('redacts message-bus payloads from callback diagnostics', () async {
+        const secretPayload = '{"api_key":"message-bus-payload-secret"}';
+        final diagnostics = await DiagnosticsController.create(
+          persistence: MemoryDiagnosticsPersistence(),
+          sessionId: 'message-bus-privacy',
+        );
+        final binding = DiagnosticsSink.install(diagnostics);
+        addTearDown(() async {
+          binding.close();
+          await diagnostics.close();
+        });
+        final bus = _FakeMessageBusSession();
+        final tracker = _tracker(bus);
+        addTearDown(tracker.dispose);
+
+        bus.emitError(
+          MessageBusCallbackException(
+            '/latest',
+            const FormatException('invalid callback payload', secretPayload, 1),
+            StackTrace.current,
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final event = diagnostics.events
+            .whereType<ErrorDiagnosticEvent>()
+            .single;
+        expect(event.operation, 'messageBus.callback /latest');
+        expect(event.message, contains('invalid callback payload'));
+        expect(event.toString(), isNot(contains(secretPayload)));
+        expect(diagnostics.buildJsonReport(), isNot(contains(secretPayload)));
+        expect(
+          diagnostics.buildJsonReport(),
+          isNot(contains('message-bus-payload-secret')),
+        );
+      });
     });
-    expect(incomingCalls, 0);
-  });
 
-  test(
-    'dispose is idempotent and suppresses every retained callback',
-    () async {
-      final bus = _FakeMessageBusSession();
-      var incomingCalls = 0;
-      var notificationCalls = 0;
-      var reviewableCalls = 0;
-      var topicCalls = 0;
-      var pluginCalls = 0;
-      final tracker = _tracker(
-        bus,
-        userId: 42,
-        apiKey: 'secret',
-        onIncomingTopics: () => incomingCalls += 1,
-        onNotifications: (_) => notificationCalls += 1,
-        onReviewableCounts: (_) => reviewableCalls += 1,
+    group('polling lifecycle', () {
+      test(
+        'avoids redundant bus work across start, stop, and pollNow',
+        () async {
+          final bus = _FakeMessageBusSession();
+          final tracker = _tracker(bus);
+          addTearDown(tracker.dispose);
+
+          tracker.start();
+          tracker.pollNow();
+          tracker.stop();
+          tracker.stop();
+          tracker.pollNow();
+          tracker.start();
+          tracker.start();
+          tracker.pollNow();
+
+          expect(bus.startCalls, 2);
+          expect(bus.stopCalls, 1);
+          expect(bus.pollNowCalls, 2);
+        },
       );
-      tracker.watchTopic(12, ['/topic/12'], (_, _) => topicCalls += 1);
-      tracker.watchPluginChannel(
-        '/resenha/rooms/index',
-        (_) => pluginCalls += 1,
+
+      test('remains retryable after a failed restart', () async {
+        final bus = _FakeMessageBusSession();
+        final tracker = _tracker(bus);
+        addTearDown(tracker.dispose);
+        tracker.stop();
+        bus.failNextStart = true;
+
+        expect(tracker.start, throwsStateError);
+        tracker.start();
+        tracker.pollNow();
+
+        expect(bus.startCalls, 3);
+        expect(bus.pollNowCalls, 1);
+      });
+
+      test(
+        'retains polling state until a failed stop retry succeeds',
+        () async {
+          final bus = _FakeMessageBusSession()..failNextStop = true;
+          final tracker = _tracker(bus);
+          addTearDown(tracker.dispose);
+
+          expect(tracker.stop, throwsStateError);
+          tracker.pollNow();
+          tracker.stop();
+          tracker.pollNow();
+
+          expect(bus.stopCalls, 2);
+          expect(bus.pollNowCalls, 1);
+        },
       );
-      final incomingCallback = bus.retainedCallback('/latest');
-      final notificationCallback = bus.retainedCallback('/notification/42');
-      final reviewableCallback = bus.retainedCallback('/reviewable_counts/42');
-      final topicCallback = bus.retainedCallback('/topic/12');
-      final pluginCallback = bus.retainedCallback('/resenha/rooms/index');
-      tracker.incoming.notify({'topic_id': 7, 'message_type': 'new_topic'});
-      expect(tracker.incoming.count('latest'), 1);
+    });
 
-      final firstDispose = tracker.dispose();
-      final secondDispose = tracker.dispose();
-      incomingCallback({'topic_id': 1, 'message_type': 'new_topic'});
-      notificationCallback({});
-      reviewableCallback({});
-      topicCallback({});
-      pluginCallback({});
-      tracker.stop();
-      tracker.pollNow();
+    group('topic watches', () {
+      test('deduplicate channels and suppress unwatched callbacks', () async {
+        final bus = _FakeMessageBusSession();
+        final tracker = _tracker(bus);
+        addTearDown(tracker.dispose);
+        final messages = <(String, Object?)>[];
 
-      expect(identical(firstDispose, secondDispose), isTrue);
-      await firstDispose;
-      expect(bus.closeCalls, 1);
-      expect(tracker.watchedTopic, isNull);
-      expect(tracker.incoming.count('latest'), 0);
-      expect(incomingCalls, 0);
-      expect(notificationCalls, 0);
-      expect(reviewableCalls, 0);
-      expect(topicCalls, 0);
-      expect(pluginCalls, 0);
-      expect(() => tracker.start(), throwsStateError);
-      expect(
-        () => tracker.watchTopic(13, ['/topic/13'], (_, _) {}),
-        throwsStateError,
+        tracker.watchTopic(12, [
+          '/topic/12',
+          '/topic/12',
+          '/topic/12/status',
+        ], (channel, data) => messages.add((channel, data)));
+        final topicCallback = bus.retainedCallback('/topic/12');
+
+        expect(tracker.watchedTopic, 12);
+        expect(bus.activeSubscriptionCount('/topic/12'), 1);
+        expect(bus.activeSubscriptionCount('/topic/12/status'), 1);
+
+        bus.deliver('/topic/12', 'first');
+        tracker.unwatchTopic();
+        topicCallback('late');
+
+        expect(messages, [('/topic/12', 'first')]);
+        expect(tracker.watchedTopic, isNull);
+        expect(bus.activeSubscriptionCount('/topic/12'), 0);
+        expect(bus.activeSubscriptionCount('/topic/12/status'), 0);
+      });
+
+      test('suppress callbacks retained by a previous topic', () async {
+        final bus = _FakeMessageBusSession();
+        final tracker = _tracker(bus);
+        addTearDown(tracker.dispose);
+        final messages = <(String, Object?)>[];
+
+        tracker.watchTopic(12, [
+          '/topic/12',
+        ], (channel, data) => messages.add((channel, data)));
+        final oldCallback = bus.retainedCallback('/topic/12');
+        tracker.watchTopic(13, [
+          '/topic/13',
+        ], (channel, data) => messages.add((channel, data)));
+
+        oldCallback('late');
+        bus.deliver('/topic/13', 'current');
+
+        expect(messages, [('/topic/13', 'current')]);
+        expect(tracker.watchedTopic, 13);
+      });
+
+      test('roll back partial subscriptions after failure', () async {
+        final bus = _FakeMessageBusSession()
+          ..failingChannel = '/topic/12/status';
+        final tracker = _tracker(bus);
+        addTearDown(tracker.dispose);
+
+        expect(
+          () => tracker.watchTopic(12, [
+            '/topic/12',
+            '/topic/12/status',
+          ], (_, _) {}),
+          throwsStateError,
+        );
+
+        expect(tracker.watchedTopic, isNull);
+        expect(bus.activeSubscriptionCount('/topic/12'), 0);
+      });
+    });
+
+    group('plugin channels', () {
+      test('forward snapshot cursors and can be cancelled', () async {
+        final bus = _FakeMessageBusSession();
+        final tracker = _tracker(bus);
+        addTearDown(tracker.dispose);
+        final messages = <Object?>[];
+
+        final subscription = tracker.watchPluginChannel(
+          '/resenha/rooms/index',
+          messages.add,
+          lastId: 144,
+        );
+        expect(bus.lastIds['/resenha/rooms/index'], 144);
+
+        final retainedCallback = bus.retainedCallback('/resenha/rooms/index');
+        bus.deliver('/resenha/rooms/index', 'first');
+        subscription.cancel();
+        bus.deliver('/resenha/rooms/index', 'late');
+        retainedCallback('already queued');
+
+        expect(messages, ['first']);
+        expect(bus.activeSubscriptionCount('/resenha/rooms/index'), 0);
+      });
+
+      test('scoped handles expose only declared live channels', () async {
+        final bus = _FakeMessageBusSession();
+        final tracker = _tracker(bus);
+        addTearDown(tracker.dispose);
+        final messages = <(Object?, int)>[];
+        final handle = tracker.pluginLiveChannels(const [
+          PluginLiveChannelScope.prefix('/chat'),
+        ]);
+
+        expect(handle, isNot(isA<SiteTracker>()));
+        final subscription = handle.subscribe(
+          '/chat/42',
+          (data, messageId) => messages.add((data, messageId)),
+          lastId: 144,
+        );
+        final retainedCallback = bus.retainedCallback('/chat/42');
+        bus.deliver('/chat/42', 'first', messageId: 145);
+        subscription.cancel();
+        bus.deliver('/chat/42', 'late', messageId: 146);
+        retainedCallback('already queued');
+
+        expect(bus.lastIds['/chat/42'], 144);
+        expect(messages, [('first', 145)]);
+        expect(bus.activeSubscriptionCount('/chat/42'), 0);
+      });
+
+      test('scoped handles expose no tracker control surface', () {
+        final tracker = _tracker(_FakeMessageBusSession());
+        addTearDown(tracker.dispose);
+        final dynamic handle = tracker.pluginLiveChannels(const [
+          PluginLiveChannelScope.prefix('/chat'),
+        ]);
+
+        for (final control in <void Function()>[
+          // Deliberately probe the concrete wrapper as hostile dynamic code.
+          // ignore: avoid_dynamic_calls
+          () => handle.start(),
+          // ignore: avoid_dynamic_calls
+          () => handle.stop(),
+          // ignore: avoid_dynamic_calls
+          () => handle.pollNow(),
+          // ignore: avoid_dynamic_calls
+          () => handle.dispose(),
+          // ignore: avoid_dynamic_calls
+          () => handle.watchPluginChannel('/chat/42', (_) {}),
+          // ignore: avoid_dynamic_calls
+          () => handle.watchTopic(42, const ['/chat/42'], (_, _) {}),
+        ]) {
+          expect(control, throwsA(isA<NoSuchMethodError>()));
+        }
+      });
+
+      test('scoped handles reject core, foreign, and spoofed channels', () {
+        final bus = _FakeMessageBusSession();
+        final tracker = _tracker(bus);
+        addTearDown(tracker.dispose);
+        final handle = tracker.pluginLiveChannels(const [
+          PluginLiveChannelScope.prefix('/chat'),
+          // The adapter remains fail-closed even if host validation is bypassed.
+          PluginLiveChannelScope.prefix('/latest'),
+          PluginLiveChannelScope.prefix('/notification'),
+          PluginLiveChannelScope.prefix('/topic'),
+        ]);
+
+        for (final channel in const [
+          '/latest',
+          '/latest/private',
+          '/new',
+          '/notification/42',
+          '/reviewable_counts/42',
+          '/user-status',
+          '/do-not-disturb/42',
+          '/topic/7/reactions',
+          '/resenha/rooms/7',
+          '/chatty/42',
+        ]) {
+          expect(
+            () => handle.subscribe(channel, (_, _) {}),
+            throwsArgumentError,
+            reason: channel,
+          );
+        }
+
+        expect(bus.channels, {'/latest'});
+      });
+    });
+
+    group('subscription and session cleanup', () {
+      test('reports a failed topic unsubscribe while active', () async {
+        final diagnostics = await DiagnosticsController.create(
+          persistence: MemoryDiagnosticsPersistence(),
+          sessionId: 'message-bus-unsubscribe',
+        );
+        final binding = DiagnosticsSink.install(diagnostics);
+        addTearDown(() async {
+          binding.close();
+          await diagnostics.close();
+        });
+        final bus = _FakeMessageBusSession()
+          ..failingCancellationChannel = '/topic/12';
+        final tracker = _tracker(bus);
+        addTearDown(tracker.dispose);
+        tracker.watchTopic(12, ['/topic/12'], (_, _) {});
+
+        tracker.unwatchTopic();
+
+        final event = diagnostics.events
+            .whereType<ErrorDiagnosticEvent>()
+            .single;
+        expect(event.operation, 'messageBus.unsubscribeTopic');
+        expect(event.source, 'message_bus');
+        expect(event.errorType, 'StateError');
+        expect(event.message, contains('subscription cancellation failed'));
+        expect(event.severity, DiagnosticSeverity.warning);
+        expect(event.handled, isTrue);
+        expect(event.degraded, isTrue);
+      });
+
+      test('constructor failure closes the partial session', () {
+        final bus = _FakeMessageBusSession()..failingChannel = '/new';
+        var incomingCalls = 0;
+
+        expect(
+          () => _tracker(
+            bus,
+            apiKey: 'secret',
+            onIncomingTopics: () => incomingCalls += 1,
+          ),
+          throwsStateError,
+        );
+
+        expect(bus.startCalls, 0);
+        expect(bus.closeCalls, 1);
+        bus.retainedCallback('/latest')({
+          'topic_id': 7,
+          'message_type': 'new_topic',
+        });
+        expect(incomingCalls, 0);
+      });
+
+      test(
+        'disposal is idempotent and suppresses retained callbacks',
+        () async {
+          final bus = _FakeMessageBusSession();
+          var incomingCalls = 0;
+          var notificationCalls = 0;
+          var reviewableCalls = 0;
+          var topicCalls = 0;
+          var pluginCalls = 0;
+          final tracker = _tracker(
+            bus,
+            userId: 42,
+            apiKey: 'secret',
+            onIncomingTopics: () => incomingCalls += 1,
+            onNotifications: (_) => notificationCalls += 1,
+            onReviewableCounts: (_) => reviewableCalls += 1,
+          );
+          addTearDown(tracker.dispose);
+          tracker.watchTopic(12, ['/topic/12'], (_, _) => topicCalls += 1);
+          tracker.watchPluginChannel(
+            '/resenha/rooms/index',
+            (_) => pluginCalls += 1,
+          );
+          final incomingCallback = bus.retainedCallback('/latest');
+          final notificationCallback = bus.retainedCallback('/notification/42');
+          final reviewableCallback = bus.retainedCallback(
+            '/reviewable_counts/42',
+          );
+          final topicCallback = bus.retainedCallback('/topic/12');
+          final pluginCallback = bus.retainedCallback('/resenha/rooms/index');
+          tracker.incoming.notify({'topic_id': 7, 'message_type': 'new_topic'});
+          expect(tracker.incoming.count('latest'), 1);
+
+          final firstDispose = tracker.dispose();
+          final secondDispose = tracker.dispose();
+          incomingCallback({'topic_id': 1, 'message_type': 'new_topic'});
+          notificationCallback({});
+          reviewableCallback({});
+          topicCallback({});
+          pluginCallback({});
+          tracker.stop();
+          tracker.pollNow();
+
+          expect(identical(firstDispose, secondDispose), isTrue);
+          await firstDispose;
+          expect(bus.closeCalls, 1);
+          expect(tracker.watchedTopic, isNull);
+          expect(tracker.incoming.count('latest'), 0);
+          expect(incomingCalls, 0);
+          expect(notificationCalls, 0);
+          expect(reviewableCalls, 0);
+          expect(topicCalls, 0);
+          expect(pluginCalls, 0);
+          expect(() => tracker.start(), throwsStateError);
+          expect(
+            () => tracker.watchTopic(13, ['/topic/13'], (_, _) {}),
+            throwsStateError,
+          );
+        },
       );
-    },
-  );
 
-  test('a broken topic cancellation cannot prevent session close', () async {
-    final bus = _FakeMessageBusSession()
-      ..failingCancellationChannel = '/topic/12';
-    final tracker = _tracker(bus);
-    tracker.watchTopic(12, ['/topic/12', '/topic/12/status'], (_, _) {});
+      test('broken topic cancellation cannot prevent session close', () async {
+        final bus = _FakeMessageBusSession()
+          ..failingCancellationChannel = '/topic/12';
+        final tracker = _tracker(bus);
+        addTearDown(tracker.dispose);
+        tracker.watchTopic(12, ['/topic/12', '/topic/12/status'], (_, _) {});
 
-    await tracker.dispose();
+        await tracker.dispose();
 
-    expect(tracker.watchedTopic, isNull);
-    expect(bus.closeCalls, 1);
-    expect(bus.activeSubscriptionCount('/topic/12'), 0);
-    expect(bus.activeSubscriptionCount('/topic/12/status'), 0);
+        expect(tracker.watchedTopic, isNull);
+        expect(bus.closeCalls, 1);
+        expect(bus.activeSubscriptionCount('/topic/12'), 0);
+        expect(bus.activeSubscriptionCount('/topic/12/status'), 0);
+      });
+    });
   });
 }
 

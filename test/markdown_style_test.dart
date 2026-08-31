@@ -23,9 +23,13 @@ void main() {
 
     for (var level = 1; level <= 6; level++) {
       final style = markdownStyle(Md.heading, '$level', base, theme);
-      expect(style.fontSize, expected[level - 1]);
-      expect(style.height, DiscourseTypography.lineHeightMedium);
-      expect(style.fontWeight, FontWeight.w700);
+      expect(style.fontSize, expected[level - 1], reason: 'heading $level');
+      expect(
+        style.height,
+        DiscourseTypography.lineHeightMedium,
+        reason: 'heading $level',
+      );
+      expect(style.fontWeight, FontWeight.w700, reason: 'heading $level');
     }
   });
 

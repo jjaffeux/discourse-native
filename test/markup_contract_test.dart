@@ -61,10 +61,10 @@ void main() {
     final repository = await Directory.systemTemp.createTemp(
       'markup-contract-repository-',
     );
+    addTearDown(() => repository.delete(recursive: true));
     final outside = await Directory.systemTemp.createTemp(
       'markup-contract-outside-',
     );
-    addTearDown(() => repository.delete(recursive: true));
     addTearDown(() => outside.delete(recursive: true));
     final catalog = File(
       '${repository.path}/tool/markup_contracts/core/markup_contract.json',

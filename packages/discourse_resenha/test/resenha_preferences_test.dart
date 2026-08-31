@@ -6,6 +6,11 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('replacement device writes persist the latest request', () async {
     final persistence = _ControlledPersistence();
+    addTearDown(() {
+      if (!persistence.finishFirstStringWrite.isCompleted) {
+        persistence.finishFirstStringWrite.complete();
+      }
+    });
     final oldPreferences = SharedPreferencesResenhaPreferences(
       persistence: persistence,
     );
@@ -42,6 +47,11 @@ void main() {
 
   test('a replacement read waits for an in-flight volume write', () async {
     final persistence = _ControlledPersistence();
+    addTearDown(() {
+      if (!persistence.finishFirstDoubleWrite.isCompleted) {
+        persistence.finishFirstDoubleWrite.complete();
+      }
+    });
     final oldPreferences = SharedPreferencesResenhaPreferences(
       persistence: persistence,
     );

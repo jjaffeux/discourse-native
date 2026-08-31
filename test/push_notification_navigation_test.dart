@@ -49,13 +49,13 @@ void main() {
       final opened = await controller.openNotificationUrl(
         'https://two.example/t/native-push/42/3',
       );
-      await Future<void>.delayed(Duration.zero);
+      await _waitForTopic(controller);
 
       expect(opened, isTrue);
       expect(controller.currentInstance?.url, 'https://two.example');
       expect(controller.currentContent?.topicId, 42);
       expect(controller.currentContent?.postNumber, 3);
-      expect(api.topicPostNumbersOpened, contains(3));
+      expect(api.topicPostNumbersOpened, [3]);
     },
   );
 
@@ -161,7 +161,7 @@ void main() {
         .notifier!;
     expect(controller.currentContent?.topicId, 42);
     expect(controller.currentContent?.postNumber, 7);
-    expect(api.topicPostNumbersOpened, contains(7));
+    expect(api.topicPostNumbersOpened, [7]);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });

@@ -129,7 +129,6 @@ void main() {
         'decode-payload',
         'write-api-key',
       ]);
-      expect(events, isNot(contains('read-client-id')));
       expect(await authenticator.clientId(), 'macos-apns-token');
     });
 
@@ -181,7 +180,7 @@ void main() {
     );
 
     test(
-      'does not open the browser when the client id cannot be read',
+      'does not open the browser when the client ID cannot be read',
       () async {
         var launches = 0;
         final error = StateError('preferences unavailable');

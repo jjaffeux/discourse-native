@@ -106,7 +106,7 @@ void main() {
     );
   });
 
-  group('mentions', () {
+  group('mention autocomplete', () {
     testWidgets('waits out the debounce before asking', (tester) async {
       popup.update(typed('hey @sa'));
       expect(asked, isEmpty);
@@ -182,7 +182,7 @@ void main() {
     });
   });
 
-  group('hashtags', () {
+  group('hashtag autocomplete', () {
     testWidgets('waits out the debounce before asking', (tester) async {
       popup.update(typed('see #ran'));
       expect(askedHashtags, isEmpty);

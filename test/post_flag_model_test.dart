@@ -62,7 +62,10 @@ void main() {
 
       expect(catalog.postFlags.map((type) => type.id), [3, 91, 7]);
       expect(catalog.postFlags.first.system, isTrue);
-      expect(catalog.postFlags.first.shortDescription, contains('relevant'));
+      expect(
+        catalog.postFlags.first.shortDescription,
+        '<p>Not relevant here</p>',
+      );
       expect(catalog.postFlags[1].enabled, isFalse);
       expect(catalog.postFlags[1].requireMessage, isTrue);
       expect(catalog.postFlags[1].appliesToPost, isTrue);

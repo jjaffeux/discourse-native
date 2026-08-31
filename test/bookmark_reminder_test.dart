@@ -21,23 +21,21 @@ void main() {
   test('full reminders obey cutoffs and the weekend setting', () {
     final location = environment.location('Etc/UTC')!;
     final thursdayEvening = DateTime.utc(2026, 8, 27, 18);
-    final labels = BookmarkReminderCalculator.fullSuggestions(
-      now: thursdayEvening,
-      location: location,
-      suggestWeekends: true,
-    ).map((suggestion) => suggestion.label);
-
-    expect(labels, isNot(contains('Later today')));
-    expect(labels, isNot(contains('Later this week')));
-    expect(labels, contains('This weekend'));
-    expect(labels, containsAll(['Tomorrow', 'Next Monday', 'Next month']));
+    expect(
+      BookmarkReminderCalculator.fullSuggestions(
+        now: thursdayEvening,
+        location: location,
+        suggestWeekends: true,
+      ).map((suggestion) => suggestion.label),
+      ['Tomorrow', 'This weekend', 'Next Monday', 'Next month'],
+    );
     expect(
       BookmarkReminderCalculator.fullSuggestions(
         now: thursdayEvening,
         location: location,
         suggestWeekends: false,
       ).map((suggestion) => suggestion.label),
-      isNot(contains('This weekend')),
+      ['Tomorrow', 'Next Monday', 'Next month'],
     );
   });
 

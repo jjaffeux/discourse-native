@@ -491,7 +491,7 @@ void main() {
       },
     );
 
-    test('folds HTTP updates by id and classifies HTTP failures as errors', () {
+    test('folds HTTP updates by ID and classifies HTTP failures as errors', () {
       controller.recordHttp(_httpRecord(now, HttpDiagnosticPhase.started));
       now = now.add(const Duration(milliseconds: 125));
       controller.recordHttp(
@@ -1269,20 +1269,47 @@ void main() {
         clock: () => now,
         sessionId: 'batch-session',
       );
+      addTearDown(controller.close);
       persistence.batches.clear();
 
-      controller.recordHttp(
-        _httpRecord(now, HttpDiagnosticPhase.started, eventId: 'ordinary-1'),
-      );
-      controller.recordHttp(
-        _httpRecord(now, HttpDiagnosticPhase.started, eventId: 'ordinary-2'),
+      _ManualTimer? ordinaryWrite;
+      runZoned(
+        () {
+          controller.recordHttp(
+            _httpRecord(
+              now,
+              HttpDiagnosticPhase.started,
+              eventId: 'ordinary-1',
+            ),
+          );
+          controller.recordHttp(
+            _httpRecord(
+              now,
+              HttpDiagnosticPhase.started,
+              eventId: 'ordinary-2',
+            ),
+          );
+        },
+        zoneSpecification: ZoneSpecification(
+          createTimer: (self, parent, zone, duration, callback) {
+            if (duration != DiagnosticsController.ordinaryWriteDelay) {
+              return parent.createTimer(zone, duration, callback);
+            }
+            final timer = _ManualTimer(zone.bindCallback(callback));
+            ordinaryWrite = timer;
+            return timer;
+          },
+        ),
       );
       expect(persistence.batches, isEmpty);
 
-      await Future<void>.delayed(
-        DiagnosticsController.ordinaryWriteDelay +
-            const Duration(milliseconds: 50),
+      expect(
+        ordinaryWrite,
+        isNotNull,
+        reason: 'ordinary diagnostics writes must schedule a bounded batch',
       );
+      ordinaryWrite!.fire();
+      await Future<void>.delayed(Duration.zero);
       expect(persistence.batches, hasLength(1));
       expect(persistence.batches.single.map((event) => event.id), [
         'ordinary-1',
@@ -1295,14 +1322,11 @@ void main() {
       );
       controller.reportError(StateError('flush now'), StackTrace.current);
 
-      // One event-loop turn is well below the ordinary timer delay. The error
-      // must have synchronously drained both records into one queued batch.
       await Future<void>.delayed(Duration.zero);
       expect(persistence.batches, hasLength(1));
       expect(persistence.batches.single, hasLength(2));
       expect(persistence.batches.single.first.id, 'ordinary-3');
       expect(persistence.batches.single.last, isA<ErrorDiagnosticEvent>());
-      await controller.close();
     },
   );
 }

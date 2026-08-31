@@ -22,7 +22,7 @@ const _video = YoutubeVideoData(
 );
 
 void main() {
-  group('YoutubeVideoData', () {
+  group('YouTube markup parsing', () {
     test('reads the lazy-video plugin markup', () {
       final element = html_parser
           .parseFragment('''
@@ -129,7 +129,7 @@ void main() {
       );
     });
 
-    test('rejects unrelated hosts, paths, credentials, and malformed ids', () {
+    test('rejects unrelated hosts, paths, credentials, and malformed IDs', () {
       for (final value in [
         'https://youtube.com.example/watch?v=video',
         'https://user@youtube.com/watch?v=video',
@@ -160,7 +160,7 @@ void main() {
     });
   });
 
-  group('YouTube embed document', () {
+  group('embedded player navigation', () {
     test('claims pointer sequences for the activated iframe player', () {
       const factories = youtubePlayerGestureRecognizers;
 
@@ -208,7 +208,7 @@ void main() {
       expect(html, isNot(contains('A "quoted" & risky <title>')));
     });
 
-    test('builds the playlist endpoint without a video id', () {
+    test('builds the playlist endpoint without a video ID', () {
       const playlist = YoutubeVideoData(
         videoId: null,
         listId: 'PL_only',
@@ -264,27 +264,29 @@ void main() {
     });
   });
 
-  group('YoutubeVideo', () {
+  group('video widget', () {
     testWidgets('shows separate accessible play and external-link actions', (
       tester,
     ) async {
       final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(body: YoutubeVideo(data: _video, siteUrl: null)),
+          ),
+        );
 
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: YoutubeVideo(data: _video, siteUrl: null)),
-        ),
-      );
-
-      expect(
-        find.bySemanticsLabel('Play video: A useful video'),
-        findsOneWidget,
-      );
-      expect(
-        find.bySemanticsLabel('Open on YouTube: A useful video'),
-        findsOneWidget,
-      );
-      semantics.dispose();
+        expect(
+          find.bySemanticsLabel('Play video: A useful video'),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel('Open on YouTube: A useful video'),
+          findsOneWidget,
+        );
+      } finally {
+        semantics.dispose();
+      }
     });
 
     testWidgets('creates the player only after activation', (tester) async {
@@ -476,7 +478,7 @@ void main() {
     });
   });
 
-  group('CookedHtml integration', () {
+  group('cooked content integration', () {
     const lazyMarkup = '''
 <div class="youtube-onebox lazy-video-container"
   data-video-id="dQw4w9WgXcQ"
@@ -510,8 +512,16 @@ void main() {
         );
         await tester.pump();
 
-        expect(find.byType(YoutubeVideo), findsOneWidget);
-        expect(tester.getSize(find.byType(YoutubeVideo)).width, 600);
+        expect(
+          find.byType(YoutubeVideo),
+          findsOneWidget,
+          reason: 'compactParagraphs: $compact',
+        );
+        expect(
+          tester.getSize(find.byType(YoutubeVideo)).width,
+          600,
+          reason: 'compactParagraphs: $compact',
+        );
       }
     });
 

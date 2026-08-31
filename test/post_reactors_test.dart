@@ -47,7 +47,7 @@ void main() {
     expect(reactors.reactors.single.displayName, 'sam');
   });
 
-  test('labels a plain liker with a reaction like everyone else', () {
+  test('preserves each server-provided reaction in order', () {
     // The route's query writes the site's main reaction for a row that is only
     // a like, so the merged list is uniform and there is no second kind of row
     // to draw.
@@ -71,9 +71,10 @@ void main() {
       'total_rows': 55,
     });
 
-    expect(reactors.reactors, hasLength(PostReactors.maximumPageSize));
-    expect(reactors.reactors.first.username, 'user-0');
-    expect(reactors.reactors.last.username, 'user-49');
+    expect(reactors.reactors.map((reactor) => reactor.username), [
+      for (var index = 0; index < PostReactors.maximumPageSize; index++)
+        'user-$index',
+    ]);
     expect(reactors.total, 55);
   });
 

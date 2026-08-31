@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('the sidebar DTO contains no Chat or voice-room record shape', () {
+  test('the sidebar DTO exposes decorations without plugin-owned fields', () {
     final source = File('lib/src/models/sidebar.dart').readAsStringSync();
 
     expect(source, isNot(contains('avatarUserId')));

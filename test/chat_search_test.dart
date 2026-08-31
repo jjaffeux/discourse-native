@@ -46,8 +46,9 @@ void main() {
 
     final page = ChatSearchPage.fromJson({'messages': messages}, site);
 
-    expect(page.hits, hasLength(38));
-    expect(page.hits.map((hit) => hit.id), isNot(containsAll([1, 2])));
+    expect(page.hits.map((hit) => hit.id), [
+      for (var id = 3; id <= ChatSearchPage.maximumPageSize; id++) id,
+    ]);
     expect(page.limit, ChatSearchPage.defaultPageSize);
     expect(page.offset, 0);
     expect(page.consumedCount, ChatSearchPage.maximumPageSize);
