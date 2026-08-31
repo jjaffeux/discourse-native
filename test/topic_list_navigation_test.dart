@@ -232,7 +232,7 @@ void main() {
     expect(find.byKey(const ValueKey('topic-list-new-all')), findsNothing);
   });
 
-  testWidgets('primary discovery tabs fill the row and align labels left', (
+  testWidgets('primary discovery tabs form a left-aligned full-width row', (
     tester,
   ) async {
     final setup = await _controller();
@@ -253,18 +253,35 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final row = tester.getRect(
+      find.byKey(const ValueKey('topic-list-primary-row')),
+    );
     final recent = tester.getRect(
       find.byKey(const ValueKey('topic-list-latest')),
+    );
+    final newTopics = tester.getRect(
+      find.byKey(const ValueKey('topic-list-new')),
     );
     final popular = tester.getRect(
       find.byKey(const ValueKey('topic-list-popular')),
     );
+    final unread = tester.getRect(
+      find.byKey(const ValueKey('topic-list-unread')),
+    );
+    final top = tester.getRect(find.byKey(const ValueKey('topic-list-top')));
     final recentLabel = tester.getRect(find.text('Recent'));
+    final newLabel = tester.getRect(find.text('New (1059)'));
 
+    expect(row.left, 0);
+    expect(row.right, 800);
     expect(recent.left, 8);
-    expect(popular.right, 792);
-    expect(recent.width, closeTo((800 - 16) / 5, 0.1));
+    expect(newTopics.left, recent.right);
+    expect(unread.left, newTopics.right);
+    expect(top.left, unread.right);
+    expect(popular.left, top.right);
+    expect(popular.right, lessThan(row.right - 76));
     expect(recentLabel.left, recent.left + 8);
+    expect(newLabel.left, newTopics.left + 8);
     expect(tester.takeException(), isNull);
   });
 

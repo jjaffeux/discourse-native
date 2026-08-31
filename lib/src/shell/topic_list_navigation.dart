@@ -69,10 +69,10 @@ class _TopicListNavigationControls extends StatelessWidget {
       child: Column(
         children: [
           _TopicListTabStrip(
+            key: const ValueKey('topic-list-primary-row'),
             height: 48,
             background: theme.shell.content,
             scrollable: true,
-            fillWidth: true,
             items: [
               _TopicListTabItem(
                 controlKey: const ValueKey('topic-list-latest'),
@@ -232,12 +232,12 @@ class _TopPeriodChooser extends StatelessWidget {
 
 class _TopicListTabStrip extends StatelessWidget {
   const _TopicListTabStrip({
+    super.key,
     required this.height,
     required this.background,
     required this.items,
     this.compactWidth = 400,
     this.scrollable = false,
-    this.fillWidth = false,
   });
 
   final double height;
@@ -245,7 +245,6 @@ class _TopicListTabStrip extends StatelessWidget {
   final List<_TopicListTabItem> items;
   final double compactWidth;
   final bool scrollable;
-  final bool fillWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -260,11 +259,6 @@ class _TopicListTabStrip extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (scrollable) {
-            if (fillWidth && constraints.maxWidth >= 520) {
-              return Row(
-                children: [for (final item in items) Expanded(child: item)],
-              );
-            }
             return SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: ConstrainedBox(
@@ -272,9 +266,11 @@ class _TopicListTabStrip extends StatelessWidget {
                 child: Row(
                   children: [
                     for (final item in items)
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(minWidth: 76),
-                        child: item,
+                      IntrinsicWidth(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minWidth: 76),
+                          child: item,
+                        ),
                       ),
                   ],
                 ),
