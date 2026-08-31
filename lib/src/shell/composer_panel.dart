@@ -1301,13 +1301,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                   ],
                   contextMenuBuilder: _contextMenu,
                   showCursor:
-                      widget
-                          .composer
-                          .text
-                          .keyboardSelectedSyntax
-                          ?.projection
-                          .hidesCursorWhenSelected !=
-                      true,
+                      !widget.composer.text.selectedProjectionHidesCursor,
                   onTapAlwaysCalled: true,
                   onTap: _activatePointerDownPill,
                   // TextField owns the deepest cursor region. Changing only the
