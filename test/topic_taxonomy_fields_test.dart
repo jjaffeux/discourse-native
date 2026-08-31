@@ -16,7 +16,7 @@ void main() {
             child: SizedBox(
               width: 180,
               child: TopicCategoryValue(
-                label: 'Discourse Native App > Bugs',
+                label: 'Discourse Native App › Bugs',
                 color: const Color(0xFFFF6600),
                 onNavigate: () {},
                 onEdit: () {},
@@ -27,7 +27,7 @@ void main() {
       ),
     );
 
-    final label = find.text('Discourse Native App > Bugs');
+    final label = find.text('Discourse Native App › Bugs');
     expect(label, findsOneWidget);
     expect(tester.widget<Text>(label).maxLines, isNull);
     expect(tester.getSize(label).height, greaterThan(20));

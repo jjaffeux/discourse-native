@@ -4540,26 +4540,26 @@ void main() {
         find.descendant(
           of: find.byType(TopicListView),
           matching: find.text(
-            'Discourse Native Application > Feature requests',
+            'Discourse Native Application › Feature requests',
           ),
         ),
         findsOneWidget,
       );
       expect(
         find.bySemanticsLabel(
-          'Category: Discourse Native Application > Feature requests',
+          'Category: Discourse Native Application › Feature requests',
         ),
         findsOneWidget,
       );
       final categoryLabel = tester.widget<Text>(
-        find.text('Discourse Native Application > Feature requests'),
+        find.text('Discourse Native Application › Feature requests'),
       );
       expect(categoryLabel.maxLines, isNull);
       expect(categoryLabel.overflow, isNull);
       expect(
         tester
             .getSize(
-              find.text('Discourse Native Application > Feature requests'),
+              find.text('Discourse Native Application › Feature requests'),
             )
             .width,
         greaterThan(200),
