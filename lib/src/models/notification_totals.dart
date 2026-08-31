@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../plugin_api/notification_counters.dart';
 import 'json.dart';
+import 'notification_type_counts.dart';
 
 @immutable
 class NotificationTotals {
@@ -12,6 +13,7 @@ class NotificationTotals {
     this.topicTrackingUnread = 0,
     this.topicTrackingNew = 0,
     this.username,
+    this.groupedUnreadNotifications = NotificationTypeCounts.unavailable,
     this.pluginCounters = PluginNotificationCounters.none,
   });
 
@@ -28,6 +30,9 @@ class NotificationTotals {
       topicTrackingUnread: _count(tracking['unread']),
       topicTrackingNew: _count(tracking['new']),
       username: jsonText(json['username']),
+      groupedUnreadNotifications: NotificationTypeCounts.fromWire(
+        json['grouped_unread_notifications'],
+      ),
       pluginCounters: counterCodec.readLiveNotificationCounters(json),
     );
   }
@@ -43,6 +48,9 @@ class NotificationTotals {
     topicTrackingUnread: _count(json['topicTrackingUnread']),
     topicTrackingNew: _count(json['topicTrackingNew']),
     username: jsonText(json['username']),
+    groupedUnreadNotifications: NotificationTypeCounts.fromWire(
+      json['groupedUnreadNotifications'],
+    ),
     pluginCounters: counterCodec.readStoredNotificationCounters(
       json['plugins'],
     ),
@@ -62,6 +70,7 @@ class NotificationTotals {
       'topicTrackingUnread': topicTrackingUnread,
       'topicTrackingNew': topicTrackingNew,
       'username': ?username,
+      'groupedUnreadNotifications': ?groupedUnreadNotifications.toJson(),
       if (plugins.isNotEmpty) 'plugins': plugins,
     };
   }
@@ -81,12 +90,16 @@ class NotificationTotals {
     final messages = _optionalCount(
       message['new_personal_messages_notifications_count'],
     );
-    if (all == null && messages == null) return this;
+    final grouped = NotificationTypeCounts.fromWire(
+      message['grouped_unread_notifications'],
+    );
+    if (all == null && messages == null && !grouped.isAvailable) return this;
 
     final personal = messages ?? unreadPersonalMessages;
     return copyWith(
       unreadNotifications: all == null ? null : (all - personal).clamp(0, all),
       unreadPersonalMessages: personal,
+      groupedUnreadNotifications: grouped.isAvailable ? grouped : null,
     );
   }
 
@@ -102,6 +115,7 @@ class NotificationTotals {
     int? unreadNotifications,
     int? unreadPersonalMessages,
     int? unseenReviewables,
+    NotificationTypeCounts? groupedUnreadNotifications,
     PluginNotificationCounters? pluginCounters,
   }) {
     return NotificationTotals(
@@ -112,9 +126,17 @@ class NotificationTotals {
       topicTrackingUnread: topicTrackingUnread,
       topicTrackingNew: topicTrackingNew,
       username: username,
+      groupedUnreadNotifications:
+          groupedUnreadNotifications ?? this.groupedUnreadNotifications,
       pluginCounters: pluginCounters ?? this.pluginCounters,
     );
   }
+
+  NotificationTotals withGroupedUnreadNotifications(
+    NotificationTypeCounts counts,
+  ) => !counts.isAvailable || counts == groupedUnreadNotifications
+      ? this
+      : copyWith(groupedUnreadNotifications: counts);
 
   int pluginCounter(PluginNotificationCounterId id) => pluginCounters.count(id);
 
@@ -144,6 +166,12 @@ class NotificationTotals {
     topicTrackingUnread: response.topicTrackingUnread,
     topicTrackingNew: response.topicTrackingNew,
     username: response.username,
+    groupedUnreadNotifications:
+        live.groupedUnreadNotifications != before.groupedUnreadNotifications
+        ? live.groupedUnreadNotifications
+        : response.groupedUnreadNotifications.isAvailable
+        ? response.groupedUnreadNotifications
+        : live.groupedUnreadNotifications,
     pluginCounters: PluginNotificationCounters.mergeRefresh(
       response: response.pluginCounters,
       before: before.pluginCounters,
@@ -162,6 +190,7 @@ class NotificationTotals {
       topicTrackingUnread > 0 ? topicTrackingUnread : topicTrackingNew;
 
   final String? username;
+  final NotificationTypeCounts groupedUnreadNotifications;
   final PluginNotificationCounters pluginCounters;
 
   int get badge =>
@@ -179,6 +208,7 @@ class NotificationTotals {
       other.topicTrackingUnread == topicTrackingUnread &&
       other.topicTrackingNew == topicTrackingNew &&
       other.username == username &&
+      other.groupedUnreadNotifications == groupedUnreadNotifications &&
       other.pluginCounters == pluginCounters;
 
   @override
@@ -189,6 +219,7 @@ class NotificationTotals {
     topicTrackingUnread,
     topicTrackingNew,
     username,
+    groupedUnreadNotifications,
     pluginCounters,
   );
 }

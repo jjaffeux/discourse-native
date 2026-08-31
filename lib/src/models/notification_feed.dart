@@ -42,4 +42,20 @@ class NotificationFeed {
       loaded: loaded,
     );
   }
+
+  NotificationFeed withUnread(int id) {
+    final index = notifications.indexWhere(
+      (notification) => notification.id == id && notification.read,
+    );
+    if (index < 0) return this;
+
+    final updated = List<DiscourseNotification>.of(notifications);
+    updated[index] = updated[index].asUnread();
+    return NotificationFeed(
+      notifications: updated,
+      loading: loading,
+      error: error,
+      loaded: loaded,
+    );
+  }
 }

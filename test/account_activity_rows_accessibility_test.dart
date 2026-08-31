@@ -15,6 +15,7 @@ void main() {
       await _pumpRow(
         tester,
         NotificationRow(
+          siteUrl: 'https://forum.example',
           notification: const DiscourseNotification.test(
             id: 1,
             typeId: NotificationTypeId(2),

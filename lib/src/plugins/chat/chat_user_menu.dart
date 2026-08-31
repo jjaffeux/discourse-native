@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 
-import '../../models/notification.dart';
 import '../../plugin_api/notification_feed_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import '../../plugin_api/plugin_scope.dart';

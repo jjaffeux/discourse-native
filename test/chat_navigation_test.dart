@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
-import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
@@ -233,6 +232,7 @@ void main() {
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
       ownsApi: false,
+      pluginNotificationFeedRefreshDebounce: Duration.zero,
     );
     addTearDown(() async {
       shell.dispose();
@@ -350,6 +350,7 @@ void main() {
           () => notificationHost.notificationFeedListenable(foreignFeedId),
           () => notificationHost.notificationFeedFor(foreignFeedId, _site),
           () => notificationHost.loadPluginNotificationFeed(_site, foreignFeed),
+          () => notificationHost.dismissPluginNotifications(_site, foreignFeed),
         ]) {
           expect(
             access,
@@ -405,6 +406,13 @@ void main() {
           chatNotificationFeed,
         );
         expect(
+          () => notificationHost.dismissPluginNotifications(
+            _site,
+            chatNotificationFeed,
+          ),
+          throwsA(isA<PluginInstallationException>()),
+        );
+        expect(
           notificationHost
               .notificationFeedFor(chatNotificationFeed.id, _site)
               .notifications
@@ -412,6 +420,58 @@ void main() {
           [51],
         );
       });
+
+      test(
+        'debounces live notification state into one loaded plugin feed refresh',
+        () async {
+          final notificationHost = shell.pluginSession.require(
+            chatNotificationHostService,
+          );
+          await notificationHost.loadPluginNotificationFeed(
+            _site,
+            chatNotificationFeed,
+          );
+          final before = api.chatNotificationCalls;
+          final tracker = FakeSiteTracker.built.singleWhere(
+            (candidate) => candidate.siteUrl == _site,
+          );
+
+          tracker.deliverNotification(const {
+            'all_unread_notifications_count': 2,
+          });
+          tracker.deliverNotification(const {
+            'all_unread_notifications_count': 3,
+          });
+          await pumpEventQueue();
+
+          expect(api.chatNotificationCalls, before + 1);
+        },
+      );
+
+      test(
+        'a retired live notification generation cannot refresh a feed',
+        () async {
+          final notificationHost = shell.pluginSession.require(
+            chatNotificationHostService,
+          );
+          await notificationHost.loadPluginNotificationFeed(
+            _site,
+            chatNotificationFeed,
+          );
+          final before = api.chatNotificationCalls;
+          final tracker = FakeSiteTracker.built.singleWhere(
+            (candidate) => candidate.siteUrl == _site,
+          );
+
+          tracker.deliverNotification(const {
+            'all_unread_notifications_count': 2,
+          });
+          shell.lifecycle.invalidate(_site);
+          await pumpEventQueue();
+
+          expect(api.chatNotificationCalls, before);
+        },
+      );
     });
 
     group('native URL routing', () {

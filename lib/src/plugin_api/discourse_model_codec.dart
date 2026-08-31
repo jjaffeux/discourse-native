@@ -3,6 +3,7 @@ import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
 import '../models/json.dart';
 import '../models/notification_totals.dart';
+import '../models/notification_type_counts.dart';
 import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/sidebar_tag.dart';
@@ -130,6 +131,9 @@ final class DiscourseModelCodec {
       doNotDisturbUntil: jsonDate(json['do_not_disturb_until']),
       doNotDisturbChannelPosition: jsonIntOrNull(
         json['do_not_disturb_channel_position'],
+      ),
+      groupedUnreadNotifications: NotificationTypeCounts.fromWire(
+        json['grouped_unread_notifications'],
       ),
       plugins: extensions.readCurrentUser(json, siteUrl),
     );

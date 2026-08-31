@@ -1,6 +1,5 @@
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
-import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
@@ -23,6 +22,8 @@ const _messageTarget = ComposerTargetKind(
   owner: PluginId('messages'),
   name: 'message',
 );
+
+String _dismissConfirmation(int unreadCount) => 'Dismiss $unreadCount?';
 
 void main() {
   test('absent plugins resolve no composer target or user-menu sections', () {
@@ -182,7 +183,12 @@ void main() {
     test('one user-menu contribution is collected', () {
       final registry = PluginRegistry.validated(const [
         _MenuPlugin('messages', [
-          _MenuDefinition('messages', 'inbox', 'Inbox'),
+          _MenuDefinition(
+            'messages',
+            'inbox',
+            'Inbox',
+            linkWhenActive: '/u/reader/messages',
+          ),
         ]),
       ]);
 
@@ -191,6 +197,22 @@ void main() {
       expect(sections, hasLength(1));
       expect(sections.single.id.id, 'messages/inbox');
       expect(sections.single.label, 'Inbox');
+      expect(sections.single.linkWhenActive, '/u/reader/messages');
+    });
+
+    test('user-menu active links must remain within the forum', () {
+      final registry = PluginRegistry.validated(const [
+        _MenuPlugin('messages', [
+          _MenuDefinition(
+            'messages',
+            'inbox',
+            'Inbox',
+            linkWhenActive: '//attacker.example/inbox',
+          ),
+        ]),
+      ]);
+
+      expect(() => registry.userMenuSections(_menuContext), throwsStateError);
     });
 
     test(
@@ -515,6 +537,94 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('notification dismissal must match the feed filter exactly', () {
+      expect(
+        () => PluginRegistry.validated([
+          _MutableFeedPlugin([
+            const NotificationTypeName('mutable_notification'),
+          ], const []),
+        ]),
+        throwsArgumentError,
+      );
+    });
+
+    test('notification dismissal cannot forge a declared wire id', () {
+      expect(
+        () => PluginRegistry.validated([
+          _MutableFeedPlugin(
+            [const NotificationTypeName('mutable_notification')],
+            [const NotificationWireType(999, 'mutable_notification')],
+          ),
+        ]),
+        throwsArgumentError,
+      );
+    });
+
+    test('notification dismissal declares a label and tooltip', () {
+      for (final metadata in const [
+        (label: '', tooltip: 'Dismiss notifications'),
+        (label: 'Dismiss', tooltip: ' '),
+      ]) {
+        expect(
+          () => PluginRegistry.validated([
+            _MutableFeedPlugin(
+              [const NotificationTypeName('mutable_notification')],
+              [const NotificationWireType(904, 'mutable_notification')],
+              buttonLabel: metadata.label,
+              buttonTooltip: metadata.tooltip,
+            ),
+          ]),
+          throwsArgumentError,
+        );
+      }
+    });
+
+    test(
+      'validated notification feed declarations are immutable snapshots',
+      () {
+        final filterTypes = <NotificationTypeName>[
+          const NotificationTypeName('mutable_notification'),
+        ];
+        final dismissalTypes = <NotificationWireType>[
+          const NotificationWireType(904, 'mutable_notification'),
+        ];
+        final registry = PluginRegistry.validated([
+          _MutableFeedPlugin(filterTypes, dismissalTypes),
+        ]);
+
+        filterTypes[0] = const NotificationTypeName('changed_notification');
+        dismissalTypes[0] = const NotificationWireType(
+          905,
+          'changed_notification',
+        );
+
+        final source = registry.notificationFeed(
+          const PluginNotificationFeedId(
+            owner: PluginId('mutable'),
+            name: 'notifications',
+          ),
+        )!;
+        expect(source.filterByTypes, const [
+          NotificationTypeName('mutable_notification'),
+        ]);
+        expect(source.dismissal!.notificationTypes, const [
+          NotificationWireType(904, 'mutable_notification'),
+        ]);
+        expect(
+          () => source.filterByTypes.add(
+            const NotificationTypeName('another_notification'),
+          ),
+          throwsUnsupportedError,
+        );
+        expect(
+          () => source.dismissal!.notificationTypes.add(
+            const NotificationWireType(906, 'another_notification'),
+          ),
+          throwsUnsupportedError,
+        );
+      },
+    );
   });
 
   group('keyed provider contributions', () {
@@ -686,16 +796,23 @@ final class _MenuPlugin implements SitePlugin, UserMenuSectionPlugin {
 }
 
 final class _MenuDefinition {
-  const _MenuDefinition(this.owner, this.name, this.label);
+  const _MenuDefinition(
+    this.owner,
+    this.name,
+    this.label, {
+    this.linkWhenActive,
+  });
 
   final String owner;
   final String name;
   final String label;
+  final String? linkWhenActive;
 
   PluginUserMenuSection get section => PluginUserMenuSection(
     id: PluginUserMenuSectionId(owner: PluginId(owner), name: name),
     icon: DIcons.bell,
     label: label,
+    linkWhenActive: linkWhenActive,
     builder: (_, _) => Text(label),
   );
 }
@@ -800,6 +917,56 @@ final class _FeedOnlyPlugin implements SitePlugin, NotificationFeedPlugin {
       reconnectMessage: 'Reconnect.',
       failureMessage: 'Failed.',
       emptyMessage: 'Empty.',
+    ),
+  ];
+}
+
+final class _MutableFeedPlugin
+    implements SitePlugin, NotificationFeedPlugin, NotificationTypePlugin {
+  _MutableFeedPlugin(
+    this.filterTypes,
+    this.dismissalTypes, {
+    this.buttonLabel = 'Dismiss',
+    this.buttonTooltip = 'Dismiss notifications',
+  });
+
+  final List<NotificationTypeName> filterTypes;
+  final List<NotificationWireType> dismissalTypes;
+  final String buttonLabel;
+  final String buttonTooltip;
+
+  @override
+  String get name => 'mutable';
+
+  @override
+  List<PluginNotificationType> get notificationTypes => const [
+    PluginNotificationType(
+      id: PluginNotificationTypeId(
+        owner: PluginId('mutable'),
+        name: 'notification',
+      ),
+      wireType: NotificationWireType(904, 'mutable_notification'),
+      decode: _fakeNotificationDecoder,
+    ),
+  ];
+
+  @override
+  List<PluginNotificationFeedSource> get notificationFeeds => [
+    PluginNotificationFeedSource(
+      id: const PluginNotificationFeedId(
+        owner: PluginId('mutable'),
+        name: 'notifications',
+      ),
+      filterByTypes: filterTypes,
+      reconnectMessage: 'Reconnect.',
+      failureMessage: 'Failed.',
+      emptyMessage: 'Empty.',
+      dismissal: PluginNotificationFeedDismissal(
+        notificationTypes: dismissalTypes,
+        buttonLabel: buttonLabel,
+        buttonTooltip: buttonTooltip,
+        confirmationMessage: _dismissConfirmation,
+      ),
     ),
   ];
 }

@@ -7,8 +7,38 @@ const _navigationService = PluginServiceKey<_TestNavigationService>(
   owner: _pluginId,
   name: 'navigation',
 );
+const _testNotificationType = NotificationWireType(901, 'test_notification');
+
+String _dismissNotifications(int count) => 'Dismiss $count notifications?';
+
+ResolvedNotification? _ignoreNotification(DiscourseNotification notification) =>
+    null;
 
 void main() {
+  test('public SDK exposes complete notification feed declarations', () {
+    const definition = PluginNotificationType(
+      id: PluginNotificationTypeId(owner: _pluginId, name: 'test-notification'),
+      wireType: _testNotificationType,
+      decode: _ignoreNotification,
+    );
+    const source = PluginNotificationFeedSource(
+      id: PluginNotificationFeedId(owner: _pluginId, name: 'notifications'),
+      filterByTypes: [NotificationTypeName('test_notification')],
+      reconnectMessage: 'Reconnect.',
+      failureMessage: 'Failed.',
+      emptyMessage: 'Empty.',
+      dismissal: PluginNotificationFeedDismissal(
+        notificationTypes: [_testNotificationType],
+        buttonLabel: 'Dismiss',
+        buttonTooltip: 'Mark notifications as read',
+        confirmationMessage: _dismissNotifications,
+      ),
+    );
+
+    expect(definition.wireType, _testNotificationType);
+    expect(source.filterByTypes.single.value, 'test_notification');
+  });
+
   test('provides typed plugin services over real shell navigation', () async {
     final host = await PluginHostHarness.open(
       transport: RecordingPluginTransport(),

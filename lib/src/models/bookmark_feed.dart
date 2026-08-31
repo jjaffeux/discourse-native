@@ -53,4 +53,21 @@ class BookmarkFeed {
       loaded: loaded,
     );
   }
+
+  BookmarkFeed withUnread(int id) {
+    final index = reminders.indexWhere(
+      (reminder) => reminder.id == id && reminder.read,
+    );
+    if (index < 0) return this;
+
+    final updated = List<DiscourseNotification>.of(reminders);
+    updated[index] = updated[index].asUnread();
+    return BookmarkFeed(
+      reminders: updated,
+      bookmarks: bookmarks,
+      loading: loading,
+      error: error,
+      loaded: loaded,
+    );
+  }
 }

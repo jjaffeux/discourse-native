@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_data.dart';
+import 'package:discourse_native/src/plugins/assign/assign_notifications.dart';
 import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_controller.dart';
@@ -42,6 +43,27 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Assign routes', () {
+    test('binds an owner-scoped notification feed host', () async {
+      final api = FakeDiscourseApi(
+        user: _assignUser(canAssignGlobally: true),
+        feeds: const {'/latest.json': <Topic>[]},
+        siteConfigs: const {_site: SiteConfig.unknown()},
+      );
+      final shell = await _loadListShell(
+        api,
+        user: _assignUser(canAssignGlobally: true),
+      );
+      addTearDown(shell.dispose);
+
+      final host = shell.pluginSession.require(assignNotificationHostService);
+
+      expect(host, isNot(same(shell)));
+      expect(
+        host.notificationFeedListenable(assignNotificationFeed.id),
+        isNotNull,
+      );
+    });
+
     test('open a group tab natively when globally permitted', () async {
       final api = FakeDiscourseApi(
         user: _assignUser(canAssignGlobally: true),
