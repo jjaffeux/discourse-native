@@ -8,6 +8,7 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
+import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/composer_pills.dart';
 import 'package:discourse_native/src/shell/composer_quotes.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
@@ -188,7 +189,7 @@ void main() {
 
     testWidgets('nothing but <ins> is underlined', (tester) async {
       // Flutter reserves editable underlines for IME composing ranges.
-      const source = 'see [a](https://b.c) and **d** and `e`';
+      const source = 'see plain text and **d** and `e`';
       await pumpField(tester, source);
 
       painted(tester).visitChildren((span) {
@@ -198,6 +199,31 @@ void main() {
         );
         return true;
       });
+    });
+
+    testWidgets('a markdown link collapses to its clickable anchor', (
+      tester,
+    ) async {
+      const source = 'see [Discourse](https://discourse.org) now';
+      await pumpField(tester, source);
+
+      final pill = tester.widget<ComposerLinkPill>(
+        find.byType(ComposerLinkPill),
+      );
+      expect(pill.anchor, 'Discourse');
+      expect(pill.url, 'https://discourse.org');
+      expect(controller.text, source);
+      expect(editable(tester).renderEditable.plainText.length, source.length);
+
+      controller.selection = const TextSelection.collapsed(offset: 8);
+      await tester.pump();
+      expect(find.byType(ComposerLinkPill), findsNothing);
+
+      controller.selection = TextSelection.collapsed(
+        offset: source.indexOf(')') + 1,
+      );
+      await tester.pump();
+      expect(find.byType(ComposerLinkPill), findsOneWidget);
     });
   });
 

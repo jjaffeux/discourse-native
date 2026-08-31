@@ -23,6 +23,7 @@ import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_contract.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
+import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -123,6 +124,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.text, '[format](https://example.com) me');
+      expect(find.byType(ComposerLinkPill), findsOneWidget);
     });
 
     testWidgets('chat composer deletes a rendered emoji atomically', (

@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/composer_marks.dart';
-import 'package:flutter/widgets.dart' show TextEditingValue, TextSelection;
+import 'package:flutter/widgets.dart' show TextSelection;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -116,63 +117,86 @@ void main() {
     });
   });
 
-  group('ComposerController.insertLink', () {
+  group('composerLinkValue', () {
     test('replaces the captured selection with a markdown link', () {
       open('visit Discourse today');
-      composer.text.selection = const TextSelection(
+      const selection = TextSelection(
         baseOffset: 6,
         extentOffset: 15,
       );
-      final expectedValue = composer.text.value;
 
-      final inserted = composer.insertLink(
-        expectedValue: expectedValue,
+      final value = composerLinkValue(
+        current: composer.text.value,
+        expectedText: composer.text.text,
+        selection: selection,
         url: 'https://discourse.org',
         anchor: 'Discourse',
       );
 
-      expect(inserted, isTrue);
+      expect(value, isNotNull);
       expect(
-        composer.text.text,
+        value!.text,
         'visit [Discourse](https://discourse.org) today',
       );
-      expect(composer.text.selection.isCollapsed, isTrue);
-      expect(composer.text.selection.extentOffset, 40);
+      expect(value.selection.isCollapsed, isTrue);
+      expect(value.selection.extentOffset, 40);
     });
 
     test('uses the URL as the anchor when no text is supplied', () {
       open('visit ');
-      composer.text.selection = const TextSelection.collapsed(offset: 6);
 
-      composer.insertLink(
-        expectedValue: composer.text.value,
+      final value = composerLinkValue(
+        current: composer.text.value,
+        expectedText: composer.text.text,
+        selection: const TextSelection.collapsed(offset: 6),
         url: 'https://discourse.org',
         anchor: '',
       );
 
       expect(
-        composer.text.text,
+        value!.text,
         'visit [https://discourse.org](https://discourse.org)',
       );
     });
 
     test('does not apply a link to a stale editor value', () {
       open('selected');
-      const expectedValue = TextEditingValue(
-        text: 'selected',
-        selection: TextSelection(baseOffset: 0, extentOffset: 8),
-      );
-      composer.text.value = expectedValue;
       composer.text.text = 'changed';
 
-      final inserted = composer.insertLink(
-        expectedValue: expectedValue,
+      final value = composerLinkValue(
+        current: composer.text.value,
+        expectedText: 'selected',
+        selection: const TextSelection(baseOffset: 0, extentOffset: 8),
         url: 'https://discourse.org',
         anchor: 'selected',
       );
 
-      expect(inserted, isFalse);
+      expect(value, isNull);
       expect(composer.text.text, 'changed');
+    });
+  });
+
+  group('parseComposerLinks', () {
+    test('finds prose links without treating images as links', () {
+      open('');
+      const source =
+          'See [Discourse](https://discourse.org) and '
+          '![logo](https://example.com/logo.png).';
+
+      final links = parseComposerLinks(source);
+
+      expect(links, hasLength(1));
+      expect(links.single.anchor, 'Discourse');
+      expect(links.single.url, 'https://discourse.org');
+    });
+
+    test('leaves escaped links and links in code as raw source', () {
+      open('');
+      const source = r'\[escaped](https://example.com) '
+          '`[inline](https://example.com)`\n\n'
+          '```\n[block](https://example.com)\n```';
+
+      expect(parseComposerLinks(source), isEmpty);
     });
   });
 }
