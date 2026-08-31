@@ -1384,6 +1384,14 @@ closed direct-message membership, as web Chat does. The separate
 channel-archive workflow remains outside native Chat; its archive-progress
 stream is therefore deliberately not registered.
 
+`ChatLiveSyncCoordinator` owns that entire MessageBus boundary: tracker and
+account generations, applied cursors, presence, persistent subscriptions, and
+the reference-counted root/thread subscriptions used by overlapping panes.
+Every delivery must still own its exact site generation and subscription slot;
+cancellation closes that slot exactly once before releasing the transport.
+`ChatController` keeps HTTP paging and canonical records, exposed to live sync
+only through explicit store and stream mutation callbacks.
+
 Root and thread events keep reader-specific bookmark, flag, and reaction state
 when the anonymous live serializer refreshes message content. Notices appear
 on the active stream, staff flag events remove the action immediately, and
