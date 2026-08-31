@@ -1635,11 +1635,13 @@ class _RailTooltipCallout extends StatelessWidget {
           ),
           if (shortcutKey case final shortcutKey?) ...[
             const SizedBox(width: 12),
-            DefaultTextStyle(
-              style: const TextStyle(color: Color(0xFFF3F3F4)),
-              child: DShortcutKeycaps(
-                shortcut: DShortcut(
-                  primaryShortcutForPlatform(theme.platform, shortcutKey),
+            IntrinsicHeight(
+              child: DefaultTextStyle(
+                style: const TextStyle(color: Color(0xFFF3F3F4)),
+                child: DShortcutKeycaps(
+                  shortcut: DShortcut(
+                    primaryShortcutForPlatform(theme.platform, shortcutKey),
+                  ),
                 ),
               ),
             ),

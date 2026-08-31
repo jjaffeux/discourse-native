@@ -65,7 +65,13 @@ void main() {
   testWidgets(
     'rail tooltips show the shortcuts for Aggregate and each forum',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
-      await _pumpShell(tester, twoForums: true);
+      await _pumpShell(
+        tester,
+        instances: [
+          instance('one.example', title: 'Discourse Team'),
+          instance('two.example', title: 'Discourse Meta'),
+        ],
+      );
 
       final aggregateButton = find.byKey(
         const ValueKey('aggregate-rail-button'),
@@ -93,17 +99,16 @@ void main() {
       final callout = find.byKey(
         const ValueKey('instance-rail-callout-https://two.example'),
       );
-      final shortcut = tester
-          .widget<DShortcutKeycaps>(
-            find.descendant(
-              of: callout,
-              matching: find.byType(DShortcutKeycaps),
-            ),
-          )
-          .shortcut[0];
+      final keycaps = find.descendant(
+        of: callout,
+        matching: find.byType(DShortcutKeycaps),
+      );
+      final shortcut = tester.widget<DShortcutKeycaps>(keycaps).shortcut[0];
       expect(shortcut.trigger, LogicalKeyboardKey.digit3);
       expect(shortcut.meta, isTrue);
       expect(shortcut.control, isFalse);
+      expect(tester.getSize(keycaps).height, 24);
+      expect(tester.getSize(callout).height, lessThanOrEqualTo(64));
     }),
   );
 
