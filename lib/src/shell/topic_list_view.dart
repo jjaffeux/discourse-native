@@ -718,14 +718,18 @@ class _TopicRow extends StatelessWidget {
               // here means the site was just disconnected and this list is
               // one frame from being torn down.
               ? const SizedBox.shrink()
-              : ShellSelector<TopicCategory?>(
-                  select: (controller) => controller.categoryFor(
+              : ShellSelector<
+                  ({TopicCategory? category, String? categoryLabel})
+                >(
+                  select: (controller) => _topicCategoryPresentation(
+                    controller,
                     topic.categoryId,
-                    siteUrl: siteUrl,
+                    siteUrl,
                   ),
-                  builder: (context, category, _) => _TopicRowBody(
+                  builder: (context, categoryPresentation, _) => _TopicRowBody(
                     topic: topic,
-                    category: category,
+                    category: categoryPresentation.category,
+                    categoryLabel: categoryPresentation.categoryLabel,
                     siteUrl: siteUrl,
                     onTap: () => controller.openTopic(topic),
                   ),
@@ -780,12 +784,13 @@ class TopicListRow extends StatelessWidget {
     DiscourseInstance? owningForum,
   ) {
     final controller = ShellScope.read(context);
-    return ShellSelector<TopicCategory?>(
+    return ShellSelector<({TopicCategory? category, String? categoryLabel})>(
       select: (controller) =>
-          controller.categoryFor(topic.categoryId, siteUrl: siteUrl),
-      builder: (context, category, _) => _TopicRowBody(
+          _topicCategoryPresentation(controller, topic.categoryId, siteUrl),
+      builder: (context, categoryPresentation, _) => _TopicRowBody(
         topic: topic,
-        category: category,
+        category: categoryPresentation.category,
+        categoryLabel: categoryPresentation.categoryLabel,
         siteUrl: siteUrl,
         forum: owningForum,
         onTap: onTap ?? () => controller.openTopic(topic),
@@ -793,6 +798,20 @@ class TopicListRow extends StatelessWidget {
       ),
     );
   }
+}
+
+({TopicCategory? category, String? categoryLabel}) _topicCategoryPresentation(
+  ShellController controller,
+  int? categoryId,
+  String siteUrl,
+) {
+  final category = controller.categoryFor(categoryId, siteUrl: siteUrl);
+  return (
+    category: category,
+    categoryLabel: category == null
+        ? null
+        : controller.topicCategoryLabel(category, siteUrl: siteUrl),
+  );
 }
 
 typedef _TopicListSnapshot = ({
@@ -816,6 +835,7 @@ class _TopicRowBody extends StatelessWidget {
   const _TopicRowBody({
     required this.topic,
     required this.category,
+    required this.categoryLabel,
     required this.siteUrl,
     required this.onTap,
     this.forum,
@@ -824,6 +844,7 @@ class _TopicRowBody extends StatelessWidget {
 
   final Topic topic;
   final TopicCategory? category;
+  final String? categoryLabel;
   final String siteUrl;
   final VoidCallback onTap;
   final DiscourseInstance? forum;
@@ -971,6 +992,7 @@ class _TopicRowBody extends StatelessWidget {
                           padding: const EdgeInsets.only(right: 10),
                           child: _CategoryBadge(
                             category: category,
+                            label: categoryLabel ?? category.name,
                             onTap: () => controller.openCategory(
                               category,
                               siteUrl: siteUrl,
@@ -1038,9 +1060,14 @@ class _TopicRowBody extends StatelessWidget {
 }
 
 class _CategoryBadge extends StatelessWidget {
-  const _CategoryBadge({required this.category, required this.onTap});
+  const _CategoryBadge({
+    required this.category,
+    required this.label,
+    required this.onTap,
+  });
 
   final TopicCategory category;
+  final String label;
   final VoidCallback onTap;
 
   @override
@@ -1049,7 +1076,7 @@ class _CategoryBadge extends StatelessWidget {
 
     return InlineAction.link(
       onTap: onTap,
-      semanticLabel: 'Category: ${category.name}',
+      semanticLabel: 'Category: $label',
       excludeChildSemantics: true,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -1066,13 +1093,13 @@ class _CategoryBadge extends StatelessWidget {
             ),
             const SizedBox(width: 5),
             // Same 200px cap as a tag, and flexible on top of it: a category
-            // name long enough to fill the metadata row must ellipsize, not
+            // path long enough to fill the metadata row must ellipsize, not
             // overflow.
             Flexible(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 200),
                 child: Text(
-                  category.name,
+                  label,
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.ellipsis,
