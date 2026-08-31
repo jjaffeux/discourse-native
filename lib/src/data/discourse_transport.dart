@@ -1,14 +1,35 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
 import '../models/json.dart';
+import '../models/site_appearance.dart';
 import 'discourse_api_contracts.dart';
 import 'discourse_request_coordinator.dart';
 import 'http_transport.dart';
 import 'json_decode.dart';
+import 'site_appearance_loader.dart';
+
+final class DiscourseHeadResponse {
+  const DiscourseHeadResponse(this.url, this.statusCode, this.headers);
+
+  final Uri url;
+  final int statusCode;
+  final Map<String, String> headers;
+}
 
 final class DiscourseTransport {
+  factory DiscourseTransport.create({
+    http.Client? client,
+    Duration timeout = const Duration(seconds: 10),
+    int maxResponseBytes = 16 * 1024 * 1024,
+  }) => DiscourseTransport(
+    client == null ? SafeHttpClient.create() : SafeHttpClient.owned(client),
+    timeout,
+    maxResponseBytes,
+  );
+
   DiscourseTransport(
     this._client,
     this.timeout,
@@ -30,7 +51,128 @@ final class DiscourseTransport {
   final int _maxResponseBytes;
   final DiscourseRequestCoordinator coordinator;
 
+  late final SiteAppearanceLoader _siteAppearanceLoader = SiteAppearanceLoader(
+    client: _client,
+    coordinator: coordinator,
+    timeout: timeout,
+    maxResponseBytes: _maxResponseBytes < 2 * 1024 * 1024
+        ? _maxResponseBytes
+        : 2 * 1024 * 1024,
+  );
+
   static const String userAgent = 'DiscourseNative/1.0';
+
+  Future<http.Response> request(String method, Uri url) =>
+      send(http.Request(method, url));
+
+  Future<http.Response> requestAuthenticated(
+    String method,
+    Uri url, {
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+    Object? jsonBody,
+  }) {
+    final request = http.Request(method, url);
+    if (jsonBody != null) request.body = jsonEncode(jsonBody);
+    return sendAuthenticated(
+      request,
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+
+  Future<DiscourseHeadResponse> head(Uri url, {int maxRedirects = 5}) async {
+    var current = url;
+
+    for (var hop = 0; hop <= maxRedirects; hop++) {
+      final response = await request('HEAD', current);
+      final location = response.headers['location'];
+      final isRedirect = const {
+        301,
+        302,
+        303,
+        307,
+        308,
+      }.contains(response.statusCode);
+
+      if (!isRedirect || location == null) {
+        return DiscourseHeadResponse(
+          current,
+          response.statusCode,
+          response.headers,
+        );
+      }
+
+      current = resolveSafeHttpRedirect(current, location);
+    }
+
+    throw SiteLookupException(SiteLookupFailure.unreachable, url.toString());
+  }
+
+  Future<http.Response> upload({
+    required Uri url,
+    required String siteUrl,
+    required String apiKey,
+    required String uploadType,
+    required String filename,
+    required int fileLength,
+    required Stream<List<int>> fileBytes,
+    required void Function(double progress) onProgress,
+    required Future<void> abortTrigger,
+    String? clientId,
+    Duration requestTimeout = const Duration(minutes: 5),
+  }) async {
+    var sent = 0;
+    final timeoutAbort = Completer<void>();
+    final timer = Timer(requestTimeout, timeoutAbort.complete);
+    final request =
+        http.AbortableMultipartRequest(
+            'POST',
+            url,
+            abortTrigger: Future.any<void>([abortTrigger, timeoutAbort.future]),
+          )
+          ..fields['upload_type'] = uploadType
+          ..files.add(
+            http.MultipartFile(
+              'file',
+              fileBytes.map((chunk) {
+                sent += chunk.length;
+                onProgress(
+                  fileLength == 0 ? 0 : (sent / fileLength).clamp(0, 1),
+                );
+                return chunk;
+              }),
+              fileLength,
+              filename: filename,
+            ),
+          );
+
+    try {
+      return await sendAuthenticated(
+        request,
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        requestTimeout: requestTimeout,
+      );
+    } finally {
+      timer.cancel();
+    }
+  }
+
+  Future<SiteAppearance?> siteAppearance({
+    required String siteUrl,
+    String? username,
+    String? apiKey,
+    String? clientId,
+  }) => _siteAppearanceLoader.load(
+    siteUrl: siteUrl,
+    username: username,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   Future<http.Response> send(
     http.BaseRequest request, {
@@ -315,5 +457,8 @@ final class DiscourseTransport {
     'Dont-Chunk': 'true',
   };
 
-  void close() => coordinator.close();
+  void close() {
+    coordinator.close();
+    _client.close();
+  }
 }

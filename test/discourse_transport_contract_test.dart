@@ -16,6 +16,89 @@ import 'support/manual_scheduler.dart';
 
 void main() {
   group('Discourse API transport contract', () {
+    test('DiscourseApi delegates requests to an injected transport', () async {
+      late http.Request sent;
+      final transport = DiscourseTransport.create(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response('{}', 200);
+        }),
+      );
+      final api = DiscourseApi(transport: transport);
+      addTearDown(api.close);
+
+      await api.notificationTotals(
+        siteUrl: 'https://example.com',
+        apiKey: 'secret',
+        clientId: 'client',
+      );
+
+      expect(
+        sent.url,
+        Uri.parse('https://example.com/notifications/totals.json'),
+      );
+      expect(sent.headers, containsPair('User-Api-Key', 'secret'));
+      expect(sent.headers, containsPair('User-Api-Client-Id', 'client'));
+    });
+
+    test('transport constructs authenticated JSON requests', () async {
+      late http.Request sent;
+      final transport = DiscourseTransport.create(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response('{}', 200);
+        }),
+      );
+      addTearDown(transport.close);
+
+      await transport.requestAuthenticated(
+        'POST',
+        Uri.parse('https://example.com/action.json'),
+        siteUrl: 'https://example.com',
+        apiKey: 'secret',
+        clientId: 'client',
+        jsonBody: const {'present': true, 'missing': null},
+      );
+
+      expect(sent.method, 'POST');
+      expect(jsonDecode(sent.body), {'present': true, 'missing': null});
+      expect(sent.headers, containsPair('User-Api-Key', 'secret'));
+      expect(sent.headers, containsPair('User-Api-Client-Id', 'client'));
+      expect(sent.headers, containsPair('User-Agent', DiscourseApi.userAgent));
+      expect(sent.headers, containsPair('Content-Type', 'application/json'));
+      expect(sent.headers, containsPair('Dont-Chunk', 'true'));
+    });
+
+    test('transport owns safe HEAD redirect execution', () async {
+      final requested = <Uri>[];
+      final transport = DiscourseTransport.create(
+        client: MockClient((request) async {
+          requested.add(request.url);
+          if (requested.length == 1) {
+            return http.Response(
+              '',
+              301,
+              headers: {'location': 'https://meta.example.com/probe'},
+            );
+          }
+          return http.Response('', 200, headers: {'auth-api-version': '4'});
+        }),
+      );
+      addTearDown(transport.close);
+
+      final response = await transport.head(
+        Uri.parse('https://example.com/probe'),
+      );
+
+      expect(response.url, Uri.parse('https://meta.example.com/probe'));
+      expect(response.statusCode, 200);
+      expect(response.headers['auth-api-version'], '4');
+      expect(requested, [
+        Uri.parse('https://example.com/probe'),
+        Uri.parse('https://meta.example.com/probe'),
+      ]);
+    });
+
     test('identical reads share one in-flight request', () async {
       final gate = Completer<void>();
       var calls = 0;
