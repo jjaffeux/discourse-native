@@ -1036,6 +1036,25 @@ picker capture the current caret before crossing their asynchronous platform
 boundary, so a completed upload lands where the user asked for it even if focus
 or selection changed meanwhile.
 
+Image and gallery editing state lives in `ComposerMediaEditingCoordinator`, not
+in the widget which lays out `EditableText`. It owns pointer capture, selected
+projection identity, the alt-text controller, gallery reconciliation, drag
+targets, picker progress and media-key arbitration, exposing the visible parts
+as an immutable listenable snapshot. The coordinator uses the same frame-safe
+notification primitive as the other headless-capable controllers, while
+selection-toolbar geometry stays in a small widget-owned helper because it
+depends on `RenderEditable` after layout. Media overlays listen independently
+and retain the field child, so opening a toolbar or changing picker progress
+does not rebuild the editor and its undo stack.
+
+Replacing or disposing the editor advances the coordinator's lifecycle before
+detaching the old composer. Clipboard reads, gallery pickers and existing-image
+dialogs capture that lifecycle and their original target; a late completion is
+therefore ignored instead of mutating the replacement draft. Gallery identity
+is reconciled by exact source, shifted source and member overlap, preserving the
+toolbar when a selected gallery moves or changes mode without guessing after it
+has been removed.
+
 ### Likes
 
 There is no `like_count` on a post. Likes arrive in `actions_summary`, the array
