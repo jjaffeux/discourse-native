@@ -4506,14 +4506,22 @@ void main() {
           ],
         },
         categoryList: const [
-          TopicCategory(id: 5, name: 'Support', color: '0088CC'),
+          TopicCategory(
+            id: 5,
+            name: 'Discourse Native Application',
+            color: '0088CC',
+          ),
         ],
         feedCategoriesByPath: const {
           '/latest.json': [
-            TopicCategory(id: 5, name: 'Support', color: '0088CC'),
+            TopicCategory(
+              id: 5,
+              name: 'Discourse Native Application',
+              color: '0088CC',
+            ),
             TopicCategory(
               id: 6,
-              name: 'Support docs',
+              name: 'Feature requests',
               color: '00AEEF',
               parentCategoryId: 5,
             ),
@@ -4526,13 +4534,30 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(TopicListView),
-          matching: find.text('Support > Support docs'),
+          matching: find.text(
+            'Discourse Native Application > Feature requests',
+          ),
         ),
         findsOneWidget,
       );
       expect(
-        find.bySemanticsLabel('Category: Support > Support docs'),
+        find.bySemanticsLabel(
+          'Category: Discourse Native Application > Feature requests',
+        ),
         findsOneWidget,
+      );
+      final categoryLabel = tester.widget<Text>(
+        find.text('Discourse Native Application > Feature requests'),
+      );
+      expect(categoryLabel.maxLines, isNull);
+      expect(categoryLabel.overflow, isNull);
+      expect(
+        tester
+            .getSize(
+              find.text('Discourse Native Application > Feature requests'),
+            )
+            .width,
+        greaterThan(200),
       );
       expect(api.categoryIdsRequested, isEmpty);
     });

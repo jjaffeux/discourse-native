@@ -1085,36 +1085,36 @@ class _CategoryBadge extends StatelessWidget {
       excludeChildSemantics: true,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 32, minHeight: 24),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 9,
-              height: 9,
-              decoration: BoxDecoration(
-                color: Color(category.colorValue),
-                borderRadius: BorderRadius.circular(2),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          widthFactor: 1,
+          heightFactor: 1,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: Color(category.colorValue),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: 5),
-            // Same 200px cap as a tag, and flexible on top of it: a category
-            // path long enough to fill the metadata row must ellipsize, not
-            // overflow.
-            Flexible(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 200),
+              const SizedBox(width: 5),
+              Flexible(
                 child: Text(
                   label,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
