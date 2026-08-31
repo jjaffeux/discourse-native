@@ -59,6 +59,33 @@ const _gif = GifResult(
 
 void main() {
   group('draft editing, layout, and uploads', () {
+    testWidgets('Command-E wraps the selected chat text in backticks', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      final controller = _field(tester).controller!;
+      controller.value = const TextEditingValue(
+        text: 'format me',
+        selection: TextSelection(baseOffset: 0, extentOffset: 6),
+      );
+      _field(tester).focusNode!.requestFocus();
+      await tester.pump();
+
+      await _pressCommandE(tester);
+
+      expect(controller.text, '`format` me');
+      expect(
+        controller.selection,
+        const TextSelection(baseOffset: 1, extentOffset: 7),
+      );
+    });
+
     testWidgets('chat composer deletes a rendered emoji atomically', (
       tester,
     ) async {
@@ -1174,6 +1201,13 @@ Finder _composerField() => find.descendant(
 TextField _field(WidgetTester tester) => tester.widget(_composerField());
 
 String _text(WidgetTester tester) => _field(tester).controller!.text;
+
+Future<void> _pressCommandE(WidgetTester tester) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+  await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+  await tester.pump();
+}
 
 DButton _button(WidgetTester tester, String key) =>
     tester.widget(find.byKey(ValueKey(key)));
