@@ -4517,11 +4517,11 @@ void main() {
       expect(find.bySemanticsLabel('Tag: accessibility'), findsOneWidget);
       expect(
         tester.getSize(find.bySemanticsLabel('Category: Feature')).height,
-        greaterThanOrEqualTo(32),
+        greaterThanOrEqualTo(24),
       );
       expect(
         tester.getSize(find.bySemanticsLabel('Tag: design')).height,
-        greaterThanOrEqualTo(32),
+        greaterThanOrEqualTo(24),
       );
       final category = find.descendant(
         of: find.byType(TopicListView),
@@ -4842,6 +4842,7 @@ void main() {
           .map((position) => position.dx)
           .reduce((left, right) => left < right ? left : right);
       final rowLeft = tester.getTopLeft(find.text('A heavily tagged topic')).dx;
+      expect(nextRunTop - tagPositions.first.dy, lessThanOrEqualTo(24));
       expect(nextRunLeft, closeTo(rowLeft, 0.01));
       expect(tester.takeException(), isNull);
     });

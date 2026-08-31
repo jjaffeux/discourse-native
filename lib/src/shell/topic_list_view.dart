@@ -940,7 +940,7 @@ class _TopicRowBody extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Wrap(
-                    runSpacing: 4,
+                    runSpacing: 0,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       if (forum case final forum?)
@@ -1042,7 +1042,7 @@ class _CategoryBadge extends StatelessWidget {
       semanticLabel: 'Category: ${category.name}',
       excludeChildSemantics: true,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        constraints: const BoxConstraints(minWidth: 32, minHeight: 24),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1106,7 +1106,7 @@ class _TopicTag extends StatelessWidget {
         semanticLabel: 'Tag: ${tag.name}',
         excludeChildSemantics: true,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 24),
           child: Align(
             alignment: Alignment.centerLeft,
             widthFactor: 1,
