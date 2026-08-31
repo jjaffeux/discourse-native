@@ -2,13 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'json.dart';
 
-/// One server-owned target the site offered for a `#hashtag`.
-///
-/// Deliberately not [Storable], for the reason [FoundUser] gives and one of its
-/// own: different hashtag kinds can share an id, so there is no single key to
-/// file these under — and [text] is `Parent > Child` where
-/// `TopicCategory.name` is just `Child`, so putting one in the store would
-/// corrupt the badge a topic row draws.
 @immutable
 class FoundHashtag {
   const FoundHashtag({
@@ -26,7 +19,6 @@ class FoundHashtag {
     this.colors = const [],
   });
 
-  /// Enough for one colour or a split parent/child presentation.
   static const int maximumColors = 2;
 
   static FoundHashtag? fromJson(Map<String, dynamic> json) {
@@ -61,21 +53,12 @@ class FoundHashtag {
     );
   }
 
-  /// `category` or `tag`. Left as the site's own string rather than an enum:
-  /// plugins add their own — chat adds `channel` — and a payload this app has
-  /// no opinion about should travel through it rather than be dropped.
   final String type;
 
-  /// What accepting this writes into the post — `parent:child`, `foo::tag`.
-  ///
-  /// Not [slug]: a subcategory needs its parent to be found again, and a tag
-  /// whose slug collides with a category's carries a `::tag` suffix to say
-  /// which it meant.
   final String ref;
 
   final String slug;
 
-  /// What the site calls it — `Parent > Child` for a subcategory.
   final String text;
 
   final int id;
@@ -83,21 +66,16 @@ class FoundHashtag {
   final String? description;
   final String? secondaryText;
 
-  /// `square`, `icon` or `emoji`.
   final String styleType;
 
   final String? icon;
   final String? emoji;
 
-  /// Six hex digits each, no leading `#`. Core categories use `[parent, child]`
-  /// order — one entry for a top-level category, two for a subcategory.
   final List<String> colors;
 
   static int _value(String color) =>
       int.tryParse('FF$color', radix: 16) ?? 0xFF888888;
 
-  /// [colors] as ARGB ints, so nothing here has to reach for `dart:ui` — the
-  /// bargain `TopicCategory.colorValue` already makes.
   List<int> get colorValues => [for (final color in colors) _value(color)];
 
   @override

@@ -40,43 +40,13 @@ import 'chat_user_avatar.dart';
 import 'chat_user_card.dart';
 import 'chat_user_menu.dart';
 
-/// Chat's legacy sidebar icon alias. The glyph remains a neutral core asset;
-/// only the plugin-specific `d-chat` meaning belongs to Chat.
 const chatIconCatalog = PluginIconCatalog(
   owner: PluginId('chat'),
   entries: {'d-chat': DIcons.comment},
 );
 
-/// `chat`, as this app knows it.
-///
-/// The plugin gives a site channels and direct messages to read alongside its
-/// topics. It is the first optional feature here that owns *navigation* and a
-/// *screen* rather than decorating a record, so it implements [SidebarPlugin]
-/// and [ContentPlugin] without pretending to have a post-record capability.
-///
-/// ## It cannot use the enablement rule the rest of this interface turns on
-///
-/// A post arrives whether or not the reader cares about reactions, so its
-/// payload can be the gate: an absent key means the site does not have the
-/// feature. A channel list arrives only if you ask for it, so its absence
-/// proves nothing at all — a site without chat and a site nobody asked look
-/// exactly alike.
-///
-/// The nearest thing to the rule is `chat_notifications` on
-/// `/notifications/totals.json`, which this app already fetches for every
-/// connected site on launch. It is serialized only when the site has chat, this
-/// reader may use it, and they have not switched it off — three questions
-/// answered by one absent key, scoped by the same guardian that decided the
-/// rest of the payload. The host totals refresh reads it, and it decides
-/// only whether to **ask**. What comes back still decides whether to **draw**
-/// channel sections: they exist because there are channels. Search is a
-/// separate endpoint and uses its own explicit client setting so an older site
-/// that has Chat but not search is never probed.
-///
-/// Which is also why there is no loading state and no empty heading. A heading
-/// that appears and then vanishes is worse than one that arrives late, and a
-/// section with a spinner in it says something false about how many channels
-/// there are.
+/// Notification totals gate channel fetches; fetched channels gate rendering.
+/// Search has its own setting.
 class ChatPlugin
     implements
         SitePlugin,
@@ -263,8 +233,6 @@ class ChatPlugin
         (shell.currentUser?.staff == true ||
             shell.currentUser?.canDirectMessage == true);
 
-    // Nothing before the answer, and nothing after an answer with no channels
-    // in it. A heading with no rows under it says something that is not true.
     return [
       if (chatAvailable)
         const SidebarSection(
@@ -540,12 +508,6 @@ class ChatPlugin
     ),
   ];
 
-  /// One channel as a sidebar row.
-  ///
-  /// A conversation with one other person shows their face; a group shows the
-  /// glyph for several people; a channel shows its emoji, or `comment` — which
-  /// is what Discourse's own `d-chat` resolves to — tinted with the colour of
-  /// the category it lives in.
   static SidebarDestination destination(
     ChatChannel channel, {
     String? siteUrl,

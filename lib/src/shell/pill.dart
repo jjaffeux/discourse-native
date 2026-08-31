@@ -1,17 +1,3 @@
-/// The chip a mention or a hashtag is drawn as.
-///
-/// Discourse gives all three — `a.mention`, `a.mention-group` and
-/// `.hashtag-cooked` — the same `@mixin mention`, which is the strongest signal
-/// available that they are one visual idea rather than three that happen to
-/// look alike. So they are one widget here.
-///
-/// Every dimension is a *ratio* of the prose the pill sits in rather than a
-/// pixel count, for the reason `emojiScale` gives: the stylesheet fixes these
-/// against the surrounding prose, and the native renderer can also place them
-/// in headings or deliberately compact metadata.
-///
-/// Deliberately knows nothing about the DOM, the shell or any model: the
-/// composer draws pills too, and must not import `package:html` to do it.
 library;
 
 import 'package:flutter/material.dart';
@@ -19,32 +5,20 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 
-/// `font-size: 0.93em`, against the prose around the pill.
 const double pillScale = 0.93;
 
-/// `padding: 0.2em 0.34em`. Every measurement below this line is against the
-/// *pill's* own font size, which is what `em` means inside the mixin.
 const double pillPadX = 0.34;
 const double pillPadY = 0.2;
 
-/// `border-radius: 0.6em`.
 const double pillRadius = 0.6;
 
-/// `.hashtag-category-square` — `width: 0.72em`, plus its `margin-left: 0.1em`.
 const double pillSquare = 0.72;
 const double pillSquareInset = 0.1;
 
-/// What an `svg` or an `img.emoji` inside a pill is drawn at.
 const double pillGlyph = 0.93;
 
-/// `margin-right: var(--space-1)` — 4px, which against the 13.95px a pill's
-/// text comes out at on a 15px body is this.
 const double pillGap = 0.287;
 
-/// One pill: optional leading art, then the label.
-///
-/// [onTap] is null in the composer, where [EditableText] owns pointer handling
-/// and the composer resolves the pill's exact render-box geometry itself.
 class Pill extends StatefulWidget {
   const Pill({
     super.key,
@@ -59,36 +33,21 @@ class Pill extends StatefulWidget {
 
   final String label;
 
-  /// The prose around the pill. Everything is sized from it.
   final TextStyle? baseStyle;
 
-  /// Drawn ahead of the label, already sized by the caller — a category square,
-  /// a [DIcon], or an emoji. Wrapped in [ExcludeSemantics] here rather than at
-  /// each call site: an icon-font glyph announces as a stray codepoint, and the
-  /// label beside it already says the same thing properly.
   final Widget? leading;
 
   final VoidCallback? onTap;
 
-  /// Whether this pill is actionable through an owning widget such as an
-  /// editable, rather than through [onTap] itself.
   final bool hoverable;
 
-  /// Whether an owning render object has established that the pointer is over
-  /// the pill. EditableText excludes embedded widgets from pointer hit
-  /// testing, so composer pills provide this from the editor-level region.
   final bool hovered;
 
-  /// A keyboard focus ring for projected composer items.
   final bool highlighted;
 
-  /// The pill's own font size, which every other measurement is taken against.
   static double fontSizeFor(TextStyle? baseStyle) =>
       (baseStyle?.fontSize ?? DiscourseTypography.base) * pillScale;
 
-  /// The box a [DIcon] needs for its *glyph* to come out at [pillGlyph].
-  ///
-  /// [DIcon.size] is the square the glyph is centred in, not the glyph itself.
   static double iconBoxFor(TextStyle? baseStyle) =>
       fontSizeFor(baseStyle) * pillGlyph / DIcon.glyphScale;
 

@@ -1,12 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-/// An indeterminate activity indicator whose explicit color survives platform
-/// adaptation.
-///
-/// Flutter's [CircularProgressIndicator.adaptive] ignores its Material color
-/// inputs on Apple platforms. Use this variant when the indicator sits on a
-/// colored surface and therefore needs an exact foreground color.
 class AdaptiveActivityIndicator extends StatelessWidget {
   const AdaptiveActivityIndicator({
     super.key,

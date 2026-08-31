@@ -14,11 +14,6 @@ import 'notification_counters.dart';
 import 'plugin_data.dart';
 import 'plugin_icon_catalog.dart';
 
-/// Constructs core wire models with one explicitly installed extension decoder.
-///
-/// Keeping this object at the composition boundary lets core-only builds use an
-/// empty decoder and prevents model factories from reaching a process-global
-/// plugin registry.
 final class DiscourseModelCodec {
   const DiscourseModelCodec({
     required this.extensions,
@@ -170,11 +165,6 @@ final class DiscourseModelCodec {
     );
   }
 
-  /// Whether two current-user snapshots belong to the same account.
-  ///
-  /// The stable numeric id wins whenever the stored snapshot has one. Older
-  /// snapshots without an id fall back to Discourse's case-insensitive
-  /// username identity.
   bool sameCurrentUserAccount(DiscourseUser held, DiscourseUser incoming) =>
       held.id != null
       ? incoming.id != null && held.id == incoming.id

@@ -13,13 +13,6 @@ import 'chat_plugin_data.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 
-/// The Chat plugin's shortcut beside the account avatar.
-///
-/// Core mounts this only for an account allowed to chat, hides it while mobile
-/// chat is active, and gives urgent activity a count while ordinary channel
-/// activity gets a dot. This widget intentionally reads the same channel
-/// tracking records as the sidebar rows; two independently maintained totals
-/// would drift as soon as a channel is read here.
 class ChatHeaderButton extends StatelessWidget {
   const ChatHeaderButton({
     super.key,
@@ -27,10 +20,8 @@ class ChatHeaderButton extends StatelessWidget {
     this.ringColor,
   });
 
-  /// True in the compact shell, matching core's mobile active-state rule.
   final bool hideWhenChatActive;
 
-  /// The painted surface behind the badge's separating ring.
   final Color? ringColor;
 
   static const Key buttonKey = ValueKey('chat-header-button');
@@ -53,10 +44,7 @@ class ChatHeaderButton extends StatelessWidget {
           return const SizedBox.shrink();
         }
         final totals = shell.currentTotals;
-        // The totals key and CurrentUser#has_chat_enabled are guarded by
-        // the same three conditions in core. The nullable user value
-        // keeps an account stored by an older app usable until its
-        // session refresh.
+        // Null preserves legacy cached accounts until their session refresh.
         if (totals?.hasChatEnabled != true ||
             user.chatCurrentUser?.hasChatEnabled == false) {
           return const SizedBox.shrink();
@@ -117,7 +105,7 @@ class _UnreadDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     key: ChatHeaderButton.unreadDotKey,
-    // Core uses a 14px content box and a 2px header-coloured border.
+    // Core uses a 14px box with a 2px header-coloured border.
     width: 18,
     height: 18,
     decoration: BoxDecoration(

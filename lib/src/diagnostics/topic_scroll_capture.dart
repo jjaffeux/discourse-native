@@ -8,10 +8,8 @@ import 'package:flutter/scheduler.dart';
 import '../data/app_release.dart';
 import 'diagnostics_redactor.dart';
 
-/// Why a topic scroll capture stopped recording.
 enum TopicScrollCaptureStopReason { manual, durationLimit, eventLimit }
 
-/// The current lifecycle and summary of the opt-in topic scroll recorder.
 @immutable
 final class TopicScrollCaptureState {
   const TopicScrollCaptureState({
@@ -41,7 +39,6 @@ final class TopicScrollCaptureState {
   final TopicScrollCaptureStopReason? stopReason;
 }
 
-/// One event in a monotonic topic scroll trace.
 @immutable
 final class TopicScrollCaptureEvent {
   const TopicScrollCaptureEvent({
@@ -67,8 +64,6 @@ final class TopicScrollCaptureEvent {
   };
 }
 
-/// A bounded, memory-only recorder for reproducing topic scrolling defects.
-///
 /// High-frequency scroll and sliver observations deliberately do not enter the
 /// ordinary diagnostics timeline. That timeline persists every event, and the
 /// I/O plus per-event UI notification would contaminate the performance being
@@ -139,7 +134,6 @@ final class TopicScrollCaptureController extends ChangeNotifier {
     );
   }
 
-  /// Replaces any previous trace and begins a fresh bounded capture.
   void start() {
     if (_disposed) return;
     if (_recording) _stop(TopicScrollCaptureStopReason.manual, notify: false);
@@ -188,7 +182,6 @@ final class TopicScrollCaptureController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Records one topic viewport event. This method must never affect scrolling.
   void recordTopicEvent(String name, Map<String, Object?> data) {
     if (!_recording) return;
     try {
@@ -199,8 +192,6 @@ final class TopicScrollCaptureController extends ChangeNotifier {
     }
   }
 
-  /// Redacts and serializes the trace away from Flutter's UI isolate.
-  ///
   /// The small envelope is captured on the caller. Traversing all events,
   /// scrubbing strings, normalizing values, and encoding JSON happen only on
   /// export, in a background isolate after the reproduction is over.

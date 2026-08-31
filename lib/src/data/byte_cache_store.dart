@@ -6,7 +6,6 @@ import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:pointycastle/digests/sha256.dart';
 
-/// Persistent bytes for responses which explicitly permit shared caching.
 abstract interface class ByteCacheStore {
   Future<Uint8List?> read(String url);
 
@@ -17,8 +16,6 @@ abstract interface class ByteCacheStore {
   });
 }
 
-/// A bounded, process-independent cache for immutable avatars and emoji.
-///
 /// The URL is hashed before it becomes a filename. Each file carries its
 /// absolute HTTP expiry followed by the response body, so an expired or
 /// corrupt entry can be discarded without a separate metadata database.
@@ -233,8 +230,7 @@ final class FileByteCacheStore implements ByteCacheStore {
   }
 }
 
-/// Returns the freshness promised by an HTTP response, or null when it must
-/// remain process-local. Browser-equivalent rules matter here: Discourse marks
+/// Browser-equivalent rules matter here: Discourse marks
 /// avatar and emoji assets public and immutable for about a year.
 DateTime? persistentByteCacheExpiry(Map<String, String> headers, DateTime now) {
   if (!responseAllowsPersistentByteCache(headers)) return null;
@@ -270,8 +266,6 @@ DateTime? persistentByteCacheExpiry(Map<String, String> headers, DateTime now) {
   return expires.isAfter(maximum) ? maximum : expires;
 }
 
-/// Whether every consumer may reuse this response without revalidation.
-///
 /// The native byte store has no validator metadata and is shared by the app's
 /// accounts, so directives which require a private cache or a conditional
 /// request must remain memory-only.

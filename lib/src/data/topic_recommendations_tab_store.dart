@@ -4,9 +4,7 @@ import '../plugin_api/topic_recommendation_source.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
-/// Per-forum more-topics tab persistence.
 abstract interface class TopicRecommendationsTabPersistence {
-  /// Reads the raw value so the store can apply the installed source codecs.
   Future<String?> readStoredSourceId({required String siteUrl});
 
   Future<bool> writeTab({
@@ -38,10 +36,6 @@ final class SharedPreferencesTopicRecommendationsTabPersistence
       '$_keyPrefix.${Uri.encodeComponent(siteUrl)}';
 }
 
-/// Remembers the reader's last recommendation source on each forum.
-///
-/// This is optional presentation state. Storage failures fall back to the
-/// core suggested list and never prevent a topic from being read.
 final class TopicRecommendationsTabStore {
   const TopicRecommendationsTabStore({
     TopicRecommendationsTabPersistence? persistence,

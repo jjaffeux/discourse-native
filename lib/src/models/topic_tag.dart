@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'json.dart';
 
-/// One tag attached to a topic or selected in the topic composer.
 @immutable
 class TopicTag {
   const TopicTag({

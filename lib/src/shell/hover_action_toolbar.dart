@@ -2,13 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/d_button.dart';
 
-/// The compact desktop action surface shared by hovered posts and messages.
-///
-/// Discourse chat presents its actions as one bordered strip: controls are
-/// wider than they are tall, the outer surface owns the rounding, and an
-/// individual control gets a rectangular hover fill. Keeping those decisions
-/// here prevents the post and chat versions from gradually becoming two
-/// different toolbars again.
 class HoverActionToolbar extends StatelessWidget {
   const HoverActionToolbar({super.key, required this.children});
 
@@ -35,7 +28,6 @@ class HoverActionToolbar extends StatelessWidget {
   }
 }
 
-/// One compact control inside a [HoverActionToolbar].
 class HoverActionButton extends StatelessWidget {
   const HoverActionButton({
     super.key,

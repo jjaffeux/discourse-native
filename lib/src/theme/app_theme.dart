@@ -6,31 +6,19 @@ import 'color_contrast.dart';
 import 'd_button.dart';
 import 'd_tooltip.dart';
 
-/// The tertiary color of Discourse's default light scheme.
 const Color discourseBlue = Color(0xFF0088CC);
 
-/// The tertiary color of Discourse's built-in dark scheme.
 const Color discourseDarkBlue = Color(0xFF099DD7);
 
-/// What Discourse paints a like — `$love` in its stylesheets.
-///
-/// The fallback used until a site supplies its own `$love` value.
 const Color discourseLove = Color(0xFFFA6C8D);
 
-/// Discourse's default `$success` colour.
 const Color discourseSuccess = Color(0xFF009900);
 
-/// Core Discourse's modal backdrop: black animated to 60% opacity.
 const Color discourseModalBarrier = Color(0x99000000);
 
 const Duration discourseMenuOpenDuration = Duration(milliseconds: 140);
 const Duration discourseMenuCloseDuration = Duration(milliseconds: 100);
 
-/// The compact menu motion used where Flutter owns the popup route.
-///
-/// Rich choice menus use the same timing with an app-owned transition. Raw
-/// popup menus cannot replace Flutter's grow transition, but this removes its
-/// slow 300ms stagger and keeps reduced-motion behavior consistent.
 AnimationStyle discoursePopupMenuAnimationStyle(BuildContext context) =>
     MediaQuery.disableAnimationsOf(context)
     ? AnimationStyle.noAnimation
@@ -41,10 +29,6 @@ AnimationStyle discoursePopupMenuAnimationStyle(BuildContext context) =>
         reverseCurve: Curves.easeInCubic,
       );
 
-/// Discourse's 16px modular type scale, resolved from `font-variables.scss`.
-///
-/// Keeping the values here avoids silently falling back to Material's smaller
-/// 14px body and title styles when a widget only chooses a semantic text role.
 abstract final class DiscourseTypography {
   static const double base = 16;
   static const double fontUp1 = 18.3792;
@@ -75,11 +59,6 @@ Color _readableOn(
   preferred: [preferred, alternative],
 );
 
-/// The stacked neutral surfaces the shell is built from.
-///
-/// These live outside [ColorScheme] because the shell needs several distinct
-/// neutrals sitting directly next to each other, which Material's surface roles
-/// do not map onto cleanly.
 @immutable
 class ShellColors extends ThemeExtension<ShellColors> {
   const ShellColors({
@@ -100,7 +79,6 @@ class ShellColors extends ThemeExtension<ShellColors> {
 
   final Color rail;
 
-  /// Text and icon colour drawn directly on [rail].
   final Color railForeground;
 
   final Color sidebar;
@@ -108,41 +86,17 @@ class ShellColors extends ThemeExtension<ShellColors> {
   final Color panel;
   final Color divider;
 
-  /// Surface for elements that float *over* the columns, such as the user bar.
   final Color floating;
 
-  /// Wash laid over [content] for the row the pointer is on. Opaque rather than
-  /// a translucent tint so a hovered row does not go see-through over whatever
-  /// happens to be painted behind the column.
   final Color hover;
 
-  /// Background and foreground for the currently selected navigation row.
   final Color selected;
   final Color selectedForeground;
 
-  /// Text for anything the UI shows but cannot do yet: fake rows, stand-in
-  /// counts, destinations with nothing behind them. Nothing that actually works
-  /// is ever drawn in it, so anything orange on screen is a to-do list item.
   final Color placeholder;
 
-  /// The markdown syntax itself in the composer — the `**`, the `#`, the
-  /// backticks.
-  ///
-  /// Its own colour rather than [CodeColors.comment], which reads as "de-
-  /// emphasised" but only reaches 4.3:1 against [content] in the dark scheme.
-  /// These characters are not decoration: someone who cannot read the `**`
-  /// cannot tell bold from italic, and the two post differently. Both values
-  /// clear 4.5:1 against the surface the composer is drawn on.
   final Color marker;
 
-  /// Behind a mention or hashtag pill, mirroring Discourse's
-  /// `--mention-background-color`.
-  ///
-  /// Not [rail], which is the nearest existing neutral and the wrong one: in
-  /// the dark scheme it is *darker* than every surface a pill is drawn on —
-  /// [content], [sidebar] where chat renders, [floating] in a user card —
-  /// while Discourse's is a step lighter than its surface. Inline code has its
-  /// own [CodeColors.inlineBackground], because a mention is not a code span.
   final Color mention;
 
   static const ShellColors dark = ShellColors(
@@ -235,13 +189,6 @@ class ShellColors extends ThemeExtension<ShellColors> {
   }
 }
 
-/// Colors for the token kinds a syntax highlighter reports.
-///
-/// Like [ShellColors] these sit outside [ColorScheme], which has no roles for
-/// "string" or "comment". The fallbacks are tuned per brightness rather than
-/// derived from the seed, and a resolved site palette supplies the exact
-/// syntax roles: generated Material colors do not guarantee that tokens stay
-/// distinguishable from each other.
 @immutable
 class CodeColors extends ThemeExtension<CodeColors> {
   const CodeColors({
@@ -255,26 +202,19 @@ class CodeColors extends ThemeExtension<CodeColors> {
     required this.meta,
   });
 
-  /// Backgrounds for fenced blocks and inline code respectively.
   final Color blockBackground;
   final Color inlineBackground;
 
-  /// Keywords, literals and operators.
   final Color keyword;
 
-  /// String and regexp literals.
   final Color string;
 
-  /// Comments and quoted documentation.
   final Color comment;
 
-  /// Numbers and other scalar literals.
   final Color number;
 
-  /// Declared names: functions, classes, sections, tags.
   final Color name;
 
-  /// Annotations, preprocessor lines, attributes.
   final Color meta;
 
   static const CodeColors dark = CodeColors(
@@ -342,7 +282,6 @@ class CodeColors extends ThemeExtension<CodeColors> {
   }
 }
 
-/// Discourse semantic colours with no Material [ColorScheme] equivalent.
 @immutable
 class DiscourseColors extends ThemeExtension<DiscourseColors> {
   const DiscourseColors({
@@ -432,13 +371,10 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
 }
 
 extension ShellColorsAccess on ThemeData {
-  /// Shorthand for `Theme.of(context).extension<ShellColors>()!`.
   ShellColors get shell => extension<ShellColors>()!;
 
-  /// Shorthand for `Theme.of(context).extension<CodeColors>()!`.
   CodeColors get code => extension<CodeColors>()!;
 
-  /// Shorthand for `Theme.of(context).extension<DiscourseColors>()!`.
   DiscourseColors get discourse => extension<DiscourseColors>()!;
 }
 
@@ -456,12 +392,6 @@ abstract final class AppTheme {
     DiscourseColors.dark,
   );
 
-  /// Builds the native shell from the colors resolved by Discourse itself.
-  ///
-  /// Discourse names colors for their CSS jobs rather than Material roles:
-  /// `primary` is text, `secondary` is the page, and `tertiary` is its main
-  /// interactive accent. This is the single translation boundary between the
-  /// two vocabularies.
   static ThemeData fromPalette(ResolvedSitePalette palette) {
     final fallback = palette.brightness == Brightness.dark
         ? ShellColors.dark
@@ -477,7 +407,6 @@ abstract final class AppTheme {
       hover: palette.hover,
       selected: palette.selected,
       selectedForeground: palette.selectedForeground,
-      // This is an app development affordance, not a Discourse theme role.
       placeholder: fallback.placeholder,
       marker: palette.primaryHigh,
       mention: palette.mentionBackground,
@@ -590,7 +519,6 @@ abstract final class AppTheme {
     );
   }
 
-  /// Alias for callers that describe theme creation by its input.
   static ThemeData forPalette(ResolvedSitePalette palette) =>
       fromPalette(palette);
 
@@ -693,7 +621,6 @@ abstract final class AppTheme {
         // switches. Flutter leaves this off by default for compatibility.
         applyThemeToAll: true,
       ).noDefault(),
-      // The backdrop the panels sit on, visible above them and behind the rail.
       scaffoldBackgroundColor: shell.rail,
       // PopupMenuItem and DropdownButton rows still read ThemeData directly,
       // while MenuItemButton reads menuButtonTheme below. Give both menu

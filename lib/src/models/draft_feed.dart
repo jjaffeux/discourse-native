@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'user_draft.dart';
 
-/// What the drafts destination knows about one account's list.
 @immutable
 class DraftFeed {
   const DraftFeed({

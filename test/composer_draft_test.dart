@@ -25,7 +25,6 @@ void main() {
       expect(json['reply_to_post_number'], 4);
       expect(json['reply_to_user'], {'username': 'sam'});
       expect(json['whisper'], isTrue);
-      // Milliseconds, which is what the create call reports too.
       expect(json['typingTime'], 9000);
       expect(json['composerTime'], 30000);
     });
@@ -98,12 +97,10 @@ void main() {
     });
 
     test('treats nothing, and nonsense, as no draft', () {
-      // An unreadable draft is not worth failing a composer open over.
       expect(ComposerDraft.decode(null), isNull);
       expect(ComposerDraft.decode(''), isNull);
       expect(ComposerDraft.decode('not json'), isNull);
       expect(ComposerDraft.decode('[1,2,3]'), isNull);
-      // The API sends a string; an object is not what it sends.
       expect(ComposerDraft.decode(const {'reply': 'Hi'}), isNull);
     });
 

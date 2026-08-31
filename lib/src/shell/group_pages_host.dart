@@ -19,8 +19,6 @@ import 'shell_scope.dart';
 import 'topic_list_view.dart';
 import 'user_card.dart';
 
-/// Connects the presentation-only directory widget to the shell's independent
-/// group cache.
 class GroupsDirectoryHost extends StatefulWidget {
   const GroupsDirectoryHost({super.key, required this.siteUrl});
 
@@ -115,7 +113,6 @@ class _GroupsDirectoryHostState extends State<GroupsDirectoryHost> {
   }
 }
 
-/// Connects a restored group route to its group-specific and topic-list state.
 class GroupPageHost extends StatefulWidget {
   const GroupPageHost({
     super.key,

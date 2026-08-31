@@ -4,20 +4,10 @@ import 'package:flutter/foundation.dart';
 
 import 'json.dart';
 
-/// Discourse's core value for `--d-border-radius`.
-///
-/// The native appearance loader reads parent-theme overrides, but it does not
-/// fetch core's common stylesheet where this fallback is declared.
 const double defaultDiscourseBorderRadius = 4;
 
-/// Which of a site's two palettes its web UI asks a reader to use.
 enum SiteAppearanceMode { followSystem, base, alternate }
 
-/// The site palettes available to the native shell.
-///
-/// [base] is the selected theme's ordinary color scheme. It is named for its
-/// role rather than its brightness because a theme is allowed to put a dark
-/// palette there. [alternate] is its optional dark-scheme selection.
 @immutable
 class SiteAppearance {
   const SiteAppearance({
@@ -28,11 +18,6 @@ class SiteAppearance {
 
   const SiteAppearance.unknown() : this();
 
-  /// Reads a persisted appearance without making a damaged optional palette
-  /// damage the site that owns it.
-  ///
-  /// `light` and `dark` are accepted as aliases for the original field names,
-  /// so changing the role terminology does not invalidate an older snapshot.
   factory SiteAppearance.fromJson(Map<String, dynamic> json) => SiteAppearance(
     base: _palette(json['base'] ?? json['light']),
     alternate: _palette(json['alternate'] ?? json['dark']),
@@ -80,13 +65,6 @@ class SiteAppearance {
   int get hashCode => Object.hash(base, alternate, mode);
 }
 
-/// Discourse appearance custom properties after their aliases are resolved.
-///
-/// Most are source colors rather than Material roles. In Discourse naming,
-/// `primary` is ordinary text, `secondary` is the page background, and
-/// `tertiary` is the interactive accent. Theme-wide geometry used by the
-/// native shell lives here too so it follows the same CSS cascade and storage
-/// lifecycle.
 @immutable
 class ResolvedSitePalette {
   const ResolvedSitePalette({
@@ -130,8 +108,6 @@ class ResolvedSitePalette {
     required this.codeMeta,
   });
 
-  /// Reads the current shape while deriving safe values for fields added after
-  /// an older persisted snapshot was written.
   factory ResolvedSitePalette.fromJson(Map<String, dynamic> json) {
     final primary = _requiredColor(json, 'primary');
     final secondary = _requiredColor(json, 'secondary');
@@ -198,15 +174,12 @@ class ResolvedSitePalette {
     );
   }
 
-  /// The resolved value of Discourse's theme-wide `--d-border-radius` token.
   final double borderRadius;
   final Brightness brightness;
   final Color primary;
   final Color secondary;
   final Color tertiary;
 
-  /// Core's `--token-color-background-accent-subtle`, used for an ordinary
-  /// unread dot in the sidebar.
   final Color accentSubtle;
 
   final Color quaternary;

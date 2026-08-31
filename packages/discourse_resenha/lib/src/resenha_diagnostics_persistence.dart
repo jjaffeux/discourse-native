@@ -174,7 +174,6 @@ abstract interface class RetainedResenhaDiagnosticsEventIdsPersistence {
   });
 }
 
-/// Deterministic persistence for tests and non-durable embedders.
 final class MemoryResenhaDiagnosticsPersistence
     implements
         ResenhaDiagnosticsPersistence,

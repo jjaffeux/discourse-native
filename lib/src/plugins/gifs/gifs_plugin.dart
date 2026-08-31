@@ -10,7 +10,6 @@ import 'gifs_settings.dart';
 
 export 'gifs_settings.dart';
 
-/// Discourse core's authenticated Klipy picker contribution.
 class GifsPlugin
     implements
         SitePlugin,
@@ -56,8 +55,6 @@ class GifsPlugin
   }
 }
 
-/// Opens the shared picker and inserts its result into an unchanged topic
-/// composer draft.
 Future<void> openGifPickerForComposer(
   BuildContext context,
   ComposerEditorHost editor,

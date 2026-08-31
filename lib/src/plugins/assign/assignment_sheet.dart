@@ -28,11 +28,6 @@ typedef AssignmentSave =
     });
 typedef AssignmentRemove = Future<String?> Function();
 
-/// Opens the one write surface for both topic and post assignments.
-///
-/// Suggestions and writes are target-scoped on the server. Keeping the target
-/// captured here makes it impossible for a picker opened for one post to write
-/// to whichever post happens to be current by the time the request finishes.
 Future<void> showAssignmentEditor({
   required BuildContext context,
   required String siteUrl,
@@ -81,19 +76,12 @@ Future<void> showAssignmentEditor({
     popoverKey: const ValueKey('assignment-picker-popover'),
     popoverWidth: 360,
     nested: nested,
-    // A drag closes ModalBottomSheetRoute with Navigator.pop, bypassing the
-    // editor's PopScope while a write owns the target. Close, barrier, and
-    // system back all use maybePop and remain available whenever it is safe.
+    // Drag dismissal bypasses PopScope while a write owns the target.
     sheetEnableDrag: false,
     builder: editor,
   );
 }
 
-/// A target-aware user/group picker used inside [showAssignmentEditor].
-///
-/// It is public so its asynchronous behavior can be tested without constructing
-/// an entire shell. Product code should normally open it through the function
-/// above, which always supplies the exact target and controller methods.
 class AssignmentEditor extends StatefulWidget {
   const AssignmentEditor({
     super.key,
@@ -296,9 +284,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       error = await widget.save(
         selected,
         note: _nullableText(_noteController.text),
-        // Site settings arrive independently from the topic payload. Preserve
-        // the serialized status while they are still unknown; omitting it on
-        // a detail edit makes Assign reset it to the first configured status.
+        // Preserve serialized status until independently loaded settings arrive.
         status: widget.statusesEnabled
             ? _nullableText(_status)
             : widget.existing?.status,
@@ -312,8 +298,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       _error = error;
     });
     if (error == null) {
-      // PopScope still reflects the previous build until the next frame. Wait
-      // for canPop to become true before the successful write closes its sheet.
+      // PopScope exposes the successful write's canPop state next frame.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) widget.onComplete?.call();
       });
@@ -534,7 +519,6 @@ class _AssigneeChoice extends StatelessWidget {
   }
 }
 
-/// The same assignee identity used in picker rows and assignment summaries.
 class AssignmentAssigneeAvatar extends StatelessWidget {
   const AssignmentAssigneeAvatar({
     super.key,
@@ -573,8 +557,6 @@ class AssignmentAssigneeAvatar extends StatelessWidget {
   }
 }
 
-/// A complete, readable assignment line. Notes and statuses remain visible for
-/// readers who cannot mutate the target.
 class AssignmentDetailRow extends StatelessWidget {
   const AssignmentDetailRow({
     super.key,

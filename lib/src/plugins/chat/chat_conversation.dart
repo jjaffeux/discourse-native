@@ -7,8 +7,6 @@ import 'chat_conversation_contract.dart';
 import 'chat_message.dart';
 import 'chat_stream_target.dart';
 
-/// Adapts Chat's complete controller to the deliberately small embedded
-/// conversation contract exposed to dependent plugins.
 final class ChatControllerConversationCapability
     implements ChatConversationCapability {
   const ChatControllerConversationCapability(this._chat);

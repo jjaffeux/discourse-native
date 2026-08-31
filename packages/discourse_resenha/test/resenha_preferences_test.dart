@@ -31,7 +31,6 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(persistence.stringWriteValues, ['old-camera']);
 
-    // A different preference key remains independent.
     await replacementPreferences.writePushToTalk(true);
     expect(persistence.boolValue, isTrue);
 

@@ -3,10 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
-/// Per-forum sidebar collapse-state persistence.
-///
-/// Site and section key encoding is an adapter detail. The store only sees the
-/// optional collapse choice and the platform's durability result.
 abstract interface class SidebarSectionPersistence {
   Future<bool?> readCollapsed({
     required String siteUrl,
@@ -48,10 +44,6 @@ final class SharedPreferencesSidebarSectionPersistence
       '${Uri.encodeComponent(sectionId)}';
 }
 
-/// Remembers which sidebar sections a reader collapsed on each forum.
-///
-/// This is optional presentation state, so storage failures fall back to an
-/// expanded section and never prevent the sidebar from being used.
 final class SidebarSectionStore {
   const SidebarSectionStore({SidebarSectionPersistence? persistence})
     : _persistence =

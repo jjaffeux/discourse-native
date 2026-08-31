@@ -113,8 +113,6 @@ final class ResenhaDiagnosticRecord {
          ResenhaDiagnosticsRedactor.data(data, homeDirectory: homeDirectory),
        );
 
-  /// Identifies the app process which allocated [sequence].
-  ///
   /// Sequences are intentionally process-local. Combining both fields keeps
   /// persisted identities collision-safe when two Linux app processes append
   /// to the same diagnostics store.

@@ -14,7 +14,6 @@ import 'chat_shell_service.dart';
 import 'chat_thread.dart';
 import 'chat_user_avatar.dart';
 
-/// The account-level thread list behind Discourse Chat's "My Threads" route.
 class ChatMyThreadsView extends StatefulWidget {
   const ChatMyThreadsView({super.key, required this.siteUrl});
 
@@ -131,7 +130,6 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
   );
 }
 
-/// One thread-list result shared by the account and channel routes.
 class ChatThreadListRow extends StatelessWidget {
   const ChatThreadListRow({
     super.key,

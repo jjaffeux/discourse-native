@@ -2,13 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/d_button.dart';
 
-/// The waiting, empty and failed states a fetching surface shows in place of
-/// its rows, given enough height that it does not collapse to nothing while it
-/// has none.
-///
-/// A null [text] is the wait. Every tab and card that fetches its own content
-/// wants the same three, so they are drawn in one place rather than once per
-/// surface.
 class UserMenuMessage extends StatelessWidget {
   const UserMenuMessage({
     super.key,
@@ -20,8 +13,6 @@ class UserMenuMessage extends StatelessWidget {
   final String? text;
   final VoidCallback? onRetry;
 
-  /// The footprint held while waiting, so the surface does not jump around
-  /// once its content arrives.
   final double height;
 
   @override

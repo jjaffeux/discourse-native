@@ -19,7 +19,6 @@ typedef PostRevisionLoader =
     Future<PostRevision?> Function(int? revisionNumber);
 typedef PostRevisionCategoryLabel = String Function(int? categoryId);
 
-/// Opens core's post-history comparison without navigating away from a topic.
 Future<void> showPostRevisionHistory({
   required BuildContext context,
   required String siteUrl,
@@ -54,7 +53,6 @@ Future<void> showPostRevisionHistory({
   }
 }
 
-/// Core's compact pencil-and-count post metadata indicator.
 class PostRevisionIndicator extends StatelessWidget {
   const PostRevisionIndicator({super.key, required this.post});
 

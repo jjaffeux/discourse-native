@@ -23,11 +23,6 @@ final class _QuickMenuResult {
   final Bookmark bookmark;
 }
 
-/// UI-facing bookmark actions with the owning context already bound.
-///
-/// Topic/post surfaces bind a real topic id. Plugin surfaces bind only their
-/// target-scoped host, so no fake topic identifier can leak into the shared
-/// reminder UI.
 abstract interface class _BookmarkUiHost {
   BookmarkSiteContext siteContextFor(String siteUrl);
 

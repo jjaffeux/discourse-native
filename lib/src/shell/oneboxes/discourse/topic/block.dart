@@ -10,13 +10,6 @@ import '../../../site_image.dart';
 import '../../markup.dart';
 import '../../onebox.dart';
 
-/// A Discourse topic on some site, oneboxed from another:
-/// `aside.onebox.discoursetopic`.
-///
-/// The local equivalent — a topic on the site the post was written on — is
-/// rendered by Discourse as a quote (see `discourse_topic_onebox.mustache`),
-/// which lands in `quote.dart`. This is the cross-site shape: title, category
-/// and tags, and the excerpt the remote site advertised.
 class DiscourseTopicOnebox extends StatelessWidget {
   const DiscourseTopicOnebox({super.key, required this.data, this.siteUrl});
 
@@ -157,7 +150,6 @@ class DiscourseTopicCategory {
   final Color? color;
 }
 
-/// Everything the cross-site topic onebox carries, read out of the aside.
 class DiscourseTopicData {
   const DiscourseTopicData({
     required this.title,
@@ -228,7 +220,6 @@ class DiscourseTopicData {
   }
 }
 
-/// Claims `aside.onebox.discoursetopic`, for the dispatch in `onebox.dart`.
 final OneboxEngine discourseTopicBlock = OneboxEngine(
   matches: (aside) => aside.classes.contains('discoursetopic'),
   build: (aside, envelope, siteUrl) => OneboxCard(

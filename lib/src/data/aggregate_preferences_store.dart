@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/discourse_instance.dart';
 import 'coalescing_snapshot_writer.dart';
 import 'store_diagnostics.dart';
 
@@ -41,7 +40,6 @@ final class AggregatePreferences {
   AggregateTabPreferences get activeTab =>
       tabs.firstWhere((tab) => tab.id == activeTabId, orElse: () => tabs.first);
 
-  /// Compatibility accessors for the pre-tab preferences document.
   Set<String> get excludedForums => activeTab.excludedForums;
   Map<String, String> get queries => activeTab.queries;
 }
@@ -134,13 +132,6 @@ final class MemoryAggregatePreferencesPersistence
   }
 }
 
-/// Versioned app-wide configuration for cross-forum Aggregate feed tabs.
-///
-/// Exclusions are persisted instead of inclusions so a newly connected forum
-/// participates by default. A query is stored only when it is non-empty; an
-/// included forum without one asks Discourse for its default topic filter.
-/// Origins are already owned by [DiscourseInstance], and malformed or stale
-/// entries are pruned by the controller when it next saves.
 final class AggregatePreferencesStore {
   AggregatePreferencesStore({AggregatePreferencesPersistence? persistence})
     : _persistence =

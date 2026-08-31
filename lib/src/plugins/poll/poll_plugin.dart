@@ -26,7 +26,6 @@ const pollComposerSyntaxKind = ComposerSyntaxKind(
   name: 'poll',
 );
 
-/// Discourse's bundled Poll plugin as an optional, payload-gated feature.
 class PollPlugin
     implements
         SitePlugin,
@@ -140,10 +139,7 @@ class PollPlugin
   @override
   List<String> topicChannels(int topicId) => [_channelFor(topicId)];
 
-  /// Only its own channel: every plugin's hook is asked about every message on
-  /// every topic channel, and `post_id` is not a key one feature may read out
-  /// of another's payload. Assign publishes one for a post-level assignment,
-  /// which is nothing to do with a poll.
+  // Plugin hooks receive every topic channel; payload fields are not authority.
   @override
   List<int> stalePosts(String channel, Object? data) {
     if (!channel.startsWith('/polls/')) return const [];
@@ -155,8 +151,6 @@ class PollPlugin
   }
 }
 
-/// Poll's complete parser, projection configuration, and authoring policy for
-/// one open composer.
 final class PollComposerSyntaxPolicy implements ComposerSyntaxPolicy {
   const PollComposerSyntaxPolicy({
     this.settings = const PollSettings(),
@@ -189,8 +183,7 @@ final class PollComposerSyntaxPolicy implements ComposerSyntaxPolicy {
 
   PollSettings get currentSettings => settingsReader?.call() ?? settings;
 
-  /// Creation is intentionally based on the refreshed session. A persisted
-  /// permission must never authorize a new poll while current.json is pending.
+  /// Only a refreshed session may authorize creation.
   bool canCreate(ComposerEditorHost editor) =>
       editor.isCurrent && freshUserReader?.call()?.canCreatePoll == true;
 
@@ -200,7 +193,6 @@ final class PollComposerSyntaxPolicy implements ComposerSyntaxPolicy {
       editingPollsReader?.call()?[block.name]?.voters;
 }
 
-/// One lossless Poll occurrence. The typed parsed block never enters core.
 final class PollComposerSyntaxProjection
     implements ComposerSyntaxProjection, PollComposerProjectionData {
   const PollComposerSyntaxProjection({
@@ -285,7 +277,6 @@ final class PollComposerSyntaxProjection
       removePollComposer(context, editor, policy, block);
 }
 
-/// Opens Poll's composer projection for a new block or one existing occurrence.
 Future<void> openPollComposer(
   BuildContext context,
   ComposerEditorHost editor,
@@ -386,8 +377,6 @@ Future<void> openPollComposer(
   editor.requestFocus();
 }
 
-/// Removes one poll occurrence from the composer through the same verified
-/// source mutation used by the editor sheet.
 Future<void> removePollComposer(
   BuildContext context,
   ComposerEditorHost editor,

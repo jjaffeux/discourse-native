@@ -30,7 +30,6 @@ import '../plugin_api/plugin_runtime.dart';
 import '../shell/shell_controller.dart';
 import '../shell/shell_scope.dart';
 
-/// Minimal connected-account shape accepted by [PluginHostSite].
 @immutable
 final class PluginHostUser {
   const PluginHostUser({required this.username, this.id, this.name});
@@ -43,7 +42,6 @@ final class PluginHostUser {
       DiscourseUser(username: username, id: id, name: name);
 }
 
-/// One deterministic site in a [PluginHostHarness] scenario.
 @immutable
 final class PluginHostSite {
   const PluginHostSite({
@@ -75,11 +73,6 @@ final class PluginHostSite {
   }
 }
 
-/// Deterministic core composition for plugin navigation and app-lifecycle tests.
-///
-/// The harness deliberately exposes behavior rather than core's concrete test
-/// doubles. Plugin tests supply a manifest and transport, then interact through
-/// plugin services, shell-visible route state, or a real [DiscourseApp].
 final class PluginHostHarness {
   PluginHostHarness._({
     required this._dependencies,
@@ -87,7 +80,6 @@ final class PluginHostHarness {
     required this._plugins,
   });
 
-  /// Opens a loaded shell for navigation and session-service tests.
   static Future<PluginHostHarness> open({
     required PluginApiTransport transport,
     PluginManifest manifest = corePluginManifest,
@@ -128,7 +120,6 @@ final class PluginHostHarness {
     );
   }
 
-  /// Creates stable injected dependencies for repeated [buildApp] calls.
   static Future<PluginHostHarness> forApp({
     required PluginApiTransport transport,
     Iterable<PluginHostSite> sites = const [],
@@ -164,18 +155,11 @@ final class PluginHostHarness {
   T require<T extends Object>(PluginServiceKey<T> key) =>
       _shell.pluginSession.require(key);
 
-  /// Handles Back without introducing compact-layout sidebar behavior.
   bool popContent() => _shell.handleBack(canReturnToSidebar: false);
 
-  /// Provides the real shell and plugin scopes around a test-owned widget.
   Widget scope({required Widget child}) =>
       ShellScope(controller: _shell, child: child);
 
-  /// Builds the real app with stable deterministic dependencies.
-  ///
-  /// Rebuilding with another [manifest] exercises `DiscourseApp` dependency
-  /// replacement and ownership behavior while keeping persistence, credentials,
-  /// transport, and trackers unchanged.
   Widget buildApp({Key? key, PluginManifest manifest = corePluginManifest}) =>
       DiscourseApp(
         key: key,
@@ -191,8 +175,6 @@ final class PluginHostHarness {
         pluginManifest: manifest,
       );
 
-  /// Releases a directly opened shell. App widgets release the same injected
-  /// API when they unmount; closing an app-mode harness is therefore idempotent.
   Future<void> close() async {
     if (_closed) return;
     _closed = true;

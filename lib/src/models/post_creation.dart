@@ -4,21 +4,8 @@ import '../plugin_api/plugin_data.dart';
 import 'json.dart';
 import 'post.dart';
 
-/// What the site did with a post it accepted.
-///
-/// Accepted is not the same as posted. A site with review enabled answers a
-/// successful create with HTTP 200, `action: enqueued` and no post at all —
-/// appending that to the stream would show the author a reply nobody else
-/// can see.
-enum PostOutcome {
-  /// Live in the topic. [PostCreation.post] is the real thing.
-  created,
+enum PostOutcome { created, enqueued }
 
-  /// Held for review. There is no post to show yet.
-  enqueued,
-}
-
-/// The answer to a successful `POST /posts.json`.
 @immutable
 class PostCreation {
   const PostCreation({
@@ -67,16 +54,12 @@ class PostCreation {
 
   final PostOutcome outcome;
 
-  /// The created post, or null when it was [PostOutcome.enqueued].
   final Post? post;
 
-  /// The sequence to save the next draft against, when the site sent one.
   final int? draftSequence;
 
-  /// Something the site wants the author to read — why it was queued, usually.
   final String? message;
 
-  /// Canonical topic identity included when this was a topic creation.
   final int? topicId;
   final String? topicSlug;
   final String? topicTitle;

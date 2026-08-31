@@ -5,11 +5,6 @@ import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 
-/// Test-only shorthand for exercising Chat through an installed shell.
-///
-/// Production plugin code resolves [ChatShellService] from its scoped session;
-/// this extension keeps shell-heavy fixtures concise without restoring a
-/// concrete-shell compatibility API to the Chat implementation.
 extension TestChatShell on ShellController {
   ChatShellService get _chatShell => pluginSession.require(chatShellService);
 

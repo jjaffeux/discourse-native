@@ -7,12 +7,6 @@ import '../data/avatar_loader.dart';
 import '../foundation/diagnostic_errors.dart';
 import 'image_decode.dart';
 
-/// Draws an avatar whatever format the site serves it in.
-///
-/// Goes through [AvatarLoader] rather than [NetworkImage] because the format
-/// is only knowable from the bytes, and because unbounded parallel requests
-/// get rate limited. Shows [fallback] until the bytes arrive and whenever they
-/// cannot be drawn.
 class AvatarImage extends StatefulWidget {
   const AvatarImage({
     super.key,

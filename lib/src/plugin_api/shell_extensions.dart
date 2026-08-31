@@ -13,8 +13,6 @@ import 'plugin_manifest.dart';
 export 'background_retention.dart';
 export 'live_channels.dart';
 
-/// Route-safe information about one configured forum.
-///
 /// Unlike [DiscourseInstance], this carries no account record, site settings,
 /// or appearance data. A plugin with route-only authority can identify and
 /// select a destination without also receiving unrelated session state.
@@ -39,7 +37,6 @@ final class PluginRouteSite {
       uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
 }
 
-/// The route mutations needed by a plugin which only opens its own screen.
 abstract interface class PluginRouteNavigationHost {
   List<PluginRouteSite> get sites;
   PluginRouteSite? get currentSite;
@@ -49,7 +46,6 @@ abstract interface class PluginRouteNavigationHost {
   void pushContent(ContentRoute route);
   void replaceCurrentContent(ContentRoute route);
 
-  /// Opens one numbered post through core's topic navigation lifecycle.
   void openTopicPost({
     required String siteUrl,
     required int topicId,
@@ -57,17 +53,11 @@ abstract interface class PluginRouteNavigationHost {
   });
 }
 
-/// Core-owned feed navigation for a plugin route which is a topic list.
 abstract interface class PluginTopicListNavigationHost {
-  /// Opens a topic-list route carrying its own site-relative JSON path.
-  ///
-  /// Core owns the feed cache and request lifecycle, so a plugin supplies only
-  /// the presentation route. The selected site must already be the one which
-  /// serves that path.
+  /// The selected site must already serve the route's site-relative path.
   void openTopicList(ContentRoute route);
 }
 
-/// Full navigation primitives used by a plugin with nested/restored routes.
 abstract interface class PluginNavigationHost {
   /// Invalidates navigation-derived presentation snapshots without exposing
   /// the concrete shell notifier to the plugin.
@@ -126,8 +116,6 @@ abstract interface class PluginTrackerAttachment
   void attachPluginTracker(String siteUrl, PluginLiveChannelHandle channels);
 }
 
-/// Observes a freshly fetched `/session/current.json` account snapshot.
-///
 /// This is intentionally an invalidation hint rather than the user record:
 /// plugins read the narrow site-state port they declared when they need it.
 abstract interface class PluginCurrentUserObserver

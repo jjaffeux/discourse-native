@@ -1,6 +1,5 @@
 import 'gif.dart';
 
-/// Authenticated reads behind the GIF module's picker.
 abstract interface class GifsApi {
   Future<List<GifCategory>> gifCategories({
     required String siteUrl,

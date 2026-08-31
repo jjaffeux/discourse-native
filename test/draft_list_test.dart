@@ -603,8 +603,6 @@ Future<_Fixture> _pump(
     ],
     feeds: const {'/latest.json': []},
     creatableFeedPaths: const {'/latest.json'},
-    // Only registered shortcodes may be drawn, so the names the draft
-    // fixtures carry must exist in the site's catalog.
     emojisBySite: {
       _siteUrl: const [
         SiteEmoji(name: 'sparkles', url: '/images/emoji/sparkles.png'),

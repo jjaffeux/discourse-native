@@ -14,12 +14,6 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_filter_controller.dart';
 
-/// The shared Discourse topic-filter editor used by both the Filter page and
-/// Aggregate's per-forum configuration.
-///
-/// It owns the existing suggestion controller, remote tag/user/group lookups,
-/// category badges, keyboard navigation and anchored suggestion surface. A
-/// caller decides what submitting the resulting query means.
 class TopicFilterInput extends StatefulWidget {
   const TopicFilterInput({
     super.key,

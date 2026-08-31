@@ -5,9 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
-/// Shaped after `discourse_category_onebox.mustache`, the markup
-/// `Oneboxer.local_category_html` renders for a category link that sits alone
-/// on its line. The color arrives in the aside's `box-shadow`.
 const String categoryOnebox = '''
 <aside class="onebox category-onebox" style="box-shadow: -5px 0px #0088CC;" data-onebox-src="https://meta.discourse.org/c/feature/60">
   <article class="onebox-body category-onebox-body">

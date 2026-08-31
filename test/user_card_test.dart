@@ -15,7 +15,6 @@ void main() {
     });
 
     test('leaves profile subpages to the browser', () {
-      // `/u/someone/messages` is a page of its own, not a person.
       expect(
         usernameFromProfileUrl(Uri.parse('https://site/u/sam/messages')),
         isNull,
@@ -50,8 +49,6 @@ void main() {
     });
 
     test('the leading segments must be the site base path', () {
-      // `/t/u/42` is a topic whose slug happens to be `u`; a match here would
-      // hijack the tap away from the topic view.
       expect(
         usernameFromProfileUrl(
           Uri.parse('https://example.com/t/u/42'),
@@ -59,7 +56,6 @@ void main() {
         ),
         isNull,
       );
-      // A root-level profile URL is not a page a subfolder site serves.
       expect(
         usernameFromProfileUrl(
           Uri.parse('https://example.com/u/sam'),

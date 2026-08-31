@@ -25,11 +25,6 @@ import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
 import 'theme/app_theme.dart';
 
-/// Root of the application. Uses each site's resolved appearance, falling
-/// back to the system light/dark setting when the site has not supplied one.
-///
-/// [store] and [api] exist so tests can supply fakes; production uses the real
-/// implementations.
 class DiscourseApp extends StatefulWidget {
   const DiscourseApp({
     super.key,
@@ -101,12 +96,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     forumTabs: _forumTabs,
     forumTabsEnabled: forumTabsEnabledForCurrentPlatform,
     trackers: _trackers,
-    // Nothing updates itself. Linux ships as a .deb from an apt repository, so
-    // updates arrive with `apt upgrade` the way the rest of the system does,
-    // and the app is installed under /usr where it could not replace itself
-    // anyway. The dependency remains injectable for the generic update UI and
-    // for a future platform integration, but production uses
-    // [UnsupportedUpdater].
+    // Linux is updated by apt and cannot replace its own /usr installation.
     updater: _updater,
     updateStore: _updateStore,
     plugins: _plugins,
@@ -400,14 +390,8 @@ class _DiscourseAppState extends State<DiscourseApp>
     );
   }
 
-  /// Only `hidden`, `paused` and `detached` count as being in the background,
-  /// and the distinction matters because the live connection is paced off it.
-  /// `inactive` fires for anything transient — the app switcher, a system
-  /// dialog, a notification pulled down — and dropping the connection every
-  /// time the user glanced away would cost more than it saves. `hidden` is
-  /// different: every view is gone from the screen, so nothing is being
-  /// glanced at, and the poll would only be held open for an app nobody is
-  /// looking at.
+  /// `inactive` is transient (for example, a system dialog), so only hidden,
+  /// paused, and detached states pace down the live connection.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = _isForeground(state);

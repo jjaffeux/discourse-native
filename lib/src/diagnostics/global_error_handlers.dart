@@ -6,12 +6,6 @@ import 'package:flutter/scheduler.dart';
 
 typedef _PlatformErrorHandler = bool Function(Object, StackTrace);
 
-/// Installs diagnostics recording around Flutter's process-wide error hooks.
-///
-/// Existing handlers remain authoritative: Flutter errors are forwarded to the
-/// previous handler (or Flutter's default presenter), and platform errors
-/// return the previous handler's handled value. Recording is deliberately
-/// best-effort so it can never alter either path.
 final class DiagnosticsGlobalErrorBinding {
   DiagnosticsGlobalErrorBinding._({
     required this._sink,
@@ -73,11 +67,6 @@ final class DiagnosticsGlobalErrorBinding {
     return binding;
   }
 
-  /// Records an unhandled error once per object identity in this microtask.
-  ///
-  /// Flutter, the platform dispatcher, and the guarded root zone can observe
-  /// the same exception in succession. Keeping this short-lived identity set
-  /// avoids duplicate events without retaining raw exceptions in app state.
   void reportUnhandledError(
     Object error,
     StackTrace stackTrace, {
@@ -159,10 +148,6 @@ final class DiagnosticsGlobalErrorBinding {
     return _previousPlatformHandler?.call(error, stackTrace) ?? false;
   }
 
-  /// Restores only hooks still owned by this binding.
-  ///
-  /// This makes cleanup safe when another subsystem installs a newer handler
-  /// after diagnostics has been bound.
   void close() {
     if (_closed) return;
     _closed = true;

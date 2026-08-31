@@ -21,12 +21,6 @@ typedef ComposerSuggestionActionHandler =
       Rect? anchor,
     });
 
-/// The composer's text field, with the completion list over it.
-///
-/// The list has to draw outside the composer panel — it is 220px tall and the
-/// list would have nowhere to go inside it — so it is an [OverlayPortal],
-/// positioned by [AnchoredLayout], the way every other floating panel in the
-/// shell is.
 class ComposerSuggestionField extends StatefulWidget {
   const ComposerSuggestionField({
     super.key,
@@ -37,10 +31,8 @@ class ComposerSuggestionField extends StatefulWidget {
 
   final ComposerController composer;
 
-  /// The field itself, built by the panel — this widget only wraps it.
   final Widget field;
 
-  /// Handles rows that open a secondary surface instead of completing text.
   final ComposerSuggestionActionHandler? onAction;
 
   @override
@@ -108,30 +100,11 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
     }
   }
 
-  /// The field's own box, in the overlay's coordinates.
-  ///
-  /// The whole field rather than the caret: reaching the caret's rect means
-  /// reaching into `RenderEditable`, which `TextField` does not expose, and a
-  /// list that followed the caret around a 220px panel would jitter under the
-  /// cursor while somebody typed.
   Rect? _anchorRect() => anchorRect(
     anchor: _anchorKey.currentContext?.findRenderObject() as RenderBox?,
     overlay: Overlay.of(context).context.findRenderObject() as RenderBox?,
   );
 
-  /// Keys the list claims, and only while it has something to claim them for.
-  ///
-  /// A plain [Focus] rather than another `CallbackShortcuts`, which is the
-  /// trap here: that widget reports a key handled whenever one of its
-  /// activators matches, whatever its callback did. A second one binding
-  /// Escape would therefore swallow Escape even with no list open, and the
-  /// composer would stop closing. This returns [KeyEventResult.ignored] and
-  /// lets the panel's own binding have it.
-  ///
-  /// It sits between the panel's bindings and the field, which is what puts it
-  /// nearer the focused node than either — near enough to see Escape before
-  /// `closeComposer`, and the arrows before `DefaultTextEditingShortcuts`
-  /// moves the caret.
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
@@ -378,8 +351,6 @@ class _SuggestionRow extends StatelessWidget {
   }
 }
 
-/// A category's colour, split down the middle for a subcategory the way the
-/// hashtag pill does it — parent on the left, child on the right.
 class _Swatch extends StatelessWidget {
   const _Swatch({required this.colorValues});
 

@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 const site = 'https://meta.discourse.org';
 
-/// A post payload with whatever `actions_summary` a test is describing.
 Post parse(List<Map<String, Object?>>? summary) => Post.fromJson({
   'id': 1,
   'post_number': 1,
@@ -37,7 +36,6 @@ void main() {
       expect(post.likeCount, 1);
       expect(post.liked, isTrue);
       expect(post.canUnlike, isTrue);
-      // Liking again is not a thing, so the site does not offer it.
       expect(post.canLike, isFalse);
       expect(post.canToggleLike, isTrue);
     });
@@ -52,8 +50,6 @@ void main() {
     });
 
     test('a missing count is zero, which is why it is missing', () {
-      // Discourse drops the key rather than sending 0 — the row is only there
-      // at all because this reader may act on it.
       final post = parse([
         {'id': 2, 'can_act': true},
       ]);
@@ -63,8 +59,6 @@ void main() {
     });
 
     test('no like row means nothing to draw and nothing to do', () {
-      // What a post of your own looks like, and what everyone looks like when
-      // read signed out.
       expect(parse([]).canToggleLike, isFalse);
       expect(parse([]).likeCount, 0);
       expect(parse(null).canToggleLike, isFalse);
@@ -152,7 +146,6 @@ void main() {
         likers.likers.first.avatarUrl,
         '$site/user_avatar/meta/sam/90/1_2.png',
       );
-      // No `name` on a site with enable_names off, so the username is the name.
       expect(likers.likers.last.displayName, 'codinghorror');
       expect(likers.likers.last.avatarUrl, isNull);
     });

@@ -209,7 +209,6 @@ void main() {
             },
           },
           {
-            // The first valid tab wins when persisted ids are duplicated.
             'id': 'kept-tab',
             'root_destination_id': 'drafts',
             'content_stack': [_routeJson(id: 'drafts', title: 'Drafts')],

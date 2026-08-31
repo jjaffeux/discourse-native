@@ -23,12 +23,6 @@ enum _AccountActivityRequest {
       };
 }
 
-/// Loads one account-activity section once the shell's site registry is ready.
-///
-/// The selected controller can be replaced while its initial load is still in
-/// flight, and one menu can move between sites without being unmounted. This
-/// widget owns that request identity so a stale shell load cannot start an
-/// activity request for the controller or site that is no longer being drawn.
 class AccountActivityLoader extends StatelessWidget {
   const AccountActivityLoader.notifications({
     super.key,

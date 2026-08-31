@@ -698,11 +698,6 @@ void main() {
   });
 }
 
-/// The painted decoration, whichever box is carrying it.
-///
-/// A box that only decorates is a `DecoratedBox`; one that also pads or sizes
-/// is a `Container`. Which of the two a given piece of chrome needs is a
-/// layout decision, not something a test about colour should have to track.
 BoxDecoration _decoration(WidgetTester tester, Finder finder) => switch (tester
     .widget(finder)) {
   final Container box => box.decoration! as BoxDecoration,

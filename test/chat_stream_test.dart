@@ -2,8 +2,6 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// A message built from what the grouping rules actually read, rather than from
-/// a wire payload: every one of them is about time, authorship or state.
 ChatMessage at(
   int id, {
   int author = 2,
@@ -19,7 +17,6 @@ ChatMessage at(
   channelId: 9,
   cooked: '<p>$id</p>',
   author: ChatMessageAuthor(id: author, username: 'u$author'),
-  // Local, because the day separators are the reader's days.
   createdAt: DateTime(2026, 5, day, 10, minute),
   deletedAt: deleted ? DateTime(2026, 5, day, 11) : null,
   pinned: pinned,
@@ -30,8 +27,6 @@ ChatMessage at(
       : ChatReplyTo(id: replyToId, userId: 2, excerpt: '', username: 'u'),
 );
 
-/// Just the message rows, so a test about chaining is not also a test about
-/// separators.
 List<ChatStreamMessage> messagesOf(List<ChatStreamItem> items) =>
     items.whereType<ChatStreamMessage>().toList();
 
@@ -69,7 +64,6 @@ void main() {
     );
 
     test('breaks the chain after five minutes of silence', () {
-      // Exactly five is still one burst; a second past it is a new thought.
       expect(chainedAt(buildChatStream([at(1), at(2, minute: 5)]), 2), isTrue);
       expect(chainedAt(buildChatStream([at(1), at(2, minute: 6)]), 2), isFalse);
     });
@@ -87,8 +81,6 @@ void main() {
     );
 
     test('breaks the chain around a message that was deleted', () {
-      // The deleted one becomes a "1 message deleted" row, which is another
-      // voice between the two — so the one below it starts fresh.
       final items = buildChatStream([
         at(1),
         at(2, minute: 1, deleted: true),
@@ -106,7 +98,6 @@ void main() {
       ]);
 
       expect(chainedAt(items, 2), isFalse);
-      // Core only forces the pinned row itself to show a header.
       expect(chainedAt(items, 3), isTrue);
     });
 
@@ -267,8 +258,6 @@ void main() {
     });
 
     test('draws nothing when the only unread message is the newest one', () {
-      // A divider immediately above the last row separates nothing from
-      // nothing, which is the rule Discourse's own newestMessage follows.
       final items = buildChatStream([
         at(1),
         at(2, minute: 1),

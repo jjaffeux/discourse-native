@@ -4,11 +4,6 @@ import '../models/topic.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import 'plugin_transport.dart';
 
-/// Typed client for Discourse's built-in group directory and group pages.
-///
-/// Read methods accept a nullable key because public groups are visible to an
-/// anonymous visitor. Mutations require an authenticated key; the server still
-/// remains the authority for every capability exposed by [Group].
 final class GroupsApi {
   const GroupsApi(this._transport, this._models);
 
@@ -208,8 +203,6 @@ final class GroupsApi {
     );
   }
 
-  /// Follows a server-authored topic-list cursor after constraining it to a
-  /// same-origin JSON path.
   Future<TopicList> topicPage({
     required String siteUrl,
     required String path,

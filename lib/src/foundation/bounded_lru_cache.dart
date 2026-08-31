@@ -1,10 +1,5 @@
 import 'dart:collection';
 
-/// A tiny least-recently-used map with an exact entry ceiling.
-///
-/// Reads promote entries. Writes replace and promote an existing key, then
-/// discard the least-recently-used key when the ceiling is exceeded. Values
-/// may be nullable; [containsKey] distinguishes a remembered null from a miss.
 final class BoundedLruCache<K, V> {
   BoundedLruCache(this.capacity) : assert(capacity > 0);
 

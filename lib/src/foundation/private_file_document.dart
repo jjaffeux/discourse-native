@@ -6,8 +6,6 @@ import 'private_file_permissions.dart';
 
 typedef PrivateFileResolver = FutureOr<File> Function();
 
-/// A value produced synchronously while a private-file transaction is active.
-///
 /// Requiring this wrapper prevents an `async` callback from compiling: such a
 /// callback could otherwise resume after the lock was released and silently
 /// mutate state which will never be committed.
@@ -28,8 +26,6 @@ final class PrivateFileResult<R> {
   final R value;
 }
 
-/// An owner-only document changed through complete, atomic replacements.
-///
 /// Every instance which resolves to the same absolute path shares an
 /// in-process queue. An advisory sidecar lock extends that transaction across
 /// isolates and app processes. Callers own their document format; this class
@@ -53,15 +49,11 @@ final class PrivateFileDocument<T> {
   final T Function(String contents) _decode;
   final String Function(T value) _encode;
 
-  /// Inspects the current decoded value without replacing the document.
-  ///
   /// The decoded value is transaction-local and must not escape through
   /// [inspect].
   Future<R> read<R>(PrivateFileResult<R> Function(T value) inspect) =>
       _transact((target) async => inspect(await _read(target)).value);
 
-  /// Mutates the current value and atomically commits a changed encoding.
-  ///
   /// Comparing canonical encodings makes a no-op update free and avoids a
   /// separate `markChanged` capability which a caller could forget to use.
   /// The codec must therefore be deterministic for equivalent values.
@@ -102,7 +94,6 @@ final class PrivateFileDocument<T> {
   static final Map<String, _PrivateFileCoordinator> _coordinators = {};
 }
 
-/// Serializes complete-document transactions for one absolute path.
 final class _PrivateFileCoordinator {
   _PrivateFileCoordinator(this.target, {required this.onIdle});
 

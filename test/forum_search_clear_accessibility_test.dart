@@ -49,7 +49,6 @@ void main() {
       final clear = find.byKey(const ValueKey('forum-search-clear'));
       expect(clear, findsOneWidget);
       expect(tester.getSize(clear), const Size.square(44));
-      // The one-pixel field border sits outside the 44px button on each edge.
       expect(tester.getSize(find.byType(ForumSearch)).height, 46);
       expect(
         tester.getSemantics(clear),

@@ -340,7 +340,6 @@ final class InstalledPlugins {
   final PluginRegistry registry;
   final DiscourseModelCodec models;
 
-  /// Static contribution catalog restricted to points owned by [consumer].
   PluginStaticContributionCatalog staticContributionsFor(PluginId consumer) =>
       _staticContributions.scopedTo(consumer);
 
@@ -357,7 +356,6 @@ final class InstalledPlugins {
   bool _closed = false;
   Future<void>? _closeFuture;
 
-  /// Every installed capability implementing [T], in manifest order.
   Iterable<T> capabilities<T extends PluginCapability>() sync* {
     for (final registration in _registrations) {
       yield* registration.capabilities.whereType<T>();
@@ -689,7 +687,6 @@ final class PluginSession {
   T? maybeService<T extends Object>(PluginServiceKey<T> key) =>
       _services[key] as T?;
 
-  /// Compatibility alias for callers which used the original nullable API.
   T? service<T extends Object>(PluginServiceKey<T> key) => maybeService(key);
 
   T require<T extends Object>(PluginServiceKey<T> key) {
@@ -698,8 +695,6 @@ final class PluginSession {
     return value;
   }
 
-  /// A resolver which can see only services republished by [owner].
-  ///
   /// Dependency services are intentionally not transitively visible here. A
   /// module may consume them while constructing its session and republish a
   /// deliberately narrower adapter under one of its own keys for its UI.
@@ -711,12 +706,9 @@ final class PluginSession {
     return services;
   }
 
-  /// Every installed session capability implementing [T], in manifest order.
   Iterable<T> capabilities<T extends PluginSessionCapability>() =>
       _capabilities.whereType<T>();
 
-  /// Every installed session capability implementing [T], with its owner.
-  ///
   /// Shell adapters use ownership to scope host authority without requiring a
   /// capability to repeat or spoof its module id.
   Iterable<({PluginId owner, T capability})>
@@ -808,7 +800,6 @@ final class PluginSession {
   }
 }
 
-/// The immutable service view carried by one owner-scoped UI contribution.
 final class PluginOwnedServices {
   const PluginOwnedServices._(this.owner, this._services);
 

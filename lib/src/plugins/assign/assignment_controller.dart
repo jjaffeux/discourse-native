@@ -27,13 +27,8 @@ typedef AssignmentStatusOptions = ({bool enabled, List<String> values});
 typedef AssignmentStatusOptionsReader =
     AssignmentStatusOptions Function(String siteUrl);
 
-/// Target-scoped reads and serialized writes for Assign.
-///
-/// Permission is checked again at the command boundary by [canAssign]. Modern
-/// sites answer for the exact topic or post, so category-scoped denial wins;
-/// the shell permits a missing legacy answer to fall back only to a freshly
-/// fetched session capability. Site settings and persisted session state are
-/// never authority.
+/// Checks target-scoped permission again at the command boundary. A missing
+/// legacy answer may fall back only to a freshly fetched session capability.
 class AssignmentController extends FrameSafeNotifier
     implements PluginCurrentUserObserver {
   AssignmentController({
@@ -187,15 +182,13 @@ class AssignmentController extends FrameSafeNotifier
       await write(session);
       if (!_isCurrent(lease)) return null;
 
-      // The write response has no assignment record, and the tracking action
-      // it creates may also change the post stream. Reconcile the full topic.
+      // Assign writes can change tracking and return no assignment snapshot.
       await _reloadTopic(siteUrl, target.topicId);
       return null;
     } on WriteException catch (error) {
       if (_isCurrent(lease) && error.statusCode == 404) {
-        // A missing plugin route and a deleted target are intentionally
-        // indistinguishable. A scoped topic read settles both without
-        // disabling Assign for unrelated records.
+        // A scoped reload distinguishes neither missing route nor deleted
+        // target, but avoids disabling Assign for unrelated records.
         _invalidateLegacyFallback(siteUrl);
         await _reconcileUnavailable(siteUrl, target.topicId);
         return _targetUnavailable;

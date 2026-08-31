@@ -26,11 +26,8 @@ class PollComposerSheetAction {
   final PollComposerDraft? draft;
 }
 
-/// Opens the add/edit poll editor without mutating the composer itself.
-///
-/// The caller applies the returned action through the verified source helpers
-/// in `poll_composer_editor.dart`. [isCurrent] adds an earlier UI guard, so a
-/// disposed or changed composer can explain the safe no-op before this closes.
+/// Returns an action for verified source helpers to apply; [isCurrent] rejects
+/// stale or disposed composers before the sheet closes.
 Future<PollComposerSheetAction?> showPollComposerSheet({
   required BuildContext context,
   required PollComposerDraft draft,
@@ -103,7 +100,6 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
   );
 }
 
-/// Confirms removal when an existing post may already have poll votes.
 Future<bool> confirmPublishedPollRemoval(
   BuildContext context, {
   int? voterCount,

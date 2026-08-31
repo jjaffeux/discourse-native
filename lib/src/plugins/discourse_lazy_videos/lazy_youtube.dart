@@ -3,11 +3,6 @@ import 'package:html/dom.dart' as dom;
 
 import '../../shell/youtube_video.dart';
 
-/// Reads the YouTube attributes written by discourse-lazy-videos.
-///
-/// This mirrors the plugin's `getVideoAttributes` handoff: the anchor carries
-/// the canonical URL, the image carries the poster, and the container owns the
-/// title, provider, id, playlist, and start-time data attributes.
 YoutubeVideoData? parseLazyYoutubeVideo(dom.Element element) {
   if (element.localName != 'div' ||
       !element.classes.contains('lazy-video-container') ||

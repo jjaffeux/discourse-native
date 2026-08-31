@@ -5,11 +5,6 @@ import '../plugin_api/plugin_manifest.dart';
 
 typedef PluginBackgroundSiteValidator = bool Function(String siteUrl);
 
-/// Shell-owned composition of plugin background-retention leases.
-///
-/// Plugins receive only [_ScopedPluginBackgroundRetentionHost]. The registry
-/// keeps ownership out-of-band, so a hostile capability cannot spoof another
-/// module id, enumerate claims, or release a lease it did not acquire.
 final class PluginBackgroundRetentionRegistry {
   PluginBackgroundRetentionRegistry({
     required this._canRetain,
@@ -95,8 +90,6 @@ final class PluginBackgroundRetentionRegistry {
     }
   }
 
-  /// Releases every claim for one forgotten site without revoking otherwise
-  /// valid owner-scoped hosts.
   void releaseSite(String siteUrl) {
     if (_closed) return;
     final normalized = siteUrl.trim();

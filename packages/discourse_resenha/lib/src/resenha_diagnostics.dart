@@ -45,8 +45,6 @@ abstract interface class ResenhaDiagnosticsRecorder {
   });
 }
 
-/// Optional durability boundary for a session which records diagnostics.
-///
 /// The recorder itself is app-scoped and must not be closed by an individual
 /// plugin session. A session can still await its final records reaching that
 /// recorder's persistence boundary before its own lifecycle completes.
@@ -81,8 +79,6 @@ final class NoopResenhaDiagnosticsRecorder
   }) {}
 }
 
-/// Adapter seam for SDK-specific verbose log plumbing.
-///
 /// Native composition installs bridges at controller creation. They are only
 /// active between [ResenhaDiagnosticsController.startCapture] and
 /// [ResenhaDiagnosticsController.stopCapture]. A bridge should feed vendor
@@ -102,7 +98,6 @@ final class CallbackResenhaDiagnosticsSdkLogBridge
   const CallbackResenhaDiagnosticsSdkLogBridge({
     required ResenhaDiagnosticsSdkLogInstaller install,
     required ResenhaDiagnosticsSdkLogUninstaller uninstall,
-    // Public callback names intentionally differ from the methods they back.
   }) : _install = install,
        _uninstall = uninstall;
 
@@ -117,7 +112,6 @@ final class CallbackResenhaDiagnosticsSdkLogBridge
   FutureOr<void> uninstall() => _uninstall();
 }
 
-/// App-global, default-off recorder for one bounded Resenha deep-capture file.
 final class ResenhaDiagnosticsController implements ResenhaDiagnosticsRecorder {
   ResenhaDiagnosticsController._({
     required this._reporter,
@@ -333,12 +327,10 @@ final class ResenhaDiagnosticsController implements ResenhaDiagnosticsRecorder {
   ValueListenable<List<ResenhaDiagnosticRecord>> get eventsListenable =>
       _eventsNotifier;
 
-  /// Changes only when explicit deep capture starts or stops.
   ValueListenable<bool> get captureEnabledListenable => _captureEnabledNotifier;
 
   ResenhaDiagnosticsState get state => _state;
 
-  /// The newest bounded subset intended for live diagnostics UI rendering.
   List<ResenhaDiagnosticRecord> get events => _eventsNotifier.value;
 
   List<ResenhaDiagnosticRecord> get eventsTail => events;
@@ -478,7 +470,7 @@ final class ResenhaDiagnosticsController implements ResenhaDiagnosticsRecorder {
         correlationId: safeCorrelationId,
       );
     } on Object {
-      // Diagnostics must never affect the recorded operation.
+      // Reporting failures must not prevent deep capture.
     }
     if (!state.enabled) return;
     _recordCaptured(
@@ -651,8 +643,6 @@ final class ResenhaDiagnosticsController implements ResenhaDiagnosticsRecorder {
     output.write(report);
   }
 
-  /// Finds which ordinary-event identifiers are represented in retained deep
-  /// history without materializing the retained report.
   Future<Set<String>> findRetainedEventIds(
     Iterable<String> candidateIds,
   ) async {

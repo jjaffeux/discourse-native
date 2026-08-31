@@ -14,8 +14,6 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_title.dart';
 
-/// Core's New Topic combo button: the primary action opens the composer and,
-/// when the account has drafts, the attached action opens the four newest.
 class TopicCreateButton extends StatefulWidget {
   const TopicCreateButton({
     super.key,

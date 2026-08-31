@@ -5,7 +5,6 @@ import '../theme/d_icon.dart';
 /// Slots left after core's category and tag in Discourse's 20-kind request.
 const int maximumPluginHashtagKinds = 18;
 
-/// How a hashtag draws the artwork ahead of its label.
 enum HashtagStyle {
   square,
   icon,
@@ -19,19 +18,8 @@ enum HashtagStyle {
   };
 }
 
-/// Where a hashtag presentation may obtain colour.
-enum HashtagColorPolicy {
-  /// This kind never uses colour, even when the wire payload supplies some.
-  none,
+enum HashtagColorPolicy { none, supplied, category }
 
-  /// Use only the bounded colour values supplied with the wire payload.
-  supplied,
-
-  /// Use supplied colours when present, otherwise resolve the core category.
-  category,
-}
-
-/// The neutral wire presentation offered to a registered hashtag kind.
 @immutable
 final class HashtagPresentationRequest {
   HashtagPresentationRequest({
@@ -62,11 +50,6 @@ final class HashtagPresentationRequest {
       Object.hash(type, style, icon, emoji, Object.hashAll(colorValues));
 }
 
-/// A hashtag kind's resolved visual policy.
-///
-/// Presenters normally use [HashtagPresentation.fromRequest] so the site's
-/// style, icon, emoji, and eligible colours travel through unchanged while the
-/// owning kind supplies only its fallback and colour semantics.
 @immutable
 final class HashtagPresentation {
   HashtagPresentation({
@@ -129,14 +112,9 @@ final class HashtagPresentation {
 typedef PluginHashtagPresenter =
     HashtagPresentation Function(HashtagPresentationRequest request);
 
-/// Looks up an installed plugin presenter, or returns null for core/unknown.
 typedef PluginHashtagPresentationResolver =
     HashtagPresentation? Function(HashtagPresentationRequest request);
 
-/// One plugin-owned hashtag type, identified by the server's `type` value.
-///
-/// [wireType] is added to composer search and exact-ref lookup as well as used
-/// to select [present], so recognition and rendering are one registration.
 @immutable
 final class PluginHashtagKind {
   const PluginHashtagKind(this.wireType, this.present);
@@ -145,7 +123,6 @@ final class PluginHashtagKind {
   final PluginHashtagPresenter present;
 }
 
-/// Contributes plugin-owned hashtag types to the immutable application registry.
 abstract interface class HashtagKindPlugin {
   List<PluginHashtagKind> get hashtagKinds;
 }

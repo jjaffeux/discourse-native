@@ -1116,8 +1116,6 @@ void main() {
             [for (var id = 41; id <= 60; id++) id],
           ]);
 
-          // More scroll notifications while the request is in flight must not
-          // enqueue another copy of the same page.
           scroll.jumpTo(700);
           await tester.pump();
           expect(api.postFetches, hasLength(1));
@@ -1639,13 +1637,10 @@ void main() {
           ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
         );
 
-        // Every shell notification re-selects a snapshot, so the derivation must
-        // not walk the store again while nothing it reads has changed.
         final first = controller.currentPostIds;
         expect(first, [1, 2, 3, 4, 5, 6]);
         expect(identical(controller.currentPostIds, first), isTrue);
 
-        // Any post change on the site invalidates the memo.
         controller.store.put(
           site.url,
           const Post(
@@ -2035,8 +2030,6 @@ void main() {
         final api = FakeDiscourseApi(
           feeds: const {'/latest.json': []},
           postsById: allPosts,
-          // If post paging asks for another recommendation snapshot, this empty
-          // result reproduces the disappearing More topics card.
           postRecommendations: const {
             1: TopicRecommendations(
               sources: [

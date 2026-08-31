@@ -27,15 +27,11 @@ import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'title_bar.dart';
 
-/// How much horizontal room the shell has to work with.
 enum ShellLayout {
-  /// Rail plus exactly one pane. Phones, and very narrow desktop windows.
   compact,
 
-  /// Rail, sidebar and main content side by side.
   medium,
 
-  /// Adds the optional right sidebar.
   expanded;
 
   static const double mediumMinWidth = 768;
@@ -58,9 +54,6 @@ typedef _ForumBoundarySnapshot = ({
   String? error,
 });
 
-/// The application frame. A signed-out private forum replaces it with one
-/// account boundary; once a forum is readable, the rail is present at every
-/// size and everything to its right adapts to the available width.
 class AdaptiveShell extends StatefulWidget {
   const AdaptiveShell({super.key});
 
@@ -353,8 +346,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
               Positioned.fill(
                 child: Column(
                   children: [
-                    // Spans every shell column. On compact and medium layouts this
-                    // frame sits under the app-wide diagnostics modal layer.
                     const ShellTitleBar(),
                     Expanded(child: body),
                   ],
@@ -509,7 +500,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   }
 }
 
-/// Keeps app-level forum switching available while one forum is unavailable.
 class _ForumBoundaryShell extends StatelessWidget {
   const _ForumBoundaryShell({required this.child});
 
@@ -541,11 +531,6 @@ class _ForumBoundaryShell extends StatelessWidget {
   }
 }
 
-/// The full-shell account boundary for a forum whose content is private.
-///
-/// Lookup has already established that anonymous requests cannot read this
-/// forum. Keep its forum-specific chrome out of view until authentication
-/// succeeds, while [_ForumBoundaryShell] preserves app-level forum switching.
 class _PrivateForumSignIn extends StatelessWidget {
   const _PrivateForumSignIn({
     required this.siteTitle,
@@ -648,11 +633,6 @@ class _PrivateForumSignIn extends StatelessWidget {
   }
 }
 
-/// The full-shell recovery boundary for a forum that did not answer.
-///
-/// The community title is the only route identity retained here: a connection
-/// failure belongs to the forum, so channel names, tabs, sidebar destinations,
-/// and composers would all imply that part of it remained usable.
 class _UnavailableForum extends StatelessWidget {
   const _UnavailableForum({required this.siteTitle, required this.retrying});
 
@@ -878,7 +858,6 @@ class _ResizableDiagnosticsPanelState
   }
 }
 
-/// Rail + one pane, swapping between the sidebar and the main content.
 class _CompactShell extends StatelessWidget {
   const _CompactShell();
 
@@ -949,8 +928,6 @@ class _CompactShell extends StatelessWidget {
                           const AggregateView(
                             key: ValueKey(ShellRootMode.aggregate),
                           ),
-                        // Only one pane is on screen at a time here, so whichever
-                        // one it is carries the avatar — unless the title bar has it.
                         (
                           InstanceLoadStatus.ready,
                           true,
@@ -981,8 +958,6 @@ class _CompactShell extends StatelessWidget {
     );
   }
 
-  /// Content arrives from the right, the sidebar from the left, so the swap
-  /// reads as moving in and out of a hierarchy rather than a crossfade.
   static Widget _slide(Widget child, Animation<double> animation) {
     final fromRight =
         child.key == const ValueKey(MobilePane.content) ||
@@ -1120,7 +1095,6 @@ class _ResizableSidebarState extends State<_ResizableSidebar> {
   }
 }
 
-/// Rail + resizable sidebar + content, optionally with the right sidebar.
 class _WideShell extends StatelessWidget {
   const _WideShell({
     required this.layout,
@@ -1153,7 +1127,6 @@ class _WideShell extends StatelessWidget {
 
         return Row(
           children: [
-            // The rail sits directly on the backdrop, with no panel of its own.
             const SizedBox(
               width: AdaptiveShell.railWidth,
               child: InstanceRail(),

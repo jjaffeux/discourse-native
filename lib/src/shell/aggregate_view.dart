@@ -116,7 +116,6 @@ abstract final class _AggregateTheme {
   }
 }
 
-/// The full-width, cross-forum stream selected from the top of the rail.
 class AggregateView extends StatefulWidget {
   const AggregateView({super.key});
 

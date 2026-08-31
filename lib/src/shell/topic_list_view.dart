@@ -20,7 +20,6 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_title.dart';
 
-/// The first real screen: a list of topics from the site.
 class TopicListView extends StatefulWidget {
   const TopicListView({super.key, required this.feed});
 
@@ -37,12 +36,8 @@ class _TopicListViewState extends State<TopicListView> {
   Object? _loadMoreToken;
   bool _restored = false;
 
-  /// Held for [dispose], which cannot look the shell up through the tree.
   ShellController? _controller;
 
-  /// Rebuilds the scroll controllers when the list underneath them changes, so
-  /// each destination starts at its own remembered row rather than inheriting
-  /// the previous one's.
   void _syncControllers((String?, String?, String) feedIdentity) {
     if (_feedIdentity == feedIdentity) return;
 
@@ -54,8 +49,6 @@ class _TopicListViewState extends State<TopicListView> {
     _list = ListController();
   }
 
-  /// Puts the row the user left at the top of the viewport, once there is a
-  /// laid-out list to jump within.
   void _restore(
     ShellController controller,
     String destination,
@@ -126,12 +119,6 @@ class _TopicListViewState extends State<TopicListView> {
     super.dispose();
   }
 
-  /// Fetches the topics the banner is counting, then goes up to them.
-  ///
-  /// The web puts its banner inside the list, so tapping it can only happen
-  /// from the top. This one is pinned above the list and is reachable from
-  /// anywhere in it, which makes the jump part of the action rather than a
-  /// separate thing the reader has to do.
   Future<void> _showIncoming(
     ShellController controller,
     String destination,
@@ -209,8 +196,6 @@ class _TopicListViewState extends State<TopicListView> {
 
     return Column(
       children: [
-        // Above the list rather than scrolling with it, so it is still there
-        // when the topics it is announcing are twenty rows up.
         if (state.incoming > 0)
           _IncomingBanner(
             count: state.incoming,
@@ -287,11 +272,7 @@ class _TopicListViewState extends State<TopicListView> {
               }
               return false;
             },
-            // Titles wrap to one line or two, so a plain ListView's
-            // average-based guess at the unbuilt rows drifts as you scroll and
-            // the scrollbar thumb slides with it. SuperListView remembers each
-            // row's measured height instead. See TopicView, where the same
-            // problem is severe.
+            // SuperListView preserves measured heights for variably sized rows.
             child: SuperListView.separated(
               // Switching destinations swaps the controller, so the scrollable
               // has to be a new one rather than re-attached to a different
@@ -300,10 +281,6 @@ class _TopicListViewState extends State<TopicListView> {
               controller: _scroll,
               listController: _list,
               padding: const EdgeInsets.symmetric(vertical: 4),
-              // Still builds lazily through a SliverChildBuilderDelegate, so
-              // only rows near the viewport exist — a list of thousands costs
-              // the same as a list of thirty.
-              // Spinner only while fetching; see TopicView for why.
               itemCount:
                   feed.topicIds.length +
                   (feed.loadingMore || feed.pageError ? 1 : 0),
@@ -319,7 +296,6 @@ class _TopicListViewState extends State<TopicListView> {
                   );
                 }
 
-                // The end is in view; fetch before the user gets there.
                 if (index == feed.topicIds.length - 1 && feed.hasMore) {
                   _scheduleLoadMore(
                     controller,
@@ -339,15 +315,9 @@ class _TopicListViewState extends State<TopicListView> {
     );
   }
 
-  /// How close to the end triggers the next page. Roughly a screenful, so the
-  /// rows are usually there before the user reaches them.
   static const double _loadMoreThreshold = 800;
 }
 
-/// A topic-list-shaped first-load state shared by topics, messages, and the
-/// filter page. These destinations all settle into the same row geometry, so
-/// using one repeating outline keeps the whole viewport occupied and the
-/// handoff stable without inventing content.
 class _TopicListLoadingSkeleton extends StatelessWidget {
   const _TopicListLoadingSkeleton({super.key, required this.destination});
 
@@ -519,8 +489,6 @@ class _TopicListSkeletonPosters extends StatelessWidget {
   }
 }
 
-/// "See 3 new topics" — the strip the site's live updates put at the top of a
-/// list, and the only thing in the shell that appears without being asked for.
 class _IncomingBanner extends StatelessWidget {
   const _IncomingBanner({
     required this.count,
@@ -534,9 +502,6 @@ class _IncomingBanner extends StatelessWidget {
   final bool loading;
   final VoidCallback onTap;
 
-  /// Core's `topic_count_latest` and `topic_count_new`, which differ for a
-  /// reason worth keeping: only the latest list counts topics that were merely
-  /// bumped, and a bump is an update rather than something new.
   String get _label {
     final noun = destination == 'latest' ? 'new or updated topic' : 'new topic';
     return 'See $count $noun${count == 1 ? '' : 's'}';
@@ -552,7 +517,6 @@ class _IncomingBanner extends StatelessWidget {
     return Material(
       color: theme.colorScheme.primaryContainer,
       child: InkWell(
-        // Tapping again mid-fetch would ask for the same ids a second time.
         onTap: loading ? null : onTap,
         child: Container(
           width: double.infinity,
@@ -664,12 +628,6 @@ class _FeedErrorBanner extends StatelessWidget {
   }
 }
 
-/// One row, drawing the topic the store holds under [topicId].
-///
-/// The list only ever knew which topics were in it and in what order; the topic
-/// itself comes from the store, watched rather than passed in. So reading a
-/// topic — which clears its unread state wherever that topic appears — redraws
-/// this row alone, without the list it is in being rebuilt or even told.
 class _TopicRow extends StatelessWidget {
   const _TopicRow({super.key, required this.topicId});
 
@@ -708,11 +666,6 @@ class _TopicRow extends StatelessWidget {
   }
 }
 
-/// A topic-list row for a topic already in hand.
-///
-/// Suggested and AI-related topics are embedded in a topic response rather
-/// than filed in a feed. This keeps their presentation and navigation exactly
-/// the same as an ordinary topic row without making them masquerade as a feed.
 class TopicListRow extends StatelessWidget {
   const TopicListRow({
     super.key,
@@ -723,21 +676,14 @@ class TopicListRow extends StatelessWidget {
     this.titleStyle,
   }) : assert(forum == null || siteUrl == null);
 
-  /// One title line, one metadata line, their gap, and the row padding.
   static const double minimumHeight = 68;
 
   final Topic topic;
   final DiscourseInstance? forum;
 
-  /// The forum that owns [topic] when no full [forum] record is available.
-  ///
-  /// Recommendation payloads carry topic rows without their forum, but their
-  /// title emoji must still resolve against the topic response's site rather
-  /// than whichever forum happens to be ambient in the shell.
   final String? siteUrl;
   final VoidCallback? onTap;
 
-  /// Overrides the title typography while retaining topic-state colors.
   final TextStyle? titleStyle;
 
   @override
@@ -1044,15 +990,6 @@ class _CategoryBadge extends StatelessWidget {
   }
 }
 
-/// Core's default `simple` tag style: names separated by commas.
-///
-/// One tag in the topic metadata wrap.
-///
-/// Tags must be direct children of the row's wrap. Nesting them in a second
-/// wrap makes the whole list one outer item, so it cannot share the remaining
-/// space after a category and its continuation lines inherit that indent.
-/// Core caps a tag at 18em for the same reason this caps it at 200 logical
-/// pixels: a pathological name must not make the row overflow.
 class _TopicTag extends StatelessWidget {
   const _TopicTag({
     required this.tag,
@@ -1131,7 +1068,6 @@ class _Stat extends StatelessWidget {
   }
 }
 
-/// Up to three poster avatars, as the web list shows.
 class _Posters extends StatelessWidget {
   const _Posters({required this.avatars});
 
@@ -1201,9 +1137,6 @@ class _UnreadPill extends StatelessWidget {
   }
 }
 
-/// Core uses the same tertiary-coloured dot for a topic the reader has never
-/// opened and for new replies in a nested topic. The model decides which of
-/// those meanings applies; this widget only paints and names it.
 class _TopicStateDot extends StatelessWidget {
   const _TopicStateDot({super.key, required this.label});
 

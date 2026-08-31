@@ -31,7 +31,6 @@ final class AggregateTopicRef {
   int get hashCode => Object.hash(siteUrl, topicId);
 }
 
-/// A saved work context in the app-wide Aggregate surface.
 @immutable
 final class AggregateFeedTab {
   const AggregateFeedTab({required this.id, this.name});
@@ -97,11 +96,6 @@ typedef AggregatePersonalizationVersionReader = int Function(String siteUrl);
 typedef AggregateTopicPreparer =
     Topic Function(String siteUrl, Topic topic, int versionAtDispatch);
 
-/// Owns the global, account-specific feed without widening shell rebuilds.
-///
-/// Each origin remains governed by [DiscourseRequestCoordinator]. The small
-/// app-wide semaphore here addresses the distinct Aggregate problem: opening
-/// one screen can otherwise start work against every saved origin at once.
 final class AggregateFeedController extends FrameSafeNotifier {
   AggregateFeedController({
     required this.api,

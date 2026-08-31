@@ -5,11 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
-/// Encoded composer geometry persistence.
-///
-/// Returning `false` preserves the durability result exposed by the platform
-/// preferences implementation. [ComposerGeometryStore] owns the best-effort
-/// presentation-state policy for a rejected write.
 abstract interface class ComposerGeometryPersistence {
   Future<String?> readGeometry();
 
@@ -34,11 +29,6 @@ final class SharedPreferencesComposerGeometryPersistence
       );
 }
 
-/// The user's preferred composer window geometry.
-///
-/// Size is stored in logical pixels. Position is a fraction of the space in
-/// which the panel can move so it keeps the same relative placement when the
-/// app window or content pane changes size.
 final class ComposerGeometryPreference {
   const ComposerGeometryPreference({
     required this.width,
@@ -93,10 +83,6 @@ final class ComposerGeometryPreference {
   }
 }
 
-/// Persists composer window geometry between composer sessions and launches.
-///
-/// This is optional presentation state. Storage failures fall back to the
-/// default bottom-centred composer and must never prevent composing.
 final class ComposerGeometryStore {
   const ComposerGeometryStore({ComposerGeometryPersistence? persistence})
     : _persistence =

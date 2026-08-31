@@ -14,11 +14,6 @@ import 'shell_sheet.dart';
 import 'site_emoji_image.dart';
 import 'user_card.dart';
 
-/// The shared layout for reaction pills under either a post or chat message.
-///
-/// Feature owners supply the pills because their reaction records and write
-/// semantics differ. Padding, wrapping and density live here so those details
-/// cannot drift apart again.
 class ReactionPills extends Padding {
   ReactionPills({super.key, required List<Widget> children})
     : super(
@@ -30,12 +25,6 @@ class ReactionPills extends Padding {
       );
 }
 
-/// The trailing way to choose an emoji that does not already have a pill.
-///
-/// Chat and topic reactions own different pickers and write semantics, so the
-/// button supplies its anchored context and leaves the action to its caller.
-/// The transparent smile matches Discourse chat while the surrounding square
-/// keeps the same minimum target as a reaction pill.
 class ReactionPickerButton extends StatefulWidget {
   const ReactionPickerButton({
     super.key,
@@ -108,12 +97,6 @@ class _ReactionPickerButtonState extends State<ReactionPickerButton> {
   }
 }
 
-/// One emoji/count reaction and the people behind it.
-///
-/// This owns every visual and interaction detail shared by topic and chat:
-/// touch target, selected treatment, click error reporting, hover panel and
-/// long-press sheet. Callbacks are the intentional boundary between them — a
-/// topic and a chat message use different read and write endpoints.
 class ReactionPill extends StatefulWidget {
   const ReactionPill({
     super.key,
@@ -130,8 +113,6 @@ class ReactionPill extends StatefulWidget {
     this.visualKey,
   });
 
-  /// Apple's floor, and Material's. Reached by padding rather than by drawing
-  /// a taller pill, so the row keeps the density Discourse's own has.
   static const double minTarget = 44;
 
   final String siteUrl;
@@ -140,22 +121,15 @@ class ReactionPill extends StatefulWidget {
   final bool selected;
   final String onTapHint;
 
-  /// Identifies the controller that owns asynchronous callbacks. A response
-  /// from a controller replaced under this state must not report into the new
-  /// account's scaffold.
   final Object interactionOwner;
 
-  /// False while the owning feature has an incompatible write in flight.
   final bool enabled;
 
-  /// Null makes a tap open the reactor list, for a read-only reaction.
   final Future<String?> Function()? onToggle;
 
-  /// Refreshes the names whenever their hover panel or sheet opens.
   final Future<void> Function() loadReactors;
   final WidgetBuilder reactorsBuilder;
 
-  /// An optional key for tests and callers that address the painted pill.
   final Key? visualKey;
 
   @override
@@ -315,7 +289,6 @@ class _ReactionPillState extends State<ReactionPill> {
   }
 }
 
-/// The common floating surface around a reactor list.
 class ReactionUsersPanel extends StatelessWidget {
   const ReactionUsersPanel({super.key, required this.child});
 
@@ -350,11 +323,6 @@ class ReactionUsersPanel extends StatelessWidget {
 
 typedef ReactionUsersSnapshot = ({ReactionUsersPage? reactors, String? error});
 
-/// Who reacted, with loading, retry and user rows shared by topic and chat.
-///
-/// [source] is the owning feature controller. [select] and [load] are the only
-/// feature-specific code paths, so each owner retains its own cache identity,
-/// paging, error state, and endpoint semantics.
 class ReactionUsersList extends StatefulWidget {
   const ReactionUsersList({
     super.key,
@@ -370,7 +338,6 @@ class ReactionUsersList extends StatefulWidget {
   final String siteUrl;
   final Listenable source;
 
-  /// Stable value identity for the target and optional emoji filter.
   final Object query;
   final ReactionUsersSnapshot Function() select;
   final Future<void> Function() load;

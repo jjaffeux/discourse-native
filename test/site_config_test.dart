@@ -19,7 +19,6 @@ SiteConfig restorePluginSettings(SiteConfig config) => SiteConfig.fromJson(
   extensions: pluginRegistry,
 );
 
-/// The shape `/site/settings.json` answers with, trimmed to what is read.
 Map<String, dynamic> settings({
   bool? emojiEnabled,
   String? emojiSet = 'twitter',
@@ -158,9 +157,6 @@ void main() {
     });
 
     test('falls back to core defaults for everything absent', () {
-      // A site too old to have a setting, or one that answered with a payload
-      // this build does not recognise, is drawn as plain core rather than as
-      // broken.
       const unknown = SiteConfig.unknown();
       expect(SiteConfig.fromSettings(const {}), unknown);
       expect(unknown.emojiSet, 'twitter');
@@ -393,9 +389,6 @@ void main() {
     });
 
     test('reads nothing about reactions from a site that has them off', () {
-      // The settings are registered whether or not the plugin is enabled, so
-      // they are in the payload either way. Reading them regardless would offer
-      // a picker on a site that has switched reactions off.
       final config = pluginSettings(
         settings(
           reactionsEnabled: false,
@@ -687,8 +680,6 @@ void main() {
     });
 
     test('reads a stored copy that predates a field', () {
-      // Nothing here may be required: InstanceStore answers a decode failure by
-      // forgetting every site the user had.
       expect(SiteConfig.fromJson(const {}), const SiteConfig.unknown());
     });
 
@@ -708,8 +699,6 @@ void main() {
     });
 
     test('compares by value, so an unchanged answer is not rewritten', () {
-      // Without this the persist-if-changed guard is identity comparison, and
-      // preferences get rewritten on every launch.
       expect(
         SiteConfig.fromJson(
               full.toJson(extensions: pluginRegistry),

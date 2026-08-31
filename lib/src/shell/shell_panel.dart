@@ -2,15 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-/// Wraps everything to the right of the rail.
-///
-/// The panel stops below the status bar and rounds the edge facing the rail, so
-/// it reads as sitting *on* the backdrop rather than filling the window. The
-/// backdrop showing through above it is the scaffold background.
-///
-/// Only the top-left corner is rounded. A divider-coloured outline keeps the
-/// header and content inside one continuous frame, including where the bottom
-/// and right edges meet the window.
 class ShellPanel extends StatelessWidget {
   const ShellPanel({super.key, required this.child});
 

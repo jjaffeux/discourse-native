@@ -1,24 +1,7 @@
-/// Generates `lib/src/theme/d_icons.dart` from Discourse's SVG sprites.
-///
-/// Discourse draws every icon from `vendor/assets/svg-icons/`: three Font
-/// Awesome Free subsets plus `discourse-additional.svg`, which holds the icons
-/// Font Awesome does not have. Taking the symbols straight from there — rather
-/// than from a Font Awesome package on pub.dev — is what makes an icon here the
-/// same shape as the icon on the web, and it is the only way to get the
-/// `discourse-*` ones at all.
-///
-/// Only the names listed in `tool/icons.txt` are extracted, so the generated
-/// file stays in the tens of kilobytes rather than carrying all ~2000 symbols.
-///
-///   dart run tool/gen_icons.dart                       # find a checkout
-///   dart run tool/gen_icons.dart --discourse=/path/to  # or point at one
 library;
 
 import 'dart:io';
 
-/// The sprite files as `(id prefix, path)`, namespaced the way Discourse's
-/// `SvgSprite.prepare_symbol` does it: `regular.svg` ids get a `far-` prefix,
-/// `brands.svg` ids get `fab-`, everything else keeps the id as written.
 const List<(String, String)> _spriteFiles = [
   ('', 'fontawesome/solid.svg'),
   ('far-', 'fontawesome/regular.svg'),
@@ -75,8 +58,6 @@ void main(List<String> args) {
   );
 }
 
-/// The Discourse checkout to read from: `--discourse=`, then `DISCOURSE_PATH`,
-/// then any sibling of this repo that looks like one.
 String _discourseRoot(List<String> args) {
   final flag = args
       .where((a) => a.startsWith('--discourse='))
@@ -106,8 +87,6 @@ String _discourseRoot(List<String> args) {
   exit(1);
 }
 
-/// Every symbol in every sprite, keyed by the id Discourse would serve it
-/// under, valued by `(viewBox, inner markup)`.
 Map<String, (String, String)> _readSprites(String root) {
   final symbols = <String, (String, String)>{};
 
@@ -150,7 +129,6 @@ String? _attribute(String attributes, String name) =>
     RegExp('$name="([^"]*)"').firstMatch(attributes)?.group(1) ??
     RegExp("$name='([^']*)'").firstMatch(attributes)?.group(1);
 
-/// Ids [inner] points at — via `href="#x"` or `url(#x)` — without defining.
 Set<String> _unresolvedRefs(String inner) {
   final defined = RegExp(
     r'\bid="([^"]*)"',
@@ -161,7 +139,6 @@ Set<String> _unresolvedRefs(String inner) {
   return referenced.difference(defined);
 }
 
-/// The wanted names in file order, and the alias -> name pairs.
 (List<String>, Map<String, String>) _readManifest() {
   final names = <String>[];
   final aliases = <String, String>{};
@@ -225,7 +202,6 @@ String _render(
   return buffer.toString();
 }
 
-/// A standalone SVG document, single-quoted for the Dart literal.
 String _svg(String viewBox, String inner) {
   final markup =
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="$viewBox" '
@@ -236,8 +212,6 @@ String _svg(String viewBox, String inner) {
       .replaceAll(RegExp(r'\s*\n\s*'), '');
 }
 
-/// `far-heart` -> `farHeart`. Names with dots are aliases, which never become
-/// identifiers — they only ever appear as [DIcons.byName] keys.
 String _identifier(String name) {
   final parts = name.split('-');
   return [

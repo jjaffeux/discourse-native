@@ -2,11 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'json.dart';
 
-/// The complete, bounded payload behind a user's Summary page.
-///
-/// Core side-loads topics and badge definitions, then refers to them from the
-/// `user_summary` envelope. Joining those references here leaves widgets with
-/// ordinary immutable records and one source of wire-shape knowledge.
 @immutable
 final class UserSummary {
   const UserSummary({
@@ -32,10 +27,8 @@ final class UserSummary {
     this.badges = const [],
   });
 
-  /// `UserSummary::MAX_SUMMARY_RESULTS` and `UserSummary::MAX_BADGES` in core.
   static const int maximumResults = 6;
 
-  /// Topics can be referenced independently by topics, replies, and links.
   static const int maximumReferencedTopics = maximumResults * 3;
 
   factory UserSummary.fromJson(Map<String, dynamic> json, String siteUrl) {
@@ -154,7 +147,6 @@ final class UserSummary {
   final int topicCount;
   final int postCount;
 
-  /// Seconds, matching `UserStat#time_read` and `User#recent_time_read`.
   final int timeRead;
   final int recentTimeRead;
   final int bookmarkCount;

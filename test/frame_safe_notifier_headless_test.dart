@@ -26,7 +26,6 @@ void main() {
     var notifications = 0;
     notifier.addListener(() => notifications++);
 
-    // Answered synchronously: nothing is producing frames yet.
     notifier.value = 1;
     expect(notifications, 1);
 

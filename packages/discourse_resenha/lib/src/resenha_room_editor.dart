@@ -23,8 +23,6 @@ Future<void> showResenhaRoomEditor(
       .saveRoom(siteUrl: siteUrl, draft: result, roomId: room?.id);
 }
 
-/// Owns the form controllers for the full lifetime of the dialog route.
-///
 /// A `showDialog` future completes when the route is popped, before its exit
 /// animation has removed the form. Disposing these controllers in the caller
 /// at that point leaves the outgoing text fields listening to dead objects.

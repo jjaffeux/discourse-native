@@ -3,13 +3,6 @@ import 'package:flutter/foundation.dart';
 import '../plugin_api/plugin_data.dart';
 import 'json.dart';
 
-/// Core-owned client settings for a Discourse site.
-///
-/// Usually not a capability layer: when a post or topic payload can mention a
-/// feature, that record is the authoritative enablement signal. A standalone
-/// optional surface with no containing record may use a resolved client
-/// setting to avoid probing a route the server says is disabled. Those
-/// settings live in [plugins], decoded only by the installed manifest.
 @immutable
 class SiteConfig {
   const SiteConfig({
@@ -46,11 +39,8 @@ class SiteConfig {
     this.plugins = PluginData.none,
   });
 
-  /// What a site looks like before it has been asked, and what one that refuses
-  /// keeps looking like.
   const SiteConfig.unknown() : this();
 
-  /// `emoji_set`'s own default, server side.
   static const String defaultEmojiSet = 'twitter';
   static const int defaultSimultaneousUploads = 15;
 
@@ -87,14 +77,8 @@ class SiteConfig {
   static const int maximumShowTimeGapDays = 36500;
   static const int defaultMinPersonalMessagePostLength = 10;
 
-  /// `max_tag_search_results`' own default, server side.
   static const int defaultMaxTagSearchResults = 5;
 
-  /// Reads `GET /site/settings.json`, which is `SiteSetting.client_settings_json`
-  /// — every setting marked `client: true`, core's and every plugin's alike.
-  ///
-  /// Core reads only the settings below. The installed decoder independently
-  /// claims optional wire keys and places typed values in [plugins].
   factory SiteConfig.fromSettings(
     Map<String, dynamic> json, {
     String siteUrl = '',
@@ -158,10 +142,7 @@ class SiteConfig {
     );
   }
 
-  /// Reads our own persisted copy. Every field is optional, deliberately: a
-  /// missing one has to mean "core's default" rather than throwing, because
-  /// `InstanceStore.load` answers a decode failure by forgetting every site the
-  /// user had.
+  /// Every field is optional so older snapshots retain core defaults.
   factory SiteConfig.fromJson(
     Map<String, dynamic> json, {
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
@@ -258,21 +239,15 @@ class SiteConfig {
     };
   }
 
-  /// Whether the site allows authoring emoji shortcodes.
-  ///
   /// Existing shortcode content remains renderable when this is false; this
   /// setting only gates authoring surfaces such as autocomplete and the picker.
   final bool emojiEnabled;
 
-  /// Whether core exposes custom user statuses on this site.
   final bool userStatusEnabled;
 
-  /// Which set of artwork the site draws its emoji from — `twitter`, `apple`,
-  /// `google`, `facebook`. Part of the URL, so it cannot be guessed.
+  /// Part of the emoji URL, so it cannot be guessed locally.
   final String emojiSet;
 
-  /// Where that artwork is served from, for a site that has moved it off its
-  /// own origin. Null is the ordinary case.
   final String? externalEmojiUrl;
 
   final List<String> authorizedExtensions;
@@ -281,7 +256,6 @@ class SiteConfig {
   final int maxImageWidth;
   final int maxImageHeight;
 
-  /// Whether batches of images should be grouped using core's grid markup.
   final bool enableAutoGridImages;
   final int minSearchTermLength;
   final bool logSearchQueries;
@@ -290,35 +264,22 @@ class SiteConfig {
   final bool smtpEnabled;
   final bool taggingEnabled;
 
-  /// The largest tag page `/tags/filter/search.json` will accept.
-  ///
-  /// Core validates the request's `limit` against this setting and answers 400
-  /// when it is larger, so this is a request parameter and not only a display
-  /// cap. It defaults to 5, which is well under any limit a client would pick
-  /// on its own.
+  /// `/tags/filter/search.json` returns 400 when `limit` exceeds this value.
   final int maxTagSearchResults;
 
   final bool usePgHeadlinesForExcerpt;
 
-  /// Whole days of silence required before the post/chat stream calls out the
-  /// elapsed time. This is core's client-side `show_time_gap_days` setting.
   final int showTimeGapDays;
 
-  /// How core orders category navigation, and which categories anonymous
-  /// visitors see when the site has chosen an explicit menu.
   final bool fixedCategoryPositions;
   final bool allowUncategorizedTopics;
   final List<int> defaultNavigationMenuCategoryIds;
 
-  /// Core adds the signed-in username to shared topic and post links only
-  /// while both of these client settings permit referral badges.
   final bool badgesEnabled;
   final bool allowUsernameInShareLinks;
 
-  /// Words per minute used by core's topic-map reading-time estimate.
   final int readTimeWordCount;
 
-  /// Validation and anonymous reporting settings shared with the web flag UI.
   final int minPersonalMessagePostLength;
   final bool allowAllUsersToFlagIllegalContent;
   final String? contactEmail;
@@ -333,7 +294,6 @@ class SiteConfig {
   /// cannot name or interpret anything in this bag.
   final PluginData plugins;
 
-  /// The URL core copies from a post menu, including its optional referral.
   String shareUrl(String url, {String? username}) {
     final account = username?.trim().toLowerCase();
     if (!badgesEnabled ||
@@ -357,22 +317,12 @@ class SiteConfig {
     return permitted.contains('*') || permitted.contains(extension);
   }
 
-  /// Where the artwork for one emoji lives on this site.
-  ///
-  /// Mirrors `Emoji.url_for`: a `:tN` tone suffix becomes a `/N` path segment,
-  /// and surrounding colons are not part of the name. The `?v=` core appends is
-  /// a build constant with no JSON endpoint to read it from — it busts caches
-  /// and nothing else, and `EmojiCache` is the cache here.
-  ///
-  /// Custom emoji are uploads and are not at this address — they would 404
-  /// here. Callers go through `ShellController.emojiUrlFor`, which consults
-  /// the site's own map of them before falling back to this.
+  /// Mirrors `Emoji.url_for`; custom uploads must be resolved before fallback.
   String emojiUrl(String name, {required String siteUrl}) {
     final base = externalEmojiUrl ?? '$siteUrl/images/emoji';
     return '$base/$emojiSet/${_toned(name)}.png';
   }
 
-  /// `heart` stays `heart`; `:wave:t3:` becomes `wave/3`.
   static String _toned(String name) {
     final match = RegExp(r'^:?(.+?)(?::t([1-6]))?:?$').firstMatch(name);
     if (match == null) return name;
@@ -418,9 +368,6 @@ class SiteConfig {
     plugins: value,
   );
 
-  /// Hand-written because a stored copy is compared against a fresh one to
-  /// decide whether preferences are worth rewriting, and identity would answer
-  /// "changed" every launch.
   @override
   bool operator ==(Object other) =>
       other is SiteConfig &&

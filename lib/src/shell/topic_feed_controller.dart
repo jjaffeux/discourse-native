@@ -27,12 +27,6 @@ typedef _FeedLoad = ({
   IncomingTopics? incoming,
 });
 
-/// Owns topic-list state independently from shell navigation.
-///
-/// Whole-list refreshes, incoming-topic merges, and pagination all replace the
-/// same snapshot. Keeping their revision tokens beside that snapshot makes the
-/// ordering contract explicit and gives site disconnect one exact-key cleanup
-/// boundary instead of several string-prefix sweeps in [ShellController].
 final class TopicFeedController extends FrameSafeNotifier {
   TopicFeedController({
     required this.api,
@@ -44,9 +38,6 @@ final class TopicFeedController extends FrameSafeNotifier {
     this.prepareTopicForStore,
   });
 
-  /// Core's default topic-list page size. A `topic_ids` filter narrows that
-  /// page; it does not raise the server limit, so overflow must remain queued
-  /// for another incoming-topic request.
   static const int incomingPageSize = 30;
 
   final TopicFeedsApi api;

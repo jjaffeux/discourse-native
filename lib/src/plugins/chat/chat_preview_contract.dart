@@ -5,18 +5,14 @@ import 'package:flutter/widgets.dart';
 
 import '../../models/site_config.dart';
 
-/// Optional syntax projectors installed into Chat's provisional preview.
-///
-/// This is an additive point: independently installed features may each own a
-/// conservative source claim and renderer without making core learn Chat's
-/// document vocabulary.
+/// Lets independent features conservatively claim provisional source without
+/// adding their document vocabulary to core Chat.
 const chatPreviewContributions =
     PluginStaticContributionPoint<ChatPreviewContribution>(
       owner: PluginId('chat'),
       name: 'message-preview',
     );
 
-/// The stable request presented to optimistic chat-preview contributions.
 @immutable
 final class ChatPreviewRequest {
   const ChatPreviewRequest({
@@ -45,8 +41,7 @@ final class ProjectedPreview extends ChatPreviewResult {
 final class SourceFallback extends ChatPreviewResult {
   const SourceFallback(this.raw, this.reason);
 
-  /// Kept on the result so fallback can never accidentally display a rewritten
-  /// or sanitized version of the outgoing source.
+  /// Preserves exact outgoing source for all-or-nothing fallback.
   final String raw;
   final ChatPreviewFallbackReason reason;
 }
@@ -124,7 +119,6 @@ final class ChatPreviewLineBreak extends ChatPreviewNode {
   const ChatPreviewLineBreak({required super.range});
 }
 
-/// A Markdown delimiter which owns source but has no provisional pixels.
 @immutable
 final class ChatPreviewSyntax extends ChatPreviewNode {
   const ChatPreviewSyntax({required super.range, required this.source});
@@ -164,8 +158,7 @@ final class ChatPreviewImage extends ChatPreviewNode {
   final String fallbackText;
 }
 
-/// An opaque, typed extension node. Only the adapter with [featureId] may
-/// interpret [kind] and [attributes].
+/// Only the adapter owning [featureId] may interpret [kind] and [attributes].
 @immutable
 final class PluginPreviewNode extends ChatPreviewNode {
   PluginPreviewNode({
@@ -214,21 +207,14 @@ final class TrustedGifPreviewSeed extends TrustedPreviewSeed {
   final int height;
 }
 
-/// Pure inspection contract implemented by optional preview contributors.
-///
-/// Widget construction is intentionally a separate concern so the projected
-/// document never stores locally generated HTML or a widget instance.
+/// Inspection stays separate from widget construction; documents store neither.
 abstract interface class ChatPreviewPluginAdapter {
   String get previewFeatureId;
   ChatPreviewInspection inspect(ChatPreviewRequest request);
 }
 
-/// A complete optional contribution to Chat's provisional message preview.
-///
-/// The contribution owns both its conservative source inspection and the
-/// native renderer for the opaque nodes it emits. Chat validates and projects
-/// those nodes, and falls the complete message back to source if rendering is
-/// missing or fails.
+/// Couples inspection with its opaque-node renderer; any missing or failed
+/// rendering falls the complete message back to source.
 abstract interface class ChatPreviewContribution
     implements ChatPreviewPluginAdapter {
   Widget? buildPreviewNode(BuildContext context, PluginPreviewNode node);

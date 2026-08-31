@@ -1,19 +1,9 @@
 import 'chat_message.dart';
 
-/// Reads one canonical message while a timeline reduction is in progress.
-///
-/// The answer must remain stable for the duration of a synchronous reduction.
-/// Production supplies a read-only view of the message store; tests usually
-/// supply a map. Keeping the records behind this narrow lookup lets the common
-/// live-message path read only the newest row while the clock-skew fallback can
-/// still derive the whole window.
+/// Must return a stable canonical record throughout one synchronous reduction.
 typedef ChatTimelineMessageLookup = ChatMessage? Function(int messageId);
 
-/// The canonical ids currently held and the records that explain their order.
-///
-/// [ids] is deliberately retained by identity. A no-op reduction returns that
-/// exact list so the view can reuse its projected rows when only loading flags
-/// change.
+/// No-op reductions retain [ids] identity so views can reuse projected rows.
 final class ChatTimelineSnapshot {
   const ChatTimelineSnapshot({required this.ids, required this.messageById});
 
@@ -23,35 +13,15 @@ final class ChatTimelineSnapshot {
   ChatMessage? _message(int id) => messageById(id);
 }
 
-/// How arrivals from an HTTP page relate to the held cursor.
-enum ChatTimelineMergeMode {
-  /// Re-derive a replacement window or a non-directional union.
-  sortedUnion,
+enum ChatTimelineMergeMode { sortedUnion, prependPage, appendPage }
 
-  /// The site returned the page immediately before the oldest id held.
-  prependPage,
-
-  /// The site returned the page immediately after the newest id held.
-  appendPage,
-}
-
-/// The outcome of closing the gap between an anchored window and the present.
 typedef ChatTimelineSeam = ({List<int> ids, List<ChatMessage> admittedPending});
 
-/// Pure ordering policy for one canonical chat-message window.
-///
-/// The controller owns transport, the Store, pending-set mutation and
-/// optimistic-row retirement. This module owns the subtler invariant beneath
-/// all of them: canonical ids are unique and ordered by `(createdAt, id)`,
-/// except that directional pages trust the site's cursor and stay on the side
-/// it named rather than re-sorting the entire accumulated window.
+/// Canonical ids are unique and ordered by `(createdAt, id)`, except directional
+/// pages stay on the side named by the server cursor.
 abstract final class ChatMessageTimeline {
-  /// Merges [arrived] according to [mode].
-  ///
-  /// A directional merge sorts and deduplicates only the fresh page. This keeps
-  /// paging linear in the site's bounded response rather than in all history
-  /// accumulated so far. [ChatTimelineMergeMode.sortedUnion] is the full
-  /// derivation used for replacement windows and clock-skew fallbacks.
+  /// Directional modes sort only the bounded new page; sorted union re-derives
+  /// replacement windows and clock-skew fallbacks.
   static List<int> merge({
     required ChatTimelineSnapshot held,
     required Iterable<ChatMessage> arrived,
@@ -70,11 +40,8 @@ abstract final class ChatMessageTimeline {
     ),
   };
 
-  /// Admits one unheld live [message] to a window already at the present.
-  ///
-  /// Published messages ordinarily follow the newest row, so that path is a
-  /// single lookup and append. Discourse may adopt a sender's earlier
-  /// `client_created_at`; only that clock-skew case re-derives the full order.
+  /// Appends normal live arrivals; an earlier `client_created_at` re-derives
+  /// the full order.
   static List<int> admitLive({
     required ChatTimelineSnapshot held,
     required ChatMessage message,
@@ -91,12 +58,9 @@ abstract final class ChatMessageTimeline {
     return List.unmodifiable([...held.ids, message.id]);
   }
 
-  /// Folds pending live records that belong beyond [held]'s newest row.
-  ///
-  /// Older pending leftovers must not be merged: doing so would claim a
-  /// contiguous window across an unseen gap. The admitted records are returned
-  /// beside their ids because the controller must retire any optimistic local
-  /// rows they canonicalize in the same commit.
+  /// Admits only pending rows beyond the held cursor; older rows would falsely
+  /// bridge an unseen gap. Records accompany ids so optimistic rows retire in
+  /// the same commit.
   static ChatTimelineSeam closeSeam({
     required ChatTimelineSnapshot held,
     required Iterable<ChatMessage> pending,
@@ -118,8 +82,6 @@ abstract final class ChatMessageTimeline {
     );
   }
 
-  /// Where a message with no wire date sorts: before dated messages, and among
-  /// its own kind by id.
   static final DateTime _wireEpoch = DateTime.fromMillisecondsSinceEpoch(0);
 
   static bool _sortsAfter(

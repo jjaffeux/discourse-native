@@ -1,7 +1,6 @@
 import '../../models/post.dart';
 import 'post_reactors.dart';
 
-/// Reads and writes owned by discourse-reactions.
 abstract interface class ReactionsApi {
   Future<PostReactors> postReactors({
     required String siteUrl,

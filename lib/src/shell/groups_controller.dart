@@ -207,7 +207,6 @@ typedef _FilterListKey = ({String siteUrl, String groupName, String filter});
 typedef _ActivityKey = ({String siteUrl, String groupName, bool mentions});
 typedef _GroupCredentials = ({String? apiKey, String? clientId});
 
-/// Independent, account-generation-safe state for the native group pages.
 final class GroupsController extends FrameSafeNotifier {
   GroupsController({
     required this.api,
@@ -237,11 +236,6 @@ final class GroupsController extends FrameSafeNotifier {
       _directories[(siteUrl: siteUrl, query: query)] ??
       const GroupDirectoryState();
 
-  /// The directory state currently represented by the controls for a site.
-  ///
-  /// The shell header lives outside the directory host, so this small
-  /// pointer lets it present the matching result count without duplicating the
-  /// host's query ownership or persisting filter state in navigation history.
   GroupDirectoryState? presentedDirectoryState(String siteUrl) {
     final query = _presentedDirectoryQueries[siteUrl];
     return query == null ? null : directoryState(siteUrl, query);

@@ -15,18 +15,6 @@ import 'shell_scope.dart';
 import 'shell_sheet.dart';
 import 'user_card.dart';
 
-/// The likes a post has collected, under the post itself.
-///
-/// Nothing is drawn until somebody has liked it: an unliked post is offered
-/// the heart in its action menu instead, which is out of the way until the
-/// post is pointed at. So this is a record of what happened rather than an
-/// invitation, and it only exists once there is something to record.
-///
-/// Shaped for what comes next. The reactions plugin puts a row of emoji here
-/// with a count beside them, a picker next to it, and the same panel of who
-/// did what behind all of it — a like is that row with one entry in it, and
-/// the entry is always a heart, so the emoji and the panel's header are the
-/// two things left out.
 class PostLikes extends StatefulWidget {
   const PostLikes({super.key, required this.siteUrl, required this.post});
 
@@ -42,19 +30,14 @@ class _PostLikesState extends State<PostLikes> {
 
   final GlobalKey<HoverPanelState> _panel = GlobalKey<HoverPanelState>();
 
-  /// Every open, not only the first: this is a list of what other people have
-  /// just done, and it is cheap to ask again. Whatever was fetched last time
-  /// stays on screen while the answer is on its way.
   void _load() => unawaited(
     ShellScope.read(
       context,
     ).loadLikers(widget.post.id, siteUrl: widget.siteUrl),
   );
 
-  /// Shows who liked the post without changing the reader's like.
   void _openPanel() => _panel.currentState?.open();
 
-  /// Adds or removes this reader's like.
   Future<void> _toggle() async {
     final controller = ShellScope.read(context);
     final error = await controller.toggleLike(
@@ -76,7 +59,6 @@ class _PostLikesState extends State<PostLikes> {
     }
   }
 
-  /// The touch equivalent of the panel: the same names, in a sheet.
   Future<void> _openSheet() async {
     final controller = ShellScope.read(context);
     final count = widget.post.likeCount;
@@ -93,8 +75,6 @@ class _PostLikesState extends State<PostLikes> {
   @override
   Widget build(BuildContext context) {
     final post = widget.post;
-    // Nobody has liked it, so there is nothing to say and no room taken up
-    // saying it.
     if (post.likeCount <= 0) return const SizedBox.shrink();
 
     return Padding(
@@ -124,11 +104,6 @@ class _PostLikesState extends State<PostLikes> {
   }
 }
 
-/// The heart and the number beside it.
-///
-/// Highlighted when the like is this reader's own, which is the only thing
-/// distinguishing "one person liked this" from "you liked this" — the heart
-/// itself is the same either way, because the count includes them.
 class _LikeCount extends StatelessWidget {
   const _LikeCount({
     required this.post,
@@ -207,7 +182,6 @@ class _LikeCount extends StatelessWidget {
   }
 }
 
-/// The floating version of the list, for a pointer.
 class _LikersPanel extends StatelessWidget {
   const _LikersPanel({required this.siteUrl, required this.post});
 
@@ -241,16 +215,9 @@ class _LikersPanel extends StatelessWidget {
   }
 }
 
-/// Who liked the post, drawn the same way wherever it is being shown.
-///
-/// The panel and the sheet are the same list on two different surfaces, so
-/// there is one answer to what a liker's row looks like rather than two that
-/// have to be kept in step.
 class _Likers extends StatelessWidget {
   const _Likers({required this.siteUrl, required this.post});
 
-  /// Enough for a handful of names before the list starts scrolling, without
-  /// the panel ever growing taller than the post it hangs off.
   static const double _maxHeight = 220;
 
   final String siteUrl;
@@ -371,8 +338,6 @@ class _LikersViewState extends State<_LikersView> {
       );
     }
 
-    // More liked it than the route was asked for. Saying so is better than
-    // quietly showing a list that does not add up to the count beside it.
     final hidden = post.likeCount - likers.length;
 
     return SingleChildScrollView(

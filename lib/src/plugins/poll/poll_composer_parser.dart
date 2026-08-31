@@ -5,16 +5,12 @@ import '../../shell/markdown_editing_controller.dart';
 
 const pollComposerSyntaxId = 'poll/poll';
 
-/// Typed view retained by Poll projections while core keeps them opaque.
 abstract interface class PollComposerProjectionData {
   PollComposerBlock get pollBlock;
 }
 
-/// A source attribute exactly as it appeared in a `[poll ...]` opener.
-///
-/// [raw] includes the whitespace which separated the attribute from the one
-/// before it. Keeping that small, seemingly unimportant detail is what lets an
-/// edited poll retain unknown future attributes and their original order.
+/// [raw] retains separating whitespace so edits preserve unknown future
+/// attributes and their order.
 @immutable
 class PollMarkupAttribute {
   const PollMarkupAttribute({
@@ -37,7 +33,6 @@ class PollMarkupAttribute {
 
   String get normalizedName => name.toLowerCase();
 
-  /// Writes a changed value while retaining the source's spelling and layout.
   String withValue(String next) {
     if (next == value) return raw;
 
@@ -49,10 +44,7 @@ class PollMarkupAttribute {
       chosenQuote = next.contains('"') ? null : '"';
     }
 
-    // Values written by the native sheet are constrained to poll enums,
-    // booleans, integers, names, and ISO timestamps, so the both-quotes case is
-    // only reachable through a future caller. Refusing to invent BBCode
-    // escaping is safer than silently changing its meaning.
+    // BBCode has no safe escaping when a future value contains both quotes.
     if (chosenQuote == null && _needsQuote(next)) {
       throw ArgumentError.value(next, 'next', 'cannot be represented safely');
     }
@@ -68,10 +60,6 @@ class PollMarkupAttribute {
       value.isEmpty || value.contains(RegExp(r'''[\s\]]'''));
 }
 
-/// Typed compatibility helpers for Poll-owned tests and widgets.
-///
-/// Core exposes only opaque composer syntax occurrences; importing Poll opts a
-/// caller into these casts without making the editor import Poll itself.
 extension PollComposerEditing on MarkdownEditingController {
   List<PollComposerBlock> get pollBlocks => [
     for (final occurrence in syntaxBlocks) ?_pollBlock(occurrence),
@@ -138,7 +126,6 @@ PollComposerBlock? _pollBlock(ComposerSyntaxOccurrence occurrence) {
   };
 }
 
-/// The subset of poll types the composer can project without losing source.
 enum ComposerPollType {
   regular('regular'),
   multiple('multiple'),
@@ -159,7 +146,6 @@ enum ComposerPollType {
   };
 }
 
-/// One conservatively recognised poll block and its exact source range.
 @immutable
 class PollComposerBlock {
   const PollComposerBlock({
@@ -177,19 +163,15 @@ class PollComposerBlock {
     required this.optionSources,
   });
 
-  /// UTF-16 code-unit offsets in the owning composer document.
   final int start;
   final int end;
 
-  /// Exact bytes-as-a-Dart-string from the opener through the closing tag.
   final String source;
   final List<PollMarkupAttribute> attributes;
   final String openingIndent;
 
-  /// Whitespace immediately before the opening `]`.
   final String attributeTrailingWhitespace;
 
-  /// Whitespace after the opening `]` on the same line.
   final String openingTrailingWhitespace;
   final String closingIndent;
   final String closingTrailingWhitespace;
@@ -211,18 +193,14 @@ class PollComposerBlock {
 
   ComposerPollType get type => ComposerPollType.parse(attribute('type'));
 
-  /// Unknown future poll types stay source, where every byte remains editable.
   bool get canProject => type != ComposerPollType.unknown;
 
   bool containsOffset(int offset, {bool includeEnd = false}) =>
       offset >= start && (includeEnd ? offset <= end : offset < end);
 }
 
-/// Finds poll blocks which are simple enough for a lossless sheet projection.
-///
-/// Anything ambiguous stays ordinary raw source. In particular, this ignores
-/// fenced code, blockquotes, four-space indented code, nested/malformed poll
-/// tags, duplicate attributes, and list bodies with continuations or nesting.
+/// Projects only unambiguous, lossless poll blocks; complex or malformed forms
+/// remain raw source.
 List<PollComposerBlock> parsePollComposerBlocks(String source) {
   if (source.isEmpty) return const [];
 
@@ -261,9 +239,7 @@ List<PollComposerBlock> parsePollComposerBlocks(String source) {
       }
     }
 
-    // An unmatched opener makes the rest of the document ambiguous. Leaving
-    // it all raw is conservative and prevents an apparent inner poll from
-    // editing a range the server would parse as part of the malformed outer.
+    // An unmatched outer opener makes every apparent inner poll ambiguous.
     if (cursor == lines.length) break;
 
     assert(closing != null);
@@ -301,11 +277,7 @@ List<PollComposerBlock> parsePollComposerBlocks(String source) {
   return List.unmodifiable(blocks);
 }
 
-/// Poll names which are already reserved by syntactically valid openers.
-///
-/// This deliberately includes complex bodies which cannot become pills. A new
-/// native poll must not collide with one merely because that older poll stays
-/// raw in the composer.
+/// Includes valid openers with complex raw bodies so new polls cannot collide.
 Set<String> pollNamesInComposerSource(String source) {
   final lines = _linesOf(source);
   final inFence = _fenceMap(lines);
@@ -360,8 +332,7 @@ _Body? _parseBody(List<_SourceLine> lines, ComposerPollType type) {
     sawOption = true;
   }
 
-  // Number polls generate their options from min/max/step and therefore may
-  // contain only an optional title. Other known types need a top-level list.
+  // Number polls derive options from min/max/step; other types require a list.
   if (type == ComposerPollType.number) return _Body(title, const []);
   if (type == ComposerPollType.unknown || options.isEmpty) return null;
   return _Body(title, options);

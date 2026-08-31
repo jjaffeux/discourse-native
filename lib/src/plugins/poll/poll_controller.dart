@@ -11,11 +11,8 @@ import 'poll.dart';
 import 'poll_data.dart';
 import 'polls_api.dart';
 
-/// What a native poll write learned.
-///
-/// [reconciled] means the write response was unreachable and the owning post
-/// was read again. Presentation must discard its optimistic local selection,
-/// even when the refetched saved selection happens to equal the old one.
+/// [reconciled] forces optimistic selection to reset after a failed write was
+/// resolved by re-reading the owning post.
 final class PollVoteWriteResult {
   const PollVoteWriteResult.saved() : message = null, reconciled = false;
 
@@ -27,11 +24,6 @@ final class PollVoteWriteResult {
   final bool reconciled;
 }
 
-/// Poll-owned session state and interaction workflows.
-///
-/// Core supplies only guarded request credentials and post-record mechanics.
-/// Poll owns its endpoint, eligibility rules, write result, and namespaced
-/// record transform.
 class PollController extends FrameSafeNotifier
     implements PluginCurrentUserObserver {
   PollController({

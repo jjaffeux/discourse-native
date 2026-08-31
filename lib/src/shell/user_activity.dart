@@ -18,8 +18,6 @@ import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'topic_title.dart';
 
-/// The connected user's default Activity page: topics and replies in one
-/// reverse-chronological stream, matching `userActivity.index` on the web.
 class UserActivityView extends StatelessWidget {
   const UserActivityView({super.key, required this.siteUrl});
 
@@ -196,7 +194,6 @@ class _ActivityList extends StatelessWidget {
   }
 }
 
-/// One native counterpart of core's `PostListItem` in a user stream.
 class UserActivityRow extends StatelessWidget {
   const UserActivityRow({
     super.key,

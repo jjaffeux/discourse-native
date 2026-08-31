@@ -5,17 +5,11 @@ import 'package:message_bus_client/message_bus_client.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/incoming_topics.dart';
-import '../models/notification_totals.dart';
 import '../plugin_api/live_channels.dart';
 import '../plugin_api/plugin_manifest.dart';
 import 'discourse_api.dart';
 import 'http_transport.dart';
 
-/// How a shell gets its trackers.
-///
-/// Injectable for the same reason [DiscourseApi] takes a client: a tracker
-/// holds a connection open, and a test that builds a shell should not be
-/// dialling out to do it. `SiteTracker.new` is the real one.
 typedef SiteTrackerFactory =
     SiteTracker Function({
       required String siteUrl,
@@ -28,7 +22,6 @@ typedef SiteTrackerFactory =
       bool Function()? shouldLongPoll,
     });
 
-/// The package-neutral message-bus surface owned by one [SiteTracker].
 abstract interface class SiteMessageBusSession {
   SiteMessageBusSubscription subscribe(
     String channel,
@@ -45,29 +38,14 @@ abstract interface class SiteMessageBusSession {
   Future<void> close();
 }
 
-/// Optional error stream implemented by the production message-bus adapter.
-/// Kept separate so small test fakes and alternate transports need not grow an
-/// error controller merely to satisfy [SiteMessageBusSession].
 abstract interface class SiteMessageBusErrorSource {
   Stream<Object> get errors;
 }
 
-/// A cancellable channel registration from [SiteMessageBusSession].
 abstract interface class SiteMessageBusSubscription {
   void cancel();
 }
 
-/// One site's live connection: everything it pushes at us without being asked.
-///
-/// One of these per site. Connected sites poll while the app is in front so
-/// their account badges stay live; a signed-out site polls only while selected.
-/// Every channel rides the same poll, which is the reason this is one object
-/// rather than one per concern: message_bus multiplexes, so a second client
-/// would mean a second connection held open for the same site.
-///
-/// The channels and their starting positions mirror core's
-/// `TopicTrackingState.establishChannels` and its
-/// `subscribe-user-notifications` initializer.
 class SiteTracker {
   SiteTracker({
     required this.siteUrl,
@@ -118,19 +96,12 @@ class SiteTracker {
 
   final String siteUrl;
 
-  /// Called when the incoming-topic count changed and the list should redraw.
-  /// Never called for the messages that change nothing, which is most of them.
   final void Function() onIncomingTopics;
 
-  /// One `/notification/{id}` payload, to be folded onto the totals the shell
-  /// holds — see [NotificationTotals.withNotification].
   final void Function(Object? data) onNotifications;
 
-  /// One `/reviewable_counts/{id}` payload. Only staff ever get one.
   final void Function(Object? data) onReviewableCounts;
 
-  /// The account the counter channels are named after, or null when it is not
-  /// known — signed out, or a site connected before this app stored it.
   final int? userId;
 
   final bool _signedIn;
@@ -211,29 +182,16 @@ class SiteTracker {
   }
 
   void _subscribe() {
-    // Everything starts at [MessageBusPosition.newMessages], core's
-    // `messageBusDefaultNewMessageId`: what matters is what has changed since
-    // the lists and counters on screen were fetched, and anything older is
-    // already in them. Core does better for notifications — it subscribes from
-    // the `notification_channel_position` its page preloaded — which is a
-    // window this app does not have, since nothing here is server-rendered.
-    //
-    // Topic messages carry the id of a topic and a `message_type` saying what
-    // happened to it; see `TopicTrackingState.publish_new` and
-    // `publish_latest` server side for the payloads.
-    //
-    // `/latest` is public, so it works signed out. `/new` is not subscribed to
-    // without a key — core gates it on there being a current user, and a
-    // reader with no account has no "new".
+    // Nothing is server-rendered here, so unlike core there is no preloaded
+    // channel position; start after the already-fetched lists and counters.
+    // `/latest` is public, while `/new` is meaningful only to a signed-in user.
     _bus.subscribe('/latest', (data, _) => _onTopicMessage(data));
     if (_signedIn) {
       _bus.subscribe('/new', (data, _) => _onTopicMessage(data));
     }
 
-    // The counts behind the rail badge, the user menu tabs and the dot on the
-    // avatar. Named after the user because that is how Discourse scopes them,
-    // and published with `user_ids: [id]` on top of that — so a channel name
-    // is not what keeps one account's counts away from another's.
+    // Discourse additionally scopes this named channel with `user_ids: [id]`;
+    // the channel name itself is not the account isolation boundary.
     if ((_signedIn, userId) case (true, final userId?)) {
       _bus.subscribe(
         '/notification/$userId',
@@ -246,23 +204,12 @@ class SiteTracker {
     }
   }
 
-  /// Channels only worth listening to while one topic is open.
-  ///
-  /// Site-wide channels are subscribed to once, in the constructor, and never
-  /// change. These come and go with what is on screen — a topic's own updates
-  /// are of no use once the reader has left it, and a site with a thousand
-  /// topics cannot be subscribed to all of them.
   final List<SiteMessageBusSubscription> _topicSubscriptions = [];
   int? _watchedTopic;
   int _topicWatchRevision = 0;
 
   int? get watchedTopic => _watchedTopic;
 
-  /// Listens to [channels] for as long as [topicId] is the topic being read.
-  ///
-  /// Only one topic at a time: opening another cancels the last, because only
-  /// one is ever on screen. Asking for the topic already being watched does
-  /// nothing, so a rebuild does not churn the subscriptions.
   void watchTopic(
     int topicId,
     List<String> channels,
@@ -314,11 +261,6 @@ class SiteTracker {
     }
   }
 
-  /// Attaches core's per-topic new/unread mirror to this site's existing bus.
-  ///
-  /// `/latest` and `/new` are already subscribed for [incoming]; the callback
-  /// is also fed those payloads, while the remaining channels are registered
-  /// here once the shell has a connected account id.
   void watchTopicTrackingState(
     int accountId,
     void Function(Object? data) onMessage,
@@ -337,8 +279,6 @@ class SiteTracker {
     }
   }
 
-  /// A cancellable plugin-owned channel, optionally starting at the snapshot
-  /// cursor returned by the HTTP endpoint that preceded it.
   SiteMessageBusSubscription watchPluginChannel(
     String channel,
     void Function(Object? data) onMessage, {
@@ -349,10 +289,6 @@ class SiteTracker {
     lastId: lastId,
   );
 
-  /// A plugin-owned channel whose callback also receives the channel-local
-  /// MessageBus id. Plugins that retain a snapshot cursor can advance it after
-  /// each delivery, so replacing the site's tracker or remounting a view does
-  /// not replay incremental events from the original HTTP position.
   SiteMessageBusSubscription watchPluginChannelWithPosition(
     String channel,
     void Function(Object? data, int messageId) onMessage, {
@@ -388,10 +324,6 @@ class SiteTracker {
     if (!_disposed) onReviewableCounts(data);
   }
 
-  /// Resumes polling for this site.
-  ///
-  /// Cursors survive [stop], so a site returned to is asked for what it
-  /// published while it was off screen rather than starting over.
   void start() {
     _ensureActive();
     if (_polling) return;
@@ -399,18 +331,12 @@ class SiteTracker {
     _polling = true;
   }
 
-  /// Stops polling, for a site that is no longer the one being read.
-  ///
-  /// Only one long poll is held open at a time — the same as the web, where
-  /// there is only ever one site.
   void stop() {
     if (_disposed || !_polling) return;
     _bus.stop();
     _polling = false;
   }
 
-  /// Polls at once instead of waiting out a backoff. For an app coming back to
-  /// the foreground, where the connection has usually been dead for a while.
   void pollNow() {
     if (!_disposed && _polling) _bus.pollNow();
   }
@@ -484,16 +410,6 @@ class SiteTracker {
     if (_disposed) throw StateError('This SiteTracker has been disposed.');
   }
 
-  /// What the poll carries beyond what the client sets for itself.
-  ///
-  /// Deliberately not [DiscourseApi.authHeaders], which is right for the API
-  /// and wrong here twice over: it sends `Dont-Chunk`, which would switch off
-  /// the streaming this transport exists for, and a `Content-Type` the bus
-  /// client owns — the poll body is form-encoded, not JSON.
-  ///
-  /// The key is what makes the poll authenticated, and Discourse's message_bus
-  /// route is inside the `notifications` scope this app already asks for
-  /// (`UserApiKeyScope::SCOPES`), so no new consent is involved.
   static Map<String, String> _headers(String? apiKey, String? clientId) => {
     'User-Agent': DiscourseApi.userAgent,
     'User-Api-Key': ?apiKey,
@@ -501,12 +417,6 @@ class SiteTracker {
   };
 }
 
-/// Materializes the least-privilege plugin view of [tracker].
-///
-/// The returned object is deliberately a wrapper rather than [tracker]
-/// implementing [PluginLiveChannelHandle]. Plugin code therefore cannot
-/// recover connection lifecycle, topic watching, core-channel callbacks, or
-/// disposal authority with a downcast.
 extension SiteTrackerPluginLiveChannels on SiteTracker {
   PluginLiveChannelHandle pluginLiveChannels(
     Iterable<PluginLiveChannelScope> scopes,

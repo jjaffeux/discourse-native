@@ -16,7 +16,6 @@ import 'ai_summary_controller.dart';
 import 'discourse_ai_icons.dart';
 import 'discourse_ai_services.dart';
 
-/// Native presentation of discourse-ai's topic summary contribution.
 final class AiSummaryPlugin
     implements
         SitePlugin,

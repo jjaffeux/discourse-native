@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 const String site = 'https://meta.discourse.org';
 
-/// A public channel as `Chat::ChannelSerializer` writes one.
 Map<String, dynamic> categoryChannel({
   int id = 9,
   String title = 'Bugs',
@@ -80,7 +79,6 @@ Map<String, dynamic> categoryChannel({
   },
 };
 
-/// A direct channel, whose `chatable` is people rather than a category.
 Map<String, dynamic> directChannel({
   int id = 12,
   String title = 'hawk',
@@ -345,7 +343,6 @@ void main() {
     });
 
     test('says nothing about an emoji a channel does not have', () {
-      // The key is dropped rather than nulled, so absence is the answer.
       expect(channelFrom(categoryChannel()).emoji, isNull);
       expect(channelFrom(categoryChannel(emoji: 'bug')).emoji, 'bug');
     });
@@ -390,7 +387,6 @@ void main() {
         ).membership.notificationLevel,
         ChatChannelNotificationLevel.never,
       );
-      // Older sites and unfamiliar values use core's ordinary mentions mode.
       expect(
         channelFrom(categoryChannel()).membership.notificationLevel,
         ChatChannelNotificationLevel.mention,
@@ -487,7 +483,6 @@ void main() {
     });
 
     test('is nobody once there is more than one of them', () {
-      // No single face to choose, and Discourse does not stack them either.
       final channel = channelFrom(
         directChannel(
           group: true,
@@ -597,8 +592,6 @@ void main() {
     test(
       'orders the public channels by slug, which is what the sidebar shows',
       () {
-        // The site orders these by lower(name), and a channel's name and slug
-        // differ often enough that the two disagree.
         final channels = ChatChannel.parse(
           payload(
             public: [
@@ -614,8 +607,6 @@ void main() {
     );
 
     test('leaves the direct messages in the order the site sent them', () {
-      // Already newest-conversation-first server side; re-sorting here could
-      // only lose that, since nothing in this step recomputes it.
       final channels = ChatChannel.parse(
         payload(
           direct: [

@@ -227,8 +227,6 @@ void main() {
                 ),
               )
               .map((avatar) => avatar.userId);
-          // The latest-reply avatar comes first. The participant sample keeps
-          // its first two users and its most recent (last) user.
           expect(avatars, [10, 1, 2, 5]);
 
           expect(
@@ -245,8 +243,6 @@ void main() {
             ),
           );
 
-          // The excerpt is merely one part of the card, but tapping it activates
-          // the card's single callback with the complete typed preview.
           await tester.tap(find.text('It works'));
           await tester.pump();
           expect(opened, [same(thread)]);
@@ -368,8 +364,6 @@ void main() {
           final target = find.byKey(
             ChatMessageTile.threadPreviewKey(thread.threadId),
           );
-          // Canonical messages now own a keyboard-focusable action surface for
-          // Copy link before focus advances into the embedded thread card.
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
           expect(

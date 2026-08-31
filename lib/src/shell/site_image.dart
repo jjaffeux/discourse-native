@@ -12,11 +12,6 @@ import 'image_decode.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
 
-/// A site image that may require the connected account's user API key.
-///
-/// Outside [ShellScope] it retains the ordinary network-image behaviour used
-/// by standalone cooked fragments and widget tests. Inside the app it resolves
-/// bytes through [SiteImageRepository], including private uploads.
 class SiteImage extends StatefulWidget {
   const SiteImage({
     super.key,
@@ -298,10 +293,6 @@ final class SiteImageUnavailableException implements Exception {
   String toString() => 'Site image is unavailable: $url';
 }
 
-/// Preserves the cooked renderer's sizing and fallback policy while replacing
-/// anonymous HTTP image requests with [SiteImage]. It also applies inline
-/// cooked decorations contributed by the active plugin registry without
-/// replacing the element's wrapping text.
 final class SiteImageWidgetFactory extends WidgetFactory {
   SiteImageWidgetFactory({
     required this.siteUrl,

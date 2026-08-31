@@ -116,7 +116,6 @@ void main() {
       store.put(_site, const _Record(1, 'first'));
       final afterPut = store.generationOf<_Record>(_site);
       expect(afterPut, greaterThan(0));
-      // Other sites and types are untouched by this write.
       expect(store.generationOf<_Record>(_otherSite), 0);
       expect(store.generationOf<_OtherRecord>(_site), 0);
 
@@ -124,14 +123,12 @@ void main() {
       final afterUpdate = store.generationOf<_Record>(_site);
       expect(afterUpdate, greaterThan(afterPut));
 
-      // A change that resolves to the identical record is not a change.
       store.update<_Record>(_site, 1, (held) => held);
       expect(store.generationOf<_Record>(_site), afterUpdate);
 
       store.remove<_Record>(_site, 1);
       final afterRemove = store.generationOf<_Record>(_site);
       expect(afterRemove, greaterThan(afterUpdate));
-      // Removing what is already gone changes nothing.
       store.remove<_Record>(_site, 1);
       expect(store.generationOf<_Record>(_site), afterRemove);
     });

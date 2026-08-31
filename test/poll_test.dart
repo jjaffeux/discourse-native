@@ -141,8 +141,7 @@ void main() {
 
     test('bounds option parsing to the server setting ceiling', () {
       final options = <Object?>[
-        // Raw response slots consume the server-sized budget. This keeps all
-        // parsing work bounded even when a nonconforming response is corrupt.
+        // Invalid slots still consume the server-sized parsing budget.
         null,
         for (var index = 0; index < Poll.maximumOptions; index++)
           {'id': 'option-$index', 'html': '<strong>Option $index</strong>'},

@@ -1,8 +1,4 @@
-/// Public host contracts and UI primitives for repository-owned plugins.
-///
-/// Plugins should import this library instead of reaching into
-/// `package:discourse_native/src`. The exports here are the compatibility
-/// boundary between the native shell and independently packaged features.
+/// Plugin compatibility boundary; plugins must not import the package's `src`.
 library;
 
 export 'src/data/app_release.dart';

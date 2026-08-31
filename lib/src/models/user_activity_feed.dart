@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'topic.dart';
 import 'user_activity.dart';
 
-/// What the connected account's default Activity destination currently knows.
 @immutable
 class UserActivityFeed {
   const UserActivityFeed({

@@ -39,8 +39,6 @@ import 'user_activity.dart';
 import 'user_menu_button.dart';
 import 'user_summary.dart';
 
-/// The main region. There is only ever one of these on screen; navigating
-/// deeper replaces what it shows rather than opening beside it.
 class MainContent extends StatelessWidget {
   const MainContent({super.key, required this.layout, this.registry});
 
@@ -144,12 +142,6 @@ class _MainContentBody extends StatelessWidget {
   }
 }
 
-/// Chooses static destinations without subscribing them to topic-feed work.
-///
-/// Only the two destinations whose bodies render a [TopicFeed] cross the
-/// [_TopicFeedSelector] boundary below. A page request can therefore update
-/// the list without rebuilding the surrounding shell, plugin content, or
-/// unrelated built-in pages.
 class _ContentViewport extends StatelessWidget {
   const _ContentViewport({
     required this.layout,
@@ -219,7 +211,6 @@ class _ContentViewport extends StatelessWidget {
         fallback: pluginContent,
       );
     }
-    // A topic route wins over its originating list.
     if (route.isTopic) {
       return TopicView(
         showSidebar: layout == ShellLayout.expanded,
@@ -231,8 +222,6 @@ class _ContentViewport extends StatelessWidget {
         registry: registry,
       );
     }
-    // A route an optional feature claims is that feature's, whichever list
-    // happens to still be cached behind it.
     if (pluginContent case final content?) return content;
 
     return _FeedBackedContent(route: route, siteUrl: siteUrl);
@@ -305,8 +294,6 @@ class _ContentHeader extends StatelessWidget {
       context,
       route,
     );
-    // On compact the main region has replaced the sidebar, so back always has
-    // somewhere to go. On wider layouts it only matters inside the stack.
     final showBack = layout.isCompact || canPop;
 
     return Container(
@@ -317,9 +304,6 @@ class _ContentHeader extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // On a signed-out phone the two explicit account actions need the
-          // header width. Search remains one Back away in the sidebar's own
-          // dedicated row; connected phones keep the field here as before.
           final carriesSearch =
               !ShellTitleBar.isSupported && !(layout.isCompact && !isConnected);
           final showRouteIdentity =
@@ -435,8 +419,6 @@ class _ContentHeader extends StatelessWidget {
                   route.id != 'activity' &&
                   showCreateTopicAction)
                 _TopicCreateAction(controller: controller),
-              // Only where there is no title bar above to hold it: this is the
-              // furthest right the shell goes once the strip is gone.
               if (ShellTitleBar.columnsCarryUserMenu) ...[
                 ...registry.shellHeaderActions(
                   context,
@@ -482,11 +464,6 @@ class _GroupsDirectoryCount extends StatelessWidget {
   }
 }
 
-/// Observes only the capability derived from the current feed.
-///
-/// Feed pagination replaces the immutable feed snapshot, but does not change
-/// this boolean, so the header action remains untouched while the list moves
-/// through loading and loaded states.
 class _TopicCreateAction extends StatelessWidget {
   const _TopicCreateAction({required this.controller});
 
@@ -505,12 +482,6 @@ class _TopicCreateAction extends StatelessWidget {
   );
 }
 
-/// A selected listenable boundary for state owned by
-/// [ShellController.topicFeeds].
-///
-/// Navigation still comes through [_MainContentSnapshot] and updates this
-/// widget normally. Between navigation changes, only the selected feed value
-/// can mark this subtree dirty.
 class _TopicFeedSelector<T> extends StatefulWidget {
   const _TopicFeedSelector({
     required this.controller,
@@ -565,11 +536,6 @@ class _TopicFeedSelectorState<T> extends State<_TopicFeedSelector<T>> {
   }
 }
 
-/// A defensive boundary for a stale restored tab or programmatic route.
-///
-/// Anonymous readers cannot ordinarily reach Messages because its sidebar
-/// destination is hidden. If they do, explain the account boundary instead of
-/// presenting an empty inbox or the generic unfinished-route placeholder.
 class _SignedOutMessagesState extends StatelessWidget {
   const _SignedOutMessagesState();
 
@@ -643,8 +609,6 @@ class _SignedOutMessagesState extends StatelessWidget {
       );
 }
 
-/// Stand-in for real content. Doubles as a way to exercise every navigation
-/// mode the shell supports before any of the real screens exist.
 class _ContentPlaceholder extends StatelessWidget {
   const _ContentPlaceholder({required this.route});
 

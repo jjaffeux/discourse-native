@@ -18,9 +18,6 @@ import 'package:photo_view/photo_view.dart';
 import 'cooked_html_test.dart' show pumpCooked, renderedText;
 import 'support/finders.dart';
 
-/// Real `add_lightbox!` output: the wrapper, the anchor carrying the full-size
-/// URL, a resized `img`, and the `.meta` overlay Discourse writes the intrinsic
-/// size into.
 const String singleImage = '''
 <p>Before.</p>
 <div class="lightbox-wrapper">
@@ -37,13 +34,10 @@ const String singleImage = '''
 <p>After.</p>
 ''';
 
-/// A lightboxed image whose `img` carries no `width`/`height` — which chat's
-/// markup does, and which leaves the tile with no declared aspect ratio.
 const String sizelessImage = '''
 <div class="lightbox-wrapper"><a class="lightbox" href="https://example.com/full.png" title="no-size.png"><img src="https://example.com/thumb.png"><div class="meta"><span class="informations">1000×1000 1 MB</span></div></a></div>
 ''';
 
-/// Three images in one post, the middle one inside a spoiler.
 const String threeImages = '''
 <div class="lightbox-wrapper"><a class="lightbox" href="https://example.com/one.png" title="one.png"><img src="https://example.com/one-t.png" width="100" height="100"><div class="meta"><span class="informations">1000×1000 1 MB</span></div></a></div>
 <div class="spoiler">
@@ -58,8 +52,6 @@ dom.Element anchorIn(String source, {int index = 0}) =>
 LightboxImage parse(String source, {int index = 0}) =>
     LightboxImage.from(anchorIn(source, index: index))!;
 
-/// [pumpCooked], but on a stated platform — which is what decides between the
-/// arrows a pointer gets and the swipe a finger gets.
 Future<void> pumpCookedOn(
   WidgetTester tester,
   String html,
@@ -76,9 +68,6 @@ Future<void> pumpCookedOn(
   await tester.pump();
 }
 
-/// The tappable image itself. [LightboxThumbnail] fills the column so the post
-/// keeps its rhythm, but the image inside it sits left at its own width, so the
-/// centre of the widget is usually empty space.
 Finder thumbnail([int index = 0]) => find.descendant(
   of: find.byType(LightboxThumbnail).at(index),
   matching: find.byType(InkWell),
@@ -288,9 +277,7 @@ void main() {
 
   group('LightboxImage.galleryFor', () {
     test('collects every image, including spoilers, in written order', () {
-      // `*:not(.spoiler):not(.spoiled) .lightbox` reads as an exclusion but
-      // does not act as one: div.lightbox-wrapper is itself an ancestor that
-      // is neither, so the descendant combinator is satisfied.
+      // The web selector also matches lightboxes nested inside spoilers.
       final gallery = LightboxImage.galleryFor(anchorIn(threeImages));
 
       expect(gallery.map((i) => i.title), ['one.png', 'two.png', 'three.png']);
@@ -311,8 +298,7 @@ void main() {
     });
 
     test('a repeated image still gets two tags, one per place it appears', () {
-      // Two live [Hero]s under one tag is an error, so the tag has to come from
-      // the element rather than the URL.
+      // Flutter rejects simultaneous heroes that share a tag.
       const twice = '''
         <div class="lightbox-wrapper"><a class="lightbox" href="same.png"><img src="t.png"></a></div>
         <div class="lightbox-wrapper"><a class="lightbox" href="same.png"><img src="t.png"></a></div>
@@ -379,8 +365,7 @@ void main() {
     testWidgets('lays out an image whose markup declared no size', (
       tester,
     ) async {
-      // Chat can omit `width`/`height`, but its information line still gives
-      // us enough to reserve the slot before the image loads.
+      // Chat supplies the usable dimensions only in the information line.
       await pumpCooked(tester, sizelessImage);
 
       expect(tester.takeException(), isNull);
@@ -407,8 +392,6 @@ void main() {
     ) async {
       await pumpCooked(tester, singleImage);
 
-      // Left to [HtmlWidget] the filename and the dimensions land in the post
-      // as two loose lines under the image.
       expect(renderedText('screenshot.png'), findsNothing);
       expect(renderedText('1920×1080 234 KB'), findsNothing);
     });
@@ -472,8 +455,7 @@ void main() {
         </a>
       ''');
 
-      // Post layout remains defensive, but full-screen transform math must not
-      // reshape a legitimate panorama to that 4:1 layout bound.
+      // Thumbnail layout is bounded, but PhotoView needs the natural geometry.
       expect(image.aspectRatio, 4);
       await pumpGallery(tester, images: [image]);
 
@@ -736,8 +718,7 @@ void main() {
       await tester.pump();
       final zoomedScale = first.scale!;
 
-      // Downward wheel input would advance a scrollable from its first page if
-      // the gallery did not claim it for image zooming.
+      // The gallery must claim wheel input before PageView handles it.
       await tester.sendEventToBinding(
         PointerScrollEvent(
           position: tester.getCenter(photoViewAt(0)),
@@ -957,7 +938,6 @@ void main() {
     testWidgets('offers no download for an image that carries no link', (
       tester,
     ) async {
-      // `data-download-href` is only written for uploads.
       await pumpCooked(tester, threeImages);
       await tester.tap(thumbnail());
       await tester.pumpAndSettle();
@@ -1083,7 +1063,6 @@ void main() {
     testWidgets('leaves images Discourse did not lightbox alone', (
       tester,
     ) async {
-      // No wrapper: a onebox image, a small one, an animated GIF.
       await pumpCooked(
         tester,
         '<p><img src="https://example.com/small.png" width="50" height="50"></p>',

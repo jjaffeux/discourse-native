@@ -16,8 +16,6 @@ PluginNotificationCounters chatNotificationCounters({
   available: available,
 );
 
-/// Builds a totals value with Chat's owned counter, useful to feature callers
-/// which synthesize a snapshot before a server response is available.
 NotificationTotals chatNotificationTotals({
   int unreadNotifications = 0,
   int unreadPersonalMessages = 0,
@@ -40,7 +38,6 @@ NotificationTotals chatNotificationTotals({
   ),
 );
 
-/// Chat's typed view of its namespaced total.
 extension ChatNotificationTotals on NotificationTotals {
   bool get hasChatEnabled => hasPluginCounter(chatNotificationCounter.id);
 

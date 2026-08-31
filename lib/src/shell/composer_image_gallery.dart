@@ -7,7 +7,6 @@ import 'composer_images.dart';
 import 'image_decode.dart';
 import 'site_image.dart';
 
-/// One image rendered inside a composer gallery.
 @immutable
 class ComposerImageGalleryItem {
   const ComposerImageGalleryItem({
@@ -21,19 +20,11 @@ class ComposerImageGalleryItem {
   final ComposerImageBlock image;
   final String? url;
 
-  /// The controller-owned key used to hit-test this image independently of
-  /// the compound gallery widget.
   final Key imageKey;
   final bool highlighted;
   final ValueChanged<Size>? onNaturalSize;
 }
 
-/// The compact, editable-composer presentation of a `[grid]` block.
-///
-/// This deliberately differs from the cooked post's masonry presentation:
-/// every tile is square and stable while the author edits around it. The raw
-/// BBCode remains in the field; the editing controller accounts for its
-/// code-unit length and uses this widget only as its visual projection.
 class ComposerImageGalleryPreview extends StatelessWidget {
   const ComposerImageGalleryPreview({
     super.key,
@@ -56,8 +47,6 @@ class ComposerImageGalleryPreview extends StatelessWidget {
   static const double gap = 6;
   static const double inset = 8;
   static const double verticalMargin = 4;
-  // Three tiles fit inside the compact composer, keeping the common
-  // three-image gallery to one visible row.
   static const int maxColumns = 3;
 
   static int columnCount(int itemCount) =>
@@ -73,10 +62,6 @@ class ComposerImageGalleryPreview extends StatelessWidget {
     );
   }
 
-  /// The exact inline height used by the projection, including its margin.
-  /// Keeping this independent of image decoding lets the editable reserve the
-  /// same scroll height before and after the artwork arrives. The width is
-  /// supplied by the editable so the gallery fills the composer.
   static double displayHeight(int itemCount) {
     final tiles = _tileAreaSize(itemCount);
     final tileSpacing = itemCount == 0 ? 0 : gap;
@@ -155,10 +140,6 @@ class ComposerImageGalleryPreview extends StatelessWidget {
   }
 }
 
-/// The gallery-level target that opens membership and layout controls.
-///
-/// Keeping this target on its own line after every keyed image tile makes
-/// direct and editor-level hit-testing unambiguous.
 class ComposerImageGalleryControl extends StatelessWidget {
   const ComposerImageGalleryControl({
     super.key,
@@ -248,7 +229,6 @@ class _ReorderableGalleryTile extends StatelessWidget {
   );
 }
 
-/// A square, independently keyed image within a composer gallery.
 class ComposerImageGalleryTile extends StatelessWidget {
   const ComposerImageGalleryTile({
     super.key,

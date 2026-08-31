@@ -36,71 +36,32 @@ export 'plugin_manifest.dart' show PluginId;
 export 'shell_extensions.dart';
 export 'topic_recommendation_source.dart';
 
-/// One optional Discourse feature this app knows how to draw.
-///
-/// Discourse core is a floor, not a ceiling: a given site may have reactions,
-/// solved, assign, chat — or none of them. This is where an app that has to
-/// work on all of them keeps what it knows about one.
-///
-/// ## The rule
-///
-/// **The record decides whether a feature is drawn. Site config decides only
-/// how to draw it, or what to offer inside it.**
-///
-/// `Plugin::Instance#add_to_serializer` defaults `respect_plugin_enabled: true`
-/// server side, so a disabled plugin's attributes are simply *absent* from
-/// every payload. That absence is the enablement signal, and it is a better one
-/// than any setting: it is scoped by the same guardian that decided the rest of
-/// the payload, it can never be stale relative to what is on screen, and it
-/// costs no request. So a record reader returning null means "this site did not
-/// mention this feature", and everything else keys off that.
-///
-/// Site config, from `/site/settings.json`, answers the other question, the one
-/// no record can: what may be *offered* that has not happened yet. A picker's
-/// emoji list has no record behind it. Config must never gate whether an
-/// affordance exists, because it arrives late and can be refused, and a gate
-/// that is wrong for one frame produces a wrong *write* rather than merely a
-/// missing button.
-///
-/// A feature implements only the capability interfaces it actually contributes
-/// to. The registry owns dispatch and ordering, so consumers do not need to
-/// know which feature implements which capability and features do not carry a
-/// collection of unrelated no-op methods.
+/// Serializer field presence decides whether a feature exists on a record.
+/// `/site/settings.json` only describes how to render it or what new values may
+/// be offered. Config can arrive late or be refused, so using it as a feature
+/// gate can allow a write which the record's guardian did not authorize.
 abstract interface class SitePlugin implements PluginCapability {
-  /// The plugin's own name, `discourse-reactions`. For documentation and debug
-  /// output; nothing dispatches on it.
   @override
   String get name;
 }
 
-/// Contributes optional icon resources and semantic aliases owned by a plugin.
 abstract interface class IconCatalogPlugin {
   PluginIconCatalog get iconCatalog;
 }
 
-/// The typed key shared by a plugin's records.
 abstract interface class PluginRecord<T extends Object> {
-  /// The type a record reader answers with, and the key `PluginData.get` finds
-  /// it under.
-  ///
   /// Written out rather than taken from the value's `runtimeType`, which would
-  /// quietly file a private subclass somewhere no reader looks, and rather than
-  /// from [T], which is erased by the time the plugin list is walked.
+  /// misfile private subclasses, or from [T], which is erased while walking the
+  /// plugin list.
   PluginDataKey<T> get record;
 }
 
-/// Decodes one installed plugin's contribution to `/site/settings.json`.
-///
-/// The same capability supplies the codec for the namespaced warm-start copy.
-/// Core never learns the wire or stored keys owned by the feature.
 abstract interface class SiteSettingsPlugin<T extends Object> {
   PluginDataPersistenceCodec<T> get siteSettingsCodec;
 
   T? readSiteSettings(Map<String, dynamic> json, String siteUrl);
 }
 
-/// Decodes one installed plugin's contribution to `/session/current.json`.
-///
 /// Presence-sensitive fields (for example Assign's nullable permissions) are
 /// interpreted here rather than flattened by [DiscourseUser].
 abstract interface class CurrentUserPlugin<T extends Object> {
@@ -109,81 +70,43 @@ abstract interface class CurrentUserPlugin<T extends Object> {
   T? readCurrentUser(Map<String, dynamic> json, String siteUrl);
 }
 
-/// Resolves a top-level capability which still has a core-owned navigation
-/// host. This is a narrow compatibility seam until those surfaces become UI
-/// contributions in their own right.
 abstract interface class PluginSiteFeature {
   bool siteFeatureEnabled(PluginData siteSettings);
 }
 
-/// Resolves a top-level capability still mounted by a core-owned account UI.
-///
-/// This is the current-user counterpart to [PluginSiteFeature]. It keeps the
-/// compatibility host opaque to the feature's typed session value until that
-/// UI becomes a plugin contribution of its own.
 abstract interface class PluginCurrentUserFeature {
   bool currentUserFeatureEnabled(PluginData currentUser);
 }
 
-/// A feature record embedded in a group directory or group detail payload.
-///
-/// Group serializers are extensible in the same way as posts and topics. Core
-/// keeps these fields opaque so a plugin remains the sole owner of both the
-/// wire contract and the feature gate derived from its presence.
 abstract interface class GroupRecordPlugin<T extends Object> {
   PluginDataKey<T> get groupRecord;
 
   T? readGroup(Map<String, dynamic> json, String siteUrl);
 }
 
-/// A feature record embedded in a post payload.
 abstract interface class PostRecordPlugin<T extends Object>
     implements PluginRecord<T> {
-  /// What this plugin added to a post payload, or null when the site did not
-  /// mention it.
-  ///
-  /// Null is the whole answer to "this site does not have this feature", so it
-  /// must be returned for an absent key rather than defaulted into an empty
-  /// value — a default would claim the feature is present everywhere.
+  /// An absent field must stay null; an empty default would enable the feature.
   T? readPost(Map<String, dynamic> json, String siteUrl);
 
-  /// Chooses this plugin's record after a normal post edit response.
-  ///
   /// Edit serializers do not all carry reader state. Reactions keeps the held
   /// record; Poll deliberately takes the incoming value, including null when
   /// its block was removed.
   T? mergeAfterPostEdit(T? held, T? incoming);
 }
 
-/// A feature record embedded in a topic or topic-list payload.
 abstract interface class TopicRecordPlugin<T extends Object>
     implements PluginRecord<T> {
-  /// What this plugin added to a topic payload, or null when the site did not
-  /// mention it.
-  ///
   /// A topic list row and a full topic response can carry different subsets of
-  /// one feature's state, so the reader owns that distinction. Core merely
-  /// preserves the typed answer on the record it came from.
+  /// one feature's state, so the plugin owns their interpretation.
   T? readTopic(Map<String, dynamic> json, String siteUrl);
 }
 
-/// A feature record embedded in the user-card payload.
-///
-/// User cards are intentionally parsed through the same installed registry as
-/// posts and topics. Fields such as Chat's `can_chat_user` only exist when the
-/// corresponding server plugin contributes them; keeping them opaque to core
-/// preserves that ownership while still letting the native card expose the
-/// feature's controls.
 abstract interface class UserCardRecordPlugin<T extends Object>
     implements PluginRecord<T> {
   T? readUserCard(Map<String, dynamic> json, String siteUrl);
 }
 
-/// Adds controls to a user card.
-///
-/// The card owns the responsive controls region. Contributions are widgets so
-/// a plugin can retain its own pending/error state while core controls only
-/// their placement and ordering.
 abstract interface class UserCardActionPlugin {
   List<Widget> userCardActions(
     BuildContext context,
@@ -251,28 +174,22 @@ final class PluginUserMenuSection {
   final PluginUserMenuSectionBuilder builder;
 }
 
-/// Adds independently rendered user-menu sections in manifest order.
 abstract interface class UserMenuSectionPlugin {
   List<PluginUserMenuSection> userMenuSections(PluginUserMenuContext context);
 }
 
-/// Declares namespaced notification feeds consumed by plugin-owned sections.
 abstract interface class NotificationFeedPlugin {
   List<PluginNotificationFeedSource> get notificationFeeds;
 }
 
-/// Declares the wire identities and interpretation owned by a plugin's
-/// notification types.
 abstract interface class NotificationTypePlugin {
   List<PluginNotificationType> get notificationTypes;
 }
 
-/// Declares plugin-owned counts in `/notifications/totals.json`.
 abstract interface class NotificationCounterPlugin {
   List<PluginNotificationCounter> get notificationCounters;
 }
 
-/// Replaces a top-level element inside a post's cooked body.
 @immutable
 final class PluginContainingTopic {
   const PluginContainingTopic({
@@ -297,7 +214,6 @@ final class PluginContainingTopic {
   int get hashCode => Object.hash(id, slug, archived);
 }
 
-/// Owner-scoped rendering state for a plugin marker in a post body.
 @immutable
 final class PluginPostBodyContext {
   const PluginPostBodyContext({
@@ -315,31 +231,19 @@ final class PluginPostBodyContext {
 }
 
 abstract interface class PostBodyPlugin {
-  /// A top-level element inside a post body this feature can replace.
-  ///
-  /// The owning post is deliberately available here: cooked plugin markup is
-  /// often only a placeholder, while the personalized serializer record is
-  /// authoritative. Recursive CookedHtml instances (quotes/oneboxes) receive
-  /// no post and therefore never invoke this hook.
+  /// Only top-level post markup reaches this hook; nested cooked fragments have
+  /// no authoritative post serializer record.
   Widget? postBodyElement(PluginPostBodyContext context, dom.Element element);
 }
 
-/// Replaces plugin-owned cooked markup regardless of the containing record.
-///
-/// Unlike [PostBodyPlugin], this also runs for chat, oneboxes and other cooked
-/// fragments. The first plugin to recognize an element owns it.
+/// Unlike [PostBodyPlugin], this also runs for chat and nested cooked fragments.
+/// The first plugin to recognize an element owns it.
 abstract interface class CookedElementPlugin {
   Widget? cookedElement(String? siteUrl, dom.Element element);
 }
 
-/// Adds a small widget ahead of an inline cooked element without replacing
-/// the element's flowing text.
-///
 /// A normal cooked-element replacement becomes one indivisible [WidgetSpan].
-/// Provider decorations such as a pull-request status icon need the linked
-/// title to remain real text so it can wrap with the surrounding paragraph.
-/// The cooked renderer owns that low-level text-tree integration; plugins only
-/// contribute the widget and its alignment.
+/// Prefixes preserve the decorated element as wrapping text.
 abstract interface class CookedInlinePlugin {
   CookedInlinePrefix? cookedInlinePrefix(dom.Element element);
 }
@@ -361,24 +265,13 @@ final class CookedInlinePrefix {
   final bool excludeLinkSemantics;
 }
 
-/// Claims the footer under a post.
 abstract interface class PostFooterPlugin {
-  /// What to draw under a post in place of the core footer, or null to leave it
-  /// alone.
-  ///
-  /// An ordered fallthrough, the same shape as `cooked_html.dart`'s builder
-  /// chain and `open_link.dart`'s dispatch: the first plugin with something to
-  /// say wins, and the core answer is what is left when none of them do.
+  /// Ordered fallthrough: the first non-null plugin replaces the core footer.
   Widget? postFooter(String siteUrl, Post post);
 }
 
-/// Adds content between a post's cooked body and its core footer.
 abstract interface class PostDecorationPlugin {
-  /// Decorations this feature contributes to [post], in visual order.
-  ///
-  /// [topic] is included because some server features attach state to the
-  /// topic while presenting it beside the first post. Contributions are
-  /// additive: several optional features can all have something to show.
+  /// Contributions are additive; topic state may decorate its opening post.
   List<Widget> postDecorations(
     BuildContext context,
     String siteUrl,
@@ -387,17 +280,11 @@ abstract interface class PostDecorationPlugin {
   );
 }
 
-/// Recognises and describes a plugin-owned small action in the post stream.
 abstract interface class PostSmallActionPlugin {
-  /// The one-line notice for [post], or null when this feature does not own it.
-  ///
-  /// Returning a contribution is also the classification signal. This lets a
-  /// plugin recognise its serializer's post type and action codes together,
-  /// without teaching the core [Post] model either value.
+  /// A non-null contribution is also the post-type classification signal.
   PluginSmallAction? smallAction(Post post);
 }
 
-/// A plugin-owned small action's presentation.
 @immutable
 class PluginSmallAction {
   const PluginSmallAction({required this.icon, required this.phrase});
@@ -406,9 +293,7 @@ class PluginSmallAction {
   final String phrase;
 }
 
-/// Adds compact metadata to a topic-list row.
 abstract interface class TopicListMetadataPlugin {
-  /// Metadata widgets placed alongside category, tags, counts and bump time.
   List<Widget> topicListMetadata(
     BuildContext context,
     String siteUrl,
@@ -416,16 +301,8 @@ abstract interface class TopicListMetadataPlugin {
   );
 }
 
-/// How one plugin-owned topic property group is laid out in the sidebar.
-enum TopicPropertySectionLayout {
-  /// Keeps the group beside core properties in the shared property card.
-  inline,
+enum TopicPropertySectionLayout { inline, standalone }
 
-  /// Gives the group a titled card whose values are stacked vertically.
-  standalone,
-}
-
-/// One plugin-owned property group in an open topic's context sidebar.
 @immutable
 final class TopicPropertySection {
   const TopicPropertySection({
@@ -439,14 +316,7 @@ final class TopicPropertySection {
   final TopicPropertySectionLayout layout;
 }
 
-/// Adds labeled properties to the sidebar of an open topic.
 abstract interface class TopicPropertiesPlugin {
-  /// Property groups placed after core's category and tags, in plugin order.
-  ///
-  /// Inline values may remain actionable, but must fit within the sidebar's
-  /// wrapping value column. Standalone values receive the full card width and
-  /// are stacked vertically. The group label is presentation text, not a
-  /// persistence id.
   List<TopicPropertySection> topicProperties(
     BuildContext context,
     String siteUrl,
@@ -454,13 +324,7 @@ abstract interface class TopicPropertiesPlugin {
   );
 }
 
-/// Invalidates topic properties contributed from plugin-owned session state.
-///
-/// Topic records still decide whether public plugin state is present. This
-/// signal is for transient state, such as a permission fallback becoming
-/// unavailable, which can add or remove an affordance without replacing the
-/// topic record. Core recomputes all property groups when it fires so an absent
-/// contribution does not leave an empty row behind.
+/// Invalidates transient contributions without replacing the topic record.
 abstract interface class TopicPropertiesRebuildPlugin {
   Listenable? topicPropertiesRebuildOn(
     BuildContext context,
@@ -469,11 +333,6 @@ abstract interface class TopicPropertiesRebuildPlugin {
   );
 }
 
-/// Adds actions to the topic map beneath the opening post.
-///
-/// The map itself is core, while optional features such as Discourse AI attach
-/// their own serializer-gated controls beside its reading time. A feature that
-/// supersedes core's top-replies summary can replace that action explicitly.
 abstract interface class TopicMapActionPlugin {
   TopicMapActionContribution topicMapActions(
     BuildContext context,
@@ -482,7 +341,6 @@ abstract interface class TopicMapActionPlugin {
   );
 }
 
-/// A plugin's actions in the topic map.
 @immutable
 class TopicMapActionContribution {
   const TopicMapActionContribution({
@@ -490,37 +348,23 @@ class TopicMapActionContribution {
     this.replacesSummary = false,
   });
 
-  /// For a feature with nothing to add to this topic.
   static const TopicMapActionContribution none = TopicMapActionContribution();
 
-  /// What to offer, in plugin registration order.
   final List<Widget> actions;
 
-  /// Whether core's top-replies summary action must give way to [actions].
   final bool replacesSummary;
 }
 
-/// Contributes optional lists to the more-topics panel.
-///
 /// Each codec owns both its serializer decoding and presentation identity.
-/// Core only constructs the shared topic row after the owner has recognized
-/// and normalized its payload. Registry order is presentation order.
+/// Registry order is presentation order.
 abstract interface class TopicRecommendationSourcePlugin {
   List<TopicRecommendationSourceCodec> get topicRecommendationSourceCodecs;
 }
 
-/// Contributes actions to a post menu.
 abstract interface class PostMenuPlugin {
-  /// What this feature adds to, or takes out of, the post action menu.
-  ///
-  /// Takes a [BuildContext] rather than the controller so that this interface
-  /// stays out of the shell's way; an implementation reaches its narrow,
-  /// plugin-owned services through `PluginUiScope` and selects only the state
-  /// that must repaint.
   PostMenuContribution postMenu(PostMenuContext context);
 }
 
-/// Immutable record and account state needed while composing a post menu.
 @immutable
 final class PostMenuContext {
   const PostMenuContext({
@@ -538,9 +382,7 @@ final class PostMenuContext {
   final DiscourseUser? currentUser;
 }
 
-/// Contributes formatting actions to the composer.
 abstract interface class ComposerToolbarPlugin {
-  /// Formatting actions this feature contributes to an open composer.
   List<ComposerToolbarContribution> composerToolbar(
     BuildContext context,
     ComposerEditorHost editor,
@@ -561,7 +403,6 @@ abstract interface class ComposerTargetPlugin {
   );
 }
 
-/// Namespaced plugin state available while a target's policy is resolved.
 @immutable
 final class ComposerTargetContext {
   const ComposerTargetContext({
@@ -573,34 +414,13 @@ final class ComposerTargetContext {
   final PluginData currentUser;
 }
 
-/// Contributes navigation sections to the instance sidebar.
 abstract interface class SidebarPlugin {
-  /// Sections this feature adds to the instance sidebar, after core's own.
-  ///
-  /// Empty for a feature with no navigation of its own, which is every feature
-  /// that only decorates a record.
-  ///
-  /// Additive rather than an ordered fallthrough — the shape
-  /// [PostMenuPlugin.postMenu] has, and for the same reason: two features both
-  /// having somewhere to navigate to is ordinary, two features both owning one
-  /// spot is not. The order is the order of the registry's plugin list.
-  ///
-  /// Models rather than a widget, unlike [PostFooterPlugin.postFooter], because
-  /// the sidebar is a list of peers rather than a canvas. A row a plugin drew
-  /// itself would drift from core's the first time either changed, and
-  /// `selectedId` and `selectDestination` would decay from *the* path into a
-  /// convention that happens to be followed. A post's footer is a free-form
-  /// decoration on one record; this is not.
-  ///
-  /// The state behind these can arrive asynchronously. [sidebarListenable]
-  /// identifies the feature-owned state the sidebar should rebuild for.
+  /// Additive model contributions, presented in registry order.
   List<SidebarSection> sidebarSections(BuildContext context);
 
-  /// State that can change [sidebarSections], or null for a static contribution.
   Listenable? sidebarListenable(BuildContext context);
 }
 
-/// Projects a plugin-owned route into the forum tab bar.
 abstract interface class ForumTabPlugin {
   SidebarDestination? forumTabDestination(
     BuildContext context,
@@ -611,11 +431,8 @@ abstract interface class ForumTabPlugin {
   Listenable? forumTabListenable(BuildContext context, String siteUrl);
 }
 
-/// The core-owned facts an optional group tab may use to decide its presence.
-///
 /// [groupData] and [currentUserData] stay opaque to core. A plugin reads only
-/// its own typed keys and therefore cannot accidentally depend on another
-/// extension's wire fields.
+/// its own typed keys.
 @immutable
 final class PluginGroupContext {
   const PluginGroupContext({
@@ -635,7 +452,6 @@ final class PluginGroupContext {
   final PluginData currentUserData;
 }
 
-/// One primary group tab contributed by an installed server feature.
 @immutable
 final class PluginGroupTab {
   const PluginGroupTab({
@@ -651,7 +467,6 @@ final class PluginGroupTab {
   final int? count;
 }
 
-/// A validated group tab paired with the installed feature that owns it.
 @immutable
 final class OwnedPluginGroupTab {
   const OwnedPluginGroupTab({required this.owner, required this.tab});
@@ -660,71 +475,32 @@ final class OwnedPluginGroupTab {
   final PluginGroupTab tab;
 }
 
-/// Extends the native group shell without putting plugin vocabulary in core.
 abstract interface class GroupTabPlugin {
-  /// Null means the feature is absent or unavailable for this exact group.
   PluginGroupTab? groupTab(PluginGroupContext group);
 
-  /// Draws this plugin's route inside the group shell.
   Widget? groupContent(BuildContext context, PluginGroupContext group);
 
-  /// Feature-owned state which changes the tab or its body.
   Listenable? groupListenable(BuildContext context, PluginGroupContext group);
 }
 
-/// Claims a content route.
 abstract interface class ContentPlugin {
-  /// The screen this feature draws for [route], or null for a route it does not
-  /// own.
-  ///
-  /// The other half of [SidebarPlugin.sidebarSections]: an entry the sidebar
-  /// offers needs somewhere to lead, and the shell's own answer has only two
-  /// branches — a topic, and a list of them.
-  ///
-  /// An ordered fallthrough like [PostFooterPlugin.postFooter], asked *before*
-  /// core, so that a route belonging to a feature this build does not have
-  /// falls through to the placeholder rather than to something unrelated that
-  /// happens to be cached.
-  ///
-  /// Matched on [ContentRoute.id], which `ContentRoute.fromDestination` copies
-  /// straight from the [SidebarDestination] this plugin minted — so a feature
-  /// recognises its own routes by the ids it wrote. Nothing about any one
-  /// feature is written into [ContentRoute], for the reason nothing about
-  /// reactions is written into [Post]: core does not learn a plugin's
-  /// vocabulary, it hands the plugin back what it was given.
+  /// Ordered before core and matched by the id the plugin put in its sidebar
+  /// destination. Unknown plugin routes therefore fall through to a placeholder.
   Widget? content(BuildContext context, ContentRoute route);
 }
 
-/// Lets a plugin-owned screen replace the shell's standard content header.
-///
-/// Most screens keep the common Back, title, search, and topic actions. A
-/// richer nested screen can opt out route by route and draw that chrome as
-/// part of its own responsive layout without teaching the shell its routing
-/// vocabulary.
 abstract interface class ContentChromePlugin {
-  /// True when this plugin draws all chrome above [route]'s content itself.
   bool ownsContentChrome(BuildContext context, ContentRoute route);
 }
 
-/// Adds route-scoped actions to the shell's standard content header.
 abstract interface class ContentHeaderPlugin {
   List<Widget> contentHeaderActions(BuildContext context, ContentRoute route);
 }
 
-/// Replaces the standard route glyph with feature-owned identity artwork.
-///
-/// The shell keeps responsibility for the surrounding spacing and title. A
-/// plugin uses this when the route represents something richer than its
-/// fallback icon, such as a person whose avatar also carries live presence.
 abstract interface class ContentHeaderLeadingPlugin {
   Widget? contentHeaderLeading(BuildContext context, ContentRoute route);
 }
 
-/// Makes the standard content title navigate to feature-owned details.
-///
-/// The shell keeps drawing the title and its accessibility treatment; the
-/// plugin supplies only the route-scoped action, so core never has to learn a
-/// feature's route vocabulary.
 abstract interface class ContentHeaderTitlePlugin {
   VoidCallback? contentHeaderTitleAction(
     BuildContext context,
@@ -734,7 +510,6 @@ abstract interface class ContentHeaderTitlePlugin {
 
 enum PluginHeaderSurface { titleBar, content }
 
-/// Adds app-level actions without teaching core which plugin owns them.
 abstract interface class ShellHeaderPlugin {
   List<Widget> shellHeaderActions(
     BuildContext context, {
@@ -744,16 +519,10 @@ abstract interface class ShellHeaderPlugin {
   });
 }
 
-/// Adds an app-global overlay above the adaptive shell.
 abstract interface class ShellOverlayPlugin {
   List<Widget> shellOverlays(BuildContext context);
 }
 
-/// Adds a feature-owned diagnostics surface to the app diagnostics panel.
-///
-/// Capture state, report construction, retention, and vendor SDK integration
-/// stay inside the plugin. Core owns only tab placement; app observation,
-/// flushing, and teardown use the ordinary [PluginAppLifecycle] registration.
 abstract interface class DiagnosticsPlugin {
   /// Stable identity used to preserve the selected diagnostics surface when
   /// the application replaces a plugin capability instance.
@@ -773,7 +542,6 @@ abstract interface class DiagnosticsPlugin {
   );
 }
 
-/// Suggests a future bookmark reminder from plugin-owned cooked markup.
 abstract interface class BookmarkReminderPlugin {
   DateTime? futureBookmarkReminder(
     String cooked, {
@@ -781,33 +549,17 @@ abstract interface class BookmarkReminderPlugin {
   });
 }
 
-/// Adds topic-scoped message-bus subscriptions and invalidation hints.
 abstract interface class TopicLivePlugin {
-  /// The message_bus channels worth listening to while [topicId] is the topic
-  /// on screen. Empty for a feature with nothing live about it.
   List<String> topicChannels(int topicId);
 
-  /// Which posts a message on one of those channels says are out of date.
-  ///
-  /// An invalidation hint rather than a payload, because that is what these
-  /// channels carry — the reactions one names the emoji that changed and no
-  /// counts at all. Answering with ids rather than acting keeps this pure and
-  /// lets the shell do the reading through the one path whose numbers are
-  /// right.
+  /// These messages carry invalidation hints, not authoritative counts.
   List<int> stalePosts(String channel, Object? data);
 }
 
-/// Marks the full topic serializer stale after a topic-scoped live message.
-///
-/// Kept separate from [TopicLivePlugin] so existing post-only live features do
-/// not acquire a meaningless method. A feature that uses it also implements
-/// [TopicLivePlugin] to name the channel that carries the invalidation.
 abstract interface class TopicLiveReloadPlugin {
-  /// Whether [data] says the open [topicId] must be fetched again.
   bool staleTopic(int topicId, String channel, Object? data);
 }
 
-/// A plugin's share of the post action menu.
 @immutable
 class PostMenuContribution {
   const PostMenuContribution({
@@ -816,26 +568,14 @@ class PostMenuContribution {
     this.rebuildOn,
   });
 
-  /// For a feature with nothing to say about this post.
   static const PostMenuContribution none = PostMenuContribution();
 
-  /// What to offer, in the order it should appear.
   final List<PostAction> entries;
 
-  /// Whether the core Like entry must give way to [entries].
-  ///
-  /// Named after what Discourse's own client does — `dag.replace(LIKE, …)` —
-  /// because it is the same idea and for the same reason: where a feature has
-  /// taken over what a like *means*, offering the plain one writes to the wrong
-  /// place. A feature that only adds does not set this.
+  /// A feature which replaces Like semantics must suppress the core write path.
   final bool replacesLike;
 
-  /// Plugin-owned state which can change this contribution without changing
-  /// the post record or shell state.
-  ///
-  /// Core listens only while rendering this post menu, then asks the registry
-  /// for a fresh contribution. This keeps invalidation inside the plugin that
-  /// owns it without exposing a concrete shell controller to that plugin.
+  /// Listened to only while this post menu is rendered.
   final Listenable? rebuildOn;
 }
 

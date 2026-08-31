@@ -11,7 +11,6 @@ import 'chat_reactors.dart';
 import 'chat_search.dart';
 import 'chat_thread.dart';
 
-/// Chat's wire adapter over core's bounded, same-origin JSON transport.
 final class ChatApiClient implements ChatApi {
   const ChatApiClient(this._transport);
 
@@ -47,7 +46,6 @@ final class ChatApiClient implements ChatApi {
     clientId: clientId,
   );
 
-  /// People and existing conversations offered by core Chat's new-DM picker.
   @override
   Future<ChatDirectMessageSearchResults> searchChatDirectMessages({
     required String siteUrl,
@@ -75,10 +73,7 @@ final class ChatApiClient implements ChatApi {
     return ChatDirectMessageSearchResults.fromJson(body, siteUrl);
   }
 
-  /// Creates a direct-message channel from users and visible groups.
-  ///
-  /// One-to-one callers opt into [upsert], while group composition deliberately
-  /// leaves it false so the same people can have more than one group chat.
+  /// [upsert] is for one-to-one chats; group chats may legitimately share members.
   @override
   Future<ChatChannel> createChatDirectMessageChannel({
     required String siteUrl,
@@ -116,18 +111,7 @@ final class ChatApiClient implements ChatApi {
     return ChatChannel.fromJson(channel, siteUrl);
   }
 
-  /// Every chat channel this account follows, public and direct, with the
-  /// unread counts that belong beside them.
-  ///
-  /// Only followed channels come back, and the site caps the answer at 100
-  /// public channels and 75 direct ones. There is no paging here and nothing
-  /// asks for one: past that many followed channels a sidebar is not the
-  /// affordance anyway.
-  ///
-  /// A `403` is `Discourse::InvalidAccess` — chat is off, or this reader may
-  /// not use it — and arrives as a [SiteLookupException] like every other read.
-  /// `ChatController.loadChannels` swallows it, which is why the sidebar shows
-  /// nothing rather than an error.
+  /// The unpaginated server response caps public/direct channels at 100/75.
   @override
   Future<ChatChannels> chatChannels({
     required String siteUrl,
@@ -165,9 +149,7 @@ final class ChatApiClient implements ChatApi {
     return ChatChannel.fromJson(channel, siteUrl);
   }
 
-  /// Updates staff-editable channel metadata and returns the authoritative
-  /// channel serializer. An empty description is intentionally sent: core
-  /// normalizes it to null, which is how its own editor removes one.
+  /// Sends an empty description because core normalizes it to null for removal.
   @override
   Future<ChatChannel> updateChatChannel({
     required String siteUrl,
@@ -213,9 +195,8 @@ final class ChatApiClient implements ChatApi {
     return ChatChannel.fromJson(channel, siteUrl);
   }
 
-  /// Opens or closes a category channel through core's dedicated status
-  /// service. Read-only and archived are separate archive workflow states and
-  /// are deliberately not accepted here.
+  /// Only core's open/closed status service is valid here; archive states use a
+  /// separate workflow.
   @override
   Future<ChatChannel> updateChatChannelStatus({
     required String siteUrl,
@@ -244,7 +225,6 @@ final class ChatApiClient implements ChatApi {
     return ChatChannel.fromJson(channel, siteUrl);
   }
 
-  /// Moves one followed channel into or out of this account's starred bucket.
   @override
   Future<void> updateChatChannelStarred({
     required String siteUrl,
@@ -264,7 +244,6 @@ final class ChatApiClient implements ChatApi {
     );
   }
 
-  /// Updates the independent mute and push-notification channel preferences.
   @override
   Future<ChatMembership> updateChatChannelNotifications({
     required String siteUrl,
@@ -302,7 +281,6 @@ final class ChatApiClient implements ChatApi {
     return ChatMembership.fromJson(membership);
   }
 
-  /// Lists only public user identity, never another member's private settings.
   @override
   Future<ChatChannelMembersPage> chatChannelMembers({
     required String siteUrl,
@@ -353,7 +331,6 @@ final class ChatApiClient implements ChatApi {
     );
   }
 
-  /// Lists discoverable public channels using core's Browse Channels filters.
   @override
   Future<ChatChannelBrowsePage> browseChatChannels({
     required String siteUrl,
@@ -448,7 +425,6 @@ final class ChatApiClient implements ChatApi {
     return ChatMembership.fromJson(membership);
   }
 
-  /// Replaces one message's Markdown and selected uploads.
   @override
   Future<void> editChatMessage({
     required String siteUrl,
@@ -597,7 +573,6 @@ final class ChatApiClient implements ChatApi {
     );
   }
 
-  /// Queues core's asynchronous Markdown-to-HTML rebuild for one chat row.
   @override
   Future<void> rebakeChatMessage({
     required String siteUrl,
@@ -618,7 +593,6 @@ final class ChatApiClient implements ChatApi {
     );
   }
 
-  /// Lets core build the canonical `[chat]` transcript for a selection.
   @override
   Future<String> generateChatQuote({
     required String siteUrl,
@@ -650,8 +624,7 @@ final class ChatApiClient implements ChatApi {
     return markdown;
   }
 
-  /// Adds or removes one channel pin. Core uses the same route with method as
-  /// the state, rather than accepting a boolean body.
+  /// Core encodes pin state in the HTTP method, not a boolean body.
   @override
   Future<void> updateChatMessagePinned({
     required String siteUrl,
@@ -784,33 +757,8 @@ final class ChatApiClient implements ChatApi {
     return ChatSearchPage.fromJson(body, siteUrl);
   }
 
-  /// One page of a channel's messages, oldest first.
-  ///
-  /// Four shapes, and the caller picks exactly one:
-  ///
-  /// * nothing — the newest [pageSize] messages. The present, which is where
-  ///   "jump to now" lands.
-  /// * [fromLastRead] — the site resolves the target to this reader's
-  ///   `last_read_message_id` and takes the query's *around-target* branch: 25
-  ///   messages either side of where they left off. This is where opening a
-  ///   channel starts, and it is what Discourse's own client sends. A reader
-  ///   who has never opened the channel has no last-read, the target resolves
-  ///   to nil, and the answer is the newest page — the same bytes as sending
-  ///   nothing, which is why there is no separate case for it here.
-  /// * [before] — the page immediately older than a message already held, that
-  ///   message excluded.
-  /// * [after] — the same, forwards. Only reachable because [fromLastRead] can
-  ///   anchor the stream somewhere that is not the end; without it there would
-  ///   be nothing in front to fetch.
-  ///
-  /// [pageSize] is capped at 50 server side and sent explicitly so the number
-  /// in the code is the number that applies. The around-target branch ignores
-  /// it and answers with its own 25-and-25.
-  ///
-  /// Worth knowing rather than discovering: this `GET` writes. The controller
-  /// runs `update_membership_last_viewed_at`, so opening a channel touches
-  /// `last_viewed_at`. It does not touch `last_read_message_id` — that is
-  /// [markChatChannelRead]'s job — so nothing is marked read by reading it.
+  /// Exactly one window selector is allowed. Around-last-read ignores
+  /// [pageSize], and every GET updates `last_viewed_at` without marking reads.
   @override
   Future<ChatMessagePage> chatMessages({
     required String siteUrl,
@@ -834,13 +782,7 @@ final class ChatApiClient implements ChatApi {
       fromLastRead: fromLastRead,
     );
 
-    // Absent params are left out rather than sent empty, and the failure mode
-    // is worse than an error: `target_message_id=` casts to nil server side and
-    // is treated as *absent*, so `direction=past` with an empty target answers
-    // with the newest page again rather than the one before it. A load-older
-    // that silently returns what the reader already has, forever. (A target
-    // that does not exist answers 404, and `page_size=0` answers 400 — both
-    // loud. This one is the quiet one.)
+    // Empty target params resolve to newest and make pagination repeat forever.
     final query = [
       'page_size=$pageSize',
       if (fromLastRead) 'fetch_from_last_read=true',
@@ -868,22 +810,8 @@ final class ChatApiClient implements ChatApi {
     );
   }
 
-  /// Credits the reader with everything in a channel up to [messageId].
-  ///
-  /// The id goes in the query string rather than the body, which is where
-  /// Discourse's own client puts it. Nothing comes back worth reading: the
-  /// answer is `{"success":"OK"}`, and what the site now believes about the
-  /// counts arrives on the tracking channel rather than here.
-  ///
-  /// Only ever forwards. `ensure_message_id_recency` refuses an id older than
-  /// the one already recorded, so a stale write — one whose reader has since
-  /// scrolled on — is answered rather than obeyed. That makes this safe to
-  /// send out of order, which a debounced caller inevitably does.
-  ///
-  /// The site does more than move a number: it marks the mentions in what was
-  /// just read as read too, and in a direct channel without threading it
-  /// catches the thread memberships up as well. So this is the whole of
-  /// "I have seen it", not a piece of it.
+  /// The server advances this cursor monotonically, so debounced writes may
+  /// arrive out of order; exact counts arrive later on the tracking channel.
   @override
   Future<void> markChatChannelRead({
     required String siteUrl,
@@ -947,10 +875,7 @@ final class ChatApiClient implements ChatApi {
       body,
       siteUrl,
       window: after == null
-          // With no explicit target the thread endpoint implicitly resolves
-          // the membership's last-read id and returns it in response metadata.
-          // Bound around that server-selected target just as we do for an
-          // explicit notification destination.
+          // Without a target, the endpoint selects membership's last-read id.
           ? ChatMessagePageWindow.aroundTarget
           : ChatMessagePageWindow.retainOldest,
       maximumMessages: pageSize,
@@ -1127,8 +1052,7 @@ final class ChatApiClient implements ChatApi {
     if (reaction.isNotEmpty && reaction.length <= maximumSearchTermLength) {
       return;
     }
-    // Do not include the value: plugin responses can supply it and errors may
-    // be forwarded to diagnostics.
+    // Plugin response values may reach diagnostics.
     throw ArgumentError(
       'Reaction names must contain between 1 and '
       '$maximumSearchTermLength characters.',
@@ -1141,8 +1065,7 @@ final class ChatApiClient implements ChatApi {
   }) {
     if ((!allowEmpty && value.isEmpty) ||
         value.length > maximumSearchTermLength) {
-      // Do not include the value: composer input can contain private names and
-      // errors may be forwarded to diagnostics.
+      // Composer values can contain private names and may reach diagnostics.
       throw ArgumentError(
         'Composer lookup values must be ${allowEmpty ? 'at most' : 'between 1 and'} '
         '$maximumSearchTermLength characters.',
@@ -1192,13 +1115,7 @@ final class ChatApiClient implements ChatApi {
     return jsonIntOrNull(body['message_id']);
   }
 
-  /// Adds or removes one emoji reaction from a chat message for this reader.
-  ///
-  /// Unlike post reactions, chat reactions are independent: adding one does
-  /// not replace another. The route therefore takes an explicit action rather
-  /// than behaving as a toggle. Its success response carries no message state;
-  /// the controller projects the change immediately and keeps that projection
-  /// when this write succeeds.
+  /// The reaction route requires an explicit action and returns no message state.
   @override
   Future<void> setChatMessageReaction({
     required String siteUrl,
@@ -1222,11 +1139,7 @@ final class ChatApiClient implements ChatApi {
     );
   }
 
-  /// Who gave a chat message one reaction, from chat's own lazy user route.
-  ///
-  /// This endpoint paginates differently from post reactions (`page` rather
-  /// than an offset) and calls its filter `emoji`. The UI asks for the largest
-  /// legal first page, matching the bounded eager list used for topic posts.
+  /// This endpoint uses `page` pagination and names its reaction filter `emoji`.
   @override
   Future<ChatMessageReactors> chatMessageReactors({
     required String siteUrl,

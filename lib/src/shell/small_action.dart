@@ -10,20 +10,14 @@ import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'relative_time.dart';
 
-/// How a small action reads: an icon and the sentence it completes.
-///
-/// The wording follows Discourse's own `action_codes` strings, so a topic
-/// reads the same here as it does on the web.
 @immutable
 class SmallActionDescription {
   const SmallActionDescription({required this.icon, required this.phrase});
 
   final DIconData icon;
 
-  /// The sentence after the actor's name, e.g. `closed this topic`.
   final String phrase;
 
-  /// The description for [post], or null if it is not a small action.
   static SmallActionDescription? of(Post post, {PluginRegistry? registry}) {
     if ((registry ?? PluginRegistry.empty).smallAction(post)
         case final contribution?) {
@@ -73,12 +67,8 @@ class SmallActionDescription {
     };
   }
 
-  /// What Discourse falls back to for an action code it has no icon for.
   static const DIconData fallbackIcon = DIcons.exclamation;
 
-  /// Straight from `ICONS` in Discourse's `components/post/small-action.gjs`,
-  /// so a notice carries the same icon here as it does on the web. `forwarded`
-  /// is ours: Discourse has no entry for it and would fall back.
   static const Map<String, DIconData> _icons = {
     'closed.enabled': DIcons.lock,
     'autoclosed.enabled': DIcons.lock,
@@ -109,11 +99,6 @@ class SmallActionDescription {
   };
 }
 
-/// A moderator notice in the post stream — "Martin Brennan closed this topic".
-///
-/// Kept to one muted line so it reads as an aside next to the posts around it.
-/// Some small actions carry a message of their own (a close reason, say); that
-/// is drawn underneath.
 class SmallActionTile extends StatelessWidget {
   const SmallActionTile({super.key, required this.post, this.siteUrl});
 

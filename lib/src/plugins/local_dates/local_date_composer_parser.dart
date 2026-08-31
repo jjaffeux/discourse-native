@@ -7,8 +7,6 @@ import 'local_date_environment.dart';
 
 const localDateComposerSyntaxId = 'discourse-local-dates/local-date';
 
-/// Typed view retained by Local Dates projections while core keeps them
-/// opaque.
 abstract interface class LocalDateComposerProjectionData {
   LocalDateComposerBlock get localDateBlock;
 }
@@ -76,7 +74,6 @@ class LocalDateMarkupAttribute {
       value.isEmpty || value.contains(_unquotedValuePattern);
 }
 
-/// Typed compatibility helpers for Local Dates-owned tests and widgets.
 extension LocalDateComposerEditing on MarkdownEditingController {
   List<LocalDateComposerBlock> get localDateBlocks => [
     for (final occurrence in syntaxBlocks) ?_localDateBlock(occurrence),
@@ -156,11 +153,7 @@ class LocalDateComposerBlock {
       offset >= start && (includeEnd ? offset <= end : offset < end);
 }
 
-/// Losslessly recognizes inline local-date markup outside inline/fenced code.
-/// Ambiguous, malformed, or duplicate-attribute tokens remain ordinary text.
-///
-/// [knownCodeRanges] lets a caller that has already scanned [source] hand its
-/// answer over rather than have the scan repeated here.
+/// Leaves ambiguous, malformed, duplicate-attribute, and code-contained tags raw.
 List<LocalDateComposerBlock> parseLocalDateComposerBlocks(
   String source, {
   required LocalDateEnvironment environment,
@@ -170,9 +163,7 @@ List<LocalDateComposerBlock> parseLocalDateComposerBlocks(
   final codeRanges = knownCodeRanges ?? CodeRanges.of(scanMarkdown(source));
   final blocks = <LocalDateComposerBlock>[];
   var offset = 0;
-  // The end of a stretch already shown to hold no closer, and the offset it
-  // was shown from. Without it, a line of openers that never close re-walks
-  // the rest of that line once per opener.
+  // Cache spans with no closer to avoid rescanning the line per opener.
   var barrenFrom = -1;
   var barrenTo = -1;
   while (offset < source.length) {
@@ -196,8 +187,7 @@ List<LocalDateComposerBlock> parseLocalDateComposerBlocks(
       header.contentStart,
     );
     if (close == null) {
-      // Conclusive only as far as the first quote: a scan starting inside one
-      // would begin outside it, and could find a `]` this one skipped.
+      // A scan starting inside the first quote has different quote state.
       barrenFrom = header.contentStart;
       barrenTo = firstQuoteAt ?? scannedTo;
       offset = opening + 1;
@@ -269,18 +259,8 @@ _TagHeader? _tagAt(String source, int opening) {
   return null;
 }
 
-/// The `]` closing a tag whose attributes start at [start].
-///
-/// Bounded to the line, because upstream's matchers are `/\[date=.+?\]/` and
-/// `/\[date-range .+?\]/` with no `s` flag: a tag broken over a newline is
-/// not a tag on the server, so it must not be one here either. Only a quoted
-/// attribute value could previously hold one open across a break, and only
-/// this client would then have drawn it.
-///
-/// [firstQuoteAt] is where the scan first opened a quote and [scannedTo] how
-/// far it reached. A caller that found no closer has thereby shown every
-/// offset up to [firstQuoteAt] barren too, since a scan starting in that
-/// stretch reads the same characters in the same state.
+/// Upstream tag regexes do not cross lines. [firstQuoteAt] bounds how much of a
+/// failed scan can safely be cached when a later opener changes quote state.
 ({int? close, int? firstQuoteAt, int scannedTo}) _closingBracket(
   String source,
   int start,
@@ -519,15 +499,7 @@ bool _namePart(int codeUnit) =>
     codeUnit == 0x2D ||
     (codeUnit >= 0x30 && codeUnit <= 0x39);
 
-/// Every option this client can read out of `[date]` markup, in the order it
-/// writes them back.
-///
-/// Upstream's `local-dates` can grow one at a time, and what this client does
-/// with an option it has never heard of is refuse to touch the block — the
-/// editor declines to open it, and chat preview declines to draw it — rather
-/// than rewrite it without the part it did not understand. Three places asked
-/// that question and each carried its own copy of the answer, so a new option
-/// taught to one of them was a block silently rewritten by another.
+/// Write order is also the allowlist; unknown attributes keep a block raw.
 const List<String> localDateAttributesInWriteOrder = [
   'date',
   'time',
@@ -542,8 +514,6 @@ const List<String> localDateAttributesInWriteOrder = [
   'calendar',
 ];
 
-/// [localDateAttributesInWriteOrder] as [LocalDateComposerAttribute.normalizedName]
-/// spells them, which is what an author's arbitrary casing is matched against.
 final Set<String> localDateAttributeNames = {
   for (final name in localDateAttributesInWriteOrder) name.toLowerCase(),
 };

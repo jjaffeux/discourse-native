@@ -1,12 +1,3 @@
-/// What day a moment falls on, and what that day is called.
-///
-/// A topic's stream and a chat channel's both put a date line above each new
-/// day, and had each written this out: the same truncation to midnight, the
-/// same today/yesterday naming with the same warning about DST above it, and
-/// the same table of month names. Nothing about a calendar day differs between
-/// the two, so a second copy could only ever drift.
-///
-/// Pure Dart, because `chat_stream.dart` builds its rows without a binding.
 library;
 
 /// The reader's midnight at or before [value].
@@ -20,8 +11,6 @@ DateTime? calendarDay(DateTime? value) {
   return DateTime(local.year, local.month, local.day);
 }
 
-/// Today and yesterday by name, everything else by date.
-///
 /// Days are compared as calendar dates, not elapsed time: local midnights on
 /// either side of a DST change sit 23 or 25 hours apart, and a truncating
 /// duration difference would then misname the days after a transition.
@@ -34,7 +23,6 @@ String dayLabel(DateTime day, {required DateTime now}) {
   return '${day.day} ${monthName(day.month)} ${day.year}';
 }
 
-/// The name of a month numbered the way [DateTime.month] numbers it.
 String monthName(int month) => _months[month - 1];
 
 const List<String> _months = [

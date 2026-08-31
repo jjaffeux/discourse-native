@@ -129,8 +129,6 @@ void main() {
     });
 
     test('unescapes the fancy one when it is all there is', () {
-      // `fancy_title` is HTML — smart quotes as entities, ampersands escaped —
-      // and widgets are owed the text behind it, not the entities.
       expect(
         jsonTitle(null, '&ldquo;quoted&rdquo; &amp; more'),
         '\u201cquoted\u201d & more',

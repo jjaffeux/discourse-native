@@ -21,7 +21,6 @@ const chatNotificationFeed = PluginNotificationFeedSource(
   emptyMessage: 'You don’t have any chat notifications yet.',
 );
 
-/// Chat-owned projection of its filtered notification feed.
 class ChatUserMenuNotifications extends StatelessWidget {
   const ChatUserMenuNotifications({
     super.key,

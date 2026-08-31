@@ -4,17 +4,8 @@ import '../theme/d_icons.dart';
 import 'sidebar.dart';
 import 'topic.dart';
 
-/// How many top-level categories Discourse core shows when no navigation
-/// categories have been chosen explicitly.
 const int topSidebarCategoriesToShow = 5;
 
-/// Builds the native equivalent of core's built-in Categories section.
-///
-/// A connected account's `sidebar_category_ids` wins when it is non-empty.
-/// Anonymous visitors use the site's configured defaults when present. The
-/// fallback is core's five most active root categories, or its first five
-/// positioned roots when fixed positions are enabled. Explicit sets are
-/// displayed hierarchically in core's configured order.
 SidebarSection buildCategorySidebarSection({
   required List<TopicCategory> categories,
   required bool connected,
@@ -152,10 +143,6 @@ int _comparePosition(TopicCategory left, TopicCategory right) {
   return positioned != 0 ? positioned : left.id.compareTo(right.id);
 }
 
-/// The native list destination represented by one category record.
-///
-/// Public so the full categories screen can push the same route as the
-/// sidebar without making it a selected sidebar root.
 SidebarDestination buildCategoryDestination(
   TopicCategory category, {
   required Map<int, TopicCategory> categoriesById,

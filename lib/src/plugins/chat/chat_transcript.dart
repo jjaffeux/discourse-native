@@ -11,7 +11,6 @@ import '../../shell/site_url.dart';
 import '../../shell/user_card.dart';
 import '../../theme/app_theme.dart';
 
-/// The styled aside produced by core for a `[chat quote]` block.
 class ChatTranscriptData {
   const ChatTranscriptData({
     required this.username,

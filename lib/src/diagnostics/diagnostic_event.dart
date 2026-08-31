@@ -10,7 +10,6 @@ enum DiagnosticHttpState { pending, completed, failed, cancelled, interrupted }
 
 enum DiagnosticSessionState { started, ended }
 
-/// One immutable item in the diagnostics timeline.
 sealed class DiagnosticEvent {
   DiagnosticEvent({
     required this.id,

@@ -2,18 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-/// The rect an anchor occupies in the coordinates [overlay] lays its children
-/// out in, or null when there is nothing laid out to point at.
-///
-/// Which overlay is the caller's to decide — an [OverlayPortal]'s enclosing
-/// one, a route's, the root navigator's — but what a rect in it means is not,
-/// and five callers had each written this out with a different idea of when
-/// there is no rect to give. The union of their guards is the right one:
-/// `localToGlobal` walks the render tree from [anchor] up to [overlay], and a
-/// detached box has no path to walk — it asserts rather than answering. That
-/// is the state a panel is in for the frame after whatever it hangs off has
-/// gone, which is exactly when this is asked; answering null there is what
-/// puts [AnchoredLayout] on its centered fallback.
 Rect? anchorRect({required RenderBox? anchor, required RenderBox? overlay}) {
   if (anchor == null || overlay == null) return null;
   if (!anchor.attached || !anchor.hasSize || !overlay.attached) return null;
@@ -26,18 +14,6 @@ Rect? anchorRect({required RenderBox? anchor, required RenderBox? overlay}) {
   );
 }
 
-/// Places a floating panel under whatever it is about, flipping above it when
-/// there is no room below and sliding along the edge rather than off it.
-///
-/// A layout delegate rather than a positioned overlay child because the panel's
-/// height is not known until it has been built — how many rows a list has, how
-/// long a bio runs — and where it goes depends on that. Being asked for a
-/// position after the child is measured is exactly what this gets.
-///
-/// [anchor] is in the coordinates of whatever is being laid out in: the overlay
-/// for a dialog, the overlay for an [OverlayPortal]. A null one means the thing
-/// it was about is no longer laid out, and the panel is centered instead of
-/// dropped — an aside with nowhere to point is still worth reading.
 class AnchoredLayout extends SingleChildLayoutDelegate {
   const AnchoredLayout({
     required this.anchor,
@@ -49,22 +25,12 @@ class AnchoredLayout extends SingleChildLayoutDelegate {
 
   final Rect? anchor;
 
-  /// What the panel is allowed to grow to, before the window is taken into
-  /// account. A narrower window wins.
   final double maxWidth;
 
-  /// Between the panel and the thing it hangs off.
   final double gap;
 
-  /// The smallest gap between the panel and the window's own edges.
   final double margin;
 
-  /// Whether to try above the anchor before below it.
-  ///
-  /// The composer's completion list wants this. The field it hangs off sits at
-  /// the bottom of the window, so "below unless it does not fit" happens to
-  /// land above anyway — and a layout that is right by accident stops being
-  /// right the first time the panel changes height.
   final bool preferAbove;
 
   @override

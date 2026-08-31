@@ -3,7 +3,6 @@ import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import '../../plugin_api/plugin_icon_catalog.dart';
 import '../../theme/d_icon.dart';
 
-/// Optional artwork shipped with Discourse Poll.
 abstract final class PollIcons {
   static const DIconData squarePollHorizontal = DIconData(
     'square-poll-horizontal',

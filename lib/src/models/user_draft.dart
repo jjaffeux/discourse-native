@@ -3,11 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'composer_draft.dart';
 import 'json.dart';
 
-/// One server-side draft from `/drafts.json`.
-///
-/// [data] is the same portable composer payload used when a topic is opened.
-/// The list endpoint also supplies enough topic metadata to name and resume a
-/// draft without first rendering a topic-list row.
 @immutable
 class UserDraft {
   const UserDraft({
@@ -66,8 +61,6 @@ class UserDraft {
 
   static final RegExp _whitespace = RegExp(r'\s+');
 
-  /// The list endpoint names the category beside existing topics, while a
-  /// new-topic draft keeps it inside the portable composer payload.
   int? get displayCategoryId => categoryId ?? data?.categoryId;
 
   bool get isNewTopic => key.startsWith(ComposerDraft.newTopicDraftKey);
@@ -79,7 +72,6 @@ class UserDraft {
       key.startsWith('edit_topic') ||
       (data?.action.startsWith('edit') ?? false);
 
-  /// The composer modes this client can faithfully restore today.
   bool get canResume =>
       data != null &&
       ((key == ComposerDraft.newTopicDraftKey) ||
@@ -103,11 +95,6 @@ class UserDraft {
     return 'Reply draft';
   }
 
-  /// A compact form of the reply for the draft row.
-  ///
-  /// Wire-parsed drafts compute this once because a row reads it for both
-  /// visibility and display on every rebuild. The fallback preserves the
-  /// derived behavior of manually constructed, including const, drafts.
   String get excerpt => _excerpt ?? _normalizeExcerpt(data?.reply ?? '');
 
   static String _normalizeExcerpt(String source) =>

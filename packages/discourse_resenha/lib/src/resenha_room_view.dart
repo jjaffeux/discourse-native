@@ -82,11 +82,6 @@ class ResenhaRoomView extends StatelessWidget {
   }
 }
 
-/// The room presentation, isolated from shell navigation and site selection.
-///
-/// Keeping those app-level concerns in [ResenhaRoomView] makes the important
-/// room states and controls independently renderable in widget tests while the
-/// production view continues to use the same [ResenhaController].
 class ResenhaRoomContent extends StatefulWidget {
   const ResenhaRoomContent({
     super.key,
@@ -695,9 +690,7 @@ class _RtcTrackRendererState extends State<_RtcTrackRenderer> {
   Future<void> _disposeRenderer() async {
     try {
       await _renderer.dispose();
-    } catch (_) {
-      // Native renderer teardown is best-effort during widget disposal.
-    }
+    } catch (_) {}
   }
 
   Future<void> _disposeStream(rtc.MediaStream stream) async {

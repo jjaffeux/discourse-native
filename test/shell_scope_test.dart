@@ -108,7 +108,6 @@ void main() {
     expect(builds, 1);
     expect(find.text('0'), findsOneWidget);
 
-    // Loading notifies the shell, but the instance count is still zero.
     await controller.load();
     await tester.pump();
     expect(builds, 1);

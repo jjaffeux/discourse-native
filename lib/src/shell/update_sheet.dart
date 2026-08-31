@@ -20,14 +20,6 @@ Future<void> showUpdateSheet(BuildContext context) {
   );
 }
 
-/// What the running build is, which channel it follows, and whatever is on
-/// offer.
-///
-/// Deliberately not a StatefulWidget holding its own async state, which is what
-/// [_AddInstanceForm] does. A site lookup can die with the sheet that started
-/// it; a download must not. Closing this sheet mid-download and opening it
-/// again has to show the same download still running, so the state lives on the
-/// controller and this only reads it.
 class _UpdatePanel extends StatelessWidget {
   const _UpdatePanel();
 
@@ -67,8 +59,6 @@ class _UpdatePanel extends StatelessWidget {
                   ButtonSegment(value: channel, label: Text(channel.label)),
               ],
               selected: {updates.channel},
-              // Locked while something is in flight: switching would discard a
-              // download that is still being written to.
               onSelectionChanged: busy
                   ? null
                   : (selection) => updates.setChannel(selection.first),

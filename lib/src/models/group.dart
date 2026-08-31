@@ -4,11 +4,6 @@ import '../plugin_api/plugin_data.dart';
 import 'json.dart';
 import 'topic.dart';
 
-/// One group returned by either the directory or detail serializer.
-///
-/// Capability booleans are the server guardian's answer for the current
-/// account. A field omitted by a less privileged serializer therefore safely
-/// defaults to false rather than being inferred from membership client-side.
 @immutable
 final class Group {
   const Group({
@@ -161,7 +156,6 @@ final class Group {
   final String? fullName;
   final bool automatic;
 
-  /// Null means the serializer withheld the member count.
   final int? userCount;
 
   final int mentionableLevel;
@@ -282,7 +276,6 @@ final class GroupUserReference {
   final String? avatarUrl;
 }
 
-/// One group-directory page and its server-authored continuation.
 @immutable
 final class GroupDirectoryPage {
   const GroupDirectoryPage({
@@ -319,7 +312,6 @@ final class GroupDirectoryPage {
   String? get nextPagePath => TopicList.asJsonPath(loadMoreUrl);
 }
 
-/// The detail serializer plus the names used by the web group switcher.
 @immutable
 final class GroupDetail {
   const GroupDetail({required this.group, this.visibleGroupNames = const []});
@@ -743,7 +735,6 @@ final class GroupMembershipMutationResult {
   final List<String> skippedUsernames;
 }
 
-/// One forum invitation scoped to this group.
 @immutable
 final class GroupInvite {
   const GroupInvite({required this.id, this.link, this.email, this.expiresAt});

@@ -266,13 +266,6 @@ class ResenhaRoom {
   final ResenhaMembership? membership;
   final ResenhaRecording? recording;
 
-  /// The fields anything here replaces, over the twenty-odd it does not.
-  ///
-  /// Written once. Three callers used to spell the whole record out, so a
-  /// field added to [ResenhaRoom] was a field one of them silently dropped.
-  /// Nulling follows the shape `DiscourseInstance.copyWith` uses: a null
-  /// argument means "unchanged", and the one field anything actually clears
-  /// says so with a flag.
   ResenhaRoom copyWith({
     List<ResenhaParticipant>? participants,
     bool? canManage,

@@ -1,12 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-/// Delivers the Discourse URL attached to an Apple notification after the user
-/// opens it.
-///
-/// The native runners retain cold-start taps until this stream is listening.
-/// Other platforms expose an empty stream, so notification navigation remains
-/// an optional platform capability.
 final class PlatformNotificationOpens {
   PlatformNotificationOpens({
     EventChannel? channel,

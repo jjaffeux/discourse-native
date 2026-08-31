@@ -12,12 +12,6 @@ import 'post_quote.dart';
 import 'route_aware_selection_area.dart';
 import 'shell_scope.dart';
 
-/// Makes one post body selectable and offers Discourse's quote actions.
-///
-/// A separate selection region per post deliberately prevents a drag from
-/// attributing text from two different posts to one author. Flutter only
-/// opens its stock menu automatically for touch selection; this owns the
-/// overlay so the same toolbar also appears after a desktop mouse drag.
 class PostTextSelection extends StatefulWidget {
   const PostTextSelection({
     super.key,

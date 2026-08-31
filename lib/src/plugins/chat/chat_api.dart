@@ -10,7 +10,6 @@ enum ChatReactionAction { add, remove }
 
 typedef ChatMessageMove = ({int destinationChannelId, int firstMovedMessageId});
 
-/// Wire contract owned by the Chat module.
 abstract interface class ChatApi {
   Future<ChatDirectMessageSearchResults> searchChatDirectMessages({
     required String siteUrl,

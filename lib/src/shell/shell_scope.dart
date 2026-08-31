@@ -3,11 +3,6 @@ import 'package:flutter/widgets.dart';
 import '../plugin_api/plugin_scope.dart';
 import 'shell_controller.dart';
 
-/// Makes the [ShellController] available to the widgets below it.
-///
-/// Widgets normally use [read] for commands and [ShellSelector] for rendered
-/// state. [of] remains available for the rare region that deliberately depends
-/// on every shell change.
 class ShellScope extends InheritedNotifier<ShellController> {
   ShellScope({
     super.key,
@@ -31,42 +26,26 @@ class ShellScope extends InheritedNotifier<ShellController> {
     return scope!.notifier!;
   }
 
-  /// The controller without subscribing [context] to its notifications.
   static ShellController read(BuildContext context) {
     final scope = context.getInheritedWidgetOfExactType<ShellScope>();
     assert(scope != null, 'No ShellScope found above this widget');
     return scope!.notifier!;
   }
 
-  /// Subscribes only to controller replacement, not controller notifications.
-  ///
-  /// State owners whose callbacks capture a [ShellController] use this to
-  /// replace those callbacks when the app replaces its dependency graph,
-  /// without rebuilding for every ordinary shell state change.
   static ShellController identityOf(BuildContext context) =>
       _ShellControllerIdentity.of(context);
 
-  /// The controller identity without subscribing to ordinary shell changes,
-  /// or null for cooked fragments rendered outside the application shell.
   static ShellController? maybeIdentityOf(BuildContext context) => context
       .dependOnInheritedWidgetOfExactType<_ShellControllerIdentity>()
       ?.controller;
 
-  /// The controller, or null where the shell is not an ancestor — widgets that
-  /// also render outside it, such as a quote in a test.
   static ShellController? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<ShellScope>()?.notifier;
 
-  /// The controller without subscribing [context], or null outside the shell.
   static ShellController? maybeRead(BuildContext context) =>
       context.getInheritedWidgetOfExactType<ShellScope>()?.notifier;
 }
 
-/// Rebuilds only when the selected part of the shell changes.
-///
-/// Unlike [ShellScope.of], this listens to the controller directly and compares
-/// the selected value before rebuilding. The private identity scope still
-/// updates the subscription if an ancestor supplies a different controller.
 class ShellSelector<T> extends StatefulWidget {
   const ShellSelector({
     super.key,

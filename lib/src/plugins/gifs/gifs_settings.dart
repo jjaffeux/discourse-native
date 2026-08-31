@@ -9,7 +9,6 @@ const gifsSettingsDataKey = PluginDataKey<GifsSettings>(
   name: 'site-settings',
 );
 
-/// Client settings for Discourse's authenticated Klipy proxy.
 @immutable
 final class GifsSettings {
   const GifsSettings({

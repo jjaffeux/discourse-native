@@ -27,22 +27,6 @@ import 'shell_sheet.dart';
 import 'topic_change_owner.dart';
 import 'topic_share.dart';
 
-/// What can be done with one post, kept out of the way until it is wanted.
-///
-/// Nothing is drawn per post until the pointer is over it, which is what keeps
-/// a long topic from reading as a column of buttons. On a touch screen there is
-/// no pointer to hover, so the same actions arrive as a sheet when a
-/// non-selectable part of the post is held. Holding the body belongs to text
-/// selection and its quote toolbar.
-///
-/// Built on [OverlayPortal] rather than a package: the overlay is tied to this
-/// widget's lifetime, so it cannot outlive the row it belongs to when the list
-/// recycles it.
-///
-/// The menu is positioned from the post's *visible* rectangle rather than being
-/// pinned to its top edge. A long post is usually taller than the viewport, and
-/// pinning would leave the menu above the fold — drawn over the header, or off
-/// the window entirely.
 class PostActions extends StatefulWidget {
   const PostActions({
     super.key,
@@ -69,27 +53,14 @@ class _PostActionsState extends State<PostActions> {
     debugLabel: 'First post action',
   );
 
-  /// Where the menu should sit, in global coordinates. Null once the post has
-  /// scrolled out of sight.
   final ValueNotifier<Rect?> _anchor = ValueNotifier(null);
 
   ScrollPosition? _scroll;
 
-  /// Set when the list moves under a stationary pointer.
-  ///
-  /// Rows slide beneath the cursor as you scroll, and each one entering it
-  /// would pop its own menu open. Keep every menu closed until scrolling has
-  /// stopped and the pointer itself moves again.
   bool _suppressed = false;
 
-  /// A menu opened from the toolbar lives in a separate overlay. Keep the
-  /// toolbar alive while the pointer travels between those two overlays.
   bool _overflowOpen = false;
 
-  /// The post and toolbar are separate mouse annotations because the latter is
-  /// painted in an overlay. Embedders may report their enter and exit callbacks
-  /// in either order, so retain both facts instead of letting the last callback
-  /// win.
   final Set<_PostActionsHoverTarget> _hoveredTargets = {};
 
   bool get _pointerInside => _hoveredTargets.isNotEmpty;
@@ -115,17 +86,11 @@ class _PostActionsState extends State<PostActions> {
     if (_scroll?.isScrollingNotifier.value == true) _hideForScroll();
   }
 
-  /// Stops both painting and positioning work for the duration of a scroll.
-  ///
-  /// The position listener also covers synchronous jumps, while
-  /// [ScrollPosition.isScrollingNotifier] closes the toolbar at gesture start,
-  /// before the first changed pixel arrives.
   void _hideForScroll() {
     _suppressed = true;
     _closeNow(force: true);
   }
 
-  /// The part of the post actually on screen, which is what the menu hangs off.
   void _updateAnchor() {
     final box = context.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize || !box.attached) {
@@ -143,7 +108,6 @@ class _PostActionsState extends State<PostActions> {
 
     final bounds = viewport.localToGlobal(Offset.zero) & viewport.size;
     final visible = post.intersect(bounds);
-    // Scrolled past entirely: there is nothing to point at any more.
     _anchor.value = visible.height <= 0 || visible.width <= 0 ? null : visible;
   }
 
@@ -154,7 +118,6 @@ class _PostActionsState extends State<PostActions> {
     if (!_portal.isShowing) _portal.show();
   }
 
-  /// A real pointer movement, as opposed to a row arriving under a still one.
   void _pointerMoved(_PostActionsHoverTarget target) {
     _hoveredTargets.add(target);
     if (_scroll?.isScrollingNotifier.value == true) return;
@@ -181,11 +144,6 @@ class _PostActionsState extends State<PostActions> {
     });
   }
 
-  /// Opens the same compact menu as hover and puts keyboard focus inside it.
-  ///
-  /// A post always has focusable content in its header, so the standard context
-  /// menu keys can be handled by this ancestor without adding another tab stop
-  /// for every post in a long topic.
   void _openFromKeyboard() {
     _suppressed = false;
     _open();
@@ -195,7 +153,6 @@ class _PostActionsState extends State<PostActions> {
     });
   }
 
-  /// Instant, with nothing to wait out beyond the current pointer update.
   void _closeNow({bool force = false}) {
     if (_overflowOpen && !force) return;
     if (_portal.isShowing) {
@@ -210,10 +167,6 @@ class _PostActionsState extends State<PostActions> {
     if (!open && !_pointerInside) _closeNow();
   }
 
-  /// Captures a popover action's button before closing the toolbar that owns
-  /// it. Once the portal is hidden its button context is detached, so asking
-  /// the action to locate itself later would either fail or anchor to the much
-  /// larger post context that contributed it.
   void _invokeFrom(PostAction action, BuildContext anchorContext) {
     final anchored = action.onInvokeAnchored;
     final anchor = anchored == null
@@ -235,16 +188,6 @@ class _PostActionsState extends State<PostActions> {
     }
   }
 
-  /// What this reader may do with this post, in the order they are offered.
-  ///
-  /// Every core entry is gated on an answer the site gave — `can_edit`,
-  /// `can_delete` and `can_recover` come from the guardian that already weighed
-  /// ownership, staff, the edit window and the state of the topic. None of that
-  /// is worked out here, because none of it can be.
-  ///
-  /// An optional site feature can add its own, and can take the place of Like
-  /// where it has taken over what liking means. That is gated on the post's own
-  /// payload, so it too is an answer the site gave.
   ({List<PostAction> actions, Listenable? rebuildOn}) _actions(
     BuildContext context,
     ShellController controller,
@@ -284,13 +227,7 @@ class _PostActionsState extends State<PostActions> {
 
     return (
       actions: [
-        // First, and furthest from Delete: it is the one thing here people do
-        // over and over while reading, and the only one they do without meaning
-        // to change anything.
         ...contribution.entries,
-        // Offered only while it would do something. A post already liked past
-        // the site's undo window keeps its filled heart in the count underneath,
-        // which says the same thing without a button that refuses.
         if (!contribution.replacesLike && post.canToggleLike)
           PostAction(
             icon: post.liked ? DIcons.heart : DIcons.farHeart,
@@ -339,8 +276,6 @@ class _PostActionsState extends State<PostActions> {
         if (postUrl case final url?)
           PostAction(
             icon: DIcons.upRightFromSquare,
-            // Share is not in Core's default post_menu (Copy link is), but keep
-            // the native sharing surface available through More actions.
             placement: PostActionPlacement.overflow,
             label: 'Share',
             tooltip: 'Share this post',
@@ -551,10 +486,6 @@ class _PostActionsState extends State<PostActions> {
             label: 'Delete',
             tooltip: 'Delete this post',
             destructive: true,
-            // Unconfirmed: a deleted post stays in the stream with Undelete in
-            // place of Delete, so the undo is one click away in the same menu —
-            // which is a better answer to a misclick than a dialog on every
-            // deliberate one.
             onInvoke: () => _report(controller, controller.deletePost(post)),
           ),
       ],
@@ -583,8 +514,6 @@ class _PostActionsState extends State<PostActions> {
     );
   }
 
-  /// Core's canonical post URL. The opening post names the topic itself;
-  /// numbered replies append their post number.
   String? _postShareUrl(ShellController controller) {
     final instance = controller.currentInstance;
     final topic = controller.currentTopic;
@@ -637,8 +566,6 @@ class _PostActionsState extends State<PostActions> {
     )?.showSnackBar(SnackBar(content: Text(message)));
   }
 
-  /// Surfaces a refusal. Success says nothing — the post itself changes, which
-  /// is the only confirmation worth showing.
   Future<void> _report(ShellController controller, Future<String?> work) async {
     final error = await work;
     if (error == null ||
@@ -742,7 +669,6 @@ class _PostActionsState extends State<PostActions> {
   }
 
   Widget _buildActionList(BuildContext context, List<PostAction> actions) {
-    // Nothing this reader may do: no menu, and no hover target for one.
     if (actions.isEmpty) return widget.child;
 
     // Hover is wired unconditionally: a MouseRegion simply never fires without
@@ -811,9 +737,6 @@ class _PostActionsMenu extends StatelessWidget {
     required this.onInvoke,
   });
 
-  /// The follower needs a width to align its right edge against, and it has to
-  /// be known before the menu is laid out — so it is computed rather than
-  /// measured.
   static double widthFor(List<PostAction> actions) =>
       (actions.length -
           (_overflowActions(actions).length > 1
@@ -849,8 +772,6 @@ class _PostActionsMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final overflowActions = _overflowActions(actions);
-    // Core avoids an ellipsis which only hides one action: the indirection
-    // would cost more space and effort than the action itself.
     final collapse = overflowActions.length > 1;
     final leadingActions = _leadingActions(actions, collapse: collapse);
     final trailingActions = _trailingActions(actions);

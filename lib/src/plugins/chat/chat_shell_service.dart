@@ -32,7 +32,6 @@ const chatShellService = PluginServiceKey<ChatShellService>(
   name: 'shell',
 );
 
-/// Chat's routing, hydration, and bookmark integration for one shell session.
 final class ChatShellService
     implements
         Listenable,

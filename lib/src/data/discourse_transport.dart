@@ -7,15 +7,6 @@ import 'discourse_api_contracts.dart';
 import 'discourse_request_coordinator.dart';
 import 'http_transport.dart';
 
-/// The ordinary JSON request boundary used by [DiscourseApi].
-///
-/// Route construction and domain parsing stay in the API. This layer owns the
-/// invariants that every ordinary request shares: bounded transport, user API
-/// headers, read/write failure semantics, and JSON-object decoding. Uploads and
-/// the initial site probe keep their specialized response contracts outside.
-///
-/// This lives under `src` and is deliberately not exported. Callers depend on
-/// the smaller domain interfaces in `discourse_api_contracts.dart` instead.
 final class DiscourseTransport {
   DiscourseTransport(
     this._client,
@@ -40,8 +31,6 @@ final class DiscourseTransport {
 
   static const String userAgent = 'DiscourseNative/1.0';
 
-  /// Sends one already-built specialized request through the common bounded
-  /// and safe transport. Ordinary reads and writes use [get] and [write].
   Future<http.Response> send(
     http.BaseRequest request, {
     Duration? requestTimeout,
@@ -92,8 +81,6 @@ final class DiscourseTransport {
     }
   }
 
-  /// Performs an ordinary read and preserves the buffered response for routes
-  /// whose successful JSON shape is not an object.
   Future<http.Response> get(
     Uri url, {
     required String siteUrl,
@@ -150,7 +137,6 @@ final class DiscourseTransport {
     return response;
   }
 
-  /// Performs an ordinary read whose successful payload must be a JSON object.
   Future<Map<String, dynamic>> getObject(
     Uri url, {
     required String siteUrl,
@@ -177,9 +163,7 @@ final class DiscourseTransport {
     }
   }
 
-  /// Performs an idempotent read whose route uses POST and whose successful
-  /// payload must be a JSON object. Core's category search is one such route:
-  /// it is POST only so a potentially private search term stays out of URLs.
+  /// Core uses POST here to keep a potentially private search term out of URLs.
   Future<Map<String, dynamic>> postObject(
     Uri url, {
     required String siteUrl,
@@ -237,9 +221,6 @@ final class DiscourseTransport {
     }
   }
 
-  /// Sends one non-idempotent JSON write and maps every refusal to the stable
-  /// write failure contract consumed by composers and plugin controllers.
-  ///
   /// Deliberately never retries. A user API key receives no idempotency from
   /// Discourse, so retrying an ambiguous timeout can publish twice.
   Future<Map<String, dynamic>> write(
@@ -325,7 +306,6 @@ final class DiscourseTransport {
     }
   }
 
-  /// Headers every authenticated request carries, matching DiscourseMobile.
   static Map<String, String> authHeaders(String apiKey, {String? clientId}) => {
     'User-Api-Key': apiKey,
     'User-Api-Client-Id': ?clientId,

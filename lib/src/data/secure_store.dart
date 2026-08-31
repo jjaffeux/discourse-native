@@ -30,8 +30,6 @@ final class PreferencesClientIdPersistence implements ClientIdPersistence {
   }
 }
 
-/// Persistent per-install identity and per-site API keys.
-///
 /// API keys use [PrivateStorage]: the Data Protection Keychain on Apple, and a
 /// mode-0600 XDG data file on Linux. The non-secret client id lives in
 /// preferences.
@@ -73,8 +71,6 @@ class SecureStore {
 
   static String _apiKeyEntry(String siteUrl) => 'api_key::$siteUrl';
 
-  /// Stable per-install id, sent as `client_id` so a site can tell our
-  /// installs apart and revoke one.
   Future<String> readOrCreateClientId() async {
     final held = _clientId;
     if (held != null) return held;
@@ -222,8 +218,7 @@ class SecureStore {
     }
   }
 
-  /// Invalidates the credential locally, including a durable migration
-  /// tombstone on distributed Apple builds.
+  /// Distributed Apple builds also persist a migration tombstone.
   Future<void> deleteApiKey(String siteUrl) async {
     final version = Object();
     _apiKeyVersions[siteUrl] = version;
@@ -263,7 +258,6 @@ class SecureStore {
     }
   }
 
-  /// URL-safe random token, used for both the client id and the nonce.
   static String randomToken([int bytes = 16]) {
     final random = Random.secure();
     final values = List<int>.generate(bytes, (_) => random.nextInt(256));

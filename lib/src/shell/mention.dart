@@ -7,12 +7,6 @@ import 'open_link.dart';
 import 'pill.dart';
 import 'user_status.dart';
 
-/// One `@someone`, drawn as a pill.
-///
-/// [href] is null in the composer, where the pill stands over text being
-/// edited. When it is set the pill carries its own tap: claiming an element in
-/// [HtmlWidget.customWidgetBuilder] means the anchor's own handling — including
-/// `onTapUrl` — never runs for it.
 class MentionPill extends StatelessWidget {
   const MentionPill({
     super.key,
@@ -23,9 +17,6 @@ class MentionPill extends StatelessWidget {
     this.status,
   });
 
-  /// `@sam`, sigil and all, exactly as the post has it. Discourse lowercases
-  /// the href but leaves the text as it was typed, and the text is what a
-  /// reader recognises.
   final String label;
 
   final TextStyle? baseStyle;
@@ -64,13 +55,6 @@ class MentionPill extends StatelessWidget {
   }
 }
 
-/// Hands `<a class="mention">` and `<a class="mention-group">` to [MentionPill],
-/// for [HtmlWidget.customWidgetBuilder].
-///
-/// An unresolved mention arrives as `<span class="mention">` — somebody who is
-/// not a user, or one the reader may not see — and is deliberately not claimed.
-/// Discourse does not pill it either; it is prose that looks like a mention,
-/// and drawing it as one would promise a person who is not there.
 Widget? mentionWidgetBuilder(
   dom.Element element,
   TextStyle? baseStyle, {
@@ -107,11 +91,6 @@ Widget? mentionWidgetBuilder(
   );
 }
 
-/// Discourse cooks group mentions as `/groups/:name`, which redirects to the
-/// canonical `/g/:name` page in a browser. The native router has no redirect
-/// round-trip, so give this one known piece of markup its canonical target.
-/// Ordinary `/groups` links remain untouched and continue through the normal
-/// link fallback.
 String? _mentionTarget(String? href, {required bool isGroupMention}) {
   if (!isGroupMention || href == null) return href;
   final uri = Uri.tryParse(href);

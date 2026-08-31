@@ -6,9 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
-/// Shaped after `discourse_user_onebox.mustache`, the markup
-/// `Oneboxer.local_user_html` renders for a profile link that sits alone on
-/// its line.
 const String userOnebox = '''
 <aside class="onebox" data-onebox-src="https://meta.discourse.org/u/octocat">
   <article class="onebox-body user-onebox">

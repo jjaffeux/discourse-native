@@ -1,10 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-/// The skin-tone variants Discourse accepts in an emoji shortcode.
-///
-/// Discourse's neutral artwork has no suffix. The five selectable variants
-/// deliberately start at `t2`; `t1` is an internal web-picker sentinel and is
-/// never written into cooked content.
 enum EmojiSkinTone {
   neutral(null),
   t2(2),
@@ -31,11 +26,6 @@ enum EmojiSkinTone {
   };
 }
 
-/// One emoji a site allows, by the name someone types between colons.
-///
-/// The [url] is kept rather than rebuilt through `SiteConfig.emojiUrl`: it is
-/// the site's own answer for that exact name, custom uploads included, and it
-/// therefore cannot disagree with the site about which file a name maps to.
 @immutable
 class SiteEmoji {
   const SiteEmoji({
@@ -48,17 +38,11 @@ class SiteEmoji {
   final String url;
   final bool tonable;
 
-  /// The bare shortcode value written between the surrounding colons.
   String codeFor(EmojiSkinTone tone) =>
       !tonable || tone == EmojiSkinTone.neutral
       ? name
       : '$name${tone.shortcodeSuffix}';
 
-  /// Artwork for [tone], retaining the endpoint's host, query and fragment.
-  ///
-  /// Discourse stores a toned built-in next to its neutral image: for example,
-  /// `wave.png?v=12` becomes `wave/3.png?v=12`. Custom emoji report
-  /// [tonable] as false and therefore always keep their exact upload URL.
   String urlFor(EmojiSkinTone tone) {
     final toneNumber = tone.number;
     if (!tonable || toneNumber == null) return url;
@@ -74,10 +58,6 @@ class SiteEmoji {
     return uri.replace(path: tonedPath).toString();
   }
 
-  /// How well [query] matches, lowest first, or null for no match at all.
-  ///
-  /// Kept as the canonical-name portion of picker search. Alias ranking is
-  /// catalog state and therefore belongs to `SitePresentationController`.
   int? rank(String query) {
     if (name == query) return 0;
     if (name.startsWith(query)) return 1;
@@ -97,7 +77,6 @@ class SiteEmoji {
   int get hashCode => Object.hash(name, url, tonable);
 }
 
-/// One server-defined picker group, retaining its opaque identifier.
 @immutable
 final class SiteEmojiGroup {
   factory SiteEmojiGroup({
@@ -124,7 +103,6 @@ final class SiteEmojiGroup {
   int get hashCode => Object.hash(id, Object.hashAll(emojis));
 }
 
-/// The complete picker catalog in the exact group order the site supplied.
 @immutable
 final class SiteEmojiCatalog {
   factory SiteEmojiCatalog({required Iterable<SiteEmojiGroup> groups}) {
@@ -161,13 +139,6 @@ final class SiteEmojiCatalog {
   final List<SiteEmoji> all;
   final Map<String, SiteEmoji> byName;
 
-  /// Every distinct emoji in name order.
-  ///
-  /// Picker search reads the whole site's artwork in this order on each
-  /// keystroke and the order never changes, so it is derived once here with
-  /// the catalog's other index rather than sorted again per query. Duplicate
-  /// names collapse exactly as [byName] collapses them, so a malformed second
-  /// row cannot displace the artwork the site listed first.
   final List<SiteEmoji> alphabetical;
 
   bool get isEmpty => all.isEmpty;

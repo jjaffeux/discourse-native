@@ -152,11 +152,6 @@ typedef _ResenhaRequestCredentials = ({String apiKey, String clientId});
 
 /// Optional cancellation boundary for a Resenha message-bus adapter whose
 /// native teardown is asynchronous.
-///
-/// The shared tracker contract predates awaitable cancellation. Production
-/// subscriptions currently cancel synchronously, while adapters that need to
-/// release native work can implement this alongside
-/// [PluginLiveChannelSubscription].
 abstract interface class ResenhaAwaitableSubscriptionTeardown {
   Future<void> cancelAndWait();
 }
@@ -2361,8 +2356,6 @@ final class ResenhaController extends ChangeNotifier {
         'resenha.chat.load',
       );
 
-  /// Releases the Chat-owned viewing handle when the room UI is no longer
-  /// visible while retaining only Resenha's lightweight room association.
   void closeChat(String siteUrl, int roomId) {
     final key = '$siteUrl#$roomId';
     _chatRequests.remove(key);
@@ -2999,9 +2992,7 @@ final class ResenhaController extends ChangeNotifier {
         correlationId: correlationId,
         data: data,
       );
-    } catch (_) {
-      // Diagnostics are observational and must not alter call behavior.
-    }
+    } catch (_) {}
   }
 
   void _recordRaw(
@@ -3022,9 +3013,7 @@ final class ResenhaController extends ChangeNotifier {
         message: message,
         data: data,
       );
-    } catch (_) {
-      // Diagnostics are observational and must not alter call behavior.
-    }
+    } catch (_) {}
   }
 
   Map<String, Object?> _roomDiagnosticData(ResenhaRoom room) => {
@@ -3121,9 +3110,7 @@ final class ResenhaController extends ChangeNotifier {
         degraded: true,
         correlationId: effectiveCorrelationId,
       );
-    } catch (_) {
-      // Diagnostics are observational and must not reopen a handled boundary.
-    }
+    } catch (_) {}
   }
 
   void _observe(Future<void> Function() action, String operation) {

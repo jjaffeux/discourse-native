@@ -8,12 +8,8 @@ import 'discourse_request_coordinator.dart';
 import 'http_transport.dart';
 import 'site_appearance_parser.dart';
 
-/// Why a site's optional appearance could not be loaded safely.
-///
 /// Appearance never blocks reading a site. Callers absorb this exception and
-/// retain the last persisted appearance (or the app default), while the
-/// separate cases keep transport and parser failures observable in tests and
-/// logs.
+/// retain the last persisted appearance or the app default.
 enum SiteAppearanceLoadFailure {
   refused,
   unavailable,
@@ -76,9 +72,6 @@ final class SiteAppearanceLoader {
 
   static const String _userAgent = 'DiscourseNative/1.0';
 
-  /// Loads the active appearance, or null when the site lacks modern theme
-  /// metadata.
-  ///
   /// [apiKey] and [clientId] are sent only to forum JSON endpoints and their
   /// same-origin redirects. [username] identifies that key's stored theme
   /// preferences. In particular, an authentication refusal is final: this

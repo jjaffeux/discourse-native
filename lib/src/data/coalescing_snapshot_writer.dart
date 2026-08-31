@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'serial_operation_queue.dart';
 
-/// Persists only the newest not-yet-started whole-value snapshot for a lane.
-///
 /// Writers with the same [owner] and [key] share one pending slot and load
 /// barrier. Replacing a dependency therefore coalesces into the same lane: an
 /// older not-yet-started value cannot overwrite the replacement's snapshot,
@@ -27,8 +25,6 @@ final class CoalescingSnapshotWriter<T> {
   final Future<void> Function(T value) _write;
   final _SnapshotLane _lane;
 
-  /// Accepts [value], replacing this lane's not-yet-started snapshot.
-  ///
   /// Calls coalesced into the same pending slot deliberately receive the same
   /// future: they are all waiting for the same newest accepted value. Once a
   /// write has been extracted from that slot, later saves form the next slot;
@@ -44,8 +40,6 @@ final class CoalescingSnapshotWriter<T> {
     return result.future;
   }
 
-  /// Reads after the newest save accepted before this call has settled.
-  ///
   /// A save failure belongs to its save caller. Readers still continue to the
   /// last durable snapshot, preserving the usual persistence-boundary policy.
   /// The shared queue also prevents a later physical write from overlapping

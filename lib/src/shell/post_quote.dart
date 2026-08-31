@@ -3,7 +3,6 @@ import 'package:html/parser.dart' as html;
 
 import '../models/post.dart';
 
-/// Builds the portable BBCode block Discourse uses for a selected post quote.
 String buildPostQuote({
   required Post post,
   required int topicId,
@@ -28,23 +27,10 @@ String buildPostQuote({
   return '[quote="${params.join(', ')}"]\n$selected\n[/quote]\n\n';
 }
 
-/// Reconstructs the Markdown structure Flutter's selection API leaves out.
-///
-/// Flutter concatenates independently rendered HTML blocks, so selecting two
-/// cooked paragraphs produces `First.Second` even though Discourse quotes the
-/// selected HTML as `First.\n\nSecond`. Match that character stream back to
-/// the cooked DOM and restore block boundaries and common inline marks.
 String postQuoteContentsFromSelection(String cooked, String plainText) {
   return PostQuoteSelectionResolver(cooked).contentsFor(plainText);
 }
 
-/// Reuses one cooked-post index while a reader adjusts the same selection.
-///
-/// Flutter reports a new selection on every pointer move. Parsing the complete
-/// cooked DOM for each of those updates makes a long post noticeably lag
-/// behind the drag. A mounted post owns one of these until its cooked body
-/// changes, while the top-level helper above remains convenient for one-shot
-/// callers and tests.
 final class PostQuoteSelectionResolver {
   PostQuoteSelectionResolver(String cooked)
     : _source = cooked.isEmpty ? null : _CookedSelectionSource.fromHtml(cooked);
@@ -73,7 +59,6 @@ final RegExp _selectionLineBreaks = RegExp(r'[\r\n]');
 
 typedef _MarkdownMark = ({String open, String close});
 
-/// Whitespace the renderer collapses to a single space outside `pre`.
 final RegExp _collapsibleWhitespace = RegExp(r'[ \t\r\n\f]+');
 
 class _CookedSelectionCharacter {
@@ -161,10 +146,6 @@ class _CookedSelectionSource {
     return _CookedSelectionSource._trimmed(characters, breaks);
   }
 
-  /// Drops the collapsed spaces the renderer never draws: those at block
-  /// boundaries, at either end of the post, and runs left by adjacent text
-  /// nodes. What survives is exactly the rendered character stream, offset by
-  /// offset, with the break map rekeyed to match.
   factory _CookedSelectionSource._trimmed(
     List<_CookedSelectionCharacter> characters,
     Map<int, int> breaks,

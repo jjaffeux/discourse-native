@@ -250,8 +250,6 @@ void main() {
 
 ShellController _controller() => ShellController(
   instanceStore: FakeInstanceStore([instance('meta.example')]),
-  // Titles draw only what the site registers, so every shortcode these tests
-  // expect as artwork has to be a name the catalog knows.
   api: FakeDiscourseApi(
     emojisBySite: {
       'https://meta.example': const [

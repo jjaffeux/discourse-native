@@ -9,11 +9,6 @@ import 'anchored_layout.dart';
 import 'platform.dart';
 import 'shell_sheet.dart';
 
-/// One mutually exclusive value in a [ChoiceMenuAnchor].
-///
-/// Choice menus are for values that need a short explanation. Compact command
-/// menus and form selects have different row geometry even though they may
-/// eventually share this menu's surface and transition.
 @immutable
 final class ChoiceMenuOption<T> {
   const ChoiceMenuOption({
@@ -32,11 +27,6 @@ final class ChoiceMenuOption<T> {
 typedef ChoiceMenuAnchorBuilder =
     Widget Function(BuildContext context, VoidCallback? openMenu);
 
-/// Anchors a rich, mutually exclusive choice menu to a custom control.
-///
-/// The builder receives null when the control is disabled. Its result is
-/// measured by this widget so the floating menu is positioned against the
-/// control itself rather than against an enclosing toolbar or pane.
 class ChoiceMenuAnchor<T> extends StatefulWidget {
   const ChoiceMenuAnchor({
     super.key,
@@ -56,8 +46,6 @@ class ChoiceMenuAnchor<T> extends StatefulWidget {
   final ChoiceMenuAnchorBuilder builder;
   final bool enabled;
 
-  /// Keeps a descriptive title for touch sheets and accessibility while
-  /// allowing a compact pointer popover to begin directly with its options.
   final bool showPopoverTitle;
 
   @override
@@ -95,11 +83,6 @@ class _ChoiceMenuAnchorState<T> extends State<ChoiceMenuAnchor<T>> {
   );
 }
 
-/// Shows a descriptive single-choice menu next to [anchorContext].
-///
-/// Pointer platforms get a compact anchored popover. Touch platforms get the
-/// same rows in a shell sheet, where their targets remain comfortable for a
-/// finger and the menu cannot be stranded under a software keyboard or inset.
 Future<T?> showChoiceMenu<T>({
   required BuildContext context,
   required BuildContext anchorContext,

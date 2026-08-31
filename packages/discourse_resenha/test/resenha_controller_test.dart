@@ -2786,8 +2786,6 @@ void main() {
       media.connectionState = ResenhaMediaConnectionState.reconnecting;
       media.notifyListeners();
       expect(controller.call?.status, ResenhaCallStatus.reconnecting);
-      // Exercise the same away-from-connected heartbeat path without waiting for
-      // its wall-clock timer.
       controller.setForeground(false);
       await Future<void>.delayed(Duration.zero);
       final heartbeatsBefore = transport.writes

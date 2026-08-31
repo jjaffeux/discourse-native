@@ -1179,7 +1179,6 @@ void main() {
       expiry.fire();
       await controller.flush();
 
-      // The count is what survived, not what was ever recorded.
       expect(controller.events.whereType<ErrorDiagnosticEvent>(), hasLength(1));
       expect(controller.unseenErrorCountListenable.value, 1);
 
@@ -1221,8 +1220,6 @@ void main() {
       ),
     );
 
-    // Every phase rewrites the one row the request owns, so the badge counts
-    // the request rather than the phases it went through.
     expect(controller.events.whereType<HttpDiagnosticEvent>(), hasLength(1));
     expect(controller.unseenErrorCountListenable.value, 1);
   });

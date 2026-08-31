@@ -9,11 +9,6 @@ import 'package:integration_test/integration_test.dart';
 /// service. The distributed release uses the Data Protection Keychain instead;
 /// its application identifier is supplied by TestFlight/App Store signing and
 /// must also be checked in a distribution-signed smoke test.
-///
-/// ```sh
-/// flutter test integration_test/keychain_test.dart \
-///   --test-randomize-ordering-seed=random -d macos
-/// ```
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -38,8 +33,6 @@ void main() {
     final store = SecureStore();
     const site = 'https://never-connected.invalid';
 
-    // Removing a site that was never connected asks for exactly this. It must
-    // remain idempotent and must never enumerate unrelated legacy items.
     await store.deleteApiKey(site);
     await expectLater(store.deleteApiKey(site), completes);
   });

@@ -2,13 +2,11 @@ import '../../data/plugin_transport.dart';
 import '../../models/json.dart';
 import 'assignment.dart';
 
-/// Typed client for the Discourse Assign plugin's authenticated JSON routes.
 final class AssignApi {
   const AssignApi(this._transport);
 
   final PluginApiTransport _transport;
 
-  /// Fetches candidates and restrictions for this exact topic or post.
   Future<AssignmentSuggestions> suggestions({
     required String siteUrl,
     required String apiKey,
@@ -30,9 +28,8 @@ final class AssignApi {
     siteUrl,
   );
 
-  /// Searches users inside the target's allowed groups and direct group
-  /// assignees. The suggestion response is the target-scoped authority for
-  /// both lists; search results cannot broaden it.
+  /// Search results cannot broaden the suggestion response's target-scoped
+  /// user and group authority.
   Future<List<AssignmentAssignee>> searchAssignees({
     required String siteUrl,
     required String apiKey,
@@ -48,10 +45,7 @@ final class AssignApi {
     };
     final normalizedTerm = term.trim().toLowerCase();
 
-    // `groups[]` is the restriction on user candidates. Omitting an empty
-    // list makes core UserSearch unrestricted, which would offer people this
-    // target can never actually be assigned to. Directly assignable groups
-    // and the server-vetted suggested users are still useful.
+    // Omitting an empty `groups[]` makes core UserSearch unrestricted.
     if (suggestions.assignAllowedOnGroups.isEmpty) {
       return List.unmodifiable([
         for (final user in suggestions.users)
@@ -130,7 +124,6 @@ final class AssignApi {
     return List.unmodifiable(assignees);
   }
 
-  /// Assigns or reassigns one target to exactly one user or group.
   Future<void> assign({
     required String siteUrl,
     required String apiKey,
@@ -165,16 +158,13 @@ final class AssignApi {
         ...assignment,
         'note': ?note,
         'status': ?status,
-        // Rails treats a JSON boolean `false` as blank and falls back to true.
-        // A non-empty string is required to actually suppress notifications.
+        // Rails treats JSON false as blank; only the string suppresses notices.
         'should_notify': ?shouldNotify?.toString(),
       },
       clientId: clientId,
     );
   }
 
-  /// Removes only the assignment on [target]. Topic and post assignments are
-  /// intentionally independent records on the backend.
   Future<void> unassign({
     required String siteUrl,
     required String apiKey,

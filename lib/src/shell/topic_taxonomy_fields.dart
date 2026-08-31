@@ -5,7 +5,6 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'inline_action.dart';
 
-/// A labelled topic property shared by the composer and topic sidebar.
 class TopicPropertyRow extends StatelessWidget {
   const TopicPropertyRow({super.key, required this.label, required this.child});
 
@@ -39,7 +38,6 @@ class TopicPropertyRow extends StatelessWidget {
   }
 }
 
-/// A topic category value shared by the composer and topic sidebar.
 class TopicCategoryValue extends StatelessWidget {
   const TopicCategoryValue({
     super.key,
@@ -118,7 +116,6 @@ class TopicCategoryValue extends StatelessWidget {
   }
 }
 
-/// Tag pills and their editing affordance, shared by topic metadata surfaces.
 class TopicTagsValue extends StatelessWidget {
   const TopicTagsValue({
     super.key,

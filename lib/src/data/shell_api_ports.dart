@@ -2,11 +2,6 @@ import '../plugin_api/discourse_model_codec.dart';
 import 'discourse_api_contracts.dart';
 import 'plugin_transport.dart';
 
-/// The shell's explicit composition boundary over the production HTTP client.
-///
-/// Controllers receive the narrow workflow port they consume. Keeping the
-/// assembly here lets production use one HTTP adapter without making tests
-/// implement every public method on that concrete class.
 final class ShellApiPorts {
   const ShellApiPorts({
     required this.lifecycle,

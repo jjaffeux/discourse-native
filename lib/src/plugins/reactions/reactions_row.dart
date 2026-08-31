@@ -9,11 +9,6 @@ import 'reaction_picker.dart';
 import 'reactions_controller.dart';
 import 'reactions_services.dart';
 
-/// What people gave a post, under the post itself.
-///
-/// Topic owns the post-reaction records and API callbacks. The row, pills,
-/// hover panel, touch sheet and reactor rows are shared with chat through
-/// [ReactionPills], [ReactionPill] and [ReactionUsersList].
 class ReactionsRow extends StatelessWidget {
   const ReactionsRow({
     super.key,
@@ -109,7 +104,6 @@ class ReactionsRow extends StatelessWidget {
   }
 }
 
-/// Topic's adapter into the shared reactor-list presentation.
 class ReactorList extends StatelessWidget {
   const ReactorList({
     super.key,

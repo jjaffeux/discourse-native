@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 
 import 'plugin_data.dart';
 
-/// Stable, plugin-owned identity for one composer syntax language.
 @immutable
 final class ComposerSyntaxKind {
   const ComposerSyntaxKind({required this.owner, required this.name});
@@ -27,8 +26,6 @@ final class ComposerSyntaxKind {
   String toString() => id;
 }
 
-/// Opaque plugin-owned record state available to one composer.
-///
 /// Core deliberately exposes only namespaced plugin data plus the two neutral
 /// account facts needed by authoring features. A syntax plugin cannot inspect
 /// unrelated core account, route, post, or site-configuration fields through
@@ -54,7 +51,6 @@ final class ComposerPluginState {
 
 typedef ComposerPluginStateReader = ComposerPluginState Function();
 
-/// Immutable target facts and state reader used to create one syntax policy.
 @immutable
 final class ComposerSyntaxPolicyContext {
   const ComposerSyntaxPolicyContext({
@@ -72,7 +68,6 @@ final class ComposerSyntaxPolicyContext {
   final ComposerPluginStateReader readState;
 }
 
-/// The feature-neutral artwork inputs for one collapsed source projection.
 @immutable
 final class ComposerSyntaxRenderContext {
   const ComposerSyntaxRenderContext({
@@ -92,7 +87,6 @@ final class ComposerSyntaxRenderContext {
   final bool followedByLineBreak;
 }
 
-/// One plugin-owned, losslessly recognised source range in a composer.
 final class ComposerSyntaxOccurrence {
   const ComposerSyntaxOccurrence(this.policy, this.projection);
 
@@ -112,7 +106,6 @@ final class ComposerSyntaxOccurrence {
       source == other.source;
 }
 
-/// Creates one stable parser/projector policy for each open composer.
 abstract interface class ComposerSyntaxPlugin {
   ComposerSyntaxKind get composerSyntaxKind;
 
@@ -121,7 +114,6 @@ abstract interface class ComposerSyntaxPlugin {
   );
 }
 
-/// A plugin-owned parser and projection configuration for one composer.
 abstract interface class ComposerSyntaxPolicy {
   ComposerSyntaxKind get kind;
 
@@ -134,10 +126,6 @@ abstract interface class ComposerSyntaxPolicy {
   TextInputFormatter? get inputFormatter;
 }
 
-/// One typed plugin-owned source projection.
-///
-/// Core owns only ordering and source offsets. The plugin retains its parsed
-/// value, validation rules, artwork, caret behavior, and editing semantics.
 abstract interface class ComposerSyntaxProjection {
   int get start;
   int get end;
@@ -195,7 +183,6 @@ abstract interface class ComposerEditorHost {
   void requestFocus();
 }
 
-/// Adds keyboard commands whose availability is owned by a plugin.
 abstract interface class ComposerShortcutPlugin {
   Map<ShortcutActivator, VoidCallback> composerShortcuts(
     BuildContext context,

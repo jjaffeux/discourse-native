@@ -3,12 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/d_button.dart';
 
-/// Opens an app-owned dialog with the Discourse modal theme on every platform.
-///
-/// [AlertDialog.adaptive] and [AdaptiveDialogAction] still remain useful to
-/// callers outside this route. Inside it, Apple platforms are presented with
-/// their Material counterparts so the site's surface, CSS radius, shadow, and
-/// backdrop are not replaced by fixed Cupertino values.
 Future<T?> showDiscourseDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -30,7 +24,6 @@ Future<T?> showDiscourseDialog<T>({
   },
 );
 
-/// An alert dialog with the same start-aligned, wrapping action row as core.
 class DiscourseAlertDialog extends StatelessWidget {
   const DiscourseAlertDialog({
     super.key,
@@ -55,14 +48,8 @@ class DiscourseAlertDialog extends StatelessWidget {
   );
 }
 
-/// The semantic importance of an action in an adaptive alert dialog.
 enum AdaptiveDialogActionKind { regular, primary, destructive }
 
-/// An alert-dialog action that uses the platform's expected presentation.
-///
-/// [AlertDialog.adaptive] deliberately does not rewrite its action children.
-/// This keeps the call sites explicit while ensuring Apple dialogs contain
-/// [CupertinoDialogAction]s rather than Material buttons.
 class AdaptiveDialogAction extends StatelessWidget {
   const AdaptiveDialogAction({
     super.key,

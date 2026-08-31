@@ -6,11 +6,6 @@ import 'found_group.dart';
 import 'json.dart';
 import 'topic_tag.dart';
 
-/// The transient answer from Discourse's header-search endpoint.
-///
-/// Search topics are intentionally not [Topic]s. The search serializer is a
-/// smaller shape than a topic list, and putting one in the identity store would
-/// let its absent fields overwrite richer list state.
 @immutable
 class SearchResults {
   const SearchResults({
@@ -20,11 +15,6 @@ class SearchResults {
     this.searchLogId,
   });
 
-  /// Maximum server entries parsed and retained for one header-search facet.
-  ///
-  /// The result panel eagerly builds and keeps its small suggestion set alive
-  /// for keyboard navigation. Bound each raw collection before parsing titles
-  /// and excerpts so a broken site cannot turn that panel into unbounded work.
   static const int maximumResultsPerSection = 50;
 
   factory SearchResults.fromJson(Map<String, dynamic> json, String siteUrl) {
@@ -133,8 +123,6 @@ class SearchResults {
       );
     }
 
-    // This is the same facet ordering as core's translateGroupedSearchResults:
-    // topics, categories, tags, users, then groups.
     addSection(
       SearchResultKind.category,
       'categories',
@@ -170,13 +158,8 @@ class SearchResults {
 
   final List<SearchPostHit> hits;
 
-  /// Ranked facets in the same order as the web header search.
-  ///
-  /// [hits] remains available as the topic/post facet because callers that
-  /// only care about opening posts should not have to downcast every result.
   final List<SearchResultSection> sections;
 
-  /// A compatibility-aware view for manually constructed test answers.
   List<SearchResultSection> get effectiveSections => sections.isNotEmpty
       ? sections
       : hits.isEmpty
@@ -187,11 +170,8 @@ class SearchResults {
     for (final section in effectiveSections) ...section.results,
   ]);
 
-  /// A successful response can still carry a refusal, such as overloaded
-  /// search. This is the site's reader-facing explanation.
   final String? error;
 
-  /// The server-side search event credited when one of these results opens.
   final int? searchLogId;
 }
 
@@ -448,15 +428,10 @@ class SearchGroupHit extends SearchResult {
   String get path => '/g/${Uri.encodeComponent(name)}';
 }
 
-/// Plain, safe text plus the ranges the server marked as search matches.
 @immutable
 class SearchExcerpt {
   const SearchExcerpt(this.segments);
 
-  /// A header-search blurb is a short excerpt, never a complete post.
-  ///
-  /// Bound it before constructing an HTML DOM so a broken or hostile site
-  /// cannot turn one nominal snippet into disproportionate parser work.
   static const int maxHtmlSourceCodeUnits = 8 * 1024;
 
   static final RegExp _whitespace = RegExp(r'\s');

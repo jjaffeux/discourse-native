@@ -12,17 +12,10 @@ import 'oneboxes/issue/block.dart';
 import 'oneboxes/pr/block.dart';
 import 'oneboxes/pr/inline.dart';
 
-/// Native presentation for oneboxes produced by GitHub and discourse-github.
-///
-/// Generic onebox chrome remains in core. This capability owns only the
-/// provider-specific body parsers and the optional pull-request status glyph
-/// that discourse-github adds to inline oneboxes.
 final class DiscourseGithubPlugin
     implements SitePlugin, CookedElementPlugin, CookedInlinePlugin {
   const DiscourseGithubPlugin({this.cookedTimeParser});
 
-  /// An explicit test/standalone override. Production resolves the optional
-  /// Local Dates service from this plugin's owner-scoped UI service view.
   final CookedTimeParser? cookedTimeParser;
 
   @override

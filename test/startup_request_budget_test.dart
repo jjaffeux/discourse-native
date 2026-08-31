@@ -163,7 +163,6 @@ void main() {
       expect(shell.currentInstance?.notificationTotals, isNull);
       expect((await instanceStore.load()).single.notificationTotals, isNull);
 
-      // The old account's in-flight response cannot repopulate the new one.
       api.firstTotals.complete(chatNotificationTotals(chatNotifications: 3));
       await pumpEventQueue();
       expect(shell.currentTotals, isNull);

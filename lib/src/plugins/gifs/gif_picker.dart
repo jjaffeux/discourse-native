@@ -15,11 +15,7 @@ import 'gifs_api.dart';
 import 'gifs_icons.dart';
 import 'gifs_settings.dart';
 
-/// Opens the shared GIF browser and returns the chosen remote image.
-///
-/// This surface deliberately knows nothing about either composer. Topic and
-/// chat callers decide whether a returned GIF should be inserted, sent, or
-/// discarded because their draft changed while the picker was open.
+/// Callers own draft-staleness checks and insertion of the returned GIF.
 Future<GifResult?> showGifPicker({
   required BuildContext context,
   required String siteUrl,
@@ -120,7 +116,6 @@ class _DialogHeader extends StatelessWidget {
   );
 }
 
-/// Search field, result grid, and attribution shared by sheet and dialog.
 class GifPicker extends StatefulWidget {
   const GifPicker({
     super.key,

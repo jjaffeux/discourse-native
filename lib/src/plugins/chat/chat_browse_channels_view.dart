@@ -13,7 +13,6 @@ import 'chat_shell_service.dart';
 
 enum ChatChannelJoinedFilter { all, joined, notJoined }
 
-/// Native counterpart to Chat's Browse Channels directory.
 class ChatBrowseChannelsView extends StatefulWidget {
   const ChatBrowseChannelsView({super.key, required this.siteUrl});
 

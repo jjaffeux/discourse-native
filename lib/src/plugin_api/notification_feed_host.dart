@@ -57,8 +57,6 @@ final class PluginNotificationFeedSource {
   );
 }
 
-/// Notification-feed-only facade exposed to plugin-rendered menu sections.
-///
 /// Session bindings scope feed ids and sources to the consuming plugin's
 /// namespace. Navigation and marking a row read remain feed-neutral actions.
 abstract interface class PluginNotificationFeedHost {

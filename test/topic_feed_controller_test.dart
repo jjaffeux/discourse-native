@@ -243,8 +243,6 @@ void main() {
       );
       await initial;
 
-      // The whole page is already on the list — the shape a busy feed takes
-      // after the incoming-topics banner prepends the same topics.
       final familiarPage = controller.loadMore(
         instance: site,
         destinationId: 'latest',

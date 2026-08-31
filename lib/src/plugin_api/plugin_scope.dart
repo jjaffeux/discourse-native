@@ -4,8 +4,6 @@ import 'package:flutter/widgets.dart';
 import 'plugin_registry.dart';
 import 'plugin_runtime.dart';
 
-/// Carries render-only plugin contributions through nested content.
-///
 /// A full application uses [PluginScope]. Standalone cooked fragments can use
 /// this narrower scope without fabricating a plugin session merely to make a
 /// nested quote inherit the same renderers.
@@ -27,8 +25,6 @@ class PluginRegistryScope extends InheritedWidget {
       !identical(registry, oldWidget.registry);
 }
 
-/// The installed plugin graph available to extension widgets.
-///
 /// Core keeps the complete runtime graph private; plugin-owned UI state is
 /// projected through [PluginUiScope] so a feature never receives the shell's
 /// public surface merely to reach its own controller.
@@ -64,8 +60,6 @@ class PluginScope extends InheritedWidget {
       !identical(registry, oldWidget.registry);
 }
 
-/// The owner-stamped context supplied to one plugin's UI contribution.
-///
 /// The application-wide [PluginScope] contains every installed service because
 /// core must dispatch all contributions. Plugin widgets do not receive that
 /// authority directly: the registry invokes their builders with this context
@@ -78,11 +72,9 @@ class PluginUiScope extends InheritedWidget {
   final PluginOwnedServices services;
   PluginId get owner => services.owner;
 
-  /// Stamps a synchronous contribution callback with [owner].
   static BuildContext contextFor(BuildContext context, PluginId owner) =>
       _PluginUiBuildContext(context, _rootServices(context, owner));
 
-  /// Keeps [owner] available to widgets built below a returned contribution.
   static Widget own(PluginId owner, Widget child) =>
       _PluginUiOwnerBoundary(owner: owner, child: child);
 
@@ -120,8 +112,7 @@ class PluginUiScope extends InheritedWidget {
     return _servicesOf(context).maybe(key);
   }
 
-  /// An optional owner service for widgets which also support standalone use.
-  /// A mounted plugin contribution still enforces the stamped owner.
+  /// Standalone use is optional; mounted contributions still enforce ownership.
   static T? maybe<T extends Object>(
     BuildContext context,
     PluginServiceKey<T> key,
@@ -255,7 +246,6 @@ final class _PluginUiBuildContext implements BuildContext {
       _delegate.describeOwnershipChain(name);
 }
 
-/// Rebuilds only when a selected value from one plugin service changes.
 class PluginServiceSelector<S extends Listenable, T> extends StatefulWidget {
   const PluginServiceSelector({
     super.key,

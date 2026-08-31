@@ -35,11 +35,6 @@ final class _ResenhaMediaDiagnosticFailure implements Exception {
   String toString() => 'Resenha media operation $operation failed.';
 }
 
-/// The LiveKit room operations whose lifetime this client owns.
-///
-/// Keeping this boundary narrower than [lk.Room] leaves participant and track
-/// behavior on the SDK while making connection teardown directly testable
-/// without opening a socket.
 abstract interface class ResenhaLiveKitRoomAdapter {
   lk.Room get room;
 
@@ -147,9 +142,7 @@ void _recordDiagnostic(
       correlationId: correlationId,
       data: data,
     );
-  } catch (_) {
-    // Diagnostics are observational and must not alter media behavior.
-  }
+  } catch (_) {}
 }
 
 void _recordRawDiagnostic(
@@ -171,9 +164,7 @@ void _recordRawDiagnostic(
       message: message,
       data: data,
     );
-  } catch (_) {
-    // Diagnostics are observational and must not alter media behavior.
-  }
+  } catch (_) {}
 }
 
 String _diagnosticEnumName(Object? value) {
@@ -601,9 +592,7 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
     );
     try {
       if (diagnostics.captureEnabled) _deviceInventoryCaptured = true;
-    } catch (_) {
-      // Diagnostics are observational and must not alter device enumeration.
-    }
+    } catch (_) {}
     return result;
   }
 
@@ -729,9 +718,7 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       if (!_deviceInventoryCaptured) {
         try {
           await devices();
-        } catch (_) {
-          // Device enumeration failures are already captured as raw detail.
-        }
+        } catch (_) {}
       }
       for (final entry in _peers.entries.toList()) {
         if (_closing || disposed) return;
@@ -1692,14 +1679,10 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
     for (final track in tracks) {
       try {
         await _localStream?.removeTrack(track);
-      } catch (_) {
-        // Keep detaching and stopping every captured microphone.
-      }
+      } catch (_) {}
       try {
         await track.stop();
-      } catch (_) {
-        // A stopped platform track may reject a second stop request.
-      }
+      } catch (_) {}
     }
   }
 
@@ -1708,16 +1691,12 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
     for (final peerId in _peers.keys.toList()) {
       try {
         await _closePeer(peerId);
-      } catch (_) {
-        // Continue removing every partially rebuilt peer.
-      }
+      } catch (_) {}
     }
     for (final peerId in wanted) {
       try {
         await _createPeer(peerId);
-      } catch (_) {
-        // A later roster/signal update can retry an unavailable peer.
-      }
+      } catch (_) {}
     }
   }
 
@@ -1725,11 +1704,8 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   Future<void> setMuted(bool muted) => _serialize(() => _setMuted(muted));
 
   Future<void> _setMuted(bool muted) async {
-    // Adopted only once the capture it depends on has succeeded:
-    // `_ensureAudioTrack` can throw on a busy or refused device, and
-    // `_ensureAudioTrack` itself reads `_muted` to decide whether a freshly
-    // created track starts enabled. A field updated in front of a failure
-    // would hand a later re-publish an unmuted microphone under a muted UI.
+    // Adopt the state only after capture succeeds; `_ensureAudioTrack` reads
+    // `_muted` when deciding whether a new track starts enabled.
     if (audioPublishingAllowed && !muted) await _ensureAudioTrack();
     _muted = muted;
     for (final track
@@ -1921,15 +1897,11 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
     for (final track in stream.getTracks()) {
       try {
         await track.stop();
-      } catch (_) {
-        // Keep releasing the remaining capture resources.
-      }
+      } catch (_) {}
     }
     try {
       await stream.dispose();
-    } catch (_) {
-      // Sender state already reflects the requested transition.
-    }
+    } catch (_) {}
   }
 
   Future<void> _setSourceTrack(
@@ -1959,9 +1931,7 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       for (final (sender, previous) in changedSenders.reversed) {
         try {
           await sender.replaceTrack(previous);
-        } catch (_) {
-          // Continue restoring every peer even if one sender has gone stale.
-        }
+        } catch (_) {}
       }
       rethrow;
     }
@@ -2042,9 +2012,7 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       for (final id in _peers.keys.toList()) {
         try {
           await _closePeer(id);
-        } catch (_) {
-          // Continue releasing tracks and the remaining peer connections.
-        }
+        } catch (_) {}
       }
       final streams = Set<rtc.MediaStream>.identity()
         ..addAll(_ownedLocalStreams);
@@ -2057,16 +2025,12 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       for (final track in tracks) {
         try {
           await track.stop();
-        } catch (_) {
-          // Continue releasing all remaining captures.
-        }
+        } catch (_) {}
       }
       for (final stream in streams) {
         try {
           await stream.dispose();
-        } catch (_) {
-          // The notifier must still reach its terminal disposed state.
-        }
+        } catch (_) {}
       }
     } finally {
       _localStream = null;
@@ -2248,34 +2212,18 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
   bool audioPublishingAllowed;
   bool _muted = false;
 
-  /// Whether the microphone should currently be publishing.
-  ///
-  /// One owner for a decision three paths make — the initial connect, the
-  /// reconnect ladder, and a stage change — because they diverged: connect
-  /// published unconditionally while the other two honoured [_muted], so a
-  /// mute that landed while the socket was still opening was overwritten by
-  /// the connect that followed it.
+  /// Shared by connect, reconnect, and stage changes so a mute that lands while
+  /// the socket opens cannot be overwritten by the ensuing connect.
   @visibleForTesting
   bool get shouldPublishMicrophone => audioPublishingAllowed && !_muted;
 
-  /// Whether remote audio is currently refused.
-  ///
-  /// Held rather than applied once and forgotten: the room subscribes new
-  /// publications automatically, so anyone who joins, republishes, or comes
-  /// back through the reconnect ladder arrives subscribed. Without this the
-  /// reader hears them while the control still reads deafened.
   bool _deafened = false;
 
   @visibleForTesting
   bool get deafened => _deafened;
 
-  /// The camera state to restore after a reconnect, and the device it was on.
-  ///
-  /// A disconnect drops every local publication. The microphone is
-  /// re-published below from [shouldPublishMicrophone] and screen share
-  /// self-heals through the controller's own comparison, but nothing carried
-  /// the camera: it came back unpublished while the app and the server both
-  /// still reported video on.
+  /// Retained because disconnect drops local publications; a rebuilt session
+  /// must republish a camera the app still reports as enabled.
   bool _cameraEnabled = false;
   String? _cameraDeviceId;
 
@@ -2337,9 +2285,7 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
     );
     try {
       if (diagnostics.captureEnabled) _deviceInventoryCaptured = true;
-    } catch (_) {
-      // Diagnostics are observational and must not alter device enumeration.
-    }
+    } catch (_) {}
     return result;
   }
 
@@ -2387,10 +2333,8 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
     try {
       await _connectRoom(credentials);
       if (_closing || disposed) return;
-      // The controls are live from the moment the call exists, so a mute — by
-      // hand, by CallKit, or by a stage change — can land while this connect
-      // is still in flight, and its own setMicrophoneEnabled was a no-op
-      // against a localParticipant that did not exist yet.
+      // A mute can land while connect is in flight, before a local participant
+      // exists; apply the latest state once the room is ready.
       if (shouldPublishMicrophone) {
         await _room.localParticipant?.setMicrophoneEnabled(true);
         if (_closing || disposed) return;
@@ -2440,9 +2384,7 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
       if (!_deviceInventoryCaptured) {
         try {
           await devices();
-        } catch (_) {
-          // Device enumeration failures are already captured as raw detail.
-        }
+        } catch (_) {}
       }
       final samples = await _collectRawStats(_room);
       if (_closing || disposed) return;
@@ -2886,11 +2828,8 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
 
   @override
   Future<void> setMuted(bool muted) async {
-    // Recorded after the fact, not before it. A capture that throws leaves the
-    // controller rolling its snapshot back to what was true, and a session
-    // that had already adopted the failed value would disagree with it — the
-    // next `setAudioPublishingAllowed` reads this field and would open a
-    // microphone the UI still shows as muted.
+    // Commit only after the SDK accepts the change; controller rollback and
+    // later publishing decisions must observe the same value.
     await _room.localParticipant?.setMicrophoneEnabled(
       audioPublishingAllowed && !muted,
     );
@@ -2905,11 +2844,7 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
     changed();
   }
 
-  /// Brings every remote audio publication in line with [_deafened].
-  ///
-  /// Run again whenever the set of publications can have changed — a track
-  /// published, a participant joined, a reconnect rebuilt the room — because
-  /// each of those arrives auto-subscribed.
+  /// Reapply whenever publications change because LiveKit auto-subscribes them.
   Future<void> _applyDeafened() async {
     for (final participant in _room.remoteParticipants.values) {
       for (final publication in participant.audioTrackPublications) {

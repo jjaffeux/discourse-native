@@ -1,4 +1,3 @@
-/// Compact relative time, the way a topic list or a post header reads it.
 String relativeTime(DateTime when) {
   final delta = DateTime.now().difference(when);
   if (delta.inDays >= 365) return '${delta.inDays ~/ 365}y';

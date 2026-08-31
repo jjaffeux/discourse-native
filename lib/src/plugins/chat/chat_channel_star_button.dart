@@ -10,7 +10,6 @@ import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_services.dart';
 
-/// Stars the current account's membership in one followed channel.
 class ChatChannelStarButton extends StatelessWidget {
   const ChatChannelStarButton({
     super.key,

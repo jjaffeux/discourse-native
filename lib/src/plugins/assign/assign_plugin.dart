@@ -21,11 +21,8 @@ import 'assignment_sheet.dart';
 
 export 'assign_data.dart';
 
-/// Native presentation and mutation affordances for `discourse-assign`.
-///
-/// The serializer record is the feature gate. In particular, [canAssign] is
-/// never used to hide public assignment state: it controls only the write
-/// affordance for the exact topic or post whose serializer supplied it.
+/// Uses serializer presence as the feature gate; [canAssign] controls only the
+/// target-scoped write affordance, never public assignment visibility.
 final class AssignPlugin
     implements
         SitePlugin,
@@ -307,9 +304,8 @@ final class AssignPlugin
       ];
     }
 
-    // Once a full topic Assign snapshot exists it is authoritative for the
-    // indirect post map. This matters after a live unassign: an older Post in
-    // the store must not resurrect the assignment the refreshed topic removed.
+    // A full topic snapshot must prevent stale stored posts from resurrecting
+    // assignments removed by a live refresh.
     final assignment = topicAssignments == null
         ? postAssignments?.direct
         : topicAssignments.forPost(post.id);
@@ -352,8 +348,7 @@ final class AssignPlugin
     final context = menu.buildContext;
     final siteUrl = menu.siteUrl;
     final post = menu.post;
-    // Assign treats the first post as the topic target. Never expose a Post
-    // write for it, even if a malformed or older serializer says can_assign.
+    // Assign treats the first post as the topic target, never a post target.
     if (post.postNumber == 1) return PostMenuContribution.none;
     final postAssignments = post.plugins.get(assignmentsDataKey);
     final topic = menu.topic;
@@ -398,8 +393,6 @@ final class AssignPlugin
       entries: [
         PostAction(
           icon: existing == null ? DIcons.userPlus : DIcons.pencil,
-          // Core's Assign button is collapsed unless the post is assigned to
-          // the current reader, in which case the quick action stays visible.
           placement: assignedToCurrentUser
               ? PostActionPlacement.toolbar
               : PostActionPlacement.overflow,

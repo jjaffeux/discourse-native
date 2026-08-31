@@ -264,10 +264,8 @@ void main() {
           'primary.read:$stateKey',
           'primary.read:$key',
           'legacy.read:$key',
-          // The legacy read happens with no lock held, so what it found is
-          // only a candidate: the modern namespace is asked again before the
-          // copy, or a migration or disconnect from another process in that
-          // window would be undone here.
+          // Legacy reads are unlocked, so recheck the primary namespace before
+          // migrating their result.
           'primary.read:$stateKey',
           'primary.read:$key',
           'primary.write:$key',
@@ -347,10 +345,8 @@ void main() {
       final pending = storage.read(key);
       await legacy.readStarted!.future;
 
-      // The lock is not held across the legacy read — that read can put an ACL
-      // dialog on screen — so another process can tombstone the key in this
-      // window. Standing in for one: the migration must see the tombstone on
-      // its re-check rather than copying the value it already fetched.
+      // An unlocked legacy read may show an ACL prompt while another process
+      // tombstones the key.
       primary.values[stateKey] = 'deleted';
       legacy.readGate!.complete();
 

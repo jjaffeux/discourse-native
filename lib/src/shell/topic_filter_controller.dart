@@ -27,8 +27,6 @@ class TopicFilterSuggestion {
   final TopicCategory? category;
 }
 
-/// Produces the same two levels of completion as core's FilterSuggestions:
-/// operators first, then values appropriate to the active operator.
 class TopicFilterSuggestions {
   const TopicFilterSuggestions({
     required this.options,

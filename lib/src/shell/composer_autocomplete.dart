@@ -7,58 +7,38 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'composer_triggers.dart';
 
-/// What a suggestion row draws on its left.
-///
-/// A sealed type rather than more nullable fields on [ComposerSuggestion]:
-/// four kinds of art, of which exactly one is ever set, is what a variant is
-/// for — and it was already untrue that every row draws an image.
 @immutable
 sealed class SuggestionArt {
   const SuggestionArt();
 }
 
-/// Emoji artwork, drawn square.
 class ArtImage extends SuggestionArt {
   const ArtImage(this.url);
   final String url;
 }
 
-/// Somebody's face, drawn round.
 class ArtAvatar extends SuggestionArt {
   const ArtAvatar(this.url);
   final String? url;
 }
 
-/// A category's colour swatch, split for a subcategory.
 class ArtSquare extends SuggestionArt {
   const ArtSquare(this.colorValues);
 
-  /// ARGB, in `[parent, child]` order — one entry for a top-level category,
-  /// two for a subcategory.
   final List<int> colorValues;
 }
 
-/// A glyph, by the name Discourse gave it, optionally in a category's colour.
 class ArtIcon extends SuggestionArt {
   const ArtIcon(this.name, {this.colorValue, this.fallback = DIcons.tag});
 
   final String? name;
   final int? colorValue;
 
-  /// The kind's own glyph when [name] is absent or is not in this app's
-  /// sprite. Plugin hashtag kinds supply this instead of inheriting the tag
-  /// glyph merely because their server icon is unknown locally.
   final DIconData fallback;
 }
 
-/// A suggestion row that performs an action instead of completing text.
-///
-/// Keeping this distinct from an empty [value] means keyboard and pointer
-/// activation can share the same row without teaching the completion writer
-/// that an empty emoji is meaningful.
 enum ComposerSuggestionAction { openEmojiPicker }
 
-/// One row the popup can offer, and what accepting it writes.
 @immutable
 class ComposerSuggestion {
   const ComposerSuggestion({
@@ -73,77 +53,38 @@ class ComposerSuggestion {
     this.userStatus,
   });
 
-  /// Which trigger this answers, which is what accepting it writes the sigils
-  /// for.
   final ComposerTriggerKind kind;
 
-  /// The bare token the trigger run is replaced with — a username, an emoji
-  /// name, a hashtag ref. Bare because the sigils belong to the completion,
-  /// not to the row.
   final String value;
 
   final String label;
 
-  /// The quieter half of the row: somebody's real name, a tag's topic count.
   final String? detail;
 
   final SuggestionArt? art;
 
-  /// Present when selecting this row should open another surface rather than
-  /// write [value]. For [ComposerSuggestionAction.openEmojiPicker], [value]
-  /// carries the current filter into that surface.
   final ComposerSuggestionAction? action;
 
-  /// Identity metadata used only by user suggestions.
   final String? siteUrl;
   final int? userId;
   final UserStatus? userStatus;
 }
 
-/// Where the composer's completions come from.
-///
-/// Functions supplied by the shell, which owns the site, the key and the
-/// caches — the composer only decides *when* to ask, exactly as it does for
-/// `onSaveDraft`. Emoji use the asynchronous path too: their catalog and
-/// localized aliases can land independently, and stale answers must not
-/// replace a newer shortcode query.
 typedef ComposerSearch = ({
   Future<List<ComposerSuggestion>> Function(String term) users,
   Future<List<ComposerSuggestion>> Function(String term) hashtags,
   Future<List<ComposerSuggestion>> Function(String query) emojis,
 });
 
-/// The mention and emoji popup for one composer.
-///
-/// Its own notifier rather than state on `ComposerController`, for the reason
-/// that one gives about `canSubmit`: a keystroke that only moves the
-/// suggestion list should redraw the list, not the header, the toolbar and the
-/// send button along with it.
 class ComposerAutocomplete extends ChangeNotifier {
   ComposerAutocomplete({this.search});
 
   final ComposerSearch? search;
 
-  /// Waits this long after the last keystroke before asking the site, the way
-  /// `ComposerController.draftDebounce` waits before saving — and far shorter
-  /// than it, because a draft save nobody is looking at can afford two seconds
-  /// and a list somebody is waiting to read cannot.
-  ///
-  /// No `maxWait` twin either: a draft that is never saved loses text, while a
-  /// search that is never made loses nothing, and every keystroke that pushes
-  /// the timer out has already made the previous query the wrong one.
   static const Duration debounce = Duration(milliseconds: 150);
 
-  /// One current search plus one answer that may just have become stale.
-  ///
-  /// A server can take the full request deadline to answer. Without a bound,
-  /// typing slowly enough to cross [debounce] starts another HTTP request for
-  /// every character while all earlier ones remain in flight. Past this limit
-  /// only the newest query is retained and started when either request ends.
   static const int maxConcurrentRemoteSearches = 2;
 
-  /// The most rows offered, chosen so the popup never scrolls. Past this it
-  /// stops being a list you can scan, and the answer is another letter.
   static const int maxSuggestions = 7;
 
   ComposerTrigger? _trigger;
@@ -160,13 +101,8 @@ class ComposerAutocomplete extends ChangeNotifier {
       ? _suggestions[_selected]
       : null;
 
-  /// An open trigger with nothing behind it is not a popup — an empty box over
-  /// somebody's reply is worse than no box.
   bool get isOpen => _trigger != null && _suggestions.isNotEmpty;
 
-  /// Bumped on every question asked, so a slow answer can tell on arrival that
-  /// the one being asked has moved on. A per-site lifecycle lease at the scale
-  /// of a keystroke.
   int _epoch = 0;
 
   Timer? _timer;
@@ -174,11 +110,8 @@ class ComposerAutocomplete extends ChangeNotifier {
   ({ComposerTrigger trigger, int epoch})? _queuedRemoteSearch;
   bool _disposed = false;
 
-  /// A trigger Escape was pressed on, so the next keystroke does not reopen
-  /// the same list — which would read as the key not working.
   (int, ComposerTriggerKind)? _dismissed;
 
-  /// Re-reads [value] and opens, moves or closes the popup.
   void update(TextEditingValue value) {
     if (_disposed) return;
 
@@ -239,11 +172,6 @@ class ComposerAutocomplete extends ChangeNotifier {
     if (queued != null) _enqueueRemoteSearch(queued);
   }
 
-  /// Asks the site, for the kinds that have to.
-  ///
-  /// One path rather than one per kind, so the staleness check below is
-  /// written once — it is the part that is easy to get subtly wrong, and two
-  /// copies of it would drift.
   Future<void> _searchRemote(
     ({ComposerTrigger trigger, int epoch}) request,
   ) async {
@@ -276,10 +204,6 @@ class ComposerAutocomplete extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Re-runs emoji search when its catalog or localized aliases have landed.
-  ///
-  /// A switch rather than an inequality, so a fourth kind is a compile error
-  /// here. Nothing else in this file would have said a word about it.
   void refresh() {
     final open = _trigger;
     if (_disposed || open == null) return;
@@ -302,8 +226,6 @@ class ComposerAutocomplete extends ChangeNotifier {
     }
   }
 
-  /// Moves the highlight, or reports that there was nothing to move so the key
-  /// falls through to the field.
   bool moveSelection(int delta) {
     if (_disposed || !isOpen) return false;
     _selected = (_selected + delta) % _suggestions.length;
@@ -312,13 +234,11 @@ class ComposerAutocomplete extends ChangeNotifier {
     return true;
   }
 
-  /// The trigger is over — accepted, or typed past.
   void close() {
     _dismissed = null;
     _clear();
   }
 
-  /// Escape. Closed, and stays closed until this run is left behind.
   void dismiss() {
     final open = _trigger;
     if (open != null) _dismissed = (open.start, open.kind);

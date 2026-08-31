@@ -2,11 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'json.dart';
 
-/// A Discourse user's custom status.
-///
-/// Core serializes the same object on posts, user cards, mention results,
-/// current-user payloads, and Chat users. [messageBusLastId] is present on
-/// snapshots so a client can start `/user-status` without missing a change.
 @immutable
 final class UserStatus {
   const UserStatus({
@@ -67,7 +62,6 @@ final class UserStatus {
   int get hashCode => Object.hash(description, emoji, endsAt, messageBusLastId);
 }
 
-/// A status plus the stable account id carried by mention serializers.
 @immutable
 final class UserStatusReference {
   const UserStatusReference({required this.status, this.userId});
@@ -85,7 +79,6 @@ final class UserStatusReference {
   int get hashCode => Object.hash(status, userId);
 }
 
-/// Reads the status-bearing basic-user objects used for cooked mentions.
 Map<String, UserStatusReference> userStatusesByUsername(Object? value) =>
     Map.unmodifiable({
       for (final user in jsonObjects(value))

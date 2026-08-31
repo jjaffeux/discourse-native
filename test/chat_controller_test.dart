@@ -68,7 +68,6 @@ ChatMessagePage page(
   targetMessageId: null,
 );
 
-/// Followed by default, which is the only kind `/chat/api/me/channels` returns.
 ChatChannel channel(
   int id, {
   String title = 'Bugs',
@@ -138,7 +137,6 @@ ChatChannel channel(
   messageBus: messageBus,
 );
 
-/// A controller wired to a fake site the reader is already signed in to.
 ({ChatController chat, FakeDiscourseApi api, Store store}) build({
   Map<String, ChatChannels> channels = const {},
   Map<int, ChatChannel> channelDetails = const {},
@@ -1607,8 +1605,6 @@ void main() {
         currentUser: currentUser,
         channels: {site: const ChatChannels(newChannelBusLastId: 80)},
       );
-      // Store rows outlive sidebar membership across a refresh. Discovery is
-      // about whether the id is listed, not whether an old record still exists.
       subject.store.put(
         site,
         channel(
@@ -2040,8 +2036,6 @@ void main() {
         await loading;
 
         expect(api.chatChannelsRequested, isEmpty);
-        // The request port returns one atomic credential snapshot. Invalidating
-        // the lease still prevents the plugin from reaching the API.
         expect(credentials.clientIdCalls, 1);
       },
     );
@@ -2544,8 +2538,6 @@ void main() {
       gate.complete();
       await first;
 
-      // A forced refresh works underneath what is already there rather than
-      // replacing a conversation with a loading placeholder.
       final second = subject.chat.openChannel(site, 9, force: true);
       expect(subject.chat.stream(site, 9).loading, isFalse);
       await second;
@@ -2573,9 +2565,6 @@ void main() {
     );
 
     test('keeps what is on screen when a refresh fails', () async {
-      // The fake answers from a map it reads at call time, so taking the page
-      // back out between the two opens is how a site that answered once and
-      // then would not is written down.
       final pages = {
         key(9): page([message(1)]),
       };
@@ -2585,8 +2574,6 @@ void main() {
       pages.remove(key(9));
       await subject.chat.openChannel(site, 9, force: true);
 
-      // A conversation that was true a moment ago beats an error where it was;
-      // an explicit reconciliation can still ask again during the cooldown.
       expect(subject.chat.stream(site, 9).messageIds, [1]);
       expect(subject.chat.stream(site, 9).error, isNull);
       expect(subject.api.chatMessagesRequested, hasLength(2));
@@ -4631,8 +4618,6 @@ void main() {
   });
 
   group('paging towards the present', () {
-    /// A window anchored behind the present, which is the only shape that has
-    /// anything in front of it to fetch.
     ({ChatController chat, FakeDiscourseApi api, Store store}) anchored({
       Map<String, ChatMessagePage> extra = const {},
     }) => build(
@@ -4666,8 +4651,6 @@ void main() {
 
       expect(subject.api.chatMessagesRequested.last.after, 5);
       expect(subject.chat.stream(site, 9).messageIds, [5, 6, 7]);
-      // The site answered without saying there was more, so the window now
-      // runs to the present and the jump-to-now affordance has nothing to do.
       expect(subject.chat.stream(site, 9).atPresent, isTrue);
     });
 
@@ -4730,8 +4713,6 @@ void main() {
 
       await subject.chat.loadNewer(site, 9);
 
-      // The window now claims the present, so the parked message must be in
-      // it — cleared unmerged it becomes a permanent hole at the live edge.
       final stream = subject.chat.stream(site, 9);
       expect(stream.messageIds, [5, 6, 7]);
       expect(stream.atPresent, isTrue);
@@ -4774,9 +4755,6 @@ void main() {
 
       await subject.chat.loadNewer(site, 9);
 
-      // Merging the straggler admits the canonical message, so the row that
-      // was standing in for it has to go with it — otherwise the sender sees
-      // their own message twice for the life of the window.
       final stream = subject.chat.stream(site, 9);
       expect(stream.messageIds, [5, 6, 42]);
       expect(stream.localMessageIds, isEmpty);
@@ -4816,8 +4794,6 @@ void main() {
     });
 
     test('does not ask at all from a window already at the present', () async {
-      // Which is every window fetched at the live edge, so this is the common
-      // case rather than an edge one.
       final subject = build(
         messages: {
           key(9): page([message(5)]),
@@ -5039,7 +5015,6 @@ void main() {
       final second = subject.chat.loadOlder(site, 9);
       await Future.wait([first, second]);
 
-      // One open plus one page of history, not two.
       expect(subject.api.chatMessagesRequested, hasLength(2));
     });
 
@@ -5054,8 +5029,6 @@ void main() {
       await subject.chat.loadOlder(site, 9);
 
       expect(subject.chat.stream(site, 9).messageIds, [5]);
-      // History that would not load is not worth an error state: what is on
-      // screen is still true, and scrolling up again asks again.
       expect(subject.chat.stream(site, 9).error, isNull);
       expect(subject.chat.stream(site, 9).loadingOlder, isFalse);
     });
@@ -5340,9 +5313,6 @@ void main() {
 
       tracker.deliverPluginMessage('/chat/9', deleteEvent(2));
 
-      // Keep the canonical id in the contiguous transport window, but remove
-      // the record just as the web client does for a reader who cannot inspect
-      // deleted chat. The stream revision reprojects that now-hidden slot.
       final after = subject.chat.stream(site, 9);
       expect(subject.store.read<ChatMessage>(site, 2), isNull);
       expect(subject.chat.messages(site, 9).map((message) => message.id), [1]);
@@ -5719,7 +5689,6 @@ void main() {
   );
 
   group('crediting the reader with what they have seen', () {
-    /// A site with one three-message channel, already open.
     Future<({ChatController chat, FakeDiscourseApi api, Store store})> reading({
       ChatChannel? held,
       WriteException? readFailure,
@@ -5803,8 +5772,6 @@ void main() {
         await marking;
 
         expect(api.chatReadsMarked, isEmpty);
-        // The request port returns one atomic credential snapshot. Forgetting
-        // the site still prevents the plugin from delegating a write.
         expect(credentials.clientIdCalls, 1);
       },
     );
@@ -5968,8 +5935,6 @@ void main() {
       expect(read.unreadThreadOverview, {31: DateTime.utc(2026, 8, 8, 11)});
       expect(read.unreadThreadsCountSinceLastViewed, 0);
 
-      // Once the pane is gone, a later reply to that tracked public thread
-      // can update the retained overview and become sidebar unread again.
       now = DateTime.utc(2026, 8, 8, 13, 1);
       tracker.deliverPluginMessage(
         '/chat/9/new-messages',
@@ -6179,7 +6144,6 @@ void main() {
     });
 
     test('says nothing about a channel the reader does not follow', () async {
-      // There is no membership row to move, and the site answers 404.
       final subject = await reading(held: channel(9, following: false));
 
       await subject.chat.markRead(site, 9, 3);
@@ -6196,8 +6160,6 @@ void main() {
     });
 
     test('keeps the guess when the site refuses the write', () async {
-      // Nobody asked for this and nobody is waiting on it, so there is nothing
-      // to tell and nothing to put back. The next channel list corrects it.
       final subject = await reading(
         held: channel(9, lastRead: 1, unread: 2),
         readFailure: const WriteException(WriteFailure.unreachable),

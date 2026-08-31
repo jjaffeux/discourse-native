@@ -15,8 +15,6 @@ void main() {
   late ShellController controller;
 
   setUp(() async {
-    // Neither post carries its raw, and the fetch that should supply it
-    // answers without one — the shape of an edit whose body never arrived.
     api = FakeDiscourseApi(
       feeds: const {'/latest.json': []},
       postsById: const {

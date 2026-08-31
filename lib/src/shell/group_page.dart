@@ -42,7 +42,6 @@ typedef GroupCreateInvite =
 typedef GroupMemberActionCallback =
     Future<bool> Function(GroupMember member, GroupMemberAction action);
 
-/// A field-level update from one native group-management subsection.
 @immutable
 final class GroupManageUpdate {
   const GroupManageUpdate({required this.subsection, required this.values});
@@ -51,10 +50,6 @@ final class GroupManageUpdate {
   final Map<String, Object?> values;
 }
 
-/// Render state for one native group route.
-///
-/// Each section keeps its confirmed rows while a refresh is running. That is
-/// why loading/error flags live beside, rather than instead of, the payloads.
 @immutable
 final class GroupPageData {
   const GroupPageData({
@@ -114,12 +109,6 @@ final class GroupPageData {
   final bool hasMore;
 }
 
-/// Native `/g/:name` shell.
-///
-/// Topic feeds remain owned by the shell and are injected through
-/// [topicFeed]/[messageFeed]. Group-specific payloads and writes are projected
-/// through callbacks, which keeps this view independent from controller cache
-/// layout while still using [ShellScope] as the navigation default.
 class GroupPage extends StatefulWidget {
   const GroupPage({
     super.key,

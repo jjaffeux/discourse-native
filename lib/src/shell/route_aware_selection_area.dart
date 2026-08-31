@@ -1,15 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show SelectedContent;
 
-/// Enables multi-widget selection only while the enclosing route is current.
-///
-/// Flutter keeps covered routes mounted while its overlay deliberately skips
-/// laying them out. A [SelectionArea] in such a route can retain unlaid-out
-/// paragraphs and later crash while sorting them by screen position. Removing
-/// the area while the route is covered unregisters those paragraphs. The
-/// global-keyed subtree preserves the content's state across that change.
-///
-/// See https://github.com/flutter/flutter/issues/151536.
 class RouteAwareSelectionArea extends StatefulWidget {
   const RouteAwareSelectionArea({
     super.key,

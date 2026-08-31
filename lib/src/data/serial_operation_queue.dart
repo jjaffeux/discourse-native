@@ -1,7 +1,5 @@
 import 'dart:async';
 
-/// Serializes asynchronous operations that target the same owner and key.
-///
 /// Operations for unrelated keys remain independent. A failed operation is
 /// delivered to its caller without poisoning the queue for later work.
 ///
@@ -39,8 +37,6 @@ final class SerialOperationQueue {
   }
 }
 
-/// Lets idle reads start immediately while preserving read-after-write order.
-///
 /// A write is considered pending as soon as [write] is called, including while
 /// it is waiting behind an earlier write. A later [read] for the same identity
 /// owner and equal key joins that queue; otherwise the read bypasses it. This

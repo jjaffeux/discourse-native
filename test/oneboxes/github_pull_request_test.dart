@@ -14,8 +14,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
-/// Shaped after `githubpullrequest.mustache` with the PR section active and a
-/// status stamped on, as `github_pr_status_enabled` writes it.
 const String prOnebox = '''
 <aside class="onebox githubpullrequest" data-onebox-src="https://github.com/discourse/discourse/pull/30604">
   <header class="source">
@@ -60,8 +58,6 @@ const String prOnebox = '''
 </aside>
 ''';
 
-/// The deep-link shape: a link into a PR comment. The template answers with
-/// one run of text where the PR shape has its cells.
 const String prCommentOnebox = '''
 <aside class="onebox githubpullrequest" data-onebox-src="https://github.com/discourse/discourse/pull/30604#issuecomment-99">
   <article class="onebox-body">
@@ -180,7 +176,6 @@ void main() {
         tester.widget<Text>(find.text('Add the thing (#30604)')).style?.color,
         accent,
       );
-      // The header source row survives into the card chrome.
       expect(find.text('github.com/discourse/discourse'), findsOneWidget);
       expect(find.textContaining('main', findRichText: true), findsOneWidget);
       expect(find.textContaining('+123', findRichText: true), findsOneWidget);
@@ -195,7 +190,6 @@ void main() {
       );
       expect(find.text('This adds the thing we talked about.'), findsOneWidget);
 
-      // The status glyph, in GitHub's color for merged.
       final icon = tester.widget<GithubOneboxIcon>(
         find.byType(GithubOneboxIcon),
       );

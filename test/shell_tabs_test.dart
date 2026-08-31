@@ -7,22 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 
-// Regression contract for desktop forum-scoped shell tabs and the mobile
-// single-context fallback.
-//
-// These tests intentionally name the controller API before its production
-// implementation exists. The contract assumes:
-//
-// * a forum starts with one active Topics tab;
-// * createTab() appends and activates a fresh Topics tab;
-// * activeTabId is an opaque, nullable id accepted by selectTab/closeTab;
-// * tabsForCurrentForum is ordered, but its element type is otherwise private
-//   to the implementation (these tests only observe its length);
-// * closing the active tab selects its right neighbour, or its left neighbour
-//   when there is no tab to the right;
-// * closing the final tab replaces it with a fresh Topics tab; and
-// * selectDestination/pushContent mutate only the active tab.
-//
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -310,7 +294,6 @@ void main() {
         scrolling.saveTopicScrollPost(303, 9);
         scrolling.saveTopicScrollPost(303, 27, viewportOffset: -12);
 
-        // The tab already carries the anchors; only the write waits.
         expect(scrolling.topicScrollPostNumber(303), 27);
         expect(anchorTabs.saveCount, savesBeforeScroll);
 

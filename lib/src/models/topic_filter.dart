@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'json.dart';
 
-/// One prefix, delimiter or special value advertised for a topic filter.
 @immutable
 class TopicFilterModifier {
   const TopicFilterModifier({required this.name, this.description});
@@ -26,12 +25,6 @@ class TopicFilterModifier {
   int get hashCode => Object.hash(name, description);
 }
 
-/// A query operator returned in `topic_list.filter_option_info`.
-///
-/// The server is the source of truth for this list. Plugins can add operators,
-/// and older sites can omit fields newer clients understand, so every nested
-/// value is optional and malformed entries are skipped rather than making the
-/// whole topic list unreadable.
 @immutable
 class TopicFilterOption {
   const TopicFilterOption({
@@ -101,7 +94,6 @@ class TopicFilterOption {
   );
 }
 
-/// A remotely looked-up value used to complete a typed filter.
 @immutable
 class TopicFilterLookupValue {
   const TopicFilterLookupValue({required this.name, this.description});

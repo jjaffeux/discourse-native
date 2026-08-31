@@ -14,8 +14,6 @@ import '../../../theme/app_theme.dart';
 import '../../../theme/d_icon.dart';
 import '../../local_dates/local_dates_contract.dart';
 
-/// A GitHub onebox parser whose optional cooked-time input stays owned by the
-/// Local Dates module.
 class GithubOneboxEngine {
   const GithubOneboxEngine({required this.matches, required this.build});
 
@@ -29,23 +27,11 @@ class GithubOneboxEngine {
   build;
 }
 
-/// The shared visual language of GitHub's oneboxes.
-///
-/// Discourse draws GitHub oneboxes from octicons embedded in its mustache
-/// templates (`lib/onebox/templates/github*.mustache`) and colors their pull
-/// request statuses from `plugins/discourse-github/.../github-pr-status.scss`.
-/// The shapes below are taken verbatim from those files, so a onebox here
-/// carries the same glyph and the same status color as on the web.
-
-/// `+123` or `-45` from a `.lines` block, as a number.
-///
-/// The pull request and the commit engines read the same block of the same
-/// template, and it writes the sign and the label in with the digits.
 int? githubLineCount(dom.Element? lines, String className) => lines == null
     ? null
     : digitsIn(descendantWhere(lines, (e) => e.classes.contains(className)));
 
-// --- Icons, path data taken from the upstream templates.
+// Path data copied from the upstream GitHub onebox templates.
 
 const DIconData githubIssueIcon = DIconData(
   'octicon-issue-opened',
@@ -72,10 +58,6 @@ const DIconData githubDiscussionIcon = DIconData(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M1.679 7.932c.412-.621 1.242-1.75 2.366-2.717C5.175 4.242 6.527 3.5 8 3.5c1.473 0 2.824.742 3.955 1.715 1.124.967 1.954 2.096 2.366 2.717a.119.119 0 010 .136c-.412.621-1.242 1.75-2.366 2.717C10.825 11.758 9.473 12.5 8 12.5c-1.473 0-2.824-.742-3.955-1.715C2.92 9.818 2.09 8.69 1.679 8.068a.119.119 0 010-.136zM8 2c-1.981 0-3.67.992-4.933 2.078C1.797 5.169.88 6.423.43 7.1a1.619 1.619 0 000 1.798c.45.678 1.367 1.932 2.637 3.024C4.329 13.008 6.019 14 8 14c1.981 0 3.67-.992 4.933-2.078 1.27-1.091 2.187-2.345 2.637-3.023a1.619 1.619 0 000-1.798c-.45-.678-1.367-1.932-2.637-3.023C11.671 2.992 9.981 2 8 2zm0 8a2 2 0 100-4 2 2 0 000 4z"/></svg>',
 );
 
-// --- Pull request status, from `--gh-status-*` classes.
-
-/// The states `github_pr_status_enabled` can stamp onto a pull request
-/// onebox, written by the server as `--gh-status-<name>` classes.
 enum GithubPrStatus {
   draft,
   open,
@@ -84,7 +66,6 @@ enum GithubPrStatus {
   merged,
   closed;
 
-  /// Reads a `--gh-status-*` class list, null when none is present.
   static GithubPrStatus? fromClasses(Iterable<String> classes) {
     for (final className in classes) {
       if (!className.startsWith('--gh-status-')) continue;
@@ -101,9 +82,7 @@ enum GithubPrStatus {
     _ => name,
   };
 
-  /// GitHub's own color for the status, as in `github-pr-status.scss`. One
-  /// value for both brightnesses: these are GitHub's identity colors, not the
-  /// site's.
+  /// GitHub identity color from `github-pr-status.scss`, independent of theme.
   Color get color => switch (this) {
     draft || open => const Color(0xFF8B949E),
     approved => const Color(0xFF3FB950),
@@ -140,17 +119,11 @@ const DIconData githubPrClosedIcon = DIconData(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M3.25 1A2.25 2.25 0 0 1 4 5.372v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 3.25 1Zm9.5 5.5a.75.75 0 0 1 .75.75v3.378a2.251 2.251 0 1 1-1.5 0V7.25a.75.75 0 0 1 .75-.75Zm-2.03-5.273a.75.75 0 0 1 1.06 0l.97.97.97-.97a.748.748 0 0 1 1.265.332.75.75 0 0 1-.205.729l-.97.97.97.97a.751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018l-.97-.97-.97.97a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734l.97-.97-.97-.97a.75.75 0 0 1 0-1.06ZM2.5 3.25a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM3.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm9.5 0a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z"/></svg>',
 );
 
-/// The color GitHub paints diff counts with — additions and deletions in
-/// block oneboxes read the way they do on github.com itself.
 const Color githubAdditionColor = Color(0xFF3FB950);
 const Color githubDeletionColor = Color(0xFFF85149);
 
-// --- Shared body parts, drawn the same by issues, PRs and commits.
-
-/// Core's onebox font is 16px. Legacy GitHub SVGs are square and capped at
-/// 1.8em; the status plugin reserves the old 12:16 slot for its 2.5em-wide
-/// replacement. The replacement SVGs themselves have square 16:16 viewBoxes,
-/// so they stay square inside that slot instead of being stretched to fit it.
+/// Preserves upstream's legacy and status-plugin SVG slots without stretching
+/// their square viewBoxes.
 const double _githubOneboxFontSize = 16;
 const double githubIconColumnWidth = _githubOneboxFontSize * 2.5;
 const double githubIconGap = _githubOneboxFontSize * 0.75;
@@ -161,8 +134,7 @@ const Size githubPrStatusSlotSize = Size(
   githubIconColumnWidth / (12 / 16),
 );
 
-/// A block-onebox GitHub SVG with core's raw sizing rather than [DIcon]'s
-/// Font Awesome optical scaling.
+/// Uses upstream raw SVG sizing, not [DIcon]'s Font Awesome optical scaling.
 class GithubOneboxIcon extends StatelessWidget {
   const GithubOneboxIcon({
     super.key,
@@ -196,7 +168,6 @@ class GithubOneboxIcon extends StatelessWidget {
   }
 }
 
-/// The avatar the info row carries, 20px with 2px corners as on the web.
 class GithubUser extends StatelessWidget {
   const GithubUser({
     super.key,
@@ -257,7 +228,6 @@ class GithubUser extends StatelessWidget {
   }
 }
 
-/// A diff count such as `+123 −45`, opening the files tab when it has a link.
 class GithubLineCounts extends StatelessWidget {
   const GithubLineCounts({
     super.key,
@@ -311,10 +281,7 @@ class GithubLineCounts extends StatelessWidget {
   }
 }
 
-/// A compact metadata link inside a GitHub card.
-///
-/// It uses the inline-target exception rather than stretching the card's info
-/// row to 44 pixels, but still exposes a native keyboard focus and action path.
+/// Uses the inline-target exception without losing keyboard focus or activation.
 class _GithubInlineLink extends StatelessWidget {
   const _GithubInlineLink({
     required this.label,
@@ -337,8 +304,6 @@ class _GithubInlineLink extends StatelessWidget {
   );
 }
 
-/// The onebox body: GitHub's API returns it as markdown, Discourse's template
-/// escapes it and prints it in a monospace face, truncated.
 class GithubBodyText extends StatelessWidget {
   const GithubBodyText({super.key, required this.text});
 
@@ -366,10 +331,6 @@ class GithubBodyText extends StatelessWidget {
   }
 }
 
-// --- DOM reading shared by the GitHub engines.
-
-/// The verb a `.date` cell leads with — "Opened", "Merged"… — which is the
-/// direct text around its cooked-time descendant, localized server-side.
 String? githubDateVerb(dom.Element dateEl) {
   final text = dateEl.nodes
       .whereType<dom.Text>()
@@ -379,8 +340,6 @@ String? githubDateVerb(dom.Element dateEl) {
   return text.isEmpty ? null : text;
 }
 
-/// The issue/PR/commit body, minus the "show more" link and the hidden
-/// excerpt the template appends for the web's expander.
 String? githubBody(dom.Element article) {
   final p = descendantWhere(
     article,

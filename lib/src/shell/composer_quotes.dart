@@ -9,11 +9,6 @@ import 'markdown_highlight.dart';
 import 'markdown_style.dart';
 import 'quote_panel.dart';
 
-/// One complete Discourse `[quote]` block in a composer document.
-///
-/// The offsets and [source] are deliberately lossless. The composer only
-/// projects this range visually; drafts and submission continue to carry the
-/// exact BBCode the site expects.
 @immutable
 class ComposerQuoteBlock {
   const ComposerQuoteBlock({
@@ -51,15 +46,6 @@ typedef ComposerQuoteContentsFormatter =
 typedef ComposerQuoteContentsResolver =
     String? Function(ComposerQuoteBlock block);
 
-/// Finds complete block-level quote BBCode outside code.
-///
-/// This mirrors the important parts of core's `bbcode-block` and `quotes`
-/// features: up to three spaces of indentation, paired straight/curly quote
-/// marks around the default value, legacy unquoted values, nested quotes, and
-/// the display-name/username metadata emitted by `buildQuote`.
-/// [knownCodeRanges] lets a caller that has already scanned [source] hand its
-/// answer over rather than have the scan repeated here; see
-/// [parseComposerImages].
 List<ComposerQuoteBlock> parseComposerQuotes(
   String source, {
   CodeRanges? knownCodeRanges,
@@ -115,10 +101,6 @@ List<ComposerQuoteBlock> parseComposerQuotes(
   return List.unmodifiable(blocks);
 }
 
-/// Core serializes a quote with two trailing line endings. They are structural
-/// separation rather than user-authored prose, so the atomic range owns them:
-/// removing an only-quote reply leaves a genuinely empty composer, while a
-/// quote between paragraphs leaves the preceding blank-line separator intact.
 int _blockEnd(String source, int tagEnd) {
   var end = tagEnd;
   for (var line = 0; line < 2; line++) {
@@ -144,14 +126,6 @@ ComposerQuoteBlock? quoteAtComposerOffset(
   return null;
 }
 
-/// Whether applying an inline edit to [selection] would rewrite a quote.
-///
-/// A non-collapsed selection may include ordinary prose as well as a quote;
-/// wrapping that combined range would still mutate the immutable quote source.
-/// Its opening boundary is unsafe too: inserting a markdown marker immediately
-/// before `[quote]` stops it from being recognized as a block. The ending
-/// boundary remains safe because a marker after the complete source does not
-/// change how the quote is parsed.
 bool selectionTouchesComposerQuote(
   Iterable<ComposerQuoteBlock> blocks,
   TextSelection selection,
@@ -168,8 +142,6 @@ bool selectionTouchesComposerQuote(
   return false;
 }
 
-/// Expands a selection to quote boundaries and keeps a collapsed caret out of
-/// immutable quote source.
 TextSelection quoteSafeSelection(
   Iterable<ComposerQuoteBlock> blocks,
   TextSelection selection,
@@ -209,11 +181,6 @@ TextSelection quoteSafeSelection(
         );
 }
 
-/// Rejects text-input edits which would change only part of a quote.
-///
-/// Whole-quote selections remain ordinary editor selections, so select-all,
-/// cut, and replacement still work. Hardware Backspace/Delete and the visible
-/// remove control are handled by the composer panel as atomic removals.
 class ComposerQuoteInputFormatter extends TextInputFormatter {
   const ComposerQuoteInputFormatter();
 
@@ -255,12 +222,6 @@ class ComposerQuoteInputFormatter extends TextInputFormatter {
   }
 }
 
-/// The read-only composer rendering of a quoted post.
-///
-/// It uses the same panel, accent bar, spacing, attribution hierarchy and body
-/// colours as [QuoteBlock] in `quote.dart`. Selected native post text is plain
-/// text, so keeping the body as text here is both safe and faithful; the raw
-/// BBCode remains underneath for the server to cook on submission.
 class ComposerQuotePreview extends StatefulWidget {
   const ComposerQuotePreview({
     super.key,
@@ -275,9 +236,6 @@ class ComposerQuotePreview extends StatefulWidget {
   final TextStyle baseStyle;
   final Key? removeKey;
 
-  /// How many times any preview has read its contents, so a test can hold the
-  /// memoisation to account rather than trusting it. The twin of
-  /// `MarkdownEditingController.scans`, and for the same reason.
   @visibleForTesting
   static int scans = 0;
 
@@ -285,15 +243,6 @@ class ComposerQuotePreview extends StatefulWidget {
   State<ComposerQuotePreview> createState() => _ComposerQuotePreviewState();
 }
 
-/// Stateful only to hold the scan.
-///
-/// Every keystroke rebuilds the composer's span tree, and every quote in it is
-/// a `WidgetSpan` whose child is rebuilt with it — so scanning here is scanning
-/// the quoted half of the document a second time, once per key. A reply that
-/// is mostly quotation therefore paid for its own length twice, which is the
-/// same thing `_codeRangesFor` was written to stop the projection parsers
-/// doing. The `GlobalKey` the controller puts above this keeps the element
-/// alive across those rebuilds, so the memo survives them.
 class _ComposerQuotePreviewState extends State<ComposerQuotePreview> {
   String? _scanned;
   List<MarkdownRun> _runs = const [];
@@ -490,14 +439,6 @@ _QuoteTag? _matchingClose(String source, int offset, CodeRanges codeRanges) {
   return null;
 }
 
-/// Whether the opener at [offset] begins its line, allowing core's three
-/// spaces of indentation.
-///
-/// Walks back at most those three characters rather than searching for the
-/// line start. Only the three before the opener can be indentation, so
-/// anything earlier cannot change the answer — and searching for the newline
-/// instead walks to the top of the document at every `[`, which on one long
-/// line is quadratic in a scan the composer runs per keystroke.
 bool _startsBlock(String source, int offset) {
   final earliest = offset < 3 ? 0 : offset - 3;
   for (var index = offset - 1; index >= earliest; index--) {

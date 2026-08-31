@@ -15,11 +15,6 @@ import 'select.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 
-/// The connected account's server-backed preference editor.
-///
-/// The controller owns the draft so navigating between sections, rebuilding,
-/// and failed writes never reset a reader's edits. This widget owns only the
-/// currently visible section and the filter affordance for the timezone menu.
 class PreferencesPage extends StatefulWidget {
   const PreferencesPage({super.key, required this.siteUrl});
 

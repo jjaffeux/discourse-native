@@ -34,11 +34,6 @@ import 'chat_shell_service.dart';
 import 'chat_uploads.dart';
 import 'chat_user_avatar.dart';
 
-/// One message, drawn from whichever record the store holds under [messageId].
-///
-/// The indirection is the point, and it is `_StoredPost`'s: editing a message,
-/// deleting it or reacting to it writes one record, and only the row watching
-/// that record is rebuilt. It is also what lets the stream be a list of ints.
 class ChatMessageTile extends StatelessWidget {
   const ChatMessageTile({
     super.key,
@@ -60,56 +55,32 @@ class ChatMessageTile extends StatelessWidget {
   final String siteUrl;
   final int messageId;
 
-  /// The thread pane containing this row, if any.
-  ///
-  /// A message can carry a thread id even while it is rendered in its parent
-  /// channel. Core chooses the share URL from the pane context instead, so the
-  /// caller supplies that context explicitly.
+  /// Pane context, rather than the message's thread id, determines core's share URL.
   final int? contextThreadId;
 
-  /// Whether this row belongs to the run above it, and so draws no avatar, no
-  /// name and no time. Decided by `buildChatStream` over the whole list, since
-  /// it is a fact about two messages rather than about one.
   final bool chained;
 
-  /// Opens the thread summarized by this message, when it has replies.
-  ///
-  /// The tile deliberately hands the typed preview back to its owner rather
-  /// than knowing about routes. A channel can open the newest reply, while a
-  /// different host can make another navigation choice without changing this
-  /// presentation widget.
   final ValueChanged<ChatThreadPreview>? onOpenThread;
 
-  /// Jumps to the message named by this message's direct-reply indicator.
   final ValueChanged<int>? onJumpToMessage;
 
-  /// Opens or creates this message's thread from the adaptive action surface.
   final ValueChanged<ChatMessage>? onReplyInThread;
 
-  /// Hands an editable message to the channel or thread's pinned composer.
   final ValueChanged<ChatMessage>? onEdit;
 
-  /// Whether to draw the thread summary embedded on an original message.
-  ///
-  /// Thread views set this false because their responses include the original
-  /// message, where another link into the thread would be recursive.
+  /// Thread views suppress the original message's recursive thread summary.
   final bool showThreadSummary;
   final VoidCallback? onSelect;
   final bool selecting;
   final bool selected;
   final ValueChanged<bool>? onSelectedChanged;
 
-  /// Width of the avatar plus its gutter, so a chained row's body lines up with
-  /// the one above it.
   static const double gutter = 42;
 
-  /// A speaker header plus one body line and the row's vertical padding.
   static const double minimumUnchainedHeight = 58;
 
-  /// One body line and the tighter padding used inside a speaker run.
   static const double minimumChainedHeight = 28;
 
-  /// The height a live-edge row needs to contain its desktop hover actions.
   static const double hoverActionsTop = 4;
   static const double minimumHoverActionsHeight =
       hoverActionsTop + HoverActionButton.height;
@@ -137,8 +108,7 @@ class ChatMessageTile extends StatelessWidget {
         chatControllerService,
       ).messageRef(siteUrl, messageId),
       builder: (context, message, _) {
-        // Gone for good, in the frame before the stream that named it is
-        // rewritten without it.
+        // The stream may lag one frame behind permanent deletion.
         if (message == null) return const SizedBox.shrink();
         final tile = _Tile(
           siteUrl: siteUrl,
@@ -232,7 +202,6 @@ class _OpenChatMessageActionsIntent extends Intent {
   const _OpenChatMessageActionsIntent();
 }
 
-/// One-action variant of the post menu interaction used by chat messages.
 class _ChatMessageActions extends StatefulWidget {
   const _ChatMessageActions({
     required this.focusKey,
@@ -782,8 +751,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                     : null,
                 onSecondaryTap: () => unawaited(_showActions()),
                 child: Stack(
-                  // Chained rows can be shorter than the 44-pixel desktop
-                  // action targets positioned over them.
+                  // Desktop action targets may be taller than chained rows.
                   clipBehavior: Clip.none,
                   children: [
                     widget.child,
@@ -1053,14 +1021,11 @@ class _Tile extends StatelessWidget {
 
     final tile = Padding(
       key: ValueKey('chat-message-${message.id}'),
-      // Core's desktop chat uses 0.65rem above a new speaker and 0.15rem
-      // around a chained message, with 1rem at either side.
+      // Match core's speaker and chained-message spacing.
       padding: EdgeInsets.fromLTRB(16, chained ? 2.4 : 10.4, 16, 2.4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Above the message rather than beside it, which is where Discourse
-          // puts it: it is context for what follows, not part of it.
           if (message.replyTo case final reply? when !chained)
             _ReplyIndicator(
               siteUrl: siteUrl,
@@ -1074,13 +1039,8 @@ class _Tile extends StatelessWidget {
             children: [
               SizedBox(
                 width: ChatMessageTile.gutter,
-                // Aligned rather than handed straight to the gutter: a fixed
-                // width is a *tight* constraint, and a SizedBox cannot shrink
-                // below one it is given — `tightFor(...).enforce(incoming)`
-                // clamps it straight back. Without this the avatar came out
-                // gutter-wide and avatar-tall, and ClipOval drew the ellipse
-                // that made of it. Align loosens what it passes down, so the
-                // 28 asked for below is the 28 that arrives.
+                // Align loosens the gutter's tight width before sizing the
+                // avatar; SizedBox alone would be clamped back to gutter width.
                 child: chained
                     ? const SizedBox.shrink()
                     : Align(
@@ -1230,8 +1190,7 @@ class _DeliveryStatus extends StatelessWidget {
   }
 }
 
-/// Keeps message text selectable without inserting an otherwise invisible
-/// stop into the row's keyboard traversal order.
+/// Keeps selectable text out of keyboard traversal.
 class _MessageBodySelection extends StatefulWidget {
   const _MessageBodySelection({
     required this.selectionKey,
@@ -1322,7 +1281,6 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// What this message is answering, one line above it.
 class _ReplyIndicator extends StatelessWidget {
   const _ReplyIndicator({
     required this.siteUrl,
@@ -1527,7 +1485,6 @@ class _Reactions extends StatelessWidget {
   );
 }
 
-/// Chat's API adapter into the same reactor list topic posts use.
 class _ChatReactorList extends StatelessWidget {
   const _ChatReactorList({
     required this.siteUrl,
@@ -1579,10 +1536,6 @@ class _ChatReactorList extends StatelessWidget {
       );
 }
 
-/// The latest activity behind a message that started a thread.
-///
-/// One target owns the whole card. Its compact names, avatars, count and
-/// excerpt are context for that action rather than separate profile controls.
 class _ThreadSummaryCard extends StatelessWidget {
   const _ThreadSummaryCard({
     required this.siteUrl,
@@ -1897,7 +1850,6 @@ DIconData _bookmarkIcon(Bookmark? bookmark) {
       : DIcons.discourseBookmarkClock;
 }
 
-/// The same shape `TopicView` gives a post's staff tag.
 class _Tag extends StatelessWidget {
   const _Tag({required this.label, required this.color, this.isBot = false});
 

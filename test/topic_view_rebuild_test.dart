@@ -17,7 +17,6 @@ void main() {
   test('post index projection scans a retained stream only once', () {
     final postIds = _CountingIntList([
       for (var postId = 1; postId <= 10000; postId++) postId,
-      // Keep the old indexOf behavior for a malformed duplicate as well.
       5000,
     ]);
 
@@ -96,8 +95,6 @@ void main() {
     };
     addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildHook);
 
-    // Selecting the already-current site only asks the adaptive shell to show
-    // its sidebar. The topic id, post stream and loading state do not change.
     controller.selectInstance(0);
     await tester.pump();
 

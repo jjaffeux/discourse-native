@@ -513,7 +513,6 @@ void main() {
     test(
       'records explicit request abort as neutral and delegates it',
       () async {
-        // The test intentionally terminates this request through abort().
         // ignore: close_sinks
         final delegateRequest = _FakeHttpClientRequest(
           Uri.https('example.com', '/abort'),
@@ -524,7 +523,6 @@ void main() {
           _FakeHttpClient(onGetUrl: (_) async => delegateRequest),
           recorder,
         );
-        // The test intentionally terminates this request through abort().
         // ignore: close_sinks
         final request = await client.getUrl(Uri.https('example.com', '/abort'));
         final cancellation = StateError('caller cancelled');
@@ -542,7 +540,6 @@ void main() {
     );
 
     test('coalesces overlapping request closes at the delegate', () async {
-      // Closed through the recording request below.
       // ignore: close_sinks
       final delegateRequest = _FakeHttpClientRequest(
         Uri.https('example.com', '/close-once'),
@@ -568,7 +565,6 @@ void main() {
     });
 
     test('non-forced close delegates without cancelling active work', () async {
-      // The test intentionally terminates this request through abort().
       // ignore: close_sinks
       final delegateRequest = _FakeHttpClientRequest(
         Uri.https('example.com', '/pending'),
@@ -579,7 +575,6 @@ void main() {
       );
       final recorder = _Recorder();
       final client = RecordingHttpClient(delegateClient, recorder);
-      // The test intentionally terminates this request through abort().
       // ignore: close_sinks
       final request = await client.getUrl(Uri.https('example.com', '/pending'));
 

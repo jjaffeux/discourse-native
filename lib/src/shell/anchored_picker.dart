@@ -7,11 +7,6 @@ import 'anchored_layout.dart';
 import 'platform.dart';
 import 'shell_sheet.dart';
 
-/// Opens picker content in a compact popover for pointers and a sheet for
-/// touch input.
-///
-/// Sidebar property pickers share this route so switching between category
-/// and tag editing does not also switch surface geometry or animation.
 Future<T?> showAnchoredPicker<T>({
   required BuildContext context,
   required String title,
@@ -94,10 +89,6 @@ Future<T?> showAnchoredPicker<T>({
   );
 }
 
-/// Search-and-results layout shared by anchored dropdown pickers.
-///
-/// Pointer platforms get compact menu geometry. Touch platforms keep the same
-/// content in a sheet with comfortable input and row targets.
 class AnchoredPickerContent extends StatelessWidget {
   const AnchoredPickerContent({
     super.key,
@@ -180,7 +171,6 @@ class AnchoredPickerContent extends StatelessWidget {
   }
 }
 
-/// A consistently sized choice inside an [AnchoredPickerContent].
 class AnchoredPickerOption extends StatelessWidget {
   const AnchoredPickerOption({
     super.key,
@@ -283,7 +273,6 @@ class _AnchoredPickerSelectionIndicator extends StatelessWidget {
   }
 }
 
-/// Adaptive progress geometry for an [AnchoredPickerContent].
 class AnchoredPickerProgress extends StatelessWidget {
   const AnchoredPickerProgress({super.key});
 
@@ -304,7 +293,6 @@ class AnchoredPickerProgress extends StatelessWidget {
   }
 }
 
-/// Empty or error copy inside an [AnchoredPickerContent].
 class AnchoredPickerMessage extends StatelessWidget {
   const AnchoredPickerMessage(
     this.message, {

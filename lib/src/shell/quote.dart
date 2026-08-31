@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../theme/app_theme.dart';
@@ -15,16 +14,6 @@ import 'shell_scope.dart';
 import 'site_url.dart';
 import 'user_card.dart';
 
-/// Renders quotes natively instead of as styled HTML.
-///
-/// Discourse draws a quote as `aside.quote` — an attribution row plus a
-/// `<blockquote>` — and styles both from its stylesheet. [HtmlWidget] has no
-/// stylesheet engine, so left to itself it prints the attribution as a stray
-/// line of text ("martin:") next to a raw avatar, indistinguishable from the
-/// post around it.
-///
-/// A plain markdown `>` produces a bare `<blockquote>` with no attribution,
-/// which lands here too and draws the same body without a header.
 class QuoteData {
   const QuoteData({
     required this.username,
@@ -34,24 +23,16 @@ class QuoteData {
     required this.bodyHtml,
   });
 
-  /// Who is being quoted, from `data-username`.
   final String? username;
 
-  /// `img.avatar` in the title row, as the markup wrote it.
   final String? avatarUrl;
 
-  /// The attribution line: a name, or the topic title for a cross-topic quote.
-  /// Discourse writes the name with a trailing colon, which is dropped here.
   final String? title;
 
-  /// Where the attribution points, for quotes that name their source post.
   final String? link;
 
-  /// The `<blockquote>` contents, rendered by [CookedHtml] so a quote can
-  /// hold anything a post can — including another quote.
   final String bodyHtml;
 
-  /// Reads [element], which is either `aside.quote` or a bare `<blockquote>`.
   static QuoteData from(dom.Element element) {
     final isAside = element.localName == 'aside';
     final titleEl = isAside
@@ -80,8 +61,6 @@ class QuoteData {
     );
   }
 
-  /// The attribution text, without the `div.quote-controls` buttons the web
-  /// client puts in the same row and without Discourse's trailing colon.
   static String? _title(dom.Element? titleEl) {
     if (titleEl == null) return null;
 
@@ -101,7 +80,6 @@ class QuoteData {
   }
 }
 
-/// Hands quotes to [QuoteBlock], for [HtmlWidget.customWidgetBuilder].
 Widget? quoteWidgetBuilder(dom.Element element, {String? siteUrl}) {
   final isQuote =
       element.localName == 'blockquote' ||
@@ -192,8 +170,6 @@ class _Header extends StatelessWidget {
       ],
     );
 
-    // The attribution behaves like the name on a post: it opens the person,
-    // unless the quote names a source post, which opens that instead.
     if (link != null) {
       return InlineAction.link(
         onTap: () => openLink(context, link, siteUrl: siteUrl),
@@ -208,8 +184,6 @@ class _Header extends StatelessWidget {
     return row;
   }
 
-  /// Quote avatars are written site-relative, unlike the absolute URLs the
-  /// JSON payloads carry, so they need the source site to resolve against.
   String? _absoluteAvatar(BuildContext context, String src) {
     final url =
         ShellScope.maybeRead(context)?.absoluteUrl(src, siteUrl: siteUrl) ??

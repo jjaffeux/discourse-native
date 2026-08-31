@@ -89,10 +89,6 @@ const SidebarDestination _moreDestination = SidebarDestination(
   icon: DIcons.ellipsisVertical,
 );
 
-/// Native equivalents of the spacing tokens in core's sidebar stylesheets.
-///
-/// Keep these values in sync with `sidebar.scss`, `sidebar-section.scss`, and
-/// `sidebar-section-link.scss` in discourse/discourse.
 abstract final class _SidebarSpacing {
   static const double compactBreakpoint = 640;
   static const double wrapperVerticalPadding = 16;
@@ -116,9 +112,6 @@ abstract final class _SidebarSpacing {
       isCompact(context) ? 0 : sectionVerticalPadding;
 }
 
-/// Navigation within the selected instance. On compact layouts this fills the
-/// whole area next to the rail; on wider ones it sits between the rail and the
-/// main content.
 class InstanceSidebar extends StatelessWidget {
   const InstanceSidebar({
     super.key,
@@ -126,9 +119,6 @@ class InstanceSidebar extends StatelessWidget {
     this.sectionStore = const SidebarSectionStore(),
   });
 
-  /// Whether the header carries the account avatar. Only true where the
-  /// sidebar is the column reaching the top right corner — on compact layouts
-  /// the main content is not on screen to hold it.
   final bool showUserMenu;
   final SidebarSectionStore sectionStore;
 
@@ -258,8 +248,6 @@ class InstanceSidebar extends StatelessWidget {
                           ).registry.sidebarSections(context);
                           return SliverMainAxisGroup(
                             slivers: [
-                              // Optional features contribute below the routes
-                              // every site has, in installed-registry order.
                               for (final (index, section) in sections.indexed)
                                 _Section(
                                   key: ValueKey((sidebar.siteUrl, section.id)),
@@ -347,8 +335,6 @@ class _SidebarHeader extends StatelessWidget {
       ],
       builder: (context, menu, child) => InkWell(
         onTap: menu.open,
-        // The sidebar is the panel's left column, so this header sits in the
-        // panel's rounded corner — the highlight has to follow it.
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(ShellPanel.cornerRadius),
         ),
@@ -356,8 +342,6 @@ class _SidebarHeader extends StatelessWidget {
       ),
       child: Container(
         height: shellHeaderHeight,
-        // The avatar keeps the main content header's inset, so it does not
-        // shift when a compact layout swaps one pane for the other.
         padding: EdgeInsets.only(left: 16, right: showUserMenu ? 8 : 16),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: theme.shell.divider)),
@@ -819,9 +803,6 @@ class _DestinationTileState extends State<_DestinationTile> {
     setState(() => _hoverActionFocused = focused);
   }
 
-  /// A face beats a picture beats a category badge beats a glyph. Emoji before
-  /// colour matches Discourse's own sidebar, which draws a channel's emoji when
-  /// it has one and tints its icon with the category colour when it does not.
   Widget _prefixArt(BuildContext context, Color foreground) {
     final theme = Theme.of(context);
 

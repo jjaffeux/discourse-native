@@ -26,34 +26,18 @@ typedef _AccountAvatarSnapshot = ({
   bool connecting,
 });
 
-/// The account controls in the top right of whichever column reaches the top
-/// right of the window, and the way into [UserMenuPanel].
-///
-/// Signed-out readers get explicit sign-up and sign-in actions. Once connected,
-/// the avatar opens the menu: a pointer gets a popover under it, while a thumb
-/// gets a sheet because a popover pinned to a phone corner is awkward to read.
 class UserMenuButton extends StatefulWidget {
   const UserMenuButton({super.key, this.size = 30, this.ringColor});
 
-  /// Diameter of the avatar. Smaller in the title bar, which is only as tall
-  /// as the traffic lights beside it.
   final double size;
 
-  /// The surface this sits on, which the unread dot rings itself in so it
-  /// reads as separate from the avatar underneath it.
-  ///
-  /// Passed in rather than looked up because the two places the avatar appears
-  /// sit on different colors — the window strip and a column header — and
-  /// nothing can ask Flutter what is painted behind it.
   final Color? ringColor;
 
-  /// The tappable avatar itself.
   static const Key avatarKey = ValueKey('user-menu-avatar');
 
   static const Key signUpKey = ValueKey('user-menu-sign-up');
   static const Key signInKey = ValueKey('user-menu-sign-in');
 
-  /// The count saying there is something waiting behind the menu.
   static const Key unreadDotKey = ValueKey('user-menu-unread');
 
   @override
@@ -63,9 +47,6 @@ class UserMenuButton extends StatefulWidget {
 class _UserMenuButtonState extends State<UserMenuButton> {
   final MenuController _menu = MenuController();
 
-  /// Signing in happens in a browser we do not own, so the failure comes back
-  /// long after the tap and has nowhere in the shell to live. A snack bar is
-  /// what is left once the account card that used to carry it is gone.
   Future<void> _connect() async {
     final controller = ShellScope.read(context);
     final messenger = ScaffoldMessenger.of(context);
@@ -131,10 +112,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
         builder: (context, _) {
           final connecting = account.connecting;
 
-          // What the menu itself counts, which is things addressed to this account —
-          // notifications, messages, chat, the review queue. Kept live by the site's
-          // own `/notification/` channel, so it appears without the menu being
-          // opened or the app being relaunched.
+          // Account totals arrive live on the site's `/notification/` channel.
           final unreadCount =
               controller.accountActivity.totalsFor(siteUrl)?.badge ?? 0;
           final badgeBackground = theme.discourse.success;
@@ -180,9 +158,6 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                       badgePadding: 2,
                     ),
                   ),
-                // Core puts the count in a padded badge beside the avatar.
-                // Keep the native header equally legible even though the rail
-                // repeats the same total at the cross-forum level.
                 if (unreadCount > 0 && !connecting)
                   Positioned(
                     top: -5,
@@ -331,7 +306,6 @@ class _SignedOutAccountActions extends StatelessWidget {
   }
 }
 
-/// The unread count on the avatar, following core's compact notification pill.
 class _UnreadBadge extends StatelessWidget {
   const _UnreadBadge({
     required this.count,

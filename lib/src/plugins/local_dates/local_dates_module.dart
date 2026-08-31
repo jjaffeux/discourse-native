@@ -10,9 +10,6 @@ import 'local_dates_services.dart';
 
 const localDatesPluginId = PluginId('discourse-local-dates');
 
-/// Production composition injects the process-owned timezone facility here;
-/// tests and alternate hosts can construct [LocalDatesModule] with an isolated
-/// environment instead.
 final localDatesModule = LocalDatesModule(
   environment: LocalDateEnvironment.instance,
 );

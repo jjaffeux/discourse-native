@@ -4,12 +4,6 @@ import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 import 'updater.dart';
 
-/// Raw, non-secret update preferences.
-///
-/// Write methods preserve the boolean durability result returned by the
-/// platform preferences implementation. [UpdateStore] owns the policy for a
-/// rejected write, which keeps that failure path testable without a platform
-/// channel.
 abstract interface class UpdatePersistence {
   Future<String?> readChannelName();
 
@@ -43,14 +37,6 @@ final class SharedPreferencesUpdatePersistence implements UpdatePersistence {
       (await SharedPreferences.getInstance()).setInt(_lastCheckedKey, value);
 }
 
-/// Remembers which channel the user asked for, and when we last looked.
-///
-/// Preferences rather than private storage: neither value is a secret, and
-/// private storage is reserved for credentials and unsent drafts.
-///
-/// Every method swallows its own failures. Not being able to remember the
-/// channel is a reason to fall back to the built-in default, not a reason for
-/// the app to fail to start.
 class UpdateStore {
   UpdateStore({UpdatePersistence? persistence})
     : _persistence = persistence ?? _defaultPersistence;

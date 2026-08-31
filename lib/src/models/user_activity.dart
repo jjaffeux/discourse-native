@@ -3,11 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'json.dart';
 import 'topic.dart';
 
-/// One topic or reply in the default user Activity stream.
-///
-/// Core's `userActivity.index` deliberately filters `/user_actions.json` to
-/// action types 4 and 5. It is therefore a contribution stream, not the
-/// account summary and not a history of likes, reads, bookmarks, or drafts.
 @immutable
 class UserActivityItem {
   const UserActivityItem({
@@ -60,7 +55,6 @@ class UserActivityItem {
   final String slug;
   final String username;
 
-  /// The server-cooked, permission-filtered 300-character post excerpt.
   final String excerpt;
 
   final DateTime? createdAt;
@@ -76,16 +70,12 @@ class UserActivityItem {
   bool get isTopic => actionType == topicActionType;
   bool get isReply => actionType == replyActionType;
 
-  /// Broken or unexpected rows are skipped without rejecting the page.
   bool get isUsable =>
       (isTopic || isReply) && topicId > 0 && postNumber > 0 && title.isNotEmpty;
 
-  /// The serializer does not expose the user-action id. A post is the stable
-  /// identity core itself uses when collapsing adjacent stream entries.
   String get identity => '$topicId/$postNumber';
 }
 
-/// One raw page from `/user_actions.json` plus its category side-load.
 @immutable
 class UserActivityPage {
   const UserActivityPage({
@@ -94,7 +84,6 @@ class UserActivityPage {
     this.rawItemCount = 0,
   });
 
-  /// Core caps this endpoint at 100; native ordinarily asks for 30.
   static const int maximumItems = 100;
 
   factory UserActivityPage.fromJson(
@@ -118,8 +107,6 @@ class UserActivityPage {
               when item.isUsable)
             item,
       ]),
-      // At most one category can be referenced by each row. The generous
-      // endpoint cap is also a sufficient bound for this sibling collection.
       categories: List.unmodifiable([
         for (final entry in jsonObjects(json['categories']).take(maximumItems))
           if (TopicCategory.fromJson(entry) case final category
@@ -132,7 +119,5 @@ class UserActivityPage {
   final List<UserActivityItem> items;
   final List<TopicCategory> categories;
 
-  /// Offset advances by server rows, not retained rows. A malformed entry or
-  /// duplicate must not make the next request overlap this page forever.
   final int rawItemCount;
 }

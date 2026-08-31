@@ -3,12 +3,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 
-/// Treats remote image dimensions as bounded layout hints.
-///
-/// Cooked HTML and plugin payloads are not trusted to supply finite, positive
-/// pixel dimensions. Keeping ratios within 1:4–4:1 prevents a tiny/huge pair
-/// from reserving an effectively unbounded scroll extent, while the 10k width
-/// ceiling keeps arithmetic and constraints well inside useful display sizes.
 Size? safeImageLayoutSize(double? width, double? height) {
   if (width == null ||
       height == null ||
@@ -31,15 +25,12 @@ Size? safeImageLayoutSize(double? width, double? height) {
   return Size(safeWidth, safeWidth / safeRatio);
 }
 
-/// Parses a cooked-HTML width/height pair through [safeImageLayoutSize].
 Size? parseSafeImageLayoutSize(String? width, String? height) =>
     safeImageLayoutSize(
       double.tryParse(width ?? ''),
       double.tryParse(height ?? ''),
     );
 
-/// Parses the leading `1920×1080` (or `1920x1080`) in Discourse's image
-/// information text.
 Size? parseSafeImageInformationSize(String? text) {
   if (text == null) return null;
   final dimensions = text.trim().split(' ').first;
@@ -48,13 +39,11 @@ Size? parseSafeImageInformationSize(String? text) {
   return parseSafeImageLayoutSize(parts[0], parts[1]);
 }
 
-/// Converts a logical image bound into the decoder's physical-pixel hint.
 int imagePhysicalPixels(BuildContext context, double logicalPixels) {
   final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
   return math.max(1, (logicalPixels * devicePixelRatio).ceil());
 }
 
-/// Keeps a memory-backed raster at the physical size its layout can display.
 ResizeImage memoryImageForLayout(
   BuildContext context,
   Uint8List bytes, {

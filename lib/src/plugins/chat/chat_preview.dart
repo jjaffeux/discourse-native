@@ -6,10 +6,7 @@ import 'chat_preview_contract.dart';
 
 export 'chat_preview_contract.dart';
 
-/// The deliberately small, app-owned boundary for provisional chat bodies.
-///
-/// Projection is never authoritative. A caller must replace this document with
-/// the server's cooked body as soon as one is available.
+/// Provisional only; server-cooked content always replaces this document.
 final class ChatPreviewEngine {
   ChatPreviewEngine({
     Iterable<ChatPreviewPluginAdapter> plugins = const [],
@@ -25,10 +22,6 @@ final class ChatPreviewEngine {
   final int maxPluginClaims;
   final int maxDocumentNodes;
 
-  /// Builds the one contribution-owned node renderer, or declines safely.
-  ///
-  /// Rendering stays beside Chat's projector so core's registry never needs
-  /// to know about Chat documents or contribution ids.
   Widget? buildPreviewNode(BuildContext context, PluginPreviewNode node) {
     ChatPreviewContribution? owner;
     for (final plugin in _plugins.whereType<ChatPreviewContribution>()) {
@@ -53,7 +46,6 @@ final class ChatPreviewEngine {
     }
   }
 
-  /// Rebuilds the pure projector from the currently active static registry.
   ChatPreviewEngine withPlugins(Iterable<ChatPreviewPluginAdapter> plugins) =>
       ChatPreviewEngine(
         plugins: plugins,
@@ -212,22 +204,14 @@ String _replaceClaims(String source, List<ChatPreviewClaim> claims) {
   return String.fromCharCodes(units);
 }
 
-/// Extends the composer scanner's deliberately smaller paint dialect with the
-/// other stable spelling of strong emphasis, without changing source offsets.
 String _normalizeChatDialect(String source) {
   final codeRanges = CodeRanges.of(scanMarkdown(source));
   final tripled = _replaceUnderscorePair(source, '___', codeRanges);
   return _replaceUnderscorePair(tripled, '__', codeRanges);
 }
 
-/// Rewrites one underscore spelling into the asterisk one the scanner paints,
-/// character for character, so [excluded] and every offset around it still
-/// describe the same places.
-///
-/// The pairing is [markdownPairs] rather than a lazy pattern for the reason
-/// given there: chat takes twenty thousand characters, and a paste of code
-/// with dunder names that do not pair made every one of them walk the rest of
-/// the message.
+/// Rewrites double underscores character-for-character so offsets remain
+/// stable. [markdownPairs] avoids rescanning long unpaired dunder-heavy input.
 String _replaceUnderscorePair(
   String source,
   String delimiter,
@@ -258,9 +242,8 @@ bool _hasUnsupportedSourceSyntax(
   CodeRanges codeRanges,
   List<_FenceBlock> fences,
 ) {
-  // Indented code is a different CommonMark construct from the deliberately
-  // supported fenced form. Check it before masking every scanner code range,
-  // while hiding fenced bodies so their indentation remains literal code.
+  // Detect indented CommonMark code before masking scanner code ranges, while
+  // hiding fenced bodies whose indentation is literal.
   final outsideFences = List<int>.of(source.codeUnits);
   for (final fence in fences) {
     _maskRange(outsideFences, fence.range);
@@ -361,9 +344,7 @@ List<_FenceBlock>? _closedFences(String source) {
       final bodyEnd = line.start;
       blocks.add(
         _FenceBlock(
-          // The newline terminating the closing fence belongs to the block.
-          // Leaving it behind would draw a provisional blank text line that
-          // Discourse's cooked <pre> does not contain.
+          // The closing-fence newline belongs to the block, unlike cooked <pre>.
           range: SourceRange(open.line.start, line.endWithNewline),
           bodyRange: SourceRange(bodyStart, bodyEnd),
           language: open.info.isEmpty ? null : open.info,

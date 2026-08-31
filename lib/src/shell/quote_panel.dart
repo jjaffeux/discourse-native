@@ -2,11 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-/// The shared surface used by rendered and composer quotes.
-///
-/// The accent is deliberately not a one-sided [BoxDecoration.border]. Flutter
-/// paints that combination with rounded corners as two nested rounded
-/// rectangles, which can leave accent-coloured pixels at the opposite corners.
 class QuotePanel extends StatelessWidget {
   const QuotePanel({
     super.key,
@@ -56,8 +51,6 @@ class QuotePanel extends StatelessWidget {
             ),
           ),
           Padding(
-            // The old border contributed this inset through
-            // BoxDecoration.padding. Keep the quote's content geometry stable.
             padding: const EdgeInsets.only(left: _barWidth),
             child: Padding(padding: padding, child: child),
           ),

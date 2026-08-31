@@ -44,16 +44,6 @@ import 'topic_taxonomy_fields.dart';
 
 const double _composerPanelRadius = 22;
 
-/// The contents of the floating reply composer.
-///
-/// A panel rather than a sheet, which is the other thing the shell offers: the
-/// point of replying is to keep reading the topic while writing about it, and a
-/// modal sheet takes the topic away. [FloatingComposerPanel] supplies its
-/// normal window-like frame, positioning, and resize interactions.
-///
-/// What is typed here is what gets posted. Discourse stores raw markdown, so
-/// the field's text *is* the payload — there is no document model in between to
-/// normalise, escape or lose anything.
 class ComposerPanel extends StatelessWidget {
   const ComposerPanel({
     super.key,
@@ -110,14 +100,12 @@ class ComposerPanel extends StatelessWidget {
           ),
           child: CallbackShortcuts(
             bindings: {
-              // Both, because the app runs on macOS and will run elsewhere.
               const SingleActivator(LogicalKeyboardKey.enter, meta: true):
                   controller.submitComposer,
               const SingleActivator(LogicalKeyboardKey.enter, control: true):
                   controller.submitComposer,
               const SingleActivator(LogicalKeyboardKey.escape):
                   controller.closeComposer,
-              // A bold button with no Cmd+B is a strange thing on a desktop.
               const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () =>
                   composer.toggleMark(ComposerMark.bold),
               const SingleActivator(
@@ -225,10 +213,6 @@ class ComposerPanel extends StatelessWidget {
                 _Footer(
                   composer: composer,
                   pickImages: pickImages,
-                  // Only ever says something when there is something to say.
-                  // "Draft saved" every two seconds is noise; not being saved
-                  // is worth interrupting for, because it changes what closing
-                  // the composer costs.
                   message:
                       error?.message ??
                       notice ??
@@ -247,8 +231,6 @@ class ComposerPanel extends StatelessWidget {
                       composer.submitting ||
                       composer.state == ComposerState.checking ||
                       composer.loadingBody,
-                  // After a failure that could not be checked, the button
-                  // stops offering to send and offers to look instead.
                   label: switch (composer) {
                     _ when composer.canRecheck => 'Check again',
                     _ when target.isEdit => 'Save',
@@ -271,12 +253,6 @@ class ComposerPanel extends StatelessWidget {
   }
 }
 
-/// A movable, resizable composer window constrained to its reading pane.
-///
-/// Position and size intentionally live here rather than in the shell
-/// controller because they are presentation state, not draft state. The local
-/// state keeps gestures immediate while [ComposerGeometryStore] restores the
-/// user's last completed move or resize for each newly opened composer.
 class FloatingComposerPanel extends StatefulWidget {
   const FloatingComposerPanel({
     super.key,
@@ -870,7 +846,6 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
   }
 }
 
-/// Rejects platform text edits while keyboard selection makes a pill atomic.
 class _SelectedPillInputFormatter extends TextInputFormatter {
   const _SelectedPillInputFormatter(this.isSelected);
 
@@ -883,7 +858,6 @@ class _SelectedPillInputFormatter extends TextInputFormatter {
   ) => isSelected() ? oldValue : newValue;
 }
 
-/// Expands a one-character deletion over rendered emoji source.
 class _RenderedEmojiInputFormatter extends TextInputFormatter {
   const _RenderedEmojiInputFormatter({
     required this.endingAt,
@@ -924,12 +898,6 @@ class _RenderedEmojiInputFormatter extends TextInputFormatter {
   }
 }
 
-/// The shared markdown editor used by supported composer surfaces.
-///
-/// The surrounding composer decides its geometry and submission behavior. The
-/// field keeps the writing technology in one place: markdown highlighting,
-/// mention and emoji completion, rich inline pills, image drops, and the
-/// selection formatting toolbar all behave identically wherever it is used.
 class ComposerEditor extends StatefulWidget {
   const ComposerEditor({
     super.key,
@@ -952,9 +920,6 @@ class ComposerEditor extends StatefulWidget {
   final bool enableDropTarget;
   final ComposerImagePicker pickImages;
 
-  /// Whether the field fills its parent's height instead of sizing to its
-  /// content. Compact surfaces can turn this off and impose a maximum height
-  /// to get a textarea-style editor that grows before it starts scrolling.
   final bool expands;
   final ComposerSuggestionActionHandler? onSuggestionAction;
 
@@ -2950,10 +2915,6 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// Plugin-contributed composer actions.
-///
-/// Bold and italic live beside selected text in [ComposerEditor], keeping this
-/// persistent row for actions that create richer blocks.
 class _Toolbar extends StatelessWidget {
   const _Toolbar({required this.composer, required this.pickImages});
 
@@ -3093,7 +3054,6 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
   }
 }
 
-/// Upload progress shared by full-size and compact composers.
 class ComposerUploadQueue extends StatelessWidget {
   const ComposerUploadQueue({super.key, required this.composer});
 
@@ -3309,8 +3269,6 @@ class _Footer extends StatelessWidget {
             ),
           );
     final submit = FilledButton(
-      // Disabled while anything is in flight, because there is no way to take
-      // a second post back.
       onPressed: busy ? null : onSubmit,
       child: busy
           ? const SizedBox(

@@ -10,10 +10,6 @@ typedef EmojiCatalogLoader = Future<SiteEmojiCatalog?> Function({bool refresh});
 typedef EmojiSearchAliasLoader =
     Future<Map<String, List<String>>?> Function({bool refresh});
 
-/// One recently used emoji together with the tone that should be shown.
-///
-/// A history entry that already carries a tone keeps it. An untoned entry
-/// follows the picker's current tone, matching Discourse's web picker.
 @immutable
 final class FavoriteSiteEmoji {
   const FavoriteSiteEmoji({required this.emoji, required this.tone});
@@ -25,11 +21,6 @@ final class FavoriteSiteEmoji {
   String get url => emoji.urlFor(tone);
 }
 
-/// Catalog, search and preference state for one open emoji picker.
-///
-/// The controller deliberately accepts loaders instead of a shell controller:
-/// the same surface can be opened by topic and chat composers, and delayed
-/// answers remain owned by the presentation layer that supplied the loaders.
 final class EmojiPickerController extends ChangeNotifier {
   EmojiPickerController({
     required this.siteUrl,
@@ -221,7 +212,6 @@ final class EmojiPickerController extends ChangeNotifier {
         );
       }
     } catch (_) {
-      // Name search is complete and useful without locale aliases.
       if (_aliasIsCurrent(request)) _aliases = const {};
     } finally {
       if (_aliasIsCurrent(request)) {
@@ -248,8 +238,6 @@ final class EmojiPickerController extends ChangeNotifier {
       await store.clearHistory(siteUrl: siteUrl, context: context);
       if (!_disposed) _favoriteCodes = const [];
     } catch (_) {
-      // History is optional presentation state. A persistence failure must not
-      // make the picker unusable.
     } finally {
       if (!_disposed) {
         _clearingHistory = false;

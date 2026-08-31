@@ -18,11 +18,6 @@ import 'emoji_picker_controller.dart';
 import 'platform.dart';
 import 'shell_sheet.dart';
 
-/// Opens the shared site emoji picker and returns a bare shortcode value.
-///
-/// A toolbar caller can pass its button's [context] and let this function find
-/// its anchor. An autocomplete overlay already knows its coordinates and can
-/// pass [anchor] explicitly. Touch surfaces ignore the anchor and use a sheet.
 Future<String?> showEmojiPicker({
   required BuildContext context,
   required String siteUrl,
@@ -113,11 +108,6 @@ Future<String?> showEmojiPicker({
   }
 }
 
-/// Marks a toolbar button or autocomplete field as a live picker anchor.
-///
-/// The presence listenable intentionally outlives this widget when necessary:
-/// a dialog can still be mounted after its launching composer is gone, and it
-/// needs the final `false` notification in order to center itself safely.
 class EmojiPickerAnchor extends StatefulWidget {
   const EmojiPickerAnchor({super.key, required this.child});
 
@@ -284,7 +274,6 @@ class _DesktopPickerCard extends StatelessWidget {
   }
 }
 
-/// Search, grouped emoji grid and navigation shared by sheet and popover.
 class EmojiPicker extends StatefulWidget {
   const EmojiPicker({
     super.key,

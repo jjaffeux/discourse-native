@@ -1,11 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-/// A stable, presentation-only identity for a native Chat screen.
-///
-/// Channel ids deliberately retain the route shape shipped before threading,
-/// so persisted forum tabs continue to restore. A thread appends its identity
-/// instead of replacing the channel: the channel remains the navigation root
-/// and Back can always return to it.
+/// Retains the pre-thread channel route for persisted tabs; thread identity is
+/// appended so the channel remains the Back-navigation root.
 @immutable
 final class ChatRoute {
   const ChatRoute._({required this.channelId, this.threadId, this.infoTab});
@@ -43,11 +39,7 @@ final class ChatRoute {
     return prefix;
   }
 
-  /// Decodes only route ids minted by [routeId].
-  ///
-  /// Matching is anchored and ids use their canonical decimal spelling. This
-  /// avoids treating prefixes, negative values, leading-zero aliases, or a
-  /// future Chat route as this screen merely because it starts with `chat-c-`.
+  /// Accepts only anchored, canonically spelled ids minted by [routeId].
   static ChatRoute? parse(String routeId) {
     if (routeId.isEmpty || routeId.length > maximumRouteIdLength) return null;
     final match = _routePattern.firstMatch(routeId);
@@ -108,7 +100,6 @@ enum ChatChannelInfoTab {
   };
 }
 
-/// A canonical Discourse Chat link and its optional message anchor.
 @immutable
 final class ChatLink {
   const ChatLink({required this.uri, required this.route, this.messageId});
@@ -117,13 +108,8 @@ final class ChatLink {
   final ChatRoute route;
   final int? messageId;
 
-  /// The native Chat shapes Discourse itself writes, or null for any sibling
-  /// route that should remain a browser link.
-  ///
-  /// Both a channel and a thread may name one message:
-  /// `/chat/c/-/9/44` and `/chat/c/-/9/t/3/44`. The channel settings and
-  /// members routes use `/chat/c/slug/9/info/{tab}`. Query strings, fragments,
-  /// and one trailing slash do not alter that identity.
+  /// Recognizes Discourse channel, thread, message-anchor, and info-tab paths;
+  /// sibling Chat routes remain browser links.
   static ChatLink? parse(String url) {
     if (url.isEmpty || url.length > maximumUrlLength) return null;
     final uri = Uri.tryParse(url);
@@ -175,12 +161,7 @@ final class ChatLink {
   }
 }
 
-/// One route handoff from the shell to the mounted Chat screen.
-///
-/// The route is durable, but a message anchor is not navigation history. This
-/// one-shot value keeps scroll/fetch intent out of [ChatRoute] persistence and
-/// gives the channel/thread view a small integration boundary while their
-/// controllers remain independently owned.
+/// Keeps one-shot message-anchor intent out of durable [ChatRoute] history.
 @immutable
 final class ChatNavigationTarget {
   const ChatNavigationTarget({
@@ -206,7 +187,6 @@ final class ChatNavigationHandoff extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Takes the pending target only when it belongs to the mounting screen.
   ChatNavigationTarget? take({
     required String siteUrl,
     required ChatRoute route,

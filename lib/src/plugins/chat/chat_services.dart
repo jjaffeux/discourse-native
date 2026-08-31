@@ -45,11 +45,6 @@ const chatNotificationHostService =
       name: 'notification-feed-host',
     );
 
-/// The optional GIF dependency as exposed inside Chat's own service scope.
-///
-/// Chat widgets never reach into another module's global services. The Chat
-/// module resolves the declared optional dependency while its session is
-/// created and republishes it under this Chat-owned key when it is available.
 const chatGifsService = PluginServiceKey<GifPickerSession>(
   owner: chatPluginId,
   name: 'gifs',

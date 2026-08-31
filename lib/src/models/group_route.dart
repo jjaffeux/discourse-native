@@ -1,10 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-/// A native route under Discourse's `/g` namespace.
-///
-/// Core owns the directory and the built-in group sections. Optional features
-/// may create a namespaced route through [GroupRoute.plugin], while retaining
-/// ownership of the section's parsing and presentation.
 @immutable
 final class GroupRoute {
   const GroupRoute._({
@@ -108,7 +103,6 @@ final class GroupRoute {
   final String? section;
   final String? subsection;
 
-  /// Null for core routes; otherwise the installed feature which owns them.
   final String? pluginOwner;
 
   bool get isDirectory => groupName == null;
@@ -135,7 +129,6 @@ final class GroupRoute {
     return Uri(pathSegments: segments).path;
   }
 
-  /// The topic list owned by a built-in group subsection, if it has one.
   String? topicFeedPath(String? username) {
     if (isDirectory || isPlugin) return null;
     final encodedGroup = Uri.encodeComponent(groupName!);
@@ -197,8 +190,6 @@ final class GroupRoute {
     }
   }
 
-  /// Parses only core-owned `/g` routes. Optional feature paths intentionally
-  /// fall through to their installed link handlers.
   static GroupRoute? parse(String url) {
     if (url.isEmpty || url.length > maximumUrlLength) return null;
     final uri = Uri.tryParse(url);

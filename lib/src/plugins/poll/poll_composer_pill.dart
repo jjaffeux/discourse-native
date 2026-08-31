@@ -15,7 +15,6 @@ const TextStyle _pollHiddenSource = TextStyle(
   wordSpacing: 0,
 );
 
-/// A concise projection of a poll block for the markdown composer.
 String pollComposerSummary(PollComposerBlock block, {int maximumOptions = 20}) {
   final title = block.titleSource?.trim();
   final optionCount = switch (block.type) {
@@ -43,24 +42,11 @@ int _generatedOptionCount({
   return count.clamp(0, cap + 1);
 }
 
-/// Builds the collapsed poll projection without changing a single source
-/// offset.
-///
-/// The first code unit becomes the visible pill. Every remaining ordinary
-/// source code unit is retained as zero-size text, while CR/LF code units
-/// become zero-size one-character widgets so they no longer create hidden
-/// blank lines. When the owning document has no real line ending after the
-/// block, the second code unit is projected as one transparent line ending.
-/// The pill therefore remains block-shaped at EOF without changing the raw
-/// Markdown used for copying, undo, drafts, and submission.
-///
-/// The spaces and tabs a closing `[/poll]` line carries are projected as
-/// widgets too, for a reason that has nothing to do with blank lines. The
-/// block keeps that whitespace byte for byte because the editor writes it
-/// back, and `TextPainter` anchors an end-of-text caret to the paragraph's
-/// last glyph whenever the paragraph ends in a space separator — asserting
-/// that the glyph has bounds, which a `fontSize: 0` space has not. Typing a
-/// space after a poll is the ordinary way to reach that.
+/// Preserves every source code unit while collapsing a poll to one WidgetSpan.
+/// Newlines and closing-line whitespace use zero-size widgets so they create
+/// neither hidden blank lines nor an unmeasurable TextPainter end caret. At EOF
+/// a transparent line ending keeps the pill block-shaped without changing raw
+/// Markdown offsets.
 List<InlineSpan> buildCollapsedPollSpans({
   required PollComposerBlock block,
   required TextStyle baseStyle,
@@ -93,7 +79,6 @@ List<InlineSpan> buildCollapsedPollSpans({
       ),
   ];
   final hiddenFrom = projectsLineBreak ? 2 : 1;
-  // Where the trailing whitespace of the closing line begins.
   var trailingFrom = source.length;
   while (trailingFrom > hiddenFrom &&
       _isHorizontalSpace(source.codeUnitAt(trailingFrom - 1))) {
@@ -172,11 +157,8 @@ class PollComposerPill extends StatelessWidget {
   );
 }
 
-/// Maps an actual source offset back to a poll range.
-///
-/// A poll's trailing boundary belongs to the content after it. Pointer hit
-/// testing uses the visible pill rectangle instead, because Flutter can place
-/// the caret at that boundary for points on either side of a placeholder.
+/// Flutter may map either side of a placeholder to its trailing offset, so
+/// pointer activation also requires a hit inside the visible pill.
 PollComposerBlock? pollBlockAtComposerOffset(
   Iterable<PollComposerBlock> blocks,
   int offset,
@@ -187,9 +169,7 @@ PollComposerBlock? pollBlockAtComposerOffset(
   return null;
 }
 
-/// Whether a block must be raw so a selection or IME composition remains
-/// truthful. A pointer-triggered sheet can suppress only the collapsed caret;
-/// composing and non-collapsed selections always reveal source.
+/// IME composition and non-collapsed selections always reveal raw source.
 bool pollBlockNeedsRawSource({
   required PollComposerBlock block,
   required TextEditingValue value,

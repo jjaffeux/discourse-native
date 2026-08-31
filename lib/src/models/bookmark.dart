@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'json.dart';
 import 'notification.dart';
 
-/// A namespaced bookmarkable type the native client can mutate in place.
 @immutable
 final class BookmarkTargetType {
   const BookmarkTargetType({
@@ -67,7 +66,6 @@ final class BookmarkTargetType {
   String toString() => id;
 }
 
-/// What core should do with a bookmark after the event associated with it.
 enum BookmarkAutoDeletePreference {
   never(0),
   whenReminderSent(1),
@@ -87,14 +85,6 @@ enum BookmarkAutoDeletePreference {
   }
 }
 
-/// One row of the bookmarks tab.
-///
-/// Discourse serialises a bookmark through whichever serializer the bookmarked
-/// thing registered — a post, a topic, a chat message, or whatever a plugin
-/// added — so the only keys that can be relied on are the ones
-/// `UserBookmarkBaseSerializer` declares. Those are exactly the ones read here:
-/// what it is called, who wrote it, and where it goes. A bookmark on something
-/// this app has never heard of still draws, and still opens.
 @immutable
 class Bookmark {
   const Bookmark({
@@ -129,7 +119,6 @@ class Bookmark {
     );
   }
 
-  /// The compact bookmark metadata attached to a post serializer.
   static Bookmark? fromPostJson(Map<String, dynamic> json) {
     if (json['bookmarked'] != true) return null;
     final bookmarkId = jsonIntOrNull(json['bookmark_id']);
@@ -148,22 +137,6 @@ class Bookmark {
     );
   }
 
-  /// Where the bookmark points, with a topic link taken back off whatever host
-  /// the site wrote it against.
-  ///
-  /// `bookmarkable_url` is absolute, and built from `Discourse.base_url` — the
-  /// site's own idea of where it lives, which is not necessarily the origin
-  /// this app connected through. A development site says `localhost:4200`
-  /// while the app is talking to the Rails port; a site behind a rename, a
-  /// second domain or a CDN says whatever it was configured with. Left as it
-  /// came, a topic on the site being read looks like a topic on a site that is
-  /// not in the rail, and opens in the browser instead of here.
-  ///
-  /// So a topic link is reduced to its path, which the shell then resolves
-  /// against the instance in hand the same way it resolves every other link
-  /// Discourse writes. Everything else keeps the URL it was given: a
-  /// bookmarkable a plugin registered can point anywhere at all, and there is
-  /// nowhere in this app to open it either way.
   static String? _path(Object? value) {
     final url = jsonText(value);
     if (url == null) return null;
@@ -180,8 +153,6 @@ class Bookmark {
 
   final int id;
 
-  /// The server-side target. Unknown plugin types are retained for activity
-  /// rows even though native creation is limited to the types above.
   final int? bookmarkableId;
   final String? bookmarkableType;
   final int? postNumber;
@@ -189,25 +160,14 @@ class Bookmark {
   BookmarkTargetType? get coreTargetType =>
       BookmarkTargetType.read(bookmarkableType);
 
-  /// The title of the thing bookmarked, or empty when the site sent none.
   final String title;
 
-  /// The note the user attached when they bookmarked it, if they wrote one.
-  /// Their own words about why, which is worth more than any wording of ours.
   final String? name;
 
-  /// Who wrote the thing bookmarked, from the `user` the serializer hangs off
-  /// every bookmarkable.
   final String? author;
 
-  /// Where it points: site-relative for a topic, and whatever the site sent
-  /// for anything else. See [_path].
-  ///
-  /// Null only for a bookmarkable whose serializer sent none, which leaves the
-  /// row with nowhere to go.
   final String? path;
 
-  /// When the reminder is due, for the bookmarks that have one set.
   final DateTime? reminderAt;
 
   final BookmarkAutoDeletePreference autoDeletePreference;
@@ -261,11 +221,6 @@ class Bookmark {
   );
 }
 
-/// What `/u/{username}/user-menu-bookmarks.json` answers with.
-///
-/// Two lists, because the tab is two things: the bookmark reminders that have
-/// come due and not been read, which Discourse puts at the top, and then as
-/// many bookmarks as its twenty-row budget has left over.
 typedef BookmarkPayload = ({
   List<DiscourseNotification> reminders,
   List<Bookmark> bookmarks,

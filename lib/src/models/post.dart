@@ -39,7 +39,6 @@ class PostNotice {
   int get hashCode => Object.hash(type, raw, cooked);
 }
 
-/// One post in a topic.
 @immutable
 class Post with Storable<Post> {
   const Post({
@@ -85,20 +84,13 @@ class Post with Storable<Post> {
     this.plugins = PluginData.none,
   });
 
-  /// `post_type` values Discourse uses. Regular posts are 1; the moderator
-  /// notices a topic collects — closed, pinned, invited — are 3; and private
-  /// whispers are 4.
   static const int regularPostType = 1;
   static const int moderatorPostType = 2;
   static const int smallActionPostType = 3;
   static const int whisperPostType = 4;
 
-  /// The like's row in `actions_summary`, and the `post_action_type_id` the
-  /// like routes take. It is `PostActionType::LIKE_POST_ACTION_ID` server side
-  /// and 2 everywhere, flags being the other numbers in that table.
   static const int likeActionId = 2;
 
-  /// A defensive ceiling for click-count records retained with one post.
   static const int maximumLinkCounts = 100;
 
   factory Post.fromJson(
@@ -116,8 +108,6 @@ class Post with Storable<Post> {
       username: jsonString(json['username']),
       userId: jsonIntOrNull(json['user_id']),
       name: jsonText(json['name']),
-      // Server-rendered HTML. Discourse does the markdown, oneboxing, emoji
-      // and mention rendering, which is far too much to redo client side.
       cooked: jsonString(json['cooked']),
       avatarUrl: resolveAvatarUrl(jsonText(json['avatar_template']), siteUrl),
       userStatus: UserStatus.fromJson(json['user_status']),
@@ -127,18 +117,13 @@ class Post with Storable<Post> {
       userTitle: jsonText(json['user_title']),
       replyCount: jsonInt(json['reply_count']),
       isStaff: json['admin'] == true || json['moderator'] == true,
-      // Core shows `version - 1` beside the pencil. The version is already
-      // guardian-filtered: non-staff receive the public version, so hidden
-      // revisions never leak through this count.
+      // The guardian-filtered version does not expose hidden revisions.
       version: switch (jsonIntOrNull(json['version'])) {
         final version? when version > 0 => version,
         _ => 1,
       },
       canViewEditHistory: json['can_view_edit_history'] == true,
-      // The whole permission question, answered by the site's guardian: it has
-      // already weighed ownership, staff, trust level, the edit time window and
-      // whether the topic is closed or archived. Absent when read signed out,
-      // which is also the right answer.
+      // This guardian result already includes ownership, timing, and topic state.
       canEdit: json['can_edit'] == true,
       canDelete: json['can_delete'] == true,
       canRecover: json['can_recover'] == true,
@@ -148,8 +133,6 @@ class Post with Storable<Post> {
       locked: json['locked'] == true,
       notice: PostNotice.fromJson(json['notice']),
       hidden: json['hidden'] == true,
-      // Only staff are ever shown a deleted post; for everyone else Discourse
-      // leaves it out of the stream entirely.
       deletedAt: jsonDate(json['deleted_at']),
       userDeleted: json['user_deleted'] == true,
       postType: json['post_type'] == null
@@ -168,24 +151,12 @@ class Post with Storable<Post> {
         for (final link in linkCountJson) ?PostInboundLink.fromJson(link),
       ]),
       postActions: _postActionSummaries(json['actions_summary']),
-      // Only present when asked for. Reading needs the cooked HTML; writing
-      // needs this, because it is the thing that was actually typed.
       raw: jsonText(json['raw']),
       bookmark: Bookmark.fromPostJson(json),
-      // Whatever the site's optional features had to say about this post, which
-      // on a site running plain core is nothing at all.
       plugins: extensions.readPost(json, siteUrl),
     );
   }
 
-  /// The like's row of `actions_summary`, which is where Discourse reports
-  /// every post action — likes alongside the flags, each under its type id.
-  ///
-  /// Absent keys are the ordinary case rather than a malformed payload:
-  /// `count` is dropped when it is zero, and `can_act`, `acted` and `can_undo`
-  /// are only written when they are true. The whole row is left out when none
-  /// of them apply, which is what a post nobody has liked and this reader may
-  /// not like — their own, or anyone's while signed out — looks like.
   static ({int count, bool acted, bool canAct, bool canUndo}) _likeSummary(
     Object? summaries,
   ) {
@@ -215,13 +186,11 @@ class Post with Storable<Post> {
   final int? userId;
   final String? name;
 
-  /// HTML as the site rendered it.
   final String cooked;
 
   final String? avatarUrl;
   final UserStatus? userStatus;
 
-  /// Statuses for the people linked from cooked `@mentions` in this post.
   final Map<String, UserStatusReference> mentionedUserStatuses;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -229,16 +198,13 @@ class Post with Storable<Post> {
   final int replyCount;
   final bool isStaff;
 
-  /// The initial post is version one, so every version after it is one edit.
   final int version;
   final bool canViewEditHistory;
 
   int get editCount => version > 1 ? version - 1 : 0;
 
-  /// Whether this reader may rewrite this post.
   final bool canEdit;
 
-  /// Whether this reader may delete it, and — once it is gone — put it back.
   final bool canDelete;
   final bool canRecover;
   final bool canPermanentlyDelete;
@@ -247,63 +213,31 @@ class Post with Storable<Post> {
   final bool locked;
   final PostNotice? notice;
 
-  /// Whether Discourse has temporarily hidden this post after flagging.
-  ///
-  /// For readers who may not see the original, [cooked] is already the
-  /// server-localized placeholder. This bit gates actions such as flagging.
   final bool hidden;
 
-  /// When it was deleted, for the staff who can still see it.
   final DateTime? deletedAt;
 
-  /// Deleted by its own author. Discourse keeps the row for a while before
-  /// removing it for good, and shows a placeholder in the meantime.
   final bool userDeleted;
 
   bool get isDeleted => deletedAt != null || userDeleted;
 
   final int postType;
 
-  /// What the moderator action was, e.g. `closed.enabled` or `invited_user`.
-  /// Only small actions carry one.
   final String? actionCode;
 
-  /// The user or group the action was taken on, for the codes that name one.
   final String? actionCodeWho;
 
-  /// How many people have liked this post, this reader's own like included.
-  ///
-  /// Anyone they have ignored is already left out — the site subtracts those
-  /// before serializing, so the number here is the one to draw.
   final int likeCount;
 
-  /// Whether this reader is one of them.
   final bool liked;
 
-  /// Whether they may add a like, and whether they may take theirs back.
-  ///
-  /// Two questions rather than one because they are never both true: liking
-  /// spends the one and grants the other. Both are false on a post nobody may
-  /// act on — your own, or anyone's while signed out — and [canUnlike] is also
-  /// false once the site's undo window has run out on a like already given.
   final bool canLike;
   final bool canUnlike;
 
-  /// Click totals for links in this post's cooked body.
-  ///
-  /// Core's client attaches these to matching anchors after cooking, because
-  /// the server keeps volatile click totals out of the cooked HTML itself.
-  /// Entries without a positive count are omitted at the model boundary.
   final List<PostLinkCount> linkCounts;
 
-  /// Visible topics which link back to this post.
-  ///
-  /// Core calls these reflected internal `link_counts` and draws them beneath
-  /// the post. External links and ordinary outbound links are deliberately
-  /// excluded by [PostInboundLink.fromJson], matching the web post-link row.
   final List<PostInboundLink> inboundLinks;
 
-  /// Personalized non-like post actions, which are flag rows in core.
   final List<PostActionSummary> postActions;
 
   PostActionSummary? actionSummary(int typeId) {
@@ -318,39 +252,18 @@ class Post with Storable<Post> {
   List<PostActionSummary> get actedFlagSummaries =>
       List.unmodifiable(postActions.where((summary) => summary.acted));
 
-  /// Whether tapping the heart would do anything.
-  ///
-  /// On a site with reactions this is still asked, but as a *permission* rather
-  /// than as the like's own state: it is the same `post_can_act?(post, :like)`
-  /// the reaction routes check, and it already carries ownership, silencing,
-  /// archived topics and the undo window. See `Post.canReact`.
   bool get canToggleLike => liked ? canUnlike : canLike;
 
-  /// The markdown this post was written as, when it was asked for.
-  ///
-  /// Absent from an ordinary read: the stream carries [cooked] and nothing
-  /// needs the source until something wants to compare or edit it.
   final String? raw;
 
-  /// This reader's bookmark on the post, including its reminder metadata.
   final Bookmark? bookmark;
 
-  /// What the site's optional features said about this post, keyed by the type
-  /// each of them answers with, through its stable typed key.
-  ///
-  /// [PluginData.none] on a site running plain core, and on every post of a
-  /// site whose installed modules do not claim the payload.
   final PluginData plugins;
 
-  /// Small actions are the "closed this topic" notices in the stream. They
-  /// have no body of their own, so they are drawn as a one-line notice rather
-  /// than as a post. Optional features can add their own serializer types and
-  /// action codes without making those values part of this core model.
   bool get isSmallAction => postType == smallActionPostType;
 
   bool get isModeratorAction => postType == moderatorPostType;
 
-  /// A private aside visible only to the site's configured whisper groups.
   bool get isWhisper => postType == whisperPostType;
 
   String get displayName => name ?? username;
@@ -358,12 +271,6 @@ class Post with Storable<Post> {
   @override
   Object get storeId => id;
 
-  /// A later copy wins, except that markdown already in hand is never given up.
-  ///
-  /// [raw] is only present when it was asked for, so an ordinary re-read — the
-  /// refetch after a reply, say — carries a null that means "not requested"
-  /// rather than "no longer has one". Letting that through would send the
-  /// composer back to the site for a body it already had.
   @override
   Post merge(Post incoming) {
     final merged = incoming.raw == null && raw != null
@@ -374,16 +281,6 @@ class Post with Storable<Post> {
 
   Post withRaw(String raw) => copyWith(raw: raw);
 
-  /// The post as it would be with this reader's like added or taken back.
-  ///
-  /// Drawn before the request is sent, so the heart answers the tap rather than
-  /// the network. The permissions are flipped with it — a like just given can
-  /// be taken back and not given again — which is the same guess Discourse's
-  /// own client makes, and the site's answer overwrites all of it a moment
-  /// later either way.
-  ///
-  /// The count is floored at zero. It is a number the site sent, and unliking a
-  /// post whose count arrived stale would otherwise show -1.
   Post withLike(bool liked) => copyWith(
     liked: liked,
     likeCount: liked ? likeCount + 1 : (likeCount > 0 ? likeCount - 1 : 0),
@@ -391,13 +288,6 @@ class Post with Storable<Post> {
     canUnlike: liked,
   );
 
-  /// This post, but with [other]'s answer to what this reader did about it.
-  ///
-  /// For the two places a copy of a post arrives that cannot have known: an
-  /// edit, whose payload Discourse serializes without the reader's own post
-  /// actions at all, and a like this client is putting back after the site
-  /// refused it. Taking either literally would say a post you liked is one you
-  /// have not.
   Post withLikesOf(Post other) => copyWith(
     likeCount: other.likeCount,
     liked: other.liked,
@@ -405,24 +295,11 @@ class Post with Storable<Post> {
     canUnlike: other.canUnlike,
   );
 
-  /// This post, but with [other]'s personalized non-like action state.
-  ///
-  /// Post edit responses omit the reader's actions, just as they omit their
-  /// like. Keeping the held rows prevents an edit from re-offering a flag the
-  /// reader already submitted or erasing its confirmation.
   Post withPostActionsOf(Post other) =>
       copyWith(postActions: other.postActions);
 
-  /// The post with one optional feature's answer replaced.
   Post withPlugins(PluginData next) => copyWith(plugins: next);
 
-  /// This post, but with [other]'s answer from the site's optional features.
-  ///
-  /// The twin of [withLikesOf], for the same three places a copy of a post
-  /// arrives that cannot have known what this reader did: a rollback, an edit
-  /// response, and the answer to a write. Kept separate from [withLikesOf]
-  /// rather than folded into it, so that what that method tests is still what
-  /// it tests.
   Post withPluginsOf(Post other) => copyWith(plugins: other.plugins);
 
   Post withBookmark(Bookmark? next) =>
@@ -430,8 +307,6 @@ class Post with Storable<Post> {
 
   Post withBookmarkOf(Post other) => withBookmark(other.bookmark);
 
-  /// Only the fields anything here has reason to change. Everything else is
-  /// the site's to say, and is carried across untouched.
   Post copyWith({
     String? raw,
     int? likeCount,
@@ -585,7 +460,6 @@ class Post with Storable<Post> {
   ]);
 }
 
-/// A positive click total for one link in a post's cooked body.
 @immutable
 class PostLinkCount {
   const PostLinkCount({
@@ -620,7 +494,6 @@ class PostLinkCount {
   int get hashCode => Object.hash(url, clicks, internal);
 }
 
-/// One internal topic which links back to a post.
 @immutable
 class PostInboundLink {
   const PostInboundLink({
@@ -629,9 +502,6 @@ class PostInboundLink {
     this.clicks = 0,
   });
 
-  /// Returns null for outbound, external, untitled, or otherwise unusable
-  /// entries. Those are present in the serializer for click tracking, but the
-  /// web post-link component does not display them.
   static PostInboundLink? fromJson(Map<String, dynamic> json) {
     if (json['internal'] != true || json['reflection'] != true) return null;
     final url = jsonText(json['url']);
@@ -659,25 +529,13 @@ class PostInboundLink {
   int get hashCode => Object.hash(url, title, clicks);
 }
 
-/// What a topic fetch answers with.
-///
-/// Two things, kept apart: the topic, and the first chunk of its posts. They
-/// are stored separately — the posts under their own ids, so the same post
-/// fetched again from anywhere is the same record — and this is the shape that
-/// carries them from the parser to whoever does the storing.
 typedef TopicPayload = ({TopicDetail detail, List<Post> posts});
 
-/// A page of posts and the more-topics payload attached to the final page.
-///
-/// Core and installed plugins may each attach a source to the same response.
-/// [recommendations] is null before the end rather than an empty value, so a
-/// partial refetch cannot erase recommendations already held.
 typedef TopicPostsPayload = ({
   List<Post> posts,
   TopicRecommendations? recommendations,
 });
 
-/// One status toggle accepted by `PUT /t/{id}/status`.
 enum TopicStatusProperty {
   closed('closed'),
   archived('archived'),
@@ -688,13 +546,6 @@ enum TopicStatusProperty {
   final String wireName;
 }
 
-/// A topic, and the order its posts go in.
-///
-/// Deliberately holds no [Post]. The posts live in the [Store] under their own
-/// ids and this holds [stream] — every post id in the topic, fetched or not —
-/// which is both the paging cursor and the running order. That is what makes
-/// editing a post a one-record write rather than a rebuild of the topic, and
-/// what lets a post fetched for one reason be found by another.
 @immutable
 class TopicDetail with Storable<TopicDetail> {
   const TopicDetail({
@@ -745,17 +596,11 @@ class TopicDetail with Storable<TopicDetail> {
     this.plugins = PluginData.none,
   });
 
-  /// The fixed first-window size served by core's `TopicView`.
-  ///
-  /// The complete post-id stream is retained separately, so bounding eager
-  /// post construction here never makes a later post unreachable.
   static const int maximumInitialPosts = 20;
 
-  /// The map presents compact summaries, not an unbounded member directory.
   static const int maximumMapParticipants = 100;
   static const int maximumMapLinks = 100;
 
-  /// Reads a topic payload into the topic and its posts.
   static TopicPayload parse(
     Map<String, dynamic> json,
     String siteUrl, {
@@ -770,8 +615,6 @@ class TopicDetail with Storable<TopicDetail> {
       detail: TopicDetail(
         id: jsonInt(json['id']),
         title: jsonTitle(json['title'], json['fancy_title']),
-        // Every post id in the topic, even the ones not fetched yet — this is
-        // what makes paging through a long topic possible.
         stream: List.unmodifiable(
           jsonArray(postStream['stream']).map(jsonIntOrNull).whereType<int>(),
         ),
@@ -788,17 +631,10 @@ class TopicDetail with Storable<TopicDetail> {
         categoryId: json['category_id'] == null
             ? null
             : jsonInt(json['category_id']),
-        // The only question worth asking before showing a reply button, and the
-        // whole question: the guardian behind it has already folded in closed,
-        // archived and the trust levels that are allowed past them. Checking
-        // `closed` again here would hide the button from the moderators who can
-        // still use it. Absent when read signed out, which is also the right
-        // answer — there is no key to post with.
+        // Do not reapply topic state over the guardian's moderator-aware answer.
         canCreatePost: details['can_create_post'] == true,
         canEdit: details['can_edit'] == true,
-        // Core only emits the narrower capability when the reader cannot edit
-        // the whole topic. A topic editor may edit tags too, so the absent
-        // specialized flag must not turn their sidebar into a read-only one.
+        // Topic editors may edit tags even when the narrower flag is absent.
         canEditTags:
             details['can_edit'] == true || details['can_edit_tags'] == true,
         tags: List.unmodifiable(
@@ -842,8 +678,6 @@ class TopicDetail with Storable<TopicDetail> {
           for (final action in jsonObjects(json['actions_summary']))
             if (jsonInt(action['id']) > 0) PostActionSummary.fromJson(action),
         ]),
-        // The topic payload already carries any draft for it, so opening a
-        // composer needs no request of its own.
         draft: ComposerDraft.decode(json['draft']),
         draftSequence: jsonInt(json['draft_sequence']),
         bookmarks: List.unmodifiable([
@@ -870,16 +704,8 @@ class TopicDetail with Storable<TopicDetail> {
   final int id;
   final String title;
 
-  /// Every post id in the topic, in reading order.
   final List<int> stream;
 
-  /// Post ids deliberately left out of [stream], keyed by the visible post
-  /// immediately after or before them.
-  ///
-  /// Core uses these gaps for content this reader is allowed to reveal but
-  /// has chosen not to show in the ordinary stream — most commonly posts by
-  /// ignored users. Keeping the ids separate is important: ordinary paging
-  /// must not fetch them until the reader expands the gap.
   final Map<int, List<int>> gapsBefore;
   final Map<int, List<int>> gapsAfter;
 
@@ -893,25 +719,16 @@ class TopicDetail with Storable<TopicDetail> {
   final bool isNestedView;
   final int? categoryId;
 
-  /// Whether this reader may reply here.
   final bool canCreatePost;
   final bool canEdit;
   final bool canEditTags;
   final List<TopicTag> tags;
 
-  /// Frequent posters and outbound links used by the topic map beneath the
-  /// first post. Both arrive inside the payload's `details` object.
   final List<TopicParticipant> participants;
   final List<TopicMapLink> links;
 
-  /// How closely this reader follows the topic.
   final TopicNotificationLevel notificationLevel;
 
-  /// This account's choice for a topic the site offers as pinnable.
-  ///
-  /// Core sends neither flag for an ordinary topic. A topic is eligible for
-  /// the footer control only when either `pinned` or `unpinned` is present and
-  /// true, matching the web app's `PinnedButton.isHidden` contract.
   final bool pinned;
   final bool unpinned;
   final bool pinnedGlobally;
@@ -923,7 +740,6 @@ class TopicDetail with Storable<TopicDetail> {
 
   final bool closed;
 
-  /// Archived topics reject poll writes even when their posts remain visible.
   final bool archived;
 
   final bool visible;
@@ -994,13 +810,10 @@ class TopicDetail with Storable<TopicDetail> {
     canRecoverTopic: deleted,
   );
 
-  /// A reply left unfinished here, wherever it was started.
   final ComposerDraft? draft;
 
-  /// What the next draft save must be sequenced against.
   final int draftSequence;
 
-  /// Every bookmark this reader owns in the topic, including unloaded posts.
   final List<Bookmark> bookmarks;
 
   Bookmark? get topicBookmark => bookmarks
@@ -1016,33 +829,17 @@ class TopicDetail with Storable<TopicDetail> {
 
   bool get hasBookmarks => bookmarks.isNotEmpty;
 
-  /// The lists Discourse places after the final post. Null means this response
-  /// was not the final post window and therefore had nothing to say about them.
   final TopicRecommendations? recommendations;
 
-  /// What optional features attached to the full topic serializer.
   final PluginData plugins;
 
   @override
   Object get storeId => id;
 
-  /// Records a post that did not exist a moment ago.
-  ///
-  /// The post itself goes to the store; this is only the topic's side of it —
-  /// where it sits in the order, and one more on the count. Idempotent, so a
-  /// reply that also arrives in a refetch is not counted twice, and an edit,
-  /// whose id the stream already holds, does not move the count at all.
   TopicDetail withPostId(int postId) => stream.contains(postId)
       ? this
       : copyWith(stream: [...stream, postId], postsCount: postsCount + 1);
 
-  /// Inserts one fetched chunk from a server-provided post gap.
-  ///
-  /// [consumedIds] is the prefix that was requested. [revealedIds] is the
-  /// subset the site actually returned; a post removed while the request was
-  /// in flight is consumed without leaving an unfetchable hole in [stream].
-  /// A remainder stays attached to the next visible edge so it can be expanded
-  /// again in another bounded request.
   TopicDetail withExpandedGap({
     required int anchorPostId,
     required bool before,
@@ -1092,11 +889,6 @@ class TopicDetail with Storable<TopicDetail> {
     );
   }
 
-  /// Drops a post the site no longer serves.
-  ///
-  /// Only for one that is genuinely gone. A post deleted by staff, or by its
-  /// own author, is still in the stream — deleted posts are shown to the people
-  /// who can undo it, and hiding them here would take the undo away.
   TopicDetail withoutPostId(int postId) => stream.contains(postId)
       ? copyWith(
           stream: stream.where((id) => id != postId).toList(),
@@ -1104,12 +896,6 @@ class TopicDetail with Storable<TopicDetail> {
         )
       : this;
 
-  /// Records the draft this topic now has, so the cache keeps saying what the
-  /// payload would say if it were fetched again.
-  ///
-  /// Without it, saving a draft and reopening the composer would find nothing:
-  /// the local copy is deleted once the site has the text, and the topic in
-  /// hand was fetched before the draft existed.
   TopicDetail withDraft(ComposerDraft? draft, int sequence) => copyWith(
     draft: draft,
     clearDraft: draft == null,
@@ -1144,7 +930,6 @@ class TopicDetail with Storable<TopicDetail> {
   TopicDetail withBookmarksOf(TopicDetail other) =>
       copyWith(bookmarks: other.bookmarks);
 
-  /// The topic with one complete optional-feature snapshot.
   TopicDetail withPlugins(PluginData next) => TopicDetail(
     id: id,
     title: title,
@@ -1193,14 +978,6 @@ class TopicDetail with Storable<TopicDetail> {
     plugins: next,
   );
 
-  /// A refetched copy wins, except that it may not have caught up.
-  ///
-  /// A reply made a moment ago can be missing from the stream the site answers
-  /// with — it was read before the post landed, or from a replica — and taking
-  /// that literally would make the post vanish the instant it appeared. Ids
-  /// only held here are kept, at the end, which is where a new post is — and
-  /// counted, the way [withPostId] counts what it adds, because the copy's
-  /// count was taken before they existed too.
   @override
   TopicDetail merge(TopicDetail incoming) {
     final arrived = incoming.stream.toSet();

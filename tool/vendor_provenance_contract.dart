@@ -1,10 +1,3 @@
-/// Verifies owner-declared vendored packages against their published archives.
-///
-/// Each plugin keeps its package identity, vendor path, checksum, and reviewed
-/// patch inventory beside its own source. This root runner knows only how to
-/// validate that generic provenance contract.
-///
-///   dart run tool/vendor_provenance_contract.dart
 library;
 
 import 'dart:collection';

@@ -17,10 +17,7 @@ import 'reactions_settings.dart';
 
 typedef _ReactionRequestKey = ({String siteUrl, int postId, String? filter});
 
-/// An opaque interaction generation retained by an open reaction picker.
-///
-/// Widgets can ask [ReactionsController] whether it is still current, but they
-/// never receive the host's lifecycle authority.
+/// Exposes picker currency without leaking the host lifecycle lease.
 final class ReactionPickerSession {
   const ReactionPickerSession._({
     required this.siteUrl,
@@ -35,7 +32,6 @@ final class ReactionPickerSession {
   final PluginSiteLease _lease;
 }
 
-/// Reactions-owned cache, picker state, and post interaction workflows.
 class ReactionsController extends FrameSafeNotifier {
   ReactionsController({
     required ReactionsApi api,
@@ -159,7 +155,6 @@ class ReactionsController extends FrameSafeNotifier {
     );
   }
 
-  /// Fetches who reacted to a post, or who gave it one particular emoji.
   Future<void> load({
     required String siteUrl,
     required int postId,
@@ -211,7 +206,6 @@ class ReactionsController extends FrameSafeNotifier {
     }
   }
 
-  /// Optimistically toggles one reaction through the plugin-owned endpoint.
   Future<String?> toggle(
     Post post,
     String reaction, {
@@ -229,10 +223,8 @@ class ReactionsController extends FrameSafeNotifier {
       final apiKey = credential.apiKey!;
       final current = _posts.readPost(siteUrl, post.id) ?? post;
       if (!current.canReact) return null;
-      // An open picker retains the last rendered reaction state even if the
-      // final pill disappears before a selection is made. The current core
-      // post still owns permission, while the picker snapshot supplies the
-      // plugin record needed to apply and, if necessary, roll back the write.
+      // Permission comes from the current post; an open picker retains the
+      // plugin snapshot needed to apply or roll back after its pill vanishes.
       final held = current.reactions ?? post.reactions;
       if (held == null) return null;
 

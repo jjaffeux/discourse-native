@@ -267,7 +267,6 @@ void main() {
         recovered.events.map((record) => record.event),
         containsAll(['mesh.peer.connected', 'capture.interrupted']),
       );
-      // The healthy event lines remain, while the incomplete suffix is gone.
       expect(
         await file.readAsString(),
         isNot(endsWith('{"version":1,"record":"event","event":')),

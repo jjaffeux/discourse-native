@@ -1,10 +1,3 @@
-/// Generates the native shortcode-alias index from Discourse's emoji data.
-///
-/// Discourse's `/emojis.json` endpoint returns canonical picker entries, but
-/// cooked prose and plain topic titles may retain aliases such as `:mega:`.
-/// Core resolves those through `discourse-emojis/dist/aliases.json`; keeping a
-/// compile-time reverse index here gives native text the same answer without
-/// adding a request to every connected site.
 library;
 
 import 'dart:convert';

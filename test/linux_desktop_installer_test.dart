@@ -57,8 +57,7 @@ void main() {
         ]);
         expect(validation.exitCode, 0, reason: '${validation.stderr}');
       } on ProcessException {
-        // desktop-file-utils is present in the Linux packaging job, but it is
-        // not a Flutter development dependency on Apple hosts.
+        // desktop-file-validate is optional outside the Linux packaging job.
       }
       expect(
         File('${dataHome.path}/icons/hicolor/index.theme').existsSync(),

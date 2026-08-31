@@ -5,20 +5,6 @@ import 'shell_scope.dart';
 import 'site_url.dart';
 import 'user_card.dart';
 
-/// Opens [url] wherever it belongs.
-///
-/// Anything the shell has a view for, it shows: a mention opens a card, a
-/// hashtag opens the list it names, and a topic on a site in the rail opens
-/// here — switching to that site first when it lives on another one.
-/// Everything else is someone else's page and goes to the browser.
-///
-/// [title] is what the link's own markup called its destination, where the
-/// caller knows — a cooked hashtag carries the category's real name, which
-/// beats reading it back out of the slug.
-///
-/// Returns false when no in-app route matches and the URL is not a safe,
-/// platform-supported external link. This is the shape
-/// [HtmlWidget.onTapUrl] wants.
 Future<bool> openLink(
   BuildContext context,
   String url, {
@@ -27,8 +13,6 @@ Future<bool> openLink(
 }) async {
   final controller = ShellScope.maybeRead(context);
 
-  // Everything downstream compares hosts, so resolve the site-relative hrefs
-  // Discourse writes before handing the link on.
   final target =
       controller?.absoluteUrl(url, siteUrl: siteUrl) ??
       resolveSiteUrl(url, siteUrl);

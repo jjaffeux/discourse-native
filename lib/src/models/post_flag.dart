@@ -2,11 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'json.dart';
 
-/// One flag reason advertised by Discourse in `/site.json`.
-///
-/// Names and descriptions are already localized by the site. Permissions do
-/// not live here: the matching row in a post's `actions_summary` is the
-/// authoritative answer for the current reader and post.
 @immutable
 final class PostFlagType {
   const PostFlagType({
@@ -21,7 +16,6 @@ final class PostFlagType {
     this.system = false,
   });
 
-  /// The fixed maximum used by Discourse's web flag composer.
   static const int maximumMessageLength = 500;
 
   static PostFlagType? tryParse(Map<String, dynamic> json) {
@@ -56,11 +50,6 @@ final class PostFlagType {
   final List<String> appliesTo;
   final bool system;
 
-  /// Whether the server advertised this reason for [target].
-  ///
-  /// Target names are an open Discourse wire vocabulary. Core owns the Post
-  /// and Topic conveniences below; optional features keep their target names
-  /// beside the feature and query them through this generic boundary.
   bool appliesToTarget(String target) => appliesTo.contains(target);
 
   bool get appliesToPost => appliesToTarget('Post');
@@ -94,11 +83,6 @@ final class PostFlagType {
   );
 }
 
-/// The flag portion of a site's post-action catalog.
-///
-/// A non-null empty catalog is meaningful: the site answered successfully and
-/// has no post flags. Callers use null separately for metadata that was never
-/// requested or failed to load.
 @immutable
 final class SitePostActionCatalog {
   const SitePostActionCatalog({
@@ -132,7 +116,6 @@ final class SitePostActionCatalog {
       Object.hash(Object.hashAll(postFlags), Object.hashAll(topicFlags));
 }
 
-/// One personalized row from a post's `actions_summary`.
 @immutable
 final class PostActionSummary {
   const PostActionSummary({

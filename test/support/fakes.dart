@@ -68,8 +68,6 @@ import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
 
 import 'bundled_plugins.dart';
 
-/// Keeps instances in memory instead of shared_preferences, which needs a
-/// platform channel.
 class FakeInstanceStore implements InstanceStore {
   FakeInstanceStore([Iterable<DiscourseInstance> instances = const []])
     : _instances = List.of(instances);
@@ -87,7 +85,6 @@ class FakeInstanceStore implements InstanceStore {
   }
 }
 
-/// Keeps forum workspaces in memory instead of shared_preferences.
 class FakeForumTabStore implements ForumTabStore {
   FakeForumTabStore([Iterable<ForumWorkspace> workspaces = const []])
     : _workspaces = List.of(workspaces);
@@ -107,11 +104,7 @@ class FakeForumTabStore implements ForumTabStore {
   }
 }
 
-/// An updater with no network, no disk and no process behind it.
-///
-/// [isSupported] is false by default, and that default is load-bearing: the
-/// hundred-odd tests that build a shell must not grow an update button just
-/// because one exists.
+/// Defaults to unsupported so unrelated shell tests do not expose update UI.
 class FakeUpdater implements Updater {
   FakeUpdater({
     this.isSupported = false,
@@ -128,25 +121,18 @@ class FakeUpdater implements Updater {
   @override
   final bool isSupported;
 
-  /// What each channel has to offer. A channel absent from the map, or mapped
-  /// to null, is up to date.
   final Map<UpdateChannel, UpdateRelease?> releases;
 
   final UpdateException? checkFailure;
   final UpdateException? downloadFailure;
   final UpdateException? installFailure;
 
-  /// Fractions handed to `onProgress`, in order.
   final List<double> progressSteps;
 
-  /// Holds [check] open so a test can assert on the in-flight state. Mirrors
-  /// [FakeDiscourseApi.gate].
   final Completer<void>? gate;
 
   final Map<UpdateChannel, Completer<void>> checkGates;
 
-  /// Holds [download] open. Separate from [gate] so a test can let the check
-  /// through and still catch the download mid-flight.
   final Completer<void>? downloadGate;
 
   int checkCount = 0;
@@ -199,8 +185,6 @@ class FakeUpdater implements Updater {
   }
 }
 
-/// Keeps the channel and the last-checked stamp in memory instead of
-/// shared_preferences, which needs a platform channel.
 class FakeUpdateStore implements UpdateStore {
   FakeUpdateStore({
     this.rawChannel,
@@ -208,7 +192,6 @@ class FakeUpdateStore implements UpdateStore {
     this.channelWriteGates = const {},
   });
 
-  /// Raw, so a test can write a name that is no longer a channel.
   String? rawChannel;
   DateTime? lastChecked;
   final Map<UpdateChannel, Completer<void>> channelWriteGates;
@@ -232,7 +215,6 @@ class FakeUpdateStore implements UpdateStore {
   Future<void> writeLastChecked(DateTime at) async => lastChecked = at;
 }
 
-/// Keeps unsynced drafts in memory instead of shared_preferences.
 class FakeDraftStore implements DraftStore {
   final Map<String, String> saved = {};
   final List<String> events = [];
@@ -274,12 +256,7 @@ class FakeDraftStore implements DraftStore {
   }
 }
 
-/// A tracker with no connection behind it.
-///
-/// Tests publish to it by hand — `tracker.deliver(...)` stands in for a
-/// message coming off the bus. Real ones hold a long poll open, which a widget
-/// test must not, and which the test binding fails outright on: the poll's
-/// backoff timer outlives the tree.
+/// Real long-poll backoff timers outlive widget-test trees.
 class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
   FakeSiteTracker({
     required this.siteUrl,
@@ -290,11 +267,8 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
     this.apiKey,
   });
 
-  /// Every tracker built during a test, newest last, so a test can reach the
-  /// one belonging to the site it is looking at.
   static final List<FakeSiteTracker> built = [];
 
-  /// Hands [factory] out and empties [built]. Call from `setUp`.
   static SiteTrackerFactory reset() {
     built.clear();
     return factory;
@@ -334,13 +308,9 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
   @override
   final void Function(Object? data) onReviewableCounts;
 
-  /// Null when the account id is not known, which is what decides whether a
-  /// real tracker subscribes to the counter channels at all.
   @override
   final int? userId;
 
-  /// Null when the site is not connected, which is what decides whether a real
-  /// tracker subscribes to `/new`.
   final String? apiKey;
 
   @override
@@ -351,7 +321,6 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
   int pollNowCalls = 0;
   bool disposed = false;
 
-  /// One `/latest` or `/new` message, exactly as it would arrive.
   void deliver(Object? message) {
     _onTopicTrackingState?.call(message);
     if (incoming.notify(message)) onIncomingTopics();
@@ -368,13 +337,10 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
     _onTopicTrackingState ??= onMessage;
   }
 
-  /// One `/notification/{id}` message.
   void deliverNotification(Object? message) => onNotifications(message);
 
-  /// One `/reviewable_counts/{id}` message.
   void deliverReviewableCounts(Object? message) => onReviewableCounts(message);
 
-  /// The channels a plugin asked to watch while a topic is open, in order.
   final List<String> watchedChannels = [];
 
   @override
@@ -402,7 +368,6 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
     _onTopicMessage = null;
   }
 
-  /// One message on a topic-scoped channel, exactly as it would arrive.
   void deliverTopicMessage(String channel, Object? data) =>
       _onTopicMessage?.call(channel, data);
 
@@ -492,7 +457,6 @@ final class _FakeSiteMessageBusSubscription
   }
 }
 
-/// Answers lookups from a map of term to result, with no network involved.
 class FakeDiscourseApi
     implements
         ShellApiCapabilities,
@@ -675,31 +639,23 @@ class FakeDiscourseApi
   final List<String> pluginReadPaths = [];
   final SiteLookupFailure? failure;
 
-  /// Returned by [currentUser]; defaults to a plausible account.
   final DiscourseUser? user;
 
-  /// Returned by [topicTrackingState].
   final TopicTrackingState? trackingState;
   final List<String> topicTrackingRequests = [];
 
   final DateTime? doNotDisturbUntil;
 
-  /// Returned by [notificationTotals]; null means the call fails.
   final NotificationTotals? totals;
 
-  /// Returned by [notifications]; null means the call fails.
   final List<DiscourseNotification>? notificationList;
 
-  /// Returned by filtered [notifications] calls; null means the call fails.
   final List<DiscourseNotification>? replyNotificationList;
 
-  /// Returned by Chat-filtered [notifications] calls; null means the call fails.
   final List<DiscourseNotification>? chatNotificationList;
 
-  /// Returned by [bookmarks]; null means the call fails.
   final List<Bookmark>? bookmarkList;
 
-  /// The reminders [bookmarks] answers with, alongside [bookmarkList].
   final List<DiscourseNotification> reminderList;
 
   UserPreferences? userPreferences;
@@ -723,10 +679,8 @@ class FakeDiscourseApi
   int replyNotificationCalls = 0;
   int chatNotificationCalls = 0;
 
-  /// The type filters passed to [notifications], one immutable list per call.
   final List<List<NotificationTypeName>> notificationFilters = [];
 
-  /// Usernames passed to [bookmarks], in order.
   final List<String> bookmarksRequested = [];
   int _nextBookmarkId = 1000;
   final List<
@@ -750,16 +704,13 @@ class FakeDiscourseApi
   updatedBookmarks = [];
   final List<int> deletedBookmarks = [];
 
-  /// Ids passed to [markNotificationRead], in order.
   final List<int> markedRead = [];
 
-  /// Returned by [topicList], keyed by path; a missing path fails.
   final Map<String, List<Topic>> feeds;
   final Map<String, List<TopicCategory>> feedCategoriesByPath;
   final Map<String, List<TopicFilterOption>> filterOptionsByPath;
   final Set<String> creatableFeedPaths;
 
-  /// Returned by [categories].
   final List<TopicCategory> categoryList;
   final Map<int, List<TopicCategory>> categoryPages;
   final Map<String, List<TopicCategory>> categorySearches;
@@ -777,7 +728,6 @@ class FakeDiscourseApi
   final List<String> topicComposerCapabilityRequests = [];
   final Map<String, TopicTagSearch> topicTagSearches;
 
-  /// The `limit` each tag search asked for, in call order.
   final List<int> topicTagSearchLimits = [];
   final List<UserDraft> userDraftList;
   final Completer<void>? userDraftGate;
@@ -793,38 +743,24 @@ class FakeDiscourseApi
   final List<({String siteUrl, String username, int offset, int limit})>
   userActivityRequests = [];
 
-  /// `more_topics_url` to report for a given path, driving pagination.
   final Map<String, String> nextPages;
 
-  /// When set, [topicList] waits on it — lets a test control exactly when a
-  /// response lands.
   final Completer<void>? gate;
 
-  /// Per-path alternative to [gate], for holding one destination without
-  /// stalling the initial topic list used to navigate to it.
   final Map<String, Completer<void>> feedGates;
 
-  /// Returned by [topic], keyed by topic id.
   final Map<int, TopicPayload> topics;
 
-  /// Filtered top-reply payloads returned by [topic] with `summary: true`.
   final Map<int, TopicPayload> summaryTopics;
 
-  /// When set, [topic] waits on it so a test can inspect the initial loading
-  /// state before the topic payload arrives.
   final Completer<void>? topicGate;
 
-  /// Returned by [posts], keyed by post id.
   final Map<int, Post> postsById;
 
-  /// More-topics data returned with the final [topicPosts] window.
   final Map<int, TopicRecommendations> postRecommendations;
 
-  /// When set, post refreshes wait on it so a write can supersede one already
-  /// in flight and a test can observe the queued replay.
   final Completer<void>? postGate;
 
-  /// Returned by [userCard], keyed by username; a missing one fails.
   final Map<String, UserCard> cards;
 
   final List<String> cardsRequested = [];
@@ -856,29 +792,22 @@ class FakeDiscourseApi
 
   int closeCalls = 0;
 
-  /// Returned by [createPost]; defaults to a plausible published reply.
   final PostCreation? creation;
 
-  /// Thrown by [createPost] instead of answering, so a test can drive the
-  /// refusal paths without a server.
   final WriteException? writeFailure;
 
-  /// Holds presence preference writes open for optimistic and lifecycle tests.
   final Completer<void>? presenceGate;
   final bool permanentDeletionAllowed;
   final String? permanentDeletionReason;
   final List<int> permanentDeletionChecks = [];
 
-  /// Every [createPost] call, in order, as the arguments it was given.
   final List<Map<String, Object?>> created = [];
   final List<Map<String, Object?>> topicsCreated = [];
 
-  /// Every [updatePost] call, in order.
   final List<Map<String, Object?>> updated = [];
   final List<Map<String, Object?>> topicsUpdated = [];
   final List<Map<String, Object?>> topicTagsUpdated = [];
 
-  /// Post ids passed to [deletePost] and [recoverPost], in order.
   final List<int> deleted = [];
   final List<int> recovered = [];
   final List<({int topicId, int postId})> postsPermanentlyDeleted = [];
@@ -900,7 +829,6 @@ class FakeDiscourseApi
   final List<({int topicId, List<int> postIds, String username})>
   postOwnersChanged = [];
 
-  /// Post ids passed to [likePost] and [unlikePost], in order.
   final List<int> liked = [];
   final List<int> unliked = [];
 
@@ -909,14 +837,10 @@ class FakeDiscourseApi
   /// leaves the caller's own guess at the count standing.
   final Map<int, Post> likeResponses;
 
-  /// Thrown by [likePost] and [unlikePost] instead of answering.
   final WriteException? likeFailure;
 
-  /// When set, both like routes wait on it — lets a test press the heart twice
-  /// before either write has come back.
   final Completer<void>? likeGate;
 
-  /// Personalized post responses and controls for flag creation.
   final Map<int, Post> flagResponses;
   final WriteException? flagFailure;
   final Completer<void>? flagGate;
@@ -925,16 +849,12 @@ class FakeDiscourseApi
   final List<({int topicId, int postActionTypeId, String? message})>
   topicFlagsCreated = [];
 
-  /// Returned by [postLikers], keyed by post id; a missing one fails.
   final Map<int, List<PostLiker>> likersById;
 
-  /// Post ids passed to [postLikers], in order.
   final List<int> likersRequested = [];
 
-  /// When set, [postLikers] waits on it, so a test can hold the list in flight.
   final Completer<void>? likerGate;
 
-  /// Revision responses keyed by post id for history UI tests.
   final Map<int, PostRevision> postRevisions;
   final List<({int postId, int? revision})> postRevisionsRequested = [];
 
@@ -944,14 +864,10 @@ class FakeDiscourseApi
   final Completer<void>? appearanceGate;
   final List<String> appearancesRequested = [];
 
-  /// Returned by [siteConfig], keyed by site url. A missing one fails, which
-  /// is the default and is deliberate: a test that has not said what a site's
-  /// settings are gets a site drawn as plain core, which is what every test
-  /// that is not about an optional feature wants to see.
+  /// Missing config is the neutral, plain-core fixture default.
   final Map<String, SiteConfig> siteConfigs;
   final Completer<void>? siteConfigGate;
 
-  /// Featured categories and cursor pages returned by the GIF proxy.
   final Map<String, List<GifCategory>> gifCategoriesBySite;
   final Map<String, GifSearchPage> gifSearchPages;
   final SiteLookupFailure? gifFailure;
@@ -970,69 +886,43 @@ class FakeDiscourseApi
   final List<({int searchLogId, Object resultId, SearchResultKind resultKind})>
   searchClicks = [];
 
-  /// Site urls passed to [siteConfig], in order.
   final List<String> siteConfigsRequested = [];
 
-  /// Returned by [customEmojis], keyed by site url. Empty by default: a site
-  /// with no custom emoji is the neutral answer here, not a failure. Named
-  /// apart from the method, which a field of the same name would collide with.
   final Map<String, Map<String, String>> customEmojisBySite;
   final Completer<void>? customEmojiGate;
 
-  /// Site urls passed to [customEmojis], in order.
   final List<String> customEmojisRequired = [];
 
-  /// Returned by [searchUsers], keyed by term. A term nobody listed answers
-  /// with nothing, which is what a real site does for a name it does not have.
   final Map<String, List<FoundUser>> userSearches;
 
-  /// The searches asked for, in order.
   final List<({String term, int? topicId})> userSearchesRequested = [];
 
   final Map<String, List<TopicFilterLookupValue>> filterTagSearches;
 
-  /// Returned by [searchHashtags], keyed by term. A term nobody listed answers
-  /// with nothing, the way a real site does for a slug it does not have.
   final Map<String, List<FoundHashtag>> hashtagSearches;
 
-  /// The terms asked for, in order.
   final List<String> hashtagSearchesRequested = [];
 
-  /// The type orders sent with each hashtag search.
   final List<List<String>> hashtagSearchOrdersRequested = [];
 
-  /// The batches of refs looked up, in order — so a test can show that typing
-  /// a ref asks nothing and finishing it asks once.
   final List<Set<String>> hashtagLookupsRequested = [];
 
-  /// The type orders sent with each hashtag lookup.
   final List<List<String>> hashtagLookupOrdersRequested = [];
 
-  /// The usernames [checkMentions] confirms. Anything else is somebody who
-  /// does not exist, and must stay text.
   final Set<String> realUsernames;
 
   final List<Set<String>> mentionChecksRequested = [];
 
-  /// Ordered picker catalogs returned by [emojiCatalog].
   final Map<String, SiteEmojiCatalog> emojiCatalogsBySite;
 
-  /// Legacy flat fixture shorthand, placed into one `default` group.
   final Map<String, List<SiteEmoji>> emojisBySite;
 
-  /// Site urls passed to [emojiCatalog], in order — so a test can show the list is
-  /// fetched once and not per keystroke.
   final List<String> emojisRequested = [];
 
-  /// Returned by [postReactors], keyed by `PostReactors.key(postId, filter)`;
-  /// a missing one fails.
   final Map<String, PostReactors> reactorsById;
 
-  /// The `(postId, filter)` pairs passed to [postReactors], in order.
   final List<({int postId, String? filter})> reactorsRequested = [];
 
-  /// When set, [postReactors] waits on it, so a test can hold the list in
-  /// flight.
   final Completer<void>? reactorGate;
 
   /// What [toggleReaction] answers with, keyed by post id. Nothing for a post
@@ -1040,28 +930,19 @@ class FakeDiscourseApi
   /// standing.
   final Map<int, Post> reactionResponses;
 
-  /// Thrown by [toggleReaction] instead of answering.
   final WriteException? reactionFailure;
 
-  /// When set, [toggleReaction] waits on it, so a test can press twice before
-  /// either write has come back.
   final Completer<void>? reactionGate;
 
-  /// Every [toggleReaction] call, in order.
   final List<({int postId, String reaction})> reacted = [];
 
-  /// Personalized answers for poll writes, keyed by [pollVoteKey].
   final Map<String, PollVoteResponse> pollVoteResponses;
   final Map<String, PollVoteResponse> pollRemovalResponses;
 
-  /// Thrown by either poll vote route instead of answering.
   final WriteException? pollVoteFailure;
 
-  /// Holds either poll route open so controller tests can exercise concurrent
-  /// invalidation and per-post write serialization.
   final Completer<void>? pollVoteGate;
 
-  /// Poll writes in call order, with an immutable copy of the sent digests.
   final List<({int postId, String pollName, List<String> options})> pollVotes =
       [];
   final List<({int postId, String pollName})> pollVotesRemoved = [];
@@ -1069,13 +950,7 @@ class FakeDiscourseApi
   static String pollVoteKey(int postId, String pollName) =>
       '$postId::$pollName';
 
-  /// Returned by [chatChannels], keyed by site url; a missing site fails.
-  ///
-  /// Missing is the default, and deliberately: a test that has not said a site
-  /// has chat sees a site drawn as plain core, which is what every test that is
-  /// not about chat wants. Nothing asks in the first place unless
-  /// [totals] contains Chat's available notification counter, which defaults
-  /// to absent.
+  /// Missing means Chat is disabled; totals must advertise it before lookup.
   final Map<String, ChatChannels> chatChannelsBySite;
 
   final Map<int, ChatChannel> chatChannelsById;
@@ -1092,7 +967,6 @@ class FakeDiscourseApi
   chatChannelStatusesUpdated = [];
   final List<int> chatChannelDetailsRequested = [];
 
-  /// Returned for a one-to-one upsert, keyed by target username.
   final Map<String, ChatChannel> directMessageChannelsByUsername;
   final ChatChannel? directMessageGroupChannel;
 
@@ -1109,11 +983,8 @@ class FakeDiscourseApi
   >
   chatDirectMessageSearchRequests = [];
 
-  /// Site urls passed to [chatChannels], in order.
   final List<String> chatChannelsRequested = [];
 
-  /// When set, [chatChannels] waits on it, so a test can hold the sidebar in
-  /// the moment before the sections exist.
   final Completer<void>? chatChannelGate;
 
   final Completer<void>? chatChannelStarGate;
@@ -1183,11 +1054,8 @@ class FakeDiscourseApi
     int offset = 0,
   }) => '$query~${channelId ?? 'all'}~${sort.name}~$offset';
 
-  /// Returned by [chatMessages], keyed by [chatMessagesKey]; a missing key
-  /// fails, so a test only has to name the pages it expects to be asked for.
   final Map<String, ChatMessagePage> chatMessagesByKey;
 
-  /// Thread detail and write answers keyed by the helpers below.
   final Map<int, ChatThreadPage> chatThreadPagesByOffset;
   final Map<String, ChatThreadPage> chatChannelThreadPagesByKey;
   final Map<String, ChatThread> chatThreadsByKey;
@@ -1200,8 +1068,6 @@ class FakeDiscourseApi
   static String createdChatThreadKey(int channelId, int originalMessageId) =>
       '$channelId~original~$originalMessageId';
 
-  /// The window a channel opens on is keyed by the channel alone; a page by
-  /// the message and the direction it was asked to page from.
   static String chatMessagesKey(
     int channelId, {
     int? before,
@@ -1214,15 +1080,9 @@ class FakeDiscourseApi
     _ => '$channelId',
   };
 
-  /// What a jump to the present is answered with, when a test names it.
-  ///
-  /// Falls back to [chatMessagesKey], because most of the time the two are the
-  /// same window and saying so twice would only be noise. A test that wants
-  /// the anchored window to differ from the newest page — the whole point of
-  /// jumping — names this one as well.
+  /// Falls back to [chatMessagesKey] unless a test names a newer window.
   static String chatMessagesLatestKey(int channelId) => '$channelId~latest';
 
-  /// Every ask passed to [chatMessages], in order and in the shape it was made.
   final List<
     ({
       int channelId,
@@ -1263,18 +1123,12 @@ class FakeDiscourseApi
   >
   chatThreadMessagesRequested = [];
 
-  /// When set, [chatMessages] waits on it, so a test can look at a channel
-  /// while its first page is still on the way.
   final Completer<void>? chatMessageGate;
 
-  /// Thrown by [markChatChannelRead] instead of answering.
   final WriteException? chatReadFailure;
 
-  /// Every [markChatChannelRead] call, in order.
   final List<({int channelId, int messageId})> chatReadsMarked = [];
 
-  /// Chat-message writes, their optional gate, and the id returned by a
-  /// successful fake send.
   final WriteException? chatSendFailure;
   final Completer<void>? chatSendGate;
   final int? chatSentMessageId;
@@ -1336,7 +1190,6 @@ class FakeDiscourseApi
   final List<({int channelId, int messageId, int flagTypeId, String? message})>
   chatMessagesFlagged = [];
 
-  /// Chat reaction writes, their optional gate, and an injected refusal.
   final WriteException? chatReactionFailure;
   final Completer<void>? chatReactionGate;
   final List<
@@ -1350,20 +1203,15 @@ class FakeDiscourseApi
   >
   chatReactionsSet = [];
 
-  /// Chat reactor pages and calls, kept separate from topic's plugin route.
   final Map<String, ChatMessageReactors> chatReactorsById;
   final Completer<void>? chatReactorGate;
   final List<({int channelId, int messageId, String? filter})>
   chatReactorsRequested = [];
 
-  /// Thrown by [saveDraft] instead of answering.
   final WriteException? draftFailure;
 
-  /// Holds draft saves open so tests can type a newer revision while one is
-  /// still in flight.
   final Completer<void>? draftGate;
 
-  /// Every [saveDraft] call, in order.
   final List<Map<String, Object?>> draftsSaved = [];
 
   @override
@@ -1383,10 +1231,7 @@ class FakeDiscourseApi
     required String apiKey,
     String? clientId,
   }) async =>
-      user ??
-      // With an id, because that is what names the account's message_bus
-      // channels — a user without one gets no live counters.
-      const DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+      user ?? const DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
 
   @override
   Future<TopicTrackingState> topicTrackingState({
@@ -3863,7 +3708,6 @@ class FakeApiCredentialReader implements ApiCredentialReader {
   Future<String> clientId() async => clientIdValue;
 }
 
-/// Test adapter for the request/session authority exposed to plugins.
 final class FakePluginRequestHost implements PluginRequestHost {
   FakePluginRequestHost({
     ApiCredentialReader? credentials,
@@ -3909,7 +3753,6 @@ final class _FakePluginSiteLease implements PluginSiteLease {
   bool commit(void Function() mutation) => lease.commit(mutation);
 }
 
-/// Runs the handshake without a browser or a keychain.
 class FakeAuthenticator implements Authenticator {
   FakeAuthenticator({
     this.credentials,
@@ -3926,8 +3769,6 @@ class FakeAuthenticator implements Authenticator {
   /// must not be able to hold a site in the rail.
   final Object? disconnectFailure;
 
-  /// Thrown by [apiKeyFor] when a test needs the platform credential store to
-  /// fail after the rest of the shell has already loaded.
   Object? apiKeyFailure;
 
   final List<String> connected = [];
@@ -3971,11 +3812,6 @@ class FakeAuthenticator implements Authenticator {
   SecureStore get store => throw UnimplementedError();
 }
 
-/// A topic payload, in the shape a fetch answers with: the topic, and the
-/// posts that came down with it.
-///
-/// [stream] and [postsCount] default to exactly the posts given, which is what
-/// a short topic looks like. Pass them to describe a topic with more to fetch.
 TopicPayload topicPayload({
   required int id,
   String title = '',

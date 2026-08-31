@@ -3,15 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'bookmark.dart';
 import 'json.dart';
 
-/// The coherent native groups backed by Discourse's user preferences route.
 enum PreferenceSection { profile, notifications, tracking, interface }
 
-/// The server-backed preference fields exposed by the native client.
-///
-/// Discourse reads these values flat on `PUT /u/{username}.json`, but nests
-/// user-option values under `user_option` when it serializes the user. The
-/// model deliberately mirrors that read shape and [payloadFor] owns the flat
-/// write contract so controllers never have to guess wire names.
 @immutable
 final class UserPreferences {
   const UserPreferences({
@@ -109,7 +102,6 @@ final class UserPreferences {
   final bool canEdit;
   final bool canChangeTrackingPreferences;
 
-  /// The exact flat attributes accepted by Discourse's user update route.
   Map<String, Object?> payloadFor(PreferenceSection section) =>
       Map.unmodifiable(switch (section) {
         PreferenceSection.profile => {'timezone': timezone},
@@ -128,11 +120,6 @@ final class UserPreferences {
         },
       });
 
-  /// Replaces only [section] with values confirmed by a server response.
-  ///
-  /// Saves carry one section at a time. Their fallback is the complete draft,
-  /// so replacing an entire confirmed snapshot with the response would also
-  /// confirm unrelated edits that were never sent.
   UserPreferences withSectionFrom(
     PreferenceSection section,
     UserPreferences confirmed,

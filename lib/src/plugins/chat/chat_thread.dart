@@ -5,12 +5,8 @@ import '../../models/json.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
 
-/// One account-level page from `/chat/api/me/threads`.
-///
-/// Unlike a channel-local thread list, these rows can belong to unrelated
-/// conversations. Core therefore embeds each row's channel in the response;
-/// keeping those records beside the threads lets navigation open any result
-/// without first guessing whether the channel sidebar happened to load it.
+/// Keeps each account-level thread's embedded channel so navigation does not
+/// depend on the channel sidebar having loaded it.
 @immutable
 final class ChatThreadPage {
   const ChatThreadPage({
@@ -59,7 +55,6 @@ final class ChatThreadPage {
   final bool hasMore;
 }
 
-/// How closely the current account follows one thread.
 enum ChatThreadNotificationLevel {
   muted(0),
   normal(1),
@@ -79,7 +74,6 @@ enum ChatThreadNotificationLevel {
       };
 }
 
-/// This account's read and notification state for a thread.
 @immutable
 final class ChatThreadMembership {
   const ChatThreadMembership({
@@ -144,7 +138,6 @@ final class ChatThreadMembership {
   );
 }
 
-/// The compact original-message representation embedded in a thread detail.
 @immutable
 final class ChatThreadOriginalMessage {
   const ChatThreadOriginalMessage({
@@ -220,7 +213,6 @@ final class ChatThreadOriginalMessage {
   );
 }
 
-/// A thread detail returned by Discourse Chat.
 @immutable
 final class ChatThread with Storable<ChatThread> {
   const ChatThread({
@@ -310,13 +302,9 @@ final class ChatThread with Storable<ChatThread> {
     originalMessage: originalMessage ?? this.originalMessage,
   );
 
-  /// Applies a complete thread-detail response.
-  ///
-  /// Unlike [merge], absence is authoritative here: a removed title stays
-  /// removed and a membership revoked on another client becomes null, which
-  /// disables read receipts. The local read cursor remains monotonic when the
-  /// membership still exists, while incremental tracking survives endpoints
-  /// that do not serialize it.
+  /// Treats absent detail fields as authoritative while keeping an existing
+  /// read cursor monotonic and preserving incremental tracking omitted by some
+  /// endpoints.
   ChatThread withDetail(ChatThread detail) {
     assert(detail.id == id);
     assert(detail.channelId == channelId);

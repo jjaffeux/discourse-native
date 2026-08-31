@@ -28,8 +28,6 @@ import 'chat_plugin.dart';
 import 'chat_services.dart';
 import 'chat_stream_target.dart';
 
-/// Connects the pane-sized desktop drop target to whichever compact composer
-/// currently owns that channel or thread.
 class ChatUploadDropController {
   ComposerController? _composer;
   bool Function()? _canAccept;
@@ -148,12 +146,6 @@ class _ChatUploadDropRegionState extends State<ChatUploadDropRegion> {
   );
 }
 
-/// A compact composer pinned underneath one chat stream.
-///
-/// It deliberately owns no scrolling or floating geometry. [ChatChannelView]
-/// puts it after the expanded message viewport, so the messages move behind a
-/// stable input at the bottom of the page. The field itself is the same
-/// [ComposerEditor] topics use.
 class ChatComposer extends StatefulWidget {
   const ChatComposer({
     super.key,
@@ -173,10 +165,7 @@ class ChatComposer extends StatefulWidget {
   final ChatMessage? editingMessage;
   final VoidCallback? onEditFinished;
 
-  /// A monotonically increasing request to focus this composer.
-  ///
-  /// A counter, rather than a boolean, lets repeatedly choosing Reply on an
-  /// already-open thread focus it again without rebuilding the route.
+  /// A counter lets repeated Reply actions refocus an already-open thread.
   final int focusRequest;
 
   @override
@@ -345,9 +334,7 @@ class _ChatComposerState extends State<ChatComposer> {
     );
     if (accepted == null) return;
 
-    // Acceptance is the UI boundary: the row already exists and owns every
-    // later delivery outcome. Start a clean document without waiting for
-    // credentials, FIFO queueing, or the network.
+    // Once a row exists, it owns delivery; clear the document before queued I/O.
     composer.focus.unfocus();
     composer.clearDocument();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -517,8 +504,7 @@ class _ChatComposerState extends State<ChatComposer> {
         height: result.height,
       ),
     );
-    // A picked GIF is its own outgoing message. Text already in the composer
-    // is unrelated and remains untouched on both success and failure.
+    // A picked GIF is a separate message and never consumes draft text.
   }
 
   ChatStreamTarget get _target => switch (widget.threadId) {

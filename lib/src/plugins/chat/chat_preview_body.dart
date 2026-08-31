@@ -10,10 +10,7 @@ import '../../shell/syntax.dart';
 import '../../theme/app_theme.dart';
 import 'chat_preview.dart';
 
-/// Native presentation of an app-owned provisional chat document.
-///
-/// This consumes typed nodes only. Canonical server HTML takes a different
-/// path in [ChatMessageTile], and always wins before this widget is considered.
+/// Renders only provisional typed nodes; canonical server HTML always wins.
 class ChatPreviewBody extends StatelessWidget {
   const ChatPreviewBody({
     super.key,
@@ -28,10 +25,7 @@ class ChatPreviewBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Widget construction is intentionally after pure inspection, but it is
-    // still part of the provisional pipeline. A missing, ambiguous, or broken
-    // renderer invalidates the whole projection rather than producing a mixed
-    // interpretation of one message.
+    // One missing or broken extension renderer invalidates the whole preview.
     final pluginWidgets = <PluginPreviewNode, Widget>{};
     for (final node in document.nodes.whereType<PluginPreviewNode>()) {
       final widget = previewEngine.buildPreviewNode(context, node);

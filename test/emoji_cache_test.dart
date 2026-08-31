@@ -56,8 +56,6 @@ void main() {
     });
 
     test('answers nothing when there is no site to resolve against', () {
-      // Not an error: a quote rendered outside the shell falls back to the
-      // shortcode, which is what it did before emoji rendered at all.
       expect(absoluteEmojiUrl('/images/emoji/twitter/tada.png', null), isNull);
       expect(absoluteEmojiUrl(null, 'https://site'), isNull);
       expect(absoluteEmojiUrl('', 'https://site'), isNull);
@@ -68,8 +66,6 @@ void main() {
     test(
       'fetches a given URL once, however many times it is requested',
       () async {
-        // The point of the cache: the same handful of emoji repeat across every
-        // post on a site.
         var requests = 0;
         final cache = EmojiCache(
           client: MockClient((_) async {

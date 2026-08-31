@@ -14,7 +14,6 @@ import 'reactions_emoji_usage.dart';
 import 'reactions_services.dart';
 import 'reactions_settings.dart';
 
-/// Opens the policy-aware chooser for a post reaction affordance.
 Future<void> showPostReactionPicker(
   BuildContext context,
   ReactionsController controller,
@@ -76,7 +75,6 @@ Future<void> showPostReactionPicker(
   );
 }
 
-/// Offers the emoji a site allows, so a reader can give one.
 Future<void> showReactionPicker(
   BuildContext context,
   ReactionsController controller,
@@ -128,7 +126,6 @@ Future<void> showReactionPicker(
   );
 }
 
-/// The emoji themselves, drawn the same way on touch and pointer surfaces.
 class ReactionGrid extends StatelessWidget {
   ReactionGrid({
     super.key,

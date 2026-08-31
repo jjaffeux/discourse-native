@@ -3,11 +3,6 @@ import 'package:flutter/foundation.dart';
 import '../../models/json.dart';
 import 'chat_channel.dart';
 
-/// One result from Chat's `/chat/api/chatables` direct-message search.
-///
-/// Core returns people and existing channels in separate arrays, but presents
-/// them as one ranked list. Keeping the ranked item typed lets the picker open
-/// an existing conversation without making another create request.
 sealed class ChatDirectMessageSearchItem {
   const ChatDirectMessageSearchItem({
     required this.identifier,

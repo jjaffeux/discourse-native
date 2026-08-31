@@ -264,7 +264,6 @@ void main() {
 
         expect(error, 'This assignment target is no longer available.');
         expect(assignments.canAssign(_site, legacyTarget), isFalse);
-        // Explicit modern per-target capabilities stay authoritative.
         expect(
           assignments.canAssign(_site, const AssignmentTarget.topic(7)),
           isTrue,
@@ -582,8 +581,6 @@ void main() {
       expect(error, isNull);
       expect(api.topicsOpened, [7, 7]);
 
-      // The topic is still held, but the failed forced reconciliation prevents
-      // it from becoming a permanent cache hit.
       await shell.loadTopic(7, 'topic');
       expect(api.topicsOpened, [7, 7, 7]);
     });

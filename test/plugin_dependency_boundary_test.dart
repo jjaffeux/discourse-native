@@ -69,8 +69,6 @@ const _featureModuleEntrypoints = <String>{
   'reactions/reactions_module.dart',
 };
 
-/// Public, contract-only plugin surfaces intentionally re-exported by the
-/// host SDK for separately packaged plugins.
 const _publicPluginContractExports = <String>{
   'lib/discourse_plugin_sdk.dart->lib/src/plugins/chat/chat_contract.dart',
 };

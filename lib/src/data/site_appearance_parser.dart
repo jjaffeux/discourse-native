@@ -52,8 +52,6 @@ bool _isStylesheetLink(String? relation) =>
         .any((value) => value.toLowerCase() == 'stylesheet') ??
     false;
 
-/// The theme and color-scheme IDs needed to ask Discourse for its compiled
-/// color stylesheets.
 @immutable
 class SiteAppearanceSelection {
   const SiteAppearanceSelection({
@@ -85,9 +83,6 @@ class SiteAppearanceSelection {
       Object.hash(themeId, baseSchemeId, alternateSchemeId, mode);
 }
 
-/// Resolves the same server-stored theme preferences that Discourse's
-/// application layout uses, without depending on its HTML structure.
-///
 /// [site] is the body of `/site.json`. [user] is the optional body of the
 /// signed-in reader's `/u/{username}.json`; when absent, site defaults win.
 /// Missing modern metadata makes appearance an unsupported optional feature.
@@ -226,16 +221,12 @@ final class _SchemeChoice {
   final int? themeId;
 }
 
-/// Parses one generated Discourse color-definition stylesheet.
-///
 /// Only declarations on top-level, globally-applicable `:root` rules are
 /// considered. Later declarations win as they do in CSS, including the theme
 /// color definitions that Discourse appends after its core rule.
 ResolvedSitePalette? parseSiteAppearanceStylesheet(String source) =>
     parseSiteAppearanceStylesheets([source]);
 
-/// Parses the color definition followed by any later theme stylesheets.
-///
 /// Every custom property is retained, rather than only the final palette
 /// names, because themes commonly introduce an alias before assigning it to a
 /// core semantic variable.

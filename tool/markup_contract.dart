@@ -1,22 +1,8 @@
-/// Checks the markup contracts against discourse/discourse.
-///
-/// Native renderers depend on exact shapes in Discourse's cooked HTML. None of
-/// those shapes are versioned or announced, so this discovers owner-local
-/// contract catalogs, fetches their upstream sources, and diffs them against
-/// the snapshots declared by each owner.
-///
-/// It is a drift detector, not a source of styling: Discourse's SCSS cannot be
-/// applied by the HTML renderer this app uses. When it fails, read the diff and
-/// decide whether a parser needs to change.
-///
-///   dart run tool/markup_contract.dart            # check, exit 1 on drift
-///   dart run tool/markup_contract.dart --update   # accept upstream as current
 library;
 
 import 'dart:convert';
 import 'dart:io';
 
-/// One thing whose markup we copy, and where to look when it moves.
 final class MarkupContract {
   const MarkupContract({
     required this.name,
@@ -28,7 +14,6 @@ final class MarkupContract {
 
   final String name;
 
-  /// Where the copies live.
   final String snapshot;
 
   /// What to re-read when this drifts. Named per contract, because "check
@@ -36,10 +21,8 @@ final class MarkupContract {
   /// hashtag.
   final String readers;
 
-  /// Upstream paths that describe the markup those readers read.
   final List<String> watched;
 
-  /// Owner-local declaration which supplied this contract.
   final String catalog;
 }
 
@@ -47,8 +30,6 @@ const int markupContractCatalogSchemaVersion = 1;
 const String _coreCatalogRoot = 'tool/markup_contracts';
 const String _pluginRoot = 'lib/src/plugins';
 
-/// Discovers core catalogs and optional feature catalogs without teaching the
-/// runner any feature ids or upstream paths.
 Future<List<MarkupContract>> loadMarkupContracts({
   Directory? repository,
 }) async {
@@ -343,5 +324,4 @@ Future<String?> _fetch(HttpClient client, String path) async {
   return response.transform(utf8.decoder).join();
 }
 
-/// Upstream paths become flat filenames so the snapshot stays one directory.
 String _flatten(String path) => path.replaceAll('/', '__');

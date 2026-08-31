@@ -18,13 +18,8 @@ typedef PluginTransportRequest = ({
 typedef PluginTransportResponder =
     FutureOr<Object?> Function(PluginTransportRequest request);
 
-/// A strict route table and request recorder for plugin API tests.
-///
-/// Route keys are the uppercase method followed by the complete path, for
-/// example `GET /chat/api/channels.json`. Missing routes and response-shape
-/// mismatches throw instead of returning an empty payload that can hide a bad
-/// request. Failures are consumed once so retry tests can leave the successful
-/// response configured behind them.
+/// Routes use uppercase-method/full-path keys. Missing routes and response-shape
+/// mismatches throw; configured failures are consumed once for retry tests.
 class RecordingPluginTransport
     implements PluginApiTransport, PluginJsonListTransport {
   RecordingPluginTransport({
@@ -37,17 +32,12 @@ class RecordingPluginTransport
        failures = Map.of(failures),
        responders = Map.of(responders);
 
-  /// Static object responses keyed by `METHOD path`.
   final Map<String, Map<String, dynamic>> responses;
 
-  /// Static top-level-list responses keyed by `GET path`.
   final Map<String, List<Map<String, dynamic>>> listResponses;
 
-  /// One-shot failures keyed by `METHOD path`.
   final Map<String, Object> failures;
 
-  /// Async or stateful responses keyed by `METHOD path`.
-  ///
   /// Responders take precedence over static responses. Their result is checked
   /// against the object/list shape requested by the caller.
   final Map<String, PluginTransportResponder> responders;

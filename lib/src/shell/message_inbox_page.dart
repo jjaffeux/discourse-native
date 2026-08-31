@@ -9,7 +9,6 @@ import 'choice_menu.dart';
 import 'shell_scope.dart';
 import 'topic_list_view.dart';
 
-/// The connected account's personal and group private-message inboxes.
 class MessageInboxPage extends StatelessWidget {
   const MessageInboxPage({super.key, required this.feed});
 

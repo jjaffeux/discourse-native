@@ -67,7 +67,6 @@ class ChatPinsState {
   );
 }
 
-/// What Discourse's chat shortcut paints over its comment icon.
 @immutable
 class ChatHeaderIndicator {
   const ChatHeaderIndicator._({this.urgentCount, this.unread = false});
@@ -90,12 +89,7 @@ class ChatHeaderIndicator {
   };
 }
 
-/// What the main region knows about one channel, at one moment.
-///
-/// The sibling of `TopicFeed`, and ids rather than messages for the same
-/// reason: the messages themselves are in the [Store], where one copy is shared
-/// by the row drawing it and anything else that names it, so this is only the
-/// order they go in.
+/// Holds channel ordering while canonical messages live in the [Store].
 @immutable
 class ChatStreamState {
   const ChatStreamState({
@@ -117,91 +111,46 @@ class ChatStreamState {
     this.revision = 0,
   });
 
-  /// Oldest first, and **contiguous** — there is never a hole in the middle.
-  /// That is the invariant paging depends on: [ChatController.loadOlder] pages
-  /// before the first of these and [ChatController.loadNewer] after the last,
-  /// so a gap anywhere between them could never be filled.
+  /// Oldest first and contiguous; paging can only extend either edge.
   final List<int> messageIds;
 
-  /// Optimistic outgoing rows, oldest first, after the canonical window.
-  ///
-  /// These ids are negative and local. Keeping them out of [messageIds] is
-  /// load-bearing: that list is a contiguous server window used as the cursor
-  /// for paging and read receipts, while a message authored from an anchored
-  /// window may be separated from it by an arbitrarily large unread gap.
+  /// Negative local IDs kept outside the contiguous canonical paging window.
   final List<int> localMessageIds;
 
-  /// A first page is on its way and there is nothing to show behind it.
   final bool loading;
 
-  /// A page of history is on its way, under what is already on screen.
   final bool loadingOlder;
 
-  /// A page towards the present is on its way, over what is already on screen.
   final bool loadingNewer;
 
   final bool canLoadMorePast;
 
-  /// Whether there are messages between the newest one held and the present.
-  ///
-  /// False for a stream fetched at the live edge, which is most of them. True
-  /// only while the reader is anchored back where they left off with a backlog
-  /// in front of them — which is what [ChatController.openChannel] does, and
-  /// the reason [ChatController.loadNewer] exists at all.
+  /// True only for a window anchored behind the present.
   final bool canLoadMoreFuture;
 
-  /// Live replies received beyond an anchored window. They are deliberately
-  /// not inserted into [messageIds], whose contiguity paging depends on.
+  /// Live replies parked beyond an anchored, contiguous window.
   final int pendingNewMessages;
 
-  /// Whether the site has answered at all, which is what tells an empty channel
-  /// apart from one that has not been read yet.
+  /// Distinguishes an empty channel from one not fetched yet.
   final bool fetchedOnce;
 
-  /// How many times this stream has been *replaced* — opened, or jumped to the
-  /// present — as opposed to paged into.
-  ///
-  /// The view's cue to position itself: a fresh window means the scroll offset
-  /// it is holding describes messages that are no longer there, so it has to
-  /// land somewhere deliberately rather than inherit it. Paging changes the
-  /// list without changing where the reader is, and leaves this alone.
+  /// Changes only when replacing the window, cueing the view to re-anchor.
   final int fetches;
 
-  /// Where the reader had got to when this stream was fetched, which is what
-  /// the unread divider is drawn from.
-  ///
-  /// A snapshot rather than the membership's live answer, and that is the
-  /// whole point of it: [ChatController.markRead] moves the membership as the
-  /// reader scrolls, so a divider that watched it would slide down the screen
-  /// ahead of them and then vanish. Discourse pins the same line to a
-  /// `newestMessage` captured at fetch time, for the same reason. It moves
-  /// when the stream is replaced — a re-open — and not before.
+  /// Fetch-time snapshot so the unread divider does not move with read receipts.
   final int? lastReadOnOpen;
 
-  /// The message a freshly replaced window should reveal. Usually the same as
-  /// [lastReadOnOpen], but a summary card or notification may target an exact
-  /// reply without moving the pinned unread divider.
+  /// May target an exact reply without moving the pinned unread divider.
   final int? anchorMessageId;
 
-  /// A short-lived, non-fatal explanation for a successful fallback.
   final String? notice;
 
   final String? error;
 
-  /// The thread detail endpoint authoritatively rejected this target.
-  ///
-  /// Only a current 403/404 response sets this. Transport failures remain the
-  /// ordinary retryable [error] state, so the route can distinguish a thread
-  /// that disappeared from a temporarily unavailable site.
+  /// Set only for authoritative 403/404 responses, not transport failures.
   final bool threadUnavailable;
 
-  /// Bumped when a held message changes shape without the id list changing.
-  ///
-  /// A live delete or restore rewrites a store record in place: the ids stay
-  /// identical, but the grouped projection the view derives from them —
-  /// collapsed deleted runs, chaining — is stale. The view keys its
-  /// projection cache on the id list precisely so paging flags stay cheap, so
-  /// this is its cue to derive the rows again.
+  /// Invalidates grouped projections when a record changes without an ID change.
   final int revision;
 
   bool get isEmpty =>
@@ -210,15 +159,10 @@ class ChatStreamState {
       messageIds.isEmpty &&
       localMessageIds.isEmpty;
 
-  /// The message to page before. Null on an empty stream, where there is
-  /// nothing to page from.
   int? get oldestId => messageIds.firstOrNull;
 
-  /// The message to page after, and the one the reader is caught up to when
-  /// there is nothing in front of it.
   int? get newestId => messageIds.lastOrNull;
 
-  /// Whether the newest message held is the newest there is.
   bool get atPresent => !canLoadMoreFuture && pendingNewMessages == 0;
 
   ChatStreamState copyWith({
@@ -247,8 +191,7 @@ class ChatStreamState {
     canLoadMoreFuture: canLoadMoreFuture ?? this.canLoadMoreFuture,
     pendingNewMessages: pendingNewMessages ?? this.pendingNewMessages,
     fetchedOnce: fetchedOnce ?? this.fetchedOnce,
-    // Carried rather than settable: both belong to the fetch that built this
-    // window, and every copy of one is the same window still.
+    // These remain tied to the fetch that built this window.
     fetches: fetches,
     lastReadOnOpen: lastReadOnOpen,
     anchorMessageId: anchorMessageId,
@@ -302,16 +245,8 @@ class ChatStreamState {
 
 enum _ChatWindowFetchResult { loaded, missingTarget, failed, cancelled }
 
-/// Which channels a site has, and which messages are in the one on screen.
-///
-/// Its own notifier rather than more state on the host shell. The sidebar navigation and
-/// active channel listen directly; individual messages use their store refs.
-/// Chat traffic therefore redraws the regions it can change without notifying
-/// every shell dependent.
-///
-/// Only the *asking* and the *ordering* live here. The channels and the
-/// messages go in the [Store] under their own ids, so the sidebar row and the
-/// screen it opens are drawing one record rather than two copies.
+/// Owns chat requests and ordering; records and row-level notifications live
+/// in the [Store] to avoid rebuilding the host shell.
 class ChatController extends FrameSafeNotifier {
   ChatController({
     required this.api,
@@ -353,11 +288,6 @@ class ChatController extends FrameSafeNotifier {
   DiscourseUser? currentUserFor(String siteUrl) => _currentUserFor(siteUrl);
   SiteConfig siteConfigFor(String siteUrl) => _siteConfigFor(siteUrl);
 
-  /// Seeds owner-local records for integration fixtures which exercise Chat
-  /// through a real plugin session.
-  ///
-  /// Production callers learn about records through Chat APIs and events; the
-  /// test hooks keep the underlying generic store private to this controller.
   @visibleForTesting
   T putRecordForTesting<T extends Storable<T>>(String siteUrl, T record) =>
       _store.put(siteUrl, record);
@@ -372,7 +302,6 @@ class ChatController extends FrameSafeNotifier {
   T? readRecordForTesting<T extends Storable<T>>(String siteUrl, Object id) =>
       _store.read<T>(siteUrl, id);
 
-  /// Captures the Chat session owning a plugin-local UI workflow.
   PluginSiteLease captureSession(String siteUrl) => _requests.capture(siteUrl);
 
   void _report(
@@ -393,20 +322,12 @@ class ChatController extends FrameSafeNotifier {
     );
   }
 
-  /// How many messages to ask for. The site caps it at 50 and Discourse's own
-  /// client sends exactly that.
+  /// Discourse caps chat pages at 50.
   static const int pageSize = 50;
 
-  /// How many times a site's channel list is worth asking for.
-  ///
-  /// Bounded like `_ensureCustomEmojis`: nothing on screen asks for this again,
-  /// so a failure that could only be retried by an event which will not happen
-  /// would be a dead end for the life of the session.
+  /// Allows retries when no later UI event would trigger one.
   static const int maxChannelAttempts = 3;
 
-  /// Facts about requests rather than about records, which is why they are here
-  /// and not in the [Store]: a channel that has never been fetched has nowhere
-  /// to hold them.
   final Set<String> _loading = {};
   final Map<String, String> _errors = {};
   final Map<String, int> _attempts = {};
@@ -419,9 +340,7 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, Future<void>> _channelThreadListRequests = {};
   final Map<String, Object> _channelThreadListRuns = {};
 
-  /// Channel ids in the order the sidebar draws them. The channels themselves
-  /// are in the [Store]; these two lists are the orderings, which no record
-  /// holds.
+  /// Sidebar orderings not represented by individual store records.
   final Map<String, List<int>> _publicIds = {};
   final Map<String, List<int>> _directIds = {};
   final Map<String, List<int>> _myThreadIds = {};
@@ -434,14 +353,10 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, bool> _channelThreadsHaveMore = {};
   final Map<String, int> _lastOpenedChannelIds = {};
 
-  /// The channel panes currently mounted, with a generation token so disposal
-  /// of an older overlapping pane cannot deactivate its replacement.
+  /// Generation tokens keep an old pane's disposal from deactivating its replacement.
   final Map<String, Object> _activeChannelViews = {};
 
-  /// Root-channel subscriptions are shared by the channel pane and every
-  /// thread pane mounted beside/instead of it. One token per mounted owner
-  /// prevents a compact thread from dropping the subscription its expanded
-  /// sibling still needs.
+  /// Per-owner tokens reference-count root subscriptions shared with thread panes.
   final Map<String, Set<Object>> _rootViewTokens = {};
   final Map<String, PluginLiveChannelSubscription> _rootSubscriptions = {};
   final Map<String, Set<Object>> _threadViewTokens = {};
@@ -450,18 +365,13 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, Future<ChatThread?>> _threadDetailRequests = {};
   final Set<String> _threadDetailDirty = {};
 
-  /// The HTTP presence snapshot, its row-scoped listenable and the live
-  /// subscription that advances it. A tracker can arrive before or after the
-  /// channel list, so both halves are retained and [_syncPresence] joins them
-  /// whenever the second one appears.
+  /// HTTP and live presence may arrive in either order; [_syncPresence] joins them.
   final Map<String, ChatPresence> _presence = {};
   final Map<String, FrameSafeValueNotifier<Set<int>>> _presenceRefs = {};
   final Map<String, PluginLiveChannelHandle> _channelHosts = {};
   final Map<String, PluginLiveChannelSubscription> _presenceSubscriptions = {};
 
-  /// Persistent activity subscriptions for every channel in the latest HTTP
-  /// snapshot. Separate from [_sendSubscriptions], which temporarily watches
-  /// `/chat/{id}` only to reconcile this client's staged sends.
+  /// Persistent activity subscriptions, separate from staged-send reconciliation.
   final Map<String, Map<int, int?>> _newMessageCursors = {};
   final Map<String, Map<int, int?>> _newMentionCursors = {};
   final Map<String, Map<int, int?>> _kickCursors = {};
@@ -487,7 +397,6 @@ class ChatController extends FrameSafeNotifier {
   _userHasThreadsSubscriptions = {};
   final Set<String> _newChannelsAwaitingFirstMessage = {};
 
-  /// One channel's stream, keyed `'$siteUrl~$channelId'`.
   final Map<String, ChatStreamState> _streams = {};
   final Map<String, FrameSafeValueNotifier<ChatStreamState>> _streamRefs = {};
   final Map<String, Object> _streamGenerations = {};
@@ -557,23 +466,11 @@ class ChatController extends FrameSafeNotifier {
     return current;
   }
 
-  /// Whether an asynchronous operation still belongs to this controller, site
-  /// session, and request generation.
-  ///
-  /// Credential storage is asynchronous on every platform and can be visibly
-  /// slow on macOS. A site can be disconnected, the controller disposed, or a
-  /// stream replaced during either await. Response guards are too late for
-  /// those cases: they prevent stale state commits but still send an old
-  /// account request. Chat operations prove ownership with this predicate
-  /// after each credential await and immediately before delegation.
+  /// Rechecks ownership after credential awaits so stale account requests are
+  /// never sent after disconnect, disposal, or generation replacement.
   bool _requestIsCurrent(PluginSiteLease lease, bool Function() ownsRequest) =>
       !isDisposed && lease.isCurrent && ownsRequest();
 
-  // --- reads -------------------------------------------------------------
-
-  /// The public channels this account follows, in sidebar order. Empty before
-  /// the site has answered, which is also what a site with none looks like —
-  /// deliberately, since nothing is drawn for either.
   List<ChatChannel> publicChannels(String siteUrl) =>
       _resolve(siteUrl, _publicIds[siteUrl]);
 
@@ -591,7 +488,6 @@ class ChatController extends FrameSafeNotifier {
   bool channelNotificationWriteInFlight(String siteUrl, int channelId) =>
       _channelNotificationWrites.containsKey(_streamKey(siteUrl, channelId));
 
-  /// Stars or unstars one followed channel through the current membership.
   Future<String?> updateChannelStarred(
     String siteUrl,
     int channelId,
@@ -667,10 +563,7 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Changes either of the two channel notification preferences.
-  ///
-  /// Core treats muting and push frequency as independent fields, so neither
-  /// optional argument is allowed to reset the other one implicitly.
+  /// Muting and push frequency are independent Discourse fields.
   Future<String?> updateChannelNotifications(
     String siteUrl,
     int channelId, {
@@ -757,7 +650,6 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Reads one privacy-safe member page for channel information.
   Future<ChatChannelMembersResult> fetchChannelMembers(
     String siteUrl,
     int channelId, {
@@ -811,7 +703,6 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Reads one server-filtered page from the public channel directory.
   Future<ChatChannelBrowseResult> fetchBrowseChannels(
     String siteUrl, {
     String filter = '',
@@ -873,10 +764,8 @@ class ChatController extends FrameSafeNotifier {
         held!.membership.following;
   }
 
-  /// Renames a public channel or changes/removes its description.
-  ///
-  /// Core's web editor sends the existing slug alongside a title edit, while
-  /// description is its own field and an empty string means removal.
+  /// Discourse requires the existing slug for title edits and an empty string
+  /// to remove a description.
   Future<String?> updateChannelMetadata(
     String siteUrl,
     int channelId, {
@@ -987,8 +876,6 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Enables or disables the separate thread timeline for an open category
-  /// channel, matching the web settings switch.
   Future<String?> updateChannelThreading(
     String siteUrl,
     int channelId,
@@ -1012,8 +899,7 @@ class ChatController extends FrameSafeNotifier {
             held.status == ChatChannelStatus.closed);
   }
 
-  /// Closes an open category channel or reopens a closed one. Core reserves
-  /// read-only and archived transitions for the archive workflow.
+  /// Discourse reserves read-only and archived transitions for its archive flow.
   Future<String?> setChannelClosed(
     String siteUrl,
     int channelId, {
@@ -1079,10 +965,7 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Joins a public channel or unfollows any channel membership.
-  ///
-  /// Direct messages cannot be joined from the directory, but closing one in
-  /// core is the same reversible follow write and removes it from the sidebar.
+  /// Closing a direct message is Discourse's reversible membership follow write.
   Future<String?> updateChannelFollowing(
     String siteUrl,
     ChatChannel candidate,
@@ -1281,21 +1164,13 @@ class ChatController extends FrameSafeNotifier {
     return b.id.compareTo(a.id);
   }
 
-  /// Finds or creates the one-to-one direct-message channel for [username].
-  ///
-  /// The returned channel is committed to the shared store before the future
-  /// completes, so shell navigation can open it immediately. Core never needs
-  /// to know how Chat resolves a user into a channel.
   Future<ChatChannel?> upsertDirectMessageChannel(
     String siteUrl,
     String username,
   ) => createDirectMessageChannel(siteUrl, usernames: [username], upsert: true);
 
-  /// Creates a one-to-one or group direct-message channel.
-  ///
-  /// Group composition uses [upsert] false, matching core: two groups with the
-  /// same membership remain distinct. The server expands visible [groups] and
-  /// remains authoritative for permissions and the configured member limit.
+  /// Group DMs use `upsert: false`, so identical membership may produce
+  /// distinct conversations; Discourse enforces permissions and member limits.
   Future<ChatChannel?> createDirectMessageChannel(
     String siteUrl, {
     required Iterable<String> usernames,
@@ -1359,13 +1234,8 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Searches the permission-filtered targets used by core Chat's DM picker.
-  ///
-  /// The caller owns transient query state. Existing conversations in the
-  /// answer are adopted before returning because Chat's initial sidebar
-  /// snapshot is capped; navigation still needs a store record for a result
-  /// which fell outside that snapshot. Answers from an account session which
-  /// changed while the request was in flight are discarded.
+  /// Adopts conversations omitted by the capped sidebar snapshot and discards
+  /// results from a superseded account session.
   Future<ChatDirectMessageSearchResults> searchDirectMessages(
     String siteUrl,
     String term, {
@@ -1439,10 +1309,7 @@ class ChatController extends FrameSafeNotifier {
     if (delta != 0) onChatNotificationsDelta?.call(siteUrl, delta);
   }
 
-  /// Starred public channels followed by starred direct messages, matching
-  /// Discourse's desktop sidebar. Public channels already arrive slug-sorted;
-  /// direct messages need a separate title sort because their ordinary section
-  /// stays in the server's activity order.
+  /// Matches Discourse: starred public channels precede title-sorted starred DMs.
   List<ChatChannel> starredChannels(String siteUrl) {
     final direct = directChannels(
       siteUrl,
@@ -1484,9 +1351,7 @@ class ChatController extends FrameSafeNotifier {
     return channels;
   }
 
-  /// Core's `compareDirectMessageChannelsByActivity`, for the unstarred DM
-  /// section this app mirrors. Starred conversations live in their own
-  /// alphabetical section and never enter this comparator.
+  /// Mirrors core's activity ordering for unstarred direct messages.
   static int _compareDirectMessageActivity(ChatChannel a, ChatChannel b) {
     final aHasMessage = a.lastMessageId != null && a.lastMessageAt != null;
     final bHasMessage = b.lastMessageId != null && b.lastMessageAt != null;
@@ -1533,11 +1398,8 @@ class ChatController extends FrameSafeNotifier {
     return (b.lastMessageId ?? 0).compareTo(a.lastMessageId ?? 0);
   }
 
-  /// The header's aggregate signal, following ChatHeaderIconUnreadIndicator.
-  ///
-  /// Urgent means every direct-message unread, every mention and every watched
-  /// thread unread. Ordinary public-channel activity and unread untracked
-  /// threads are the quieter dot, shown only for the `all_new` preference.
+  /// Mirrors core: DMs, mentions, and watched threads are urgent; ordinary
+  /// activity is a dot only under the `all_new` preference.
   ChatHeaderIndicator headerIndicator(
     String siteUrl,
     ChatHeaderIndicatorPreference preference,
@@ -1578,11 +1440,6 @@ class ChatController extends FrameSafeNotifier {
     return ChatHeaderIndicator.none;
   }
 
-  /// Where the shortcut lands: the channel most recently opened in this app,
-  /// then the server's last channel when it is still in the account's followed
-  /// lists, then the newest direct message, then the first public channel. The
-  /// latter two are the useful direct-entry fallback when no specific channel
-  /// has been selected yet.
   ChatChannel? shortcutChannel(String siteUrl, {int? lastChannelId}) {
     final preferredId = _lastOpenedChannelIds[siteUrl] ?? lastChannelId;
     if (preferredId != null) {
@@ -1603,9 +1460,7 @@ class ChatController extends FrameSafeNotifier {
   ChatChannel? channel(String siteUrl, int channelId) =>
       _store.read<ChatChannel>(siteUrl, channelId);
 
-  /// Resolves a search result's channel when it fell outside the capped
-  /// followed-channel snapshot. The full detail serializer carries membership;
-  /// the partial channel embedded in a search hit deliberately is not stored.
+  /// Fetches membership absent from partial search hits outside the capped snapshot.
   Future<ChatChannel?> ensureChannel(String siteUrl, int channelId) {
     if (isDisposed || channelId <= 0) return Future.value();
     final held = channel(siteUrl, channelId);
@@ -1677,10 +1532,7 @@ class ChatController extends FrameSafeNotifier {
   Ref<ChatThread> threadRef(String siteUrl, int threadId) =>
       _store.ref<ChatThread>(siteUrl, threadId);
 
-  /// Marks one mounted channel pane active and returns its generation token.
-  ///
-  /// Core advances `lastViewedAt` when the pane opens. That timestamp filters
-  /// old thread overview entries out of both sidebar ordering and its badge.
+  /// Advances core's `lastViewedAt`, which filters old thread overview entries.
   Object beginViewingChannel(String siteUrl, int channelId) {
     final token = Object();
     if (isDisposed) return token;
@@ -1691,7 +1543,7 @@ class ChatController extends FrameSafeNotifier {
     return token;
   }
 
-  /// Releases a pane only if it is still the active generation for its route.
+  /// Ignores disposal from an older overlapping pane generation.
   void endViewingChannel(String siteUrl, int channelId, Object token) {
     final key = _streamKey(siteUrl, channelId);
     if (identical(_activeChannelViews[key], token)) {
@@ -1738,8 +1590,6 @@ class ChatController extends FrameSafeNotifier {
     if (notify) notifySafely();
   }
 
-  /// A channel to watch rather than to read, so a row redraws itself when its
-  /// record changes without anything above it rebuilding.
   Ref<ChatChannel> channelRef(String siteUrl, int channelId) =>
       _store.ref<ChatChannel>(siteUrl, channelId);
 
@@ -1899,8 +1749,7 @@ class ChatController extends FrameSafeNotifier {
         : heldChannel.canDeleteOthers;
   }
 
-  /// Core exposes this capability on the channel only when pinned messages
-  /// are enabled and the current guardian may manage them.
+  /// Mirrors core's pin feature and guardian permission boundary.
   bool canPinMessage(String siteUrl, ChatMessage message) =>
       !isDisposed &&
       _currentUserFor(siteUrl) != null &&
@@ -1909,7 +1758,7 @@ class ChatController extends FrameSafeNotifier {
       !message.isDeleted &&
       channel(siteUrl, message.channelId)?.canManagePins == true;
 
-  /// The web client exposes Rebuild HTML only to staff in a writable channel.
+  /// Core exposes Rebuild HTML only to staff in writable channels.
   bool canRebakeMessage(String siteUrl, ChatMessage message) {
     final user = _currentUserFor(siteUrl);
     final heldChannel = channel(siteUrl, message.channelId);
@@ -2042,8 +1891,7 @@ class ChatController extends FrameSafeNotifier {
   bool messagePinWriteInFlight(String siteUrl, int messageId) =>
       _messagePinWrites.containsKey((siteUrl: siteUrl, messageId: messageId));
 
-  /// Mirrors core's eager pin switch, while retaining every unrelated field
-  /// that may change before a refused request rolls back.
+  /// Rollback preserves unrelated fields changed while the pin request runs.
   Future<String?> setMessagePinned(
     String siteUrl,
     int messageId, {
@@ -2172,7 +2020,6 @@ class ChatController extends FrameSafeNotifier {
     });
   }
 
-  /// Soft-deletes one web-compatible selection in a single core request.
   Future<String?> deleteMessages(
     String siteUrl,
     int channelId,
@@ -2583,8 +2430,7 @@ class ChatController extends FrameSafeNotifier {
   bool messageQuoteWriteInFlight(String siteUrl, int channelId) =>
       _messageQuoteWrites.containsKey((siteUrl: siteUrl, channelId: channelId));
 
-  /// Requests core's transcript serializer so copied selections retain the
-  /// same authors, timestamps, links, and `[chat]` markup as the web client.
+  /// Uses core's transcript serializer to preserve web-compatible `[chat]` markup.
   Future<({String? markdown, String? error})> generateMessageQuote(
     String siteUrl,
     int channelId,
@@ -2651,8 +2497,6 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Edits canonical Markdown and attachments, projecting the same safe local
-  /// preview the send path uses until MessageBus supplies authoritative data.
   Future<String?> editMessage(
     String siteUrl,
     int messageId,
@@ -2823,18 +2667,11 @@ class ChatController extends FrameSafeNotifier {
     );
   }
 
-  /// Whether this reader may add a reaction to one message.
-  ///
-  /// Chat's interaction permission belongs to the channel as well as the
-  /// message: silenced readers and readers who left a channel may still read
-  /// old reactions, but only a followed channel accepts an add.
+  /// Adding requires both message interaction permission and channel membership.
   bool canAddReactionToMessage(String siteUrl, ChatMessage message) =>
       _canChangeMessageReaction(siteUrl, message, requireFollowing: true);
 
-  /// Whether this reader may remove their reaction from one message.
-  ///
-  /// Discourse deliberately permits undoing a reaction after leaving a
-  /// channel, while adding still requires following it.
+  /// Discourse permits removing a reaction after leaving the channel.
   bool canRemoveReactionFromMessage(String siteUrl, ChatMessage message) =>
       _canChangeMessageReaction(siteUrl, message, requireFollowing: false);
 
@@ -2857,24 +2694,15 @@ class ChatController extends FrameSafeNotifier {
         );
   }
 
-  /// Adds this reader to an emoji chosen from the full picker.
-  ///
-  /// Choosing an emoji is an explicit add in Discourse chat, not a toggle. If
-  /// the reader already holds it, there is nothing to write and it stays put.
+  /// Picker selection is an explicit add, not a toggle.
   Future<String?> addMessageReaction(
     String siteUrl,
     int messageId,
     String emoji,
   ) => _setMessageReaction(siteUrl, messageId, emoji, reacted: true);
 
-  /// Adds or removes this reader from one existing chat reaction.
-  ///
-  /// The message record is changed before credentials or the network are
-  /// awaited, matching post reactions: a tap should answer immediately. One
-  /// write per message/emoji may be active, so a second tap cannot send the
-  /// inverse action while the first is unresolved. A refusal restores only
-  /// this reader's participation in that emoji and leaves every other reaction
-  /// on the latest stored message untouched.
+  /// Serializes writes per message/emoji. A refusal rolls back only this
+  /// reader's participation, preserving concurrent reaction changes.
   Future<String?> toggleMessageReaction(
     String siteUrl,
     int messageId,
@@ -2991,7 +2819,6 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Who gave a chat message one particular emoji, if they have been fetched.
   ChatMessageReactors? messageReactors(
     String siteUrl,
     int channelId,
@@ -3015,11 +2842,8 @@ class ChatController extends FrameSafeNotifier {
         filter: filter,
       )];
 
-  /// Refreshes the lazy reactor list through chat's own endpoint.
-  ///
-  /// The presentation is shared with topic reactions, but chat access is
-  /// authenticated and channel-scoped. One request per exact filter may be in
-  /// flight; a previously fetched page stays visible while it refreshes.
+  /// Uses chat's authenticated channel-scoped endpoint and retains the previous
+  /// page while one request per exact filter refreshes it.
   Future<void> loadMessageReactors({
     required String siteUrl,
     required int channelId,
@@ -3108,25 +2932,17 @@ class ChatController extends FrameSafeNotifier {
     );
   }
 
-  /// Whether [userId] is currently in Discourse's global chat presence.
   bool isOnline(String siteUrl, int userId) =>
       _presence[siteUrl]?.contains(userId) ?? false;
 
-  /// The smallest live surface a message avatar can watch.
-  ///
-  /// Returning the set, rather than the controller itself, means a presence
-  /// event rebuilds visible chat avatars without also rebuilding channel
-  /// navigation, composer state or the rest of the shell.
+  /// Limits presence rebuilds to consumers of the row-scoped set.
   ValueListenable<Set<int>> onlineUserIdsListenable(String siteUrl) =>
       _presenceRefs.putIfAbsent(
         siteUrl,
         () => FrameSafeValueNotifier(_presence[siteUrl]?.userIds ?? const {}),
       );
 
-  /// Gives chat access to the selected site's already-owned MessageBus.
-  ///
-  /// Core remains responsible for the message-bus lifetime; Chat owns only
-  /// the cancel-only subscriptions made through this host.
+  /// Chat owns subscriptions, while core retains MessageBus lifetime ownership.
   void attachTracker(String siteUrl, PluginLiveChannelHandle channels) {
     if (!identical(_channelHosts[siteUrl], channels)) {
       _cancelPresence(siteUrl);
@@ -3959,9 +3775,8 @@ class ChatController extends FrameSafeNotifier {
     final wasListed =
         (_directIds[siteUrl]?.contains(incoming.id) ?? false) ||
         (_publicIds[siteUrl]?.contains(incoming.id) ?? false);
-    // The global cursor belongs to the last HTTP snapshot. Replacing a tracker
-    // can replay channel-creation events from that point; an already-listed
-    // channel is discovery we have applied, not a newer channel snapshot.
+    // A replacement tracker can replay creation events from the HTTP cursor;
+    // an existing channel does not advance that snapshot.
     if (wasListed) return;
 
     _store.put(siteUrl, incoming);
@@ -4000,9 +3815,8 @@ class ChatController extends FrameSafeNotifier {
     notifySafely();
   }
 
-  /// Core can publish a direct-message channel whose old membership is still
-  /// unfollowed when a new message reopens it. Web starts its subscriptions,
-  /// projects one unread, and follows the channel in the background.
+  /// A new DM message may arrive with stale unfollowed membership; core follows
+  /// it in the background while exposing the unread channel immediately.
   Future<void> _followNewDirectChannel(
     String siteUrl,
     ChatChannel incoming,
@@ -4064,9 +3878,8 @@ class ChatController extends FrameSafeNotifier {
     if (data is! Map<String, dynamic>) return;
     final channelId = jsonIntOrNull(data['channel_id']);
     if (channelId == null) return;
-    // Channel counts and thread counts deliberately share field names in two
-    // nested reports. Applying the inner map to the channel silently replaces
-    // the sidebar aggregate with one thread's numbers.
+    // Nested channel and thread reports reuse field names; only the outer map
+    // may update the sidebar aggregate.
     _applyTrackingState(siteUrl, channelId, data);
     final threadId = jsonIntOrNull(data['thread_id']);
     final threadTracking = data['thread_tracking'];
@@ -4078,9 +3891,8 @@ class ChatController extends FrameSafeNotifier {
           heldThread.copyWith(tracking: ChatTracking.fromJson(threadTracking)),
         );
       }
-      // A mounted channel thread list sorts unread rows ahead of the rest.
-      // The Store notifies a row holding this thread, but the list itself owns
-      // that ordering and therefore needs a controller invalidation too.
+      // The store updates the row, but the controller must invalidate its
+      // unread-first thread ordering.
       notifySafely();
     }
   }
@@ -4107,11 +3919,8 @@ class ChatController extends FrameSafeNotifier {
     if (held == null) return;
     final threadId = jsonIntOrNull(data['thread_id']);
 
-    // A read is projected locally before its request crosses the network. The
-    // unread event which prompted it can still be waiting in MessageBus and
-    // must not move that projection backwards when it finally arrives. Newer
-    // unread state remains safe: its last-read position is at least the one
-    // already held, and the eager /new-messages path has accounted for it too.
+    // A delayed unread event must not move an optimistic read backward. Newer
+    // state is safe because its last-read position is at least the held one.
     final isChannelState = jsonIntOrNull(data['thread_id']) == null;
     final hasLastRead = data.containsKey('last_read_message_id');
     final incomingLastRead = jsonIntOrNull(data['last_read_message_id']) ?? 0;
@@ -4231,9 +4040,7 @@ class ChatController extends FrameSafeNotifier {
         incrementUnread = true;
       }
     }
-    // A reply normally has type `thread`, but core also publishes a
-    // channel-shaped event carrying a thread id when it cannot publish to the
-    // thread stream. Both paths update the unread-thread projection.
+    // Core may publish a thread reply as a channel event carrying a thread ID.
     final threadId = jsonIntOrNull(data['thread_id']);
     final foundThread = threadId == null ? null : thread(siteUrl, threadId);
     final heldThread = foundThread?.channelId == channelId ? foundThread : null;
@@ -4311,12 +4118,8 @@ class ChatController extends FrameSafeNotifier {
     _store.put(siteUrl, updated);
     _publishNotificationChange(siteUrl, held, updated);
 
-    // The per-channel event is also the live message transport. Keeping only
-    // its tracking half leaves an open pane one row behind its own sidebar:
-    // the row says unread, but scrolling to the visible bottom can never reach
-    // the message that would clear it. A window already at the present can
-    // extend contiguously; an anchored window keeps its gap and will obtain the
-    // message through forward paging instead.
+    // Live events extend only a present window. An anchored window keeps its
+    // gap and obtains the message through forward paging.
     final window = stream(siteUrl, channelId);
     if (data['type'] == 'channel' &&
         window.fetchedOnce &&
@@ -4327,11 +4130,8 @@ class ChatController extends FrameSafeNotifier {
       _setStream(
         key,
         window.copyWith(
-          // Through the timeline reducer, not by appending: this is the same
-          // live arrival the root channel publishes, and which of the two
-          // channels delivers it first is a race. A message whose adopted
-          // `client_created_at` sorts before the newest one held has to land
-          // in the same place either way.
+          // Root and thread channels race to deliver this event; reduction
+          // makes clock-skewed insertion deterministic in either order.
           messageIds: ChatMessageTimeline.admitLive(
             held: _timelineSnapshot(siteUrl, window.messageIds),
             message: canonical,
@@ -4369,9 +4169,8 @@ class ChatController extends FrameSafeNotifier {
                 message.thread?.threadId != message.threadId) {
           return;
         }
-        // Thread replies are deliberately absent from the channel timeline.
-        // A root original may carry its thread id and nested preview, while a
-        // reply carries a thread id without that nested root summary.
+        // Thread replies carry an ID but no nested root preview and stay out of
+        // the channel timeline.
         if (message.threadId != null && message.thread == null) return;
         _putLiveMessage(siteUrl, message, preservePersonalizedState: true);
         final target = ChatChannelTarget(channelId);
@@ -4418,9 +4217,7 @@ class ChatController extends FrameSafeNotifier {
         final parsed = ChatThreadPreview.fromJson({
           'id': threadId,
           'reply_count': jsonInt(preview['reply_count']),
-          // Title is omitted from this incremental event. Keep the latest
-          // held title until the coordinated detail refresh below supplies the
-          // authoritative value.
+          // Incremental events omit title; retain it until detail refreshes.
           'title': heldThread?.title ?? current?.thread?.title,
           'preview': preview,
         }, siteUrl);
@@ -4437,13 +4234,9 @@ class ChatController extends FrameSafeNotifier {
               lastMessageId: parsed.lastReplyId,
             ),
           );
-          // Activity is the final sort key in the channel-local thread list.
           notifySafely();
         }
-        // The event intentionally omits the title. A visible root preview is
-        // enough reason to load detail even when this thread has never been
-        // opened; otherwise a remote title edit would preserve its stale text
-        // forever in the channel summary card.
+        // Refresh detail for visible previews because this event omits title.
         _scheduleThreadDetailRefresh(
           siteUrl,
           ChatThreadTarget(channelId: channelId, threadId: threadId),
@@ -4520,10 +4313,8 @@ class ChatController extends FrameSafeNotifier {
             message.threadId != target.threadId && message.id != originalId) {
           return;
         }
-        // Core deliberately publishes a thread original to both the retained
-        // root channel and the thread channel. The root path owns that record;
-        // applying either incremental copy here would double reactions and
-        // other non-idempotent updates while both panes are mounted.
+        // Core publishes thread originals to both streams; only the root path
+        // may apply non-idempotent updates such as reaction deltas.
         if (message.id == originalId) return;
         _putLiveMessage(siteUrl, message, preservePersonalizedState: true);
         if (data['type'] == 'restore') {
@@ -4573,28 +4364,15 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// A read-only view of one canonical timeline for a synchronous reduction.
-  ///
-  /// The reducer owns no Store dependency. Keeping lookup lazy preserves the
-  /// ordinary live path's single newest-row read; only a clock-skew insertion
-  /// has to walk the accumulated window.
+  /// Lazy lookup means only clock-skew insertion walks the canonical window.
   ChatTimelineSnapshot _timelineSnapshot(String siteUrl, List<int> ids) =>
       ChatTimelineSnapshot(
         ids: ids,
         messageById: (id) => _store.read<ChatMessage>(siteUrl, id),
       );
 
-  /// Folds messages parked beyond a window into the list that closes its seam.
-  ///
-  /// A `sent` event can outrun the response reaching the present: published
-  /// after the server built that page, parked because the window it would
-  /// have joined could not yet append it. It is in neither the page nor the
-  /// held list, so a seam that closes without it claims the present with that
-  /// message missing forever.
-  ///
-  /// Clearing is part of the same step and stays here with it: the park exists
-  /// only until something can carry it, and emptying it before the merge — or
-  /// in a caller that forgets to — is how the message is dropped.
+  /// Atomically drains sent events that outran the page closing a window's seam;
+  /// otherwise they exist in neither the response nor the held list.
   ({List<int> ids, List<ChatMessage> stragglers}) _withSeamStragglers(
     String siteUrl,
     Set<int> pendingIds,
@@ -4607,22 +4385,11 @@ class ChatController extends FrameSafeNotifier {
       ],
     );
     pendingIds.clear();
-    // The stragglers travel back out because arriving in the id list is only
-    // half of what a canonical message does: the sender's own optimistic row
-    // is still standing in for it, and every other route that admits an id
-    // retires that row in the same breath. A straggler that skipped it would
-    // render the reader's message twice.
+    // Return stragglers so their matching optimistic overlays retire atomically.
     return (ids: seam.ids, stragglers: seam.admittedPending);
   }
 
-  /// Commits a live record, reprojecting the windows holding it when the
-  /// change is one an id list cannot express.
-  ///
-  /// The single owner of that rule on purpose: a window's projection is keyed
-  /// on its id list, so a record that flips between deleted and present
-  /// changes the rendered shape without changing any list. Any future handler
-  /// that puts a [ChatMessage] goes through here rather than rediscovering
-  /// that a store write alone leaves mounted panes stale.
+  /// Invalidates ID-keyed projections when a live record changes rendered shape.
   void _putLiveMessage(
     String siteUrl,
     ChatMessage message, {
@@ -4647,12 +4414,6 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Reprojects every held window containing [messageId].
-  ///
-  /// Deletes and restores rewrite a store record without touching any
-  /// window's id list, and the views key their grouped projections on that
-  /// list — deliberately, so paging flags stay cheap. Bumping the revision is
-  /// what carries the shape change to a mounted pane.
   void _bumpStreamsHolding(String siteUrl, int messageId) {
     final prefix = '$siteUrl~';
     final stale = [
@@ -4855,13 +4616,8 @@ class ChatController extends FrameSafeNotifier {
         user?.id == message.author.id;
   }
 
-  /// Mirrors core's channel-thread-list reducer for an original-message
-  /// delete or restore.
-  ///
-  /// Thread-list rows hold a compact original rather than the canonical
-  /// [ChatMessage]. Root channel events therefore have to project the state
-  /// onto each loaded list explicitly; otherwise deleting an original leaves
-  /// its thread visible until the next HTTP refresh.
+  /// Projects root deletion into compact thread-list copies held outside the
+  /// canonical message record.
   void _setLoadedThreadOriginalDeleted(
     String siteUrl,
     int channelId,
@@ -4899,24 +4655,8 @@ class ChatController extends FrameSafeNotifier {
     if (changed) notifySafely();
   }
 
-  /// Applies one `reaction` event to a stored message.
-  ///
-  /// Reaction events are the only non-idempotent thing this channel carries:
-  /// `sent` dedupes on the id list and `edit`/`delete` write whole records,
-  /// while a reaction is a +1/-1 delta. That matters because a subscription is
-  /// resumed from a stored cursor, so anything published since is replayed —
-  /// and a replayed delta lands on top of a window fetch that already counted
-  /// it.
-  ///
-  /// The cursor is kept as fresh as the server allows: it advances on every
-  /// event processed here and is raised again from each channel-list load. The
-  /// gap that remains is between that position and the window fetch, and it
-  /// cannot be closed from this side. `Chat::MessagesSerializer` publishes no
-  /// bus position for a window to adopt, and the event names its actor while
-  /// the stored reaction keeps only a count and this reader's own bit — so
-  /// there is no reactor set to test the actor against, the way Discourse's
-  /// web client can. Reactions on a remounted channel can therefore sit one
-  /// out until the next fetch replaces them.
+  /// Applies non-idempotent reaction deltas. HTTP pages expose no MessageBus
+  /// cursor, so remount replay can leave truncated reactions off until refresh.
   void _applyReactionEvent(String siteUrl, Map<String, dynamic> data) {
     final messageId = jsonIntOrNull(data['chat_message_id']);
     final emoji = jsonText(data['emoji']);
@@ -4932,36 +4672,16 @@ class ChatController extends FrameSafeNotifier {
     final actorId = jsonIntOrNull(jsonObject(data['user'])['id']);
     final isCurrentUser =
         actorId != null && actorId == _currentUserFor(siteUrl)?.id;
-    // The write path has already projected this reader's action into the
-    // stored message. Its MessageBus echo may arrive before or after the HTTP
-    // response, so keying deduplication only to an in-flight request is racy.
-    // The personalized `reacted` bit makes the current user's add/remove
-    // idempotent while still letting every other user's event move the count.
+    // The personalized bit deduplicates this reader's echo whether it arrives
+    // before or after the HTTP response.
     if (isCurrentUser &&
         ((action == 'add' && existing?.reacted == true) ||
             (action == 'remove' && existing?.reacted != true))) {
       return;
     }
-    // Everybody else's events need the same treatment, for a longer reason. A
-    // channel subscribes from the bus position its channel-list snapshot
-    // carried, and that snapshot can predate opening the channel by hours — so
-    // everything published while the channel was unmounted is replayed just
-    // after an HTTP page that already counted all of it. The replay cannot be
-    // cut off by bus id, because the page carries no position to cut at:
-    // `Chat::MessagesSerializer` answers `target_message_id` and the two
-    // `can_load_more` flags and nothing else, and `channel_message_bus_last_id`
-    // is served by the channel endpoints instead. What the page does carry is
-    // who reacted, and every reaction event names its actor, so a replay is
-    // recognised by identity rather than by position. This is what Discourse's
-    // own client does with the same field.
-    //
-    // The roll is only conclusive while it accounts for the whole count: the
-    // site names five reactors per emoji, so on a more popular reaction an
-    // unnamed actor may be either a replay or a reactor the site left out.
-    // An `add` from somebody already named is a duplicate either way; a
-    // `remove` from somebody unnamed is only a duplicate when nobody is
-    // missing from the roll. Beyond that the count still moves, which is the
-    // pre-existing behaviour and errs towards a live channel staying live.
+    // Pages have no bus cursor, so actor identity deduplicates replay. The site
+    // names only five reactors; once truncated, ambiguous events must still
+    // advance the live count.
     if (actorId != null && existing != null && !isCurrentUser) {
       if (action == 'add' && existing.hasReactor(actorId)) return;
       if (action == 'remove' &&
@@ -5008,9 +4728,8 @@ class ChatController extends FrameSafeNotifier {
     ChatMessage message,
   ) {
     if (window.canLoadMoreFuture) {
-      // Merging a live edge into a window anchored in history would introduce
-      // a hole that neither paging direction could fill. Keep the window
-      // contiguous and let Jump to latest replace it with the present.
+      // Never merge a live edge into anchored history; the resulting hole
+      // could not be filled by either paging direction.
       final pending = _pendingLiveMessageIds.putIfAbsent(key, () => {});
       if (!pending.add(message.id)) return;
       _setStream(
@@ -5034,9 +4753,8 @@ class ChatController extends FrameSafeNotifier {
   }
 
   void _scheduleThreadDetailRefresh(String siteUrl, ChatThreadTarget target) {
-    // refreshThreadDetail is a per-target drain. Calling it again while its
-    // HTTP request is in flight marks that answer dirty; the stale response is
-    // discarded and the drain fetches once more before any caller completes.
+    // A refresh during the in-flight request dirties its answer and makes the
+    // per-target drain fetch again before callers complete.
     unawaited(refreshThreadDetail(siteUrl, target));
   }
 
@@ -5068,19 +4786,8 @@ class ChatController extends FrameSafeNotifier {
     _streamNoticeTimers[key] = timer;
   }
 
-  /// Drops optimistic overlays once an ordinary page contains their canonical
-  /// message.
-  ///
-  /// The server id is the ordinary correlation. A channel re-entry can race
-  /// it: the GET may observe a committed message before either the POST
-  /// response or its MessageBus echo reaches this client. Every optimistic
-  /// send also supplies `client_created_at`, which Discourse adopts when the
-  /// clock is reasonable, so the author, target and timestamp provide a
-  /// one-to-one fallback for that window. Wire dates have millisecond
-  /// precision, hence the deliberate comparison at that precision.
-  ///
-  /// Returning the held list when nothing landed preserves its identity, which
-  /// lets the view skip an otherwise unnecessary whole-window projection.
+  /// Retires optimistic overlays by server ID, or by author, target, and
+  /// millisecond wire timestamp when a GET outruns both POST and MessageBus.
   List<int> _retireCanonicalLocals(
     String siteUrl,
     ChatStreamState stream,
@@ -5091,9 +4798,8 @@ class ChatController extends FrameSafeNotifier {
     final arrived = {for (final message in canonicalMessages) message.id};
     if (arrived.isEmpty) return stream.localMessageIds;
 
-    // Reserve explicit server-id correlations before considering the fallback
-    // so two local messages accepted in the same millisecond cannot both claim
-    // a canonical row already owned by one of them.
+    // Reserve explicit IDs before timestamp fallback so simultaneous local
+    // sends cannot claim the same canonical row.
     final explicitlyClaimed = <int>{};
     for (final id in stream.localMessageIds) {
       final serverId = _store.read<ChatMessage>(siteUrl, id)?.serverId;
@@ -5156,7 +4862,6 @@ class ChatController extends FrameSafeNotifier {
         : List.unmodifiable(remaining);
   }
 
-  /// The messages of one channel, oldest first, as far as they are held.
   List<ChatMessage> messages(String siteUrl, int channelId) {
     return messagesFor(siteUrl, ChatChannelTarget(channelId));
   }
@@ -5171,12 +4876,7 @@ class ChatController extends FrameSafeNotifier {
 
   String? channelsError(String siteUrl) => _errors[_channelsKey(siteUrl)];
 
-  // --- writes ------------------------------------------------------------
-
-  /// Whether a new staged row can be accepted synchronously.
-  ///
-  /// Network serialization happens below the optimistic boundary, so an
-  /// in-flight message never makes the composer busy.
+  /// In-flight network sends do not block synchronous staging.
   bool canSendMessage(String siteUrl, int channelId) =>
       canSendMessageTo(siteUrl, ChatChannelTarget(channelId));
 
@@ -5214,14 +4914,8 @@ class ChatController extends FrameSafeNotifier {
         );
   }
 
-  /// Stages and sends one message.
-  ///
-  /// This method does all visible work before its first await: the local row is
-  /// in the stream when it returns, which lets the composer clear immediately.
-  /// The POST carries the web client's same `staged_id` correlation token and
-  /// MessageBus later replaces the raw projection with canonical cooked data.
-  /// This workflow issues no newest-page GET at all, awaited or in the
-  /// background. Full-window reads remain exclusive to ordinary open/paging.
+  /// Commits the local row before its first await; `staged_id` lets MessageBus
+  /// replace it without an extra newest-page fetch.
   ChatSendHandle? sendMessage(
     String siteUrl,
     int channelId,
@@ -5368,8 +5062,7 @@ class ChatController extends FrameSafeNotifier {
       try {
         _report(error, stackTrace, 'chat.sendMessage');
       } catch (_) {
-        // Settlement and queue progress are stronger guarantees than
-        // diagnostics: neither may be lost if the diagnostic sink is broken.
+        // A broken diagnostic sink must not prevent settlement or queue progress.
       }
     }
   }
@@ -5578,8 +5271,7 @@ class ChatController extends FrameSafeNotifier {
         'chat.sendMessage.subscribe',
         severity: DiagnosticSeverity.warning,
       );
-      // The POST response still marks the staged row sent. A later ordinary
-      // channel fetch supplies the canonical cooked record.
+      // POST marks the row sent; a later ordinary fetch supplies canonical data.
     }
   }
 
@@ -5596,8 +5288,7 @@ class ChatController extends FrameSafeNotifier {
       final local = _store.read<ChatMessage>(siteUrl, id);
       if (local?.stagedId != stagedId) continue;
 
-      // Do not deserialize every event in every channel ever sent to. This
-      // listener exists solely to reconcile one of our still-local rows.
+      // This temporary listener only reconciles this client's remaining local rows.
       final payload = data['chat_message'];
       if (payload is! Map<String, dynamic>) return;
       final canonical = ChatMessage.fromJson(payload, siteUrl);
@@ -5637,26 +5328,15 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Fetches the channels this account follows on [siteUrl].
-  ///
-  /// Once per site rather than on every open, unlike the reactor lists: this
-  /// decides what is in the sidebar, and a sidebar that re-fetched whenever a
-  /// widget rebuilt would flicker. Keeping it fresh afterwards is what step 2's
-  /// live tracking is for.
-  ///
-  /// Failure is silent and bounded. There is nothing on screen to put an error
-  /// on — no chat section exists yet to hold one — and a site that will not
-  /// answer is simply a site drawn without chat, which is the same argument
-  /// `SiteConfig` makes for having no error state.
+  /// Shares one bounded initial sidebar load per site; live tracking keeps it
+  /// fresh, while failure leaves the site without a chat section.
   Future<void> loadChannels(String siteUrl, {bool force = false}) {
     if (isDisposed) return Future.value();
     final key = _channelsKey(siteUrl);
     if (!force && _publicIds.containsKey(siteUrl)) return Future.value();
     if ((_attempts[key] ?? 0) >= maxChannelAttempts) return Future.value();
 
-    // Unlike a caller that merely wants the sidebar to redraw eventually, the
-    // shortcut needs to wait for the same in-flight answer before choosing its
-    // destination. Share the task as well as the HTTP request.
+    // The shortcut must await the shared task before choosing its destination.
     final active = _channelRequests[key];
     if (active != null) return active;
 
@@ -5684,9 +5364,7 @@ class ChatController extends FrameSafeNotifier {
     _attempts[key] = (_attempts[key] ?? 0) + 1;
 
     try {
-      // Inside the guard, not before it: an unsigned macOS build's keychain can
-      // throw rather than answer, and reading it outside would leave this key
-      // stranded in `_loading` for the life of the app.
+      // Unsigned macOS keychain reads may throw; keep them inside cleanup guards.
       final requestCredentials = await _requests.credentialsFor(siteUrl);
       final apiKey = requestCredentials.apiKey;
       if (!_requestIsCurrent(lease, ownsRequest)) return;
@@ -5745,11 +5423,7 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Fetches this account's threads in core's ten-row pages.
-  ///
-  /// A first page is cached until explicitly refreshed. Pagination retains the
-  /// server's order (unread memberships first, then newest activity) and uses
-  /// the wire offset rather than the deduplicated local row count.
+  /// Uses the wire offset, not deduplicated row count, for core's thread pages.
   Future<void> loadMyThreads(
     String siteUrl, {
     bool more = false,
@@ -5928,33 +5602,10 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Puts a channel on screen where the reader left off.
-  ///
-  /// Anchored rather than at the live edge, which is what Discourse's own
-  /// client does — `fetchMessages({fetch_from_last_read: true})` — and the
-  /// reason matters more here than it does there, because [markRead] is
-  /// watching: landing on the newest message means the newest message is on
-  /// screen, and a reader three hundred messages behind would have all three
-  /// hundred credited to them in the half second before they could scroll.
-  /// Anchoring is what makes reading a thing the reader does rather than a
-  /// thing that happens to them.
-  ///
-  /// A reader with no last-read is answered with the newest page, by the
-  /// server, for free — the target resolves to nil and the query takes its
-  /// no-target branch. So a channel opened for the first time still starts at
-  /// the present, without this having to ask a different question.
-  ///
-  /// A normal open refreshes an old window, but reuses one attempted in the last
-  /// [minimumWindowRefreshInterval]. Site and tab activation can remount this
-  /// view several times in one navigation; those mounts do not make the answer
-  /// meaningfully fresher. Explicit reloads and post-mutation reconciliations
-  /// pass [force], while paging remains independent. Whatever was fetched last
-  /// time stays on screen while an allowed answer is on its way.
-  ///
-  /// The answer **replaces** the stream rather than merging into it. Contiguity
-  /// is what [loadOlder] and [loadNewer] depend on, and merging a window fetched
-  /// around one message into a window around another would leave a hole in the
-  /// middle that nothing could ever fill.
+  /// Opens at last-read so viewport-based receipts cannot credit an unseen
+  /// backlog. First-time readers resolve to the latest page server-side.
+  /// Remount refreshes are throttled, and each answer replaces rather than
+  /// merges the window to preserve contiguity.
   Future<void> openChannel(
     String siteUrl,
     int channelId, {
@@ -6079,9 +5730,7 @@ class ChatController extends FrameSafeNotifier {
             detail.channelId != target.channelId) {
           throw StateError('Thread detail did not match its requested target.');
         }
-        // An authoritative preview event arrived during this GET. Its
-        // metadata is newer than the response, so never commit the response;
-        // loop once more and return the stable answer to every waiter.
+        // A preview event made this response stale; refetch before completing waiters.
         if (_threadDetailDirty.contains(key)) continue;
 
         ChatThread? stored;
@@ -6222,11 +5871,8 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Whether core would offer this account the thread settings action.
-  ///
-  /// Discourse permits staff and the original message's author. The server
-  /// remains authoritative; this mirrors the web client's presentation gate
-  /// so other participants are not offered an action that must be refused.
+  /// Mirrors core's staff-or-original-author presentation gate; the server
+  /// remains authoritative.
   bool canEditThreadTitle(String siteUrl, ChatThread? thread) {
     final user = _currentUserFor(siteUrl);
     final authorId = thread?.originalMessage?.author.id;
@@ -6235,11 +5881,8 @@ class ChatController extends FrameSafeNotifier {
         (user.staff || (user.id != null && user.id == authorId));
   }
 
-  /// Updates the only editable thread setting exposed by core.
-  ///
-  /// The write response contains no thread record. Commit the known title,
-  /// then dirty detail so a concurrent refresh cannot leave older metadata on
-  /// screen and the next ordinary read still reconciles every server field.
+  /// The write returns no thread record, so project the title and dirty detail
+  /// to defeat an older concurrent refresh.
   Future<bool> updateThreadTitle(
     String siteUrl,
     ChatThreadTarget target,
@@ -6351,8 +5994,7 @@ class ChatController extends FrameSafeNotifier {
     late final Future<void> tail;
     tail = previousTail
         .catchError((_) {
-          // Every write settles internally. A defensive catch keeps one
-          // unexpected failure from stranding later selections in the queue.
+          // One unexpected failure must not strand later queued selections.
         })
         .then((_) => _performThreadNotificationWrite(key, write))
         .whenComplete(() {
@@ -6375,8 +6017,7 @@ class ChatController extends FrameSafeNotifier {
         write.lease.isCurrent &&
         !isDisposed;
 
-    // A newer selection superseded this one before it reached the server. It
-    // is safe (and preferable) to collapse it out of the serialized queue.
+    // Collapse a selection superseded before it reaches the server.
     if (!isLatest()) {
       write.complete(false);
       return;
@@ -6472,12 +6113,7 @@ class ChatController extends FrameSafeNotifier {
     });
   }
 
-  /// Puts the newest page on screen, wherever the reader was.
-  ///
-  /// The way out of an anchored stream, and the same two-step Discourse's
-  /// `scrollToLatestMessage` makes: when there is nothing in front of what is
-  /// held, the present is already on screen and this is a scroll rather than a
-  /// fetch — which is the view's half of it, so this simply does nothing.
+  /// Fetches only when the held window is not already at the present.
   Future<void> showLatest(String siteUrl, int channelId) {
     return showLatestFor(siteUrl, ChatChannelTarget(channelId));
   }
@@ -6498,10 +6134,7 @@ class ChatController extends FrameSafeNotifier {
     int? targetMessageId,
   }) async {
     final key = _targetKey(siteUrl, target);
-    // Replacement fetches are latest-wins, including two exact notification
-    // targets opened before the first HTTP response returns. Each request gets
-    // a generation below; stale answers cancel themselves instead of making a
-    // newer intent wait behind the old target.
+    // Replacement fetches are latest-wins; generations cancel stale targets.
     _loading.add(key);
     _streamNoticeTimers.remove(key)?.cancel();
     _windowAttemptedAt[key] = _clock();
@@ -6516,9 +6149,6 @@ class ChatController extends FrameSafeNotifier {
     _setStream(
       key,
       held.copyWith(
-        // Only a stream with nothing in it gets to show a loading placeholder
-        // in place of content; a re-open refreshes underneath what is already
-        // there.
         loading: held.messageIds.isEmpty,
         loadingOlder: false,
         loadingNewer: false,
@@ -6587,10 +6217,7 @@ class ChatController extends FrameSafeNotifier {
           );
           pendingIds.addAll(arrivedWhileLoading.map((message) => message.id));
         } else {
-          // A `sent` event can outrun the response that reaches the present:
-          // published after the server built this window, parked because the
-          // predecessor could not append it. Merge those stragglers in
-          // rather than dropping them into a permanent hole at the live edge.
+          // Admit parked sent events that outran the page reaching present.
           final seam = _withSeamStragglers(
             siteUrl,
             pendingIds,
@@ -6672,12 +6299,6 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Prepends the page immediately before the oldest message held.
-  ///
-  /// Does nothing when the site has said there is no more, when a page is
-  /// already on its way, or before there is an oldest message to page from —
-  /// each of which the view can and does ask for anyway, because the cheapest
-  /// place to answer "no" is here.
   Future<void> loadOlder(String siteUrl, int channelId) async {
     return loadOlderFor(siteUrl, ChatChannelTarget(channelId));
   }
@@ -6771,8 +6392,7 @@ class ChatController extends FrameSafeNotifier {
         'chat.loadOlder',
         severity: DiagnosticSeverity.warning,
       );
-      // History that would not load is not worth an error state: what is on
-      // screen is still true, and scrolling up again asks again.
+      // Paging failure leaves valid held history and retries on the next scroll.
     } finally {
       if (_requestIsCurrent(lease, ownsRequest)) {
         lease.commit(() {
@@ -6790,16 +6410,6 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Appends the page immediately after the newest message held.
-  ///
-  /// [loadOlder] read forwards, and every argument it makes applies mirrored —
-  /// including the "brought nothing new" override, which is safe for the same
-  /// reason: `direction=future` answers with ids strictly above the newest held
-  /// one, so anything it returns is new by construction.
-  ///
-  /// Only ever does anything on a stream [openChannel] anchored behind the
-  /// present. On a stream fetched at the live edge `canLoadMoreFuture` is
-  /// false, and this is the cheapest place to say so.
   Future<void> loadNewer(String siteUrl, int channelId) async {
     return loadNewerFor(siteUrl, ChatChannelTarget(channelId));
   }
@@ -6903,8 +6513,7 @@ class ChatController extends FrameSafeNotifier {
         'chat.loadNewer',
         severity: DiagnosticSeverity.warning,
       );
-      // Same as [loadOlder]: what is on screen is still true, and scrolling
-      // down again asks again.
+      // Paging failure leaves valid held history and retries on the next scroll.
     } finally {
       if (_requestIsCurrent(lease, ownsRequest)) {
         lease.commit(() {
@@ -6922,18 +6531,8 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Credits the reader with everything in a channel up to [messageId].
-  ///
-  /// Called from the view as the reader scrolls, debounced there — the same
-  /// division Discourse draws, where the component watches the viewport and
-  /// `chatApi.markChannelAsRead` is the thing it calls. What lives here is
-  /// every rule about *whether* the write happens.
-  ///
-  /// Optimistic, and deliberately not undone when the write fails. There is
-  /// nothing to tell the reader — this is not an action they took — and the
-  /// site is the one keeping score: the next fetch of the channel list brings
-  /// its answer, which corrects anything this got wrong. Putting a badge back
-  /// under a reader who has visibly read the messages would be the worse lie.
+  /// Optimistic read receipts are not rolled back; the next channel snapshot
+  /// reconciles server state without restoring a badge under visible messages.
   Future<void> markRead(String siteUrl, int channelId, int messageId) {
     return markReadFor(siteUrl, ChatChannelTarget(channelId), messageId);
   }
@@ -6947,16 +6546,12 @@ class ChatController extends FrameSafeNotifier {
     final lease = _requests.capture(siteUrl);
     final window = streamFor(siteUrl, target);
 
-    // Optimistic rows are an outgoing overlay, not part of the contiguous
-    // server window. In particular a first-ever local id is negative and must
-    // never become a site's `last_read_message_id`.
+    // A negative optimistic ID must never become the server's read cursor.
     if (messageId <= 0 || window.localMessageIds.contains(messageId)) {
       return Future.value();
     }
 
-    // Only a followed channel has a membership row to move. The site is blunt
-    // about the rest — `find_for_user(following: true)` misses, and the answer
-    // is a 404 — and this app only ever draws followed channels anyway.
+    // Discourse returns 404 when no followed membership row can be advanced.
     final channelHeld = channel(siteUrl, target.channelId);
     final threadHeld = target.threadId == null
         ? null
@@ -6969,19 +6564,14 @@ class ChatController extends FrameSafeNotifier {
       return Future.value();
     }
 
-    // Never send a cursor backwards, which is both the site's rule and the
-    // reader's: paging into the past must not undo what they have already seen.
-    // This also de-duplicates the common second viewport tick for one message.
+    // Read cursors are monotonic, also deduplicating repeated viewport ticks.
     final lastRead = target.threadId == null
         ? channelHeld!.membership.lastReadMessageId
         : threadHeld!.membership!.lastReadMessageId;
     final alreadyRead = lastRead != null && lastRead >= messageId;
 
-    // Membership and tracking are separate server projections. They can
-    // briefly disagree, leaving the read cursor at the newest visible message
-    // while the sidebar still carries an unread or mention count. That needs
-    // the same local caught-up projection as a new read, but no duplicate API
-    // receipt. Watched-thread state remains intact through withLastRead.
+    // Membership and tracking can briefly disagree. Clear stale aggregate
+    // counts locally without sending a duplicate receipt.
     final caughtUp =
         target.threadId == null &&
         window.atPresent &&
@@ -6992,16 +6582,11 @@ class ChatController extends FrameSafeNotifier {
             channelHeld.tracking.mentionCount > 0);
     if (alreadyRead && !hasStaleChannelCounts) return Future.value();
 
-    // Before credential storage, not after: the await below is a gap two scroll
-    // ticks can both arrive in, and the guard above is only a guard once the
-    // answer it reads has been written.
+    // Queue before the credential await so concurrent viewport ticks coalesce.
     final viewedAt = _clock().toUtc();
     if (target.threadId == null) {
-      // The root stream is caught up when it has no future page and its newest
-      // visible message is being credited. Do not compare this with the
-      // channel's overall `last_message_id`: on a threaded channel that id may
-      // name a newer reply which is deliberately absent from the root stream.
-      // Core's ChatChannel component asks only these two stream questions.
+      // Root caught-up state cannot use channel.last_message_id, which may name
+      // a thread reply deliberately absent from the root stream.
       ChatChannel? updatedChannel;
       _store.update<ChatChannel>(siteUrl, target.channelId, (current) {
         final readThrough = alreadyRead
@@ -7050,9 +6635,7 @@ class ChatController extends FrameSafeNotifier {
     required PluginSiteLease lease,
   }) {
     final key = _targetKey(siteUrl, target);
-    // Only one write per channel runs at once. While it does, every viewport
-    // tick supersedes the previous queued position: sending an intermediate
-    // read marker has no value once the reader is already farther ahead.
+    // Serialize per channel and retain only the furthest queued cursor.
     _queuedReadReceipts[key] = (
       siteUrl: siteUrl,
       target: target,
@@ -7072,15 +6655,11 @@ class ChatController extends FrameSafeNotifier {
 
   Future<void> _drainReadReceipts(String key, Object run) async {
     while (true) {
-      // Forgetting a site removes this run synchronously. Without checking
-      // before the dequeue, its next loop could steal a receipt queued by a
-      // new account session using the same site and channel key.
+      // An invalidated run must not dequeue a new session's same-key receipt.
       if (!identical(_readReceiptRuns[key], run)) return;
       final receipt = _queuedReadReceipts.remove(key);
       if (receipt == null) {
-        // Cleared in the same synchronous turn that observed an empty queue,
-        // so a new caller cannot attach work to a task that has already ended.
-        // Identity keeps an invalidated old session from clearing a new run.
+        // Identity prevents an old session from clearing a replacement run.
         if (identical(_readReceiptRuns[key], run)) {
           _readReceiptRuns.remove(key);
           final _ = _readReceiptTasks.remove(key);
@@ -7094,9 +6673,7 @@ class ChatController extends FrameSafeNotifier {
         );
         final apiKey = requestCredentials.apiKey;
         if (!_requestIsCurrent(receipt.lease, ownsRequest)) continue;
-        // A channel on screen belongs to a connected site, so this is the
-        // unsigned-macOS-keychain case rather than a reader without a key. The
-        // guess stands; nothing else can be done with it.
+        // Unsigned macOS keychain failure leaves the optimistic read in place.
         if (apiKey == null) continue;
 
         final clientId = requestCredentials.clientId;
@@ -7128,18 +6705,11 @@ class ChatController extends FrameSafeNotifier {
             severity: DiagnosticSeverity.warning,
           );
         }
-        // There is nobody to tell, and nothing to put back. A newer queued
-        // position must still be attempted after this one fails.
+        // Keep draining newer queued positions after a failed receipt.
       }
     }
   }
 
-  /// Forgets a disconnected site.
-  ///
-  /// More than `ReactionsController.forget` drops, because more than the
-  /// questions belong to this class: the two channel lists and every stream are
-  /// orderings, and no record holds those. The channels and the messages
-  /// themselves are the [Store]'s to forget.
   void forget(String siteUrl) {
     _cancelSendQueues(siteUrl: siteUrl);
     _cancelPresence(siteUrl);
@@ -7238,10 +6808,8 @@ class ChatController extends FrameSafeNotifier {
       forgottenRefs.add(ref);
       return true;
     });
-    // Detach before notifying. A listener can synchronously look up a stream,
-    // and that new session must receive a new ref rather than putting the old
-    // account's notifier back into this map. The detached ref is not disposed:
-    // a widget may still be listening during the frame that removes it.
+    // Detach before notifying so a reentrant lookup gets a new-session ref;
+    // widgets may still listen to the old ref during their removal frame.
     for (final ref in forgottenRefs) {
       ref.value = const ChatStreamState();
     }
@@ -7273,9 +6841,7 @@ class ChatController extends FrameSafeNotifier {
     for (final subscription in _newMessageSubscriptions.values) {
       try {
         subscription.cancel();
-      } catch (_) {
-        // Disposal continues through every independent subscription.
-      }
+      } catch (_) {}
     }
     _newMessageSubscriptions.clear();
     _newMessageCursors.clear();
@@ -7293,9 +6859,7 @@ class ChatController extends FrameSafeNotifier {
     for (final subscription in _newChannelSubscriptions.values) {
       try {
         subscription.cancel();
-      } catch (_) {
-        // Disposal continues through every independent subscription.
-      }
+      } catch (_) {}
     }
     _newChannelSubscriptions.clear();
     _newChannelCursors.clear();
@@ -7312,9 +6876,7 @@ class ChatController extends FrameSafeNotifier {
       for (final subscription in subscriptions) {
         try {
           subscription.cancel();
-        } catch (_) {
-          // Disposal continues through every independent subscription.
-        }
+        } catch (_) {}
       }
     }
     _userTrackingSubscriptions.clear();
@@ -7322,9 +6884,7 @@ class ChatController extends FrameSafeNotifier {
     for (final subscription in _userHasThreadsSubscriptions.values) {
       try {
         subscription.cancel();
-      } catch (_) {
-        // Disposal continues through every independent subscription.
-      }
+      } catch (_) {}
     }
     _userHasThreadsSubscriptions.clear();
     _userHasThreadsCursors.clear();
@@ -7374,8 +6934,7 @@ class ChatController extends FrameSafeNotifier {
       try {
         subscription.cancel();
       } catch (_) {
-        // The tracker is being torn down at the same boundary. Best effort is
-        // enough, and disposal must continue through every remaining ref.
+        // Tracker teardown is best-effort; remaining refs must still dispose.
       }
     }
     _sendSubscriptions.clear();

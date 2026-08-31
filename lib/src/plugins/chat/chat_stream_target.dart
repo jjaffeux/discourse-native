@@ -1,11 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-/// The identity of one independently pageable chat timeline.
-///
-/// Channel and thread messages share most transport and viewport behaviour,
-/// but they must never share ordering, optimistic sends, read receipts, or
-/// live subscriptions. Keeping that distinction in the type makes it hard to
-/// accidentally append a thread reply to its parent channel.
+/// Channel and thread timelines must not share ordering or live state.
 @immutable
 sealed class ChatStreamTarget {
   const ChatStreamTarget({required this.channelId});

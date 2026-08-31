@@ -2,10 +2,6 @@ import '../data/discourse_api_contracts.dart';
 import '../plugin_api/core_plugin_host.dart';
 import '../plugin_api/live_channels.dart';
 
-/// Deterministic credentials and site-generation authority for plugin tests.
-///
-/// Tests can mutate [apiKeys] to model connection changes and call [forget] to
-/// invalidate leases captured before an account or site boundary changed.
 final class PluginTestRequestHost implements PluginRequestHost {
   PluginTestRequestHost({
     Map<String, String> apiKeys = const {},
@@ -16,7 +12,6 @@ final class PluginTestRequestHost implements PluginRequestHost {
   final String clientId;
   final Map<String, int> _generations = {};
 
-  /// Invalidates every lease already captured for [siteUrl].
   void forget(String siteUrl) {
     _generations[siteUrl] = (_generations[siteUrl] ?? 0) + 1;
   }
@@ -61,10 +56,6 @@ final class _PluginTestSiteLease implements PluginSiteLease {
   }
 }
 
-/// In-memory plugin live channels with explicit delivery and cancellation.
-///
-/// It implements only the least-privilege plugin port. Core tracker polling,
-/// topic subscriptions, and connection lifecycle are intentionally absent.
 class RecordingPluginLiveChannels implements PluginLiveChannelHandle {
   final Map<String, List<_PluginLiveRegistration>> _registrations = {};
   final Map<String, int?> _lastIds = {};
@@ -91,7 +82,6 @@ class RecordingPluginLiveChannels implements PluginLiveChannelHandle {
     return registration;
   }
 
-  /// Delivers one channel-local MessageBus event to current subscribers.
   void deliver(String channel, Object? data, {int messageId = 1}) {
     for (final registration in List.of(
       _registrations[channel] ?? const <_PluginLiveRegistration>[],
@@ -100,7 +90,6 @@ class RecordingPluginLiveChannels implements PluginLiveChannelHandle {
     }
   }
 
-  /// Cancels every subscription and forgets recorded cursors.
   void clear() {
     final registrations = [
       for (final values in _registrations.values) ...values,

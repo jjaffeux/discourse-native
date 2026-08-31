@@ -11,12 +11,6 @@ import '../../../../theme/d_icon.dart';
 import '../../../local_dates/local_dates_contract.dart';
 import '../github.dart';
 
-/// The pull request engine: `aside.onebox.githubpullrequest`.
-///
-/// Discourse fetches the PR from GitHub's API and renders
-/// `githubpullrequest.mustache` — an icon column beside the title, the
-/// branches, a row of facts, then the body underneath. The web lays that out
-/// with a CSS grid; this is the same arrangement as a column beside a column.
 class GithubPullRequestOnebox extends StatelessWidget {
   const GithubPullRequestOnebox({super.key, required this.data, this.siteUrl});
 
@@ -68,7 +62,6 @@ class GithubPullRequestOnebox extends StatelessWidget {
   }
 }
 
-/// `base ← head`, the way the template writes the two branch names.
 class _Branches extends StatelessWidget {
   const _Branches({required this.base, required this.head});
 
@@ -109,8 +102,7 @@ class _Info extends StatelessWidget {
       color: theme.colorScheme.onSurfaceVariant,
     );
 
-    // The template's shape for a PR deep link — a comment, a commit or a
-    // review — has no `.date`/`.user`/`.lines` cells, just one run of text.
+    // PR deep-link markup has one text run instead of metadata cells.
     if (data.infoText != null) {
       return Text(
         data.infoText!,
@@ -149,7 +141,6 @@ class _Info extends StatelessWidget {
   }
 }
 
-/// Everything the PR onebox carries, read out of the aside.
 class GithubPullRequestData {
   const GithubPullRequestData({
     required this.title,
@@ -172,12 +163,8 @@ class GithubPullRequestData {
   final String title;
   final String? titleUrl;
 
-  /// The `--gh-status-*` class of the first row, when the site has
-  /// `github_pr_status_enabled` on.
   final GithubPrStatus? status;
 
-  /// The `title` of `github-icon-container`: a deep link into the PR —
-  /// comment, commit or review — shows a different glyph than the PR itself.
   final String? iconVariant;
 
   final String? baseLabel;
@@ -193,8 +180,6 @@ class GithubPullRequestData {
   final int? additions;
   final int? deletions;
 
-  /// The single run of text a PR deep-link onebox carries instead of the
-  /// date/user/lines cells.
   final String? infoText;
 
   final String? body;
@@ -254,8 +239,6 @@ class GithubPullRequestData {
         ? null
         : cookedTimeParser?.parseDescendant(dateEl);
 
-    // The deep-link shape writes one `<span>` of free text where the PR
-    // shape writes its cells.
     final hasCells = dateEl != null || userEl != null || linesEl != null;
     final infoText = info != null && !hasCells ? oneLineText(info) : null;
 
@@ -284,7 +267,6 @@ class GithubPullRequestData {
   }
 }
 
-/// Claims `aside.onebox.githubpullrequest`, for the dispatch in `onebox.dart`.
 final GithubOneboxEngine githubPullRequestBlock = GithubOneboxEngine(
   matches: (aside) => aside.classes.contains('githubpullrequest'),
   build: (aside, envelope, siteUrl, cookedTimeParser) => OneboxCard(

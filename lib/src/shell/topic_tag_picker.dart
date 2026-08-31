@@ -11,12 +11,6 @@ import 'shell_scope.dart';
 typedef TopicTagMenuAnchorBuilder =
     Widget Function(BuildContext context, VoidCallback? openMenu, bool saving);
 
-/// Gives a sidebar property an adaptive tag editor without opening a composer.
-///
-/// The topic stays visible while a pointer gets a compact anchored menu. A
-/// touch device gets the same picker in a sheet, where the keyboard and tap
-/// targets have enough room. One choice is committed at a time so dismissing
-/// the menu never hides unsaved work.
 class TopicTagMenuAnchor extends StatefulWidget {
   const TopicTagMenuAnchor({
     super.key,
@@ -100,7 +94,6 @@ class _TopicTagMenuAnchorState extends State<TopicTagMenuAnchor> {
 
 typedef TopicTagSearchCallback = Future<TopicTagSearch> Function(String term);
 
-/// Opens the lightweight tag chooser used by the topic sidebar.
 Future<List<TopicTag>?> showTopicTagPicker({
   required BuildContext context,
   required BuildContext anchorContext,
@@ -125,7 +118,6 @@ Future<List<TopicTag>?> showTopicTagPicker({
   );
 }
 
-/// Search and choice rows shared by the pointer popover and touch sheet.
 class TopicTagPicker extends StatefulWidget {
   const TopicTagPicker({
     super.key,

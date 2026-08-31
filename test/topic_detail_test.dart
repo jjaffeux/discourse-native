@@ -40,7 +40,6 @@ const _topicFeatureKey = PluginDataKey<_TopicFeature>(
   name: 'topic-feature',
 );
 
-/// The post ids a view would draw: the stream, minus what has not arrived.
 List<int> loaded(Store store, TopicDetail topic) => [
   for (final id in topic.stream)
     if (store.read<Post>(site, id) != null) id,
@@ -68,7 +67,6 @@ void main() {
 
       expect(payload.detail.stream, [1, 2, 3]);
       expect(payload.detail.postsCount, 3);
-      // The posts come out separately, to be stored under their own ids.
       expect(payload.posts.map((p) => p.id), [1]);
     });
 

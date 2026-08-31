@@ -21,7 +21,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
-// The regression verifies flutter_webrtc's native renderer contract.
 // ignore: implementation_imports
 import 'package:flutter_webrtc/src/native/media_stream_track_impl.dart';
 
