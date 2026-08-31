@@ -146,6 +146,47 @@ void main() {
       expect(store.length, 0);
     });
 
+    test('evicts least-recently-used records beyond the capacity', () {
+      final store = Store(maxEntries: 2)
+        ..put(_site, const _Record(1, 'one'))
+        ..put(_site, const _Record(2, 'two'));
+
+      // Reading one makes two the least-recently-used entry.
+      expect(store.read<_Record>(_site, 1)?.label, 'one');
+      store.put(_site, const _Record(3, 'three'));
+
+      expect(store.length, 2);
+      expect(store.read<_Record>(_site, 1)?.label, 'one');
+      expect(store.read<_Record>(_site, 2), isNull);
+      expect(store.read<_Record>(_site, 3)?.label, 'three');
+    });
+
+    test('pins observed refs while evicting an unobserved record', () {
+      final store = Store(maxEntries: 2);
+      final pinned = store.ref<_Record>(_site, 1);
+      void listener() {}
+
+      pinned.addListener(listener);
+      addTearDown(() => pinned.removeListener(listener));
+      store
+        ..put(_site, const _Record(1, 'pinned'))
+        ..put(_site, const _Record(2, 'evictable'))
+        ..put(_site, const _Record(3, 'latest'));
+
+      expect(store.ref<_Record>(_site, 1), same(pinned));
+      expect(pinned.value?.label, 'pinned');
+      expect(store.read<_Record>(_site, 2), isNull);
+      expect(store.read<_Record>(_site, 3)?.label, 'latest');
+    });
+
+    test('fully deletes an unobserved tombstone', () {
+      final store = Store()..put(_site, const _Record(1, 'one'));
+
+      store.remove<_Record>(_site, 1);
+
+      expect(store.length, 0);
+    });
+
     test('forget clears only one site and starts it with fresh refs', () {
       final store = Store();
       final first = store.ref<_Record>(_site, 1);

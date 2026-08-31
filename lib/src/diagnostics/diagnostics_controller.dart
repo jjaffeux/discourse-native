@@ -412,7 +412,10 @@ T _runDiagnosticOperation<T>(
 }
 
 final class DiagnosticsController
-    implements DiagnosticsSink, HttpDiagnosticsRecorder {
+    implements
+        DiagnosticsSink,
+        HttpDiagnosticsRecorder,
+        IntermediateHttpDiagnosticsRecorder {
   DiagnosticsController._({
     required this._persistence,
     required this._clock,
@@ -454,6 +457,7 @@ final class DiagnosticsController
   final Map<String, _RetainedEvent> _byId = {};
 
   final List<(DiagnosticEvent, int)> _pendingWrites = [];
+  final Map<String, int> _pendingWriteIndexes = {};
 
   Expando<Object> _reportedErrorEpochs = Expando<Object>(
     'diagnostics reported error epochs',
@@ -549,11 +553,9 @@ final class DiagnosticsController
       );
     }
     await controller.flush();
-    controller._queuePersistence(
-      () => resolvedPersistence.compact(nowUtc: resolvedClock()),
-      generation: controller._generation,
-    );
-    await controller.flush();
+    // File persistence already compacts while loading when retention requires
+    // it. An unconditional second compaction rewrote the complete diagnostics
+    // history on every launch, directly on the startup critical path.
     return controller;
   }
 
@@ -568,6 +570,9 @@ final class DiagnosticsController
   ValueListenable<bool> get panelListenable => _panelOpenNotifier;
 
   bool get isPanelOpen => _panelStateNotifier.value.isOpen;
+
+  @override
+  bool get recordsHttpResponseHeaderPhase => isPanelOpen;
 
   ValueListenable<int> get unseenErrorCountListenable =>
       _unseenErrorCountNotifier;
@@ -831,7 +836,12 @@ final class DiagnosticsController
         errorMessage: update.errorMessage,
         stackTrace: update.stackTrace,
       );
-      _record(event, generation: generation, persistImmediately: event.isError);
+      _record(
+        event,
+        generation: generation,
+        persistImmediately: event.isError,
+        reuseExistingBytes: update.phase == HttpDiagnosticPhase.responseHeaders,
+      );
       if (state != DiagnosticHttpState.pending) {
         _httpGenerations.remove(update.eventId);
       }
@@ -897,6 +907,7 @@ final class DiagnosticsController
     _expiryTimer?.cancel();
     _expiryTimer = null;
     _pendingWrites.clear();
+    _pendingWriteIndexes.clear();
     _httpGenerations.clear();
     // Clear starts a new diagnostics generation. If persistence fails again
     // (especially while deleting an unreadable old file), surface a fresh
@@ -1047,10 +1058,11 @@ final class DiagnosticsController
     DiagnosticEvent event, {
     int? generation,
     bool persistImmediately = false,
+    bool reuseExistingBytes = false,
   }) {
     final eventGeneration = generation ?? _generation;
     if (eventGeneration != _generation || _closed) return;
-    _putEvent(event);
+    _putEvent(event, reuseExistingBytes: reuseExistingBytes);
     _publishEvents(_clock());
     if (_isShowingLiveEvents && event.isError) {
       markSeen();
@@ -1157,7 +1169,7 @@ final class DiagnosticsController
     return event is HttpDiagnosticEvent ? event : null;
   }
 
-  void _putEvent(DiagnosticEvent event) {
+  void _putEvent(DiagnosticEvent event, {bool reuseExistingBytes = false}) {
     final existing = _byId[event.id];
     if (existing != null) {
       final index = _indexOf(existing.event);
@@ -1170,7 +1182,9 @@ final class DiagnosticsController
         _forget(existing.event);
       }
     }
-    final bytes = diagnosticEventSerializedBytes(event);
+    final bytes = reuseExistingBytes && existing != null
+        ? existing.bytes
+        : diagnosticEventSerializedBytes(event);
     _events.insert(_insertionIndexFor(event.sequence), event);
     _byId[event.id] = (event: event, bytes: bytes);
     _totalEventBytes += bytes;
@@ -1317,7 +1331,17 @@ final class DiagnosticsController
     int? generation,
     bool immediately = false,
   }) {
-    _pendingWrites.add((event, generation ?? _generation));
+    final eventGeneration = generation ?? _generation;
+    final pendingIndex = _pendingWriteIndexes[event.id];
+    if (pendingIndex != null &&
+        _pendingWrites[pendingIndex].$2 == eventGeneration) {
+      // Most requests complete inside one write window. Replacing their
+      // pending snapshot avoids serializing started + headers + completion.
+      _pendingWrites[pendingIndex] = (event, eventGeneration);
+    } else {
+      _pendingWriteIndexes[event.id] = _pendingWrites.length;
+      _pendingWrites.add((event, eventGeneration));
+    }
     if (immediately) {
       _flushPendingWrites();
       return;
@@ -1331,6 +1355,7 @@ final class DiagnosticsController
     if (_pendingWrites.isEmpty) return;
     final writes = List<(DiagnosticEvent, int)>.of(_pendingWrites);
     _pendingWrites.clear();
+    _pendingWriteIndexes.clear();
     final batches = <int, List<DiagnosticEvent>>{};
     for (final (event, generation) in writes) {
       (batches[generation] ??= []).add(event);

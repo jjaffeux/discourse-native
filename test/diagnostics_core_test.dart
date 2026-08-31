@@ -337,6 +337,16 @@ void main() {
       },
     );
 
+    test('captures the intermediate HTTP phase only for a live panel', () {
+      expect(controller.recordsHttpResponseHeaderPhase, isFalse);
+
+      controller.openPanel();
+      expect(controller.recordsHttpResponseHeaderPhase, isTrue);
+
+      controller.closePanel();
+      expect(controller.recordsHttpResponseHeaderPhase, isFalse);
+    });
+
     test(
       'inherits operation and correlation through asynchronous zones',
       () async {
@@ -1255,6 +1265,50 @@ void main() {
     );
     expect(controller.events.whereType<HttpDiagnosticEvent>(), isEmpty);
   });
+
+  test(
+    'coalesces request phases that complete inside one persistence window',
+    () async {
+      final now = DateTime.utc(2026, 8, 8, 9);
+      final persistence = _TrackingPersistence();
+      final controller = await DiagnosticsController.create(
+        persistence: persistence,
+        clock: () => now,
+        sessionId: 'coalesced-request',
+      );
+      addTearDown(controller.close);
+      persistence.batches.clear();
+
+      controller.recordHttp(
+        _httpRecord(now, HttpDiagnosticPhase.started, eventId: 'request'),
+      );
+      controller.recordHttp(
+        _httpRecord(
+          now,
+          HttpDiagnosticPhase.responseHeaders,
+          eventId: 'request',
+          statusCode: 200,
+        ),
+      );
+      controller.recordHttp(
+        _httpRecord(
+          now,
+          HttpDiagnosticPhase.completed,
+          eventId: 'request',
+          statusCode: 200,
+        ),
+      );
+      await controller.flush();
+
+      expect(persistence.batches, hasLength(1));
+      final persisted = persistence.batches.single.single;
+      expect(persisted, isA<HttpDiagnosticEvent>());
+      expect(
+        (persisted as HttpDiagnosticEvent).state,
+        DiagnosticHttpState.completed,
+      );
+    },
+  );
 
   test(
     'ordinary writes batch and an error flushes its batch immediately',

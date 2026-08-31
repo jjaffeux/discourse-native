@@ -32,9 +32,11 @@ abstract interface class AppBootstrapHost {
 
   AppBootstrapUnhandledErrorReporter installGlobalErrorHandlers();
 
-  Future<void> initializePlugins();
+  void initializePlugins();
 
   Future<void> initializePersistentMediaCache();
+
+  void scheduleAfterFirstFrame(Future<void> Function() work);
 
   void reportError(
     Object error,
@@ -65,28 +67,26 @@ final class AppBootstrap {
       runZonedGuarded<Future<void>>(
             () async {
               _host.ensureFlutterInitialized();
-              await _host.initializeTimezoneEnvironment();
               await _host.createDiagnostics();
               _host.installDiagnosticsSink();
               _host.installRecordingHttpOverrides();
               globalErrors = _host.installGlobalErrorHandlers();
-              await _host.initializePlugins();
-
-              try {
-                await _host.initializePersistentMediaCache();
-              } catch (error, stackTrace) {
-                // A broken cache directory must not keep the forum from opening.
-                _host.reportError(
-                  error,
-                  stackTrace,
-                  operation: 'image.initializePersistentCache',
-                  source: 'image',
-                  handled: true,
-                  degraded: true,
-                );
-              }
-
+              _host.initializePlugins();
               _host.launchApplication();
+              _host.scheduleAfterFirstFrame(() async {
+                await Future.wait([
+                  _runDeferredInitialization(
+                    _host.initializeTimezoneEnvironment,
+                    operation: 'timezone.initialize',
+                    source: 'timezone',
+                  ),
+                  _runDeferredInitialization(
+                    _host.initializePersistentMediaCache,
+                    operation: 'image.initializePersistentCache',
+                    source: 'image',
+                  ),
+                ]);
+              });
             },
             (error, stackTrace) {
               globalErrors?.call(error, stackTrace, source: 'zone');
@@ -96,6 +96,26 @@ final class AppBootstrap {
           ) ??
           Future<void>.value(),
     );
+  }
+
+  Future<void> _runDeferredInitialization(
+    Future<void> Function() initialize, {
+    required String operation,
+    required String source,
+  }) async {
+    try {
+      await initialize();
+    } catch (error, stackTrace) {
+      // Optional platform services must never take down an already-visible UI.
+      _host.reportError(
+        error,
+        stackTrace,
+        operation: operation,
+        source: source,
+        handled: true,
+        degraded: true,
+      );
+    }
   }
 }
 
@@ -138,17 +158,8 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   }
 
   @override
-  Future<void> initializePlugins() async {
+  void initializePlugins() {
     _plugins = PluginInstaller.install(_manifest);
-    await _plugins.startPhase(
-      PluginStartupPhase.bootstrap,
-      bindings: PluginHostBindings([
-        PluginHostPort<Object>(
-          pluginDiagnosticsReporterPort,
-          PluginDiagnosticsReporter.fixed(_diagnostics),
-        ),
-      ]),
-    );
   }
 
   @override
@@ -156,6 +167,11 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
     final mediaStore = await FileByteCacheStore.applicationCache();
     AvatarLoader.instance = AvatarLoader(store: mediaStore);
     EmojiCache.instance = EmojiCache(store: mediaStore);
+  }
+
+  @override
+  void scheduleAfterFirstFrame(Future<void> Function() work) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(work()));
   }
 
   @override

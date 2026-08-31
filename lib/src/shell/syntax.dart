@@ -2,7 +2,7 @@ library;
 
 import 'dart:collection';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show compute, visibleForTesting;
 import 'package:highlight/highlight.dart' show highlight, Node;
 
 class CodeToken {
@@ -42,6 +42,13 @@ const Map<String, String> languageAliases = {
 };
 
 const int maxHighlightedChars = 20000;
+
+/// Auto detection runs every candidate grammar. Past this point plain text is
+/// a better trade than fifteen parser passes over content being laid out.
+const int maxAutoDetectedChars = 4000;
+
+/// Larger explicitly-labelled blocks are highlighted after their first paint.
+const int backgroundSyntaxHighlightThreshold = 2000;
 
 @visibleForTesting
 const int syntaxHighlightCacheCapacity = 32;
@@ -94,8 +101,51 @@ bool highlightNeedsParse(String source, String? language) {
   ));
 }
 
+bool highlightShouldRunInBackground(String source, String? language) =>
+    source.length > backgroundSyntaxHighlightThreshold &&
+    highlightNeedsParse(source, language);
+
+List<List<CodeToken>> cacheHighlightedLines(
+  String source,
+  String? language,
+  List<List<CodeToken>> lines,
+) {
+  final normalizedLanguage = language?.toLowerCase();
+  if (_bypassesParser(source, normalizedLanguage) ||
+      lines.map((line) => line.map((token) => token.text).join()).join('\n') !=
+          source) {
+    return lines;
+  }
+  return _remember((source: source, language: normalizedLanguage!), lines);
+}
+
+Future<List<List<CodeToken>>> highlightLinesInBackground(
+  String source,
+  String? language,
+) async {
+  final portable = await compute<_HighlightRequest, _PortableHighlight>(
+    _portableHighlight,
+    (source: source, language: language),
+    debugLabel: 'Discourse syntax highlight',
+  );
+  return cacheHighlightedLines(source, language, [
+    for (final line in portable)
+      [for (final token in line) CodeToken(token.text, token.scope)],
+  ]);
+}
+
+typedef _HighlightRequest = ({String source, String? language});
+typedef _PortableToken = ({String text, String? scope});
+typedef _PortableHighlight = List<List<_PortableToken>>;
+
+_PortableHighlight _portableHighlight(_HighlightRequest request) => [
+  for (final line in highlightLines(request.source, request.language))
+    [for (final token in line) (text: token.text, scope: token.scope)],
+];
+
 bool _bypassesParser(String source, String? normalizedLanguage) =>
     source.length > maxHighlightedChars ||
+    (normalizedLanguage == 'auto' && source.length > maxAutoDetectedChars) ||
     normalizedLanguage == null ||
     normalizedLanguage.isEmpty ||
     normalizedLanguage == 'plaintext' ||

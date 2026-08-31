@@ -6,6 +6,7 @@ import '../models/json.dart';
 import 'discourse_api_contracts.dart';
 import 'discourse_request_coordinator.dart';
 import 'http_transport.dart';
+import 'json_decode.dart';
 
 final class DiscourseTransport {
   DiscourseTransport(
@@ -150,7 +151,7 @@ final class DiscourseTransport {
       clientId: clientId,
     );
     try {
-      final decoded = jsonDecode(response.body);
+      final decoded = await decodeJsonHttpResponse(response);
       if (decoded is Map<String, dynamic>) return decoded;
       throw const FormatException('Expected a JSON object');
     } catch (error, stackTrace) {
@@ -208,7 +209,7 @@ final class DiscourseTransport {
       );
     }
     try {
-      final decoded = jsonDecode(response.body);
+      final decoded = await decodeJsonHttpResponse(response);
       if (decoded is Map<String, dynamic>) return decoded;
       throw const FormatException('Expected a JSON object');
     } catch (error, stackTrace) {

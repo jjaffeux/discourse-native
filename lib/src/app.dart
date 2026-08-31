@@ -141,7 +141,7 @@ class _DiscourseAppState extends State<DiscourseApp>
       widget.notificationOpenUrls ?? _platformNotificationOpens.urls,
     );
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_start(_controller, _plugins));
+    _startAfterFirstFrame(_controller, _plugins);
   }
 
   @override
@@ -175,7 +175,17 @@ class _DiscourseAppState extends State<DiscourseApp>
     }
     _updateDependencies(oldWidget);
     _controller = _createController()..setForeground(_foreground);
-    unawaited(_start(_controller, _plugins));
+    _startAfterFirstFrame(_controller, _plugins);
+  }
+
+  void _startAfterFirstFrame(
+    ShellController controller,
+    InstalledPlugins plugins,
+  ) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(_controller, controller)) return;
+      unawaited(_start(controller, plugins));
+    });
   }
 
   bool _dependenciesChanged(DiscourseApp oldWidget) =>

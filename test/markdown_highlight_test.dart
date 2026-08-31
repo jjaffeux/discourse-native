@@ -425,6 +425,38 @@ void main() {
     });
   });
 
+  group('code block highlight budgets', () {
+    setUp(clearSyntaxHighlightCacheForTesting);
+
+    test('defers a large explicitly-labelled block', () async {
+      final source = 'final value = 1;\n' * 150;
+
+      expect(source.length, greaterThan(backgroundSyntaxHighlightThreshold));
+      expect(highlightShouldRunInBackground(source, 'dart'), isTrue);
+
+      final highlighted = await highlightLinesInBackground(source, 'dart');
+      expect(
+        highlighted.expand((line) => line).any((token) => token.scope != null),
+        isTrue,
+      );
+      expect(highlightShouldRunInBackground(source, 'dart'), isFalse);
+    });
+
+    test('does not auto-detect an oversized block', () {
+      final source = 'const value = 1;\n' * 300;
+
+      expect(source.length, greaterThan(maxAutoDetectedChars));
+      expect(highlightNeedsParse(source, 'auto'), isFalse);
+      expect(
+        highlightLines(
+          source,
+          'auto',
+        ).expand((line) => line).every((token) => token.scope == null),
+        isTrue,
+      );
+    });
+  });
+
   group('escapes', () {
     test('an escaped delimiter opens nothing markdown-it would open', () {
       expect(

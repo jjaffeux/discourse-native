@@ -80,6 +80,13 @@ abstract interface class HttpDiagnosticsRecorder {
   void recordHttp(HttpDiagnosticRecord update);
 }
 
+/// Opt-in hook for recorders which only need header-phase updates while their
+/// live diagnostics UI is visible. The terminal record still contains all
+/// response metadata, so disabling this phase loses no completed history.
+abstract interface class IntermediateHttpDiagnosticsRecorder {
+  bool get recordsHttpResponseHeaderPhase;
+}
+
 final class RecordingHttpOverrides extends HttpOverrides {
   RecordingHttpOverrides(
     this.recorder, {
@@ -770,7 +777,14 @@ final class _HttpTransaction {
     } on Object {
       responseHeaderValues = const <String, String>{};
     }
-    _emit(HttpDiagnosticPhase.responseHeaders);
+    if (recorder case final IntermediateHttpDiagnosticsRecorder recorder
+        when recorder.recordsHttpResponseHeaderPhase) {
+      _emit(HttpDiagnosticPhase.responseHeaders);
+    } else if (recorder is! IntermediateHttpDiagnosticsRecorder) {
+      // Third-party/test recorders keep the original detailed contract unless
+      // they explicitly opt into phase suppression.
+      _emit(HttpDiagnosticPhase.responseHeaders);
+    }
   }
 
   void complete() {

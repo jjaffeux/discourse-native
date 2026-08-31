@@ -39,6 +39,7 @@ import '../plugin_api/discourse_model_codec.dart';
 import 'discourse_api_contracts.dart';
 import 'discourse_transport.dart';
 import 'http_transport.dart';
+import 'json_decode.dart';
 import 'site_appearance_loader.dart';
 
 export 'discourse_api_contracts.dart';
@@ -202,7 +203,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
           statusCode: response.statusCode,
         );
       }
-      info = jsonDecode(response.body) as Map<String, dynamic>;
+      info = await decodeJsonHttpResponse(response) as Map<String, dynamic>;
     } on SiteLookupException {
       rethrow;
     } catch (error, stackTrace) {
@@ -292,7 +293,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
 
     try {
-      final decoded = jsonDecode(response.body);
+      final decoded = await decodeJsonHttpResponse(response);
       if (decoded is! List<dynamic>) {
         throw const FormatException('Expected a topic tracking state list');
       }
@@ -1318,7 +1319,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
 
     try {
-      return switch (jsonDecode(response.body)) {
+      return switch (await decodeJsonHttpResponse(response)) {
         final Map<String, dynamic> byName => {
           for (final entry in byName.entries)
             if (entry.value is String) entry.key: entry.value as String,
@@ -1364,7 +1365,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
 
     try {
-      return switch (jsonDecode(response.body)) {
+      return switch (await decodeJsonHttpResponse(response)) {
         {'users': final List<dynamic> users} => [
           for (final user in users.take(limit))
             if (user is Map<String, dynamic>) FoundUser.fromJson(user, siteUrl),
@@ -1400,7 +1401,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
 
     try {
-      final body = jsonDecode(response.body);
+      final body = await decodeJsonHttpResponse(response);
       if (body is! Map<String, dynamic>) return const [];
       return List.unmodifiable([
         for (final entry in jsonArray(body['results']).take(limit))
@@ -1440,7 +1441,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
 
     try {
-      final body = jsonDecode(response.body);
+      final body = await decodeJsonHttpResponse(response);
       if (body is! Map<String, dynamic>) return const [];
       return List.unmodifiable([
         for (final entry in jsonArray(body['results']).take(limit))
@@ -1485,7 +1486,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
 
     try {
-      final body = jsonDecode(response.body);
+      final body = await decodeJsonHttpResponse(response);
       if (body is! List<dynamic>) return const [];
       return List.unmodifiable([
         for (final item in body.take(limit))
@@ -1533,7 +1534,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
 
     try {
-      return switch (jsonDecode(response.body)) {
+      return switch (await decodeJsonHttpResponse(response)) {
         {'results': final List<dynamic> results} => [
           for (final item in results.take(maximumAutocompleteResults))
             if (item is Map<String, dynamic>) ?FoundHashtag.fromJson(item),
@@ -1576,7 +1577,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
 
     try {
-      final body = jsonDecode(response.body);
+      final body = await decodeJsonHttpResponse(response);
       if (body is! Map<String, dynamic>) return const [];
       return <FoundHashtag>[
         for (final entry in body.values)
@@ -1637,7 +1638,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
 
     try {
-      final body = jsonDecode(response.body);
+      final body = await decodeJsonHttpResponse(response);
       if (body is! Map<String, dynamic>) return const {};
       return {
         for (final name in jsonArray(body['users']))
@@ -1669,7 +1670,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
 
     try {
-      final decoded = jsonDecode(response.body);
+      final decoded = await decodeJsonHttpResponse(response);
       if (decoded is! Map<String, dynamic>) return SiteEmojiCatalog.empty;
 
       final groups = <SiteEmojiGroup>[];
@@ -1718,7 +1719,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
 
     try {
-      final decoded = jsonDecode(response.body);
+      final decoded = await decodeJsonHttpResponse(response);
       if (decoded is! Map<String, dynamic>) return const {};
 
       final aliases = <String, List<String>>{};
@@ -2778,7 +2779,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
         statusCode: response.statusCode,
       );
     }
-    final decoded = jsonDecode(response.body);
+    final decoded = await decodeJsonHttpResponse(response);
     if (decoded is! List<dynamic>) return const {};
     return {
       for (final value in decoded)
@@ -2960,7 +2961,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
       clientId: clientId,
     );
     try {
-      final decoded = jsonDecode(response.body);
+      final decoded = await decodeJsonHttpResponse(response);
       if (decoded is! List) throw const FormatException('Expected a JSON list');
       return List.unmodifiable([
         for (final value in decoded)

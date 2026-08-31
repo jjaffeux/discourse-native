@@ -12,7 +12,11 @@ import 'cooked_dom.dart';
 import 'syntax.dart';
 
 class CodeBlockData {
-  const CodeBlockData({required this.lines, this.language});
+  const CodeBlockData({
+    required this.lines,
+    this.language,
+    this.highlightDeferred = false,
+  });
 
   static final RegExp _clipboardWhitespace = RegExp(
     r'[\f\v\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\ufeff]',
@@ -21,6 +25,8 @@ class CodeBlockData {
   final List<CodeLine> lines;
 
   final String? language;
+
+  final bool highlightDeferred;
 
   String get text => lines.map((line) => line.text).join('\n');
 
@@ -33,9 +39,29 @@ class CodeBlockData {
     final ol = descendantWhere(pre, (e) => e.localName == 'ol');
     final lines = ol != null ? _numbered(ol) : _plain((code ?? pre).text);
 
+    final source = lines.map((line) => line.text).join('\n');
+    final deferHighlight = highlightShouldRunInBackground(source, language);
     return CodeBlockData(
-      lines: _highlighted(lines, language),
+      lines: deferHighlight ? lines : _highlighted(lines, language),
       language: language,
+      highlightDeferred: deferHighlight,
+    );
+  }
+
+  CodeBlockData _withTokens(List<List<CodeToken>> tokenized) {
+    if (tokenized.length != lines.length) {
+      return CodeBlockData(lines: lines, language: language);
+    }
+    return CodeBlockData(
+      language: language,
+      lines: [
+        for (final (index, line) in lines.indexed)
+          CodeLine(
+            tokens: tokenized[index],
+            number: line.number,
+            isSelected: line.isSelected,
+          ),
+      ],
     );
   }
 
@@ -195,6 +221,48 @@ class _CodeBlockState extends State<CodeBlock> {
   final ScrollController _horizontal = ScrollController();
   Timer? _copiedTimer;
   bool _copied = false;
+  late CodeBlockData _data;
+  int _highlightGeneration = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _data = widget.data;
+    _scheduleDeferredHighlight();
+  }
+
+  @override
+  void didUpdateWidget(CodeBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.data, widget.data)) return;
+    _highlightGeneration++;
+    _data = widget.data;
+    _scheduleDeferredHighlight();
+  }
+
+  void _scheduleDeferredHighlight() {
+    final data = _data;
+    if (!data.highlightDeferred) return;
+    final generation = ++_highlightGeneration;
+    unawaited(_highlightInBackground(data, generation));
+  }
+
+  Future<void> _highlightInBackground(
+    CodeBlockData data,
+    int generation,
+  ) async {
+    try {
+      final source = data.text;
+      final highlighted = await highlightLinesInBackground(
+        source,
+        data.language,
+      );
+      if (!mounted || generation != _highlightGeneration) return;
+      setState(() => _data = data._withTokens(highlighted));
+    } catch (_) {
+      // Syntax colour is optional; plain code is already visible and usable.
+    }
+  }
 
   @override
   void dispose() {
@@ -205,7 +273,7 @@ class _CodeBlockState extends State<CodeBlock> {
 
   Future<void> _copy() async {
     try {
-      await Clipboard.setData(ClipboardData(text: widget.data.clipboardText));
+      await Clipboard.setData(ClipboardData(text: _data.clipboardText));
     } catch (_) {
       if (mounted) _notice("Couldn't copy code.");
       return;
@@ -231,7 +299,7 @@ class _CodeBlockState extends State<CodeBlock> {
         MaterialPageRoute<void>(
           settings: const RouteSettings(name: 'code-block-fullscreen'),
           fullscreenDialog: true,
-          builder: (context) => CodeBlockFullscreen(data: widget.data),
+          builder: (context) => CodeBlockFullscreen(data: _data),
         ),
       ),
     );
@@ -240,7 +308,7 @@ class _CodeBlockState extends State<CodeBlock> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final data = widget.data;
+    final data = _data;
 
     if (data.lines.isEmpty) return const SizedBox();
 
@@ -342,7 +410,7 @@ class _CodeBlockState extends State<CodeBlock> {
   }
 
   double? get _gutterWidth {
-    final widest = widget.data.lines
+    final widest = _data.lines
         .map((line) => line.number?.toString().length ?? 0)
         .fold(0, (a, b) => a > b ? a : b);
     return widest == 0 ? null : widest * 8 + 12;
