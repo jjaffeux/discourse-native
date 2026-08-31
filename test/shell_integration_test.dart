@@ -101,7 +101,11 @@ import 'package:flutter/gestures.dart'
     show
         PointerEnterEvent,
         PointerExitEvent,
+        kBackMouseButton,
+        kForwardMouseButton,
         kLongPressTimeout,
+        kMiddleMouseButton,
+        kPrimaryMouseButton,
         kSecondaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -1366,6 +1370,44 @@ void main() {
       expect(exits, hasLength(1));
     });
 
+    testWidgets('mouse side buttons stay within content history', (
+      tester,
+    ) async {
+      await pumpShell(tester, phone);
+      await tester.tap(find.text('Topics'));
+      await tester.pumpAndSettle();
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+
+      Future<void> tapMouseButton(int button) async {
+        await tester.tap(
+          find.byType(MainContent),
+          buttons: button,
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await tapMouseButton(kBackMouseButton);
+      expect(find.byType(MainContent), findsOneWidget);
+      expect(shell.currentContent?.id, 'latest');
+
+      shell.pushContent(
+        const ContentRoute(
+          id: 'compact-mouse-history',
+          title: 'Compact mouse history',
+          icon: DIcons.comments,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tapMouseButton(kBackMouseButton);
+      expect(find.byType(MainContent), findsOneWidget);
+      expect(shell.currentContent?.id, 'latest');
+
+      await tapMouseButton(kForwardMouseButton);
+      expect(shell.currentContent?.id, 'compact-mouse-history');
+    });
+
     testWidgets('the avatar follows whichever pane is showing', (tester) async {
       await pumpShell(tester, phone);
 
@@ -1398,6 +1440,65 @@ void main() {
       expect(find.byType(InstanceSidebar), findsOneWidget);
       expect(find.byType(MainContent), findsOneWidget);
     });
+
+    testWidgets(
+      'mouse side buttons navigate content history and respect overlays',
+      (tester) async {
+        await pumpShell(tester, desktop);
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        shell.pushContent(
+          const ContentRoute(
+            id: 'mouse-history',
+            title: 'Mouse history',
+            icon: DIcons.comments,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        Future<void> tapMouseButton(int button, {Finder? target}) async {
+          await tester.tap(
+            target ?? contentText(shell.currentContent!.title).last,
+            buttons: button,
+            kind: PointerDeviceKind.mouse,
+          );
+          await tester.pumpAndSettle();
+        }
+
+        for (final button in [kPrimaryMouseButton, kMiddleMouseButton]) {
+          await tapMouseButton(button);
+          expect(shell.currentContent?.id, 'mouse-history');
+        }
+
+        await tapMouseButton(kBackMouseButton);
+        expect(shell.currentContent?.id, 'latest');
+
+        unawaited(
+          showDialog<void>(
+            context: tester.element(find.byType(MainContent)),
+            builder: (context) =>
+                const AlertDialog(title: Text('Mouse navigation dialog')),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tapMouseButton(
+          kForwardMouseButton,
+          target: find.text('Mouse navigation dialog'),
+        );
+        expect(find.text('Mouse navigation dialog'), findsOneWidget);
+        expect(shell.currentContent?.id, 'latest');
+
+        await tapMouseButton(
+          kBackMouseButton,
+          target: find.text('Mouse navigation dialog'),
+        );
+        expect(find.text('Mouse navigation dialog'), findsNothing);
+        expect(shell.currentContent?.id, 'latest');
+
+        await tapMouseButton(kForwardMouseButton);
+        expect(shell.currentContent?.id, 'mouse-history');
+      },
+    );
 
     testWidgets('the avatar sits in the top right corner', (tester) async {
       await pumpShell(tester, desktop);

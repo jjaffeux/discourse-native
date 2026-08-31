@@ -127,7 +127,7 @@ void main() {
   });
 
   group('ForumWorkspace persistence', () {
-    test('round-trips tabs, stacks, anchors, and the active tab', () {
+    test('round-trips back and forward history', () {
       final workspace = ForumWorkspace(
         siteUrl: 'https://forum.example',
         accountIdentity: 'user:42',
@@ -165,12 +165,29 @@ void main() {
                 postNumber: 7,
               ),
             ],
+            forwardStack: const [
+              ContentRoute(
+                id: 'topic-44',
+                title: 'A farther future topic',
+                icon: DIcons.comments,
+                topicId: 44,
+                slug: 'a-farther-future-topic',
+              ),
+              ContentRoute(
+                id: 'topic-43',
+                title: 'The next future topic',
+                icon: DIcons.comments,
+                topicId: 43,
+                slug: 'the-next-future-topic',
+              ),
+            ],
             anchors: const {
               'topic-42': ForumTabAnchor(
                 kind: 'topic',
                 itemId: 4207,
                 offset: 0.375,
               ),
+              'topic-43': ForumTabAnchor(kind: 'topic', itemId: 4301),
             },
           ),
         ],
@@ -182,9 +199,18 @@ void main() {
       expect(restored!.activeTab.id, 'topic-tab');
       expect(restored.activeTab.currentContent.topicId, 42);
       expect(restored.activeTab.currentContent.color, const Color(0xFF654321));
+      expect(restored.activeTab.forwardStack.map((route) => route.topicId), [
+        44,
+        43,
+      ]);
+      expect(restored.activeTab.forwardStack.last.topicId, 43);
       expect(
         restored.activeTab.anchors['topic-42'],
         const ForumTabAnchor(kind: 'topic', itemId: 4207, offset: 0.375),
+      );
+      expect(
+        restored.activeTab.anchors['topic-43'],
+        const ForumTabAnchor(kind: 'topic', itemId: 4301),
       );
     });
 
@@ -264,6 +290,36 @@ void main() {
       });
     });
 
+    test('repairs corrupt forward routes without losing valid neighbours', () {
+      final restored = ForumTab.tryFromJson({
+        'id': 'history-tab',
+        'root_destination_id': 'latest',
+        'content_stack': [
+          _routeJson(id: 'latest', title: 'Topics'),
+          _routeJson(id: 'topic-1', title: 'Current topic'),
+        ],
+        'forward_content_stack': [
+          _routeJson(id: 'topic-3', title: 'Farther future topic'),
+          {'id': 'broken-route', 'title': 'Missing icon'},
+          'not-a-route',
+          _routeJson(id: 'topic-2', title: 'Next future topic'),
+        ],
+        'anchors': {
+          'topic-3': {'kind': 'topic', 'item_id': 3},
+          'broken-route': {'kind': 'topic', 'item_id': 999},
+          'topic-2': {'kind': 'topic', 'item_id': 2},
+        },
+      });
+
+      expect(restored, isNotNull);
+      expect(restored!.forwardStack.map((route) => route.id), [
+        'topic-3',
+        'topic-2',
+      ]);
+      expect(restored.forwardStack.last.id, 'topic-2');
+      expect(restored.anchors.keys, ['topic-3', 'topic-2']);
+    });
+
     test('discards a tab whose root destination is empty', () {
       final restored = ForumWorkspace.tryFromJson({
         'site_url': 'https://forum.example',
@@ -321,11 +377,81 @@ void main() {
       expect(restored.activeTab.contentStack.last.id, 'topic-69');
     });
 
-    test('equal restored tabs with anchors share one hash code', () {
+    test('bounds combined restored back and forward history', () {
+      final restored = ForumTab.tryFromJson({
+        'id': 'bounded-history',
+        'root_destination_id': 'latest',
+        'content_stack': [
+          _routeJson(id: 'latest', title: 'Topics'),
+          for (var route = 1; route <= 3; route++)
+            _routeJson(id: 'past-$route', title: 'Past $route'),
+        ],
+        'forward_content_stack': [
+          for (
+            var route = 1;
+            route <= ForumTab.maximumContentRoutes + 5;
+            route++
+          )
+            _routeJson(id: 'future-$route', title: 'Future $route'),
+        ],
+      });
+
+      expect(restored, isNotNull);
+      expect(
+        restored!.contentStack.length + restored.forwardStack.length,
+        ForumTab.maximumContentRoutes,
+      );
+      expect(restored.contentStack.map((route) => route.id), [
+        'latest',
+        'past-1',
+        'past-2',
+        'past-3',
+      ]);
+      expect(restored.forwardStack.first.id, 'future-10');
+      expect(restored.forwardStack.last.id, 'future-69');
+    });
+
+    test(
+      'rejects an in-memory tab whose combined history exceeds its bound',
+      () {
+        expect(
+          () => ForumTab(
+            id: 'unbounded-history',
+            rootDestinationId: 'latest',
+            contentStack: const [
+              ContentRoute(
+                id: 'latest',
+                title: 'Topics',
+                icon: DIcons.layerGroup,
+              ),
+            ],
+            forwardStack: [
+              for (
+                var route = 0;
+                route < ForumTab.maximumContentRoutes;
+                route++
+              )
+                ContentRoute(
+                  id: 'topic-$route',
+                  title: 'Topic $route',
+                  icon: DIcons.comments,
+                ),
+            ],
+          ),
+          throwsAssertionError,
+        );
+      },
+    );
+
+    test('forward history participates in equality and hashing', () {
       Map<String, Object?> tabJson() => {
         'id': 'anchored-tab',
         'root_destination_id': 'latest',
         'content_stack': [_routeJson(id: 'latest', title: 'Topics')],
+        'forward_content_stack': [
+          _routeJson(id: 'topic-2', title: 'Farther future topic'),
+          _routeJson(id: 'topic-1', title: 'Next future topic'),
+        ],
         'anchors': {
           'latest': {'kind': 'feed', 'item_id': 17, 'offset': 0.25},
         },
@@ -333,9 +459,18 @@ void main() {
 
       final first = ForumTab.tryFromJson(_jsonMap(tabJson()));
       final second = ForumTab.tryFromJson(_jsonMap(tabJson()));
+      final differentFuture = ForumTab.tryFromJson(
+        _jsonMap({
+          ...tabJson(),
+          'forward_content_stack': [
+            _routeJson(id: 'topic-3', title: 'A different future topic'),
+          ],
+        }),
+      );
 
       expect(first, second);
       expect(first.hashCode, second!.hashCode);
+      expect(first, isNot(differentFuture));
     });
 
     test('discarded restored routes cannot retain orphaned anchors', () {

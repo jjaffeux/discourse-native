@@ -89,6 +89,113 @@ void main() {
         expect(controller.contentStack.last.topicId, 69);
       });
 
+      test('moves backward and forward through content history', () {
+        controller.pushContent(_topic(101, 'First topic'));
+        controller.pushContent(_topic(202, 'Second topic'));
+
+        expect(controller.canForwardContent, isFalse);
+        expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+        expect(_routeIds(controller), ['latest', 'topic-101']);
+        expect(controller.canForwardContent, isTrue);
+
+        expect(controller.handleForward(), isTrue);
+        expect(_routeIds(controller), ['latest', 'topic-101', 'topic-202']);
+        expect(controller.canForwardContent, isFalse);
+      });
+
+      test('a new push after Back clears forward history', () {
+        controller.pushContent(_topic(101, 'First topic'));
+        controller.pushContent(_topic(202, 'Second topic'));
+        controller.handleBack(canReturnToSidebar: false);
+
+        expect(controller.canForwardContent, isTrue);
+
+        controller.pushContent(_topic(303, 'Replacement topic'));
+
+        expect(_routeIds(controller), ['latest', 'topic-101', 'topic-303']);
+        expect(controller.canForwardContent, isFalse);
+        expect(controller.handleForward(), isFalse);
+      });
+
+      test('Forward is a no-op without forward history', () {
+        final content = controller.currentContent;
+        final stack = controller.contentStack;
+
+        expect(controller.canForwardContent, isFalse);
+        expect(controller.handleForward(), isFalse);
+        expect(controller.currentContent, same(content));
+        expect(controller.contentStack, same(stack));
+      });
+
+      test('hydrates a restored route when moving Forward', () async {
+        final latest = ContentRoute.fromDestination(
+          _destination(forums.first, 'latest'),
+        );
+        final futureTopic = _topic(202, 'Restored future topic');
+        final restoredTabs = FakeForumTabStore([
+          ForumWorkspace(
+            siteUrl: forums.first.url,
+            accountIdentity: 'anonymous',
+            tabs: [
+              ForumTab(
+                id: 'restored-history',
+                rootDestinationId: 'latest',
+                contentStack: [latest],
+                forwardStack: [futureTopic],
+              ),
+            ],
+            activeTabId: 'restored-history',
+          ),
+        ]);
+        final api = FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          topics: {202: topicPayload(id: 202, title: 'Restored future topic')},
+        );
+        final restored = ShellController(
+          instanceStore: FakeInstanceStore(forums),
+          api: api,
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          forumTabs: restoredTabs,
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(restored.dispose);
+        await restored.load();
+
+        expect(api.topicsOpened, isEmpty);
+
+        expect(restored.handleForward(), isTrue);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(api.topicsOpened, [202]);
+      });
+
+      test('keeps forward history isolated per tab', () {
+        final firstTabId = controller.activeTabId!;
+        controller.pushContent(_topic(101, 'First topic'));
+        controller.pushContent(_topic(202, 'Second topic'));
+        controller.handleBack(canReturnToSidebar: false);
+
+        expect(controller.canForwardContent, isTrue);
+
+        controller.createTab();
+        final secondTabId = controller.activeTabId!;
+
+        expect(controller.canForwardContent, isFalse);
+        expect(controller.handleForward(), isFalse);
+
+        controller.selectTab(firstTabId);
+
+        expect(controller.canForwardContent, isTrue);
+        expect(controller.handleForward(), isTrue);
+        expect(controller.currentContent?.topicId, 202);
+
+        controller.selectTab(secondTabId);
+
+        expect(controller.canForwardContent, isFalse);
+        _expectTopicsRoot(controller);
+      });
+
       test('keeps independent active content stacks per forum', () {
         final firstForumTabId = controller.activeTabId;
         controller.pushContent(_topic(101, 'First forum topic'));

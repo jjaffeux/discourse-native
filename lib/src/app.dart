@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:ui' show PointerDeviceKind;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/gestures.dart'
+    show PointerDownEvent, kBackMouseButton, kForwardMouseButton;
 import 'package:flutter/material.dart';
 import 'package:relative_time/relative_time.dart';
 
@@ -85,6 +89,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   final Queue<String> _pendingNotificationUrls = Queue<String>();
   ShellController? _notificationNavigationController;
   bool _drainingNotificationUrls = false;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   static const _maximumPendingNotificationUrls = 16;
 
@@ -509,11 +514,12 @@ class _DiscourseAppState extends State<DiscourseApp>
   List<DiagnosticsPlugin> get _diagnosticsPlugins =>
       _plugins.registry.diagnosticsPlugins;
 
-  static Widget _materialApp({
+  Widget _materialApp({
     required ThemeData theme,
     required ThemeData darkTheme,
     required ThemeMode themeMode,
   }) => MaterialApp(
+    navigatorKey: _navigatorKey,
     title: 'Discourse',
     debugShowCheckedModeBanner: false,
     theme: theme,
@@ -521,7 +527,57 @@ class _DiscourseAppState extends State<DiscourseApp>
     themeMode: themeMode,
     localizationsDelegates: RelativeTimeLocalizations.localizationsDelegates,
     supportedLocales: RelativeTimeLocalizations.supportedLocales,
+    builder: (context, child) => _MouseNavigationRegion(
+      navigatorKey: _navigatorKey,
+      child: child ?? const SizedBox.shrink(),
+    ),
     home: const AdaptiveShell(),
+  );
+}
+
+class _MouseNavigationRegion extends StatelessWidget {
+  const _MouseNavigationRegion({
+    required this.navigatorKey,
+    required this.child,
+  });
+
+  final GlobalKey<NavigatorState> navigatorKey;
+  final Widget child;
+
+  void _handlePointerDown(BuildContext context, PointerDownEvent event) {
+    if (kIsWeb || event.kind != PointerDeviceKind.mouse) return;
+    final backPressed = (event.buttons & kBackMouseButton) != 0;
+    final forwardPressed = (event.buttons & kForwardMouseButton) != 0;
+    if (!backPressed && !forwardPressed) return;
+
+    final navigator = navigatorKey.currentState;
+    if (navigator?.canPop() ?? false) {
+      if (backPressed) unawaited(navigator!.maybePop());
+      return;
+    }
+
+    final diagnostics = DiagnosticsScope.maybeRead(context);
+    if (diagnostics?.isPanelOpen ?? false) {
+      if (backPressed) diagnostics!.closePanel();
+      return;
+    }
+
+    final controller = ShellScope.read(context);
+    if (backPressed) {
+      if (controller.rootMode == ShellRootMode.forum &&
+          controller.canPopContent) {
+        controller.handleBack(canReturnToSidebar: false);
+      }
+    } else {
+      controller.handleForward();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    behavior: HitTestBehavior.translucent,
+    onPointerDown: (event) => _handlePointerDown(context, event),
+    child: child,
   );
 }
 

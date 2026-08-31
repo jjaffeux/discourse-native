@@ -2092,6 +2092,9 @@ Three ways to show something, and they are not interchangeable:
   leaves it a sheet wherever a finger is the only way in.
 
 Back unwinds the content stack first, and only then returns to the sidebar.
+Mouse Back and Forward side buttons traverse that same per-tab content history.
+Opening a new route after going Back discards the abandoned forward branch, as
+it does in a browser.
 
 ### Forum-scoped tabs
 
