@@ -1,5 +1,6 @@
 export 'diagnostic_event.dart';
 export 'diagnostics_controller.dart';
+export 'diagnostics_journal.dart';
 export 'diagnostics_persistence.dart';
 export 'diagnostics_redactor.dart';
 export 'diagnostics_scope.dart';

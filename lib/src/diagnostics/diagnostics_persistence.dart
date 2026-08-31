@@ -1,44 +1,37 @@
-import 'dart:async';
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_journal.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../foundation/private_file_permissions.dart';
 
-const Duration diagnosticsRetentionAge = Duration(hours: 24);
-const int diagnosticsRetentionCount = 5000;
-const int diagnosticsRetentionBytes = 10 * 1024 * 1024;
-const int diagnosticsEventBudgetBytes = diagnosticsRetentionBytes - 256;
+export 'diagnostics_journal.dart'
+    show
+        diagnosticsEventBudgetBytes,
+        diagnosticsRetentionAge,
+        diagnosticsRetentionBytes,
+        diagnosticsRetentionCount;
 
 final class DiagnosticsPersistenceState {
   const DiagnosticsPersistenceState({
     this.events = const [],
+    this.serializedEventBytes = const {},
     this.lastSeenSequence = 0,
   });
 
   final List<DiagnosticEvent> events;
+  final Map<String, int> serializedEventBytes;
   final int lastSeenSequence;
 }
 
-typedef _DecodedDiagnosticEvent = ({
-  DiagnosticEvent event,
-  int serializedBytes,
-});
-
 final class _DecodedDiagnosticsFile {
-  const _DecodedDiagnosticsFile({
-    required this.events,
-    required this.lastSeenSequence,
-    required this.evicted,
-  });
+  const _DecodedDiagnosticsFile({required this.journal, required this.evicted});
 
-  final List<_DecodedDiagnosticEvent> events;
-  final int lastSeenSequence;
+  final DiagnosticsJournalSnapshot journal;
   final bool evicted;
 }
 
@@ -68,36 +61,21 @@ List<DiagnosticEvent> retainDiagnosticEvents(
   required DateTime nowUtc,
   int Function(DiagnosticEvent event)? bytesOf,
 }) {
-  final cutoff = nowUtc.toUtc().subtract(diagnosticsRetentionAge);
-  final chronological =
-      events.where((event) => event.timestampUtc.isAfter(cutoff)).toList()
-        ..sort((left, right) => left.sequence.compareTo(right.sequence));
-  final countLimited = chronological.length <= diagnosticsRetentionCount
-      ? chronological
-      : chronological.sublist(chronological.length - diagnosticsRetentionCount);
-
-  var bytes = 0;
-  final retainedNewestFirst = <DiagnosticEvent>[];
-  for (final event in countLimited.reversed) {
-    final eventBytes =
-        bytesOf?.call(event) ?? diagnosticEventSerializedBytes(event);
-    if (eventBytes > diagnosticsEventBudgetBytes) {
-      continue;
-    }
-    if (bytes + eventBytes > diagnosticsEventBudgetBytes) {
-      break;
-    }
-    retainedNewestFirst.add(event);
-    bytes += eventBytes;
+  final sizeOf = bytesOf ?? diagnosticEventSerializedBytes;
+  final journal = DiagnosticsJournal(sizeOf: sizeOf);
+  for (final event in events) {
+    journal.put(event, serializedBytes: sizeOf(event));
   }
-  return List.unmodifiable(retainedNewestFirst.reversed);
+  journal.retain(nowUtc: nowUtc);
+  return List.unmodifiable(journal.events);
 }
 
 int diagnosticEventSerializedBytes(DiagnosticEvent event) =>
     utf8.encode(jsonEncode(_eventLine(event))).length + 1;
 
 final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
-  FileDiagnosticsPersistence(this.file);
+  FileDiagnosticsPersistence(this.file)
+    : _journal = DiagnosticsJournal(sizeOf: diagnosticEventSerializedBytes);
 
   static const int formatVersion = 1;
   static const String directoryName = 'diagnostics';
@@ -105,13 +83,9 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
   static final Map<String, _DiagnosticsFileCoordinator> _coordinators = {};
 
   final File file;
-  final Map<String, DiagnosticEvent> _events = {};
-  final Map<String, int> _eventBytes = {};
-  final SplayTreeMap<int, Set<String>> _eventIdsBySequence = SplayTreeMap();
-  final SplayTreeMap<int, Set<String>> _eventIdsByTimestamp = SplayTreeMap();
-  Future<void> _tail = Future<void>.value();
-  int _lastSeenSequence = 0;
-  int _totalEventBytes = 0;
+  DiagnosticsJournal _journal;
+  final DiagnosticsJournalOperationQueue _operations =
+      DiagnosticsJournalOperationQueue();
   bool _loaded = false;
 
   static Future<FileDiagnosticsPersistence> applicationSupport() async {
@@ -125,18 +99,13 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
   Future<DiagnosticsPersistenceState> load({required DateTime nowUtc}) =>
       _serialize(() async {
         await _loadFromDisk(nowUtc: nowUtc);
+        final snapshot = _journal.snapshot();
         return DiagnosticsPersistenceState(
-          events: retainDiagnosticEvents(
-            _events.values,
-            nowUtc: nowUtc,
-            bytesOf: _serializedBytesOf,
-          ),
-          lastSeenSequence: _lastSeenSequence,
+          events: snapshot.events,
+          serializedEventBytes: snapshot.serializedEventBytes,
+          lastSeenSequence: snapshot.lastSeenSequence,
         );
       });
-
-  int _serializedBytesOf(DiagnosticEvent event) =>
-      _eventBytes[event.id] ?? diagnosticEventSerializedBytes(event);
 
   @override
   Future<void> appendEvents(
@@ -146,9 +115,9 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
     if (events.isEmpty) return;
     await _ensureLoaded(nowUtc: nowUtc);
     for (final event in events) {
-      _putEvent(event);
+      _journal.put(event);
     }
-    final evicted = _retainInMemory(nowUtc);
+    final evicted = _journal.retain(nowUtc: nowUtc).evicted;
     await _appendLines([for (final event in events) _eventLine(event)]);
     // Deliberately eager, and deliberately not amortised on file growth: a
     // record dropped by the retention age has to leave the disk when it is
@@ -163,7 +132,7 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
   @override
   Future<void> writeLastSeenSequence(int sequence) => _serialize(() async {
     await _ensureLoaded(nowUtc: DateTime.now().toUtc());
-    _lastSeenSequence = sequence;
+    _journal.setLastSeenSequence(sequence);
     await _appendLines([
       {'version': formatVersion, 'record': 'lastSeen', 'sequence': sequence},
     ]);
@@ -179,12 +148,7 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
 
   @override
   Future<void> clear() => _serialize(() async {
-    _events.clear();
-    _eventBytes.clear();
-    _eventIdsBySequence.clear();
-    _eventIdsByTimestamp.clear();
-    _totalEventBytes = 0;
-    _lastSeenSequence = 0;
+    _journal.clear();
     _loaded = true;
     Object? firstError;
     StackTrace? firstStackTrace;
@@ -202,20 +166,13 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
   });
 
   @override
-  Future<void> close() async {
-    await _tail;
-  }
+  Future<void> close() => _operations.done;
 
   Future<void> _loadFromDisk({
     required DateTime nowUtc,
     bool compactIfNeeded = true,
   }) async {
-    _events.clear();
-    _eventBytes.clear();
-    _eventIdsBySequence.clear();
-    _eventIdsByTimestamp.clear();
-    _totalEventBytes = 0;
-    _lastSeenSequence = 0;
+    _journal.clear();
     _loaded = true;
     // A process can stop after the compacted history is flushed but before it
     // is renamed. The main JSONL remains authoritative; the orphan contains a
@@ -235,12 +192,12 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
       () => _decodeDiagnosticsFile(path, nowUtcMicroseconds),
       debugName: 'diagnostics-file-decode',
     );
-    _lastSeenSequence = decoded.lastSeenSequence;
-    for (final item in decoded.events) {
-      _putEvent(item.event, serializedBytes: item.serializedBytes);
-    }
+    _journal = DiagnosticsJournal.fromSnapshot(
+      decoded.journal,
+      sizeOf: diagnosticEventSerializedBytes,
+    );
     var evicted = decoded.evicted;
-    evicted |= _retainInMemory(nowUtc);
+    evicted |= _journal.retain(nowUtc: nowUtc).evicted;
     if (compactIfNeeded &&
         (evicted || await file.length() > diagnosticsRetentionBytes)) {
       await _compactNow(nowUtc, reloadFromDisk: false);
@@ -249,99 +206,6 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
 
   Future<void> _ensureLoaded({required DateTime nowUtc}) async {
     if (!_loaded) await _loadFromDisk(nowUtc: nowUtc);
-  }
-
-  bool _retainInMemory(DateTime nowUtc) {
-    final cutoff = nowUtc.toUtc().subtract(diagnosticsRetentionAge);
-    final oldestTimestamp = _eventIdsByTimestamp.firstKey();
-    if (_events.length <= diagnosticsRetentionCount &&
-        _totalEventBytes <= diagnosticsEventBudgetBytes &&
-        (oldestTimestamp == null ||
-            oldestTimestamp > cutoff.microsecondsSinceEpoch)) {
-      return false;
-    }
-
-    var evicted = false;
-    while (_eventIdsByTimestamp.isNotEmpty) {
-      final timestamp = _eventIdsByTimestamp.firstKey()!;
-      if (timestamp > cutoff.microsecondsSinceEpoch) break;
-      for (final id in _eventIdsByTimestamp[timestamp]!.toList()) {
-        _removeEvent(id);
-        evicted = true;
-      }
-    }
-
-    while (_events.length > diagnosticsRetentionCount) {
-      _removeOldestEvent();
-      evicted = true;
-    }
-
-    if (_totalEventBytes > diagnosticsEventBudgetBytes) {
-      for (final entry in _eventBytes.entries.toList()) {
-        if (entry.value <= diagnosticsEventBudgetBytes) continue;
-        _removeEvent(entry.key);
-        evicted = true;
-      }
-    }
-
-    while (_totalEventBytes > diagnosticsEventBudgetBytes) {
-      _removeOldestEvent();
-      evicted = true;
-    }
-    return evicted;
-  }
-
-  void _removeOldestEvent() {
-    final oldestSequence = _eventIdsBySequence.firstKey();
-    if (oldestSequence == null) return;
-    _removeEvent(_eventIdsBySequence[oldestSequence]!.first);
-  }
-
-  void _putEvent(DiagnosticEvent event, {int? serializedBytes}) {
-    final previous = _events[event.id];
-    if (previous != null) {
-      _removeIndex(_eventIdsBySequence, previous.sequence, event.id);
-      _removeIndex(
-        _eventIdsByTimestamp,
-        previous.timestampUtc.microsecondsSinceEpoch,
-        event.id,
-      );
-    }
-    final previousBytes = _eventBytes[event.id];
-    if (previousBytes != null) _totalEventBytes -= previousBytes;
-    final bytes = serializedBytes ?? diagnosticEventSerializedBytes(event);
-    _events[event.id] = event;
-    _eventBytes[event.id] = bytes;
-    _eventIdsBySequence.putIfAbsent(event.sequence, () => {}).add(event.id);
-    _eventIdsByTimestamp
-        .putIfAbsent(event.timestampUtc.microsecondsSinceEpoch, () => {})
-        .add(event.id);
-    _totalEventBytes += bytes;
-  }
-
-  void _removeEvent(String id) {
-    final event = _events.remove(id);
-    if (event != null) {
-      _removeIndex(_eventIdsBySequence, event.sequence, id);
-      _removeIndex(
-        _eventIdsByTimestamp,
-        event.timestampUtc.microsecondsSinceEpoch,
-        id,
-      );
-    }
-    final bytes = _eventBytes.remove(id);
-    if (bytes != null) _totalEventBytes -= bytes;
-  }
-
-  static void _removeIndex(
-    SplayTreeMap<int, Set<String>> index,
-    int key,
-    String id,
-  ) {
-    final ids = index[key];
-    if (ids == null) return;
-    ids.remove(id);
-    if (ids.isEmpty) index.remove(key);
   }
 
   Future<void> _appendLines(List<Map<String, Object?>> lines) async {
@@ -384,24 +248,21 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
     if (reloadFromDisk) {
       await _loadFromDisk(nowUtc: nowUtc, compactIfNeeded: false);
     }
-    _retainInMemory(nowUtc);
+    _journal.retain(nowUtc: nowUtc);
     await ensurePrivateDirectory(file.parent);
     final temporary = File('${file.path}.tmp');
     try {
       await ensurePrivateFile(temporary);
       final sink = temporary.openWrite();
       try {
-        for (final event
-            in _events.values.toList()..sort(
-              (left, right) => left.sequence.compareTo(right.sequence),
-            )) {
+        for (final event in _journal.events) {
           sink.writeln(jsonEncode(_eventLine(event)));
         }
         sink.writeln(
           jsonEncode({
             'version': formatVersion,
             'record': 'lastSeen',
-            'sequence': _lastSeenSequence,
+            'sequence': _journal.lastSeenSequence,
           }),
         );
         await sink.flush();
@@ -429,20 +290,12 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
   }
 
   Future<T> _serialize<T>(Future<T> Function() operation) {
-    final completer = Completer<T>();
     final path = file.absolute.path;
     final coordinator = _coordinators.putIfAbsent(
       path,
       () => _DiagnosticsFileCoordinator(File(path)),
     );
-    _tail = _tail.then((_) async {
-      try {
-        completer.complete(await coordinator.run(operation));
-      } on Object catch (error, stackTrace) {
-        completer.completeError(error, stackTrace);
-      }
-    });
-    return completer.future;
+    return _operations.run(() => coordinator.run(operation));
   }
 }
 
@@ -452,24 +305,12 @@ final class _DiagnosticsFileCoordinator {
   _DiagnosticsFileCoordinator(this.file);
 
   final File file;
-  Future<void> _tail = Future<void>.value();
+  final DiagnosticsJournalOperationQueue _operations =
+      DiagnosticsJournalOperationQueue();
 
-  Future<T> run<T>(Future<T> Function() operation) {
-    final result = Completer<T>();
-    _tail = _tail.then((_) async {
-      try {
-        result.complete(
-          await withPrivateAdvisoryFileLock(
-            File('${file.path}.lock'),
-            operation,
-          ),
-        );
-      } on Object catch (error, stackTrace) {
-        result.completeError(error, stackTrace);
-      }
-    });
-    return result.future;
-  }
+  Future<T> run<T>(Future<T> Function() operation) => _operations.run(
+    () => withPrivateAdvisoryFileLock(File('${file.path}.lock'), operation),
+  );
 }
 
 /// Streams JSONL without retaining the whole history or an unbounded corrupt
@@ -526,103 +367,12 @@ Future<_DecodedDiagnosticsFile> _decodeDiagnosticsFile(
   String path,
   int nowUtcMicroseconds,
 ) async {
-  final events = <String, DiagnosticEvent>{};
-  final eventBytes = <String, int>{};
-  final eventIdsBySequence = SplayTreeMap<int, Set<String>>();
-  final eventIdsByTimestamp = SplayTreeMap<int, Set<String>>();
   final nowUtc = DateTime.fromMicrosecondsSinceEpoch(
     nowUtcMicroseconds,
     isUtc: true,
   );
-  final cutoff = nowUtc.subtract(diagnosticsRetentionAge);
-  var totalEventBytes = 0;
-  var lastSeenSequence = 0;
+  final journal = DiagnosticsJournal(sizeOf: diagnosticEventSerializedBytes);
   var evicted = false;
-
-  void removeIndex(SplayTreeMap<int, Set<String>> index, int key, String id) {
-    final ids = index[key];
-    if (ids == null) return;
-    ids.remove(id);
-    if (ids.isEmpty) index.remove(key);
-  }
-
-  void removeEvent(String id) {
-    final event = events.remove(id);
-    if (event != null) {
-      removeIndex(eventIdsBySequence, event.sequence, id);
-      removeIndex(
-        eventIdsByTimestamp,
-        event.timestampUtc.microsecondsSinceEpoch,
-        id,
-      );
-    }
-    final bytes = eventBytes.remove(id);
-    if (bytes != null) totalEventBytes -= bytes;
-  }
-
-  void removeOldestEvent() {
-    final oldestSequence = eventIdsBySequence.firstKey();
-    if (oldestSequence == null) return;
-    removeEvent(eventIdsBySequence[oldestSequence]!.first);
-  }
-
-  bool retain() {
-    final oldestTimestamp = eventIdsByTimestamp.firstKey();
-    if (events.length <= diagnosticsRetentionCount &&
-        totalEventBytes <= diagnosticsEventBudgetBytes &&
-        (oldestTimestamp == null ||
-            oldestTimestamp > cutoff.microsecondsSinceEpoch)) {
-      return false;
-    }
-
-    var removed = false;
-    while (eventIdsByTimestamp.isNotEmpty) {
-      final timestamp = eventIdsByTimestamp.firstKey()!;
-      if (timestamp > cutoff.microsecondsSinceEpoch) break;
-      for (final id in eventIdsByTimestamp[timestamp]!.toList()) {
-        removeEvent(id);
-        removed = true;
-      }
-    }
-    while (events.length > diagnosticsRetentionCount) {
-      removeOldestEvent();
-      removed = true;
-    }
-    if (totalEventBytes > diagnosticsEventBudgetBytes) {
-      for (final entry in eventBytes.entries.toList()) {
-        if (entry.value <= diagnosticsEventBudgetBytes) continue;
-        removeEvent(entry.key);
-        removed = true;
-      }
-    }
-    while (totalEventBytes > diagnosticsEventBudgetBytes) {
-      removeOldestEvent();
-      removed = true;
-    }
-    return removed;
-  }
-
-  void putEvent(DiagnosticEvent event) {
-    final previous = events[event.id];
-    if (previous != null) {
-      removeIndex(eventIdsBySequence, previous.sequence, event.id);
-      removeIndex(
-        eventIdsByTimestamp,
-        previous.timestampUtc.microsecondsSinceEpoch,
-        event.id,
-      );
-    }
-    final previousBytes = eventBytes[event.id];
-    if (previousBytes != null) totalEventBytes -= previousBytes;
-    final bytes = diagnosticEventSerializedBytes(event);
-    events[event.id] = event;
-    eventBytes[event.id] = bytes;
-    eventIdsBySequence.putIfAbsent(event.sequence, () => {}).add(event.id);
-    eventIdsByTimestamp
-        .putIfAbsent(event.timestampUtc.microsecondsSinceEpoch, () => {})
-        .add(event.id);
-    totalEventBytes += bytes;
-  }
 
   await for (final line in _boundedJsonLines(File(path))) {
     if (line.trim().isEmpty) continue;
@@ -636,19 +386,15 @@ Future<_DecodedDiagnosticsFile> _decodeDiagnosticsFile(
         case 'event':
           final event = DiagnosticEvent.fromJson(decoded['event']);
           if (event != null) {
-            putEvent(event);
+            journal.put(event);
             // Fold duplicate lifecycle records first, then enforce a limit as
             // soon as this record crosses one. Even a crash-grown file stays
             // bounded by the retained budget plus the record being decoded.
-            if (events.length > diagnosticsRetentionCount ||
-                totalEventBytes > diagnosticsEventBudgetBytes ||
-                !event.timestampUtc.isAfter(cutoff)) {
-              evicted |= retain();
-            }
+            evicted |= journal.retain(nowUtc: nowUtc).evicted;
           }
         case 'lastSeen':
           final sequence = decoded['sequence'];
-          if (sequence is int) lastSeenSequence = sequence;
+          if (sequence is int) journal.setLastSeenSequence(sequence);
       }
     } on FormatException {
       // A crash can leave one incomplete line; healthy lines still load.
@@ -656,94 +402,56 @@ Future<_DecodedDiagnosticsFile> _decodeDiagnosticsFile(
       // Version-compatible but malformed records are ignored individually.
     }
   }
-  evicted |= retain();
+  evicted |= journal.retain(nowUtc: nowUtc).evicted;
 
-  return _DecodedDiagnosticsFile(
-    events: [
-      for (final event in events.values)
-        (event: event, serializedBytes: eventBytes[event.id]!),
-    ],
-    lastSeenSequence: lastSeenSequence,
-    evicted: evicted,
-  );
+  return _DecodedDiagnosticsFile(journal: journal.snapshot(), evicted: evicted);
 }
 
 final class MemoryDiagnosticsPersistence implements DiagnosticsPersistence {
-  final Map<String, DiagnosticEvent> _events = {};
-  final Map<String, int> _eventBytes = {};
-  int _lastSeenSequence = 0;
-  int _totalEventBytes = 0;
+  final DiagnosticsJournal _journal = DiagnosticsJournal(
+    sizeOf: diagnosticEventSerializedBytes,
+  );
+  final DiagnosticsJournalOperationQueue _operations =
+      DiagnosticsJournalOperationQueue();
 
-  int get retainedEventCount => _events.length;
+  int get retainedEventCount => _journal.length;
 
   @override
-  Future<DiagnosticsPersistenceState> load({required DateTime nowUtc}) async {
-    _retain(nowUtc);
-    return DiagnosticsPersistenceState(
-      events: retainDiagnosticEvents(_events.values, nowUtc: nowUtc),
-      lastSeenSequence: _lastSeenSequence,
-    );
-  }
+  Future<DiagnosticsPersistenceState> load({required DateTime nowUtc}) =>
+      _operations.run(() async {
+        _journal.retain(nowUtc: nowUtc);
+        final snapshot = _journal.snapshot();
+        return DiagnosticsPersistenceState(
+          events: snapshot.events,
+          serializedEventBytes: snapshot.serializedEventBytes,
+          lastSeenSequence: snapshot.lastSeenSequence,
+        );
+      });
 
   @override
   Future<void> appendEvents(
     List<DiagnosticEvent> events, {
     required DateTime nowUtc,
-  }) async {
+  }) => _operations.run(() async {
     for (final event in events) {
-      final previousBytes = _eventBytes[event.id];
-      if (previousBytes != null) _totalEventBytes -= previousBytes;
-      final bytes = diagnosticEventSerializedBytes(event);
-      _events[event.id] = event;
-      _eventBytes[event.id] = bytes;
-      _totalEventBytes += bytes;
+      _journal.put(event);
     }
-    _retain(nowUtc);
-  }
-
-  void _retain(DateTime nowUtc) {
-    final cutoff = nowUtc.toUtc().subtract(diagnosticsRetentionAge);
-    final staleIds = [
-      for (final item in _events.values)
-        if (!item.timestampUtc.isAfter(cutoff)) item.id,
-    ];
-    for (final id in staleIds) {
-      _removeEvent(id);
-    }
-    while (_events.length > diagnosticsRetentionCount ||
-        _totalEventBytes > diagnosticsEventBudgetBytes) {
-      if (_events.isEmpty) break;
-      final oldest = _events.values.reduce(
-        (left, right) => left.sequence <= right.sequence ? left : right,
-      );
-      _removeEvent(oldest.id);
-    }
-  }
+    _journal.retain(nowUtc: nowUtc);
+  });
 
   @override
-  Future<void> writeLastSeenSequence(int sequence) async {
-    _lastSeenSequence = sequence;
-  }
+  Future<void> writeLastSeenSequence(int sequence) =>
+      _operations.run(() async => _journal.setLastSeenSequence(sequence));
 
   @override
-  Future<void> compact({required DateTime nowUtc}) async => _retain(nowUtc);
+  Future<void> compact({required DateTime nowUtc}) =>
+      _operations.run(() async => _journal.retain(nowUtc: nowUtc));
 
   @override
-  Future<void> clear() async {
-    _events.clear();
-    _eventBytes.clear();
-    _totalEventBytes = 0;
-    _lastSeenSequence = 0;
-  }
+  Future<void> clear() => _operations.run(() async => _journal.clear());
 
   @override
-  Future<void> close() async {}
-
-  void _removeEvent(String id) {
-    _events.remove(id);
-    final bytes = _eventBytes.remove(id);
-    if (bytes != null) _totalEventBytes -= bytes;
-  }
+  Future<void> close() => _operations.done;
 }
 
 Map<String, Object?> _eventLine(DiagnosticEvent event) => {

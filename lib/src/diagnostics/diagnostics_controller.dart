@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:discourse_native/src/data/app_release.dart';
 import 'package:discourse_native/src/diagnostics/diagnostic_error_cause.dart';
 import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_journal.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_redactor.dart';
 import 'package:discourse_native/src/diagnostics/recording_http.dart';
@@ -19,19 +20,18 @@ enum DiagnosticsKindFilter { all, requests, errors }
 typedef DiagnosticsTimerFactory =
     Timer Function(Duration duration, void Function() callback);
 
-typedef _RetainedEvent = ({DiagnosticEvent event, int bytes});
-
 /// Defers the immutable copy until read; every mutation invalidates the last
 /// published copy, so callers never receive the list that keeps changing.
 final class _EventHistoryListenable extends FrameSafeNotifier
     implements ValueListenable<List<DiagnosticEvent>> {
-  _EventHistoryListenable(this._history);
+  _EventHistoryListenable(this._journal);
 
-  final List<DiagnosticEvent> _history;
+  final DiagnosticsJournal _journal;
   List<DiagnosticEvent>? _published;
 
   @override
-  List<DiagnosticEvent> get value => _published ??= List.unmodifiable(_history);
+  List<DiagnosticEvent> get value =>
+      _published ??= List.unmodifiable(_journal.events);
 
   void invalidate() {
     _published = null;
@@ -422,16 +422,12 @@ final class DiagnosticsController
     required this._timerFactory,
     required this.sessionId,
     required this._durablePersistenceUnavailable,
-    required int initialSequence,
-    required this._lastSeenSequence,
-    required List<DiagnosticEvent> events,
-  }) : _sequence = initialSequence,
-       _events = events.toList(),
+    required DiagnosticsJournal journal,
+  }) : _sequence = journal.maximumSequence,
+       _journal = journal,
        _panelStateNotifier = FrameSafeValueNotifier(DiagnosticsPanelState()),
        _panelOpenNotifier = FrameSafeValueNotifier(false),
-       _unseenErrorCountNotifier = FrameSafeValueNotifier(0) {
-    _reindexEvents();
-  }
+       _unseenErrorCountNotifier = FrameSafeValueNotifier(0);
 
   static const Duration ordinaryWriteDelay = Duration(milliseconds: 150);
   static const int reportFormatVersion = 1;
@@ -439,9 +435,9 @@ final class DiagnosticsController
   final DiagnosticsPersistence _persistence;
   final DateTime Function() _clock;
   final DiagnosticsTimerFactory _timerFactory;
-  final List<DiagnosticEvent> _events;
+  final DiagnosticsJournal _journal;
   late final _EventHistoryListenable _eventsNotifier = _EventHistoryListenable(
-    _events,
+    _journal,
   );
   final FrameSafeValueNotifier<DiagnosticsPanelState> _panelStateNotifier;
   final FrameSafeValueNotifier<bool> _panelOpenNotifier;
@@ -452,10 +448,6 @@ final class DiagnosticsController
   final TopicScrollCaptureController topicScrollCapture =
       TopicScrollCaptureController();
 
-  /// Mirrors the ordered [_events] list so per-HTTP-phase updates do not scan
-  /// the entire retained history.
-  final Map<String, _RetainedEvent> _byId = {};
-
   final List<(DiagnosticEvent, int)> _pendingWrites = [];
   final Map<String, int> _pendingWriteIndexes = {};
 
@@ -464,19 +456,12 @@ final class DiagnosticsController
   );
   Object _errorDedupEpoch = Object();
   bool _errorEpochRotationScheduled = false;
-  Future<void> _persistenceTail = Future<void>.value();
+  final DiagnosticsJournalOperationQueue _persistenceOperations =
+      DiagnosticsJournalOperationQueue();
   Timer? _writeTimer;
   Timer? _expiryTimer;
   List<DiagnosticEvent>? _frozenEvents;
   int _sequence;
-  int _lastSeenSequence;
-  int _totalEventBytes = 0;
-  int _unseenErrorCount = 0;
-
-  /// Cached because age retention checks every event; only eviction can make
-  /// the oldest timestamp unknown.
-  DateTime? _oldestTimestamp;
-  bool _oldestTimestampKnown = true;
 
   int _generation = 0;
   bool _persistenceFailed = false;
@@ -529,9 +514,11 @@ final class DiagnosticsController
       persistenceStack = stackTrace;
     }
 
-    final maxSequence = stored.events.fold(
-      stored.lastSeenSequence,
-      (maximum, event) => event.sequence > maximum ? event.sequence : maximum,
+    final journal = DiagnosticsJournal(
+      sizeOf: diagnosticEventSerializedBytes,
+      events: stored.events,
+      serializedEventBytes: stored.serializedEventBytes,
+      lastSeenSequence: stored.lastSeenSequence,
     );
     final controller = DiagnosticsController._(
       persistence: resolvedPersistence,
@@ -539,9 +526,7 @@ final class DiagnosticsController
       timerFactory: timerFactory ?? Timer.new,
       sessionId: sessionId ?? _newSessionId(resolvedClock()),
       durablePersistenceUnavailable: durablePersistenceUnavailable,
-      initialSequence: maxSequence,
-      lastSeenSequence: stored.lastSeenSequence,
-      events: stored.events,
+      journal: journal,
     );
     controller._initializePreviousSession();
     controller._recordSessionStart();
@@ -642,21 +627,12 @@ final class DiagnosticsController
       _setPanelState(panelState.copyWith(selectedEventId: eventId));
 
   void markSeen() {
-    // Ascending by sequence, so the newest error is the last one in the list.
-    var latestErrorSequence = _lastSeenSequence;
-    for (var index = _events.length - 1; index >= 0; index -= 1) {
-      final event = _events[index];
-      if (event.sequence <= latestErrorSequence) break;
-      if (event.isError) {
-        latestErrorSequence = event.sequence;
-        break;
-      }
-    }
-    if (latestErrorSequence == _lastSeenSequence && _unseenErrorCount == 0) {
+    final previousSequence = _journal.lastSeenSequence;
+    final previousUnseenCount = _journal.unseenErrorCount;
+    final latestErrorSequence = _journal.markErrorsSeen();
+    if (latestErrorSequence == previousSequence && previousUnseenCount == 0) {
       return;
     }
-    _lastSeenSequence = latestErrorSequence;
-    _unseenErrorCount = 0;
     _unseenErrorCountNotifier.value = 0;
     _queuePersistence(
       () => _persistence.writeLastSeenSequence(latestErrorSequence),
@@ -836,12 +812,7 @@ final class DiagnosticsController
         errorMessage: update.errorMessage,
         stackTrace: update.stackTrace,
       );
-      _record(
-        event,
-        generation: generation,
-        persistImmediately: event.isError,
-        reuseExistingBytes: update.phase == HttpDiagnosticPhase.responseHeaders,
-      );
+      _record(event, generation: generation, persistImmediately: event.isError);
       if (state != DiagnosticHttpState.pending) {
         _httpGenerations.remove(update.eventId);
       }
@@ -914,14 +885,8 @@ final class DiagnosticsController
     // memory-only warning rather than leaving the panel deceptively empty.
     _persistenceFailed = false;
     _resetErrorDeduplication();
-    _events.clear();
-    _byId.clear();
-    _totalEventBytes = 0;
-    _unseenErrorCount = 0;
-    _oldestTimestamp = null;
-    _oldestTimestampKnown = true;
+    _journal.clear(lastSeenSequence: _sequence);
     _frozenEvents = panelState.frozen ? const [] : null;
-    _lastSeenSequence = _sequence;
     _eventsNotifier.invalidate();
     _unseenErrorCountNotifier.value = 0;
     selectEvent(null);
@@ -938,7 +903,7 @@ final class DiagnosticsController
 
   Future<void> flush() async {
     _flushPendingWrites();
-    await _persistenceTail;
+    await _persistenceOperations.done;
   }
 
   Future<void> close() {
@@ -1018,8 +983,8 @@ final class DiagnosticsController
 
   void _initializePreviousSession() {
     final now = _clock().toUtc();
-    for (var index = 0; index < _events.length; index += 1) {
-      final event = _events[index];
+    final interruptedEvents = <HttpDiagnosticEvent>[];
+    for (final event in _journal.events) {
       if (event is! HttpDiagnosticEvent ||
           event.state != DiagnosticHttpState.pending ||
           event.sessionId == sessionId) {
@@ -1032,11 +997,12 @@ final class DiagnosticsController
         state: DiagnosticHttpState.interrupted,
         totalDuration: now.difference(event.timestampUtc),
       );
-      _events[index] = interrupted;
+      interruptedEvents.add(interrupted);
+    }
+    for (final interrupted in interruptedEvents) {
+      _journal.put(interrupted);
       _schedulePersist(interrupted);
     }
-    _events.sort((left, right) => left.sequence.compareTo(right.sequence));
-    _reindexEvents();
     _publishEvents(now);
   }
 
@@ -1058,11 +1024,10 @@ final class DiagnosticsController
     DiagnosticEvent event, {
     int? generation,
     bool persistImmediately = false,
-    bool reuseExistingBytes = false,
   }) {
     final eventGeneration = generation ?? _generation;
     if (eventGeneration != _generation || _closed) return;
-    _putEvent(event, reuseExistingBytes: reuseExistingBytes);
+    _putEvent(event);
     _publishEvents(_clock());
     if (_isShowingLiveEvents && event.isError) {
       markSeen();
@@ -1077,27 +1042,18 @@ final class DiagnosticsController
   }
 
   void _publishEvents(DateTime nowUtc) {
-    final cutoff = nowUtc.toUtc().subtract(diagnosticsRetentionAge);
-    // Every recorded event asks whether anything has aged out. Almost always
-    // nothing has, and the oldest timestamp answers that without walking the
-    // history; only once it is past the cutoff is a sweep worth the walk.
-    final oldest = _oldestEventTimestamp();
-    if (oldest != null && !oldest.isAfter(cutoff)) {
-      for (var index = _events.length - 1; index >= 0; index -= 1) {
-        if (!_events[index].timestampUtc.isAfter(cutoff)) {
-          _removeEventAt(index, invalidateHttp: true);
-        }
+    final retention = _journal.retain(nowUtc: nowUtc);
+    for (final removed in retention.evictedEvents) {
+      if (removed is HttpDiagnosticEvent) {
+        // A retained request no longer accepts a later lifecycle phase after
+        // age, count, or size eviction removed its canonical journal row.
+        _httpGenerations.remove(removed.id);
       }
-    }
-    while (_events.length > diagnosticsRetentionCount ||
-        _totalEventBytes > diagnosticsEventBudgetBytes) {
-      if (_events.isEmpty) break;
-      _removeEventAt(0, invalidateHttp: true);
     }
     _pruneFrozenEvents();
     _eventsNotifier.invalidate();
     final selected = panelState.selectedEventId;
-    if (selected != null && !_byId.containsKey(selected)) {
+    if (selected != null && !_journal.containsId(selected)) {
       selectEvent(null);
     }
     _scheduleExpiry(nowUtc);
@@ -1107,15 +1063,15 @@ final class DiagnosticsController
     final frozen = _frozenEvents;
     if (frozen == null) return;
     _frozenEvents = List.unmodifiable(
-      frozen.where((event) => _byId.containsKey(event.id)),
+      frozen.where((event) => _journal.containsId(event.id)),
     );
   }
 
   void _scheduleExpiry(DateTime nowUtc) {
     _expiryTimer?.cancel();
     _expiryTimer = null;
-    if (_closed || _events.isEmpty) return;
-    final oldest = _oldestEventTimestamp();
+    if (_closed || _journal.isEmpty) return;
+    final oldest = _journal.oldestTimestamp;
     if (oldest == null) return;
     final delay = oldest
         .add(diagnosticsRetentionAge)
@@ -1129,11 +1085,11 @@ final class DiagnosticsController
   void _expireHistory() {
     _expiryTimer = null;
     if (_closed) return;
-    final before = _events.length;
+    final before = _journal.length;
     final now = _clock().toUtc();
     _publishEvents(now);
     _updateUnseenCount();
-    if (_events.length != before) {
+    if (_journal.length != before) {
       _queuePersistence(
         () => _persistence.compact(nowUtc: now),
         generation: _generation,
@@ -1142,19 +1098,7 @@ final class DiagnosticsController
   }
 
   void _updateUnseenCount() {
-    _unseenErrorCountNotifier.value = _unseenErrorCount;
-  }
-
-  void _recountUnseenErrors() {
-    var unseen = 0;
-    // Ascending by sequence, so everything unseen is a suffix: walk back from
-    // the newest and stop at the first event the reader has already seen.
-    for (var index = _events.length - 1; index >= 0; index -= 1) {
-      final event = _events[index];
-      if (event.sequence <= _lastSeenSequence) break;
-      if (event.isError) unseen += 1;
-    }
-    _unseenErrorCount = unseen;
+    _unseenErrorCountNotifier.value = _journal.unseenErrorCount;
   }
 
   bool get _isShowingLiveEvents => isPanelOpen && !panelState.frozen;
@@ -1165,124 +1109,11 @@ final class DiagnosticsController
   }
 
   HttpDiagnosticEvent? _eventById(String eventId) {
-    final event = _byId[eventId]?.event;
+    final event = _journal.eventById(eventId);
     return event is HttpDiagnosticEvent ? event : null;
   }
 
-  void _putEvent(DiagnosticEvent event, {bool reuseExistingBytes = false}) {
-    final existing = _byId[event.id];
-    if (existing != null) {
-      final index = _indexOf(existing.event);
-      // The index and the list are written together, so the row is always
-      // there. Diagnostics still must not be the thing that throws: recording
-      // an event is on the path of whatever it is observing.
-      if (index >= 0) {
-        _removeEventAt(index);
-      } else {
-        _forget(existing.event);
-      }
-    }
-    final bytes = reuseExistingBytes && existing != null
-        ? existing.bytes
-        : diagnosticEventSerializedBytes(event);
-    _events.insert(_insertionIndexFor(event.sequence), event);
-    _byId[event.id] = (event: event, bytes: bytes);
-    _totalEventBytes += bytes;
-    if (event.isError && event.sequence > _lastSeenSequence) {
-      _unseenErrorCount += 1;
-    }
-    final oldest = _oldestTimestamp;
-    if (oldest == null || event.timestampUtc.isBefore(oldest)) {
-      _oldestTimestamp = event.timestampUtc;
-    }
-  }
-
-  int _insertionIndexFor(int sequence) {
-    var lower = 0;
-    var upper = _events.length;
-    while (lower < upper) {
-      final middle = lower + ((upper - lower) >> 1);
-      if (_events[middle].sequence <= sequence) {
-        lower = middle + 1;
-      } else {
-        upper = middle;
-      }
-    }
-    return lower;
-  }
-
-  /// Only a replacing update reuses a sequence, so the equal-sequence scan is
-  /// bounded in normal operation.
-  int _indexOf(DiagnosticEvent event) {
-    var lower = 0;
-    var upper = _events.length;
-    while (lower < upper) {
-      final middle = lower + ((upper - lower) >> 1);
-      if (_events[middle].sequence < event.sequence) {
-        lower = middle + 1;
-      } else {
-        upper = middle;
-      }
-    }
-    for (
-      var index = lower;
-      index < _events.length && _events[index].sequence == event.sequence;
-      index += 1
-    ) {
-      if (_events[index].id == event.id) return index;
-    }
-    return _events.indexWhere((item) => item.id == event.id);
-  }
-
-  void _removeEventAt(int index, {bool invalidateHttp = false}) {
-    final removed = _events.removeAt(index);
-    if (invalidateHttp && removed is HttpDiagnosticEvent) {
-      // A hard retention eviction is also the end of this recorder's interest
-      // in the transaction. Otherwise an old pending request could finish
-      // later and recreate itself after TTL/count/size eviction.
-      _httpGenerations.remove(removed.id);
-    }
-    _forget(removed);
-  }
-
-  void _forget(DiagnosticEvent removed) {
-    final retained = _byId.remove(removed.id);
-    if (retained != null) _totalEventBytes -= retained.bytes;
-    if (removed.isError && removed.sequence > _lastSeenSequence) {
-      _unseenErrorCount -= 1;
-    }
-    if (_oldestTimestamp == removed.timestampUtc) _oldestTimestampKnown = false;
-  }
-
-  DateTime? _oldestEventTimestamp() {
-    if (_oldestTimestampKnown) return _oldestTimestamp;
-    DateTime? oldest;
-    for (final event in _events) {
-      if (oldest == null || event.timestampUtc.isBefore(oldest)) {
-        oldest = event.timestampUtc;
-      }
-    }
-    _oldestTimestamp = oldest;
-    _oldestTimestampKnown = true;
-    return oldest;
-  }
-
-  void _reindexEvents() {
-    _byId.clear();
-    _totalEventBytes = 0;
-    DateTime? oldest;
-    for (final event in _events) {
-      final bytes = diagnosticEventSerializedBytes(event);
-      _byId[event.id] = (event: event, bytes: bytes);
-      _totalEventBytes += bytes;
-      if (oldest == null || event.timestampUtc.isBefore(oldest)) {
-        oldest = event.timestampUtc;
-      }
-    }
-    _oldestTimestamp = oldest;
-    _oldestTimestampKnown = true;
-    _recountUnseenErrors();
-  }
+  void _putEvent(DiagnosticEvent event) => _journal.put(event);
 
   int _nextSequence() => ++_sequence;
 
@@ -1372,16 +1203,18 @@ final class DiagnosticsController
     Future<void> Function() operation, {
     required int generation,
   }) {
-    _persistenceTail = _persistenceTail.then((_) async {
-      if (generation != _generation) return;
-      try {
-        await operation();
-      } on Object catch (error, stackTrace) {
-        if (generation == _generation) {
-          _recordPersistenceFailure(error, stackTrace);
+    unawaited(
+      _persistenceOperations.run(() async {
+        if (generation != _generation) return;
+        try {
+          await operation();
+        } on Object catch (error, stackTrace) {
+          if (generation == _generation) {
+            _recordPersistenceFailure(error, stackTrace);
+          }
         }
-      }
-    });
+      }),
+    );
   }
 
   void _recordPersistenceFailure(Object error, StackTrace stackTrace) {

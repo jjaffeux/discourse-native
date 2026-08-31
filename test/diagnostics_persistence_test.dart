@@ -160,6 +160,92 @@ void main() {
     });
   });
 
+  group('journal adapter contract', () {
+    test(
+      'memory and file decoding produce the same replacement, order, sizes, and last-seen state',
+      () async {
+        final memory = MemoryDiagnosticsPersistence();
+        final disk = FileDiagnosticsPersistence(file);
+        addTearDown(memory.close);
+        addTearDown(disk.close);
+        final stale = _error('stale', 0, now.subtract(diagnosticsRetentionAge));
+        final pending = _request(
+          id: 'request',
+          sequence: 5,
+          at: now,
+          state: DiagnosticHttpState.pending,
+        );
+        final completed = pending.copyWith(
+          sequence: 2,
+          updatedAtUtc: now.add(const Duration(seconds: 1)),
+          state: DiagnosticHttpState.completed,
+          statusCode: 204,
+        );
+        final batches = [
+          [_error('z', 3, now), _error('a', 3, now), pending, stale],
+          [completed],
+        ];
+
+        for (final persistence in <DiagnosticsPersistence>[memory, disk]) {
+          for (final batch in batches) {
+            await persistence.appendEvents(batch, nowUtc: now);
+          }
+          final firstSeen = persistence.writeLastSeenSequence(5);
+          final lastSeen = persistence.writeLastSeenSequence(2);
+          await Future.wait([firstSeen, lastSeen]);
+        }
+        await disk.close();
+
+        final memoryState = await memory.load(nowUtc: now);
+        final decodedState = await FileDiagnosticsPersistence(
+          file,
+        ).load(nowUtc: now);
+
+        expect(decodedState.events.map((event) => event.id), [
+          'request',
+          'a',
+          'z',
+        ]);
+        expect(
+          decodedState.events.map((event) => event.toJson()),
+          memoryState.events.map((event) => event.toJson()),
+        );
+        expect(
+          decodedState.serializedEventBytes,
+          memoryState.serializedEventBytes,
+        );
+        expect(decodedState.lastSeenSequence, 2);
+        expect(decodedState.lastSeenSequence, memoryState.lastSeenSequence);
+      },
+    );
+
+    test(
+      'a failed file write does not poison the next accepted write',
+      () async {
+        await Directory(file.path).create(recursive: true);
+        final persistence = FileDiagnosticsPersistence(file);
+
+        await expectLater(
+          persistence.appendEvents([
+            _error('failed-write', 1, now),
+          ], nowUtc: now),
+          throwsA(isA<FileSystemException>()),
+        );
+        await Directory(file.path).delete();
+
+        await persistence.appendEvents([
+          _error('recovered-write', 2, now),
+        ], nowUtc: now);
+        await persistence.close();
+
+        final reloaded = await FileDiagnosticsPersistence(
+          file,
+        ).load(nowUtc: now);
+        expect(reloaded.events.map((event) => event.id), ['recovered-write']);
+      },
+    );
+  });
+
   group('compaction', () {
     test('atomically removes expired records from disk', () async {
       final persistence = FileDiagnosticsPersistence(file);
