@@ -1954,6 +1954,14 @@ class ShellController extends FrameSafeNotifier
       ? newTopicCount + newReplyCount
       : newTopicCount;
 
+  TopicListMode get defaultTopTopicListMode {
+    final siteUrl = currentInstance?.url;
+    final period = siteUrl == null
+        ? TopPeriod.yearly
+        : TopPeriod.fromQueryValue(siteConfigFor(siteUrl).topPageDefaultPeriod);
+    return TopicListMode.top(period);
+  }
+
   bool get canCreateTopicHere {
     if (currentContent?.isTopic != false ||
         currentContent?.isPreferences == true ||

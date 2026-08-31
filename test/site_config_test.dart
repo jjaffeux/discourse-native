@@ -49,6 +49,7 @@ Map<String, dynamic> settings({
   bool? fixedCategoryPositions,
   bool? allowUncategorizedTopics,
   Object? defaultNavigationMenuCategories,
+  String? topPageDefaultPeriod,
   bool? badgesEnabled,
   bool? allowUsernameInShareLinks,
   Object? readTimeWordCount,
@@ -94,6 +95,7 @@ Map<String, dynamic> settings({
   'fixed_category_positions': ?fixedCategoryPositions,
   'allow_uncategorized_topics': ?allowUncategorizedTopics,
   'default_navigation_menu_categories': ?defaultNavigationMenuCategories,
+  'top_page_default_timeframe': ?topPageDefaultPeriod,
   'enable_badges': ?badgesEnabled,
   'allow_username_in_share_links': ?allowUsernameInShareLinks,
   'read_time_word_count': ?readTimeWordCount,
@@ -139,6 +141,24 @@ void main() {
       expect(
         disabled.withPlugins(disabled.plugins).enableAutoGridImages,
         isFalse,
+      );
+    });
+
+    test('reads, validates, and preserves the Top page default period', () {
+      final monthly = SiteConfig.fromSettings(
+        settings(topPageDefaultPeriod: 'monthly'),
+      );
+
+      expect(monthly.topPageDefaultPeriod, 'monthly');
+      expect(
+        SiteConfig.fromJson(monthly.toJson()).topPageDefaultPeriod,
+        'monthly',
+      );
+      expect(
+        SiteConfig.fromSettings(
+          settings(topPageDefaultPeriod: 'invalid'),
+        ).topPageDefaultPeriod,
+        SiteConfig.defaultTopPagePeriod,
       );
     });
 
