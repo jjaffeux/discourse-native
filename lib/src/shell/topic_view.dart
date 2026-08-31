@@ -3090,13 +3090,6 @@ class _TopicSidebarPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _TopicSidebarActions(
-              siteUrl: siteUrl,
-              topic: topic,
-              canReply: canReply,
-              registry: registry,
-              onCollapsed: onCollapsed,
-            ),
             Expanded(
               child: SingleChildScrollView(
                 key: const ValueKey('topic-sidebar-scroll-view'),
@@ -3104,6 +3097,13 @@ class _TopicSidebarPanel extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    _TopicSidebarActions(
+                      siteUrl: siteUrl,
+                      topic: topic,
+                      canReply: canReply,
+                      registry: registry,
+                      onCollapsed: onCollapsed,
+                    ),
                     if (topic case final topic? when siteUrl != null) ...[
                       const SizedBox(height: 12),
                       _TopicPropertiesCard(

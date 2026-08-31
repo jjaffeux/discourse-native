@@ -5889,7 +5889,7 @@ void main() {
         );
         expect(
           find.descendant(of: sidebarScroll, matching: replyButton),
-          findsNothing,
+          findsOneWidget,
         );
         expect(
           tester.getRect(find.byType(SuperListView)).right,
@@ -6053,7 +6053,7 @@ void main() {
     });
 
     testWidgets(
-      'scrolls the maximum assignment card below fixed sidebar actions',
+      'scrolls the maximum assignment card together with sidebar actions',
       (tester) async {
         final plugins = PluginData.none.withValue(
           assignmentsDataKey,
@@ -6129,6 +6129,11 @@ void main() {
         final postPixels = postPosition.pixels;
 
         expect(sidebarPosition.maxScrollExtent, greaterThan(0));
+        expect(
+          find.descendant(of: sidebarScroll, matching: reply),
+          findsOneWidget,
+        );
+        expect(reply.hitTestable(), findsOneWidget);
         expect(moreTopics.hitTestable(), findsNothing);
 
         await tester.drag(sidebarScroll, const Offset(0, -5000));
@@ -6136,7 +6141,8 @@ void main() {
 
         expect(sidebarPosition.pixels, greaterThan(0));
         expect(moreTopics.hitTestable(), findsOneWidget);
-        expect(tester.getRect(reply), replyRect);
+        expect(reply.hitTestable(), findsNothing);
+        expect(tester.getRect(reply).top, lessThan(replyRect.top));
         expect(postPosition.pixels, postPixels);
         expect(tester.takeException(), isNull);
       },
@@ -6564,7 +6570,7 @@ void main() {
           expect(
             find.descendant(
               of: categoryProperty,
-              matching: find.text('Support docs'),
+              matching: find.text('Support > Support docs'),
             ),
             findsOneWidget,
           );
