@@ -9948,8 +9948,14 @@ class ShellController extends FrameSafeNotifier
         case AccountSessionPhase.connected:
           _resetToInstanceDefault(refreshAppearance: false);
           unawaited(_presentation.refreshAppearance(replacement.url));
-        case AccountSessionPhase.disconnecting ||
-            AccountSessionPhase.rolledBack:
+        case AccountSessionPhase.disconnecting:
+          // The coordinator has published the durable signed-out boundary but
+          // still owns credential revocation and deletion. Starting anonymous
+          // presentation work here would race that teardown and read the same
+          // credential again. The final disconnected phase rebuilds and
+          // hydrates the public workspace once secret storage has settled.
+          break;
+        case AccountSessionPhase.rolledBack:
           _resetToInstanceDefault(refreshAppearance: false);
         case AccountSessionPhase.disconnected || AccountSessionPhase.restored:
           _resetToInstanceDefault();

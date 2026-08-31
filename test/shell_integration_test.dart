@@ -3548,7 +3548,9 @@ void main() {
       expect(railItem('team.discourse.org'), findsOneWidget);
       expect(find.text('Discourse Team'), findsOneWidget);
       expect(auth.disconnected, ['https://meta.discourse.org']);
-      expect(store.saveCount, 1);
+      // Persist the signed-out boundary before deleting credentials, then
+      // persist the rail removal. Both writes are part of the transaction.
+      expect(store.saveCount, 2);
     });
 
     testWidgets('a keychain that refuses cannot hold the site in the rail', (
@@ -3574,7 +3576,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(meta, findsNothing);
-      expect(store.saveCount, 1);
+      // A failed keychain deletion cannot roll the durable signed-out boundary
+      // or the subsequent rail removal back into the next launch.
+      expect(store.saveCount, 2);
     });
 
     testWidgets('removing the last site leaves the empty state', (
