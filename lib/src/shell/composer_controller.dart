@@ -297,6 +297,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   ComposerController(
     this._target, {
     this.onSaveDraft,
+    this.onStageDraft,
     ComposerSearch? search,
     this.onEmojiAccepted,
     String Function(String name)? resolveEmoji,
@@ -370,6 +371,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   };
 
   final Future<int?> Function(ComposerDraftSave save)? onSaveDraft;
+  final Future<void> Function(ComposerDraftSave save)? onStageDraft;
 
   final ComposerImageUploader? imageUploader;
   final bool Function(String filename)? canUploadImage;
@@ -435,6 +437,82 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       title.text.trim() != _originalTitle.trim() ||
       _categoryId != _originalCategoryId ||
       !listEquals(_tags, _originalTags);
+
+  /// Core treats whitespace-only differences as unchanged when deciding
+  /// whether Discard needs confirmation.
+  bool get hasChanges =>
+      text.text.trim() != (_originalRaw ?? '').trim() ||
+      ((_target.createsTopic || _target.editsTopicMetadata) &&
+          title.text.trim() != _originalTitle.trim());
+
+  bool get canSaveDraft => onSaveDraft != null;
+
+  int get draftRevision => _draftRevision;
+
+  bool _hasUnappliedDraft = false;
+  bool get hasUnappliedDraft => _hasUnappliedDraft;
+  bool _unappliedDraftOverwritten = false;
+  bool get unappliedDraftOverwritten => _unappliedDraftOverwritten;
+  ComposerDraft? _unappliedDraft;
+  ComposerDraft? get unappliedDraft => _unappliedDraft;
+  bool _unappliedDraftWasLocal = false;
+  bool get unappliedDraftWasLocal => _unappliedDraftWasLocal;
+  bool get protectsUnappliedDraft =>
+      _hasUnappliedDraft && !_unappliedDraftOverwritten;
+
+  void protectUnappliedDraft(ComposerDraft draft, {required bool wasLocal}) {
+    if (_disposed) return;
+    _hasUnappliedDraft = true;
+    _unappliedDraft = draft;
+    _unappliedDraftWasLocal = wasLocal;
+  }
+
+  void unappliedDraftWasOverwritten() {
+    if (_disposed || !_hasUnappliedDraft) return;
+    _unappliedDraftOverwritten = true;
+  }
+
+  bool canRestoreDraft(ComposerDraft draft) =>
+      !_disposed &&
+      (!_target.isPrivateMessage ||
+          (draft.archetypeId == ComposerDraft.privateMessageArchetype &&
+              draft.recipients?.trim() == _target.targetRecipients?.trim()));
+
+  bool _discarding = false;
+  bool get discarding => _discarding;
+
+  bool _discardPromptOpen = false;
+
+  bool beginDiscardPrompt() {
+    if (_disposed || _discarding || _discardPromptOpen) return false;
+    _discardPromptOpen = true;
+    return true;
+  }
+
+  void finishDiscardPrompt() {
+    _discardPromptOpen = false;
+  }
+
+  int? beginDiscard() {
+    if (_disposed ||
+        _discarding ||
+        (_state != ComposerState.editing &&
+            _state != ComposerState.unresolved)) {
+      return null;
+    }
+    _discarding = true;
+    _notify();
+    return _draftRevision;
+  }
+
+  bool discardRevisionIsCurrent(int revision) =>
+      !_disposed && revision == _draftRevision;
+
+  void finishDiscard() {
+    if (_disposed || !_discarding) return;
+    _discarding = false;
+    _notify();
+  }
 
   String? get taxonomyValidationMessage => _tags.length < _minimumRequiredTags
       ? 'Choose at least $_minimumRequiredTags tags for this category.'
@@ -1837,13 +1915,11 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     composerTime: openDuration,
   );
 
-  void restore(ComposerDraft draft) {
-    if (_disposed || text.text.isNotEmpty || title.text.isNotEmpty) return;
-    if (_target.isPrivateMessage &&
-        (draft.archetypeId != ComposerDraft.privateMessageArchetype ||
-            draft.recipients?.trim() != _target.targetRecipients?.trim())) {
-      return;
+  bool restore(ComposerDraft draft) {
+    if (_disposed || text.text.isNotEmpty || title.text.isNotEmpty) {
+      return false;
     }
+    if (!canRestoreDraft(draft)) return false;
     _replaceDocument(
       TextEditingValue(
         text: draft.reply,
@@ -1861,6 +1937,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _draftStatus = DraftStatus.clean;
     _localDraftFailed = false;
     _notify();
+    return true;
   }
 
   void draftSettled() {
@@ -1886,6 +1963,13 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       await _enqueueDraft();
       return;
     }
+    final running = _draftSaveTask;
+    if (running != null) await running;
+  }
+
+  Future<void> finishInFlightDraftSaveForDiscard() async {
+    _draftTimer?.cancel();
+    _queuedDraft = null;
     final running = _draftSaveTask;
     if (running != null) await running;
   }
@@ -1920,9 +2004,29 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     );
 
     final running = _draftSaveTask;
-    if (running != null) return running;
+    if (running != null) {
+      final stage = onStageDraft;
+      final pending = _queuedDraft;
+      if (stage != null && pending != null) {
+        unawaited(_stageDraft(stage, pending));
+      }
+      return running;
+    }
 
     return _draftSaveTask = _drainDrafts(save);
+  }
+
+  Future<void> _stageDraft(
+    Future<void> Function(ComposerDraftSave save) stage,
+    _PendingDraft pending,
+  ) async {
+    try {
+      await stage(_draftSaveRequest(pending));
+    } catch (_) {
+      // The regular save path retries the same local write and owns the
+      // visible failure state. This eager write exists only so a newer queued
+      // revision is durable while an older remote request is blocked.
+    }
   }
 
   Future<void> _drainDrafts(
@@ -1944,13 +2048,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     Future<int?> Function(ComposerDraftSave save) save,
     _PendingDraft pending,
   ) async {
-    final request = ComposerDraftSave(
-      target: pending.target,
-      draft: pending.draft,
-      sequence: draftSequence,
-      localOnly: _draftsGaveUp,
-      isCurrent: () => pending.revision == _draftRevision,
-    );
+    final request = _draftSaveRequest(pending);
 
     if (request.localOnly) {
       // The site is not being asked again, but the local copy is still
@@ -2016,11 +2114,21 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
+  ComposerDraftSave _draftSaveRequest(_PendingDraft pending) =>
+      ComposerDraftSave(
+        target: pending.target,
+        draft: pending.draft,
+        sequence: draftSequence,
+        localOnly: _draftsGaveUp,
+        isCurrent: () => pending.revision == _draftRevision,
+      );
+
   void retarget({
     int? replyToPostNumber,
     String? replyToUsername,
     bool replyingToWhisper = false,
   }) {
+    if (_disposed || _discarding) return;
     _target = _target.replyingTo(
       replyToPostNumber,
       replyToUsername,

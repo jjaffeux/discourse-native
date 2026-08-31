@@ -38,6 +38,29 @@ final class DraftListController extends FrameSafeNotifier {
   bool deleting(String siteUrl, String draftKey) =>
       _deletions.containsKey((siteUrl: siteUrl, draftKey: draftKey));
 
+  /// Mirrors core's `draft:destroyed` cache propagation for drafts removed
+  /// from outside this controller (for example, from the composer).
+  void recordDeleted(
+    String siteUrl,
+    String draftKey, {
+    bool knownToExist = false,
+  }) {
+    if (isDisposed) return;
+    if (_requests.containsKey(siteUrl)) {
+      (_deletedWhileLoading[siteUrl] ??= {}).add(draftKey);
+    }
+    _feeds[siteUrl] = feedFor(
+      siteUrl,
+    ).without(draftKey, knownToExist: knownToExist);
+    notifySafely();
+  }
+
+  void invalidateTotalCount(String siteUrl) {
+    if (isDisposed || !_feeds.containsKey(siteUrl)) return;
+    _feeds[siteUrl] = feedFor(siteUrl).withoutTotalCount();
+    notifySafely();
+  }
+
   Future<void> load(DiscourseInstance instance, {bool refresh = false}) async {
     if (isDisposed || !instance.isConnected) return;
     final siteUrl = instance.url;
@@ -125,12 +148,7 @@ final class DraftListController extends FrameSafeNotifier {
         sequence: draft.sequence,
       );
       if (!_isCurrentDeletion(lease, identity, request)) return false;
-      if (_requests.containsKey(instance.url)) {
-        // The page in flight predates this delete; its response must not
-        // resurrect the row.
-        (_deletedWhileLoading[instance.url] ??= {}).add(draft.key);
-      }
-      _feeds[instance.url] = feedFor(instance.url).without(draft.key);
+      recordDeleted(instance.url, draft.key, knownToExist: true);
       return true;
     } catch (error, stackTrace) {
       if (_isCurrentDeletion(lease, identity, request)) {

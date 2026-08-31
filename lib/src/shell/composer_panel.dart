@@ -24,6 +24,7 @@ import 'anchored_layout.dart';
 import 'composer_autocomplete.dart';
 import 'composer_clipboard.dart';
 import 'composer_controller.dart';
+import 'composer_discard.dart';
 import 'composer_drop.dart';
 import 'composer_galleries.dart';
 import 'composer_images.dart';
@@ -79,6 +80,13 @@ class ComposerPanel extends StatelessWidget {
         final target = composer.target;
         final error = composer.error;
         final notice = composer.notice;
+        void close() => unawaited(
+          closeComposerFromPanel(
+            context: context,
+            composer: composer,
+            controller: controller,
+          ),
+        );
 
         return Container(
           key: const ValueKey('composer-frame'),
@@ -108,8 +116,7 @@ class ComposerPanel extends StatelessWidget {
                   controller.submitComposer,
               const SingleActivator(LogicalKeyboardKey.enter, control: true):
                   controller.submitComposer,
-              const SingleActivator(LogicalKeyboardKey.escape):
-                  controller.closeComposer,
+              const SingleActivator(LogicalKeyboardKey.escape): close,
               const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () =>
                   composer.toggleMark(ComposerMark.bold),
               const SingleActivator(
@@ -137,128 +144,152 @@ class ComposerPanel extends StatelessWidget {
                 context,
               ).registry.composerShortcuts(context, composer),
             },
-            child: Column(
-              children: [
-                _Header(
-                  composer: composer,
-                  onClose: controller.closeComposer,
-                  onMove: onMove,
-                  onMoveEnd: onMoveEnd,
-                ),
-                if (target.isPrivateMessage)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
-                    child: InputDecorator(
-                      key: const ValueKey(
-                        'composer-private-message-recipients',
-                      ),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        labelText: 'To',
-                      ),
-                      child: Text(target.targetRecipients!),
+            child: FocusScope(
+              canRequestFocus: !composer.discarding,
+              descendantsAreFocusable: !composer.discarding,
+              descendantsAreTraversable: !composer.discarding,
+              child: AbsorbPointer(
+                absorbing: composer.discarding,
+                child: Column(
+                  children: [
+                    _Header(
+                      composer: composer,
+                      onClose: close,
+                      closeTooltip: composer.canSaveDraft
+                          ? 'Save and close'
+                          : 'Close composer',
+                      onMove: onMove,
+                      onMoveEnd: onMoveEnd,
                     ),
-                  ),
-                if (target.createsTopic || target.editsTopicMetadata)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
-                    child: TextField(
-                      controller: composer.title,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        labelText: 'Title',
+                    if (target.isPrivateMessage)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+                        child: InputDecorator(
+                          key: const ValueKey(
+                            'composer-private-message-recipients',
+                          ),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            labelText: 'To',
+                          ),
+                          child: Text(target.targetRecipients!),
+                        ),
                       ),
-                    ),
-                  ),
-                if (target.isNewTopic ||
-                    target.editsTopicMetadata ||
-                    target.isTaxonomyEdit)
-                  _TopicTaxonomy(composer: composer),
-                if (!target.isTaxonomyEdit) ...[
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
-                      child: ComposerEditor(
-                        composer: composer,
-                        pickImages: pickImages,
-                        readClipboardImages: readClipboardImages,
-                        onSuggestionAction:
-                            ({
-                              required context,
-                              required composer,
-                              required suggestion,
-                              anchor,
-                            }) async {
-                              if (suggestion.action !=
-                                  ComposerSuggestionAction.openEmojiPicker) {
-                                return;
-                              }
-                              await openEmojiPickerForTopicComposer(
-                                context: context,
-                                composer: composer,
-                                initialQuery:
-                                    composer.autocomplete.trigger?.query ??
-                                    suggestion.value,
-                                anchor: anchor,
-                              );
+                    if (target.createsTopic || target.editsTopicMetadata)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+                        child: TextField(
+                          controller: composer.title,
+                          readOnly: composer.discarding,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            labelText: 'Title',
+                          ),
+                        ),
+                      ),
+                    if (target.isNewTopic ||
+                        target.editsTopicMetadata ||
+                        target.isTaxonomyEdit)
+                      _TopicTaxonomy(composer: composer),
+                    if (!target.isTaxonomyEdit) ...[
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+                          child: ComposerEditor(
+                            composer: composer,
+                            pickImages: pickImages,
+                            readClipboardImages: readClipboardImages,
+                            onSuggestionAction:
+                                ({
+                                  required context,
+                                  required composer,
+                                  required suggestion,
+                                  anchor,
+                                }) async {
+                                  if (suggestion.action !=
+                                      ComposerSuggestionAction
+                                          .openEmojiPicker) {
+                                    return;
+                                  }
+                                  await openEmojiPickerForTopicComposer(
+                                    context: context,
+                                    composer: composer,
+                                    initialQuery:
+                                        composer.autocomplete.trigger?.query ??
+                                        suggestion.value,
+                                    anchor: anchor,
+                                  );
+                                },
+                            hintText: switch (target) {
+                              _ when composer.loadingBody =>
+                                'Loading that post…',
+                              _ when target.isPrivateMessage =>
+                                'Write your message…',
+                              _ when target.isNewTopic => 'Write your topic…',
+                              _ when target.isEdit => 'Edit this post…',
+                              _ when target.replyToUsername != null =>
+                                'Reply to @${target.replyToUsername}…',
+                              _ => 'Write a reply…',
                             },
-                        hintText: switch (target) {
-                          _ when composer.loadingBody => 'Loading that post…',
-                          _ when target.isPrivateMessage =>
-                            'Write your message…',
-                          _ when target.isNewTopic => 'Write your topic…',
-                          _ when target.isEdit => 'Edit this post…',
-                          _ when target.replyToUsername != null =>
-                            'Reply to @${target.replyToUsername}…',
-                          _ => 'Write a reply…',
-                        },
-                        textStyle: theme.textTheme.bodyMedium,
-                        hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                            textStyle: theme.textTheme.bodyMedium,
+                            hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ] else
+                      const Spacer(),
+                    if (composer.uploads.isNotEmpty)
+                      ComposerUploadQueue(composer: composer),
+                    _Footer(
+                      composer: composer,
+                      pickImages: pickImages,
+                      message:
+                          error?.message ??
+                          notice ??
+                          composer.taxonomyValidationMessage ??
+                          (composer.localDraftFailed
+                              ? "Couldn't save this draft on this device."
+                              : composer.draftStatus == DraftStatus.failing ||
+                                    composer.draftsGaveUp
+                              ? 'Not saved on the site — kept on this device only.'
+                              : null),
+                      isError:
+                          error != null ||
+                          composer.localDraftFailed ||
+                          composer.taxonomyValidationMessage != null,
+                      busy:
+                          composer.discarding ||
+                          composer.submitting ||
+                          composer.state == ComposerState.checking ||
+                          composer.loadingBody,
+                      label: switch (composer) {
+                        _ when composer.canRecheck => 'Check again',
+                        _ when target.isEdit => 'Save',
+                        _ when target.isPrivateMessage => 'Send message',
+                        _ when target.isNewTopic => 'Create topic',
+                        _ => 'Reply',
+                      },
+                      onSubmit: switch (composer) {
+                        _ when composer.canRecheck =>
+                          controller.recheckComposer,
+                        _ when composer.canSubmit => controller.submitComposer,
+                        _ => null,
+                      },
+                      discardLabel: target.isEdit ? 'Cancel edit' : 'Discard',
+                      onDiscard: () => unawaited(
+                        requestComposerDiscard(
+                          context: context,
+                          composer: composer,
+                          controller: controller,
                         ),
                       ),
                     ),
-                  ),
-                ] else
-                  const Spacer(),
-                if (composer.uploads.isNotEmpty)
-                  ComposerUploadQueue(composer: composer),
-                _Footer(
-                  composer: composer,
-                  pickImages: pickImages,
-                  message:
-                      error?.message ??
-                      notice ??
-                      composer.taxonomyValidationMessage ??
-                      (composer.localDraftFailed
-                          ? "Couldn't save this draft on this device."
-                          : composer.draftStatus == DraftStatus.failing ||
-                                composer.draftsGaveUp
-                          ? 'Not saved on the site — kept on this device only.'
-                          : null),
-                  isError:
-                      error != null ||
-                      composer.localDraftFailed ||
-                      composer.taxonomyValidationMessage != null,
-                  busy:
-                      composer.submitting ||
-                      composer.state == ComposerState.checking ||
-                      composer.loadingBody,
-                  label: switch (composer) {
-                    _ when composer.canRecheck => 'Check again',
-                    _ when target.isEdit => 'Save',
-                    _ when target.isPrivateMessage => 'Send message',
-                    _ when target.isNewTopic => 'Create topic',
-                    _ => 'Reply',
-                  },
-                  onSubmit: switch (composer) {
-                    _ when composer.canRecheck => controller.recheckComposer,
-                    _ when composer.canSubmit => controller.submitComposer,
-                    _ => null,
-                  },
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         );
@@ -1306,6 +1337,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                   // back into a reply that has already been sent.
                   key: ValueKey(widget.composer.fieldGeneration),
                   controller: widget.composer.text,
+                  readOnly: widget.composer.discarding,
                   scrollController: _scroll,
                   focusNode: widget.composer.focus,
                   autofocus: widget.autofocus,
@@ -2906,12 +2938,14 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.composer,
     required this.onClose,
+    required this.closeTooltip,
     this.onMove,
     this.onMoveEnd,
   });
 
   final ComposerController composer;
   final VoidCallback onClose;
+  final String closeTooltip;
   final ValueChanged<Offset>? onMove;
   final VoidCallback? onMoveEnd;
 
@@ -3054,7 +3088,7 @@ class _Header extends StatelessWidget {
             IconButton(
               onPressed: onClose,
               icon: const DIcon(DIcons.xmark, size: 18),
-              tooltip: 'Close composer',
+              tooltip: closeTooltip,
             ),
           ],
         ),
@@ -3400,6 +3434,8 @@ class _Footer extends StatelessWidget {
     required this.busy,
     required this.label,
     required this.onSubmit,
+    required this.discardLabel,
+    required this.onDiscard,
   });
 
   final ComposerController composer;
@@ -3409,6 +3445,8 @@ class _Footer extends StatelessWidget {
   final bool busy;
   final String label;
   final VoidCallback? onSubmit;
+  final String discardLabel;
+  final VoidCallback onDiscard;
 
   static const double _stackedBreakpoint = 400;
 
@@ -3442,11 +3480,29 @@ class _Footer extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final toolbar = _Toolbar(composer: composer, pickImages: pickImages);
-          final statusAndSubmit = Row(
+          final statusAndSubmit = Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: status),
-              const SizedBox(width: 8),
-              submit,
+              if (message != null) ...[status, const SizedBox(height: 4)],
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    DButton(
+                      key: const ValueKey('composer-discard'),
+                      label: Text(discardLabel),
+                      onPressed: busy ? null : onDiscard,
+                      variant: DButtonVariant.transparent,
+                    ),
+                    submit,
+                  ],
+                ),
+              ),
             ],
           );
           final stacked =

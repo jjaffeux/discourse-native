@@ -445,6 +445,10 @@ final class _MemoryDraftStore implements DraftStore {
       _drafts[_key(siteUrl, draftKey)];
 
   @override
+  Future<DraftStoreRead> readChecked(String siteUrl, String draftKey) async =>
+      (value: await read(siteUrl, draftKey), succeeded: true);
+
+  @override
   Future<void> write(
     String siteUrl,
     String draftKey,
@@ -463,6 +467,17 @@ final class _MemoryDraftStore implements DraftStore {
   }) async {
     if (ifCurrent?.call() == false) return;
     _drafts.remove(_key(siteUrl, draftKey));
+  }
+
+  @override
+  Future<bool> clearChecked(
+    String siteUrl,
+    String draftKey, {
+    bool Function()? ifCurrent,
+  }) async {
+    if (ifCurrent?.call() == false) return false;
+    _drafts.remove(_key(siteUrl, draftKey));
+    return true;
   }
 
   @override

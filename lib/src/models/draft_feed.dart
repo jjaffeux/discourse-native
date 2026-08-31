@@ -58,16 +58,20 @@ class DraftFeed {
     );
   }
 
-  DraftFeed without(String key) {
+  DraftFeed without(String key, {bool knownToExist = false}) {
+    final contained = drafts.any((draft) => draft.key == key);
     final updated = List<UserDraft>.unmodifiable(
       drafts.where((draft) => draft.key != key),
     );
+    final decrement = contained || knownToExist;
     return DraftFeed(
       drafts: updated,
       loaded: loaded,
       hasMore: hasMore,
       totalCount: totalCount == null
           ? null
+          : !decrement
+          ? totalCount
           : (totalCount! - 1).clamp(0, totalCount!),
     );
   }
@@ -78,5 +82,13 @@ class DraftFeed {
     hasMore: hasMore,
     totalCount: totalCount,
     error: message,
+  );
+
+  DraftFeed withoutTotalCount() => DraftFeed(
+    drafts: drafts,
+    loading: loading,
+    loaded: loaded,
+    hasMore: hasMore,
+    error: error,
   );
 }

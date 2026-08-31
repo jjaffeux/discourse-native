@@ -11,6 +11,7 @@ import 'private_storage.dart';
 import 'store_diagnostics.dart';
 
 typedef DraftPersistenceRead = ({String? value, bool allowPreferenceFallback});
+typedef DraftStoreRead = ({String? value, bool succeeded});
 
 const int _draftFileFormatVersion = 1;
 
@@ -239,10 +240,13 @@ class DraftStore {
   static String _key(String siteUrl, String draftKey) =>
       '$_prefix$siteUrl::$draftKey';
 
-  Future<String?> read(String siteUrl, String draftKey) =>
+  Future<String?> read(String siteUrl, String draftKey) async =>
+      (await readChecked(siteUrl, draftKey)).value;
+
+  Future<DraftStoreRead> readChecked(String siteUrl, String draftKey) =>
       _serialize(siteUrl, () => _read(siteUrl, draftKey));
 
-  Future<String?> _read(String siteUrl, String draftKey) async {
+  Future<DraftStoreRead> _read(String siteUrl, String draftKey) async {
     final key = _key(siteUrl, draftKey);
 
     final DraftPersistenceRead stored;
@@ -253,21 +257,25 @@ class DraftStore {
       // A failed read means durable key/site blockers are also unknown. Fail
       // closed: a preference value could belong to an account that was cleared
       // while this backend was healthy. Leave it untouched for a later retry.
-      return null;
+      return (value: null, succeeded: false);
     }
 
     if (stored.value case final value?) {
       await _removeLegacy(key);
-      return value;
+      return (value: value, succeeded: true);
     }
     if (!stored.allowPreferenceFallback) {
       await _removeLegacy(key);
-      return null;
+      return (value: null, succeeded: true);
     }
 
-    final prefs = await _preferences();
+    final preferences = await _preferencesChecked();
+    if (!preferences.succeeded) {
+      return (value: null, succeeded: false);
+    }
+    final prefs = preferences.value;
     final legacy = prefs?.getString(key);
-    if (legacy == null) return null;
+    if (legacy == null) return (value: null, succeeded: true);
 
     try {
       await _persistence.write(key, legacy);
@@ -275,7 +283,7 @@ class DraftStore {
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'draft.migrateLegacy');
     }
-    return legacy;
+    return (value: legacy, succeeded: true);
   }
 
   Future<void> write(
@@ -320,30 +328,43 @@ class DraftStore {
     String siteUrl,
     String draftKey, {
     bool Function()? ifCurrent,
+  }) async {
+    await clearChecked(siteUrl, draftKey, ifCurrent: ifCurrent);
+  }
+
+  Future<bool> clearChecked(
+    String siteUrl,
+    String draftKey, {
+    bool Function()? ifCurrent,
   }) => _serialize(
     siteUrl,
     () => _clear(siteUrl, draftKey, ifCurrent: ifCurrent),
   );
 
-  Future<void> _clear(
+  Future<bool> _clear(
     String siteUrl,
     String draftKey, {
     bool Function()? ifCurrent,
   }) async {
     final key = _key(siteUrl, draftKey);
-    final prefs = await _preferences();
-    if (ifCurrent != null && !ifCurrent()) return;
+    final preferences = await _preferencesChecked();
+    final prefs = preferences.value;
+    if (ifCurrent != null && !ifCurrent()) return false;
 
+    var succeeded = preferences.succeeded;
     try {
       await _persistence.delete(key);
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'draft.clearSecure');
+      succeeded = false;
     }
     try {
       await prefs?.remove(key);
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'draft.clearLegacy');
+      succeeded = false;
     }
+    return succeeded;
   }
 
   Future<void> clearSite(String siteUrl, {bool Function()? ifCurrent}) =>
@@ -375,11 +396,16 @@ class DraftStore {
   }
 
   Future<SharedPreferences?> _preferences() async {
+    return (await _preferencesChecked()).value;
+  }
+
+  Future<({SharedPreferences? value, bool succeeded})>
+  _preferencesChecked() async {
     try {
-      return await SharedPreferences.getInstance();
+      return (value: await SharedPreferences.getInstance(), succeeded: true);
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'draft.openPreferences');
-      return null;
+      return (value: null, succeeded: false);
     }
   }
 
