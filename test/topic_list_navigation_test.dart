@@ -232,6 +232,42 @@ void main() {
     expect(find.byKey(const ValueKey('topic-list-new-all')), findsNothing);
   });
 
+  testWidgets('primary discovery tabs fill the row and align labels left', (
+    tester,
+  ) async {
+    final setup = await _controller();
+    addTearDown(setup.controller.dispose);
+
+    tester.view.physicalSize = const Size(800, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ShellScope(
+        controller: setup.controller,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: MainContent(layout: ShellLayout.expanded)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final recent = tester.getRect(
+      find.byKey(const ValueKey('topic-list-latest')),
+    );
+    final popular = tester.getRect(
+      find.byKey(const ValueKey('topic-list-popular')),
+    );
+    final recentLabel = tester.getRect(find.text('Recent'));
+
+    expect(recent.left, 8);
+    expect(popular.right, 792);
+    expect(recent.width, closeTo((800 - 16) / 5, 0.1));
+    expect(recentLabel.left, recent.left + 8);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('wide shell divides the sidebar from main content', (
     tester,
   ) async {
