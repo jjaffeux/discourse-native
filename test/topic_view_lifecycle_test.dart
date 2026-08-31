@@ -22,6 +22,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -278,6 +279,52 @@ void main() {
         await tester.pump(const Duration(milliseconds: 600));
 
         expect(api.topicReadsRecorded.last, (topicId: 1, postNumber: 2));
+      });
+
+      testWidgets('boundary shortcuts jump to the start and end of the topic', (
+        tester,
+      ) async {
+        final site = instance('meta.example');
+        final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+        final controller = _controller(site, api);
+        addTearDown(controller.dispose);
+        await controller.load();
+        _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
+        controller.pushContent(
+          ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+        );
+
+        await tester.pumpWidget(_topicView(controller));
+        await tester.pumpAndSettle();
+
+        final list = tester.widget<SuperListView>(find.byType(SuperListView));
+        final position = list.controller!.position;
+        expect(position.maxScrollExtent, greaterThan(0));
+
+        position.jumpTo(position.maxScrollExtent / 2);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.home), isTrue);
+        await tester.pump();
+        expect(position.pixels, position.minScrollExtent);
+
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.end), isTrue);
+        await tester.pump();
+        await tester.pump();
+        expect(position.pixels, position.maxScrollExtent);
+
+        expect(
+          await _sendMetaShortcut(tester, LogicalKeyboardKey.arrowUp),
+          isTrue,
+        );
+        await tester.pump();
+        expect(position.pixels, position.minScrollExtent);
+
+        expect(
+          await _sendMetaShortcut(tester, LogicalKeyboardKey.arrowDown),
+          isTrue,
+        );
+        await tester.pump();
+        await tester.pump();
+        expect(position.pixels, position.maxScrollExtent);
       });
 
       testWidgets('discards retained extents after around-post replacement', (
@@ -2503,4 +2550,14 @@ void _resumeLifecycle(WidgetTester tester) {
   if (state == AppLifecycleState.inactive) {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
   }
+}
+
+Future<bool> _sendMetaShortcut(
+  WidgetTester tester,
+  LogicalKeyboardKey key,
+) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+  final handled = await tester.sendKeyEvent(key);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+  return handled;
 }

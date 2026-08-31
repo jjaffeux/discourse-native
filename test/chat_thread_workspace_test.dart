@@ -26,6 +26,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
@@ -110,6 +111,23 @@ const ChatMessagePage _channelPage = (
 
 const ChatMessagePage _threadPage = (
   messages: <ChatMessage>[_threadOriginal],
+  canLoadMorePast: false,
+  canLoadMoreFuture: false,
+  targetMessageId: null,
+);
+
+ChatMessagePage _workspaceMessagesPage(int first, {int? threadId}) => (
+  messages: [
+    for (var id = first; id < first + 80; id++)
+      ChatMessage(
+        id: id,
+        channelId: _channelId,
+        cooked: '<p>Message $id</p>',
+        author: const ChatMessageAuthor(id: 2, username: 'sam', name: 'Sam'),
+        createdAt: DateTime.utc(2026, 1, 1).add(Duration(minutes: id)),
+        threadId: threadId,
+      ),
+  ],
   canLoadMorePast: false,
   canLoadMoreFuture: false,
   targetMessageId: null,
@@ -240,6 +258,70 @@ void main() {
       }
     },
   );
+
+  testWidgets('split route moves only the active chat stream', (tester) async {
+    final fixture = await _fixture(
+      channelPage: _workspaceMessagesPage(1),
+      threadPage: _workspaceMessagesPage(101, threadId: _threadId),
+    );
+    addTearDown(fixture.shell.dispose);
+
+    await _pumpWorkspace(tester, fixture.shell, width: 1440);
+
+    final channelList = find.descendant(
+      of: find.byKey(const ValueKey('chat-channel-pane')),
+      matching: find.byType(SuperListView),
+    );
+    final threadList = find.descendant(
+      of: find.byKey(const ValueKey('chat-thread-pane')),
+      matching: find.byType(SuperListView),
+    );
+    final channelScroll = tester
+        .widget<SuperListView>(channelList)
+        .controller!
+        .position;
+    final threadScroll = tester
+        .widget<SuperListView>(threadList)
+        .controller!
+        .position;
+    expect(channelScroll.pixels, 0);
+    expect(threadScroll.pixels, 0);
+
+    final focusedEditors = tester
+        .widgetList<EditableText>(find.byType(EditableText))
+        .where((editor) => editor.focusNode.hasFocus);
+    expect(focusedEditors, hasLength(1));
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.pump();
+    expect(channelScroll.pixels, 0);
+    expect(threadScroll.pixels, 0);
+
+    // Interacting with the thread gives its list shortcut ownership without
+    // moving the channel beside it.
+    await tester.tap(threadList);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.pump();
+    expect(channelScroll.pixels, 0);
+    expect(threadScroll.pixels, closeTo(threadScroll.maxScrollExtent, 0.1));
+    expect(threadScroll.pixels, greaterThan(0));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pump();
+    expect(threadScroll.pixels, 0);
+
+    // Interacting with the channel transfers shortcut ownership to its pane.
+    await tester.tap(channelList);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+
+    expect(channelScroll.pixels, closeTo(channelScroll.maxScrollExtent, 0.1));
+    expect(channelScroll.pixels, greaterThan(0));
+    expect(threadScroll.pixels, 0);
+  });
 
   testWidgets('thread notification choices use an anchored descriptive menu', (
     tester,
@@ -524,10 +606,14 @@ void _expectThreadBodyTargets(WidgetTester tester) {
 Future<({ShellController shell, _WorkspaceApi api})> _fixture({
   bool terminalThread = false,
   bool editableThread = false,
+  ChatMessagePage channelPage = _channelPage,
+  ChatMessagePage threadPage = _threadPage,
 }) async {
   final api = _WorkspaceApi(
     terminalThread: terminalThread,
     thread: editableThread ? _editableThread : _thread,
+    channelPage: channelPage,
+    threadPage: threadPage,
   );
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
@@ -600,17 +686,21 @@ final class _MemoryPanelWidthPersistence
 }
 
 final class _WorkspaceApi extends FakeDiscourseApi {
-  _WorkspaceApi({this.terminalThread = false, this.thread = _thread})
-    : super(
-        user: _reader,
-        totals: chatNotificationTotals(),
-        feeds: const {'/latest.json': []},
-        chatChannelsBySite: const {
-          _siteUrl: ChatChannels(public: [_channel]),
-        },
-        chatMessagesByKey: const {'9': _channelPage, 'thread-9-3': _threadPage},
-        chatThreadsByKey: {'9~3': thread},
-      );
+  _WorkspaceApi({
+    this.terminalThread = false,
+    this.thread = _thread,
+    ChatMessagePage channelPage = _channelPage,
+    ChatMessagePage threadPage = _threadPage,
+  }) : super(
+         user: _reader,
+         totals: chatNotificationTotals(),
+         feeds: const {'/latest.json': []},
+         chatChannelsBySite: const {
+           _siteUrl: ChatChannels(public: [_channel]),
+         },
+         chatMessagesByKey: {'9': channelPage, 'thread-9-3': threadPage},
+         chatThreadsByKey: {'9~3': thread},
+       );
 
   final bool terminalThread;
   final ChatThread thread;

@@ -4,11 +4,14 @@ import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
+import 'package:discourse_native/src/shell/list_boundary_shortcuts.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
@@ -264,6 +267,164 @@ void main() {
     expect(find.text('Topic 1'), findsOneWidget);
   });
 
+  testWidgets('boundary shortcuts jump to the start and end of the list', (
+    tester,
+  ) async {
+    final topics = _topics(1, 40);
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([sites.first]),
+      api: FakeDiscourseApi(feeds: {'/latest.json': topics}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store.putAll(sites.first.url, topics);
+    final feed = TopicFeed(
+      topicIds: [for (final topic in topics) topic.id],
+      loaded: true,
+    );
+
+    await tester.pumpWidget(_TestList(controller: controller, feed: feed));
+    await tester.pumpAndSettle();
+
+    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    final position = list.controller!.position;
+    expect(position.maxScrollExtent, greaterThan(0));
+
+    position.jumpTo(position.maxScrollExtent / 2);
+    expect(await tester.sendKeyEvent(LogicalKeyboardKey.home), isTrue);
+    await tester.pump();
+    expect(position.pixels, position.minScrollExtent);
+
+    expect(await tester.sendKeyEvent(LogicalKeyboardKey.end), isTrue);
+    await tester.pump();
+    await tester.pump();
+    expect(position.pixels, position.maxScrollExtent);
+
+    expect(await _sendMetaShortcut(tester, LogicalKeyboardKey.arrowUp), isTrue);
+    await tester.pump();
+    expect(position.pixels, position.minScrollExtent);
+
+    expect(
+      await _sendMetaShortcut(tester, LogicalKeyboardKey.arrowDown),
+      isTrue,
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(position.pixels, position.maxScrollExtent);
+  });
+
+  testWidgets('boundary shortcuts leave an editable field in control', (
+    tester,
+  ) async {
+    final topics = _topics(1, 40);
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([sites.first]),
+      api: FakeDiscourseApi(feeds: {'/latest.json': topics}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    final fieldFocus = FocusNode();
+    addTearDown(controller.dispose);
+    addTearDown(fieldFocus.dispose);
+    await controller.load();
+    controller.store.putAll(sites.first.url, topics);
+    final feed = TopicFeed(
+      topicIds: [for (final topic in topics) topic.id],
+      loaded: true,
+    );
+
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: Column(
+              children: [
+                TextField(focusNode: fieldFocus),
+                Expanded(child: TopicListView(feed: feed)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    final position = list.controller!.position;
+    position.jumpTo(position.maxScrollExtent / 2);
+    fieldFocus.requestFocus();
+    await tester.pump();
+
+    tester.binding.handlePointerEvent(
+      PointerScrollEvent(
+        position: tester.getCenter(find.byType(SuperListView)),
+        scrollDelta: const Offset(0, 20),
+      ),
+    );
+    await tester.pump();
+    final afterPointerScroll = position.pixels;
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await _sendMetaShortcut(tester, LogicalKeyboardKey.arrowDown);
+
+    expect(fieldFocus.hasPrimaryFocus, isTrue);
+    expect(position.pixels, afterPointerScroll);
+    expect(position.extentBefore, greaterThan(0));
+    expect(position.extentAfter, greaterThan(0));
+  });
+
+  testWidgets('boundary shortcut fallback stays behind a modal route', (
+    tester,
+  ) async {
+    var starts = 0;
+    var ends = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListBoundaryShortcuts(
+            initiallyActive: true,
+            onStart: () => starts++,
+            onEnd: () => ends++,
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final pageContext = tester.element(find.byType(ListBoundaryShortcuts));
+    unawaited(
+      showDialog<void>(
+        context: pageContext,
+        builder: (dialogContext) => AlertDialog(
+          content: const Text('Boundary shortcut modal'),
+          actions: [
+            TextButton(
+              autofocus: true,
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await _sendMetaShortcut(tester, LogicalKeyboardKey.arrowDown);
+    expect(starts, 0);
+    expect(ends, 0);
+
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('a queued page request cannot cross a site switch', (
     tester,
   ) async {
@@ -438,3 +599,13 @@ List<Topic> _topics(int first, int count) => [
   for (var id = first; id < first + count; id++)
     Topic(id: id, title: 'Topic $id', slug: 'topic-$id'),
 ];
+
+Future<bool> _sendMetaShortcut(
+  WidgetTester tester,
+  LogicalKeyboardKey key,
+) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+  final handled = await tester.sendKeyEvent(key);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+  return handled;
+}

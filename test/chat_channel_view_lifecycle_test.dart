@@ -476,6 +476,69 @@ void main() {
   });
 
   group('navigation and reading state', () {
+    for (final target in const <ChatStreamTarget>[
+      ChatChannelTarget(9),
+      ChatThreadTarget(channelId: 9, threadId: 3),
+    ]) {
+      testWidgets(
+        'Home, End, and Command+Arrow jump across the ${target.isThread ? 'thread' : 'channel'} stream',
+        (tester) async {
+          final api = _ChatApi(openPages: const {});
+          final controller = await _controller(api, sites: const [firstSite]);
+          addTearDown(controller.dispose);
+          final messages = [for (var id = 1; id <= 80; id++) _message(id)];
+          controller.chatRecords
+            ..put(firstSite, _channel(lastRead: 80))
+            ..putAll(firstSite, messages);
+
+          await tester.pumpWidget(
+            _TestStreamView(
+              controller: controller,
+              messages: messages,
+              target: target,
+              stream: ChatStreamState(
+                messageIds: [for (final message in messages) message.id],
+                fetchedOnce: true,
+                fetches: 1,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final scroll = tester
+              .state<ScrollableState>(_verticalChatScroll())
+              .position;
+          expect(scroll.pixels, 0);
+
+          // The current route's stream owns navigation immediately.
+          await tester.sendKeyEvent(LogicalKeyboardKey.home);
+          await tester.pump();
+          expect(scroll.pixels, closeTo(scroll.maxScrollExtent, 0.1));
+          expect(scroll.pixels, greaterThan(0));
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.end);
+          await tester.pump();
+          expect(scroll.pixels, 0);
+
+          // Pointer interaction can give this stream ownership in a split layout.
+          await tester.tap(find.byType(SuperListView));
+          await tester.pump();
+
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+          await tester.pump();
+          expect(scroll.pixels, closeTo(scroll.maxScrollExtent, 0.1));
+
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+          await tester.pump();
+          expect(scroll.pixels, 0);
+        },
+      );
+    }
+
     testWidgets('jump to latest is a named 44-pixel keyboard target', (
       tester,
     ) async {
@@ -543,6 +606,39 @@ void main() {
       } finally {
         semantics.dispose();
       }
+    });
+
+    testWidgets('End loads the latest window from historical messages', (
+      tester,
+    ) async {
+      final api = _ChatApi(
+        openPages: {
+          firstSite: [
+            _messagesPage(1, 40, canLoadMoreFuture: true),
+            _messagesPage(80, 1),
+          ],
+        },
+      );
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      controller.chatRecords.put(firstSite, _channel(lastRead: 1));
+
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pumpAndSettle();
+      expect(api.targetMessageIds, [null]);
+
+      await tester.tap(find.byType(SuperListView));
+      await tester.pump();
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.end), isTrue);
+      await tester.pumpAndSettle();
+
+      expect(api.targetMessageIds, [null, null]);
+      expect(controller.chat.stream(firstSite, 9).newestId, 80);
+      expect(controller.chat.stream(firstSite, 9).atPresent, isTrue);
+      expect(
+        tester.state<ScrollableState>(_verticalChatScroll()).position.pixels,
+        0,
+      );
     });
 
     testWidgets(
@@ -1313,12 +1409,14 @@ final class _TestStreamView extends StatelessWidget {
     required this.controller,
     required this.messages,
     required this.stream,
+    this.target = const ChatChannelTarget(9),
     this.theme,
   });
 
   final ShellController controller;
   final List<ChatMessage> messages;
   final ChatStreamState stream;
+  final ChatStreamTarget target;
   final ThemeData? theme;
 
   @override
@@ -1331,7 +1429,7 @@ final class _TestStreamView extends StatelessWidget {
         home: Scaffold(
           body: ChatMessageStream(
             siteUrl: 'https://one.example',
-            target: const ChatChannelTarget(9),
+            target: target,
             items: buildChatStream(messages),
             stream: stream,
           ),
