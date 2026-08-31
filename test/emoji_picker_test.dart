@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/data/emoji_picker_store.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
@@ -13,6 +12,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+import 'support/media_pipeline.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
 final _catalog = SiteEmojiCatalog(
@@ -44,18 +45,10 @@ final _catalog = SiteEmojiCatalog(
 );
 
 void main() {
-  late EmojiCache previousEmojiCache;
-
   setUp(() {
-    previousEmojiCache = EmojiCache.instance;
-    EmojiCache.instance = EmojiCache(
+    installTestMediaPipeline(
       client: MockClient((_) async => http.Response('', 404)),
     );
-  });
-
-  tearDown(() {
-    EmojiCache.instance.clear();
-    EmojiCache.instance = previousEmojiCache;
   });
 
   testWidgets('desktop opens an anchored popover and returns a toned code', (

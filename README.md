@@ -1650,11 +1650,13 @@ base URL to resolve a root-relative `src` against, so `TagImg` fell back to the
 Setting `HtmlWidget.baseUrl` would have fixed the URL in one line and routed
 *every* `<img>` in every post through `NetworkImage` — no failure caching and
 one request per glyph. Emoji instead go through
-[`EmojiCache`](lib/src/data/emoji_cache.dart), which uses
-[`ByteCache`](lib/src/data/byte_cache.dart) to deduplicate URLs, retain failures,
-bound response sizes, and persist reusable bytes. Picker emoji are small,
-immutable CDN assets, so that cache deliberately leaves their concurrency to
-the HTTP stack; JSON API requests retain their per-origin backpressure.
+[`EmojiCache`](lib/src/data/emoji_cache.dart), owned beside the avatar cache by
+[`MediaPipeline`](lib/src/data/media_pipeline.dart). `ByteCache` deduplicates
+URLs, retains failures, bounds response sizes, and persists reusable bytes; the
+pipeline also coalesces an exact URL across the typed caches and adds one
+aggregate cap and one per-origin cap across both media kinds. The same admission
+state turns an avatar or emoji 429 into an origin cooldown for the other cache
+instead of letting their independent queues keep draining.
 
 Reactions need the other direction — a name, not a `src` — which is
 `SiteConfig.emojiUrl`, mirroring `Emoji.url_for`: `{external_emoji_url or
@@ -2015,10 +2017,12 @@ Avatars go through [`AvatarLoader`](lib/src/data/avatar_loader.dart) rather than
   The loader reads the content type, falls back to sniffing the leading bytes,
   and `AvatarImage` renders with `SvgPicture.memory` or `Image.memory`.
 - **A first render can ask for ~90 avatars at once** (three posters × thirty
-  topics). Those are static-media requests rather than JSON API work, so the
-  loader lets the HTTP stack and CDN fan them out instead of serializing them
-  behind app backpressure. It still deduplicates and caches by URL — *including
-  failures* — so a rate-limited avatar is not retried on every rebuild.
+  topics). `MediaPipeline` bounds that work together with emoji, both globally
+  and per origin, while `AvatarLoader` still deduplicates and caches by URL —
+  *including failures* — so a rate-limited avatar is not retried on every
+  rebuild. Replacing the pipeline for the persistent store closes the old
+  caches, aborts their requests, and prevents late results from repainting the
+  new generation.
 
 Anything undecodable falls back to a placeholder rather than throwing.
 

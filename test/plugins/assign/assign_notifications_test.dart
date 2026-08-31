@@ -1,4 +1,3 @@
-import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
@@ -17,6 +16,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import '../../support/fakes.dart';
+import '../../support/media_pipeline.dart';
 
 void main() {
   test('user topic assignments match core presentation and route', () {
@@ -66,15 +66,9 @@ void main() {
     tester,
   ) async {
     const siteUrl = 'https://meta.example';
-    final previousEmojiCache = EmojiCache.instance;
-    final emojiCache = EmojiCache(
+    installTestMediaPipeline(
       client: MockClient((_) async => http.Response('', 404)),
     );
-    EmojiCache.instance = emojiCache;
-    addTearDown(() {
-      emojiCache.clear();
-      EmojiCache.instance = previousEmojiCache;
-    });
 
     final controller = ShellController(
       instanceStore: FakeInstanceStore([instance('meta.example')]),

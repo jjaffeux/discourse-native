@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../data/emoji_cache.dart';
+import '../data/media_pipeline.dart';
 import '../foundation/diagnostic_errors.dart';
 import 'image_decode.dart';
 import 'site_url.dart';
@@ -47,7 +47,8 @@ class _EmojiImageState extends State<EmojiImage> {
 
   void _resolve() {
     final url = widget.url;
-    final cache = EmojiCache.instance;
+    final pipeline = MediaPipeline.instance;
+    final cache = pipeline.emoji;
 
     if (cache.isCached(url)) {
       // Paint synchronously on rebuild. Emoji repeat across every post on a
@@ -62,6 +63,10 @@ class _EmojiImageState extends State<EmojiImage> {
     unawaited(
       cache.load(url).then((bytes) {
         if (!mounted || widget.url != url) return;
+        if (!identical(MediaPipeline.instance, pipeline)) {
+          setState(_resolve);
+          return;
+        }
         setState(() {
           _bytes = bytes;
           _resolved = true;

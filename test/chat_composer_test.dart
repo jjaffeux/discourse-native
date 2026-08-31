@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
-import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -41,6 +40,7 @@ import 'package:http/testing.dart';
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 const _site = 'https://chat.example';
 final _gifsConfig = SiteConfig(
@@ -149,20 +149,14 @@ void main() {
     testWidgets('chat composer deletes a rendered emoji atomically', (
       tester,
     ) async {
-      final previousCache = EmojiCache.instance;
-      final emojiCache = EmojiCache(
+      final pipeline = installTestMediaPipeline(
         client: MockClient((_) async => http.Response.bytes(_pngBytes, 200)),
       );
-      EmojiCache.instance = emojiCache;
-      addTearDown(() {
-        emojiCache.clear();
-        EmojiCache.instance = previousCache;
-      });
       final fixture = await _fixture(
         pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
       );
       addTearDown(fixture.shell.dispose);
-      await EmojiCache.instance.load(fixture.shell.emojiUrlFor(_site, 'smile'));
+      await pipeline.emoji.load(fixture.shell.emojiUrlFor(_site, 'smile'));
       await tester.pumpWidget(_TestView(shell: fixture.shell));
       await tester.pumpAndSettle();
       await tester.enterText(_composerField(), ':smile:');

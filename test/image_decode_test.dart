@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:discourse_native/src/data/avatar_loader.dart';
-import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
@@ -13,6 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+import 'support/media_pipeline.dart';
 
 final Uint8List onePixelPng = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8'
@@ -125,21 +125,12 @@ void main() {
 
     const avatarUrl = 'https://site.test/avatar.png';
     const emojiUrl = 'https://site.test/emoji.png';
-    final oldAvatarLoader = AvatarLoader.instance;
-    final oldEmojiCache = EmojiCache.instance;
-    AvatarLoader.instance = AvatarLoader(
+    final pipeline = installTestMediaPipeline(
       client: MockClient((_) async => http.Response.bytes(onePixelPng, 200)),
     );
-    EmojiCache.instance = EmojiCache(
-      client: MockClient((_) async => http.Response.bytes(onePixelPng, 200)),
-    );
-    addTearDown(() {
-      AvatarLoader.instance = oldAvatarLoader;
-      EmojiCache.instance = oldEmojiCache;
-    });
     await Future.wait([
-      AvatarLoader.instance.load(avatarUrl),
-      EmojiCache.instance.load(emojiUrl),
+      pipeline.avatars.load(avatarUrl),
+      pipeline.emoji.load(emojiUrl),
     ]);
 
     await tester.pumpWidget(

@@ -3,21 +3,19 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import 'app.dart';
-import 'data/avatar_loader.dart';
 import 'data/byte_cache_store.dart';
-import 'data/emoji_cache.dart';
+import 'data/media_pipeline.dart';
 import 'diagnostics/diagnostics.dart';
 import 'foundation/timezone_environment.dart';
 import 'macos_launch_screen.dart';
 import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
 
-typedef AppBootstrapUnhandledErrorReporter =
-    void Function(
-      Object error,
-      StackTrace stackTrace, {
-      required String source,
-    });
+typedef AppBootstrapUnhandledErrorReporter = void Function(
+  Object error,
+  StackTrace stackTrace, {
+  required String source,
+});
 
 abstract interface class AppBootstrapHost {
   void ensureFlutterInitialized();
@@ -165,8 +163,7 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   @override
   Future<void> initializePersistentMediaCache() async {
     final mediaStore = await FileByteCacheStore.applicationCache();
-    AvatarLoader.instance = AvatarLoader(store: mediaStore);
-    EmojiCache.instance = EmojiCache(store: mediaStore);
+    MediaPipeline.replace(MediaPipeline(store: mediaStore));
   }
 
   @override

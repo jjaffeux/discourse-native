@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -16,15 +15,10 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
-void _replaceEmojiCache(EmojiCache replacement) {
-  final previous = EmojiCache.instance;
-  EmojiCache.instance = replacement;
-  addTearDown(() {
-    replacement.clear();
-    EmojiCache.instance = previous;
-  });
-}
+void _replaceEmojiCache(http.Client client) =>
+    installTestMediaPipeline(client: client);
 
 void main() {
   testWidgets('keeps an ordinary title on the plain Text path', (tester) async {
@@ -43,9 +37,7 @@ void main() {
     final controller = _controller();
     addTearDown(controller.dispose);
     _replaceEmojiCache(
-      EmojiCache(
-        client: MockClient((_) async => http.Response.bytes(_emojiPng, 200)),
-      ),
+      MockClient((_) async => http.Response.bytes(_emojiPng, 200)),
     );
 
     await tester.pumpWidget(
@@ -72,9 +64,7 @@ void main() {
   testWidgets('sizes inline emoji to the topic title text', (tester) async {
     final controller = _controller();
     addTearDown(controller.dispose);
-    _replaceEmojiCache(
-      EmojiCache(client: MockClient((_) async => http.Response('', 404))),
-    );
+    _replaceEmojiCache(MockClient((_) async => http.Response('', 404)));
 
     await tester.pumpWidget(
       _TestTitle(
@@ -92,9 +82,7 @@ void main() {
   testWidgets('recognizes adjacent emoji and skin tones', (tester) async {
     final controller = _controller();
     addTearDown(controller.dispose);
-    _replaceEmojiCache(
-      EmojiCache(client: MockClient((_) async => http.Response('', 404))),
-    );
+    _replaceEmojiCache(MockClient((_) async => http.Response('', 404)));
 
     await tester.pumpWidget(
       _TestTitle(controller: controller, title: ':wave:t3::sparkles:'),
@@ -219,9 +207,7 @@ void main() {
     final controller = _controller();
     addTearDown(controller.dispose);
     _replaceEmojiCache(
-      EmojiCache(
-        client: MockClient((_) async => http.Response.bytes(_emojiPng, 200)),
-      ),
+      MockClient((_) async => http.Response.bytes(_emojiPng, 200)),
     );
 
     await tester.pumpWidget(

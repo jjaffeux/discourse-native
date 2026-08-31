@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../data/emoji_cache.dart';
+import '../data/media_pipeline.dart';
 import '../models/composer_upload.dart';
 import '../models/site_config.dart';
 import '../plugin_api/composer_syntax.dart';
@@ -1236,9 +1236,9 @@ class MarkdownEditingController extends TextEditingController {
     // EditableText can move its caret into a WidgetSpan's hidden source before
     // Draggable wins the pointer. A cancelled reorder has no source mutation
     // to move it back to a safe boundary, so settle it after the gallery.
-    final current = _galleryBlocksFor(
-      text,
-    ).where((candidate) => _sameProjection(candidate, gallery)).firstOrNull;
+    final current = _galleryBlocksFor(text)
+        .where((candidate) => _sameProjection(candidate, gallery))
+        .firstOrNull;
     final selection = value.selection;
     if (current != null &&
         selection.isCollapsed &&
@@ -1384,7 +1384,7 @@ class MarkdownEditingController extends TextEditingController {
     if (resolve == null || !run.has(Md.emoji)) return null;
 
     final url = resolve(token);
-    final cache = EmojiCache.instance;
+    final cache = MediaPipeline.instance.emoji;
 
     // Only ever substituted once the bytes are here, so the placeholder is
     // created at its final size and nothing reflows under the caret mid-word.

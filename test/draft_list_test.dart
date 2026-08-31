@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/app_shortcuts.dart';
-import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
@@ -42,6 +41,7 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
 const _draft = UserDraft(
@@ -611,15 +611,9 @@ Future<_Fixture> _pump(
   List<UserDraft> userDrafts = const [_draft],
   Completer<void>? userDraftGate,
 }) async {
-  final previousEmojiCache = EmojiCache.instance;
-  final emojiCache = EmojiCache(
+  installTestMediaPipeline(
     client: MockClient((_) async => http.Response('', 404)),
   );
-  EmojiCache.instance = emojiCache;
-  addTearDown(() {
-    emojiCache.clear();
-    EmojiCache.instance = previousEmojiCache;
-  });
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);

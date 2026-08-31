@@ -4,31 +4,35 @@ import 'dart:io';
 import 'origin_cooldown.dart';
 import 'origin_request_gate.dart';
 
-/// Optional per-origin backpressure for a specialized media cache.
+/// Aggregate and per-origin backpressure shared by native media caches.
 ///
 /// Configured media caches can use separate HTTP clients. A per-client
 /// connection limit would still let them drain independently, and a 429 for
 /// one URL would not stop other distinct URLs already queued. This coordinator
-/// limits opted-in work by origin and turns the first 429 into a circuit
-/// breaker. Production static-media caches deliberately do not opt in.
+/// limits opted-in work across clients and by origin, and turns the first 429
+/// into a circuit breaker for every cache using it.
 final class MediaRequestCoordinator {
   MediaRequestCoordinator({
-    this.maxConcurrentPerOrigin = 2,
+    this.maxConcurrent = 8,
+    this.maxConcurrentPerOrigin = 4,
     this.maxQueuedPerOrigin = 64,
     this.defaultRateLimitCooldown = const Duration(minutes: 2),
     DateTime Function()? clock,
     OriginCooldown Function()? cooldownFactory,
-  }) : assert(maxConcurrentPerOrigin > 0),
+  }) : assert(maxConcurrent > 0),
+       assert(maxConcurrentPerOrigin > 0),
        assert(maxQueuedPerOrigin > 0),
        assert(defaultRateLimitCooldown >= Duration.zero),
        _clock = clock ?? DateTime.now,
        _gate = OriginRequestGate(
+         maxConcurrent: maxConcurrent,
          maxConcurrentPerOrigin: maxConcurrentPerOrigin,
          maxQueuedPerOrigin: maxQueuedPerOrigin,
          cooldownPolicy: OriginRequestCooldownPolicy.reject,
          cooldownFactory: cooldownFactory,
        );
 
+  final int maxConcurrent;
   final int maxConcurrentPerOrigin;
 
   /// Active leases do not count toward this backlog limit.

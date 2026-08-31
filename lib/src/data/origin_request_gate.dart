@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 
 import 'origin_cooldown.dart';
 
@@ -17,14 +16,19 @@ enum OriginRequestCooldownPolicy {
 /// domain-specific errors.
 final class OriginRequestGate {
   OriginRequestGate({
+    this.maxConcurrent,
     required this.maxConcurrentPerOrigin,
     required this.maxQueuedPerOrigin,
     required this.cooldownPolicy,
     OriginCooldown Function()? cooldownFactory,
-  }) : assert(maxConcurrentPerOrigin > 0),
+  }) : assert(maxConcurrent == null || maxConcurrent > 0),
+       assert(maxConcurrentPerOrigin > 0),
        assert(maxQueuedPerOrigin > 0),
        _newCooldown = cooldownFactory ?? OriginCooldown.new;
 
+  /// The aggregate active-operation limit, or null when origins are
+  /// independent.
+  final int? maxConcurrent;
   final int maxConcurrentPerOrigin;
 
   /// Active leases do not count toward this limit.
@@ -32,6 +36,8 @@ final class OriginRequestGate {
   final OriginRequestCooldownPolicy cooldownPolicy;
   final OriginCooldown Function() _newCooldown;
   final Map<String, _OriginState> _origins = {};
+  final List<_QueuedAdmission> _waiting = [];
+  int _active = 0;
   bool _closed = false;
 
   bool get isClosed => _closed;
@@ -80,7 +86,7 @@ final class OriginRequestGate {
       );
       return;
     }
-    if (state.waiting.length >= maxQueuedPerOrigin) {
+    if (state.waiting >= maxQueuedPerOrigin) {
       pending.reject(
         OriginRequestGateOverloadException(origin, maxQueuedPerOrigin),
         StackTrace.current,
@@ -88,36 +94,50 @@ final class OriginRequestGate {
       return;
     }
 
-    state.waiting.add(pending);
-    _drain(origin, state);
+    state.waiting++;
+    _waiting.add(_QueuedAdmission(origin, state, pending));
+    _drain();
   }
 
   _OriginState _createOriginState() => _OriginState(_newCooldown());
 
-  void _drain(String origin, _OriginState state) {
-    if (_closed || !identical(_origins[origin], state)) return;
+  void _drain() {
+    if (_closed) return;
 
-    final remaining = state.cooldown.remaining;
-    if (remaining != null) {
-      if (cooldownPolicy == OriginRequestCooldownPolicy.reject) {
-        _rejectWaitingForCooldown(origin, state, remaining);
+    final aggregateLimit = maxConcurrent;
+    while (aggregateLimit == null || _active < aggregateLimit) {
+      var eligible = -1;
+      for (var index = 0; index < _waiting.length; index++) {
+        final queued = _waiting[index];
+        final state = queued.state;
+        if (!identical(_origins[queued.origin], state) ||
+            state.active >= maxConcurrentPerOrigin ||
+            state.cooldown.remaining != null) {
+          continue;
+        }
+        eligible = index;
+        break;
       }
-      return;
-    }
+      if (eligible < 0) break;
 
-    while (state.active < maxConcurrentPerOrigin && state.waiting.isNotEmpty) {
-      final pending = state.waiting.removeFirst();
-      state.active++;
-      pending.grant(OriginRequestLease._(this, origin, state));
+      final queued = _waiting.removeAt(eligible);
+      queued.state.waiting--;
+      queued.state.active++;
+      _active++;
+      queued.pending.grant(
+        OriginRequestLease._(this, queued.origin, queued.state),
+      );
     }
-    _forgetIdle(origin, state);
   }
 
   void _release(String origin, _OriginState state) {
     if (_closed || !identical(_origins[origin], state)) return;
     state.active--;
+    _active--;
     assert(state.active >= 0);
-    _drain(origin, state);
+    assert(_active >= 0);
+    _forgetIdle(origin, state);
+    _drain();
   }
 
   void _extendLeaseCooldown(String origin, _OriginState state, Duration delay) {
@@ -130,10 +150,14 @@ final class OriginRequestGate {
     final state = _origins.putIfAbsent(origin, _createOriginState);
     final remaining = state.cooldown.extend(
       delay,
-      onExpired: () => _drain(origin, state),
+      onExpired: () {
+        _forgetIdle(origin, state);
+        _drain();
+      },
     );
     if (remaining == null) {
-      _drain(origin, state);
+      _forgetIdle(origin, state);
+      _drain();
       return;
     }
     if (cooldownPolicy == OriginRequestCooldownPolicy.reject) {
@@ -148,14 +172,18 @@ final class OriginRequestGate {
   ) {
     final error = OriginRequestGateCooldownException(origin, remaining);
     final stackTrace = StackTrace.current;
-    while (state.waiting.isNotEmpty) {
-      state.waiting.removeFirst().reject(error, stackTrace);
+    for (var index = _waiting.length - 1; index >= 0; index--) {
+      final queued = _waiting[index];
+      if (!identical(queued.state, state)) continue;
+      _waiting.removeAt(index);
+      state.waiting--;
+      queued.pending.reject(error, stackTrace);
     }
   }
 
   void _forgetIdle(String origin, _OriginState state) {
     if (state.active == 0 &&
-        state.waiting.isEmpty &&
+        state.waiting == 0 &&
         state.cooldown.remaining == null &&
         identical(_origins[origin], state)) {
       _origins.remove(origin);
@@ -171,11 +199,13 @@ final class OriginRequestGate {
     final stackTrace = StackTrace.current;
     for (final state in _origins.values) {
       state.cooldown.cancel();
-      while (state.waiting.isNotEmpty) {
-        state.waiting.removeFirst().reject(error, stackTrace);
-      }
     }
+    for (final queued in _waiting) {
+      queued.pending.reject(error, stackTrace);
+    }
+    _waiting.clear();
     _origins.clear();
+    _active = 0;
   }
 }
 
@@ -255,8 +285,16 @@ final class _OriginState {
   _OriginState(this.cooldown);
 
   final OriginCooldown cooldown;
-  final Queue<_PendingAdmission> waiting = Queue();
+  int waiting = 0;
   int active = 0;
+}
+
+final class _QueuedAdmission {
+  const _QueuedAdmission(this.origin, this.state, this.pending);
+
+  final String origin;
+  final _OriginState state;
+  final _PendingAdmission pending;
 }
 
 sealed class _PendingAdmission {

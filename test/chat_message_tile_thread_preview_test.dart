@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -39,6 +38,7 @@ import 'package:http/testing.dart';
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 const _siteUrl = 'https://meta.example';
 const _messageTileKey = ValueKey('message-tile');
@@ -128,15 +128,9 @@ void main() {
     );
 
     testWidgets('draws emoji in a direct-reply excerpt', (tester) async {
-      final previousEmojiCache = EmojiCache.instance;
-      final emojiCache = EmojiCache(
+      installTestMediaPipeline(
         client: MockClient((_) async => http.Response.bytes(_emojiPng, 200)),
       );
-      EmojiCache.instance = emojiCache;
-      addTearDown(() {
-        emojiCache.clear();
-        EmojiCache.instance = previousEmojiCache;
-      });
       const reply = ChatReplyTo(
         id: 6,
         userId: 10,
@@ -253,15 +247,9 @@ void main() {
     );
 
     testWidgets('draws emoji in the latest reply excerpt', (tester) async {
-      final previousEmojiCache = EmojiCache.instance;
-      final emojiCache = EmojiCache(
+      installTestMediaPipeline(
         client: MockClient((_) async => http.Response.bytes(_emojiPng, 200)),
       );
-      EmojiCache.instance = emojiCache;
-      addTearDown(() {
-        emojiCache.clear();
-        EmojiCache.instance = previousEmojiCache;
-      });
       final thread = _thread(lastReplyExcerpt: 'That works :stuck_out_tongue:');
       final controller = await _controller(
         _message(thread),

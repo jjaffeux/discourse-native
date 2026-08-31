@@ -1,4 +1,3 @@
-import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -17,6 +16,7 @@ import 'package:http/testing.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 const _siteUrl = 'https://meta.example';
 
@@ -24,14 +24,9 @@ void main() {
   testWidgets('reaction cell has one exact name and native keyboard action', (
     tester,
   ) async {
-    final previousEmojiCache = EmojiCache.instance;
-    EmojiCache.instance = EmojiCache(
+    installTestMediaPipeline(
       client: MockClient((_) async => http.Response('', 404)),
     );
-    addTearDown(() {
-      EmojiCache.instance.clear();
-      EmojiCache.instance = previousEmojiCache;
-    });
 
     final config = SiteConfig(
       plugins: PluginData.none.withValue(

@@ -22,29 +22,31 @@ abstract class ByteCache<T extends Object> {
     this.timeout = const Duration(seconds: 10),
     this.maxRedirects = 5,
     MediaRequestCoordinator? coordinator,
+    this.requestPool,
     this.store,
   }) : assert(maxConcurrent == null || maxConcurrent > 0),
-       assert(
-         maxConcurrent != null || coordinator == null,
-         'An unbounded cache cannot use a bounded media coordinator.',
-       ),
        assert(maxEntries > 0),
        assert(maxResponseBytes > 0),
        assert(maxCachedBytes > 0),
        assert(maxRedirects >= 0),
-       _coordinator = maxConcurrent == null
-           ? null
-           : coordinator ??
-                 MediaRequestCoordinator(
+       _coordinator =
+           coordinator ??
+           (maxConcurrent == null
+               ? null
+               : MediaRequestCoordinator(
+                   maxConcurrent: maxConcurrent,
                    maxConcurrentPerOrigin: maxConcurrent,
                    defaultRateLimitCooldown: retryAfter,
-                 ),
+                 )),
+       _ownsCoordinator = coordinator == null && maxConcurrent != null,
        _client = client == null
            ? SafeHttpClient.create()
            : SafeHttpClient.borrowed(client);
 
   final http.Client _client;
   final MediaRequestCoordinator? _coordinator;
+  final bool _ownsCoordinator;
+  final ByteCacheRequestPool? requestPool;
   final ByteCacheStore? store;
 
   final int? maxConcurrent;
@@ -68,6 +70,8 @@ abstract class ByteCache<T extends Object> {
   int _active = 0;
   int _cachedBytes = 0;
   Object _generation = Object();
+  final Set<Completer<void>> _activeAborts = {};
+  bool _closed = false;
 
   @protected
   T? decode(http.Response response);
@@ -90,6 +94,7 @@ abstract class ByteCache<T extends Object> {
   }
 
   Future<T?> load(String url) {
+    if (_closed) return Future.value(null);
     // Validate before consulting either memory or persistent storage. An
     // unsafe key must never be served merely because another cache generation
     // or a tampered cache directory happened to retain bytes under it.
@@ -187,7 +192,10 @@ abstract class ByteCache<T extends Object> {
       }
       if (!identical(_generation, generation)) return null;
 
-      final downloaded = await _download(url);
+      final downloaded = await switch (requestPool) {
+        final pool? => pool.run(url, () => _download(url)),
+        null => _download(url),
+      };
       final response = downloaded.response;
       bool current() => identical(_generation, generation);
 
@@ -248,7 +256,7 @@ abstract class ByteCache<T extends Object> {
           }
         }
       }
-      return decoded;
+      return _closed ? null : decoded;
     } on MediaOriginRateLimitedException {
       // This URL never reached the network: another native-managed media
       // request put its whole origin into cooldown. Remember it as transient
@@ -259,6 +267,7 @@ abstract class ByteCache<T extends Object> {
       }
       return null;
     } catch (error, stackTrace) {
+      if (!identical(_generation, generation)) return null;
       _report(error, stackTrace, url, 'image.load');
       if (identical(_generation, generation)) {
         _rememberTransientFailure(url);
@@ -289,8 +298,7 @@ abstract class ByteCache<T extends Object> {
     );
   }
 
-  Future<({http.Response response, bool oversized, bool persistable})>
-  _download(String url) async {
+  Future<ByteCacheDownload> _download(String url) async {
     final elapsed = Stopwatch()..start();
     final original = requireSafeHttpUrl(Uri.parse(url));
     var current = original;
@@ -357,6 +365,7 @@ abstract class ByteCache<T extends Object> {
           persistable: persistable,
         );
       } finally {
+        _activeAborts.remove(sent.timeoutAbort);
         sent.lease?.release();
       }
     }
@@ -372,6 +381,11 @@ abstract class ByteCache<T extends Object> {
   _send(Uri url, Uri original, Stopwatch elapsed) async {
     final lease = await _coordinator?.acquire(url, relatedUrl: original);
     final timeoutAbort = Completer<void>();
+    if (_closed) {
+      lease?.release();
+      return Future.error(StateError('Byte cache is closed.'));
+    }
+    _activeAborts.add(timeoutAbort);
     Future<http.StreamedResponse>? response;
     try {
       // A bounded request may have waited for admission. Do not start it after
@@ -392,6 +406,7 @@ abstract class ByteCache<T extends Object> {
       return (response: streamed, timeoutAbort: timeoutAbort, lease: lease);
     } on TimeoutException {
       _abort(timeoutAbort);
+      _activeAborts.remove(timeoutAbort);
       response
           ?.then<void>(
             (lateResponse) => _cancel(lateResponse.stream),
@@ -401,6 +416,7 @@ abstract class ByteCache<T extends Object> {
       lease?.release();
       rethrow;
     } catch (_) {
+      _activeAborts.remove(timeoutAbort);
       lease?.release();
       rethrow;
     }
@@ -521,6 +537,59 @@ abstract class ByteCache<T extends Object> {
     while (_waiting.isNotEmpty) {
       _waiting.removeFirst().result.complete(false);
     }
+  }
+
+  void close() {
+    if (_closed) return;
+    _closed = true;
+    clear();
+    for (final abort in _activeAborts.toList(growable: false)) {
+      _abort(abort);
+    }
+    _activeAborts.clear();
+    if (_ownsCoordinator) _coordinator?.close();
+    _client.close();
+  }
+}
+
+typedef ByteCacheDownload = ({
+  http.Response response,
+  bool oversized,
+  bool persistable,
+});
+
+/// Coalesces raw downloads for caches with the same public-media policy.
+///
+/// Decoding and memory publication remain with each typed [ByteCache]. The
+/// owner closes the whole pool together, so one cache cannot cancel a transfer
+/// which a longer-lived peer still expects to complete.
+final class ByteCacheRequestPool {
+  final Map<String, Future<ByteCacheDownload>> _inFlight = {};
+  bool _closed = false;
+
+  Future<ByteCacheDownload> run(
+    String url,
+    Future<ByteCacheDownload> Function() download,
+  ) {
+    if (_closed) {
+      return Future.error(StateError('Byte cache request pool is closed.'));
+    }
+    final pending = _inFlight[url];
+    if (pending != null) return pending;
+
+    late final Future<ByteCacheDownload> request;
+    request = download().whenComplete(() {
+      if (identical(_inFlight[url], request)) {
+        final _ = _inFlight.remove(url);
+      }
+    });
+    _inFlight[url] = request;
+    return request;
+  }
+
+  void close() {
+    _closed = true;
+    _inFlight.clear();
   }
 }
 
