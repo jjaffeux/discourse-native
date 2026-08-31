@@ -32,6 +32,7 @@ import 'tags_page.dart';
 import 'title_bar.dart';
 import 'topic_create_button.dart';
 import 'topic_filter_page.dart';
+import 'topic_list_navigation.dart';
 import 'topic_list_view.dart';
 import 'topic_title.dart';
 import 'topic_view.dart';
@@ -248,16 +249,25 @@ class _FeedBackedContent extends StatelessWidget {
       controller: controller,
       select: (controller) => controller.currentFeed,
       builder: (context, feed, _) {
-        if (feed == null) return fallback ?? _ContentPlaceholder(route: route);
-        if (route.id == 'filter' && siteUrl != null) {
-          return TopicFilterPage(
+        final Widget content;
+        if (feed == null) {
+          content = fallback ?? _ContentPlaceholder(route: route);
+        } else if (route.id == 'filter' && siteUrl != null) {
+          content = TopicFilterPage(
             siteUrl: siteUrl!,
             feed: feed,
             categories: filterCategories,
           );
+        } else if (route.isMessages) {
+          content = MessageInboxPage(feed: feed);
+        } else {
+          content = TopicListView(feed: feed);
         }
-        if (route.isMessages) return MessageInboxPage(feed: feed);
-        return TopicListView(feed: feed);
+
+        if (TopicListMode.fromRoute(route) != null) {
+          return TopicListNavigation(child: content);
+        }
+        return content;
       },
     );
   }
