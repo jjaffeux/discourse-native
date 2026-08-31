@@ -80,6 +80,7 @@ Future<void> showAssignmentEditor({
     barrierLabel: 'Dismiss $targetName assignment picker',
     popoverKey: const ValueKey('assignment-picker-popover'),
     popoverWidth: 360,
+    popoverHeight: 400,
     nested: nested,
     // A drag closes ModalBottomSheetRoute with Navigator.pop, bypassing the
     // editor's PopScope while a write owns the target. Close, barrier, and

@@ -151,4 +151,47 @@ void main() {
     expect(routeSemantics.properties.namesRoute, isTrue);
     expect(routeSemantics.properties.label, 'Picker');
   });
+
+  testWidgets('keeps its position while asynchronous content changes size', (
+    tester,
+  ) async {
+    const anchor = Rect.fromLTWH(70, 400, 20, 20);
+    final contentHeight = ValueNotifier<double>(40);
+    addTearDown(contentHeight.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              onPressed: () => showAnchoredPicker<void>(
+                context: context,
+                anchor: anchor,
+                title: 'Picker',
+                barrierLabel: 'Dismiss picker',
+                popoverKey: const ValueKey('stable-popover'),
+                builder: (_) => ValueListenableBuilder<double>(
+                  valueListenable: contentHeight,
+                  builder: (_, height, _) => SizedBox(height: height),
+                ),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final picker = find.byKey(const ValueKey('stable-popover'));
+    final loadingRect = tester.getRect(picker);
+    expect(loadingRect.size, const Size(252, 360));
+
+    contentHeight.value = 600;
+    await tester.pump();
+
+    expect(tester.getRect(picker), loadingRect);
+  });
 }

@@ -41,7 +41,7 @@ void main() {
       expect(find.byType(BottomSheet), findsNothing);
       final picker = find.byKey(const ValueKey('assignment-picker-popover'));
       expect(picker, findsOneWidget);
-      expect(tester.getSize(picker).width, 360);
+      expect(tester.getSize(picker), const Size(360, 400));
       expect(
         find.descendant(
           of: picker,
