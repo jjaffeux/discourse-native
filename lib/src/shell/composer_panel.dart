@@ -798,7 +798,7 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
                         valueKey: const ValueKey('composer-category'),
                         label: category == null
                             ? 'Choose a category'
-                            : shell.topicCategoryLabel(
+                            : shell.topicCategoryPathLabel(
                                 category,
                                 siteUrl: composer.target.siteUrl,
                               ),
@@ -851,7 +851,7 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
           siteUrl: composer.target.siteUrl,
           term: term,
         )).where((category) => category.canCreateTopic).toList(),
-        labelFor: (category) => shell.topicCategoryLabel(
+        pathLabelFor: (category) => shell.topicCategoryPathLabel(
           category,
           siteUrl: composer.target.siteUrl,
         ),

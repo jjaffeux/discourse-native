@@ -93,6 +93,7 @@ import 'preferences_controller.dart';
 import 'shell_search_controller.dart';
 import 'site_presentation_controller.dart';
 import 'site_url.dart';
+import 'topic_category_path.dart' as category_path;
 import 'topic_feed_controller.dart';
 import 'topic_read_controller.dart';
 import 'update_controller.dart';
@@ -2099,9 +2100,9 @@ class ShellController extends FrameSafeNotifier
     return store.read<TopicCategory>(sourceSite, categoryId);
   }
 
-  String topicCategoryLabel(TopicCategory category, {String? siteUrl}) {
+  String topicCategoryPathLabel(TopicCategory category, {String? siteUrl}) {
     final parent = categoryFor(category.parentCategoryId, siteUrl: siteUrl);
-    return parent == null ? category.name : '${parent.name} › ${category.name}';
+    return category_path.topicCategoryPathLabel(category, parent: parent);
   }
 
   Ref<Topic> topicRef(String siteUrl, int topicId) =>

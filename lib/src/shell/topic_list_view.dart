@@ -810,7 +810,7 @@ class TopicListRow extends StatelessWidget {
     category: category,
     categoryLabel: category == null
         ? null
-        : controller.topicCategoryLabel(category, siteUrl: siteUrl),
+        : controller.topicCategoryPathLabel(category, siteUrl: siteUrl),
   );
 }
 

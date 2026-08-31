@@ -87,6 +87,7 @@ import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
+import 'package:discourse_native/src/shell/topic_category_path.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
@@ -4499,6 +4500,18 @@ void main() {
     testWidgets('category badges use an embedded off-page subcategory', (
       tester,
     ) async {
+      const parent = TopicCategory(
+        id: 5,
+        name: 'Discourse Native Application',
+        color: '0088CC',
+      );
+      const category = TopicCategory(
+        id: 6,
+        name: 'Feature requests',
+        color: '00AEEF',
+        parentCategoryId: 5,
+      );
+      final categoryPath = topicCategoryPathLabel(category, parent: parent);
       final api = FakeDiscourseApi(
         feeds: {
           '/latest.json': [
@@ -4510,27 +4523,9 @@ void main() {
             ),
           ],
         },
-        categoryList: const [
-          TopicCategory(
-            id: 5,
-            name: 'Discourse Native Application',
-            color: '0088CC',
-          ),
-        ],
+        categoryList: const [parent],
         feedCategoriesByPath: const {
-          '/latest.json': [
-            TopicCategory(
-              id: 5,
-              name: 'Discourse Native Application',
-              color: '0088CC',
-            ),
-            TopicCategory(
-              id: 6,
-              name: 'Feature requests',
-              color: '00AEEF',
-              parentCategoryId: 5,
-            ),
-          ],
+          '/latest.json': [parent, category],
         },
       );
 
@@ -4539,31 +4534,15 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(TopicListView),
-          matching: find.text(
-            'Discourse Native Application › Feature requests',
-          ),
+          matching: find.text(categoryPath),
         ),
         findsOneWidget,
       );
-      expect(
-        find.bySemanticsLabel(
-          'Category: Discourse Native Application › Feature requests',
-        ),
-        findsOneWidget,
-      );
-      final categoryLabel = tester.widget<Text>(
-        find.text('Discourse Native Application › Feature requests'),
-      );
+      expect(find.bySemanticsLabel('Category: $categoryPath'), findsOneWidget);
+      final categoryLabel = tester.widget<Text>(find.text(categoryPath));
       expect(categoryLabel.maxLines, isNull);
       expect(categoryLabel.overflow, isNull);
-      expect(
-        tester
-            .getSize(
-              find.text('Discourse Native Application › Feature requests'),
-            )
-            .width,
-        greaterThan(200),
-      );
+      expect(tester.getSize(find.text(categoryPath)).width, greaterThan(200));
       expect(api.categoryIdsRequested, isEmpty);
     });
 
@@ -6260,6 +6239,7 @@ void main() {
           slug: 'security',
           parentCategoryId: 4,
         );
+        final categoryPath = topicCategoryPathLabel(category, parent: parent);
         const tag = TopicTag(name: 'security / fix');
         const reader = DiscourseUser(id: 1, username: 'reader');
         final base = topicPayload(
@@ -6316,8 +6296,12 @@ void main() {
         expect(
           find.descendant(
             of: find.byKey(const ValueKey('topic-sidebar-category')),
-            matching: find.text('Trust and safety > Security'),
+            matching: find.text(categoryPath),
           ),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel('Category: $categoryPath'),
           findsOneWidget,
         );
         expect(
@@ -6400,6 +6384,10 @@ void main() {
             name: 'Support docs',
             color: '00AEEF',
             parentCategoryId: 5,
+          );
+          final supportDocsPath = topicCategoryPathLabel(
+            supportDocs,
+            parent: support,
           );
           final base = detail();
           final api = FakeDiscourseApi(
@@ -6547,7 +6535,7 @@ void main() {
           expect(
             find.descendant(
               of: supportDocsOption,
-              matching: find.text('Support > Support docs'),
+              matching: find.text(supportDocsPath),
             ),
             findsOneWidget,
           );
@@ -6570,7 +6558,7 @@ void main() {
           expect(
             find.descendant(
               of: categoryProperty,
-              matching: find.text('Support > Support docs'),
+              matching: find.text(supportDocsPath),
             ),
             findsOneWidget,
           );
