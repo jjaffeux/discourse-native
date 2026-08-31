@@ -4364,9 +4364,16 @@ void main() {
               ],
             ),
           ],
+          '/c/feature/5.json': const [],
+          '/tag/design/8.json': const [],
         },
         categoryList: const [
-          TopicCategory(id: 5, name: 'Feature', color: '0088CC'),
+          TopicCategory(
+            id: 5,
+            name: 'Feature',
+            color: '0088CC',
+            slug: 'feature',
+          ),
         ],
       );
 
@@ -4374,9 +4381,15 @@ void main() {
 
       expect(find.text('design,'), findsOneWidget);
       expect(find.text('accessibility'), findsOneWidget);
+      expect(find.bySemanticsLabel('Tag: design'), findsOneWidget);
+      expect(find.bySemanticsLabel('Tag: accessibility'), findsOneWidget);
       expect(
-        find.bySemanticsLabel('Tags: design, accessibility'),
-        findsOneWidget,
+        tester.getSize(find.bySemanticsLabel('Category: Feature')).height,
+        greaterThanOrEqualTo(32),
+      );
+      expect(
+        tester.getSize(find.bySemanticsLabel('Tag: design')).height,
+        greaterThanOrEqualTo(32),
       );
       final category = find.descendant(
         of: find.byType(TopicListView),
@@ -4386,6 +4399,202 @@ void main() {
         tester.getTopRight(category).dx,
         lessThan(tester.getTopLeft(find.text('design,')).dx),
       );
+
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      await tester.tap(category);
+      await tester.pumpAndSettle();
+
+      expect(controller.currentContent?.id, 'category-5');
+      expect(controller.currentContent?.feedPath, '/c/feature/5.json');
+      expect(api.topicsOpened, isEmpty);
+
+      expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('design,'));
+      await tester.pumpAndSettle();
+
+      expect(controller.currentContent?.id, 'tag-8');
+      expect(controller.currentContent?.feedPath, '/tag/design/8.json');
+      expect(api.topicsOpened, isEmpty);
+    });
+
+    testWidgets('public and private tag feeds keep distinct identities', (
+      tester,
+    ) async {
+      const tag = TopicTag(
+        id: 8,
+        name: 'priority / private',
+        slug: 'priority%20%2F%20private',
+      );
+      const reader = DiscourseUser(id: 1, username: 'reader');
+      final api = FakeDiscourseApi(
+        user: reader,
+        feeds: {
+          '/latest.json': const [
+            Topic(
+              id: 2,
+              title: 'A public tagged topic',
+              slug: 'a-public-tagged-topic',
+              tags: [tag],
+            ),
+            Topic(
+              id: 3,
+              title: 'A private tagged topic',
+              slug: 'a-private-tagged-topic',
+              privateMessage: true,
+              tags: [tag],
+            ),
+          ],
+          '/tag/priority%20%2F%20private/8.json': const [],
+          '/topics/private-messages-tags/reader/'
+                  'priority%20%2F%20private.json':
+              const [],
+        },
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [instance('meta.discourse.org').copyWith(user: reader)],
+        api: api,
+        authenticator: authenticator,
+      );
+
+      final tagLinks = find.bySemanticsLabel('Tag: ${tag.name}');
+      expect(tagLinks, findsNWidgets(2));
+      await tester.tap(tagLinks.first);
+      await tester.pumpAndSettle();
+
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      expect(controller.currentContent?.id, 'tag-8');
+      expect(
+        controller.currentContent?.feedPath,
+        '/tag/priority%20%2F%20private/8.json',
+      );
+
+      expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+      await tester.pumpAndSettle();
+      await tester.tap(tagLinks.last);
+      await tester.pumpAndSettle();
+
+      expect(controller.currentContent?.id, 'pm-tag-8');
+      expect(
+        controller.currentContent?.feedPath,
+        '/topics/private-messages-tags/reader/'
+        'priority%20%2F%20private.json',
+      );
+      expect(
+        api.feedPaths,
+        containsAll([
+          '/tag/priority%20%2F%20private/8.json',
+          '/topics/private-messages-tags/reader/'
+              'priority%20%2F%20private.json',
+        ]),
+      );
+      expect(api.topicsOpened, isEmpty);
+    });
+
+    testWidgets('an idless numeric topic tag resolves before navigation', (
+      tester,
+    ) async {
+      const tag = TopicTag(name: '2024');
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': const [
+            Topic(
+              id: 3,
+              title: 'A numeric tagged topic',
+              slug: 'a-numeric-tagged-topic',
+              tags: [tag],
+            ),
+          ],
+          '/tag/2024/77.json': const [],
+        },
+        hashtagSearches: const {
+          '2024': [
+            FoundHashtag(
+              type: 'tag',
+              ref: '2024::tag',
+              slug: '2024',
+              text: '2024',
+              id: 77,
+            ),
+          ],
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text(tag.name));
+      await tester.pumpAndSettle();
+
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      expect(api.hashtagSearchesRequested, ['2024']);
+      expect(controller.currentContent?.id, 'tag-77');
+      expect(controller.currentContent?.feedPath, '/tag/2024/77.json');
+      expect(api.topicsOpened, isEmpty);
+    });
+
+    testWidgets('a late numeric tag lookup cannot reopen content after Back', (
+      tester,
+    ) async {
+      const tag = TopicTag(name: '2024');
+      final hashtagGate = Completer<void>();
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': const [
+            Topic(
+              id: 3,
+              title: 'A numeric tagged topic',
+              slug: 'a-numeric-tagged-topic',
+              tags: [tag],
+            ),
+          ],
+          '/tag/2024/77.json': const [],
+        },
+        hashtagSearchGate: hashtagGate,
+        hashtagSearches: const {
+          '2024': [
+            FoundHashtag(
+              type: 'tag',
+              ref: '2024::tag',
+              slug: '2024',
+              text: '2024',
+              id: 77,
+            ),
+          ],
+        },
+      );
+
+      await pumpShell(tester, phone, api: api);
+      await tester.tap(find.text('Topics'));
+      await tester.pumpAndSettle();
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      await tester.tap(find.text(tag.name));
+      await tester.pump();
+      expect(api.hashtagSearchesRequested, ['2024']);
+
+      expect(controller.handleBack(), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.byType(InstanceSidebar), findsOneWidget);
+      expect(find.byType(MainContent), findsNothing);
+
+      hashtagGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(InstanceSidebar), findsOneWidget);
+      expect(find.byType(MainContent), findsNothing);
+      expect(api.feedPaths, isNot(contains('/tag/2024/77.json')));
+      expect(api.topicsOpened, isEmpty);
     });
 
     testWidgets('long topic tags wrap without overflowing a phone row', (
@@ -5486,6 +5695,14 @@ void main() {
           findsOneWidget,
         );
         expect(
+          find.byKey(const ValueKey('topic-sidebar-category-edit-indicator')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('topic-sidebar-tags-edit-indicator')),
+          findsNothing,
+        );
+        expect(
           tester.getSize(
             find.byKey(const ValueKey('topic-sidebar-category-color')),
           ),
@@ -5801,6 +6018,128 @@ void main() {
     });
 
     testWidgets(
+      'sidebar taxonomy values navigate while pencils remain edit actions',
+      (tester) async {
+        const category = TopicCategory(
+          id: 5,
+          name: 'Security',
+          color: 'EC4899',
+          slug: 'security',
+        );
+        const tag = TopicTag(name: 'security / fix');
+        const reader = DiscourseUser(id: 1, username: 'reader');
+        final base = topicPayload(
+          id: 7,
+          title: 'A real topic',
+          posts: [post(1, 1, 'First post body')],
+          categoryId: category.id,
+          tags: const [tag],
+        );
+        final api = FakeDiscourseApi(
+          user: reader,
+          feeds: {
+            '/latest.json': listed,
+            '/c/security/5.json': const [],
+            '/topics/private-messages-tags/reader/'
+                    'security%20%2F%20fix.json':
+                const [],
+          },
+          categoryList: const [category],
+          topics: {
+            7: (
+              detail: base.detail.copyWith(
+                canEdit: true,
+                canEditTags: true,
+                privateMessage: true,
+              ),
+              posts: base.posts,
+            ),
+          },
+        );
+        final authenticator = FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key';
+
+        await pumpShell(
+          tester,
+          desktop,
+          instances: [instance('meta.discourse.org').copyWith(user: reader)],
+          api: api,
+          authenticator: authenticator,
+        );
+        await tester.tap(contentText('A real topic'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('topic-sidebar-category-edit-indicator')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('topic-sidebar-tags-edit-indicator')),
+          findsOneWidget,
+        );
+        expect(find.byTooltip('Edit topic category'), findsOneWidget);
+        expect(find.byTooltip('Edit topic tags'), findsOneWidget);
+        expect(
+          tester
+              .getSize(
+                find.byKey(const ValueKey('topic-sidebar-category-action')),
+              )
+              .height,
+          greaterThanOrEqualTo(32),
+        );
+        expect(
+          tester.getSize(find.bySemanticsLabel('Tag: ${tag.name}')).height,
+          greaterThanOrEqualTo(32),
+        );
+        expect(
+          tester.getSize(
+            find.byKey(const ValueKey('topic-sidebar-category-edit-action')),
+          ),
+          const Size.square(32),
+        );
+        expect(
+          tester.getSize(find.byKey(const ValueKey('topic-sidebar-add-tag'))),
+          const Size.square(32),
+        );
+
+        final controller = ShellScope.read(
+          tester.element(find.byType(TopicView)),
+        );
+        await tester.tap(find.byKey(const ValueKey('topic-sidebar-category')));
+        await tester.pumpAndSettle();
+
+        expect(controller.currentContent?.id, 'category-5');
+        expect(controller.currentContent?.feedPath, '/c/security/5.json');
+        expect(
+          find.byKey(const ValueKey('topic-category-picker-popover')),
+          findsNothing,
+        );
+
+        expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(ValueKey(('topic-sidebar-tag', tag.name))));
+        await tester.pumpAndSettle();
+
+        expect(
+          controller.currentContent?.id,
+          'list-/topics/private-messages-tags/reader/'
+          'security%20%2F%20fix.json',
+        );
+        expect(
+          controller.currentContent?.feedPath,
+          '/topics/private-messages-tags/reader/'
+          'security%20%2F%20fix.json',
+        );
+        expect(
+          find.byKey(const ValueKey('topic-tag-picker-popover')),
+          findsNothing,
+        );
+        expect(api.topicsUpdated, isEmpty);
+        expect(api.topicTagsUpdated, isEmpty);
+      },
+    );
+
+    testWidgets(
       'uncategorized sidebar picker server-searches and saves a subcategory',
       (tester) async {
         final previousPlatform = debugDefaultTargetPlatformOverride;
@@ -5855,7 +6194,7 @@ void main() {
           expect(find.byTooltip('Edit topic category'), findsOneWidget);
           expect(
             find.byKey(const ValueKey('topic-sidebar-category-edit-indicator')),
-            findsNothing,
+            findsOneWidget,
           );
           expect(
             find.descendant(
@@ -5866,7 +6205,7 @@ void main() {
           );
 
           final categoryAction = find.byKey(
-            const ValueKey('topic-sidebar-category-action'),
+            const ValueKey('topic-sidebar-category-edit-action'),
           );
           expect(categoryAction, findsOneWidget);
           final categoryInk = find.descendant(
@@ -6206,9 +6545,7 @@ void main() {
           findsOneWidget,
         );
 
-        await tester.tap(
-          find.byKey(const ValueKey(('topic-sidebar-tag', 'design'))),
-        );
+        await tester.tap(addTag);
         await tester.pumpAndSettle();
         await tester.tap(
           find.byKey(const ValueKey(('topic-tag-picker-option', 'design'))),

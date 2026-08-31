@@ -8,6 +8,7 @@ class TopicTag {
     required this.name,
     this.id,
     this.slug,
+    this.pmOnly = false,
     this.count = 0,
     this.disabled = false,
     this.disabledReason,
@@ -26,6 +27,7 @@ class TopicTag {
       id: jsonIntOrNull(value['id']),
       name: name,
       slug: jsonText(value['slug']),
+      pmOnly: value['pm_only'] == true || value['pmOnly'] == true,
       count: jsonInt(value['count']),
       disabled: value['disabled'] == true,
       disabledReason: jsonText(value['title']),
@@ -35,6 +37,7 @@ class TopicTag {
   final int? id;
   final String name;
   final String? slug;
+  final bool pmOnly;
   final int count;
   final bool disabled;
   final String? disabledReason;
@@ -47,11 +50,12 @@ class TopicTag {
       other.id == id &&
       other.name == name &&
       other.slug == slug &&
+      other.pmOnly == pmOnly &&
       other.count == count &&
       other.disabled == disabled &&
       other.disabledReason == disabledReason;
 
   @override
   int get hashCode =>
-      Object.hash(id, name, slug, count, disabled, disabledReason);
+      Object.hash(id, name, slug, pmOnly, count, disabled, disabledReason);
 }
