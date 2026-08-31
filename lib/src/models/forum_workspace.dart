@@ -55,12 +55,16 @@ final class ForumTab {
     required this.id,
     required this.rootDestinationId,
     required List<ContentRoute> contentStack,
+    List<ContentRoute> forwardStack = const [],
     Map<String, ForumTabAnchor> anchors = const {},
   }) : assert(id.isNotEmpty),
        assert(rootDestinationId.isNotEmpty),
        assert(contentStack.isNotEmpty),
-       assert(contentStack.length <= maximumContentRoutes),
+       assert(
+         contentStack.length + forwardStack.length <= maximumContentRoutes,
+       ),
        contentStack = List.unmodifiable(contentStack),
+       forwardStack = List.unmodifiable(forwardStack),
        anchors = Map.unmodifiable(anchors);
 
   static const int maximumContentRoutes = 64;
@@ -68,34 +72,58 @@ final class ForumTab {
   final String id;
   final String rootDestinationId;
   final List<ContentRoute> contentStack;
+  final List<ContentRoute> forwardStack;
 
   final Map<String, ForumTabAnchor> anchors;
 
   ContentRoute get currentContent => contentStack.last;
+  bool get canGoBack => contentStack.length > 1;
+  bool get canGoForward => forwardStack.isNotEmpty;
 
   ForumTab copyWith({
     String? rootDestinationId,
     List<ContentRoute>? contentStack,
+    List<ContentRoute>? forwardStack,
     Map<String, ForumTabAnchor>? anchors,
   }) => ForumTab(
     id: id,
     rootDestinationId: rootDestinationId ?? this.rootDestinationId,
     contentStack: contentStack ?? this.contentStack,
+    forwardStack: forwardStack ?? this.forwardStack,
     anchors: anchors ?? this.anchors,
   );
 
   ForumTab push(ContentRoute route) {
+    late final List<ContentRoute> routes;
     if (contentStack.length < maximumContentRoutes) {
-      return copyWith(contentStack: [...contentStack, route]);
+      routes = [...contentStack, route];
+    } else {
+      routes = [
+        contentStack.first,
+        ...contentStack.skip(contentStack.length - maximumContentRoutes + 2),
+        route,
+      ];
     }
-    final routes = [
-      contentStack.first,
-      ...contentStack.skip(contentStack.length - maximumContentRoutes + 2),
-      route,
-    ];
     return copyWith(
       contentStack: routes,
+      forwardStack: const [],
       anchors: _retainAnchors({for (final item in routes) item.id}),
+    );
+  }
+
+  ForumTab goBack() {
+    if (!canGoBack) return this;
+    return copyWith(
+      contentStack: contentStack.take(contentStack.length - 1).toList(),
+      forwardStack: [...forwardStack, currentContent],
+    );
+  }
+
+  ForumTab goForward() {
+    if (!canGoForward) return this;
+    return copyWith(
+      contentStack: [...contentStack, forwardStack.last],
+      forwardStack: forwardStack.take(forwardStack.length - 1).toList(),
     );
   }
 
@@ -108,6 +136,10 @@ final class ForumTab {
     'id': id,
     'root_destination_id': rootDestinationId,
     'content_stack': [for (final route in contentStack) route.toJson()],
+    if (forwardStack.isNotEmpty)
+      'forward_content_stack': [
+        for (final route in forwardStack) route.toJson(),
+      ],
     if (anchors.isNotEmpty)
       'anchors': {
         for (final entry in anchors.entries) entry.key: entry.value.toJson(),
@@ -151,7 +183,30 @@ final class ForumTab {
     if (rootRoute == null) return null;
     final stack = <ContentRoute>[rootRoute, ...recent];
 
-    final routeIds = {for (final route in stack) route.id};
+    final forwardStack = <ContentRoute>[];
+    final rawForwardStack = json['forward_content_stack'];
+    final forwardCapacity = maximumContentRoutes - stack.length;
+    if (rawForwardStack is List && forwardCapacity > 0) {
+      for (final rawRoute in rawForwardStack) {
+        try {
+          if (rawRoute is Map) {
+            forwardStack.add(
+              ContentRoute.fromJson(Map<String, dynamic>.from(rawRoute)),
+            );
+            if (forwardStack.length > forwardCapacity) {
+              forwardStack.removeAt(0);
+            }
+          }
+        } on FormatException {
+          // One broken future entry does not invalidate the usable history.
+        }
+      }
+    }
+
+    final routeIds = {
+      for (final route in stack) route.id,
+      for (final route in forwardStack) route.id,
+    };
     final anchors = <String, ForumTabAnchor>{};
     final rawAnchors = json['anchors'];
     if (rawAnchors is Map) {
@@ -174,6 +229,7 @@ final class ForumTab {
       id: id,
       rootDestinationId: root,
       contentStack: stack,
+      forwardStack: forwardStack,
       anchors: anchors,
     );
   }
@@ -184,6 +240,7 @@ final class ForumTab {
       other.id == id &&
       other.rootDestinationId == rootDestinationId &&
       listEquals(other.contentStack, contentStack) &&
+      listEquals(other.forwardStack, forwardStack) &&
       mapEquals(other.anchors, anchors);
 
   @override
@@ -191,6 +248,7 @@ final class ForumTab {
     id,
     rootDestinationId,
     Object.hashAll(contentStack),
+    Object.hashAll(forwardStack),
     // MapEntry hashes by identity while == uses mapEquals, so the anchors
     // must be hashed by key/value pairs, order-independently, to keep equal
     // tabs — such as one snapshot decoded twice — on one hash code.

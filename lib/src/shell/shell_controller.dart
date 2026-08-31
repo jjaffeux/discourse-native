@@ -931,6 +931,7 @@ class ShellController extends FrameSafeNotifier
   @override
   ContentRoute? get currentContent => activeTab?.currentContent;
   bool get canPopContent => (activeTab?.contentStack.length ?? 0) > 1;
+  bool get canForwardContent => activeTab?.canGoForward ?? false;
 
   MobilePane _mobilePane = MobilePane.sidebar;
   MobilePane get mobilePane => _mobilePane;
@@ -3876,18 +3877,28 @@ class ShellController extends FrameSafeNotifier
     final tabs = <ForumTab>[];
     for (final tab in workspace.tabs) {
       var tabChanged = false;
-      final routes = <ContentRoute>[];
-      for (final route in tab.contentStack) {
-        if (route.topicId != topicId) {
-          routes.add(route);
-          continue;
+      List<ContentRoute> rewriteRoutes(List<ContentRoute> source) {
+        final routes = <ContentRoute>[];
+        for (final route in source) {
+          if (route.topicId != topicId) {
+            routes.add(route);
+            continue;
+          }
+          final updated = rewrite(route);
+          routes.add(updated);
+          tabChanged = tabChanged || !identical(updated, route);
         }
-        final updated = rewrite(route);
-        routes.add(updated);
-        tabChanged = tabChanged || !identical(updated, route);
+        return routes;
       }
+
+      final routes = rewriteRoutes(tab.contentStack);
+      final forwardRoutes = rewriteRoutes(tab.forwardStack);
       changed = changed || tabChanged;
-      tabs.add(tabChanged ? tab.copyWith(contentStack: routes) : tab);
+      tabs.add(
+        tabChanged
+            ? tab.copyWith(contentStack: routes, forwardStack: forwardRoutes)
+            : tab,
+      );
     }
     if (changed) _putWorkspace(workspace.copyWith(tabs: tabs));
   }
@@ -10324,7 +10335,11 @@ class ShellController extends FrameSafeNotifier
         ? ContentRoute.group(const GroupRoute.directory())
         : ContentRoute.fromDestination(destination);
     _replaceActiveTab(
-      tab.copyWith(rootDestinationId: destination.id, contentStack: [content]),
+      tab.copyWith(
+        rootDestinationId: destination.id,
+        contentStack: [content],
+        forwardStack: const [],
+      ),
     );
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
@@ -10660,15 +10675,10 @@ class ShellController extends FrameSafeNotifier
     }
     if (canPopContent) {
       final tab = activeTab!;
-      _replaceActiveTab(
-        tab.copyWith(
-          contentStack: tab.contentStack
-              .take(tab.contentStack.length - 1)
-              .toList(),
-        ),
-      );
+      _replaceActiveTab(tab.goBack());
       _syncTopicChannels();
       _notify();
+      if (currentInstance case final instance?) _hydrateActiveTab(instance);
       return true;
     }
     if (canReturnToSidebar && _mobilePane == MobilePane.content) {
@@ -10677,6 +10687,19 @@ class ShellController extends FrameSafeNotifier
       return true;
     }
     return false;
+  }
+
+  bool handleForward() {
+    final tab = activeTab;
+    if (_rootMode != ShellRootMode.forum || tab?.canGoForward != true) {
+      return false;
+    }
+    _replaceActiveTab(tab!.goForward());
+    _mobilePane = MobilePane.content;
+    _syncTopicChannels();
+    _notify();
+    if (currentInstance case final instance?) _hydrateActiveTab(instance);
+    return true;
   }
 
   void _notify() => notifySafely();
