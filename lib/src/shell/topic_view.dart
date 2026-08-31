@@ -29,6 +29,7 @@ import '../theme/d_tooltip.dart';
 import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'inline_action.dart';
+import 'list_boundary_shortcuts.dart';
 import 'loading_skeleton.dart';
 import 'open_link.dart';
 import 'post_actions.dart';
@@ -151,6 +152,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
   ScrollController? _scroll;
   ListController? _list;
+  int _boundaryJumpRevision = 0;
   (String, int, int)? _topicIdentity;
   String? _tabId;
   ShellController? _controller;
@@ -622,6 +624,46 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         'after': _sliverLayoutData(),
       });
     }
+  }
+
+  void _jumpToBoundary({required bool end}) {
+    final revision = ++_boundaryJumpRevision;
+    final list = _list;
+    final scroll = _scroll;
+    if (list == null || scroll == null || !scroll.hasClients) return;
+
+    if (!end || !list.isAttached || list.numberOfItems == 0) {
+      scroll.jumpTo(
+        end ? scroll.position.maxScrollExtent : scroll.position.minScrollExtent,
+      );
+      return;
+    }
+
+    final target = list.numberOfItems - 1;
+    bool isCurrent() {
+      if (!mounted || !identical(_list, list) || !identical(_scroll, scroll)) {
+        return false;
+      }
+      return revision == _boundaryJumpRevision &&
+          list.isAttached &&
+          scroll.hasClients;
+    }
+
+    void correctToEnd({bool repeat = true}) {
+      if (!isCurrent()) return;
+      scroll.jumpTo(scroll.position.maxScrollExtent);
+      if (!repeat) return;
+
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => correctToEnd(repeat: false),
+      );
+      WidgetsBinding.instance.scheduleFrame();
+    }
+
+    // Reveal and measure the terminal post before including trailing padding.
+    list.jumpToItem(index: target, scrollController: scroll, alignment: 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) => correctToEnd());
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   bool _isCurrent(
@@ -2179,7 +2221,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     );
     final postStream = ScrollbarTheme(
       data: const ScrollbarThemeData(thickness: WidgetStatePropertyAll(4)),
-      child: postStreamContent,
+      child: ListBoundaryShortcuts(
+        key: ValueKey(('topic-post-boundary', siteUrl, snapshot.topicId)),
+        debugLabel: 'topic post stream',
+        initiallyActive: true,
+        onStart: () => _jumpToBoundary(end: false),
+        onEnd: () => _jumpToBoundary(end: true),
+        child: postStreamContent,
+      ),
     );
 
     final floatingDay = _floatingDay;

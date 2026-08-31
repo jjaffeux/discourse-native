@@ -14,6 +14,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
 import 'avatar_image.dart';
+import 'list_boundary_shortcuts.dart';
 import 'loading_skeleton.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
@@ -35,6 +36,7 @@ class _TopicListViewState extends State<TopicListView> {
   (String?, String?, String)? _feedIdentity;
   Object? _loadMoreToken;
   bool _restored = false;
+  int _boundaryJumpRevision = 0;
 
   ShellController? _controller;
 
@@ -93,6 +95,48 @@ class _TopicListViewState extends State<TopicListView> {
     final target = row.clamp(0, lastRenderedTopicIndex);
 
     list.jumpToItem(index: target, scrollController: scroll, alignment: 0);
+  }
+
+  void _jumpToBoundary({required bool end}) {
+    final revision = ++_boundaryJumpRevision;
+    final list = _list;
+    final scroll = _scroll;
+    if (list == null || scroll == null || !scroll.hasClients) return;
+
+    if (!end || !list.isAttached || list.numberOfItems == 0) {
+      scroll.jumpTo(
+        end ? scroll.position.maxScrollExtent : scroll.position.minScrollExtent,
+      );
+      return;
+    }
+
+    // SuperListView estimates unbuilt variable-height rows. Address the
+    // terminal row first so it is measured, then correct to maxScrollExtent
+    // after layout so trailing list padding is included too.
+    final target = list.numberOfItems - 1;
+    bool isCurrent() {
+      if (!mounted || !identical(_list, list) || !identical(_scroll, scroll)) {
+        return false;
+      }
+      return revision == _boundaryJumpRevision &&
+          list.isAttached &&
+          scroll.hasClients;
+    }
+
+    void correctToEnd({bool repeat = true}) {
+      if (!isCurrent()) return;
+      scroll.jumpTo(scroll.position.maxScrollExtent);
+      if (!repeat) return;
+
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => correctToEnd(repeat: false),
+      );
+      WidgetsBinding.instance.scheduleFrame();
+    }
+
+    list.jumpToItem(index: target, scrollController: scroll, alignment: 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) => correctToEnd());
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   void _disposeControllers() {
@@ -273,41 +317,48 @@ class _TopicListViewState extends State<TopicListView> {
               return false;
             },
             // SuperListView preserves measured heights for variably sized rows.
-            child: SuperListView.separated(
-              // Switching destinations swaps the controller, so the scrollable
-              // has to be a new one rather than re-attached to a different
-              // controller.
-              key: ValueKey(feedIdentity),
-              controller: _scroll,
-              listController: _list,
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              itemCount:
-                  feed.topicIds.length +
-                  (feed.loadingMore || feed.pageError ? 1 : 0),
-              separatorBuilder: (context, _) =>
-                  Divider(height: 1, color: Theme.of(context).shell.divider),
-              itemBuilder: (context, index) {
-                if (index >= feed.topicIds.length) {
-                  if (feed.loadingMore) return const _LoadingMoreRow();
-                  return _LoadMoreErrorRow(
-                    message: feed.error!,
-                    onRetry: () =>
-                        unawaited(controller.loadMoreFeed(destination)),
-                  );
-                }
+            child: ListBoundaryShortcuts(
+              key: ValueKey(('topic-list-boundary', feedIdentity)),
+              debugLabel: 'topic list',
+              initiallyActive: true,
+              onStart: () => _jumpToBoundary(end: false),
+              onEnd: () => _jumpToBoundary(end: true),
+              child: SuperListView.separated(
+                // Switching destinations swaps the controller, so the scrollable
+                // has to be a new one rather than re-attached to a different
+                // controller.
+                key: ValueKey(feedIdentity),
+                controller: _scroll,
+                listController: _list,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                itemCount:
+                    feed.topicIds.length +
+                    (feed.loadingMore || feed.pageError ? 1 : 0),
+                separatorBuilder: (context, _) =>
+                    Divider(height: 1, color: Theme.of(context).shell.divider),
+                itemBuilder: (context, index) {
+                  if (index >= feed.topicIds.length) {
+                    if (feed.loadingMore) return const _LoadingMoreRow();
+                    return _LoadMoreErrorRow(
+                      message: feed.error!,
+                      onRetry: () =>
+                          unawaited(controller.loadMoreFeed(destination)),
+                    );
+                  }
 
-                if (index == feed.topicIds.length - 1 && feed.hasMore) {
-                  _scheduleLoadMore(
-                    controller,
-                    destination,
-                    feedIdentity,
-                    feed,
-                  );
-                }
+                  if (index == feed.topicIds.length - 1 && feed.hasMore) {
+                    _scheduleLoadMore(
+                      controller,
+                      destination,
+                      feedIdentity,
+                      feed,
+                    );
+                  }
 
-                final topicId = feed.topicIds[index];
-                return _TopicRow(key: ValueKey(topicId), topicId: topicId);
-              },
+                  final topicId = feed.topicIds[index];
+                  return _TopicRow(key: ValueKey(topicId), topicId: topicId);
+                },
+              ),
             ),
           ),
         ),

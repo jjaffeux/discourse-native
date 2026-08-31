@@ -7,6 +7,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/adaptive_dialog_action.dart';
+import '../../shell/list_boundary_shortcuts.dart';
 import '../../shell/loading_skeleton.dart';
 import '../../shell/shell_sheet.dart';
 import '../../shell/stream_day_separator.dart';
@@ -28,9 +29,14 @@ import 'chat_stream.dart';
 import 'chat_stream_target.dart';
 
 class ChatChannelView extends StatelessWidget {
-  const ChatChannelView({super.key, required this.channelId});
+  const ChatChannelView({
+    super.key,
+    required this.channelId,
+    this.autofocusMessageStream = true,
+  });
 
   final int channelId;
+  final bool autofocusMessageStream;
 
   /// About one screen before the reversed list's oldest edge.
   static const double _loadOlderThreshold = 900;
@@ -53,6 +59,7 @@ class ChatChannelView extends StatelessWidget {
           channelId: channelId,
           showTimeGapDays: shell.showTimeGapDaysFor(siteUrl),
           chat: chat,
+          autofocusMessageStream: autofocusMessageStream,
         );
       },
     );
@@ -66,12 +73,14 @@ class _ChatChannelBody extends StatefulWidget {
     required this.channelId,
     required this.showTimeGapDays,
     required this.chat,
+    required this.autofocusMessageStream,
   });
 
   final String siteUrl;
   final int channelId;
   final int showTimeGapDays;
   final ChatController chat;
+  final bool autofocusMessageStream;
 
   @override
   State<_ChatChannelBody> createState() => _ChatChannelBodyState();
@@ -221,6 +230,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         selectedMessageIds: _selectedMessageIds,
         onStartSelecting: _startSelecting,
         onSelectionChanged: _setMessageSelected,
+        autofocus: widget.autofocusMessageStream,
       );
     } else if (stream.loading) {
       content = const _ChatLoadingSkeleton(
@@ -494,6 +504,7 @@ class ChatMessageStream extends StatefulWidget {
     this.selectedMessageIds = const {},
     this.onStartSelecting,
     this.onSelectionChanged,
+    this.autofocus = true,
   });
 
   final String siteUrl;
@@ -514,6 +525,7 @@ class ChatMessageStream extends StatefulWidget {
   final Set<int> selectedMessageIds;
   final ValueChanged<int>? onStartSelecting;
   final void Function(int messageId, bool selected)? onSelectionChanged;
+  final bool autofocus;
 
   int get channelId => target.channelId;
 
@@ -543,6 +555,7 @@ class _StreamState extends State<ChatMessageStream>
   ({String siteUrl, ChatStreamTarget target, int fetches})? _anchored;
 
   bool _awayFromPresent = false;
+  int _boundaryJumpRevision = 0;
   int _unseenLiveMessages = 0;
   DateTime? _floatingDay;
   double _floatingDayOffset = 0;
@@ -787,6 +800,35 @@ class _StreamState extends State<ChatMessageStream>
       scrollController: _scroll,
       alignment: alignment,
     );
+  }
+
+  void _jumpToOldestLoadedMessage() {
+    final revision = ++_boundaryJumpRevision;
+    if (!_list.isAttached || !_scroll.hasClients || _list.numberOfItems == 0) {
+      return;
+    }
+
+    final target = _list.numberOfItems - 1;
+    void correctToOldestEdge({bool repeat = true}) {
+      if (!mounted ||
+          revision != _boundaryJumpRevision ||
+          !_list.isAttached ||
+          !_scroll.hasClients) {
+        return;
+      }
+      _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      if (!repeat) return;
+
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => correctToOldestEdge(repeat: false),
+      );
+      WidgetsBinding.instance.scheduleFrame();
+    }
+
+    // Reveal and measure the oldest row before including trailing padding.
+    _jumpToRow(target, 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) => correctToOldestEdge());
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   void _noteWhatIsOnScreen() {
@@ -1058,80 +1100,94 @@ class _StreamState extends State<ChatMessageStream>
             return false;
           },
           // Reversal preserves position as older, variably sized rows are added.
-          child: SuperListView.builder(
-            reverse: true,
-            controller: _scroll,
-            listController: _list,
-            padding: _streamPadding,
-            itemCount: leading + items.length + (stream.loadingOlder ? 1 : 0),
-            itemBuilder: (context, row) {
-              if (row < leading) return const _LoadingNewerRow();
-              if (row > lastRow) return const _LoadingOlderRow();
-
-              // The oldest row drives fill-pane fallback when no scroll fires.
-              if (row == lastRow && stream.canLoadMorePast) {
-                _scheduleOlderPage(chat, siteUrl, channelId, stream);
+          child: ListBoundaryShortcuts(
+            key: const ValueKey('chat-message-stream-keyboard-focus'),
+            debugLabel: 'chat message stream',
+            initiallyActive: widget.autofocus,
+            onStart: _jumpToOldestLoadedMessage,
+            onEnd: () {
+              _boundaryJumpRevision++;
+              if (_chat case final chat?) {
+                unawaited(
+                  _jumpToPresent(chat, widget.siteUrl, widget.target.channelId),
+                );
               }
+            },
+            child: SuperListView.builder(
+              reverse: true,
+              controller: _scroll,
+              listController: _list,
+              padding: _streamPadding,
+              itemCount: leading + items.length + (stream.loadingOlder ? 1 : 0),
+              itemBuilder: (context, row) {
+                if (row < leading) return const _LoadingNewerRow();
+                if (row > lastRow) return const _LoadingOlderRow();
 
-              return switch (_itemAt(row)) {
-                ChatStreamMessage(:final id, :final chained) => ConstrainedBox(
-                  // Reserve hover overflow only when the live-edge row is short.
-                  constraints: BoxConstraints(
-                    minHeight: row == 0
-                        ? ChatMessageTile.minimumHoverActionsHeight
-                        : 0,
-                  ),
-                  child: _HighlightedChatMessage(
-                    highlighted: id == _highlightMessageId,
-                    child: ValueListenableBuilder<ChatMessage?>(
-                      valueListenable: chat.messageRef(siteUrl, id),
-                      builder: (context, message, _) => ChatMessageTile(
-                        siteUrl: siteUrl,
-                        messageId: id,
-                        chained: chained,
-                        contextThreadId: widget.target.threadId,
-                        onOpenThread: widget.onOpenThread,
-                        onJumpToMessage: widget.onJumpToMessage,
-                        onReplyInThread:
-                            message?.thread != null || widget.canCreateThread
-                            ? widget.onReplyInThread
-                            : null,
-                        onEdit: widget.onEdit,
-                        showThreadSummary: widget.showThreadSummaries,
-                        onSelect: id > 0 && widget.onStartSelecting != null
-                            ? () => widget.onStartSelecting!(id)
-                            : null,
-                        selecting: widget.selectingMessages,
-                        selected: widget.selectedMessageIds.contains(id),
-                        onSelectedChanged: (selected) =>
-                            widget.onSelectionChanged?.call(id, selected),
+                // The oldest row drives fill-pane fallback when no scroll fires.
+                if (row == lastRow && stream.canLoadMorePast) {
+                  _scheduleOlderPage(chat, siteUrl, channelId, stream);
+                }
+
+                return switch (_itemAt(row)) {
+                  ChatStreamMessage(:final id, :final chained) => ConstrainedBox(
+                    // Reserve hover overflow only when the live-edge row is short.
+                    constraints: BoxConstraints(
+                      minHeight: row == 0
+                          ? ChatMessageTile.minimumHoverActionsHeight
+                          : 0,
+                    ),
+                    child: _HighlightedChatMessage(
+                      highlighted: id == _highlightMessageId,
+                      child: ValueListenableBuilder<ChatMessage?>(
+                        valueListenable: chat.messageRef(siteUrl, id),
+                        builder: (context, message, _) => ChatMessageTile(
+                          siteUrl: siteUrl,
+                          messageId: id,
+                          chained: chained,
+                          contextThreadId: widget.target.threadId,
+                          onOpenThread: widget.onOpenThread,
+                          onJumpToMessage: widget.onJumpToMessage,
+                          onReplyInThread:
+                              message?.thread != null || widget.canCreateThread
+                              ? widget.onReplyInThread
+                              : null,
+                          onEdit: widget.onEdit,
+                          showThreadSummary: widget.showThreadSummaries,
+                          onSelect: id > 0 && widget.onStartSelecting != null
+                              ? () => widget.onStartSelecting!(id)
+                              : null,
+                          selecting: widget.selectingMessages,
+                          selected: widget.selectedMessageIds.contains(id),
+                          onSelectedChanged: (selected) =>
+                              widget.onSelectionChanged?.call(id, selected),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                ChatStreamDay(:final day) => IgnorePointer(
-                  ignoring: day == _floatingDay,
-                  child: Opacity(
-                    opacity: day == _floatingDay ? 0 : 1,
-                    child: StreamDaySeparator(
-                      key: ValueKey(('chat-day', day)),
-                      day: day,
+                  ChatStreamDay(:final day) => IgnorePointer(
+                    ignoring: day == _floatingDay,
+                    child: Opacity(
+                      opacity: day == _floatingDay ? 0 : 1,
+                      child: StreamDaySeparator(
+                        key: ValueKey(('chat-day', day)),
+                        day: day,
+                      ),
                     ),
                   ),
-                ),
-                ChatStreamTimeGap(:final messageId, :final daysSince) =>
-                  TimeGapNotice(
-                    key: ValueKey(('chat-time-gap', messageId)),
-                    daysSince: daysSince,
+                  ChatStreamTimeGap(:final messageId, :final daysSince) =>
+                    TimeGapNotice(
+                      key: ValueKey(('chat-time-gap', messageId)),
+                      daysSince: daysSince,
+                    ),
+                  ChatStreamDeleted(:final messageIds) => _DeletedRun(
+                    siteUrl: siteUrl,
+                    messageIds: messageIds,
                   ),
-                ChatStreamDeleted(:final messageIds) => _DeletedRun(
-                  siteUrl: siteUrl,
-                  messageIds: messageIds,
-                ),
-                ChatStreamNewDivider() => const _NewDivider(),
-                null => const SizedBox.shrink(),
-              };
-            },
+                  ChatStreamNewDivider() => const _NewDivider(),
+                  null => const SizedBox.shrink(),
+                };
+              },
+            ),
           ),
         ),
         if (_floatingDay case final day?)
