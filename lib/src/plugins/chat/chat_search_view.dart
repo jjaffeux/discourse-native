@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/choice_menu.dart';
+import '../../shell/content_reading_lane.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -116,43 +117,48 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     if (state.hits.isEmpty) return const SizedBox.shrink();
 
     final hasFooter = state.loadingMore || state.error != null || state.hasMore;
-    return ListView.separated(
-      key: const PageStorageKey('chat-search-results'),
-      controller: _scroll,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: state.hits.length + (hasFooter ? 1 : 0),
-      separatorBuilder: (_, _) => const Divider(height: 1),
-      itemBuilder: (context, index) {
-        if (index == state.hits.length) {
-          if (state.loadingMore) {
-            return const Padding(
-              padding: EdgeInsets.all(20),
-              child: Center(child: CircularProgressIndicator.adaptive()),
+    return ContentReadingLane(
+      basePadding: const EdgeInsets.symmetric(vertical: 8),
+      builder: (context, lane) => ListView.separated(
+        key: const PageStorageKey('chat-search-results'),
+        controller: _scroll,
+        padding: lane.padding,
+        itemCount: state.hits.length + (hasFooter ? 1 : 0),
+        separatorBuilder: (_, _) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          if (index == state.hits.length) {
+            if (state.loadingMore) {
+              return const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(child: CircularProgressIndicator.adaptive()),
+              );
+            }
+            return Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (state.error case final error?) ...[
+                    Text(error, textAlign: TextAlign.center),
+                    const SizedBox(height: 8),
+                  ],
+                  DButton(
+                    label: Text(
+                      state.error == null ? 'Load more' : 'Try again',
+                    ),
+                    onPressed: () => _search.loadMore(widget.siteUrl),
+                  ),
+                ],
+              ),
             );
           }
-          return Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (state.error case final error?) ...[
-                  Text(error, textAlign: TextAlign.center),
-                  const SizedBox(height: 8),
-                ],
-                DButton(
-                  label: Text(state.error == null ? 'Load more' : 'Try again'),
-                  onPressed: () => _search.loadMore(widget.siteUrl),
-                ),
-              ],
-            ),
+          return _ChatSearchResult(
+            siteUrl: widget.siteUrl,
+            hit: state.hits[index],
+            onOpen: () => unawaited(_open(state.hits[index])),
           );
-        }
-        return _ChatSearchResult(
-          siteUrl: widget.siteUrl,
-          hit: state.hits[index],
-          onOpen: () => unawaited(_open(state.hits[index])),
-        );
-      },
+        },
+      ),
     );
   }
 

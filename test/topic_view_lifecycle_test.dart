@@ -20,6 +20,7 @@ import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -615,6 +616,64 @@ void main() {
       );
 
       testWidgets(
+        'Settings and its hidden ticker do not credit hidden dwell time',
+        (tester) async {
+          final site = instance('meta.example');
+          final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+          final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+          final controller = ShellController(
+            instanceStore: FakeInstanceStore([site]),
+            api: api,
+            authenticator: authenticator,
+            drafts: FakeDraftStore(),
+            trackers: FakeSiteTracker.reset(),
+          );
+          addTearDown(controller.dispose);
+          await controller.load();
+          controller.store
+            ..put(
+              site.url,
+              const TopicDetail(
+                id: 1,
+                title: 'One',
+                stream: [100],
+                postsCount: 1,
+              ),
+            )
+            ..put(
+              site.url,
+              const Post(
+                id: 100,
+                postNumber: 1,
+                username: 'sam',
+                cooked: '<p>Only post</p>',
+              ),
+            );
+          controller.pushContent(
+            ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+          );
+
+          await tester.pumpWidget(_topicView(controller));
+          await tester.pump();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(api.topicReadsRecorded, isEmpty);
+
+          controller.selectSettings();
+          await tester.pump(const Duration(seconds: 2));
+          expect(api.topicReadsRecorded, isEmpty);
+
+          await tester.pumpWidget(_topicView(controller, tickerEnabled: false));
+          expect(controller.handleBack(), isTrue);
+          await tester.pumpWidget(_topicView(controller));
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(api.topicReadsRecorded, isEmpty);
+          await tester.pump(const Duration(milliseconds: 600));
+          expect(api.topicReadsRecorded, [(topicId: 1, postNumber: 1)]);
+        },
+      );
+
+      testWidgets(
         'records the visible range after programmatic scroll layout',
         (tester) async {
           final site = instance('meta.example');
@@ -942,16 +1001,35 @@ void main() {
           expect(scroll.positions, hasLength(1));
           final position = scroll.position;
 
-          rebuild(() => showSidebar = true);
-          await tester.pump();
+          final previousPlatform = debugDefaultTargetPlatformOverride;
+          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+          try {
+            rebuild(() => showSidebar = true);
+            await tester.pump();
 
-          expect(tester.takeException(), isNull);
-          expect(
-            find.byKey(const ValueKey('topic-sidebar-panel')),
-            findsOneWidget,
-          );
-          expect(scroll.positions, hasLength(1));
-          expect(scroll.position, same(position));
+            expect(tester.takeException(), isNull);
+            final sidebar = find.byKey(const ValueKey('topic-sidebar-panel'));
+            expect(sidebar, findsOneWidget);
+            expect(tester.getSize(sidebar).width, 344);
+            expect(tester.getRect(sidebar).right, 1200);
+            final pinnedList = tester.widget<SuperListView>(
+              find.byType(SuperListView),
+            );
+            final pinnedPadding = pinnedList.padding! as EdgeInsets;
+            expect(tester.getSize(find.byType(SuperListView)).width, 1200);
+            expect(pinnedPadding.left, 15.5);
+            expect(pinnedPadding.right, 359.5);
+            expect(
+              tester
+                  .getSize(find.byKey(const ValueKey('topic-content-header')))
+                  .width,
+              1200,
+            );
+            expect(scroll.positions, hasLength(1));
+            expect(scroll.position, same(position));
+          } finally {
+            debugDefaultTargetPlatformOverride = previousPlatform;
+          }
 
           await tester.pumpAndSettle();
           rebuild(() => showSidebar = false);
@@ -2366,12 +2444,15 @@ ShellController _controller(DiscourseInstance site, FakeDiscourseApi api) =>
 Widget _topicView(
   ShellController controller, {
   DiagnosticsController? diagnostics,
+  bool tickerEnabled = true,
 }) {
   final view = ShellScope(
     controller: controller,
     child: MaterialApp(
       theme: AppTheme.light,
-      home: const Scaffold(body: TopicView()),
+      home: Scaffold(
+        body: TickerMode(enabled: tickerEnabled, child: const TopicView()),
+      ),
     ),
   );
   return diagnostics == null

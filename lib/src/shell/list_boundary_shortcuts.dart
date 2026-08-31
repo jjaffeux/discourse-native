@@ -81,6 +81,9 @@ class _ListBoundaryShortcutsState extends State<ListBoundaryShortcuts> {
   }
 
   KeyEventResult _handleBoundaryKey(KeyEvent event) {
+    if (!TickerMode.valuesOf(context).enabled) {
+      return KeyEventResult.ignored;
+    }
     final keyboard = HardwareKeyboard.instance;
     if (_startShortcuts.any((shortcut) => shortcut.accepts(event, keyboard))) {
       widget.onStart();

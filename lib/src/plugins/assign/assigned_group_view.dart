@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/topic.dart';
 import '../../plugin_api/plugin_scope.dart';
+import '../../shell/content_reading_lane.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -115,122 +116,138 @@ class _AssignedGroupViewState extends State<AssignedGroupView> {
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    return RefreshIndicator(
-      onRefresh: () => _load(refresh: true),
-      child: ListenableBuilder(
-        listenable: controller,
-        builder: (context, _) {
-          final members = controller.membersStateFor(
-            widget.siteUrl,
-            widget.groupName,
-            search: _memberSearch,
-          );
-          final feed = controller.topicFeedFor(
-            widget.siteUrl,
-            widget.groupName,
-            _filter,
-            query: _query,
-          );
-          final topics = controller.topicsFor(
-            widget.siteUrl,
-            widget.groupName,
-            _filter,
-            query: _query,
-          );
-          return CustomScrollView(
-            key: PageStorageKey(
-              'assigned-${widget.groupName}-${_filter.routeSegment(widget.groupName)}',
-            ),
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(
-                child: _AssignedControls(
-                  groupName: widget.groupName,
-                  filter: _filter,
-                  query: _query,
-                  members: members,
-                  onSelect: _select,
-                  onQueryChanged: _replaceQuery,
-                  onMemberSearch: (value) {
-                    final search = value.trim();
-                    if (search == _memberSearch) return;
-                    setState(() => _memberSearch = search);
-                    unawaited(
-                      controller.loadMembers(
-                        siteUrl: widget.siteUrl,
-                        groupName: widget.groupName,
-                        search: search,
-                        refresh: true,
-                      ),
-                    );
-                  },
-                  onLoadMoreMembers: () => unawaited(
-                    controller.loadMoreMembers(
-                      siteUrl: widget.siteUrl,
-                      groupName: widget.groupName,
-                      search: _memberSearch,
-                    ),
-                  ),
-                ),
+    return ContentReadingLane(
+      basePadding: const EdgeInsets.symmetric(horizontal: 16),
+      builder: (context, lane) => RefreshIndicator(
+        onRefresh: () => _load(refresh: true),
+        child: ListenableBuilder(
+          listenable: controller,
+          builder: (context, _) {
+            final members = controller.membersStateFor(
+              widget.siteUrl,
+              widget.groupName,
+              search: _memberSearch,
+            );
+            final feed = controller.topicFeedFor(
+              widget.siteUrl,
+              widget.groupName,
+              _filter,
+              query: _query,
+            );
+            final topics = controller.topicsFor(
+              widget.siteUrl,
+              widget.groupName,
+              _filter,
+              query: _query,
+            );
+            return CustomScrollView(
+              key: PageStorageKey(
+                'assigned-${widget.groupName}-${_filter.routeSegment(widget.groupName)}',
               ),
-              if (feed.loading && topics.isNotEmpty)
-                const SliverToBoxAdapter(
-                  child: LinearProgressIndicator(minHeight: 2),
-                ),
-              if (feed.error case final error?)
-                SliverToBoxAdapter(
-                  child: _AssignedError(
-                    message: error,
-                    onRetry: () => unawaited(_load(refresh: true)),
-                  ),
-                ),
-              if (!feed.loaded && feed.loading)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(child: CircularProgressIndicator.adaptive()),
-                )
-              else if (topics.isEmpty && feed.error == null)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: _AssignedEmpty(),
-                )
-              else
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-                  sliver: SliverList.separated(
-                    itemCount: topics.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) => _AssignedTopicRow(
-                      topic: topics[index],
-                      onTap: () => _navigation.openTopic(topics[index]),
-                    ),
+                  padding: EdgeInsets.only(
+                    left: lane.leftInset,
+                    right: lane.rightInset,
                   ),
-                ),
-              if (feed.hasMore || feed.loadingMore)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 28),
-                    child: Center(
-                      child: DButton(
-                        label: const Text('Load more assignments'),
-                        loading: feed.loadingMore,
-                        onPressed: feed.loadingMore
-                            ? null
-                            : () => unawaited(
-                                controller.loadMoreTopics(
-                                  siteUrl: widget.siteUrl,
-                                  groupName: widget.groupName,
-                                  filter: _filter,
-                                  query: _query,
-                                ),
+                  sliver: SliverMainAxisGroup(
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: _AssignedControls(
+                          groupName: widget.groupName,
+                          filter: _filter,
+                          query: _query,
+                          members: members,
+                          onSelect: _select,
+                          onQueryChanged: _replaceQuery,
+                          onMemberSearch: (value) {
+                            final search = value.trim();
+                            if (search == _memberSearch) return;
+                            setState(() => _memberSearch = search);
+                            unawaited(
+                              controller.loadMembers(
+                                siteUrl: widget.siteUrl,
+                                groupName: widget.groupName,
+                                search: search,
+                                refresh: true,
                               ),
+                            );
+                          },
+                          onLoadMoreMembers: () => unawaited(
+                            controller.loadMoreMembers(
+                              siteUrl: widget.siteUrl,
+                              groupName: widget.groupName,
+                              search: _memberSearch,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      if (feed.loading && topics.isNotEmpty)
+                        const SliverToBoxAdapter(
+                          child: LinearProgressIndicator(minHeight: 2),
+                        ),
+                      if (feed.error case final error?)
+                        SliverToBoxAdapter(
+                          child: _AssignedError(
+                            message: error,
+                            onRetry: () => unawaited(_load(refresh: true)),
+                          ),
+                        ),
+                      if (!feed.loaded && feed.loading)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(
+                            child: CircularProgressIndicator.adaptive(),
+                          ),
+                        )
+                      else if (topics.isEmpty && feed.error == null)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _AssignedEmpty(),
+                        )
+                      else
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+                          sliver: SliverList.separated(
+                            itemCount: topics.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (context, index) => _AssignedTopicRow(
+                              topic: topics[index],
+                              onTap: () => _navigation.openTopic(topics[index]),
+                            ),
+                          ),
+                        ),
+                      if (feed.hasMore || feed.loadingMore)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 28),
+                            child: Center(
+                              child: DButton(
+                                label: const Text('Load more assignments'),
+                                loading: feed.loadingMore,
+                                onPressed: feed.loadingMore
+                                    ? null
+                                    : () => unawaited(
+                                        controller.loadMoreTopics(
+                                          siteUrl: widget.siteUrl,
+                                          groupName: widget.groupName,
+                                          filter: _filter,
+                                          query: _query,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }

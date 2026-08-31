@@ -1272,8 +1272,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
         globalPosition != null &&
         text.collapsedSyntaxAtGlobalPosition(globalPosition)?.kind ==
             composerLinkSyntaxKind;
-    if (_hoveringMention == hoveringMention &&
-        _hoveringLink == hoveringLink) {
+    if (_hoveringMention == hoveringMention && _hoveringLink == hoveringLink) {
       return;
     }
     setState(() {

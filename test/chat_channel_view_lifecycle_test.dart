@@ -846,6 +846,95 @@ void main() {
     });
 
     testWidgets(
+      'a ticker-disabled dwell resumes without crediting hidden time',
+      (tester) async {
+        final api = _ChatApi(
+          openPages: {
+            firstSite: [_messagesPage(1, 1)],
+          },
+        );
+        final controller = await _controller(api, sites: const [firstSite]);
+        addTearDown(controller.dispose);
+        controller.chatRecords.put(firstSite, _channel(lastRead: 0));
+
+        await tester.pumpWidget(_TestView(controller: controller));
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(api.chatReadsMarked, isEmpty);
+
+        await tester.pumpWidget(
+          _TestView(controller: controller, tickerEnabled: false),
+        );
+        await tester.pump(const Duration(seconds: 2));
+        expect(api.chatReadsMarked, isEmpty);
+
+        await tester.pumpWidget(_TestView(controller: controller));
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(api.chatReadsMarked, isEmpty);
+        await tester.pump(const Duration(milliseconds: 600));
+        expect(api.chatReadsMarked, [(channelId: 9, messageId: 1)]);
+      },
+    );
+
+    testWidgets('opening Settings synchronously pauses a pending dwell', (
+      tester,
+    ) async {
+      final api = _ChatApi(
+        openPages: {
+          firstSite: [_messagesPage(1, 1)],
+        },
+      );
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      controller.chatRecords.put(firstSite, _channel(lastRead: 0));
+
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(api.chatReadsMarked, isEmpty);
+
+      controller.selectSettings();
+      await tester.pump(const Duration(seconds: 2));
+      expect(api.chatReadsMarked, isEmpty);
+
+      expect(controller.handleBack(), isTrue);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(api.chatReadsMarked, isEmpty);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(api.chatReadsMarked, [(channelId: 9, messageId: 1)]);
+    });
+
+    testWidgets('opening Settings releases and restores the channel view', (
+      tester,
+    ) async {
+      final api = _ChatApi(
+        openPages: {
+          firstSite: [_messagesPage(1, 1)],
+        },
+      );
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      controller.chatRecords.put(firstSite, _channel(lastRead: 1));
+
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pump();
+      await tester.pump();
+      final tracker = FakeSiteTracker.built.singleWhere(
+        (tracker) => tracker.siteUrl == firstSite,
+      );
+      expect(tracker.pluginChannelCallbacks['/chat/9'], isNotEmpty);
+
+      controller.selectSettings();
+      expect(tracker.pluginChannelCallbacks['/chat/9'], isEmpty);
+
+      expect(controller.handleBack(), isTrue);
+      await tester.pump();
+      expect(tracker.pluginChannelCallbacks['/chat/9'], isNotEmpty);
+    });
+
+    testWidgets(
       'read-only channels remove thread creation while existing threads remain openable',
       (tester) async {
         const replyAction = CustomSemanticsAction(label: 'Reply in thread');
@@ -1381,10 +1470,15 @@ Future<ShellController> _controller(
 }
 
 final class _TestView extends StatelessWidget {
-  const _TestView({required this.controller, this.onScroll});
+  const _TestView({
+    required this.controller,
+    this.onScroll,
+    this.tickerEnabled = true,
+  });
 
   final ShellController controller;
   final NotificationListenerCallback<ScrollNotification>? onScroll;
+  final bool tickerEnabled;
 
   @override
   Widget build(BuildContext context) => ShellScope(
@@ -1394,9 +1488,12 @@ final class _TestView extends StatelessWidget {
       MaterialApp(
         theme: AppTheme.light,
         home: Scaffold(
-          body: NotificationListener<ScrollNotification>(
-            onNotification: onScroll ?? (_) => false,
-            child: const ChatChannelView(channelId: 9),
+          body: TickerMode(
+            enabled: tickerEnabled,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: onScroll ?? (_) => false,
+              child: const ChatChannelView(channelId: 9),
+            ),
           ),
         ),
       ),

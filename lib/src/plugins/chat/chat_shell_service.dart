@@ -67,6 +67,7 @@ final class ChatShellService
       _host.changes.removeListener(listener);
 
   String? get currentSiteUrl => _host.currentInstance?.url;
+  bool get forumActive => _host.forumActive;
   bool get showHeaderShortcut =>
       _host.forumActive && _host.currentInstance != null;
   DiscourseUser? get currentUser => _host.currentInstance?.user;

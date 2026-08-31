@@ -82,6 +82,7 @@ class InstanceRail extends StatelessWidget {
                   _RailFooter(
                     siteActionsAvailable:
                         state.loadStatus == InstanceLoadStatus.ready,
+                    settingsSelected: state.rootMode == ShellRootMode.settings,
                   ),
                 ],
               ),
@@ -888,9 +889,13 @@ class _RailLoadFailure extends StatelessWidget {
 }
 
 class _RailFooter extends StatelessWidget {
-  const _RailFooter({required this.siteActionsAvailable});
+  const _RailFooter({
+    required this.siteActionsAvailable,
+    required this.settingsSelected,
+  });
 
   final bool siteActionsAvailable;
+  final bool settingsSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -912,10 +917,94 @@ class _RailFooter extends StatelessWidget {
         ],
         if (DiagnosticsScope.maybeRead(context) != null)
           const Padding(
-            padding: EdgeInsets.fromLTRB(0, 4, 0, 8),
+            padding: EdgeInsets.symmetric(vertical: 4),
             child: Center(child: _DiagnosticsButton()),
           ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
+          child: Center(
+            child: _SettingsButton(
+              selected: settingsSelected,
+              onTap: ShellScope.read(context).selectSettings,
+            ),
+          ),
+        ),
       ],
+    );
+  }
+}
+
+class _SettingsButton extends StatefulWidget {
+  const _SettingsButton({required this.selected, required this.onTap});
+
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_SettingsButton> createState() => _SettingsButtonState();
+}
+
+class _SettingsButtonState extends State<_SettingsButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final foreground = theme.shell.railForeground;
+    final markerHeight = widget.selected ? 40.0 : (_hovered ? 20.0 : 8.0);
+
+    return Semantics(
+      button: true,
+      selected: widget.selected,
+      label: 'Settings',
+      child: Stack(
+        alignment: Alignment.centerLeft,
+        children: [
+          AnimatedContainer(
+            key: const ValueKey('settings-rail-marker'),
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            width: 4,
+            height: markerHeight,
+            decoration: BoxDecoration(
+              color: foreground,
+              borderRadius: const BorderRadius.horizontal(
+                right: Radius.circular(4),
+              ),
+            ),
+          ),
+          Center(
+            child: Tooltip(
+              message: 'Settings',
+              child: InkWell(
+                key: const ValueKey('settings-rail-button'),
+                onTap: widget.onTap,
+                onHover: (hovered) => setState(() => _hovered = hovered),
+                borderRadius: BorderRadius.circular(16),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: widget.selected
+                        ? foreground
+                        : foreground.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(
+                      widget.selected || _hovered ? 16 : 22,
+                    ),
+                  ),
+                  child: DIcon(
+                    DIcons.gear,
+                    size: 20,
+                    color: widget.selected ? theme.shell.rail : foreground,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

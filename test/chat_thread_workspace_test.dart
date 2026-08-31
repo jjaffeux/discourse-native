@@ -21,6 +21,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -169,6 +170,26 @@ void main() {
     );
   }
 
+  testWidgets('Settings releases and restores the active thread view', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    addTearDown(fixture.shell.dispose);
+    await _pumpWorkspace(tester, fixture.shell, width: 1000);
+
+    final tracker = FakeSiteTracker.built.singleWhere(
+      (tracker) => tracker.siteUrl == _siteUrl,
+    );
+    const threadChannel = '/chat/9/thread/3';
+    expect(tracker.pluginChannelCallbacks[threadChannel], isNotEmpty);
+
+    fixture.shell.selectSettings();
+    expect(tracker.pluginChannelCallbacks[threadChannel], isEmpty);
+
+    expect(fixture.shell.handleBack(), isTrue);
+    expect(tracker.pluginChannelCallbacks[threadChannel], isNotEmpty);
+  });
+
   testWidgets(
     'expanded thread route shows channel and thread panes at 1440 logical pixels',
     (tester) async {
@@ -178,6 +199,8 @@ void main() {
       final fixture = await _fixture();
       addTearDown(fixture.shell.dispose);
       final semantics = tester.ensureSemantics();
+      final previousPlatform = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       try {
         await _pumpWorkspace(tester, fixture.shell, width: 1440);
 
@@ -210,6 +233,54 @@ void main() {
         expect(tester.getSize(border), Size(1, tester.getSize(divider).height));
         final channelPane = find.byKey(const ValueKey('chat-channel-pane'));
         final threadPane = find.byKey(const ValueKey('chat-thread-pane'));
+        final channelStream = find.descendant(
+          of: channelPane,
+          matching: find.byType(SuperListView),
+        );
+        final threadStream = find.descendant(
+          of: threadPane,
+          matching: find.byType(SuperListView),
+        );
+        final channelWidth = tester.getSize(channelPane).width;
+        final threadWidth = tester.getSize(threadPane).width;
+        final channelPadding =
+            tester.widget<SuperListView>(channelStream).padding! as EdgeInsets;
+        final threadPadding =
+            tester.widget<SuperListView>(threadStream).padding! as EdgeInsets;
+        final channelInset = channelWidth > 825
+            ? (channelWidth - 825) / 2
+            : 0.0;
+        final threadInset = threadWidth > 825 ? (threadWidth - 825) / 2 : 0.0;
+        expect(tester.getSize(channelStream).width, channelWidth);
+        expect(tester.getSize(threadStream).width, threadWidth);
+        expect(channelPadding.left, closeTo(channelInset, 0.001));
+        expect(channelPadding.right, closeTo(channelInset, 0.001));
+        expect(threadPadding.left, closeTo(threadInset, 0.001));
+        expect(threadPadding.right, closeTo(threadInset, 0.001));
+        expect(channelPadding.vertical, 16);
+        expect(threadPadding.vertical, 16);
+        expect(
+          tester
+              .getSize(
+                find.descendant(
+                  of: channelPane,
+                  matching: find.byType(ChatComposer),
+                ),
+              )
+              .width,
+          channelWidth,
+        );
+        expect(
+          tester
+              .getSize(
+                find.descendant(
+                  of: threadPane,
+                  matching: find.byType(ChatComposer),
+                ),
+              )
+              .width,
+          threadWidth,
+        );
         expect(
           tester.getTopRight(channelPane).dx,
           tester.getTopLeft(border).dx,
@@ -254,6 +325,7 @@ void main() {
         expect(find.byType(ChatThreadWorkspace), findsNothing);
         expect(find.byType(ChatChannelView), findsOneWidget);
       } finally {
+        debugDefaultTargetPlatformOverride = previousPlatform;
         semantics.dispose();
       }
     },

@@ -169,6 +169,34 @@ void main() {
     );
   });
 
+  testWidgets('desktop caps feed cards while toolbar stays full width', (
+    tester,
+  ) async {
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      final fixture = await _pumpMixedAggregateView(tester);
+      final firstCard = find.byKey(
+        ValueKey('aggregate-topic-card-${fixture.forumUrls[0]}-42'),
+      );
+      final viewport = find.descendant(
+        of: find.byType(AggregateView),
+        matching: find.byType(ListView),
+      );
+      final toolbar = find.byKey(const ValueKey('aggregate-tab-toolbar'));
+
+      expect(tester.getSize(firstCard).width, 825);
+      expect(tester.getSize(viewport).width, greaterThan(825));
+      expect(tester.getSize(toolbar).width, tester.getSize(viewport).width);
+      expect(
+        tester.getCenter(firstCard).dx,
+        closeTo(tester.getCenter(viewport).dx, 0.001),
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
+  });
+
   testWidgets('saves exact per-forum filters and can exclude every forum', (
     tester,
   ) async {

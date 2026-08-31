@@ -3,16 +3,19 @@ import 'dart:async';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
+import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/preferences_page.dart';
 import 'package:discourse_native/src/shell/select.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -88,15 +91,18 @@ Future<void> _pumpPage(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
-    ShellScope(
-      controller: fixture.shell,
-      child: MaterialApp(
-        theme: AppTheme.light,
-        home: Scaffold(
-          body: SizedBox(
-            width: width,
-            height: 900,
-            child: const PreferencesPage(siteUrl: _siteUrl),
+    ContentAlignmentScope(
+      controller: fixture.shell.appSettings,
+      child: ShellScope(
+        controller: fixture.shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: SizedBox(
+              width: width,
+              height: 900,
+              child: const PreferencesPage(siteUrl: _siteUrl),
+            ),
           ),
         ),
       ),
@@ -153,6 +159,40 @@ void main() {
   setUpAll(TimezoneEnvironment.instance.ensureDatabase);
 
   group('section navigation', () {
+    testWidgets('compact form follows physical desktop alignment', (
+      tester,
+    ) async {
+      final previousPlatform = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final fixture = await _fixture();
+        await _pumpPage(tester, fixture, width: 740);
+        final form = find.byKey(
+          const ValueKey((
+            'preferences-section',
+            PreferenceSection.notifications,
+          )),
+        );
+
+        expect(tester.getSize(form).width, 680);
+        expect(tester.getTopLeft(form).dx, 30);
+
+        await fixture.shell.appSettings.setContentAlignment(
+          ContentAlignment.left,
+        );
+        await tester.pump();
+        expect(tester.getTopLeft(form).dx, 16);
+
+        await fixture.shell.appSettings.setContentAlignment(
+          ContentAlignment.right,
+        );
+        await tester.pump();
+        expect(tester.getTopLeft(form).dx, 44);
+      } finally {
+        debugDefaultTargetPlatformOverride = previousPlatform;
+      }
+    });
+
     testWidgets('adapts the picker between narrow and wide layouts', (
       tester,
     ) async {

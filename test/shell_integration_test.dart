@@ -9,6 +9,7 @@ import 'package:discourse_native/src/data/topic_recommendations_tab_store.dart';
 import 'package:discourse_native/src/data/topic_sidebar_store.dart';
 import 'package:discourse_native/src/data/updater.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -1508,6 +1509,25 @@ void main() {
         expect(shell.currentContent?.id, 'mouse-history');
       },
     );
+
+    testWidgets('mouse Back exits app Settings', (tester) async {
+      await pumpShell(tester, desktop);
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+
+      await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
+      await tester.pumpAndSettle();
+      expect(shell.rootMode, ShellRootMode.settings);
+
+      await tester.tap(
+        find.byKey(const ValueKey('app-settings-form')),
+        buttons: kBackMouseButton,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+
+      expect(shell.rootMode, ShellRootMode.forum);
+      expect(find.byType(MainContent), findsOneWidget);
+    });
 
     testWidgets('the avatar sits in the top right corner', (tester) async {
       await pumpShell(tester, desktop);
@@ -17215,6 +17235,12 @@ void main() {
       testWidgets('shows and filters the channel member directory', (
         tester,
       ) async {
+        final previousPlatform = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        addTearDown(
+          () => debugDefaultTargetPlatformOverride = previousPlatform,
+        );
+
         final memberPages = <String, ChatChannelMembersPage>{
           FakeDiscourseApi.chatChannelMembersKey(9): (
             members: const [
@@ -17266,12 +17292,40 @@ void main() {
         expect(find.text('Members (2)'), findsOneWidget);
         expect(find.text('Sam'), findsNothing);
 
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final tabs = find.byKey(const ValueKey('chat-channel-info-tabs'));
+        final settingsLane = find.byKey(
+          const ValueKey('chat-channel-settings-lane-content'),
+        );
+        final centeredSettingsLeft = tester.getTopLeft(settingsLane).dx;
+        final tabsRect = tester.getRect(tabs);
+        expect(tester.getSize(settingsLane).width, 760);
+        expect(tabsRect.width, greaterThan(825));
+
+        await shell.appSettings.setContentAlignment(ContentAlignment.left);
+        await tester.pump();
+        expect(
+          tester.getTopLeft(settingsLane).dx,
+          lessThan(centeredSettingsLeft),
+        );
+        expect(tester.getRect(tabs), tabsRect);
+
+        await shell.appSettings.setContentAlignment(ContentAlignment.right);
+        await tester.pump();
+        expect(
+          tester.getTopLeft(settingsLane).dx,
+          greaterThan(centeredSettingsLeft),
+        );
+        expect(tester.getRect(tabs), tabsRect);
+
+        await shell.appSettings.setContentAlignment(ContentAlignment.center);
+        await tester.pump();
+
         await tester.tap(
           find.byKey(const ValueKey('chat-channel-info-members-tab')),
         );
         await tester.pumpAndSettle();
 
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         expect(shell.currentContent?.id, 'chat-c-9-info-members');
         expect(shell.contentStack.map((route) => route.id), [
           'chat-c-9',
@@ -17280,6 +17334,45 @@ void main() {
 
         expect(find.text('Sam'), findsOneWidget);
         expect(find.text('Hawk'), findsOneWidget);
+
+        final memberFilterLane = find.byKey(
+          const ValueKey('chat-channel-member-filter-lane-content'),
+        );
+        final firstMember = find.byKey(const ValueKey('chat-channel-member-2'));
+        final memberList = find.byKey(
+          const ValueKey('chat-channel-member-list'),
+        );
+        final centeredFilterLeft = tester.getTopLeft(memberFilterLane).dx;
+        final centeredMemberLeft = tester.getTopLeft(firstMember).dx;
+        expect(tester.getSize(memberFilterLane).width, 760);
+        expect(tester.getSize(firstMember).width, 760);
+        expect(tester.getSize(memberList).width, tabsRect.width);
+        expect(tester.getRect(tabs), tabsRect);
+
+        await shell.appSettings.setContentAlignment(ContentAlignment.left);
+        await tester.pump();
+        expect(
+          tester.getTopLeft(memberFilterLane).dx,
+          lessThan(centeredFilterLeft),
+        );
+        expect(tester.getTopLeft(firstMember).dx, lessThan(centeredMemberLeft));
+        expect(tester.getRect(tabs), tabsRect);
+
+        await shell.appSettings.setContentAlignment(ContentAlignment.right);
+        await tester.pump();
+        expect(
+          tester.getTopLeft(memberFilterLane).dx,
+          greaterThan(centeredFilterLeft),
+        );
+        expect(
+          tester.getTopLeft(firstMember).dx,
+          greaterThan(centeredMemberLeft),
+        );
+        expect(tester.getRect(tabs), tabsRect);
+
+        await shell.appSettings.setContentAlignment(ContentAlignment.center);
+        await tester.pump();
+        debugDefaultTargetPlatformOverride = previousPlatform;
 
         memberPages[FakeDiscourseApi.chatChannelMembersKey(9)] = (
           members: const [

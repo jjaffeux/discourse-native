@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'content_reading_lane.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'site_emoji_image.dart';
@@ -124,25 +125,19 @@ class _CategoriesPageState extends State<CategoriesPage> {
 
     _scheduleVisibleEndCheck();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const horizontalPadding = 16.0;
+    return ContentReadingLane(
+      basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      builder: (context, lane) {
         const gap = 12.0;
-        final availableWidth = constraints.maxWidth - horizontalPadding * 2;
-        final columns = _columnsFor(availableWidth);
-        final cardWidth = (availableWidth - gap * (columns - 1)) / columns;
+        final columns = _columnsFor(lane.width);
+        final cardWidth = (lane.width - gap * (columns - 1)) / columns;
 
         return NotificationListener<ScrollNotification>(
           onNotification: _onScroll,
           child: SingleChildScrollView(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(
-              horizontalPadding,
-              12,
-              horizontalPadding,
-              24,
-            ),
+            padding: lane.padding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

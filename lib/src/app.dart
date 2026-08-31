@@ -8,6 +8,7 @@ import 'package:flutter/gestures.dart'
 import 'package:flutter/material.dart';
 import 'package:relative_time/relative_time.dart';
 
+import 'data/app_settings_store.dart';
 import 'data/authenticator.dart';
 import 'data/discourse_api.dart';
 import 'data/draft_store.dart';
@@ -24,6 +25,7 @@ import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
 import 'plugin_api/site_plugin_api.dart';
 import 'shell/adaptive_shell.dart';
+import 'shell/content_reading_lane.dart';
 import 'shell/platform.dart';
 import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
@@ -35,6 +37,7 @@ class DiscourseApp extends StatefulWidget {
     this.store,
     this.api,
     this.authenticator,
+    this.appSettingsStore,
     this.drafts,
     this.forumTabs,
     this.trackers,
@@ -53,6 +56,7 @@ class DiscourseApp extends StatefulWidget {
   final InstanceStore? store;
   final ShellApiCapabilities? api;
   final Authenticator? authenticator;
+  final AppSettingsStore? appSettingsStore;
   final DraftStore? drafts;
   final ForumTabStore? forumTabs;
   final SiteTrackerFactory? trackers;
@@ -73,6 +77,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   late InstanceStore _store;
   late ShellApiCapabilities _api;
   late Authenticator _authenticator;
+  late AppSettingsStore _appSettingsStore;
   late DraftStore _drafts;
   late ForumTabStore _forumTabs;
   late SiteTrackerFactory _trackers;
@@ -97,6 +102,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     instanceStore: _store,
     api: _api,
     authenticator: _authenticator,
+    appSettingsStore: _appSettingsStore,
     drafts: _drafts,
     forumTabs: _forumTabs,
     forumTabsEnabled: forumTabsEnabledForCurrentPlatform,
@@ -118,6 +124,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     _store = widget.store ?? InstanceStore(models: _plugins.models);
     _api = widget.api ?? DiscourseApi(models: _plugins.models);
     _authenticator = widget.authenticator ?? Authenticator();
+    _appSettingsStore = widget.appSettingsStore ?? AppSettingsStore();
     _drafts = widget.drafts ?? DraftStore();
     _forumTabs = widget.forumTabs ?? ForumTabStore();
     _trackers = widget.trackers ?? SiteTracker.new;
@@ -175,6 +182,7 @@ class _DiscourseAppState extends State<DiscourseApp>
       !identical(widget.store, oldWidget.store) ||
       !identical(widget.api, oldWidget.api) ||
       !identical(widget.authenticator, oldWidget.authenticator) ||
+      !identical(widget.appSettingsStore, oldWidget.appSettingsStore) ||
       !identical(widget.drafts, oldWidget.drafts) ||
       !identical(widget.forumTabs, oldWidget.forumTabs) ||
       !identical(widget.trackers, oldWidget.trackers) ||
@@ -207,6 +215,9 @@ class _DiscourseAppState extends State<DiscourseApp>
     }
     if (!identical(widget.authenticator, oldWidget.authenticator)) {
       _authenticator = widget.authenticator ?? Authenticator();
+    }
+    if (!identical(widget.appSettingsStore, oldWidget.appSettingsStore)) {
+      _appSettingsStore = widget.appSettingsStore ?? AppSettingsStore();
     }
     if (!identical(widget.drafts, oldWidget.drafts)) {
       _drafts = widget.drafts ?? DraftStore();
@@ -424,39 +435,42 @@ class _DiscourseAppState extends State<DiscourseApp>
     // Navigator, can still reach the controller.
     final app = ShellScope(
       controller: _controller,
-      child: ShellSelector<_AppThemeSelection>(
-        select: _AppThemeSelection.from,
-        builder: (context, selection, _) {
-          final appearance = selection.appearance;
-          final base = appearance?.base ?? appearance?.alternate;
-          if (appearance == null || base == null) {
-            return _materialApp(
-              theme: AppTheme.light,
-              darkTheme: AppTheme.dark,
-              themeMode: ThemeMode.system,
-            );
-          }
+      child: ContentAlignmentScope(
+        controller: _controller.appSettings,
+        child: ShellSelector<_AppThemeSelection>(
+          select: _AppThemeSelection.from,
+          builder: (context, selection, _) {
+            final appearance = selection.appearance;
+            final base = appearance?.base ?? appearance?.alternate;
+            if (appearance == null || base == null) {
+              return _materialApp(
+                theme: AppTheme.light,
+                darkTheme: AppTheme.dark,
+                themeMode: ThemeMode.system,
+              );
+            }
 
-          final baseTheme = AppTheme.fromPalette(base);
-          final alternate = appearance.alternate;
-          final alternateTheme = AppTheme.fromPalette(
-            alternate ?? appearance.base ?? base,
-          );
-          final themeMode = switch (appearance.mode) {
-            SiteAppearanceMode.followSystem when alternate != null =>
-              ThemeMode.system,
-            SiteAppearanceMode.alternate when alternate != null =>
-              ThemeMode.dark,
-            SiteAppearanceMode.followSystem ||
-            SiteAppearanceMode.base ||
-            SiteAppearanceMode.alternate => ThemeMode.light,
-          };
-          return _materialApp(
-            theme: baseTheme,
-            darkTheme: alternateTheme,
-            themeMode: themeMode,
-          );
-        },
+            final baseTheme = AppTheme.fromPalette(base);
+            final alternate = appearance.alternate;
+            final alternateTheme = AppTheme.fromPalette(
+              alternate ?? appearance.base ?? base,
+            );
+            final themeMode = switch (appearance.mode) {
+              SiteAppearanceMode.followSystem when alternate != null =>
+                ThemeMode.system,
+              SiteAppearanceMode.alternate when alternate != null =>
+                ThemeMode.dark,
+              SiteAppearanceMode.followSystem ||
+              SiteAppearanceMode.base ||
+              SiteAppearanceMode.alternate => ThemeMode.light,
+            };
+            return _materialApp(
+              theme: baseTheme,
+              darkTheme: alternateTheme,
+              themeMode: themeMode,
+            );
+          },
+        ),
       ),
     );
     final diagnostics = widget.diagnostics;
@@ -556,13 +570,18 @@ class _MouseNavigationRegion extends StatelessWidget {
       return;
     }
 
+    final controller = ShellScope.read(context);
+    if (backPressed && controller.rootMode == ShellRootMode.settings) {
+      controller.handleBack(canReturnToSidebar: false);
+      return;
+    }
+
     final diagnostics = DiagnosticsScope.maybeRead(context);
     if (diagnostics?.isPanelOpen ?? false) {
       if (backPressed) diagnostics!.closePanel();
       return;
     }
 
-    final controller = ShellScope.read(context);
     if (backPressed) {
       if (controller.rootMode == ShellRootMode.forum &&
           controller.canPopContent) {
@@ -586,11 +605,10 @@ final class _AppThemeSelection {
   const _AppThemeSelection(this.siteUrl, this.appearance);
 
   factory _AppThemeSelection.from(ShellController controller) {
-    // Aggregate is an app-owned surface rather than a view into whichever
-    // forum happened to be selected last. Returning the empty selection also
-    // makes entering and leaving Aggregate rebuild MaterialApp even though the
-    // underlying current instance intentionally stays unchanged.
-    if (controller.rootMode == ShellRootMode.aggregate) {
+    // App-owned surfaces do not inherit whichever forum happened to be
+    // selected last. The empty selection also rebuilds MaterialApp when the
+    // root changes even though the underlying instance stays unchanged.
+    if (controller.rootMode != ShellRootMode.forum) {
       return const _AppThemeSelection(null, null);
     }
     return _AppThemeSelection(

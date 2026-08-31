@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/scheduler.dart';
 
 import '../data/aggregate_preferences_store.dart';
+import '../data/app_settings_store.dart';
 import '../data/authenticator.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/draft_store.dart';
@@ -76,6 +77,7 @@ import '../plugin_api/site_plugin_api.dart';
 import '../theme/d_icons.dart';
 import 'account_activity_controller.dart';
 import 'aggregate_feed_controller.dart';
+import 'app_settings_controller.dart';
 import 'composer_autocomplete.dart';
 import 'composer_controller.dart';
 import 'composer_pills.dart';
@@ -98,7 +100,7 @@ import 'user_summary_controller.dart';
 
 enum MobilePane { sidebar, content }
 
-enum ShellRootMode { forum, aggregate }
+enum ShellRootMode { forum, aggregate, settings }
 
 enum InstanceLoadStatus { loading, ready, failed }
 
@@ -122,6 +124,10 @@ typedef _TagSidebarCache = ({
   bool display,
   String? username,
   SidebarSection section,
+});
+typedef _SettingsReturnTarget = ({
+  ShellRootMode rootMode,
+  MobilePane mobilePane,
 });
 
 int? _destinationNumericId(String destinationId, String prefix) {
@@ -155,6 +161,7 @@ class ShellController extends FrameSafeNotifier
     required this.drafts,
     EmojiPickerStore? emojiPickerStore,
     AggregatePreferencesStore? aggregatePreferences,
+    AppSettingsStore? appSettingsStore,
     ForumTabStore? forumTabs,
     this.forumTabsEnabled = true,
     Store? store,
@@ -173,6 +180,11 @@ class ShellController extends FrameSafeNotifier
        forumTabs = forumTabs ?? ForumTabStore.memory(),
        aggregatePreferences =
            aggregatePreferences ?? AggregatePreferencesStore(),
+       appSettings = AppSettingsController(
+         store:
+             appSettingsStore ??
+             AppSettingsStore(persistence: MemoryAppSettingsPersistence()),
+       ),
        emojiPickerStore = emojiPickerStore ?? EmojiPickerStore(),
        assert(topicLoadTimeout > Duration.zero),
        assert(anchorPersistDebounce >= Duration.zero),
@@ -193,6 +205,7 @@ class ShellController extends FrameSafeNotifier
   final InstanceStore instanceStore;
   final ForumTabStore forumTabs;
   final AggregatePreferencesStore aggregatePreferences;
+  final AppSettingsController appSettings;
 
   final bool forumTabsEnabled;
 
@@ -868,12 +881,18 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool _revealNotificationTarget() {
-    final changed =
-        _rootMode != ShellRootMode.forum || _mobilePane != MobilePane.content;
-    _rootMode = ShellRootMode.forum;
-    _mobilePane = MobilePane.content;
+    final changed = _setForumContentRoot();
     if (changed) _notify();
     return true;
+  }
+
+  bool _setForumContentRoot() {
+    final changed =
+        _rootMode != ShellRootMode.forum || _mobilePane != MobilePane.content;
+    _settingsReturnTarget = null;
+    _rootMode = ShellRootMode.forum;
+    _mobilePane = MobilePane.content;
+    return changed;
   }
 
   final List<DiscourseInstance> _instances = [];
@@ -938,6 +957,18 @@ class ShellController extends FrameSafeNotifier
 
   ShellRootMode _rootMode;
   ShellRootMode get rootMode => _rootMode;
+
+  _SettingsReturnTarget? _settingsReturnTarget;
+
+  ShellRootMode get settingsUnderlayRootMode =>
+      _rootMode == ShellRootMode.settings
+      ? _settingsReturnTarget?.rootMode ?? ShellRootMode.forum
+      : _rootMode;
+
+  MobilePane get settingsUnderlayMobilePane =>
+      _rootMode == ShellRootMode.settings
+      ? _settingsReturnTarget?.mobilePane ?? MobilePane.sidebar
+      : _mobilePane;
 
   @override
   Listenable get changes => this;
@@ -1095,6 +1126,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<void> _load() async {
+    final settingsLoad = appSettings.load();
     final storedWorkspaces = forumTabs.load();
     final List<DiscourseInstance> stored;
     try {
@@ -1110,9 +1142,11 @@ class ShellController extends FrameSafeNotifier
         _loadStatus = InstanceLoadStatus.failed;
         _notify();
       }
+      await settingsLoad;
       return;
     }
 
+    await settingsLoad;
     if (isDisposed) return;
     _instances
       ..clear()
@@ -1150,7 +1184,11 @@ class ShellController extends FrameSafeNotifier
     _restoreInstanceWorkspace(
       refreshAppearance: initialInstance?.appearance == null,
     );
-    if (_rootMode == ShellRootMode.aggregate && _instances.isNotEmpty) {
+    final aggregateBehindSettings =
+        _rootMode == ShellRootMode.settings &&
+        _settingsReturnTarget?.rootMode == ShellRootMode.aggregate;
+    if ((_rootMode == ShellRootMode.aggregate || aggregateBehindSettings) &&
+        _instances.isNotEmpty) {
       unawaited(aggregate.open(_instances));
     }
     _loadStatus = InstanceLoadStatus.ready;
@@ -1183,6 +1221,7 @@ class ShellController extends FrameSafeNotifier
 
     try {
       await instanceStore.save(List.of(_instances));
+      _settingsReturnTarget = null;
       unawaited(aggregate.pruneForums(_instances));
       return true;
     } catch (_) {
@@ -1382,8 +1421,13 @@ class ShellController extends FrameSafeNotifier
       clearConfig: true,
       clearAppearance: true,
     );
+    final previousSettingsReturnTarget = _settingsReturnTarget;
     _instances.removeAt(index);
-    if (_instances.isEmpty) _rootMode = ShellRootMode.forum;
+    if (_instances.isEmpty) {
+      if (_rootMode != ShellRootMode.settings) {
+        _rootMode = ShellRootMode.forum;
+      }
+    }
 
     if (removingSelected) {
       _instanceIndex = _instances.isEmpty
@@ -1406,6 +1450,7 @@ class ShellController extends FrameSafeNotifier
 
       final restoredIndex = index.clamp(0, _instances.length);
       _instances.insert(restoredIndex, signedOut);
+      _settingsReturnTarget = previousSettingsReturnTarget;
       if (removingSelected) {
         _instanceIndex = restoredIndex;
         _mobilePane = MobilePane.sidebar;
@@ -3653,7 +3698,11 @@ class ShellController extends FrameSafeNotifier
     final index = _instances.indexWhere((instance) => instance.serves(target));
     if (index < 0) return false;
     if (index != _instanceIndex) selectInstance(index);
-    if (currentContent?.groupRoute == route) return true;
+    final rootChanged = _setForumContentRoot();
+    if (currentContent?.groupRoute == route) {
+      if (rootChanged) _notify();
+      return true;
+    }
 
     final instance = _instances[index];
     final content = ContentRoute.group(
@@ -3673,6 +3722,7 @@ class ShellController extends FrameSafeNotifier
     if (index < 0) return false;
 
     if (index != _instanceIndex) selectInstance(index);
+    final rootChanged = _setForumContentRoot();
 
     // Posts link to the topic they are already in — every cross-post quote
     // does — and stacking a second copy of it only costs the user a back tap.
@@ -3681,6 +3731,8 @@ class ShellController extends FrameSafeNotifier
     if (currentContent?.topicId == link.topicId) {
       if (refresh) {
         openCurrentTopicPost(link.postNumber ?? 1, loadAroundPost: true);
+      } else if (rootChanged) {
+        _notify();
       }
       return true;
     }
@@ -3741,6 +3793,7 @@ class ShellController extends FrameSafeNotifier
     final index = _instances.indexWhere((instance) => instance.url == siteUrl);
     if (index < 0) return;
     if (index != _instanceIndex) selectInstance(index);
+    _setForumContentRoot();
     if (currentContent?.topicId == topicId) {
       openCurrentTopicPost(postNumber, loadAroundPost: true);
       return;
@@ -3839,6 +3892,7 @@ class ShellController extends FrameSafeNotifier
     if (index < 0) return false;
 
     if (index != _instanceIndex) selectInstance(index);
+    final rootChanged = _setForumContentRoot();
 
     final category = link.kind == ListKind.category
         ? categoryFor(link.id)
@@ -3850,7 +3904,10 @@ class ShellController extends FrameSafeNotifier
       color: category == null ? null : Color(category.colorValue),
     );
 
-    if (currentContent?.id == route.id) return true;
+    if (currentContent?.id == route.id) {
+      if (rootChanged) _notify();
+      return true;
+    }
 
     pushContent(route);
     // In the same turn as the push, so the main region never draws a route
@@ -10314,6 +10371,7 @@ class ShellController extends FrameSafeNotifier
   @override
   void selectInstance(int index) {
     assert(index >= 0 && index < _instances.length);
+    _settingsReturnTarget = null;
     _rootMode = ShellRootMode.forum;
     if (index != _instanceIndex) {
       _instanceIndex = index;
@@ -10334,10 +10392,19 @@ class ShellController extends FrameSafeNotifier
 
   void selectAggregate() {
     if (!loaded || !hasInstances) return;
+    _settingsReturnTarget = null;
     _rootMode = ShellRootMode.aggregate;
     _mobilePane = MobilePane.content;
     _notify();
     unawaited(aggregate.open(_instances));
+  }
+
+  void selectSettings() {
+    if (_rootMode == ShellRootMode.settings) return;
+    _settingsReturnTarget = (rootMode: _rootMode, mobilePane: _mobilePane);
+    _rootMode = ShellRootMode.settings;
+    _mobilePane = MobilePane.content;
+    _notify();
   }
 
   Future<void> refreshAggregate() => aggregate.refresh(_instances, force: true);
@@ -10398,6 +10465,7 @@ class ShellController extends FrameSafeNotifier
     }
 
     final instance = _instances[index];
+    _settingsReturnTarget = null;
 
     if (!forumTabsEnabled) {
       _rootMode = ShellRootMode.forum;
@@ -10782,6 +10850,7 @@ class ShellController extends FrameSafeNotifier
   void pushContent(ContentRoute route) {
     final tab = activeTab;
     if (tab == null) return;
+    _setForumContentRoot();
     _replaceActiveTab(tab.push(route));
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
@@ -10792,6 +10861,7 @@ class ShellController extends FrameSafeNotifier
   void replaceCurrentContent(ContentRoute route) {
     final tab = activeTab;
     if (tab == null) return;
+    _setForumContentRoot();
     _replaceActiveTab(
       tab.copyWith(
         contentStack: [
@@ -10807,12 +10877,26 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void showPluginContent() {
-    if (_mobilePane == MobilePane.content) return;
-    _mobilePane = MobilePane.content;
+    if (!_setForumContentRoot()) return;
     _notify();
   }
 
   bool handleBack({bool canReturnToSidebar = true}) {
+    if (_rootMode == ShellRootMode.settings) {
+      final target = _settingsReturnTarget;
+      _settingsReturnTarget = null;
+      final restoreAggregate = target?.rootMode == ShellRootMode.aggregate;
+      _rootMode = restoreAggregate
+          ? ShellRootMode.aggregate
+          : ShellRootMode.forum;
+      _mobilePane = restoreAggregate
+          ? MobilePane.content
+          : target?.rootMode == ShellRootMode.forum
+          ? target!.mobilePane
+          : MobilePane.sidebar;
+      _notify();
+      return true;
+    }
     if (_rootMode == ShellRootMode.aggregate) {
       _rootMode = ShellRootMode.forum;
       _mobilePane = MobilePane.sidebar;
@@ -10902,6 +10986,7 @@ class ShellController extends FrameSafeNotifier
     preferences.dispose();
     topicFeeds.dispose();
     aggregate.dispose();
+    appSettings.dispose();
     siteImages.dispose();
     final closePluginSession = _pluginSession.close();
     _backgroundRetention.close();

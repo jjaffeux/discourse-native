@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'content_reading_lane.dart';
 import 'preferences_controller.dart';
 import 'select.dart';
 import 'shell_controller.dart';
@@ -154,43 +155,40 @@ class _PreferencesPageState extends State<PreferencesPage> {
         return _SectionScroller(
           key: ValueKey((state!.accountIdentity, selected)),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 680),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  DSelectField<PreferenceSection>(
-                    key: ValueKey(('preferences-section', selected)),
-                    initialValue: selected,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Preference section',
-                    ),
-                    items: [
-                      for (final section in _sectionsFor(draft))
-                        DropdownMenuItem(
-                          value: section,
-                          child: Text(_sectionTitle(section)),
-                        ),
-                    ],
-                    onChanged: (section) {
-                      if (section != null) _selectSection(section);
-                    },
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DSelectField<PreferenceSection>(
+                  key: ValueKey(('preferences-section', selected)),
+                  initialValue: selected,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Preference section',
                   ),
-                  const SizedBox(height: 28),
-                  _buildSection(
-                    context,
-                    shell,
-                    instance,
-                    state,
-                    draft,
-                    selected,
-                    editable,
-                  ),
-                ],
-              ),
+                  items: [
+                    for (final section in _sectionsFor(draft))
+                      DropdownMenuItem(
+                        value: section,
+                        child: Text(_sectionTitle(section)),
+                      ),
+                  ],
+                  onChanged: (section) {
+                    if (section != null) _selectSection(section);
+                  },
+                ),
+                const SizedBox(height: 28),
+                _buildSection(
+                  context,
+                  shell,
+                  instance,
+                  state,
+                  draft,
+                  selected,
+                  editable,
+                ),
+              ],
             ),
           ),
         );
@@ -366,8 +364,14 @@ class _SectionScroller extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) =>
-      SingleChildScrollView(primary: true, padding: padding, child: child);
+  Widget build(BuildContext context) => ContentReadingLane(
+    basePadding: padding,
+    builder: (context, lane) => SingleChildScrollView(
+      primary: true,
+      padding: lane.padding,
+      child: Align(alignment: lane.alignment, child: child),
+    ),
+  );
 }
 
 class _SectionRail extends StatelessWidget {

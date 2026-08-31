@@ -1,11 +1,12 @@
 import 'dart:async';
-import 'dart:ui' show SemanticsAction;
+import 'dart:ui' show PointerDeviceKind, SemanticsAction;
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/diagnostics_panel_width_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/shell/app_settings_page.dart';
 import 'package:discourse_native/src/shell/diagnostics_panel.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -15,6 +16,7 @@ import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show kBackMouseButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -676,6 +678,40 @@ void main() {
       await tester.pumpAndSettle();
       expect(diagnostics.isPanelOpen, isFalse, reason: 'closed at $size');
     }
+  });
+
+  testWidgets('Settings temporarily replaces a docked diagnostics panel', (
+    tester,
+  ) async {
+    final diagnostics = await _controller();
+    await _pumpApp(tester, const Size(1440, 900), diagnostics);
+
+    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('diagnostics-docked-slot')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppSettingsPage), findsOneWidget);
+    expect(find.byKey(const ValueKey('diagnostics-docked-slot')), findsNothing);
+    expect(diagnostics.isPanelOpen, isTrue);
+
+    await tester.tap(
+      find.byKey(const ValueKey('app-settings-form')),
+      buttons: kBackMouseButton,
+      kind: PointerDeviceKind.mouse,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppSettingsPage), findsNothing);
+    expect(
+      find.byKey(const ValueKey('diagnostics-docked-slot')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('HTTP events rebuild the panel but not the shell columns', (

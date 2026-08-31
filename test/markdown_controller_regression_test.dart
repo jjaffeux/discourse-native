@@ -18,6 +18,7 @@ void main() {
     final controller = MarkdownEditingController(
       text: '[label](https://example.com)',
     );
+    controller.selection = const TextSelection.collapsed(offset: 2);
     addTearDown(controller.dispose);
 
     var theme = _themeWithPrimary(Colors.red);

@@ -12,6 +12,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'account_activity_loader.dart';
 import 'avatar_image.dart';
+import 'content_reading_lane.dart';
 import 'cooked_html.dart';
 import 'loading_skeleton.dart';
 import 'relative_time.dart';
@@ -132,62 +133,66 @@ class _ActivityList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasFooter = feed.loading || feed.error != null;
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (_nearEnd(notification)) unawaited(onLoadMore());
-          return false;
-        },
-        child: ListView.separated(
-          key: const PageStorageKey('user-activity-list'),
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          itemCount: feed.items.length + (hasFooter ? 1 : 0),
-          separatorBuilder: (context, index) => index < feed.items.length - 1
-              ? Center(
+    return ContentReadingLane(
+      basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      builder: (context, lane) => RefreshIndicator(
+        onRefresh: onRefresh,
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (_nearEnd(notification)) unawaited(onLoadMore());
+            return false;
+          },
+          child: ListView.separated(
+            key: const PageStorageKey('user-activity-list'),
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: lane.padding,
+            itemCount: feed.items.length + (hasFooter ? 1 : 0),
+            separatorBuilder: (context, index) => index < feed.items.length - 1
+                ? Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1000),
+                      child: const Divider(height: 1),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+            itemBuilder: (context, index) {
+              if (index < feed.items.length) {
+                final item = feed.items[index];
+                return Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 1000),
-                    child: const Divider(height: 1),
+                    child: UserActivityRow(
+                      siteUrl: siteUrl,
+                      item: item,
+                      category: feed.categoryFor(item.categoryId),
+                      onTap: () => onOpen(item),
+                    ),
                   ),
-                )
-              : const SizedBox.shrink(),
-          itemBuilder: (context, index) {
-            if (index < feed.items.length) {
-              final item = feed.items[index];
-              return Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1000),
-                  child: UserActivityRow(
-                    siteUrl: siteUrl,
-                    item: item,
-                    category: feed.categoryFor(item.categoryId),
-                    onTap: () => onOpen(item),
+                );
+              }
+              if (feed.error case final error?) {
+                return _LoadMoreError(
+                  message: error,
+                  onRetry: () => unawaited(
+                    feed.retryFromStart ? onRefresh() : onLoadMore(),
+                  ),
+                );
+              }
+              return Semantics(
+                liveRegion: true,
+                label: 'Loading more activity',
+                child: const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(
+                    child: SizedBox.square(
+                      dimension: 22,
+                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                    ),
                   ),
                 ),
               );
-            }
-            if (feed.error case final error?) {
-              return _LoadMoreError(
-                message: error,
-                onRetry: () =>
-                    unawaited(feed.retryFromStart ? onRefresh() : onLoadMore()),
-              );
-            }
-            return Semantics(
-              liveRegion: true,
-              label: 'Loading more activity',
-              child: const Padding(
-                padding: EdgeInsets.all(20),
-                child: Center(
-                  child: SizedBox.square(
-                    dimension: 22,
-                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                  ),
-                ),
-              ),
-            );
-          },
+            },
+          ),
         ),
       ),
     );
@@ -420,44 +425,47 @@ class _ActivityLoadingSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LoadingSkeleton(
     semanticsLabel: 'Loading activity',
-    child: ListView.separated(
-      padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
-      itemCount: 6,
-      separatorBuilder: (context, index) => const Divider(height: 1),
-      itemBuilder: (context, index) => Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 976, minHeight: 112),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 18),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const LoadingSkeletonBlock.circle(diameter: 44),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      FractionallySizedBox(
-                        widthFactor: index.isEven ? 0.52 : 0.68,
-                        child: const LoadingSkeletonBlock(height: 12),
-                      ),
-                      const SizedBox(height: 9),
-                      const LoadingSkeletonBlock(width: 110, height: 8),
-                      const SizedBox(height: 18),
-                      const FractionallySizedBox(
-                        widthFactor: 0.88,
-                        child: LoadingSkeletonBlock(height: 10),
-                      ),
-                      const SizedBox(height: 8),
-                      const FractionallySizedBox(
-                        widthFactor: 0.61,
-                        child: LoadingSkeletonBlock(height: 10),
-                      ),
-                    ],
+    child: ContentReadingLane(
+      basePadding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+      builder: (context, lane) => ListView.separated(
+        padding: lane.padding,
+        itemCount: 6,
+        separatorBuilder: (context, index) => const Divider(height: 1),
+        itemBuilder: (context, index) => Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 976, minHeight: 112),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const LoadingSkeletonBlock.circle(diameter: 44),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        FractionallySizedBox(
+                          widthFactor: index.isEven ? 0.52 : 0.68,
+                          child: const LoadingSkeletonBlock(height: 12),
+                        ),
+                        const SizedBox(height: 9),
+                        const LoadingSkeletonBlock(width: 110, height: 8),
+                        const SizedBox(height: 18),
+                        const FractionallySizedBox(
+                          widthFactor: 0.88,
+                          child: LoadingSkeletonBlock(height: 10),
+                        ),
+                        const SizedBox(height: 8),
+                        const FractionallySizedBox(
+                          widthFactor: 0.61,
+                          child: LoadingSkeletonBlock(height: 10),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

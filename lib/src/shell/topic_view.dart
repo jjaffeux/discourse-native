@@ -27,6 +27,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_tooltip.dart';
 import 'avatar_image.dart';
+import 'content_reading_lane.dart';
 import 'cooked_html.dart';
 import 'inline_action.dart';
 import 'list_boundary_shortcuts.dart';
@@ -183,6 +184,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   double _floatingDayOffset = 0;
   Object? _dayJumpToken;
   Timer? _readTimer;
+  DateTime? _readTimerStartedAt;
+  Duration _readTimeRemaining = _readInterval;
+  bool _readDwellPending = false;
+  bool _tickerEnabled = true;
   ({String siteUrl, int topicId, int postNumber, bool caughtUp})? _seen;
   ({String siteUrl, int topicId, int postNumber, bool caughtUp})? _visibleSeen;
   int? _progressPosition;
@@ -200,6 +205,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   int? _reportedScrollCaptureId;
   late Size _viewportLogicalSize;
   late double _devicePixelRatio;
+
+  bool get _readerActive =>
+      _tickerEnabled && (_controller?.forumActive ?? false);
 
   TopicPostIndexProjection _postIndexes(List<int> postIds) {
     final held = _postIndexProjection;
@@ -412,6 +420,16 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     super.didChangeDependencies();
     _viewportLogicalSize = MediaQuery.sizeOf(context);
     _devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final tickerEnabled = TickerMode.valuesOf(context).enabled;
+    if (_tickerEnabled == tickerEnabled) return;
+    _tickerEnabled = tickerEnabled;
+    if (_readerActive) {
+      if (_readDwellPending && _seen != null && _readTimer == null) {
+        _startReadDwell(_readTimeRemaining);
+      }
+    } else {
+      _pauseReadDwell();
+    }
   }
 
   @override
@@ -710,7 +728,20 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) return;
+    if (state == AppLifecycleState.resumed) {
+      if (_readerActive &&
+          _readDwellPending &&
+          _seen != null &&
+          _readTimer == null) {
+        _startReadDwell(_readTimeRemaining);
+      }
+      return;
+    }
+
+    if (!_readerActive) {
+      _pauseReadDwell();
+      return;
+    }
 
     // The post was measured while the app was still in front. Flush that
     // observation at the first foreground-exit signal, before the platform can
@@ -1155,16 +1186,18 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       );
       if (seen == _seen) return;
       _seen = seen;
-      _readTimer?.cancel();
-      _readTimer = Timer(_readInterval, _creditReaderNow);
+      _startReadDwell(_readInterval);
       return;
     }
 
     // In particular, cancel a receipt queued for a later post if media above
     // it expands before the dwell interval completes.
     _seen = null;
+    _readDwellPending = false;
     _readTimer?.cancel();
     _readTimer = null;
+    _readTimerStartedAt = null;
+    _readTimeRemaining = _readInterval;
   }
 
   void _setProgressPosition(int position) {
@@ -1178,13 +1211,53 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     setState(() => _progressPosition = position);
   }
 
+  void _startReadDwell(Duration duration) {
+    _readTimer?.cancel();
+    _readTimer = null;
+    _readTimerStartedAt = null;
+    _readTimeRemaining = duration;
+    _readDwellPending = true;
+    if (!_readerActive) return;
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
+    _readTimerStartedAt = DateTime.now();
+    _readTimer = Timer(duration, _creditReaderFromTimer);
+  }
+
+  void _pauseReadDwell() {
+    final timer = _readTimer;
+    final startedAt = _readTimerStartedAt;
+    if (timer == null || startedAt == null) return;
+    final elapsed = DateTime.now().difference(startedAt);
+    final remaining = _readTimeRemaining - elapsed;
+    _readTimeRemaining = remaining > Duration.zero ? remaining : Duration.zero;
+    timer.cancel();
+    _readTimer = null;
+    _readTimerStartedAt = null;
+  }
+
+  void _creditReaderFromTimer() {
+    if (!_readerActive) {
+      _readTimer?.cancel();
+      _readTimer = null;
+      _readTimerStartedAt = null;
+      _readTimeRemaining = _readInterval;
+      _readDwellPending = _seen != null;
+      return;
+    }
+    _creditReaderNow();
+  }
+
   void _creditReaderNow({bool leavingForeground = false}) {
     _readTimer?.cancel();
     _readTimer = null;
+    _readTimerStartedAt = null;
+    _readTimeRemaining = _readInterval;
+    _readDwellPending = false;
 
     final seen = leavingForeground ? _visibleSeen ?? _seen : _seen;
     final controller = _controller;
-    if (seen == null || controller == null) return;
+    if (seen == null || controller == null || !_readerActive) return;
 
     // A delayed timer must not credit reading after the app has gone into the
     // background. Null is a test or a launch with no lifecycle event yet, and
@@ -1844,7 +1917,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final pinnedSidebarInset = showPinnedSidebar
         ? _TopicSidebarPanel.dockedWidth
         : 0.0;
-    _laidOutPostWidth = viewportWidth - pinnedSidebarInset;
+    final readingLane = ContentReadingLane.geometryFor(
+      context,
+      availableWidth: viewportWidth,
+      basePadding: EdgeInsets.only(right: pinnedSidebarInset),
+    );
+    _laidOutPostWidth = readingLane.width;
 
     if (snapshot.topicId == null) {
       if (snapshot.loading) {
@@ -1868,7 +1946,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                 children: [
                   Positioned.fill(
                     child: Padding(
-                      padding: EdgeInsets.only(right: pinnedSidebarInset),
+                      padding: readingLane.padding,
                       child: topicSkeleton,
                     ),
                   ),
@@ -2080,7 +2158,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           // The post viewport itself stays full width so it owns the only
           // vertical scrollbar. The pinned sidebar floats above its right
           // edge; this inner inset keeps post content from sitting beneath it.
-          padding: EdgeInsets.only(right: pinnedSidebarInset),
+          padding: readingLane.padding,
           // A short around-post window still needs to accept a pull toward the
           // top, both to fetch and to retry an earlier page. Once post one is in
           // hand, stop forcing top-edge overscroll: there is no earlier request
@@ -2189,7 +2267,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                 postId: postId,
                 post: post,
                 topic: snapshot.topic!,
-                width: viewportWidth - pinnedSidebarInset,
+                width: readingLane.width,
                 summary: snapshot.summary,
                 summaryLoading: snapshot.summaryLoading,
                 readTimeWordCount: snapshot.readTimeWordCount,
@@ -2267,8 +2345,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                           Positioned.fill(child: postStream),
                           if (floatingDay != null)
                             Positioned(
-                              left: 0,
-                              right: pinnedSidebarInset,
+                              left: readingLane.padding.left,
+                              right: readingLane.padding.right,
                               top: _floatingDayOffset,
                               child: StreamDaySeparator(
                                 key: ValueKey((
@@ -2283,7 +2361,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                           if (_progressPosition case final position?
                               when snapshot.streamIds.length > 1)
                             Positioned(
-                              right: pinnedSidebarInset + 16,
+                              right: readingLane.padding.right + 16,
                               bottom: 16,
                               child: TopicProgressButton(
                                 position: position,
