@@ -2248,6 +2248,9 @@ The desktop forum rail has global number shortcuts: Command+1 opens Aggregate,
 and Command+2 through Command+9 select the first eight forums in rail order on
 macOS. Linux and Windows use Control with the same numbers. Reordering forums
 updates both the shortcut mapping and the shortcut shown in each rail tooltip.
+Command+Left Arrow and Command+Right Arrow select the previous or next tab,
+wrapping at either end; Linux and Windows use Control. Focused form controls
+retain their native arrow-key behavior.
 
 ### Removing a site
 

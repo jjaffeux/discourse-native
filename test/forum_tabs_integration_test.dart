@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -210,6 +211,103 @@ void main() {
         ]);
         expect(controller.activeTabId, originalTabId);
         expect(_bar(tester).selectedId, originalTabId);
+      }),
+    );
+  }
+
+  for (final platform in const [
+    TargetPlatform.macOS,
+    TargetPlatform.linux,
+    TargetPlatform.windows,
+  ]) {
+    testWidgets(
+      '${platform.name} cycles forum and Aggregate tabs with arrow shortcuts',
+      (tester) => _withPlatform(platform, () async {
+        await _pumpShell(tester);
+        final controller = ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        );
+        final modifier = platform == TargetPlatform.macOS
+            ? LogicalKeyboardKey.metaLeft
+            : LogicalKeyboardKey.controlLeft;
+
+        final firstForumTabId = controller.activeTabId!;
+        controller.createTab();
+        controller.createTab();
+        await tester.pumpAndSettle();
+        final lastForumTabId = controller.activeTabId!;
+
+        expect(
+          await _pressShortcut(
+            tester,
+            modifier,
+            LogicalKeyboardKey.arrowRight,
+          ),
+          isTrue,
+        );
+        await tester.pumpAndSettle();
+        expect(controller.activeTabId, firstForumTabId);
+        expect(_bar(tester).selectedId, firstForumTabId);
+
+        expect(
+          await _pressShortcut(
+            tester,
+            modifier,
+            LogicalKeyboardKey.arrowLeft,
+          ),
+          isTrue,
+        );
+        await tester.pumpAndSettle();
+        expect(controller.activeTabId, lastForumTabId);
+        expect(_bar(tester).selectedId, lastForumTabId);
+
+        controller.selectAggregate();
+        await tester.pumpAndSettle();
+        final firstAggregateTabId = controller.activeAggregateTabId;
+        controller.createAggregateTab();
+        controller.createAggregateTab();
+        await tester.pumpAndSettle();
+        final lastAggregateTabId = controller.activeAggregateTabId;
+
+        expect(
+          await _pressShortcut(
+            tester,
+            modifier,
+            LogicalKeyboardKey.arrowRight,
+          ),
+          isTrue,
+        );
+        await tester.pumpAndSettle();
+        expect(controller.activeAggregateTabId, firstAggregateTabId);
+
+        expect(
+          await _pressShortcut(
+            tester,
+            modifier,
+            LogicalKeyboardKey.arrowLeft,
+          ),
+          isTrue,
+        );
+        await tester.pumpAndSettle();
+        expect(controller.activeAggregateTabId, lastAggregateTabId);
+
+        controller.selectInstance(0);
+        controller.selectTab(firstForumTabId);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(ForumSearch.inputKey));
+        await tester.pump();
+
+        await _pressShortcut(
+          tester,
+          modifier,
+          LogicalKeyboardKey.arrowRight,
+        );
+        await tester.pump();
+        expect(
+          controller.activeTabId,
+          firstForumTabId,
+          reason: 'Focused form controls retain native arrow navigation.',
+        );
       }),
     );
   }
