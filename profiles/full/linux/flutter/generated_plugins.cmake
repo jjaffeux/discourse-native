@@ -9,7 +9,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_timezone
   flutter_webrtc
   livekit_client
-  pasteboard
   url_launcher_linux
   webview_all_linux
   window_to_front
