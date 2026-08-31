@@ -2252,7 +2252,9 @@ On medium and expanded layouts, drag the sidebar's right edge to resize it.
 The preferred width is stored once for the app, so it follows the reader when
 they switch forums and is restored after a relaunch. Narrow windows temporarily
 constrain it to preserve room for the main content without replacing the saved
-preference.
+preference. Sidebar and diagnostics resizing share the same logical-edge
+control; live width notifications rebuild the affected pane without rebuilding
+the shell frame or the pane's content.
 
 Accounts whose current-user guardian permits topic creation get a **New Topic**
 action immediately below **Messages** in the forum sidebar. The action is

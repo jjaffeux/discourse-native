@@ -2,7 +2,9 @@ import 'dart:ui' show SemanticsAction;
 
 import 'package:discourse_native/src/data/sidebar_width_store.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
+import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -112,6 +114,42 @@ void main() {
     tester.view.physicalSize = const Size(1200, 800);
     await tester.pumpAndSettle();
     expect(_sidebarWidth(tester), AdaptiveShell.sidebarMaxWidth);
+  });
+
+  testWidgets('live drag leaves the shell and pane content unrebuilt', (
+    tester,
+  ) async {
+    final controller = await _controller();
+    await _pumpShell(tester, controller, const Size(1200, 800));
+
+    final shell = tester.element(find.byType(AdaptiveShell));
+    final rail = tester.element(find.byType(InstanceRail));
+    final sidebar = tester.element(find.byType(InstanceSidebar));
+    final content = tester.element(find.byType(MainContent));
+    final rebuilt = <Element>{};
+    final previousRebuildCallback = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      rebuilt.add(element);
+      previousRebuildCallback?.call(element, builtOnce);
+    };
+    addTearDown(() {
+      debugOnRebuildDirtyWidget = previousRebuildCallback;
+    });
+
+    final handle = find.byKey(const ValueKey('sidebar-resize-handle'));
+    final drag = await tester.startGesture(tester.getCenter(handle));
+    try {
+      await drag.moveBy(const Offset(20, 0));
+      await drag.moveBy(const Offset(40, 0));
+      await tester.pump();
+
+      expect(_sidebarWidth(tester), 280);
+      for (final isolated in [shell, rail, sidebar, content]) {
+        expect(rebuilt, isNot(contains(isolated)));
+      }
+    } finally {
+      await drag.up();
+    }
   });
 }
 
