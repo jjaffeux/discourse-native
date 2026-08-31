@@ -323,6 +323,31 @@ void main() {
       }
     });
 
+    testWidgets('shows and dismisses an actionable failed-join message', (
+      tester,
+    ) async {
+      final room = _room(participants: const []);
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      harness.media.nextConnectFailure = const ResenhaMicrophoneException(
+        ResenhaMicrophoneFailureKind.permissionDenied,
+      );
+
+      await _join(harness, room);
+      await tester.pumpWidget(_app(harness.controller, room: room));
+
+      expect(
+        find.text(
+          'Microphone access is blocked. Allow microphone access in your '
+          'system settings, then try joining again.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Dismiss'));
+      await tester.pump();
+      expect(find.byType(MaterialBanner), findsNothing);
+    });
+
     testWidgets('lets moderators remove other participants', (tester) async {
       final harness = await _pumpJoinedManagedRoom(tester);
       try {
@@ -1072,6 +1097,7 @@ void main() {
         await tester.pumpAndSettle();
 
         final nameField = find.byType(TextField).first;
+        expect(find.text('Chat thread title template'), findsNothing);
         expect(find.text('Required'), findsOneWidget);
         expect(
           tester.getSemantics(nameField),
@@ -1154,6 +1180,10 @@ void main() {
       expect(
         (update.body['room']! as Map<String, Object?>)['name'],
         'Replacement save',
+      );
+      expect(
+        update.body['room']! as Map<String, Object?>,
+        isNot(contains('chat_thread_title_template')),
       );
     });
 
@@ -1640,11 +1670,14 @@ final class _MediaFactory implements ResenhaMediaFactory {
 
   final Set<int> speakingIds;
   final List<_MediaSession> sessions = [];
+  Object? nextConnectFailure;
 
   _MediaSession createSession([
     ResenhaTransport transport = ResenhaTransport.mesh,
   ]) {
-    final session = _MediaSession(transport, speakingIds);
+    final session = _MediaSession(transport, speakingIds)
+      ..connectFailure = nextConnectFailure;
+    nextConnectFailure = null;
     sessions.add(session);
     return session;
   }
@@ -1671,6 +1704,7 @@ final class _MediaSession extends ChangeNotifier
   final Set<int> speakingParticipantIds;
   int connectCount = 0;
   int disposeCount = 0;
+  Object? connectFailure;
   bool muted = false;
   bool failNextMute = false;
   List<rtc.MediaDeviceInfo> availableDevices = const [];
@@ -1689,7 +1723,11 @@ final class _MediaSession extends ChangeNotifier
   @override
   Object? videoTrackFor(int participantId) => null;
   @override
-  Future<void> connect() async => connectCount++;
+  Future<void> connect() async {
+    connectCount++;
+    if (connectFailure case final failure?) throw failure;
+  }
+
   @override
   Future<List<rtc.MediaDeviceInfo>> devices() async => availableDevices;
   @override

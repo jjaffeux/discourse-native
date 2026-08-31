@@ -49,6 +49,7 @@ play
 snowflake
 microphone-lines
 microphone-slash
+closed-captioning
 video
 video-slash
 display

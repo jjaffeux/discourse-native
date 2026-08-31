@@ -49,6 +49,21 @@ final class _ResenhaParticipantSession {
   String? id;
 }
 
+String _joinFailureMessage(Object error, ResenhaRoom room) {
+  if (error is WriteException) return error.message;
+  if (error is ResenhaMicrophoneException) {
+    return switch (error.kind) {
+      ResenhaMicrophoneFailureKind.permissionDenied =>
+        'Microphone access is blocked. Allow microphone access in your '
+            'system settings, then try joining again.',
+      ResenhaMicrophoneFailureKind.unavailable =>
+        "We couldn't access your microphone. Check that it is connected and "
+            'not in use by another app, then try again.',
+    };
+  }
+  return "Couldn't join ${room.name}.";
+}
+
 String _resenhaSignalingDiagnosticType(Object? value) => switch (value) {
   'offer' => 'offer',
   'answer' => 'answer',
@@ -1050,10 +1065,14 @@ final class ResenhaController extends ChangeNotifier {
       );
       return;
     }
+    _errors.remove(siteUrl);
+    final apiKey = credentials.apiKey;
+    final clientId = credentials.clientId;
     ResenhaMediaSession? media;
+    _ResenhaParticipantSession? participantSession;
+    String? joinedParticipantSessionId;
+    var serverJoinActive = false;
     try {
-      final apiKey = credentials.apiKey;
-      final clientId = credentials.clientId;
       late ResenhaJoinResponse response;
       try {
         _record(
@@ -1094,6 +1113,8 @@ final class ResenhaController extends ChangeNotifier {
           clientId: clientId,
         );
       }
+      joinedParticipantSessionId = response.participantSessionId;
+      serverJoinActive = true;
       if (!isCurrent()) {
         await _runHandled(
           () => api.leave(
@@ -1105,6 +1126,7 @@ final class ResenhaController extends ChangeNotifier {
           ),
           'resenha.leaveSupersededJoin',
         );
+        serverJoinActive = false;
         return;
       }
       _record(
@@ -1122,9 +1144,8 @@ final class ResenhaController extends ChangeNotifier {
         response.room.participants,
         correlationId: correlationId,
       );
-      final participantSession = _ResenhaParticipantSession(
-        response.participantSessionId,
-      );
+      final session = _ResenhaParticipantSession(response.participantSessionId);
+      participantSession = session;
       final signalBatcher = ResenhaSignalBatcher(
         batchDelay: signalBatchDelay,
         sendBatch: (payload) async {
@@ -1135,7 +1156,7 @@ final class ResenhaController extends ChangeNotifier {
               roomId: room.id,
               apiKey: apiKey,
               payload: payload,
-              participantSessionId: participantSession.id,
+              participantSessionId: session.id,
               clientId: clientId,
             ),
             correlationId: correlationId,
@@ -1227,7 +1248,7 @@ final class ResenhaController extends ChangeNotifier {
             correlationId: correlationId,
           );
           if (refreshed.participantSessionId case final renewed?) {
-            participantSession.id = renewed;
+            session.id = renewed;
           }
           _record(
             'livekit.credentials.refresh.received',
@@ -1241,7 +1262,7 @@ final class ResenhaController extends ChangeNotifier {
       );
       callbackMedia = media;
       _mediaCorrelations[media] = correlationId;
-      _participantSessions[media] = participantSession;
+      _participantSessions[media] = session;
       _signalBatchers[media] = signalBatcher;
       _record(
         'media.session.created',
@@ -1266,11 +1287,12 @@ final class ResenhaController extends ChangeNotifier {
             siteUrl: siteUrl,
             roomId: room.id,
             apiKey: apiKey,
-            participantSessionId: participantSession.id,
+            participantSessionId: session.id,
             clientId: clientId,
           ),
           'resenha.leaveCancelledJoin',
         );
+        serverJoinActive = false;
         await _disposeMedia(media, 'resenha.media.disposeAfterCancelledJoin');
         return;
       }
@@ -1387,6 +1409,19 @@ final class ResenhaController extends ChangeNotifier {
       if (media case final activeMedia?) {
         await _disposeMedia(activeMedia, 'resenha.media.disposeAfterJoin');
       }
+      if (serverJoinActive) {
+        await _runHandled(
+          () => api.leave(
+            siteUrl: siteUrl,
+            roomId: room.id,
+            apiKey: apiKey,
+            participantSessionId:
+                participantSession?.id ?? joinedParticipantSessionId,
+            clientId: clientId,
+          ),
+          'resenha.leaveFailedJoin',
+        );
+      }
       if (!isCurrent()) return;
       _record(
         'call.join.failed',
@@ -1407,9 +1442,7 @@ final class ResenhaController extends ChangeNotifier {
       }
       if (isCurrent()) {
         _call = null;
-        _errors[siteUrl] = error is WriteException
-            ? error.message
-            : "Couldn't join ${room.name}.";
+        _errors[siteUrl] = _joinFailureMessage(error, room);
         _onCallSiteChanged();
         notifyListeners();
       }
@@ -1542,10 +1575,12 @@ final class ResenhaController extends ChangeNotifier {
 
   Future<void> setMuted(bool muted) => _setMuted(muted, syncSystem: true);
 
-  void dismissCallError() {
-    if (_disposed || _call == null) return;
-    _call = _call?.copyWith(clearError: true);
-    notifyListeners();
+  void dismissCallError([String? siteUrl]) {
+    if (_disposed) return;
+    final clearedSiteError = siteUrl != null && _errors.remove(siteUrl) != null;
+    final clearedCallError = _call?.error != null;
+    if (clearedCallError) _call = _call?.copyWith(clearError: true);
+    if (clearedSiteError || clearedCallError) notifyListeners();
   }
 
   Future<void> _setMuted(bool muted, {required bool syncSystem}) =>
@@ -3303,8 +3338,6 @@ extension on ResenhaRoom {
     chatAvailable: chatAvailable || held.chatAvailable,
     chatChannelId: chatChannelId ?? held.chatChannelId,
     chatIdleMinutes: chatIdleMinutes ?? held.chatIdleMinutes,
-    chatThreadTitleTemplate:
-        chatThreadTitleTemplate ?? held.chatThreadTitleTemplate,
     livekitEnabled: livekitEnabled ?? held.livekitEnabled,
     membership: membership ?? held.membership,
     recording: recording ?? held.recording,

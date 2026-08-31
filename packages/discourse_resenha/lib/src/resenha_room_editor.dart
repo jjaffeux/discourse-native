@@ -42,7 +42,6 @@ class _ResenhaRoomEditorDialogState extends State<_ResenhaRoomEditorDialog> {
   late final TextEditingController _maximum;
   late final TextEditingController _chatChannel;
   late final TextEditingController _chatIdle;
-  late final TextEditingController _chatTitle;
   late bool _isPublic;
   late bool _stage;
   late bool _video;
@@ -60,7 +59,6 @@ class _ResenhaRoomEditorDialogState extends State<_ResenhaRoomEditorDialog> {
     _maximum = TextEditingController(text: room?.maxParticipants?.toString());
     _chatChannel = TextEditingController(text: room?.chatChannelId?.toString());
     _chatIdle = TextEditingController(text: room?.chatIdleMinutes?.toString());
-    _chatTitle = TextEditingController(text: room?.chatThreadTitleTemplate);
     _isPublic = room?.isPublic ?? true;
     _stage = room?.type == ResenhaRoomType.stage;
     _video = room?.videoEnabled ?? true;
@@ -141,12 +139,6 @@ class _ResenhaRoomEditorDialogState extends State<_ResenhaRoomEditorDialog> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: 'Chat idle minutes'),
             ),
-            TextField(
-              controller: _chatTitle,
-              decoration: const InputDecoration(
-                labelText: 'Chat thread title template',
-              ),
-            ),
             if (_room?.livekitEnabled != null)
               SwitchListTile.adaptive(
                 value: _livekit,
@@ -180,7 +172,6 @@ class _ResenhaRoomEditorDialogState extends State<_ResenhaRoomEditorDialog> {
       maxParticipants: int.tryParse(_maximum.text),
       chatChannelId: int.tryParse(_chatChannel.text),
       chatIdleMinutes: int.tryParse(_chatIdle.text),
-      chatThreadTitleTemplate: _chatTitle.text.trim(),
       livekitEnabled: _room?.livekitEnabled == null ? null : _livekit,
       maxQualityProfile: _quality,
     ),
@@ -193,7 +184,6 @@ class _ResenhaRoomEditorDialogState extends State<_ResenhaRoomEditorDialog> {
     _maximum.dispose();
     _chatChannel.dispose();
     _chatIdle.dispose();
-    _chatTitle.dispose();
     super.dispose();
   }
 }

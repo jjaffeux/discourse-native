@@ -5,6 +5,8 @@ import 'json.dart';
 
 @immutable
 class UserDraft {
+  static const resenhaTranscriptDraftKeyPrefix = 'new_topic_resenha_';
+
   const UserDraft({
     required this.key,
     required this.sequence,
@@ -65,6 +67,9 @@ class UserDraft {
 
   bool get isNewTopic => key.startsWith(ComposerDraft.newTopicDraftKey);
 
+  bool get isResenhaTranscript =>
+      key.startsWith(resenhaTranscriptDraftKeyPrefix);
+
   bool get isPrivateMessage =>
       key.startsWith('new_private_message') || archetype == 'private_message';
 
@@ -74,7 +79,7 @@ class UserDraft {
 
   bool get canResume =>
       data != null &&
-      ((key == ComposerDraft.newTopicDraftKey) ||
+      (isNewTopic ||
           (!isEdit &&
               !key.startsWith('new_private_message') &&
               topicId != null));
@@ -89,6 +94,7 @@ class UserDraft {
     if (key.startsWith('new_private_message')) {
       return 'New personal message draft';
     }
+    if (isResenhaTranscript) return 'Call transcript draft';
     if (isNewTopic) return 'New topic draft';
     if (isEdit) return 'Edit topic draft';
     if (isPrivateMessage) return 'Personal message draft';

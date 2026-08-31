@@ -164,14 +164,15 @@ class _ResenhaRoomContentState extends State<ResenhaRoomContent> {
     final currentUserId = widget.currentUserId;
     final recordingEnabled = widget.recordingEnabled;
     final controllerResolver = widget.controllerResolver;
+    final error = active?.error ?? controller.errorFor(siteUrl);
     return Column(
       children: [
-        if (active?.error case final error?)
+        if (error != null)
           MaterialBanner(
             content: Text(error),
             actions: [
               TextButton(
-                onPressed: controller.dismissCallError,
+                onPressed: () => controller.dismissCallError(siteUrl),
                 child: const Text('Dismiss'),
               ),
             ],

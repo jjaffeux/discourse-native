@@ -26,6 +26,54 @@ typedef ResenhaTrackVolumeSetter =
 typedef ResenhaLiveKitRawStatsCollector =
     Future<List<Map<String, Object?>>> Function(lk.Room room);
 
+enum ResenhaMicrophoneFailureKind { permissionDenied, unavailable }
+
+final class ResenhaMicrophoneException implements Exception {
+  const ResenhaMicrophoneException(this.kind);
+
+  factory ResenhaMicrophoneException.from(Object error) {
+    final message = error.toString().toLowerCase();
+    final permissionDenied = <String>[
+      'notallowed',
+      'not allowed',
+      'permissiondenied',
+      'permission denied',
+      'permission dismissed',
+      'notauthorized',
+      'not authorized',
+      'media access denied',
+    ].any(message.contains);
+    return ResenhaMicrophoneException(
+      permissionDenied
+          ? ResenhaMicrophoneFailureKind.permissionDenied
+          : ResenhaMicrophoneFailureKind.unavailable,
+    );
+  }
+
+  final ResenhaMicrophoneFailureKind kind;
+
+  @override
+  String toString() => switch (kind) {
+    ResenhaMicrophoneFailureKind.permissionDenied =>
+      'Microphone permission was denied.',
+    ResenhaMicrophoneFailureKind.unavailable =>
+      'The microphone is unavailable.',
+  };
+}
+
+Future<T> _withMicrophoneFailure<T>(Future<T> Function() action) async {
+  try {
+    return await action();
+  } on ResenhaMicrophoneException {
+    rethrow;
+  } catch (error, stackTrace) {
+    Error.throwWithStackTrace(
+      ResenhaMicrophoneException.from(error),
+      stackTrace,
+    );
+  }
+}
+
 final class _ResenhaMediaDiagnosticFailure implements Exception {
   const _ResenhaMediaDiagnosticFailure(this.operation);
 
@@ -772,18 +820,20 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   }
 
   Future<(rtc.MediaStream, rtc.MediaStreamTrack)> _captureAudioTrack() async {
-    final stream = await _getUserMedia({
-      'audio': {
-        'deviceId': ?_audioInputDeviceId,
-        'echoCancellation': true,
-        'noiseSuppression': true,
-        'autoGainControl': true,
-      },
-      'video': false,
+    return _withMicrophoneFailure(() async {
+      final stream = await _getUserMedia({
+        'audio': {
+          'deviceId': ?_audioInputDeviceId,
+          'echoCancellation': true,
+          'noiseSuppression': true,
+          'autoGainControl': true,
+        },
+        'video': false,
+      });
+      final track = stream.getAudioTracks().first;
+      _ownedLocalStreams.add(stream);
+      return (stream, track);
     });
-    final track = stream.getAudioTracks().first;
-    _ownedLocalStreams.add(stream);
-    return (stream, track);
   }
 
   Future<void> _attachLocalTrack(
@@ -2336,7 +2386,9 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
       // A mute can land while connect is in flight, before a local participant
       // exists; apply the latest state once the room is ready.
       if (shouldPublishMicrophone) {
-        await _room.localParticipant?.setMicrophoneEnabled(true);
+        await _withMicrophoneFailure(
+          () async => _room.localParticipant?.setMicrophoneEnabled(true),
+        );
         if (_closing || disposed) return;
       }
       _startRawStatsTimer();
