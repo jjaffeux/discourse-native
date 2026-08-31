@@ -856,10 +856,24 @@ class ShellController extends FrameSafeNotifier
     if (!owned) return false;
 
     final absolute = target.toString();
-    if (await openPluginUrl(absolute)) return true;
-    if (openGroupUrl(absolute)) return true;
-    if (_openTopicUrl(absolute, refresh: true)) return true;
-    return openListUrl(absolute);
+    if (await openPluginUrl(absolute)) {
+      return _revealNotificationTarget();
+    }
+    if (openGroupUrl(absolute)) return _revealNotificationTarget();
+    if (_openTopicUrl(absolute, refresh: true)) {
+      return _revealNotificationTarget();
+    }
+    if (openListUrl(absolute)) return _revealNotificationTarget();
+    return false;
+  }
+
+  bool _revealNotificationTarget() {
+    final changed =
+        _rootMode != ShellRootMode.forum || _mobilePane != MobilePane.content;
+    _rootMode = ShellRootMode.forum;
+    _mobilePane = MobilePane.content;
+    if (changed) _notify();
+    return true;
   }
 
   final List<DiscourseInstance> _instances = [];
