@@ -514,6 +514,16 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   @override
+  bool commitText({
+    required String expectedText,
+    required TextEditingValue value,
+  }) {
+    if (_disposed || text.text != expectedText) return false;
+    text.value = value;
+    return true;
+  }
+
+  @override
   void requestFocus() => focus.requestFocus();
 
   ComposerState _state = ComposerState.editing;
@@ -989,42 +999,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     final selection = text.selection;
     if (!selection.isValid || selection.isCollapsed) return;
     toggleMark(ComposerMark.inlineCode);
-  }
-
-  bool insertLink({
-    required TextEditingValue expectedValue,
-    required String url,
-    required String anchor,
-  }) {
-    if (_disposed || text.text != expectedValue.text) return false;
-
-    final capturedSelection = expectedValue.selection;
-    final selectionIsInBounds =
-        capturedSelection.isValid &&
-        capturedSelection.end <= expectedValue.text.length;
-    final selection = selectionIsInBounds
-        ? capturedSelection
-        : TextSelection.collapsed(offset: expectedValue.text.length);
-    if (selectionTouchesComposerQuote(text.quoteBlocks, selection)) {
-      return false;
-    }
-
-    final normalizedUrl = url.trim();
-    if (normalizedUrl.isEmpty) return false;
-    final linkText = anchor.isEmpty ? normalizedUrl : anchor;
-    final insertion = '[$linkText]($normalizedUrl)';
-    text.value = expectedValue.copyWith(
-      text: expectedValue.text.replaceRange(
-        selection.start,
-        selection.end,
-        insertion,
-      ),
-      selection: TextSelection.collapsed(
-        offset: selection.start + insertion.length,
-      ),
-      composing: TextRange.empty,
-    );
-    return true;
   }
 
   void insertText(String insertion) {

@@ -967,6 +967,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   bool _dragging = false;
   ComposerImageGalleryBlock? _dropGallery;
   bool _hoveringMention = false;
+  bool _hoveringLink = false;
   ComposerImageBlock? _selectedImage;
   ComposerImageGalleryBlock? _selectedGallery;
   bool _reconcilingSelectedGallery = false;
@@ -1051,6 +1052,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _pointerDownAfterBlockSyntax = null;
     _pointerDownPosition = null;
     _hoveringMention = false;
+    _hoveringLink = false;
     _selectedImage = null;
     _selectedGallery = null;
     _dropGallery = null;
@@ -1261,12 +1263,23 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   void _updateEditorHover(Offset? globalPosition) {
-    widget.composer.text.updateSyntaxHoverAtGlobalPosition(globalPosition);
+    final text = widget.composer.text;
+    text.updateSyntaxHoverAtGlobalPosition(globalPosition);
     final hoveringMention =
         globalPosition != null &&
-        widget.composer.text.isMentionPillAtGlobalPosition(globalPosition);
-    if (_hoveringMention == hoveringMention) return;
-    setState(() => _hoveringMention = hoveringMention);
+        text.isMentionPillAtGlobalPosition(globalPosition);
+    final hoveringLink =
+        globalPosition != null &&
+        text.collapsedSyntaxAtGlobalPosition(globalPosition)?.kind ==
+            composerLinkSyntaxKind;
+    if (_hoveringMention == hoveringMention &&
+        _hoveringLink == hoveringLink) {
+      return;
+    }
+    setState(() {
+      _hoveringMention = hoveringMention;
+      _hoveringLink = hoveringLink;
+    });
   }
 
   Widget _field() => MouseRegion(
@@ -1316,7 +1329,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                   onTap: _activatePointerDownPill,
                   // TextField owns the deepest cursor region. Changing only the
                   // editor-level hover region leaves its text cursor in front.
-                  mouseCursor: _hoveringMention
+                  mouseCursor: _hoveringMention || _hoveringLink
                       ? SystemMouseCursors.click
                       : null,
                   style: widget.textStyle,

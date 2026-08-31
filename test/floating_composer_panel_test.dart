@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/composer_geometry_store.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -433,6 +434,30 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(composer.text.text, '[format](https://example.com) me');
+      expect(find.byType(ComposerLinkPill), findsOneWidget);
+
+      await tester.tapAt(tester.getCenter(find.byType(ComposerLinkPill)));
+      await tester.pumpAndSettle();
+
+      final existingAnchor = tester.widget<TextField>(
+        find.byKey(const ValueKey('composer-link-anchor')),
+      );
+      final existingUrl = tester.widget<TextField>(
+        find.byKey(const ValueKey('composer-link-url')),
+      );
+      expect(existingAnchor.controller!.text, 'format');
+      expect(existingUrl.controller!.text, 'https://example.com');
+
+      await tester.enterText(
+        find.byKey(const ValueKey('composer-link-url')),
+        'https://meta.discourse.org',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('composer-link-insert')));
+      await tester.pumpAndSettle();
+
+      expect(composer.text.text, '[format](https://meta.discourse.org) me');
+      expect(find.byType(ComposerLinkPill), findsOneWidget);
     });
 
     testWidgets('shows working formatting controls only for selected text', (

@@ -11,6 +11,7 @@ import 'composer_galleries.dart';
 import 'composer_image.dart';
 import 'composer_image_gallery.dart';
 import 'composer_images.dart';
+import 'composer_link.dart';
 import 'composer_pills.dart';
 import 'composer_quotes.dart';
 import 'emoji.dart';
@@ -435,6 +436,11 @@ class MarkdownEditingController extends TextEditingController {
   List<ComposerSyntaxOccurrence> _syntaxBlocksFor(String source) {
     if (_syntaxScanned == source) return _syntaxBlocks;
     final blocks = <ComposerSyntaxOccurrence>[
+      for (final projection in composerLinkSyntaxPolicy.parseWithCodeRanges(
+        source,
+        _codeRangesFor(source),
+      ))
+        ComposerSyntaxOccurrence(composerLinkSyntaxPolicy, projection),
       for (final policy in syntaxPolicies)
         for (final projection in policy.parse(source))
           ComposerSyntaxOccurrence(policy, projection),

@@ -923,7 +923,11 @@ Topic and chat composers share link insertion as well. Command-L is scoped to
 the focused composer and opens the same URL-and-text dialog in both places. The
 editor value is captured before the dialog takes focus, so selected text is
 pre-filled as the link anchor and the insertion is rejected if that value has
-become stale while the dialog was open.
+become stale while the dialog was open. Away from an interior editing caret,
+the raw `[text](url)` projects as one link-labelled anchor while retaining one
+source offset per character. Clicking that projection reopens the dialog with
+both fields populated; moving the caret inside still reveals the raw Markdown
+for direct editing.
 
 Image uploads enter one queue whether they came from a clipboard paste, a
 desktop drop or the toolbar's native multiple-file picker. Every adapter stops

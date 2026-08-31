@@ -173,6 +173,14 @@ abstract interface class ComposerEditorHost {
     required TextEditingValue value,
   });
 
+  /// Replaces the document while its text still equals [expectedText]. This
+  /// permits modal focus changes to update selection metadata without making
+  /// a verified text replacement stale.
+  bool commitText({
+    required String expectedText,
+    required TextEditingValue value,
+  });
+
   /// Inserts a source block only while the complete document still equals
   /// [expectedValue]. The comparison and insertion are one synchronous edit.
   bool insertBlock({
