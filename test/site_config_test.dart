@@ -62,6 +62,8 @@ Map<String, dynamic> settings({
   bool? gifResultLimitEnabled,
   Object? gifMaxResults,
   bool? enableAutoGridImages,
+  bool? enableMarkdownLinkify,
+  String? markdownLinkifyTlds,
 }) => {
   'enable_emoji': ?emojiEnabled,
   'emoji_set': ?emojiSet,
@@ -105,6 +107,8 @@ Map<String, dynamic> settings({
   'klipy_limit_infinite_search_results': ?gifResultLimitEnabled,
   'klipy_max_results_limit': ?gifMaxResults,
   'enable_auto_grid_images': ?enableAutoGridImages,
+  'enable_markdown_linkify': ?enableMarkdownLinkify,
+  'markdown_linkify_tlds': ?markdownLinkifyTlds,
 };
 
 void main() {
@@ -138,6 +142,18 @@ void main() {
       );
     });
 
+    test('reads and preserves the core linkify settings', () {
+      final config = SiteConfig.fromSettings(
+        settings(enableMarkdownLinkify: false, markdownLinkifyTlds: 'fr|dev'),
+      );
+      final restored = SiteConfig.fromJson(config.toJson());
+
+      expect(config.enableMarkdownLinkify, isFalse);
+      expect(config.markdownLinkifyTlds, ['fr', 'dev']);
+      expect(restored, config);
+      expect(config.withPlugins(config.plugins), config);
+    });
+
     test('reads and persists the core group surface settings', () {
       final config = SiteConfig.fromSettings(
         settings(
@@ -162,6 +178,11 @@ void main() {
       expect(unknown.emojiSet, 'twitter');
       expect(unknown.emojiEnabled, isTrue);
       expect(unknown.enableAutoGridImages, isTrue);
+      expect(unknown.enableMarkdownLinkify, isTrue);
+      expect(
+        unknown.markdownLinkifyTlds,
+        SiteConfig.defaultMarkdownLinkifyTlds,
+      );
       expect(unknown.mainReaction, isNull);
       expect(unknown.offeredReactions, isEmpty);
       expect(unknown.minSearchTermLength, 3);

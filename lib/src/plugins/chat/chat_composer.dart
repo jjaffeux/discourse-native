@@ -194,6 +194,19 @@ class _ChatComposerState extends State<ChatComposer> {
     });
   }
 
+  void _updateMarkdownLinkify(SiteConfig config) {
+    final composer = _composer;
+    if (composer == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(_composer, composer)) return;
+      final current = _host?.siteConfigFor(widget.siteUrl) ?? config;
+      composer.updateMarkdownLinkify(
+        enabled: current.enableMarkdownLinkify,
+        tlds: current.markdownLinkifyTlds,
+      );
+    });
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -706,6 +719,7 @@ class _ChatComposerState extends State<ChatComposer> {
               builder: (context, config, _) {
                 final emojiEnabled = config.emojiEnabled;
                 _closeDisabledEmojiAutocomplete(emojiEnabled);
+                _updateMarkdownLinkify(config);
                 return emojiEnabled
                     ? EmojiPickerAnchor(
                         child: Center(

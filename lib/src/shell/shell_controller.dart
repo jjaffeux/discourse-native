@@ -4835,6 +4835,8 @@ class ShellController extends FrameSafeNotifier
       ),
       simultaneousUploads: config.simultaneousUploads,
       enableAutoGridImages: config.enableAutoGridImages,
+      enableMarkdownLinkify: config.enableMarkdownLinkify,
+      markdownLinkifyTlds: config.markdownLinkifyTlds,
       maxImageWidth: config.maxImageWidth,
       maxImageHeight: config.maxImageHeight,
       minimumRequiredTags: minimumRequiredTags,
@@ -9373,6 +9375,10 @@ class ShellController extends FrameSafeNotifier
     }
     if (_composer?.target.siteUrl == siteUrl) {
       _composer?.updateEnableAutoGridImages(config.enableAutoGridImages);
+      _composer?.updateMarkdownLinkify(
+        enabled: config.enableMarkdownLinkify,
+        tlds: config.markdownLinkifyTlds,
+      );
     }
     final held = _instanceAt(siteUrl);
     if (held == null) return;

@@ -2,6 +2,7 @@ import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/site_config.dart';
 import '../plugin_api/composer_syntax.dart';
 import '../theme/d_button.dart';
 import 'composer_quotes.dart';
@@ -12,7 +13,7 @@ const composerLinkSyntaxKind = ComposerSyntaxKind(
   name: 'link',
 );
 
-const composerLinkSyntaxPolicy = ComposerLinkSyntaxPolicy();
+enum ComposerLinkKind { markdown, linkify }
 
 @immutable
 class ComposerLinkBlock {
@@ -22,6 +23,7 @@ class ComposerLinkBlock {
     required this.source,
     required this.anchor,
     required this.url,
+    required this.kind,
   });
 
   final int start;
@@ -29,15 +31,32 @@ class ComposerLinkBlock {
   final String source;
   final String anchor;
   final String url;
+  final ComposerLinkKind kind;
 }
+
+final RegExp _linkifyCandidatePattern = RegExp(
+  r'(?:(?:https?|ftp)://|//)[^\s<]+'
+  r"|[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+  r'(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+'
+  r'[A-Za-z]{2,63}'
+  r'|(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+'
+  r'[A-Za-z]{2,63}(?::[0-9]{1,5})?(?:[/?#][^\s<]*)?',
+  caseSensitive: false,
+  unicode: true,
+);
+final RegExp _linkifyHostBoundaryPattern = RegExp(r'[:/?#]');
+final RegExp _linkReferencePrefixPattern = RegExp(r'^\s*\[[^\]\n]+\]:\s*$');
 
 List<ComposerLinkBlock> parseComposerLinks(
   String source, {
   CodeRanges? codeRanges,
+  bool enableLinkify = true,
+  List<String> linkifyTlds = SiteConfig.defaultMarkdownLinkifyTlds,
 }) {
   if (source.isEmpty) return const [];
   final code = codeRanges ?? CodeRanges.of(scanMarkdown(source));
   final links = <ComposerLinkBlock>[];
+  final markdownRanges = <TextRange>[];
   var offset = 0;
   var barrenTo = -1;
   var lineEnd = -1;
@@ -65,8 +84,7 @@ List<ComposerLinkBlock> parseComposerLinks(
         bracket + 2 >= source.length ||
         source[bracket + 1] != '(' ||
         _isEscaped(source, start) ||
-        _isEscaped(source, bracket) ||
-        (start > 0 && source[start - 1] == '!')) {
+        _isEscaped(source, bracket)) {
       offset = start + 1;
       continue;
     }
@@ -85,7 +103,9 @@ List<ComposerLinkBlock> parseComposerLinks(
 
     final end = close + 1;
     offset = end;
+    markdownRanges.add(TextRange(start: start, end: end));
     if (code.overlaps(start, end)) continue;
+    if (start > 0 && source[start - 1] == '!') continue;
     links.add(
       ComposerLinkBlock(
         start: start,
@@ -93,11 +113,124 @@ List<ComposerLinkBlock> parseComposerLinks(
         source: source.substring(start, end),
         anchor: source.substring(start + 1, bracket),
         url: source.substring(urlStart, close),
+        kind: ComposerLinkKind.markdown,
       ),
     );
   }
 
+  if (enableLinkify) {
+    final tlds = linkifyTlds
+        .map(_normalizedTld)
+        .where((value) => value.isNotEmpty)
+        .toSet();
+    var markdownRangeIndex = 0;
+    for (final match in _linkifyCandidatePattern.allMatches(source)) {
+      final start = match.start;
+      final end = _trimLinkifyEnd(source, start, match.end);
+      while (markdownRangeIndex < markdownRanges.length &&
+          markdownRanges[markdownRangeIndex].end <= start) {
+        markdownRangeIndex += 1;
+      }
+      final overlapsMarkdown =
+          markdownRangeIndex < markdownRanges.length &&
+          markdownRanges[markdownRangeIndex].start < end;
+      if (end <= start ||
+          code.overlaps(start, end) ||
+          overlapsMarkdown ||
+          _insideAngleBrackets(source, start) ||
+          _isLinkReferenceDestination(source, start) ||
+          !_hasLinkifyBoundary(source, start)) {
+        continue;
+      }
+
+      final raw = source.substring(start, end);
+      final normalized = _normalizedLinkifyUrl(raw, tlds);
+      if (normalized == null) continue;
+      links.add(
+        ComposerLinkBlock(
+          start: start,
+          end: end,
+          source: raw,
+          anchor: raw,
+          url: normalized,
+          kind: ComposerLinkKind.linkify,
+        ),
+      );
+    }
+  }
+
+  links.sort((a, b) => a.start.compareTo(b.start));
   return List.unmodifiable(links);
+}
+
+String _normalizedTld(String value) {
+  final normalized = value.trim().toLowerCase();
+  return normalized.startsWith('.') ? normalized.substring(1) : normalized;
+}
+
+int _trimLinkifyEnd(String source, int start, int end) {
+  const punctuation = {0x21, 0x22, 0x27, 0x2C, 0x2E, 0x3A, 0x3B, 0x3F};
+  while (end > start && punctuation.contains(source.codeUnitAt(end - 1))) {
+    end -= 1;
+  }
+  for (final pair in const [(0x28, 0x29), (0x5B, 0x5D), (0x7B, 0x7D)]) {
+    while (end > start && source.codeUnitAt(end - 1) == pair.$2) {
+      var opens = 0;
+      var closes = 0;
+      for (var index = start; index < end; index += 1) {
+        final unit = source.codeUnitAt(index);
+        if (unit == pair.$1) opens += 1;
+        if (unit == pair.$2) closes += 1;
+      }
+      if (closes <= opens) break;
+      end -= 1;
+    }
+  }
+  return end;
+}
+
+String? _normalizedLinkifyUrl(String raw, Set<String> tlds) {
+  final lower = raw.toLowerCase();
+  if (lower.startsWith('http://') ||
+      lower.startsWith('https://') ||
+      lower.startsWith('ftp://') ||
+      lower.startsWith('//')) {
+    return raw;
+  }
+
+  final at = raw.lastIndexOf('@');
+  final hostAndPath = at < 0 ? raw : raw.substring(at + 1);
+  final boundary = hostAndPath.indexOf(_linkifyHostBoundaryPattern);
+  final host = (boundary < 0 ? hostAndPath : hostAndPath.substring(0, boundary))
+      .toLowerCase();
+  final dot = host.lastIndexOf('.');
+  if (dot < 0 || !tlds.contains(host.substring(dot + 1))) return null;
+  return at < 0 ? 'http://$raw' : 'mailto:$raw';
+}
+
+bool _hasLinkifyBoundary(String source, int start) {
+  if (start == 0) return true;
+  final previous = source.codeUnitAt(start - 1);
+  return !_isAsciiLetterOrNumber(previous) &&
+      previous != 0x5F &&
+      previous != 0x40;
+}
+
+bool _isAsciiLetterOrNumber(int unit) =>
+    (unit >= 0x30 && unit <= 0x39) ||
+    (unit >= 0x41 && unit <= 0x5A) ||
+    (unit >= 0x61 && unit <= 0x7A);
+
+bool _insideAngleBrackets(String source, int start) {
+  final open = source.lastIndexOf('<', start);
+  final close = source.lastIndexOf('>', start);
+  return open > close;
+}
+
+bool _isLinkReferenceDestination(String source, int start) {
+  final lineStart = start == 0 ? 0 : source.lastIndexOf('\n', start - 1) + 1;
+  final prefix = source.substring(lineStart, start);
+  return _linkReferencePrefixPattern.hasMatch(prefix);
 }
 
 bool _isEscaped(String source, int offset) {
@@ -115,13 +248,20 @@ bool _isEscaped(String source, int offset) {
 bool _isWhitespace(int unit) => unit == 0x20 || (unit >= 0x09 && unit <= 0x0D);
 
 final class ComposerLinkSyntaxPolicy implements ComposerSyntaxPolicy {
-  const ComposerLinkSyntaxPolicy();
+  const ComposerLinkSyntaxPolicy({
+    this.enableLinkify = true,
+    this.linkifyTlds = SiteConfig.defaultMarkdownLinkifyTlds,
+  });
+
+  final bool enableLinkify;
+  final List<String> linkifyTlds;
 
   @override
   ComposerSyntaxKind get kind => composerLinkSyntaxKind;
 
   @override
-  Object? get projectionState => null;
+  Object? get projectionState =>
+      Object.hash(enableLinkify, Object.hashAll(linkifyTlds));
 
   @override
   TextInputFormatter? get inputFormatter => null;
@@ -134,7 +274,12 @@ final class ComposerLinkSyntaxPolicy implements ComposerSyntaxPolicy {
     String source,
     CodeRanges codeRanges,
   ) => [
-    for (final block in parseComposerLinks(source, codeRanges: codeRanges))
+    for (final block in parseComposerLinks(
+      source,
+      codeRanges: codeRanges,
+      enableLinkify: enableLinkify,
+      linkifyTlds: linkifyTlds,
+    ))
       ComposerLinkSyntaxProjection(block),
   ];
 }
@@ -185,7 +330,7 @@ final class ComposerLinkSyntaxProjection implements ComposerSyntaxProjection {
   bool get supportsHover => true;
 
   @override
-  bool get protectsAdjacentDelete => true;
+  bool get protectsAdjacentDelete => block.kind == ComposerLinkKind.markdown;
 
   @override
   bool get hidesCursorWhenSelected => true;

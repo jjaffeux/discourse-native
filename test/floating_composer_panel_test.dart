@@ -460,6 +460,37 @@ void main() {
       expect(find.byType(ComposerLinkPill), findsOneWidget);
     });
 
+    testWidgets('a typed domain becomes an editable link in the topic body', (
+      tester,
+    ) async {
+      final composer = ComposerController(_newTopicTarget);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpFloatingPanel(tester, shell, composer);
+
+      composer.text.value = const TextEditingValue(
+        text: 'google.fr',
+        selection: TextSelection.collapsed(offset: 9),
+      );
+      await tester.pump();
+
+      final link = find.byType(ComposerLinkPill);
+      expect(link, findsOneWidget);
+      expect(composer.text.text, 'google.fr');
+
+      await tester.tapAt(tester.getCenter(link));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const ValueKey('composer-link-url')))
+            .controller!
+            .text,
+        'http://google.fr',
+      );
+    });
+
     testWidgets('shows working formatting controls only for selected text', (
       tester,
     ) async {

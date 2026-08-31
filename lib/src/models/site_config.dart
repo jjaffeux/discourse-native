@@ -16,6 +16,8 @@ class SiteConfig {
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
     this.enableAutoGridImages = true,
+    this.enableMarkdownLinkify = true,
+    this.markdownLinkifyTlds = defaultMarkdownLinkifyTlds,
     this.minSearchTermLength = defaultMinSearchTermLength,
     this.logSearchQueries = true,
     this.groupDirectoryEnabled = true,
@@ -72,6 +74,24 @@ class SiteConfig {
     'jxl',
   };
   static const int defaultMinSearchTermLength = 3;
+  static const List<String> defaultMarkdownLinkifyTlds = [
+    'com',
+    'net',
+    'org',
+    'io',
+    'onion',
+    'co',
+    'tv',
+    'ru',
+    'cn',
+    'us',
+    'uk',
+    'me',
+    'de',
+    'fr',
+    'fi',
+    'gov',
+  ];
   static const int defaultReadTimeWordCount = 500;
   static const int defaultShowTimeGapDays = 7;
   static const int maximumShowTimeGapDays = 36500;
@@ -101,6 +121,11 @@ class SiteConfig {
       maxImageWidth: _positiveInt(json['max_image_width'], 690),
       maxImageHeight: _positiveInt(json['max_image_height'], 500),
       enableAutoGridImages: json['enable_auto_grid_images'] != false,
+      enableMarkdownLinkify: json['enable_markdown_linkify'] != false,
+      markdownLinkifyTlds: _stringList(
+        json['markdown_linkify_tlds'],
+        defaultMarkdownLinkifyTlds,
+      ),
       minSearchTermLength:
           jsonIntOrNull(json['min_search_term_length'])?.clamp(1, 100) ??
           defaultMinSearchTermLength,
@@ -163,6 +188,11 @@ class SiteConfig {
     maxImageWidth: _positiveInt(json['maxImageWidth'], 690),
     maxImageHeight: _positiveInt(json['maxImageHeight'], 500),
     enableAutoGridImages: json['enableAutoGridImages'] != false,
+    enableMarkdownLinkify: json['enableMarkdownLinkify'] != false,
+    markdownLinkifyTlds: _stringList(
+      json['markdownLinkifyTlds'],
+      defaultMarkdownLinkifyTlds,
+    ),
     minSearchTermLength:
         jsonIntOrNull(json['minSearchTermLength'])?.clamp(1, 100) ??
         defaultMinSearchTermLength,
@@ -215,6 +245,8 @@ class SiteConfig {
       'maxImageWidth': maxImageWidth,
       'maxImageHeight': maxImageHeight,
       'enableAutoGridImages': enableAutoGridImages,
+      'enableMarkdownLinkify': enableMarkdownLinkify,
+      'markdownLinkifyTlds': markdownLinkifyTlds,
       'minSearchTermLength': minSearchTermLength,
       'logSearchQueries': logSearchQueries,
       'groupDirectoryEnabled': groupDirectoryEnabled,
@@ -257,6 +289,8 @@ class SiteConfig {
   final int maxImageHeight;
 
   final bool enableAutoGridImages;
+  final bool enableMarkdownLinkify;
+  final List<String> markdownLinkifyTlds;
   final int minSearchTermLength;
   final bool logSearchQueries;
   final bool groupDirectoryEnabled;
@@ -345,6 +379,8 @@ class SiteConfig {
     maxImageWidth: maxImageWidth,
     maxImageHeight: maxImageHeight,
     enableAutoGridImages: enableAutoGridImages,
+    enableMarkdownLinkify: enableMarkdownLinkify,
+    markdownLinkifyTlds: markdownLinkifyTlds,
     minSearchTermLength: minSearchTermLength,
     logSearchQueries: logSearchQueries,
     groupDirectoryEnabled: groupDirectoryEnabled,
@@ -384,6 +420,8 @@ class SiteConfig {
       other.maxImageWidth == maxImageWidth &&
       other.maxImageHeight == maxImageHeight &&
       other.enableAutoGridImages == enableAutoGridImages &&
+      other.enableMarkdownLinkify == enableMarkdownLinkify &&
+      listEquals(other.markdownLinkifyTlds, markdownLinkifyTlds) &&
       other.minSearchTermLength == minSearchTermLength &&
       other.logSearchQueries == logSearchQueries &&
       other.groupDirectoryEnabled == groupDirectoryEnabled &&
@@ -422,6 +460,8 @@ class SiteConfig {
     maxImageWidth,
     maxImageHeight,
     enableAutoGridImages,
+    enableMarkdownLinkify,
+    Object.hashAll(markdownLinkifyTlds),
     minSearchTermLength,
     logSearchQueries,
     groupDirectoryEnabled,
@@ -454,6 +494,19 @@ class SiteConfig {
     return List.unmodifiable(
       values
           .map((value) => value.trim().toLowerCase().replaceFirst('.', ''))
+          .where((value) => value.isNotEmpty),
+    );
+  }
+
+  static List<String> _stringList(Object? raw, List<String> fallback) {
+    final values = switch (raw) {
+      final String value => value.split('|'),
+      final List<dynamic> value => value.map(jsonText).whereType<String>(),
+      _ => fallback,
+    };
+    return List.unmodifiable(
+      values
+          .map((value) => value.trim().toLowerCase())
           .where((value) => value.isNotEmpty),
     );
   }

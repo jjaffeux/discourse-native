@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../data/emoji_cache.dart';
 import '../models/composer_upload.dart';
+import '../models/site_config.dart';
 import '../plugin_api/composer_syntax.dart';
 import '../plugin_api/hashtag_kind.dart';
 import 'composer_galleries.dart';
@@ -31,10 +33,12 @@ class MarkdownEditingController extends TextEditingController {
     this.formatQuoteContents,
     this.syntaxPolicies = const [],
     this.resolveUploadUrls,
+    this.enableMarkdownLinkify = true,
+    List<String> markdownLinkifyTlds = SiteConfig.defaultMarkdownLinkifyTlds,
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
     this.enableImageGalleries = true,
-  });
+  }) : _markdownLinkifyTlds = List.unmodifiable(markdownLinkifyTlds);
 
   final String? imageSiteUrl;
 
@@ -50,10 +54,28 @@ class MarkdownEditingController extends TextEditingController {
 
   final List<ComposerSyntaxPolicy> syntaxPolicies;
   final ComposerUploadUrlResolver? resolveUploadUrls;
+  bool enableMarkdownLinkify;
+  List<String> _markdownLinkifyTlds;
+  List<String> get markdownLinkifyTlds => _markdownLinkifyTlds;
   final int maxImageWidth;
   final int maxImageHeight;
 
   final bool enableImageGalleries;
+
+  void updateMarkdownLinkify({
+    required bool enabled,
+    required List<String> tlds,
+  }) {
+    if (enableMarkdownLinkify == enabled &&
+        listEquals(_markdownLinkifyTlds, tlds)) {
+      return;
+    }
+    enableMarkdownLinkify = enabled;
+    _markdownLinkifyTlds = List.unmodifiable(tlds);
+    _syntaxScanned = null;
+    _cachedSpan = null;
+    artworkArrived();
+  }
 
   String? _imageScanned;
   List<ComposerImageBlock> _imageBlocks = const [];
@@ -435,12 +457,16 @@ class MarkdownEditingController extends TextEditingController {
 
   List<ComposerSyntaxOccurrence> _syntaxBlocksFor(String source) {
     if (_syntaxScanned == source) return _syntaxBlocks;
+    final linkPolicy = ComposerLinkSyntaxPolicy(
+      enableLinkify: enableMarkdownLinkify,
+      linkifyTlds: _markdownLinkifyTlds,
+    );
     final blocks = <ComposerSyntaxOccurrence>[
-      for (final projection in composerLinkSyntaxPolicy.parseWithCodeRanges(
+      for (final projection in linkPolicy.parseWithCodeRanges(
         source,
         _codeRangesFor(source),
       ))
-        ComposerSyntaxOccurrence(composerLinkSyntaxPolicy, projection),
+        ComposerSyntaxOccurrence(linkPolicy, projection),
       for (final policy in syntaxPolicies)
         for (final projection in policy.parse(source))
           ComposerSyntaxOccurrence(policy, projection),
