@@ -79,6 +79,7 @@ import 'aggregate_feed_controller.dart';
 import 'app_settings_controller.dart';
 import 'composer_autocomplete.dart';
 import 'composer_controller.dart';
+import 'composer_draft_coordinator.dart';
 import 'composer_pills.dart';
 import 'composer_quotes.dart';
 import 'composer_triggers.dart';
@@ -106,30 +107,6 @@ enum InstanceLoadStatus { loading, ready, failed }
 enum AggregateTopicOpenResult { opened, tabLimitReached, unavailable }
 
 typedef TopicMoveDestination = ({int id, String title, String slug});
-typedef _DraftSessionKey = ({String siteUrl, String draftKey, Object session});
-
-final class _ComposerDraftContext {
-  _ComposerDraftContext(this.lease, this.generation);
-
-  final SiteLease lease;
-  final int generation;
-  final Object owner = Object();
-  ComposerController? composer;
-
-  _DraftSessionKey keyFor(ComposerTarget target) => (
-    siteUrl: target.siteUrl,
-    draftKey: target.draftKey,
-    session: lease.session,
-  );
-}
-
-final class _RetiredComposerDraftSaves {
-  _RetiredComposerDraftSaves({required this.owner, required this.previous});
-
-  final Object owner;
-  final _RetiredComposerDraftSaves? previous;
-  late final Future<void> task;
-}
 
 typedef TopicMoveDestinationSearchResult = ({
   List<TopicMoveDestination> destinations,
@@ -5007,12 +4984,57 @@ class ShellController extends FrameSafeNotifier
   }
 
   ComposerController? _composer;
-  Future<bool>? _composerDraftRestore;
-  final Expando<_ComposerDraftContext> _composerDraftContexts = Expando();
-  int _composerDraftGeneration = 0;
-  final Map<_DraftSessionKey, int> _latestComposerDraftGenerations = {};
-  final Map<_DraftSessionKey, _RetiredComposerDraftSaves>
-  _retiredComposerDraftSaves = {};
+
+  late final ComposerDraftCoordinator _composerDrafts =
+      ComposerDraftCoordinator(
+        localStore: drafts,
+        persistence: api.composerPersistence,
+        draftsApi: api.drafts,
+        lifecycle: lifecycle,
+        readCredential: _credentialForWrite,
+        readClientId: authenticator.clientId,
+        isDisposed: () => isDisposed,
+        isCurrentComposer: (composer) => identical(_composer, composer),
+        readCachedDraft: (target) => target.createsTopic
+            ? null
+            : store.read<TopicDetail>(target.siteUrl, target.topicId)?.draft,
+        readCachedSequence: (target) => target.createsTopic
+            ? 0
+            : store
+                      .read<TopicDetail>(target.siteUrl, target.topicId)
+                      ?.draftSequence ??
+                  0,
+        writeCachedDraft: (target, draft, sequence) {
+          store.update<TopicDetail>(
+            target.siteUrl,
+            target.topicId,
+            (detail) => detail.withDraft(draft, sequence),
+          );
+        },
+        minimumRequiredTagsFor: (siteUrl, categoryId) =>
+            topicComposerCategories(siteUrl)
+                .where((category) => category.id == categoryId)
+                .firstOrNull
+                ?.minimumRequiredTags ??
+            0,
+        isServerDraftKnown: (target) =>
+            draftList
+                .feedFor(target.siteUrl)
+                .drafts
+                .any((draft) => draft.key == target.draftKey) ||
+            (!target.createsTopic &&
+                store
+                        .read<TopicDetail>(target.siteUrl, target.topicId)
+                        ?.draft !=
+                    null),
+        recordDraftDestroyed: _recordDraftDestroyed,
+        onComposerClosed: (composer) {
+          if (!identical(_composer, composer)) return;
+          _composer = null;
+          _notify();
+        },
+        reportError: _reportOperationalError,
+      );
 
   ComposerController? get visibleComposer {
     final composer = _composer;
@@ -5037,11 +5059,8 @@ class ShellController extends FrameSafeNotifier
     int minimumRequiredTags = 0,
   }) {
     final config = siteConfigFor(target.siteUrl);
-    final draftContext = persistsDraft
-        ? _ComposerDraftContext(
-            lifecycle.capture(target.siteUrl),
-            ++_composerDraftGeneration,
-          )
+    final draftSession = persistsDraft
+        ? _composerDrafts.openSession(target)
         : null;
     ComposerPluginState readPluginState() {
       final currentUser = currentUserFor(target.siteUrl);
@@ -5064,12 +5083,8 @@ class ShellController extends FrameSafeNotifier
     late final ComposerController composer;
     composer = ComposerController(
       target,
-      onSaveDraft: draftContext == null
-          ? null
-          : (save) => _saveDraft(save, draftContext),
-      onStageDraft: draftContext == null
-          ? null
-          : (save) => _stageDraftLocally(save, draftContext),
+      onSaveDraft: draftSession?.save,
+      onStageDraft: draftSession?.stage,
       search: _composerSearch(target),
       onEmojiAccepted: (code) => unawaited(
         emojiPickerStore.trackEmoji(
@@ -5117,11 +5132,7 @@ class ShellController extends FrameSafeNotifier
       maxImageHeight: config.maxImageHeight,
       minimumRequiredTags: minimumRequiredTags,
     );
-    if (draftContext != null) {
-      _composerDraftContexts[composer] = draftContext;
-      draftContext.composer = composer;
-      composer.draftSequence = _draftSequence(target);
-    }
+    if (draftSession != null) _composerDrafts.attach(draftSession, composer);
     return composer;
   }
 
@@ -5196,7 +5207,7 @@ class ShellController extends FrameSafeNotifier
     final composer = _buildTextComposer(target, persistsDraft: true);
     _composer = composer;
     _notify();
-    _startComposerDraftRestore(composer);
+    _composerDrafts.startRestore(composer);
     composer.requestFocus();
   }
 
@@ -5327,7 +5338,7 @@ class ShellController extends FrameSafeNotifier
     _composer = composer;
     if (revealContent) _mobilePane = MobilePane.content;
     _notify();
-    _startComposerDraftRestore(composer);
+    _composerDrafts.startRestore(composer);
   }
 
   Future<void> openReplyAsNewTopic(String continuation) async {
@@ -5379,10 +5390,10 @@ class ShellController extends FrameSafeNotifier
     );
     _composer = composer;
     _notify();
-    _startComposerDraftRestore(composer);
+    _composerDrafts.startRestore(composer);
 
     try {
-      await _composerDraftRestore;
+      await _composerDrafts.restoreTaskFor(composer);
     } catch (_) {}
     if (!lease.isCurrent ||
         !identical(_composer, composer) ||
@@ -5463,11 +5474,11 @@ class ShellController extends FrameSafeNotifier
       );
       _composer = composer;
       _notify();
-      _startComposerDraftRestore(composer);
+      _composerDrafts.startRestore(composer);
     }
 
     try {
-      await _composerDraftRestore;
+      await _composerDrafts.restoreTaskFor(composer);
     } catch (_) {}
     if (!forumActive ||
         !lease.isCurrent ||
@@ -5659,7 +5670,7 @@ class ShellController extends FrameSafeNotifier
     _composer = composer;
     _notify();
 
-    _startComposerDraftRestore(composer);
+    _composerDrafts.startRestore(composer);
   }
 
   bool _replyTargetsWhisper(int? postNumber) {
@@ -5706,7 +5717,7 @@ class ShellController extends FrameSafeNotifier
     if (composer == null) return;
 
     final restore = identical(_composer, composer)
-        ? _composerDraftRestore
+        ? _composerDrafts.restoreTaskFor(composer)
         : null;
     if (restore != null) {
       try {
@@ -8152,629 +8163,32 @@ class ShellController extends FrameSafeNotifier
     });
   }
 
-  void _retireComposerDraftSaves(ComposerController composer) {
-    if (!composer.canSaveDraft || !composer.draftPersistencePending) return;
-    final context = _composerDraftContexts[composer];
-    if (context == null) return;
-    final key = context.keyFor(composer.target);
-    final previous = _retiredComposerDraftSaves[key];
-    final drain = composer.finishDraftSaves();
-    final retired = _RetiredComposerDraftSaves(
-      owner: context.owner,
-      previous: previous,
-    );
-    retired.task = () async {
-      if (previous != null) {
-        try {
-          await previous.task;
-        } catch (_) {}
-      }
-      try {
-        await drain;
-      } catch (_) {}
-    }();
-    _retiredComposerDraftSaves[key] = retired;
-    unawaited(
-      retired.task.then((_) {
-        if (identical(_retiredComposerDraftSaves[key], retired)) {
-          final _ = _retiredComposerDraftSaves.remove(key);
-        }
-      }),
-    );
-  }
-
-  Future<void> _waitForRetiredComposerDraftSaves(
-    ComposerTarget target,
-    _ComposerDraftContext context,
-  ) async {
-    final latest = _retiredComposerDraftSaves[context.keyFor(target)];
-    if (latest == null) return;
-
-    // A controller being retired must wait behind older controllers, but not
-    // behind the retirement task which is itself waiting for this save. A new
-    // controller waits for the entire chain before it may write locally or
-    // remotely, so an old queued revision cannot land after the new text.
-    var cursor = latest;
-    while (!identical(cursor.owner, context.owner)) {
-      final previous = cursor.previous;
-      if (previous == null) {
-        try {
-          await latest.task;
-        } catch (_) {}
-        return;
-      }
-      cursor = previous;
-    }
-    final previous = cursor.previous;
-    if (previous != null) {
-      try {
-        await previous.task;
-      } catch (_) {}
-    }
-  }
-
   bool _replaceComposer() {
     final existing = _composer;
-    if (existing == null) {
-      _composerDraftRestore = null;
-      return true;
-    }
+    if (existing == null) return true;
     if (existing.discarding) return false;
-    _retireComposerDraftSaves(existing);
+    _composerDrafts.retire(existing);
     existing.dispose();
     _composer = null;
-    _composerDraftRestore = null;
+    _composerDrafts.detach(existing);
     return true;
   }
 
   void closeComposer() {
     final composer = _composer;
     if (composer == null || composer.discarding) return;
-    _retireComposerDraftSaves(composer);
+    _composerDrafts.retire(composer);
     composer.dispose();
     _composer = null;
-    _composerDraftRestore = null;
+    _composerDrafts.detach(composer);
     _notify();
   }
 
-  Future<bool> finishComposerDraftRestore(ComposerController composer) async {
-    if (isDisposed || !identical(_composer, composer)) return false;
-    var restore = _composerDraftRestore;
-    if (restore == null && composer.canSaveDraft) {
-      restore = _restoreDraft(composer);
-      _composerDraftRestore = restore;
-      unawaited(restore);
-    }
-    var restored = true;
-    if (restore != null) {
-      try {
-        restored = await restore;
-      } catch (_) {
-        restored = false;
-      }
-    }
-    if (!restored &&
-        !isDisposed &&
-        identical(_composer, composer) &&
-        !composer.isDisposed) {
-      if (identical(_composerDraftRestore, restore)) {
-        _composerDraftRestore = null;
-      }
-      composer.showNotice("Couldn't check for an existing draft. Try again.");
-    }
-    return restored &&
-        !isDisposed &&
-        identical(_composer, composer) &&
-        !composer.isDisposed;
-  }
+  Future<bool> finishComposerDraftRestore(ComposerController composer) =>
+      _composerDrafts.finishRestore(composer);
 
-  final Map<ComposerController, Future<String?>> _composerDiscardTasks = {};
-
-  Future<String?> discardComposer(ComposerController composer) {
-    final running = _composerDiscardTasks[composer];
-    if (running != null) return running;
-
-    final task = _discardComposer(composer);
-    _composerDiscardTasks[composer] = task;
-    unawaited(
-      task.then<void>(
-        (_) {
-          if (identical(_composerDiscardTasks[composer], task)) {
-            final _ = _composerDiscardTasks.remove(composer);
-          }
-        },
-        onError: (Object _, StackTrace _) {
-          if (identical(_composerDiscardTasks[composer], task)) {
-            final _ = _composerDiscardTasks.remove(composer);
-          }
-        },
-      ),
-    );
-    return task;
-  }
-
-  Future<String?> _discardComposer(ComposerController composer) async {
-    if (!await finishComposerDraftRestore(composer)) return null;
-
-    if (composer.hasUnappliedDraft) {
-      final revision = composer.beginDiscard();
-      if (revision == null) {
-        return "Couldn't discard this draft. Try again.";
-      }
-      const failure = "Couldn't discard this draft. Try again.";
-      const changed =
-          'This draft changed before it could be discarded. Review it and try again.';
-      final target = composer.target;
-      final context = _composerDraftContexts[composer];
-      bool isCurrent() =>
-          context != null &&
-          context.lease.isCurrent &&
-          identical(_composer, composer) &&
-          !composer.isDisposed;
-      String failAndResaveCurrentDraft() {
-        if (isCurrent()) unawaited(composer.flushDraft());
-        return failure;
-      }
-
-      try {
-        final preserved = composer.unappliedDraft;
-        if (!isCurrent()) return null;
-        if (context == null || preserved == null) {
-          return failAndResaveCurrentDraft();
-        }
-        await composer.finishInFlightDraftSaveForDiscard();
-        if (!isCurrent()) return null;
-        if (!composer.discardRevisionIsCurrent(revision)) {
-          unawaited(composer.flushDraft());
-          return changed;
-        }
-
-        final overwritten = composer.unappliedDraftOverwritten;
-        if (overwritten || composer.unappliedDraftWasLocal) {
-          // An in-flight replacement save can complete after Discard was
-          // pressed. Put the protected snapshot back on-device before repairing
-          // the server so a process exit between those operations cannot lose
-          // both versions.
-          await drafts.write(
-            target.siteUrl,
-            target.draftKey,
-            preserved.encode(),
-            ifCurrent: () =>
-                isCurrent() && composer.discardRevisionIsCurrent(revision),
-          );
-        }
-        if (!isCurrent()) return null;
-        if (!composer.discardRevisionIsCurrent(revision)) {
-          unawaited(composer.flushDraft());
-          return changed;
-        }
-
-        if (overwritten) {
-          final credential = await _credentialForWrite(target.siteUrl);
-          if (!isCurrent()) return null;
-          if (credential.failure != null) {
-            return failAndResaveCurrentDraft();
-          }
-          final clientId = await authenticator.clientId();
-          if (!isCurrent()) return null;
-          await _waitForRetiredComposerDraftSaves(target, context);
-          if (!isCurrent()) return null;
-          if (!composer.discardRevisionIsCurrent(revision)) {
-            unawaited(composer.flushDraft());
-            return changed;
-          }
-
-          final key = context.keyFor(target);
-          final restored = await _serializeDraftOperation<bool>(key, () async {
-            if (!isCurrent() || !composer.discardRevisionIsCurrent(revision)) {
-              return false;
-            }
-            final sequence = _draftSequence(target);
-            if (composer.unappliedDraftWasLocal) {
-              await api.drafts.deleteUserDraft(
-                siteUrl: target.siteUrl,
-                apiKey: credential.apiKey!,
-                draftKey: target.draftKey,
-                sequence: sequence,
-              );
-              context.lease.commit(() {
-                _knownServerDrafts.remove(key);
-                _draftsCreatedAfterCachedCount.remove(key);
-              });
-              if (!isCurrent() ||
-                  !composer.discardRevisionIsCurrent(revision)) {
-                return false;
-              }
-            } else {
-              final nextSequence = await api.composerPersistence.saveDraft(
-                siteUrl: target.siteUrl,
-                apiKey: credential.apiKey!,
-                draftKey: target.draftKey,
-                sequence: sequence,
-                data: preserved.encode(),
-                owner: clientId,
-              );
-              context.lease.commit(() {
-                if (nextSequence != null) {
-                  final sequenceKey = _draftKey(
-                    target.siteUrl,
-                    target.draftKey,
-                  );
-                  final knownSequence = _draftSequences[sequenceKey] ?? 0;
-                  final committedSequence = nextSequence > knownSequence
-                      ? nextSequence
-                      : knownSequence;
-                  _draftSequences[sequenceKey] = committedSequence;
-                  composer.draftSequence = committedSequence;
-                }
-                _knownServerDrafts.add(key);
-                _draftsCreatedAfterCachedCount.remove(key);
-              });
-              if (!isCurrent() ||
-                  !composer.discardRevisionIsCurrent(revision)) {
-                return false;
-              }
-            }
-            return true;
-          });
-          if (!restored) {
-            if (!isCurrent()) return null;
-            unawaited(composer.flushDraft());
-            return changed;
-          }
-        }
-
-        if (!composer.unappliedDraftWasLocal) {
-          final cleared = await drafts.clearChecked(
-            target.siteUrl,
-            target.draftKey,
-            ifCurrent: () =>
-                isCurrent() && composer.discardRevisionIsCurrent(revision),
-          );
-          if (!cleared &&
-              isCurrent() &&
-              composer.discardRevisionIsCurrent(revision)) {
-            return failAndResaveCurrentDraft();
-          }
-        }
-        if (!isCurrent()) return null;
-        if (!composer.discardRevisionIsCurrent(revision)) {
-          unawaited(composer.flushDraft());
-          return changed;
-        }
-        composer.dispose();
-        _composer = null;
-        _composerDraftRestore = null;
-        _notify();
-        return null;
-      } catch (error, stackTrace) {
-        if (isCurrent()) {
-          _reportOperationalError(
-            error,
-            stackTrace,
-            'composer.preserveUnappliedDraft',
-          );
-          return failAndResaveCurrentDraft();
-        }
-        return null;
-      } finally {
-        if (!composer.isDisposed) composer.finishDiscard();
-      }
-    }
-
-    final revision = composer.beginDiscard();
-    if (revision == null) {
-      return "Couldn't discard this draft. Try again.";
-    }
-
-    final target = composer.target;
-    final lease = lifecycle.capture(target.siteUrl);
-    bool isCurrent() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_composer, composer) &&
-        !composer.isDisposed;
-
-    const failure = "Couldn't discard this draft. Try again.";
-    const changed =
-        'This draft changed before it could be discarded. Review it and try again.';
-
-    try {
-      if (composer.canSaveDraft) {
-        final credential = await _credentialForWrite(target.siteUrl);
-        if (!isCurrent()) return null;
-        if (credential.failure != null) return failure;
-
-        await composer.finishInFlightDraftSaveForDiscard();
-        if (!isCurrent()) return null;
-        if (!composer.discardRevisionIsCurrent(revision)) {
-          unawaited(composer.flushDraft());
-          return changed;
-        }
-        final context = _composerDraftContexts[composer];
-        if (context == null) return failure;
-        await _waitForRetiredComposerDraftSaves(target, context);
-        if (!isCurrent()) return null;
-        if (!composer.discardRevisionIsCurrent(revision)) {
-          unawaited(composer.flushDraft());
-          return changed;
-        }
-
-        final key = context.keyFor(target);
-        final discarded = await _serializeDraftOperation<bool>(key, () async {
-          if (!isCurrent() || !composer.discardRevisionIsCurrent(revision)) {
-            return false;
-          }
-          final sequence = _draftSequence(target);
-          final draftWasKnown =
-              _knownServerDrafts.contains(key) ||
-              draftList
-                  .feedFor(target.siteUrl)
-                  .drafts
-                  .any((draft) => draft.key == target.draftKey) ||
-              (!target.createsTopic &&
-                  store
-                          .read<TopicDetail>(target.siteUrl, target.topicId)
-                          ?.draft !=
-                      null);
-          await api.drafts.deleteUserDraft(
-            siteUrl: target.siteUrl,
-            apiKey: credential.apiKey!,
-            draftKey: target.draftKey,
-            sequence: sequence,
-          );
-          final localCleared = await drafts.clearChecked(
-            target.siteUrl,
-            target.draftKey,
-            ifCurrent: () =>
-                isCurrent() && composer.discardRevisionIsCurrent(revision),
-          );
-          if (!localCleared) {
-            if (!isCurrent() || !composer.discardRevisionIsCurrent(revision)) {
-              return false;
-            }
-            throw const DraftWriteException();
-          }
-          if (!isCurrent() || !composer.discardRevisionIsCurrent(revision)) {
-            return false;
-          }
-          if (!target.createsTopic) {
-            store.update<TopicDetail>(
-              target.siteUrl,
-              target.topicId,
-              (detail) => detail.withDraft(null, sequence),
-            );
-          }
-          _recordDraftDestroyed(
-            target.siteUrl,
-            target.draftKey,
-            knownToExist:
-                draftWasKnown && !_draftsCreatedAfterCachedCount.contains(key),
-          );
-          _knownServerDrafts.remove(key);
-          _draftsCreatedAfterCachedCount.remove(key);
-          composer.draftSettled();
-          composer.dispose();
-          _composer = null;
-          _composerDraftRestore = null;
-          _notify();
-          return true;
-        });
-        if (discarded) return null;
-        if (!isCurrent()) return null;
-        await composer.flushDraft();
-        return changed;
-      }
-
-      if (!isCurrent()) return null;
-      composer.dispose();
-      _composer = null;
-      _composerDraftRestore = null;
-      _notify();
-      return null;
-    } catch (error, stackTrace) {
-      if (isCurrent()) {
-        _reportOperationalError(error, stackTrace, 'composer.discardDraft');
-        if (composer.canSaveDraft) unawaited(composer.flushDraft());
-        return failure;
-      }
-      return null;
-    } finally {
-      if (!composer.isDisposed) composer.finishDiscard();
-    }
-  }
-
-  final Map<String, int> _draftSequences = {};
-  final Map<_DraftSessionKey, Object> _draftSaveRequests = {};
-  final Map<_DraftSessionKey, Future<void>> _draftOperations = {};
-  final Set<_DraftSessionKey> _knownServerDrafts = {};
-  final Set<_DraftSessionKey> _draftsCreatedAfterCachedCount = {};
-
-  static String _draftKey(String siteUrl, String draftKey) =>
-      '$siteUrl#$draftKey';
-
-  Future<T> _serializeDraftOperation<T>(
-    _DraftSessionKey key,
-    Future<T> Function() operation,
-  ) {
-    final previous = _draftOperations[key] ?? Future<void>.value();
-    final result = previous.then<T>((_) => operation());
-    final tail = result.then<void>(
-      (_) {},
-      onError: (Object _, StackTrace _) {},
-    );
-    _draftOperations[key] = tail;
-    unawaited(
-      tail.then((_) {
-        if (identical(_draftOperations[key], tail)) {
-          final _ = _draftOperations.remove(key);
-        }
-      }),
-    );
-    return result;
-  }
-
-  int _draftSequence(ComposerTarget target) =>
-      _draftSequences[_draftKey(target.siteUrl, target.draftKey)] ??
-      (target.createsTopic
-          ? null
-          : store
-                .read<TopicDetail>(target.siteUrl, target.topicId)
-                ?.draftSequence) ??
-      0;
-
-  Future<void> _stageDraftLocally(
-    ComposerDraftSave save,
-    _ComposerDraftContext context,
-  ) {
-    final key = context.keyFor(save.target);
-    _claimComposerDraftGeneration(key, context.generation);
-    return drafts.write(
-      save.target.siteUrl,
-      save.target.draftKey,
-      save.draft.encode(),
-      ifCurrent: () =>
-          save.isCurrent() &&
-          context.lease.isCurrent &&
-          _latestComposerDraftGenerations[key] == context.generation,
-    );
-  }
-
-  void _claimComposerDraftGeneration(_DraftSessionKey key, int generation) {
-    final current = _latestComposerDraftGenerations[key];
-    if (current == null || generation > current) {
-      _latestComposerDraftGenerations[key] = generation;
-    }
-  }
-
-  Future<int?> _saveDraft(
-    ComposerDraftSave save,
-    _ComposerDraftContext context,
-  ) async {
-    final target = save.target;
-    final lease = context.lease;
-    final data = save.draft.encode();
-    final key = context.keyFor(target);
-    final sequenceKey = _draftKey(target.siteUrl, target.draftKey);
-    _claimComposerDraftGeneration(key, context.generation);
-    bool ownsLatestGeneration() =>
-        _latestComposerDraftGenerations[key] == context.generation;
-
-    // Preserve the local-first durability guarantee even when an older
-    // controller is still draining. Its later queued writes are generation
-    // guarded, so they cannot overwrite this newer composer's local copy.
-    final localWrite = () async {
-      DraftWriteException? failure;
-      try {
-        await drafts.write(
-          target.siteUrl,
-          target.draftKey,
-          data,
-          ifCurrent: () =>
-              save.isCurrent() && ownsLatestGeneration() && lease.commit(() {}),
-        );
-      } on DraftWriteException catch (error) {
-        failure = error;
-      } catch (error) {
-        failure = DraftWriteException(error);
-      }
-      return failure;
-    }();
-
-    await _waitForRetiredComposerDraftSaves(target, context);
-    final localFailure = await localWrite;
-    if (!lease.isCurrent || !save.isCurrent()) return null;
-
-    final request = Object();
-    _draftSaveRequests[key] = request;
-
-    return _serializeDraftOperation<int?>(key, () async {
-      try {
-        if (!lease.commit(() {})) return null;
-
-        // After the sync has given up, the local copy above is the whole save:
-        // the site is not asked again, and the copy is not cleared.
-        if (save.localOnly) {
-          if (localFailure != null) throw localFailure;
-          return null;
-        }
-
-        try {
-          final credential = await _credentialForWrite(target.siteUrl);
-          if (!lease.isCurrent) return null;
-          if (credential.failure case final failure?) throw failure;
-          final apiKey = credential.apiKey!;
-          final clientId = await authenticator.clientId();
-          if (!lease.isCurrent) return null;
-
-          final requestSequence = _draftSequence(target);
-          final sequence = await api.composerPersistence.saveDraft(
-            siteUrl: target.siteUrl,
-            apiKey: apiKey,
-            draftKey: target.draftKey,
-            sequence: requestSequence,
-            data: data,
-            // Discourse uses this to tell the same account writing from somewhere
-            // else apart from this client coming back.
-            owner: clientId,
-          );
-
-          var clearLocal = false;
-          var committedSequence = sequence;
-          lease.commit(() {
-            if (sequence != null) {
-              final knownSequence = _draftSequences[sequenceKey] ?? 0;
-              committedSequence = sequence > knownSequence
-                  ? sequence
-                  : knownSequence;
-              _draftSequences[sequenceKey] = committedSequence!;
-            }
-            context.composer?.unappliedDraftWasOverwritten();
-            if (_knownServerDrafts.add(key)) {
-              _draftsCreatedAfterCachedCount.add(key);
-            }
-            if (!save.isCurrent() ||
-                !identical(_draftSaveRequests[key], request)) {
-              return;
-            }
-
-            if (!target.createsTopic) {
-              store.update<TopicDetail>(
-                target.siteUrl,
-                target.topicId,
-                (detail) => detail.withDraft(
-                  save.draft,
-                  committedSequence ?? requestSequence,
-                ),
-              );
-            }
-            if (!ownsLatestGeneration()) return;
-            clearLocal = true;
-          });
-          if (clearLocal) {
-            await drafts.clear(
-              target.siteUrl,
-              target.draftKey,
-              ifCurrent: () =>
-                  save.isCurrent() &&
-                  ownsLatestGeneration() &&
-                  identical(_draftSaveRequests[key], request) &&
-                  lease.commit(() {}),
-            );
-          }
-
-          return committedSequence;
-        } catch (_) {
-          if (localFailure != null) throw localFailure;
-          rethrow;
-        }
-      } finally {
-        if (identical(_draftSaveRequests[key], request)) {
-          _draftSaveRequests.remove(key);
-        }
-      }
-    });
-  }
+  Future<String?> discardComposer(ComposerController composer) =>
+      _composerDrafts.discard(composer);
 
   Future<ComposerUploadResult> _uploadComposerImage(
     ComposerTarget target,
@@ -8818,118 +8232,6 @@ class ShellController extends FrameSafeNotifier
       clientId: identity.value,
       shortUrls: urls,
     );
-  }
-
-  void _startComposerDraftRestore(ComposerController composer) {
-    final restore = _restoreDraft(composer);
-    _composerDraftRestore = restore;
-    unawaited(restore);
-  }
-
-  Future<bool> _restoreDraft(ComposerController composer) async {
-    final target = composer.target;
-    final lease = lifecycle.capture(target.siteUrl);
-    final startingRevision = composer.draftRevision;
-
-    bool isCurrent() =>
-        !isDisposed && lease.isCurrent && identical(_composer, composer);
-
-    // The local copy exists only while the site does not have the text, so if
-    // there is one it is the newer of the two by construction — no timestamps
-    // to compare, and no chance of restoring over something newer.
-    var localRead = await drafts.readChecked(target.siteUrl, target.draftKey);
-    if (!localRead.succeeded) return false;
-    var local = ComposerDraft.decode(localRead.value);
-    if (!isCurrent()) return true;
-    if (local == null) {
-      final context = _composerDraftContexts[composer];
-      if (context != null) {
-        await _waitForRetiredComposerDraftSaves(target, context);
-        if (!isCurrent()) return true;
-        // A retired controller may have failed its first local write and then
-        // completed a remote save while this composer was opening. Re-read
-        // after the drain so that save is never classified as an empty draft.
-        localRead = await drafts.readChecked(target.siteUrl, target.draftKey);
-        if (!localRead.succeeded) return false;
-        local = ComposerDraft.decode(localRead.value);
-        if (!isCurrent()) return true;
-      }
-    }
-    ComposerDraft? remote;
-    var remoteSequence = 0;
-    if (local == null && target.createsTopic) {
-      try {
-        final held = await _readSessionValue(
-          lease,
-          () => _credentialForWrite(target.siteUrl),
-        );
-        if (held == null || !isCurrent()) return true;
-        if (held.value.failure != null) return false;
-        final found = await api.composerPersistence.draft(
-          siteUrl: target.siteUrl,
-          apiKey: held.value.apiKey!,
-          draftKey: target.draftKey,
-        );
-        remote = found.draft;
-        remoteSequence = found.sequence;
-      } catch (_) {
-        return false;
-      }
-    }
-    if (!isCurrent()) return true;
-    lease.commit(() {
-      if (!identical(_composer, composer)) return;
-      if (target.createsTopic && remoteSequence > 0) {
-        final key = _draftKey(target.siteUrl, target.draftKey);
-        final knownSequence = _draftSequences[key] ?? composer.draftSequence;
-        final currentSequence = remoteSequence > knownSequence
-            ? remoteSequence
-            : knownSequence;
-        composer.draftSequence = currentSequence;
-        _draftSequences[key] = currentSequence;
-      }
-      final cached = target.createsTopic
-          ? null
-          : store.read<TopicDetail>(target.siteUrl, target.topicId)?.draft;
-      final draft = local ?? remote ?? cached;
-      if (draft == null) return;
-      final context = _composerDraftContexts[composer];
-      if (context != null && (remote != null || cached != null)) {
-        final key = context.keyFor(target);
-        _knownServerDrafts.add(key);
-        _draftsCreatedAfterCachedCount.remove(key);
-      }
-      if (!composer.canRestoreDraft(draft)) {
-        composer.protectUnappliedDraft(draft, wasLocal: local != null);
-        return;
-      }
-
-      // Body, title, category, tags and whisper all advance this revision.
-      // Never restore an older snapshot over any choice made while the lookup
-      // was in flight.
-      if (composer.draftRevision != startingRevision) return;
-
-      if (!composer.restore(draft)) {
-        composer.protectUnappliedDraft(draft, wasLocal: local != null);
-        return;
-      }
-      composer.setMinimumRequiredTags(
-        topicComposerCategories(target.siteUrl)
-                .where((category) => category.id == composer.categoryId)
-                .firstOrNull
-                ?.minimumRequiredTags ??
-            0,
-      );
-      if (draft.replyToPostNumber != null &&
-          target.replyToPostNumber == null &&
-          identical(_composer, composer)) {
-        composer.retarget(
-          replyToPostNumber: draft.replyToPostNumber,
-          replyToUsername: draft.replyToUsername,
-        );
-      }
-    });
-    return true;
   }
 
   Future<void> submitComposer() async {
@@ -9541,7 +8843,6 @@ class ShellController extends FrameSafeNotifier
     ComposerController composer,
     SiteLease lease,
   ) {
-    _forgetKnownServerDraft(composer);
     final post = creation.post;
     if (post != null) {
       store.put(target.siteUrl, post);
@@ -9555,22 +8856,15 @@ class ShellController extends FrameSafeNotifier
     // Accepting a post deletes its draft and advances the sequence server side,
     // so the local copy goes too and the next save uses the number it sent back
     // — keeping the old one earns a conflict on the very next keystroke.
-    composer.draftSettled();
-    unawaited(
-      drafts.clear(
-        target.siteUrl,
-        target.draftKey,
-        ifCurrent: () => lease.commit(() {}),
-      ),
+    _composerDrafts.settleAfterSubmission(
+      composer,
+      lease,
+      sequence: creation.draftSequence,
     );
-    if (creation.draftSequence case final sequence?) {
-      _draftSequences[_draftKey(target.siteUrl, target.draftKey)] = sequence;
-      composer.draftSequence = sequence;
-    }
     store.update<TopicDetail>(
       target.siteUrl,
       target.topicId,
-      (detail) => detail.withDraft(null, _draftSequence(target)),
+      (detail) => detail.withDraft(null, _composerDrafts.sequenceFor(target)),
     );
 
     if (creation.isEnqueued) {
@@ -9596,19 +8890,11 @@ class ShellController extends FrameSafeNotifier
     ComposerController composer,
     SiteLease lease,
   ) {
-    _forgetKnownServerDraft(composer);
-    composer.draftSettled();
-    unawaited(
-      drafts.clear(
-        target.siteUrl,
-        target.draftKey,
-        ifCurrent: () => lease.commit(() {}),
-      ),
+    _composerDrafts.settleAfterSubmission(
+      composer,
+      lease,
+      sequence: creation.draftSequence,
     );
-    if (creation.draftSequence case final sequence?) {
-      _draftSequences[_draftKey(target.siteUrl, target.draftKey)] = sequence;
-      composer.draftSequence = sequence;
-    }
     if (creation.isEnqueued) {
       composer.enqueued(creation.message);
       _notify();
@@ -9638,15 +8924,7 @@ class ShellController extends FrameSafeNotifier
     String slug,
     String title,
   ) {
-    _forgetKnownServerDraft(composer);
-    composer.draftSettled();
-    unawaited(
-      drafts.clear(
-        target.siteUrl,
-        target.draftKey,
-        ifCurrent: () => lease.commit(() {}),
-      ),
-    );
+    _composerDrafts.settleAfterSubmission(composer, lease);
     _closeSubmittedComposer(composer);
     final origin = target.originFeedId;
     if (currentInstance?.url == target.siteUrl) {
@@ -9654,15 +8932,6 @@ class ShellController extends FrameSafeNotifier
       if (origin != null && target.isNewTopic) {
         unawaited(loadFeed(origin, force: true));
       }
-    }
-  }
-
-  void _forgetKnownServerDraft(ComposerController composer) {
-    final context = _composerDraftContexts[composer];
-    if (context != null) {
-      final key = context.keyFor(composer.target);
-      _knownServerDrafts.remove(key);
-      _draftsCreatedAfterCachedCount.remove(key);
     }
   }
 
@@ -10901,21 +10170,14 @@ class ShellController extends FrameSafeNotifier
     siteImages.forget(siteUrl);
     _removeWorkspace(siteUrl);
     if (currentInstance?.url == siteUrl) search.clear();
-    _draftSaveRequests.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _draftOperations.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _retiredComposerDraftSaves.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _latestComposerDraftGenerations.removeWhere(
-      (key, _) => key.siteUrl == siteUrl,
-    );
-    _knownServerDrafts.removeWhere((key) => key.siteUrl == siteUrl);
-    _draftsCreatedAfterCachedCount.removeWhere((key) => key.siteUrl == siteUrl);
-    _draftSequences.removeWhere((key, _) => key.startsWith('$siteUrl#'));
+    _composerDrafts.forgetSite(siteUrl);
 
     final composer = _composer;
     if (composer?.target.siteUrl == siteUrl) {
       composer!.draftSettled();
       composer.dispose();
       _composer = null;
+      _composerDrafts.detach(composer);
     }
 
     accountActivity.forget(siteUrl);
@@ -11614,10 +10876,7 @@ class ShellController extends FrameSafeNotifier
       await openNewTopic();
       final composer = _composer;
       if (composer == null || composer.target.draftKey != draft.key) return;
-      composer
-        ..draftSequence = draft.sequence
-        ..restore(draft.data!);
-      _draftSequences[_draftKey(siteUrl, draft.key)] = draft.sequence;
+      _composerDrafts.restoreListedDraft(composer, draft);
       return;
     }
 
@@ -11640,10 +10899,7 @@ class ShellController extends FrameSafeNotifier
     );
     final composer = _composer;
     if (composer == null || composer.target.draftKey != draft.key) return;
-    composer
-      ..draftSequence = draft.sequence
-      ..restore(draft.data!);
-    _draftSequences[_draftKey(siteUrl, draft.key)] = draft.sequence;
+    _composerDrafts.restoreListedDraft(composer, draft);
   }
 
   @override
@@ -11737,15 +10993,9 @@ class ShellController extends FrameSafeNotifier
   @override
   void dispose() {
     final composer = _composer;
-    if (composer != null && composer.draftPersistencePending) {
-      final target = composer.target;
-      final data = composer.draft.encode();
-      // Queue the final local draft before lifecycle invalidation without
-      // entering the normal remote-sync callback.
-      Future<void>.sync(
-        () => drafts.write(target.siteUrl, target.draftKey, data),
-      ).ignore();
-    }
+    // Queue the final local draft before lifecycle invalidation without
+    // entering the normal remote-sync callback.
+    _composerDrafts.preservePendingLocally(composer);
 
     // A window can close in the frame immediately after a selection or a
     // scroll. Keep the latest local choice and anchor durable, but never start
