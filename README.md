@@ -919,6 +919,12 @@ plain `Focus` rather than a second `CallbackShortcuts`, which reports a key
 handled whenever one of its activators matches, open or not — binding Escape
 that way would close the composer instead of the list and throw away the reply.
 
+Topic and chat composers share link insertion as well. Command-L is scoped to
+the focused composer and opens the same URL-and-text dialog in both places. The
+editor value is captured before the dialog takes focus, so selected text is
+pre-filled as the link anchor and the insertion is rejected if that value has
+become stale while the dialog was open.
+
 Image uploads enter one queue whether they came from a clipboard paste, a
 desktop drop or the toolbar's native multiple-file picker. Every adapter stops
 at `ComposerUploadFile`; site extension checks, batch limits, progress, retry

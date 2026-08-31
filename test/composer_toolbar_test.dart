@@ -1,6 +1,6 @@
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_marks.dart';
-import 'package:flutter/widgets.dart' show TextSelection;
+import 'package:flutter/widgets.dart' show TextEditingValue, TextSelection;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -113,6 +113,66 @@ void main() {
       composer.toggleMark(ComposerMark.italic);
 
       expect(composer.text.text, source);
+    });
+  });
+
+  group('ComposerController.insertLink', () {
+    test('replaces the captured selection with a markdown link', () {
+      open('visit Discourse today');
+      composer.text.selection = const TextSelection(
+        baseOffset: 6,
+        extentOffset: 15,
+      );
+      final expectedValue = composer.text.value;
+
+      final inserted = composer.insertLink(
+        expectedValue: expectedValue,
+        url: 'https://discourse.org',
+        anchor: 'Discourse',
+      );
+
+      expect(inserted, isTrue);
+      expect(
+        composer.text.text,
+        'visit [Discourse](https://discourse.org) today',
+      );
+      expect(composer.text.selection.isCollapsed, isTrue);
+      expect(composer.text.selection.extentOffset, 40);
+    });
+
+    test('uses the URL as the anchor when no text is supplied', () {
+      open('visit ');
+      composer.text.selection = const TextSelection.collapsed(offset: 6);
+
+      composer.insertLink(
+        expectedValue: composer.text.value,
+        url: 'https://discourse.org',
+        anchor: '',
+      );
+
+      expect(
+        composer.text.text,
+        'visit [https://discourse.org](https://discourse.org)',
+      );
+    });
+
+    test('does not apply a link to a stale editor value', () {
+      open('selected');
+      const expectedValue = TextEditingValue(
+        text: 'selected',
+        selection: TextSelection(baseOffset: 0, extentOffset: 8),
+      );
+      composer.text.value = expectedValue;
+      composer.text.text = 'changed';
+
+      final inserted = composer.insertLink(
+        expectedValue: expectedValue,
+        url: 'https://discourse.org',
+        anchor: 'selected',
+      );
+
+      expect(inserted, isFalse);
+      expect(composer.text.text, 'changed');
     });
   });
 }

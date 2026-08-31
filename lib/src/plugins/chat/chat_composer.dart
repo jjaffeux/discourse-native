@@ -11,6 +11,7 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../shell/composer_autocomplete.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/composer_drop.dart';
+import '../../shell/composer_link.dart';
 import '../../shell/composer_panel.dart';
 import '../../shell/emoji_composer.dart';
 import '../../shell/emoji_picker.dart';
@@ -633,6 +634,10 @@ class _ChatComposerState extends State<ChatComposer> {
             _send(composer),
         const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
             composer.toggleSelectedInlineCode,
+        const SingleActivator(LogicalKeyboardKey.keyL, meta: true): () =>
+            unawaited(
+              showComposerLinkDialog(context: context, composer: composer),
+            ),
         if (widget.editingMessage != null)
           const SingleActivator(LogicalKeyboardKey.escape): _cancelEdit,
       },

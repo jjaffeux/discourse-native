@@ -398,6 +398,43 @@ void main() {
       );
     });
 
+    testWidgets('Command-L links the selected topic body text', (tester) async {
+      final composer = ComposerController(_newTopicTarget);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpFloatingPanel(tester, shell, composer);
+
+      composer.text.value = const TextEditingValue(
+        text: 'format me',
+        selection: TextSelection(baseOffset: 0, extentOffset: 6),
+      );
+      composer.focus.requestFocus();
+      await tester.pump();
+
+      await _pressCommandL(tester);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('composer-link-dialog')),
+        findsOneWidget,
+      );
+      final anchor = tester.widget<TextField>(
+        find.byKey(const ValueKey('composer-link-anchor')),
+      );
+      expect(anchor.controller!.text, 'format');
+
+      await tester.enterText(
+        find.byKey(const ValueKey('composer-link-url')),
+        'https://example.com',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('composer-link-insert')));
+      await tester.pumpAndSettle();
+
+      expect(composer.text.text, '[format](https://example.com) me');
+    });
+
     testWidgets('shows working formatting controls only for selected text', (
       tester,
     ) async {
@@ -606,6 +643,13 @@ void main() {
 Future<void> _pressCommandE(WidgetTester tester) async {
   await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
   await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+  await tester.pump();
+}
+
+Future<void> _pressCommandL(WidgetTester tester) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+  await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
   await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
   await tester.pump();
 }
