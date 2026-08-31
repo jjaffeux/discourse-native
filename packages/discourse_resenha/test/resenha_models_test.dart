@@ -67,14 +67,12 @@ void main() {
           chatAvailable: room.chatAvailable,
           chatChannelId: room.chatChannelId,
           chatIdleMinutes: room.chatIdleMinutes,
-          chatThreadTitleTemplate: room.chatThreadTitleTemplate,
           livekitEnabled: room.livekitEnabled,
         ),
         (
           chatAvailable: true,
           chatChannelId: 42,
           chatIdleMinutes: 15,
-          chatThreadTitleTemplate: 'Team meeting at {time}',
           livekitEnabled: true,
         ),
       );
@@ -342,7 +340,6 @@ void main() {
         'video_enabled': false,
         'chat_channel_id': null,
         'chat_idle_minutes': null,
-        'chat_thread_title_template': null,
         'livekit_enabled': null,
         'max_quality_profile': 'maximum',
       });

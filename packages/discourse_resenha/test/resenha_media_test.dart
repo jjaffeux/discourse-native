@@ -115,6 +115,27 @@ void main() {
   });
 
   group('MeshResenhaMediaSession', () {
+    test('classifies a denied microphone permission during capture', () async {
+      final media = _meshSession(
+        peer: _FakePeerConnection(),
+        audioPublishingAllowed: true,
+        getUserMedia: (_) async =>
+            throw StateError('NotAllowedError: Permission denied'),
+      );
+
+      await expectLater(
+        media.connect(),
+        throwsA(
+          isA<ResenhaMicrophoneException>().having(
+            (error) => error.kind,
+            'kind',
+            ResenhaMicrophoneFailureKind.permissionDenied,
+          ),
+        ),
+      );
+      await media.dispose();
+    });
+
     test(
       'pre-negotiates microphone, video, and screen audio in order',
       () async {

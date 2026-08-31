@@ -198,7 +198,6 @@ class ResenhaRoom {
     this.chatAvailable = false,
     this.chatChannelId,
     this.chatIdleMinutes,
-    this.chatThreadTitleTemplate,
     this.livekitEnabled,
     this.maxQualityProfile = ResenhaQualityProfile.maximum,
     this.membership,
@@ -228,7 +227,6 @@ class ResenhaRoom {
     chatAvailable: json['chat_available'] == true,
     chatChannelId: jsonIntOrNull(json['chat_channel_id']),
     chatIdleMinutes: jsonIntOrNull(json['chat_idle_minutes']),
-    chatThreadTitleTemplate: jsonText(json['chat_thread_title_template']),
     livekitEnabled: json.containsKey('livekit_enabled')
         ? json['livekit_enabled'] == true
         : null,
@@ -260,7 +258,6 @@ class ResenhaRoom {
   final bool chatAvailable;
   final int? chatChannelId;
   final int? chatIdleMinutes;
-  final String? chatThreadTitleTemplate;
   final bool? livekitEnabled;
   final ResenhaQualityProfile maxQualityProfile;
   final ResenhaMembership? membership;
@@ -272,7 +269,6 @@ class ResenhaRoom {
     bool? chatAvailable,
     int? chatChannelId,
     int? chatIdleMinutes,
-    String? chatThreadTitleTemplate,
     bool? livekitEnabled,
     ResenhaMembership? membership,
     ResenhaRecording? recording,
@@ -297,8 +293,6 @@ class ResenhaRoom {
     chatAvailable: chatAvailable ?? this.chatAvailable,
     chatChannelId: chatChannelId ?? this.chatChannelId,
     chatIdleMinutes: chatIdleMinutes ?? this.chatIdleMinutes,
-    chatThreadTitleTemplate:
-        chatThreadTitleTemplate ?? this.chatThreadTitleTemplate,
     livekitEnabled: livekitEnabled ?? this.livekitEnabled,
     maxQualityProfile: maxQualityProfile,
     membership: membership ?? this.membership,
@@ -460,7 +454,6 @@ class ResenhaRoomDraft {
     this.videoEnabled = false,
     this.chatChannelId,
     this.chatIdleMinutes,
-    this.chatThreadTitleTemplate,
     this.livekitEnabled,
     this.maxQualityProfile,
   });
@@ -473,7 +466,6 @@ class ResenhaRoomDraft {
   final bool videoEnabled;
   final int? chatChannelId;
   final int? chatIdleMinutes;
-  final String? chatThreadTitleTemplate;
   final bool? livekitEnabled;
   final ResenhaQualityProfile? maxQualityProfile;
 
@@ -486,7 +478,6 @@ class ResenhaRoomDraft {
     'video_enabled': videoEnabled,
     'chat_channel_id': chatChannelId,
     'chat_idle_minutes': chatIdleMinutes,
-    'chat_thread_title_template': chatThreadTitleTemplate,
     'livekit_enabled': livekitEnabled,
     'max_quality_profile': maxQualityProfile?.wireName,
   };

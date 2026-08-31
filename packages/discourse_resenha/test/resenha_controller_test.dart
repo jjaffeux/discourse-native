@@ -2419,6 +2419,44 @@ void main() {
       expect(mediaFactory.diagnosticsRecorders.single, same(diagnostics));
     });
 
+    test(
+      'explains a denied microphone and leaves the partial server join',
+      () async {
+        final connectGate = Completer<void>();
+        final connectStarted = Completer<void>();
+        mediaFactory.nextConnectGate = connectGate;
+        mediaFactory.nextConnectStarted = connectStarted;
+
+        final joining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: ResenhaRoom.fromJson(fixture('room')),
+        );
+        await connectStarted.future;
+        connectGate.completeError(
+          const ResenhaMicrophoneException(
+            ResenhaMicrophoneFailureKind.permissionDenied,
+          ),
+        );
+        await joining;
+
+        expect(controller.call, isNull);
+        expect(
+          controller.errorFor(firstSite),
+          'Microphone access is blocked. Allow microphone access in your '
+          'system settings, then try joining again.',
+        );
+        expect(mediaFactory.sessions.single.disposeCount, 1);
+        final leave = transport.writes.singleWhere(
+          (write) => write.path.endsWith('/leave.json'),
+        );
+        expect(
+          leave.body['participant_session_id'],
+          'mesh-participant-session',
+        );
+      },
+    );
+
     test('records an ordered correlated join-and-leave lifecycle', () async {
       diagnostics.captureEnabled = true;
       await controller.ensureLoaded(firstSite);

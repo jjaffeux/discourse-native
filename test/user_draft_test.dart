@@ -35,6 +35,23 @@ void main() {
     expect(draft.excerpt, same(excerpt));
   });
 
+  test('a Resenha transcript draft is labeled and resumable', () {
+    final draft = UserDraft.fromJson(const {
+      'draft_key': 'new_topic_resenha_7_1788170000000',
+      'sequence': 6,
+      'data': {
+        'reply': 'Transcript in progress',
+        'action': 'createTopic',
+        'title': 'Call transcript: Lounge',
+      },
+    });
+
+    expect(draft.isNewTopic, isTrue);
+    expect(draft.isResenhaTranscript, isTrue);
+    expect(draft.kindLabel, 'Call transcript draft');
+    expect(draft.canResume, isTrue);
+  });
+
   test('manual const drafts retain their derived excerpt', () {
     const draft = UserDraft(
       key: 'topic_42',

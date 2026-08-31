@@ -17,7 +17,6 @@
   "video_allowed": true,
   "chat_channel_id": 42,
   "chat_idle_minutes": 15,
-  "chat_thread_title_template": "Team meeting at {time}",
   "chat_available": true,
   "livekit_enabled": true,
   "max_quality_profile": "high",

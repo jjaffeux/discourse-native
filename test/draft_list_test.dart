@@ -173,6 +173,39 @@ void main() {
       expect(fixture.api.userDraftRequests, hasLength(1));
     });
 
+    testWidgets('marks a Resenha transcript with closed captions', (
+      tester,
+    ) async {
+      const transcript = UserDraft(
+        key: 'new_topic_resenha_7_1788170000000',
+        sequence: 6,
+        data: ComposerDraft(
+          reply: 'Transcript in progress',
+          action: ComposerDraft.createTopicAction,
+          title: 'Call transcript: Lounge',
+        ),
+      );
+      await _pump(tester, draftCount: 1, userDrafts: const [transcript]);
+
+      await tester.tap(find.byKey(TopicCreateButton.draftsButtonKey));
+      await tester.pumpAndSettle();
+
+      final row = find.byKey(
+        const ValueKey('recent-draft-new_topic_resenha_7_1788170000000'),
+      );
+      expect(row, findsOneWidget);
+      expect(
+        find.descendant(
+          of: row,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is DIcon && widget.icon == DIcons.closedCaptioning,
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('matches core draft icons and the four-row limit', (
       tester,
     ) async {
