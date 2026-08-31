@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../app_shortcuts.dart';
@@ -16,7 +15,6 @@ import '../foundation/calendar_day.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
-import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
@@ -55,6 +53,7 @@ import 'topic_progress.dart';
 import 'topic_tag_picker.dart';
 import 'topic_taxonomy_fields.dart';
 import 'topic_title.dart';
+import 'topic_viewport_coordinator.dart';
 import 'user_card.dart';
 import 'user_menu_button.dart';
 import 'user_status.dart';
@@ -149,29 +148,8 @@ final class TopicPostIndexProjection {
 }
 
 class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
-  static const Duration _readInterval = Duration(milliseconds: 500);
-
-  ScrollController? _scroll;
-  ListController? _list;
+  late final TopicViewportCoordinator _viewport;
   int _boundaryJumpRevision = 0;
-  (String, int, int)? _topicIdentity;
-  String? _tabId;
-  ShellController? _controller;
-  Object? _loadMoreToken;
-  (String, int, int)? _loadMoreTarget;
-  Object? _loadEarlierToken;
-  (String, int, int)? _loadEarlierTarget;
-  Object? _anchorRestoreToken;
-  List<int> _laidOutPostIds = const [];
-  bool _laidOutHasHeader = false;
-  bool _restored = false;
-  bool _restoring = false;
-  bool _userDragging = false;
-  bool _applyingAnchorRestore = false;
-  bool _anchorCorrectionScheduled = false;
-  bool _lookScheduled = false;
-  bool _saveAnchorAfterLook = false;
-  int? _savedAnchorPostNumber;
   String? _recommendationsSiteUrl;
   bool _sidebarCollapsed = false;
   bool _sidebarOverlayOpen = false;
@@ -180,45 +158,48 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       coreSuggestedTopicRecommendationSourceId;
   int _recommendationsTabRestoreGeneration = 0;
   List<_TopicDayStart> _laidOutDayStarts = const [];
-  DateTime? _floatingDay;
-  double _floatingDayOffset = 0;
   Object? _dayJumpToken;
-  Timer? _readTimer;
-  DateTime? _readTimerStartedAt;
-  Duration _readTimeRemaining = _readInterval;
-  bool _readDwellPending = false;
   bool _tickerEnabled = true;
-  ({String siteUrl, int topicId, int postNumber, bool caughtUp})? _seen;
-  ({String siteUrl, int topicId, int postNumber, bool caughtUp})? _visibleSeen;
-  int? _progressPosition;
   TopicPostIndexProjection? _postIndexProjection;
-  TopicPostIndexProjection? _streamIndexProjection;
-  _TopicViewSnapshot? _laidOutSnapshot;
   final Map<int, BuildContext> _postContexts = {};
   final Map<int, _RetainedTopicPostExtent> _retainedPostExtents = {};
   double _laidOutPostWidth = 0;
   int _extentGeneration = 0;
-  int? _anchorRestorePostId;
-  double _anchorRestoreViewportOffset = 0;
   TopicScrollCaptureController? _scrollCapture;
   TopicScrollCaptureController? _reportedScrollCaptureController;
   int? _reportedScrollCaptureId;
   late Size _viewportLogicalSize;
   late double _devicePixelRatio;
 
-  bool get _readerActive =>
-      _tickerEnabled && (_controller?.forumActive ?? false);
+  ScrollController? get _scroll => _viewport.scrollController;
+  ListController? get _list => _viewport.listController;
+  ShellController? get _controller => _viewport.owner as ShellController?;
+  (String, int, int)? get _topicIdentity => switch (_viewport.identity) {
+    final identity? => (
+      identity.siteUrl,
+      identity.topicId,
+      identity.navigationRevision,
+    ),
+    null => null,
+  };
+  bool get _restored => _viewport.restored;
+  bool get _restoring => _viewport.restoring;
+  bool get _userDragging => _viewport.userDragging;
+  bool get _applyingAnchorRestore => _viewport.applyingAnchorRestore;
+  int? get _savedAnchorPostNumber => _viewport.savedAnchorPostNumber;
+  TopicViewportListenable get _viewportState => _viewport;
+  DateTime? get _floatingDay => _viewportState.floatingDay;
+  double get _floatingDayOffset => _viewportState.floatingDayOffset;
+  int? get _progressPosition => _viewportState.progressPosition;
+  TopicViewportSnapshot? get _laidOutSnapshot => _viewport.laidOutSnapshot;
+  int? get _anchorRestorePostId => _viewport.anchorRestorePostId;
+  double get _anchorRestoreViewportOffset =>
+      _viewport.anchorRestoreViewportOffset;
 
   TopicPostIndexProjection _postIndexes(List<int> postIds) {
     final held = _postIndexProjection;
     if (held != null && held.represents(postIds)) return held;
     return _postIndexProjection = TopicPostIndexProjection(postIds);
-  }
-
-  TopicPostIndexProjection _streamIndexes(List<int> postIds) {
-    final held = _streamIndexProjection;
-    if (held != null && held.represents(postIds)) return held;
-    return _streamIndexProjection = TopicPostIndexProjection(postIds);
   }
 
   bool get _isScrollCaptureRecording => _scrollCapture?.isRecording == true;
@@ -254,7 +235,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     capture.recordTopicEvent(name, data);
   }
 
-  Map<String, Object?> _topicWindowData(_TopicViewSnapshot snapshot) => {
+  Map<String, Object?> _topicWindowData(TopicViewportSnapshot snapshot) => {
     'topicId': snapshot.topicId,
     'navigationRevision': snapshot.navigationRevision,
     'loadedPostCount': snapshot.postIds.length,
@@ -370,7 +351,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _recordTopicScrollEvent('scroll.notification', data);
   }
 
-  void _recordViewportInspection(_TopicViewSnapshot snapshot) {
+  void _recordViewportInspection(TopicViewportSnapshot snapshot) {
     final list = _list;
     final visiblePosts = <Map<String, Object?>>[];
     if (list != null && list.isAttached) {
@@ -412,6 +393,36 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _viewport = TopicViewportCoordinator(
+      postFrame: (callback) =>
+          WidgetsBinding.instance.addPostFrameCallback((_) => callback()),
+      geometry: TopicViewportGeometryCallbacks(
+        captureAnchor: _captureViewportAnchor,
+        postViewportOffset: _postViewportOffset,
+        canCorrectAnchor: () =>
+            _list?.isAttached == true && _scroll?.hasClients == true,
+        scrollPosition: () {
+          final position = _scroll!.position;
+          return (
+            pixels: position.pixels,
+            minScrollExtent: position.minScrollExtent,
+            maxScrollExtent: position.maxScrollExtent,
+          );
+        },
+        jumpToPost: (itemIndex, viewportOffset) =>
+            _jumpTo(itemIndex, viewportOffset: viewportOffset),
+        jumpToPixels: (pixels) => _scroll!.jumpTo(pixels),
+      ),
+      inspectViewport: _inspectViewport,
+      listLayoutChanged: _onListLayoutChanged,
+      diagnosticsEnabled: () => _isScrollCaptureRecording,
+      recordDiagnostic: _recordTopicScrollEvent,
+      layoutDiagnostics: _sliverLayoutData,
+      pagingThreshold: TopicView._loadPostsThreshold,
+    );
+    if (WidgetsBinding.instance.lifecycleState case final lifecycle?) {
+      _viewport.handleAppLifecycleState(lifecycle);
+    }
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -423,13 +434,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final tickerEnabled = TickerMode.valuesOf(context).enabled;
     if (_tickerEnabled == tickerEnabled) return;
     _tickerEnabled = tickerEnabled;
-    if (_readerActive) {
-      if (_readDwellPending && _seen != null && _readTimer == null) {
-        _startReadDwell(_readTimeRemaining);
-      }
-    } else {
-      _pauseReadDwell();
-    }
+    _viewport.setTickerEnabled(tickerEnabled);
   }
 
   @override
@@ -440,150 +445,36 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  void _syncControllers(
+  void _syncViewport(
     ShellController controller,
-    (String, int, int) topicIdentity,
+    TopicViewportSnapshot snapshot,
   ) {
-    if (_topicIdentity == topicIdentity &&
-        _tabId == controller.activeTabId &&
-        identical(_controller, controller)) {
-      return;
-    }
+    final previousIdentity = _topicIdentity;
+    final previousController = _controller;
+    final previousTabId = _viewport.binding?.tabId;
+    final changed = _viewport.bind(
+      TopicViewportBinding.fromShell(controller, snapshot),
+    );
+    if (!changed) return;
 
     if (_isScrollCaptureRecording) {
       _recordTopicScrollEvent('topic.controllers.sync', {
-        'previousTopicId': _topicIdentity?.$2,
-        'previousNavigationRevision': _topicIdentity?.$3,
-        'topicId': topicIdentity.$2,
-        'navigationRevision': topicIdentity.$3,
-        'controllerChanged': !identical(_controller, controller),
-        'tabChanged': _tabId != controller.activeTabId,
+        'previousTopicId': previousIdentity?.$2,
+        'previousNavigationRevision': previousIdentity?.$3,
+        'topicId': snapshot.topicId,
+        'navigationRevision': snapshot.navigationRevision,
+        'controllerChanged': !identical(previousController, controller),
+        'tabChanged': previousTabId != controller.activeTabId,
       });
     }
-
-    _creditReaderNow();
-    _disposeControllers();
-    if (!identical(_controller, controller)) {
-      // This viewport stops feeding the outgoing shell's anchors here, so a
-      // save still waiting out its debounce window is written rather than
-      // left behind on a controller no view drives any more.
-      _controller?.flushAnchorPersist();
-    }
-    _controller = controller;
-    _topicIdentity = topicIdentity;
-    _tabId = controller.activeTabId;
-    _loadMoreToken = null;
-    _loadMoreTarget = null;
-    _loadEarlierToken = null;
-    _loadEarlierTarget = null;
-    _anchorRestoreToken = null;
-    _anchorRestorePostId = null;
-    _anchorRestoreViewportOffset = 0;
-    _anchorCorrectionScheduled = false;
-    _laidOutPostIds = const [];
-    _laidOutHasHeader = false;
-    _restored = false;
-    _restoring = false;
-    _userDragging = false;
-    _applyingAnchorRestore = false;
-    _lookScheduled = false;
-    _saveAnchorAfterLook = false;
-    _savedAnchorPostNumber = null;
     _laidOutDayStarts = const [];
-    _floatingDay = null;
-    _floatingDayOffset = 0;
     _dayJumpToken = null;
-    _seen = null;
-    _visibleSeen = null;
-    _progressPosition = null;
     _postIndexProjection = null;
-    _streamIndexProjection = null;
-    _laidOutSnapshot = null;
     _postContexts.clear();
     _retainedPostExtents.clear();
     _laidOutPostWidth = 0;
     _extentGeneration = 0;
     _sidebarOverlayOpen = false;
-    _scroll = ScrollController();
-    _list = ListController()..addListener(_onListLayoutChanged);
-    _onListLayoutChanged();
-  }
-
-  void _restoreInitialPost(
-    ShellController controller,
-    _TopicViewSnapshot snapshot,
-  ) {
-    if (_restored || snapshot.loading) return;
-
-    final index = snapshot.initialPostIndex;
-    if (index == null) {
-      // A numbered route may briefly be drawing cached posts that do not
-      // include its target. Leave restoration armed for the around-post
-      // response. An unnumbered topic genuinely belongs at the beginning.
-      final topicId = snapshot.topicId;
-      if (topicId == null ||
-          controller.topicScrollPostNumber(topicId) == null) {
-        _restored = true;
-      }
-      return;
-    }
-    _restored = true;
-    if (index <= 0 &&
-        controller.topicScrollPostOffset(snapshot.topicId!) == 0) {
-      return;
-    }
-    final identity = (
-      snapshot.siteUrl!,
-      snapshot.topicId!,
-      snapshot.navigationRevision,
-    );
-    _restoring = true;
-
-    void jumpToTarget() {
-      if (!_isCurrent(controller, identity)) return;
-      final current = _TopicViewSnapshot.from(controller);
-      final currentIndex = current.initialPostIndex;
-      if (currentIndex != null) {
-        final postIndex = currentIndex - (current.hasEarlier ? 1 : 0);
-        final target = controller.topicScrollPostNumber(snapshot.topicId!);
-        final post = postIndex >= 0 && postIndex < current.postIds.length
-            ? controller.store.read<Post>(
-                snapshot.siteUrl!,
-                current.postIds[postIndex],
-              )
-            : null;
-        final viewportOffset = post?.postNumber == target
-            ? controller.topicScrollPostOffset(snapshot.topicId!)
-            : 0.0;
-        _jumpTo(
-          currentIndex,
-          // A deleted anchor falls forward to the next post. Its old pixel
-          // offset belongs to the deleted post and must not be applied there.
-          viewportOffset: viewportOffset,
-        );
-        if (post != null) {
-          _holdViewportAnchor(
-            post.id,
-            viewportOffset,
-            token: _anchorRestoreToken ?? Object(),
-          );
-        }
-      }
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      jumpToTarget();
-      // The first jump uses estimates for posts that have not been laid out.
-      // Repeat once their real heights are known so the requested post lands
-      // at the top rather than merely somewhere near it.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!_isCurrent(controller, identity)) return;
-        jumpToTarget();
-        _restoring = false;
-        _scheduleLook();
-        _scheduleLoadEarlier(controller, _TopicViewSnapshot.from(controller));
-      });
-    });
   }
 
   void _jumpTo(int index, {double viewportOffset = 0}) {
@@ -689,28 +580,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     (String, int, int) topicIdentity,
   ) =>
       mounted &&
-      _topicIdentity == topicIdentity &&
-      _tabId == controller.activeTabId &&
-      controller.currentInstance?.url == topicIdentity.$1 &&
-      controller.currentTopic?.id == topicIdentity.$2 &&
-      controller.topicNavigationRevision == topicIdentity.$3;
-
-  void _disposeControllers() {
-    final scroll = _scroll;
-    final list = _list;
-    if (scroll == null && list == null) return;
-
-    if (_isScrollCaptureRecording) {
-      _recordTopicScrollEvent('topic.controllers.disposeScheduled', {
-        'sliverLayout': _sliverLayoutData(),
-      });
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      scroll?.dispose();
-      list?.dispose();
-    });
-  }
+      _viewport.isCurrentOwner(controller, (
+        siteUrl: topicIdentity.$1,
+        topicId: topicIdentity.$2,
+        navigationRevision: topicIdentity.$3,
+      ));
 
   @override
   void dispose() {
@@ -718,37 +592,18 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _sidebarRestoreGeneration++;
     _recommendationsTabRestoreGeneration++;
     _dayJumpToken = null;
-    _creditReaderNow();
-    // Nothing can move this topic's anchor once its viewport is gone, so a
-    // save still waiting out its debounce window is written now.
-    _controller?.flushAnchorPersist();
-    _disposeControllers();
+    if (_isScrollCaptureRecording) {
+      _recordTopicScrollEvent('topic.controllers.disposeScheduled', {
+        'sliverLayout': _sliverLayoutData(),
+      });
+    }
+    _viewport.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      if (_readerActive &&
-          _readDwellPending &&
-          _seen != null &&
-          _readTimer == null) {
-        _startReadDwell(_readTimeRemaining);
-      }
-      return;
-    }
-
-    if (!_readerActive) {
-      _pauseReadDwell();
-      return;
-    }
-
-    // The post was measured while the app was still in front. Flush that
-    // observation at the first foreground-exit signal, before the platform can
-    // suspend the request. This is especially easy to hit from a video-only
-    // post: opening the video externally backgrounds the app inside the normal
-    // viewport debounce window.
-    _creditReaderNow(leavingForeground: true);
+    _viewport.handleAppLifecycleState(state);
   }
 
   void _syncRecommendationsSite(String siteUrl) {
@@ -838,47 +693,21 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   }
 
   void _scheduleLook({bool saveAnchor = false}) {
-    _saveAnchorAfterLook = _saveAnchorAfterLook || saveAnchor;
-    if (_lookScheduled) return;
-    _lookScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _lookScheduled = false;
-      final saveAnchor = _saveAnchorAfterLook;
-      _saveAnchorAfterLook = false;
-      final controller = _controller;
-      final identity = _topicIdentity;
-      if (controller == null || identity == null) return;
-      if (!_isCurrent(controller, identity)) return;
-      final snapshot = _laidOutSnapshot;
-      if (snapshot == null) return;
-      _syncFloatingDay(snapshot);
-      _noteWhatIsOnScreen(controller, snapshot, saveAnchor: saveAnchor);
-      _schedulePagingForViewport(controller, snapshot);
-      if (_isScrollCaptureRecording) _recordViewportInspection(snapshot);
-    });
+    _viewport.scheduleLook(saveAnchor: saveAnchor);
   }
 
-  double _pagingThreshold(ScrollMetrics metrics) =>
-      math.max(TopicView._loadPostsThreshold, metrics.viewportDimension);
-
-  void _schedulePagingForViewport(
-    ShellController controller,
-    _TopicViewSnapshot snapshot,
-  ) {
-    final scroll = _scroll;
-    if (_restoring || scroll == null || !scroll.hasClients) return;
-    final position = scroll.position;
-    if (!position.hasContentDimensions) return;
-    final threshold = _pagingThreshold(position);
-    if (position.extentBefore < threshold) {
-      _scheduleLoadEarlier(controller, snapshot);
-    }
-    if (position.extentAfter < threshold) {
-      _scheduleLoadMore(controller, snapshot);
-    }
+  void _inspectViewport(
+    TopicViewportSnapshot snapshot, {
+    required bool saveAnchor,
+  }) {
+    final controller = _controller;
+    if (controller == null) return;
+    _syncFloatingDay(snapshot);
+    _noteWhatIsOnScreen(controller, snapshot, saveAnchor: saveAnchor);
+    if (_isScrollCaptureRecording) _recordViewportInspection(snapshot);
   }
 
-  void _syncFloatingDay(_TopicViewSnapshot snapshot) {
+  void _syncFloatingDay(TopicViewportSnapshot snapshot) {
     final list = _list;
     final scroll = _scroll;
     if (list == null || scroll == null) return;
@@ -945,14 +774,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   }
 
   void _setFloatingDay(DateTime? day, double offset) {
-    if (_floatingDay == day && (_floatingDayOffset - offset).abs() < 0.1) {
-      return;
-    }
-    if (!mounted) return;
-    setState(() {
-      _floatingDay = day;
-      _floatingDayOffset = offset;
-    });
+    _viewport.updateFloatingDay(day, offset);
   }
 
   List<_TopicDayStart> _dayStarts(
@@ -1032,14 +854,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
     final token = Object();
     _dayJumpToken = token;
-    _cancelViewportAnchor();
-    _restoring = true;
+    _viewport.beginRestoration();
 
     bool isCurrent() =>
         identical(_dayJumpToken, token) && _isCurrent(controller, identity);
 
     while (isCurrent()) {
-      final snapshot = _TopicViewSnapshot.from(controller);
+      final snapshot = TopicViewportSnapshot.from(controller);
       if (!snapshot.hasEarlier || snapshot.postIds.isEmpty) break;
       final first = controller.store.read<Post>(
         snapshot.siteUrl!,
@@ -1050,7 +871,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       final before = List<int>.of(snapshot.postIds);
       await controller.loadEarlierPosts();
       if (!isCurrent()) return;
-      if (listEquals(before, _TopicViewSnapshot.from(controller).postIds)) {
+      if (listEquals(before, TopicViewportSnapshot.from(controller).postIds)) {
         // A refused page should still land on the earliest copy in hand rather
         // than retrying forever from one click.
         break;
@@ -1061,14 +882,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     void finish() {
       if (!isCurrent()) return;
       _dayJumpToken = null;
-      _restoring = false;
-      _scheduleLook(saveAnchor: true);
-      _scheduleLoadEarlier(controller, _TopicViewSnapshot.from(controller));
+      _viewport.finishRestoration(saveAnchor: true);
+      _viewport.scheduleLoadEarlier(TopicViewportSnapshot.from(controller));
     }
 
     void jump() {
       if (!isCurrent()) return;
-      final snapshot = _TopicViewSnapshot.from(controller);
+      final snapshot = TopicViewportSnapshot.from(controller);
       final postIndex = snapshot.postIds.indexWhere((id) {
         final post = controller.store.read<Post>(snapshot.siteUrl!, id);
         return calendarDay(post?.createdAt) == day;
@@ -1094,7 +914,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
   void _noteWhatIsOnScreen(
     ShellController controller,
-    _TopicViewSnapshot snapshot, {
+    TopicViewportSnapshot snapshot, {
     bool saveAnchor = false,
   }) {
     if (!_restored || _restoring || _list?.isAttached != true) return;
@@ -1102,6 +922,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     if (range == null) return;
 
     final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
+    TopicViewportSeenPost? leadingPost;
     for (var childIndex = range.$1; childIndex <= range.$2; childIndex++) {
       if (childIndex.isOdd) continue;
       final itemIndex = childIndex ~/ 2;
@@ -1111,31 +932,19 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         snapshot.siteUrl!,
         snapshot.postIds[postIndex],
       );
-      if (post != null &&
-          (saveAnchor || _savedAnchorPostNumber != post.postNumber)) {
-        final viewportOffset = _postViewportOffset(post.id);
-        if (viewportOffset == null) break;
-        controller.saveTopicScrollPost(
-          snapshot.topicId!,
-          post.postNumber,
-          viewportOffset: viewportOffset,
+      if (post != null) {
+        leadingPost = (
+          postId: post.id,
+          postNumber: post.postNumber,
+          caughtUp: false,
         );
-        _savedAnchorPostNumber = post.postNumber;
-        if (_isScrollCaptureRecording) {
-          _recordTopicScrollEvent('viewport.anchor.saved', {
-            'postId': post.id,
-            'postNumber': post.postNumber,
-            'viewportOffset': viewportOffset,
-            'saveAfterScrollEnd': saveAnchor,
-          });
-        }
       }
       break;
     }
 
     // Progress follows the farthest intersecting post so the control remains
     // responsive while reading inside a post taller than the viewport.
-    _visibleSeen = null;
+    TopicViewportSeenPost? visiblePost;
     for (var childIndex = range.$2; childIndex >= range.$1; childIndex--) {
       if (childIndex.isOdd) continue;
       final itemIndex = childIndex ~/ 2;
@@ -1146,16 +955,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         snapshot.postIds[postIndex],
       );
       if (post == null) continue;
-
-      final streamIndex = _streamIndexes(snapshot.streamIds)[post.id] ?? -1;
-      if (streamIndex >= 0) _setProgressPosition(streamIndex + 1);
-      _visibleSeen = (
-        siteUrl: snapshot.siteUrl!,
-        topicId: snapshot.topicId!,
+      visiblePost = (
+        postId: post.id,
         postNumber: post.postNumber,
         caughtUp: !snapshot.hasMore && postIndex == snapshot.postIds.length - 1,
       );
-
       break;
     }
 
@@ -1165,6 +969,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     // eventually reached.
     final viewportExtent = _scroll?.position.viewportDimension;
     if (viewportExtent == null) return;
+    TopicViewportSeenPost? readablePost;
     for (var childIndex = range.$2; childIndex >= range.$1; childIndex--) {
       if (childIndex.isOdd) continue;
       final itemIndex = childIndex ~/ 2;
@@ -1177,115 +982,38 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       if (post == null) continue;
       final bounds = _postViewportBounds(post.id);
       if (bounds == null || bounds.bottom > viewportExtent + 0.5) continue;
-
-      final seen = (
-        siteUrl: snapshot.siteUrl!,
-        topicId: snapshot.topicId!,
+      readablePost = (
+        postId: post.id,
         postNumber: post.postNumber,
         caughtUp: !snapshot.hasMore && postIndex == snapshot.postIds.length - 1,
       );
-      if (seen == _seen) return;
-      _seen = seen;
-      _startReadDwell(_readInterval);
-      return;
+      break;
     }
 
-    // In particular, cancel a receipt queued for a later post if media above
-    // it expands before the dwell interval completes.
-    _seen = null;
-    _readDwellPending = false;
-    _readTimer?.cancel();
-    _readTimer = null;
-    _readTimerStartedAt = null;
-    _readTimeRemaining = _readInterval;
-  }
-
-  void _setProgressPosition(int position) {
-    if (_progressPosition == position || !mounted) return;
-    if (_isScrollCaptureRecording) {
+    final previousProgress = _progressPosition;
+    final previousSavedAnchor = _savedAnchorPostNumber;
+    _viewport.recordObservation(
+      snapshot: snapshot,
+      saveAnchor: saveAnchor,
+      leading: leadingPost,
+      visible: visiblePost,
+      readable: readablePost,
+    );
+    if (_isScrollCaptureRecording && previousProgress != _progressPosition) {
       _recordTopicScrollEvent('topic.progress.changed', {
-        'previous': _progressPosition,
-        'current': position,
+        'previous': previousProgress,
+        'current': _progressPosition,
       });
     }
-    setState(() => _progressPosition = position);
-  }
-
-  void _startReadDwell(Duration duration) {
-    _readTimer?.cancel();
-    _readTimer = null;
-    _readTimerStartedAt = null;
-    _readTimeRemaining = duration;
-    _readDwellPending = true;
-    if (!_readerActive) return;
-    final lifecycle = WidgetsBinding.instance.lifecycleState;
-    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
-    _readTimerStartedAt = DateTime.now();
-    _readTimer = Timer(duration, _creditReaderFromTimer);
-  }
-
-  void _pauseReadDwell() {
-    final timer = _readTimer;
-    final startedAt = _readTimerStartedAt;
-    if (timer == null || startedAt == null) return;
-    final elapsed = DateTime.now().difference(startedAt);
-    final remaining = _readTimeRemaining - elapsed;
-    _readTimeRemaining = remaining > Duration.zero ? remaining : Duration.zero;
-    timer.cancel();
-    _readTimer = null;
-    _readTimerStartedAt = null;
-  }
-
-  void _creditReaderFromTimer() {
-    if (!_readerActive) {
-      _readTimer?.cancel();
-      _readTimer = null;
-      _readTimerStartedAt = null;
-      _readTimeRemaining = _readInterval;
-      _readDwellPending = _seen != null;
-      return;
-    }
-    _creditReaderNow();
-  }
-
-  void _creditReaderNow({bool leavingForeground = false}) {
-    _readTimer?.cancel();
-    _readTimer = null;
-    _readTimerStartedAt = null;
-    _readTimeRemaining = _readInterval;
-    _readDwellPending = false;
-
-    final seen = leavingForeground ? _visibleSeen ?? _seen : _seen;
-    final controller = _controller;
-    if (seen == null || controller == null || !_readerActive) return;
-
-    // A delayed timer must not credit reading after the app has gone into the
-    // background. Null is a test or a launch with no lifecycle event yet, and
-    // both mean the view is in front.
-    final lifecycle = WidgetsBinding.instance.lifecycleState;
-    if (!leavingForeground &&
-        lifecycle != null &&
-        lifecycle != AppLifecycleState.resumed) {
-      return;
-    }
-
-    void send() => unawaited(
-      controller.markTopicRead(
-        seen.siteUrl,
-        seen.topicId,
-        seen.postNumber,
-        caughtUp: seen.caughtUp,
-      ),
-    );
-
-    // dispose runs while Flutter has the element tree locked. The optimistic
-    // Store write notifies topic rows, so hand it to the next microtask when a
-    // frame is in progress rather than marking one of those rows dirty during
-    // unmount.
-    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.idle) {
-      send();
-    } else {
-      unawaited(Future<void>.microtask(send));
+    if (_isScrollCaptureRecording &&
+        previousSavedAnchor != _savedAnchorPostNumber &&
+        leadingPost != null) {
+      _recordTopicScrollEvent('viewport.anchor.saved', {
+        'postId': leadingPost.postId,
+        'postNumber': leadingPost.postNumber,
+        'viewportOffset': _postViewportOffset(leadingPost.postId),
+        'saveAfterScrollEnd': saveAnchor,
+      });
     }
   }
 
@@ -1298,10 +1026,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         'scrollAttached': _scroll?.hasClients ?? false,
       });
     }
-    // Extents and the visible range are both published after sliver layout.
-    // Coalesce their notifications into one exact viewport inspection.
-    _scheduleLook();
-    _scheduleAnchorCorrection();
   }
 
   void _invalidateRetainedExtents() {
@@ -1452,130 +1176,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
   double? _postViewportOffset(int postId) => _postViewportBounds(postId)?.top;
 
-  void _holdViewportAnchor(
-    int postId,
-    double viewportOffset, {
-    required Object token,
-  }) {
-    _anchorRestoreToken = token;
-    _anchorRestorePostId = postId;
-    _anchorRestoreViewportOffset = viewportOffset;
-    if (_isScrollCaptureRecording) {
-      _recordTopicScrollEvent('viewport.anchor.held', {
-        'postId': postId,
-        'viewportOffset': viewportOffset,
-      });
-    }
-    _scheduleAnchorCorrection();
-  }
-
-  void _cancelViewportAnchor() {
-    if (_isScrollCaptureRecording && _anchorRestoreToken != null) {
-      _recordTopicScrollEvent('viewport.anchor.cancelled', {
-        'postId': _anchorRestorePostId,
-        'viewportOffset': _anchorRestoreViewportOffset,
-        'userDragging': _userDragging,
-      });
-    }
-    _anchorRestoreToken = null;
-    _anchorRestorePostId = null;
-    _anchorCorrectionScheduled = false;
-  }
-
-  void _scheduleAnchorCorrection() {
-    if (_anchorRestoreToken == null || _anchorCorrectionScheduled) return;
-    _anchorCorrectionScheduled = true;
-    if (_isScrollCaptureRecording) {
-      _recordTopicScrollEvent('viewport.anchor.correctionScheduled', {
-        'postId': _anchorRestorePostId,
-      });
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _anchorCorrectionScheduled = false;
-      _correctViewportAnchor();
-    });
-  }
-
-  void _correctViewportAnchor() {
-    final token = _anchorRestoreToken;
-    final postId = _anchorRestorePostId;
-    final controller = _controller;
-    final identity = _topicIdentity;
-    final scroll = _scroll;
-    if (token == null ||
-        postId == null ||
-        controller == null ||
-        identity == null ||
-        scroll == null ||
-        !_isCurrent(controller, identity) ||
-        !scroll.hasClients) {
-      return;
-    }
-    if (_userDragging) {
-      _cancelViewportAnchor();
-      _restoring = false;
-      return;
-    }
-    final currentOffset = _postViewportOffset(postId);
-    if (currentOffset == null) {
-      final snapshot = _laidOutSnapshot;
-      final list = _list;
-      if (snapshot == null || list == null || !list.isAttached) return;
-      final postIndex = snapshot.postIds.indexOf(postId);
-      if (postIndex < 0) return;
-      final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
-      _applyingAnchorRestore = true;
-      try {
-        if (_isScrollCaptureRecording) {
-          _recordTopicScrollEvent('viewport.anchor.jumpToItem', {
-            'postId': postId,
-            'postIndex': postIndex,
-            'leadingItemCount': leading,
-            'viewportOffset': _anchorRestoreViewportOffset,
-          });
-        }
-        _jumpTo(
-          postIndex + leading,
-          viewportOffset: _anchorRestoreViewportOffset,
-        );
-      } finally {
-        _applyingAnchorRestore = false;
-      }
-      return;
-    }
-    final position = scroll.position;
-    final target =
-        (position.pixels + currentOffset - _anchorRestoreViewportOffset)
-            .clamp(position.minScrollExtent, position.maxScrollExtent)
-            .toDouble();
-    if ((target - position.pixels).abs() < 0.5) {
-      if (_isScrollCaptureRecording) {
-        _recordTopicScrollEvent('viewport.anchor.aligned', {
-          'postId': postId,
-          'pixels': position.pixels,
-          'currentViewportOffset': currentOffset,
-          'requestedViewportOffset': _anchorRestoreViewportOffset,
-        });
-      }
-      return;
-    }
-    _applyingAnchorRestore = true;
-    try {
-      if (_isScrollCaptureRecording) {
-        _recordTopicScrollEvent('viewport.anchor.correcting', {
-          'postId': postId,
-          'fromPixels': position.pixels,
-          'toPixels': target,
-          'currentViewportOffset': currentOffset,
-          'requestedViewportOffset': _anchorRestoreViewportOffset,
-        });
-      }
-      scroll.jumpTo(target);
-    } finally {
-      _applyingAnchorRestore = false;
-    }
-  }
-
   ({int postId, double viewportOffset})? _captureViewportAnchor(
     List<int> postIds, {
     required bool hasHeader,
@@ -1599,52 +1199,32 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     return null;
   }
 
-  void _restoreViewportAfterPrepend(
-    ShellController controller,
-    _TopicViewSnapshot snapshot, {
-    required bool hasHeader,
-  }) {
-    final previousPostIds = _laidOutPostIds;
-    final previousHasHeader = _laidOutHasHeader;
-    final samePosts = listEquals(previousPostIds, snapshot.postIds);
-    final previousFirstIndex = previousPostIds.isEmpty
-        ? -1
-        : snapshot.postIds.indexOf(previousPostIds.first);
-    final prepended = previousFirstIndex > 0;
-    var appendOnly = previousPostIds.length <= snapshot.postIds.length;
-    if (appendOnly) {
-      for (var index = 0; index < previousPostIds.length; index++) {
-        if (previousPostIds[index] != snapshot.postIds[index]) {
-          appendOnly = false;
-          break;
-        }
-      }
-    }
-    final headerChanged = previousHasHeader != hasHeader && samePosts;
+  void _applyWindowChange(TopicViewportWindowChange change) {
     if (_isScrollCaptureRecording &&
-        previousPostIds.isNotEmpty &&
-        (!samePosts || headerChanged)) {
+        change.previousPostIds.isNotEmpty &&
+        change.changed) {
       _recordTopicScrollEvent('topic.window.changed', {
-        'previousPostCount': previousPostIds.length,
-        'currentPostCount': snapshot.postIds.length,
-        'previousFirstPostId': previousPostIds.firstOrNull,
-        'previousLastPostId': previousPostIds.lastOrNull,
-        'currentFirstPostId': snapshot.postIds.firstOrNull,
-        'currentLastPostId': snapshot.postIds.lastOrNull,
-        'previousFirstIndex': previousFirstIndex,
-        'prepended': prepended,
-        'appendOnly': appendOnly,
-        'headerChanged': headerChanged,
+        'previousPostCount': change.previousPostIds.length,
+        'currentPostCount': change.currentPostIds.length,
+        'previousFirstPostId': change.previousPostIds.firstOrNull,
+        'previousLastPostId': change.previousPostIds.lastOrNull,
+        'currentFirstPostId': change.currentPostIds.firstOrNull,
+        'currentLastPostId': change.currentPostIds.lastOrNull,
+        'previousFirstIndex': change.currentPostIds.indexOf(
+          change.previousPostIds.first,
+        ),
+        'prepended': change.prepended,
+        'appendOnly': change.appendOnly,
+        'headerChanged': change.previousHasHeader != change.hasHeader,
       });
     }
-    if (previousPostIds.isNotEmpty && (!appendOnly || headerChanged)) {
-      // SuperSliverList retains extents by numeric index. A prepend keeps the
-      // keyed rows mounted while marking those values estimated; an unrelated
-      // window replacement gets a fresh manager so old offscreen heights do
-      // not remain in maxScrollExtent. True tail appends retain the table.
-      if (prepended || headerChanged) {
+    switch (change.extentAction) {
+      case TopicViewportExtentAction.none:
+        return;
+      case TopicViewportExtentAction.invalidate:
         _invalidateRetainedExtents();
-      } else {
+        return;
+      case TopicViewportExtentAction.replace:
         _extentGeneration++;
         if (_isScrollCaptureRecording) {
           _recordTopicScrollEvent('sliver.extentManager.replaced', {
@@ -1652,246 +1232,21 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             'reason': 'topic-window-replaced',
           });
         }
-      }
     }
-    _laidOutPostIds = List.of(snapshot.postIds);
-    _laidOutHasHeader = hasHeader;
-    // The numbered-route restoration owns the viewport until both of its
-    // jumps finish. If a refresh expands a cached window in between them, its
-    // final target jump must win over prepend anchoring.
-    if (previousPostIds.isEmpty || _restoring) return;
-
-    if (!prepended && !headerChanged) return;
-
-    final anchor = _captureViewportAnchor(
-      previousPostIds,
-      hasHeader: previousHasHeader,
-    );
-    if (anchor == null) {
-      if (_isScrollCaptureRecording) {
-        _recordTopicScrollEvent('viewport.prependAnchor.unavailable', {
-          'prepended': prepended,
-          'headerChanged': headerChanged,
-          'sliverLayout': _sliverLayoutData(),
-        });
-      }
-      return;
-    }
-
-    final identity = (
-      snapshot.siteUrl!,
-      snapshot.topicId!,
-      snapshot.navigationRevision,
-    );
-    final token = Object();
-    _holdViewportAnchor(anchor.postId, anchor.viewportOffset, token: token);
-    _restoring = true;
-
-    void restore() {
-      if (!identical(_anchorRestoreToken, token)) return;
-      if (!_isCurrent(controller, identity)) return;
-      // ScrollPosition.jumpTo ends the current drag. Once the reader has put
-      // a finger back on the list, preserving that live gesture matters more
-      // than applying the second, estimate-settling correction.
-      if (_userDragging) {
-        _cancelViewportAnchor();
-        _restoring = false;
-        return;
-      }
-      final current = _TopicViewSnapshot.from(controller);
-      final postIndex = current.postIds.indexOf(anchor.postId);
-      if (postIndex < 0) return;
-      _correctViewportAnchor();
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      restore();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        restore();
-        if (!identical(_anchorRestoreToken, token)) return;
-        if (!_isCurrent(controller, identity)) return;
-        _restoring = false;
-        _scheduleLook();
-        _scheduleLoadEarlier(controller, _TopicViewSnapshot.from(controller));
-      });
-    });
   }
 
   @override
-  Widget build(BuildContext context) => ShellSelector<_TopicViewSnapshot>(
-    select: _TopicViewSnapshot.from,
-    builder: _build,
+  Widget build(BuildContext context) => ShellSelector<TopicViewportSnapshot>(
+    select: TopicViewportSnapshot.from,
+    builder: (context, snapshot, child) => ListenableBuilder(
+      listenable: _viewportState,
+      builder: (context, child) => _build(context, snapshot, child),
+    ),
   );
-
-  void _scheduleLoadMore(
-    ShellController controller,
-    _TopicViewSnapshot snapshot,
-  ) {
-    final siteUrl = snapshot.siteUrl;
-    final topicId = snapshot.topicId;
-    if (siteUrl == null ||
-        topicId == null ||
-        !snapshot.hasMore ||
-        snapshot.loadingMore) {
-      return;
-    }
-
-    // The target survives the request, so a failed page — which leaves the
-    // post count unchanged — cannot be re-requested by the rebuild it causes.
-    // A landed page changes the count and with it the target.
-    final target = (siteUrl, topicId, snapshot.postIds.length);
-    if (_loadMoreTarget == target) return;
-
-    final token = Object();
-    _loadMoreToken = token;
-    _loadMoreTarget = target;
-    if (_isScrollCaptureRecording) {
-      _recordTopicScrollEvent('paging.newer.scheduled', {
-        'topicId': topicId,
-        'loadedPostCount': snapshot.postIds.length,
-        'sliverLayout': _sliverLayoutData(),
-      });
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!identical(_loadMoreToken, token)) return;
-      _loadMoreToken = null;
-      if (!mounted ||
-          !identical(ShellScope.read(context), controller) ||
-          _TopicViewSnapshot.from(controller) != snapshot) {
-        if (_loadMoreTarget == target) _loadMoreTarget = null;
-        if (_isScrollCaptureRecording) {
-          _recordTopicScrollEvent('paging.newer.cancelled', {
-            'topicId': topicId,
-            'loadedPostCount': snapshot.postIds.length,
-          });
-        }
-        return;
-      }
-      if (_isScrollCaptureRecording) {
-        _recordTopicScrollEvent('paging.newer.dispatched', {
-          'topicId': topicId,
-          'loadedPostCount': snapshot.postIds.length,
-        });
-      }
-      unawaited(controller.loadMorePosts());
-    });
-  }
-
-  void _allowLoadMoreRetry(_TopicViewSnapshot snapshot) {
-    if (_loadMoreToken != null || !snapshot.hasMore || snapshot.loadingMore) {
-      return;
-    }
-    final siteUrl = snapshot.siteUrl;
-    final topicId = snapshot.topicId;
-    if (siteUrl == null || topicId == null) return;
-    final target = (siteUrl, topicId, snapshot.postIds.length);
-    if (_loadMoreTarget == target) {
-      _loadMoreTarget = null;
-      if (_isScrollCaptureRecording) {
-        _recordTopicScrollEvent('paging.newer.retryArmed', {
-          'topicId': topicId,
-          'loadedPostCount': snapshot.postIds.length,
-        });
-      }
-    }
-  }
-
-  void _scheduleLoadEarlier(
-    ShellController controller,
-    _TopicViewSnapshot snapshot,
-  ) {
-    final siteUrl = snapshot.siteUrl;
-    final topicId = snapshot.topicId;
-    final scroll = _scroll;
-    if (siteUrl == null ||
-        topicId == null ||
-        snapshot.postIds.isEmpty ||
-        !snapshot.hasEarlier ||
-        snapshot.loadingEarlier ||
-        _restoring ||
-        scroll == null ||
-        !scroll.hasClients) {
-      return;
-    }
-
-    final position = scroll.position;
-    if (!position.hasContentDimensions) {
-      // The leading row can be built after the controller attaches but before
-      // its first layout supplies scroll extents. Reading extentBefore in that
-      // gap trips ScrollPosition's null assertion. Retry after this layout so
-      // a short around-post window still fetches its preceding page.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !identical(_scroll, scroll)) return;
-        _scheduleLoadEarlier(controller, snapshot);
-      });
-      return;
-    }
-    if (position.extentBefore >= _pagingThreshold(position)) return;
-
-    final target = (siteUrl, topicId, snapshot.postIds.first);
-    if (_loadEarlierTarget == target) return;
-
-    final token = Object();
-    _loadEarlierToken = token;
-    _loadEarlierTarget = target;
-    if (_isScrollCaptureRecording) {
-      _recordTopicScrollEvent('paging.earlier.scheduled', {
-        'topicId': topicId,
-        'firstLoadedPostId': snapshot.postIds.first,
-        'loadedPostCount': snapshot.postIds.length,
-        'sliverLayout': _sliverLayoutData(),
-      });
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!identical(_loadEarlierToken, token)) return;
-      _loadEarlierToken = null;
-      if (!mounted ||
-          _restoring ||
-          !identical(ShellScope.read(context), controller) ||
-          _TopicViewSnapshot.from(controller) != snapshot) {
-        if (_loadEarlierTarget == target) _loadEarlierTarget = null;
-        if (_isScrollCaptureRecording) {
-          _recordTopicScrollEvent('paging.earlier.cancelled', {
-            'topicId': topicId,
-            'firstLoadedPostId': snapshot.postIds.first,
-          });
-        }
-        return;
-      }
-      if (_isScrollCaptureRecording) {
-        _recordTopicScrollEvent('paging.earlier.dispatched', {
-          'topicId': topicId,
-          'firstLoadedPostId': snapshot.postIds.first,
-        });
-      }
-      unawaited(controller.loadEarlierPosts());
-    });
-  }
-
-  void _allowLoadEarlierRetry(_TopicViewSnapshot snapshot) {
-    if (_loadEarlierToken != null ||
-        !snapshot.hasEarlier ||
-        snapshot.loadingEarlier) {
-      return;
-    }
-    final siteUrl = snapshot.siteUrl;
-    final topicId = snapshot.topicId;
-    if (siteUrl == null || topicId == null || snapshot.postIds.isEmpty) return;
-    final target = (siteUrl, topicId, snapshot.postIds.first);
-    if (_loadEarlierTarget == target) {
-      _loadEarlierTarget = null;
-      if (_isScrollCaptureRecording) {
-        _recordTopicScrollEvent('paging.earlier.retryArmed', {
-          'topicId': topicId,
-          'firstLoadedPostId': snapshot.postIds.first,
-        });
-      }
-    }
-  }
 
   Widget _build(
     BuildContext context,
-    _TopicViewSnapshot snapshot,
+    TopicViewportSnapshot snapshot,
     Widget? child,
   ) => LayoutBuilder(
     builder: (context, constraints) =>
@@ -1900,7 +1255,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
   Widget _buildForViewport(
     BuildContext context,
-    _TopicViewSnapshot snapshot,
+    TopicViewportSnapshot snapshot,
     double viewportWidth,
   ) {
     final theme = Theme.of(context);
@@ -2042,13 +1397,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final postIds = snapshot.postIds;
     final postIndexes = _postIndexes(postIds);
     final siteUrl = snapshot.siteUrl!;
-    final topicIdentity = (
-      siteUrl,
-      snapshot.topicId!,
-      snapshot.navigationRevision,
-    );
-    _syncControllers(controller, topicIdentity);
-    _laidOutSnapshot = snapshot;
+    _syncViewport(controller, snapshot);
+    _viewport.updateLaidOutSnapshot(snapshot);
     final dayStarts = _dayStarts(controller, siteUrl, postIds);
     _laidOutDayStarts = dayStarts;
     final dayByPostIndex = {
@@ -2063,8 +1413,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       ))
         gap.postIndex: gap.daysSince,
     };
-    _restoreInitialPost(controller, snapshot);
-    _restoreViewportAfterPrepend(controller, snapshot, hasHeader: showHeader);
+    _viewport.restoreInitialPost(snapshot);
+    _applyWindowChange(_viewport.updateWindow(snapshot, hasHeader: showHeader));
     if (_isScrollCaptureRecording) {
       _recordTopicScrollEvent('topic.view.built', {
         'viewportWidth': viewportWidth,
@@ -2103,44 +1453,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             if (_isScrollCaptureRecording) {
               _recordScrollNotification(notification);
             }
-            if (notification is ScrollStartNotification &&
-                notification.dragDetails != null) {
-              _userDragging = true;
-            } else if (notification is ScrollEndNotification) {
-              _userDragging = false;
-            }
-            // Wheel, trackpad, touch, and an unrelated programmatic scroll all
-            // supersede a queued prepend correction. The correction's own
-            // ScrollUpdateNotification is ignored while jumpTo is on the stack.
-            if (notification is ScrollUpdateNotification &&
-                !_applyingAnchorRestore &&
-                _anchorRestoreToken != null) {
-              _cancelViewportAnchor();
-              _restoring = false;
-            }
-            // SuperSliverList publishes its new visible range during layout,
-            // after the scroll notification. Looking synchronously here reads
-            // the previous viewport and repeatedly credits the old post.
-            _scheduleLook(saveAnchor: notification is ScrollEndNotification);
-            // A failed page in either direction stays suppressed through the
-            // rebuild it causes, so it cannot retry in a tight loop. A fresh
-            // scroll deliberately re-arms that same page, including when the
-            // pane is too short to ever leave the threshold.
-            if (notification is ScrollStartNotification && !_restoring) {
-              _allowLoadEarlierRetry(snapshot);
-              _allowLoadMoreRetry(snapshot);
-            }
-            final pagingThreshold = _pagingThreshold(notification.metrics);
-            if (notification.metrics.extentBefore < pagingThreshold) {
-              _scheduleLoadEarlier(controller, snapshot);
-            } else if (!snapshot.loadingEarlier) {
-              _allowLoadEarlierRetry(snapshot);
-            }
-            if (notification.metrics.extentAfter < pagingThreshold) {
-              _scheduleLoadMore(controller, snapshot);
-            } else if (!snapshot.loadingMore) {
-              _allowLoadMoreRetry(snapshot);
-            }
+            _viewport.handleScroll(notification, snapshot);
           }
           return false;
         },
@@ -2785,132 +2098,6 @@ class _TopicPostSkeleton extends StatelessWidget {
       child: post,
     );
   }
-}
-
-@immutable
-class _TopicViewSnapshot {
-  const _TopicViewSnapshot({
-    required this.topicId,
-    required this.topic,
-    required this.siteUrl,
-    required this.postIds,
-    required this.streamIds,
-    required this.loading,
-    required this.loadingMore,
-    required this.loadingEarlier,
-    required this.hasMore,
-    required this.hasEarlier,
-    required this.initialPostIndex,
-    required this.recommendations,
-    required this.summary,
-    required this.summaryLoading,
-    required this.readTimeWordCount,
-    required this.showTimeGapDays,
-    required this.navigationRevision,
-  });
-
-  factory _TopicViewSnapshot.from(ShellController controller) {
-    final postIds = controller.currentPostIds;
-    final siteUrl = controller.currentInstance?.url;
-    final topicId = controller.currentContent?.topicId;
-    final target = topicId == null
-        ? null
-        : controller.topicScrollPostNumber(topicId);
-    final hasEarlier = controller.currentTopicHasEarlier;
-    int? initialPostIndex;
-    if (siteUrl != null && target != null) {
-      for (var index = 0; index < postIds.length; index++) {
-        final post = controller.store.read<Post>(siteUrl, postIds[index]);
-        // If the named post has since been deleted, reveal the next visible
-        // one rather than dropping the reader at the start of the window.
-        if (post != null && post.postNumber >= target) {
-          initialPostIndex = index + (hasEarlier ? 1 : 0);
-          break;
-        }
-      }
-    }
-
-    return _TopicViewSnapshot(
-      topicId: controller.currentTopic?.id,
-      topic: controller.currentTopic,
-      siteUrl: siteUrl,
-      postIds: postIds,
-      streamIds: controller.currentTopicStreamIds,
-      loading: controller.currentTopicLoading,
-      loadingMore: controller.loadingMorePosts,
-      loadingEarlier: controller.loadingEarlierPosts,
-      hasMore: controller.currentTopicHasMore,
-      hasEarlier: hasEarlier,
-      initialPostIndex: initialPostIndex,
-      recommendations: controller.currentTopic?.recommendations,
-      summary: controller.currentTopicSummary,
-      summaryLoading: controller.currentTopicSummaryLoading,
-      readTimeWordCount: controller.currentSiteConfig.readTimeWordCount,
-      showTimeGapDays: siteUrl == null
-          ? SiteConfig.defaultShowTimeGapDays
-          : controller.siteConfigFor(siteUrl).showTimeGapDays,
-      navigationRevision: controller.topicNavigationRevision,
-    );
-  }
-
-  final int? topicId;
-  final TopicDetail? topic;
-  final String? siteUrl;
-  final List<int> postIds;
-  final List<int> streamIds;
-  final bool loading;
-  final bool loadingMore;
-  final bool loadingEarlier;
-  final bool hasMore;
-  final bool hasEarlier;
-  final int? initialPostIndex;
-  final TopicRecommendations? recommendations;
-  final bool summary;
-  final bool summaryLoading;
-  final int readTimeWordCount;
-  final int showTimeGapDays;
-  final int navigationRevision;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is _TopicViewSnapshot &&
-          topicId == other.topicId &&
-          identical(topic, other.topic) &&
-          siteUrl == other.siteUrl &&
-          listEquals(postIds, other.postIds) &&
-          listEquals(streamIds, other.streamIds) &&
-          loading == other.loading &&
-          loadingMore == other.loadingMore &&
-          loadingEarlier == other.loadingEarlier &&
-          hasMore == other.hasMore &&
-          hasEarlier == other.hasEarlier &&
-          recommendations == other.recommendations &&
-          summary == other.summary &&
-          summaryLoading == other.summaryLoading &&
-          readTimeWordCount == other.readTimeWordCount &&
-          showTimeGapDays == other.showTimeGapDays &&
-          navigationRevision == other.navigationRevision;
-
-  @override
-  int get hashCode => Object.hash(
-    topicId,
-    identityHashCode(topic),
-    siteUrl,
-    Object.hashAll(postIds),
-    Object.hashAll(streamIds),
-    loading,
-    loadingMore,
-    loadingEarlier,
-    hasMore,
-    hasEarlier,
-    recommendations,
-    summary,
-    summaryLoading,
-    readTimeWordCount,
-    showTimeGapDays,
-    navigationRevision,
-  );
 }
 
 class _TopicViewHeader extends StatelessWidget {
