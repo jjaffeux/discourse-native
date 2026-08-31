@@ -98,15 +98,23 @@ class _PostActionsState extends State<PostActions> {
       return;
     }
     final post = box.localToGlobal(Offset.zero) & box.size;
+    if (!_hasFiniteEdges(post)) {
+      _anchor.value = null;
+      return;
+    }
 
     final viewport =
         Scrollable.maybeOf(context)?.context.findRenderObject() as RenderBox?;
-    if (viewport == null || !viewport.hasSize) {
+    if (viewport == null || !viewport.hasSize || !viewport.attached) {
       _anchor.value = post;
       return;
     }
 
     final bounds = viewport.localToGlobal(Offset.zero) & viewport.size;
+    if (!_hasFiniteEdges(bounds)) {
+      _anchor.value = null;
+      return;
+    }
     final visible = post.intersect(bounds);
     _anchor.value = visible.height <= 0 || visible.width <= 0 ? null : visible;
   }
@@ -728,6 +736,12 @@ class _PostActionsState extends State<PostActions> {
     );
   }
 }
+
+bool _hasFiniteEdges(Rect rect) =>
+    rect.left.isFinite &&
+    rect.top.isFinite &&
+    rect.right.isFinite &&
+    rect.bottom.isFinite;
 
 class _PostActionsMenu extends StatelessWidget {
   const _PostActionsMenu({
