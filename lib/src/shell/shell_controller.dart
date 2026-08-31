@@ -1515,7 +1515,10 @@ class ShellController extends FrameSafeNotifier
     }
     final totals = currentTotals;
     if (destinationId == 'latest') {
-      return SidebarBadge.count(totals?.topicTrackingSidebarCount ?? 0);
+      final count = currentInstance?.user?.unifiedNewEnabled == true
+          ? (totals?.topicTrackingNew ?? 0) + (totals?.topicTrackingUnread ?? 0)
+          : totals?.topicTrackingSidebarCount ?? 0;
+      return SidebarBadge.count(count);
     }
     if (destinationId == 'messages') {
       return SidebarBadge.count(totals?.unreadPersonalMessages ?? 0);
@@ -1932,6 +1935,24 @@ class ShellController extends FrameSafeNotifier
     if (instance == null || feedId == null) return null;
     return topicFeeds.feedFor(instance.url, feedId);
   }
+
+  TopicListMode? get currentTopicListMode {
+    final tab = activeTab;
+    if (tab == null ||
+        tab.rootDestinationId != 'latest' ||
+        tab.contentStack.length != 1) {
+      return null;
+    }
+    return TopicListMode.fromRoute(tab.currentContent);
+  }
+
+  int get newTopicCount => currentTotals?.topicTrackingNew ?? 0;
+
+  int get newReplyCount => currentTotals?.topicTrackingUnread ?? 0;
+
+  int get newActivityCount => currentInstance?.user?.unifiedNewEnabled == true
+      ? newTopicCount + newReplyCount
+      : newTopicCount;
 
   bool get canCreateTopicHere {
     if (currentContent?.isTopic != false ||
@@ -11214,6 +11235,25 @@ class ShellController extends FrameSafeNotifier
     );
     replaceCurrentContent(content);
     if (content.feedPath != null) unawaited(loadFeed(content.id));
+  }
+
+  Future<void> selectTopicListMode(TopicListMode mode) async {
+    final instance = currentInstance;
+    final user = instance?.user;
+    final tab = activeTab;
+    final currentMode = currentTopicListMode;
+    if (user == null || tab == null || currentMode == null) return;
+    if (mode.isSubset && !user.unifiedNewEnabled) return;
+    if (mode == currentMode) return;
+
+    final route = ContentRoute.topicList(mode);
+    _replaceActiveTab(
+      tab.copyWith(contentStack: [route], forwardStack: const []),
+    );
+    _mobilePane = MobilePane.content;
+    _syncTopicChannels();
+    _notify();
+    await loadFeed(route.id);
   }
 
   void createTab() {

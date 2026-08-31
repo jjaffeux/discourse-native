@@ -7,6 +7,40 @@ import 'group_route.dart';
 import 'list_link.dart';
 import 'sidebar.dart';
 
+enum TopicListMode {
+  latest,
+  newActivity,
+  newTopics,
+  newReplies;
+
+  static TopicListMode? fromRoute(ContentRoute? route) =>
+      switch ((route?.id, route?.feedPath)) {
+        ('latest', null) => latest,
+        ('new', '/new.json') => newActivity,
+        ('new-topics', '/new.json?subset=topics') => newTopics,
+        ('new-replies', '/new.json?subset=replies') => newReplies,
+        _ => null,
+      };
+
+  String get routeId => switch (this) {
+    latest => 'latest',
+    newActivity => 'new',
+    newTopics => 'new-topics',
+    newReplies => 'new-replies',
+  };
+
+  String? get feedPath => switch (this) {
+    latest => null,
+    newActivity => '/new.json',
+    newTopics => '/new.json?subset=topics',
+    newReplies => '/new.json?subset=replies',
+  };
+
+  bool get isNew => this != latest;
+
+  bool get isSubset => this == newTopics || this == newReplies;
+}
+
 @immutable
 class ContentRoute {
   const ContentRoute({
@@ -89,6 +123,13 @@ class ContentRoute {
       messageGroupName: group,
     );
   }
+
+  factory ContentRoute.topicList(TopicListMode mode) => ContentRoute(
+    id: mode.routeId,
+    title: 'Topics',
+    icon: DIcons.layerGroup,
+    feedPath: mode.feedPath,
+  );
 
   ContentRoute.fromDestination(SidebarDestination destination)
     : id = destination.id,
