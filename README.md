@@ -918,10 +918,14 @@ desktop drop or the toolbar's native multiple-file picker. Every adapter stops
 at `ComposerUploadFile`; site extension checks, batch limits, progress, retry
 and markdown insertion therefore cannot drift between the three entry points.
 Flutter's clipboard surface only exposes text, so the paste adapter reads the
-native image representation and lets ordinary text paste fall through to the
-framework unchanged. Both image paste and the picker capture the current caret
-before crossing their asynchronous platform boundary, so a completed upload
-lands where the user asked for it even if focus or selection changed meanwhile.
+copied file itself when one is available, then falls back to the native image
+representation for screenshots copied as pixels. That ordering matters on
+macOS, where asking AppKit to coerce a copied Finder file into an image can
+produce its generic PNG document icon instead of its contents. Ordinary text
+paste still falls through to the framework unchanged. Both image paste and the
+picker capture the current caret before crossing their asynchronous platform
+boundary, so a completed upload lands where the user asked for it even if focus
+or selection changed meanwhile.
 
 ### Likes
 
