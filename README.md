@@ -1656,7 +1656,9 @@ URLs, retains failures, bounds response sizes, and persists reusable bytes; the
 pipeline also coalesces an exact URL across the typed caches and adds one
 aggregate cap and one per-origin cap across both media kinds. The same admission
 state turns an avatar or emoji 429 into an origin cooldown for the other cache
-instead of letting their independent queues keep draining.
+instead of letting their independent queues keep draining. The caps still admit
+a wide same-origin burst, and interactive emoji move ahead of queued avatars so
+opening the picker is not serialized behind a cold topic list.
 
 Reactions need the other direction — a name, not a `src` — which is
 `SiteConfig.emojiUrl`, mirroring `Emoji.url_for`: `{external_emoji_url or

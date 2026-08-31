@@ -22,6 +22,7 @@ abstract class ByteCache<T extends Object> {
     this.timeout = const Duration(seconds: 10),
     this.maxRedirects = 5,
     MediaRequestCoordinator? coordinator,
+    this.requestPriority = MediaRequestPriority.normal,
     this.requestPool,
     this.store,
   }) : assert(maxConcurrent == null || maxConcurrent > 0),
@@ -46,6 +47,7 @@ abstract class ByteCache<T extends Object> {
   final http.Client _client;
   final MediaRequestCoordinator? _coordinator;
   final bool _ownsCoordinator;
+  final MediaRequestPriority requestPriority;
   final ByteCacheRequestPool? requestPool;
   final ByteCacheStore? store;
 
@@ -379,7 +381,11 @@ abstract class ByteCache<T extends Object> {
     })
   >
   _send(Uri url, Uri original, Stopwatch elapsed) async {
-    final lease = await _coordinator?.acquire(url, relatedUrl: original);
+    final lease = await _coordinator?.acquire(
+      url,
+      relatedUrl: original,
+      priority: requestPriority,
+    );
     final timeoutAbort = Completer<void>();
     if (_closed) {
       lease?.release();

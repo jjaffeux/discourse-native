@@ -1,13 +1,15 @@
 import 'package:discourse_native/src/data/byte_cache_store.dart';
 import 'package:discourse_native/src/data/media_pipeline.dart';
+import 'package:discourse_native/src/data/media_request_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 MediaPipeline installTestMediaPipeline({
   http.Client? client,
   ByteCacheStore? store,
-  int maxConcurrent = 8,
-  int maxConcurrentPerOrigin = 4,
+  int maxConcurrent = MediaRequestCoordinator.defaultMaxConcurrent,
+  int maxConcurrentPerOrigin =
+      MediaRequestCoordinator.defaultMaxConcurrentPerOrigin,
   int maxQueuedPerOrigin = 64,
   Duration rateLimitCooldown = const Duration(minutes: 2),
 }) {

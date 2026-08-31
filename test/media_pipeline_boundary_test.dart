@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/media_pipeline.dart';
+import 'package:discourse_native/src/data/media_request_coordinator.dart';
 import 'package:discourse_native/src/data/origin_cooldown.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -75,6 +76,93 @@ void main() {
       );
     },
   );
+
+  test('the default cap starts a wide emoji picker burst', () async {
+    final release = Completer<void>();
+    final burstStarted = Completer<void>();
+    final requested = <Uri>[];
+    final pipeline = MediaPipeline(
+      client: MockClient((request) async {
+        requested.add(request.url);
+        if (requested.length ==
+                MediaRequestCoordinator.defaultMaxConcurrentPerOrigin &&
+            !burstStarted.isCompleted) {
+          burstStarted.complete();
+        }
+        await release.future;
+        return http.Response.bytes([1], 200);
+      }),
+    );
+    addTearDown(pipeline.close);
+
+    final loads = [
+      for (var index = 0; index < 20; index++)
+        pipeline.emoji.load('https://emoji.test/$index.png'),
+    ];
+    await burstStarted.future;
+
+    expect(
+      requested,
+      hasLength(MediaRequestCoordinator.defaultMaxConcurrentPerOrigin),
+    );
+    release.complete();
+    expect(await Future.wait(loads), everyElement(isNotNull));
+  });
+
+  test('picker emoji overtake queued avatar work', () async {
+    final firstStarted = Completer<void>();
+    final pickerStarted = Completer<void>();
+    final queuedAvatarStarted = Completer<void>();
+    final releaseFirst = Completer<void>();
+    final releasePicker = Completer<void>();
+    final releaseQueuedAvatar = Completer<void>();
+    final requested = <String>[];
+    final pipeline = MediaPipeline(
+      maxConcurrent: 1,
+      maxConcurrentPerOrigin: 1,
+      client: MockClient((request) async {
+        final path = request.url.path;
+        requested.add(path);
+        switch (path) {
+          case '/active-avatar':
+            firstStarted.complete();
+            await releaseFirst.future;
+            break;
+          case '/picker-emoji':
+            pickerStarted.complete();
+            await releasePicker.future;
+            break;
+          case '/queued-avatar':
+            queuedAvatarStarted.complete();
+            await releaseQueuedAvatar.future;
+            break;
+        }
+        return http.Response.bytes([1], 200);
+      }),
+    );
+    addTearDown(pipeline.close);
+
+    final active = pipeline.avatars.load('https://media.test/active-avatar');
+    await firstStarted.future;
+    final queuedAvatar = pipeline.avatars.load(
+      'https://media.test/queued-avatar',
+    );
+    final pickerEmoji = pipeline.emoji.load('https://media.test/picker-emoji');
+
+    releaseFirst.complete();
+    await pickerStarted.future;
+    expect(requested, ['/active-avatar', '/picker-emoji']);
+    expect(queuedAvatarStarted.isCompleted, isFalse);
+
+    releasePicker.complete();
+    await queuedAvatarStarted.future;
+    releaseQueuedAvatar.complete();
+    expect(
+      await Future.wait([active, queuedAvatar, pickerEmoji]),
+      everyElement(isNotNull),
+    );
+    expect(requested, ['/active-avatar', '/picker-emoji', '/queued-avatar']);
+  });
 
   test('an avatar 429 cools down queued emoji on the same origin', () async {
     final scheduler = ManualScheduler();

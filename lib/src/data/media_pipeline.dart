@@ -17,8 +17,9 @@ final class MediaPipeline {
   factory MediaPipeline({
     http.Client? client,
     ByteCacheStore? store,
-    int maxConcurrent = 8,
-    int maxConcurrentPerOrigin = 4,
+    int maxConcurrent = MediaRequestCoordinator.defaultMaxConcurrent,
+    int maxConcurrentPerOrigin =
+        MediaRequestCoordinator.defaultMaxConcurrentPerOrigin,
     int maxQueuedPerOrigin = 64,
     Duration rateLimitCooldown = const Duration(minutes: 2),
     DateTime Function()? clock,

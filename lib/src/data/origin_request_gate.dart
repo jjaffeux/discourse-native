@@ -3,17 +3,19 @@ import 'dart:async';
 import 'origin_cooldown.dart';
 
 enum OriginRequestCooldownPolicy {
-  /// Keep accepted work in FIFO order and admit new work up to the backlog cap.
+  /// Keep accepted work in priority/FIFO order up to the backlog cap.
   wait,
 
   /// Reject both retained waiters and newly submitted work until expiry.
   reject,
 }
 
-/// The gate owns concurrency slots, bounded FIFO backlogs, extend-only server
-/// cooldowns, and shutdown. Callers retain protocol concerns: they decide when
-/// a response starts a cooldown and translate gate rejections into their
-/// domain-specific errors.
+enum OriginRequestPriority { normal, interactive }
+
+/// The gate owns concurrency slots, bounded priority backlogs with FIFO order
+/// inside each priority, extend-only server cooldowns, and shutdown. Callers
+/// retain protocol concerns: they decide when a response starts a cooldown and
+/// translate gate rejections into their domain-specific errors.
 final class OriginRequestGate {
   OriginRequestGate({
     this.maxConcurrent,
@@ -42,9 +44,12 @@ final class OriginRequestGate {
 
   bool get isClosed => _closed;
 
-  Future<OriginRequestLease> acquire(Uri url) {
+  Future<OriginRequestLease> acquire(
+    Uri url, {
+    OriginRequestPriority priority = OriginRequestPriority.normal,
+  }) {
     final pending = _AcquireAdmission();
-    _enqueue(url.origin, pending);
+    _enqueue(url.origin, pending, priority);
     return pending.result.future;
   }
 
@@ -53,10 +58,11 @@ final class OriginRequestGate {
   /// still returning one future for queued and immediately-started work.
   Future<T> run<T>(
     Uri url,
-    Future<T> Function(OriginRequestContext context) operation,
-  ) {
+    Future<T> Function(OriginRequestContext context) operation, {
+    OriginRequestPriority priority = OriginRequestPriority.normal,
+  }) {
     final pending = _RunAdmission<T>(operation);
-    _enqueue(url.origin, pending);
+    _enqueue(url.origin, pending, priority);
     return pending.result.future;
   }
 
@@ -67,7 +73,11 @@ final class OriginRequestGate {
     _extendCooldown(url.origin, delay);
   }
 
-  void _enqueue(String origin, _PendingAdmission pending) {
+  void _enqueue(
+    String origin,
+    _PendingAdmission pending,
+    OriginRequestPriority priority,
+  ) {
     if (_closed) {
       pending.reject(
         const OriginRequestGateClosedException(),
@@ -95,7 +105,7 @@ final class OriginRequestGate {
     }
 
     state.waiting++;
-    _waiting.add(_QueuedAdmission(origin, state, pending));
+    _waiting.add(_QueuedAdmission(origin, state, pending, priority));
     _drain();
   }
 
@@ -115,8 +125,10 @@ final class OriginRequestGate {
             state.cooldown.remaining != null) {
           continue;
         }
-        eligible = index;
-        break;
+        if (eligible < 0 ||
+            queued.priority.index > _waiting[eligible].priority.index) {
+          eligible = index;
+        }
       }
       if (eligible < 0) break;
 
@@ -290,11 +302,12 @@ final class _OriginState {
 }
 
 final class _QueuedAdmission {
-  const _QueuedAdmission(this.origin, this.state, this.pending);
+  const _QueuedAdmission(this.origin, this.state, this.pending, this.priority);
 
   final String origin;
   final _OriginState state;
   final _PendingAdmission pending;
+  final OriginRequestPriority priority;
 }
 
 sealed class _PendingAdmission {
