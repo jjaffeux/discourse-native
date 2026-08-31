@@ -1,7 +1,6 @@
 import 'package:discourse_native/src/shell/syntax.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The scopes on a line, in order, ignoring unscoped source.
 List<String> scopesOf(List<CodeToken> line) => [
   for (final token in line.where((t) => t.scope != null)) token.scope!,
 ];

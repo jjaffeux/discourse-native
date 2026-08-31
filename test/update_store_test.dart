@@ -97,8 +97,6 @@ void main() {
     test(
       'reads as no preference when the name is no longer a channel',
       () async {
-        // A preference written by an older build must not stop this one from
-        // launching.
         SharedPreferences.setMockInitialValues({
           'discourse_native.update_channel': 'beta',
         });

@@ -34,9 +34,6 @@ void main() {
   });
 
   test('keeps the heading level when an inline tag shares the detail', () {
-    // `## See <kbd>x</kbd>`: the kbd span appends its name to the shared
-    // detail slot, and the level must still parse from the first component.
-    // The kbd scale itself still applies on top of the h2 size.
     final style = markdownStyle(Md.heading | Md.htmlTag, '2,kbd', base, theme);
 
     final level2 = markdownStyle(Md.heading, '2', base, theme).fontSize!;

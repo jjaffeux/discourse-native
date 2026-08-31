@@ -117,7 +117,6 @@ import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 import 'support/finders.dart';
 
-/// Sizes chosen to sit either side of the shell's breakpoints (768 / 1200).
 const Size phone = Size(390, 844);
 const Size laptop = Size(1000, 800);
 const Size desktop = Size(1440, 900);
@@ -181,11 +180,7 @@ Future<void> pumpShell(
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 
-  // Emoji are fetched off the site, and any fixture carrying one would dial out
-  // from a widget test. Answering 404 draws the shortcode, which is what these
-  // tests looked like before emoji rendered at all — nothing here is about
-  // artwork. Unlike avatars, which no fixture supplies a URL for, cooked HTML
-  // is what most of these tests are made of, so this cannot be left to luck.
+  // Cooked emoji would otherwise trigger network requests in widget tests.
   _replaceEmojiCache(
     EmojiCache(client: MockClient((_) async => http.Response('', 404))),
   );
@@ -198,11 +193,7 @@ Future<void> pumpShell(
       authenticator: authenticator ?? FakeAuthenticator(),
       drafts: drafts ?? FakeDraftStore(),
       forumTabs: forumTabs ?? FakeForumTabStore(),
-      // Never the real one: it opens a long poll, and its backoff timer
-      // outlives the tree the binding then complains about.
       trackers: FakeSiteTracker.reset(),
-      // Defaults to an updater that reports it cannot update, which is what
-      // every test that is not about updating wants to see.
       updater: updater ?? FakeUpdater(),
       updateStore: updateStore ?? FakeUpdateStore(),
       initialRootMode: ShellRootMode.forum,
@@ -236,7 +227,6 @@ Color postBackground(WidgetTester tester) => tester
     )
     .color;
 
-/// Catches what would have been handed to the platform browser.
 List<String> watchBrowser(WidgetTester tester) {
   const channel = MethodChannel('plugins.flutter.io/url_launcher');
   final launched = <String>[];
@@ -251,7 +241,6 @@ List<String> watchBrowser(WidgetTester tester) {
   return launched;
 }
 
-/// Catches text that would have been handed to the platform clipboard.
 List<String> watchClipboard(WidgetTester tester) {
   final copied = <String>[];
   final messenger = tester.binding.defaultBinaryMessenger;
@@ -267,7 +256,6 @@ List<String> watchClipboard(WidgetTester tester) {
   return copied;
 }
 
-/// Catches the app-exit requests a root back gesture hands to the platform.
 List<MethodCall> watchAppExits(WidgetTester tester) {
   final exits = <MethodCall>[];
   final messenger = tester.binding.defaultBinaryMessenger;
@@ -350,7 +338,6 @@ final class _GatedConnectAuthenticator extends FakeAuthenticator {
   }
 }
 
-/// The account entry point in the top right, whether signed in or out.
 final Finder userMenu = find.byWidgetPredicate(
   (widget) =>
       widget.key == UserMenuButton.avatarKey ||
@@ -358,8 +345,6 @@ final Finder userMenu = find.byWidgetPredicate(
   description: 'account menu or sign-in action',
 );
 
-/// A sidebar entry by its label. Scoped because other shell regions can repeat
-/// destination names.
 Finder sidebarDestination(String label) => find.byElementPredicate((element) {
   final widget = element.widget;
   if (widget is! Text || widget.data != label) return false;
@@ -372,8 +357,6 @@ Finder sidebarDestination(String label) => find.byElementPredicate((element) {
   return inSidebar;
 }, description: 'sidebar destination labelled "$label"');
 
-/// Text inside the active content viewport, excluding the forum tab that
-/// mirrors its route title above the content header.
 Finder contentText(String label) => find.byElementPredicate((element) {
   final widget = element.widget;
   if (widget is! Text || widget.data != label) return false;
@@ -388,9 +371,6 @@ Finder contentText(String label) => find.byElementPredicate((element) {
   return inMainContent && !inForumTabs;
 }, description: 'content text labelled "$label"');
 
-/// Opens the account menu and walks to the section holding the real actions.
-/// On touch that is a row leading to a nested sheet; with a pointer it is an
-/// icon in the tab rail, named only by its tooltip.
 Future<void> openProfileSection(WidgetTester tester) async {
   await tester.tap(userMenu);
   await tester.pumpAndSettle();
@@ -400,7 +380,6 @@ Future<void> openProfileSection(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-/// Moves a mouse over the first post, which is what reveals its actions.
 Future<TestGesture> hoverPost(
   WidgetTester tester, {
   String body = 'First post body',
@@ -413,7 +392,6 @@ Future<TestGesture> hoverPost(
   return gesture;
 }
 
-/// Reaches a post action through Core's collapsed action set when necessary.
 Future<void> tapPostAction(WidgetTester tester, String tooltip) async {
   var action = find.byTooltip(tooltip);
   if (action.evaluate().isEmpty) {
@@ -445,9 +423,6 @@ Future<void> tapPostAction(WidgetTester tester, String tooltip) async {
   await tester.tap(action);
 }
 
-/// Cross-feature contracts that require the fully assembled application shell.
-/// Narrower model, controller, and widget behavior stays with its production
-/// owner instead of being added here.
 void main() {
   group('forum search', () {
     testWidgets('uses the macOS title strip and current non-macOS headers', (
@@ -706,8 +681,6 @@ void main() {
         searchResults: const {
           'emoji': SearchResults(hits: [hit]),
         },
-        // Only registered shortcodes may be drawn, so the names the fixture
-        // titles carry must exist in the site's catalog.
         emojisBySite: {
           'https://meta.discourse.org': const [
             SiteEmoji(name: 'sparkles', url: '/images/emoji/sparkles.png'),
@@ -1332,7 +1305,6 @@ void main() {
 
       expect(find.byType(MainContent), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsNothing);
-      // The rail never goes away.
       expect(find.byType(InstanceRail), findsOneWidget);
     });
 
@@ -1369,7 +1341,6 @@ void main() {
       await tester.tap(find.dIcon(DIcons.arrowLeft));
       await tester.pumpAndSettle();
 
-      // First back pops the stack; the sidebar is still not showing.
       expect(find.byType(MainContent), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsNothing);
     });
@@ -1383,7 +1354,6 @@ void main() {
       await tester.tap(find.text('Topics'));
       await tester.pumpAndSettle();
 
-      // Content is showing, so this back unwinds in-app and must not leave.
       await systemBack(tester);
       await tester.pumpAndSettle();
       expect(find.byType(InstanceSidebar), findsOneWidget);
@@ -1399,7 +1369,6 @@ void main() {
     testWidgets('the avatar follows whichever pane is showing', (tester) async {
       await pumpShell(tester, phone);
 
-      // Only one pane is on screen at a time, so there is only ever one.
       expect(userMenu, findsOneWidget);
       final onSidebar = tester.getRect(userMenu);
 
@@ -1407,7 +1376,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(userMenu, findsOneWidget);
-      // Same corner, now belonging to the content header.
       expect(tester.getRect(userMenu), onSidebar);
     });
   });
@@ -1434,8 +1402,6 @@ void main() {
     testWidgets('the avatar sits in the top right corner', (tester) async {
       await pumpShell(tester, desktop);
 
-      // Only in the column reaching furthest right: the sidebar's own header
-      // stays free of it while the main content is on screen.
       expect(userMenu, findsOneWidget);
 
       final content = tester.getRect(find.byType(MainContent));
@@ -1451,7 +1417,6 @@ void main() {
 
     expect(find.text('Discourse Meta'), findsOneWidget);
 
-    // Second entry in the rail.
     await tester.tap(find.text('DT'));
     await tester.pumpAndSettle();
 
@@ -2485,7 +2450,6 @@ void main() {
 
       expect(find.byType(EmptyState), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsNothing);
-      // The rail is still there, holding the add button.
       expect(find.byType(InstanceRail), findsOneWidget);
     });
 
@@ -3272,7 +3236,6 @@ void main() {
         'https://team.discourse.org',
       ]);
 
-      // Once both pointers leave, the next ordinary stationary hold works.
       await tester.longPress(meta);
       await tester.pumpAndSettle();
       expect(find.text('More Options'), findsOneWidget);
@@ -3349,8 +3312,6 @@ void main() {
       await tester.longPress(meta);
       await tester.pumpAndSettle();
 
-      // A thumb ends up inside the menu it just opened, so the destructive
-      // action is not in it — only the way to it.
       expect(find.text('More Options'), findsOneWidget);
       expect(find.text('Remove forum'), findsNothing);
 
@@ -3364,7 +3325,6 @@ void main() {
       final previous = debugDefaultTargetPlatformOverride;
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       try {
-        // A distinct key rebuilds the tree against the platform in effect.
         await pumpShell(tester, desktop, key: const ValueKey('macos'));
 
         await tester.tap(meta, buttons: kSecondaryButton);
@@ -3454,7 +3414,6 @@ void main() {
 
       expect(meta, findsNothing);
       expect(railItem('team.discourse.org'), findsOneWidget);
-      // The site that was being read went away, so the one left takes over.
       expect(find.text('Discourse Team'), findsOneWidget);
       expect(auth.disconnected, ['https://meta.discourse.org']);
       expect(store.saveCount, 1);
@@ -3482,8 +3441,6 @@ void main() {
       await tester.tap(find.text('Remove'));
       await tester.pumpAndSettle();
 
-      // Abandoning the removal half done is the worse answer: the key is gone
-      // from the site either way, and the user is left unable to remove it.
       expect(meta, findsNothing);
       expect(store.saveCount, 1);
     });
@@ -3550,8 +3507,6 @@ void main() {
       await tester.tap(find.text('Remove'));
       await tester.pumpAndSettle();
 
-      // The reader was on the other site; taking this one away is not a reason
-      // to throw away where they were.
       expect(renderedText('First post body'), findsOneWidget);
     });
   });
@@ -3580,7 +3535,6 @@ void main() {
       expect(api.feedPaths, ['/latest.json']);
       expect(find.text('Welcome to the forum'), findsOneWidget);
       expect(find.text('Something unread'), findsOneWidget);
-      // The placeholder is gone.
       expect(find.text('Replace with deeper view'), findsNothing);
     });
 
@@ -3659,8 +3613,6 @@ void main() {
       );
     });
 
-    /// The inbox is named after the signed-in user, so reaching Messages means
-    /// connecting first.
     const inbox = '/topics/private-messages/joffreyj.json';
 
     testWidgets(
@@ -4120,8 +4072,6 @@ void main() {
     testWidgets('tapping the destination on screen asks for it again', (
       tester,
     ) async {
-      // A mouse cannot pull to refresh, so the destination is its own
-      // affordance: tapping what is already there re-fetches the list.
       final api = FakeDiscourseApi(feeds: {'/latest.json': latest});
 
       await pumpShell(tester, desktop, api: api);
@@ -4558,7 +4508,6 @@ void main() {
     testWidgets('a failing list reports it instead of crashing', (
       tester,
     ) async {
-      // No feeds configured, so the call throws.
       final api = FakeDiscourseApi();
 
       await pumpShell(tester, desktop, api: api);
@@ -4640,7 +4589,6 @@ void main() {
       'payload': {'bumped_at': '2026-08-06T09:00:00.000Z'},
     };
 
-    /// The tracker for the site the shell opened on.
     FakeSiteTracker tracker() => FakeSiteTracker.built.first;
 
     Future<void> pumpWithFeeds(
@@ -4648,7 +4596,6 @@ void main() {
       FakeDiscourseApi api,
     ) async {
       await pumpShell(tester, desktop, api: api);
-      // The tracker is opened once the keychain has answered.
       await tester.pumpAndSettle();
     }
 
@@ -4671,7 +4618,6 @@ void main() {
       tracker()
         ..deliver(created(99))
         ..deliver(created(100))
-        // A reply to one of them is the same row, not another one.
         ..deliver(bumped(99));
       await tester.pumpAndSettle();
 
@@ -4696,12 +4642,9 @@ void main() {
       await tester.tap(find.text('See 1 new or updated topic'));
       await tester.pumpAndSettle();
 
-      // Asked of the list route itself, so the row arrives with everything
-      // that list draws rather than as a bare topic.
       expect(api.feedPaths, contains('/latest.json?topic_ids=99'));
       expect(find.text('Just posted'), findsOneWidget);
       expect(find.text('Welcome to the forum'), findsOneWidget);
-      // Nothing left to announce.
       expect(find.textContaining('See '), findsNothing);
     });
 
@@ -4727,7 +4670,6 @@ void main() {
     testWidgets('a fetch that fails leaves the banner to be tried again', (
       tester,
     ) async {
-      // No `topic_ids` feed configured, so the call throws.
       final api = FakeDiscourseApi(feeds: {'/latest.json': onList});
       await pumpWithFeeds(tester, api);
 
@@ -4743,8 +4685,6 @@ void main() {
     testWidgets('refetching the list clears what it is about to contain', (
       tester,
     ) async {
-      // Pull-to-refresh replaces the list wholesale, so what the banner was
-      // offering to fetch arrives in the response instead.
       final controller = ShellController(
         instanceStore: FakeInstanceStore(twoSites),
         api: FakeDiscourseApi(feeds: {'/latest.json': onList}),
@@ -4754,7 +4694,6 @@ void main() {
       );
       addTearDown(controller.dispose);
       await controller.load();
-      // The tracker is opened once the keychain has answered.
       await tester.pump();
 
       FakeSiteTracker.built.first.deliver(created(99));
@@ -4772,7 +4711,6 @@ void main() {
 
       expect(FakeSiteTracker.built, hasLength(1));
 
-      // Second entry in the rail.
       await tester.tap(find.text('DT'));
       await tester.pumpAndSettle();
 
@@ -4786,7 +4724,6 @@ void main() {
     ) async {
       await pumpWithFeeds(tester, FakeDiscourseApi());
 
-      // A hidden native app owns no ordinary live connection.
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       await tester.pump();
       expect(tracker().pollNowCalls, 0);
@@ -4808,8 +4745,6 @@ void main() {
 
     final avatarBadge = find.byKey(UserMenuButton.unreadDotKey);
 
-    /// A site that is already signed in, so the counter channels have an
-    /// account to be named after.
     Future<FakeSiteTracker> pumpConnected(
       WidgetTester tester, {
       NotificationTotals totals = const NotificationTotals(),
@@ -4928,8 +4863,6 @@ void main() {
         const ValueKey('instance-rail-badge-https://meta.discourse.org'),
       );
 
-      // The current account repeats the same addressed total at the site and
-      // account levels.
       expect(
         find.descendant(of: railBadge, matching: find.text('3')),
         findsOneWidget,
@@ -4953,7 +4886,6 @@ void main() {
         find.descendant(of: avatarBadge, matching: find.text('5')),
         findsOneWidget,
       );
-      // And the private messages counted once, under their own name.
       expect(find.text('2'), findsOneWidget);
     });
 
@@ -5024,7 +4956,6 @@ void main() {
   });
 
   group('infinite scroll', () {
-    // The rail and sidebar scroll too, so target the topic list.
     final topicList = find.descendant(
       of: find.byType(TopicListView),
       matching: find.byType(SuperListView),
@@ -5055,7 +4986,6 @@ void main() {
           '/latest.json': page(1, 30),
           '/latest.json?page=1': page(31, 30),
         },
-        // Discourse reports it without the extension.
         nextPages: {'/latest.json': '/latest?page=1'},
       );
 
@@ -5066,7 +4996,6 @@ void main() {
       await tester.drag(topicList, const Offset(0, -6000));
       await tester.pumpAndSettle();
 
-      // The extension was added before requesting.
       expect(api.feedPaths, contains('/latest.json?page=1'));
       expect(find.text('Topic 31'), findsOneWidget);
     });
@@ -5115,7 +5044,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      // And the page was actually fetched, rather than the ask being dropped.
       expect(controller.currentFeed?.topicIds, hasLength(6));
     });
 
@@ -5125,7 +5053,6 @@ void main() {
       final api = FakeDiscourseApi(
         feeds: {
           '/latest.json': page(1, 30),
-          // Topic 30 got bumped and comes back on page two.
           '/latest.json?page=1': [...page(30, 1), ...page(31, 5)],
         },
         nextPages: {'/latest.json': '/latest?page=1'},
@@ -5147,7 +5074,6 @@ void main() {
       await tester.drag(topicList, const Offset(0, -6000));
       await tester.pumpAndSettle();
 
-      // No more_topics_url, so nothing beyond the first request.
       expect(api.feedPaths, ['/latest.json']);
     });
   });
@@ -5171,15 +5097,12 @@ void main() {
         initialRootMode: ShellRootMode.forum,
       ),
     );
-    // Let load() and the first feed request start, but not finish.
     await tester.pump();
 
-    // The shell goes away while the request is still in flight.
     await tester.pumpWidget(const SizedBox());
     gate.complete();
     await tester.pump();
 
-    // Notifying a disposed ChangeNotifier throws; the controller must not.
     expect(tester.takeException(), isNull);
   });
 
@@ -5272,7 +5195,6 @@ void main() {
         find.byKey(const ValueKey('topic-header-title-field')),
         findsNothing,
       );
-      // The cooked HTML is rendered, not shown as markup.
       expect(renderedText('First post body'), findsOneWidget);
       expect(renderedText('<p>'), findsNothing);
     });
@@ -7390,8 +7312,6 @@ void main() {
 
     testWidgets('reading a topic clears its unread count on every list it is '
         'in', (tester) async {
-      // A list holds ids, and there is one topic behind an id — so reading it
-      // is one write, and no list has to be told anything.
       final unread = [
         const Topic(
           id: 7,
@@ -7414,12 +7334,8 @@ void main() {
       await tester.tap(find.dIcon(DIcons.arrowLeft));
       await tester.pumpAndSettle();
 
-      // The row it was opened from.
       expect(find.text('3'), findsNothing);
 
-      // There is nothing left holding a count: the topic itself now reads as
-      // read, so any other list holding its id draws the corrected row without
-      // a fetch and without being told.
       final controller = ShellScope.of(
         tester.element(find.byType(InstanceRail)),
       );
@@ -7449,7 +7365,6 @@ void main() {
         of: find.byType(TopicListView),
         matching: find.byType(Scrollable),
       );
-      // Far enough down that the top of the list is no longer built.
       final row = find.text('Topic 40');
       await tester.scrollUntilVisible(row, 400, scrollable: list);
       await tester.pumpAndSettle();
@@ -7462,7 +7377,6 @@ void main() {
       await tester.tap(find.dIcon(DIcons.arrowLeft));
       await tester.pumpAndSettle();
 
-      // Back on the list, still down among the forties rather than at the top.
       expect(find.text('Topic 40'), findsOneWidget);
       expect(find.text('Topic 1'), findsNothing);
       expect(
@@ -7472,7 +7386,6 @@ void main() {
     });
 
     testWidgets('a topic that fails to load says so', (tester) async {
-      // No topics configured, so the fetch throws.
       final api = FakeDiscourseApi(feeds: {'/latest.json': listed});
 
       await pumpShell(tester, desktop, api: api);
@@ -7488,7 +7401,6 @@ void main() {
     ) async {
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
-        // Twenty arrive with the topic; the rest are ids only.
         topics: {
           7: detail(stream: [1, 2, 3]),
         },
@@ -8113,7 +8025,6 @@ void main() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
-      // Idle posts take the column's own surface rather than painting one.
       expect(postBackground(tester), Colors.transparent);
 
       final gesture = await hoverPost(tester);
@@ -8230,11 +8141,9 @@ void main() {
       await tester.tap(userMenu);
       await tester.pumpAndSettle();
 
-      // Authorized against the selected site, not some other one.
       expect(auth.connected, ['https://meta.discourse.org']);
       expect(find.byTooltip('Joffrey'), findsOneWidget);
       expect(find.text('meta.discourse.org'), findsNothing);
-      // First the old identity is removed, then the verified one is recorded.
       expect(store.saveCount, 2);
     });
 
@@ -8258,7 +8167,6 @@ void main() {
       await tester.tap(userMenu);
       await tester.pumpAndSettle();
 
-      // Nothing is left on screen to hold the failure, so it is announced.
       expect(find.byType(SnackBar), findsOneWidget);
       expect(find.textContaining('could not be verified'), findsOneWidget);
     });
@@ -8271,8 +8179,6 @@ void main() {
       await tester.tap(userMenu);
       await tester.pumpAndSettle();
 
-      // The distinction that matters: the user did not choose this, so unlike
-      // a cancellation it cannot pass silently.
       expect(find.byType(SnackBar), findsOneWidget);
       expect(find.textContaining('Could not open'), findsOneWidget);
     });
@@ -8349,7 +8255,6 @@ void main() {
         totals: const NotificationTotals(
           unreadNotifications: 3,
           unreadPersonalMessages: 2,
-          // Unified New reports the combined topic total under `new`.
           topicTrackingNew: 19,
         ),
       );
@@ -8363,18 +8268,14 @@ void main() {
         matching: find.text(count),
       );
 
-      // Core's unified Topics row carries the combined unread and new total.
       expect(countFor('latest', '19'), findsOneWidget);
       expect(countFor('messages', '2'), findsOneWidget);
       expect(countFor('drafts', '4'), findsOneWidget);
-      // Rail and account badges both show things addressed to you: 3 + 2.
       expect(find.text('5'), findsNWidgets(2));
-      // All of it from the one totals call.
       expect(api.totalsCalls, 1);
     });
 
     testWidgets('a site whose counters fail still renders', (tester) async {
-      // totals: null makes the call throw.
       final api = FakeDiscourseApi();
 
       await pumpShell(tester, desktop, api: api);
@@ -8432,7 +8333,6 @@ void main() {
       await tester.tap(find.text('Disconnect'));
       await tester.pumpAndSettle();
 
-      // Told the site, not just our own keychain.
       expect(api.revoked, ['https://meta.discourse.org']);
       expect(auth.disconnected, ['https://meta.discourse.org']);
     });
@@ -8452,7 +8352,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(auth.disconnected, ['https://meta.discourse.org']);
-      // Both sheets are gone with it, and the signed-out actions are back.
       expect(find.byType(UserMenuPanel), findsNothing);
       expect(find.byKey(UserMenuButton.signUpKey), findsOneWidget);
       expect(find.byKey(UserMenuButton.signInKey), findsOneWidget);
@@ -8472,8 +8371,6 @@ void main() {
       ).copyWith(user: me),
     ];
 
-    /// These instances carry an account without having been through the
-    /// connect flow, which is what would otherwise have left a key behind.
     FakeAuthenticator signedIn() =>
         FakeAuthenticator()..keys['https://meta.discourse.org'] = 'api-key';
 
@@ -8495,7 +8392,6 @@ void main() {
         slug: 'merge-cvss',
         data: {'display_username': 'david'},
       ),
-      // This app has no badge page, so this one leads out to the browser.
       DiscourseNotification.test(
         id: 3,
         typeId: NotificationTypeId(12),
@@ -8505,7 +8401,6 @@ void main() {
           'badge_slug': 'nice-reply',
         },
       ),
-      // And this one points at nothing at all.
       DiscourseNotification.test(
         id: 4,
         typeId: NotificationTypeId(4242),
@@ -8536,8 +8431,6 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    /// Opens the notifications tab on a touch layout, which is a sheet of its
-    /// own on top of the menu.
     Future<void> openNotifications(WidgetTester tester) async {
       await openMenu(tester);
       await tester.tap(find.text('Notifications'));
@@ -8571,7 +8464,6 @@ void main() {
       );
       await openMenu(tester);
 
-      // Listed rather than tabbed, and no popover in sight.
       expect(find.byType(UserMenuPanel), findsNothing);
       expect(find.text('Joffrey'), findsOneWidget);
       expect(find.text('@joffreyj · meta.discourse.org'), findsOneWidget);
@@ -8591,8 +8483,6 @@ void main() {
         find.textContaining('sam replied to Better image handling'),
         findsOneWidget,
       );
-      // The sheet it came from is still under this one — nested, not swapped —
-      // so the way out of this one is back to it.
       expect(find.text('Notifications'), findsOneWidget);
       expect(find.dIcon(DIcons.arrowLeft), findsOneWidget);
 
@@ -8607,7 +8497,6 @@ void main() {
       final previous = debugDefaultTargetPlatformOverride;
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       try {
-        // A distinct key rebuilds the tree against the platform in effect.
         await pumpShell(
           tester,
           desktop,
@@ -8618,8 +8507,6 @@ void main() {
         expect(userMenu, findsOneWidget);
         final avatar = tester.getRect(userMenu);
 
-        // In the strip spanning the window, above every column rather than
-        // inside one of them.
         expect(
           tester.getRect(find.byType(ShellTitleBar)).contains(avatar.center),
           isTrue,
@@ -9003,7 +8890,6 @@ void main() {
       final previous = debugDefaultTargetPlatformOverride;
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       try {
-        // A distinct key rebuilds the tree against the platform in effect.
         await pumpShell(
           tester,
           desktop,
@@ -9015,7 +8901,6 @@ void main() {
         await openMenu(tester);
 
         expect(find.byType(UserMenuPanel), findsOneWidget);
-        // Opens on the notifications tab, the way Discourse does.
         expect(
           find.textContaining('sam replied to Better image handling'),
           findsOneWidget,
@@ -9088,7 +8973,6 @@ void main() {
       );
       await openMenu(tester);
 
-      // The instance sidebar is still mounted under the modal sheet.
       await tester.tap(find.text('Messages').last);
       await tester.pumpAndSettle();
 
@@ -9103,7 +8987,6 @@ void main() {
       await pumpShell(tester, phone, instances: connected);
       await openMenu(tester);
 
-      // Nothing else in the menu can act on the account.
       expect(find.text('Disconnect'), findsNothing);
 
       await tester.tap(find.text('Profile'));
@@ -9469,8 +9352,6 @@ void main() {
       await openNotifications(tester);
 
       expect(api.notificationCalls, 1);
-      // A sentence per kind, phrased from the payload rather than listed as
-      // whatever the site called it.
       expect(
         find.textContaining('sam replied to Better image handling'),
         findsOneWidget,
@@ -9483,7 +9364,6 @@ void main() {
         find.textContaining('You earned the Nice Reply badge'),
         findsOneWidget,
       );
-      // Nothing in here is a stand-in any more.
       final tab = tester.widget<Text>(find.text('Notifications').first);
       expect(
         tab.style?.color,
@@ -9528,7 +9408,6 @@ void main() {
 
       expect(api.topicsOpened, [7]);
       expect(api.markedRead, [1]);
-      // Both sheets are out of the way of the topic they led to.
       expect(find.byType(NotificationRow), findsNothing);
       expect(renderedText('First post body'), findsOneWidget);
     });
@@ -9576,15 +9455,12 @@ void main() {
 
       expect(api.markedRead, [4]);
       expect(launched, isEmpty);
-      // Closing the menu would only have revealed the screen it was already
-      // over, so it stays.
       expect(find.byType(NotificationRow), findsNWidgets(4));
     });
 
     testWidgets('notifications that will not load can be asked for again', (
       tester,
     ) async {
-      // No list configured, so the fetch throws.
       final api = FakeDiscourseApi();
 
       await pumpShell(
@@ -9636,9 +9512,7 @@ void main() {
       await tester.tap(find.text('Notifications'));
       await tester.pumpAndSettle();
 
-      // A list of what other people just did is stale within minutes.
       expect(api.notificationCalls, 2);
-      // ...and the rows already in hand stay put while it is refetched.
       expect(
         find.textContaining('sam replied to Better image handling'),
         findsOneWidget,
@@ -9655,8 +9529,6 @@ void main() {
         author: 'sam',
         path: '/t/next-project/7/3',
       ),
-      // Bookmarked on something this app has no view for, so it leads out to
-      // the browser, and keeps the absolute URL the site sent.
       Bookmark(
         id: 9,
         title: 'A message in #dev',
@@ -9665,7 +9537,6 @@ void main() {
       ),
     ];
 
-    /// A reminder that has come due, which the tab lists above the bookmarks.
     const reminder = DiscourseNotification.test(
       id: 41,
       typeId: NotificationTypeId(24),
@@ -9695,9 +9566,7 @@ void main() {
       );
       await openBookmarks(tester);
 
-      // The account's own bookmarks; Discourse refuses anybody else's.
       expect(api.bookmarksRequested, ['joffreyj']);
-      // The reminder first, then what is kept.
       expect(
         find.textContaining('Reminder: Better image handling'),
         findsOneWidget,
@@ -9706,7 +9575,6 @@ void main() {
         find.textContaining('sam Thinking about the next project'),
         findsOneWidget,
       );
-      // Nothing in here is a stand-in any more.
       final tab = tester.widget<Text>(find.text('Bookmarks').first);
       expect(
         tab.style?.color,
@@ -9748,7 +9616,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(api.topicsOpened, [7]);
-      // Both sheets are out of the way of the topic they led to.
       expect(find.byType(BookmarkRow), findsNothing);
       expect(renderedText('First post body'), findsOneWidget);
     });
@@ -9964,7 +9831,6 @@ void main() {
             ],
           ),
         },
-        // No detail for thread 99: native hydration must decline the route.
         chatThreadsByKey: const {},
       );
       final launched = watchBrowser(tester);
@@ -10062,7 +9928,6 @@ void main() {
     testWidgets('bookmarks that will not load can be asked for again', (
       tester,
     ) async {
-      // No list configured, so the fetch throws.
       final api = FakeDiscourseApi();
 
       await pumpShell(
@@ -10255,7 +10120,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('@joffreyj'), findsOneWidget);
 
-      // Dismiss by tapping the barrier, then open it again.
       await tester.tapAt(const Offset(20, 500));
       await tester.pumpAndSettle();
       expect(find.text('@joffreyj'), findsNothing);
@@ -10268,7 +10132,6 @@ void main() {
     });
 
     testWidgets('a card that fails to load offers a retry', (tester) async {
-      // No cards configured, so the fetch throws.
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {7: detail},
@@ -10324,7 +10187,6 @@ void main() {
       const Topic(id: 7, title: 'A real topic', slug: 'a-real-topic'),
     ];
 
-    /// A topic whose only post is a single link, so there is something to tap.
     TopicPayload linking(String href, String label) => topicPayload(
       id: 7,
       title: 'A real topic',
@@ -10339,8 +10201,6 @@ void main() {
       stream: const [1],
     );
 
-    /// The topic behind every link below, titled differently from its slug so
-    /// the header can be told apart from the guess made before it arrived.
     final landed = topicPayload(
       id: 9,
       title: 'The other one [solved]',
@@ -10384,7 +10244,6 @@ void main() {
 
       expect(api.topicsOpened, [7, 9]);
       expect(renderedText('Other topic body'), findsOneWidget);
-      // The slug was only a stand-in until the topic named itself.
       expect(contentText('The other one [solved]'), findsOneWidget);
       expect(launched, isEmpty);
     });
@@ -10413,8 +10272,6 @@ void main() {
       expect(renderedText('Other topic body'), findsOneWidget);
       expect(launched, isEmpty);
 
-      // The site's own list is what the topic sits on top of, so back lands
-      // there rather than on the site the link was read from.
       await tester.tap(find.dIcon(DIcons.arrowLeft));
       await tester.pumpAndSettle();
       expect(find.byType(TopicListView), findsOneWidget);
@@ -10442,7 +10299,6 @@ void main() {
     testWidgets('a page that is not a topic goes to the browser', (
       tester,
     ) async {
-      // Same site, but nothing here can draw it.
       const url = 'https://meta.discourse.org/faq';
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
@@ -10491,8 +10347,6 @@ void main() {
       expect(find.text('A bug report'), findsOneWidget);
       expect(launched, isEmpty);
 
-      // Pushed over the topic rather than replacing the sidebar's selection,
-      // so there is a way back to what was being read.
       await tester.tap(find.dIcon(DIcons.arrowLeft));
       await tester.pumpAndSettle();
       expect(renderedText('the bug category'), findsOneWidget);
@@ -10539,8 +10393,6 @@ void main() {
     });
 
     testWidgets('a filtered category list goes to the browser', (tester) async {
-      // A real route, but one this app has no screen for. Showing the
-      // unfiltered list instead would be answering a different question.
       const url = 'https://meta.discourse.org/c/bug/5/l/top';
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
@@ -10586,8 +10438,6 @@ void main() {
       await tester.tapOnText(find.textRange.ofSubstring('the bug category'));
       await tester.pumpAndSettle();
 
-      // Already looking at it: the list is not fetched again, and one tap back
-      // still reaches the post.
       final before = api.feedPaths.length;
       await tester.tap(find.text('A bug report'));
       await tester.pumpAndSettle();
@@ -10599,9 +10449,6 @@ void main() {
     });
 
     testWidgets('a cooked hashtag opens the list it names', (tester) async {
-      // The whole feature end to end: the markup Discourse actually writes,
-      // drawn as a pill, tapped, landing on the category's own list — without
-      // the browser being involved at any point.
       final api = FakeDiscourseApi(
         feeds: {
           '/latest.json': listed,
@@ -10646,10 +10493,6 @@ void main() {
     });
 
     testWidgets('a mention opens the card', (tester) async {
-      // The markup Discourse actually cooks for `@joffreyj`, which the `/u/`
-      // case above does not cover: a mention is drawn as a pill, and a pill
-      // claims the anchor — so it stops being an ordinary link and has to
-      // carry the tap itself.
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {
@@ -10725,7 +10568,6 @@ void main() {
       canCreatePost: canCreatePost,
     );
 
-    /// Opens the topic, which is where every reply starts.
     Future<void> openTopic(
       WidgetTester tester,
       FakeDiscourseApi api, {
@@ -10848,8 +10690,6 @@ void main() {
         find.byKey(const ValueKey('composer-reply-options')),
         findsNothing,
       );
-      // The topic is still readable underneath, which is the point of docking
-      // it rather than opening a sheet.
       expect(renderedText('First post body'), findsOneWidget);
 
       await tester.enterText(find.byType(TextField), 'Sounds good to me.');
@@ -10862,10 +10702,8 @@ void main() {
       expect(api.created.single['topicId'], 7);
       expect(api.created.single['siteUrl'], 'https://meta.discourse.org');
       expect(api.created.single['draftKey'], 'topic_7');
-      // Replying to the topic addresses no particular post.
       expect(api.created.single['replyToPostNumber'], isNull);
 
-      // Posted, so the composer is done and the reply is in the stream.
       expect(find.byType(ComposerPanel), findsNothing);
       expect(renderedText('Sounds good to me.'), findsOneWidget);
     });
@@ -11070,8 +10908,6 @@ void main() {
         find.text('Body is too short (minimum is 20 characters)'),
         findsOneWidget,
       );
-      // Losing what someone wrote because the server said no is the one
-      // unforgivable thing a composer can do.
       expect(find.byType(ComposerPanel), findsOneWidget);
       expect(find.text('no'), findsOneWidget);
     });
@@ -11094,12 +10930,9 @@ void main() {
       await tester.tap(sendButton());
       await tester.pumpAndSettle();
 
-      // Success, and nothing to put in the stream: the author would otherwise
-      // see a reply nobody else can.
       expect(find.text('Your post is in the queue.'), findsOneWidget);
       expect(renderedText('Held for review.'), findsNothing);
 
-      // It was accepted, so sending again would queue a second copy.
       expect(tester.widget<FilledButton>(sendButton()).onPressed, isNull);
     });
 
@@ -11152,8 +10985,6 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Meant for meta.');
       await tester.pumpAndSettle();
 
-      // Switching sites hides the composer rather than discarding it, and it
-      // stays bound to where it was opened. (The rail draws initials.)
       await tester.tap(find.text('DT'));
       await tester.pumpAndSettle();
       expect(find.byType(ComposerPanel), findsNothing);
@@ -11195,7 +11026,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('You are posting too quickly.'), findsOneWidget);
-      // Sending again during the wait only earns another refusal.
       expect(tester.widget<FilledButton>(sendButton()).onPressed, isNull);
 
       await tester.pump(const Duration(seconds: 2));
@@ -11211,10 +11041,7 @@ void main() {
       // publish it twice, since a user API key gets no idempotency.
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
-        topics: {
-          7: detail(),
-          // What the check finds when it re-reads the topic.
-        },
+        topics: {7: detail()},
         postsById: {
           2: const Post(
             id: 2,
@@ -11233,7 +11060,6 @@ void main() {
       await tester.enterText(find.byType(TextField), 'It landed.');
       await tester.pumpAndSettle();
 
-      // The re-read shows the post that was made after all.
       api.topics[7] = topicPayload(
         id: 7,
         title: 'A real topic',
@@ -11246,10 +11072,7 @@ void main() {
       await tester.tap(sendButton());
       await tester.pumpAndSettle();
 
-      // Only ever one create, whatever happened to its answer.
       expect(api.created, hasLength(1));
-      // The tail was read with the markdown, so the match is exact rather
-      // than a guess at what the server made of it.
       expect(api.postFetches.last, contains(2));
       expect(find.byType(ComposerPanel), findsNothing);
       expect(renderedText('It landed.'), findsOneWidget);
@@ -11272,7 +11095,6 @@ void main() {
       await tester.tap(sendButton());
       await tester.pumpAndSettle();
 
-      // Nothing in the topic matches it, so it really did not post.
       expect(find.text("Couldn't reach the site."), findsOneWidget);
       expect(find.text('Never arrived.'), findsOneWidget);
       expect(tester.widget<FilledButton>(sendButton()).onPressed, isNotNull);
@@ -11293,19 +11115,16 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Unknown fate.');
       await tester.pumpAndSettle();
 
-      // The site is unreachable for the check too.
       api.topics.remove(7);
 
       await tester.tap(sendButton());
       await tester.pumpAndSettle();
 
-      // Whether it posted is unknown, and guessing wrong means posting twice.
       expect(find.textContaining('may have posted'), findsOneWidget);
       final button = find.widgetWithText(FilledButton, 'Check again');
       expect(button, findsOneWidget);
       expect(find.text('Unknown fate.'), findsOneWidget);
 
-      // Checking again is the way out, and it does not send anything.
       await tester.tap(button);
       await tester.pumpAndSettle();
       expect(api.created, hasLength(1));
@@ -11320,7 +11139,6 @@ void main() {
       );
 
       await openTopic(tester, api);
-      // A long topic should not read as a column of buttons.
       expect(find.byTooltip('Reply to this post'), findsNothing);
 
       final gesture = await hoverPost(tester);
@@ -11360,8 +11178,6 @@ void main() {
       await tester.pump();
       expect(find.byTooltip('Reply to this post'), findsOneWidget);
 
-      // Leaving takes them away on the very next frame — no grace period to
-      // wait out, which reads as lag.
       await gesture.moveTo(Offset.zero);
       await tester.pump();
       expect(find.byTooltip('Reply to this post'), findsNothing);
@@ -11579,8 +11395,6 @@ void main() {
       final gesture = await hoverPost(tester, body: 'Post body 5');
       expect(find.byTooltip('Reply to this post'), findsOneWidget);
 
-      // Park the pointer outside the list so no other post picks the menu up,
-      // then scroll post 5 away.
       await gesture.moveTo(Offset.zero);
       await tester.pump();
       await tester.drag(find.byType(TopicView), const Offset(0, -600));
@@ -11743,7 +11557,6 @@ void main() {
       expect(api.updated, hasLength(1));
       expect(api.updated.single['postId'], 1);
       expect(api.updated.single['raw'], 'First **post** body!');
-      // Sent, so the composer goes and the rewritten post is what is drawn.
       expect(find.byType(ComposerPanel), findsNothing);
       expect(renderedText('First **post** body!'), findsOneWidget);
     });
@@ -11778,15 +11591,12 @@ void main() {
     testWidgets('an edit never saves over a post it could not read', (
       tester,
     ) async {
-      // No raw to be had: the fetch answers with nothing for this id.
       await openTopic(tester, post: mine());
 
       await hoverPost(tester);
       await tapPostAction(tester, 'Edit this post');
       await tester.pumpAndSettle();
 
-      // The field is empty, and saving that would blank the post rather than
-      // leave it alone — so there is nothing to press.
       final button = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, 'Save'),
       );
@@ -11815,10 +11625,7 @@ void main() {
       await tapPostAction(tester, 'Delete this post');
       await tester.pumpAndSettle();
 
-      // Nothing to confirm: the undo is the next thing in the same menu.
       expect(api.deleted, [1]);
-      // Shown as deleted rather than taken away, because the person who can
-      // undo it is the person looking at it.
       expect(find.text('deleted'), findsOneWidget);
 
       await gesture.moveTo(Offset.zero);
@@ -11859,7 +11666,6 @@ void main() {
       expect(api.postWikiUpdates, const [(postId: 1, wiki: true)]);
       expect(find.text('wiki'), findsOneWidget);
 
-      // Supply the state the second authoritative refresh will return.
       api.postsById[1] = const Post(
         id: 1,
         postNumber: 1,
@@ -12308,8 +12114,6 @@ void main() {
             ],
           ),
         },
-        // The authoritative post refresh answers with nothing for id 2 after
-        // the force-destroy write, which removes it from the visible stream.
         postsById: const {
           1: Post(
             id: 1,
@@ -12496,8 +12300,6 @@ void main() {
             canSplitMergeTopic: true,
           ),
         },
-        // A selected-post mutation re-reads every affected id. The merged
-        // first post survives; the second and later-deleted third do not.
         postsById: {
           1: const Post(
             id: 1,
@@ -12943,8 +12745,6 @@ void main() {
     });
 
     testWidgets('the answer is remembered between launches', (tester) async {
-      // It decides rendering, so a site drawing google emoji must not draw
-      // twitter's through the first topic of every launch.
       final store = FakeInstanceStore([instance('meta.discourse.org')]);
       final controller = controllerWith(
         tester,
@@ -12964,7 +12764,6 @@ void main() {
     ) async {
       final controller = controllerWith(
         tester,
-        // This site will refuse, so nothing but the stored copy is available.
         serving(),
         store: FakeInstanceStore([
           instance('meta.discourse.org').copyWith(config: reactionsOn),
@@ -12983,17 +12782,12 @@ void main() {
       await controller.loadTopic(7, 'a-real-topic');
       await tester.pump();
 
-      // No loading state and no error state: every field is core's default, so
-      // there is nothing here worth telling a reader about.
       expect(controller.siteConfigFor(site), const SiteConfig.unknown());
     });
 
     testWidgets('a site that will not answer is given up on, not hammered', (
       tester,
     ) async {
-      // Deliberately unlike the categories fetch, which marks a site done
-      // before it has asked and so gets one attempt per session with no way
-      // back. A few tries, then left alone.
       final api = serving();
       final controller = controllerWith(tester, api);
       await controller.load();
@@ -13033,9 +12827,6 @@ void main() {
     testWidgets('a post no feature claims keeps the core footer', (
       tester,
     ) async {
-      // The load-bearing default. Every plugin is opt-in from the payload, so
-      // a site running plain core draws exactly what it drew before any of this
-      // existed.
       await pumpShell(
         tester,
         desktop,
@@ -13084,7 +12875,6 @@ void main() {
       const Topic(id: 7, title: 'A real topic', slug: 'a-real-topic'),
     ];
 
-    /// A post in whichever of the four states a like can leave it in.
     Post post({
       int likeCount = 0,
       bool liked = false,
@@ -13144,7 +12934,6 @@ void main() {
       return api;
     }
 
-    /// The count under the post, which is also what opens the list of names.
     Finder count(String value) =>
         find.descendant(of: find.byType(PostLikes), matching: find.text(value));
 
@@ -13153,13 +12942,9 @@ void main() {
     ) async {
       await openTopic(tester, first: post());
 
-      // No count: an empty one would be a row of zeroes down a topic nobody
-      // has got round to reading yet.
       expect(find.byType(PostLikes), findsOneWidget);
       expect(count('0'), findsNothing);
 
-      // The heart is in the menu instead, which is out of the way until the
-      // post is pointed at.
       await hoverPost(tester);
       expect(find.byTooltip('Like this post'), findsOneWidget);
     });
@@ -13202,16 +12987,12 @@ void main() {
 
       await hoverPost(tester);
 
-      // The count still says it was liked, and by whom — the button would
-      // only be one that refuses.
       expect(count('1'), findsOneWidget);
       expect(find.byTooltip('Remove your like'), findsNothing);
       expect(find.byTooltip('Like this post'), findsNothing);
     });
 
     testWidgets('the site has the last word on the count', (tester) async {
-      // Two other people liked it while this reader was reading, which is
-      // what the post the route answers with is for.
       await openTopic(
         tester,
         first: post(),
@@ -13273,7 +13054,6 @@ void main() {
     testWidgets('a post you may not like still shows what others thought', (
       tester,
     ) async {
-      // Your own post: the site reports the count and no way to act on it.
       final api = await openTopic(
         tester,
         first: post(likeCount: 2, canLike: false),
@@ -13306,8 +13086,6 @@ void main() {
       addTearDown(gesture.removePointer);
 
       await gesture.moveTo(tester.getCenter(count('2')));
-      // Crossing the count on the way somewhere else must not open it, or
-      // spend a request finding out who liked a post nobody asked about.
       await tester.pump(const Duration(milliseconds: 100));
       expect(api.likersRequested, isEmpty);
 
@@ -13316,7 +13094,6 @@ void main() {
 
       expect(api.likersRequested, [1]);
       expect(find.text('Sam Saffron'), findsOneWidget);
-      // No name on the account, so the username is the name.
       expect(find.text('codinghorror'), findsOneWidget);
 
       await gesture.moveTo(Offset.zero);
@@ -13352,8 +13129,6 @@ void main() {
         },
       );
 
-      // The post underneath opens its own sheet on a long press; the count is
-      // the nearer of the two and wins.
       await tester.longPress(count('1'));
       await tester.pumpAndSettle();
 
@@ -13364,8 +13139,6 @@ void main() {
     testWidgets('liking with the panel open leaves it saying something true', (
       tester,
     ) async {
-      // Refused, which is the case that used to strand the panel: the names
-      // were thrown away when the like was made and nothing put them back.
       final api = await openTopic(
         tester,
         first: post(likeCount: 2),
@@ -13388,15 +13161,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Sam Saffron'), findsOneWidget);
 
-      // Pressed without the pointer ever leaving the pill, so the panel is
-      // still open when the refusal comes back.
       await gesture.down(pill);
       await gesture.up();
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Too fast'), findsOneWidget);
       expect(count('2'), findsOneWidget);
-      // Names, not a spinner, and asked for again rather than assumed.
       expect(activityIndicators, findsNothing);
       expect(find.text('Sam Saffron'), findsOneWidget);
       expect(api.likersRequested, [1, 1]);
@@ -13469,7 +13239,6 @@ void main() {
 
       expect(api.updated, hasLength(1));
       expect(renderedText('First post body!'), findsOneWidget);
-      // The heart survived the typo fix.
       expect(count('3'), findsOneWidget);
 
       await gesture.moveTo(tester.getCenter(renderedText('First post body!')));
@@ -13492,10 +13261,6 @@ void main() {
       'discourse_reactions_enabled_reactions': '+1|clap',
     }, site);
 
-    /// A post as a reactions site serializes one. Built through [Post.fromJson]
-    /// rather than the constructor deliberately: there is no way to hand a post
-    /// a reactions block except by the site having sent one, which is what
-    /// makes the plugin-less default hold.
     Post post({
       int id = 1,
       List<({String id, int count})> reactions = const [],
@@ -13510,8 +13275,6 @@ void main() {
         'id': id,
         'post_number': id,
         'username': 'sam',
-        // The first post keeps the body every other group uses, so `hoverPost`
-        // finds it the same way.
         'cooked': id == 1 ? '<p>First post body</p>' : '<p>Post $id body</p>',
         if (canEdit) 'can_edit': true,
         'actions_summary': [
@@ -13588,7 +13351,6 @@ void main() {
       return api;
     }
 
-    /// A pill in the row, by its count.
     Finder pill(String value) => find.descendant(
       of: find.byType(ReactionsRow),
       matching: find.text(value),
@@ -13963,7 +13725,6 @@ void main() {
     testWidgets('a post on a site without the plugin keeps its likes', (
       tester,
     ) async {
-      // The load-bearing default: absence of the key, not absence of a setting.
       await openTopic(tester, posts: [post(plugin: false)]);
 
       expect(find.byType(PostLikes), findsOneWidget);
@@ -13993,7 +13754,6 @@ void main() {
         ),
         findsOneWidget,
       );
-      // And nothing asks the set for it — that request would 404.
       expect(
         find.byWidgetPredicate(
           (widget) =>
@@ -14053,7 +13813,6 @@ void main() {
       await tester.tap(find.byTooltip('Like this post'));
       await tester.pump();
 
-      // Drawn while the request is still in flight.
       expect(api.reacted, [(postId: 1, reaction: 'heart')]);
       expect(pill('1'), findsOneWidget);
 
@@ -14107,7 +13866,6 @@ void main() {
       await tester.tap(find.byTooltip('Like this post'));
       await tester.pumpAndSettle();
 
-      // The neighbour keeps its row until the topic is read again.
       expect(pill('3'), findsOneWidget);
       expect(pill('1'), findsNothing);
     });
@@ -14177,21 +13935,16 @@ void main() {
       await tester.tap(find.byTooltip('Remove your clap reaction'));
       await tester.pumpAndSettle();
 
-      // Taking one back is one tap; the picker is not involved.
       expect(api.reacted, [(postId: 1, reaction: 'clap')]);
     });
 
     testWidgets('a reaction can be picked from the grid', (tester) async {
-      // The main reaction is not the only one a site allows, and the menu's
-      // toggle can only give it or take back what is held — the grid is where
-      // the rest are chosen.
       final api = await openTopic(tester, config: configured, posts: [post()]);
 
       await hoverPost(tester);
       await tester.tap(find.byTooltip('Pick a reaction'));
       await tester.pumpAndSettle();
 
-      // The site's list, main reaction first: heart, +1, clap.
       final cells = find.descendant(
         of: find.byType(ReactionGrid),
         matching: find.byType(InkWell),
@@ -14280,13 +14033,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(api.reacted, [(postId: 1, reaction: 'heart')]);
-      // The pill keeps the count it was drawn with — the optimistic one — and
-      // never shows the nine the write's answer carries.
       expect(pill('3'), findsOneWidget);
       expect(pill('9'), findsNothing);
 
-      // What the answer says about the reader stands: the menu names the
-      // reaction they now hold.
       await gesture.moveTo(tester.getCenter(renderedText('First post body')));
       await tester.pumpAndSettle();
       expect(find.byTooltip('Remove your heart reaction'), findsOneWidget);
@@ -14335,8 +14084,6 @@ void main() {
 
       expect(api.updated, hasLength(1));
       expect(renderedText('First post body!'), findsOneWidget);
-      // The reaction survived the typo fix: the row, its count, and what the
-      // menu names.
       expect(find.byType(ReactionsRow), findsOneWidget);
       expect(pill('1'), findsOneWidget);
 
@@ -14372,7 +14119,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pumpAndSettle();
 
-      // Narrowed to the emoji that was pointed at, not the whole post.
       expect(api.reactorsRequested, [(postId: 1, filter: 'clap')]);
       final named = find.descendant(
         of: find.byType(ReactorList),
@@ -14568,7 +14314,6 @@ void main() {
       await tester.enterText(find.byType(TextField), 'say hello');
       await tester.pumpAndSettle();
 
-      // Select "hello".
       final field = tester.widget<TextField>(find.byType(TextField));
       field.controller!.selection = const TextSelection(
         baseOffset: 4,
@@ -14580,7 +14325,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(field.controller!.text, 'say **hello**');
 
-      // The selection stayed on the word, so italic composes onto it.
       await tester.tap(find.dIcon(DIcons.italic));
       await tester.pumpAndSettle();
       expect(field.controller!.text, 'say ***hello***');
@@ -14680,8 +14424,6 @@ void main() {
       await tester.pump(ComposerAutocomplete.debounce);
       await tester.pump();
 
-      // Asserted on the real name and the second username, both of which are
-      // unique — `sam` also wrote the post being replied to.
       expect(find.text('Sam Saffron'), findsOneWidget);
       expect(find.text('sally'), findsOneWidget);
       // The topic is part of the question: Discourse ranks people already in
@@ -14738,7 +14480,6 @@ void main() {
       expect(find.byType(TextField), findsOneWidget);
       expect(field(tester).controller!.text, 'hey @sa');
 
-      // And the second one still closes the composer.
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byType(TextField), findsNothing);
@@ -14758,7 +14499,6 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
       await tester.pumpAndSettle();
 
-      // An open list does not get to decide when a reply is posted.
       expect(fake.created.single['raw'], 'hey @sa');
     });
 
@@ -14771,7 +14511,6 @@ void main() {
 
       expect(find.text('smile'), findsOneWidget);
       expect(find.text('smirk'), findsOneWidget);
-      // Fetched once when the composer opened, not per keystroke.
       expect(fake.emojisRequested, ['https://meta.discourse.org']);
     });
 
@@ -14783,10 +14522,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(fake.hashtagSearchesRequested, ['ran']);
-      // The site's own name for each, so a subcategory reads as one.
       expect(find.text('Random'), findsOneWidget);
       expect(find.text('random'), findsOneWidget);
-      // A tag says how many topics carry it; a category does not.
       expect(find.text('x0'), findsOneWidget);
     });
 
@@ -14807,9 +14544,6 @@ void main() {
     });
 
     testWidgets('a picked hashtag pills without asking again', (tester) async {
-      // The site already said what `random` is when it offered it, so
-      // accepting it is not a reason to ask a second time. This is the path
-      // almost every hashtag in a post takes.
       final fake = api();
       await openComposer(tester, fake);
 
@@ -14829,8 +14563,6 @@ void main() {
 
       await tester.enterText(find.byType(TextField), 'hey @sa');
       await tester.pumpAndSettle();
-      // By the real name, which only the suggestion row carries — the post
-      // under the composer is by `sam` too.
       await tester.tap(find.text('Sam Saffron'));
       await tester.pumpAndSettle();
 
@@ -14879,7 +14611,6 @@ void main() {
       );
       await openComposer(tester, fake);
 
-      // Typed out rather than picked, so nothing has vouched for it yet.
       await tester.enterText(find.byType(TextField), 'ask @sam now');
       await tester.pumpAndSettle();
 
@@ -14924,22 +14655,16 @@ void main() {
       await tester.tap(find.text('smirk'));
       await tester.pumpAndSettle();
 
-      // Still markdown. The picture, when there is one, is a drawing of this.
       expect(field(tester).controller!.text, 'a :smirk: ');
     });
 
     testWidgets('draws the artwork for a shortcode that was written', (
       tester,
     ) async {
-      // Through the real reply composer rather than the controller alone.
-      // `resolveEmoji` is injected per composer, and it was once wired to the
-      // edit composer and not this one — which the controller's own tests
-      // could not see, because they pass the resolver themselves.
+      // Controller tests inject the resolver and cannot catch shell wiring gaps.
       await openComposer(tester, api());
 
-      // `pumpShell` answers 404 for every emoji, which is right for the tests
-      // that are about cooked HTML and wrong for this one. Swapped after the
-      // shell is up so only this composer sees artwork.
+      // Override the shell fixture's network-free emoji fallback for this case.
       _replaceEmojiCache(
         EmojiCache(
           client: MockClient((_) async => http.Response.bytes(emojiPng, 200)),
@@ -14950,7 +14675,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(EmojiImage), findsOneWidget);
-      // And the shortcode is still every character of what will be posted.
       expect(
         tester.widget<TextField>(find.byType(TextField)).controller!.text,
         'hey :smile:',
@@ -15024,7 +14748,6 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    /// Lets the debounce elapse so the save actually goes out.
     Future<void> settleDraft(WidgetTester tester) async {
       await tester.pump(ComposerController.draftDebounce);
       await tester.pumpAndSettle();
@@ -15040,14 +14763,12 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Half a thought');
       await tester.pumpAndSettle();
 
-      // Not per keystroke.
       expect(api.draftsSaved, isEmpty);
 
       await settleDraft(tester);
 
       expect(api.draftsSaved, hasLength(1));
       expect(api.draftsSaved.single['draftKey'], 'topic_7');
-      // Sequenced against what the topic payload came with.
       expect(api.draftsSaved.single['sequence'], 4);
       expect(api.draftsSaved.single['data'], contains('Half a thought'));
     });
@@ -15132,7 +14853,6 @@ void main() {
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
 
-      // Closing is how you get the topic back, not how you throw a reply away.
       expect(find.text('Come back to this'), findsOneWidget);
     });
 
@@ -15154,9 +14874,7 @@ void main() {
 
       await openComposer(tester, api);
 
-      // It arrives with the topic payload, so no request of its own.
       expect(find.text('Started in a browser'), findsOneWidget);
-      // And it remembers who it was answering.
       expect(find.text('Reply to @sam'), findsOneWidget);
     });
 
@@ -15174,8 +14892,6 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Written offline');
       await settleDraft(tester);
 
-      // The local copy is written first and only removed once the site has the
-      // same text, so a failed sync cannot lose it.
       expect(drafts.saved, hasLength(1));
       expect(drafts.saved.values.single, contains('Written offline'));
       expect(
@@ -15208,7 +14924,6 @@ void main() {
       await tester.enterText(find.byType(TextField), 'And one more');
       await settleDraft(tester);
 
-      // Still exactly as many: it gave up rather than kept hammering.
       expect(api.draftsSaved, hasLength(ComposerController.maxDraftFailures));
     });
 
@@ -15265,8 +14980,6 @@ void main() {
     });
 
     testWidgets('is in the rail with no sites connected', (tester) async {
-      // The one that proves it is app-level rather than per-site: the rail is
-      // the only surface that survives having nothing to show.
       await pumpShell(
         tester,
         desktop,
@@ -15304,7 +15017,6 @@ void main() {
             ),
           },
         ),
-        // No last-checked stamp, so load() looks straight away.
         updateStore: FakeUpdateStore(),
       );
       await tester.pumpAndSettle();
@@ -15431,8 +15143,6 @@ void main() {
       await tester.tap(find.text('Check for updates'));
       await tester.pumpAndSettle();
 
-      // The exact string, not a substring: the topic list behind the sheet is
-      // also failing to reach a site, and says so in nearly the same words.
       expect(find.text("Couldn't reach the update server."), findsOneWidget);
 
       await tester.tap(find.text('Open the releases page'));
@@ -15470,10 +15180,6 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // The launch check failed. Nobody asked, so nothing is said.
-      //
-      // Scoped to the rail: the topic list behind it uses the same warning
-      // icon for its own unrelated failure to reach a site.
       expect(find.byType(SnackBar), findsNothing);
       expect(
         find.descendant(
@@ -15552,15 +15258,12 @@ void main() {
       await tester.tap(find.text('Download 1.4.0'));
       await tester.pumpAndSettle();
 
-      // The same button, so trying again is the obvious thing to do.
       expect(find.text('Download 1.4.0'), findsOneWidget);
     });
 
     testWidgets('a download survives the sheet being closed and reopened', (
       tester,
     ) async {
-      // The deviation from _AddInstanceForm earns its own test: a site lookup
-      // may die with the sheet that started it, but a download must not.
       final held = Completer<void>();
       final updater = FakeUpdater(
         isSupported: true,
@@ -15579,7 +15282,6 @@ void main() {
       await tester.pump();
       expect(find.textContaining('Downloading'), findsOneWidget);
 
-      // Close the sheet with the download still in flight.
       await tester.tapAt(const Offset(20, 20));
       await tester.pumpAndSettle();
       expect(find.textContaining('Downloading'), findsNothing);
@@ -15587,7 +15289,6 @@ void main() {
       await tester.tap(activityIndicators.last);
       await tester.pumpAndSettle();
 
-      // Still the same download, at the same point, not restarted.
       expect(find.text('Downloading — 40%'), findsOneWidget);
       expect(updater.downloadCount, 1);
 
@@ -15685,8 +15386,6 @@ void main() {
     const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
     const site = 'https://meta.discourse.org';
 
-    /// Totals from a site that has chat, which is the only thing that makes
-    /// this app ask for channels at all.
     final withChat = chatNotificationTotals();
     const withoutChat = NotificationTotals();
 
@@ -15837,8 +15536,6 @@ void main() {
           after: after,
         );
 
-    /// A signed-in site, so the totals call the chat gate hangs off has an
-    /// account to be made as.
     Future<void> pumpChat(
       WidgetTester tester, {
       NotificationTotals? totals,
@@ -15884,13 +15581,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    /// Settles the tree, then waits out the half second a channel has to sit
-    /// still before the reader is credited with what is on it.
-    ///
-    /// The second pump is not belt and braces: `pumpAndSettle` stops when no
-    /// more frames are scheduled, and a pending timer schedules none — so
-    /// without it the debounce is a coin toss on how many frames the fetch
-    /// happened to cause.
+    /// `pumpAndSettle` does not advance an unscheduled dwell timer.
     Future<void> pumpUntilRead(WidgetTester tester) async {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 600));
@@ -16061,8 +15752,6 @@ void main() {
         await pumpChat(tester, api: api);
 
         expect(find.text('CHAT'), findsNothing);
-        // And nothing was even asked for: absence of the key is a complete
-        // answer, not a reason to go and check.
         expect(api.chatChannelsRequested, isEmpty);
       });
 
@@ -16085,9 +15774,6 @@ void main() {
       testWidgets('draws nothing while the channel list is still on its way', (
         tester,
       ) async {
-        // A heading that appears and then vanishes is worse than one that
-        // arrives late, and a section with a spinner in it says something
-        // untrue about how many channels there are.
         final gate = Completer<void>();
         await pumpChat(tester, public: [channel(9)], channelGate: gate);
 
@@ -16687,8 +16373,6 @@ void main() {
         (tester) async {
           await pumpChat(tester, public: [channel(9, emoji: 'bug')]);
 
-          // The artwork is answered 404 in these tests, so the shortcode is what
-          // lands — which is exactly the fallback the emoji widget promises.
           expect(
             find.descendant(
               of: find.byType(InstanceSidebar),
@@ -16905,8 +16589,6 @@ void main() {
       });
 
       testWidgets('forgets a disconnected site’s channels', (tester) async {
-        // Reconnecting can land on a different account, and what the last one
-        // was in is none of its business.
         await pumpChat(tester, size: phone, public: [channel(9)]);
         expect(sidebarDestination('Bugs'), findsOneWidget);
 
@@ -17452,10 +17134,7 @@ void main() {
       });
 
       testWidgets('draws a round avatar rather than an oval', (tester) async {
-        // The gutter that keeps a chained row's body aligned is a fixed width,
-        // and a fixed width is a *tight* constraint — which a SizedBox inside it
-        // cannot shrink below, so the avatar came out gutter-wide and
-        // avatar-tall and ClipOval turned it into an ellipse.
+        // The fixed-width gutter gives its child a tight constraint.
         await pumpChat(
           tester,
           public: [channel(9)],
@@ -17708,7 +17387,6 @@ void main() {
           find.byKey(const ValueKey('chat-composer')),
         );
 
-        // Eight pixels at the stream edge and six above the composer.
         expect(composer.top - message.bottom, 14);
       });
 
@@ -17729,7 +17407,6 @@ void main() {
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
 
-        // Two messages, one name: the second belongs to the first's run.
         expect(find.text('sam'), findsOneWidget);
 
         expect(ChatMessageTile.gutter, 42);
@@ -18457,15 +18134,10 @@ void main() {
           await tester.tap(sidebarDestination('Bugs'));
           await pumpUntilRead(tester);
 
-          // It asked the site to place them, rather than placing them itself.
           expect(api.chatMessagesRequested.single.fromLastRead, isTrue);
-          // Credited with what the screen holds around message 5, and nowhere
-          // near the forty the channel has.
           final marked = api.chatReadsMarked.single.messageId;
           expect(marked, greaterThan(5));
           expect(marked, lessThan(40));
-          // And the line they left off at is on screen, which is the point of
-          // landing there.
           expect(find.text('New'), findsOneWidget);
         },
       );
@@ -18500,7 +18172,6 @@ void main() {
         await tester.tap(sidebarDestination('Bugs'));
         await pumpUntilRead(tester);
 
-        // The window reached the present — and the reader did not.
         expect(api.chatMessagesRequested.last.after, 3);
         expect(
           api.chatReadsMarked.map((mark) => mark.messageId),
@@ -18524,7 +18195,6 @@ void main() {
               msg(1, cooked: '<p>Back then</p>'),
               msg(2, cooked: '<p>Also back then</p>', minute: 1),
             ], canLoadMoreFuture: true),
-            // What the site answers once the window is asked for afresh.
             FakeDiscourseApi.chatMessagesLatestKey(9): page([
               msg(80, cooked: '<p>Right now</p>', minute: 80),
             ]),
@@ -18535,8 +18205,6 @@ void main() {
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
 
-        // A window with messages still in front of it is not the present, so
-        // the button is there whatever the scroll position says.
         final button = find.dIcon(DIcons.chevronDown);
         expect(button, findsOneWidget);
 
@@ -18579,8 +18247,6 @@ void main() {
       testWidgets('credits the reader with the messages it puts on screen', (
         tester,
       ) async {
-        // The whole path: the viewport is measured, the newest row on it is a
-        // message, and the site is told about that one.
         final api = FakeDiscourseApi(
           totals: withChat,
           chatChannelsBySite: {
@@ -18657,7 +18323,6 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
 
-        // Still inside the 500ms the reader has to hold still for.
         expect(api.chatReadsMarked, isEmpty);
 
         await tester.tap(find.dIcon(DIcons.arrowLeft));
@@ -18669,7 +18334,6 @@ void main() {
       testWidgets('tells the site nothing about a channel nobody opened', (
         tester,
       ) async {
-        // Drawing a row in the sidebar is not reading it.
         final api = FakeDiscourseApi(
           totals: withChat,
           chatChannelsBySite: {
@@ -18703,7 +18367,6 @@ void main() {
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
 
-        // The sidebar has given way to the channel, and back returns to it.
         expect(find.byType(InstanceSidebar), findsNothing);
         expect(renderedText('Hello there'), findsOneWidget);
 

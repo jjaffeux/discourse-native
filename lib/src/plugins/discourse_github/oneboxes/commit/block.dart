@@ -8,10 +8,6 @@ import '../../../../theme/app_theme.dart';
 import '../../../local_dates/local_dates_contract.dart';
 import '../github.dart';
 
-/// The commit engine: `aside.onebox.githubcommit`.
-///
-/// The first line of the commit message as the title, then who committed it,
-/// when, and what the diff touched.
 class GithubCommitOnebox extends StatelessWidget {
   const GithubCommitOnebox({super.key, required this.data, this.siteUrl});
 
@@ -99,7 +95,6 @@ class _Info extends StatelessWidget {
   }
 }
 
-/// Everything the commit onebox carries, read out of the aside.
 class GithubCommitData {
   const GithubCommitData({
     required this.title,
@@ -184,7 +179,6 @@ class GithubCommitData {
   }
 }
 
-/// Claims `aside.onebox.githubcommit`, for the dispatch in `onebox.dart`.
 final GithubOneboxEngine githubCommitBlock = GithubOneboxEngine(
   matches: (aside) => aside.classes.contains('githubcommit'),
   build: (aside, envelope, siteUrl, cookedTimeParser) => OneboxCard(

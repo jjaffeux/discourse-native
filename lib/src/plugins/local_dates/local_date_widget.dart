@@ -65,8 +65,6 @@ Widget? localDateWidgetBuilder(
   );
 }
 
-/// Native inline treatment for server-cooked local dates. It deliberately has
-/// no [Post] dependency, so chat, quotes and oneboxes use the same code path.
 class LocalDateInline extends StatefulWidget {
   const LocalDateInline({
     super.key,
@@ -299,13 +297,9 @@ class _LocalDateButton extends StatelessWidget {
         : theme.colorScheme.primary;
     final label = semanticLabel.isEmpty ? formatted : semanticLabel;
 
-    // This widget participates in a cooked paragraph through a WidgetSpan.
-    // Forcing a 44px box around it would expand the surrounding line, so it
-    // uses WCAG's inline-target exception and makes the complete painted date
-    // the hit target instead. InkWell still supplies keyboard focus, Enter and
-    // Space activation, and a visible focus overlay. HtmlWidget unwraps a
-    // paragraph containing one inline widget; Align keeps that block constraint
-    // outside the painted and interactive date.
+    // A 44px WidgetSpan would expand the cooked line, so the full inline date
+    // uses WCAG's inline-target exception. Align keeps HtmlWidget's unwrapped
+    // block constraint outside that interactive area.
     return Align(
       alignment: AlignmentDirectional.centerStart,
       widthFactor: 1,

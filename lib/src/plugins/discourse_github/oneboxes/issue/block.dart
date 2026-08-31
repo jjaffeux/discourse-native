@@ -8,10 +8,6 @@ import '../../../../theme/app_theme.dart';
 import '../../../local_dates/local_dates_contract.dart';
 import '../github.dart';
 
-/// The issue engine: `aside.onebox.githubissue`.
-///
-/// Same arrangement as the pull request onebox — icon column beside title and
-/// facts, body underneath — with labels in place of branches and diff counts.
 class GithubIssueOnebox extends StatelessWidget {
   const GithubIssueOnebox({super.key, required this.data, this.siteUrl});
 
@@ -106,8 +102,7 @@ class _Info extends StatelessWidget {
   }
 }
 
-/// The web paints every label the same muted chip — the colors the template
-/// writes inline are overridden by its stylesheet.
+/// Upstream CSS overrides template label colors with one muted chip.
 class _Label extends StatelessWidget {
   const _Label({required this.name});
 
@@ -135,7 +130,6 @@ class _Label extends StatelessWidget {
   }
 }
 
-/// Everything the issue onebox carries, read out of the aside.
 class GithubIssueData {
   const GithubIssueData({
     required this.title,
@@ -234,7 +228,6 @@ class GithubIssueData {
   }
 }
 
-/// Claims `aside.onebox.githubissue`, for the dispatch in `onebox.dart`.
 final GithubOneboxEngine githubIssueBlock = GithubOneboxEngine(
   matches: (aside) => aside.classes.contains('githubissue'),
   build: (aside, envelope, siteUrl, cookedTimeParser) => OneboxCard(

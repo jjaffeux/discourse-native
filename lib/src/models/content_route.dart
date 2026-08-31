@@ -7,11 +7,6 @@ import 'group_route.dart';
 import 'list_link.dart';
 import 'sidebar.dart';
 
-/// One entry in the main content stack.
-///
-/// The stack exists because the main region is sometimes replaced rather than
-/// overlaid — opening a topic from a topic list swaps what fills the region,
-/// on both desktop and mobile, and needs a way back.
 @immutable
 class ContentRoute {
   const ContentRoute({
@@ -28,13 +23,6 @@ class ContentRoute {
     this.groupRoute,
   });
 
-  /// A filtered topic list — a category or a tag — opened from a hashtag.
-  ///
-  /// Unlike a sidebar destination this route brings its own [feedPath], because
-  /// nothing in the app knows the list exists until a post mentions it. The id
-  /// is derived from that path so the same category opened twice is the same
-  /// route, and so its feed is cached under a key nothing else can collide
-  /// with.
   factory ContentRoute.list(ListLink link, {String? title, Color? color}) {
     return ContentRoute(
       id: 'list-${link.feedPath}',
@@ -45,7 +33,6 @@ class ContentRoute {
     );
   }
 
-  /// A specific topic, opened from a list.
   factory ContentRoute.topic({
     required int topicId,
     required String slug,
@@ -66,19 +53,12 @@ class ContentRoute {
     );
   }
 
-  /// The connected account's native preferences editor.
-  ///
-  /// Preference values stay server-owned and are hydrated by the page. The
-  /// route therefore carries presentation identity only, which makes it safe
-  /// to persist beside the rest of a forum workspace without caching account
-  /// data in the tab document.
   factory ContentRoute.preferences() => const ContentRoute(
     id: 'preferences',
     title: 'Preferences',
     icon: DIcons.gear,
   );
 
-  /// The group directory or one tab in a group page.
   factory ContentRoute.group(
     GroupRoute route, {
     String? title,
@@ -91,14 +71,9 @@ class ContentRoute {
     groupRoute: route,
   );
 
-  /// The connected account's contribution stream from its profile menu.
   factory ContentRoute.userActivity() =>
       const ContentRoute(id: 'activity', title: 'Activity', icon: DIcons.list);
 
-  /// One private-message inbox belonging to the connected account.
-  ///
-  /// Personal and group inboxes use distinct route ids so their topic feeds,
-  /// pagination cursors, and scroll positions never overwrite one another.
   factory ContentRoute.messages({String? groupName}) {
     final group = groupName?.trim();
     if (group != null &&
@@ -115,7 +90,6 @@ class ContentRoute {
     );
   }
 
-  /// The route a sidebar entry opens.
   ContentRoute.fromDestination(SidebarDestination destination)
     : id = destination.id,
       title = destination.label,
@@ -135,35 +109,20 @@ class ContentRoute {
   final String? subtitle;
   final Color? color;
 
-  /// Set when this route is a topic rather than a list.
   final int? topicId;
   final String? slug;
 
-  /// The post this topic route should initially reveal, when it names one.
   final int? postNumber;
 
-  /// Where this route's topic list lives, for a route that carries its own —
-  /// see [ContentRoute.list]. Runtime sidebar routes such as categories carry
-  /// one too; static routes leave it null because `ShellController` already
-  /// knows their address.
   final String? feedPath;
 
-  /// The group whose PM inbox this route shows, or null for personal messages
-  /// and every non-message route.
   final String? messageGroupName;
 
-  /// A native `/g` destination, including an optional plugin-owned tab.
   final GroupRoute? groupRoute;
 
-  /// Largest site-relative feed path restored from presentation state.
-  ///
-  /// Ordinary category paths are tiny. Keeping the same generous boundary as
-  /// remote pagination cursors prevents a corrupt preference from becoming an
-  /// oversized URI on startup.
+  /// Prevents corrupted persisted state from producing an oversized URI.
   static const int maximumFeedPathLength = 2048;
 
-  /// Core group names are much shorter; this defensive persistence boundary
-  /// also keeps their percent-encoded request segment comfortably bounded.
   static const int maximumMessageGroupNameLength = 255;
 
   bool get isTopic => topicId != null;
@@ -177,11 +136,7 @@ class ContentRoute {
 
   bool get isGroup => !isTopic && groupRoute?.isDetail == true;
 
-  /// A durable, presentation-only snapshot of this route.
-  ///
-  /// The payload deliberately contains no fetched content or credentials. Icon
-  /// names are the stable names Discourse itself serializes, so an older tab can
-  /// still be restored after the generated SVG data changes.
+  /// Contains presentation only, never fetched content or credentials.
   Map<String, Object?> toJson() => {
     'id': id,
     'title': title,

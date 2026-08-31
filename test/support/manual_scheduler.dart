@@ -1,6 +1,5 @@
 import 'dart:async';
 
-/// A deterministic monotonic clock and one-shot timer scheduler for tests.
 final class ManualScheduler {
   Duration _elapsed = Duration.zero;
   int _nextSequence = 0;

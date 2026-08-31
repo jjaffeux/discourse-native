@@ -7,8 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
-/// Shaped after `discoursetopic.mustache` inside the `_layout` envelope — a
-/// topic on one Discourse site, oneboxed from another.
 const String discourseTopicOnebox = '''
 <aside class="onebox discoursetopic" data-onebox-src="https://meta.discourse.org/t/some-interesting-topic/123">
   <header class="source">
@@ -44,9 +42,6 @@ const String discourseTopicOnebox = '''
 </aside>
 ''';
 
-/// What Discourse renders for a topic on the site the post was written on:
-/// not an `aside.onebox` at all, but a quote (see
-/// `discourse_topic_onebox.mustache` and `Oneboxer.local_topic_html`).
 const String localTopicOnebox = '''
 <aside class="quote" data-post="1" data-topic="341126">
   <div class="title">
@@ -147,7 +142,6 @@ void main() {
       );
       await tester.pump();
 
-      // The attribution names the topic, and the excerpt is its first post.
       expect(find.byType(QuoteBlock), findsOneWidget);
       expect(find.text('Some topic'), findsOneWidget);
       expect(

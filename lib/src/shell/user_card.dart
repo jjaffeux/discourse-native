@@ -22,10 +22,6 @@ import 'user_status.dart';
 
 final _userCardTransitionCurve = CurveTween(curve: Curves.easeOutCubic);
 
-/// Makes [child] open the card for [username] when clicked.
-///
-/// Wraps rather than replaces its child, so an avatar and a name can each be
-/// their own target while pointing at the same account.
 class UserCardTarget extends StatelessWidget {
   const UserCardTarget({
     super.key,
@@ -35,9 +31,6 @@ class UserCardTarget extends StatelessWidget {
     this.semanticLabel,
   });
 
-  /// An avatar target that only switches to the hand cursor under a pointer.
-  ///
-  /// Keyboard focus remains visible for people navigating without a pointer.
   const UserCardTarget.avatar({
     super.key,
     required this.username,
@@ -69,14 +62,6 @@ class UserCardTarget extends StatelessWidget {
   }
 }
 
-/// The username a Discourse profile link points at, or null for anything else.
-///
-/// Only the profile root counts: `/u/someone/messages` is a page of its own,
-/// not a person, and belongs in the browser. On a subfolder install the root
-/// is `<base>/u/someone`, so the segments before the trailing pair must be
-/// exactly [siteUrl]'s base path — anything else, like a topic whose slug
-/// happens to be `u`, is not a profile. Without a site, only `/u/someone`
-/// itself can be trusted.
 String? usernameFromProfileUrl(Uri url, {String? siteUrl}) {
   final segments = url.pathSegments;
   if (segments.length < 2 || segments[segments.length - 2] != 'u') return null;
@@ -92,12 +77,6 @@ String? usernameFromProfileUrl(Uri url, {String? siteUrl}) {
   return listEquals(leading, base) ? username : null;
 }
 
-/// Handles a tapped link that turns out to be a mention.
-///
-/// Returns false — leaving the link to whoever else wants it — when there is
-/// no shell above [context] to ask, or when the URL is not a profile on the
-/// site being read: a profile elsewhere is that site's page, and the card here
-/// could only be fetched from this one.
 bool showUserCardForUrl(BuildContext context, String url, {String? siteUrl}) {
   final controller = ShellScope.maybeRead(context);
   final instance = siteUrl == null
@@ -117,10 +96,6 @@ bool showUserCardForUrl(BuildContext context, String url, {String? siteUrl}) {
   return true;
 }
 
-/// Opens the card for [username], anchored to the widget at [context].
-///
-/// Anchored rather than centered because the card is an aside about the thing
-/// you just clicked: it should read as attached to it, not as taking over.
 Future<void> showUserCard({
   required BuildContext context,
   required String username,
@@ -129,8 +104,6 @@ Future<void> showUserCard({
   final controller = ShellScope.read(context);
   final targetSite = siteUrl ?? controller.currentInstance?.url;
   if (targetSite == null) return Future<void>.value();
-  // Without a laid-out anchor there is nothing to attach to; fall back to the
-  // middle of the screen rather than dropping the tap.
   final anchor = anchorRect(
     anchor: context.findRenderObject() as RenderBox?,
     overlay:
@@ -166,13 +139,10 @@ class _UserCardPopup extends StatelessWidget {
     required this.anchor,
   });
 
-  /// Matches the web card's 39em canvas at Discourse's 16px base size.
   static const double width = 624;
 
-  /// Gap between the card and whatever was clicked.
   static const double _gap = 8;
 
-  /// Smallest gap between the card and the window edges.
   static const double _margin = 12;
 
   final String username;

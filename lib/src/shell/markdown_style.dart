@@ -4,10 +4,6 @@ import '../theme/app_theme.dart';
 import 'code_block.dart';
 import 'markdown_highlight.dart';
 
-/// How a marked-up stretch of source is drawn.
-///
-/// The editable composer and immutable quote previews share this so Markdown
-/// has one visual meaning in both places.
 TextStyle markdownStyle(
   int mask,
   String? detail,

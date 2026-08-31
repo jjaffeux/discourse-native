@@ -45,11 +45,6 @@ export 'discourse_api_contracts.dart';
 export 'plugin_transport.dart';
 export 'shell_api_ports.dart';
 
-/// Talks to a Discourse site.
-///
-/// The lookup mirrors DiscourseMobile's `Site.fromTerm`: probe
-/// `/user-api-key/new` to confirm it is a Discourse new enough to expose the
-/// user API, then read `/site/basic-info.json` for the details we display.
 class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
   DiscourseApi({
     http.Client? client,
@@ -80,10 +75,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
   @override
   final Duration timeout;
 
-  /// Largest buffered API response accepted from a site.
-  ///
-  /// These routes return JSON rather than media. Keeping a generous finite
-  /// bound prevents a broken endpoint from growing the process without limit.
   final int _maxResponseBytes;
 
   late final DiscourseTransport _transport = DiscourseTransport(
@@ -101,10 +92,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
         : 2 * 1024 * 1024,
   );
 
-  /// Turns whatever the user typed into a URL to probe.
-  ///
-  /// Bare hosts get https, since that is what any site worth connecting to
-  /// serves. Explicit HTTP is reserved for loopback development servers.
   static const int maximumForumAddressLength = 2048;
 
   static Uri normalize(String term) {
@@ -239,8 +226,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// HEAD, following redirects by hand so the final URL is observable —
-  /// `package:http` reports the originally requested one.
   Future<_HeadResult> _head(Uri url) async {
     var current = url;
 
@@ -249,9 +234,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
       final response = await _send(request);
 
       final location = response.headers['location'];
-      final isRedirect =
-          const {301, 302, 303, 307, 308} //
-              .contains(response.statusCode);
+      final isRedirect = const {
+        301,
+        302,
+        303,
+        307,
+        308,
+      }.contains(response.statusCode);
 
       if (!isRedirect || location == null) {
         return _HeadResult(current, response.statusCode, response.headers);
@@ -263,11 +252,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     throw SiteLookupException(SiteLookupFailure.unreachable, url.toString());
   }
 
-  /// Who the stored API key belongs to.
-  ///
-  /// Needs the `session_info` scope. Throws [SiteLookupFailure.unreachable] on
-  /// a network problem and [SiteLookupFailure.notDiscourse] if the key was
-  /// rejected — the caller treats the latter as "reconnect".
   @override
   Future<DiscourseUser> currentUser({
     required String siteUrl,
@@ -388,12 +372,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// Custom sidebar sections visible to the connected account.
-  ///
-  /// Discourse returns private sections owned by the user and public sections
-  /// together, plus its built-in Community section. The model parser excludes
-  /// that built-in so callers can append this result without duplicating the
-  /// app's native Community routes.
   @override
   Future<List<SidebarSection>> customSidebarSections({
     required String siteUrl,
@@ -430,9 +408,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// The colors Discourse resolved for this site and, when connected, the
-  /// account named by [username]. Missing theme metadata is an optional
-  /// capability and answers null rather than preventing the site from loading.
   @override
   Future<SiteAppearance?> siteAppearance({
     required String siteUrl,
@@ -446,10 +421,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     clientId: clientId,
   );
 
-  /// Every unread counter the shell shows, in one request.
-  ///
-  /// Cheap enough to call on launch for each connected site, which is what
-  /// DiscourseMobile does.
   @override
   Future<NotificationTotals> notificationTotals({
     required String siteUrl,
@@ -466,20 +437,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return models.notificationTotals(body);
   }
 
-  /// The notifications behind the user menu's first tab.
-  ///
-  /// `recent=true` asks for the menu's own view of the list — the newest
-  /// [limit], unread first — rather than the paged history behind the
-  /// notifications page. Discourse caps it at 60.
-  ///
-  /// Asking also moves the account's "seen" marker, which is what clears the
-  /// unseen bubble on the web when the menu is opened. That is deliberate: this
-  /// is the same act. Read state is a separate thing and is not touched, so the
-  /// rows stay unread until they are tapped.
-  ///
-  /// [filterByTypes] produces the filtered views used by Replies and Chat.
-  /// Filtered requests include `silent=true`, just as Discourse's web client
-  /// does, so opening one category does not move the account-wide seen marker.
   @override
   Future<List<DiscourseNotification>> notifications({
     required String siteUrl,
@@ -514,18 +471,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     ]);
   }
 
-  /// The bookmarks behind the user menu's bookmarks tab.
-  ///
-  /// `/u/{username}/user-menu-bookmarks` rather than the paged bookmark list
-  /// behind the activity page: it is the route the menu itself uses, and it
-  /// answers with the two lists the tab is made of — the bookmark reminders
-  /// that have fired and not been read, and then as many bookmarks as its
-  /// twenty-row budget has left over, with the reminders' own bookmarks left
-  /// out so nothing appears twice.
-  ///
-  /// [username] has to be the account the key belongs to; Discourse refuses
-  /// anybody else's, which is why this asks for one rather than there being a
-  /// `/my` form of the route to fall back on.
   @override
   Future<BookmarkPayload> bookmarks({
     required String siteUrl,
@@ -562,12 +507,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// The connected user's default Activity destination.
-  ///
-  /// Core's `UserStream.filterParam` maps an unfiltered `userActivity.index`
-  /// route to action types 4 and 5. Those are topics and replies; likes,
-  /// bookmarks, private messages, reads, and drafts each belong to other
-  /// filters or routes and must not leak into this default stream.
   @override
   Future<UserActivityPage> userActivity({
     required String siteUrl,
@@ -741,11 +680,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// Marks one notification read.
-  ///
-  /// Takes an id rather than defaulting to "all of them" the way the route
-  /// does: omitting the parameter dismisses the user's entire inbox, which is
-  /// not something a mistyped call should be able to do.
   @override
   Future<void> markNotificationRead({
     required String siteUrl,
@@ -764,10 +698,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// One page of a topic list. [path] is the list route, e.g. `/latest.json`.
-  ///
-  /// The same envelope serves latest, new, unread, top and private messages,
-  /// so they all come through here.
   @override
   Future<TopicList> topicList({
     required String siteUrl,
@@ -785,7 +715,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return models.topicList(body, siteUrl);
   }
 
-  /// The small, faceted result set Discourse serves under its header search.
   @override
   Future<SearchResults> searchPosts({
     required String siteUrl,
@@ -825,11 +754,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return SearchResults.fromJson(body, siteUrl);
   }
 
-  /// People and groups offered by core's header-search `@` assistant.
-  ///
-  /// This is intentionally separate from composer mention completion. The
-  /// composer only offers people it can safely mention; a search modifier may
-  /// scope to either a person or a visible group.
   @override
   Future<FoundUsersAndGroups> searchUsersAndGroups({
     required String siteUrl,
@@ -864,7 +788,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// The five most recent searches exposed by core's initial search menu.
   @override
   Future<List<String>> recentSearches({
     required String siteUrl,
@@ -900,8 +823,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Credits a selected autocomplete result to the search log that produced
-  /// it, matching core's `/search/click` write.
   @override
   Future<void> logSearchClick({
     required String siteUrl,
@@ -926,7 +847,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// A topic with its first chunk of posts (20) and the full list of post ids.
   @override
   Future<TopicPayload> topic({
     required String siteUrl,
@@ -963,13 +883,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return models.topic(body, siteUrl);
   }
 
-  /// Records the farthest post a signed-in reader has actually had on screen.
-  ///
-  /// Fetching a topic is not a read receipt in Discourse. Its web client sends
-  /// post timings separately, and `PostTiming.process_timings` advances
-  /// `last_read_post_number` from these post numbers. A small positive timing
-  /// is enough for a native viewport observation; [milliseconds] also becomes
-  /// the topic time so the request has the same shape as the web client's.
   @override
   Future<void> recordTopicRead({
     required String siteUrl,
@@ -998,7 +911,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Changes how closely the current account follows one topic.
   @override
   Future<void> updateTopicNotificationLevel({
     required String siteUrl,
@@ -1018,7 +930,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Changes this account's pin preference through the same two routes as web.
   @override
   Future<void> updateTopicPinForUser({
     required String siteUrl,
@@ -1038,7 +949,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Changes one guardian-approved topic status through core's admin route.
   @override
   Future<void> updateTopicStatus({
     required String siteUrl,
@@ -1059,7 +969,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Soft-deletes a topic through its first post, as core's topic model does.
   @override
   Future<void> deleteTopic({
     required String siteUrl,
@@ -1078,8 +987,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Irreversibly deletes a soft-deleted topic after core's preflight accepts
-  /// the current administrator and cooldown.
   @override
   Future<void> permanentlyDeleteTopic({
     required String siteUrl,
@@ -1098,7 +1005,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Recovers a soft-deleted topic through core's topic-specific route.
   @override
   Future<void> recoverTopic({
     required String siteUrl,
@@ -1117,10 +1023,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Specific posts by id, for paging through a long topic.
-  ///
-  /// [includeRaw] asks for the markdown alongside the cooked HTML. Reading
-  /// never needs it; comparing what was posted against what was typed does.
   @override
   Future<List<Post>> posts({
     required String siteUrl,
@@ -1144,11 +1046,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     )).posts;
   }
 
-  /// A post window that may also carry the lists shown after the last post.
-  ///
-  /// Discourse only serializes these when the requested window reaches the
-  /// end. Installed model extensions contribute optional sources beside
-  /// core's suggestions.
   @override
   Future<TopicPostsPayload> topicPosts({
     required String siteUrl,
@@ -1203,12 +1100,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Loads one server-generated comparison from a post's edit history.
-  ///
-  /// A null [revision] asks for the latest comparison. Numbered revisions are
-  /// the opaque adjacent values returned by this same endpoint rather than a
-  /// locally inferred version, because hidden revisions can leave gaps for a
-  /// reader who is not allowed to see them.
   @override
   Future<PostRevision> postRevision({
     required String siteUrl,
@@ -1231,10 +1122,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return PostRevision.fromJson(body, siteUrl);
   }
 
-  /// The summary shown when an avatar or a username is clicked.
-  ///
-  /// `card.json` is the cheap endpoint for this — a full profile carries far
-  /// more than a popup needs.
   @override
   Future<UserCard> userCard({
     required String siteUrl,
@@ -1259,7 +1146,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return models.userCard(user, siteUrl);
   }
 
-  /// Sets the connected account's custom status.
   @override
   Future<void> setUserStatus({
     required String siteUrl,
@@ -1298,7 +1184,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Clears the connected account's custom status.
   @override
   Future<void> clearUserStatus({
     required String siteUrl,
@@ -1315,7 +1200,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Pauses the connected account's notifications for a core duration.
   @override
   Future<DateTime> enterDoNotDisturb({
     required String siteUrl,
@@ -1338,7 +1222,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return endsAt.toUtc();
   }
 
-  /// Resumes notifications and releases anything shelved during the pause.
   @override
   Future<void> leaveDoNotDisturb({
     required String siteUrl,
@@ -1355,10 +1238,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Changes whether the connected account publishes presence features.
-  ///
-  /// Core's `User.save(["hide_presence"])` sends this option at the top level
-  /// of the ordinary user update, rather than nesting it under `user_option`.
   @override
   Future<void> updateHidePresence({
     required String siteUrl,
@@ -1377,18 +1256,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// The site's client settings — every setting Discourse marks `client: true`,
-  /// core's and its plugins' alike.
-  ///
-  /// This is the only public payload carrying a plugin's own configuration.
-  /// `/site.json` does not have it: `SiteSerializer` is categories, groups,
-  /// archetypes and themes, with no `site_settings` key and no `plugins` key at
-  /// all. `/site/basic-info.json` is smaller still and stops at the title.
-  ///
-  /// Read rather than written, so failures arrive as [SiteLookupException] —
-  /// and callers are expected to swallow them. Every field of [SiteConfig] has
-  /// a default that is core's default, so a site that will not answer is drawn
-  /// as core rather than drawn as broken.
   @override
   Future<SiteConfig> siteConfig({
     required String siteUrl,
@@ -1417,15 +1284,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// The emoji artwork the site uploaded itself, by name.
-  ///
-  /// `SiteConfig.emojiUrl` can only build the address of an emoji from the
-  /// set it names — custom emoji are uploads, and live somewhere else
-  /// entirely. This map is the only thing that knows where; a name it does
-  /// not hold gets built the ordinary way.
-  ///
-  /// The payload has been seen in two shapes — an object of name to URL, and
-  /// a list of `{name, url}` entries — so both are read.
   @override
   Future<Map<String, String>> customEmojis({
     required String siteUrl,
@@ -1462,15 +1320,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// Accounts whose names match [term], for the composer's `@` completion.
-  ///
-  /// [topicId] is not decoration: Discourse's own `UserSearch` ranks people
-  /// already in the topic first, which is the difference between offering the
-  /// person being replied to and offering an alphabetical stranger.
-  ///
-  /// Groups are deliberately not asked for. Mentioning one is a different act
-  /// with its own permissions, and offering something we cannot check the
-  /// reader is allowed to do is worse than not offering it.
   @override
   Future<List<FoundUser>> searchUsers({
     required String siteUrl,
@@ -1512,7 +1361,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// Tags matching a value being typed on the topic filter page.
   @override
   Future<List<TopicFilterLookupValue>> searchFilterTags({
     required String siteUrl,
@@ -1553,7 +1401,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// Visible tag groups matching a value typed on the topic filter page.
   @override
   Future<List<TopicFilterLookupValue>> searchFilterTagGroups({
     required String siteUrl,
@@ -1599,7 +1446,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// Groups visible to the connected account for `group:` completions.
   @override
   Future<List<TopicFilterLookupValue>> searchFilterGroups({
     required String siteUrl,
@@ -1640,23 +1486,10 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// How many refs one lookup may carry, matching Discourse's own cap
-  /// (`HashtagsController::HASHTAGS_PER_REQUEST`). A request over it is
-  /// rejected outright rather than truncated.
   static const int hashtagsPerRequest = maximumDiscourseHashtagsPerRequest;
 
-  /// The order hashtag results are ranked in, and the set of types asked for.
-  ///
-  /// Discourse reads this per context from `Site#hashtag_configurations`, which
-  /// is served by `/site.json` — this app reads `/site/settings.json` and so
-  /// does not have it. Core's default for the composer is what is sent, which
-  /// is what the overwhelming majority of sites run.
   static const List<String> hashtagOrder = defaultDiscourseHashtagOrder;
 
-  /// Hashtag targets matching [term], best first.
-  ///
-  /// `order[]` is not optional decoration: `HashtagsController#search` does
-  /// `params.require(:order)` and answers 400 without it.
   @override
   Future<List<FoundHashtag>> searchHashtags({
     required String siteUrl,
@@ -1697,17 +1530,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// What [refs] actually name on this site, for refs already written down.
-  ///
-  /// The composer's other question: `searchHashtags` answers "what could this
-  /// become", this answers "what is this". Anything the site does not resolve —
-  /// or will not show this reader — is simply absent from the reply, which is
-  /// the caller's cue to leave it as text.
-  ///
-  /// The response is keyed by type rather than being a list, and the keys are
-  /// flattened back out here: which type a ref turned out to be is already on
-  /// the item. [order] declares every core or plugin-owned type the server
-  /// should try, in the same priority order as [searchHashtags].
   @override
   Future<List<FoundHashtag>> lookupHashtags({
     required String siteUrl,
@@ -1766,16 +1588,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// Which of [names] the site would actually notify.
-  ///
-  /// The composer asks before drawing a mention as a pill: a name nobody has
-  /// cooks as plain text, and a pill over it would be the composer promising a
-  /// person who is not there.
-  ///
-  /// Groups come back under their own key and are folded in — a group mention
-  /// cooks as a pill too. `user_reasons` is deliberately ignored: a name the
-  /// reader cannot notify *here* is still a real account, and Discourse still
-  /// links it.
   @override
   Future<Set<String>> checkMentions({
     required String siteUrl,
@@ -1823,11 +1635,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// Every emoji a site allows, retaining the site's authoritative group order.
-  ///
-  /// `/emojis.json` is already filtered by the site's deny list and includes
-  /// custom uploads in their configured groups. Group identifiers are opaque:
-  /// core names and theme/plugin-defined names travel through unchanged.
   @override
   Future<SiteEmojiCatalog> emojiCatalog({
     required String siteUrl,
@@ -1877,7 +1684,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// Localized and base-language search aliases keyed by canonical emoji name.
   @override
   Future<Map<String, List<String>>> emojiSearchAliases({
     required String siteUrl,
@@ -1917,8 +1723,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// Categories, flattened — subcategories arrive nested but the topic rows
-  /// need to look any of them up by id.
   @override
   Future<List<TopicCategory>> categories({
     required String siteUrl,
@@ -2013,12 +1817,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Every browsable tag for the native tag directory.
-  ///
-  /// Core's `/tags.json` has two shapes: ordinary sites put every tag in the
-  /// root list, while sites that list tags by group split grouped records into
-  /// `extras.tag_groups`. Category extras can repeat root records. Folding by
-  /// id keeps both shapes complete without drawing duplicates.
   @override
   Future<List<SidebarTag>> tags({
     required String siteUrl,
@@ -2059,12 +1857,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return List.unmodifiable(result);
   }
 
-  /// Resolves category ids that were not present in a lazy category-list page.
-  ///
-  /// Topic lists carry only `category_id`. On sites with lazy category loading,
-  /// that id can belong to a root or subcategory on a later page, so the
-  /// category badge cannot rely on the categories destination having been
-  /// scrolled far enough first.
   @override
   Future<List<TopicCategory>> findCategories({
     required String siteUrl,
@@ -2095,7 +1887,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     ]);
   }
 
-  /// The bounded server-side search used by core's lazy category chooser.
   @override
   Future<List<TopicCategory>> searchCategories({
     required String siteUrl,
@@ -2144,7 +1935,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// Session-scoped permissions and validation data used by a topic composer.
   @override
   Future<TopicComposerCapabilities> topicComposerCapabilities({
     required String siteUrl,
@@ -2160,12 +1950,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return TopicComposerCapabilities.fromJson(body);
   }
 
-  /// Tags available for the selected category in the topic composer.
-  ///
-  /// [limit] is not a local display cap: core validates it against the site's
-  /// `max_tag_search_results` and answers 400 for anything larger, so callers
-  /// pass that setting through. Its default is core's own, not this client's
-  /// autocomplete ceiling, so an unaware caller cannot be rejected.
   @override
   Future<TopicTagSearch> searchTopicTags({
     required String siteUrl,
@@ -2196,19 +1980,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return TopicTagSearch.fromJson(body, limit: limit);
   }
 
-  /// Replies to a topic.
-  ///
-  /// Returns what the site did with the post, which is not always "posted it" —
-  /// see [PostOutcome].
-  ///
-  /// [typingDuration] is required and is not decorative. Discourse reads
-  /// `typing_duration_msecs` with `to_i`, so leaving it out means zero, which
-  /// is under every `fast_typing_threshold`; on a user's first post that
-  /// silences the account rather than merely queueing it
-  /// (`NewPostManager.is_fast_typer?`). It is time spent actually typing —
-  /// wall clock since the composer opened is [composerOpenDuration].
-  ///
-  /// Never retry a failure from here. See [_write].
   @override
   Future<PostCreation> createPost({
     required String siteUrl,
@@ -2252,8 +2023,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return models.postCreation(body, siteUrl);
   }
 
-  /// Creates a topic. The tag objects deliberately retain both id and name:
-  /// current Discourse servers no longer accept the old list of bare strings.
   @override
   Future<PostCreation> createTopic({
     required String siteUrl,
@@ -2296,7 +2065,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return models.postCreation(body, siteUrl);
   }
 
-  /// Updates topic metadata before a first-post body edit.
   @override
   Future<void> updateTopic({
     required String siteUrl,
@@ -2346,10 +2114,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Rewrites an existing post, and returns it as the site now holds it.
-  ///
-  /// Safe to retry, unlike [createPost]: the same raw sent twice leaves the
-  /// post saying the same thing, so a timeout here needs no reconciliation.
   @override
   Future<Post> updatePost({
     required String siteUrl,
@@ -2386,13 +2150,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return models.post(post, siteUrl);
   }
 
-  /// Deletes a post.
-  ///
-  /// What that means is the site's business, not ours, and it is not one thing:
-  /// staff get a soft delete they can undo, an author deleting their own post
-  /// gets a placeholder that is swept away later, and the last post in some
-  /// topics goes for good. So nothing is returned — the caller re-reads the
-  /// post to find out which of those happened.
   @override
   Future<void> deletePost({
     required String siteUrl,
@@ -2411,11 +2168,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Rechecks the server-only permanent-deletion constraints.
-  ///
-  /// The serializer flag only says the action is worth offering. Core still
-  /// applies its five-minute/different-admin constraint immediately before the
-  /// destructive write and returns a localized reason when it refuses.
   @override
   Future<({bool allowed, String? reason})> checkPermanentPostDeletion({
     required String siteUrl,
@@ -2436,7 +2188,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Irreversibly deletes one soft-deleted reply.
   @override
   Future<void> permanentlyDeletePost({
     required String siteUrl,
@@ -2457,7 +2208,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Deletes the posts selected in a topic's moderation mode.
   @override
   Future<void> deletePosts({
     required String siteUrl,
@@ -2476,7 +2226,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Merges selected replies into the first selected post.
   @override
   Future<void> mergePosts({
     required String siteUrl,
@@ -2495,7 +2244,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Moves selected posts to an existing topic or splits them into a new one.
   @override
   Future<String> movePosts({
     required String siteUrl,
@@ -2557,7 +2305,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return url;
   }
 
-  /// Reassigns posts by one author to another account.
   @override
   Future<void> changePostOwners({
     required String siteUrl,
@@ -2590,7 +2337,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// Makes a post collaboratively editable, or returns it to ordinary edits.
   @override
   Future<void> updatePostWiki({
     required String siteUrl,
@@ -2610,7 +2356,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Prevents or permits further edits to one post.
   @override
   Future<void> updatePostLocked({
     required String siteUrl,
@@ -2630,7 +2375,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Restores a post automatically hidden by the flagging system.
   @override
   Future<void> unhidePost({
     required String siteUrl,
@@ -2649,7 +2393,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Converts an ordinary post to a moderator post, or reverts it.
   @override
   Future<void> updatePostType({
     required String siteUrl,
@@ -2673,7 +2416,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Adds, changes, or removes the staff notice shown above a post.
   @override
   Future<void> updatePostNotice({
     required String siteUrl,
@@ -2694,10 +2436,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Likes a post, and returns it as the site now holds it.
-  ///
-  /// Safe to retry: a second like from the same account is refused as one it
-  /// already has, and the post is left saying what it said.
   @override
   Future<Post?> likePost({
     required String siteUrl,
@@ -2719,12 +2457,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Privately flags a post and returns the personalized post the site now
-  /// holds.
-  ///
-  /// The response is unwrapped, like the like route. Unlike an undo, creation
-  /// is expected to return a post; accepting an empty body as success would
-  /// close the editor without any authoritative state to display.
   @override
   Future<Post> createPostFlag({
     required String siteUrl,
@@ -2757,11 +2489,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return post;
   }
 
-  /// Privately flags a topic through core's first-post action bridge.
-  ///
-  /// The id is deliberately the topic id and `flag_topic` selects the bridge;
-  /// sending the first loaded post id instead would lose core's topic-level
-  /// visibility and permission checks.
   @override
   Future<void> createTopicFlag({
     required String siteUrl,
@@ -2788,11 +2515,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Takes a like back, and returns the post as the site now holds it.
-  ///
-  /// The type goes in the query string rather than the body. Discourse reads
-  /// it out of either, and a DELETE is the one request whose body nothing
-  /// between here and the site is obliged to forward.
   @override
   Future<Post?> unlikePost({
     required String siteUrl,
@@ -2817,21 +2539,9 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// The post a like route answered with, or null when it answered with none.
-  ///
-  /// Unlike every other write here the post arrives unwrapped — the controller
-  /// serializes it with `root: false` — so there is no envelope to look inside
-  /// and the id is what says a post came back at all. Undoing answers with no
-  /// content when the post has since stopped being visible to the reader,
-  /// which is a success there is simply nothing to draw from.
   Post? _actedPost(Map<String, dynamic> body, String siteUrl) =>
       body['id'] == null ? null : models.post(body, siteUrl);
 
-  /// Who liked a post, oldest like first.
-  ///
-  /// [limit] is what stops a much-liked post from answering with a few hundred
-  /// accounts for a popup that shows a handful. The post's own like count
-  /// stays the total, so the caller can say how many were left out.
   @override
   Future<PostLikers> postLikers({
     required String siteUrl,
@@ -2857,7 +2567,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return PostLikers.parse(body, postId: postId, siteUrl: siteUrl);
   }
 
-  /// Puts a deleted post back, where the site allows it.
   @override
   Future<void> recoverPost({
     required String siteUrl,
@@ -2876,13 +2585,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Saves the draft of a reply, and returns the sequence to save the next one
-  /// against.
-  ///
-  /// A conflict means the sequence moved under us — the same account writing
-  /// from another client, or a post that advanced it. The text in front of the
-  /// user is the one they are looking at, so it wins, and the save is repeated
-  /// with `force_save`. That is what the web composer does too.
   @override
   Future<int?> saveDraft({
     required String siteUrl,
@@ -2921,7 +2623,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return jsonIntOrNull(body['draft_sequence']);
   }
 
-  /// Uploads one composer image while reporting progress over the file bytes.
   @override
   Future<ComposerUploadResult> uploadComposerImage({
     required String siteUrl,
@@ -3032,7 +2733,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Resolves the compact `upload://` URLs stored in raw post markdown.
   @override
   Future<Map<String, String>> lookupUploadUrls({
     required String siteUrl,
@@ -3087,7 +2787,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
         : errors.map((value) => value.trim()).join('\n');
   }
 
-  /// Restores a server draft, including drafts created on another client.
   @override
   Future<({ComposerDraft? draft, int sequence})> draft({
     required String siteUrl,
@@ -3111,7 +2810,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// The connected account's drafts, newest first.
   @override
   Future<List<UserDraft>> userDrafts({
     required String siteUrl,
@@ -3143,7 +2841,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// Permanently removes one server draft at the sequence the list returned.
   @override
   Future<void> deleteUserDraft({
     required String siteUrl,
@@ -3163,8 +2860,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     );
   }
 
-  /// The connected account's profile Summary, using core's side-loaded wire
-  /// envelope rather than reconstructing rankings from smaller client feeds.
   @override
   Future<UserSummary> userSummary({
     required String siteUrl,
@@ -3182,17 +2877,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return UserSummary.fromJson(body, siteUrl);
   }
 
-  /// Shared JSON-object write path.
-  ///
-  /// Unlike [_get] it keeps the decoded body and maps refusals to something the
-  /// user can read and act on. Specialized upload payloads use the same
-  /// authenticated transport without pretending their response is an object.
-  ///
-  /// Deliberately never retries, and callers must not either. A user API key
-  /// gets no idempotency from Discourse — the request memoizer is gated on
-  /// `is_api?`, which needs the `Api-Key` header rather than ours — so a resend
-  /// after a timeout publishes the post twice. Recovery is to re-read the
-  /// topic and look, not to send it again.
   Future<Map<String, dynamic>> _write(
     Uri url, {
     required String siteUrl,
@@ -3209,7 +2893,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     clientId: clientId,
   );
 
-  /// Shared GET with the error mapping every authenticated call wants.
   Future<http.Response> _get(
     Uri url, {
     required String siteUrl,
@@ -3218,8 +2901,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
   }) =>
       _transport.get(url, siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
 
-  /// Shared object-shaped JSON read. List-shaped compatibility routes keep the
-  /// buffered response from [_get] and decode their deliberately wider shape.
   Future<Map<String, dynamic>> _getObject(
     Uri url, {
     required String siteUrl,
@@ -3292,8 +2973,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     body: body,
   );
 
-  /// Resolves a repository-owned plugin route without letting that extension
-  /// boundary redirect a user API key to another origin.
   static Uri _resolvePluginPath(String siteUrl, String path) {
     final site = Uri.parse(siteUrl);
     final target = site.resolve(path);
@@ -3381,8 +3060,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  /// Tells the site to forget the key, so deleting our copy does not leave a
-  /// live key sitting in the user's authorized-apps list forever.
   @override
   Future<void> revokeApiKey({
     required String siteUrl,
@@ -3417,16 +3094,11 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
   Future<http.Response> _send(http.BaseRequest request) =>
       _transport.send(request);
 
-  /// How this client names itself, everywhere it talks to a site — including
-  /// the message_bus poll, which does not go through here.
   static const String userAgent = DiscourseTransport.userAgent;
 
-  /// Headers every authenticated request carries, matching DiscourseMobile.
   static Map<String, String> authHeaders(String apiKey, {String? clientId}) =>
       DiscourseTransport.authHeaders(apiKey, clientId: clientId);
 
-  /// Icons come back protocol-relative or site-relative depending on the site's
-  /// CDN setup.
   static String? _absoluteIcon(String? icon, String baseUrl) {
     if (icon == null || icon.isEmpty) return null;
     if (icon.startsWith('//')) {

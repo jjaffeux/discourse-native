@@ -7,7 +7,6 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'site_emoji_image.dart';
 
-/// One styled run in prose that may contain Discourse emoji shortcodes.
 @immutable
 class SiteEmojiTextRun {
   const SiteEmojiTextRun(this.text, {this.style});
@@ -16,18 +15,6 @@ class SiteEmojiTextRun {
   final TextStyle? style;
 }
 
-/// Native text with `:shortcodes:` drawn using one site's emoji artwork.
-///
-/// Runs are joined before shortcodes are found so server formatting, such as a
-/// search highlight around the emoji name, cannot split a shortcode into
-/// pieces that remain visible as punctuation.
-///
-/// Only shortcodes the site is known to register are drawn, the way the web
-/// client replaces only registered codes: prose is full of colon-delimited
-/// tokens — `10:30:45` matches the pattern — and giving one a placeholder
-/// shifts the layout while a request for artwork that cannot exist goes out.
-/// Until the site's catalog has answered, every shortcode stays literal text
-/// for the same reason.
 class SiteEmojiText extends StatefulWidget {
   const SiteEmojiText(
     this.runs, {
@@ -58,11 +45,6 @@ class SiteEmojiText extends StatefulWidget {
   final TextStyle? style;
   final TextAlign? textAlign;
 
-  /// Widgets that participate in the final line of text.
-  ///
-  /// Topic rows use this for unread state, where placing the marker beside the
-  /// paragraph would center it against all of a wrapped title instead of
-  /// leaving it immediately after the title's final word.
   final List<Widget> trailing;
 
   static final RegExp shortcodePattern = RegExp(
@@ -105,17 +87,6 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
     );
   }
 
-  /// Asks for the catalog once per (controller, site) this element has seen.
-  ///
-  /// The controller already shares and bounds the fetch; this guard exists
-  /// because a permanently failed catalog answers null immediately, and asking
-  /// again from the rebuild that follows each answer would loop build →
-  /// microtask → build for as long as the row is on screen.
-  ///
-  /// A null answer releases the guard without asking again. Nothing rebuilds
-  /// from here, so there is no loop to start; it only means that if a catalog
-  /// reaches the site by some other route — reselecting it retries the fetch —
-  /// the next rebuild is allowed to notice.
   void _requestCatalog(ShellController controller) {
     if (identical(_askedController, controller) &&
         _askedSite == widget.siteUrl) {
@@ -212,11 +183,6 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
   }
 }
 
-/// Walks styled runs alongside the shortcode matcher without rescanning runs.
-///
-/// Search excerpts can split almost every word into a separate run. Advancing
-/// monotonically keeps a row with many emoji linear in its text and run count,
-/// while still allowing one shortcode to cross any number of style boundaries.
 class _StyledRunCursor {
   _StyledRunCursor(this.runs);
 
@@ -272,12 +238,6 @@ class _StyledRunCursor {
   }
 }
 
-/// An inline widget that is absent from the title's plain-text value.
-///
-/// Flutter normally flattens every [WidgetSpan] to an object-replacement
-/// character. These widgets are state appended to the title rather than title
-/// content, so omitting that character preserves text lookup, selection and
-/// copying as the topic title alone.
 class _TrailingWidgetSpan extends WidgetSpan {
   const _TrailingWidgetSpan({required super.child, super.alignment});
 

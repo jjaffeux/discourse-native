@@ -9,7 +9,6 @@ import 'chat_controller.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread.dart';
 
-/// Opens core's thread-title setting without leaving the conversation.
 Future<void> showChatThreadSettings({
   required BuildContext context,
   required ChatController chat,

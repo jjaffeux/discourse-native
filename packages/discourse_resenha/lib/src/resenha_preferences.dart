@@ -18,8 +18,6 @@ final class ResenhaDevicePreferences {
   final bool pushToTalkEnabled;
 }
 
-/// Non-secret, best-effort preferences for one Resenha media client.
-///
 /// The platform implementation turns SharedPreferences' rejected-write result
 /// into an error. [ResenhaController] decides that optional preference failure
 /// must be reported without preventing the live media operation.
@@ -40,11 +38,6 @@ abstract interface class ResenhaPreferences {
   );
 }
 
-/// Typed key-value boundary behind [SharedPreferencesResenhaPreferences].
-///
-/// Keeping the platform adapter injectable makes ordering guarantees testable
-/// without a platform channel. Returning the platform's durability result
-/// preserves the public adapter's rejected-write error contract.
 abstract interface class ResenhaPreferencesPersistence {
   Future<String?> readString(String key);
 

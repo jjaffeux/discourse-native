@@ -4,13 +4,6 @@ import 'package:html/dom.dart' as dom;
 import '../../../../theme/d_icon.dart';
 import '../github.dart';
 
-/// An inline onebox pointing at a GitHub pull request.
-///
-/// With `github_pr_status_enabled`, the server stamps the PR's state onto
-/// the anchor as a `--gh-status-*` class; the web answers with a small
-/// status-colored glyph ahead of the title (`github-pr-status.scss`), and so
-/// does this. The title itself stays ordinary anchor text so it can wrap with
-/// the prose around it.
 class GithubPullRequestInlineOnebox {
   static bool matches(dom.Element anchor) {
     final uri = Uri.tryParse(anchor.attributes['href'] ?? '');

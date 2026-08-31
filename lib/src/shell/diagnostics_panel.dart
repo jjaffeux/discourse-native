@@ -12,23 +12,13 @@ import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'diagnostics_text.dart';
 
-/// The initial width used by both the docked diagnostics sidebar and the
-/// non-phone overlay.
 const double diagnosticsPanelWidth = 440;
 
-/// The bounds for a user-selected diagnostics panel width. The shell may
-/// further constrain the preferred width when the current window is narrow.
 const double diagnosticsPanelMinWidth = 320;
 const double diagnosticsPanelMaxWidth = 720;
 
-/// Pointer target reserved along the resizable panel's left edge.
 const double diagnosticsPanelResizeHandleWidth = 12;
 
-/// A live, searchable view over the app-wide diagnostics recorder.
-///
-/// Filtering lives in the app-owned diagnostics controller, so it survives
-/// navigation, site-controller replacement, and responsive relocation without
-/// making every request notify the rest of the shell.
 class DiagnosticsPanel extends StatefulWidget {
   const DiagnosticsPanel({
     super.key,
@@ -205,12 +195,8 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
     final panelState = widget.controller.panelState;
     final sources = <String>{
       ...events.map((event) => event.source),
-      // Keep an active filter removable after its last event expires or the
-      // history is cleared.
       ...panelState.sources,
     }.toList()..sort();
-    // The recorder is chronological; latest-first is more useful for a live
-    // console and still leaves ordering unambiguous via the timestamps.
     final visible = widget.controller.visibleEvents.reversed.toList(
       growable: false,
     );

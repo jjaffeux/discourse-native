@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// The one or more key combinations displayed by a shortcut tooltip.
-///
-/// A sequence advances from one activator to the next. Completed activators
-/// stay highlighted until the final trigger is released, so a shortcut such as
-/// `P` then `K` gives visible feedback for both keys at the end of the sequence.
 @immutable
 class DShortcut {
   const DShortcut(this._first) : _following = const [];
@@ -24,12 +19,6 @@ class DShortcut {
   }
 }
 
-/// A tooltip that can show a real keyboard shortcut alongside its message.
-///
-/// Flutter's Material tooltip accepts rich inline widgets, but represents them
-/// as placeholder characters in its semantic label. [RawTooltip] lets the
-/// visual keycaps stay widgets while assistive technology still receives the
-/// original, useful tooltip message.
 class DTooltip extends StatelessWidget {
   const DTooltip({
     super.key,
@@ -238,7 +227,6 @@ class _ShortcutKeycapsState extends State<_ShortcutKeycaps> {
   }
 }
 
-/// The keyboard-key treatment used inside shortcut tooltips.
 class DKbd extends StatelessWidget {
   const DKbd(
     this.label, {

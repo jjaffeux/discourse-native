@@ -17,7 +17,6 @@ ComposerSuggestion emoji(String name) => ComposerSuggestion(
   label: name,
 );
 
-/// A category or tag, keyed by the ref the site would have us write.
 ComposerSuggestion place(String ref) => ComposerSuggestion(
   kind: ComposerTriggerKind.hashtag,
   value: ref,
@@ -171,7 +170,6 @@ void main() {
       await tester.pump(ComposerAutocomplete.debounce);
       expect(asked, ['sa']);
 
-      // Kept typing while the first answer was still in flight.
       popup.update(typed('hey @sam'));
       await tester.pump(ComposerAutocomplete.debounce);
 
@@ -193,8 +191,6 @@ void main() {
     });
 
     testWidgets('keeps searching past a subcategory colon', (tester) async {
-      // The whole point of the second backward walk: the site is asked about
-      // `parent:ch`, not about `ch`, which would find the wrong thing.
       popup.update(typed('see #parent:ch'));
       await tester.pump(ComposerAutocomplete.debounce);
 
@@ -290,7 +286,6 @@ void main() {
 
       expect(popup.moveSelection(1), isFalse);
 
-      // The tearDown would otherwise dispose it twice.
       popup = open();
     });
   });
@@ -303,8 +298,6 @@ void main() {
       popup.dismiss();
       expect(popup.isOpen, isFalse);
 
-      // Otherwise Escape reads as a key that does not work: the list would
-      // close and the very next letter would put it straight back.
       popup.update(typed('a :smi'));
       expect(popup.isOpen, isFalse);
     });
@@ -333,10 +326,8 @@ void main() {
     gate!.complete();
     await tester.pump();
 
-    // Reaching a disposed ChangeNotifier throws, so getting here is the test.
     expect(popup.isOpen, isFalse);
 
-    // The tearDown would otherwise dispose it twice.
     popup = open();
   });
 }

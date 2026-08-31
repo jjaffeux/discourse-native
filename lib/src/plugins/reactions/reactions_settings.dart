@@ -9,10 +9,6 @@ const reactionsSettingsDataKey = PluginDataKey<ReactionsSettings>(
   name: 'site-settings',
 );
 
-/// Client settings owned by discourse-reactions.
-///
-/// Post payload presence remains the feature gate. These values only describe
-/// which reactions an authoring surface may offer and how to present them.
 @immutable
 final class ReactionsSettings {
   const ReactionsSettings({

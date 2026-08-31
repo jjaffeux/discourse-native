@@ -35,8 +35,6 @@ import 'package:http/testing.dart';
 
 import 'support/bundled_plugins.dart';
 
-/// Stands in for a Discourse: answers the probe with an API version, then the
-/// basic-info payload.
 MockClient discourseServing({
   int probeStatus = 200,
   String? apiVersion = '4',
@@ -981,7 +979,6 @@ void _authGroups() {
         expect(totals.unseenReviewables, 1);
         expect(totals.topicTrackingUnread, 12);
         expect(totals.topicTrackingNew, 7);
-        // Addressed-to-you items only; unread topics are not in the rail badge.
         expect(totals.badge, 3 + 2 + 1);
       },
     );
@@ -1071,7 +1068,6 @@ void _authGroups() {
         apiKey: 'the-key',
       );
 
-      // The menu's own view of the list, not the paged history.
       expect(url?.path, '/notifications.json');
       expect(url?.queryParameters['recent'], 'true');
       expect(url?.queryParameters['limit'], '30');
@@ -1412,7 +1408,6 @@ void _authGroups() {
       // anybody else's username here.
       expect(url?.path, '/u/joffreyj/user-menu-bookmarks.json');
 
-      // A reminder is a notification, and reads as one.
       expect(payload.reminders.single.typeId, const NotificationTypeId(24));
       expect(payload.reminders.single.topicId, 77);
       expect(payload.reminders.single.slug, 'better-image-handling');
@@ -1442,8 +1437,6 @@ void _authGroups() {
                 'bookmarks': [
                   {
                     'id': 3,
-                    // A plugin's own bookmarkable, with none of the keys a post
-                    // or a topic carries.
                     'bookmarkable_type': 'SomePluginThing',
                     'bookmarkable_url': 'https://example.com/plugin/thing/1',
                     'title': 'Something a plugin keeps',
@@ -1464,8 +1457,6 @@ void _authGroups() {
         expect(payload.reminders, isEmpty);
         expect(payload.bookmarks.single.title, 'Something a plugin keeps');
         expect(payload.bookmarks.single.author, isNull);
-        // Left exactly as it came: a plugin's bookmarkable can point anywhere,
-        // and this app has nowhere but the browser to open it either way.
         expect(
           payload.bookmarks.single.path,
           'https://example.com/plugin/thing/1',
@@ -1531,7 +1522,6 @@ void _authGroups() {
 
       expect(method, 'PUT');
       expect(path, '/notifications/mark-read.json');
-      // An id, and only an id: the same route with none dismisses the lot.
       expect(jsonDecode(body!), {'id': 12});
     });
   });
@@ -1942,8 +1932,6 @@ void _feedGroups() {
         expect(list.categories.single.name, 'Support docs');
         expect(list.categories.single.parentCategoryId, 2);
 
-        // Site-relative templates are absolutised, absolute ones left alone, and
-        // a poster with no matching user is dropped rather than crashing.
         expect(topic.posterAvatars, [
           'https://meta.discourse.org/user_avatar/meta/joffreyj/90/1.png',
           'https://cdn.example/90/2.png',
@@ -2892,8 +2880,6 @@ void _feedGroups() {
           client: MockClient((_) async => http.Response('nope', 403)),
         );
 
-        // The caller swallows this; what matters is that it does not come back
-        // as a SiteConfig claiming things about the site.
         expect(
           () => api.siteConfig(siteUrl: 'https://example.com'),
           throwsA(isA<SiteLookupException>()),
@@ -2942,7 +2928,6 @@ void _feedGroups() {
       expect(found.map((user) => user.username), ['sam', 'sally']);
       expect(found.first.name, 'Sam Saffron');
       expect(found.first.avatarUrl, contains('example.com'));
-      // Absent on a site with `enable_names` off.
       expect(found.last.name, isNull);
     });
 
@@ -2973,7 +2958,6 @@ void _feedGroups() {
   });
 
   group('searchHashtags', () {
-    /// One row of what `/hashtags/search.json` answers with.
     Map<String, dynamic> row({
       required String type,
       required String ref,
@@ -3338,7 +3322,6 @@ void _feedGroups() {
                 ],
                 'default': [
                   {'name': 'shipit', 'url': '//cdn.example.com/shipit.png'},
-                  // Malformed rows are dropped rather than read loosely.
                   {'name': 'no_url'},
                 ],
                 'opaque plugin/group': <Object?>[],
@@ -3362,8 +3345,6 @@ void _feedGroups() {
           'grin',
           'shipit',
         ]);
-        // Site-relative urls are resolved; an absolute one is left as the site
-        // wrote it, CDN and all.
         expect(
           catalog.all.first.url,
           'https://example.com/images/emoji/twitter/smile.png?v=2',
@@ -3460,7 +3441,6 @@ void _feedGroups() {
           (_) async => http.Response(
             jsonEncode([
               {'name': 'party_blob', 'url': 'https://example.com/u/p.png'},
-              // Malformed rows are dropped rather than read loosely.
               {'name': 'no_url'},
               'not a row',
             ]),
@@ -3530,7 +3510,6 @@ void _feedGroups() {
         '/discourse-reactions/posts/1/custom-reactions/clap/toggle.json',
       );
       expect(seen.body, '{}');
-      // Answered unwrapped, the way the like routes are.
       expect(post?.reactions?.mine?.id, 'clap');
     });
 
@@ -3651,8 +3630,6 @@ void _feedGroups() {
       ).postReactors(siteUrl: 'https://example.com', postId: 1, reaction: '+1');
 
       expect(seen.queryParameters['reaction_value'], '+1');
-      // Kept on the record, so the filtered list does not overwrite the whole
-      // one in the store.
       expect(reactors.filter, '+1');
     });
   });
@@ -3821,7 +3798,6 @@ void _feedGroups() {
   });
 
   group('chatChannels', () {
-    /// The two-bucket envelope `Chat::ChannelIndexSerializer` writes.
     MockClient serving(void Function(http.Request) record) => MockClient((
       request,
     ) async {
@@ -5295,12 +5271,10 @@ void _feedGroups() {
 
       expect(method, 'PUT');
       expect(seen.path, '/chat/api/channels/9/read.json');
-      // In the query string, which is where Discourse's own client puts it.
       expect(seen.queryParameters['message_id'], '44');
     });
 
     test('reports a refusal rather than swallowing it', () async {
-      // The controller swallows it; the route does not get to decide that.
       final api = DiscourseApi(
         client: MockClient((_) async => http.Response('', 404)),
       );
@@ -5498,7 +5472,6 @@ void _feedGroups() {
   });
 
   group('topic', () {
-    /// Answers any topic route with a single-post topic.
     MockClient serving(List<String> paths) => MockClient((request) async {
       paths.add(request.url.path);
       return http.Response(
@@ -6073,8 +6046,6 @@ void _feedGroups() {
 }
 
 void _writeGroups() {
-  /// A site that accepts the post and answers with the envelope `nested_post`
-  /// asks for.
   MockClient accepting({
     Map<String, dynamic>? envelope,
     void Function(http.Request request)? onRequest,
@@ -7012,7 +6983,6 @@ void _writeGroups() {
           ),
         );
 
-        // Success, 200, and nothing to put in the stream.
         expect(creation.isEnqueued, isTrue);
         expect(creation.post, isNull);
         expect(creation.message, 'Your post is in the queue.');
@@ -7825,7 +7795,6 @@ void _writeGroups() {
   });
 
   group('likePost and unlikePost', () {
-    /// What the routes answer with: the post itself, unwrapped.
     String likedPost({required int count, required bool acted}) => jsonEncode({
       'id': 42,
       'post_number': 7,

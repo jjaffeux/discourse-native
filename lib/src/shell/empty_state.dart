@@ -6,7 +6,6 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'add_instance_sheet.dart';
 
-/// Shown in place of the sidebar and content while no sites are connected.
 class EmptyState extends StatelessWidget {
   const EmptyState({super.key});
 

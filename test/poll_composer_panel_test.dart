@@ -205,8 +205,6 @@ void main() {
     testWidgets('local-date action and Ctrl+Shift+. follow the site setting', (
       tester,
     ) async {
-      // Tests report a non-macOS defaultTargetPlatform, so the advertised
-      // chord is the control variant.
       const tooltip = 'Insert date/time  Ctrl Shift .';
       final disabled = await _openComposer();
       addTearDown(disabled.dispose);
@@ -252,9 +250,7 @@ void main() {
       await tester.tap(find.byType(TextField).last);
       await tester.pump();
 
-      // Bare Shift+. is the '>' character on US layouts. The panel must not
-      // handle the key-down, so the text input plugin still receives it and
-      // delivers the character it produces.
+      // Bare Shift+. must remain available to the text input plugin as `>`.
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
       expect(
         await tester.sendKeyDownEvent(
@@ -345,12 +341,9 @@ void main() {
 
       final pill = find.byType(PollComposerPill);
       expect(pill, findsOneWidget);
-      // The field resolves the pill from its visual coordinates before the
-      // editable moves its caret.
       final gesture = await tester.startGesture(tester.getCenter(pill));
       final block = composer.text.pollBlocks.single;
-      // Desktop EditableText can move the caret and rebuild before or after its
-      // tap callback. Neither timing may reveal the source under the modal.
+      // EditableText may rebuild before or after its desktop tap callback.
       composer.text.selection = TextSelection.collapsed(
         offset: block.start + 1,
       );
@@ -754,8 +747,7 @@ void main() {
           expect(find.byType(PollComposerPill), findsOneWidget);
           await mouse.up();
 
-          // TextField activates the after-pill target on pointer-up. Click again
-          // before a frame can lay out the newly appended source line.
+          // Re-click before the appended source line has been laid out.
           final expected = '$poll${lineEnding.value}';
           expect(composer.text.text, expected);
 
@@ -1058,8 +1050,7 @@ void main() {
       await tester.pump();
       expectLocked();
 
-      // Word-delete chords stay swallowed: released to the editing shortcuts
-      // they would chew into the collapsed raw markup behind the pill.
+      // Editing shortcuts would otherwise delete collapsed source markup.
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       expect(await tester.sendKeyEvent(LogicalKeyboardKey.backspace), isTrue);
       expect(await tester.sendKeyEvent(LogicalKeyboardKey.delete), isTrue);

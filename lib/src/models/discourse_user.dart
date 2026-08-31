@@ -6,7 +6,6 @@ import 'json.dart';
 import 'sidebar_tag.dart';
 import 'user_status.dart';
 
-/// The account an API key belongs to, from `/session/current.json`.
 @immutable
 class DiscourseUser {
   const DiscourseUser({
@@ -48,9 +47,7 @@ class DiscourseUser {
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
   }) => DiscourseUser(
     username: json['username'] as String,
-    // Absent from anything stored before the live counters needed it, which is
-    // why it is nullable rather than required — see `ShellController`, which
-    // asks the site again when it finds one missing.
+    // Null in older snapshots forces the shell to refresh live counters.
     id: jsonIntOrNull(json['id']),
     name: json['name'] as String?,
     avatarUrl: json['avatarUrl'] as String?,
@@ -92,8 +89,7 @@ class DiscourseUser {
       json['doNotDisturbChannelPosition'],
     ),
     timezone: json['timezone'] as String?,
-    // Null distinguishes an account stored before this preference was retained
-    // from the server-confirmed "online" value false.
+    // Null distinguishes an old snapshot from a server-confirmed false.
     hidePresence: json['hidePresence'] as bool?,
     bookmarkAutoDeletePreference: BookmarkAutoDeletePreference.read(
       json['bookmarkAutoDeletePreference'],
@@ -103,8 +99,6 @@ class DiscourseUser {
 
   final String username;
 
-  /// The account's own id, which is how Discourse names the message_bus
-  /// channels it publishes a user's counts on.
   final int? id;
 
   final String? name;
@@ -112,71 +106,35 @@ class DiscourseUser {
   final UserStatus? status;
   final int draftCount;
 
-  /// The server guardian's account-level permission to create a topic.
-  ///
-  /// Unlike a topic-list's contextual `can_create_topic`, this remains valid
-  /// while Messages, a topic, or another non-list route is on screen.
   final bool canCreateTopic;
 
-  /// Whether the account may create a custom group.
   final bool canCreateGroup;
 
-  /// Core's account-level guardian for reassigning post authorship.
   final bool canChangePostOwner;
 
-  /// Administrators have access to group inboxes even without membership.
   final bool admin;
 
-  /// Whether the current account is an administrator or moderator.
   final bool staff;
 
-  /// Core's guardian-approved capability for creating staff-only replies.
-  ///
-  /// This is intentionally not inferred from [staff]: sites may grant whisper
-  /// access to any configured group through `whispers_allowed_groups`.
   final bool whisperer;
 
-  /// The server guardian's account-level private-message capability.
   final bool canSendPrivateMessages;
 
-  /// Core's guardian-approved capability for creating forum invitations.
   final bool canInviteToForum;
 
-  /// Group names from the freshly loaded current-user payload.
   final List<String> groups;
 
-  /// Groups whose private-message inboxes this account may enter.
-  ///
-  /// Discourse marks these with `has_messages` in the current-user payload.
-  /// Keeping the narrower list separate prevents ordinary group membership
-  /// from being presented as an inbox the server will refuse.
   final List<String> messageGroupNames;
 
-  /// The categories this account chose for its sidebar. Core derives display
-  /// order from the site's category ordering rather than this list's order.
   final List<int> sidebarCategoryIds;
 
-  /// The tags this account chose for its navigation sidebar.
-  ///
-  /// An empty list means core falls back to the site's top tags. The separate
-  /// [displaySidebarTags] flag retains the server's permission-aware answer to
-  /// whether the section itself is meaningful when that fallback is empty.
   final List<SidebarTag> sidebarTags;
   final bool displaySidebarTags;
 
-  /// Whether the account combines unread and new topics into core's unified
-  /// New list and its sidebar counts.
   final bool unifiedNewEnabled;
 
-  /// Whether core renders numeric sidebar counts instead of unread dots.
   final bool sidebarShowCountOfNewItems;
 
-  /// Direct category preferences at or above core's Tracking level.
-  ///
-  /// Null means this account was persisted before the current-user serializer
-  /// fields were retained. A fresh server response uses an empty list when the
-  /// account has no categories at that level, keeping migration state distinct
-  /// from a real empty preference.
   final List<int>? trackedCategoryIds;
   final List<int>? watchedCategoryIds;
   final List<int>? watchedFirstPostCategoryIds;
@@ -194,30 +152,16 @@ class DiscourseUser {
     };
   }
 
-  /// While this lies in the future Discourse suppresses the header indicator.
   final DateTime? doNotDisturbUntil;
 
-  /// Snapshot cursor for the account's private Do Not Disturb channel.
   final int? doNotDisturbChannelPosition;
 
-  /// The IANA timezone selected in this account's Discourse preferences.
-  ///
-  /// Rendering normally follows the device, like the web client. This is the
-  /// source-zone default for newly authored dates and the fallback when the
-  /// operating system cannot report an IANA identifier.
   final String? timezone;
 
-  /// Whether this account opted out of Discourse presence features.
-  ///
-  /// Null means no current-user payload carrying the option has been retained
-  /// yet. False is an authoritative server value and means the account appears
-  /// online where a presence feature is active.
   final bool? hidePresence;
 
   final BookmarkAutoDeletePreference bookmarkAutoDeletePreference;
 
-  /// Values decoded by the installed feature manifest. Core intentionally
-  /// cannot name or interpret anything in this bag.
   final PluginData plugins;
 
   bool get isInDoNotDisturb =>
@@ -262,7 +206,6 @@ class DiscourseUser {
     };
   }
 
-  /// Display name if the site has one, otherwise the username.
   String get displayName => (name?.isNotEmpty ?? false) ? name! : username;
 
   DiscourseUser withStatus(UserStatus? status) => DiscourseUser(
@@ -331,11 +274,6 @@ class DiscourseUser {
     plugins: plugins,
   );
 
-  /// Applies the server-confirmed preference values consumed outside the
-  /// Preferences page while preserving every capability from this session.
-  ///
-  /// This stored user is a warm-start mirror, not the owner of the values;
-  /// Preferences writes always go to Discourse before this copy changes.
   DiscourseUser withPreferences({
     String? timezone,
     BookmarkAutoDeletePreference? bookmarkAutoDeletePreference,
@@ -373,8 +311,6 @@ class DiscourseUser {
     plugins: plugins,
   );
 
-  /// Replaces the server-confirmed presence preference while retaining the
-  /// rest of the freshest current-user payload.
   DiscourseUser withHidePresence(bool? hidePresence) => DiscourseUser(
     username: username,
     id: id,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../foundation/diagnostic_errors.dart';
@@ -14,23 +13,6 @@ import 'discourse/topic/block.dart';
 import 'discourse/user/block.dart';
 import 'markup.dart';
 
-/// Renders Discourse oneboxes natively instead of as styled HTML.
-///
-/// Discourse styles oneboxes with a stylesheet, and [HtmlWidget] has no
-/// stylesheet engine — it only reads the `style` attribute of individual
-/// elements. So none of Discourse's onebox CSS can be reused here, and an
-/// unhandled onebox renders as an unstyled pile of text and images.
-///
-/// Every onebox arrives in the envelope the `_layout` template writes —
-/// `aside.onebox`, `header.source`, `article.onebox-body` — which
-/// [OneboxData] reads. Core engines claim links to Discourse itself. Provider
-/// plugins may claim their own asides through the cooked-element API before
-/// this generic fallback runs. Everything else lands on [OneboxCard], which
-/// hands the body it did not claim back to [HtmlWidget]. New and unknown
-/// engines therefore still show their content inside native chrome.
-///
-/// `tool/markup_contract.dart` checks the envelope and the engines' markup
-/// for drift against discourse/discourse.
 class OneboxData {
   const OneboxData({
     required this.url,
@@ -42,24 +24,18 @@ class OneboxData {
     required this.bodyHtml,
   });
 
-  /// Where the onebox points, from `data-onebox-src` or the title link.
   final String? url;
 
-  /// Favicon shown in the header, `img.site-icon`.
   final String? siteIcon;
 
-  /// Header link text: a domain, or the site's name if it advertises one.
   final String? siteName;
 
   final String? title;
   final String? titleUrl;
   final OneboxThumbnail? thumbnail;
 
-  /// Everything in `article.onebox-body` that this parser did not claim,
-  /// rendered by [HtmlWidget]. Empty when the body was only a title and image.
   final String bodyHtml;
 
-  /// Reads [aside], which must be the `aside.onebox` element itself.
   static OneboxData from(dom.Element aside) {
     final header = descendantWhere(aside, (e) => e.localName == 'header');
     final article =
@@ -110,7 +86,6 @@ class OneboxData {
     );
   }
 
-  /// Images the body styles as content, as opposed to inline decoration.
   static bool _isThumbnail(dom.Element e) {
     if (e.localName != 'img') return false;
     if (e.classes.contains('thumbnail')) return true;
@@ -125,8 +100,6 @@ class OneboxData {
     );
   }
 
-  /// The child of [root] that contains [node], so wrappers such as
-  /// `div.aspect-image` are claimed along with the image inside them.
   static dom.Node _topLevelAncestor(dom.Element root, dom.Element node) {
     dom.Node current = node;
     while (current.parent != null && current.parent != root) {
@@ -139,7 +112,6 @@ class OneboxData {
       node is dom.Element ? node.outerHtml : (node.text ?? '');
 }
 
-/// A onebox's lead image, with the intrinsic size Discourse recorded for it.
 class OneboxThumbnail {
   const OneboxThumbnail({
     required this.src,
@@ -149,10 +121,8 @@ class OneboxThumbnail {
 
   final String src;
 
-  /// Width over height, or null when the markup did not say.
   final double? aspectRatio;
 
-  /// Engines like Twitter use the lead image as a small round avatar.
   final bool isAvatar;
 
   // Onebox dimensions are remote layout hints, not authority. At the fixed
@@ -185,27 +155,21 @@ class OneboxThumbnail {
   }
 }
 
-/// A body parser for one engine, and the test that decides the aside is one.
 class OneboxEngine {
   const OneboxEngine({required this.matches, required this.build});
 
   final bool Function(dom.Element aside) matches;
 
-  /// Builds the whole widget for the aside, [envelope] included.
   final Widget Function(dom.Element aside, OneboxData envelope, String? siteUrl)
   build;
 }
 
-/// The engines this app draws natively, first claim wins. Anything none of
-/// them recognises lands on the generic [OneboxCard].
 final List<OneboxEngine> _engines = [
   discourseTopicBlock,
   discourseUserBlock,
   discourseCategoryBlock,
 ];
 
-/// Hands `aside.onebox` to whichever engine claims it, for
-/// [HtmlWidget.customWidgetBuilder].
 Widget? oneboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
   if (element.localName != 'aside') return null;
   if (!element.classes.contains('onebox')) return null;
@@ -219,16 +183,12 @@ Widget? oneboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
   return OneboxCard(data: envelope, siteUrl: siteUrl);
 }
 
-/// The card every onebox sits in: the site header, and either a body an
-/// engine built or the generic title-and-thumbnail one.
 class OneboxCard extends StatelessWidget {
   const OneboxCard({super.key, required this.data, this.child, this.siteUrl});
 
   final OneboxData data;
   final String? siteUrl;
 
-  /// The engine-specific body. Null asks for the generic one, which is what
-  /// unknown engines get.
   final Widget? child;
 
   static const double _thumbnailWidth = 88;
@@ -296,8 +256,6 @@ class OneboxCard extends StatelessWidget {
 
     if (thumbnail == null) return text;
 
-    // The web layout floats the image left of the text, which is also what
-    // reads best in a column narrower than a browser window.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -1,7 +1,6 @@
 import '../../data/plugin_transport.dart';
 import 'ai_summary.dart';
 
-/// Typed client for discourse-ai's topic summarization route.
 final class AiSummaryApi {
   const AiSummaryApi(this._transport);
 

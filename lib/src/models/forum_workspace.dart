@@ -2,10 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'content_route.dart';
 
-/// A logical viewport position which can survive a tab being unmounted.
-///
-/// [kind] names the owning view (`feed`, `topic`, or `chat`), [itemId] is a row,
-/// post, or message id, and [offset] is optional alignment within that item.
 @immutable
 final class ForumTabAnchor {
   const ForumTabAnchor({
@@ -53,7 +49,6 @@ final class ForumTabAnchor {
   int get hashCode => Object.hash(kind, itemId, offset);
 }
 
-/// One open work context inside a single forum.
 @immutable
 final class ForumTab {
   ForumTab({
@@ -68,18 +63,12 @@ final class ForumTab {
        contentStack = List.unmodifiable(contentStack),
        anchors = Map.unmodifiable(anchors);
 
-  /// Root route plus the most recent navigation history retained per tab.
-  ///
-  /// Navigation is presentation state and is restored eagerly. A finite
-  /// browser-like history prevents a long session or corrupt local snapshot
-  /// from growing every later workspace serialization without limit.
   static const int maximumContentRoutes = 64;
 
   final String id;
   final String rootDestinationId;
   final List<ContentRoute> contentStack;
 
-  /// Restorable positions keyed by route id.
   final Map<String, ForumTabAnchor> anchors;
 
   ContentRoute get currentContent => contentStack.last;
@@ -211,7 +200,6 @@ final class ForumTab {
   );
 }
 
-/// The ordered set of tabs owned by one account on one forum.
 @immutable
 final class ForumWorkspace {
   ForumWorkspace({
@@ -227,7 +215,6 @@ final class ForumWorkspace {
        assert(tabs.any((tab) => tab.id == activeTabId)),
        tabs = List.unmodifiable(tabs);
 
-  /// Maximum eager work contexts one forum restores and renders.
   static const int maximumTabs = 20;
 
   final String siteUrl;

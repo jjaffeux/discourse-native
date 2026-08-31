@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../foundation/calendar_day.dart';
 import '../theme/app_theme.dart';
 
-/// The date boundary shared by topic and chat streams.
 class StreamDaySeparator extends StatefulWidget {
   const StreamDaySeparator({
     super.key,
@@ -17,8 +16,6 @@ class StreamDaySeparator extends StatefulWidget {
   final DateTime day;
   final bool floating;
 
-  /// Topics return to the first post of the day. Chat dates are informative,
-  /// so they retain the same hover treatment without presenting as buttons.
   final VoidCallback? onTap;
 
   @override

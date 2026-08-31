@@ -25,11 +25,8 @@ import 'package:http/testing.dart';
 
 import 'support/finders.dart';
 
-/// The composer draws markdown but posts it unchanged, and the two are the same
-/// string. Everything Flutter does with an editable — placing the caret, hit
-/// testing a tap, select-all, the clipboard — reads offsets into the laid-out
-/// paragraph and hands them back as offsets into `controller.text`. Nothing
-/// checks that those agree, so the tests that matter here are the ones that do.
+/// Flutter silently assumes offsets in the laid-out span tree and controller
+/// text describe the same string; every projection here must preserve that.
 void main() {
   late MarkdownEditingController controller;
 
@@ -78,9 +75,6 @@ void main() {
       testWidgets(source.split('\n').first, (tester) async {
         await pumpField(tester, source);
 
-        // Character for character. A WidgetSpan anywhere in the tree would
-        // break this — a placeholder is worth exactly one code unit however
-        // wide it draws — and every offset after it would mean two things.
         expect(
           painted(tester).toPlainText(includeSemanticsLabels: false),
           source,
@@ -95,8 +89,7 @@ void main() {
     await pumpField(tester, source);
 
     final render = editable(tester).renderEditable;
-    // A round trip rather than a pixel: where the caret is drawn for an offset
-    // has to be where a tap at that spot puts the caret back.
+    // Round-trip offsets because glyph positions vary by platform.
     for (final offset in [0, 5, 9, 13, 18, source.length]) {
       final rect = render.getLocalRectForCaret(TextPosition(offset: offset));
       expect(
@@ -113,11 +106,7 @@ void main() {
     const source = 'say **hello** to @sam';
     await pumpField(tester, source);
 
-    // `RenderEditable.plainText` is what select-all, word boundaries and
-    // `getPositionForPoint` are all computed from, and it is the flattened
-    // span tree rather than the field's string. Where those two disagree,
-    // Flutter neither asserts nor converts — it quietly means one by the
-    // other.
+    // RenderEditable derives editing offsets from its flattened span tree.
     expect(editable(tester).renderEditable.plainText, source);
   });
 
@@ -132,8 +121,6 @@ void main() {
       await tester.pump();
     }
 
-    // Scanning tokenizes fenced blocks, which `syntax.dart` documents as
-    // expensive enough to drop frames. None of it depends on the caret.
     expect(controller.scans, after);
   });
 
@@ -150,7 +137,6 @@ void main() {
     expect(controller.scans, greaterThan(before));
   });
 
-  /// The style the character at [offset] is painted with.
   TextStyle styleAt(WidgetTester tester, String source, int offset) {
     var at = 0;
     TextStyle? found;
@@ -201,8 +187,7 @@ void main() {
     });
 
     testWidgets('nothing but <ins> is underlined', (tester) async {
-      // Underline in an editable means "the IME has not committed this yet".
-      // A link or a heading borrowing it would be lying about the text.
+      // Flutter reserves editable underlines for IME composing ranges.
       const source = 'see [a](https://b.c) and **d** and `e`';
       await pumpField(tester, source);
 
@@ -231,7 +216,6 @@ void main() {
       const source = '```dart\nfinal x = 1;\n```';
       await pumpField(tester, source);
 
-      // No debounce to pump past: a small fence must never flash plain.
       expect(
         styleAt(tester, source, source.indexOf('final')).color,
         AppTheme.dark.code.keyword,
@@ -251,9 +235,6 @@ void main() {
         AppTheme.dark.code.keyword,
       );
 
-      // A keystroke inside the fence. The frame it causes must not pay for a
-      // parse of the whole body, so the fence drops to plain code styling —
-      // monospace and the code block's default foreground, never bare prose.
       final edited = largeSource.replaceFirst('line 7', 'line 07');
       controller.value = TextEditingValue(
         text: edited,
@@ -265,8 +246,6 @@ void main() {
       expect(plain.fontFamily, monospaceFontFamily);
       expect(plain.color, AppTheme.dark.colorScheme.onSurface);
 
-      // Once the body has held still for the debounce, the highlighted spans
-      // are back: the final state is always the fully coloured one.
       await tester.pump(MarkdownEditingController.fenceHighlightDebounce);
       await tester.pump();
 
@@ -279,10 +258,8 @@ void main() {
     testWidgets('more fences than the cache holds still settles', (
       tester,
     ) async {
-      // The highlight cache is process-wide and bounded, so a document with
-      // more large fences than it holds evicts its own earlier entries. The
-      // rescan after a parse round then finds them uncached; re-deferring
-      // those would restart the timer forever on an idle composer.
+      // A bounded process-wide cache can evict earlier fences from the same
+      // document; re-deferring those on every pass would cycle forever.
       final crowded = [
         for (var fence = 0; fence < syntaxHighlightCacheCapacity + 8; fence++)
           '```dart\n${List.generate(60, (line) => 'final v$fence$line = $line;').join('\n')}\n```',
@@ -290,17 +267,12 @@ void main() {
 
       await pumpField(tester, crowded);
 
-      // Settle: each round may only parse bodies it has not parsed before, so
-      // the deferred set shrinks to nothing instead of cycling. Teardown is
-      // the assertion — flutter_test fails a test that leaves a Timer pending,
-      // which a cycling debounce always does.
+      // flutter_test also fails teardown if the debounce keeps a Timer alive.
       for (var round = 0; round < 6; round++) {
         await tester.pump(MarkdownEditingController.fenceHighlightDebounce);
         await tester.pump();
       }
 
-      // Settling is not the same as giving up: the fences the cache did keep
-      // are still coloured.
       final keyword = crowded.lastIndexOf('final v');
       expect(
         styleAt(tester, crowded, keyword).color,
@@ -322,8 +294,6 @@ void main() {
         ),
       );
 
-      // The debounce is pending now. Take the field down and dispose mid-wait
-      // — the test harness fails on any timer still pending when this ends.
       await tester.pumpWidget(const SizedBox());
       local.dispose();
     });
@@ -332,8 +302,7 @@ void main() {
   testWidgets('the composing range keeps its underline', (tester) async {
     const source = 'say hello';
     await pumpField(tester, source);
-    // `withComposing` is `!readOnly && _hasFocus`, so an unfocused field is
-    // never told about a composing range at all.
+    // EditableText only forwards composing ranges while focused.
     await tester.tap(find.byType(TextField));
     await tester.pump();
 
@@ -344,8 +313,6 @@ void main() {
     );
     await tester.pump();
 
-    // Still the same string, and the IME's own indicator survived being
-    // drawn over syntax highlighting.
     final span = painted(tester);
     expect(span.toPlainText(includeSemanticsLabels: false), source);
 
@@ -391,9 +358,6 @@ void main() {
   });
 
   group('emoji artwork', () {
-    /// A cache that already holds the artwork for `smile`, so the field can
-    /// paint it without going async — which is the only state it substitutes
-    /// in. `wave` is a name the site does not have.
     void primeCache() {
       final previous = EmojiCache.instance;
       addTearDown(() => EmojiCache.instance = previous);
@@ -411,7 +375,6 @@ void main() {
 
     Future<void> pumpWithEmoji(WidgetTester tester, String source) async {
       primeCache();
-      // Warm the cache the way a second screen of posts would have.
       await EmojiCache.instance.load(urlFor('smile'));
       await pumpField(tester, source, resolveEmoji: urlFor);
       await tester.pump();
@@ -428,12 +391,8 @@ void main() {
       const source = 'hey :smile: there';
       await pumpWithEmoji(tester, source);
 
-      // This is the whole trick. A WidgetSpan is worth exactly one code unit,
-      // so it stands in for exactly one character — the closing colon — and
-      // the other six are drawn at zero size rather than dropped. The painted
-      // paragraph therefore has the same *length* as the text, differing only
-      // at the placeholder, which is what keeps every offset meaning the same
-      // position in both.
+      // WidgetSpan contributes one placeholder code unit; the remaining
+      // shortcode characters must stay in the flattened span tree.
       expect(controller.text, source);
       expect(editable(tester).renderEditable.plainText.length, source.length);
       expect(
@@ -463,12 +422,10 @@ void main() {
       await pumpWithEmoji(tester, 'hey :smile: there');
       expect(find.byType(EmojiImage), findsOneWidget);
 
-      // Strictly inside — arrowed into it to edit the name.
       controller.selection = const TextSelection.collapsed(offset: 7);
       await tester.pump();
       expect(find.byType(EmojiImage), findsNothing);
 
-      // And back out again.
       controller.selection = const TextSelection.collapsed(offset: 11);
       await tester.pump();
       expect(find.byType(EmojiImage), findsOneWidget);
@@ -477,9 +434,6 @@ void main() {
     testWidgets('shows the artwork once it arrives, not only if it was here', (
       tester,
     ) async {
-      // The path the app actually takes: nothing cached, someone types a
-      // shortcode, the bytes are fetched, and the field has to repaint. Every
-      // other test here warms the cache first and so never walks it.
       primeCache();
       await pumpField(tester, 'hey :smile:', resolveEmoji: urlFor);
 
@@ -493,7 +447,6 @@ void main() {
     testWidgets('leaves a name the site does not have as text', (tester) async {
       await pumpWithEmoji(tester, 'hey :wave: there');
 
-      // It 404s once, is remembered as a failure, and stays text.
       await tester.pump();
       expect(find.byType(EmojiImage), findsNothing);
       expect(controller.text, 'hey :wave: there');
@@ -529,7 +482,6 @@ void main() {
       nameBatches = [];
     });
 
-    /// The shell's half, with no site and no network behind it.
     ComposerPills pills() => (
       hashtag: (ref) => known[ref],
       mention: (name) => real[name],
@@ -601,8 +553,7 @@ void main() {
       expect(art.colorValue, isNull);
     });
 
-    /// Puts the caret somewhere other than in the run being looked at, since a
-    /// caret touching one is what keeps it as text.
+    // A caret touching a token keeps its source text visible.
     Future<void> pumpAway(
       WidgetTester tester,
       String source, {
@@ -623,8 +574,6 @@ void main() {
       await pumpAway(tester, 'filed under #bug today');
 
       expect(find.byType(HashtagPill), findsOneWidget);
-      // The characters that are in the field, not the site's own name for it:
-      // what the composer draws is what will be posted.
       expect(
         tester.widget<HashtagPill>(find.byType(HashtagPill)).label,
         '#bug',
@@ -715,13 +664,8 @@ void main() {
       real['sam'] = true;
       await pumpAway(tester, 'ask @sam about #bug now');
 
-      // A WidgetSpan flattens to one `￼` where the source has its own
-      // character, so the two differ exactly at the placeholders — and every
-      // offset after them would be wrong if they did not.
       final plain = painted(tester).toPlainText();
       expect(plain.length, controller.text.length);
-      // Two pills, so exactly two placeholders — and putting the characters
-      // they stand for back gives the source again.
       expect(plain.split('￼').length - 1, 2);
       expect(
         plain.replaceFirst('￼', 'm').replaceFirst('￼', 'g'),
@@ -748,8 +692,6 @@ void main() {
     });
 
     testWidgets('a name the site does not have stays text', (tester) async {
-      // The post will cook `@nobody` as plain text. A pill here would be the
-      // field promising a person who is not there.
       real['nobody'] = false;
       await pumpAway(tester, 'ask @nobody about it');
 
@@ -790,9 +732,7 @@ void main() {
     testWidgets('typing a ref asks nothing until it is finished', (
       tester,
     ) async {
-      // The reason the reveal rule is adjacency rather than strictly-inside.
-      // The run grows under the caret as it is typed, so a strict rule would
-      // pill it mid-word *and* ask the site about every prefix on the way.
+      // Adjacency keeps a growing token visible until its delimiter is typed.
       await pumpField(tester, '', pills: pills());
 
       for (final text in ['#', '#b', '#bu', '#bug']) {
@@ -805,7 +745,6 @@ void main() {
       expect(refBatches, isEmpty);
       expect(find.byType(HashtagPill), findsNothing);
 
-      // The space that ends the ref is what asks.
       controller.value = const TextEditingValue(
         text: '#bug ',
         selection: TextSelection.collapsed(offset: 5),
@@ -822,7 +761,6 @@ void main() {
       await pumpAway(tester, 'filed under #bug today');
       expect(find.byType(HashtagPill), findsOneWidget);
 
-      // Adjacent counts as inside for a run with no closing character.
       controller.selection = const TextSelection.collapsed(offset: 16);
       await tester.pump();
 
@@ -831,7 +769,6 @@ void main() {
     });
 
     testWidgets('with no pills at all everything stays text', (tester) async {
-      // The gate every existing test in this file relies on.
       await pumpField(tester, 'ask @sam about #bug');
       controller.selection = const TextSelection.collapsed(offset: 0);
       await tester.pump();
@@ -853,8 +790,6 @@ void main() {
       );
       await tester.pump();
 
-      // `copySelection` reads `_value.text`, never the span — so what lands on
-      // the clipboard is the markdown that will be posted.
       expect(
         editable(tester).textEditingValue.text.substring(0, 16),
         'filed under #bug',
@@ -865,12 +800,8 @@ void main() {
   testWidgets('typing leaves the pills already in the document alone', (
     tester,
   ) async {
-    // Every keystroke rebuilds the span tree, and every projection in it is a
-    // `WidgetSpan` whose child comes along. Whether that child is rebuilt or
-    // *recreated* is decided by the `GlobalKey` the controller holds for it —
-    // and a recreation throws away the element, its render objects and
-    // whatever they had measured. Typing at the end of a document moves none
-    // of them, so none of them should move.
+    // Projection GlobalKeys must preserve their elements across span-tree
+    // rebuilds or Flutter discards their measured render objects.
     const source =
         '![shot|400x300](https://example.com/a.png)\n'
         '\n'
@@ -917,8 +848,6 @@ void main() {
   });
 
   group('the invariant, with everything substituting at once', () {
-    /// Every shape that turns into a `WidgetSpan`, plus the ones that must
-    /// not, plus the delimiters that decide where a run ends.
     const pieces = [
       ':smile:',
       ':wave:',
@@ -978,14 +907,6 @@ void main() {
     testWidgets('every placeholder is worth exactly one code unit', (
       tester,
     ) async {
-      // The fixed sources above hold the invariant with nothing substituted.
-      // This is the state that can actually break it: artwork in the cache,
-      // both kinds of pill resolved, and runs of them meeting each other and
-      // the marks around them. A `WidgetSpan` is worth one `0xFFFC` code unit
-      // however wide it draws, so one standing in for the seven characters of
-      // `:smile:` would silently put every later offset out by six — and
-      // Flutter neither asserts nor converts, it just means one string by the
-      // other.
       final previous = EmojiCache.instance;
       addTearDown(() => EmojiCache.instance = previous);
       EmojiCache.instance = EmojiCache(
@@ -1013,9 +934,6 @@ void main() {
         resolve: (refs, names) {},
       );
 
-      // RenderEditable.plainText delegates to this exact span flattening.
-      // The fixed widget cases above cover that handoff; build the randomized
-      // spans directly so this property pays for projection, not 1,600 frames.
       late BuildContext spanContext;
       await tester.pumpWidget(
         MaterialApp(
@@ -1045,8 +963,6 @@ void main() {
         );
 
         try {
-          // Both ends and the middle: a caret touching a run is what keeps it
-          // as characters, so each offset paints a different set of spans.
           for (final caret in <int>{0, source.length ~/ 2, source.length}) {
             candidate.selection = TextSelection.collapsed(offset: caret);
             final painted = candidate
@@ -1081,17 +997,8 @@ void main() {
     testWidgets('every projected block preserves the source-length invariant', (
       tester,
     ) async {
-      // The block projections are the other half: a quote, an image, and
-      // arbitrary plugin syntax each replace a whole range with one pill and
-      // account for every remaining code unit themselves — as a transparent
-      // line ending, as zero-size text, or as a zero-size widget. The
-      // arithmetic differs per kind and each is only as right as the shapes
-      // it was written against, so the shapes are generated instead.
-      //
-      // Painting is asserted as well as length: `TextPainter` anchors an
-      // end-of-text caret to the paragraph's last glyph whenever the
-      // paragraph ends in a space separator, so a projection that hides a
-      // trailing space at `fontSize: 0` leaves it nothing to measure.
+      // Whole-block WidgetSpans must preserve every replaced source offset;
+      // TextPainter also needs a measurable final glyph after hidden spaces.
       const blocks = [
         '[quote="sam, post:1, topic:2"]\nquoted\n[/quote]\n\n',
         '[quote="a"]\nx\n[/quote]\n\n',
@@ -1121,9 +1028,6 @@ void main() {
         '> ',
       ];
 
-      // Keep the real EditableText layout path, but update one mounted field
-      // throughout the generated corpus instead of rebuilding MaterialApp,
-      // Theme, and Scaffold for every source.
       await pumpField(tester, '');
 
       final random = Random(4242);
@@ -1290,7 +1194,6 @@ final class _FakeSyntaxPill extends StatelessWidget {
   Widget build(BuildContext context) => Text(label);
 }
 
-/// The smallest thing `Image.memory` will accept: a 1x1 transparent PNG.
 final Uint8List _pngBytes = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
   'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',

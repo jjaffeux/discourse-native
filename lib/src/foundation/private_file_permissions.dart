@@ -23,7 +23,6 @@ Future<void> ensurePrivateFile(File file) async {
   restrictPrivateFile(file);
 }
 
-/// Repairs the permissions of an existing private file before it is read.
 void restrictPrivateFile(File file) {
   _restrictPermissions(file.path, _privateFileMode);
 }
@@ -53,19 +52,13 @@ final _FlockDart _nativeFlock = DynamicLibrary.process()
 final _CloseDart _nativeClose = DynamicLibrary.process()
     .lookupFunction<_CloseNative, _CloseDart>('close');
 
-/// How long a contended private lock is waited for before giving up.
-///
 /// Long enough to outlast any operation this lock guards, short enough that a
 /// wedged holder surfaces as an error rather than a permanent hang.
 const Duration _lockTimeout = Duration(seconds: 20);
 
-/// How often a contended lock is retried. `flock` has no asynchronous form, so
-/// waiting is polling; this is the compromise between latency on release and
-/// wake-ups while waiting.
+/// `flock` has no asynchronous form; this balances release latency and wakeups.
 const Duration _lockRetryInterval = Duration(milliseconds: 25);
 
-/// Runs [operation] while holding a process-aware exclusive `flock` on [file].
-///
 /// Dart's `RandomAccessFile.lock` uses process-scoped record locks on these
 /// platforms, which do not coordinate independent isolates in one process.
 /// `flock` is tied to the opened file description, so it covers both isolates

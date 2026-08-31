@@ -283,8 +283,6 @@ void main() {
       credentials.result.complete('stale-key');
       await loading;
 
-      // The host returns one atomic credential snapshot, so it may complete
-      // both private-store reads even though the picker was disposed midway.
       expect(credentials.clientIdCalls, 1);
       expect(api.gifCategoryRequests, isEmpty);
       expect(controller.error, isNull);

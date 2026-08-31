@@ -3,7 +3,6 @@ import 'dart:collection';
 
 import 'origin_cooldown.dart';
 
-/// What happens to work for an origin while its server cooldown is active.
 enum OriginRequestCooldownPolicy {
   /// Keep accepted work in FIFO order and admit new work up to the backlog cap.
   wait,
@@ -12,8 +11,6 @@ enum OriginRequestCooldownPolicy {
   reject,
 }
 
-/// A per-origin admission gate for request-like work.
-///
 /// The gate owns concurrency slots, bounded FIFO backlogs, extend-only server
 /// cooldowns, and shutdown. Callers retain protocol concerns: they decide when
 /// a response starts a cooldown and translate gate rejections into their
@@ -30,8 +27,6 @@ final class OriginRequestGate {
 
   final int maxConcurrentPerOrigin;
 
-  /// Maximum retained work behind the active slots for one origin.
-  ///
   /// Active leases do not count toward this limit.
   final int maxQueuedPerOrigin;
   final OriginRequestCooldownPolicy cooldownPolicy;
@@ -41,15 +36,12 @@ final class OriginRequestGate {
 
   bool get isClosed => _closed;
 
-  /// Acquires one slot which remains active until its lease is released.
   Future<OriginRequestLease> acquire(Uri url) {
     final pending = _AcquireAdmission();
     _enqueue(url.origin, pending);
     return pending.result.future;
   }
 
-  /// Runs [operation] in one slot and releases that slot on every outcome.
-  ///
   /// [operation] starts synchronously when capacity is granted. This keeps the
   /// gate suitable for callers whose delegation timing is observable while
   /// still returning one future for queued and immediately-started work.
@@ -62,8 +54,6 @@ final class OriginRequestGate {
     return pending.result.future;
   }
 
-  /// Extends the cooldown for [url]'s origin without acquiring a slot.
-  ///
   /// This is used when one request identifies a related origin which must be
   /// gated too. Extending a closed gate is deliberately inert.
   void extendCooldown(Uri url, Duration delay) {
@@ -172,8 +162,6 @@ final class OriginRequestGate {
     }
   }
 
-  /// Rejects waiting work and makes active leases inert.
-  ///
   /// Already-running operations keep the result they earn. They can neither
   /// re-arm cooldown timers nor admit more work after shutdown.
   void close() {
@@ -191,8 +179,6 @@ final class OriginRequestGate {
   }
 }
 
-/// Cooldown controls available to work whose lease lifetime the gate owns.
-///
 /// Unlike [OriginRequestLease], this context cannot release its slot early.
 /// Capturing it beyond the operation is harmless because cooldown extension
 /// becomes inert as soon as [OriginRequestGate.run] releases the hidden lease.
@@ -206,7 +192,6 @@ final class OriginRequestContext {
   void extendCooldown(Duration delay) => _lease.extendCooldown(delay);
 }
 
-/// A held origin slot.
 final class OriginRequestLease {
   OriginRequestLease._(this._owner, this.origin, this._state);
 
@@ -215,8 +200,6 @@ final class OriginRequestLease {
   final _OriginState _state;
   bool _released = false;
 
-  /// Extends this origin's cooldown without shortening an existing deadline.
-  ///
   /// A released lease and a lease which outlives [OriginRequestGate.close] are
   /// inert.
   void extendCooldown(Duration delay) {
@@ -236,7 +219,6 @@ sealed class OriginRequestGateException implements Exception {
   const OriginRequestGateException();
 }
 
-/// Work rejected because [OriginRequestGate.close] has already run.
 final class OriginRequestGateClosedException
     extends OriginRequestGateException {
   const OriginRequestGateClosedException();
@@ -245,7 +227,6 @@ final class OriginRequestGateClosedException
   String toString() => 'Origin request gate is closed.';
 }
 
-/// Work rejected because an origin's bounded backlog is already full.
 final class OriginRequestGateOverloadException
     extends OriginRequestGateException {
   const OriginRequestGateOverloadException(this.origin, this.maxQueued);
@@ -258,7 +239,6 @@ final class OriginRequestGateOverloadException
       'Request backlog for $origin already contains $maxQueued operations.';
 }
 
-/// Work rejected by a gate configured not to retain cooldown waiters.
 final class OriginRequestGateCooldownException
     extends OriginRequestGateException {
   const OriginRequestGateCooldownException(this.origin, this.retryAfter);

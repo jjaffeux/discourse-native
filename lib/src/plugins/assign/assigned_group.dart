@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import '../../models/json.dart';
 
-/// Which slice of a group's active assignments is being shown.
 sealed class AssignedGroupFilter {
   const AssignedGroupFilter();
 
@@ -13,7 +12,6 @@ sealed class AssignedGroupFilter {
   factory AssignedGroupFilter.member(String usernameLower) =
       AssignedGroupMemberFilter;
 
-  /// The route segment used below `/g/:group/assigned`.
   String routeSegment(String groupName);
 }
 
@@ -74,7 +72,6 @@ final class AssignedGroupMemberFilter extends AssignedGroupFilter {
   int get hashCode => usernameLower.hashCode;
 }
 
-/// Sorts supported by discourse-assign's group topic lists.
 enum AssignedGroupOrder {
   activity('activity'),
   views('views'),
@@ -85,7 +82,6 @@ enum AssignedGroupOrder {
   final String wireName;
 }
 
-/// A topic-list query, and therefore part of the assignment-feed cache key.
 @immutable
 final class AssignedGroupTopicQuery {
   const AssignedGroupTopicQuery({
@@ -109,7 +105,6 @@ final class AssignedGroupTopicQuery {
   int get hashCode => Object.hash(order, ascending, search);
 }
 
-/// One member returned by `/assign/members/:group`.
 @immutable
 final class AssignedGroupMember {
   const AssignedGroupMember({
@@ -149,7 +144,6 @@ final class AssignedGroupMember {
   final String? name;
   final String? avatarUrl;
 
-  /// Nullable because the plugin serializer conditionally omits this field.
   final int? assignmentsCount;
 
   @override
@@ -173,7 +167,6 @@ final class AssignedGroupMember {
   );
 }
 
-/// One offset page of assigned members and the counts shown beside its filters.
 @immutable
 final class AssignedGroupMembersPage {
   AssignedGroupMembersPage({
@@ -223,7 +216,6 @@ final class AssignedGroupMembersPage {
   final bool hasMore;
 }
 
-/// Cached member-filter state for one site, group, and name search.
 @immutable
 final class AssignedGroupMembersState {
   const AssignedGroupMembersState({

@@ -5,7 +5,6 @@ import 'discourse_github_services.dart';
 
 const discourseGithubModule = DiscourseGithubModule();
 
-/// Complete production registration for the bundled discourse-github feature.
 final class DiscourseGithubModule implements PluginModule {
   const DiscourseGithubModule();
 

@@ -11,10 +11,6 @@ const _pluginCounter = PluginNotificationCounter(
   wireName: 'test_alerts',
 );
 
-/// A `/notification/{id}` message, shaped as
-/// `User#publish_notifications_state` sends it. Trimmed to the keys anything
-/// here reads; the real payload also carries the last notification, the read
-/// state of the recent ones, and the high-priority split.
 Map<String, Object?> published({
   required int all,
   required int personalMessages,
@@ -22,8 +18,6 @@ Map<String, Object?> published({
 }) => {
   'all_unread_notifications_count': all,
   'new_personal_messages_notifications_count': personalMessages,
-  // Deliberately present and deliberately different from what this class
-  // means by the same name — see the test below.
   'unread_notifications': unreadNotifications ?? all,
   'read_first_notification': true,
   'seen_notification_id': 400,
@@ -131,12 +125,8 @@ void main() {
 
   group('withNotification', () {
     test('derives the notification count the way the endpoint does', () {
-      // `UserNotificationTotalSerializer` reports
-      // `all_unread_notifications_count - new_personal_messages_notifications_count`
-      // under `unread_notifications`, and the message's own field of that name
-      // is a different number entirely. Reading it straight across is the bug
-      // this test exists for: the count would jump on the first message and
-      // never agree with `/notifications/totals.json` again.
+      // The live message's `unread_notifications` is not the endpoint's
+      // derived notification count.
       const held = NotificationTotals(
         unreadNotifications: 4,
         unreadPersonalMessages: 1,
@@ -189,8 +179,6 @@ void main() {
     test('is unchanged by a message with none of the counts in it', () {
       const held = NotificationTotals(unreadNotifications: 4);
 
-      // Equal rather than identical: the caller compares to decide whether
-      // anything needs redrawing.
       expect(held.withNotification(const {'seen_notification_id': 3}), held);
       expect(held.withNotification(null), held);
       expect(held.withNotification('nonsense'), held);
@@ -206,8 +194,6 @@ void main() {
     test('never reports a negative count', () {
       const held = NotificationTotals();
 
-      // Not a shape the server sends, but the subtraction is ours and the two
-      // numbers arrive from different queries.
       final updated = held.withNotification(
         published(all: 1, personalMessages: 3),
       );
@@ -241,7 +227,6 @@ void main() {
       const held = NotificationTotals(unreadNotifications: 4);
 
       final updated = held.withReviewableCounts(const {
-        // The size of the queue, which is not what any badge here shows.
         'reviewable_count': 12,
         'unseen_reviewable_count': 3,
       });

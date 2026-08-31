@@ -5,11 +5,6 @@ import '../../../cooked_dom.dart';
 import '../../markup.dart';
 import '../../onebox.dart';
 
-/// A category on the site the post was written on:
-/// `aside.onebox.category-onebox`.
-///
-/// Discourse paints the category's color into the aside's `box-shadow`; here
-/// it becomes the accent bar on the left, the same trick a quote uses.
 class DiscourseCategoryOnebox extends StatelessWidget {
   const DiscourseCategoryOnebox({super.key, required this.data});
 
@@ -97,7 +92,6 @@ class DiscourseSubcategory {
   final Color? color;
 }
 
-/// Everything the category onebox carries, read out of the aside.
 class DiscourseCategoryData {
   const DiscourseCategoryData({
     required this.name,
@@ -156,7 +150,6 @@ class DiscourseCategoryData {
   }
 }
 
-/// Claims `aside.onebox.category-onebox`, for the dispatch in `onebox.dart`.
 final OneboxEngine discourseCategoryBlock = OneboxEngine(
   matches: (aside) => aside.classes.contains('category-onebox'),
   build: (aside, envelope, siteUrl) => OneboxCard(

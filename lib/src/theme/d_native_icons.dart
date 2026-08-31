@@ -1,10 +1,6 @@
 import 'd_icon.dart';
 
-/// App-specific icons that are not part of Discourse's upstream SVG sprite.
 abstract final class DNativeIcons {
-  /// A single topic pulled forward from the stacked layers used for topic
-  /// lists. The trailing layers retain the shared silhouette at lower opacity
-  /// so list and detail routes remain visually related.
   static const DIconData topic = DIconData(
     'discourse-native-topic',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" fill="currentColor">'

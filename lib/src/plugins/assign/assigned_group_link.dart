@@ -2,8 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'assigned_group.dart';
 
-/// The Assign group-tab URL which represents assignments made directly to the
-/// group named by the route.
 @immutable
 final class AssignedGroupLink {
   const AssignedGroupLink({
@@ -18,7 +16,6 @@ final class AssignedGroupLink {
 
   static const int maximumUrlLength = 2048;
 
-  /// Parses `/g/:group/assigned` and each Assign-owned filter below it.
   static AssignedGroupLink? parse(String url) {
     if (url.isEmpty || url.length > maximumUrlLength) return null;
     final uri = Uri.tryParse(url);
@@ -53,7 +50,6 @@ final class AssignedGroupLink {
     return AssignedGroupLink(uri: uri, groupName: groupName, filter: filter);
   }
 
-  /// Assign's topic-list endpoint for the group's direct assignments.
   String get feedPath =>
       '/topics/group-topics-assigned/'
       '${Uri.encodeComponent(groupName)}.json?direct=true';

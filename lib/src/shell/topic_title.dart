@@ -8,12 +8,6 @@ import 'shell_scope.dart';
 import 'site_emoji_image.dart';
 import 'site_emoji_text.dart';
 
-/// A topic title with Discourse emoji shortcodes drawn as site emoji.
-///
-/// Topic payloads deliberately use the plain `title` rather than the HTML
-/// `fancy_title`, so entities remain text a native widget can understand. The
-/// plain title keeps emoji as `:shortcodes:`, though, and those need the same
-/// site-aware artwork resolution as emoji in cooked posts.
 class TopicTitle extends StatelessWidget {
   const TopicTitle(
     this.title, {
@@ -46,12 +40,6 @@ class TopicTitle extends StatelessWidget {
   );
 }
 
-/// A topic title that becomes an undecorated one-line editor on focus.
-///
-/// The ordinary [TopicTitle] stays in the tree as both the visual and sizing
-/// layer. An invisible field underneath it receives the first pointer event,
-/// so Flutter can put the caret at the character that was actually clicked;
-/// once focused, the two layers exchange opacity without changing geometry.
 class InlineTopicTitleEditor extends StatefulWidget {
   const InlineTopicTitleEditor({
     super.key,
@@ -268,12 +256,6 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
       );
 }
 
-/// Paints registered site emoji inside an editable without changing offsets.
-///
-/// A widget span occupies one code unit, so all but the shortcode's last code
-/// unit stay in the span tree as zero-width transparent text. Caret positions,
-/// selection, undo and the source string therefore keep referring to the same
-/// offsets even though the shortcode is drawn as artwork.
 class _TopicTitleEditingController extends TextEditingController {
   _TopicTitleEditingController({required super.text, required this.siteUrl});
 

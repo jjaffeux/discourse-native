@@ -8,7 +8,6 @@ import 'package:http/testing.dart';
 
 Uint8List bytes(String s) => Uint8List.fromList(s.codeUnits);
 
-/// A one-pixel PNG header is enough to be recognisably not-SVG.
 final Uint8List pngBytes = Uint8List.fromList([
   0x89,
   0x50,
@@ -62,7 +61,6 @@ void main() {
           (_) async => http.Response.bytes(
             bytes('<svg></svg>'),
             200,
-            // The URL says .png; only the response tells the truth.
             headers: {'content-type': 'image/svg+xml'},
           ),
         ),
@@ -107,14 +105,12 @@ void main() {
       expect(await loader.load('https://site/a.png'), isNull);
       expect(await loader.load('https://site/a.png'), isNull);
 
-      // Retrying a 429 on every rebuild is what caused the problem.
       expect(requests, 1);
     });
 
     test('retries a rate limit once it has cooled down', () async {
       var requests = 0;
       final loader = AvatarLoader(
-        // Effectively no cooldown, so the retry is observable.
         retryAfter: Duration.zero,
         client: MockClient((_) async {
           requests++;
@@ -125,8 +121,6 @@ void main() {
       );
 
       expect(await loader.load('https://site/a.png'), isNull);
-      // A rate limit is temporary; blanking the avatar until restart is worse
-      // than asking again later.
       expect(await loader.load('https://site/a.png'), isNotNull);
       expect(requests, 2);
     });

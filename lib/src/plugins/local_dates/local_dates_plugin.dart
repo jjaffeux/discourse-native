@@ -246,8 +246,6 @@ class LocalDatesPlugin
   }
 }
 
-/// Local Dates' parser, projection state, validation inputs, and authoring
-/// permissions for one open composer.
 final class LocalDateComposerSyntaxPolicy implements ComposerSyntaxPolicy {
   LocalDateComposerSyntaxPolicy({
     required this.environment,
@@ -291,8 +289,6 @@ final class LocalDateComposerSyntaxPolicy implements ComposerSyntaxPolicy {
       accountTimezoneReader?.call() ?? accountTimezone;
 }
 
-/// One lossless Local Dates occurrence. Core sees only its neutral projection
-/// interface; Local Dates retains the parsed block and formatting state.
 final class LocalDateComposerSyntaxProjection
     implements ComposerSyntaxProjection, LocalDateComposerProjectionData {
   const LocalDateComposerSyntaxProjection({
@@ -365,8 +361,6 @@ final class LocalDateComposerSyntaxProjection
       removeLocalDateComposer(context, editor, block);
 }
 
-/// The app-bundled Local Dates claim, rendered from the same conservative
-/// composer model and formatter as canonical cooked Local Dates.
 class _OptimisticLocalDate extends StatelessWidget {
   const _OptimisticLocalDate({required this.block, required this.formatter});
 

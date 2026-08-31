@@ -37,13 +37,6 @@ typedef _SectionListSnapshot = ({
   bool userStatusEnabled,
 });
 
-/// Everything the avatar in the top right leads to.
-///
-/// The sections are Discourse's own user menu tabs. Notifications, Replies,
-/// Bookmarks and Chat are backed by the site, Messages leaves the menu for the
-/// full inbox, and the account has its own actions. Rows without a native
-/// action remain stand-ins and use [ShellColors.placeholder], so what is
-/// orange is what is still to do.
 @immutable
 class UserMenuSection {
   const UserMenuSection({
@@ -55,32 +48,22 @@ class UserMenuSection {
     this.plugin,
   });
 
-  /// The notifications section. First, and where the menu opens.
   static const String notificationsId = 'all';
 
-  /// The server-filtered reply notifications section.
   static const String repliesId = 'replies';
 
-  /// The bookmarks section.
   static const String bookmarksId = 'bookmarks';
 
-  /// The messages section, which opens the full private-message topic list.
   static const String messagesId = 'messages';
 
-  /// The account section. Always last, and separated from the rest.
   static const String profileId = 'profile';
 
   final String id;
   final DIconData icon;
   final String label;
 
-  /// Static contents for sections which are not hydrated as server lists.
-  /// Rows with a recognized [UserMenuRow.id] become native actions; the
-  /// remaining rows keep the placeholder color.
   final List<UserMenuRow> rows;
 
-  /// Real count from `/notifications/totals.json` where we have one, so the
-  /// tabs are not lying about how much is waiting even while their lists are.
   final int badge;
   final PluginUserMenuSection? plugin;
 
@@ -90,8 +73,6 @@ class UserMenuSection {
   bool get isMessages => id == messagesId;
   bool get isProfile => id == profileId;
 
-  /// True for the tabs that lead nowhere yet, which is what the placeholder
-  /// color marks.
   bool get isPlaceholder =>
       !isNotifications &&
       !isReplies &&
@@ -101,10 +82,6 @@ class UserMenuSection {
       !isProfile;
 }
 
-/// One line inside a section.
-///
-/// Built-in row identities are resolved by the menu body so the data model
-/// stays presentation-only and is shared by the pointer and touch surfaces.
 @immutable
 class UserMenuRow {
   const UserMenuRow(
@@ -120,7 +97,6 @@ class UserMenuRow {
   final String title;
   final String? id;
 
-  /// Trailing text, such as a count.
   final String? detail;
   final UserStatus? status;
   final int? userId;
@@ -134,17 +110,8 @@ class UserMenuRow {
   bool get isHidePresence => id == 'hide-presence';
 }
 
-/// Results a section can hand back to whatever opened it.
-enum UserMenuAction {
-  disconnect,
-  pauseNotifications,
+enum UserMenuAction { disconnect, pauseNotifications, dismiss }
 
-  /// The section did something that leaves nothing to come back to — opening
-  /// a notification, say — so the menu should get out of the way.
-  dismiss,
-}
-
-/// The tabs, in the order Discourse shows them, with the account last.
 List<UserMenuSection> userMenuSections(
   NotificationTotals? totals, {
   DiscourseUser? user,
@@ -238,25 +205,15 @@ List<UserMenuSection> userMenuSections(
   ];
 }
 
-/// The pointer form of the menu: the sections side by side with the tab rail
-/// that switches between them, floating under the avatar.
 class UserMenuPanel extends StatefulWidget {
   const UserMenuPanel({super.key, required this.onDismiss});
 
-  /// Closes whatever is showing this, so an action can be taken without the
-  /// menu still hanging over the result.
   final VoidCallback onDismiss;
 
   static const double width = 380;
   static const double height = 460;
   static const double railWidth = 52;
 
-  /// Gap kept between the panel and the window edges.
-  ///
-  /// The menu overlay pins itself flush to whichever edge it would otherwise
-  /// overflow, and the avatar it hangs from is in the very corner, so the
-  /// margin has to come from inside the panel: it draws its own surface within
-  /// a layout box this much larger.
   static const double margin = 8;
 
   @override
@@ -380,8 +337,6 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
   );
 }
 
-/// The icon column down the right edge, with the account tab set apart at the
-/// bottom the way Discourse sets it apart.
 class _TabRail extends StatelessWidget {
   const _TabRail({
     required this.sections,
@@ -483,7 +438,6 @@ class _TabButton extends StatelessWidget {
   }
 }
 
-/// One section's contents, shared by the panel and the nested sheet.
 class _SectionBody extends StatelessWidget {
   const _SectionBody({
     required this.section,
@@ -501,11 +455,8 @@ class _SectionBody extends StatelessWidget {
   final VoidCallback onDisconnect;
   final VoidCallback onPauseNotifications;
 
-  /// Closes the menu, for a row that has taken the user somewhere else.
   final VoidCallback onDismiss;
 
-  /// The sheet already names the section in its own header, so it turns this
-  /// off; the panel has nowhere else to say which tab is showing.
   final bool showHeader;
 
   @override
@@ -729,8 +680,6 @@ class _SectionHeader extends StatelessWidget {
               section.label,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
-                // Implemented sections and the account use the normal color;
-                // stand-ins are the only orange headings.
                 color: section.isPlaceholder ? theme.shell.placeholder : null,
               ),
             ),
@@ -744,8 +693,6 @@ class _SectionHeader extends StatelessWidget {
 
 typedef _HidePresenceSnapshot = ({bool? hidden, bool saving, String? error});
 
-/// The current account's presence preference, shared by the pointer panel and
-/// the nested touch sheet.
 class _HidePresenceTile extends StatelessWidget {
   const _HidePresenceTile({required this.siteUrl});
 
@@ -885,8 +832,6 @@ class _HidePresenceTile extends StatelessWidget {
   );
 }
 
-/// A static row. Rows without [onTap] use the shell's placeholder color;
-/// actionable rows use the normal foreground and expose button semantics.
 class _RowTile extends StatelessWidget {
   const _RowTile({required this.row, this.detail, this.onTap, this.leading});
 
@@ -951,7 +896,6 @@ class _RowTile extends StatelessWidget {
   }
 }
 
-/// The destructive account action shown after the profile rows.
 class _DisconnectTile extends StatelessWidget {
   const _DisconnectTile({required this.host, required this.onTap});
 
@@ -1023,8 +967,6 @@ class _Badge extends StatelessWidget {
   }
 }
 
-/// The touch form of the menu: the sections as a list, each opening a sheet of
-/// its own on top of this one rather than swapping the contents underneath.
 Future<void> showUserMenuSheet(BuildContext context) {
   final controller = ShellScope.read(context);
   final instance = controller.currentInstance;
@@ -1078,9 +1020,6 @@ class _SectionList extends StatelessWidget {
 
     if (action == null || !context.mounted) return;
 
-    // The sheet the section was opened from is still underneath, and both of
-    // them are now in the way: of the topic that was opened, or of the account
-    // that is about to stop existing.
     final controller = ShellScope.read(context);
     final navigator = Navigator.of(context, rootNavigator: true);
     Navigator.of(context).pop();
@@ -1218,10 +1157,6 @@ class _SectionTile extends StatelessWidget {
   }
 }
 
-/// Opens the same inbox as the instance sidebar's Messages destination.
-///
-/// Keeping one destination means both entry points share loading, pagination,
-/// scroll restoration, unread state, and the content back stack.
 void _openMessages(ShellController controller) {
   final instance = controller.currentInstance;
   if (instance == null) return;
@@ -1236,8 +1171,6 @@ void _openMessages(ShellController controller) {
   }
 }
 
-/// The connected user's avatar, a spinner while connecting, or a neutral
-/// placeholder when signed out.
 class UserMenuAvatar extends StatelessWidget {
   const UserMenuAvatar({
     super.key,
@@ -1249,7 +1182,6 @@ class UserMenuAvatar extends StatelessWidget {
 
   final String? avatarUrl;
 
-  /// First letter of the username, shown until the image arrives.
   final String? initial;
 
   final bool connecting;

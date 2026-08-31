@@ -3,7 +3,6 @@ import '../../models/topic.dart';
 import '../../plugin_api/discourse_model_codec.dart';
 import 'assigned_group.dart';
 
-/// Read contract for the group assignment dashboard.
 abstract interface class AssignedGroupApi {
   Future<AssignedGroupMembersPage> members({
     required String siteUrl,
@@ -32,7 +31,6 @@ abstract interface class AssignedGroupApi {
   });
 }
 
-/// Authenticated client for discourse-assign's group dashboard endpoints.
 final class AssignedGroupApiClient implements AssignedGroupApi {
   const AssignedGroupApiClient(this._transport, this._models);
 

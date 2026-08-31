@@ -167,10 +167,7 @@ void main() {
         now: DateTime.utc(2022, 4, 5, 20),
       );
 
-      // The digits in front of the unit are author-written and unbounded. One
-      // wider than an int used to throw out of the middle of a post's markup;
-      // one merely enormous wrapped its own Duration and advanced the date to
-      // a moment that never existed. Both stay on the cooked wall time.
+      // User-authored counts must not overflow int parsing or Duration math.
       for (final recurring in const [
         '99999999999999999999999.days',
         '900000000000.days',
@@ -183,7 +180,6 @@ void main() {
         );
       }
 
-      // The bound is on the step, not on recurrence: an ordinary one advances.
       expect(resolve('1.weeks')?.formatted, '2022-04-11 11:00');
     });
 
@@ -375,14 +371,11 @@ void main() {
       const locale = Locale('en');
       final newYork = tz.getLocation('America/New_York');
 
-      // Late evening in New York is already the next day in UTC and most
-      // device zones; the rendered values must track the displayed date.
       final yearEnd = tz.TZDateTime(newYork, 2026, 12, 31, 23);
       expect(LocalDateFormatter.formatMoment(yearEnd, 'DDD', locale), '365');
       expect(LocalDateFormatter.formatMoment(yearEnd, 'w', locale), '53');
       expect(LocalDateFormatter.formatMoment(yearEnd, 'gggg', locale), '2026');
 
-      // First wall-clock morning after Sydney's 2026-10-04 spring forward.
       final afterSpringForward = tz.TZDateTime(
         tz.getLocation('Australia/Sydney'),
         2026,
@@ -400,8 +393,6 @@ void main() {
         '40',
       );
 
-      // A summer date whose ISO-week span crosses the displayed zone's
-      // northern-hemisphere DST change.
       final midYear = tz.TZDateTime(
         tz.getLocation('Europe/Paris'),
         2026,
@@ -412,7 +403,6 @@ void main() {
       expect(LocalDateFormatter.formatMoment(midYear, 'DDD', locale), '182');
       expect(LocalDateFormatter.formatMoment(midYear, 'w', locale), '27');
 
-      // The last Monday of 2025 belongs to ISO week 1 of 2026.
       final isoRollover = tz.TZDateTime(newYork, 2025, 12, 29, 12);
       expect(LocalDateFormatter.formatMoment(isoRollover, 'w', locale), '1');
       expect(

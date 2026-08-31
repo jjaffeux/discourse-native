@@ -7,7 +7,6 @@ import '../theme/d_button.dart';
 import 'shell_controller.dart';
 import 'shell_sheet.dart';
 
-/// Compact topic position control mirroring core's expandable progress bar.
 class TopicProgressButton extends StatelessWidget {
   const TopicProgressButton({
     super.key,

@@ -9,7 +9,6 @@ import 'shell_scope.dart';
 typedef TopicCategoryMenuAnchorBuilder =
     Widget Function(BuildContext context, VoidCallback? openMenu, bool saving);
 
-/// Gives the topic sidebar category the same adaptive picker as its tags.
 class TopicCategoryMenuAnchor extends StatefulWidget {
   const TopicCategoryMenuAnchor({
     super.key,
@@ -102,7 +101,6 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
 typedef TopicCategorySearchCallback =
     Future<List<TopicCategory>> Function(String term);
 
-/// Opens the lightweight category chooser used by the topic sidebar.
 Future<int?> showTopicCategoryPicker({
   required BuildContext context,
   required BuildContext anchorContext,
@@ -123,7 +121,6 @@ Future<int?> showTopicCategoryPicker({
   ),
 );
 
-/// Search and category rows shared by the pointer popover and touch sheet.
 class TopicCategoryPicker extends StatefulWidget {
   const TopicCategoryPicker({
     super.key,

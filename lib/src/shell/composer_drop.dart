@@ -2,11 +2,6 @@ import 'package:desktop_drop/desktop_drop.dart';
 
 import '../models/composer_upload.dart';
 
-/// Adapts native desktop-drop files to the app-owned upload boundary.
-///
-/// Finder files can carry a macOS security-scoped bookmark. Access is opened
-/// independently for the length read and byte stream because the multipart
-/// request resolves those at different times.
 List<ComposerUploadFile> composerUploadFilesFromDrop(
   Iterable<DropItem> items,
 ) => List.unmodifiable([

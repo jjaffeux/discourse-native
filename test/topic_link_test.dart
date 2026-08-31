@@ -49,7 +49,6 @@ void main() {
         'https://meta.discourse.org/u/someone',
         'https://meta.discourse.org/c/bug/5',
         'https://meta.discourse.org/tag/topics',
-        // The id is what makes it a topic link.
         'https://meta.discourse.org/t/a-real-topic',
         'https://meta.discourse.org/t/a-real-topic/none',
         'https://meta.discourse.org/t/a-real-topic/0',

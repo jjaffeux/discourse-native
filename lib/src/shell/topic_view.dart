@@ -57,7 +57,6 @@ import 'user_card.dart';
 import 'user_menu_button.dart';
 import 'user_status.dart';
 
-/// A topic and its posts.
 class TopicView extends StatefulWidget {
   const TopicView({
     super.key,
@@ -72,20 +71,13 @@ class TopicView extends StatefulWidget {
     this.registry = PluginRegistry.empty,
   });
 
-  /// Start fetching the next batch about a screen before either end.
   static const double _loadPostsThreshold = 900;
 
-  /// Header, body line, their gap, and the post's outer padding.
   static const double minimumPostHeight = 96;
 
-  /// Keep the package's 100px-per-expanded-child total estimate, but assign
-  /// nearly all of it to post rows instead of pretending 1px separators are
-  /// as tall as posts.
   static double _estimateChildExtent(int? index, double _) =>
       index == null ? 0 : (index.isOdd ? 1 : 199);
 
-  /// Whether topic context may be pinned above the posts. The topic viewport
-  /// still unpins it when doing so would leave too little reading width.
   final bool showSidebar;
 
   final bool canReturnToSidebar;
@@ -116,12 +108,6 @@ typedef _RetainedTopicPostExtent = ({
   int readTimeWordCount,
 });
 
-/// Returns a reveal offset only when every sliver ancestor has completed
-/// laying out the child that leads to [target].
-///
-/// Virtualized sliver children can remain attached while their layout offset
-/// is temporarily cleared. Flutter's reveal calculation force-unwraps those
-/// offsets, so callers must wait for the next settled frame in that state.
 @visibleForTesting
 RevealedOffset? getOffsetToRevealIfLaidOut(
   RenderAbstractViewport viewport,
@@ -140,12 +126,6 @@ RevealedOffset? getOffsetToRevealIfLaidOut(
   return viewport.getOffsetToReveal(target, alignment);
 }
 
-/// The inverse of one immutable post stream, used to retain keyed list rows.
-///
-/// A page inserted before the viewport makes the sliver resolve every retained
-/// child's key again. Looking each id up in the post list would walk an
-/// increasingly long tail once per retained child; projecting the stream once
-/// keeps the reconciliation itself constant-time per child.
 final class TopicPostIndexProjection {
   TopicPostIndexProjection(List<int> postIds) : _source = postIds {
     for (var index = 0; index < postIds.length; index++) {
@@ -784,8 +764,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     );
   }
 
-  /// Measures the viewport after layout. This also covers short topics that
-  /// never produce a scroll notification at all.
   void _scheduleLook({bool saveAnchor = false}) {
     _saveAnchorAfterLook = _saveAnchorAfterLook || saveAnchor;
     if (_lookScheduled) return;
@@ -827,12 +805,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  /// Pins the last date boundary that has passed the top of the viewport.
-  ///
-  /// Core chat gives every date marker a sticky span that lasts until the next
-  /// marker. Topic rows must keep their post-based indices for paging and
-  /// restoration, so the equivalent here is one overlay driven by those same
-  /// two boundaries. As the next date approaches it pushes the old one out.
   void _syncFloatingDay(_TopicViewSnapshot snapshot) {
     final list = _list;
     final scroll = _scroll;
@@ -980,9 +952,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   String? _timeGapsSite;
   int? _timeGapsShowAfterDays;
 
-  /// Loads enough of an around-post window to know where [day] really began,
-  /// then places that day's first post at the top. This is the topic analogue
-  /// of chat's `fetchMessagesByDate(startOfDay)` click.
   Future<void> _jumpToDayStart(DateTime day) async {
     final controller = _controller;
     final identity = _topicIdentity;
@@ -1050,9 +1019,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     });
   }
 
-  /// Remembers the farthest real post currently visible, then waits for the
-  /// reader to pause. Debouncing the viewport rather than the request avoids a
-  /// receipt for every pixel of a fling.
   void _noteWhatIsOnScreen(
     ShellController controller,
     _TopicViewSnapshot snapshot, {
@@ -1098,7 +1064,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     // responsive while reading inside a post taller than the viewport.
     _visibleSeen = null;
     for (var childIndex = range.$2; childIndex >= range.$1; childIndex--) {
-      // Even children are list items; odd children are separators.
       if (childIndex.isOdd) continue;
       final itemIndex = childIndex ~/ 2;
       final postIndex = itemIndex - leading;
@@ -1519,9 +1484,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     return null;
   }
 
-  /// Keeps a visible post at the same viewport offset while earlier posts are
-  /// inserted ahead of it. The second correction runs after the target post
-  /// has been laid out with its real height rather than an estimate.
   void _restoreViewportAfterPrepend(
     ShellController controller,
     _TopicViewSnapshot snapshot, {
@@ -1946,8 +1908,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       );
     }
 
-    // The footer is a loading skeleton, so it may only appear while actually
-    // loading — otherwise it pulses forever below a topic with more to fetch.
     final showFooter = snapshot.loadingMore;
     final showHeader = snapshot.hasEarlier || snapshot.loadingEarlier;
     final hasRecommendations = snapshot.recommendations?.isNotEmpty == true;
@@ -1959,9 +1919,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final recommendationsPending =
         snapshot.recommendations == null &&
         (snapshot.hasMore || snapshot.loadingMore);
-    // Which posts are on screen, and in what order. The posts themselves are
-    // in the store; each tile watches its own, so an edit or a deletion redraws
-    // one tile rather than walking the whole stream.
     final postIds = snapshot.postIds;
     final postIndexes = _postIndexes(postIds);
     final siteUrl = snapshot.siteUrl!;
@@ -2067,17 +2024,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           }
           return false;
         },
-        // A plain ListView estimates how tall the unbuilt posts are by averaging
-        // the ones currently laid out. Post heights swing from a one-line small
-        // action to a screenful of quotes and images, so that average — and with
-        // it maxScrollExtent — lurches as you scroll, and the scrollbar thumb
-        // jumps. SuperListView remembers each post's real height once measured,
-        // so the estimate only ever tightens.
-        //
-        // Its extentPrecalculationPolicy would make the scrollbar exact rather
-        // than merely stable, but precalculating builds every cooked post and
-        // starts its media work. That would walk the whole loaded window on
-        // open instead of preserving post-level virtualization.
+        // SuperListView retains measured post heights without eagerly building
+        // media-heavy offscreen posts, keeping scrollbar estimates stable.
         child: SuperListView.separated(
           key: ValueKey((
             siteUrl,
@@ -2118,7 +2066,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             }
             return childIndex;
           },
-          // Lazy, like the topic list: a 500-post topic builds only what shows.
           itemCount:
               postIds.length +
               (showHeader ? 1 : 0) +
@@ -2136,8 +2083,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               });
             }
             if (dayByPostIndex.containsKey(nextPostIndex)) {
-              // The calendar marker is the boundary; a second rule immediately
-              // above it would make the separation look doubled.
               return const SizedBox.shrink();
             }
             return Divider(height: 1, color: theme.shell.divider);
@@ -2587,12 +2532,6 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
   }
 }
 
-/// A faithful outline of the post stream while its first page is in flight.
-///
-/// The post pattern repeats until it covers the viewport. Any remainder, or
-/// the whole pattern on an exceptionally short pane, is clipped so loading
-/// never introduces a second scroll position or changes the real stream's
-/// eventual anchor.
 class _TopicLoadingSkeleton extends StatelessWidget {
   const _TopicLoadingSkeleton({super.key});
 
@@ -3431,10 +3370,6 @@ class _EmptyTopicProperty extends StatelessWidget {
   );
 }
 
-/// A topic-list-shaped placeholder for the payload attached to the final post
-/// window. The enclosing panel owns the stable width; this owns only the
-/// loading affordance, so a failed page can stop pulsing without shifting the
-/// reading content.
 class _MoreTopicsLoadingSkeleton extends StatelessWidget {
   const _MoreTopicsLoadingSkeleton();
 
@@ -3509,11 +3444,6 @@ class _MoreTopicsSkeletonRow extends StatelessWidget {
   }
 }
 
-/// Core's more-topics footer, populated by core and installed source
-/// contributions.
-///
-/// The reader's source choice is remembered per forum, so it is owned by the
-/// topic view rather than by this widget, which a new topic rebuilds.
 class _MoreTopics extends StatelessWidget {
   const _MoreTopics({
     super.key,
@@ -3530,9 +3460,6 @@ class _MoreTopics extends StatelessWidget {
   final ValueChanged<TopicRecommendationSourceId> onSelected;
   final double topPadding;
 
-  /// A remembered choice only holds while that source has topics. A missing
-  /// plugin or an empty contribution falls back to the first populated source
-  /// in registry order rather than showing an empty tab.
   TopicRecommendationSource _effectiveSelection(
     List<TopicRecommendationSource> available,
   ) {
@@ -3656,10 +3583,6 @@ class _MoreTopicsTabButton extends StatelessWidget {
   }
 }
 
-/// A post together with the calendar boundary immediately above it.
-///
-/// Keeping both in one logical list item is important: all topic paging,
-/// viewport receipts, and restoration address posts, not decorative rows.
 class _TopicPostItem extends StatefulWidget {
   const _TopicPostItem({
     super.key,
@@ -3790,10 +3713,6 @@ class _TopicPostItemState extends State<_TopicPostItem> {
   }
 }
 
-/// Core's explicit affordance for posts omitted from the ordinary stream.
-///
-/// The server supplies both the ids and their placement. A gap is therefore
-/// not an authorization guess: if it is here, the reader may ask to reveal it.
 class _PostGap extends StatefulWidget {
   const _PostGap({super.key, required this.count, required this.onExpand});
 
@@ -3869,11 +3788,6 @@ class _EarlierPostsRow extends StatelessWidget {
       : const SizedBox(height: 68);
 }
 
-/// Draws whichever post the store holds under [postId].
-///
-/// The indirection is the point: rewriting a post, deleting it, or fetching its
-/// markdown for the composer all write one record, and only the tile watching
-/// that record is rebuilt.
 class _StoredPost extends StatelessWidget {
   const _StoredPost({
     required this.siteUrl,
@@ -3967,8 +3881,6 @@ class _PostTileState extends State<_PostTile> {
     final theme = Theme.of(context);
     final post = widget.post;
 
-    // Transparent rather than [ShellColors.content] for ordinary posts, so the
-    // tile takes whichever surface the column it is in happens to paint.
     final tile = ColoredBox(
       color: post.isDeleted
           ? theme.colorScheme.error.withValues(alpha: 0.07)
@@ -4070,8 +3982,6 @@ class _PostTileState extends State<_PostTile> {
                             ),
                           ),
                         ],
-                        // Only the people who can undo a deletion are shown
-                        // one at all, so saying so is worth the room.
                         if (post.isDeleted) ...[
                           const SizedBox(width: 6),
                           _Tag(
@@ -4247,10 +4157,6 @@ class _PostNoticeBanner extends StatelessWidget {
   }
 }
 
-/// The internal topics which link back to this post.
-///
-/// Core shows five until explicitly expanded and collapses duplicate titles,
-/// since two posts in the same source topic otherwise produce identical rows.
 class _PostInboundLinks extends StatelessWidget {
   const _PostInboundLinks({
     required this.siteUrl,
@@ -4342,7 +4248,6 @@ class _PostInboundLinks extends StatelessWidget {
   }
 }
 
-/// Core's compact topic map beneath the opening post.
 class _TopicMap extends StatelessWidget {
   const _TopicMap({
     required this.siteUrl,
@@ -4680,8 +4585,6 @@ class _TopicReadTime extends StatelessWidget {
   }
 }
 
-/// Keeps a rebuilt long post at its last settled height without imposing that
-/// minimum on the child, so the async body can report when it is ready again.
 class _RetainedMinimumHeight extends SingleChildRenderObjectWidget {
   const _RetainedMinimumHeight({
     required this.minimumHeight,
@@ -4782,11 +4685,6 @@ class _LoadingPostsRow extends StatelessWidget {
   );
 }
 
-/// A compact continuation of the post stream while an adjacent page loads.
-///
-/// The single-line, footerless shape is exactly the minimum real-post height.
-/// A short final page can therefore replace it without shrinking the list and
-/// forcing a bottom-anchored reader back into posts they already passed.
 class _TopicPaginationSkeleton extends StatelessWidget {
   const _TopicPaginationSkeleton({
     super.key,

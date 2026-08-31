@@ -2,23 +2,12 @@ import 'package:flutter/material.dart';
 
 const double minimumTextContrastRatio = 4.5;
 
-/// Resolves [color] against the opaque canvas behind the app.
-///
-/// Theme colors normally arrive opaque. Theme components are allowed to
-/// override them with alpha, though, and luminance is only meaningful after
-/// that alpha has been composited onto a real surface.
 Color opaqueColorOnCanvas(Color color, Brightness brightness) =>
     Color.alphaBlend(
       color,
       brightness == Brightness.dark ? Colors.black : Colors.white,
     );
 
-/// Picks the first preferred foreground that remains readable after both it
-/// and [background] have been painted. Falls back to opaque black or white.
-///
-/// [backdrop] must already be opaque. Returning the original candidate keeps a
-/// site's translucent foreground intact; the comparison uses the color a
-/// reader will actually see after Flutter composites it.
 Color contrastSafeForeground({
   required Color background,
   required Color backdrop,

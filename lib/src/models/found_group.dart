@@ -3,12 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'found_user.dart';
 import 'json.dart';
 
-/// One group returned alongside people by Discourse's user search.
-///
-/// Header search deliberately asks for both so the common user-search ranking
-/// has the same six-item budget as core, although the assistant ultimately
-/// renders only that ranked result's people. This stays separate from grouped
-/// search hits returned by `/search/query`.
 @immutable
 class FoundGroup {
   const FoundGroup({
@@ -49,9 +43,6 @@ class FoundGroup {
       Object.hash(name, fullName, flairUrl, flairColor, flairBackgroundColor);
 }
 
-/// Group flair is either an icon name or an image URL. Only the latter should
-/// be resolved against the forum; treating `shield-halved` as a relative URL
-/// loses the distinction that core's avatar-flair component preserves.
 String? resolveFlairUrl(String? value, String siteUrl) {
   if (value == null || value.isEmpty) return null;
   return value.contains('/') ? resolveAvatarUrl(value, siteUrl) : value;

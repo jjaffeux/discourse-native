@@ -16,10 +16,6 @@ enum _ChannelAction { settings, star, leave }
 
 enum _NotificationAction { never, mention, always, mute }
 
-/// The web-equivalent action menu revealed beside one channel sidebar row.
-///
-/// Desktop keeps the notification choices in a submenu. Touch uses the same
-/// command set in a bottom sheet reached by holding the row.
 class ChatChannelMenuButton extends StatelessWidget {
   const ChatChannelMenuButton({
     super.key,

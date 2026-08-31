@@ -1,7 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'resenha_models.dart';
 
-/// Typed client for the Resenha plugin's existing JSON contract.
 final class ResenhaApi {
   const ResenhaApi(this._transport);
 

@@ -96,7 +96,6 @@ void main() {
 
         expect(persistence.values[meta], stored);
 
-        // Once the store can read again, writes resume against the real document.
         persistence.failReads = false;
         await store.trackEmoji(
           siteUrl: meta,

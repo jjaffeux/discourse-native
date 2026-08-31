@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
 
-/// A post payload as a reactions site serializes one.
 Map<String, dynamic> payload({
   List<Map<String, dynamic>>? reactions,
   Map<String, dynamic>? mine,
@@ -51,9 +50,6 @@ Reactions reactionsOf(Map<String, dynamic> json) => postFrom(json).reactions!;
 void main() {
   group('reading a post', () {
     test('says nothing at all when the site did not mention reactions', () {
-      // The load-bearing default, and it holds by construction rather than by
-      // discipline: a disabled plugin's serializer attributes are absent, so
-      // there is no key to read and no value to invent.
       final post = postFrom({
         'id': 1,
         'post_number': 1,
@@ -67,8 +63,6 @@ void main() {
     });
 
     test('distinguishes a site with reactions from a post with none', () {
-      // `[]` and absent are different answers: one is "nobody reacted", the
-      // other is "this site does not do reactions".
       final post = postFrom(payload(reactions: []));
 
       expect(post.hasReactions, isTrue);
@@ -92,8 +86,6 @@ void main() {
     });
 
     test('a plain like reads as the main reaction, because it is one', () {
-      // The site sets `current_user_reaction` to the main reaction for a reader
-      // who has only liked, so there is nothing to reconcile here.
       final reactions = reactionsOf(
         payload(
           reactions: [entry('heart', 1)],
@@ -110,8 +102,6 @@ void main() {
 
   group('canReact', () {
     test('needs the site to have said this reader may act', () {
-      // The toggle route gates on exactly `post_can_act?(post, :like)`, which
-      // already carries ownership, silencing and archived topics.
       expect(postFrom(payload(reactions: [])).canReact, isTrue);
       expect(postFrom(payload(reactions: [], canAct: false)).canReact, isFalse);
     });
@@ -175,7 +165,6 @@ void main() {
     });
 
     test('a swap moves the counts but not the reader', () {
-      // They were already being counted; only which emoji changed.
       final held = reactionsOf(
         payload(
           reactions: [entry('heart', 5), entry('clap', 2)],
@@ -195,8 +184,6 @@ void main() {
     });
 
     test('keeps the order the site sorts in', () {
-      // Count descending, then id ascending — so an emoji overtaking another
-      // moves ahead of it rather than staying put.
       final held = reactionsOf(
         payload(reactions: [entry('heart', 2), entry('clap', 2)], userCount: 4),
       );
@@ -246,8 +233,6 @@ void main() {
     });
 
     test('floors the counts at zero', () {
-      // Numbers the site sent, and a count read a moment before somebody
-      // else's undo would otherwise draw -1.
       const stale = Reactions(
         entries: [],
         mine: Reaction(id: 'clap', canUndo: true),
@@ -292,7 +277,6 @@ void main() {
 
       expect(held.withMainReaction('heart').usedMainReaction, isTrue);
       expect(held.withMainReaction('+1').usedMainReaction, isFalse);
-      // Unknown means unknown: nothing is guessed either way.
       expect(held.withMainReaction(null).usedMainReaction, isFalse);
     });
   });

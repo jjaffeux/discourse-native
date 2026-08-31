@@ -2,11 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'json.dart';
 
-/// The two values surrounding one revision.
-///
-/// A null value is meaningful for fields such as category and locale, so the
-/// enclosing object is what distinguishes "unchanged" from "changed to or
-/// from nothing".
 @immutable
 class PostRevisionChange<T> {
   const PostRevisionChange({required this.previous, required this.current});
@@ -29,7 +24,6 @@ class PostRevisionChange<T> {
   final T? current;
 }
 
-/// Server-rendered representations of one edit.
 @immutable
 class PostRevisionDiff {
   const PostRevisionDiff({
@@ -109,11 +103,6 @@ class PostRevisionReplyTarget {
   final String? username;
 }
 
-/// One comparison returned by core's post revision endpoint.
-///
-/// The endpoint owns the diff. Native renders its inline HTML rather than
-/// trying to reconstruct markdown or topic metadata changes from the current
-/// post, which would lose edits made between the two versions being viewed.
 @immutable
 class PostRevision {
   const PostRevision({

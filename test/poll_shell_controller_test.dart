@@ -617,8 +617,7 @@ void main() {
           description: 'the queued post-write refresh',
         );
 
-        // The first read was invalidated by the write; the second is its queued
-        // post-write replay and is allowed to land once the shared gate opens.
+        // The write invalidates the first read and queues a replay behind it.
         expect(api.postFetches, [
           [11],
           [11],

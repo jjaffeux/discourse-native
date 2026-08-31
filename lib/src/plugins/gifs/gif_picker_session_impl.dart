@@ -7,7 +7,6 @@ import 'gif_picker_session.dart';
 import 'gifs_api.dart';
 import 'gifs_settings.dart';
 
-/// Builds the production picker session from GIF-private infrastructure.
 GifPickerSession createGifPickerSession({
   required GifsApi api,
   required PluginRequestHost requests,

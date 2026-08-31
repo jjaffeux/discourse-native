@@ -178,12 +178,8 @@ void main() {
     testWidgets('keep end carets measurable after poll-owned whitespace', (
       tester,
     ) async {
-      // `[/poll]   ` keeps its trailing whitespace: the block owns it, byte for
-      // byte, so the editor can write it back. Projected as `fontSize: 0` text
-      // that made the document end in a space with no glyph, and `TextPainter`
-      // anchors an end-of-text caret to the paragraph's last glyph whenever the
-      // paragraph ends in a space separator. It asserted in debug and had
-      // nothing to measure in release.
+      // TextPainter cannot measure an end caret when hidden trailing spaces
+      // leave the paragraph without a final glyph.
       for (final trailing in const [' ', '  ', '\t', ' \t ']) {
         final text = '$source$trailing';
         final controller = MarkdownEditingController(

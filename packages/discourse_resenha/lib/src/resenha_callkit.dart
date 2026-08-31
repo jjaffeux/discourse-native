@@ -21,8 +21,6 @@ abstract interface class ResenhaSystemCall {
   Future<void> dispose();
 }
 
-/// Process-global audio state used by the native call adapter.
-///
 /// This deliberately exposes operations rather than the LiveKit singleton so
 /// ownership and serialization stay in [NativeResenhaSystemCall].
 abstract interface class ResenhaAudioSession {
@@ -126,7 +124,6 @@ final class NativeResenhaSystemCall implements ResenhaSystemCall {
     _channel.setMethodCallHandler(null);
   }
 
-  /// Associates subsequent native call-control events with the active call.
   void associateDiagnostics(String? correlationId) {
     _correlationId = correlationId;
   }
@@ -144,9 +141,7 @@ final class NativeResenhaSystemCall implements ResenhaSystemCall {
         correlationId: _correlationId,
         data: data,
       );
-    } catch (_) {
-      // CallKit behavior must not depend on diagnostics availability.
-    }
+    } catch (_) {}
   }
 
   void _recordRaw(
@@ -165,9 +160,7 @@ final class NativeResenhaSystemCall implements ResenhaSystemCall {
         message: message,
         data: data,
       );
-    } catch (_) {
-      // CallKit behavior must not depend on diagnostics availability.
-    }
+    } catch (_) {}
   }
 
   Future<void> _prepareAudioSessionSafely() async {
@@ -269,9 +262,7 @@ final class NativeResenhaSystemCall implements ResenhaSystemCall {
         data: data,
       );
       _recordRaw('$event.detail', data: raw);
-    } catch (_) {
-      // Native diagnostics are best effort and must not affect CallKit actions.
-    }
+    } catch (_) {}
   }
 
   Object? _safeNativeDiagnosticValue(String key, Object? value) {

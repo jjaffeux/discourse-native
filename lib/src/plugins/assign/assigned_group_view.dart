@@ -12,7 +12,6 @@ import 'assign_shell_service.dart';
 import 'assigned_group.dart';
 import 'assigned_group_controller.dart';
 
-/// Assign-owned body mounted inside core's group shell.
 class AssignedGroupView extends StatefulWidget {
   const AssignedGroupView({
     super.key,

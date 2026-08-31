@@ -1,11 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND.
 // Run `dart run tool/gen_emoji_aliases.dart` to refresh it.
 
-/// Discourse's built-in shortcode aliases, keyed by alias and valued by the
-/// canonical emoji name returned from `/emojis.json`.
-///
-/// Generated from `discourse/discourse-emojis` revision
-/// `29ebe49dee08fcb921e2530ed7718e3236f802a7`, `dist/aliases.json`.
 const Map<String, String> discourseEmojiAliases = {
   '8ball': 'pool_8_ball',
   'a': 'a_button_blood_type',

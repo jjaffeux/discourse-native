@@ -10,7 +10,6 @@ import 'resenha_shell_service.dart';
 
 const resenhaModule = ResenhaModule();
 
-/// Complete production registration for the bundled Resenha feature.
 final class ResenhaModule implements PluginModule {
   const ResenhaModule() : _includeDiagnostics = true;
 

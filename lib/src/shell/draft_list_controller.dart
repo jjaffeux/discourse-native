@@ -11,9 +11,6 @@ import '../models/user_draft.dart';
 
 typedef _DraftDeletionKey = ({String siteUrl, String draftKey});
 
-/// Draft-list state is independent from shell navigation, just like account
-/// notifications and bookmarks: paging or deleting a row must not rebuild the
-/// rail, topic stream, and composer along with it.
 final class DraftListController extends FrameSafeNotifier {
   DraftListController({
     required this.api,

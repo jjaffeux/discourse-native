@@ -14,10 +14,7 @@ final RegExp _recurrencePattern = RegExp(
   r'^(\d+)\.(years?|quarters?|months?|weeks?|days?|hours?|minutes?|seconds?|milliseconds?)$',
 );
 
-/// The immutable meaning of one server-cooked `span.discourse-local-date`.
-///
-/// Strings are retained instead of eagerly parsing them so malformed or
-/// forward-compatible markup can fall back to the server's cooked text.
+/// Retains raw strings so malformed or future markup can use cooked fallback text.
 @immutable
 class LocalDateSpec {
   const LocalDateSpec({
@@ -81,8 +78,6 @@ class LocalDateSpec {
   final String? displayedTimezone;
   final List<String> timezones;
 
-  /// Retained for compatibility. Native calendar export is intentionally not
-  /// an action offered by this change.
   final String? ics;
 
   bool get hasTime => time != null;
@@ -161,16 +156,11 @@ class LocalDatePreview {
   final bool source;
 }
 
-/// Strict, DST-aware resolution and Moment-compatible display formatting.
 class LocalDateFormatter {
   const LocalDateFormatter({required this.environment});
 
   final LocalDateEnvironment environment;
 
-  /// Resolves only the absolute instant carried by [spec].
-  ///
-  /// Cross-feature cooked-time consumers do not need Local Dates formatting,
-  /// locale data, reader settings, or presentation models.
   DateTime? resolveInstant(LocalDateSpec spec, {DateTime? now}) {
     final resolved = _resolveSource(spec, now ?? DateTime.now());
     return resolved?.source.toUtc();
@@ -239,8 +229,7 @@ class LocalDateFormatter {
       parts.minute,
       parts.second,
     );
-    // timezone normalizes a nonexistent DST wall time. Treat normalization as
-    // invalid instead of silently inventing a different instant.
+    // timezone normalizes nonexistent DST wall times instead of rejecting them.
     if (!_sameWallTime(source, parts)) return null;
 
     if (spec.recurring != null && source.isBefore(now)) {
@@ -280,8 +269,7 @@ class LocalDateFormatter {
       final location = environment.location(zone);
       if (location == null) continue;
       final value = tz.TZDateTime.from(resolved.source, location);
-      // Match web's useful de-duplication: canonical identity first, then the
-      // same abbreviation/offset at the event instant.
+      // Match web deduplication by identity, then instant abbreviation/offset.
       final key = '${value.timeZoneOffset.inMinutes}/${value.timeZoneName}';
       if (!seenOffsets.add(key) && zone != resolved.sourceTimezone) continue;
       previews.add(
@@ -398,11 +386,8 @@ class LocalDateFormatter {
             !_tokenLetters.contains(format[end])) {
           end += 1;
         }
-        // Moment passes a lone unrecognized letter through and keeps
-        // formatting the token letters after it (the T in YYYY-MM-DDTHH:mm).
-        // A run of two or more unrecognized letters marks a literal word, so
-        // the rest of that word stays literal too: unescaped words such as
-        // FUTURE must survive intact even when they end in a token letter.
+        // Moment passes one unknown letter through, but treats a longer unknown
+        // run as a literal word even if it ends with a token letter.
         if (end - index > 1) {
           while (end < format.length &&
               _isAsciiLetter(format.codeUnitAt(end))) {
@@ -523,20 +508,15 @@ class LocalDateFormatter {
     };
   }
 
-  // Upstream renders countdowns with moment.duration(diff).humanize(): per-
-  // unit totals rounded and compared against moment's default thresholds
-  // (44s, 45min, 22h, 26d, 11 months, no weeks bucket) with no "in" prefix.
-  // The CLDR strings in package:relative_time cannot express that bare form
-  // (their numeric variants always carry a prefix), so the moment default-
-  // locale strings are emitted directly.
+  // Upstream uses Moment's rounded thresholds and bare labels. CLDR numeric
+  // forms always add a prefix, so these Moment-compatible labels are explicit.
   static String _countdown(Duration duration) {
     final milliseconds = duration.inMilliseconds;
     final seconds = (milliseconds / 1000).round();
     final minutes = (milliseconds / 60000).round();
     final hours = (milliseconds / 3600000).round();
     final days = (milliseconds / 86400000).round();
-    // Moment converts days to months with the mean Gregorian month: 146097
-    // days per 400 years of 4800 months.
+    // Moment uses the mean Gregorian month: 146097 days per 4800 months.
     final monthsExact = milliseconds / 86400000 * 4800 / 146097;
     final months = monthsExact.round();
     final years = (monthsExact / 12).round();
@@ -626,22 +606,9 @@ class LocalDateFormatter {
     return candidate;
   }
 
-  /// The furthest one recurrence step may reach, in days.
-  ///
-  /// `recurring` is author-written markup that arrives here verbatim, and the
-  /// digits in front of the unit are unbounded. Beyond this the arithmetic
-  /// below stops saying anything true: `int.parse` throws on a number wider
-  /// than 64 bits, and a `Duration` built from a merely enormous one wraps
-  /// rather than overflows, so the advance loop compares against a date it
-  /// invented. A hundred thousand years is far past any recurrence anyone
-  /// means and still leaves every intermediate inside its own range — the
-  /// source year is capped at four digits by [_wallDatePattern], so the
-  /// furthest step lands around the year 110,000, well short of the roughly
-  /// 273,000 `DateTime` allows.
+  // Bound recurrence before int parsing and Duration arithmetic.
   static const int _maximumRecurrenceDays = 100000 * 366;
 
-  /// The largest [_maximumRecurrenceDays]-worth of [unit], never multiplied
-  /// out so the bound itself cannot overflow what it is bounding.
   static int _maximumRecurrenceAmount(String unit) => switch (unit) {
     final value when value.startsWith('year') => _maximumRecurrenceDays ~/ 366,
     final value when value.startsWith('quarter') =>
@@ -758,11 +725,8 @@ class LocalDateFormatter {
   static int _daysInMonth(int year, int month) =>
       DateTime.utc(year, month + 1, 0).day;
 
-  // Moment derives day-of-year and ISO-week values from calendar fields, so
-  // these helpers must too: [value] carries a displayed-zone wall clock, and
-  // instant arithmetic against device-local dates (or exact 24h day steps
-  // across a DST change) lands on the wrong calendar day. Rebuilding the
-  // wall date in UTC keeps every day exactly 24h and no zone involved.
+  // Rebuild the displayed wall date in UTC so day/week arithmetic cannot cross
+  // device zones or DST boundaries.
   static int _dayOfYear(DateTime value) =>
       DateTime.utc(
         value.year,
@@ -819,8 +783,6 @@ class LocalDateFormatter {
   static bool _isAsciiLetter(int value) =>
       (value >= 65 && value <= 90) || (value >= 97 && value <= 122);
 
-  /// Letters that can begin a moment formatting token handled by
-  /// [_formatToken] or the localized aliases.
   static const Set<String> _tokenLetters = {
     'Y',
     'M',

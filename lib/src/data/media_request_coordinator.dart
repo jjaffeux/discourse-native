@@ -31,8 +31,6 @@ final class MediaRequestCoordinator {
 
   final int maxConcurrentPerOrigin;
 
-  /// Maximum work retained behind the active slots for one origin.
-  ///
   /// Active leases do not count toward this backlog limit.
   final int maxQueuedPerOrigin;
   final Duration defaultRateLimitCooldown;
@@ -130,7 +128,6 @@ final class MediaRequestLease {
   }
 }
 
-/// Expected local rejection while an origin's server cooldown is active.
 final class MediaOriginRateLimitedException implements Exception {
   const MediaOriginRateLimitedException(this.origin, this.retryAfter);
 
@@ -142,7 +139,6 @@ final class MediaOriginRateLimitedException implements Exception {
       'Media requests to $origin are paused for ${retryAfter.inSeconds}s.';
 }
 
-/// A request rejected before delegation because an origin's backlog is full.
 final class MediaRequestOverloadException implements Exception {
   const MediaRequestOverloadException(this.origin, this.maxQueued);
 

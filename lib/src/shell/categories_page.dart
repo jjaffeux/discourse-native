@@ -13,7 +13,6 @@ import 'shell_scope.dart';
 import 'site_emoji_image.dart';
 import 'topic_title.dart';
 
-/// The native version of Discourse's `categories_boxes_with_topics` page.
 class CategoriesPage extends StatefulWidget {
   const CategoriesPage({super.key, required this.siteUrl, required this.feed});
 

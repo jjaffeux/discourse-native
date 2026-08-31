@@ -9,8 +9,6 @@ import 'package:logging/logging.dart' as dart_logging;
 
 import 'resenha_diagnostics.dart';
 
-/// Turns the verbose SDK streams on only for an explicit deep-capture window.
-///
 /// LiveKit exposes a Dart logging stream on every supported platform. The
 /// vendored flutter_webrtc native hook currently exists only on iOS/macOS, so
 /// Linux records an explicit availability marker instead of pretending native
@@ -165,8 +163,6 @@ final class NativeResenhaDiagnosticsSdkLogBridge
   }
 }
 
-/// Runs every SDK cleanup even if an earlier global hook fails to reset.
-///
 /// Exposed for deterministic failure-injection tests; production uses it to
 /// keep LiveKit and WebRTC verbose logging from being stranded on after stop.
 @visibleForTesting

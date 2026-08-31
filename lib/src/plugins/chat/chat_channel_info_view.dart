@@ -17,11 +17,6 @@ import 'chat_route.dart';
 import 'chat_shell_service.dart';
 import 'chat_user_avatar.dart';
 
-/// Core Discourse's routed channel information surface.
-///
-/// Settings and members are sibling routes rather than unrelated header
-/// sheets. The shell owns Back, while this view owns the route-local tabs and
-/// the same channel controls core groups together under `/info`.
 class ChatChannelInfoView extends StatelessWidget {
   const ChatChannelInfoView({
     super.key,

@@ -1,7 +1,6 @@
 import 'package:discourse_native/src/models/incoming_topics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// A `/new` message, shaped as `TopicTrackingState.publish_new` sends it.
 Map<String, Object?> newTopic(int topicId, {int? categoryId = 5}) => {
   'topic_id': topicId,
   'message_type': 'new_topic',
@@ -15,8 +14,6 @@ Map<String, Object?> newTopic(int topicId, {int? categoryId = 5}) => {
   },
 };
 
-/// A `/latest` message, shaped as `TopicTrackingState.publish_latest` sends it.
-/// Published when a post bumps a topic, not when one is created.
 Map<String, Object?> bumped(int topicId, {int? categoryId = 5}) => {
   'topic_id': topicId,
   'message_type': 'latest',
@@ -52,8 +49,6 @@ void main() {
         ..notify(newTopic(42))
         ..notify(bumped(43));
 
-      // Top is ordered by score rather than by arrival, and messages have a
-      // tracker of their own server side.
       expect(incoming.count('top'), 0);
       expect(incoming.count('messages'), 0);
     });
@@ -62,8 +57,6 @@ void main() {
       final incoming = IncomingTopics();
 
       expect(incoming.notify(newTopic(42)), isTrue);
-      // A reply lands on the topic that was just created, and a reconnect can
-      // replay either message.
       expect(incoming.notify(bumped(42)), isFalse);
       expect(incoming.notify(newTopic(42)), isFalse);
 
@@ -73,8 +66,6 @@ void main() {
     test('ignores the messages that are not a topic arriving', () {
       final incoming = IncomingTopics();
 
-      // Both are published to /latest and carry no payload: they say a topic
-      // left or joined the reader's lists, not that one turned up.
       expect(incoming.notify({'topic_id': 42, 'message_type': 'muted'}), false);
       expect(
         incoming.notify({'topic_id': 42, 'message_type': 'unmuted'}),
@@ -127,9 +118,6 @@ void main() {
         ..notify(newTopic(1))
         ..notify(newTopic(2));
 
-      // Topic 2 was muted, or deleted, or past the page the site serves: it
-      // was requested and produced nothing, and must not sit in the count
-      // behind a banner that can never clear it.
       expect(incoming.clear('latest', [1, 2]), isTrue);
       expect(incoming.count('latest'), 0);
     });

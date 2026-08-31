@@ -420,8 +420,6 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
 
-    // The first group has two cells while the next has only one. Down from
-    // column one lands on that nearest cell instead of becoming a no-op.
     expect(selected, 'discourse');
   });
 }

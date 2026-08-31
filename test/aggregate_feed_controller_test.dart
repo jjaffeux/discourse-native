@@ -24,8 +24,6 @@ void main() {
       final api = _AggregateApi(
         pages: {
           '$_firstUrl|${_AggregateApi.openPage}': [
-            // A fully read topic remains because inclusion now belongs to the
-            // explicit filter query rather than a native unread heuristic.
             _topic(1, minute: 10, seen: true),
             _topic(2, minute: 8, unreadPosts: 2),
           ],

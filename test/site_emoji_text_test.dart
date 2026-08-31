@@ -228,7 +228,6 @@ void main() {
 
       expect(find.byType(SiteEmojiImage), findsNothing);
       final text = tester.widget<Text>(find.text('Standup at 10:30:45 UTC'));
-      // Plain data, not spans: nothing colon-delimited earned a placeholder.
       expect(text.data, 'Standup at 10:30:45 UTC');
       expect(text.textSpan, isNull);
       expect(artworkRequests, isEmpty);
@@ -282,8 +281,6 @@ Future<void> _pump(
     instanceStore: FakeInstanceStore([instance('meta.example')]),
     api: FakeDiscourseApi(
       emojisBySite: {
-        // What this site's `/emojis.json` registers, custom uploads included.
-        // Everything a test draws must be here; anything else stays text.
         'https://meta.example': const [
           SiteEmoji(name: 'sparkles', url: '/images/emoji/sparkles.png'),
           SiteEmoji(name: 'tada', url: '/images/emoji/tada.png'),

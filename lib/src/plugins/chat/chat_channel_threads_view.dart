@@ -9,11 +9,6 @@ import 'chat_controller.dart';
 import 'chat_my_threads_view.dart';
 import 'chat_services.dart';
 
-/// The active thread index for one Chat channel.
-///
-/// Discourse serves this independently from the message stream and reorders
-/// it as tracking and reply events arrive. [ChatController] owns that live
-/// projection; this widget owns only the visible page and its scroll trigger.
 class ChatChannelThreadsView extends StatefulWidget {
   const ChatChannelThreadsView({
     super.key,

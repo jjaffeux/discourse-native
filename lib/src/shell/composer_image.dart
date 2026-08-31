@@ -58,8 +58,6 @@ class ComposerImagePreview extends StatelessWidget {
     );
 
     return Semantics(
-      // A pending upload has no resolved URL yet, but it is still an image
-      // preview rather than ordinary text.
       image: true,
       label: image.alt.isEmpty ? 'Image' : image.alt,
       selected: highlighted,
@@ -76,8 +74,6 @@ class ComposerImagePreview extends StatelessWidget {
           borderRadius: borderRadius,
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
         ),
-        // Keep the image clipped to the rounded surface, then paint the stroke
-        // above it so image pixels cannot cover the selected border.
         foregroundDecoration: BoxDecoration(
           borderRadius: borderRadius,
           border: border,
@@ -106,8 +102,6 @@ class ComposerImagePreview extends StatelessWidget {
   }
 }
 
-/// Creates the preview provider without resolving it, so decode policy can be
-/// verified without making a media request.
 @visibleForTesting
 ImageProvider<Object> composerPreviewImageProvider(
   BuildContext context, {

@@ -13,18 +13,13 @@ extension PollPostPluginData on PluginData {
   Polls? get polls => get(pollsDataKey);
 }
 
-/// The poll data Discourse attached to a post, if any.
 extension PostPolls on Post {
   Polls? get polls => plugins.polls;
 
   bool get hasPolls => polls != null;
 }
 
-/// A wire value with known constants and a lossless unknown case.
-///
-/// Poll is bundled with Discourse and can grow independently of this client.
-/// Keeping the original value means a future type stays drawable as a
-/// read-only web fallback instead of making the whole post fail to parse.
+/// Preserves unknown future wire values for a read-only web fallback.
 @immutable
 class PollType {
   const PollType._(this.value);
@@ -155,11 +150,7 @@ class PollChartType {
   String toString() => 'PollChartType($value)';
 }
 
-/// One cooked option. [votes] is deliberately nullable.
-///
-/// Poll omits the key when this reader cannot see results. Converting absence
-/// to zero would disclose a false result and make a confidential poll appear
-/// as though nobody had voted.
+/// Null [votes] means results are confidential, not zero.
 @immutable
 class PollOption {
   const PollOption({required this.id, required this.html, this.votes})
@@ -185,13 +176,8 @@ class PollOption {
   final int? votes;
   final String? _plainText;
 
-  /// The cooked label's accessible text.
-  ///
-  /// Wire-parsed options compute this once with the rest of the model so a
-  /// selection or pending-state rebuild does not construct another HTML DOM.
   String get plainText => _plainText ?? _normalizedHtmlText(html);
 
-  /// Number polls serialize generated values as cooked option labels.
   num? get numericValue {
     return int.tryParse(plainText) ?? double.tryParse(plainText);
   }
@@ -224,7 +210,6 @@ class RankedPollSelection {
   int get hashCode => Object.hash(digest, rank);
 }
 
-/// What the current reader selected in one named poll.
 @immutable
 class PollSelection {
   const PollSelection({
@@ -294,7 +279,6 @@ class PollRankedCandidate {
   final String html;
   final String? _plainText;
 
-  /// The cooked candidate label without markup, computed during wire parsing.
   String get plainText => _plainText ?? _normalizedHtmlText(html);
 
   @override
@@ -440,7 +424,6 @@ class PollClosedBy {
   int get hashCode => Object.hash(id, username, name, avatarUrl);
 }
 
-/// One named poll, with the current reader's selection folded into it.
 @immutable
 class Poll {
   const Poll({
@@ -467,12 +450,7 @@ class Poll {
     this.selection = PollSelection.none,
   });
 
-  /// Largest option list Discourse will accept for one poll.
-  ///
-  /// `poll_maximum_options` is site-configurable, but core constrains that
-  /// setting to at most 100. Keep the same hard boundary while reading a
-  /// response so a broken or hostile payload cannot make one visible card
-  /// parse and retain an arbitrary number of cooked option labels.
+  /// Core's maximum site setting and the client parsing ceiling.
   static const int maximumOptions = 100;
 
   static Poll? fromJson(Object? value, String siteUrl, {Object? selection}) {
@@ -499,8 +477,6 @@ class Poll {
       ),
       voters: jsonInt(value['voters']),
       closeAt: jsonDate(value['close']),
-      // Voter identity UI is deliberately deferred, but retaining the exact
-      // deeply immutable payload keeps the model complete and future-safe.
       preloadedVoters: _freezeJson(value['preloaded_voters']),
       chartType: PollChartType.fromValue(value['chart_type']),
       groups: List.unmodifiable(
@@ -533,13 +509,11 @@ class Poll {
   final int voters;
   final DateTime? closeAt;
 
-  /// Retained for lossless domain coverage; identity-list UI is deferred.
   final Object? preloadedVoters;
 
   final PollChartType chartType;
   final List<String> groups;
 
-  /// Cooked HTML, like option labels.
   final String? title;
 
   final RankedChoiceOutcome? rankedChoiceOutcome;
@@ -630,7 +604,6 @@ class Poll {
   ]);
 }
 
-/// All polls on one post, keyed by their serialized name rather than position.
 @immutable
 class Polls {
   const Polls({this.byName = const {}});
@@ -680,7 +653,6 @@ class Polls {
   );
 }
 
-/// A personalized answer from either poll vote route.
 @immutable
 class PollVoteResponse {
   const PollVoteResponse({required this.poll, required this.selection});

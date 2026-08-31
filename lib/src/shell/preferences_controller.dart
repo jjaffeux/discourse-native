@@ -20,12 +20,6 @@ typedef PreferencesSaved =
 typedef _PreferencesLane = ({String siteUrl, String accountIdentity});
 typedef _PreferenceSave = ({_PreferencesLane lane, PreferenceSection section});
 
-/// One connected account's preference editor state.
-///
-/// [draft] is kept separate from [confirmed] so a server response produced
-/// before a newer edit cannot put old values back into the form. The page can
-/// also say exactly which section is dirty without treating an in-flight save
-/// as confirmation.
 @immutable
 final class PreferencesState {
   const PreferencesState({
@@ -85,13 +79,6 @@ final class PreferencesState {
   static const Object _unchanged = Object();
 }
 
-/// Server-owned user preferences, isolated from shell-wide rebuilds.
-///
-/// Reads and writes share the same per-account operation lane. An idle read
-/// stays fast, while a read accepted after a write observes that write first.
-/// A lifecycle lease and local revision still guard the opposite race: a read
-/// which started before an edit cannot overwrite the newer draft when it
-/// eventually answers.
 final class PreferencesController extends FrameSafeNotifier {
   PreferencesController({
     required this.api,
@@ -222,7 +209,6 @@ final class PreferencesController extends FrameSafeNotifier {
     }
   }
 
-  /// Applies one local form edit without involving shell-wide state.
   void edit(
     String siteUrl,
     PreferenceSection section,

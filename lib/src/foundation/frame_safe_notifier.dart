@@ -63,7 +63,6 @@ abstract class FrameSafeNotifier extends ChangeNotifier {
   }
 }
 
-/// A [ValueListenable] with the same frame-safe notification semantics.
 final class FrameSafeValueNotifier<T> extends FrameSafeNotifier
     implements ValueListenable<T> {
   FrameSafeValueNotifier(this._value);

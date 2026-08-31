@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'sidebar_tag.dart';
 
-/// The native all-tags directory and the state of its server read.
 @immutable
 class TagDirectoryFeed {
   const TagDirectoryFeed({

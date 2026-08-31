@@ -3,8 +3,6 @@ import 'package:flutter/foundation.dart';
 
 import '../models/json.dart';
 
-/// Stable identity for one plugin-owned notification total.
-///
 /// The identity is independent of the server field name so a plugin may own
 /// wire migrations without teaching core about the feature.
 @immutable
@@ -29,7 +27,6 @@ final class PluginNotificationCounterId {
   String toString() => id;
 }
 
-/// One installed plugin's declaration for a count in the totals response.
 @immutable
 final class PluginNotificationCounter {
   const PluginNotificationCounter({
@@ -64,8 +61,6 @@ final class PluginNotificationCounterState {
   final PluginNotificationCounter counter;
   final int count;
 
-  /// Whether the latest authoritative response contained this counter.
-  ///
   /// Zero is a valid available count. Absence is kept separately so plugin UI
   /// does not accidentally advertise a feature which this site did not send.
   final bool available;
@@ -81,7 +76,6 @@ final class PluginNotificationCounterState {
   int get hashCode => Object.hash(counter, count, available);
 }
 
-/// Installed counter values plus opaque namespaces from absent plugins.
 @immutable
 final class PluginNotificationCounters {
   const PluginNotificationCounters._(this._states, this._preservedNamespaces);
@@ -143,7 +137,6 @@ final class PluginNotificationCounters {
     ),
   }, const {});
 
-  /// Retains stored namespaces without interpreting feature-owned values.
   factory PluginNotificationCounters.preserveNamespaces(Object? value) {
     final preserved = _preserveNamespaces(value);
     return preserved.isEmpty ? none : _from(const {}, preserved);
@@ -166,8 +159,6 @@ final class PluginNotificationCounters {
         (state.available && state.counter.contributesToBadge ? state.count : 0),
   );
 
-  /// Applies a plugin-owned live update without changing response presence.
-  ///
   /// Presence is response-authoritative. A delta arriving before the first
   /// response updates the held count but must not advertise the feature.
   PluginNotificationCounters update(
@@ -188,11 +179,8 @@ final class PluginNotificationCounters {
     return _from(states, _preservedNamespaces);
   }
 
-  /// Merges an HTTP response with updates received while it was in flight.
-  ///
   /// Response presence is authoritative. A count changed since [before]
-  /// remains live; otherwise the response wins. Opaque namespaces never seen
-  /// by the active manifest are carried through unchanged.
+  /// remains live; otherwise the response wins.
   static PluginNotificationCounters mergeRefresh({
     required PluginNotificationCounters response,
     required PluginNotificationCounters before,
@@ -219,7 +207,6 @@ final class PluginNotificationCounters {
     return _from(states, preserved);
   }
 
-  /// Stable namespaced representation for the core instance snapshot.
   Map<String, Object?> toStored(
     Iterable<PluginNotificationCounter> installedCounters,
   ) {
@@ -262,7 +249,6 @@ final class PluginNotificationCounters {
   ]);
 }
 
-/// Neutral model-codec seam implemented by the installed plugin registry.
 abstract interface class PluginNotificationCounterCodec {
   List<PluginNotificationCounter> get notificationCounters;
 

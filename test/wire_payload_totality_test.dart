@@ -50,9 +50,6 @@ import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Keys taken from the payloads these parsers actually read, so the generator
-/// spends its budget on fields with code behind them rather than on names
-/// nothing looks up.
 const _keys = [
   'id',
   'name',
@@ -298,21 +295,6 @@ void _recordCorpusShapes(Object? value, Set<String> reached) {
 }
 
 void main() {
-  // `json.dart` states the rule the whole model layer is written to: "Every
-  // parser answers that with a default rather than a throw — a field the site
-  // did not send is a field left at its default." Nothing pinned it, and a
-  // parser that throws does not degrade one field, it takes down whatever
-  // screen was reading the payload.
-  //
-  // Deliberately absent, because they read this app's own storage rather than
-  // a site and their callers are written around the throw: `ContentRoute`,
-  // `ForumTabAnchor` and `ResolvedSitePalette` raise FormatException on an
-  // unusable record, and `DiscourseInstance`/`DiscourseUser` cast, which
-  // `InstanceStore` catches per entry so one damaged site cannot erase the
-  // rail. `ResenhaJoinResponse` is the one wire parser that joins them: a join
-  // answered with a transport this client cannot speak is a failed join rather
-  // than a degraded one, and `ResenhaController` turns the throw into the
-  // call's error state.
   test('no wire parser throws on a payload it did not expect', () {
     final random = Random(20260823);
     const site = 'https://example.com';
@@ -616,11 +598,6 @@ void main() {
       'object with nested collection',
     }, reason: 'the fixed-seed corpus must reach every intended JSON shape');
   });
-  // The instruction above — add every new wire parser here — is only as good
-  // as somebody remembering it, and the parser it is forgotten for is the one
-  // nothing else covers either. So it is checked against the source rather
-  // than asked for: every type in `lib/` declaring a `fromJson` is either
-  // probed above or named below with why it is not a site payload.
   test('every parser that reads a payload is in the corpus', () {
     const notSitePayloads = {
       // This app's own storage. Their callers are written around the throw:
@@ -685,8 +662,6 @@ void main() {
       reason: 'add these to the probes above, or to notSitePayloads with why',
     );
 
-    // The other direction: an exemption for a type that no longer declares a
-    // parser is a claim nobody is checking any more.
     expect(
       notSitePayloads.difference(declaring.keys.toSet()),
       isEmpty,

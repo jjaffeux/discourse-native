@@ -19,19 +19,10 @@ enum DiagnosticsKindFilter { all, requests, errors }
 typedef DiagnosticsTimerFactory =
     Timer Function(Duration duration, void Function() callback);
 
-/// A retained event and what it costs against the size budget.
 typedef _RetainedEvent = ({DiagnosticEvent event, int bytes});
 
-/// The published view of the recorder's history.
-///
-/// Copying the history is what makes a published snapshot immutable while the
-/// recorder keeps mutating its own list, but the history changes several times
-/// per request and is read at most once per frame — and not at all while the
-/// panel is closed. So the copy is deferred to the read.
-///
-/// This is not weaker than copying eagerly: every mutation invalidates, so a
-/// materialized snapshot is only ever handed out for the state that is current
-/// when it is asked for, and it is never the list that goes on changing.
+/// Defers the immutable copy until read; every mutation invalidates the last
+/// published copy, so callers never receive the list that keeps changing.
 final class _EventHistoryListenable extends FrameSafeNotifier
     implements ValueListenable<List<DiagnosticEvent>> {
   _EventHistoryListenable(this._history);
@@ -114,27 +105,17 @@ typedef _DiagnosticsGeneration = ({
   int generation,
 });
 
-/// The app-owned diagnostics authority made available to plugin lifecycles.
-///
-/// Keeping this key beside the capability avoids making the generic plugin host
-/// API depend on diagnostics implementation details. App lifecycles must still
-/// declare the port through `addAppLifecycle(..., requires: ...)`; the runtime
-/// supplies a consumer-restricted binding before startup.
+/// The runtime supplies this consumer-restricted port only to lifecycles that
+/// declare it through `addAppLifecycle(..., requires: ...)`.
 const pluginDiagnosticsReporterPort =
     PluginHostPortKey<PluginDiagnosticsReporter>(
       owner: PluginId('core'),
       name: 'diagnostics-reporter',
     );
 
-/// Diagnostics operations which plugin code may perform.
-///
-/// A fixed reporter always writes to the sink it was constructed with, even if
-/// the process-wide compatibility sink later changes. Its operation zones also
-/// carry that controller's identity and generation, so work begun before a
-/// clear cannot reappear afterward and cannot leak into another controller
-/// whose numeric generation happens to match. A resolving reporter gives a
-/// composition root the same stable capability while it replaces its owned
-/// recorder, without consulting the ambient compatibility sink.
+/// Operation zones carry controller identity and generation so pre-clear work
+/// cannot reappear or leak into a replacement recorder. A resolving reporter
+/// preserves this stable capability while its owned sink changes.
 final class PluginDiagnosticsReporter {
   PluginDiagnosticsReporter.fixed(DiagnosticsSink sink)
     : _fixedSink = sink,
@@ -227,8 +208,6 @@ final class PluginDiagnosticsReporter {
   );
 }
 
-/// Immutable diagnostics history and export operations exposed to plugin UI.
-///
 /// This is deliberately a wrapper rather than the controller typed as an
 /// interface. A plugin therefore cannot cast the value back to
 /// [DiagnosticsController] and clear history, mutate panel state, report new
@@ -253,8 +232,6 @@ final class PluginDiagnosticsReadExportHost {
       _controller.buildJsonReport(events);
 }
 
-/// A deliberately shallow forwarding view over the controller's notifier.
-///
 /// The plugin can subscribe and read, but cannot downcast this object to the
 /// controller-owned ChangeNotifier and dispose or otherwise mutate it.
 final class _PluginDiagnosticsEventsListenable
@@ -281,7 +258,6 @@ abstract class DiagnosticsSink {
 
   static DiagnosticsSink get current => _current;
 
-  /// Installs [sink] and returns a binding which restores the previous sink.
   static DiagnosticsSinkBinding install(DiagnosticsSink sink) {
     final previous = _current;
     final active = _binding;
@@ -327,8 +303,6 @@ abstract class DiagnosticsSink {
     String? correlationId,
   });
 
-  /// Records a sanitized structured log without allowing diagnostics failures
-  /// to affect the operation being observed.
   void recordLog({
     required String name,
     String source = 'application',
@@ -437,7 +411,6 @@ T _runDiagnosticOperation<T>(
   return runZoned(body, zoneValues: zoneValues);
 }
 
-/// App-owned diagnostics state. It is independent of any connected site.
 final class DiagnosticsController
     implements DiagnosticsSink, HttpDiagnosticsRecorder {
   DiagnosticsController._({
@@ -476,13 +449,8 @@ final class DiagnosticsController
   final TopicScrollCaptureController topicScrollCapture =
       TopicScrollCaptureController();
 
-  /// The retained events by id, mirroring [_events] exactly.
-  ///
-  /// [_events] is ordered — by sequence, so the panel reads a stable timeline —
-  /// and this is the index onto it. Every hot path here is keyed by id and
-  /// runs per HTTP phase, three times a request: without the index each of
-  /// them walks the whole retained history, which is thousands of events on a
-  /// session that has been up for a while.
+  /// Mirrors the ordered [_events] list so per-HTTP-phase updates do not scan
+  /// the entire retained history.
   final Map<String, _RetainedEvent> _byId = {};
 
   final List<(DiagnosticEvent, int)> _pendingWrites = [];
@@ -501,11 +469,8 @@ final class DiagnosticsController
   int _totalEventBytes = 0;
   int _unseenErrorCount = 0;
 
-  /// The oldest [DiagnosticEvent.timestampUtc] held, or null when that is not
-  /// currently known. Age retention is the only reader, and it asks on every
-  /// recorded event; recomputing it is a full scan, so it is kept rather than
-  /// derived. An update reuses the timestamp of the event it replaces, so only
-  /// eviction can invalidate it.
+  /// Cached because age retention checks every event; only eviction can make
+  /// the oldest timestamp unknown.
   DateTime? _oldestTimestamp;
   bool _oldestTimestampKnown = true;
 
@@ -600,7 +565,6 @@ final class DiagnosticsController
   ValueListenable<DiagnosticsPanelState> get panelStateListenable =>
       _panelStateNotifier;
 
-  /// Compatibility listenable for entry points that only care open/closed.
   ValueListenable<bool> get panelListenable => _panelOpenNotifier;
 
   bool get isPanelOpen => _panelStateNotifier.value.isOpen;
@@ -1233,12 +1197,8 @@ final class DiagnosticsController
     return lower;
   }
 
-  /// Where [event] sits in [_events], which is ascending by sequence.
-  ///
-  /// Sequences are all but unique — only an update reuses one, and it replaces
-  /// the event it took it from — so the equal-sequence walk is bounded in
-  /// practice, and the scan is a guard for a history that somehow is not
-  /// ordered rather than an expected cost.
+  /// Only a replacing update reuses a sequence, so the equal-sequence scan is
+  /// bounded in normal operation.
   int _indexOf(DiagnosticEvent event) {
     var lower = 0;
     var upper = _events.length;
@@ -1271,7 +1231,6 @@ final class DiagnosticsController
     _forget(removed);
   }
 
-  /// Drops everything [_events] is indexed by for one event.
   void _forget(DiagnosticEvent removed) {
     final retained = _byId.remove(removed.id);
     if (retained != null) _totalEventBytes -= retained.bytes;
@@ -1281,8 +1240,6 @@ final class DiagnosticsController
     if (_oldestTimestamp == removed.timestampUtc) _oldestTimestampKnown = false;
   }
 
-  /// The oldest retained timestamp, recomputed only when an eviction dropped
-  /// the event that held it.
   DateTime? _oldestEventTimestamp() {
     if (_oldestTimestampKnown) return _oldestTimestamp;
     DateTime? oldest;
@@ -1296,8 +1253,6 @@ final class DiagnosticsController
     return oldest;
   }
 
-  /// Rebuilds everything derived from [_events], for the paths that rewrite it
-  /// in place rather than through [_putEvent] and [_removeEventAt].
   void _reindexEvents() {
     _byId.clear();
     _totalEventBytes = 0;

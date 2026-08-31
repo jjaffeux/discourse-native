@@ -6,7 +6,6 @@ import '../../plugin_api/core_plugin_host.dart';
 import 'ai_summary.dart';
 import 'ai_summary_api.dart';
 
-/// Coordinates cached and newly streamed Discourse AI topic summaries.
 final class AiSummaryController {
   const AiSummaryController({
     required this.api,

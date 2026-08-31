@@ -2,11 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'chat_message.dart';
 
-/// The UI-sized projection of one Chat thread used as an embedded
-/// conversation by another plugin.
-///
-/// Paging, writes, read receipts, and live updates remain Chat behavior. A
-/// consumer only observes the resulting messages and operation state.
 @immutable
 final class ChatConversationSnapshot {
   const ChatConversationSnapshot({
@@ -24,10 +19,6 @@ final class ChatConversationSnapshot {
   final String? error;
 }
 
-/// A retained view of one Chat thread.
-///
-/// The handle owns the Chat-side live subscription for as long as it remains
-/// open. Consumers must call [close] when the association is discarded.
 abstract interface class ChatConversation
     implements ValueListenable<ChatConversationSnapshot> {
   String get siteUrl;
@@ -45,7 +36,6 @@ abstract interface class ChatConversation
   void close();
 }
 
-/// Chat-owned entry point for embedding an associated thread conversation.
 abstract interface class ChatConversationCapability {
   ChatConversation openThread({
     required String siteUrl,

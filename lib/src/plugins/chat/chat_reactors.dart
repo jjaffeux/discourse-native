@@ -4,11 +4,6 @@ import '../../data/store.dart';
 import '../../models/json.dart';
 import '../../plugin_api/reaction_presentation.dart';
 
-/// One account returned by Chat's reaction-user endpoint.
-///
-/// This is deliberately Chat-owned. Topic reactions expose the same neutral
-/// [ReactionUser] presentation interface, but neither feature imports or
-/// constructs the other's wire model.
 @immutable
 class ChatReactor implements ReactionUser {
   const ChatReactor({
@@ -60,10 +55,6 @@ class ChatReactor implements ReactionUser {
   int get hashCode => Object.hash(id, username, reaction, name, avatarUrl);
 }
 
-/// Who reacted to one chat message, as returned by chat's own lazy endpoint.
-///
-/// [ReactionUsersPage] is the UI boundary; this record owns Chat identity,
-/// bounded parsing, and storage.
 @immutable
 class ChatMessageReactors
     with Storable<ChatMessageReactors>

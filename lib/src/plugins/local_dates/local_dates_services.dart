@@ -12,7 +12,6 @@ const localDatesUiService = PluginServiceKey<LocalDatesUiService>(
   name: 'ui',
 );
 
-/// Local Dates' read-only view of the current writing and presentation state.
 final class LocalDatesUiService {
   const LocalDatesUiService({
     required PluginComposerHost composer,

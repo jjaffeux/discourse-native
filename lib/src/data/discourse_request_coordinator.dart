@@ -52,8 +52,6 @@ final class DiscourseRequestCoordinator {
 
   final int maxConcurrentPerOrigin;
 
-  /// Maximum work retained behind the active slots for one origin.
-  ///
   /// A slow or rate-limited site must not let refreshes and navigation retain
   /// an unlimited number of request closures, bodies, and completers. Active
   /// requests do not count toward this backlog limit.
@@ -150,7 +148,6 @@ final class DiscourseRequestCoordinator {
   }
 }
 
-/// A request rejected before delegation because an origin's backlog is full.
 final class DiscourseRequestOverloadException implements Exception {
   const DiscourseRequestOverloadException(this.origin, this.maxQueued);
 

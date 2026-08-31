@@ -74,29 +74,19 @@ class SiteLookupException implements Exception, DiagnosticErrorCause {
   ].join();
 }
 
-/// Why a write did not go through.
-///
-/// Reads collapse into "couldn't reach it" because there is nothing the reader
-/// can do either way. A write is the opposite: the user typed something, it was
-/// refused, and the reason decides what they do next — fix the text, wait,
-/// reconnect, or reload.
+/// Writes preserve failure categories because each requires different recovery.
 enum WriteFailure {
-  /// The site refused the content. [WriteException.errors] says why, in words
-  /// Discourse already wrote for a reader.
   validation,
 
-  /// Too fast. [WriteException.retryAfter] says how long to wait, when the
-  /// site said.
   rateLimited,
 
   /// Not allowed here — or the key is gone. The two are indistinguishable from
   /// the status alone, since Discourse answers 403 to both.
   forbidden,
 
-  /// Someone changed it first. Only edits can hit this.
+  /// Only edits can conflict.
   conflict,
 
-  /// Nothing answered, or what answered made no sense.
   unreachable,
 }
 
@@ -112,13 +102,11 @@ class WriteException implements Exception, DiagnosticErrorCause {
 
   final WriteFailure failure;
 
-  /// Discourse's own messages. Already written for a reader, so they are shown
-  /// as they arrive rather than translated into something of ours.
+  /// Server-localized messages are shown verbatim rather than translated again.
   final List<String> errors;
 
   final int? statusCode;
 
-  /// How long to wait before trying again, on a [WriteFailure.rateLimited].
   final Duration? retryAfter;
   final Object? cause;
   final StackTrace? causeStackTrace;
@@ -263,8 +251,6 @@ abstract interface class SiteLookupApi {
   Future<DiscourseInstance> lookup(String term);
 }
 
-/// Account identity and site-presentation operations orchestrated by the
-/// shell itself.
 abstract interface class ShellSiteApi {
   Future<DiscourseUser> currentUser({
     required String siteUrl,
@@ -272,8 +258,6 @@ abstract interface class ShellSiteApi {
     String? clientId,
   });
 
-  /// The connected account's complete new/unread topic snapshot, used for
-  /// the same per-category and per-tag sidebar badges as the web client.
   Future<TopicTrackingState> topicTrackingState({
     required String siteUrl,
     required String apiKey,
@@ -355,7 +339,6 @@ abstract interface class ShellSiteApi {
   });
 }
 
-/// Operations owned by the transient shell-search state machine.
 abstract interface class ShellSearchApi {
   Future<SearchResults> searchPosts({
     required String siteUrl,
@@ -406,8 +389,6 @@ abstract interface class ShellSearchApi {
   });
 }
 
-/// Category paging, lazy identity resolution, and the bounded category picker
-/// search are one server-owned workflow.
 abstract interface class CategoryQueriesApi {
   Future<List<TopicCategory>> categories({
     required String siteUrl,
@@ -439,7 +420,6 @@ abstract interface class CategoryQueriesApi {
   });
 }
 
-/// Browsable tag navigation and the native all-tags directory.
 abstract interface class TagQueriesApi {
   Future<List<SidebarTag>> tags({
     required String siteUrl,
@@ -448,8 +428,6 @@ abstract interface class TagQueriesApi {
   });
 }
 
-/// Autocomplete operations shared by topic filters, cooked hashtags, and the
-/// composer.
 abstract interface class ShellLookupApi {
   Future<List<FoundUser>> searchUsers({
     required String siteUrl,
@@ -880,7 +858,6 @@ abstract interface class AccountActivityApi {
     String? clientId,
   });
 
-  /// The connected user's default Activity stream: topics and replies only.
   Future<UserActivityPage> userActivity({
     required String siteUrl,
     required String apiKey,
@@ -898,7 +875,6 @@ abstract interface class AccountActivityApi {
   });
 }
 
-/// The authenticated user record used by the native Preferences destination.
 abstract interface class UserPreferencesApi {
   Future<UserPreferences> loadUserPreferences({
     required String siteUrl,
@@ -917,7 +893,6 @@ abstract interface class UserPreferencesApi {
   });
 }
 
-/// Bookmark writes shared by the shell and its independently tested fakes.
 abstract interface class BookmarksWriteApi {
   Future<int> createBookmark({
     required String siteUrl,
@@ -956,7 +931,6 @@ abstract interface class BookmarksWriteApi {
   });
 }
 
-/// The authenticated list behind the Drafts destination.
 abstract interface class DraftsApi {
   Future<List<UserDraft>> userDrafts({
     required String siteUrl,
@@ -975,7 +949,6 @@ abstract interface class DraftsApi {
   });
 }
 
-/// The connected account's bounded profile summary.
 abstract interface class UserSummariesApi {
   Future<UserSummary> userSummary({
     required String siteUrl,
@@ -985,7 +958,6 @@ abstract interface class UserSummariesApi {
   });
 }
 
-/// Topic-list pages consumed by the shell's feed state machine.
 abstract interface class TopicFeedsApi {
   Future<TopicList> topicList({
     required String siteUrl,
@@ -995,7 +967,6 @@ abstract interface class TopicFeedsApi {
   });
 }
 
-/// Read receipts emitted from native topic viewport observations.
 abstract interface class TopicReadsApi {
   Future<void> recordTopicRead({
     required String siteUrl,

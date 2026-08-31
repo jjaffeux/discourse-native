@@ -9,10 +9,6 @@ import 'local_dates/local_dates_module.dart';
 import 'poll/poll_module.dart';
 import 'reactions/reactions_module.dart';
 
-/// The deterministic composition of plugins which ship in the core package.
-///
-/// Resenha is a separately packaged native plugin. The full application adds
-/// it from its outer composition root under `profiles/full`.
 final PluginManifest bundledPluginManifest = PluginManifest([
   localDatesModule,
   discourseGithubModule,
@@ -25,9 +21,5 @@ final PluginManifest bundledPluginManifest = PluginManifest([
   chatModule,
 ]);
 
-/// Compatibility name for widget hosts which own their diagnostics lifecycle.
-///
-/// The package-owned bundle has no app-global diagnostics plugin now that
-/// Resenha is composed only by the full application.
 final PluginManifest bundledPluginManifestWithoutDiagnostics =
     bundledPluginManifest;

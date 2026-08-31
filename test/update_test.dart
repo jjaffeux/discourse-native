@@ -77,8 +77,6 @@ void main() {
 
   group('channels', () {
     test('a name that is no longer a channel reads as nothing', () {
-      // The point of the null: a preference written by a build that had a
-      // channel this one does not must not throw on launch.
       expect(UpdateChannel.byName('nightly'), isNull);
       expect(UpdateChannel.byName(null), isNull);
       expect(UpdateChannel.byName('canary'), UpdateChannel.canary);
@@ -100,15 +98,10 @@ void main() {
         messages.add(message);
       }
 
-      // Distinct, because a failure that reads the same as another one is a
-      // failure the reader cannot tell apart — see the signature case below.
       expect(messages, hasLength(UpdateFailure.values.length));
     });
 
     test('a bad signature does not read as an unreachable server', () {
-      // The security-relevant distinction, pinned: told "couldn't reach it", a
-      // user retries until it works. That is the wrong advice for a download
-      // that failed to verify.
       const untrusted = UpdateException(UpdateFailure.untrusted);
       const unreachable = UpdateException(UpdateFailure.unreachable);
 
@@ -118,17 +111,18 @@ void main() {
   });
 
   group('what can update', () {
-    test('a build with no updater behind it says so rather than pretending', () {
-      const updater = UnsupportedUpdater();
+    test(
+      'a build with no updater behind it says so rather than pretending',
+      () {
+        const updater = UnsupportedUpdater();
 
-      expect(updater.isSupported, isFalse);
-      // Throwing, not returning null: a caller that ignores isSupported should
-      // fail loudly rather than look like it updated and do nothing.
-      expect(
-        () => updater.check(channel: UpdateChannel.stable),
-        throwsA(isA<UpdateException>()),
-      );
-    });
+        expect(updater.isSupported, isFalse);
+        expect(
+          () => updater.check(channel: UpdateChannel.stable),
+          throwsA(isA<UpdateException>()),
+        );
+      },
+    );
 
     test('a build the release pipeline never stamped is not a release', () {
       // No --dart-define under `flutter test`, so a local build never presents
@@ -215,7 +209,6 @@ void main() {
 
       await controller.check(silent: true);
 
-      // Nobody asked, so there is nobody to tell and nothing they could do.
       expect(controller.error, isNull);
       expect(controller.status, UpdateStatus.idle);
     });
@@ -419,7 +412,6 @@ void main() {
       await controller.check();
       await controller.download();
 
-      // Back to `available`, so the button to try again is the same button.
       expect(controller.status, UpdateStatus.available);
       expect(controller.error, contains('signature'));
       expect(controller.available, isNotNull);
@@ -452,7 +444,6 @@ void main() {
       await controller.download();
       await controller.installAndRestart();
 
-      // The download is still good; do not make the user fetch it twice.
       expect(controller.status, UpdateStatus.readyToInstall);
       expect(controller.error, isNotNull);
     });
@@ -482,8 +473,6 @@ void main() {
 
       await controller.setChannel(UpdateChannel.canary);
 
-      // A canary user must not be able to install the stable build they
-      // fetched a minute ago, and vice versa.
       expect(updater.discardCount, 1);
       expect(updater.stagedRelease, isNull);
       expect(controller.status, UpdateStatus.upToDate);
@@ -645,7 +634,6 @@ void main() {
           updater: FakeUpdater(
             isSupported: true,
             releases: {UpdateChannel.stable: release('1.4.0')},
-            // Three reports inside the same percent, then one that moves it.
             progressSteps: const [0.5001, 0.5002, 0.5003, 0.75],
           ),
         );
@@ -654,8 +642,6 @@ void main() {
         controller.addListener(() => notifications++);
         await controller.download();
 
-        // Entering downloading, one move to 50%, one to 75%, one to
-        // readyToInstall. The three redundant reports are dropped.
         expect(notifications, 4);
       },
     );

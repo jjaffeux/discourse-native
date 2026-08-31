@@ -7,8 +7,6 @@ import 'resenha_diagnostics_view.dart';
 import 'resenha_report_exporter.dart';
 import 'resenha_sdk_diagnostics.dart';
 
-/// Resenha's complete app-level diagnostics integration.
-///
 /// This object is registered both as a lifecycle and as a diagnostics
 /// capability. The session receives only its recorder interface, while core
 /// discovers the generic [DiagnosticsPlugin] surface through the registry.

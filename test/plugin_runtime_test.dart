@@ -1327,8 +1327,7 @@ void main() {
                 final value = bindings.require(_scopedHostValuePort);
                 received.add('$id:$value');
 
-                // Restricted views no longer carry the root materializer, so a
-                // plugin cannot rebind its value under another identity.
+                // Restricted views must not expose the root materializer.
                 final rebound = bindings
                     .restrictedTo(const [
                       _scopedHostValuePort,

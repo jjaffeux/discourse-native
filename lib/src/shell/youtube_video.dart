@@ -29,12 +29,6 @@ const Set<String> _youtubeHosts = {
 final RegExp _youtubeId = RegExp(r'^[A-Za-z0-9_-]+$');
 final RegExp _youtubeTime = RegExp(r'^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$');
 
-/// The YouTube fields Discourse preserves in cooked HTML.
-///
-/// Core understands Onebox's iframe fallback. Bundled provider plugins can
-/// construct the same data from their own cooked markup, so the renderer never
-/// has to trust an arbitrary iframe: only validated YouTube hosts, paths and
-/// identifiers reach [YoutubePlayerSurface].
 @immutable
 final class YoutubeVideoData {
   const YoutubeVideoData({
@@ -74,11 +68,9 @@ final class YoutubeVideoData {
     return Uri.https('www.youtube.com', path, query);
   }
 
-  /// Claims core Onebox's legacy YouTube iframe fallback.
   static YoutubeVideoData? tryParseCoreIframe(dom.Element element) =>
       _isCoreYoutubeIframe(element) ? _fromCoreIframe(element) : null;
 
-  /// Parses the URL forms accepted by Discourse's YouTube onebox engine.
   static YoutubeVideoData? tryParseUrl(String value) {
     final uri = Uri.tryParse(value);
     if (uri == null || !_isSafeYoutubeUri(uri)) return null;
@@ -91,7 +83,6 @@ final class YoutubeVideoData {
       if (segments.isNotEmpty) videoId = sanitizeYoutubeId(segments.first);
     } else if (segments.length >= 2 && segments.first == 'embed') {
       if (segments[1] == 'videoseries') {
-        // A playlist-only iframe has no video id.
       } else {
         videoId = sanitizeYoutubeId(segments[1]);
       }
@@ -160,8 +151,6 @@ final class YoutubeVideoData {
       element.classes.contains('youtube-onebox');
 }
 
-/// Returns an empty replacement for core's hidden thumbnail, or the native
-/// YouTube preview/player for markup this client recognises.
 Widget? youtubeVideoWidgetBuilder(dom.Element element, {String? siteUrl}) {
   if (_isHiddenCoreThumbnail(element)) return const SizedBox.shrink();
   final data = YoutubeVideoData.tryParseCoreIframe(element);
@@ -190,8 +179,6 @@ bool _isSafeYoutubeUri(Uri uri) {
       (uri.scheme == 'http' && uri.port == 80);
 }
 
-/// Validates an identifier before provider-owned cooked markup can feed it to
-/// the shared YouTube player.
 String? sanitizeYoutubeId(String? value) {
   final candidate = value?.trim();
   if (candidate == null ||
@@ -211,8 +198,6 @@ int? _fragmentStart(String fragment) {
   return parseYoutubeTime(fragment.substring(2));
 }
 
-/// Parses the plain-second and `1h2m3s` forms used by YouTube URLs and cooked
-/// provider attributes.
 int? parseYoutubeTime(String? value) {
   final candidate = value?.trim();
   if (candidate == null || candidate.isEmpty) return null;
@@ -239,7 +224,6 @@ extension<T> on List<T> {
 typedef YoutubePlayerBuilder =
     Widget Function(YoutubeVideoData data, Uri? forumOrigin);
 
-/// The native, lazy YouTube card used by both posts and chat messages.
 class YoutubeVideo extends StatefulWidget {
   const YoutubeVideo({
     super.key,
@@ -251,7 +235,6 @@ class YoutubeVideo extends StatefulWidget {
   final YoutubeVideoData data;
   final String? siteUrl;
 
-  /// A test seam; production always uses [YoutubePlayerSurface].
   final YoutubePlayerBuilder? playerBuilder;
 
   @override
@@ -466,12 +449,6 @@ class _YoutubeVideoState extends State<YoutubeVideo>
   }
 }
 
-/// Restricts the root-overlay player to the scrollable that owns its post.
-///
-/// Flutter's macOS compositor excludes native views from pointer hit testing
-/// wherever a later Flutter layer overlaps them. Painting the WebView in the
-/// root overlay avoids those topic-wide layers, while this clip preserves the
-/// same viewport boundary the inline player would have had.
 class _PlayerViewportClipper extends CustomClipper<Rect> {
   const _PlayerViewportClipper(this.viewport);
 
@@ -493,11 +470,6 @@ class _PlayerViewportClipper extends CustomClipper<Rect> {
 typedef _MacOSYoutubeScrollTarget =
     bool Function(Offset globalPosition, double delta);
 
-/// Receives wheel and trackpad deltas captured by the macOS WKWebView host.
-///
-/// A process-wide channel is shared by every activated player. The native
-/// event includes its Flutter-global pointer position, which lets the latest
-/// visible matching player hand the delta to its own topic or channel.
 final class _MacOSYoutubeScrollBridge {
   static const _channel = MethodChannel('org.discourse.native/youtube_scroll');
   static final Map<Object, _MacOSYoutubeScrollTarget> _targets = {};
@@ -659,7 +631,6 @@ class _YoutubePoster extends StatelessWidget {
   }
 }
 
-/// The sole platform-WebView boundary for YouTube playback.
 class YoutubePlayerSurface extends StatefulWidget {
   const YoutubePlayerSurface({
     super.key,
@@ -808,20 +779,11 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
   }
 }
 
-/// Gives the activated platform view ownership of its pointer sequences.
-///
-/// YouTube players live inside both a selectable message body and a scrollable
-/// timeline. With the platform-view default, those ancestors can win the
-/// gesture arena and leave the iframe visible but unable to receive its own
-/// pause, seek, volume, or fullscreen interactions.
 const Set<Factory<OneSequenceGestureRecognizer>>
 youtubePlayerGestureRecognizers = <Factory<OneSequenceGestureRecognizer>>{
   Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new),
 };
 
-/// Opts into the playback behavior promised by the native Play action before
-/// the platform WebView is created. In particular, WKWebView defaults inline
-/// media to false even when the iframe itself uses `playsinline=1`.
 PlatformWebViewControllerCreationParams youtubeWebViewCreationParams() {
   const base = PlatformWebViewControllerCreationParams();
   final platform = WebViewPlatform.instance;
@@ -842,8 +804,6 @@ PlatformWebViewControllerCreationParams youtubeWebViewCreationParams() {
   return base;
 }
 
-/// Keeps the source forum as the iframe's referrer/client identity while
-/// discarding paths, credentials and fragments.
 Uri? youtubeForumOrigin(String? siteUrl) {
   final uri = siteUrl == null ? null : Uri.tryParse(siteUrl);
   if (uri == null ||
@@ -915,9 +875,6 @@ bool isYoutubeDocumentNavigation(String value, Uri documentBase) {
   return uri == documentBase || uri == documentBase.replace(path: '/');
 }
 
-/// Linux's WebKitGTK adapter currently marks iframe policy requests as main
-/// frame requests. Permit only our exact initial player URL while the app-owned
-/// document is loading; subsequent main-frame requests still leave the app.
 bool isYoutubeInitialEmbedNavigation(
   String value,
   YoutubeVideoData data, {

@@ -5,7 +5,6 @@ import 'package:discourse_native/src/shell/markdown_highlight.dart';
 import 'package:discourse_native/src/shell/syntax.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The token of the first run carrying one, which is what a pill is asked for.
 String? tokenOf(String source) {
   for (final run in scanMarkdown(source)) {
     if (run.token != null) return run.token;
@@ -13,11 +12,6 @@ String? tokenOf(String source) {
   return null;
 }
 
-/// The source with each run wrapped in what it was marked as, so a failure
-/// reads as what someone would see rather than as a list of offsets.
-///
-/// Unmarked runs are written bare, which keeps the expectations short: most of
-/// a post is prose, and only the marked-up parts are worth spelling out.
 String annotate(String source) {
   final buffer = StringBuffer();
   for (final run in scanMarkdown(source)) {
@@ -50,14 +44,8 @@ List<String> _names(MarkdownRun run) => [
 
 const int _minimumBenchmarkSampleMicros = 25000;
 
-/// The fastest per-scan cost from batches long enough to outlive timer noise.
-///
-/// One scan of the smaller fixture can take less than a millisecond. Coverage
-/// instrumentation, JIT work, or one scheduler interruption can then dominate
-/// the ratio this benchmark uses to distinguish linear growth from quadratic
-/// growth. Warm the path and increase the batch until every measured sample
-/// spans at least 25ms; the 25x tolerance still sits well between the expected
-/// 8x linear growth and the regressed 64x quadratic growth.
+/// Measures batches long enough to keep JIT and scheduler noise from
+/// dominating the linear-versus-quadratic ratio.
 double _stableScanCost(String source) {
   var checksum = scanMarkdown(source).length;
 
@@ -68,9 +56,6 @@ double _stableScanCost(String source) {
     checksum += calibration.checksum;
     if (calibration.elapsedMicros >= _minimumBenchmarkSampleMicros ||
         iterations >= 256) {
-      // This batch has the same duration and iteration count as the samples
-      // below. Keep it as the first sample instead of paying for it and then
-      // discarding it once calibration has finished.
       firstSampleMicros = calibration.elapsedMicros;
       break;
     }
@@ -99,9 +84,6 @@ double _stableScanCost(String source) {
   return (elapsedMicros: elapsed.elapsedMicroseconds, checksum: checksum);
 }
 
-/// Everything the scanner is asked about anywhere in this file, plus the awkward
-/// cases that have no assertion of their own — the invariant below has to hold
-/// for all of it.
 const List<String> samples = [
   '',
   'plain prose with no marks at all',
@@ -215,7 +197,6 @@ void main() {
     });
 
     test('three asterisks compose bold and italic, as the toolbar does', () {
-      // What pressing bold and then italic actually leaves in the field.
       expect(annotate('***both***'), '<m>***</><b+i>both</><m>***</>');
     });
 
@@ -228,28 +209,19 @@ void main() {
     });
 
     test('reads a double underscore the way the site does', () {
-      // `__bold__` is bold on Discourse, and was drawn here as an italic
-      // `_bold_` — the wrong mark, with the inner underscores shown as if
-      // they were content.
       expect(annotate('__bold__'), '<m>__</><b>bold</><m>__</>');
       expect(annotate('___both___'), '<m>___</><b+i>both</><m>___</>');
       expect(
         annotate('__bold__ and _italic_'),
         '<m>__</><b>bold</><m>__</> and <m>_</><i>italic</><m>_</>',
       );
-      // The word-boundary rule the single underscore has, unchanged.
       expect(annotate('snake__case__name'), 'snake__case__name');
     });
 
     test('a run of delimiters is one mark or none, never a piece of one', () {
-      // Markdown matches delimiters by run. `a ** b ** c` is two runs of two,
-      // neither able to open or close because of the spaces against them —
-      // and taking one asterisk out of each italicised a sentence the site
-      // leaves alone.
       expect(annotate('a ** b ** c'), 'a ** b ** c');
       expect(annotate('****'), '****');
       expect(annotate('a __ b __ c'), 'a __ b __ c');
-      // What the ladder above still claims, unchanged.
       expect(annotate('***both***'), '<m>***</><b+i>both</><m>***</>');
       expect(annotate('*a**b*'), '<m>*</><i>a**b</><m>*</>');
     });
@@ -275,7 +247,6 @@ void main() {
       expect(annotate('* not italic *'), '* not italic *');
       expect(annotate('_ x _'), '_ x _');
       expect(annotate('~~ x ~~'), '~~ x ~~');
-      // A no-break space is space to the scanner, as it is to a regexp.
       expect(annotate('*\u{00a0}x\u{00a0}*'), '*\u{00a0}x\u{00a0}*');
     });
 
@@ -287,8 +258,6 @@ void main() {
     });
 
     test('needs a word boundary either side of an underscore pair', () {
-      // Only the outer pair has a boundary on the far side of it, so the
-      // inner underscores are ordinary characters inside the emphasis.
       expect(annotate('_a_b_c_'), '<m>_</><i>a_b_c</><m>_</>');
       expect(annotate('x_y_z'), 'x_y_z');
       expect(annotate('_a_ b'), '<m>_</><i>a</><m>_</> b');
@@ -306,10 +275,7 @@ void main() {
     });
 
     test('stops a mark at a fenced block', () {
-      // A fence ends the paragraph around it, so the asterisks either side of
-      // one are two stray characters rather than a pair. Letting them pair up
-      // italicised the code between them, and made every opener before a large
-      // fence rescan the whole of it on the next keystroke.
+      // Fences split inline delimiter pairing into separate blocks.
       expect(
         annotate('*open\n```\ncode\n```\nclosed*'),
         '*open\n<m>```</>\n<block>code\n</><m>```</>\nclosed*',
@@ -327,12 +293,7 @@ void main() {
     });
 
     test('an escaped backtick opens nothing', () {
-      // CommonMark's escapes work everywhere except *inside* a code span, so
-      // `\`` is a literal backtick. Reading it as a delimiter drew a whole
-      // sentence as code — and closed it to every later pass, so the bold and
-      // the mention the site really cooks were not drawn at all.
-      // The backslash is dimmed and the backtick it protects is not: the
-      // post shows one and not the other.
+      // CommonMark treats an escaped backtick as text outside code spans.
       expect(annotate(r'a \`b\` c'), r'a <m>\</>`b<m>\</>` c');
       expect(
         annotate(r'say \`this **bold** stays\` bold'),
@@ -341,14 +302,10 @@ void main() {
     });
 
     test('a backslash spends itself on the next character', () {
-      // `\\` is an escaped backslash, so the backtick after it is free.
       expect(annotate(r'a \\`code`'), r'a <m>\</>\<m>`</><code>code</><m>`</>');
     });
 
     test('a delimiter is a whole run of backticks, not a prefix of one', () {
-      // One backtick and then two is no code span at all: the closer has to
-      // be a run of the same length. A backreference could take the first of
-      // the pair instead and closed a span the site leaves as text.
       expect(annotate('`a``'), '`a``');
       expect(annotate('``a`'), '``a`');
     });
@@ -363,11 +320,6 @@ void main() {
     test(
       'does not reach across a paragraph break for its closing backtick',
       () {
-        // Inline parsing runs inside one block, so the blank line ending a
-        // paragraph is also what stops a backtick pairing with the next one
-        // below it. Left to the whole document the span swallowed everything in
-        // between and closed it to every later pass, so the composer drew none
-        // of the markup the site was about to cook.
         expect(annotate('a `b\n\nc` d'), 'a `b\n\nc` d');
         expect(
           annotate('a `b\n\n**bold** and @sam\n\nc` d'),
@@ -401,7 +353,6 @@ void main() {
           .where((run) => run.has(Md.codeBlock) && run.detail != null)
           .map((run) => run.detail!)
           .toSet();
-      // Whatever highlight.js calls them, it had *some* opinion about Ruby.
       expect(scopes, isNotEmpty);
     });
 
@@ -421,8 +372,6 @@ void main() {
   group('deferred fence highlighting', () {
     setUp(clearSyntaxHighlightCacheForTesting);
 
-    // As `_highlightFence` sees it: everything between the fence lines, the
-    // newline that closed the last body line included.
     final largeBody =
         '${List.generate(40, (i) => 'final value$i = "line $i";').join('\n')}'
         '\n';
@@ -454,14 +403,11 @@ void main() {
       );
 
       expect(deferred, [(largeBody, 'dart')]);
-      // Still code — monospace, code colour — just without scopes yet.
       expect(runs.where((run) => run.has(Md.codeBlock)), isNotEmpty);
       expect(scoped(runs), isEmpty);
     });
 
     test('a large fence already in the cache keeps its colour', () {
-      // What the debounce owes the scan: exactly this call, with exactly the
-      // body it was handed.
       highlightLines(largeBody, 'dart');
 
       var deferred = 0;
@@ -480,14 +426,7 @@ void main() {
   });
 
   group('escapes', () {
-    // A backslash before ASCII punctuation makes that character literal, and
-    // the composer was drawing several of them as markup the site cooks as the
-    // characters themselves. But a backslash protects *some* of what this scan
-    // finds and not all of it, and the two cases below are the difference.
     test('an escaped delimiter opens nothing markdown-it would open', () {
-      // Emphasis, links, code spans and inline HTML are markdown-it's own
-      // inline rules, and the escape has consumed the character before they
-      // run.
       expect(
         annotate(r'a \*not italic\* b'),
         r'a <m>\</>*not italic<m>\</>* b',
@@ -511,21 +450,14 @@ void main() {
     });
 
     test('escaped Discourse tokens remain recognizable after parsing', () {
-      // Mentions, hashtags and emoji are Discourse's own, added through
-      // `textPostProcess` — and `pretty-text/text-replace.js` runs that over
-      // the *text tokens of the finished inline pass*, by which point `\@sam`
-      // is the text `@sam` and matches. The site draws that mention, so this
-      // does too. The backslash is dimmed either way: markdown-it consumed it
-      // and the post does not show it.
+      // Discourse discovers these tokens after markdown-it consumes escapes.
       expect(annotate(r'a \@sam b'), r'a <m>\</><at>@sam</> b');
       expect(annotate(r'a \#tag b'), r'a <m>\</><hash>#tag</> b');
       expect(annotate(r'a \:smile: b'), r'a <m>\</><emoji>:smile:</> b');
     });
 
     test('an escaped delimiter does not consume the real one after it', () {
-      // The reason the rule is a claim on the offsets rather than a check
-      // after the fact: a pair that is found and then refused has already
-      // taken its closer, and the emphasis after it loses one.
+      // Refusing a pair after matching it would consume another pair's closer.
       expect(
         annotate(r'real *italic* after \*escaped\* one'),
         r'real <m>*</><i>italic</><m>*</> after <m>\</>*escaped<m>\</>* one',
@@ -533,19 +465,15 @@ void main() {
     });
 
     test('a backslash spends itself, and only on punctuation', () {
-      // `\\` is an escaped backslash, so the delimiter after it is free.
       expect(
         annotate(r'a \\*italic* b'),
         r'a <m>\</>\<m>*</><i>italic</><m>*</> b',
       );
-      // Before a letter or at the end of the source it is just a backslash.
       expect(annotate(r'a \n not punctuation'), r'a \n not punctuation');
       expect(annotate(r'trailing backslash \'), r'trailing backslash \');
     });
 
     test('a backslash inside code is a backslash', () {
-      // CommonMark's escapes do not work inside a code span or a fence, and
-      // the reader is shown the character.
       expect(
         annotate(r'`not \* escaped in code`'),
         r'<m>`</><code>not \* escaped in code</><m>`</>',
@@ -604,11 +532,6 @@ void main() {
     });
 
     test('a name may not end in a dot, a dash or an underscore', () {
-      // Core's own rule (`frontend/pretty-text/addon/mentions.js`, snapshotted
-      // beside the hashtag markup): `@(\w[\w.-]{0,58}[^\W_])|@(\w)`. Reading
-      // the period as part of the name asked the site about `sam.`, was told
-      // no, and drew no pill on a mention the post really has — which is how
-      // most sentences that end in one are written.
       expect(annotate('thanks @sam.'), 'thanks <at>@sam</>.');
       expect(annotate('@sam-'), '<at>@sam</>-');
       expect(annotate('@sam_'), '<at>@sam</>_');
@@ -640,8 +563,6 @@ void main() {
     });
 
     test('keeps two shortcodes side by side apart', () {
-      // Collapsed by mask alone they would be one run, and anything drawing a
-      // picture per run would draw one over both.
       final runs = scanMarkdown(
         ':smile::smile:',
       ).where((run) => run.has(Md.emoji)).toList();
@@ -661,9 +582,7 @@ void main() {
     });
 
     test('a shortcode inside a tag does not steal the tag', () {
-      // The name and the tag are two different facts about the same
-      // characters. Held in one slot the shortcode overwrote the tag, and
-      // `<kbd>` lost its monospace chip — see [MarkdownRun.token].
+      // A run can carry both an HTML tag and an emoji token.
       final run = scanMarkdown(
         'press <kbd>:smile:</kbd> now',
       ).firstWhere((run) => run.has(Md.emoji));
@@ -672,27 +591,19 @@ void main() {
     });
 
     test('a shortcode needs a boundary before its opening colon', () {
-      // Core's `getEmojiName` refuses one whose opening colon has an ordinary
-      // character before it, which is what keeps `10:30:45` from holding an
-      // emoji called `30` — and what stops the composer drawing a picture
-      // where the site leaves `word:smile:` as text. Switched off by the
-      // inline-emoji site setting, which is off by default and is not a
-      // setting this scan can see; drawing the default is the side that cannot
-      // invent markup.
+      // The scanner cannot see the optional inline-emoji site setting, so it
+      // follows core's conservative boundary rule.
       expect(annotate('word:smile: here'), 'word:smile: here');
       expect(annotate('Standup at 10:30:45'), 'Standup at 10:30:45');
-      // Whitespace, punctuation, and the start of the source all open one.
       expect(annotate('a :smile: b'), 'a <emoji>:smile:</> b');
       expect(annotate(':smile:'), '<emoji>:smile:</>');
       expect(annotate('(:smile:)'), '(<emoji>:smile:</>)');
       expect(annotate('a-:smile:'), 'a-<emoji>:smile:</>');
       expect(annotate('a\n:smile:'), 'a\n<emoji>:smile:</>');
-      // And the closing colon of one opens the next.
       expect(annotate(':smile::smile:'), '<emoji>:smile:</><emoji>:smile:</>');
     });
 
     test('a name stops where core stops reading one', () {
-      // `MAX_NAME_LENGTH` is 60 and core refuses a name that reaches it.
       expect(annotate(':${'a' * 70}:'), ':${'a' * 70}:');
       expect(annotate(':${'a' * 59}:'), '<emoji>:${'a' * 59}:</>');
     });
@@ -717,8 +628,6 @@ void main() {
     });
 
     test('carries the ref, sigil stripped', () {
-      // The ref and not the slug: it is what was typed, and the only form that
-      // finds a subcategory or a name two things share.
       expect(
         scanMarkdown(
           'see #parent:child',
@@ -728,8 +637,6 @@ void main() {
     });
 
     test('a heading is not a hashtag', () {
-      // The heading pattern already demands whitespace after the hashes, so
-      // the two never have to be told apart by anything else.
       expect(annotate('# Heading'), '<m># </><h>Heading</>');
       expect(annotate('#Heading'), '<hash>#Heading</>');
     });
@@ -754,18 +661,12 @@ void main() {
     });
 
     test('a second sigil inside the run does not start another', () {
-      // `#a#b` is one hashtag called `a`, not two. The `#` is a word
-      // character as far as the boundary rule is concerned, which is the same
-      // rule that refuses `##foo` — and the same one the composer's trigger
-      // uses, so what gets drawn and what offers a completion agree.
       final runs = scanMarkdown('#a#b').where((r) => r.has(Md.hashtag));
       expect(runs.map((r) => r.token), ['a']);
       expect(annotate('#a#b'), '<hash>#a</>#b');
     });
 
     test('keeps two apart when they really are two', () {
-      // Collapsed by mask alone these would be one run, and something drawing
-      // a pill per run would draw one over both.
       final runs = scanMarkdown('#a #b').where((r) => r.has(Md.hashtag));
       expect(runs.map((r) => r.token), ['a', 'b']);
     });
@@ -870,7 +771,6 @@ void main() {
     test('refuses a space against the inside of either delimiter', () {
       expect(pairs('* a*', '*'), isEmpty);
       expect(pairs('*a *', '*'), isEmpty);
-      // A no-break space is space here as it is to a regexp.
       expect(pairs('*\u{00a0}a*', '*'), isEmpty);
     });
 
@@ -883,13 +783,11 @@ void main() {
       expect(pairs('_a_', '_', word: true), [(0, 3)]);
       expect(pairs('x_a_', '_', word: true), isEmpty);
       expect(pairs('_a_x', '_', word: true), isEmpty);
-      // The inner `_` cannot close — a word character follows it — so the
-      // opener reaches past it to the one that can.
       expect(pairs('_a_x _b_', '_', word: true), [(0, 8)]);
     });
 
     test('gives up on the block once an opener runs out of closers', () {
-      // The property the scan is built on, and the reason it is linear.
+      // Exhausted closers terminate the block scan in linear time.
       expect(pairs('_a _b _c', '_', word: true), isEmpty);
     });
   });
@@ -907,14 +805,7 @@ void main() {
     });
 
     test('holds for markdown nobody would write', () {
-      // The sample list above covers what the scanner was designed against,
-      // which is exactly the input least likely to break it. This throws
-      // syntax at it in whatever order a seeded random picks — half-open
-      // marks, fences inside links, a `[` with no `]` — because the field
-      // losing a character is the one failure that cannot be shipped.
-      //
-      // Seeded, so a failure is reproducible rather than a story about a run
-      // that happened once on someone's laptop.
+      // Seeded so fuzz failures remain reproducible.
       final random = Random(20260807);
       const alphabet = [
         '**',
@@ -980,20 +871,9 @@ void main() {
     });
 
     test('the link scan agrees with the pattern it replaced', () {
-      // `_links` used to be `\[([^\]\n]*)\]\(([^)\s]*)\)`. It is a scan now,
-      // for the growth reason above, and the two have to agree on what a link
-      // is. The alphabet leaves out backticks and inline tags: those claim
-      // characters in an earlier pass, and a candidate whose brackets are
-      // already claimed is the one place the scan deliberately differs — it
-      // resumes after the opening bracket rather than past the whole rejected
-      // candidate, which is what lets `` `[` `` stop hiding a real link after
-      // it. The case below that pins that difference.
-      //
-      // No backslash in the alphabet, for the second one: the pattern reads
-      // `\[` as an opening bracket and the scan does not, and a rejected
-      // escaped bracket does not hide the link after it either. That is two
-      // deliberate differences, each with its own case below, and neither is
-      // something an exact comparison can express.
+      // Escapes and syntax claimed by earlier passes intentionally differ from
+      // this legacy pattern, so their characters are excluded here and covered
+      // by dedicated cases below.
       final pattern = RegExp(r'\[([^\]\n]*)\]\(([^)\s]*)\)');
       const alphabet = [
         '[',
@@ -1026,7 +906,7 @@ void main() {
         }
         final source = buffer.toString();
 
-        // An empty link text leaves no run behind, so it cannot be compared.
+        // Empty link text produces no run to compare.
         final expected = [
           for (final match in pattern.allMatches(source))
             if (match.group(1)!.isNotEmpty)
@@ -1039,8 +919,7 @@ void main() {
           expectedLinkCount += expected.length;
         }
 
-        // `Md.linkText` is set by `_links` and nothing else. Adjacent runs of
-        // it are one link's text split by whatever marked up the prose.
+        // Inline markup can split one link's text across adjacent link runs.
         final found = <String>[];
         int? start;
         int? end;
@@ -1090,9 +969,8 @@ void main() {
     );
 
     test('deferring a fence does not move where code is', () {
-      // The composer shares one scan's `CodeRanges` with every projection
-      // parser instead of letting each run its own. That only holds while a
-      // fence left untokenized still reports its body as code.
+      // Deferred fences must still populate the CodeRanges shared by later
+      // projection parsers.
       final body = List.generate(
         400,
         (index) => 'var x$index = $index;',
@@ -1109,28 +987,16 @@ void main() {
     });
 
     test('a line of openers costs its length, not its square', () {
-      // The other quadratic shape, and it needs no fence: one long line with
-      // many openers on it. The link pattern's text class excludes `]`, so the
-      // closer is always the first one on the line, but the engine walked to
-      // the end of the line at every bracket and gave the characters back one
-      // at a time looking for a `]` it had already ruled out. An inline tag's
-      // body is lazy with nothing to stop it and cost the same walk. A
-      // minified array pasted on one line, a log line that opens a bracket and
-      // never closes it, or a paste full of `<del>`, is that shape.
+      // Unclosed delimiters must not rescan the rest of the line per opener.
       for (final unit in const [
         '[abc ',
         '[abc] ',
         '[abc](x) ',
         '<kbd>x ',
-        // Backtick runs, paired and unpaired, escaped and not: the pairing is
-        // a scan over the runs and the run walk is one pass over the block,
-        // so neither may grow on the number of either.
         '`abc ',
         '`abc` ',
         r'\`abc\` ',
         '``abc`` ',
-        // Backslashes, which the escape pass walks and every delimiter scan
-        // then asks about.
         r'\* ',
         r'\\ ',
         r'a\*b ',
@@ -1147,15 +1013,8 @@ void main() {
     });
 
     test('scales with the length of what is pasted, not its square', () {
-      // A stack trace is the shape that used to be quadratic: one block with
-      // no blank line in it, and one `_private` opener per frame that never
-      // finds a closer. Every keystroke rescans the whole document, so an
-      // opener that walks to the end of the block for each of its peers is
-      // felt as the composer freezing.
-      //
-      // Timed rather than counted because the cost is inside the regexp
-      // engine, so the tolerance is wide: eight times the input is eight times
-      // the work when this is linear and sixty-four when it is not.
+      // This is timed because the relevant cost is inside the regexp engine;
+      // an 8x input separates linear growth from the former quadratic case.
       String paste(int frames) {
         final buffer = StringBuffer('Getting this on launch:\n\n```\n');
         for (var i = 0; i < frames; i += 1) {

@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'diagnostics_redactor.dart';
 
-/// The lifecycle states emitted for one HTTP transaction.
 enum HttpDiagnosticPhase {
   started,
   responseHeaders,
@@ -13,7 +12,6 @@ enum HttpDiagnosticPhase {
   cancelled,
 }
 
-/// Redirect metadata that is safe to retain in diagnostics.
 final class HttpDiagnosticRedirect {
   const HttpDiagnosticRedirect({
     required this.statusCode,
@@ -26,12 +24,6 @@ final class HttpDiagnosticRedirect {
   final Uri location;
 }
 
-/// An immutable update for a single HTTP transaction.
-///
-/// Updates with the same [eventId] describe the same transaction. URIs and
-/// error text are sanitized before this object is constructed, request header
-/// values and bodies are never inspected, and [responseHeaders] contains only
-/// explicitly allowlisted metadata.
 final class HttpDiagnosticRecord {
   const HttpDiagnosticRecord({
     required this.eventId,
@@ -82,19 +74,12 @@ final class HttpDiagnosticRecord {
   }
 }
 
-/// Narrow adapter implemented by the app-owned diagnostics controller.
-///
-/// Implementations should be nonthrowing. The recording HTTP layer also
-/// guards every call so a faulty diagnostics backend can never affect a
-/// request.
 abstract interface class HttpDiagnosticsRecorder {
   String? get currentOperationId;
 
   void recordHttp(HttpDiagnosticRecord update);
 }
 
-/// A process-wide [HttpOverrides] that records clients created through
-/// `HttpClient()` while preserving an override that was already installed.
 final class RecordingHttpOverrides extends HttpOverrides {
   RecordingHttpOverrides(
     this.recorder, {
@@ -108,12 +93,6 @@ final class RecordingHttpOverrides extends HttpOverrides {
   final HttpOverrides? previous;
   final DateTime Function() _clock;
 
-  /// Installs this override globally and returns it for later inspection.
-  ///
-  /// This should be called from the root zone before any HTTP clients are
-  /// created. The currently active non-recording override is retained and
-  /// delegated to; an older recording layer is replaced so one request cannot
-  /// be emitted to both the old and replacement recorders.
   static RecordingHttpOverrides install(
     HttpDiagnosticsRecorder recorder, {
     DateTime Function()? clock,
@@ -141,7 +120,6 @@ final class RecordingHttpOverrides extends HttpOverrides {
   }
 }
 
-/// A fully delegating [HttpClient] that wraps every opened request.
 final class RecordingHttpClient implements HttpClient {
   RecordingHttpClient(
     this._delegate,
@@ -376,7 +354,6 @@ final class RecordingHttpClient implements HttpClient {
   }
 }
 
-/// A fully delegating request that counts body bytes without retaining them.
 final class _RecordingHttpClientRequest implements HttpClientRequest {
   _RecordingHttpClientRequest(this._delegate, this._transaction);
 
@@ -576,7 +553,6 @@ final class _RecordingHttpClientRequest implements HttpClientRequest {
   }
 }
 
-/// A response stream that records delivered bytes and its terminal state.
 final class _RecordingHttpClientResponse extends Stream<List<int>>
     implements HttpClientResponse {
   _RecordingHttpClientResponse(this._delegate, this._transaction);
@@ -874,8 +850,6 @@ Map<String, String> _safeResponseHeaders(HttpHeaders headers) {
   return Map<String, String>.unmodifiable(values);
 }
 
-/// Removes URI credentials, fragments, and every query value while retaining
-/// query names (including duplicates) for useful request identification.
 Uri sanitizeHttpDiagnosticUri(Uri uri) {
   try {
     return Uri.parse(DiagnosticsRedactor.uri(uri));
@@ -884,8 +858,6 @@ Uri sanitizeHttpDiagnosticUri(Uri uri) {
   }
 }
 
-/// Redacts URL query values, common credential-shaped values, and the user's
-/// home directory from diagnostic error text and stack traces.
 String redactHttpDiagnosticText(String value) =>
     DiagnosticsRedactor.scrub(value);
 

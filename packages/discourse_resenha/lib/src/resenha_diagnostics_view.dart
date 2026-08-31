@@ -8,9 +8,6 @@ import 'resenha_report_exporter.dart';
 
 const int resenhaDiagnosticsClipboardByteLimit = 10 * 1024 * 1024;
 
-/// The small presentation boundary between the diagnostics capture store and
-/// its panel. Keeping the view JSON-shaped makes capture records inspectable
-/// even as new WebRTC or LiveKit fields are added by the SDKs.
 class ResenhaDiagnosticsView extends StatefulWidget {
   const ResenhaDiagnosticsView({
     super.key,

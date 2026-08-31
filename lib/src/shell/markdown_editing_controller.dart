@@ -20,17 +20,6 @@ import 'markdown_style.dart';
 import 'mention.dart';
 import 'syntax.dart';
 
-/// A field controller that draws markdown as what it means.
-///
-/// The text is never touched. `buildTextSpan` is the one hook Flutter offers
-/// for deciding how an editable's contents are *painted*, and everything here
-/// goes through it — so `text` stays the exact string that will be posted, and
-/// drafts, the typing clock and the send button never learn that anything is
-/// being drawn differently.
-///
-/// Markers are dimmed rather than hidden. Hiding them is where an editor starts
-/// lying about what will be posted, which is the whole reason the document-model
-/// composer was taken out.
 class MarkdownEditingController extends TextEditingController {
   MarkdownEditingController({
     super.text,
@@ -46,30 +35,14 @@ class MarkdownEditingController extends TextEditingController {
     this.enableImageGalleries = true,
   });
 
-  /// The site whose upload URLs are embedded in this draft.
   final String? imageSiteUrl;
 
-  /// Where the artwork for `smile` lives on the site being written to.
-  ///
-  /// Injected rather than reached for, because the shell owns the site and its
-  /// custom emoji — see `ShellController.emojiUrlFor`. Null leaves every
-  /// shortcode as text, which is what the tests and a composer with no site
-  /// behind it get.
   final String Function(String name)? resolveEmoji;
 
-  /// What a `#ref` and an `@name` turn out to be, and how to go and find out.
-  ///
-  /// Null leaves both as text — which is what the tests and a composer with no
-  /// site behind it get, exactly as for [resolveEmoji].
   final ComposerPills? pills;
 
-  /// Resolves presentation for installed plugin-owned hashtag kinds.
-  /// Category, tag, and unknown fallback behavior remains in core.
   final PluginHashtagPresentationResolver? pluginHashtagPresentation;
 
-  /// Recovers the cooked structure of quote source when the referenced post
-  /// is already loaded. This also upgrades an open pre-fix quote whose raw
-  /// selection was flattened by Flutter's selection API.
   final ComposerQuoteContentsFormatter? formatQuoteContents;
   ComposerQuoteContentsResolver? _quoteContentsResolver;
   Object? _quoteContentsResolverContext;
@@ -79,11 +52,6 @@ class MarkdownEditingController extends TextEditingController {
   final int maxImageWidth;
   final int maxImageHeight;
 
-  /// Whether `[grid]` blocks are projected as editable image galleries.
-  ///
-  /// Core topic/post/private-message composers enable this. Plugin-owned
-  /// surfaces, including chat attachment composers, keep the markup raw
-  /// because gallery syntax is not part of their target contract.
   final bool enableImageGalleries;
 
   String? _imageScanned;
@@ -100,14 +68,8 @@ class MarkdownEditingController extends TextEditingController {
   ScrollController? _imageScrollController;
   ScrollController? get imageScrollController => _imageScrollController;
 
-  /// Invoked by the gallery's explicit edit control when this controller is
-  /// hosted by a composer UI. Kept mutable for the same lifecycle reason as
-  /// [imageScrollController]: the text controller can outlive one editor.
   ValueChanged<ComposerImageGalleryBlock>? onEditImageGallery;
 
-  /// Invoked when a gallery tile is dropped on another tile. The composer UI
-  /// owns the source mutation so uploads and draft bookkeeping remain in the
-  /// same path as every other gallery edit.
   void Function(ComposerImageGalleryBlock, ComposerImageBlock, int)?
   onReorderImageGallery;
 
@@ -118,9 +80,6 @@ class MarkdownEditingController extends TextEditingController {
   ComposerImageBlock? _draggedGalleryImage;
   final Map<int, GlobalKey> _galleryKeys = {};
 
-  /// Holds the source caret and composing range still while a pill is selected.
-  /// Pointer and source-revealing or removing actions clear the pill selection
-  /// before moving it; pill editors retain it while the document is unchanged.
   @override
   set value(TextEditingValue newValue) {
     final current = super.value;
@@ -500,7 +459,6 @@ class MarkdownEditingController extends TextEditingController {
     _cachedSpan = null;
   }
 
-  /// Complete quote BBCode blocks in the current raw document.
   List<ComposerQuoteBlock> get quoteBlocks =>
       List.unmodifiable(_quoteBlocksFor(text));
 
@@ -574,23 +532,10 @@ class MarkdownEditingController extends TextEditingController {
             block.contents,
       );
 
-  /// How many pieces of artwork have arrived, so the span cache knows the
-  /// answer changed when nothing about the text did.
   int _artwork = 0;
 
-  /// Urls currently being loaded, so a shortcode that is being typed does not
-  /// queue a fetch per keystroke.
-  ///
-  /// Completed requests are removed. [EmojiCache] owns the longer-lived
-  /// success, permanent-failure and transient-failure state; keeping a second
-  /// permanent record here would prevent its cooldown retry from ever running.
   final Set<String> _loadingEmoji = {};
 
-  /// Emoji ranges that the last span build actually painted as artwork.
-  ///
-  /// Keeping the rendered ranges, rather than deriving them only from the
-  /// Markdown scan, excludes unresolved shortcodes and emoji source hidden
-  /// inside a larger projection. Those must keep ordinary text deletion.
   String? _renderedEmojiDocument;
   Set<TextRange> _renderedEmojiRanges = const {};
 
@@ -615,46 +560,21 @@ class MarkdownEditingController extends TextEditingController {
 
   _CachedMarkdownSpan? _cachedSpan;
 
-  /// How many times the source has actually been read, so a test can hold the
-  /// memoisation to account rather than trusting it.
   @visibleForTesting
   int scans = 0;
 
-  /// How long a large fence's body must hold still before it is tokenized.
-  ///
-  /// Long enough to sit out a typing burst, short enough that the colour
-  /// arriving reads as immediate once the keys stop.
   @visibleForTesting
   static const Duration fenceHighlightDebounce = Duration(milliseconds: 200);
 
   Timer? _fenceHighlightTimer;
   List<({String body, String? language})> _pendingFences = const [];
 
-  /// Fence bodies already parsed once for [_parsedFenceSource].
-  ///
-  /// The highlight cache is process-wide and bounded, so a document with more
-  /// large fences than it holds evicts its own earlier entries: the rescan
-  /// after a parse round finds those bodies uncached, defers them again, and
-  /// the cycle repeats for as long as the composer is open. Remembering what
-  /// this text has already been through makes the deferred set shrink round
-  /// over round; a fence that was parsed and then evicted stays plain rather
-  /// than restarting the timer forever.
   String? _parsedFenceSource;
   final Set<String> _parsedFences = {};
 
-  /// [buildTextSpan] is called on every keystroke, every caret move and every
-  /// frame of a selection drag, while the scan only depends on the text. A
-  /// fenced block is tokenized by `highlightLines`, which is expensive enough
-  /// that `syntax.dart` refuses to run it past 20k characters — rescanning per
-  /// caret move would spend that on nothing.
   String? _codeRangesScanned;
   CodeRanges _codeRanges = CodeRanges.none;
 
-  /// Render anchors for resolved mentions currently painted as pills.
-  ///
-  /// Widget spans inside an editable do not participate in pointer hit
-  /// testing, so the editor-level mouse region uses these boxes to choose the
-  /// cursor without taking pointer handling away from [EditableText].
   final Map<int, GlobalKey> _mentionPillKeys = {};
 
   bool isMentionPillAtGlobalPosition(Offset globalPosition) {
@@ -667,13 +587,6 @@ class MarkdownEditingController extends TextEditingController {
     return false;
   }
 
-  /// Where code is in [source], derived from the scan this controller already
-  /// ran rather than from one of its own.
-  ///
-  /// Every projection parser needs it, and each would otherwise scan the whole
-  /// document again to get it: four scans a keystroke where one will do. The
-  /// deferred-fence path does not change the answer — a fence left untokenized
-  /// still comes back as `Md.codeBlock`.
   CodeRanges _codeRangesFor(String source) {
     if (_codeRangesScanned == source) return _codeRanges;
     _codeRangesScanned = source;
@@ -699,14 +612,6 @@ class MarkdownEditingController extends TextEditingController {
     return _runs = runs;
   }
 
-  /// Memoising the scan on the text is not enough inside a fence: the
-  /// highlight cache in `syntax.dart` keys on the exact body, so typing there
-  /// changes the key on every keystroke and reruns the parser over the whole
-  /// block — milliseconds per key on a large one. The scan instead leaves such
-  /// a fence as plain code and lands its body here; once it has held still for
-  /// [fenceHighlightDebounce] the parse runs off the keystroke, warms the
-  /// cache, and a rescan repaints with the colour in place. The final state is
-  /// always the fully highlighted one — only the in-between keystrokes skip it.
   void _scheduleFenceHighlight(
     String source,
     List<({String body, String? language})> fences,
@@ -1037,8 +942,6 @@ class MarkdownEditingController extends TextEditingController {
     _renderedEmojiRanges = Set.unmodifiable(renderedEmojiRanges);
 
     final span = TextSpan(style: base, children: children);
-    // The one thing that must never drift.
-    //
     // Length, not contents: projected widgets flatten to `0xFFFC`, and image
     // tokens also lend some of their hidden characters to transparent line
     // breaks. What everything downstream depends on — the caret, hit testing,
@@ -1332,17 +1235,8 @@ class MarkdownEditingController extends TextEditingController {
           artworkArrived();
         },
         onError: (_) {
-          // A failed batch says nothing about the URLs themselves.
-          // _failedImageUrls is reserved for URLs the site resolved to
-          // nothing; a transport error only releases the batch so the next
-          // repaint asks again.
-          //
-          // It invalidates without announcing, which is the whole difference
-          // between waiting for a repaint and being one. Nothing resolved, so
-          // there is nothing new to draw; notifying would rebuild, the rebuild
-          // would ask for these URLs again, and an unreachable site would buy
-          // a request and a full relayout on every frame for as long as the
-          // composer stayed open.
+          // Transport failures remain retryable. Notifying here would create a
+          // rebuild/request loop while the site is unreachable.
           _resolvingImageUrls.removeAll(fresh);
           if (!_disposed) _artwork++;
         },
@@ -1388,16 +1282,6 @@ class MarkdownEditingController extends TextEditingController {
     return selection.start < gallery.end && selection.end > gallery.start;
   }
 
-  /// Something a run was waiting on has landed: repaint.
-  ///
-  /// Notifying with the value unchanged is what redraws the field, and it is
-  /// inert everywhere else that listens: `UndoHistory` returns early when the
-  /// value has not changed (`undo_history.dart:185`), and `ComposerController`
-  /// guards on the text being different — so an answer arriving is not read as
-  /// a keystroke by the typing clock or the draft timer.
-  /// Bumping [_artwork] alone drops the cached span so the next rebuild
-  /// recomputes it; this also asks for that rebuild. A failed lookup wants the
-  /// first without the second — see [_resolveImageUrls].
   void artworkArrived() {
     if (_disposed) return;
     _artwork++;
@@ -1416,21 +1300,6 @@ class MarkdownEditingController extends TextEditingController {
         _ => false,
       };
 
-  /// Keeps the pill keys whose projection has not changed, and drops the rest.
-  ///
-  /// A pill's `GlobalKey` is what decides whether a keystroke *rebuilds* its
-  /// subtree or *recreates* it, and a recreation throws away the element, its
-  /// render objects, and everything they had measured or memoised. Every
-  /// keystroke rebuilds the span tree, so emptying these maps meant paying
-  /// that for every image, plugin syntax block, and quote in the document, per key —
-  /// which for a document that is mostly projections is nearly all of what
-  /// typing costs.
-  ///
-  /// Preserving a key for a *different* projection at the same offset is the
-  /// other error, and the reason this compares the whole block rather than
-  /// only the offset: a following line can be appended at EOF before the next
-  /// pointer-down but before layout, and a key kept across that would
-  /// hit-test the geometry of what used to be there.
   static void _retainPillKeys<T>(
     Map<int, GlobalKey> keys,
     Iterable<T> previous,
@@ -1452,20 +1321,6 @@ class MarkdownEditingController extends TextEditingController {
       block.start <= block.end &&
       source.substring(block.start, block.end) == block.source;
 
-  /// A shortcode drawn as its artwork, or null to draw it as text.
-  ///
-  /// The one thing this may not do is change how many characters the paragraph
-  /// has. A `WidgetSpan` is worth exactly one code unit of the laid-out text
-  /// (`PlaceholderSpan.placeholderCodeUnit`), and `RenderEditable` measures the
-  /// caret, hit testing, word boundaries and select-all against that same
-  /// string while handing the answers back as offsets into [text]. One
-  /// placeholder standing in for the seven characters of `:smile:` would put
-  /// every later offset out by six, silently.
-  ///
-  /// So the run is split: `:smile` stays as real text drawn at zero size and
-  /// full transparency — six characters occupying six offsets and no pixels —
-  /// and only the closing colon becomes the placeholder. Seven characters in,
-  /// seven code units out, and the caret keeps meaning what it says.
   List<InlineSpan>? _artworkFor(
     MarkdownRun run,
     TextStyle base,
@@ -1500,13 +1355,8 @@ class MarkdownEditingController extends TextEditingController {
             _loadingEmoji.remove(url);
             if (_disposed) return;
             artworkArrived();
-            // Notifying with the value unchanged is what repaints the field,
-            // and it is inert everywhere else that listens: `UndoHistory`
-            // returns early when the value has not changed
-            // (`undo_history.dart:185`), and `ComposerController`'s own
-            // listener guards on the text being different, so an image
-            // arriving is not read as a keystroke by the typing clock or the
-            // draft timer.
+            // Reassigning the same value repaints without advancing UndoHistory
+            // or the typing and draft clocks, whose listeners ignore it.
           }),
         );
       }
@@ -1525,12 +1375,6 @@ class MarkdownEditingController extends TextEditingController {
     ];
   }
 
-  /// A `#ref` drawn as its pill, or null to draw it as text.
-  ///
-  /// The same split [_artworkFor] describes, and the same contract: nothing is
-  /// substituted until the site has answered, so a chip never appears under
-  /// the caret half way through a word. A ref the site does not have — or will
-  /// not show this reader — is remembered as a failure and stays text.
   List<InlineSpan>? _hashtagPill(
     MarkdownRun run,
     String ref,
@@ -1569,7 +1413,6 @@ class MarkdownEditingController extends TextEditingController {
     );
   }
 
-  /// An `@name` drawn as its pill, or null to draw it as text.
   List<InlineSpan>? _mentionPill(
     MarkdownRun run,
     String username,
@@ -1581,8 +1424,6 @@ class MarkdownEditingController extends TextEditingController {
       if (pills != null) unresolved.add(username);
       return null;
     }
-    // Nobody by that name. The post will cook it as plain text, so the field
-    // says so too.
     if (!real) return null;
 
     return _placeholder(
@@ -1601,14 +1442,6 @@ class MarkdownEditingController extends TextEditingController {
     );
   }
 
-  /// The span pair every pill is made of.
-  ///
-  /// All but the last character stay as real text at zero size and full
-  /// transparency, and only the last becomes the placeholder — see
-  /// [_artworkFor] for why the count has to come out the same.
-  ///
-  /// The widget is inert: [IgnorePointer] so the chip cannot swallow a tap
-  /// meant for the caret behind it.
   List<InlineSpan> _placeholder(MarkdownRun run, TextStyle base, Widget pill) =>
       [
         TextSpan(text: text.substring(run.start, run.end - 1), style: _hidden),
@@ -1619,16 +1452,6 @@ class MarkdownEditingController extends TextEditingController {
         ),
       ];
 
-  /// Where the token the caret is in starts, or -1.
-  ///
-  /// The rule differs by kind, and it has to. An `:emoji:` run only exists
-  /// once it is closed, so *strictly* inside is right there: a caret at either
-  /// end must not reveal it, or typing the closing colon would never show the
-  /// picture. A mention or a hashtag has no closing character — the run grows
-  /// under the caret as it is typed — so the caret is always at its end, and
-  /// strict-inside would substitute a chip half way through a word and ask the
-  /// site about every prefix on the way. Adjacency is what makes `#ran` stay
-  /// text until the space that finishes it.
   static int _revealedPill(List<MarkdownRun> runs, TextSelection selection) {
     if (!selection.isValid) return -1;
 
@@ -1671,10 +1494,6 @@ class MarkdownEditingController extends TextEditingController {
     );
   }
 
-  /// The `:smile` of a `:smile:` that is being drawn as a picture.
-  ///
-  /// They stay in the span tree — they have to, or every caret offset after
-  /// them is wrong — but they take no room and paint nothing.
   static const TextStyle _hidden = TextStyle(
     fontSize: 0,
     color: Color(0x00000000),
@@ -1690,8 +1509,6 @@ class MarkdownEditingController extends TextEditingController {
     super.dispose();
   }
 
-  /// Cuts [run] where the composing range starts and ends, so the underline
-  /// lands on exactly the characters the IME is holding.
   static List<MarkdownRun> _splitAt(MarkdownRun run, TextRange? composing) {
     if (composing == null) return [run];
 
@@ -1710,9 +1527,6 @@ class MarkdownEditingController extends TextEditingController {
   }
 }
 
-/// Inline children are not translated by RenderEditable's vertical viewport.
-/// Follow its scroll position so projected images move with their reserved
-/// lines and their global rects remain valid for the image controls.
 class _FollowEditorScroll extends StatelessWidget {
   const _FollowEditorScroll({required this.controller, required this.child});
 
@@ -1734,13 +1548,6 @@ class _FollowEditorScroll extends StatelessWidget {
   }
 }
 
-/// Everything that can change the span tree without changing the source.
-///
-/// The theme is compared by identity deliberately. [ThemeData.operator ==]
-/// walks the entire theme, which would put a large deep comparison back on
-/// every caret move. A stable inherited theme is the same object, while a
-/// theme animation or replacement supplies a new one and must repaint even
-/// when both themes have the same brightness.
 class _CachedMarkdownSpan {
   const _CachedMarkdownSpan({
     required this.source,

@@ -2,11 +2,6 @@ import 'json.dart';
 import 'sidebar.dart';
 import 'topic.dart';
 
-/// The per-topic state Discourse core uses for category and tag sidebar badges.
-///
-/// The initial snapshot comes from
-/// `/u/{username}/topic-tracking-state.json`; [applyMessage] then folds in the
-/// same MessageBus payloads as core's `TopicTrackingState` model.
 final class TopicTrackingState {
   TopicTrackingState([Iterable<TrackedTopicState> topics = const []])
     : _topics = {for (final topic in topics) topic.topicId: topic};
@@ -70,10 +65,6 @@ final class TopicTrackingState {
     return showCount ? SidebarBadge.count(count) : const SidebarBadge.dot();
   }
 
-  /// Applies one core topic-tracking MessageBus payload.
-  ///
-  /// Returns whether state may have changed, allowing the shell to skip a
-  /// sidebar rebuild for ordinary `/latest` bumps and malformed messages.
   bool applyMessage(Object? value) {
     if (value is! Map) return false;
     final topicId = jsonIntOrNull(value['topic_id']);

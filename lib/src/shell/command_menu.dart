@@ -28,11 +28,6 @@ final class CommandMenuOption<T> {
 typedef CommandMenuAnchorBuilder =
     Widget Function(BuildContext context, VoidCallback? openMenu);
 
-/// Anchors a compact list of commands to a custom control.
-///
-/// Flutter's [MenuAnchor.reservedPadding] constrains a menu's size but does not
-/// include that padding when clamping its final position. This app-owned route
-/// uses [AnchoredLayout] so the panel always retains its viewport margin.
 class CommandMenuAnchor<T> extends StatefulWidget {
   const CommandMenuAnchor({
     super.key,

@@ -12,15 +12,6 @@ import 'external_link.dart';
 import 'shell_controller.dart';
 import 'user_menu_message.dart';
 
-/// How a notification reads: an icon, who did it, and what they did.
-///
-/// Discourse's own rows are terser than this — an icon, the username, and the
-/// topic title, with the icon left to carry the verb. Saying it in words
-/// instead follows `SmallActionDescription`, and keeps a row legible when its
-/// icon is one of the several that mean "something happened in a topic".
-///
-/// The wording follows Discourse's `notifications.*` strings so a notification
-/// says the same thing here as it does on the web.
 @immutable
 class NotificationDescription {
   const NotificationDescription({
@@ -45,23 +36,13 @@ class NotificationDescription {
 
   final DIconData icon;
 
-  /// Who acted, drawn ahead of the phrase and heavier, or null for the kinds
-  /// that are not about a person — a badge, a reminder, a site announcement —
-  /// whose [phrase] is a whole sentence on its own.
   final String? actor;
 
-  /// What happened, as it reads after [actor]: `replied to Better image
-  /// handling`.
   final String phrase;
 }
 
 enum _NotificationFeedKind { all, replies }
 
-/// The notifications tab's contents: the site's own unfiltered list.
-///
-/// Draws itself as a column rather than a list of its own, so that it scrolls
-/// inside whichever of the menu's two forms is showing it — a popover with a
-/// fixed height, or a sheet that is one long scroll.
 class NotificationSection extends StatelessWidget {
   const NotificationSection({
     super.key,
@@ -71,9 +52,6 @@ class NotificationSection extends StatelessWidget {
 
   final String siteUrl;
 
-  /// Closes the menu, once a tap has led somewhere. Not called for the few
-  /// notifications that point at nothing reachable, which would otherwise
-  /// close the menu onto an unchanged screen.
   final VoidCallback onOpened;
 
   @override
@@ -88,12 +66,6 @@ class NotificationSection extends StatelessWidget {
   );
 }
 
-/// The Replies tab's server-filtered notification list.
-///
-/// This is deliberately a request of its own rather than a filtered copy of
-/// [NotificationSection]: Discourse gives each menu tab its own thirty-row
-/// budget, and `silent=true` keeps this narrower fetch from moving the global
-/// notification-seen marker.
 class RepliesSection extends StatelessWidget {
   const RepliesSection({
     super.key,
@@ -117,7 +89,6 @@ class RepliesSection extends StatelessWidget {
       );
 }
 
-/// A plugin-owned filtered notification list backed by a narrow host facade.
 class PluginNotificationsSection extends StatefulWidget {
   const PluginNotificationsSection({
     super.key,
@@ -233,11 +204,6 @@ class _NotificationSectionView extends StatefulWidget {
 }
 
 class _NotificationSectionViewState extends State<_NotificationSectionView> {
-  /// Marks the notification read, then follows it.
-  ///
-  /// A topic or Chat target on a site in the rail is something this app has a
-  /// view for, so it opens here. Everything else a notification points at — a
-  /// badge, a group, the admin dashboard — belongs in the browser.
   Future<void> _open(DiscourseNotification notification, String? path) async {
     final controller = widget.controller;
     controller.readNotification(widget.siteUrl, notification);
@@ -281,8 +247,6 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
         if (currentFeed.error case final error?) {
           return UserMenuMessage(text: error, onRetry: retry);
         }
-        // Not loaded and not loading is the moment before the fetch this widget
-        // asked for has started, which is a wait like any other.
         if (!currentFeed.loaded) return const UserMenuMessage(text: null);
         if (currentFeed.isEmpty) {
           return const UserMenuMessage(text: 'Nothing new.');
@@ -309,8 +273,6 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
   }
 }
 
-/// One notification, drawn to the same measurements as the stand-in rows
-/// around it in the other tabs.
 class NotificationRow extends StatelessWidget {
   const NotificationRow({
     super.key,
@@ -349,8 +311,6 @@ class NotificationRow extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: 44),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               decoration: BoxDecoration(
-                // What is still unread is what the badge on the tab is
-                // counting, so it is the one thing in the row worth a color.
                 color: notification.isUnread
                     ? theme.colorScheme.primary.withValues(alpha: 0.12)
                     : null,

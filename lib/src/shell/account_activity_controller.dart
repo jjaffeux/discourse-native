@@ -21,7 +21,6 @@ typedef TotalsLoaded =
 typedef TotalsChanged =
     void Function(String siteUrl, NotificationTotals totals);
 
-/// Account-specific activity held independently from shell navigation state.
 final class AccountActivityController extends FrameSafeNotifier {
   AccountActivityController({
     required this.api,
@@ -97,7 +96,6 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   NotificationTotals? totalsFor(String siteUrl) => _totals[siteUrl];
 
-  /// Seeds a warm-start snapshot without treating disk state as a new event.
   void restoreTotals(String siteUrl, NotificationTotals totals) {
     if (isDisposed) return;
     _totals[siteUrl] = totals;
@@ -129,7 +127,6 @@ final class AccountActivityController extends FrameSafeNotifier {
       ? const UserActivityFeed()
       : _userActivity[siteUrl] ?? const UserActivityFeed();
 
-  /// Core's default Activity page size and server default.
   static const int userActivityPageSize = 30;
 
   Future<void> refreshAll(Iterable<DiscourseInstance> instances) async {
@@ -617,12 +614,6 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
   }
 
-  /// Loads the default Activity stream for one connected account.
-  ///
-  /// [loadMore] advances from the number of raw server entries already seen;
-  /// [refresh] replaces the stream and supersedes an older page in flight.
-  /// The latter is what prevents a slow stale page from appending after a
-  /// pull-to-refresh or a new session for the same origin.
   Future<void> loadUserActivity(
     DiscourseInstance instance, {
     bool refresh = false,

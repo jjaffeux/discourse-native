@@ -19,7 +19,6 @@ import 'shell_search_controller.dart';
 import 'site_emoji_text.dart';
 import 'user_status.dart';
 
-/// The global forum search input and the result panel anchored to it.
 class ForumSearch extends StatefulWidget {
   const ForumSearch({super.key, this.dense = false});
 
@@ -265,9 +264,6 @@ class _ForumSearchState extends State<ForumSearch> {
         final panelWidth = anchorWidth.clamp(280.0, 520.0);
         final showLeadingIcon = anchorWidth >= 140;
         final showShortcut = anchorWidth >= 180;
-        // Header actions may legitimately squeeze the field down to a compact
-        // text-only affordance. Keep the field usable there, then add one or
-        // both trailing actions only when their fixed 44px targets fit.
         final showClear = search.query.isNotEmpty && anchorWidth >= 64;
         final showAdvanced = search.query.isEmpty
             ? anchorWidth >= 72

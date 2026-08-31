@@ -143,8 +143,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(_controller(tester), isNot(same(firstController)));
-      // A controller created while the process is paused does not spend any
-      // credentials or create a poller until the process becomes visible.
       expect(built, hasLength(1));
       expect(built.first.disposed, isTrue);
 

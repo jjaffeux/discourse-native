@@ -1,7 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-/// Stable identity for one plugin-owned value attached to a core record.
-///
 /// The owner/name pair is explicit instead of relying on a Dart [Type], so the
 /// composition boundary can reject duplicate claims before decoding payloads.
 @immutable
@@ -26,8 +24,6 @@ final class PluginDataKey<T extends Object> {
   String toString() => 'PluginDataKey<$T>($id)';
 }
 
-/// Reads and writes one plugin-owned value in the instance-store snapshot.
-///
 /// The persisted namespace is [key.id]. A codec also understands the flat
 /// fields written by releases which predate namespaced plugin data, keeping
 /// that migration knowledge beside the feature which owns it.
@@ -42,8 +38,6 @@ abstract base class PluginDataPersistenceCodec<T extends Object> {
 
   T? decodeLegacy(Map<String, dynamic> json) => null;
 
-  /// Reads this value from one complete stored record.
-  ///
   /// The default keeps a namespaced value authoritative and consults legacy
   /// flat fields only when the namespace is absent. A codec may override this
   /// when a later schema revision needs to combine an existing namespace with
@@ -55,8 +49,6 @@ abstract base class PluginDataPersistenceCodec<T extends Object> {
   }) => hasNamespacedValue ? decode(namespacedValue) : decodeLegacy(record);
 }
 
-/// What installed plugins had to say about one core record.
-///
 /// Values are parsed once with the record and remain opaque to core. A stable
 /// typed key makes ownership explicit while preserving type-safe reads.
 @immutable
@@ -71,8 +63,6 @@ final class PluginData {
   final Map<PluginDataKey<Object>, Object> _values;
   final Map<String, Object?> _preservedNamespaces;
 
-  /// Retains namespaces for plugins which are not installed in this build.
-  ///
   /// Values cross an untrusted persistence boundary, so malformed namespace
   /// names are ignored and nested collections are copied into immutable JSON
   /// values before the model keeps them.
@@ -101,7 +91,6 @@ final class PluginData {
 
   bool get isEmpty => _values.isEmpty && _preservedNamespaces.isEmpty;
 
-  /// An immutable JSON map ready to seed a persistence encoder.
   Map<String, Object?> get preservedNamespaces => _preservedNamespaces;
 
   PluginData withValue<T extends Object>(PluginDataKey<T> key, T? value) {
@@ -133,8 +122,7 @@ final class PluginData {
     return _from(_values, next);
   }
 
-  /// Carries uninstalled namespaces through a live settings/current-user
-  /// refresh. Typed installed values in this instance remain authoritative.
+  /// Installed typed values remain authoritative during a live refresh.
   PluginData preservingUnknownFrom(PluginData held) {
     if (held._preservedNamespaces.isEmpty) return this;
     final next = <String, Object?>{
@@ -171,7 +159,6 @@ final class PluginData {
   ]);
 }
 
-/// Supplies installed model extensions without making core import a manifest.
 abstract interface class PluginDataDecoder {
   PluginData readGroup(Map<String, dynamic> json, String siteUrl);
 
@@ -199,7 +186,6 @@ abstract interface class PluginDataDecoder {
   });
 }
 
-/// The decoder used by a core-only manifest.
 final class EmptyPluginDataDecoder implements PluginDataDecoder {
   const EmptyPluginDataDecoder();
 

@@ -4,7 +4,6 @@ import '../../plugin_api/notification_types.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import '../../theme/d_icons.dart';
 
-/// Chat owns these ids, names and every interpretation of their payloads.
 abstract final class ChatNotificationTypes {
   static const mention = NotificationWireType(29, 'chat_mention');
   static const message = NotificationWireType(30, 'chat_message');

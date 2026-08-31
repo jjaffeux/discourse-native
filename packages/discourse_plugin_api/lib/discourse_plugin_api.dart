@@ -80,9 +80,6 @@ final class PluginDependency {
   final bool optional;
 }
 
-/// Authority to contribute immutable installation-time behavior to a point
-/// owned by another plugin.
-///
 /// Unlike [PluginDependency], this does not impose session startup order and
 /// exposes no runtime service. It is deliberately a separate edge: an
 /// extension may be consumed by its owner before the contributing plugin's
@@ -101,8 +98,6 @@ final class PluginStaticContributionTarget {
 
 enum PluginStaticContributionCardinality { many, atMostOne, exactlyOne }
 
-/// A typed, namespaced point for immutable installation-time contributions.
-///
 /// The owning module declares the point. Other modules may contribute only
 /// when their descriptor declares a [PluginStaticContributionTarget] for the
 /// owner.
@@ -134,20 +129,15 @@ final class PluginStaticContributionPoint<T extends Object> {
   String toString() => id;
 }
 
-/// An owner-scoped immutable view of static contributions.
 abstract interface class PluginStaticContributionCatalog {
   /// Contributions in deterministic manifest order.
   List<T> contributions<T extends Object>(
     PluginStaticContributionPoint<T> point,
   );
 
-  /// The contribution to a singleton point, or null when an at-most-one point
-  /// has no provider.
   T? single<T extends Object>(PluginStaticContributionPoint<T> point);
 }
 
-/// One message-bus namespace a plugin may subscribe to at runtime.
-///
 /// Prefixes are path-segment aware: `/chat` permits `/chat` and
 /// `/chat/42`, but never `/chatty`. The runtime validates declarations before
 /// installation, including rejecting namespaces reserved for core.
@@ -220,13 +210,10 @@ abstract interface class PluginRegistrar {
 
   void addExclusiveClaim(String claim);
 
-  /// Declares a static contribution point owned by this module.
   void addStaticContributionPoint<T extends Object>(
     PluginStaticContributionPoint<T> point,
   );
 
-  /// Contributes one immutable value to [point].
-  ///
   /// [name] is local to the contributing module; the runtime namespaces it to
   /// the registrar's module id.
   void addStaticContribution<T extends Object>(
@@ -264,8 +251,6 @@ abstract base class PluginSessionLifecycle {
   FutureOr<void> close() {}
 }
 
-/// Behavior a plugin exposes to its host for one installed session.
-///
 /// Capabilities are intentionally discovered by interface type. The host can
 /// dispatch a stable extension point without knowing which plugin implements
 /// it, while plugin-private controllers remain behind the contribution.
@@ -318,8 +303,6 @@ final class PluginHostBindings {
 
   bool contains(PluginHostPortKey<Object> key) => _ports.containsKey(key);
 
-  /// A view containing only the ports a session explicitly declared.
-  ///
   /// The application supplies one complete binding set at its composition
   /// root. Restricting it before invoking a session factory makes `requires`
   /// an authority boundary rather than only a startup validation list.
@@ -336,8 +319,6 @@ final class PluginHostBindings {
     for (final key in keys) _restrictedPort(key, consumer: consumer),
   ]);
 
-  /// Revocations attached to root ports for one materialized consumer.
-  ///
   /// Restricted bindings never carry revocation callbacks, so a plugin cannot
   /// revoke another consumer or retain a callback to its root binding. The
   /// runtime collects these closures before invoking a lifecycle or factory
@@ -390,23 +371,17 @@ final class PluginHostPort<T extends Object> {
   final PluginHostPortKey<T> key;
   final T value;
 
-  /// Produces the authority this port grants to one consuming plugin module.
-  ///
   /// Leave this null for ordinary ports whose value is already least-privilege.
   /// Scoped ports are materialized by [PluginHostBindings.restrictedTo] before
   /// a plugin session factory can observe them.
   final T Function(PluginId consumer)? scopeToConsumer;
 
-  /// Revokes stateful authority previously materialized for one consumer.
-  ///
   /// This callback exists only on a root binding. Restricted plugin bindings
   /// strip it alongside [scopeToConsumer]. It must synchronously make retained
   /// handles unusable; asynchronous cleanup belongs to plugin lifecycle close.
   final void Function(PluginId consumer)? revokeConsumer;
 }
 
-/// Services exposed by modules this module explicitly depends on.
-///
 /// The runtime supplies an immutable snapshot containing only services that
 /// were created before the consumer's session factory ran. Both lookup methods
 /// reject keys owned by modules absent from the consumer's descriptor.

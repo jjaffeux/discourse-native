@@ -19,7 +19,6 @@ const chatModule = ChatModule();
 
 typedef ChatApiFactory = ChatApi Function(PluginApiTransport transport);
 
-/// Complete production registration for the bundled Chat feature.
 final class ChatModule implements PluginModule {
   const ChatModule({this.apiFactory});
 

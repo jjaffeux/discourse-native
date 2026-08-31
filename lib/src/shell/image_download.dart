@@ -8,11 +8,6 @@ import 'site_url.dart';
 
 enum ImageDownloadOutcome { saved, shared, cancelled }
 
-/// The native file interactions behind an image download.
-///
-/// Kept at this boundary so choosing a destination, writing the bytes, and
-/// opening a mobile share sheet can be tested without invoking a platform
-/// plugin.
 abstract interface class ImageDownloadEnvironment {
   Future<String?> chooseSavePath({required String suggestedName});
 
@@ -41,12 +36,6 @@ abstract interface class LightboxImageDownloader {
   });
 }
 
-/// Downloads a lightbox upload without handing its URL to a browser.
-///
-/// Desktop platforms offer an ordinary save dialog. Mobile platforms use the
-/// native file-sharing sheet, whose destinations include Files and other
-/// storage providers; neither Android nor iOS supports file_selector's save
-/// location API.
 final class NativeLightboxImageDownloader implements LightboxImageDownloader {
   NativeLightboxImageDownloader({
     TargetPlatform? platform,
@@ -163,8 +152,6 @@ final class ImageDownloadException implements Exception {
   String toString() => 'The image could not be downloaded.';
 }
 
-/// A safe cross-platform filename, preferring the upload title Discourse
-/// supplied and falling back to the last component of its download URL.
 String imageDownloadFilename({required String? title, required String url}) {
   final uri = Uri.tryParse(url);
   final urlName = uri?.pathSegments.lastOrNull;

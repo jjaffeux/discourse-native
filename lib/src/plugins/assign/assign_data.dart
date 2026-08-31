@@ -17,7 +17,6 @@ const assignCurrentUserDataKey = PluginDataKey<AssignCurrentUser>(
 const assignSettingsPersistenceCodec = AssignSettingsPersistenceCodec();
 const assignCurrentUserPersistenceCodec = AssignCurrentUserPersistenceCodec();
 
-/// Assign's client settings from `/site/settings.json`.
 @immutable
 final class AssignSettings {
   const AssignSettings({
@@ -46,7 +45,6 @@ final class AssignSettings {
   int get hashCode => Object.hash(statusesEnabled, Object.hashAll(statuses));
 }
 
-/// Assign's presence-sensitive fields from `/session/current.json`.
 @immutable
 final class AssignCurrentUser {
   const AssignCurrentUser({this.canAssign, this.canAssignGlobally});
@@ -76,7 +74,6 @@ final class AssignCurrentUser {
   int get hashCode => Object.hash(canAssign, canAssignGlobally);
 }
 
-/// The namespaced warm-start representation of [AssignSettings].
 final class AssignSettingsPersistenceCodec
     extends PluginDataPersistenceCodec<AssignSettings> {
   const AssignSettingsPersistenceCodec();
@@ -115,7 +112,6 @@ final class AssignSettingsPersistenceCodec
   }
 }
 
-/// The namespaced warm-start representation of [AssignCurrentUser].
 final class AssignCurrentUserPersistenceCodec
     extends PluginDataPersistenceCodec<AssignCurrentUser> {
   const AssignCurrentUserPersistenceCodec();
@@ -155,7 +151,6 @@ final class AssignCurrentUserPersistenceCodec
   }
 }
 
-/// Source-compatible Assign settings access for plugin-owned UI.
 extension AssignSiteConfigData on SiteConfig {
   AssignSettings get assignSettings =>
       plugins.get(assignSettingsDataKey) ?? const AssignSettings();
@@ -165,7 +160,6 @@ extension AssignSiteConfigData on SiteConfig {
   List<String> get assignStatuses => assignSettings.statuses;
 }
 
-/// Source-compatible Assign permission access for plugin-owned UI.
 extension AssignDiscourseUserData on DiscourseUser {
   AssignCurrentUser? get assignCurrentUser =>
       plugins.get(assignCurrentUserDataKey);

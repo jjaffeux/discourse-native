@@ -48,11 +48,6 @@ typedef PersistedSiteAppearanceReader =
 typedef SiteAppearanceLoaded =
     Future<void> Function(String siteUrl, SiteAppearance appearance);
 
-/// Per-site appearance, settings, and emoji metadata used to decide rendering.
-///
-/// Emoji consumers await the shared catalog and alias requests directly. That
-/// keeps locally-owned chat composers and shell-owned topic composers on the
-/// same race-safe path without a presentation notification side channel.
 final class SitePresentationController extends FrameSafeNotifier {
   static const Duration defaultPersistedFreshness = Duration(minutes: 5);
 
@@ -122,9 +117,6 @@ final class SitePresentationController extends FrameSafeNotifier {
   static final Object _unchangedPresentation = Object();
   final Map<String, Object> _presentationTokens = {};
 
-  /// Opaque identity for widgets that depend on any visual metadata for a
-  /// site. It changes for config and custom artwork, but not for the full
-  /// autocomplete-only emoji index.
   Object presentationTokenFor(String siteUrl) =>
       _presentationTokens[siteUrl] ?? _unchangedPresentation;
 
@@ -139,11 +131,6 @@ final class SitePresentationController extends FrameSafeNotifier {
   Future<void> ensureAppearance(String siteUrl) =>
       _ensureAppearance(siteUrl, refresh: false);
 
-  /// Revalidates persisted or already-fetched colors immediately.
-  ///
-  /// Ordinary startup goes through [ensureAppearance] and can use the warm
-  /// persisted snapshot. An explicit refresh is a new retry boundary and keeps
-  /// the last usable colors in place if the request fails.
   Future<void> refreshAppearance(String siteUrl) =>
       _ensureAppearance(siteUrl, refresh: true);
 
@@ -184,13 +171,10 @@ final class SitePresentationController extends FrameSafeNotifier {
       } catch (error, stackTrace) {
         if (isDisposed || !lease.isCurrent) return;
         _report(error, stackTrace, 'siteAppearance.persist');
-        // The in-memory palette is still useful. A later rail write can retry
-        // persisting it with the rest of the instance snapshot.
       }
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
       _report(error, stackTrace, 'siteAppearance.load');
-      // Appearance is optional; persisted or native colors remain in place.
     } finally {
       if (!isDisposed) lease.commit(() => _appearances.finish(siteUrl));
     }
@@ -202,18 +186,6 @@ final class SitePresentationController extends FrameSafeNotifier {
     return configFor(siteUrl).emojiUrl(name, siteUrl: siteUrl);
   }
 
-  /// Resolves [name] — a bare shortcode value, `:tN` tone suffix included —
-  /// to artwork this site is known to serve.
-  ///
-  /// [emojiUrlFor] answers for every name, registered or not, because the
-  /// standard-set address is deterministic. Prose that finds `:30:` in a time
-  /// needs the narrower question. Discourse's picker catalog only carries
-  /// canonical names, while valid prose may use aliases such as `:mega:`;
-  /// those resolve through the same built-in alias table as core, but only if
-  /// the canonical target is present in this site's filtered catalog.
-  ///
-  /// Custom uploads answer from their eagerly loaded map, so they need no
-  /// catalog to resolve.
   String? emojiNameFor(String siteUrl, String name) {
     final tone = _toneSuffix.firstMatch(name);
     final base = tone == null ? name : name.substring(0, tone.start);
@@ -238,11 +210,6 @@ final class SitePresentationController extends FrameSafeNotifier {
   Future<void> ensureConfig(String siteUrl) =>
       _configRequest(siteUrl, refresh: false);
 
-  /// Resolves a settings payload the server actually answered with.
-  ///
-  /// Unlike [configFor], this returns null when the optional settings request
-  /// failed and only defaults are available. Callers which use a client
-  /// setting to avoid probing an optional server route need that distinction.
   Future<SiteConfig?> resolveConfig(String siteUrl) async {
     await ensureConfig(siteUrl);
     if (isDisposed) return null;
@@ -251,11 +218,6 @@ final class SitePresentationController extends FrameSafeNotifier {
     return _warmPersistedConfig(siteUrl) ? readPersistedConfig(siteUrl) : null;
   }
 
-  /// Revalidates persisted or already-fetched client settings immediately.
-  ///
-  /// This bypasses the short warm-start window and resets the bounded cache's
-  /// retry budget for a user-initiated refresh without discarding the value the
-  /// UI is currently using.
   Future<void> refreshConfig(String siteUrl) =>
       _configRequest(siteUrl, refresh: true);
 
@@ -301,13 +263,10 @@ final class SitePresentationController extends FrameSafeNotifier {
       } catch (error, stackTrace) {
         if (isDisposed || !lease.isCurrent) return;
         _report(error, stackTrace, 'siteConfig.persist');
-        // The fetched value remains useful for this session. Persistence can
-        // be retried when some later instance-store change writes the rail.
       }
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
       _report(error, stackTrace, 'siteConfig.load');
-      // Every field has a safe default, so a failed optional request is quiet.
     } finally {
       if (!isDisposed) lease.commit(() => _configs.finish(siteUrl));
     }
@@ -339,7 +298,6 @@ final class SitePresentationController extends FrameSafeNotifier {
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
       _report(error, stackTrace, 'emoji.loadCustom');
-      // Core and set emoji still have deterministic URLs without this map.
     } finally {
       if (!isDisposed) lease.commit(() => _customEmojis.finish(siteUrl));
     }
@@ -353,16 +311,6 @@ final class SitePresentationController extends FrameSafeNotifier {
   Future<SiteEmojiCatalog?> ensureEmojiCatalog(String siteUrl) =>
       _emojiCatalogRequest(siteUrl, refresh: false);
 
-  /// Warms the catalog for a site the reader has just opened, retrying a
-  /// failure from earlier in the session.
-  ///
-  /// [ensureEmojiCatalog] gives up permanently once a site has failed, which
-  /// suited its original caller: the emoji picker is opened deliberately and
-  /// can be opened again. Prose emoji now depend on the same catalog, and a
-  /// single failed fetch deciding that every title on the site reads as its
-  /// own raw shortcode for the rest of the session is not a trade worth
-  /// making. Selecting a site is deliberate and bounded, so it is the right
-  /// moment to try again; a catalog already held is returned untouched.
   Future<SiteEmojiCatalog?> warmEmojiCatalog(String siteUrl) {
     final held = _emojiCatalogs[siteUrl];
     if (held != null) return Future.value(held);
@@ -428,7 +376,6 @@ final class SitePresentationController extends FrameSafeNotifier {
       if (isDisposed || !lease.isCurrent) return null;
       _failedEmojiCatalogs.add(siteUrl);
       _report(error, stackTrace, 'emoji.loadCatalog');
-      // Shortcodes remain valid text when autocomplete metadata is absent.
       return null;
     } finally {
       if (!isDisposed) lease.commit(() => _emojiCatalogs.finish(siteUrl));
@@ -501,7 +448,6 @@ final class SitePresentationController extends FrameSafeNotifier {
       if (isDisposed || !lease.isCurrent) return null;
       _failedEmojiSearchAliases.add(siteUrl);
       _report(error, stackTrace, 'emoji.loadSearchAliases');
-      // Name search remains useful when this optional localized index fails.
       return null;
     } finally {
       if (!isDisposed) lease.commit(() => _emojiSearchAliases.finish(siteUrl));
@@ -586,7 +532,6 @@ final class SitePresentationController extends FrameSafeNotifier {
     return config != null && config != const SiteConfig.unknown();
   }
 
-  /// Drops one site's fetched state immediately; the shell owns invalidation.
   void forget(String siteUrl) {
     if (isDisposed) return;
     // Forget marks an identity/lifecycle boundary in the shell. A value still

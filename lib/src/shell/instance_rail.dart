@@ -22,8 +22,6 @@ import 'shell_scope.dart';
 import 'update_controller.dart';
 import 'update_sheet.dart';
 
-/// The far-left column of Discourse instances. Visible at every window size,
-/// including on phones.
 class InstanceRail extends StatelessWidget {
   const InstanceRail({super.key});
 
@@ -123,12 +121,6 @@ const double _railSourceOpacity = 0.3;
 const double _railInsertionLineOpacity = 0.6;
 const double _railAutoScrollVelocityScalar = 50;
 
-/// Owns one reorder interaction for the whole scrolling forum viewport.
-///
-/// A single target remains stable while edge scrolling moves lazy rows beneath
-/// a stationary finger. The insertion slot is derived from the pointer and the
-/// fixed row geometry, so the line and the eventual drop always share one
-/// answer.
 class _InstanceRailList extends StatefulWidget {
   const _InstanceRailList({required this.state, required this.controller});
 
@@ -481,8 +473,6 @@ class _InstanceRailListState extends State<_InstanceRailList> {
         onAcceptWithDetails: _acceptDrop,
         onLeave: _leaveViewport,
         builder: (context, candidates, rejected) => ListView.builder(
-          // The traffic lights are cleared by the title bar above the shell,
-          // so the rail only needs this padding.
           padding: const EdgeInsets.symmetric(vertical: _railListPadding),
           itemExtent: _railItemExtent,
           itemCount: widget.state.instances.length,
@@ -897,10 +887,6 @@ class _RailLoadFailure extends StatelessWidget {
   }
 }
 
-/// App-level controls below the scrolling sites.
-///
-/// Diagnostics remains present while sites load or fail. Site mutation and
-/// update controls wait until the persisted site snapshot is known.
 class _RailFooter extends StatelessWidget {
   const _RailFooter({required this.siteActionsAvailable});
 
@@ -918,8 +904,6 @@ class _RailFooter extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: 4),
             child: Center(child: _AddInstanceButton()),
           ),
-          // Whether this build can update at all is decided at compile time
-          // and cannot change while running.
           if (updates.isSupported)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 4),
@@ -936,9 +920,6 @@ class _RailFooter extends StatelessWidget {
   }
 }
 
-/// The app-wide diagnostics entry. It subscribes only to panel visibility and
-/// unseen errors, never to the event stream, so ordinary HTTP traffic cannot
-/// rebuild the rail.
 class _DiagnosticsButton extends StatelessWidget {
   const _DiagnosticsButton();
 
@@ -1049,11 +1030,6 @@ class _DiagnosticsButton extends StatelessWidget {
   }
 }
 
-/// The rail's update affordance.
-///
-/// Tapping always opens the sheet and never installs. Restarting the app out
-/// from under someone is not something a single tap in a rail should be able to
-/// do.
 class _UpdateButton extends StatelessWidget {
   const _UpdateButton();
 
@@ -1097,9 +1073,6 @@ class _UpdateButton extends StatelessWidget {
           ),
         };
 
-        // An update waiting is not a problem, so the dot is the primary colour
-        // rather than borrowing the diagnostics badge's error role. Same
-        // position and the same 2px ring against the rail make them one family.
         final wants =
             updates.status == UpdateStatus.available ||
             updates.status == UpdateStatus.readyToInstall;
@@ -1157,11 +1130,6 @@ class _UpdateButton extends StatelessWidget {
   }
 }
 
-/// The lightweight avatar that follows a pointer while a site is reordered.
-///
-/// It deliberately excludes [InstanceActions]: a menu owns an overlay portal,
-/// and moving that portal into a drag overlay would make an open context menu
-/// part of the drag lifecycle.
 class _RailDragFeedback extends StatelessWidget {
   const _RailDragFeedback({
     super.key,
@@ -1285,8 +1253,6 @@ class _RailItemState extends State<_RailItem> {
       child: Stack(
         alignment: Alignment.centerLeft,
         children: [
-          // Discord-style marker: a dot at rest, half pill on hover and full
-          // pill for the selected site, all growing out of the left edge.
           AnimatedContainer(
             key: ValueKey('instance-rail-marker-${widget.instance.url}'),
             duration: const Duration(milliseconds: 180),
@@ -1345,12 +1311,6 @@ class _RailItemState extends State<_RailItem> {
   }
 }
 
-/// The hover label for a forum in the rail.
-///
-/// The callout is small enough to scan while moving down the rail, but carries
-/// the site's own mark so similarly named forums remain easy to distinguish.
-/// Its transform grows from the pointer, keeping the label visually attached
-/// to the icon throughout the entrance animation.
 class _RailTooltip extends StatelessWidget {
   const _RailTooltip({
     required this.instance,
@@ -1568,7 +1528,6 @@ double _fitRailTooltip({
   return wanted.clamp(margin, slack - margin);
 }
 
-/// Rounded rail callout with a pointer aimed at the forum icon.
 class _RailTooltipBorder extends OutlinedBorder {
   const _RailTooltipBorder({
     super.side = const BorderSide(color: Color(0xFF47484E)),
@@ -1676,8 +1635,6 @@ class _RailTooltipBorder extends OutlinedBorder {
   int get hashCode => Object.hash(side, pointerWidth, pointerHeight, radius);
 }
 
-/// The site's own icon, falling back to a monogram while it loads or if the
-/// site does not publish one.
 class _InstanceAvatar extends StatelessWidget {
   const _InstanceAvatar({
     required this.instance,

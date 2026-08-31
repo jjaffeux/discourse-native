@@ -24,7 +24,6 @@ final class BookmarkReminderSuggestion {
   final DateTime instant;
 }
 
-/// Pure wall-time calculations shared by the quick menu and full editor.
 final class BookmarkReminderCalculator {
   const BookmarkReminderCalculator._();
 
@@ -133,7 +132,6 @@ final class BookmarkReminderCalculator {
     return List.unmodifiable(suggestions);
   }
 
-  /// Null means the selected civil time falls in a daylight-saving gap.
   static DateTime? resolveWallTime({
     required tz.Location location,
     required DateTime date,

@@ -10,7 +10,6 @@ dom.Element element(String source) =>
 void main() {
   group('hexColorIn', () {
     test('reads the colour out of either form the templates write', () {
-      // A subcategory dot, and the stripe on a category card.
       expect(hexColorIn('background-color: #0088CC'), const Color(0xFF0088CC));
       expect(
         hexColorIn('box-shadow: -5px 0px #ab9364'),

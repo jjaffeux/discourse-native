@@ -3,16 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'composer_images.dart';
 import 'markdown_highlight.dart';
 
-/// The two image-gallery layouts understood by Discourse's `[grid]` BBCode.
 enum ComposerGalleryMode { grid, carousel }
 
-/// One complete, losslessly located image gallery in composer Markdown.
-///
-/// All offsets are absolute half-open ranges in the document passed to
-/// [parseComposerImageGalleries]. [start] and [end] include both tags, while
-/// [contentStart] and [contentEnd] are immediately after the opening tag and
-/// immediately before the closing tag. The whitespace inside the tags is
-/// therefore part of the content range, but not part of any image member.
 @immutable
 class ComposerImageGalleryBlock {
   const ComposerImageGalleryBlock({
@@ -39,18 +31,6 @@ class ComposerImageGalleryBlock {
       offset >= start && (includeEnd ? offset <= end : offset < end);
 }
 
-/// Finds complete `[grid]` image galleries outside inline and fenced code.
-///
-/// The parser deliberately recognizes less than the cooked-post parser. A
-/// gallery's content must consist entirely of upload/HTTP image Markdown and
-/// ASCII whitespace; malformed tags, unknown attributes, mixed content, and
-/// nesting remain ordinary raw Markdown. Empty and one-image galleries are
-/// valid because an in-progress composer can legitimately pass through both
-/// states while an image is added or removed.
-///
-/// [codeRanges] lets a caller share the Markdown scan it already performed.
-/// Both the tag walk and the member walk are forward-only, so a document full
-/// of incomplete or rejected galleries remains linear in the source size.
 List<ComposerImageGalleryBlock> parseComposerImageGalleries(
   String source, {
   CodeRanges? codeRanges,
@@ -173,12 +153,6 @@ ComposerImageGalleryBlock? galleryAtComposerOffset(
   return null;
 }
 
-/// Replaces a consecutive, whitespace-separated run of images with canonical
-/// gallery Markdown. The image order is their order in [source], not the order
-/// of [images].
-///
-/// Returns `null` when any captured image is stale, the run contains other
-/// content, or wrapping it would create a nested gallery.
 String? wrapComposerImagesInGallery(
   String source,
   Iterable<ComposerImageBlock> images, {
@@ -222,8 +196,6 @@ String? wrapComposerImagesInGallery(
   );
 }
 
-/// Changes only a verified gallery's opening tag, preserving its exact
-/// whitespace and image source.
 String? setComposerImageGalleryMode(
   String source,
   ComposerImageGalleryBlock gallery,
@@ -239,7 +211,6 @@ String? setComposerImageGalleryMode(
   );
 }
 
-/// Removes a verified gallery wrapper while retaining all members in order.
 String? unwrapComposerImageGallery(
   String source,
   ComposerImageGalleryBlock gallery,
@@ -253,10 +224,6 @@ String? unwrapComposerImageGallery(
   );
 }
 
-/// Appends one newly-created image token to a verified gallery.
-///
-/// [imageMarkdown] must be exactly one upload/HTTP image token, without
-/// surrounding prose or whitespace. Empty galleries are supported.
 String? appendComposerImageToGallery(
   String source,
   ComposerImageGalleryBlock gallery,
@@ -274,10 +241,6 @@ String? appendComposerImageToGallery(
   );
 }
 
-/// Moves an existing standalone image into an immediately adjacent gallery.
-///
-/// An image to the left is prepended and one to the right is appended, which
-/// preserves document order and matches the web composer's Add to grid action.
 String? moveComposerImageIntoGallery(
   String source,
   ComposerImageGalleryBlock gallery,
@@ -323,8 +286,6 @@ String? moveComposerImageIntoGallery(
   );
 }
 
-/// Moves a verified member after its gallery. Moving the only member simply
-/// unwraps it, so this operation never leaves an empty gallery behind.
 String? moveComposerImageOutOfGallery(
   String source,
   ComposerImageGalleryBlock gallery,
@@ -350,8 +311,6 @@ String? moveComposerImageOutOfGallery(
   return source.replaceRange(galleryBlock.start, galleryBlock.end, replacement);
 }
 
-/// Permanently deletes a verified gallery member. Deleting the sole member
-/// also deletes its wrapper, so this operation never creates an empty gallery.
 String? deleteComposerImageFromGallery(
   String source,
   ComposerImageGalleryBlock gallery,

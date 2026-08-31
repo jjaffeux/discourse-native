@@ -67,8 +67,6 @@ void main() {
 
         final target = find.bySemanticsLabel('View profile for @profilee');
         expect(target, findsOneWidget);
-        // Names and avatars are intentionally compact inline targets. They
-        // still need the complete native focus and keyboard action path.
         expect(tester.getSize(target).height, lessThan(44));
         expect(
           tester.getSemantics(target),

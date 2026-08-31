@@ -1,9 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-/// The top-level categories shown by the full categories destination.
-///
-/// Category records themselves live in the identity store. This snapshot owns
-/// only their order and the state of the paginated `/categories.json` read.
 @immutable
 class CategoryFeed {
   const CategoryFeed({
@@ -24,7 +20,6 @@ class CategoryFeed {
   final bool loadingMore;
   final bool loaded;
 
-  /// The next page to request, or null once the list is exhausted.
   final int? nextPage;
 
   final bool canCreateTopic;

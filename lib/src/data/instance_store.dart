@@ -35,10 +35,6 @@ final class SharedPreferencesInstancePersistence
   }
 }
 
-/// Persists the connected sites between launches.
-///
-/// Site metadata and the connected account's public profile live here. API
-/// keys and other credentials live in platform-private storage.
 class InstanceStore {
   InstanceStore({InstancePersistence? persistence, DiscourseModelCodec? models})
     : _persistence =

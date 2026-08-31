@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import 'd_tooltip.dart';
 
-/// The visual roles exposed by Discourse's shared button system.
 enum DButtonVariant {
   standard,
   primary,
@@ -19,10 +18,8 @@ enum DButtonVariant {
   link,
 }
 
-/// The three type and icon-button geometry scales used by Discourse buttons.
 enum DButtonSize { small, regular, large }
 
-/// Resolved colors and border for one interaction state of a button variant.
 @immutable
 class DButtonStateStyle {
   const DButtonStateStyle({
@@ -70,7 +67,6 @@ class DButtonStateStyle {
   );
 }
 
-/// The normal and interactive states of one Discourse button variant.
 @immutable
 class DButtonVariantStyle {
   const DButtonVariantStyle({
@@ -98,7 +94,6 @@ class DButtonVariantStyle {
   );
 }
 
-/// Site-shaped presentation for every [DButtonVariant].
 @immutable
 class DiscourseButtonTheme extends ThemeExtension<DiscourseButtonTheme> {
   const DiscourseButtonTheme({
@@ -147,8 +142,6 @@ class DiscourseButtonTheme extends ThemeExtension<DiscourseButtonTheme> {
     DButtonVariant.link => link,
   };
 
-  /// Builds the button roles from the native theme while preserving the
-  /// site's Discourse radius and hover token.
   factory DiscourseButtonTheme.fromColors(
     ColorScheme colors, {
     required double borderRadius,
@@ -295,7 +288,6 @@ extension DiscourseButtonThemeAccess on ThemeData {
       );
 }
 
-/// A reusable native rendering of Discourse's button variants.
 class DButton extends StatelessWidget {
   const DButton({
     super.key,
@@ -329,10 +321,8 @@ class DButton extends StatelessWidget {
     this.alignment = Alignment.center,
   }) : label = const SizedBox.shrink(),
        loadingLabel = null,
-       // The public constructor keeps this non-nullable for icon-only use.
        // ignore: prefer_initializing_formals
        icon = icon,
-       // The public constructor keeps this non-nullable for icon-only use.
        // ignore: prefer_initializing_formals
        tooltip = tooltip,
        _iconOnly = true;
@@ -516,8 +506,6 @@ class DButton extends StatelessWidget {
       result = DTooltip(
         message: tooltip,
         shortcut: shortcut,
-        // Preserve tooltip semantics unless a caller supplied a more specific
-        // spoken label.
         excludeFromSemantics: semanticLabel != null,
         child: result,
       );

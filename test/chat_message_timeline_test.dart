@@ -154,8 +154,6 @@ void main() {
         message: message(4, minute: 1),
       );
 
-      // A missing newest record has the epoch as its boundary, just as an
-      // undated wire record does, and the O(1) append retains the raw ids.
       expect(ids, [1, 99, 4]);
     });
 
@@ -193,8 +191,6 @@ void main() {
       );
 
       expect(seam.ids, [1, 2]);
-      // Admissions retain arrival order so the controller can reconcile the
-      // same canonical records; only their id projection is sorted.
       expect(seam.admittedPending.map((message) => message.id), [2, 1]);
     });
 

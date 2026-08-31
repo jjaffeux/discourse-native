@@ -107,7 +107,6 @@ final class ScopedChatSearchState {
   );
 }
 
-/// Session-only search state for global Chat search and each channel filter.
 final class ChatSearchController {
   ChatSearchController({
     required this.api,

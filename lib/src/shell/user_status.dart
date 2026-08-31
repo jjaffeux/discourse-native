@@ -6,11 +6,6 @@ import '../models/user_status.dart';
 import 'shell_scope.dart';
 import 'site_emoji_image.dart';
 
-/// Renders one user's live custom status and removes it when it expires.
-///
-/// Emoji-only placements match core's compact post/chat treatment; richer
-/// identity surfaces opt into [showDescription]. The description is always
-/// available through the tooltip and accessibility label.
 class UserStatusMessage extends StatelessWidget {
   const UserStatusMessage({
     super.key,

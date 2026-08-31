@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 const String site = 'https://meta.discourse.org';
 
-/// A message as `Chat::MessageSerializer` writes one.
 Map<String, dynamic> message({
   int id = 1,
   int channelId = 9,
@@ -40,7 +39,6 @@ Map<String, dynamic> message({
         'name': 'Sam',
         'avatar_template': '/user_avatar/s/{size}.png',
       },
-  // Written only when true, and dropped otherwise.
   'edited': ?edited,
   'pinned': ?pinned,
   'available_flags': ?availableFlags,
@@ -122,8 +120,6 @@ void main() {
         ),
       ]);
 
-      // Rolling the same write back takes the reader's name with it, so the
-      // row is exactly what it was before the optimistic projection.
       expect(
         added.withReaction('clap', reacted: false, userId: 7).reactions,
         named.reactions,
@@ -398,8 +394,6 @@ void main() {
         ),
       );
 
-      // The unusable id is dropped rather than retained as a reactor nobody
-      // can match an event against.
       expect(read.reactions.single.reactorIds, const [2, 8]);
       expect(read.reactions.single.namesEveryReactor, isTrue);
       expect(read.reactions.single.hasReactor(8), isTrue);
@@ -563,8 +557,6 @@ void main() {
     test(
       'reads nothing it was not sent rather than inventing defaults it was',
       () {
-        // Everything optional dropped at once, which is what a plain message in a
-        // channel with threading off actually looks like.
         final read = messageFrom({'id': 1, 'chat_channel_id': 9});
 
         expect(read.cooked, '');

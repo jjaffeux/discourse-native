@@ -10,10 +10,6 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'shell_sheet.dart';
 
-/// Builds the same topic link as core's `Topic#shareUrl`.
-///
-/// Core substitutes `topic` only when a topic has no usable slug and appends
-/// the reader referral only when both badge-related site settings allow it.
 String topicShareUrl({
   required String siteUrl,
   required int topicId,

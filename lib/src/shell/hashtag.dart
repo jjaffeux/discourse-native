@@ -13,8 +13,6 @@ import 'pill.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 
-/// Resolves core's two kinds, an installed plugin kind, or the neutral unknown
-/// fallback without ever changing the server's type identity.
 HashtagPresentation resolveHashtagPresentation(
   HashtagPresentationRequest request, {
   PluginHashtagPresentationResolver? pluginPresentation,
@@ -38,24 +36,16 @@ HashtagPresentation resolveHashtagPresentation(
   return (contributed?.type == request.type ? contributed : null) ??
       HashtagPresentation.fromRequest(
         request,
-        // Unknown targets are links, not tags. A known wire icon or emoji is
-        // still honoured, and composer payload colours remain useful.
         fallbackIcon: DIcons.link,
         colorPolicy: HashtagColorPolicy.supplied,
       );
 }
 
-/// The icon a hashtag draws, by the name the site gave.
-///
-/// Falls back on the kind's own default rather than on nothing: `data-icon` is
-/// whatever an admin picked in the category settings, and the sprite here holds
-/// the icons this app draws rather than all of Font Awesome.
 DIconData iconFor(String? icon, DIconData fallback) {
   final named = icon == null ? null : DIcons.byName[icon];
   return named ?? fallback;
 }
 
-/// Maps the same resolved policy used by a pill into autocomplete artwork.
 SuggestionArt hashtagSuggestionArt(
   HashtagPresentation presentation, {
   required String Function(String emoji) resolveEmoji,
@@ -90,12 +80,6 @@ int? _hashtagColorValue(HashtagPresentation presentation) =>
     ? null
     : presentation.colorValues.last;
 
-/// The colour swatch ahead of a category hashtag.
-///
-/// A subcategory is split down the middle — parent on the left, child on the
-/// right — which is Discourse's `linear-gradient(-90deg, #child 50%, #parent
-/// 50%)`: `-90deg` runs the line leftwards, so the *first* stop paints the
-/// right half.
 class CategorySquare extends StatelessWidget {
   const CategorySquare({
     super.key,
@@ -104,8 +88,6 @@ class CategorySquare extends StatelessWidget {
     this.parentColor,
   });
 
-  /// Null when the category has not been fetched — see [HashtagPill]. Drawn in
-  /// the same neutral Discourse uses before its own colours arrive.
   final Color? color;
   final Color? parentColor;
   final double size;
@@ -135,16 +117,6 @@ class CategorySquare extends StatelessWidget {
   }
 }
 
-/// One server-confirmed hashtag target, drawn as a pill.
-///
-/// The cooked anchor carries everything about *what* the hashtag is —
-/// `data-type`, `data-style-type`, `data-icon`, `data-emoji` — but nothing
-/// about its colour. On the web that arrives in a generated stylesheet; here it
-/// comes from the categories the shell already fetches, looked up by the
-/// `data-id` the anchor carries. A hashtag drawn before they land, or on a site
-/// whose category list was capped, keeps its label and its tap and draws a
-/// neutral square — which is exactly what Discourse itself shows until its own
-/// colours arrive.
 class HashtagPill extends StatelessWidget {
   const HashtagPill({
     super.key,
@@ -162,11 +134,8 @@ class HashtagPill extends StatelessWidget {
 
   final String? href;
 
-  /// `data-id` — how core finds a category colour missing from cooked HTML.
   final int? recordId;
 
-  /// The site that cooked this hashtag. Composer pills do not carry a link and
-  /// may inherit the site currently owning the composer.
   final String? siteUrl;
 
   @override
@@ -256,7 +225,6 @@ class HashtagPill extends StatelessWidget {
     color: tint ?? Theme.of(context).colorScheme.onSurfaceVariant,
   );
 
-  /// The last supplied colour, or a core category's colour resolved by id.
   Color? _hashtagColor(_HashtagShellPresentation shellPresentation) {
     if (presentation.colorPolicy == HashtagColorPolicy.none) return null;
     if (presentation.colorValues case final given when given.isNotEmpty) {
@@ -296,17 +264,6 @@ class _HashtagShellPresentation {
   int get hashCode => Object.hash(category, parent, emojiUrl);
 }
 
-/// Hands `<a class="hashtag-cooked">` to [HashtagPill], for
-/// [HtmlWidget.customWidgetBuilder].
-///
-/// The `<svg>` inside the anchor is deliberately ignored. Discourse bakes the
-/// *same* placeholder — `d-icon-square-full` — into every hashtag whatever its
-/// type, and its own client throws that away and redraws from the `data-`
-/// attributes. Reading it would draw a filled square for every tag on the site.
-///
-/// An unresolved hashtag arrives as `<span class="hashtag-raw">` and is left
-/// alone, exactly as Discourse leaves it: it is prose that looks like a
-/// hashtag, and a pill would promise a place that is not there.
 Widget? hashtagWidgetBuilder(
   dom.Element element,
   TextStyle? baseStyle, {

@@ -1,5 +1,3 @@
-/// Whether [host] is an explicit loopback name or address.
-///
 /// This intentionally accepts only the full IPv4 form. Platform resolvers may
 /// understand shorthand such as `127.1`, but plaintext transport should not
 /// depend on resolver-specific interpretation of an ambiguous host.

@@ -7,8 +7,6 @@ import 'push_registration.dart';
 import 'secure_store.dart';
 import 'user_api_key.dart';
 
-/// Opens [url] in a web auth session and returns the callback URL the site
-/// redirects to. Injectable so the flow can be tested without a browser.
 typedef WebAuthLauncher =
     Future<String> Function(String url, String callbackScheme);
 
@@ -17,7 +15,6 @@ typedef AuthKeyPairGenerator = Future<AuthKeyPair> Function();
 Future<String> _launchWebAuth(String url, String callbackScheme) =>
     FlutterWebAuth2.authenticate(url: url, callbackUrlScheme: callbackScheme);
 
-/// Runs the user API key handshake and keeps what comes back.
 class Authenticator implements ApiCredentialReader {
   Authenticator({
     SecureStore? store,
@@ -48,7 +45,6 @@ class Authenticator implements ApiCredentialReader {
     'connection superseded',
   );
 
-  /// Sends the user to [siteUrl] to authorize, then stores the key it returns.
   Future<UserApiCredentials> connect(String siteUrl) async {
     final generation = Object();
     _connectionGenerations[siteUrl] = generation;
@@ -82,12 +78,9 @@ class Authenticator implements ApiCredentialReader {
       } on UserApiAuthException {
         rethrow;
       } on PlatformException catch (e, stackTrace) {
-        // Every implementation agrees on this code when the user dismisses the
-        // browser: the ASWebAuthenticationSession bridges on iOS and macOS, the
-        // auth tab on Android, and both the webview and the loopback server on
-        // Linux and Windows. Anything else means the session never got as far as
-        // showing a page, which the user cannot fix by trying again — so it has
-        // to be said out loud rather than folded into a silent cancellation.
+        // Every platform reports `CANCELED` only for browser dismissal. Other
+        // codes mean the browser failed to launch and must not be treated as a
+        // silent user cancellation.
         final failure = e.code == 'CANCELED'
             ? UserApiAuthFailure.cancelled
             : UserApiAuthFailure.launchFailed;
@@ -140,10 +133,6 @@ class Authenticator implements ApiCredentialReader {
   @override
   Future<String?> apiKeyFor(String siteUrl) => store.readApiKey(siteUrl);
 
-  /// This install's client id.
-  ///
-  /// Exposed here rather than reached for through [store], because callers want
-  /// the identity, not the storage it happens to live in.
   @override
   Future<String> clientId() async {
     final pushRegistration = await _pushRegistrations.registration();
@@ -165,8 +154,6 @@ Future<AuthKeyPair> _generateAuthKeyPair() async {
   return AuthKeyPair(publicPem: pems[0], privatePem: pems[1]);
 }
 
-/// Top-level so it can run in an isolate. Returns plain strings rather than
-/// the key pair object, which keeps what crosses the isolate boundary simple.
 List<String> _generatePems(int _) {
   final pair = AuthKeyPair.generate();
   return [pair.publicPem, pair.privatePem];

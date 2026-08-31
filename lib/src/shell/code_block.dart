@@ -11,15 +11,6 @@ import '../theme/d_icons.dart';
 import 'cooked_dom.dart';
 import 'syntax.dart';
 
-/// Renders `<pre>` natively, for both post code fences and oneboxes.
-///
-/// [HtmlWidget] draws a `<pre>` as preformatted text, which is right until
-/// something structural is nested inside it. Discourse's git blob oneboxes put
-/// a numbered `<ol class="lines">` in there (`githubblob.mustache`), so every
-/// newline the template indents with survives into the output and the block
-/// renders as list items separated by blank lines.
-///
-/// This reads either shape, highlights it, and draws lines itself.
 class CodeBlockData {
   const CodeBlockData({required this.lines, this.language});
 
@@ -29,18 +20,12 @@ class CodeBlockData {
 
   final List<CodeLine> lines;
 
-  /// What the markup said the language is, before alias resolution — kept for
-  /// debugging and tests rather than for rendering.
   final String? language;
 
-  /// The code as the author wrote it, without line-number markup.
   String get text => lines.map((line) => line.text).join('\n');
 
-  /// The web client normalizes non-standard spaces before copying so pasted
-  /// code behaves like ordinary source in editors and terminals.
   String get clipboardText => text.replaceAll(_clipboardWhitespace, ' ').trim();
 
-  /// Reads [pre], which must be the `<pre>` element itself.
   static CodeBlockData from(dom.Element pre) {
     final code = descendantWhere(pre, (e) => e.localName == 'code');
     final language = _language(code ?? pre);
@@ -54,7 +39,6 @@ class CodeBlockData {
     );
   }
 
-  /// Discourse writes the language as a `lang-` prefixed class.
   static String? _language(dom.Element code) {
     for (final className in code.classes) {
       if (className.startsWith('lang-')) {
@@ -64,7 +48,6 @@ class CodeBlockData {
     return null;
   }
 
-  /// A git blob onebox: one `<li>` per line, numbered from `start`.
   static List<CodeLine> _numbered(dom.Element ol) {
     final start = int.tryParse(ol.attributes['start'] ?? '');
     final items = childrenWhere(ol, (e) => e.localName == 'li');
@@ -80,14 +63,10 @@ class CodeBlockData {
     ];
   }
 
-  /// An ordinary code fence, where the text is the code.
   static List<CodeLine> _plain(String text) {
     final lines = text.split('\n');
-    // `<pre>` swallows one newline after the open tag, and cooked code fences
-    // carry a trailing one. Neither is a line the author wrote — but only one
-    // of each, and only a truly empty one. Blank lines beyond that, and lines
-    // holding whitespace, are the author's: a fence that ends on deliberate
-    // spacing kept it, and a stripping pass cannot tell that from padding.
+    // Remove only the single empty boundary lines added by `<pre>` and cooked
+    // fences; whitespace-only and additional blank lines are authored code.
     if (lines.isNotEmpty && lines.first.isEmpty) lines.removeAt(0);
     if (lines.isNotEmpty && lines.last.isEmpty) lines.removeLast();
     return [
@@ -95,9 +74,6 @@ class CodeBlockData {
     ];
   }
 
-  /// Highlights the whole block at once, then puts the tokens back on their
-  /// lines — the line numbers and selection belong to the markup, not to the
-  /// highlighter, so they are carried across rather than recomputed.
   static List<CodeLine> _highlighted(List<CodeLine> lines, String? language) {
     if (lines.isEmpty) return lines;
 
@@ -121,32 +97,17 @@ class CodeBlockData {
 class CodeLine {
   const CodeLine({required this.tokens, this.number, this.isSelected = false});
 
-  /// The line's runs of source, scoped by the highlighter. A line the
-  /// highlighter had nothing to say about is one unscoped token.
   final List<CodeToken> tokens;
 
-  /// The line's number in the original file, when the markup said.
   final int? number;
 
-  /// Git blob oneboxes mark the lines the link pointed at.
   final bool isSelected;
 
   String get text => tokens.map((token) => token.text).join();
 }
 
-/// The face Discourse loads for `code`, `pre`, and `kbd`.
-///
-/// It is bundled rather than left to the platform: otherwise macOS would draw
-/// Menlo, Windows Consolas, and Android its default body face. Regular and bold
-/// are the same two weights the web app ships.
 const String monospaceFontFamily = 'JetBrains Mono';
 
-/// Discourse's fallback stack, for glyphs JetBrains Mono does not contain.
-///
-/// Flutter prefixes fonts contributed by a dependency package. The full app
-/// consumes core as `discourse_native`, while the core app is the root package,
-/// so keeping both family names here makes the same text style correct in both
-/// build compositions without copying font assets into the full profile.
 const List<String> monospaceFallback = [
   'packages/discourse_native/JetBrains Mono',
   'Consolas',
@@ -154,10 +115,6 @@ const List<String> monospaceFallback = [
   'monospace',
 ];
 
-/// `font-variant-ligatures: none`, as set by Discourse for JetBrains Mono.
-///
-/// Coding ligatures would make the painted characters disagree with the
-/// markdown source the reader or composer is looking at.
 const List<FontFeature> monospaceFontFeatures = [
   FontFeature.disable('liga'),
   FontFeature.disable('clig'),
@@ -166,19 +123,12 @@ const List<FontFeature> monospaceFontFeatures = [
   FontFeature.disable('calt'),
 ];
 
-/// Shared by rendered code, the composer, and monospace onebox fragments.
 const TextStyle monospaceTextStyle = TextStyle(
   fontFamily: monospaceFontFamily,
   fontFamilyFallback: monospaceFallback,
   fontFeatures: monospaceFontFeatures,
 );
 
-/// Maps a highlight.js scope onto one of the six colors the theme defines.
-///
-/// highlight.js emits around forty class names; grouping them keeps a block
-/// readable instead of turning it into confetti, and means a language nobody
-/// anticipated still lands somewhere sensible. Null leaves the token in the
-/// default foreground.
 Color? scopeColor(String? scope, CodeColors colors) => switch (scope) {
   'keyword' ||
   'built_in' ||
@@ -224,7 +174,6 @@ Color? scopeColor(String? scope, CodeColors colors) => switch (scope) {
   _ => null,
 };
 
-/// Hands `<pre>` to [CodeBlock], for [HtmlWidget.customWidgetBuilder].
 Widget? codeBlockWidgetBuilder(dom.Element element) {
   if (element.localName != 'pre') return null;
   return CodeBlock(data: CodeBlockData.from(element));
@@ -236,8 +185,6 @@ class CodeBlock extends StatefulWidget {
   final CodeBlockData data;
   final bool showFullscreen;
 
-  /// Room under the code for the horizontal scrollbar, so the thumb sits below
-  /// the last line rather than over it.
   static const double _scrollbarLane = 12;
 
   @override
@@ -245,7 +192,6 @@ class CodeBlock extends StatefulWidget {
 }
 
 class _CodeBlockState extends State<CodeBlock> {
-  /// Shared with the [Scrollbar] so it has something to draw and to drag.
   final ScrollController _horizontal = ScrollController();
   Timer? _copiedTimer;
   bool _copied = false;
@@ -308,8 +254,6 @@ class _CodeBlockState extends State<CodeBlock> {
     );
 
     return Container(
-      // The HTML column left-aligns its children, so a block would otherwise
-      // shrink to its widest line and sit there looking like a stray box.
       width: double.infinity,
       margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
@@ -334,8 +278,6 @@ class _CodeBlockState extends State<CodeBlock> {
                   top: 8,
                   bottom: CodeBlock._scrollbarLane,
                 ),
-                // At least as wide as the block, so a selected line highlights
-                // all the way across; wider when a line is longer than that.
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minWidth: constraints.maxWidth),
                   child: IntrinsicWidth(
@@ -399,7 +341,6 @@ class _CodeBlockState extends State<CodeBlock> {
     );
   }
 
-  /// Sized from the widest number so the code column does not step sideways.
   double? get _gutterWidth {
     final widest = widget.data.lines
         .map((line) => line.number?.toString().length ?? 0)
@@ -408,9 +349,6 @@ class _CodeBlockState extends State<CodeBlock> {
   }
 }
 
-/// A focused, scrollable view of one code block, matching Discourse's
-/// full-screen code modal. Copy remains available here; opening another viewer
-/// does not.
 class CodeBlockFullscreen extends StatefulWidget {
   const CodeBlockFullscreen({super.key, required this.data});
 

@@ -19,8 +19,6 @@ typedef AppBootstrapUnhandledErrorReporter =
       required String source,
     });
 
-/// Platform-facing operations whose order and failure policy are owned by
-/// [AppBootstrap].
 abstract interface class AppBootstrapHost {
   void ensureFlutterInitialized();
 
@@ -50,8 +48,6 @@ abstract interface class AppBootstrapHost {
   void launchApplication();
 }
 
-/// Owns the required startup order, the optional cache boundary, and root-zone
-/// error forwarding.
 final class AppBootstrap {
   AppBootstrap({required this._host});
 
@@ -79,8 +75,7 @@ final class AppBootstrap {
               try {
                 await _host.initializePersistentMediaCache();
               } catch (error, stackTrace) {
-                // Persistent media caching is an optimization. An unavailable
-                // cache directory must not keep the forum from opening.
+                // A broken cache directory must not keep the forum from opening.
                 _host.reportError(
                   error,
                   stackTrace,
@@ -95,9 +90,7 @@ final class AppBootstrap {
             },
             (error, stackTrace) {
               globalErrors?.call(error, stackTrace, source: 'zone');
-              // Recording must not turn a crash into a successful continuation.
-              // Preserve the evidence, then return the failure to the zone that
-              // launched the application.
+              // Recording must not turn a crash into successful continuation.
               parentZone.handleUncaughtError(error, stackTrace);
             },
           ) ??

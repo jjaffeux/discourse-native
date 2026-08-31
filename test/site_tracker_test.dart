@@ -382,7 +382,6 @@ void main() {
         addTearDown(tracker.dispose);
         final handle = tracker.pluginLiveChannels(const [
           PluginLiveChannelScope.prefix('/chat'),
-          // The adapter remains fail-closed even if host validation is bypassed.
           PluginLiveChannelScope.prefix('/latest'),
           PluginLiveChannelScope.prefix('/notification'),
           PluginLiveChannelScope.prefix('/topic'),

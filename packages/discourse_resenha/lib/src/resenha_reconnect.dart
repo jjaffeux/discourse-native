@@ -14,8 +14,6 @@ typedef ResenhaReconnectTimerFactory =
 Timer _defaultReconnectTimer(Duration delay, void Function() callback) =>
     Timer(delay, callback);
 
-/// Owns the retry and cancellation policy for one media session.
-///
 /// Failed attempts are deliberately absorbed: exhausting the schedule is a
 /// connection-state transition, not an asynchronous error. Unexpected errors
 /// from the timer or state callback are still returned to the caller.
@@ -64,7 +62,6 @@ final class ResenhaReconnectCoordinator {
   ResenhaMediaConnectionState get connectionState => _connectionState;
   bool get cancelled => _cancelled;
 
-  /// Starts a retry ladder, or returns the ladder already in progress.
   Future<void> reconnect() {
     if (_cancelled) return Future<void>.value();
     final active = _active;
@@ -72,7 +69,6 @@ final class ResenhaReconnectCoordinator {
     return _active = _runAndClear();
   }
 
-  /// Permanently stops this coordinator and releases any pending backoff.
   void cancel() {
     if (_cancelled) return;
     _cancelled = true;
@@ -117,9 +113,7 @@ final class ResenhaReconnectCoordinator {
   void _notifyAttemptStarted(int attemptNumber, Duration delay) {
     try {
       onAttemptStarted?.call(attemptNumber, delay);
-    } catch (_) {
-      // Diagnostic observers must never change the reconnect policy.
-    }
+    } catch (_) {}
   }
 
   void _notifyAttemptFailed(
@@ -129,17 +123,13 @@ final class ResenhaReconnectCoordinator {
   ) {
     try {
       onAttemptFailed?.call(attemptNumber, error, stackTrace);
-    } catch (_) {
-      // Diagnostic observers must never change the reconnect policy.
-    }
+    } catch (_) {}
   }
 
   void _notifyExhausted(int attemptCount) {
     try {
       onExhausted?.call(attemptCount);
-    } catch (_) {
-      // Diagnostic observers must never change the reconnect policy.
-    }
+    } catch (_) {}
   }
 
   Future<bool> _wait(Duration delay) async {

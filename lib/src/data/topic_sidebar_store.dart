@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
-/// Per-forum topic-sidebar visibility persistence.
 abstract interface class TopicSidebarPersistence {
   Future<bool?> readCollapsed({required String siteUrl});
 
@@ -38,10 +37,6 @@ final class SharedPreferencesTopicSidebarPersistence
       '$_keyPrefix.${Uri.encodeComponent(siteUrl)}';
 }
 
-/// Remembers whether the reader hid the topic context sidebar on each forum.
-///
-/// This is optional presentation state. Storage failures leave the sidebar
-/// open and never prevent a topic from being read.
 final class TopicSidebarStore {
   const TopicSidebarStore({TopicSidebarPersistence? persistence})
     : _persistence =

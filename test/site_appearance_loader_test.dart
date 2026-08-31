@@ -497,8 +497,6 @@ void main() {
         ).load(siteUrl: 'https://forum.example'),
         _failsWith(SiteAppearanceLoadFailure.malformed),
       );
-      // The forum document starts alongside the resolver JSON, so three
-      // requests exist by the time the missing href is diagnosed.
       expect(client.requests, hasLength(3));
     });
   });

@@ -15,32 +15,14 @@ import 'image_decode.dart';
 import 'lightbox.dart';
 import 'site_image.dart';
 
-/// Renders `[grid]` galleries — the mosaic, and the carousel.
-///
-/// The server barely participates: `discourse-markdown-it`'s `image-grid`
-/// feature turns `[grid]…[/grid]` into nothing more than
-/// `<div class="d-image-grid" data-mode="grid|carousel">` around the images.
-/// Every bit of the layout is the client's doing, in `lib/columns.js` and
-/// `components/image-carousel`, so left to [HtmlWidget] a grid is a plain
-/// vertical stack of images.
-///
-/// The two modes share only their markup:
-///
-/// * **grid** is masonry — [ImageGridMosaic].
-/// * **carousel** is one image at a time on a snapping track —
-///   [ImageGridCarousel].
 enum ImageGridMode {
   grid,
   carousel;
 
-  /// `data-mode`, which the markdown rule already narrowed to these two and
-  /// defaults to `grid`.
   static ImageGridMode from(String? value) =>
       value == 'carousel' ? ImageGridMode.carousel : ImageGridMode.grid;
 }
 
-/// One thing in a grid. Usually an image, but a grid holds whatever it was
-/// written around.
 class ImageGridItem {
   const ImageGridItem({
     required this.element,
@@ -51,30 +33,20 @@ class ImageGridItem {
     required this.intrinsic,
   });
 
-  /// The item as the post wrote it, for the fallback path.
   final dom.Element element;
 
-  /// `a.lightbox`, when this item has one. Images too small to be lightboxed
-  /// still land in a grid, so this is not a given — `lib/columns.js` has the
-  /// same case in `_wrapDirectImage`.
   final dom.Element? anchor;
 
   final LightboxImage? image;
 
-  /// Alt text (or, when absent, the image title) for a non-lightboxed image.
-  /// Lightboxed items use [LightboxImage.description].
   final String? description;
 
-  /// The `width`/`height` the markup declares on the `img`, which is the size
-  /// Discourse resized it to.
   final Size? declared;
 
-  /// The size out of `.informations`, which is the size it was uploaded at.
   final Size? intrinsic;
 
   bool get isLightbox => anchor != null && image != null;
 
-  /// A bare `<img>` that never got a lightbox, for the tile to draw directly.
   String? get plainSrc {
     if (isLightbox) return null;
     final img = element.localName == 'img'
@@ -84,18 +56,12 @@ class ImageGridItem {
     return (src == null || src.isEmpty) ? null : src;
   }
 
-  /// How tall this item is at unit width — `img.height / img.width`, the number
-  /// `_distributeEvenly` accumulates per column. Anything that is not a sized
-  /// image counts as square, exactly as it does there.
   double get mosaicHeightUnit {
     final size = declared;
     if (size == null || size.width <= 0) return 1;
     return size.height / size.width;
   }
 
-  /// Width over height, following `resolveDimensions` in
-  /// `lib/image-grid-carousel.js`: what the markup declared, else what it was
-  /// uploaded at, else the same 4:3 that file falls back to.
   double get carouselAspectRatio {
     for (final size in [declared, intrinsic]) {
       if (size != null && size.width > 0 && size.height > 0) {
@@ -106,19 +72,14 @@ class ImageGridItem {
   }
 }
 
-/// A parsed `div.d-image-grid`.
 class ImageGridData {
   const ImageGridData({required this.mode, required this.items});
 
   final ImageGridMode mode;
   final List<ImageGridItem> items;
 
-  /// `Columns.minCount`. Under two items the web client marks the grid
-  /// `data-disabled` and the stylesheet bails out of the layout entirely, which
-  /// leaves the images stacked — so there is nothing to draw differently.
   static const int minCount = 2;
 
-  /// Reads [grid], which must be the `div.d-image-grid` element itself.
   static ImageGridData from(dom.Element grid) {
     final mode = ImageGridMode.from(grid.attributes['data-mode']);
     final elements = mode == ImageGridMode.carousel
@@ -131,9 +92,6 @@ class ImageGridData {
     );
   }
 
-  /// `Columns#_prepareItems`: the grid's children, except that an item the
-  /// markdown wrapped in a paragraph is taken out of it, and `br`/`p` never
-  /// count as items of their own.
   static List<dom.Element> _prepareItems(dom.Element grid) {
     final targets = <dom.Element>[];
 
@@ -152,9 +110,6 @@ class ImageGridData {
     return targets;
   }
 
-  /// `buildCarouselItems`: every drawable image anywhere in the grid, taken up
-  /// to its lightbox wrapper and deduplicated, which is a different question
-  /// from [_prepareItems] — a carousel shows images, not children.
   static List<dom.Element> _carouselItems(dom.Element grid) {
     const skip = {'thumbnail', 'ytp-thumbnail-image', 'emoji'};
     final seen = <dom.Element>[];
@@ -206,19 +161,11 @@ class ImageGridData {
     );
   }
 
-  /// `parseInfoDimensions`: the leading `1920×1080` of an `.informations` line,
-  /// which Discourse writes with either separator.
   static Size? _parseInformations(String? text) {
     return parseSafeImageInformationSize(text);
   }
 }
 
-/// Hands `div.d-image-grid` to the layout its mode asks for, for
-/// [HtmlWidget.customWidgetBuilder].
-///
-/// Returns null — leaving [HtmlWidget] to draw the div and its images the
-/// ordinary way — for the two cases the web client also declines to lay out: a
-/// grid holding fewer than two things, and a carousel holding no images.
 Widget? imageGridWidgetBuilder(dom.Element element, {String? siteUrl}) {
   if (element.localName != 'div') return null;
   if (!element.classes.contains('d-image-grid')) return null;
@@ -236,49 +183,23 @@ Widget? imageGridWidgetBuilder(dom.Element element, {String? siteUrl}) {
   };
 }
 
-/// The mosaic: images packed into columns, cropped so the columns end level.
-///
-/// `lib/columns.js` walks the items in the order they were written and drops
-/// each into whichever column is shortest so far, measuring in units of column
-/// width. The stylesheet then does the part that is easy to miss: the columns
-/// are flex items in a stretch container, so **every column is as tall as the
-/// tallest**, and inside a short column the leftover height is split *equally*
-/// between its items, which `object-fit: cover` absorbs by cropping.
-///
-/// Reproducing that with [IntrinsicHeight] would be both expensive and wrong —
-/// a post scrolls, so the height it would measure against is unbounded. It does
-/// not need measuring: every aspect ratio is already in the markup, so given a
-/// column width the whole layout is arithmetic.
 class ImageGridMosaic extends StatelessWidget {
   const ImageGridMosaic({super.key, required this.data, this.siteUrl});
 
   final ImageGridData data;
   final String? siteUrl;
 
-  /// `$grid-column-gap`, used between columns and under every item.
   static const double gap = 6;
 
-  /// The stylesheet's `max-height`, which stops one very tall image from
-  /// setting the height of the whole grid.
   static const double maxItemHeight = 1200;
 
-  /// Below this the grid drops to two columns.
-  ///
-  /// The web client asks `site.mobileView`, a question about the device. This
-  /// shell is adaptive — the same window is wide or narrow depending on what
-  /// else is open — so the honest question here is how much room the post
-  /// actually has.
   static const double narrowWidth = 700;
 
-  /// `Columns#count`: two columns for two or four items regardless of room,
-  /// because a 2x2 block reads better than a row of four.
   int columnCount(double width) {
     if (data.items.length == 2 || data.items.length == 4) return 2;
     return width < narrowWidth ? 2 : 3;
   }
 
-  /// `Columns#_distributeEvenly`: each item joins the shortest column so far.
-  /// Returns the item indices per column, so callers keep the written order.
   static List<List<int>> distribute(List<double> heightUnits, int count) {
     final columns = List.generate(count, (_) => <int>[]);
     final heights = List.filled(count, 0.0);
@@ -376,7 +297,6 @@ class ImageGridMosaic extends StatelessWidget {
   }
 }
 
-/// One item, filling whatever box it was given.
 class ImageGridTile extends StatelessWidget {
   const ImageGridTile({
     super.key,
@@ -388,8 +308,6 @@ class ImageGridTile extends StatelessWidget {
   final ImageGridItem item;
   final String? siteUrl;
 
-  /// A mosaic crops to square off its columns; a carousel shows the whole
-  /// image. The stylesheet says `cover` for one and `contain` for the other.
   final BoxFit fit;
 
   @override
@@ -446,7 +364,6 @@ class ImageGridTile extends StatelessWidget {
       );
     }
 
-    // Whatever else was written into the grid — a onebox, a video, text.
     return CookedHtml(html: item.element.outerHtml, siteUrl: siteUrl);
   }
 }
@@ -454,25 +371,16 @@ class ImageGridTile extends StatelessWidget {
 String? _nonEmpty(String? value) =>
     value == null || value.trim().isEmpty ? null : value.trim();
 
-/// The carousel: one image at a time, on a track that snaps.
-///
-/// `components/image-carousel` is a horizontal scroll-snap strip with a fixed
-/// track height, images shown whole rather than cropped, and a row of controls
-/// underneath — arrows that wrap around, and either a dot per image or a
-/// counter once there are too many dots to be useful.
 class ImageGridCarousel extends StatefulWidget {
   const ImageGridCarousel({super.key, required this.data, this.siteUrl});
 
   final ImageGridData data;
   final String? siteUrl;
 
-  /// The stylesheet's `height: 400px` on `.d-image-carousel__track`.
   static const double trackHeight = 400;
 
-  /// `MAX_DOTS`. Past this the dots become a counter.
   static const int maxDots = 10;
 
-  /// Minimum hit and focus area for every carousel control.
   static const double controlTargetSize = 44;
 
   @override
@@ -511,7 +419,6 @@ class _ImageGridCarouselState extends State<ImageGridCarousel> {
 
   bool get _isSingle => _items.length < 2;
 
-  /// Both wrap, the way `prevIndex`/`nextIndex` do.
   int get _previous => _index == 0 ? _items.length - 1 : _index - 1;
   int get _next => _index == _items.length - 1 ? 0 : _index + 1;
 
@@ -674,7 +581,6 @@ class _Nav extends StatelessWidget {
   }
 }
 
-/// One dot per image, the current one stretched into a pill.
 class _Dots extends StatelessWidget {
   const _Dots({
     required this.index,
@@ -815,7 +721,6 @@ class _DotButtonState extends State<_DotButton> {
   }
 }
 
-/// What replaces the dots once there are too many of them to aim at.
 class _Counter extends StatelessWidget {
   const _Counter({required this.index, required this.total});
 

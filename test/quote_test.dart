@@ -9,7 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
-/// Real cooked output from meta.discourse.org.
 const String postQuote = '''
 <aside class="quote no-group" data-username="martin" data-post="14" data-topic="322551">
 <div class="title">
@@ -21,7 +20,6 @@ const String postQuote = '''
 </aside>
 ''';
 
-/// A quote of another topic carries the topic title as a link instead.
 const String crossTopicQuote = '''
 <aside class="quote group-staff" data-username="sam" data-post="1" data-topic="1234">
 <div class="title">

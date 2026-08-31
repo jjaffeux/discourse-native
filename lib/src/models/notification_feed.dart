@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'notification.dart';
 
-/// What the notifications tab knows about one site's list, at one moment.
 @immutable
 class NotificationFeed {
   const NotificationFeed({
@@ -24,16 +23,10 @@ class NotificationFeed {
   final bool loading;
   final String? error;
 
-  /// True once a request has finished, so an empty list can be told apart from
-  /// one that has not been fetched.
   final bool loaded;
 
   bool get isEmpty => loaded && error == null && notifications.isEmpty;
 
-  /// The same list with one row no longer unread.
-  ///
-  /// Tapping a notification marks it read on the site, and the row should stop
-  /// standing out the moment it is tapped rather than when the request lands.
   NotificationFeed withRead(int id) {
     final index = notifications.indexWhere(
       (notification) => notification.id == id && notification.isUnread,

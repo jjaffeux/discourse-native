@@ -3,11 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
-/// Diagnostics panel width persistence.
-///
-/// The boolean write result is deliberately preserved so the store can report
-/// platform rejections while continuing with its built-in presentation
-/// fallback.
 abstract interface class DiagnosticsPanelWidthPersistence {
   Future<double?> readWidth();
 
@@ -30,10 +25,6 @@ final class SharedPreferencesDiagnosticsPanelWidthPersistence
       );
 }
 
-/// Persists the preferred diagnostics panel width between app launches.
-///
-/// The preference is optional UI state: storage failures fall back to the
-/// built-in width and must never keep the app from opening.
 final class DiagnosticsPanelWidthStore {
   const DiagnosticsPanelWidthStore({
     DiagnosticsPanelWidthPersistence? persistence,

@@ -49,8 +49,6 @@ typedef PluginEmojiCatalogLoader =
 typedef PluginEmojiSearchAliasLoader =
     Future<Map<String, List<String>>?> Function(String siteUrl, {bool refresh});
 
-/// Read-only request credentials for one explicitly named site.
-///
 /// Plugins receive this snapshot instead of the process-wide credential
 /// reader, so they cannot retain the authenticator or ask for a client id
 /// independently of the site request they are about to make.
@@ -65,13 +63,11 @@ final class PluginRequestCredentials {
   final String clientId;
 }
 
-/// Permission to publish synchronous state for one captured site session.
 abstract interface class PluginSiteLease {
   bool get isCurrent;
   bool commit(VoidCallback mutation);
 }
 
-/// Least-privilege request and session-lifetime authority for plugins.
 abstract interface class PluginRequestHost {
   PluginSiteLease capture(String siteUrl);
 
@@ -88,13 +84,9 @@ abstract interface class PluginRequestHost {
 abstract interface class PluginAccountConnectionHost {
   bool isConnected(String siteUrl);
 
-  /// Connects [siteUrl] when it is the host's currently presented forum and
-  /// returns the user-facing failure, if any.
   Future<String?> connect(String siteUrl);
 }
 
-/// The shared post state needed by Poll and Reactions interactions.
-///
 /// This is intentionally not a generic [Store]. It grants access only to core
 /// post/topic records and to the one serialized post-write lane used by those
 /// plugins.
@@ -124,7 +116,6 @@ abstract interface class PluginPostHost {
 
 enum ComposerSeedPlacement { block }
 
-/// Plugin-neutral source to place in a composer opened by the host.
 @immutable
 final class ComposerSeed {
   const ComposerSeed({
@@ -136,7 +127,6 @@ final class ComposerSeed {
   final ComposerSeedPlacement placement;
 }
 
-/// Opens or reuses a new-topic composer while a source route remains current.
 @immutable
 final class OpenNewTopicComposerRequest {
   const OpenNewTopicComposerRequest({
@@ -154,7 +144,6 @@ final class OpenNewTopicComposerRequest {
 
 enum OpenComposerResult { opened, unavailable, sourceChanged }
 
-/// A plugin-neutral reference to a serializer-backed topic or post target.
 final class PluginTarget {
   const PluginTarget.topic(this.id) : kind = 'topic', topicId = id;
 
@@ -165,7 +154,6 @@ final class PluginTarget {
   final int topicId;
 }
 
-/// Read-only account and presentation state used by plugin session services.
 final class PluginSiteStateHost {
   const PluginSiteStateHost({
     required this.currentUserFor,
@@ -176,7 +164,6 @@ final class PluginSiteStateHost {
   final PluginSiteConfigReader siteConfigFor;
 }
 
-/// Account-level events emitted by a plugin-owned background controller.
 final class PluginAccountEventsHost {
   const PluginAccountEventsHost({
     required this.updateNotificationCounter,
@@ -187,8 +174,6 @@ final class PluginAccountEventsHost {
   final PluginSiteCallback markSiteUnreachable;
 }
 
-/// Owner-scoped serializer snapshots used by target-based plugins.
-///
 /// The shell validates the target and returns only the namespaced record owned
 /// by the consuming plugin. Foreign plugin data never crosses this port.
 abstract interface class PluginTargetHost {
@@ -199,7 +184,6 @@ abstract interface class PluginTargetHost {
   );
 }
 
-/// Fresh account presentation fields which are safe for plugin UI policy.
 @immutable
 final class PluginFreshAccountProfile {
   PluginFreshAccountProfile({required this.staff, required List<String> groups})
@@ -209,8 +193,6 @@ final class PluginFreshAccountProfile {
   final List<String> groups;
 }
 
-/// Owner-scoped view of the freshly authenticated account.
-///
 /// Plugins can read their own current-user record plus the presentation fields
 /// needed by feature UI. Other plugin namespaces and core account authority
 /// remain host-owned.
@@ -220,15 +202,12 @@ abstract interface class PluginFreshAccountHost {
   T? recordFor<T extends Object>(String siteUrl, PluginDataKey<T> key);
 }
 
-/// Topic reconciliation after a plugin-owned mutation.
 final class PluginTopicRefreshHost {
   const PluginTopicRefreshHost({required this.reloadTopic});
 
   final PluginTopicReloader reloadTopic;
 }
 
-/// The writing environment needed by a plugin-owned composer widget.
-///
 /// This facade deliberately exposes no navigation, topic mutation, or shell
 /// state. [siteConfigListenableFor] exposes only the configuration for the
 /// composer's own site rather than a broad shell change signal. The core port
@@ -249,7 +228,6 @@ final class PluginComposerHost {
   final PluginSiteConfigListenableReader siteConfigListenableFor;
 }
 
-/// Catalog and preference operations shared by plugin-owned emoji pickers.
 final class PluginEmojiHost {
   const PluginEmojiHost({
     required this.preferences,

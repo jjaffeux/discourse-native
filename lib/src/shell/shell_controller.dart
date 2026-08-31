@@ -1,6 +1,4 @@
 import 'dart:async';
-// Only for the category badge colour a list route carries; the shell otherwise
-// has no opinion about how anything is painted.
 import 'dart:ui' show Color;
 
 import 'package:flutter/foundation.dart'
@@ -98,13 +96,8 @@ import 'topic_read_controller.dart';
 import 'update_controller.dart';
 import 'user_summary_controller.dart';
 
-/// Which pane occupies the space next to the rail when the shell is compact.
-///
-/// Only one of them can be on screen at a time on a phone; the rail itself is
-/// always visible alongside whichever one is showing.
 enum MobilePane { sidebar, content }
 
-/// Which app-wide surface owns the space to the right of the forum rail.
 enum ShellRootMode { forum, aggregate }
 
 enum InstanceLoadStatus { loading, ready, failed }
@@ -147,17 +140,12 @@ final class _TopicBookmarkWriteContext extends _BookmarkWriteContext {
   final int topicId;
 }
 
-/// The plugin strategy and target-bound host are the complete context.
 final class _PluginBookmarkWriteContext extends _BookmarkWriteContext {
   const _PluginBookmarkWriteContext();
 }
 
 const _pluginBookmarkWriteContext = _PluginBookmarkWriteContext();
 
-/// Everything the shell needs to decide what to draw.
-///
-/// Uses Flutter's notifier contract directly, without a state-management
-/// dependency. [FrameSafeNotifier] only centralizes disposal and frame timing.
 class ShellController extends FrameSafeNotifier
     implements PluginNavigationHost, BookmarkHost, PluginNotificationFeedHost {
   ShellController({
@@ -206,41 +194,17 @@ class ShellController extends FrameSafeNotifier
   final ForumTabStore forumTabs;
   final AggregatePreferencesStore aggregatePreferences;
 
-  /// Whether the platform exposes the forum tab lifecycle.
-  ///
-  /// Mobile still uses one internal navigation context so the rest of the
-  /// shell can share the same routing code, but it can never accumulate tabs.
   final bool forumTabsEnabled;
 
-  /// The identity map. Every topic, post, category and user card the app holds
-  /// lives here once, and the maps in this class hold ids into it — so a list,
-  /// a topic being read and a card popup are all drawing the same records
-  /// rather than copies that have to be kept in step by hand.
   @override
   final Store store;
 
   final ShellApiPorts api;
 
-  /// Whether disposing this controller also closes [api].
-  ///
-  /// The app state keeps this false because it may move one API between
-  /// controller generations when another injected dependency changes.
   final bool ownsApi;
 
-  /// Maximum wall-clock time spent getting a topic onto the screen.
-  ///
-  /// The HTTP transport has its own deadline, but a topic can wait before it
-  /// reaches that boundary: credential storage crosses a platform channel and
-  /// the request coordinator may queue work behind an origin cooldown. Bound
-  /// both waits so neither can leave the topic loading state alive
-  /// indefinitely.
   final Duration topicLoadTimeout;
 
-  /// How long scroll-anchor churn may remain memory-only before it is written.
-  ///
-  /// Scrolling emits one anchor change per top row or top post, and each
-  /// persisted write serialises every workspace synchronously on the UI
-  /// isolate. Zero still coalesces a synchronous burst into one write.
   final Duration anchorPersistDebounce;
 
   final Authenticator authenticator;
@@ -253,11 +217,6 @@ class ShellController extends FrameSafeNotifier
   final PluginDiagnosticsReporter _pluginDiagnosticsReporter;
   Future<void>? _pluginTeardownFuture;
 
-  /// Completes after this controller's plugin session has torn down.
-  ///
-  /// The app uses this to avoid closing an owned [InstalledPlugins] runtime
-  /// while its previous controller generation is still running session
-  /// lifecycle hooks.
   Future<void> get pluginTeardown =>
       _pluginTeardownFuture ?? Future<void>.value();
 
@@ -344,10 +303,6 @@ class ShellController extends FrameSafeNotifier
     ]),
   );
 
-  /// The installed feature services for this shell lifetime.
-  ///
-  /// Exposed as one typed lookup boundary for [PluginScope], not as a second
-  /// shell controller API.
   PluginSession get pluginSession => _pluginSession;
 
   PluginHostPort<Object> _pluginBookmarkHostPort() {
@@ -498,11 +453,6 @@ class ShellController extends FrameSafeNotifier
 
   Set<String> get _pluginBackgroundSiteUrls => _backgroundRetention.siteUrls;
 
-  /// Neutral write coordination available to plugin-owned interaction APIs.
-  ///
-  /// Core owns serialization with its own post writes and session invalidation;
-  /// plugins own their payload types, endpoints, optimistic transforms, and
-  /// typed results.
   Future<PluginWriteCredential> pluginWriteCredential(String siteUrl) =>
       _credentialForWrite(siteUrl);
 
@@ -584,15 +534,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Reads one asynchronous session input without letting its stale answer
-  /// reach a later network dispatch.
-  ///
-  /// A credential store can suspend on a platform channel. In that gap the
-  /// account may be forgotten and a new lifecycle generation may start for
-  /// the same URL, so checking only when the eventual response is committed is
-  /// too late: the obsolete credential has already been sent. The record
-  /// wrapper distinguishes a current nullable value (a signed-out API key)
-  /// from an invalidated read.
   Future<_SessionValue<T>?> _readSessionValue<T>(
     SiteLease lease,
     Future<T> Function() read,
@@ -620,21 +561,10 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Opens a site's live connection. See [SiteTrackerFactory].
   final SiteTrackerFactory trackers;
 
-  /// Updating the app itself.
-  ///
-  /// Its own notifier rather than state on this class, so that download
-  /// progress does not rebuild the whole shell, and so that it stays meaningful
-  /// with no sites connected. Reached through a `ListenableBuilder`, the way
-  /// [ComposerController] is. See [UpdateController].
   final UpdateController updates;
 
-  /// Notifications, bookmarks, activity, and account counters per site.
-  ///
-  /// This state changes independently from navigation, so widgets that show it
-  /// listen here instead of invalidating every [ShellScope] dependent.
   late final AccountActivityController accountActivity =
       AccountActivityController(
         api: api.accountActivity,
@@ -644,7 +574,6 @@ class ShellController extends FrameSafeNotifier
         onTotalsChanged: _onTotalsChanged,
       );
 
-  /// Per-site notification pauses, isolated from shell navigation rebuilds.
   late final DoNotDisturbController doNotDisturb = DoNotDisturbController(
     api: api.doNotDisturb,
     credentials: authenticator,
@@ -652,33 +581,24 @@ class ShellController extends FrameSafeNotifier
     onCommitted: _commitDoNotDisturb,
   );
 
-  /// The connected account's server-side drafts for the full-page destination.
   late final DraftListController draftList = DraftListController(
     api: api.drafts,
     credentials: authenticator,
     lifecycle: lifecycle,
   );
 
-  /// The connected account's profile summary, independent from shell-wide
-  /// navigation so refreshes do not rebuild the rail or inactive tabs.
   late final UserSummaryController userSummary = UserSummaryController(
     api: api.userSummaries,
     credentials: authenticator,
     lifecycle: lifecycle,
   );
 
-  /// Group directory, detail, and subpage state changes independently from
-  /// shell navigation and topic feeds.
   late final GroupsController groups = GroupsController(
     api: GroupsApi(api.pluginTransport, api.models),
     credentials: authenticator,
     lifecycle: lifecycle,
   );
 
-  /// The connected account's server-owned preferences.
-  ///
-  /// Form edits and network progress remain on this independent notifier so
-  /// typing in Preferences cannot rebuild the rail, sidebar, or topic view.
   late final PreferencesController preferences = PreferencesController(
     api: api.userPreferences,
     credentials: authenticator,
@@ -686,17 +606,8 @@ class ShellController extends FrameSafeNotifier
     onSaved: _onPreferencesSaved,
   );
 
-  /// Topic-list snapshots and their competing refresh/page requests.
-  ///
-  /// Feed state has its own notification boundary. Widgets that render it
-  /// listen here directly; shell listeners remain about navigation and other
-  /// shell-owned state.
   late final TopicFeedController topicFeeds = _createTopicFeedController();
 
-  /// Topics returned by each selected forum's saved Discourse filter query.
-  ///
-  /// Its notifier is intentionally independent: paging this global list
-  /// should not rebuild the rail, sidebar, forum tabs, or inactive topics.
   late final AggregateFeedController aggregate = AggregateFeedController(
     api: api.topicFeeds,
     credentials: authenticator,
@@ -727,7 +638,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Optimistic topic read positions and their serialized server receipts.
   late final TopicReadController _topicReads = TopicReadController(
     api: api.topicReads,
     credentials: authenticator,
@@ -743,8 +653,6 @@ class ShellController extends FrameSafeNotifier
     },
   );
 
-  /// The one global, transient search interaction. Its notifier is consumed by
-  /// the field and result panel alone, so typing never redraws the shell.
   late final ShellSearchController search = ShellSearchController(
     api: api.search,
     credentials: authenticator,
@@ -864,7 +772,6 @@ class ShellController extends FrameSafeNotifier
 
   String? _connectingSiteUrl;
 
-  /// True while the authorize flow is open, so the UI can show progress.
   bool get connecting => _connectingSiteUrl == currentInstance?.url;
 
   final Map<String, String> _connectErrors = {};
@@ -894,7 +801,6 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  /// Retries the plugin-owned route whose failure replaced this workspace.
   Future<void> retryCurrentForum() async {
     final instance = currentInstance;
     final route = currentContent;
@@ -923,7 +829,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Offers [url] to installed session features in manifest order.
   Future<bool> openPluginUrl(String url) async {
     for (final handler in _pluginSession.capabilities<PluginLinkHandler>()) {
       if (await handler.openPluginUrl(url)) return true;
@@ -931,12 +836,6 @@ class ShellController extends FrameSafeNotifier
     return false;
   }
 
-  /// Opens a trusted notification target only when it is a safe URL owned by a
-  /// connected forum and the app has an internal route for it.
-  ///
-  /// Notification taps never fall back to the external browser: an unknown
-  /// route or forum is ignored instead of letting server-supplied data launch
-  /// another application.
   Future<bool> openNotificationUrl(String url) async {
     if (!loaded || url.isEmpty || url.length > TopicLink.maximumUrlLength) {
       return false;
@@ -981,8 +880,6 @@ class ShellController extends FrameSafeNotifier
 
   InstanceLoadStatus get loadStatus => _loadStatus;
 
-  /// False until the stored sites have been read, so the shell can avoid
-  /// flashing the empty state on launch.
   bool get loaded => _loadStatus == InstanceLoadStatus.ready;
 
   int _instanceIndex = 0;
@@ -1013,10 +910,8 @@ class ShellController extends FrameSafeNotifier
       forumTabsEnabled &&
       (currentWorkspace?.tabs.length ?? 0) < ForumWorkspace.maximumTabs;
 
-  /// Id of the sidebar destination at the root of the active tab.
   String? get destinationId => activeTab?.rootDestinationId;
 
-  /// Navigation within the active tab. Inactive tabs retain their own stack.
   @override
   List<ContentRoute> get contentStack => activeTab?.contentStack ?? const [];
   @override
@@ -1035,8 +930,6 @@ class ShellController extends FrameSafeNotifier
   @override
   bool get forumActive => _rootMode == ShellRootMode.forum;
 
-  /// A connected forum looked up by the same canonical origin used in a
-  /// cross-forum topic reference.
   DiscourseInstance? instanceFor(String siteUrl) => _instanceAt(siteUrl);
 
   static String _workspaceAccountIdentity(DiscourseInstance instance) =>
@@ -1118,19 +1011,6 @@ class ShellController extends FrameSafeNotifier
     unawaited(forumTabs.save(_forumWorkspaces.values));
   }
 
-  /// Persists scroll anchors once per window instead of once per change.
-  ///
-  /// A fixed window, deliberately, not a window each change restarts: an
-  /// uninterrupted scroll emits anchors continuously, and a restarting window
-  /// would defer every write to whenever it happened to stop. What
-  /// [anchorPersistDebounce] promises is a bound on how stale the persisted
-  /// anchor may be, which only a fixed window gives.
-  ///
-  /// The active tab is updated before this runs — widgets read anchors from
-  /// memory synchronously — and the eventual write serialises that live state,
-  /// so the last anchor in a window always wins regardless of how many changes
-  /// the window absorbed. Backgrounding and disposal flush the window, so a
-  /// pending anchor cannot outlive the process.
   void _schedulePersistAnchors() {
     _anchorPersistencePending = true;
     if (_anchorPersistTimer != null) return;
@@ -1147,11 +1027,6 @@ class ShellController extends FrameSafeNotifier
     if (_anchorPersistencePending) _persistWorkspaces();
   }
 
-  /// Writes an anchor still waiting out its debounce window.
-  ///
-  /// Views call this as their scrolled viewport unmounts: nothing can move
-  /// the anchor once the viewport is gone, so the window buys no further
-  /// coalescing and holding the write only defers durability.
   void flushAnchorPersist() {
     if (isDisposed) return;
     _flushPendingAnchorPersist();
@@ -1266,21 +1141,15 @@ class ShellController extends FrameSafeNotifier
     _loadStatus = InstanceLoadStatus.ready;
     _notify();
 
-    // Whether a newer build exists is not something anyone is waiting on, and
-    // a failure here has to stay quiet. See UpdateController.check.
     unawaited(updates.load());
 
-    // Refresh only the selected account. The web client asks about the one site
-    // being viewed; eagerly hydrating every saved native site multiplied a cold
-    // start into six authenticated reads per inactive account. The others are
-    // refreshed lazily when selected, while their persisted rail metadata is
-    // already enough to draw them.
+    // Refresh only the selected account; persisted metadata can draw inactive
+    // sites until their first selection.
     unawaited(_refreshAccountState(initialInstance));
   }
 
   bool contains(String url) => _instances.any((i) => i.url == url);
 
-  /// Appends a connected site and selects it.
   Future<bool> addInstance(DiscourseInstance instance) async {
     await load();
     if (isDisposed || !loaded) return false;
@@ -1353,10 +1222,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Moves [instance] to [newIndex] and persists the resulting rail order.
-  ///
-  /// Reordering is presentation-only: the forum being read, its workspace,
-  /// current route and compact-layout pane all stay exactly where they were.
   Future<bool> moveInstance(DiscourseInstance instance, int newIndex) {
     if (isDisposed || !loaded || _instances.length < 2) {
       return Future.value(false);
@@ -1482,11 +1347,6 @@ class ShellController extends FrameSafeNotifier
     return true;
   }
 
-  /// Signs [instance] out and takes it out of the rail.
-  ///
-  /// Returns false when the private-draft boundary or local rail could not be
-  /// persisted. A boundary failure leaves the account/key intact; a later rail
-  /// failure restores the already-forgotten site as signed out and retryable.
   Future<bool> removeInstance(DiscourseInstance instance) async {
     if (!_instances.contains(instance)) return false;
 
@@ -1511,16 +1371,11 @@ class ShellController extends FrameSafeNotifier
     if (_instances.isEmpty) _rootMode = ShellRootMode.forum;
 
     if (removingSelected) {
-      // The site being read is the one going away, so there is somewhere new
-      // to land: whatever took its place, or the end of a shortened rail.
       _instanceIndex = _instances.isEmpty
           ? 0
           : index.clamp(0, _instances.length - 1);
       _restoreInstanceWorkspace();
     } else {
-      // Removing a site the user is not looking at must not cost them their
-      // place, so follow the selected one to wherever the removal left it
-      // rather than resetting to its default destination.
       _instanceIndex = _instances.indexOf(selected!);
     }
     _notify();
@@ -1560,24 +1415,15 @@ class ShellController extends FrameSafeNotifier
   NotificationTotals? totalsFor(DiscourseInstance instance) =>
       accountActivity.totalsFor(instance.url);
 
-  /// Counters for the site on screen — what the user menu's tabs show, and
-  /// what puts the dot on the avatar that opens it.
   @override
   NotificationTotals? get currentTotals {
     final instance = currentInstance;
     return instance == null ? null : accountActivity.totalsFor(instance.url);
   }
 
-  /// Number on the rail for [instance]: things addressed to the user.
   int railBadgeFor(DiscourseInstance instance) =>
       accountActivity.totalsFor(instance.url)?.badge ?? 0;
 
-  /// Activity beside a sidebar entry, or [SidebarBadge.none] when there is
-  /// nothing to show.
-  ///
-  /// Fixed destinations come from the one totals call. Category and tag rows
-  /// use core's per-topic tracking snapshot because aggregate totals cannot
-  /// say which section owns an unread topic.
   SidebarBadge sidebarBadgeFor(String destinationId) {
     if (destinationId == 'drafts') {
       return SidebarBadge.count(draftCountFor(currentInstance?.url));
@@ -1752,8 +1598,6 @@ class ShellController extends FrameSafeNotifier
         'sidebar.loadCustomSections',
         severity: DiagnosticSeverity.warning,
       );
-      // Custom navigation is optional. Keep the last successful answer, if
-      // there was one, and leave the native sidebar usable.
     }
   }
 
@@ -1837,34 +1681,17 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// The notifications fetched for [siteUrl].
   NotificationFeed notificationsFor(String siteUrl) =>
       accountActivity.notificationsFor(siteUrl);
 
-  /// Fetches what the user menu's notifications tab lists.
-  ///
-  /// Called every time the tab appears rather than once per session: a list of
-  /// what other people have just done is stale within minutes, and the point of
-  /// opening the menu is to see what is new. Only for the site being looked at,
-  /// and only when something asks — unlike the counters, which every site in
-  /// the rail keeps up to date.
-  ///
-  /// A refresh happens underneath whatever is already on screen. Only the first
-  /// fetch, and one after a failure, gets to replace the tab with a spinner.
   Future<void> loadNotifications(String siteUrl) async {
     final instance = _instanceAt(siteUrl);
     if (instance != null) await accountActivity.loadNotifications(instance);
   }
 
-  /// The filtered reply notifications fetched for [siteUrl].
   NotificationFeed replyNotificationsFor(String siteUrl) =>
       accountActivity.replyNotificationsFor(siteUrl);
 
-  /// Fetches what the user menu's Replies tab lists.
-  ///
-  /// Kept apart from [loadNotifications] because both endpoints have their own
-  /// thirty-row budget, cache and request lifetime even though they return the
-  /// same kind of row.
   Future<void> loadReplyNotifications(String siteUrl) async {
     final instance = _instanceAt(siteUrl);
     if (instance != null) {
@@ -1912,11 +1739,6 @@ class ShellController extends FrameSafeNotifier
   Future<bool> openPluginNotificationUrl(String url) =>
       openNotificationUrl(url);
 
-  /// Marks [notification] read, which is what opening it amounts to here.
-  ///
-  /// Its installed notification definition resolves where it then leads; the
-  /// shell handles that destination like any other link. Called from the
-  /// bookmarks tab too, whose reminders are notifications like any other.
   void readNotification(String siteUrl, DiscourseNotification notification) {
     final instance = _instanceAt(siteUrl);
     if (instance != null) {
@@ -1924,32 +1746,19 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// The bookmarks fetched for [siteUrl].
   BookmarkFeed bookmarksFor(String siteUrl) =>
       accountActivity.bookmarksFor(siteUrl);
 
-  /// Fetches what the user menu's bookmarks tab lists.
-  ///
-  /// Refetched every time the tab appears, for the same reason as
-  /// [loadNotifications]: a reminder that came due while the menu was shut is
-  /// the whole point of opening it, and bookmarks are cheap to ask for.
-  ///
-  /// Signed out there is nothing to ask — the route is the account's own, and
-  /// names it — so the tab is left empty rather than showing a failure the
-  /// reader can do nothing about from here.
   Future<void> loadBookmarks(String siteUrl) async {
     final instance = _instanceAt(siteUrl);
     if (instance != null) await accountActivity.loadBookmarks(instance);
   }
 
-  /// Loads the first page of the connected user's default Activity stream.
   Future<void> loadUserActivity(String siteUrl) async {
     final instance = _instanceAt(siteUrl);
     if (instance != null) await accountActivity.loadUserActivity(instance);
   }
 
-  /// Sites whose category list has been fetched. The categories themselves are
-  /// in the store; this only remembers not to ask again.
   final Set<String> _categorised = {};
   final Map<String, List<TopicCategory>> _categoriesBySite = {};
   final Map<String, TopicTrackingState> _topicTrackingBySite = {};
@@ -1967,11 +1776,9 @@ class ShellController extends FrameSafeNotifier
   final Map<String, TopicComposerCapabilities> _topicComposerCapabilities = {};
   final Map<String, SitePostActionCatalog> _postActionCatalogs = {};
 
-  /// Flag metadata in the order supplied by this site's `/site.json`.
   List<PostFlagType> postFlagTypesFor(String siteUrl) =>
       _postActionCatalogs[siteUrl]?.postFlags ?? const [];
 
-  /// The flag reasons both the site catalog and this personalized post allow.
   List<PostFlagType> availablePostFlagTypes(String siteUrl, Post post) {
     if (post.hidden || post.isDeleted || post.actedFlagSummaries.isNotEmpty) {
       return const [];
@@ -1991,10 +1798,6 @@ class ShellController extends FrameSafeNotifier
     return List.unmodifiable(available);
   }
 
-  /// Topic-specific reasons both the catalog and this topic summary permit.
-  ///
-  /// Core localizes these separately from post reasons and the topic's
-  /// top-level `actions_summary` is the personalized authority for each id.
   List<PostFlagType> availableTopicFlagTypes(
     String siteUrl,
     TopicDetail topic,
@@ -2008,14 +1811,6 @@ class ShellController extends FrameSafeNotifier
     ]);
   }
 
-  /// The list currently filling the main region, if the destination has one.
-  /// Which feed the main region is showing.
-  ///
-  /// A route that brought its own list — a category or tag opened from a
-  /// hashtag — answers for itself; everything else is the sidebar destination
-  /// that is selected. Deliberately not [destinationId] alone: a hashtag is
-  /// pushed *over* whatever list it was read from, and that list stays
-  /// selected in the sidebar so back still means something.
   String? get currentFeedId {
     final route = currentContent;
     if (route?.isMessages == true) return route!.id;
@@ -2043,11 +1838,6 @@ class ShellController extends FrameSafeNotifier
     return currentFeed?.canCreateTopic ?? false;
   }
 
-  /// Whether the connected account can create a topic from persistent chrome.
-  ///
-  /// The current-user guardian is deliberately broader than
-  /// [canCreateTopicHere]: the sidebar action remains meaningful while a
-  /// message inbox, topic, or profile route is on screen.
   bool get canCreateTopicFromSidebar =>
       currentInstance?.user?.canCreateTopic == true;
 
@@ -2057,11 +1847,6 @@ class ShellController extends FrameSafeNotifier
   List<TopicCategory> topicComposerCategories(String siteUrl) =>
       _categoriesBySite[siteUrl] ?? const [];
 
-  /// The built-in Categories section once this site's category list arrives.
-  ///
-  /// The cache is presentation identity as well as saved work: the sidebar
-  /// selector compares sections by identity so unrelated shell notifications
-  /// do not rebuild the whole navigation column.
   SidebarSection? categorySidebarSectionFor(String siteUrl) {
     if (!_categoriesBySite.containsKey(siteUrl)) return null;
     final categories = _categoriesBySite[siteUrl]!;
@@ -2092,12 +1877,6 @@ class ShellController extends FrameSafeNotifier
     return section;
   }
 
-  /// The built-in Tags section, following core's personalized/default rules.
-  ///
-  /// A connected account's explicit tags win. An empty explicit set falls
-  /// back to the site's top tags; anonymous readers first get the configured
-  /// anonymous defaults. Core still shows the connected section with only its
-  /// All tags row when `display_sidebar_tags` says tags are browsable.
   SidebarSection? tagSidebarSectionFor(String siteUrl) {
     final instance = _instanceAt(siteUrl);
     if (instance == null || !siteConfigFor(siteUrl).taggingEnabled) return null;
@@ -2143,7 +1922,6 @@ class ShellController extends FrameSafeNotifier
   TopicComposerCapabilities topicComposerCapabilities(String siteUrl) =>
       _topicComposerCapabilities[siteUrl] ?? const TopicComposerCapabilities();
 
-  /// Loads the site limits needed by the lightweight sidebar tag editor.
   Future<TopicComposerCapabilities> prepareTopicTagEditor(
     String siteUrl,
   ) async {
@@ -2151,17 +1929,12 @@ class ShellController extends FrameSafeNotifier
     return topicComposerCapabilities(siteUrl);
   }
 
-  /// Category badge for a topic, once categories have been fetched.
   TopicCategory? categoryFor(int? categoryId, {String? siteUrl}) {
     final sourceSite = siteUrl ?? currentInstance?.url;
     if (sourceSite == null || categoryId == null) return null;
     return store.read<TopicCategory>(sourceSite, categoryId);
   }
 
-  /// The topic behind a row, watched rather than read.
-  ///
-  /// The list holds ids, so this is how a row gets its topic — and why editing
-  /// a topic anywhere redraws that row and nothing else.
   Ref<Topic> topicRef(String siteUrl, int topicId) =>
       store.ref<Topic>(siteUrl, topicId);
 
@@ -2171,13 +1944,6 @@ class ShellController extends FrameSafeNotifier
   Ref<Post> postRef(String siteUrl, int postId) =>
       store.ref<Post>(siteUrl, postId);
 
-  /// Where [feedId]'s list lives, or null when there is none to fetch
-  /// (messages needs a signed-in user to name the inbox).
-  ///
-  /// Routes that carry their own path are looked up first, and from the *stack*
-  /// rather than from a map of their own: a category route exists exactly as
-  /// long as it is open, and giving it a second home to be evicted from would
-  /// be one more thing to keep in step with the back button.
   String? _feedPath(String feedId, DiscourseInstance instance) {
     for (final route in contentStack.reversed) {
       if (route.id != feedId) continue;
@@ -2207,12 +1973,6 @@ class ShellController extends FrameSafeNotifier
     };
   }
 
-  /// Enters one of the connected account's private-message inboxes.
-  ///
-  /// Group choices come only from `groups[].has_messages` in the current-user
-  /// payload. The route is replaced rather than pushed: switching inboxes is
-  /// lateral navigation, while opening a message still pushes a topic and Back
-  /// returns to the chosen inbox.
   void selectMessageInbox(String? groupName) {
     final instance = currentInstance;
     final route = currentContent;
@@ -2228,7 +1988,6 @@ class ShellController extends FrameSafeNotifier
     unawaited(loadFeed(replacement.id));
   }
 
-  /// Fetches the list for [destinationId] unless it is already in hand.
   Future<void> loadFeed(String destinationId, {bool force = false}) async {
     final instance = currentInstance;
     if (instance == null) return;
@@ -2251,8 +2010,6 @@ class ShellController extends FrameSafeNotifier
 
   String filterQueryFor(String siteUrl) => topicFeeds.filterQueryFor(siteUrl);
 
-  /// Submits the text on the Filter destination. Editing the field alone does
-  /// not call this; core only refreshes its list on Enter or clear.
   Future<void> submitTopicFilter(String query) async {
     final instance = currentInstance;
     if (instance == null || destinationId != 'filter') return;
@@ -2354,17 +2111,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// The row at the top of [destinationId]'s list when the user last saw it.
-  ///
-  /// Opening a topic replaces the list rather than covering it, so the list
-  /// widget — and its scroll position with it — is torn down. Remembering the
-  /// row here is what lets going back land where they left off.
-  ///
-  /// A row rather than an offset: a remounted list has measured none of the
-  /// rows above the viewport, so a saved pixel offset is restored against a
-  /// guess at their heights and lands short. Rows survive that, and landing at
-  /// the top of the row you were halfway through is what the reader wanted
-  /// anyway.
   int feedScrollRow(String destinationId) {
     final instance = currentInstance;
     if (instance == null) return 0;
@@ -2373,8 +2119,6 @@ class ShellController extends FrameSafeNotifier
     return 0;
   }
 
-  /// Records the list position. Deliberately silent: nothing on screen depends
-  /// on it, and it is written as the list scrolls.
   void saveFeedScrollRow(String destinationId, int row) {
     final instance = currentInstance;
     final tab = activeTab;
@@ -2394,10 +2138,6 @@ class ShellController extends FrameSafeNotifier
     _schedulePersistAnchors();
   }
 
-  /// The post a remounted topic tab should reveal.
-  ///
-  /// A viewport anchor supersedes the route's original deep-link target after
-  /// the reader has moved through the topic.
   int? topicScrollPostNumber(int topicId) {
     final tab = activeTab;
     final route = currentContent;
@@ -2407,11 +2147,6 @@ class ShellController extends FrameSafeNotifier
     return route.postNumber;
   }
 
-  /// Where the remembered post's leading edge sat relative to the viewport.
-  ///
-  /// This is usually zero or negative. Keeping it separately from the post
-  /// number matters for posts taller than the viewport: revealing only their
-  /// number would always reopen them at the beginning.
   double topicScrollPostOffset(int topicId) {
     final tab = activeTab;
     final route = currentContent;
@@ -2420,7 +2155,6 @@ class ShellController extends FrameSafeNotifier
     return anchor?.kind == 'topic' ? anchor!.offset : 0;
   }
 
-  /// Records the first visible post for the active topic tab.
   void saveTopicScrollPost(
     int topicId,
     int postNumber, {
@@ -2460,32 +2194,18 @@ class ShellController extends FrameSafeNotifier
   final Map<String, String> _hidePresenceErrors = {};
   final Map<String, int> _hidePresenceVersions = {};
 
-  /// Sites whose account was read from `/session/current.json` during this
-  /// process. Persisted capabilities are intentionally never put in this set.
   final Set<String> _sessionUsersRefreshed = {};
 
-  /// Deduplicates tracker startup with account refreshes and rapid lifecycle
-  /// changes.
   final Map<String, Future<DiscourseUser?>> _sessionUserRequests = {};
 
   bool _foreground = true;
 
-  /// How many topics have appeared at the top of [destinationId] since it was
-  /// fetched. Zero for the lists nothing is tracked for — see `IncomingTopics`.
   int incomingCount(String destinationId) {
     final instance = currentInstance;
     if (instance == null) return 0;
     return _trackers[instance.url]?.incoming.count(destinationId) ?? 0;
   }
 
-  /// Fetches the topics the banner is counting and puts them at the top of the
-  /// list, which is what tapping it does.
-  ///
-  /// The same shape as core's `TopicList.loadBefore`: ask the *list* route for
-  /// those ids specifically, so each topic arrives in the form that list draws
-  /// — with its posters, its unread counts and the list's own ordering — then
-  /// drop any copy already held before prepending, since a topic that was
-  /// bumped rather than created is already somewhere further down.
   Future<void> showIncoming(String destinationId) async {
     final instance = currentInstance;
     if (instance == null) return;
@@ -2501,13 +2221,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Keeps every connected site's account counters live while the app is in
-  /// front, plus the selected public site for topic-list updates.
-  ///
-  /// Each forum is a different MessageBus origin, so its rail badge needs its
-  /// own poll. Signed-out forums stay lazy unless selected because they have no
-  /// private counters to update. All ordinary polls stop with the app lifecycle;
-  /// their cursors survive, so foregrounding asks for what was missed.
   void _syncTracking() {
     final instance = currentInstance;
     final retainedSiteUrls = _pluginBackgroundSiteUrls;
@@ -2552,11 +2265,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Points the topic-scoped channels at whatever is on screen now.
-  ///
-  /// Called wherever the content stack moves. A site with no tracker open yet
-  /// is left alone — [_syncTracking] does this once the connection is up, and
-  /// there is nothing to subscribe on before then.
   void _syncTopicChannels() {
     final instance = currentInstance;
     if (instance == null) return;
@@ -2565,11 +2273,6 @@ class ShellController extends FrameSafeNotifier
     _syncTopicWatch(instance.url, tracker);
   }
 
-  /// Points the topic-scoped channels at the topic being read.
-  ///
-  /// Only what is on screen, and only one at a time: a topic's own updates are
-  /// of no use once the reader has left it, and a site's topics cannot all be
-  /// subscribed to at once.
   void _syncTopicWatch(String siteUrl, SiteTracker tracker) {
     final topicId = currentContent?.topicId;
     if (topicId == null) {
@@ -2604,22 +2307,11 @@ class ShellController extends FrameSafeNotifier
     });
   }
 
-  /// Whether one of core's topic messages invalidates the post stream.
-  ///
-  /// A newly created post supplies only its id, and `reload_topic` explicitly
-  /// asks clients to replace the topic snapshot. Both need the serializer's
-  /// authoritative stream before the new row can be drawn in the right place.
   static bool _coreTopicMessageRefreshesStream(Object? data) {
     if (data is! Map) return false;
     return data['type'] == 'created' || data['reload_topic'] == true;
   }
 
-  /// Reads posts a live message said have changed.
-  ///
-  /// Through `/t/:id/posts.json`, which is the preloaded path — the one whose
-  /// counts agree with what the topic was drawn from. A write of this reader's
-  /// own is skipped: it has already drawn its guess, and the answer to its own
-  /// request is on the way.
   Future<void> _refreshPosts(
     String siteUrl,
     int topicId,
@@ -2699,8 +2391,6 @@ class ShellController extends FrameSafeNotifier
           severity: DiagnosticSeverity.warning,
         );
       }
-      // Somebody else's reaction not arriving is not worth saying anything
-      // about; the next read of the topic settles it.
     } finally {
       final retry = <int>{};
       lease.commit(() {
@@ -2722,10 +2412,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Opens a site's connection, once credential storage has said who we are.
-  ///
-  /// Signed out this still runs: `/latest` is public, so a reader with no
-  /// account still gets the banner.
   Future<void> _startTracking(DiscourseInstance instance) async {
     final siteUrl = instance.url;
     if (instance.loginRequired && !instance.isConnected) return;
@@ -2759,11 +2445,8 @@ class ShellController extends FrameSafeNotifier
       final current = _instanceAt(siteUrl);
       if (isDisposed || current == null) return;
 
-      // Credential lookup can outlive the lifecycle state that asked for this
-      // tracker. SiteTracker starts its message bus in the constructor, so
-      // checking only after construction still spends one poll for a hidden
-      // app. A plugin-retained site remains eligible because its owner has an
-      // explicit live background lease.
+      // Validate visibility before constructing SiteTracker, whose constructor
+      // immediately opens MessageBus. Plugin leases explicitly retain it.
       final selectedAndVisible = _foreground && currentInstance?.url == siteUrl;
       final connectedAndVisible =
           _foreground && (_instanceAt(siteUrl)?.isConnected ?? false);
@@ -2975,13 +2658,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// The account id for a connected site, asking the site for it if what was
-  /// stored predates our needing it.
-  ///
-  /// Discourse names a user's counter channels after their id, so without it
-  /// there is nothing to subscribe to. Sites connected before this existed have
-  /// a user with no id in preferences; one `/session/current.json` heals that
-  /// for good, since what comes back is written straight back out.
   Future<int?> _accountId(
     String siteUrl, {
     required String apiKey,
@@ -3058,7 +2734,6 @@ class ShellController extends FrameSafeNotifier
           _notify();
         }
       });
-      // The connection is still worth opening for `/latest`.
       return null;
     }
     if (isDisposed || !lease.isCurrent) return null;
@@ -3120,18 +2795,11 @@ class ShellController extends FrameSafeNotifier
     return accepted ? committedUser : null;
   }
 
-  /// Folds a counters message onto what is held for a site.
-  ///
-  /// Nothing is redrawn when the message changes nothing we show, which is the
-  /// common case: `/notification/` is published on every read as well as every
-  /// arrival, and a read the user made here has already been applied.
   void _applyCounts(
     String siteUrl,
     NotificationTotals Function(NotificationTotals held) fold,
   ) => accountActivity.applyCounts(siteUrl, fold);
 
-  /// The freshest status known for an account, including live MessageBus
-  /// changes which arrived after the model carrying [snapshot] was fetched.
   UserStatus? userStatusFor(String siteUrl, int? userId, UserStatus? snapshot) {
     final overrides = _userStatusOverrides[siteUrl];
     final status = userId != null && (overrides?.containsKey(userId) ?? false)
@@ -3215,11 +2883,6 @@ class ShellController extends FrameSafeNotifier
     instanceStore.save(List.of(_instances)).ignore();
   }
 
-  /// The presence preference currently shown for one account.
-  ///
-  /// An accepted tap overlays the server-confirmed user record until its write
-  /// settles. Keeping the overlay separate prevents an unrelated instance
-  /// persistence pass from making an unconfirmed choice durable.
   bool? hidePresenceFor(String siteUrl) =>
       _optimisticHidePresence.containsKey(siteUrl)
       ? _optimisticHidePresence[siteUrl]
@@ -3230,8 +2893,6 @@ class ShellController extends FrameSafeNotifier
 
   String? hidePresenceErrorFor(String siteUrl) => _hidePresenceErrors[siteUrl];
 
-  /// Retries the current-user read when an older stored account has no
-  /// presence value and the initial session refresh failed.
   Future<void> retryHidePresence(String siteUrl) async {
     final instance = _instanceAt(siteUrl);
     if (instance?.user == null || hidePresenceFor(siteUrl) != null) return;
@@ -3271,8 +2932,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Optimistically flips the same `hide_presence` option as Discourse's web
-  /// profile menu, then either confirms it or returns to the retained value.
   Future<void> toggleHidePresence(String siteUrl) async {
     final instance = _instanceAt(siteUrl);
     final user = instance?.user;
@@ -3527,15 +3186,6 @@ class ShellController extends FrameSafeNotifier
     tracker?.dispose().ignore();
   }
 
-  /// Tells the shell whether it is the app in front.
-  ///
-  /// A backgrounded native app stops ordinary polling altogether. The browser
-  /// client's one-minute hidden-tab pacing assumes a tab that remains runnable;
-  /// on desktop that made this hidden app wake forever, and on mobile the OS can
-  /// suspend the socket at any point. Cursors survive [SiteTracker.stop], so a
-  /// returning app still asks for exactly what it missed. A tracker carrying an
-  /// plugin-held retention lease is the exception; the plugin owns why the
-  /// lease exists, while core only composes the retained site set.
   void setForeground(bool foreground) {
     if (foreground == _foreground) return;
     _foreground = foreground;
@@ -3583,7 +3233,6 @@ class ShellController extends FrameSafeNotifier
 
   static String _topicKey(String siteUrl, int topicId) => '$siteUrl#$topicId';
 
-  /// The topic filling the main region, once it has arrived.
   TopicDetail? get currentTopic {
     final instance = currentInstance;
     final topicId = currentContent?.topicId;
@@ -3608,11 +3257,6 @@ class ShellController extends FrameSafeNotifier
   List<int> _topicStream(String siteUrl, TopicDetail detail) =>
       _topicSummaryStreams[_topicKey(siteUrl, detail.id)] ?? detail.stream;
 
-  /// Every id in the active topic projection, including unloaded posts.
-  ///
-  /// Core's progress control counts its filtered stream. A top-replies
-  /// summary therefore has its own positions rather than borrowing the full
-  /// topic's count.
   List<int> get currentTopicStreamIds {
     final instance = currentInstance;
     final detail = currentTopic;
@@ -3620,17 +3264,6 @@ class ShellController extends FrameSafeNotifier
     return _topicStream(instance.url, detail);
   }
 
-  /// The contiguous ids of the posts on screen, in reading order.
-  ///
-  /// The topic knows every post id it has; the store knows which of them have
-  /// actually been fetched. An ordinary load draws the fetched prefix, while
-  /// a numbered load draws the fetched window around its target.
-  ///
-  /// Memoized: every shell notification re-selects a snapshot, and each
-  /// post-frame viewport look asks again, so an uncached answer costs a store
-  /// read per loaded post per frame. The key is exactly what the derivation
-  /// reads — the site, the detail record, the route's target post, and the
-  /// site's post-change generation.
   List<int> get currentPostIds {
     final instance = currentInstance;
     final detail = currentTopic;
@@ -3662,12 +3295,6 @@ class ShellController extends FrameSafeNotifier
   List<int> _postIdsCache = const [];
   (String, TopicDetail, List<int>, int?, int)? _postIdsCacheKey;
 
-  /// The loaded window to draw.
-  ///
-  /// Ordinary topic loads are a prefix. Numbered loads are a middle window;
-  /// when older posts from a previous visit are also cached, drawing every
-  /// loaded id would collapse the unfetched gap between them. Instead, grow
-  /// outward only while adjacent posts are present around the requested one.
   (int, int)? _loadedPostRange(
     String siteUrl,
     TopicDetail detail, {
@@ -3714,7 +3341,6 @@ class ShellController extends FrameSafeNotifier
     return (first, last);
   }
 
-  /// Post ids after the loaded window, oldest first.
   List<int> _pendingPostIds(String siteUrl, TopicDetail detail) {
     final stream = _topicStream(siteUrl, detail);
     final range = _loadedPostRange(siteUrl, detail, stream: stream);
@@ -3725,7 +3351,6 @@ class ShellController extends FrameSafeNotifier
     ];
   }
 
-  /// Post ids immediately before the loaded window, newest batch first.
   List<int> _pendingEarlierPostIds(
     String siteUrl,
     TopicDetail detail,
@@ -3741,7 +3366,6 @@ class ShellController extends FrameSafeNotifier
     ];
   }
 
-  /// Whether the topic on screen has posts left to fetch.
   bool get currentTopicHasMore {
     final instance = currentInstance;
     final detail = currentTopic;
@@ -3763,7 +3387,6 @@ class ShellController extends FrameSafeNotifier
     return _topicsLoading.contains(_topicKey(instance.url, topicId));
   }
 
-  /// Replaces the main region with [topic] and fetches it.
   void openTopic(Topic topic) => _openTopic(
     topic.id,
     topic.slug,
@@ -3771,7 +3394,6 @@ class ShellController extends FrameSafeNotifier
     postNumber: topic.lastUnreadPostNumber,
   );
 
-  /// Opens one of the partial topic records side-loaded with a user summary.
   void openSummaryTopic(UserSummaryTopic topic, {int? postNumber}) =>
       _openTopic(
         topic.id,
@@ -3780,11 +3402,6 @@ class ShellController extends FrameSafeNotifier
         postNumber: postNumber != null && postNumber > 0 ? postNumber : null,
       );
 
-  /// Opens a featured topic from the categories page.
-  ///
-  /// Category-list topics use a deliberately smaller serializer than an
-  /// ordinary [Topic]. Keeping this entry point separate prevents absent list
-  /// fields from being mistaken for real zeroes in the identity store.
   void openFeaturedTopic(CategoryFeaturedTopic topic) => _openTopic(
     topic.id,
     topic.slug,
@@ -3792,7 +3409,6 @@ class ShellController extends FrameSafeNotifier
     postNumber: topic.firstUnreadPostNumber,
   );
 
-  /// Pushes one category's native topic list over the full categories page.
   void openCategory(TopicCategory category) {
     final instance = currentInstance;
     if (instance == null) return;
@@ -3809,7 +3425,6 @@ class ShellController extends FrameSafeNotifier
     unawaited(loadFeed(route.id));
   }
 
-  /// Pushes one tag's native topic list over the full tags directory.
   void openTag(SidebarTag tag) {
     final instance = currentInstance;
     if (instance == null) return;
@@ -3838,7 +3453,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Opens one row from the connected account's default Activity stream.
   void openUserActivityItem(UserActivityItem item) => _openTopic(
     item.topicId,
     item.slug,
@@ -3870,26 +3484,11 @@ class ShellController extends FrameSafeNotifier
     unawaited(loadTopic(topicId, slug, force: force, postNumber: postNumber));
   }
 
-  /// Absolute form of [url].
-  ///
-  /// Discourse writes its own links site-relative — `/t/slug/1`, `/u/someone`
-  /// — so they only mean anything once resolved against the site they were
-  /// written on. Anything already absolute is returned untouched, including
-  /// the schemes that are not ours to resolve, such as `mailto:`.
   String absoluteUrl(String url, {String? siteUrl}) =>
       resolveSiteUrl(url, siteUrl ?? currentInstance?.url);
 
-  /// Opens [url] here when it points at a topic on a site in the rail,
-  /// switching to that site first when the topic is on another one.
-  ///
-  /// Returns false for everything else — a topic on a site the user has not
-  /// connected is a page this app has no view for — which is the caller's
-  /// signal to hand the link to the browser.
   bool openTopicUrl(String url) => _openTopicUrl(url);
 
-  /// Opens the group directory or one built-in group section on a forum in
-  /// the rail. Plugin-owned paths are offered to their link handlers first and
-  /// deliberately do not parse here.
   bool openGroupUrl(String url) {
     final absolute = absoluteUrl(url);
     final route = GroupRoute.parse(absolute);
@@ -4001,17 +3600,8 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Changes whenever an explicit same-topic navigation replaces the reader's
-  /// viewport. Topic views use this to reject positioning callbacks from the
-  /// route that was on screen before the navigation.
   int get topicNavigationRevision => _topicNavigationRevision;
 
-  /// Jumps to one one-based position in the current topic's visible stream.
-  ///
-  /// Core's timeline addresses the stream by post id, not by assuming its
-  /// index is also a post number: deleted and hidden posts make those diverge.
-  /// Resolve an unloaded id through the same bounded post endpoint as the web
-  /// client, then reuse the numbered topic route for the around-post window.
   Future<bool> jumpToCurrentTopicIndex(int index) async {
     final instance = currentInstance;
     final route = currentContent;
@@ -4086,14 +3676,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Opens the category or tag list [url] points at, if this is one and a site
-  /// in the rail serves it.
-  ///
-  /// The sibling of [openTopicUrl], and the same shape: a hashtag in a post is
-  /// a link like any other, and where it belongs is decided the same way.
-  ///
-  /// [title] is what the site called the list, where the caller knows — a
-  /// cooked hashtag carries the real name, which beats un-slugging the URL.
   bool openListUrl(String url, {String? title}) {
     final link = ListLink.parse(absoluteUrl(url));
     if (link == null) return false;
@@ -4103,9 +3685,6 @@ class ShellController extends FrameSafeNotifier
 
     if (index != _instanceIndex) selectInstance(index);
 
-    // The badge colour, where the categories have landed. Null is not a
-    // failure — the header draws its icon plain, as it does for every sidebar
-    // destination.
     final category = link.kind == ListKind.category
         ? categoryFor(link.id)
         : null;
@@ -4116,8 +3695,6 @@ class ShellController extends FrameSafeNotifier
       color: category == null ? null : Color(category.colorValue),
     );
 
-    // Already looking at it. Pushing a second copy would only cost a back tap,
-    // the way `openTopicUrl` says of a topic linking to itself.
     if (currentContent?.id == route.id) return true;
 
     pushContent(route);
@@ -4148,17 +3725,12 @@ class ShellController extends FrameSafeNotifier
     if (instance == null) return;
     if (instance.loginRequired && !instance.isConnected) return;
 
-    // Before the guards below, not after: both of them return early on the
-    // ordinary path — a topic already in the store, or one already being
-    // fetched — and a fetch that only ever runs on a cache miss would get one
-    // attempt per session and no way back if it failed. Reading a topic is also
-    // the first thing that needs any of this, so a site whose topics are never
-    // opened is never asked.
+    // Start presentation fetches before cache/in-flight guards so failures stay
+    // retryable even for topics already in the store.
     unawaited(_presentation.ensureConfig(instance.url));
     unawaited(_presentation.ensureCustomEmojis(instance.url));
-    // A hashtag in a post needs its category to know what colour to draw, and
-    // a topic opened from a notification or a link has never loaded a feed —
-    // which until now was the only thing that asked for them.
+    // Hashtags need category colors even when a notification or link opened
+    // the topic without first loading a feed.
     unawaited(_ensureCategoriesFor(instance));
 
     final key = _topicKey(instance.url, topicId);
@@ -4219,7 +3791,6 @@ class ShellController extends FrameSafeNotifier
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
       _reportOperationalError(error, stackTrace, 'topic.load', degraded: false);
-      // Left absent; the view shows its own failure state.
     } finally {
       var replayRefresh = false;
       int? replayPostNumber;
@@ -4244,8 +3815,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Corrects the header of a topic opened from a link, which could only guess
-  /// at the title from the slug in the URL.
   void _retitle(int topicId, String title) {
     if (title.isEmpty) return;
     final siteUrl = currentInstance?.url;
@@ -4309,12 +3878,6 @@ class ShellController extends FrameSafeNotifier
     if (changed) _putWorkspace(workspace.copyWith(tabs: tabs));
   }
 
-  /// Files a topic payload: the posts under their own ids, the topic under
-  /// its own, and the list row's durable details corrected to match.
-  ///
-  /// Fetching is deliberately not treated as reading. Discourse advances a
-  /// topic's reading position from `/topics/timings`; [markTopicRead] sends
-  /// that only after the viewport has actually shown a post.
   TopicDetail _absorb(
     String siteUrl,
     TopicPayload payload, {
@@ -4354,11 +3917,6 @@ class ShellController extends FrameSafeNotifier
     return detail;
   }
 
-  /// Reveals one bounded chunk of posts the topic stream deliberately hid.
-  ///
-  /// The ids come from core's `post_stream.gaps`, so the site has already
-  /// decided that this reader may request them. They remain outside ordinary
-  /// paging until this explicit action, matching the web client's gap flow.
   Future<void> expandPostGap({
     required int anchorPostId,
     required bool before,
@@ -4430,12 +3988,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Changes how closely the current account follows one topic.
-  ///
-  /// The selected level is painted immediately. Writes for one topic are
-  /// serialized, and a newer selection supersedes an older one that has not
-  /// reached the server yet. If the latest write fails, the last confirmed
-  /// level is restored.
   Future<bool> updateTopicNotificationLevel(
     String siteUrl,
     int topicId,
@@ -4570,7 +4122,6 @@ class ShellController extends FrameSafeNotifier
   bool topicPinWriteInFlight(String siteUrl, int topicId) =>
       _topicPinWrites.contains(_topicKey(siteUrl, topicId));
 
-  /// Dismisses or restores a personalized topic pin, as core's footer does.
   Future<String?> updateTopicPinPreference(
     String siteUrl,
     int topicId,
@@ -4657,11 +4208,6 @@ class ShellController extends FrameSafeNotifier
   bool topicStatusWriteInFlight(String siteUrl, int topicId) =>
       _topicStatusWrites.contains(_topicKey(siteUrl, topicId));
 
-  /// Applies one status offered by the topic serializer's guardian gates.
-  ///
-  /// Statuses share one per-topic lock. Core's admin menu does not need two
-  /// overlapping mutations, and serializing them prevents a slower close from
-  /// painting over a later archive when the responses arrive out of order.
   Future<String?> updateTopicStatus(
     String siteUrl,
     int topicId,
@@ -4730,7 +4276,6 @@ class ShellController extends FrameSafeNotifier
   bool topicDeletionWriteInFlight(String siteUrl, int topicId) =>
       _topicDeletionWrites.contains(_topicKey(siteUrl, topicId));
 
-  /// Deletes or recovers a topic only when its personalized guardian allows it.
   Future<String?> setTopicDeleted(
     String siteUrl,
     int topicId,
@@ -4820,13 +4365,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Credits the reader through the farthest post the viewport has shown.
-  ///
-  /// The local list row moves first so leaving and reopening in this session
-  /// uses the new position even while the network write is in flight. Failed
-  /// receipts are not rolled back: the next personalized list refresh is the
-  /// site's authoritative reconciliation, and putting unread state back under
-  /// a reader who just saw the post would be misleading.
   Future<void> markTopicRead(
     String siteUrl,
     int topicId,
@@ -4842,10 +4380,6 @@ class ShellController extends FrameSafeNotifier
     return receipt;
   }
 
-  /// Fetches the next batch of posts in the open topic.
-  ///
-  /// A topic arrives with its first twenty posts plus the ids of all the rest,
-  /// so paging is by id rather than by page number.
   Future<void> loadMorePosts({int batchSize = 20}) async {
     final instance = currentInstance;
     final topicId = currentContent?.topicId;
@@ -4860,11 +4394,8 @@ class ShellController extends FrameSafeNotifier
     final pending = _pendingPostIds(instance.url, detail);
     if (pending.isEmpty) return;
     final requestIds = pending.take(boundedBatch).toList();
-    // Suggestions are a dynamic query, not immutable topic data. Asking for
-    // them with every post window can replace a useful snapshot with a later
-    // empty answer and make the More topics card disappear while the reader
-    // is still in the topic. Resolve them only when they are not already in
-    // hand and this request reaches the end of the stream.
+    // Recommendations are dynamic: resolve them only at the final window and
+    // never replace an existing snapshot with a later empty response.
     final resolveRecommendations =
         detail.recommendations == null && requestIds.length == pending.length;
     final lease = lifecycle.capture(instance.url);
@@ -4923,7 +4454,6 @@ class ShellController extends FrameSafeNotifier
         'topic.loadMorePosts',
         severity: DiagnosticSeverity.warning,
       );
-      // Keep what is already shown.
     } finally {
       lease.commit(() {
         _postsLoading.remove(key);
@@ -4932,7 +4462,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Fetches the batch immediately before an around-post topic window.
   Future<void> loadEarlierPosts({int batchSize = 20}) async {
     final instance = currentInstance;
     final topicId = currentContent?.topicId;
@@ -5002,13 +4531,6 @@ class ShellController extends FrameSafeNotifier
     return _earlierPostsLoading.contains(_topicKey(instance.url, topicId));
   }
 
-  /// Switches the open topic between its complete stream and core's
-  /// top-replies summary filter.
-  ///
-  /// The filtered stream stays controller-owned rather than replacing the
-  /// stored [TopicDetail]: cancelling must reveal the complete id list without
-  /// a second request, and the filtered serializer is only a projection of the
-  /// same topic, not a newer copy of it.
   Future<String?> toggleTopicSummary() async {
     final instance = currentInstance;
     final topic = currentTopic;
@@ -5062,12 +4584,6 @@ class ShellController extends FrameSafeNotifier
   ComposerController? _composer;
   Future<void>? _composerDraftRestore;
 
-  /// The open composer, but only while its forum and tab are on screen.
-  ///
-  /// Routes within a tab share one writing surface, so navigating deeper or
-  /// elsewhere in that tab keeps the composer visible. Switching forums,
-  /// tabs, or to Aggregate hides it without throwing away what was written;
-  /// returning to its owning context reveals the same composer again.
   ComposerController? get visibleComposer {
     final composer = _composer;
     final instance = currentInstance;
@@ -5083,15 +4599,8 @@ class ShellController extends FrameSafeNotifier
     return composer;
   }
 
-  /// Whether a reply affordance should be offered for the topic on screen.
   bool get canReplyHere => currentTopic?.canCreatePost ?? false;
 
-  /// Builds a text composer with the site-owned services every writing mode
-  /// shares.
-  ///
-  /// Tags-only editing deliberately does not use this factory: it never opens
-  /// the text editor, so search, artwork, uploads, and draft persistence would
-  /// all be unused dependencies there.
   ComposerController _buildTextComposer(
     ComposerTarget target, {
     bool persistsDraft = false,
@@ -5184,8 +4693,6 @@ class ShellController extends FrameSafeNotifier
     return null;
   }
 
-  /// Builds a plugin-owned composer only when an installed capability claims
-  /// the exact namespaced target.
   ComposerController? buildPluginComposer(ComposerTargetRequest request) {
     final policy = plugins.registry.composerTarget(
       request,
@@ -5206,11 +4713,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Opens a new private-message composer addressed to one or more recipients.
-  ///
-  /// Group pages pass their group name here. Discourse accepts the same
-  /// comma-separated recipient field for usernames and group names, so keeping
-  /// this method generic also keeps the composer compatible with core drafts.
   void openPrivateMessage({
     required String siteUrl,
     required String targetRecipients,
@@ -5251,16 +4753,9 @@ class ShellController extends FrameSafeNotifier
     composer.requestFocus();
   }
 
-  /// Opens a new-topic composer while leaving the originating list in place.
   Future<void> openNewTopic() =>
       _openNewTopic(permitted: canCreateTopicHere, revealContent: false);
 
-  /// Opens the account-level new-topic action contributed by the sidebar.
-  ///
-  /// Unlike the contextual header action, this remains available on Messages,
-  /// topics, and profile routes. Compact layouts reveal the content pane only
-  /// once the composer is ready, so a failed capability read does not move the
-  /// reader away from the sidebar.
   Future<void> openNewTopicFromSidebar() =>
       _openNewTopic(permitted: canCreateTopicFromSidebar, revealContent: true);
 
@@ -5351,9 +4846,7 @@ class ShellController extends FrameSafeNotifier
               tag.slug?.toLowerCase() == link.slug.toLowerCase(),
         );
         if (exact.isNotEmpty && !exact.first.disabled) tags = [exact.first];
-      } catch (_) {
-        // Context prefill is optional; the composer remains usable without it.
-      }
+      } catch (_) {}
     }
     if (!lease.isCurrent || currentFeedId != feedId || activeTabId != tabId) {
       return;
@@ -5390,8 +4883,6 @@ class ShellController extends FrameSafeNotifier
     _startComposerDraftRestore(composer);
   }
 
-  /// Starts a new topic from the topic on screen and preserves the backlink
-  /// core inserts at the top of that composer.
   Future<void> openReplyAsNewTopic(String continuation) async {
     final instance = currentInstance;
     final route = currentContent;
@@ -5445,10 +4936,7 @@ class ShellController extends FrameSafeNotifier
 
     try {
       await _composerDraftRestore;
-    } catch (_) {
-      // Draft restoration is best effort; the continuation action remains
-      // useful even when local persistence is unavailable.
-    }
+    } catch (_) {}
     if (!lease.isCurrent ||
         !identical(_composer, composer) ||
         activeTabId != tabId ||
@@ -5533,9 +5021,7 @@ class ShellController extends FrameSafeNotifier
 
     try {
       await _composerDraftRestore;
-    } catch (_) {
-      // A local draft failure must not discard an otherwise valid seed.
-    }
+    } catch (_) {}
     if (!forumActive ||
         !lease.isCurrent ||
         !identical(_composer, composer) ||
@@ -5586,7 +5072,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Searches tags for a focused editor which does not occupy the composer.
   Future<TopicTagSearch> searchTopicTagsForEditor({
     required String siteUrl,
     required int? categoryId,
@@ -5612,7 +5097,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Searches the server-side category index used by core's lazy chooser.
   Future<List<TopicCategory>> searchTopicCategoriesForEditor({
     required String siteUrl,
     required String term,
@@ -5685,13 +5169,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Opens the composer against the topic on screen.
-  ///
-  /// [replyToPostNumber] addresses one post; leaving it out replies to the
-  /// topic. Reopening while something is already written points the existing
-  /// composer at the new post rather than discarding it — unless that composer
-  /// is editing a post, which is a different piece of writing altogether and
-  /// cannot be retargeted into a reply.
   void openReply({
     int? replyToPostNumber,
     String? replyToUsername,
@@ -5749,13 +5226,6 @@ class ShellController extends FrameSafeNotifier
     return false;
   }
 
-  /// Opens a reply composer and inserts a selected post quote into it.
-  ///
-  /// Draft restoration finishes first, so quoting into a closed composer adds
-  /// to the unfinished reply Discourse already knows about instead of hiding
-  /// it behind the newly inserted block. An already-open reply keeps its own
-  /// target, matching core: selecting another post should not silently retarget
-  /// text that is already being written.
   Future<void> openQuote(Post post, String quote) async {
     final instance = currentInstance;
     final route = currentContent;
@@ -5793,10 +5263,7 @@ class ShellController extends FrameSafeNotifier
     if (restore != null) {
       try {
         await restore;
-      } catch (_) {
-        // Draft restoration is best effort. A local-storage failure must not
-        // turn a selected quote into a dead action.
-      }
+      } catch (_) {}
     }
 
     if (isDisposed ||
@@ -5812,13 +5279,6 @@ class ShellController extends FrameSafeNotifier
     composer.focus.requestFocus();
   }
 
-  /// Opens the composer over an existing post, to rewrite it.
-  ///
-  /// Whether that is allowed is the site's answer, not ours: [Post.canEdit]
-  /// comes from the guardian that already weighed ownership, staff, the edit
-  /// window and the state of the topic. It is checked again here because the
-  /// affordance and the action are reached separately — a keyboard shortcut or
-  /// a stale row must not get past the button being hidden.
   void openEdit(Post post) {
     final instance = currentInstance;
     final route = currentContent;
@@ -5844,7 +5304,6 @@ class ShellController extends FrameSafeNotifier
     // No `onSaveDraft`: Discourse files a topic's drafts under one key, so
     // saving here would overwrite an unfinished reply with the text of a post
     // that is already published.
-    // Rewriting a post wants mentions and emoji as much as writing one does.
     final composer = _buildTextComposer(
       target,
       minimumRequiredTags: editsTopic
@@ -5894,12 +5353,6 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  /// Updates a topic's title without opening the first-post composer.
-  ///
-  /// The topic serializer owns the edit capability, so this rechecks
-  /// [TopicDetail.canEdit] immediately before writing rather than trusting the
-  /// header that exposed the field. Category and tags travel with the title
-  /// because core's topic update route treats them as one metadata record.
   Future<String?> saveTopicTitle({
     required String siteUrl,
     required int topicId,
@@ -5956,10 +5409,6 @@ class ShellController extends FrameSafeNotifier
     return null;
   }
 
-  /// Updates a topic's category without opening a writing surface.
-  ///
-  /// Category is topic metadata, so its focused picker writes the same topic
-  /// route as the full first-post editor while keeping the reader in place.
   Future<String?> saveTopicCategory({
     required String siteUrl,
     required int topicId,
@@ -6094,11 +5543,6 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  /// Persists one lightweight edit made directly from the topic sidebar.
-  ///
-  /// This deliberately stays independent from [_composer]: opening a small
-  /// property menu must not replace an unfinished reply or summon a second
-  /// editor elsewhere on screen.
   Future<String?> updateTopicTagsFromSidebar({
     required String siteUrl,
     required int topicId,
@@ -6168,13 +5612,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// How a composer for [target] finds people and emoji.
-  ///
-  /// Closed over the target's own site and topic rather than reading the
-  /// current instance when a key is pressed, for the reason [ComposerTarget]
-  /// carries a siteUrl at all: switching sites while a reply is half written
-  /// must not send the search — or the name it completes — to the site the
-  /// user switched to.
   ComposerSearch _composerSearch(ComposerTarget target) {
     if (siteConfigFor(target.siteUrl).emojiEnabled) {
       unawaited(ensureEmojiCatalog(target.siteUrl));
@@ -6256,11 +5693,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Fills an edit composer with the post's markdown.
-  ///
-  /// The stream carries cooked HTML, which is Discourse's rendering of the
-  /// post rather than the post — reproducing the markdown from it is exactly
-  /// the transformation this client does not do. So the raw is fetched.
   Future<void> _loadEditBody(ComposerController composer, Post post) async {
     if (post.raw case final raw?) {
       composer.loadedBody(raw);
@@ -6302,13 +5734,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Deletes [post], then reads it back to see what that did.
-  ///
-  /// Returns the site's refusal when there was one, so the caller can say so;
-  /// null means it went through.
-  ///
-  /// Guarded on the site's own answer for the same reason as [openEdit]: the
-  /// button being hidden is not a permission check.
   bool topicPostSelectionEnabled(String siteUrl, int topicId) =>
       _topicPostSelections.containsKey(_topicKey(siteUrl, topicId));
 
@@ -6616,11 +6041,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Reassigns one post directly from its admin menu.
-  ///
-  /// The account-level serializer flag is the same gate web uses here. The
-  /// topic route still accepts a post-id array, so the direct action sends a
-  /// one-element selection and authoritatively re-reads that post afterwards.
   bool canChangeTopicPostOwner(Post post) {
     final topic = currentTopic;
     return currentInstance?.user?.canChangePostOwner == true &&
@@ -6669,17 +6089,12 @@ class ShellController extends FrameSafeNotifier
       ),
     );
 
-    // Editing something that has just been deleted is writing into a hole, and
-    // saving would fail anyway.
     if (error == null && identical(_composer, editing)) {
       closeComposer();
     }
     return error;
   }
 
-  /// Whether core advertised permanent deletion for this already-deleted
-  /// target. The opening post takes its permission from topic details; replies
-  /// carry it on their own serializer, exactly as the web model does.
   bool canPermanentlyDeletePost(Post post) {
     final topic = currentTopic;
     return post.isDeleted &&
@@ -6690,10 +6105,6 @@ class ShellController extends FrameSafeNotifier
             : post.canPermanentlyDelete);
   }
 
-  /// Runs core's just-in-time cooldown/different-admin preflight.
-  ///
-  /// Null means the confirmation may be shown; a non-null string is either the
-  /// server's localized refusal reason or a transport/account failure.
   Future<String?> checkPermanentPostDeletion(Post post) async {
     if (!canPermanentlyDeletePost(post)) {
       return 'This post cannot be permanently deleted.';
@@ -6800,7 +6211,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Puts a deleted post back.
   Future<String?> recoverPost(Post post) async {
     if (!post.canRecover) return null;
     final siteUrl = currentInstance?.url;
@@ -6818,7 +6228,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Changes whether the site treats this as a collaboratively editable post.
   Future<String?> setPostWiki(Post post, bool wiki) {
     if (!post.canWiki || post.wiki == wiki) return Future.value();
     return _mutatePost(
@@ -6906,11 +6315,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Privately flags [post] with one server-advertised reason.
-  ///
-  /// Unlike a like, this is not guessed locally. The editor stays open until
-  /// the personalized post response proves both that the action succeeded and
-  /// what the post looks like after any moderation rules ran.
   Future<String?> createPostFlag(
     String siteUrl,
     Post post,
@@ -6997,7 +6401,6 @@ class ShellController extends FrameSafeNotifier
   bool topicFlagWriteInFlight(String siteUrl, int topicId) =>
       _topicFlagWrites.contains(_topicKey(siteUrl, topicId));
 
-  /// Privately flags a topic using core's topic-id post-action bridge.
   Future<String?> createTopicFlag(
     String siteUrl,
     TopicDetail topic,
@@ -7078,23 +6481,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Adds this reader's like to [post], or takes it back if it is already
-  /// there.
-  ///
-  /// Returns the site's refusal when there was one, so the caller can say so;
-  /// null means it went through.
-  ///
-  /// The post changes before the request leaves, and changes back if the site
-  /// refuses. A like is the one write here worth doing that for: it is a
-  /// single tap people make while reading, often several in a row, and a heart
-  /// that waits for a round trip before filling in reads as a broken button
-  /// rather than a slow one. Nothing is lost if it fails, which is what makes
-  /// the guess safe to make — unlike a post, where guessing wrong would mean
-  /// showing a reply that was never made.
-  ///
-  /// Whichever way it goes the site's own answer lands on top: `post_actions`
-  /// replies with the post, so the count includes whatever else happened to it
-  /// while the request was in flight.
   Future<String?> toggleLike(Post post, {String? siteUrl}) async {
     final targetSite = siteUrl ?? currentInstance?.url;
     if (targetSite == null || !post.canToggleLike) return null;
@@ -7121,22 +6507,14 @@ class ShellController extends FrameSafeNotifier
     final apiKey = credential.apiKey!;
 
     final liked = !post.liked;
-    // A transform of whatever is held now rather than a put of the tapped
-    // copy, for the reason `_writeReaction` gives: the credential await above
-    // is a gap a re-read can land in. The guess is usually corrected by the
-    // site's full answer, but an answer of 204 brings nothing, so a stale
-    // snapshot put here would stand.
+    // Apply the guess to the current store value: a re-read can land during
+    // credential lookup, and a 204 response will not correct a stale put.
     final applied = lease.commit(() {
       store.update<Post>(siteUrl, post.id, (held) => held.withLike(liked));
       _notify();
     });
     if (!applied) return null;
 
-    /// Puts the like back the way it was, and nothing else.
-    ///
-    /// A whole copy of the post would do it too, and would also undo anything
-    /// that landed while the request was in flight — an edit, a deletion, a
-    /// re-read. Only the four fields this touched are its to put back.
     void revert() {
       lease.commit(() {
         store.update<Post>(siteUrl, post.id, (held) => held.withLikesOf(post));
@@ -7184,8 +6562,6 @@ class ShellController extends FrameSafeNotifier
         _postWritesInFlight.contains(_postKey(targetSite, postId));
   }
 
-  /// One write at a time per post, whichever kind it is. Keyed by site and post
-  /// because topic 7's post 3 on two sites are two different posts.
   final Set<String> _postWritesInFlight = {};
   final Map<String, Set<int>> _topicPostSelections = {};
   final Set<String> _topicPostSelectionWrites = {};
@@ -7345,13 +6721,10 @@ class ShellController extends FrameSafeNotifier
     };
   }
 
-  /// The live read currently allowed to update each post.
   final Map<String, Object> _postRefreshRequests = {};
 
-  /// Another invalidation arrived while that read was in flight.
   final Set<String> _postRefreshPending = {};
 
-  /// Topic needed to replay an invalidation held behind a post write.
   final Map<String, int> _postRefreshTopics = {};
 
   bool _beginPostWrite(String key) {
@@ -8007,8 +7380,6 @@ class ShellController extends FrameSafeNotifier
     unawaited(accountActivity.loadBookmarks(instance, force: true));
   }
 
-  /// Names a post in the per-site maps and sets here: site and post together,
-  /// because topic 7's post 3 on two sites are two different posts.
   static String _postKey(String siteUrl, int postId) => '$siteUrl~$postId';
 
   static String _pluginBookmarkKey(
@@ -8020,7 +7391,6 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _likersLoading = {};
   final Map<String, String> _likersErrors = {};
 
-  /// Who liked a post, once the list has been asked for and arrived.
   PostLikers? likers(int postId, {String? siteUrl}) {
     final targetSite = siteUrl ?? currentInstance?.url;
     if (targetSite == null) return null;
@@ -8033,12 +7403,6 @@ class ShellController extends FrameSafeNotifier
     return _likersErrors[_postKey(targetSite, postId)];
   }
 
-  /// Fetches the accounts behind a post's like count.
-  ///
-  /// Asked for every time the list is opened rather than once, because it is a
-  /// list of what other people have just done and the point of opening it is to
-  /// see who. Names already on screen stay there while the fetch runs, so
-  /// reopening a list is instant and merely gets corrected.
   Future<void> loadLikers(int postId, {String? siteUrl}) async {
     final targetSite = siteUrl ?? currentInstance?.url;
     if (targetSite == null) return;
@@ -8060,11 +7424,8 @@ class ShellController extends FrameSafeNotifier
       final fetched = await api.topicContent.postLikers(
         siteUrl: targetSite,
         postId: postId,
-        // Read inside the guard, not before it: storage that refuses —
-        // an unsigned macOS build answers `errSecMissingEntitlement` —
-        // would otherwise leave the key in [_likersLoading] for the rest of
-        // the session, and every later hover would find a fetch in flight
-        // that is not.
+        // Keep credential reads inside the guarded try: macOS entitlement
+        // failures must not strand the key in [_likersLoading].
         apiKey: credential.value,
       );
       lease.commit(() => store.put(targetSite, fetched));
@@ -8104,12 +7465,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Reads a post revision without retaining its potentially large HTML diff.
-  ///
-  /// History is modal, so its owner keeps the response only while that modal
-  /// is open. The credential read is still generation-guarded: disconnecting
-  /// or replacing an account while secure storage is suspended must not send
-  /// the old identity after the session has changed.
   Future<PostRevision?> loadPostRevision({
     required String siteUrl,
     required int postId,
@@ -8143,12 +7498,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Runs a write against one post and then re-reads it.
-  ///
-  /// Re-reading rather than guessing, because deleting is not one operation:
-  /// staff get a soft delete that stays in the stream and can be undone, an
-  /// author gets a placeholder, and some posts go for good. Only the site knows
-  /// which, and asking is one cheap request.
   Future<String?> _mutatePost(
     Post post,
     Future<void> Function(String siteUrl, String apiKey) write,
@@ -8307,10 +7656,6 @@ class ShellController extends FrameSafeNotifier
     });
   }
 
-  /// Re-reads one post and puts whatever came back into the topic on screen.
-  ///
-  /// Nothing coming back is itself the answer: the post is gone, or no longer
-  /// visible to this reader, and either way it should stop being drawn.
   Future<void> _refreshPost(
     String siteUrl,
     int topicId,
@@ -8335,7 +7680,6 @@ class ShellController extends FrameSafeNotifier
           severity: DiagnosticSeverity.warning,
         );
       }
-      // The write landed; the stream is repaired the next time it is read.
       return;
     }
 
@@ -8360,11 +7704,6 @@ class ShellController extends FrameSafeNotifier
     });
   }
 
-  /// Makes way for a new composer without losing what is in the old one.
-  ///
-  /// A pending draft is flushed rather than dropped: the save is debounced, so
-  /// disposing outright throws away up to a couple of seconds of typing that
-  /// neither the site nor this device has yet. Edits have no draft to flush.
   void _replaceComposer() {
     final existing = _composer;
     if (existing == null) {
@@ -8379,12 +7718,6 @@ class ShellController extends FrameSafeNotifier
     _composerDraftRestore = null;
   }
 
-  /// Closes the composer, keeping the draft.
-  ///
-  /// Closing is how you get the topic back, not how you throw a reply away —
-  /// reopening restores what was written. A pending draft is flushed first,
-  /// for the same reason [_replaceComposer] flushes: the save is debounced, so
-  /// disposing outright throws away the last couple of seconds of typing.
   void closeComposer() {
     final composer = _composer;
     if (composer == null) return;
@@ -8412,11 +7745,6 @@ class ShellController extends FrameSafeNotifier
                 ?.draftSequence) ??
       0;
 
-  /// Writes the local copy first, then sends it.
-  ///
-  /// The local copy is only removed once the site has the same text. If local
-  /// storage is unavailable, the server still gets a chance to preserve it;
-  /// the local failure is surfaced only when neither copy was made safe.
   Future<int?> _saveDraft(ComposerDraftSave save) async {
     final target = save.target;
     final data = save.draft.encode();
@@ -8561,7 +7889,6 @@ class ShellController extends FrameSafeNotifier
     unawaited(restore);
   }
 
-  /// Puts an unfinished reply back in the composer.
   Future<void> _restoreDraft(ComposerController composer) async {
     final target = composer.target;
     final lease = lifecycle.capture(target.siteUrl);
@@ -8594,9 +7921,7 @@ class ShellController extends FrameSafeNotifier
           remote = found.draft;
           remoteSequence = found.sequence;
         }
-      } catch (_) {
-        // A draft restore is best effort; opening the composer must still work.
-      }
+      } catch (_) {}
     }
     if (!isCurrent()) return;
     lease.commit(() {
@@ -8633,11 +7958,6 @@ class ShellController extends FrameSafeNotifier
     });
   }
 
-  /// Sends the open composer.
-  ///
-  /// Everything is resolved from the composer's own target rather than from
-  /// whatever is current, so switching sites or topics mid-flight cannot
-  /// redirect the post.
   Future<void> submitComposer() async {
     final composer = _composer;
     if (composer == null || composer.submitting || !composer.canSubmit) return;
@@ -8733,12 +8053,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Sends an edit.
-  ///
-  /// Much shorter than creating a post, and the reason is worth stating: an
-  /// edit is idempotent. Sending the same raw twice leaves the post saying the
-  /// same thing, so a failure needs no reconciliation — it is just a failure,
-  /// and pressing the button again is safe.
   Future<void> _submitEdit(
     ComposerController composer,
     ComposerTarget target,
@@ -8774,12 +8088,8 @@ class ShellController extends FrameSafeNotifier
   ) async {
     final lease = lifecycle.capture(target.siteUrl);
     composer.beginSubmit();
-    // Both modes that reach here opened on an existing post, so a null
-    // baseline means the body fetch failed and `raw` is whatever was typed
-    // into the empty field, not the post. Sending it would replace the whole
-    // post, and with no originalText the site's edit-conflict check would
-    // not run either. `canSubmit` already refuses this, but that gate is
-    // UI-level; the request must be impossible to build, not just to press.
+    // A missing baseline means the body fetch failed. Never build a destructive
+    // edit without the original text used for conflict detection.
     if (composer.originalRaw == null) {
       composer.failed(const WriteException(WriteFailure.unreachable));
       return;
@@ -8874,15 +8184,8 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
-    // Everything the edit says about the post, except what it says about what
-    // this reader did — which is nothing, however confidently it is phrased.
-    // `PostsController#update` serializes without the reader's own post
-    // actions, so `actions_summary` comes back with no `acted` and a
-    // `can_act: true` that is simply wrong on a post they have already liked.
-    // Taken literally it would empty the heart of anyone who fixes a typo. The
-    // plugins' view of the reader is absent the same way, and on a reactions
-    // site dropping it would swap the footer back to the like one — whose
-    // heart then writes through a route that destroys the reaction.
+    // Edit responses omit reader-specific actions and plugin state; preserve
+    // those values from the held post.
     lease.commit(() {
       final held = store.read<Post>(target.siteUrl, updated.id);
       store.put(
@@ -9031,7 +8334,6 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  /// Runs the check again after one could not be completed.
   Future<void> recheckComposer() async {
     final composer = _composer;
     if (composer == null || !composer.canRecheck) return;
@@ -9051,7 +8353,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// How far back to look for a post that may or may not have been made.
   static const int _reconcileWindow = 5;
 
   Future<void> _reconcileNewTopic(
@@ -9155,16 +8456,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// After a failure that might have posted anyway, look before sending again.
-  ///
-  /// A user API key gets no idempotency from Discourse — the request memoizer
-  /// is gated on `is_api?`, which needs a different header than ours — so a
-  /// resend after a timeout publishes the post twice, and nothing undoes that.
-  /// The only safe recovery is to re-read the topic and see.
-  ///
-  /// The comparison is against `raw` rather than the cooked HTML, because raw
-  /// is exactly the string that was sent; cooking is a transformation this
-  /// client deliberately does not reproduce.
   Future<void> _reconcile(
     ComposerTarget target,
     String raw,
@@ -9384,7 +8675,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Re-reads a topic on a named site, rather than on whatever is current.
   Future<void> _refetchTopic(
     String siteUrl,
     int topicId,
@@ -9432,7 +8722,6 @@ class ShellController extends FrameSafeNotifier
         'topic.refetchAfterWrite',
         severity: DiagnosticSeverity.warning,
       );
-      // The post is already on screen; the stream is repaired next time.
     } finally {
       var replayRefresh = false;
       int? replayPostNumber;
@@ -9458,10 +8747,6 @@ class ShellController extends FrameSafeNotifier
   static String _userKey(String siteUrl, String username) =>
       '$siteUrl@${username.toLowerCase()}';
 
-  /// The card for [username] on the current site, once it has arrived.
-  ///
-  /// Read under the lowercased name, the way [UserCard.storeId] files it —
-  /// the requested casing and the payload's are not reliably the same.
   UserCard? userCard(String username, {String? siteUrl}) {
     final targetSite = siteUrl ?? currentInstance?.url;
     if (targetSite == null) return null;
@@ -9474,10 +8759,6 @@ class ShellController extends FrameSafeNotifier
     return _userCardErrors[_userKey(targetSite, username)];
   }
 
-  /// Fetches the card for [username] unless it is already in hand.
-  ///
-  /// Cards are cached for the life of the session: the same handful of people
-  /// write most of a topic, and re-opening a card should be instant.
   Future<void> loadUserCard(
     String username, {
     bool force = false,
@@ -9552,7 +8833,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Appends the next page, if there is one and nothing is already in flight.
   Future<void> loadMoreFeed(String destinationId) async {
     final instance = currentInstance;
     if (instance == null) return;
@@ -9578,11 +8858,6 @@ class ShellController extends FrameSafeNotifier
   List<SiteEmoji> searchEmojis(String siteUrl, String query, {int limit = 7}) =>
       _presentation.searchEmojis(siteUrl, query, limit: limit);
 
-  /// What a hashtag row draws on its left, from the style the site reported.
-  ///
-  /// The same three shapes the cooked pill has, and for the same reason: a row
-  /// that looked different from what the post will look like would be
-  /// offering something other than what it writes.
   SuggestionArt _hashtagArt(String siteUrl, FoundHashtag hashtag) {
     final presentation = resolveHashtagPresentation(
       HashtagPresentationRequest(
@@ -9600,18 +8875,11 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// What each site has said a `#ref` is. A null value is a ref it was asked
-  /// about and did not have — remembered, so it is not asked twice.
-  ///
-  /// The composer may encounter new refs for an entire long-running session.
-  /// Keep the most recent answers rather than turning that stream into an
-  /// unbounded per-site dictionary. Entries in flight are never evicted.
   static const int composerIdentityCacheCapacity = 2048;
 
   final Map<String, BoundedLruCache<String, FoundHashtag?>> _hashtags = {};
   final Map<String, Set<String>> _hashtagsInFlight = {};
 
-  /// The same, for usernames: true is somebody, false is nobody.
   final Map<String, BoundedLruCache<String, bool>> _mentioned = {};
   final Map<String, Set<String>> _mentionsInFlight = {};
 
@@ -9628,10 +8896,6 @@ class ShellController extends FrameSafeNotifier
         .toList(growable: false);
   }
 
-  /// Hashtag targets matching [term].
-  ///
-  /// Never throws, for the reason [searchUsers] gives: a popup that says
-  /// "could not reach the site" while somebody is mid-word is noise.
   Future<List<FoundHashtag>> searchHashtags({
     required String siteUrl,
     required String term,
@@ -9680,7 +8944,6 @@ class ShellController extends FrameSafeNotifier
     return accepted ? found : const [];
   }
 
-  /// What the composer needs before it may draw a pill over what is typed.
   ComposerPills _composerPills(ComposerTarget target) {
     final siteUrl = target.siteUrl;
     return (
@@ -9699,13 +8962,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Asks what [refs] are, once each.
-  ///
-  /// Anything already answered or already in flight is dropped here rather
-  /// than by the caller, which repaints far more often than it learns anything
-  /// new. A failure is left unanswered rather than remembered as one: the site
-  /// being unreachable says nothing about whether a category exists, and the
-  /// next repaint may as well ask again.
   Future<void> _resolveHashtags(String siteUrl, Set<String> refs) async {
     final known = _hashtags.putIfAbsent(
       siteUrl,
@@ -9754,13 +9010,11 @@ class ShellController extends FrameSafeNotifier
           severity: DiagnosticSeverity.warning,
         );
       }
-      // The ref stays text and remains eligible for a later retry.
     } finally {
       if (!isDisposed) lease.commit(() => inFlight.removeAll(ask));
     }
   }
 
-  /// The same for usernames, through `/composer/mentions`.
   Future<void> _resolveMentions(
     String siteUrl,
     int? topicId,
@@ -9810,17 +9064,11 @@ class ShellController extends FrameSafeNotifier
           severity: DiagnosticSeverity.warning,
         );
       }
-      // As above.
     } finally {
       if (!isDisposed) lease.commit(() => inFlight.removeAll(ask));
     }
   }
 
-  /// Accounts matching [term] in [topicId].
-  ///
-  /// Never throws. A popup that says "could not reach the site" while somebody
-  /// is mid-word is noise; an empty list simply closes it, and the mention can
-  /// still be typed out by hand.
   Future<List<FoundUser>> searchUsers({
     required String siteUrl,
     required int? topicId,
@@ -9872,34 +9120,20 @@ class ShellController extends FrameSafeNotifier
   String emojiUrlFor(String siteUrl, String name) =>
       _presentation.emojiUrlFor(siteUrl, name);
 
-  /// Whether a shortcode names emoji this site is known to serve; see
-  /// [SitePresentationController.knowsEmoji] for what false covers.
   bool knowsEmoji(String siteUrl, String name) =>
       _presentation.knowsEmoji(siteUrl, name);
 
-  /// The canonical artwork name for a valid site shortcode, aliases included.
   String? emojiNameFor(String siteUrl, String name) =>
       _presentation.emojiNameFor(siteUrl, name);
 
-  /// Opaque identity for widgets whose presentation depends on this site's
-  /// settings or custom emoji artwork.
   Object presentationTokenFor(String siteUrl) =>
       _presentation.presentationTokenFor(siteUrl);
 
-  /// What a site's client settings said, or core's defaults where it has not
-  /// answered. Never null, and never a loading state — see [SiteConfig].
-  ///
-  /// What was stored last launch stands in until this session has asked, which
-  /// is what keeps a site drawing its own emoji set through the first topic
-  /// rather than drawing twitter's and correcting itself.
   SiteConfig siteConfigFor(String siteUrl) => _presentation.configFor(siteUrl);
 
-  /// Waits for client settings the site actually supplied when a choice of
-  /// route or interaction cannot safely be made from defaults alone.
   Future<SiteConfig?> resolveSiteConfig(String siteUrl) =>
       _presentation.resolveConfig(siteUrl);
 
-  /// The same, for the site on screen.
   SiteConfig get currentSiteConfig {
     final instance = currentInstance;
     return instance == null
@@ -9907,8 +9141,6 @@ class ShellController extends FrameSafeNotifier
         : siteConfigFor(instance.url);
   }
 
-  /// The resolved color appearance for [siteUrl], if this Discourse exposes
-  /// modern color-definition stylesheets.
   SiteAppearance? siteAppearanceFor(String siteUrl) =>
       _presentation.appearanceFor(siteUrl);
 
@@ -9988,14 +9220,11 @@ class ShellController extends FrameSafeNotifier
     await instanceStore.save(List.of(_instances));
   }
 
-  /// Categories are fetched once per site; the topic rows need them to draw
-  /// their badges, and they change rarely.
   Future<void> loadCategories(String siteUrl) async {
     final instance = _instanceAt(siteUrl);
     if (instance != null) await _ensureCategoriesFor(instance);
   }
 
-  /// Loads the native All tags directory once for this site.
   Future<void> loadTags(String siteUrl, {bool force = false}) async {
     final instance = _instanceAt(siteUrl);
     if (instance == null || (instance.loginRequired && !instance.isConnected)) {
@@ -10063,8 +9292,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Resolves a category id only when an older or non-core topic endpoint did
-  /// not embed the category badges supplied by current lazy-loading responses.
   Future<void> _ensureCategoryIds(
     DiscourseInstance instance,
     String? apiKey,
@@ -10240,7 +9467,6 @@ class ShellController extends FrameSafeNotifier
 
   final Map<String, Object> _categoryPageRequests = {};
 
-  /// Appends the next server page to the full categories destination.
   Future<void> loadMoreCategories(String siteUrl) async {
     final instance = _instanceAt(siteUrl);
     final feed = categoryFeedFor(siteUrl);
@@ -10313,8 +9539,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Sends the user to the current site to authorize, then records who they
-  /// turned out to be.
   Future<void> connectCurrentInstance() async {
     final instance = currentInstance;
     if (instance == null || _connectingSiteUrl != null) return;
@@ -10367,13 +9591,8 @@ class ShellController extends FrameSafeNotifier
       await drafts.clearSite(instance.url);
       if (!lease.isCurrent) return;
 
-      // Reconnecting over an existing key leaves the old one live in the
-      // account's authorized-apps list with nothing tying it back to this
-      // install, so revoke it the way a disconnect does. Best effort, for the
-      // reason `_revokeAndForget` tolerates failure: being offline must not
-      // stand in the way of connecting. The revocation cannot run before the
-      // handshake — backing out of the browser must not cost the key still in
-      // use.
+      // Reconnecting replaces the local key but not its remote authorization.
+      // Revoke the old key best-effort only after the handshake succeeds.
       if (previousKey != null && previousKey != connectedCredentials.key) {
         try {
           await api.site.revokeApiKey(
@@ -10399,12 +9618,8 @@ class ShellController extends FrameSafeNotifier
       );
       if (!lease.isCurrent) return;
 
-      // The signed-out boundary above deliberately lasts while the replacement
-      // account is being verified. Re-entering the site during that await can
-      // start an anonymous appearance refresh in the same generation. Rotate
-      // once more before publishing the connected identity so a completed
-      // public palette is not cached as the account palette, and a late public
-      // response cannot overwrite the authenticated refresh started below.
+      // Account verification can overlap an anonymous appearance refresh.
+      // Rotate the lifecycle before publishing the connected identity.
       _forgetSiteState(instance.url);
       lease = lifecycle.capture(instance.url);
       final user = _acceptDoNotDisturbSnapshot(instance.url, responseUser);
@@ -10573,7 +9788,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Forgets the key and who we were, leaving the site in the rail.
   Future<void> disconnectCurrentInstance() async {
     final instance = currentInstance;
     if (instance == null) return;
@@ -10581,10 +9795,6 @@ class ShellController extends FrameSafeNotifier
     await disconnectInstance(instance.url);
   }
 
-  /// Forgets the key and account belonging to [siteUrl].
-  ///
-  /// Returns whether the signed-out rail snapshot was persisted. A failure to
-  /// make the private-draft boundary durable leaves the account and key intact.
   Future<bool> disconnectInstance(String siteUrl) async {
     final instance = _instanceAt(siteUrl);
     if (instance == null) return false;
@@ -10627,10 +9837,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Tells the site to drop the key before we drop our copy.
-  ///
-  /// Deleting locally is not enough: the key would stay live in the user's
-  /// authorized-apps list with no way for them to connect it to us.
   Future<SiteLease?> _revokeAndForget(DiscourseInstance instance) async {
     _forgetSiteState(instance.url);
     final lease = lifecycle.capture(instance.url);
@@ -10657,7 +9863,6 @@ class ShellController extends FrameSafeNotifier
           severity: DiagnosticSeverity.warning,
         );
       }
-      // The local account boundary has already been cleared.
     }
     if (!lease.isCurrent) return lease;
     if (apiKey != null) {
@@ -10672,7 +9877,6 @@ class ShellController extends FrameSafeNotifier
             severity: DiagnosticSeverity.warning,
           );
         }
-        // Forget locally even when the site cannot be reached.
       }
     }
     if (!lease.isCurrent) return lease;
@@ -10687,15 +9891,11 @@ class ShellController extends FrameSafeNotifier
           severity: DiagnosticSeverity.warning,
         );
       }
-      // Connecting again overwrites a key local storage could not remove.
     }
     if (!lease.isCurrent) return lease;
 
-    // Revocation is asynchronous, so switching away and back can start fresh
-    // account-bound work in this generation. Forget once more before the
-    // caller commits removal or sign-out: completed state is dropped and late
-    // responses lose their lease. The caller receives the replacement lease
-    // so its persistence work still belongs to the new boundary.
+    // Rotate once more after asynchronous revocation so intervening work loses
+    // its lease before removal or sign-out commits.
     _forgetSiteState(instance.url);
     return lifecycle.capture(instance.url);
   }
@@ -10876,12 +10076,7 @@ class ShellController extends FrameSafeNotifier
     if (canRead) {
       unawaited(_presentation.ensureConfig(instance.url));
       unawaited(_presentation.ensureCustomEmojis(instance.url));
-      // Titles draw only the shortcodes the catalog vouches for, so it is a
-      // dependency of the first topic list rather than of the composer that
-      // used to be the only thing asking. Warmed alongside the feed, it lands
-      // with the rows instead of turning every title into a second frame, and
-      // warming retries a failure rather than inheriting the picker's
-      // give-up-for-the-session verdict.
+      // Warm the emoji catalog with the first feed to avoid a second title frame.
       unawaited(_presentation.warmEmojiCatalog(instance.url));
       unawaited(_ensureCategoriesFor(instance));
     }
@@ -10945,8 +10140,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Tapping the already-selected instance is how you get back to its sidebar
-  /// on a phone, where the sidebar and the content cannot both be visible.
   @override
   void selectInstance(int index) {
     assert(index >= 0 && index < _instances.length);
@@ -10968,7 +10161,6 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  /// Opens the app-wide topic stream and refreshes it when its snapshot is old.
   void selectAggregate() {
     if (!loaded || !hasInstances) return;
     _rootMode = ShellRootMode.aggregate;
@@ -11027,11 +10219,6 @@ class ShellController extends FrameSafeNotifier
     await persisted;
   }
 
-  /// Opens an Aggregate row in its owning forum.
-  ///
-  /// Desktop gives a topic its own forum tab and reuses an exact existing one.
-  /// Mobile retains its single navigation context and replaces the current
-  /// forum surface, matching every other topic-list tap there.
   AggregateTopicOpenResult openAggregateTopic(String siteUrl, int topicId) {
     final topic = store.read<Topic>(siteUrl, topicId);
     final index = _instances.indexWhere((instance) => instance.url == siteUrl);
@@ -11071,8 +10258,6 @@ class ShellController extends FrameSafeNotifier
     }
     if (existingTopicTab == null &&
         workspace.tabs.length >= ForumWorkspace.maximumTabs) {
-      // Aggregate remains on screen, with the previously selected forum still
-      // underneath it, so the failed click has no navigation side effect.
       return AggregateTopicOpenResult.tabLimitReached;
     }
 
@@ -11138,7 +10323,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Switches laterally between sections of the group currently on screen.
   void selectGroupRoute(GroupRoute route, {String? feedPath}) {
     final instance = currentInstance;
     final current = currentContent?.groupRoute;
@@ -11157,7 +10341,6 @@ class ShellController extends FrameSafeNotifier
     if (content.feedPath != null) unawaited(loadFeed(content.id));
   }
 
-  /// Adds a fresh Topics work context to the selected forum and opens it.
   void createTab() {
     if (!canCreateTab) return;
     final instance = currentInstance;
@@ -11173,7 +10356,6 @@ class ShellController extends FrameSafeNotifier
     _hydrateActiveTab(instance);
   }
 
-  /// Activates one of the tabs owned by the selected forum.
   void selectTab(String id) {
     if (!forumTabsEnabled) return;
     final instance = currentInstance;
@@ -11196,7 +10378,6 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  /// Moves one of the selected forum's tabs without changing its active tab.
   void moveTab(String id, int newIndex) {
     if (!forumTabsEnabled) return;
     final workspace = currentWorkspace;
@@ -11259,10 +10440,6 @@ class ShellController extends FrameSafeNotifier
     _hydrateActiveTab(instance);
   }
 
-  /// Closes a tab in the selected forum without affecting any other forum.
-  ///
-  /// When the active tab closes, its right neighbour wins, falling back to the
-  /// left at the end of the list. The forum always keeps one fresh Topics tab.
   void closeTab(String id) {
     if (!forumTabsEnabled) return;
     final instance = currentInstance;
@@ -11298,7 +10475,6 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  /// Keeps one tab in the selected forum and closes every sibling tab.
   void closeOtherTabs(String id) {
     if (!forumTabsEnabled) return;
     final instance = currentInstance;
@@ -11322,8 +10498,6 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  /// Opens the Drafts destination for [siteUrl], including from a profile menu
-  /// that stayed open while another site became selected.
   void openDrafts(String siteUrl) {
     final index = _instances.indexWhere((instance) => instance.url == siteUrl);
     if (index < 0) return;
@@ -11340,7 +10514,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// Opens the connected account's restorable native Summary destination.
   void openUserSummary(String siteUrl) {
     final index = _instances.indexWhere((instance) => instance.url == siteUrl);
     if (index < 0 || _instances[index].user == null) return;
@@ -11351,10 +10524,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Opens the native Preferences page for the account which owned the menu.
-  ///
-  /// A touch sheet can remain alive while another forum becomes selected, so
-  /// the source URL is resolved again instead of assuming the current forum.
   void openPreferences(String siteUrl) {
     final index = _instances.indexWhere((instance) => instance.url == siteUrl);
     if (index < 0 || !_instances[index].isConnected) return;
@@ -11367,11 +10536,6 @@ class ShellController extends FrameSafeNotifier
     pushContent(ContentRoute.preferences());
   }
 
-  /// Opens the connected account's default contribution stream.
-  ///
-  /// Activity is a profile subpage on the web rather than a sidebar root, so
-  /// it pushes a restorable content route and Back returns to the reader's
-  /// previous native destination.
   void openUserActivity(String siteUrl) {
     final index = _instances.indexWhere((instance) => instance.url == siteUrl);
     if (index < 0) return;
@@ -11383,7 +10547,6 @@ class ShellController extends FrameSafeNotifier
     pushContent(ContentRoute.userActivity());
   }
 
-  /// Restores a draft into the composer mode this client supports.
   Future<void> resumeDraft(String siteUrl, UserDraft draft) async {
     if (!draft.canResume) return;
     final index = _instances.indexWhere((instance) => instance.url == siteUrl);
@@ -11440,7 +10603,6 @@ class ShellController extends FrameSafeNotifier
     _draftSequences[_draftKey(siteUrl, draft.key)] = draft.sequence;
   }
 
-  /// Replaces the main region with something deeper, keeping a way back.
   @override
   void pushContent(ContentRoute route) {
     final tab = activeTab;
@@ -11451,7 +10613,6 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  /// Replaces the top route without changing the content stack's Back target.
   @override
   void replaceCurrentContent(ContentRoute route) {
     final tab = activeTab;
@@ -11476,11 +10637,6 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  /// Unwinds one step: first through the content stack, then — on compact
-  /// layouts only — back out to the sidebar.
-  ///
-  /// Returns false when there is nothing left to unwind, which is the signal
-  /// to let the platform handle the back gesture.
   bool handleBack({bool canReturnToSidebar = true}) {
     if (_rootMode == ShellRootMode.aggregate) {
       _rootMode = ShellRootMode.forum;
@@ -11517,11 +10673,8 @@ class ShellController extends FrameSafeNotifier
     if (composer != null && composer.draftPersistencePending) {
       final target = composer.target;
       final data = composer.draft.encode();
-      // This is the last local safety boundary. It must enter DraftStore's
-      // per-site queue before lifecycle invalidation below, and must not use
-      // the normal callback because that can continue into remote sync.
-      // DraftStore diagnoses the underlying persistence failure; disposal has
-      // no live composer left to surface its wrapper error, so observe it here.
+      // Queue the final local draft before lifecycle invalidation without
+      // entering the normal remote-sync callback.
       Future<void>.sync(
         () => drafts.write(target.siteUrl, target.draftKey, data),
       ).ignore();
@@ -11608,10 +10761,6 @@ class ShellController extends FrameSafeNotifier
   }
 }
 
-/// Filters the presentation controller down to one site's configuration.
-///
-/// The runtime object is intentionally neither the shell nor the broader
-/// presentation controller, so a plugin cannot recover either by downcast.
 final class _PluginSiteConfigListenable extends ChangeNotifier
     implements ValueListenable<SiteConfig> {
   _PluginSiteConfigListenable(Listenable source, SiteConfig Function() read)
@@ -11642,11 +10791,6 @@ final class _PluginSiteConfigListenable extends ChangeNotifier
   }
 }
 
-/// Emoji history access scoped to the plugin which received the host port.
-///
-/// Skin tone is intentionally shared across all pickers on one forum. Every
-/// history operation carries a context, however, and is rejected unless that
-/// context is well formed and belongs to the consuming plugin.
 final class _ScopedEmojiPreferenceStore implements EmojiPreferenceStore {
   const _ScopedEmojiPreferenceStore(this._delegate, this._consumer);
 
@@ -11879,7 +11023,6 @@ final class _ShellPluginPostHost implements PluginPostHost {
   }
 }
 
-/// Full plugin navigation without exposing the concrete shell object.
 final class _ShellPluginNavigationHost implements PluginNavigationHost {
   const _ShellPluginNavigationHost(this._shell, this._isDisposed);
 
@@ -11928,7 +11071,6 @@ final class _ShellPluginNavigationHost implements PluginNavigationHost {
   void showPluginContent() => _shell.showPluginContent();
 }
 
-/// Route-only navigation is a separate runtime object from the full port.
 final class _ShellPluginRouteNavigationHost
     implements PluginRouteNavigationHost {
   const _ShellPluginRouteNavigationHost(this._shell);
@@ -11996,7 +11138,6 @@ final class _ShellPluginTopicListNavigationHost
   }
 }
 
-/// Creates target-bound bookmark ports without exposing the core bookmark UI.
 final class _ShellPluginBookmarkHostFactory
     implements PluginBookmarkHostFactory {
   const _ShellPluginBookmarkHostFactory(this._shell);
@@ -12013,7 +11154,6 @@ final class _ShellPluginBookmarkHostFactory
       );
 }
 
-/// A session can mint bookmark actions only for targets in its own namespace.
 final class _ShellScopedPluginBookmarkHostFactory
     implements PluginBookmarkHostFactory {
   const _ShellScopedPluginBookmarkHostFactory(this._shell, this._consumer);
@@ -12032,7 +11172,6 @@ final class _ShellScopedPluginBookmarkHostFactory
   }
 }
 
-/// Topic-aware bookmark actions used only by core post and topic surfaces.
 final class _ShellCoreBookmarkTargetHost implements BookmarkTargetHost {
   _ShellCoreBookmarkTargetHost(this._shell, this._targetType);
 
@@ -12168,7 +11307,6 @@ final class _ShellCoreBookmarkTargetHost implements BookmarkTargetHost {
   }
 }
 
-/// Bookmark actions restricted to one plugin target and one explicit site.
 final class _ShellPluginBookmarkTargetHost implements PluginBookmarkHost {
   _ShellPluginBookmarkTargetHost(this._shell, this._targetType);
 
@@ -12292,7 +11430,6 @@ final class _ShellPluginBookmarkTargetHost implements PluginBookmarkHost {
   }
 }
 
-/// Filters shell notifications to one bookmark write's busy state.
 final class _BookmarkWriteListenable extends ChangeNotifier
     implements ValueListenable<bool> {
   _BookmarkWriteListenable(Listenable source, bool Function() read)
@@ -12323,7 +11460,6 @@ final class _BookmarkWriteListenable extends ChangeNotifier
   }
 }
 
-/// Notification-feed operations without exposing unrelated shell state.
 final class _ShellPluginNotificationFeedHost
     implements PluginNotificationFeedHost {
   const _ShellPluginNotificationFeedHost(this._shell);
@@ -12361,7 +11497,6 @@ final class _ShellPluginNotificationFeedHost
       _shell.openPluginNotificationUrl(url);
 }
 
-/// Notification-feed authority restricted to the consuming plugin namespace.
 final class _ShellScopedPluginNotificationFeedHost
     implements PluginNotificationFeedHost {
   const _ShellScopedPluginNotificationFeedHost(

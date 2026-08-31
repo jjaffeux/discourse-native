@@ -9,12 +9,6 @@ import '../../plugin_api/core_plugin_host.dart';
 import 'gif.dart';
 import 'gifs_api.dart';
 
-/// Request and pagination state for one open GIF picker.
-///
-/// The picker owns this controller for exactly as long as its modal is open.
-/// Keeping the state outside the widget makes delayed searches, stale answers,
-/// and pagination independently testable, while the selected [GifResult]
-/// remains the modal's only output.
 final class GifPickerController extends ChangeNotifier {
   GifPickerController({
     required this.siteUrl,
@@ -32,8 +26,6 @@ final class GifPickerController extends ChangeNotifier {
   final PluginRequestHost _requests;
   final String fileDetail;
 
-  /// Null leaves server pagination unbounded. A positive value caps the
-  /// unique results kept by this picker.
   final int? maxResults;
 
   final Duration searchDebounce;
@@ -76,7 +68,6 @@ final class GifPickerController extends ChangeNotifier {
     return limit != null && limit > 0 && _results.length >= limit;
   }
 
-  /// Loads the featured categories shown before a search has begun.
   Future<void> loadCategories() async {
     if (_disposed || _loadingCategories) return;
     final request = ++_categoryRequest;
@@ -112,7 +103,6 @@ final class GifPickerController extends ChangeNotifier {
     }
   }
 
-  /// Updates the free-text query and schedules a fresh first page.
   void updateQuery(String value) {
     if (_disposed || value == _query) return;
     _query = value;
@@ -142,8 +132,7 @@ final class GifPickerController extends ChangeNotifier {
     _notify();
   }
 
-  /// Searches a featured category immediately, even if its server-provided
-  /// search term is shorter than the normal free-text minimum.
+  /// Featured server terms bypass the free-text minimum length.
   Future<void> selectCategory(GifCategory category) {
     if (_disposed) return Future.value();
     _query = category.searchTerm;
@@ -183,7 +172,6 @@ final class GifPickerController extends ChangeNotifier {
     await _loadPage(query, request: request, position: '0', replace: true);
   }
 
-  /// Appends the next page, if the server and configured client cap allow it.
   Future<void> loadMore() async {
     final query = _activeQuery;
     final position = _nextPosition;
@@ -199,7 +187,6 @@ final class GifPickerController extends ChangeNotifier {
     );
   }
 
-  /// Repeats whichever category or search request currently failed.
   Future<void> retry() {
     if (_disposed) return Future.value();
     final query = _activeQuery;

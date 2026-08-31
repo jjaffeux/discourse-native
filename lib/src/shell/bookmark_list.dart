@@ -11,17 +11,6 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_menu_message.dart';
 
-/// The bookmarks tab's contents: the site's own list.
-///
-/// Two runs of rows, the way `/u/{username}/user-menu-bookmarks` answers and
-/// the way Discourse draws them: the reminders that have come due and not been
-/// read, and then the bookmarks. A reminder is a notification like any other,
-/// so it is drawn by the same row as the notifications tab uses — the point of
-/// putting it first is that it is the one thing here the reader has not seen.
-///
-/// Draws itself as a column rather than a list of its own, so that it scrolls
-/// inside whichever of the menu's two forms is showing it — a popover with a
-/// fixed height, or a sheet that is one long scroll.
 class BookmarkSection extends StatelessWidget {
   const BookmarkSection({
     super.key,
@@ -31,9 +20,6 @@ class BookmarkSection extends StatelessWidget {
 
   final String siteUrl;
 
-  /// Closes the menu, once a tap has led somewhere. Not called for the few
-  /// rows that point at nothing reachable, which would otherwise close the menu
-  /// onto an unchanged screen.
   final VoidCallback onOpened;
 
   @override
@@ -63,12 +49,6 @@ class _BookmarkSectionView extends StatefulWidget {
 }
 
 class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
-  /// Follows a bookmark to whatever it was put on.
-  ///
-  /// A topic or Chat target on a connected site is something this app has a
-  /// view for, so it opens here. Everything else a bookmark can be on — a
-  /// profile, whatever a plugin made bookmarkable, or Chat the native client
-  /// cannot hydrate — belongs in the browser rather than nowhere.
   Future<void> _open(String? path) async {
     if (path == null) return;
 
@@ -88,8 +68,6 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     if (await openExternalLink(absolute) && mounted) widget.onOpened();
   }
 
-  /// Marks a reminder read, then follows it — the same act as tapping it in
-  /// the notifications tab.
   Future<void> _openReminder(
     DiscourseNotification reminder,
     String? path,
@@ -112,8 +90,6 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
             onRetry: () => controller.loadBookmarks(widget.siteUrl),
           );
         }
-        // Not loaded and not loading is the moment before the fetch this widget
-        // asked for has started, which is a wait like any other.
         if (!feed.loaded) return const UserMenuMessage(text: null);
         if (feed.isEmpty) {
           return const UserMenuMessage(text: 'Nothing bookmarked yet.');
@@ -145,14 +121,6 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
   }
 }
 
-/// One bookmark, drawn to the same measurements as the notification rows it
-/// shares the tab with.
-///
-/// Discourse's own row is the author's avatar, their name, and the title. Using
-/// the bookmark's icon in place of the avatar follows `NotificationRow`, and
-/// keeps the two runs of rows in one column reading as one list; the icon says
-/// whether a reminder is set, which is the one thing about a bookmark that is
-/// not on its face.
 class BookmarkRow extends StatelessWidget {
   const BookmarkRow({super.key, required this.bookmark, required this.onTap});
 
@@ -224,8 +192,6 @@ class BookmarkRow extends StatelessWidget {
       ),
     );
 
-    // What the reader wrote about why they kept it, where Discourse puts it:
-    // on hover, rather than taking a second line from every row that has one.
     final name = bookmark.name;
     if (name == null) return row;
     return Tooltip(

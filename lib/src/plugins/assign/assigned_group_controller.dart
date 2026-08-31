@@ -17,11 +17,8 @@ typedef _TopicKey = ({
   AssignedGroupTopicQuery query,
 });
 
-/// Owns the independently cached member rail and topic lists for Assigned.
-///
-/// Every response must retain both its site lease and its exact request token.
-/// A refresh can therefore replace an in-flight request immediately, and the
-/// older account or query is unable to publish when it eventually finishes.
+/// Pairs every response with its site lease and request token so superseded
+/// account or query requests cannot publish.
 final class AssignedGroupController extends FrameSafeNotifier {
   AssignedGroupController({
     required this.api,

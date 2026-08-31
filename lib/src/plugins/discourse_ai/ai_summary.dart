@@ -8,7 +8,6 @@ const aiSummaryAvailabilityDataKey = PluginDataKey<AiSummaryAvailability>(
   name: 'topic-summary-availability',
 );
 
-/// The guardian-scoped Discourse AI fields on a full topic serializer.
 @immutable
 class AiSummaryAvailability {
   const AiSummaryAvailability({
@@ -40,7 +39,6 @@ class AiSummaryAvailability {
   int get hashCode => Object.hash(summarizable, hasCachedSummary);
 }
 
-/// One generated topic summary, whether returned by HTTP or message bus.
 @immutable
 class AiTopicSummary {
   const AiTopicSummary({

@@ -2,14 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-/// A synchronized, accessible pulse for decorative loading placeholders.
-///
-/// The child describes the eventual content's geometry. Individual
-/// [LoadingSkeletonBlock]s read the animation from the private scope below, so
-/// every shape breathes together while structural elements such as dividers
-/// remain still. The skeleton fills bounded layout axes and keeps the child's
-/// natural size on unbounded axes, so it can safely represent either a page or
-/// content inside a scroll view.
 class LoadingSkeleton extends StatefulWidget {
   const LoadingSkeleton({
     super.key,
@@ -115,7 +107,6 @@ class _LoadingSkeletonScope extends InheritedWidget {
       !identical(opacity, oldWidget.opacity);
 }
 
-/// One neutral rectangle or circle inside a [LoadingSkeleton].
 class LoadingSkeletonBlock extends StatelessWidget {
   const LoadingSkeletonBlock({
     super.key,

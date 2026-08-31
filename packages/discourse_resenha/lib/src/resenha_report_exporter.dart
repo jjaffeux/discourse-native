@@ -70,10 +70,6 @@ abstract interface class StreamingResenhaReportExporter {
   });
 }
 
-/// The platform interactions around a report export.
-///
-/// Keeping them outside [NativeResenhaReportExporter] makes the streaming and
-/// file-lifetime rules testable without opening a save panel or share sheet.
 abstract interface class ResenhaReportExportEnvironment {
   Future<String?> chooseSavePath({required String suggestedName});
 

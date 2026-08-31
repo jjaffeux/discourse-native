@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import '../../models/json.dart';
 import '../../shell/composer_images.dart';
 
-/// One featured Klipy category returned by Discourse's GIF proxy.
 @immutable
 final class GifCategory {
   const GifCategory({
@@ -40,7 +39,6 @@ final class GifCategory {
   int get hashCode => Object.hash(title, imageUrl, searchTerm);
 }
 
-/// A GIF already reduced to the media format selected by the site.
 @immutable
 final class GifResult {
   const GifResult({
@@ -95,14 +93,9 @@ final class GifResult {
   int get hashCode => Object.hash(title, url, width, height);
 }
 
-/// One cursor page returned by `GET /gifs/search.json`.
 @immutable
 final class GifSearchPage {
-  /// The fixed page size requested by core's GIF proxy.
-  ///
-  /// Keep this boundary before result parsing: every retained result can
-  /// become an image provider and grid tile, while [nextPosition] keeps later
-  /// pages reachable.
+  /// Core's GIF proxy page size and the client parsing ceiling.
   static const int maximumPageSize = 24;
 
   factory GifSearchPage({
@@ -133,7 +126,6 @@ final class GifSearchPage {
 
   final List<GifResult> results;
 
-  /// Klipy's opaque continuation cursor, or null when this is the last page.
   final String? nextPosition;
 
   bool get hasMore => nextPosition?.trim().isNotEmpty == true;

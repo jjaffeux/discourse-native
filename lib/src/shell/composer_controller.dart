@@ -1,3 +1,5 @@
+// ignore_for_file: prefer_initializing_formals
+
 import 'dart:async';
 
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
@@ -24,12 +26,6 @@ import 'composer_triggers.dart';
 import 'markdown_editing_controller.dart';
 import 'markdown_highlight.dart';
 
-/// What a composer is writing to.
-///
-/// Carries its own [siteUrl] rather than reading the current instance when it
-/// comes time to submit. Switching sites while a reply is half written must not
-/// send it to the site the user switched to, and every other cache in the shell
-/// is site-keyed for the same reason.
 enum ComposerMode {
   reply,
   newTopic,
@@ -41,11 +37,6 @@ enum ComposerMode {
   plugin,
 }
 
-/// Stable identity for a plugin-owned writing surface.
-///
-/// The pair is deliberately namespaced: two independently installed plugins
-/// may both call a target `message` without either one stealing the other's
-/// drafts or policy.
 @immutable
 final class ComposerTargetKind {
   const ComposerTargetKind({required this.owner, required this.name});
@@ -68,7 +59,6 @@ final class ComposerTargetKind {
 
 enum ComposerUploadDisposition { insertMarkdown, retainAttachment }
 
-/// The mutable facts a target strategy may use to decide whether Send is live.
 @immutable
 final class ComposerValidationContext {
   const ComposerValidationContext({
@@ -83,11 +73,6 @@ final class ComposerValidationContext {
 typedef ComposerTargetValidator =
     bool Function(ComposerValidationContext context);
 
-/// One resolved strategy for one plugin composer instance.
-///
-/// Resolution happens at the registry boundary. The controller retains this
-/// immutable answer, which means uninstalling or reordering plugins cannot
-/// silently change the policy of an already-open document.
 @immutable
 final class ComposerTargetPolicy {
   const ComposerTargetPolicy({
@@ -113,7 +98,6 @@ final class ComposerTargetPolicy {
   final ComposerTargetValidator validate;
 }
 
-/// Input handed to the exact strategy registered for [kind].
 @immutable
 final class ComposerTargetRequest {
   const ComposerTargetRequest({
@@ -190,22 +174,14 @@ class ComposerTarget {
   final List<TopicTag> initialTags;
   final String? targetRecipients;
 
-  /// The post being answered, or null when the reply is to the topic itself.
   final int? replyToPostNumber;
 
   final String? replyToUsername;
 
-  /// Whether the addressed post is itself a whisper.
-  ///
-  /// Core forces replies to whispers to remain whispers and removes the
-  /// public/whisper toggle for that reply target.
   final bool replyingToWhisper;
 
-  /// The post being rewritten, when this composer is editing rather than
-  /// replying. Null for a reply.
   final int? editingPostId;
 
-  /// Its number in the topic, for saying which post is being edited.
   final int? editingPostNumber;
 
   bool get isEdit => switch (mode) {
@@ -224,7 +200,6 @@ class ComposerTarget {
   bool get isTaxonomyEdit => isCategoryEdit || isTagsEdit;
   bool get isPlugin => mode == ComposerMode.plugin;
 
-  /// What Discourse files a draft for this topic under.
   String get draftKey => switch (mode) {
     ComposerMode.newTopic => ComposerDraft.newTopicDraftKey,
     ComposerMode.privateMessage => ComposerDraft.newPrivateMessageDraftKey,
@@ -257,7 +232,6 @@ class ComposerTarget {
   }
 }
 
-/// One immutable draft revision handed to the persistence boundary.
 @immutable
 class ComposerDraftSave {
   const ComposerDraftSave({
@@ -287,12 +261,6 @@ class _PendingDraft {
   final int revision;
 }
 
-/// Time spent actually typing.
-///
-/// Discourse's fast-typer check reads `typing_duration_msecs`, and it means
-/// this rather than wall clock since the composer opened — a reply written over
-/// a lunch break is not a bot. Gaps longer than [_pause] are someone reading or
-/// thinking, so they do not count.
 class TypingClock {
   TypingClock({DateTime Function()? now}) : _now = now ?? DateTime.now;
 
@@ -320,42 +288,10 @@ class TypingClock {
   }
 }
 
-/// Where an open composer is in the business of sending.
-enum ComposerState {
-  editing,
+enum ComposerState { editing, submitting, checking, unresolved }
 
-  /// A create is in flight.
-  submitting,
+enum DraftStatus { clean, saving, saved, failing }
 
-  /// A create failed in a way that might have posted anyway, and the topic is
-  /// being re-read to find out.
-  checking,
-
-  /// The check could not be completed, so whether it posted is still unknown.
-  /// Sending is held back — a second attempt would be a second post.
-  unresolved,
-}
-
-/// How the draft of an open composer is getting on.
-enum DraftStatus {
-  /// Nothing written since the last save, or nothing written at all.
-  clean,
-
-  /// Being sent.
-  saving,
-
-  /// The site has this text.
-  saved,
-
-  /// The site does not have it. The local copy still does.
-  failing,
-}
-
-/// One open composer.
-///
-/// Its own notifier rather than state on `ShellController`: a keystroke changes
-/// nothing outside this panel, and the shell's notifier rebuilds the rail, the
-/// sidebar and the whole post list along with it.
 class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   ComposerController(
     this._target, {
@@ -378,9 +314,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     int maxImageHeight = 500,
     int minimumRequiredTags = 0,
     DateTime Function()? now,
-  }) : // Named publicly for callers; the backing field stays encapsulated.
-       // ignore: prefer_initializing_formals
-       _enableAutoGridImages = enableAutoGridImages,
+  }) : _enableAutoGridImages = enableAutoGridImages,
        text = MarkdownEditingController(
          imageSiteUrl: _target.siteUrl,
          resolveEmoji: resolveEmoji,
@@ -406,34 +340,20 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
        _originalCategoryId = _target.initialCategoryId,
        _originalTags = List.unmodifiable(_target.initialTags),
        _whisper = _target.replyingToWhisper,
-       // Named publicly for callers; the backing field stays encapsulated.
-       // ignore: prefer_initializing_formals
        _minimumRequiredTags = minimumRequiredTags {
     text.addListener(_onTextChanged);
     title.addListener(_onMetadataChanged);
     _recomputeCanSubmit();
   }
 
-  /// Waits this long after the last keystroke before saving, so a save is not
-  /// sent per character.
   static const Duration draftDebounce = Duration(seconds: 2);
 
-  /// Saves anyway once this much time has passed since the last one. Without
-  /// it, someone typing without pause keeps pushing the debounce out and
-  /// nothing is ever saved.
   static const Duration draftMaxWait = Duration(seconds: 15);
 
-  /// After this many consecutive failures the sync gives up rather than
-  /// keep asking a site that is not answering. The local copy is still being
-  /// written, so nothing is lost by stopping.
   static const int maxDraftFailures = 5;
 
-  /// Records an emoji accepted from autocomplete. Picker selections record
-  /// themselves in the picker context before returning to the composer.
   final void Function(String code)? onEmojiAccepted;
 
-  /// Write validation text originates in a response body. Keep the useful
-  /// classification and status in diagnostics without retaining that text.
   static Object _safeDiagnosticError(Object error) => switch (error) {
     WriteException() => WriteException(
       error.failure,
@@ -444,8 +364,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _ => error,
   };
 
-  /// Persists the draft. Supplied by the shell, which owns the site and the
-  /// key; the composer only decides *when*.
   final Future<int?> Function(ComposerDraftSave save)? onSaveDraft;
 
   final ComposerImageUploader? imageUploader;
@@ -454,8 +372,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   bool _enableAutoGridImages;
   bool get enableAutoGridImages => _enableAutoGridImages;
 
-  /// Refreshes upload grouping when a site configuration request completes
-  /// after this composer was opened. Existing Markdown is never rewritten.
   void updateEnableAutoGridImages(bool value) {
     _enableAutoGridImages = value;
     if (value) return;
@@ -469,11 +385,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   final ComposerPluginStateReader? pluginStateReader;
   final bool Function()? isCurrentComposer;
 
-  /// What will be posted, and what is typed into.
-  ///
-  /// A [MarkdownEditingController] only to change how it is *drawn* — the
-  /// string is untouched, and every other caller here treats it as the plain
-  /// controller it still is.
   final MarkdownEditingController text;
   final TextEditingController title;
 
@@ -486,10 +397,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   bool _whisper;
   bool get whisper => _whisper;
 
-  /// Changes whether this reply is visible only to the site's whisper groups.
-  ///
-  /// This is draft state, not typing: retain it across browser/native handoff
-  /// without adding time to Discourse's fast-typer measurement.
   void setWhisper(bool value) {
     if (_disposed ||
         _target.createsTopic ||
@@ -557,18 +464,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   final FocusNode focus = FocusNode();
 
-  /// Bumped every time the field starts a fresh document, for the panel to key
-  /// the editable on.
-  ///
-  /// Rebuilding under a new key is the only way to drop the undo stack: it
-  /// lives in the state of `EditableText`'s `UndoHistory`, nothing exposes it —
-  /// `UndoHistoryController` offers `undo` and `redo` and no way to forget —
-  /// and emptying the text does not touch it. Without this, undo walks straight
-  /// back over the clear in [enqueued]; see there for what that costs.
   int get fieldGeneration => _fieldGeneration;
   int _fieldGeneration = 0;
 
-  /// The mention and emoji popup over this composer.
   final ComposerAutocomplete autocomplete;
 
   final TypingClock _typing;
@@ -623,18 +521,14 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   bool get submitting => _state == ComposerState.submitting;
 
-  /// Whether the check can be run again, after one could not be completed.
   bool get canRecheck => _state == ComposerState.unresolved;
 
   WriteException? _error;
 
-  /// Why the last attempt was refused, if it was.
   WriteException? get error => _error;
 
   String? _notice;
 
-  /// Something the site wants read — that the post was queued for review,
-  /// usually.
   String? get notice => _notice;
 
   void showNotice(String? message) {
@@ -661,11 +555,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         upload.status == ComposerUploadStatus.retrying,
   );
 
-  /// Starts valid images at the requested text position.
-  ///
-  /// A caret inside an existing gallery appends to that gallery. Otherwise a
-  /// batch of at least three images follows core's automatic-grid setting and
-  /// creates one gallery when its first upload succeeds.
   void addImages(Iterable<ComposerUploadFile> files, int offset) {
     final gallery = _galleryAtContentOffset(offset);
     _addImages(
@@ -677,7 +566,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     );
   }
 
-  /// Uploads [files] into the captured gallery, without creating a nested one.
   void addImagesToGallery(
     Iterable<ComposerUploadFile> files,
     ComposerImageGalleryBlock gallery,
@@ -1087,11 +975,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   Timer? _wait;
   bool _rateLimited = false;
 
-  /// True while a rate limit is still in force, so sending is held back rather
-  /// than earning a second refusal.
   bool get rateLimited => _rateLimited;
 
-  /// Turns [mark] on or off around the selection.
   void toggleMark(ComposerMark mark) {
     if (_disposed ||
         selectionTouchesComposerQuote(text.quoteBlocks, text.selection)) {
@@ -1100,12 +985,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     text.value = toggleMarkdownMark(text.value, mark.marker);
   }
 
-  /// Inserts [insertion] over the current selection and leaves the caret after
-  /// it.
-  ///
-  /// Compact plugin add-actions use this for mention and emoji triggers. It is
-  /// kept here rather than manipulating the field from the widget so the same
-  /// notification path drives autocomplete, uploads, and undo history.
   void insertText(String insertion) {
     if (_disposed || insertion.isEmpty) return;
     final old = text.value;
@@ -1120,12 +999,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     );
   }
 
-  /// Inserts one canonical emoji shortcode at the current selection.
-  ///
-  /// A picker opened from `:part` completes that run, just as the web editor
-  /// does. Otherwise the selection is replaced and prose immediately before
-  /// it is separated from the shortcode by one space. No trailing space is
-  /// forced: adjacent emoji and punctuation remain possible.
   void insertEmoji(String bareCode) {
     if (_disposed) return;
     final code = bareCode
@@ -1166,12 +1039,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     return RegExp(r'''[\s([{<"'`]''').hasMatch(text[sigil - 1]);
   }
 
-  /// Inserts a markdown block over the current selection, separated from the
-  /// prose on either side by a blank line.
-  ///
-  /// Post quotes arrive through this path. Keeping block spacing here makes a
-  /// quote safe at the beginning, middle, or end of an existing draft instead
-  /// of making the selection toolbar reason about composer text.
   @override
   bool insertBlock({
     required TextEditingValue expectedValue,
@@ -1204,7 +1071,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     );
   }
 
-  /// Prepends a block without discarding a restored new-topic draft.
   void prependBlock(String markdown) {
     if (_disposed || markdown.trim().isEmpty) return;
     text.selection = const TextSelection.collapsed(offset: 0);
@@ -1246,7 +1112,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     );
   }
 
-  /// The gallery containing [image], if both still describe the current draft.
   ComposerImageGalleryBlock? galleryForImage(ComposerImageBlock image) {
     if (_target.isPlugin || !_stillContainsImage(image)) return null;
     for (final gallery in parseComposerImageGalleries(text.text)) {
@@ -1262,7 +1127,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     return null;
   }
 
-  /// Images which can be moved into a gallery without unwrapping another one.
   List<ComposerImageBlock> get standaloneImages {
     if (_target.isPlugin) return List.unmodifiable(text.imageBlocks);
     final galleries = parseComposerImageGalleries(text.text);
@@ -1295,7 +1159,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     );
   }
 
-  /// Removes only the gallery wrapper and keeps every image in member order.
   void unwrapGallery(ComposerImageGalleryBlock gallery) {
     final current = _currentGallery(gallery);
     if (current == null) return;
@@ -1306,7 +1169,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     );
   }
 
-  /// Moves [image] after its gallery without deleting the uploaded image.
   void moveImageOutOfGallery(
     ComposerImageGalleryBlock gallery,
     ComposerImageBlock image,
@@ -1335,8 +1197,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     );
   }
 
-  /// Moves one member to [newIndex] while retaining the gallery and every
-  /// image's lossless Markdown source.
   void reorderGalleryImage(
     ComposerImageGalleryBlock gallery,
     ComposerImageBlock image,
@@ -1361,7 +1221,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _replaceGallery(current, _galleryMarkdown(current.mode, reordered));
   }
 
-  /// Moves standalone [images] into [gallery] in their document order.
   void addExistingImagesToGallery(
     ComposerImageGalleryBlock gallery,
     Iterable<ComposerImageBlock> images,
@@ -1832,13 +1691,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         : '$opening\n$members\n[/grid]';
   }
 
-  /// Writes [suggestion] over the trigger that is open.
-  ///
-  /// Through `text.value` rather than poked into `text.text`, so
-  /// [_onTextChanged] fires: the draft timer, the typing clock and `canSubmit`
-  /// all hang off that one notification, and a mention inserted around it
-  /// would be text the site never hears about. It also keeps the insertion on
-  /// the undo stack, which an assignment with no valid selection would not.
   void acceptSuggestion(ComposerSuggestion suggestion) {
     if (_disposed || suggestion.action != null) return;
     final open = autocomplete.trigger;
@@ -1853,8 +1705,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   bool get isDisposed => _disposed;
 
-  /// Removes an emoji completion that became disallowed while metadata was
-  /// loading, without disturbing mention or hashtag completion.
   void closeEmojiAutocomplete() {
     if (_disposed || autocomplete.trigger?.kind != ComposerTriggerKind.emoji) {
       return;
@@ -1866,33 +1716,16 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   bool _loadingBody = false;
 
-  /// True while the post being edited is still being fetched.
-  ///
-  /// The stream carries cooked HTML only, so an edit composer opens empty and
-  /// fills in once the markdown arrives.
   @override
   bool get loadingBody => _loadingBody;
 
   String? _originalRaw;
 
-  /// The body an edit opened with: the baseline changes are measured against,
-  /// and what the site checks for edit conflicts as `original_text`. Null
-  /// until [loadedBody] supplies it — including after a failed fetch.
   @override
   String? get originalRaw => _originalRaw;
 
-  /// Latched by [bodyLoadFailed], cleared only when [loadedBody] supplies the
-  /// baseline. While set, the field holds typed-over emptiness rather than
-  /// the post, so a submit would replace the whole post with it — and with no
-  /// [originalRaw] to send, without the site's edit-conflict check either.
   bool _missingEditBody = false;
 
-  /// Whether there is anything worth sending. Blank is not a post, and neither
-  /// is an edit nobody has changed — the site refuses that anyway.
-  ///
-  /// An edit has one more way of being not worth sending: the body may not
-  /// have arrived yet — or may have failed to arrive at all — and saving then
-  /// would replace the post with whatever little the field holds.
   bool get canSubmit =>
       _canSubmit &&
       _state == ComposerState.editing &&
@@ -1901,14 +1734,12 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       !_missingEditBody &&
       !hasActiveUploads;
 
-  /// Marks an edit composer as waiting for the post it is going to rewrite.
   void beginLoadingBody() {
     if (_disposed) return;
     _loadingBody = true;
     _notify();
   }
 
-  /// Puts the post's own markdown in front of the user to edit.
   void loadedBody(String raw) {
     if (_disposed) return;
     _loadingBody = false;
@@ -1923,13 +1754,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
-  /// The post could not be fetched, so there is nothing to edit. Sending stays
-  /// disabled until [loadedBody] supplies the body: an empty field here would
-  /// blank the post rather than leave it, and text typed over the emptiness
-  /// would replace the post rather than amend it. Metadata-only topic edits
-  /// are held back with it, because the submit path follows a metadata save
-  /// with a body update whenever the field differs from the baseline — and
-  /// with no baseline, "unchanged" cannot be told from "missing".
   void bodyLoadFailed() {
     if (_disposed) return;
     _loadingBody = false;
@@ -1943,8 +1767,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   String get raw => text.text.trim();
 
-  /// What the next draft save must be sequenced against. Seeded from the topic
-  /// and advanced by every save and by a successful post.
   int draftSequence = 0;
 
   Timer? _draftTimer;
@@ -1959,25 +1781,15 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   DraftStatus _draftStatus = DraftStatus.clean;
   DraftStatus get draftStatus => _draftStatus;
 
-  /// True once the sync has stopped trying, so the panel can say the site does
-  /// not have this yet.
   bool get draftsGaveUp => _draftsGaveUp;
 
-  /// Whether the latest unsynced revision could not be retained on-device.
   bool get localDraftFailed => _localDraftFailed;
 
-  /// Whether a save is waiting out the debounce, so text neither the site nor
-  /// this device has yet can be flushed before this composer is thrown away.
   bool get draftPending =>
       (_draftTimer?.isActive ?? false) || _queuedDraft != null;
 
-  /// Whether local persistence is still waiting or running for this draft.
-  ///
-  /// Shell teardown needs the running case too: an operation may be waiting on
-  /// platform storage without still being present in the debounce queue.
   bool get draftPersistencePending => draftPending || _draftSaveTask != null;
 
-  /// This composer's contents, in the shape Discourse stores drafts in.
   ComposerDraft get draft => ComposerDraft(
     reply: text.text,
     action: _target.isPrivateMessage
@@ -1999,10 +1811,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     composerTime: openDuration,
   );
 
-  /// Puts an unfinished reply back in front of the user.
-  ///
-  /// Only when nothing has been typed yet: a restore that lands after someone
-  /// has started writing must not overwrite them.
   void restore(ComposerDraft draft) {
     if (_disposed || text.text.isNotEmpty || title.text.isNotEmpty) return;
     if (_target.isPrivateMessage &&
@@ -2029,8 +1837,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
-  /// Marks the draft as no longer this composer's problem — the post landed,
-  /// and Discourse deletes the draft itself when it accepts one.
   void draftSettled() {
     _draftTimer?.cancel();
     _queuedDraft = null;
@@ -2184,8 +1990,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
-  /// Points an already-open composer at a different post in the same topic,
-  /// instead of throwing away what has been written.
   void retarget({
     int? replyToPostNumber,
     String? replyToUsername,
@@ -2208,7 +2012,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
-  /// Refused for a reason that is certain — the site said no, and said why.
   void failed(WriteException error) {
     if (_disposed) return;
     _state = ComposerState.editing;
@@ -2217,7 +2020,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
-  /// Looking for the post, after a failure that might have posted anyway.
   void checking() {
     if (_disposed) return;
     _state = ComposerState.checking;
@@ -2226,7 +2028,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
-  /// Checked, and it did not post. Safe to send again.
   void checkedNotPosted(WriteException error) {
     if (_disposed) return;
     _state = ComposerState.editing;
@@ -2235,8 +2036,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
-  /// The check itself failed, so whether it posted is unknown. Sending stays
-  /// held back: guessing wrong here means posting twice with no way to undo it.
   void unresolved() {
     if (_disposed) return;
     _state = ComposerState.unresolved;
@@ -2247,8 +2046,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
-  /// Discourse hands back how long to wait; sending is disabled until then
-  /// rather than letting the user earn another refusal.
   void _holdFor(Duration? wait) {
     _wait?.cancel();
     if (wait == null || wait <= Duration.zero) return;
@@ -2263,18 +2060,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     });
   }
 
-  /// Held for review: there is no post to show, so the composer stays open and
-  /// says so rather than silently appearing to have done nothing.
-  ///
-  /// The text goes, because the reply *was* accepted — leaving it would put a
-  /// working send button under writing that has already been submitted, and
-  /// pressing it queues a second copy.
-  ///
-  /// Emptying the field is not enough on its own: the undo stack outlives it,
-  /// so one Ctrl+Z would step back over the clear and hand the submitted text
-  /// back, under a send button this composer has just made live again. The
-  /// reply that was accepted is a finished document, so the field starts a new
-  /// one — see [fieldGeneration].
   void enqueued(String? message) {
     if (_disposed) return;
     draftSettled();
@@ -2293,11 +2078,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
-  /// Starts a fresh document after a successful non-topic send.
-  ///
-  /// Replacing the keyed editable is intentional: clearing only the controller
-  /// leaves the submitted message in Flutter's undo stack, where one Ctrl+Z
-  /// would put already-sent text back under an enabled send button.
   void clearDocument() {
     if (_disposed) return;
     draftSettled();
@@ -2313,12 +2093,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
-  /// Replaces a plugin composer with a record being edited.
-  ///
-  /// Retained attachments do not live in the Markdown body, so entering edit mode
-  /// has to replace both parts of the document. Retained uploads are completed
-  /// queue rows: they can be removed or sent with the edit, but never retried
-  /// because there is no local file behind them.
   void replacePluginDocument({
     required String raw,
     required Iterable<ComposerUploadResult> uploads,
@@ -2388,14 +2162,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   void _onTextChanged() {
-    // A `TextEditingController` notifies on selection as well as on text, so
-    // this runs on every click, every arrow key and every frame of a selection
-    // drag. None of what follows is about the caret: ticking the clock here
-    // counts reading time as typing time against Discourse's fast-typer check,
-    // and scheduling a draft here spends a request re-sending text the site
-    // already has.
-    // Ahead of the guard below, because the popup is the one thing here that
-    // *is* about the caret: clicking away from a half-typed name closes it.
+    // TextEditingController also notifies for selection changes. Autocomplete
+    // needs those caret updates; typing and draft clocks do not.
     if (!_replacingDocument) autocomplete.update(text.value);
 
     if (text.text == _lastText) return;
@@ -2493,8 +2261,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _uploads.clear();
   }
 
-  /// A submit outlives the panel — closing the composer while one is in flight
-  /// is normal — and ChangeNotifier throws once disposed.
   void _notify() {
     if (_disposed) return;
     notifyListeners();

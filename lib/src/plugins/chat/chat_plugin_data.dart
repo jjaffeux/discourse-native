@@ -18,7 +18,6 @@ const PluginDataKey<ChatCurrentUser> chatCurrentUserDataKey = PluginDataKey(
 const chatSettingsPersistenceCodec = ChatSettingsPersistenceCodec();
 const chatCurrentUserPersistenceCodec = ChatCurrentUserPersistenceCodec();
 
-/// The client-marked Chat settings used by native Chat surfaces.
 @immutable
 final class ChatSettings {
   const ChatSettings({
@@ -87,11 +86,8 @@ final class ChatSettings {
   );
 }
 
-/// Which Chat activity the account wants called out on the header shortcut.
-///
-/// These are the four values Chat serializes from
-/// `UserOption#chat_header_indicator_preference`. Unknown values retain the
-/// server's default behavior rather than silently disabling the indicator.
+/// Preserves unknown `chat_header_indicator_preference` values as the server
+/// default instead of disabling the indicator.
 enum ChatHeaderIndicatorPreference {
   allNew('all_new'),
   directMessagesAndMentions('dm_and_mentions'),
@@ -110,11 +106,8 @@ enum ChatHeaderIndicatorPreference {
   }
 }
 
-/// Chat's contribution to `/session/current.json`.
-///
-/// [hasChatEnabled] and [canDirectMessage] are nullable only for a warm-start
-/// account stored before those capabilities were persisted. A fresh response
-/// resolves absent wire keys to false, matching Chat's serializer contract.
+/// Nullable capabilities represent only legacy warm-start records; fresh
+/// session responses resolve absent keys to false.
 @immutable
 final class ChatCurrentUser {
   const ChatCurrentUser({
@@ -161,7 +154,6 @@ final class ChatCurrentUser {
   final ChatHeaderIndicatorPreference headerIndicatorPreference;
   final int? lastChannelId;
 
-  /// Usernames whose messages must not contribute Chat unread state.
   final List<String> ignoredUsernames;
 
   Map<String, Object?> toStored() => {

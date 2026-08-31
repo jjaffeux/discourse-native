@@ -3,7 +3,6 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as timezone_data;
 import 'package:timezone/timezone.dart' as tz;
 
-/// Owns the process-wide IANA database and the device's current zone.
 class TimezoneEnvironment extends ChangeNotifier {
   TimezoneEnvironment._({Future<String?> Function()? detectDeviceTimezone})
     : _detectDeviceTimezone =
@@ -70,7 +69,6 @@ class TimezoneEnvironment extends ChangeNotifier {
   static Future<String?> _readPlatformDeviceTimezone() async =>
       (await FlutterTimezone.getLocalTimezone()).identifier;
 
-  /// Authoring follows the account first, then the device, then UTC.
   String readerTimezone([String? accountTimezone]) =>
       canonicalTimezone(accountTimezone) ??
       canonicalTimezone(_deviceTimezone) ??

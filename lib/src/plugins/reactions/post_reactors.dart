@@ -4,11 +4,6 @@ import '../../data/store.dart';
 import '../../models/json.dart';
 import '../../plugin_api/reaction_presentation.dart';
 
-/// One account that reacted to a post, and what with.
-///
-/// The sibling of `PostLiker`, and thin for the same reason: this is a row in a
-/// list of names, and the card behind any of them is a separate fetch that only
-/// happens if one is clicked.
 @immutable
 class PostReactor implements ReactionUser {
   const PostReactor({
@@ -23,8 +18,6 @@ class PostReactor implements ReactionUser {
     return PostReactor(
       id: jsonInt(json['id']),
       username: jsonString(json['username']),
-      // Absent on a site with `enable_names` off, where the username is the
-      // only name anyone has.
       name: jsonText(json['name']),
       avatarUrl: resolveAvatarUrl(jsonText(json['avatar_template']), siteUrl),
       reaction: jsonString(json['reaction']),
@@ -43,9 +36,6 @@ class PostReactor implements ReactionUser {
   @override
   final String? avatarUrl;
 
-  /// What they gave. Never empty in practice: the route's query labels a plain
-  /// liker with the site's main reaction, so the merged list is uniform and
-  /// there is no "liked but did not react" row to draw differently.
   @override
   final String reaction;
 
@@ -66,11 +56,6 @@ class PostReactor implements ReactionUser {
   int get hashCode => Object.hash(id, username, name, avatarUrl, reaction);
 }
 
-/// Who reacted to a post, oldest first, as the site listed them.
-///
-/// A record of its own rather than a field on the post, for the reason
-/// `PostLikers` is: it is fetched separately and only when asked for. The
-/// stream carries how many reacted, never who.
 @immutable
 class PostReactors with Storable<PostReactors> implements ReactionUsersPage {
   const PostReactors({
@@ -80,15 +65,9 @@ class PostReactors with Storable<PostReactors> implements ReactionUsersPage {
     this.filter,
   });
 
-  /// Largest page the plugin route can legally return.
-  ///
-  /// Keep the client boundary too: the list is rendered as one eager column,
-  /// so a nonconforming response must not create an arbitrary number of model
-  /// records, avatar loads, and rows.
+  /// Plugin page size and the eager client parsing ceiling.
   static const int maximumPageSize = 50;
 
-  /// `{users: [...], total_rows: N}` — a different envelope from
-  /// `post_action_users`, so a parser of its own rather than a flag on that one.
   static PostReactors parse(
     Map<String, dynamic> json, {
     required int postId,
@@ -107,24 +86,16 @@ class PostReactors with Storable<PostReactors> implements ReactionUsersPage {
 
   final int postId;
 
-  /// The emoji this list was narrowed to, or null for everyone who reacted.
   final String? filter;
 
   @override
   final List<PostReactor> reactors;
 
-  /// How many there are in total, of which [reactors] is the first page.
-  ///
-  /// This is the number the panel counts with, and deliberately not
-  /// `Reactions.userCount`: it comes from the same query as the rows, so "and N
-  /// others" adds up. The other one counts reactions whose emoji has since been
-  /// deleted, and provably exceeds what is on screen.
+  /// Total from the rows query; unlike `Reactions.userCount`, it excludes
+  /// reactions whose emoji has been deleted.
   @override
   final int total;
 
-  /// Composite, so the unfiltered list and each per-emoji one are separate
-  /// records rather than overwriting each other. `Store` keys on `Object`, so a
-  /// String is as good an id as an int.
   @override
   Object get storeId => key(postId, filter);
 

@@ -19,7 +19,6 @@ import 'shell_scope.dart';
 import 'topic_title.dart';
 import 'user_card.dart';
 
-/// The connected account's native equivalent of Discourse's user Summary.
 class UserSummaryView extends StatefulWidget {
   const UserSummaryView({super.key, required this.siteUrl});
 
@@ -1105,7 +1104,6 @@ class _SummaryLoadingSkeleton extends StatelessWidget {
 
 typedef SummaryDuration = ({String short, String long});
 
-/// Core's tiny/medium duration pair used by Summary read-time stats.
 SummaryDuration summaryDuration(int seconds) {
   final safe = seconds < 0 ? 0 : seconds;
   final minutes = (safe / 60).round().clamp(1, 1 << 31);

@@ -5,13 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'json.dart';
 import 'topic_tag.dart';
 
-/// A reply in progress, in the shape Discourse stores drafts in.
-///
-/// The field names are the web composer's own (`models/composer.js`,
-/// `_draft_serializer`) rather than anything of ours, so a reply started here
-/// can be finished in a browser and the other way round. That interoperability
-/// is the entire reason to use the draft API instead of only keeping a local
-/// copy.
 @immutable
 class ComposerDraft {
   const ComposerDraft({
@@ -29,7 +22,6 @@ class ComposerDraft {
     this.composerTime = Duration.zero,
   });
 
-  /// What the web composer calls replying to an existing topic.
   static const String replyAction = 'reply';
   static const String createTopicAction = 'createTopic';
   static const String privateMessageAction = 'privateMessage';
@@ -38,9 +30,6 @@ class ComposerDraft {
   static const String regularArchetype = 'regular';
   static const String privateMessageArchetype = 'private_message';
 
-  /// Discourse rejects draft JSON above `SiteSetting.max_draft_length`, whose
-  /// hidden maximum is 150,000 characters. Bound nonconforming stored/server
-  /// values before asking the JSON parser to allocate for them.
   static const int maximumEncodedCharacters = 150000;
 
   factory ComposerDraft.fromJson(Map<String, dynamic> json) => ComposerDraft(
@@ -65,11 +54,6 @@ class ComposerDraft {
     composerTime: Duration(milliseconds: jsonInt(json['composerTime'])),
   );
 
-  /// Reads the blob Discourse stores.
-  ///
-  /// It is a JSON *string* rather than an object, both in the topic payload
-  /// and in the draft API, and anything that cannot be read is treated as no
-  /// draft at all — an unreadable one is not worth failing an open over.
   static ComposerDraft? decode(Object? data) {
     if (data is! String || data.isEmpty || !_isWithinEncodedLimit(data)) {
       return null;
@@ -112,10 +96,8 @@ class ComposerDraft {
   final String? replyToUsername;
   final bool whisper;
 
-  /// Time spent typing, which is what the fast-typer check measures.
   final Duration typingTime;
 
-  /// Wall clock since the composer opened.
   final Duration composerTime;
 
   Map<String, dynamic> toJson() => {

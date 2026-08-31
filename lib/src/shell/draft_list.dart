@@ -18,11 +18,9 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_title.dart';
 
-/// The full-page list of server-side drafts for one connected account.
 class DraftListView extends StatefulWidget {
   const DraftListView({super.key, required this.siteUrl});
 
-  /// A row can never be shorter than its 44px actions plus its outer padding.
   static const double compactRowMinimumHeight = 72;
   static const double wideRowMinimumHeight = 84;
 
@@ -148,8 +146,6 @@ class _DraftListViewState extends State<DraftListView> {
   }
 }
 
-/// A faithful outline of the full drafts list while its first page arrives.
-/// The row pattern repeats until the clipped viewport is covered.
 class _DraftListLoadingSkeleton extends StatelessWidget {
   const _DraftListLoadingSkeleton({super.key});
 

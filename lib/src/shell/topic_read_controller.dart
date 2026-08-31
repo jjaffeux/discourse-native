@@ -16,13 +16,6 @@ typedef _TopicReadReceipt = ({
   SiteLease lease,
 });
 
-/// Owns optimistic topic read positions and their serialized server receipts.
-///
-/// Viewport observations can arrive faster than the network. One receipt is
-/// sent at a time for each topic, while waiting observations collapse to the
-/// newest position because read positions only move forwards. Account changes
-/// invalidate both the credential lookup and the queued work before either can
-/// cross the HTTP boundary.
 final class TopicReadController {
   TopicReadController({
     required this.api,
@@ -45,12 +38,6 @@ final class TopicReadController {
 
   bool _disposed = false;
 
-  /// Credits the reader through the farthest post the viewport has shown.
-  ///
-  /// The local list row moves first so reopening it in this session uses the
-  /// new position even while the network write is in flight. Failed receipts
-  /// are not rolled back: a later personalized list refresh is authoritative,
-  /// and putting unread state back under a reader would be misleading.
   Future<void> mark(
     String siteUrl,
     int topicId,
@@ -99,8 +86,6 @@ final class TopicReadController {
     return task;
   }
 
-  /// Drops exactly one site's local positions and prevents its late work from
-  /// issuing another request or reporting an error into a replacement account.
   void forget(String siteUrl) {
     _positions.removeWhere((key, _) => key.$1 == siteUrl);
     _queued.removeWhere((key, _) => key.$1 == siteUrl);
@@ -117,7 +102,6 @@ final class TopicReadController {
     _runs.clear();
   }
 
-  /// Sends one receipt at a time and collapses waiting positions to the newest.
   Future<void> _drain(_TopicReadKey key, Object run) async {
     while (_isCurrentRun(key, run)) {
       final receipt = _queued.remove(key);

@@ -1,6 +1,5 @@
 import 'poll.dart';
 
-/// Personalized writes owned by Discourse's bundled Poll plugin.
 abstract interface class PollsApi {
   Future<PollVoteResponse> votePoll({
     required String siteUrl,

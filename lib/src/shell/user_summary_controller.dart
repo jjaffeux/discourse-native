@@ -32,12 +32,6 @@ final class UserSummaryState {
       UserSummaryState(summary: summary, loaded: true, error: message);
 }
 
-/// Per-forum Summary state, isolated from shell-wide navigation rebuilds.
-///
-/// A site's lifecycle generation is also its account generation. Disconnect,
-/// reconnect, removal, and credential rotation invalidate the lease, so a
-/// private response from the former account cannot enter the replacement
-/// account's cache.
 final class UserSummaryController extends FrameSafeNotifier {
   UserSummaryController({
     required this.api,

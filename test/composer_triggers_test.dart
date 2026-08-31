@@ -2,9 +2,6 @@ import 'package:discourse_native/src/shell/composer_triggers.dart';
 import 'package:flutter/widgets.dart' show TextEditingValue, TextSelection;
 import 'package:flutter_test/flutter_test.dart';
 
-/// A composer where `|` is the caret, so a case reads as what someone has
-/// typed rather than as a string and an offset that have to be checked against
-/// each other.
 TextEditingValue typed(String annotated) {
   final caret = annotated.indexOf('|');
   final text = annotated.replaceFirst('|', '');
@@ -14,8 +11,6 @@ TextEditingValue typed(String annotated) {
   );
 }
 
-/// The trigger as `@query` or `:query`, or `-` for none — short enough to put
-/// a table of cases in one place.
 String triggerIn(String annotated) {
   final trigger = composerTriggerAt(typed(annotated));
   return trigger == null ? '-' : '${trigger.kind.sigil}${trigger.query}';
@@ -51,8 +46,6 @@ void main() {
     });
 
     test('waits for a second character before searching for an emoji', () {
-      // A lone colon is punctuation. Every "Note: " in a reply would otherwise
-      // open a list over the post being written.
       expect(triggerIn('Note:|'), '-');
       expect(triggerIn('Note: |'), '-');
       expect(triggerIn('a :s|'), '-');
@@ -69,7 +62,6 @@ void main() {
     });
 
     test('does not reopen on a shortcode that is already finished', () {
-      // The closing colon is preceded by a letter, so it does not start a word.
       expect(triggerIn('a :smile:|'), '-');
       expect(triggerIn('a :smile: |'), '-');
     });
@@ -80,7 +72,6 @@ void main() {
     });
 
     test('needs the caret at the end of the run', () {
-      // Clicking back into a name already written is reading, not composing.
       expect(triggerIn('hey @s|am and'), '-');
       expect(triggerIn('hey @sam| and'), '@sam');
     });
@@ -121,7 +112,6 @@ void main() {
     });
 
     test('a shortcode is still a shortcode', () {
-      // The rule above must not reach past anything that is not a hashtag.
       expect(triggerIn('a :sm|'), ':sm');
       expect(triggerIn('a :smile:|'), '-');
       expect(triggerIn('a :smile::sm|'), '-');
@@ -181,8 +171,6 @@ void main() {
     });
 
     test('writes the ref a hashtag was offered under, not its slug', () {
-      // `random::tag` and `parent:child` are what the site resolves; the slug
-      // alone finds the wrong thing, or nothing.
       expect(accept('see #ra|', 'random::tag'), 'see #random::tag |');
       expect(accept('see #ch|', 'parent:child'), 'see #parent:child |');
     });
@@ -212,7 +200,6 @@ void main() {
         composerTriggerAt(value)!,
         'smile',
       );
-      // Otherwise accepting one suggestion opens the list again on the result.
       expect(composerTriggerAt(done), isNull);
     });
   });

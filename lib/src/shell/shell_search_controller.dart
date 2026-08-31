@@ -74,12 +74,6 @@ typedef _SearchRequest = ({
 
 typedef _RecentSearchRequest = ({String siteUrl, int revision});
 
-/// One transient search interaction, independent from shell navigation.
-///
-/// Core's search menu has three distinct stages: initial options, modifier
-/// assistance, and grouped search results. Keeping those stages here prevents
-/// a suffix such as `@sa` from being sent to `/search/query`, and gives pointer
-/// and keyboard activation one authoritative selection model.
 class ShellSearchController extends ChangeNotifier {
   ShellSearchController({
     required this.api,
@@ -249,8 +243,6 @@ class ShellSearchController extends ChangeNotifier {
     );
   }
 
-  /// Selects the forum this global input searches. A changed forum is a hard
-  /// boundary: neither its text nor a late private result may cross it.
   void selectSite(
     String? siteUrl, {
     int minimumLength = 3,
@@ -367,7 +359,6 @@ class ShellSearchController extends ChangeNotifier {
     _notify();
   }
 
-  /// Switches from core's debounced facet suggestions to its topic search.
   void showTopics() {
     if (_mode == SearchMode.topics || _query.trim().isEmpty) return;
     _mode = SearchMode.topics;
@@ -706,8 +697,6 @@ class ShellSearchController extends ChangeNotifier {
     _notify();
   }
 
-  /// Clears only the field. Core keeps the focused menu open and returns to
-  /// its quick tip and recent searches.
   void clearQuery() {
     _debounce?.cancel();
     _queued = null;
@@ -719,7 +708,6 @@ class ShellSearchController extends ChangeNotifier {
     if (_panelOpen) unawaited(_loadRecentSearches());
   }
 
-  /// Ends the whole search interaction, used by navigation and site changes.
   void clear({bool notify = true}) {
     _debounce?.cancel();
     _queued = null;
@@ -982,8 +970,6 @@ class ShellSearchController extends ChangeNotifier {
     }
   }
 
-  /// The currently mounted field registers the callback a global shortcut
-  /// should use. The returned callback removes only that registration.
   VoidCallback registerFocus(Object field, VoidCallback focus) {
     _focusRegistration = field;
     _focusField = focus;

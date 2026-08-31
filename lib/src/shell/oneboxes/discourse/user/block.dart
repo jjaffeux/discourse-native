@@ -10,9 +10,6 @@ import '../../../site_url.dart';
 import '../../markup.dart';
 import '../../onebox.dart';
 
-/// A profile on the site the post was written on: `aside.onebox` holding an
-/// `article.user-onebox`. The user card does not claim it — a onebox is a
-/// card already, just drawn by the server's stylesheet until now.
 class DiscourseUserOnebox extends StatelessWidget {
   const DiscourseUserOnebox({super.key, required this.data, this.siteUrl});
 
@@ -102,7 +99,6 @@ class DiscourseUserOnebox extends StatelessWidget {
   TextStyle? _mutedStyle(ThemeData theme) => theme.textTheme.labelMedium
       ?.copyWith(color: theme.colorScheme.onSurfaceVariant);
 
-  /// The avatar is written site-relative, like quote avatars.
   String? _absoluteAvatar(String? src) {
     if (src == null) return null;
     final url = resolveSiteUrl(src, siteUrl);
@@ -110,7 +106,6 @@ class DiscourseUserOnebox extends StatelessWidget {
   }
 }
 
-/// Everything the user onebox carries, read out of the aside.
 class DiscourseUserData {
   const DiscourseUserData({
     required this.username,
@@ -183,8 +178,6 @@ class DiscourseUserData {
   }
 }
 
-/// Claims the user onebox — an `aside.onebox` with no engine class of its
-/// own, recognised by its body — for the dispatch in `onebox.dart`.
 final OneboxEngine discourseUserBlock = OneboxEngine(
   matches: _hasUserBody,
   build: (aside, envelope, siteUrl) => OneboxCard(
@@ -197,10 +190,5 @@ final OneboxEngine discourseUserBlock = OneboxEngine(
   ),
 );
 
-/// The walk goes through `cooked_dom.dart` for the reason that file exists:
-/// `children` is a `FilteredElementList` that rebuilds itself out of `nodes`
-/// on every `length` and every `[]`, so pushing children by index costs a list
-/// per child. This runs for every unclaimed `aside.onebox` in a post, on every
-/// frame that draws it.
 bool _hasUserBody(dom.Element aside) =>
     descendantWhere(aside, (e) => e.classes.contains('user-onebox')) != null;

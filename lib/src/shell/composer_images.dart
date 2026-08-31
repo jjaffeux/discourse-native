@@ -38,12 +38,8 @@ class ComposerImageBlock {
   }
 }
 
-// The alt class excludes the backslash on purpose. Letting it match there as
-// well as through `\\.` gives a run of backslashes one parse per backslash,
-// and the engine tries all of them before an alt with no `](` after it can
-// fail: forty of them in a composer that rescans on every keystroke is a
-// freeze, not a slow frame. Excluding it also reads `\]` the way CommonMark
-// does — as an escaped bracket that does not close the alt.
+// Let `\\.` own backslashes. Matching them in both branches causes explosive
+// backtracking and misreads CommonMark's escaped `\]`.
 final RegExp _imagePattern = RegExp(
   r'!\[((?:\\.|[^\\\]\n])*)\]\(((?:upload://|https?://)[^)\s]+)(?:\s+"[^"]*")?\)',
   caseSensitive: false,
@@ -55,10 +51,6 @@ final RegExp _labelPattern = RegExp(
   r'^(.*?)(?:\|(\d{1,4})x(\d{1,4})(?:,\s*(\d{1,3})%)?)?(?:\|.*)?$',
 );
 
-/// [codeRanges] lets a caller that has already scanned [source] hand its
-/// answer over. The scan is the expensive half of this, and the composer runs
-/// it once for its own highlighting before asking any of these parsers
-/// anything — without this each of them would repeat it on every keystroke.
 List<ComposerImageBlock> parseComposerImages(
   String source, {
   CodeRanges? codeRanges,
@@ -66,11 +58,8 @@ List<ComposerImageBlock> parseComposerImages(
   if (source.isEmpty) return const [];
   final code = codeRanges ?? CodeRanges.of(scanMarkdown(source));
   final images = <ComposerImageBlock>[];
-  // Matched one opener at a time rather than with `allMatches`, so a line
-  // shown to hold no `]` is not rediscovered at every `![` on it. The alt
-  // cannot cross a newline, so a `]` somewhere on the line is necessary for a
-  // match; without one the pattern would still walk to the line's end per
-  // opener, which on one long line is quadratic.
+  // Scan one opener at a time and skip lines without `]`; otherwise every `![`
+  // walks the same line suffix and makes malformed input quadratic.
   var offset = 0;
   var barrenTo = -1;
   var lineEnd = -1;
@@ -146,25 +135,9 @@ String uploadImageMarkdown(ComposerUploadResult upload) {
   return '![${composerImageAlt(base)}$dimensions](${upload.shortUrl})';
 }
 
-/// [value] with what cannot appear inside an image alt taken out.
-///
-/// Two different questions, and both have to be answered before an alt is
-/// written. A bracket, a backtick or a backslash survives a round trip,
-/// because [escapeImageAlt] writes it and the parser reads it back. A `|` and
-/// a line ending have no such spelling: the first opens the `|WxH` suffix, so
-/// everything after it is read as dimensions and the rest of the alt is lost,
-/// and the second ends the image outright — the markdown stops being an image
-/// at all, to the site and to this composer's own projection. So they come out
-/// here rather than going in.
-///
-/// Both become a space rather than nothing, because both were separating
-/// something, and runs of space are then collapsed so a name that had a
-/// bracket and a bar next to each other does not come out with a gap in it.
 String flattenImageAlt(String value) =>
     value.replaceAll(_altSeparators, ' ').replaceAll(_altSpaceRuns, ' ').trim();
 
-/// [value] as an image alt: flattened, then escaped. Every writer of one goes
-/// through here — an upload's filename and a GIF's title are the same problem.
 String composerImageAlt(String value) => escapeImageAlt(flattenImageAlt(value));
 
 String escapeImageAlt(String value) =>

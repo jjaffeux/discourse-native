@@ -3,10 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
-/// App-wide sidebar width persistence.
-///
-/// There is deliberately no site URL in this interface or its storage key: a
-/// reader's preferred navigation width follows them when they switch forums.
 abstract interface class SidebarWidthPersistence {
   Future<double?> readWidth();
 
@@ -29,10 +25,6 @@ final class SharedPreferencesSidebarWidthPersistence
       );
 }
 
-/// Persists the preferred sidebar width between app launches.
-///
-/// This is optional presentation state. Storage failures are reported for
-/// diagnostics, then ignored so the built-in width remains usable.
 final class SidebarWidthStore {
   const SidebarWidthStore({SidebarWidthPersistence? persistence})
     : _persistence =

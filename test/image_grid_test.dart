@@ -14,8 +14,6 @@ import 'package:html/parser.dart' as html;
 import 'cooked_html_test.dart' show pumpCooked;
 import 'support/finders.dart';
 
-/// One `[grid]` item as Discourse cooks it: the lightbox wrapper, and an `img`
-/// carrying the size it was resized to.
 String item(String name, {int width = 600, int height = 400}) =>
     '<div class="lightbox-wrapper"><a class="lightbox" href="https://example.com/$name.png" title="$name.png">'
     '<img src="https://example.com/$name-t.png" width="$width" height="$height">'
@@ -34,7 +32,6 @@ dom.Element gridIn(String source) =>
 
 ImageGridData parse(String source) => ImageGridData.from(gridIn(source));
 
-/// The grid at a stated width, which is what decides the column count.
 Future<void> pumpGrid(
   WidgetTester tester,
   String source, {
@@ -56,7 +53,6 @@ void main() {
     });
 
     test('takes items out of the paragraphs markdown wrapped them in', () {
-      // `_prepareItems` unwraps a `<p>`, and never counts `br`/`p` themselves.
       final data = parse(
         '<div class="d-image-grid"><p>${item('a')}<br>${item('b')}</p>${item('c')}</div>',
       );
@@ -70,7 +66,6 @@ void main() {
     });
 
     test('keeps grid items that never got a lightbox', () {
-      // Under 100x100 Discourse writes no wrapper, so a grid holds bare imgs.
       final data = parse(
         '<div class="d-image-grid">${item('big')}<img src="https://example.com/tiny.png" width="50" height="50"></div>',
       );
@@ -165,7 +160,6 @@ void main() {
     });
 
     test('a carousel collects images, not children', () {
-      // `buildCarouselItems` skips decoration and dedupes to the wrapper.
       final data = parse(
         '<div class="d-image-grid" data-mode="carousel">'
         '<p>${item('a')}</p>'
@@ -181,7 +175,6 @@ void main() {
 
   group('ImageGridMosaic.distribute', () {
     test('sends each item to the shortest column so far', () {
-      // Three equal items across three columns: one each.
       expect(ImageGridMosaic.distribute([1, 1, 1], 3), [
         [0],
         [1],
@@ -190,7 +183,6 @@ void main() {
     });
 
     test('lets a short item share a column with another short one', () {
-      // A tall first item means columns 2 and 3 stay shorter and take more.
       expect(ImageGridMosaic.distribute([3, 1, 1, 1], 3), [
         [0],
         [1, 3],
@@ -258,7 +250,6 @@ void main() {
         find.byType(ImageGridTile),
       );
       expect(tiles, hasLength(3));
-      // Three abreast: every tile shares a top edge.
       final tops = find
           .byType(ImageGridTile)
           .evaluate()
@@ -277,13 +268,11 @@ void main() {
           .evaluate()
           .map((e) => tester.getRect(find.byWidget(e.widget as ImageGridTile)))
           .toList();
-      // Two abreast plus one below: two distinct left edges, two distinct tops.
       expect(rects.map((r) => r.left).toSet(), hasLength(2));
       expect(rects.map((r) => r.top).toSet(), hasLength(2));
     });
 
     testWidgets('uses two columns for both two and four items', (tester) async {
-      // `Columns#count` keeps two images abreast and makes four a 2x2 block.
       for (final count in [2, 4]) {
         await pumpGrid(tester, grid(count), width: 900);
 
@@ -301,8 +290,6 @@ void main() {
     });
 
     testWidgets('ends every column at the same height', (tester) async {
-      // The stretch the stylesheet gets from flex, which is the whole point of
-      // the mosaic looking like a block rather than a ragged edge.
       await pumpGrid(
         tester,
         '<div class="d-image-grid">'
@@ -329,7 +316,6 @@ void main() {
     });
 
     testWidgets('leaves a grid of one image stacked', (tester) async {
-      // `minCount: 2` — the web client marks it disabled and the CSS bails.
       await pumpGrid(tester, grid(1));
 
       expect(find.byType(ImageGridMosaic), findsNothing);
@@ -339,12 +325,7 @@ void main() {
     testWidgets('opens the gallery in written order, not column order', (
       tester,
     ) async {
-      // This is the reason `lib/columns.js` stamps `data-lightbox-position`.
-      // Six equal images across three columns lay out column-major — the
-      // grid's second tile is the fourth image written — and the web client
-      // has to undo that ordering before it can open the gallery, because
-      // `Columns` moved the nodes. Nothing here moves a node, so the gallery
-      // reads written order straight off the document.
+      // Unlike the web client, this renderer does not reorder the DOM nodes.
       await pumpGrid(tester, grid(6), width: 800);
 
       await tester.tap(
@@ -505,7 +486,6 @@ void main() {
           .widget<PageView>(find.byType(PageView))
           .controller!;
 
-      // Back from the first lands on the last, the way `prevIndex` does.
       await tester.tap(find.dIcon(DIcons.chevronLeft));
       await tester.pumpAndSettle();
       expect(controller.page, 2);
@@ -518,7 +498,6 @@ void main() {
     testWidgets('counts instead of dotting once there are too many', (
       tester,
     ) async {
-      // `MAX_DOTS` is 10.
       await pumpGrid(tester, grid(10, mode: 'carousel'));
       expect(find.text('1 / 10'), findsNothing);
 

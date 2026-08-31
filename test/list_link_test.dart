@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('ListLink.parse', () {
-    /// The link as `kind:slug:id:feedPath`, or `-` for anything refused.
     String read(String url) {
       final link = ListLink.parse(url);
       if (link == null) return '-';
@@ -15,9 +14,6 @@ void main() {
     });
 
     test('keeps a subcategory path whole', () {
-      // The depth is not decoration: `/c/child/12` is a different category
-      // from `/c/parent/child/12`, and rebuilding the path from the slug and
-      // the id is how a working link stops working.
       expect(
         read('/c/parent/child/12'),
         'category:child:12:/c/parent/child/12.json',
@@ -34,21 +30,14 @@ void main() {
     });
 
     test('reads the older slug-only tag', () {
-      // Posts cooked before tag urls carried an id still say this.
       expect(read('/tag/ux'), 'tag:ux:null:/tag/ux.json');
     });
 
     test(
       'reads a bare number after /tag/ as an ID, the way Discourse does',
       () {
-        // `/tag/2024` is genuinely ambiguous — a tag called 2024, or tag id
-        // 2024 — and Discourse settles it as the id: its `/tag/:tag_id` route
-        // is constrained to digits and is matched ahead of the legacy name one.
-        // It costs nothing either way, because the list is at the same address
-        // on both readings; only the stand-in title differs.
+        // Discourse routes a numeric final tag segment as an ID.
         expect(read('/tag/2024'), 'tag::2024:/tag/2024.json');
-        // Only the *last* segment is ever the id, so a category can be called
-        // 2024 without being confused for one.
         expect(read('/c/2024/7'), 'category:2024:7:/c/2024/7.json');
       },
     );
@@ -65,8 +54,6 @@ void main() {
     });
 
     test('refuses a filtered list', () {
-      // Real routes, but filters this app has no screen for. The browser can
-      // have them rather than us quietly showing the unfiltered list instead.
       expect(read('/c/bug/5/l/top'), '-');
       expect(read('/c/bug/5/l/latest'), '-');
       expect(read('/c/bug/5/none'), '-');
@@ -75,7 +62,7 @@ void main() {
     });
 
     test('refuses everything that is not a list', () {
-      expect(read('/c/bug'), '-'); // no id, and not a tag
+      expect(read('/c/bug'), '-');
       expect(read('/tags'), '-');
       expect(read('/tags/c/bug/5/ux'), '-');
       expect(read('/t/a-slug/9'), '-');

@@ -25,7 +25,6 @@ extension PollPluginDataRead on PluginData {
   PollCurrentUser? get pollCurrentUser => get(pollCurrentUserDataKey);
 }
 
-/// Poll's client settings from `/site/settings.json`.
 @immutable
 final class PollSettings {
   const PollSettings({
@@ -53,7 +52,6 @@ final class PollSettings {
   int get hashCode => Object.hash(maximumOptions, defaultPublic);
 }
 
-/// Poll's capability fields from `/session/current.json`.
 @immutable
 final class PollCurrentUser {
   const PollCurrentUser({required this.canCreatePoll});
@@ -73,7 +71,6 @@ final class PollCurrentUser {
   int get hashCode => canCreatePoll.hashCode;
 }
 
-/// The namespaced warm-start representation of [PollSettings].
 final class PollSettingsPersistenceCodec
     extends PluginDataPersistenceCodec<PollSettings> {
   const PollSettingsPersistenceCodec();
@@ -110,7 +107,6 @@ final class PollSettingsPersistenceCodec
   }
 }
 
-/// The namespaced warm-start representation of [PollCurrentUser].
 final class PollCurrentUserPersistenceCodec
     extends PluginDataPersistenceCodec<PollCurrentUser> {
   const PollCurrentUserPersistenceCodec();
@@ -141,7 +137,6 @@ final class PollCurrentUserPersistenceCodec
   }
 }
 
-/// Source-compatible Poll settings access for plugin-owned UI.
 extension PollSiteConfigData on SiteConfig {
   PollSettings get pollSettings => plugins.pollSettings;
 
@@ -150,7 +145,6 @@ extension PollSiteConfigData on SiteConfig {
   bool get pollDefaultPublic => pollSettings.defaultPublic;
 }
 
-/// Source-compatible Poll capability access for plugin-owned UI.
 extension PollDiscourseUserData on DiscourseUser {
   PollCurrentUser? get pollCurrentUser => plugins.pollCurrentUser;
 

@@ -8,11 +8,6 @@ import '../plugin_api/emoji_usage.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
-/// Encoded, per-forum emoji picker preferences.
-///
-/// [EmojiPickerStore] owns the versioned document and best-effort storage
-/// policy. The persistence adapter only provides the platform durability
-/// result, which also makes failure and write-order behavior testable.
 abstract interface class EmojiPickerPersistence {
   Future<String?> readPreferences({required String siteUrl});
 
@@ -43,12 +38,6 @@ final class SharedPreferencesEmojiPickerPersistence
       '$_keyPrefix.${Uri.encodeComponent(siteUrl)}';
 }
 
-/// Best-effort, forum-scoped emoji picker preferences and usage history.
-///
-/// Call [ensureLoaded] when a picker is opened, then [skinToneFor] and
-/// [favoriteEmojiCodesFor] provide synchronous reads while it is on screen.
-/// The Future-returning read methods are convenient for callers that do not
-/// otherwise need an explicit hydration phase.
 final class EmojiPickerStore implements EmojiPreferenceStore {
   EmojiPickerStore({EmojiPickerPersistence? persistence})
     : _persistence =
@@ -64,10 +53,6 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
   final Map<String, _EmojiPickerPreferences> _preferences = {};
   final Map<String, Future<void>> _loads = {};
 
-  /// Hydrates one forum once for this store instance.
-  ///
-  /// Concurrent calls share the same read. A malformed or unavailable value
-  /// is reported and cached as the safe default so picker opening never fails.
   Future<void> ensureLoaded({required String siteUrl}) async {
     final canonicalSiteUrl = _canonicalSiteUrl(siteUrl);
     if (_preferences.containsKey(canonicalSiteUrl)) return;
@@ -93,7 +78,6 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
     }
   }
 
-  /// The hydrated tone, or neutral before hydration and after read failure.
   EmojiSkinTone skinToneFor({required String siteUrl}) =>
       _preferences[_canonicalSiteUrl(siteUrl)]?.tone ?? EmojiSkinTone.neutral;
 
@@ -103,11 +87,6 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
     return skinToneFor(siteUrl: siteUrl);
   }
 
-  /// Ranked favorites from the already-hydrated usage history.
-  ///
-  /// Explicit tone suffixes remain part of the returned code. The catalog
-  /// check uses the base name so, for example, `wave:t4` remains valid when the
-  /// current catalog contains the tonable `wave` entry.
   List<String> favoriteEmojiCodesFor({
     required String siteUrl,
     required EmojiUsageContext context,
@@ -139,7 +118,6 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
     required EmojiSkinTone tone,
   }) => _mutate(siteUrl, (preferences) => preferences.withTone(tone));
 
-  /// Records one selection, retaining the most recent 40 normalized events.
   @override
   Future<void> trackEmoji({
     required String siteUrl,
@@ -154,7 +132,6 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
     );
   }
 
-  /// Clears only [context], preserving the other history and skin tone.
   @override
   Future<void> clearHistory({
     required String siteUrl,
@@ -193,13 +170,6 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
     );
   }
 
-  /// Sites whose stored document could not be read this session.
-  ///
-  /// A failed read still answers the empty default, because the picker has to
-  /// open. What it must not do is let that default become the basis of a
-  /// write: the stored document is intact and unread, so building on the
-  /// stand-in and saving it would replace a reader's tone and history with
-  /// nothing.
   final Set<String> _unreadable = {};
 
   Future<_EmojiPickerPreferences> _read(String siteUrl) async {

@@ -4,11 +4,6 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 
-/// A form select with the shell's shared floating-menu treatment.
-///
-/// Flutter does not expose a theme for the route created by
-/// [DropdownButtonFormField], so keeping these route properties in an
-/// app-owned wrapper is the only way form selects can match other menus.
 class DSelectField<T> extends StatelessWidget {
   const DSelectField({
     super.key,
@@ -52,7 +47,6 @@ class DSelectField<T> extends StatelessWidget {
   }
 }
 
-/// A non-form select with the same popup surface as [DSelectField].
 class DSelect<T> extends StatelessWidget {
   const DSelect({
     super.key,

@@ -7,8 +7,6 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/frame_safe_notifier.dart';
 
 enum UpdateStatus {
-  /// Nothing has been asked for yet, or the last thing asked for is finished
-  /// and left nothing behind.
   idle,
   checking,
   upToDate,
@@ -19,24 +17,6 @@ enum UpdateStatus {
   failed,
 }
 
-/// Everything the update UI reads.
-///
-/// A separate [ChangeNotifier] owned by [ShellController] as a field, not
-/// fields on [ShellController] itself and not a second [InheritedNotifier].
-/// This is the [ComposerController] pattern, and it is here for the same
-/// reasons, heaviest first:
-///
-///  - A shell notification makes every selector re-evaluate and wakes any
-///    deliberately broad scope subscriber. A download progress tick has no
-///    business touching site navigation or content state at all.
-///  - None of this is shell state. Everything on [ShellController] is per-site
-///    or per-navigation; this is the first thing that is fully meaningful with
-///    zero sites connected, which is exactly the case the rail has to handle.
-///  - A staged download has to survive `selectInstance` and `removeInstance`,
-///    neither of which should be able to see it, let alone reset it.
-///
-/// Widgets subscribe with a `ListenableBuilder` at the one place that needs it,
-/// the way [ComposerPanel] does.
 class UpdateController extends FrameSafeNotifier {
   UpdateController({required this.updater, required this.store});
 
@@ -60,13 +40,10 @@ class UpdateController extends FrameSafeNotifier {
     );
   }
 
-  /// How stale a check has to be before launch quietly repeats it.
   static const Duration _recheckAfter = Duration(hours: 24);
 
   bool get isSupported => updater.isSupported;
 
-  /// What is running now, for the sheet to show. Empty in a build the release
-  /// pipeline did not produce.
   String get runningVersion => AppRelease.version;
 
   UpdateStatus _status = UpdateStatus.idle;
@@ -78,7 +55,6 @@ class UpdateController extends FrameSafeNotifier {
   UpdateRelease? _available;
   UpdateRelease? get available => _available;
 
-  /// 0..1, only meaningful while [status] is [UpdateStatus.downloading].
   double _progress = 0;
   double get progress => _progress;
 
@@ -92,7 +68,6 @@ class UpdateController extends FrameSafeNotifier {
   UpdateChannel? _queuedChannel;
   Future<void>? _channelChangeTask;
 
-  /// Reads the stored channel and, if nobody has looked in a while, looks.
   Future<void> load() async {
     if (isDisposed || !isSupported) return;
 
@@ -142,12 +117,6 @@ class UpdateController extends FrameSafeNotifier {
     }
   }
 
-  /// Asks the channel what it has.
-  ///
-  /// A [silent] check is the one nobody asked for — the one on launch. It
-  /// leaves no error behind when it fails, because there is no one to tell and
-  /// nothing they could do; the rail simply stays quiet. Only a check the user
-  /// started gets to put a message on screen.
   Future<void> check({bool silent = false}) async {
     if (isDisposed || !isSupported) return;
     // A second check while one is running would race the first's result into
@@ -194,7 +163,6 @@ class UpdateController extends FrameSafeNotifier {
     }
   }
 
-  /// Fetches and verifies the release already found, leaving it staged.
   Future<void> download() async {
     if (isDisposed) return;
     final release = _available;
@@ -230,7 +198,6 @@ class UpdateController extends FrameSafeNotifier {
     }
   }
 
-  /// Hands the app over to the updater. On success this never returns.
   Future<void> installAndRestart() async {
     if (isDisposed || _status != UpdateStatus.readyToInstall) return;
 
@@ -253,10 +220,6 @@ class UpdateController extends FrameSafeNotifier {
     }
   }
 
-  /// Moves to another channel and immediately asks what is on it.
-  ///
-  /// Discarding first is the point: a canary build downloaded a minute ago must
-  /// not stay installable for someone who has since asked for stable.
   Future<void> setChannel(UpdateChannel channel) {
     if (isDisposed) return Future<void>.value();
     if (channel == _channel) {
@@ -330,8 +293,6 @@ class UpdateController extends FrameSafeNotifier {
     _status = UpdateStatus.idle;
   }
 
-  /// Whole percent only. A download reports far more often than that, and a
-  /// rebuild per byte is not worth the fidelity nobody can see.
   void _onProgress(double fraction) {
     final clamped = fraction.clamp(0.0, 1.0);
     if ((clamped * 100).round() == (_progress * 100).round()) return;

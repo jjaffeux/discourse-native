@@ -22,13 +22,6 @@ import 'site_image.dart';
 const double _maximumPhotoViewDimension = 10000;
 const double _maximumPhotoViewAspectRatio = 10000;
 
-/// Normalizes untrusted image dimensions for transform math without changing
-/// their aspect ratio.
-///
-/// Post layout deliberately clamps extreme ratios, but the full-screen viewer
-/// must retain them so wide panoramas and tall screenshots pan and zoom against
-/// their real geometry. Values too extreme for useful finite transform math are
-/// rejected instead of being reshaped.
 Size? _safePhotoViewImageSize(double? width, double? height) {
   if (width == null ||
       height == null ||
@@ -67,34 +60,6 @@ Size? _parsePhotoViewInformationSize(String? text) {
   return _parsePhotoViewImageSize(parts[0], parts[1]);
 }
 
-/// Renders Discourse's post images, and the gallery behind them.
-///
-/// `CookedPostProcessor#add_lightbox!` wraps every uploaded image wide and tall
-/// enough to be worth enlarging (100x100, `MIN_LIGHTBOX_WIDTH/HEIGHT`) in this:
-///
-/// ```html
-/// <div class="lightbox-wrapper">
-///   <a class="lightbox" href="FULL" data-download-href="DOWNLOAD" title="TITLE">
-///     <img src="THUMBNAIL" width="690" height="388">
-///     <div class="meta">
-///       <svg class="d-icon-far-image"></svg>
-///       <span class="filename">TITLE</span>
-///       <span class="informations">1920×1080 234 KB</span>
-///       <svg class="d-icon-discourse-expand"></svg>
-///     </div>
-///   </a>
-/// </div>
-/// ```
-///
-/// The `href` is the full-size image and the `src` is a resized thumbnail, so
-/// left to [HtmlWidget] a post shows the small one with no way to reach the
-/// large one. Everything the viewer needs is in that markup — Discourse writes
-/// the intrinsic size and the file size into `.informations` precisely so the
-/// client does not have to fetch the image to find out.
-///
-/// Images Discourse decides *not* to lightbox — anything under 100x100,
-/// animated GIFs, images inside a onebox, and hotlinked images it never took a
-/// copy of — have no wrapper, never reach here, and stay plain `<img>` tags.
 class LightboxImage {
   const LightboxImage({
     required this.fullSrc,
@@ -110,46 +75,24 @@ class LightboxImage {
     this.fullHeight,
   });
 
-  /// The full-size image the gallery shows.
   final String fullSrc;
 
-  /// The resized image the post shows. Null only for markup that omitted it,
-  /// in which case the post shows [fullSrc] too.
   final String? thumbnailSrc;
 
-  /// Caption line: the anchor's `title`, which Discourse fills from the image's
-  /// title, its alt text, or failing both the uploaded filename.
   final String? title;
 
-  /// Human-readable image content, kept separate from [title] because an
-  /// upload's visible caption is often only its filename. Prefer the author's
-  /// alt text for assistive technology when the markup carries both.
   final String? description;
 
-  /// The `.informations` line — `"1920×1080 234 KB"`, the *intrinsic* size and
-  /// the weight, not the size the post draws it at. Shown under [title].
   final String? details;
 
-  /// `data-download-href`, absent for images that are not uploads.
   final String? downloadHref;
 
-  /// The size the post draws the thumbnail at, as Discourse resized it.
   final double? width;
   final double? height;
 
-  /// The full image's intrinsic size, when the cooked markup declares it.
-  ///
-  /// Kept separate from [width] and [height]: those size the post thumbnail,
-  /// while this size gives the gallery the correct scale and pan boundaries.
-  /// Chat uploads only carry one size, so [fullSize] falls back to the thumbnail
-  /// fields for callers which construct a [LightboxImage] directly.
   final double? fullWidth;
   final double? fullHeight;
 
-  /// Identity shared by the post's thumbnail and the gallery's page, so the
-  /// image flies between them. Comes from [_heroTags] rather than the URL: the
-  /// same image can appear twice in one post, and two [Hero]s alive at once
-  /// under one tag is an error.
   final Object heroTag;
 
   double? get aspectRatio {
@@ -163,9 +106,6 @@ class LightboxImage {
       _safePhotoViewImageSize(fullWidth, fullHeight) ??
       _safePhotoViewImageSize(width, height);
 
-  /// Reads [anchor], which must be the `a.lightbox` element itself. Null when
-  /// there is no image to point at, which is not markup Discourse writes but is
-  /// cheaper to tolerate than to trust.
   static LightboxImage? from(dom.Element anchor) {
     // `data-large-src` first, matching core's generic `lib/lightbox.js`
     // consumer. Chat is one current producer, but the attribute belongs to
@@ -205,8 +145,7 @@ class LightboxImage {
         ) ??
         _parsePhotoViewInformationSize(informations?.text) ??
         thumbnailTransformSize;
-    // Preserve the old defensive thumbnail fallback for malformed/sizeless
-    // markup, without losing the distinction when both sizes are present.
+    // Fall back to thumbnail dimensions for malformed or sizeless markup.
     final layoutSize =
         thumbnailSize ?? safeImageLayoutSize(fullSize?.width, fullSize?.height);
     return LightboxImage(
@@ -224,23 +163,6 @@ class LightboxImage {
     );
   }
 
-  /// Every image in the same post as [anchor], in the order they are written.
-  ///
-  /// The web client scopes a gallery the same way — `decorateCookedElement`
-  /// runs once per cooked post — and each [CookedHtml] parses one post into one
-  /// document, so the document [anchor] belongs to *is* the post.
-  ///
-  /// Reading the document is also what keeps an [ImageGridMosaic] honest.
-  /// `lib/columns.js` moves the grid's images into column elements, so the DOM
-  /// ends up in column order and `sortLightboxItems` has to put it back using
-  /// the `data-lightbox-position` it stamped on the way. Nothing here moves a
-  /// node, so the order never leaves the one the post was written in.
-  ///
-  /// One knowing divergence from `lib/lightbox.js`: it excludes
-  /// `.spoiler`/`.spoiled`, except its selector does not. The
-  /// `div.lightbox-wrapper` in between is itself an ancestor that is neither,
-  /// which satisfies the descendant combinator, so spoilered images are in the
-  /// gallery on the web and are in it here.
   static List<LightboxImage> galleryFor(dom.Element anchor) {
     dom.Node root = anchor;
     while (root.parentNode != null) {
@@ -255,25 +177,14 @@ class LightboxImage {
     };
 
     final images = [for (final el in anchors) ?LightboxImage.from(el)];
-    // Only if the anchor itself failed to parse, which `from` already ruled out
-    // for the tapped one.
     return images.isEmpty ? [LightboxImage.from(anchor)!] : images;
   }
 }
 
-/// Hero tags, keyed by the anchor they belong to so they survive a rebuild and
-/// collide with nothing. An [Expando] rather than a map because the entry
-/// should go when the parsed document does.
 final Expando<Object> _heroTags = Expando<Object>('lightbox hero');
 
 Object _heroTag(dom.Element anchor) => _heroTags[anchor] ??= Object();
 
-/// Hands `div.lightbox-wrapper` to [LightboxThumbnail], for
-/// [HtmlWidget.customWidgetBuilder].
-///
-/// Matches the anchor as well as the wrapper. A claimed wrapper never has its
-/// children visited, so the anchor arm only fires for markup that has no
-/// wrapper at all.
 Widget? lightboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
   final anchor = switch (element) {
     _ when element.classes.contains('lightbox-wrapper') => descendantWhere(
@@ -292,7 +203,6 @@ Widget? lightboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
   return LightboxThumbnail(anchor: anchor, image: image, siteUrl: siteUrl);
 }
 
-/// A post image: the thumbnail Discourse resized, at the size it asked for.
 class LightboxThumbnail extends StatelessWidget {
   const LightboxThumbnail({
     super.key,
@@ -301,8 +211,6 @@ class LightboxThumbnail extends StatelessWidget {
     this.siteUrl,
   });
 
-  /// Kept rather than the parsed gallery so the sibling scan happens on tap
-  /// instead of once per image per build.
   final dom.Element anchor;
 
   final LightboxImage image;
@@ -315,9 +223,6 @@ class LightboxThumbnail extends StatelessWidget {
     Widget tile = LightboxTile(
       anchor: anchor,
       image: image,
-      // A standalone post image should never crop authored content. This is
-      // especially important when defensive ratio bounds shorten the reserved
-      // slot for an unusually tall screenshot.
       fit: BoxFit.contain,
       fillsBox: ratio != null,
       siteUrl: siteUrl,
@@ -346,11 +251,6 @@ class LightboxThumbnail extends StatelessWidget {
   }
 }
 
-/// The image itself: tappable, rounded, and sized by whoever placed it.
-///
-/// Split out of [LightboxThumbnail] because a post image and a grid tile want
-/// the same picture in boxes chosen very differently — a standalone image keeps
-/// its own aspect ratio, a mosaic tile is handed a box and crops to it.
 class LightboxTile extends StatelessWidget {
   const LightboxTile({
     super.key,
@@ -366,10 +266,6 @@ class LightboxTile extends StatelessWidget {
   final BoxFit fit;
   final String? siteUrl;
 
-  /// Whether something above bounds the height. False for markup that declared
-  /// no size and so got no [AspectRatio]: asking to fill an unbounded box there
-  /// is an infinite height, and the image sizes itself from its own pixels
-  /// instead.
   final bool fillsBox;
 
   @override
@@ -431,7 +327,6 @@ class LightboxTile extends StatelessWidget {
     );
   }
 
-  /// Opens the post's gallery on this image.
   void open(BuildContext context) {
     final gallery = LightboxImage.galleryFor(anchor);
     final index = gallery.indexWhere((i) => i.heroTag == image.heroTag);
@@ -439,9 +334,6 @@ class LightboxTile extends StatelessWidget {
     unawaited(
       Navigator.of(context, rootNavigator: true).push(
         PageRouteBuilder<void>(
-          // The barrier, not a background, so the [Hero] flies over the post
-          // while the room darkens around it — which is what the web client's
-          // zoom transition looks like.
           opaque: false,
           barrierColor: Colors.black.withValues(alpha: 0.92),
           barrierDismissible: true,
@@ -464,12 +356,6 @@ class LightboxTile extends StatelessWidget {
   }
 }
 
-/// The full-screen viewer: one post's images, swipeable, zoomable.
-///
-/// The chrome follows `lib/lightbox.js`: a counter, the title and the
-/// `.informations` line as a caption, a download button when the image is an
-/// upload, and a tap on the image to get all of it out of the way. Moving a
-/// pointer brings the chrome back; touch users reveal it with another tap.
 class LightboxGallery extends StatefulWidget {
   const LightboxGallery({
     super.key,
@@ -742,8 +628,6 @@ class _LightboxGalleryState extends State<LightboxGallery> {
 
   @override
   Widget build(BuildContext context) {
-    // Esc and the arrow keys, which the web client binds too. Harmless where
-    // there is no keyboard.
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): () =>
@@ -905,7 +789,6 @@ class _LightboxGalleryState extends State<LightboxGallery> {
   }
 }
 
-/// Everything drawn over the image: counter, buttons, caption, arrows.
 class _Chrome extends StatelessWidget {
   const _Chrome({
     required this.visible,
@@ -935,7 +818,6 @@ class _Chrome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Arrows are for a pointer; a finger swipes.
     final showArrows = total > 1 && !context.isTouch;
 
     return IgnorePointer(
@@ -1128,8 +1010,6 @@ class _Arrow extends StatelessWidget {
   }
 }
 
-/// What an image that will not load leaves behind, in the space it would have
-/// taken.
 class UnavailableImage extends StatelessWidget {
   const UnavailableImage({super.key, required this.color});
 
@@ -1141,6 +1021,5 @@ class UnavailableImage extends StatelessWidget {
 }
 
 extension on String? {
-  /// Absent and empty mean the same thing in this markup.
   String? get orNull => (this == null || this!.isEmpty) ? null : this;
 }

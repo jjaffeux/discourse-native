@@ -10,11 +10,6 @@ import '../theme/d_icons.dart';
 import 'choice_menu.dart';
 import 'shell_scope.dart';
 
-/// Render state for the native `/g` directory.
-///
-/// Loading and mutation ownership deliberately remain outside the widget. The
-/// groups controller can replace this immutable value without making the page
-/// depend on its cache implementation.
 @immutable
 final class GroupsPageData {
   const GroupsPageData({
@@ -46,7 +41,6 @@ final class GroupsPageData {
   final bool canCreateGroup;
 }
 
-/// Native group directory with server-backed search and type controls.
 class GroupsPage extends StatefulWidget {
   const GroupsPage({
     super.key,

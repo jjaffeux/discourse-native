@@ -30,7 +30,6 @@ import 'chat_thread.dart';
 import 'chat_thread_panel_width_store.dart';
 import 'chat_thread_settings.dart';
 
-/// A routed thread and, when the shell is wide enough, its parent channel.
 class ChatThreadWorkspace extends StatelessWidget {
   const ChatThreadWorkspace({
     super.key,
@@ -299,7 +298,6 @@ class _ThreadPaneDivider extends StatelessWidget {
   }
 }
 
-/// One independently mounted thread timeline.
 class ChatThreadView extends StatefulWidget {
   const ChatThreadView({
     super.key,

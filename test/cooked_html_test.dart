@@ -33,9 +33,6 @@ import 'package:http/testing.dart';
 import 'support/fakes.dart';
 import 'support/finders.dart';
 
-/// Cooked HTML on its own, with no shell above it — which is how a quote or an
-/// onebox body can also be rendered, and is the case [CookedHtml] uses
-/// `ShellScope.maybeRead` for.
 Future<void> pumpCooked(
   WidgetTester tester,
   String html, {
@@ -55,8 +52,6 @@ Future<void> pumpCooked(
   await tester.pump();
 }
 
-/// The same, under a shell holding one connected site — which is what a post
-/// in a topic is rendered in, and what an emoji needs to resolve its `src`.
 Future<ShellController> pumpCookedInShell(
   WidgetTester tester,
   String html, {
@@ -118,19 +113,11 @@ class _CountingCookedHtml extends CookedHtml {
   }
 }
 
-/// A real 1×1 transparent PNG. It has to decode, not merely look like one:
-/// [Image] falls back to the shortcode when it cannot, which is the very
-/// thing the emoji tests are distinguishing.
 final Uint8List onePixelPng = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8'
   'BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
 );
 
-/// The flattened text of the paragraph containing [within].
-///
-/// Distinct from [renderedText], which matches *any* `RichText` — including the
-/// one a pill's own `Text` builds. This is how to ask what the paragraph itself
-/// says, where a pill shows up as the `￼` a `WidgetSpan` flattens to.
 String paragraphOf(WidgetTester tester, String within) => tester
     .widgetList<RichText>(find.byType(RichText))
     .firstWhere((widget) => widget.text.toPlainText().contains(within))
@@ -141,7 +128,6 @@ bool isUnderlined(WidgetTester tester, String text) =>
     styleOf(tester, text).decoration?.contains(TextDecoration.underline) ??
     false;
 
-/// The style HtmlWidget resolved for the run of text reading [text].
 TextStyle styleOf(WidgetTester tester, String text) {
   final richText = tester
       .widgetList<RichText>(find.byType(RichText))
@@ -304,8 +290,6 @@ void main() {
     );
     expect(builds, 1);
 
-    // Selecting the current rail entry notifies the shell to reveal its
-    // sidebar, but neither the site nor this post changed.
     controller.selectInstance(0);
     await tester.pump();
 
@@ -430,7 +414,6 @@ void main() {
   });
 
   group('mentions', () {
-    // What Discourse cooks for a name it resolved.
     const sam = '<p>ask <a class="mention" href="/u/sam">@sam</a> about it</p>';
 
     testWidgets('are drawn as a pill rather than as a link', (tester) async {
@@ -439,12 +422,6 @@ void main() {
       expect(find.byType(MentionPill), findsOneWidget);
       expect(find.text('@sam'), findsOneWidget);
 
-      // The label is drawn by the pill now, not by the paragraph — which is
-      // the whole difference between a pill and a styled link. The paragraph
-      // keeps one placeholder where the mention was.
-      //
-      // `renderedText` is no help here: it matches any RichText, and the
-      // pill's own Text builds one saying exactly `@sam`.
       expect(paragraphOf(tester, 'about it'), contains('￼'));
       expect(paragraphOf(tester, 'about it'), isNot(contains('@sam')));
     });
@@ -465,8 +442,6 @@ void main() {
     });
 
     testWidgets('keep the case the post was written in', (tester) async {
-      // Discourse lowercases the href and leaves the text alone, and the text
-      // is what a reader recognises.
       await pumpCooked(
         tester,
         '<p><a class="mention" href="/u/sam">@sAm</a></p>',
@@ -494,9 +469,6 @@ void main() {
     });
 
     testWidgets('one the site could not resolve stays text', (tester) async {
-      // A span, not an anchor: nobody by that name, or nobody this reader may
-      // see. Discourse does not pill it, and neither should we — a pill would
-      // promise a person who is not there.
       await pumpCooked(
         tester,
         '<p>ask <span class="mention">@nobody</span></p>',
@@ -588,7 +560,6 @@ void main() {
       final square = tester.widget<CategorySquare>(find.byType(CategorySquare));
       expect(square.color, const Color(0xFF0088CC));
       expect(square.parentColor, isNull);
-      // The label is the pill's, not the paragraph's.
       expect(paragraphOf(tester, 'for more'), isNot(contains('bug')));
     });
 
@@ -620,13 +591,10 @@ void main() {
       final square = tester.widget<CategorySquare>(find.byType(CategorySquare));
       expect(square.parentColor, const Color(0xFFFF0000));
       expect(square.color, const Color(0xFF00FF00));
-      // Discourse writes the full name into the anchor; it beats the slug.
       expect(find.text('Parent > Child'), findsOneWidget);
     });
 
     testWidgets('a category nobody has fetched still draws', (tester) async {
-      // The category list is capped on a large site, so this is ordinary
-      // rather than exceptional. The label and the tap are what matter.
       await pumpCookedInShell(tester, category, api: withCategories(const []));
 
       expect(find.text('bug'), findsOneWidget);
@@ -893,8 +861,6 @@ void main() {
     testWidgets('are left alone with no shell to resolve the site', (
       tester,
     ) async {
-      // A quote or an onebox rendered outside the shell. The pill still draws;
-      // it simply has no categories to colour itself from.
       await pumpCooked(tester, category);
 
       expect(find.text('bug'), findsOneWidget);
@@ -928,8 +894,6 @@ void main() {
         ]),
       );
 
-      // The outermost Container in the pill is the chip itself; the inner one
-      // is the colour swatch.
       final chip = tester.getSize(
         find
             .descendant(
@@ -966,7 +930,6 @@ void main() {
       expect(style.fontFamily, monospaceFontFamily);
       expect(style.fontFamilyFallback, monospaceFallback);
       expect(style.fontFeatures, contains(const FontFeature.disable('liga')));
-      // Exactly `0.875rem` against Discourse's 16px cooked body.
       expect(style.fontSize, 14);
     });
 
@@ -997,8 +960,6 @@ void main() {
   });
 
   group('emoji', () {
-    // What Discourse actually cooks: a root-relative src, the shortcode in both
-    // `alt` and `title`, and a fixed 20px.
     const smile =
         '<p>Hello '
         '<img src="/images/emoji/twitter/slight_smile.png?v=15" '
@@ -1020,8 +981,6 @@ void main() {
         image.url,
         'https://meta.discourse.org/images/emoji/twitter/slight_smile.png?v=15',
       );
-      // Before this existed, HtmlWidget could not resolve the src and rendered
-      // the alt attribute — so the whole feature is that this is gone.
       expect(renderedText(':slight_smile:'), findsNothing);
     });
 
@@ -1073,8 +1032,6 @@ void main() {
     testWidgets('are left alone with no shell to resolve the site', (
       tester,
     ) async {
-      // A quote or an onebox body rendered on its own. The alt text stands,
-      // exactly as it did everywhere before emoji rendered at all.
       await pumpCooked(tester, smile);
 
       expect(find.byType(EmojiImage), findsNothing);

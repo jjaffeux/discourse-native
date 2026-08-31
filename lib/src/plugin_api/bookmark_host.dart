@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import '../data/store.dart';
 import '../models/bookmark.dart';
 
-/// The small slice of site/account policy bookmark reminder UI needs.
 @immutable
 final class BookmarkSiteContext {
   const BookmarkSiteContext({
@@ -17,7 +16,6 @@ final class BookmarkSiteContext {
   final bool suggestWeekendsInDatePickers;
 }
 
-/// The confirmed result of a bookmark mutation, or why it was not applied.
 final class BookmarkWriteResult {
   const BookmarkWriteResult.saved([this.bookmark])
     : message = null,
@@ -38,8 +36,6 @@ final class BookmarkWriteResult {
   bool get saved => message == null;
 }
 
-/// Site-scoped actions for one already-authorized bookmark target type.
-///
 /// The target type is deliberately absent from every mutation. A plugin gets
 /// one of these only after binding its registered target, so it cannot turn a
 /// Chat-message affordance into an arbitrary post/topic bookmark write.
@@ -52,7 +48,6 @@ abstract interface class BookmarkTargetHost {
     required int targetId,
   });
 
-  /// Changes only when this exact bookmark target enters or leaves a write.
   ValueListenable<bool> bookmarkWriteInFlightListenable({
     required String siteUrl,
     required int topicId,
@@ -90,8 +85,6 @@ abstract interface class BookmarkTargetHost {
   });
 }
 
-/// Core bookmark UI, including topic-wide reads and actions.
-///
 /// This contract is never handed to a plugin session. Plugins receive the
 /// narrower [PluginBookmarkHost] returned by [PluginBookmarkHostFactory].
 abstract interface class BookmarkHost {
@@ -111,8 +104,6 @@ abstract interface class BookmarkHost {
   });
 }
 
-/// Target-bound bookmark actions exposed to plugin-owned widgets.
-///
 /// A plugin bookmark has no topic/post context. The owning strategy is the
 /// opaque context used to project the write back into feature state, so this
 /// contract deliberately has no `topicId` parameter. Core's topic-aware host
@@ -154,7 +145,6 @@ abstract interface class PluginBookmarkHost {
   });
 }
 
-/// Creates a least-privilege facade for one plugin-owned target strategy.
 abstract interface class PluginBookmarkHostFactory {
   PluginBookmarkHost forTarget(BookmarkTargetType targetType);
 }

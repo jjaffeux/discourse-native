@@ -22,7 +22,6 @@ final RegExp _notificationWireNamePattern = RegExp(
   r'^[a-z0-9]+(?:_[a-z0-9]+)*$',
 );
 
-/// Immutable dispatch table produced by installing a complete manifest.
 @immutable
 final class PluginRegistry
     implements
@@ -174,10 +173,6 @@ final class PluginRegistry
       plugin.iconCatalog,
   ]);
 
-  /// Resolves a core or installed-plugin icon name.
-  ///
-  /// Unknown names deliberately answer [fallback], including names owned by a
-  /// plugin which is not installed in this composition.
   @override
   DIconData iconNamed(String? name, {required DIconData fallback}) {
     final core = name == null ? null : DIcons.byName[name];
@@ -284,8 +279,6 @@ final class PluginRegistry
             _validateGroupTab(plugin, tab),
       ]);
 
-  /// Resolves each contribution once so stateful feature gates cannot disagree
-  /// with the owner used to construct the selected route.
   List<OwnedPluginGroupTab> ownedGroupTabs(PluginGroupContext group) =>
       List.unmodifiable([
         for (final plugin in plugins.whereType<GroupTabPlugin>())
@@ -389,8 +382,6 @@ final class PluginRegistry
           .where((definition) => definition.wireType.wireId == id.value)
           .firstOrNull;
 
-  /// Resolves an installed feature's type, a core type, or the generic safe
-  /// fallback, in that order. A bad plugin decoder degrades only its own row.
   ResolvedNotification resolveNotification(DiscourseNotification notification) {
     final definition = notificationType(notification.typeId);
     if (definition == null) return resolveCoreNotification(notification);
@@ -932,10 +923,6 @@ final class PluginRegistry
     return null;
   }
 
-  /// Resolves an installed plugin-owned hashtag type.
-  ///
-  /// Core category/tag behavior and the safe unknown fallback deliberately
-  /// remain with the shell, so null means either of those paths should answer.
   HashtagPresentation? pluginHashtagPresentation(
     HashtagPresentationRequest request,
   ) {
@@ -965,10 +952,6 @@ final class PluginRegistry
     return null;
   }
 
-  /// Plugin wire types recognized by composer search and exact-ref lookup.
-  ///
-  /// Registration is the single source of truth: rendering and recognition
-  /// cannot race separate per-site session state or drift apart.
   List<String> get pluginHashtagWireTypes => List.unmodifiable([
     for (final plugin in plugins.whereType<HashtagKindPlugin>())
       for (final kind in plugin.hashtagKinds) kind.wireType,
@@ -1150,10 +1133,6 @@ final class PluginRegistry
       ...plugin.composerToolbar(_uiContext(context, plugin), editor),
   ];
 
-  /// Resolves the one capability which owns [request.kind].
-  ///
-  /// Null is the plugin-absent answer. A caller must not silently construct a
-  /// generic target because doing so would use the wrong draft/upload policy.
   ComposerTargetPolicy? composerTarget(
     ComposerTargetRequest request,
     ComposerTargetContext context,

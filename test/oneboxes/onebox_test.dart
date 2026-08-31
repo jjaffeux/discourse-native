@@ -9,7 +9,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 
-/// Real cooked output from meta.discourse.org, trimmed of nothing that matters.
 const String genericOnebox = '''
 <aside class="onebox allowlistedgeneric" data-onebox-src="https://forum.adunanza.net">
   <header class="source">
@@ -102,8 +101,6 @@ void main() {
     test('leaves the body it did not claim for HtmlWidget', () {
       final data = parse(genericOnebox);
 
-      // The title and the whole aspect-image wrapper are drawn natively, so
-      // they must not be rendered a second time.
       expect(data.bodyHtml, contains('Il network P2P'));
       expect(data.bodyHtml, isNot(contains('aspect-image')));
       expect(data.bodyHtml, isNot(contains('<h3')));
@@ -116,7 +113,6 @@ void main() {
       expect(data.siteIcon, isNull);
       expect(data.title, 'Jeff Atwood');
       expect(data.thumbnail!.isAvatar, isTrue);
-      // Everything the parser has no opinion about still reaches the reader.
       expect(data.bodyHtml, contains('@codinghorror'));
       expect(data.bodyHtml, contains('250k followers?'));
     });
@@ -144,7 +140,6 @@ void main() {
         oneboxWidgetBuilder(element('<aside class="onebox"></aside>')),
         isA<OneboxCard>(),
       );
-      // Quotes are asides too, and are not ours.
       expect(
         oneboxWidgetBuilder(element('<aside class="quote"></aside>')),
         isNull,
@@ -168,13 +163,10 @@ void main() {
         body(oneboxWidgetBuilder(aside(categoryOnebox))!),
         isA<DiscourseCategoryOnebox>(),
       );
-      // An engine nobody wrote yet still lands on its feet.
       expect(
         (oneboxWidgetBuilder(aside(genericOnebox))! as OneboxCard).child,
         isNull,
       );
-      // Provider engines are optional. Without their registry contribution,
-      // their envelopes still use the generic core card.
       for (final source in [prOnebox, issueOnebox, commitOnebox]) {
         expect(
           (oneboxWidgetBuilder(aside(source))! as OneboxCard).child,
@@ -194,7 +186,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('AduForum'), findsNWidgets(2)); // header and title
+      expect(find.text('AduForum'), findsNWidgets(2));
       final labels = tester.widgetList<Text>(find.text('AduForum')).toList();
       expect(
         labels.map((label) => label.style?.fontSize),
@@ -204,7 +196,6 @@ void main() {
         labels.map((label) => label.style?.color),
         contains(AppTheme.light.colorScheme.primary),
       );
-      // The leftover body goes through HtmlWidget, which paints RichText.
       expect(
         find.textContaining('Il network P2P', findRichText: true),
         findsOneWidget,
@@ -271,8 +262,6 @@ void main() {
         );
         await tester.pump();
 
-        // Both visual labels remain, while the matching header and title are
-        // announced only once as part of the composite link name.
         expect(find.text('Example'), findsNWidgets(2));
         final target = find.bySemanticsLabel(
           RegExp(r'Example.*Article description', dotAll: true),
@@ -311,8 +300,6 @@ void main() {
 int _occurrences(String source, String pattern) =>
     pattern.allMatches(source).length;
 
-/// Minimal asides for the dispatch test; the full shapes live in each
-/// engine's own test.
 const String prOnebox = '''
 <aside class="onebox githubpullrequest" data-onebox-src="https://github.com/discourse/discourse/pull/1">
   <article class="onebox-body">

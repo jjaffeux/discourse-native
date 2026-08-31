@@ -15,7 +15,6 @@ const chatUserCardKey = PluginDataKey<ChatUserCardData>(
   name: 'user-card',
 );
 
-/// Chat's personalized contribution to a user-card serializer.
 @immutable
 final class ChatUserCardData {
   const ChatUserCardData({required this.canChat});
@@ -30,7 +29,6 @@ final class ChatUserCardData {
   int get hashCode => canChat.hashCode;
 }
 
-/// The Chat-owned control rendered in core's user-card action region.
 class ChatUserCardButton extends StatefulWidget {
   const ChatUserCardButton({
     super.key,

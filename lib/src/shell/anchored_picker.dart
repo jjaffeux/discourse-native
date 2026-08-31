@@ -99,10 +99,6 @@ Future<T?> showAnchoredPicker<T>({
   );
 }
 
-/// Search-and-results layout shared by anchored dropdown pickers.
-///
-/// Pointer platforms get compact menu geometry. Touch platforms keep the same
-/// content in a sheet with comfortable input and row targets.
 class AnchoredPickerContent extends StatelessWidget {
   const AnchoredPickerContent({
     super.key,
@@ -185,7 +181,6 @@ class AnchoredPickerContent extends StatelessWidget {
   }
 }
 
-/// A consistently sized choice inside an [AnchoredPickerContent].
 class AnchoredPickerOption extends StatelessWidget {
   const AnchoredPickerOption({
     super.key,
@@ -288,7 +283,6 @@ class _AnchoredPickerSelectionIndicator extends StatelessWidget {
   }
 }
 
-/// Adaptive progress geometry for an [AnchoredPickerContent].
 class AnchoredPickerProgress extends StatelessWidget {
   const AnchoredPickerProgress({super.key});
 
@@ -309,7 +303,6 @@ class AnchoredPickerProgress extends StatelessWidget {
   }
 }
 
-/// Empty or error copy inside an [AnchoredPickerContent].
 class AnchoredPickerMessage extends StatelessWidget {
   const AnchoredPickerMessage(
     this.message, {

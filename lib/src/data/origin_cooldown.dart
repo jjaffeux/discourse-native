@@ -3,11 +3,8 @@ import 'dart:async';
 typedef OriginCooldownTimerFactory =
     Timer Function(Duration delay, void Function() callback);
 
-/// One extend-only cooldown backed by a monotonic clock.
-///
-/// Queue policy stays with the origin request gate. This object owns only
-/// deadline extension, wake rescheduling, and timer cancellation so wall clock
-/// changes cannot release or prolong origin backpressure.
+/// Uses monotonic deadlines so wall-clock changes cannot release or prolong
+/// origin backpressure.
 final class OriginCooldown {
   OriginCooldown({
     Duration Function()? clock,
@@ -29,8 +26,6 @@ final class OriginCooldown {
     return null;
   }
 
-  /// Extends the deadline without allowing a shorter response to reduce it.
-  ///
   /// Returns null when [delay] is zero and no longer cooldown is already held.
   Duration? extend(Duration delay, {required void Function() onExpired}) {
     assert(!delay.isNegative);

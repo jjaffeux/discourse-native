@@ -3,9 +3,6 @@ import 'package:discourse_native/src/shell/composer_marks.dart';
 import 'package:flutter/widgets.dart' show TextSelection;
 import 'package:flutter_test/flutter_test.dart';
 
-/// `toggleMarkdownMark` itself is covered in composer_marks_test; this covers
-/// the composer driving it, so a toolbar press ends up in the text that gets
-/// posted.
 void main() {
   late ComposerController composer;
 

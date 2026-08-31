@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-/// A file the composer can upload without knowing which desktop plugin found it.
 @immutable
 class ComposerUploadFile {
   const ComposerUploadFile({
@@ -45,7 +44,6 @@ class ComposerUploadResult {
   String get previewUrl => thumbnailUrl ?? url;
 }
 
-/// The upload security context Discourse applies to a composer attachment.
 @immutable
 final class ComposerUploadType {
   const ComposerUploadType(this.wireName) : assert(wireName != '');
@@ -77,8 +75,6 @@ final class ComposerUploadException implements Exception {
 
 enum ComposerUploadStatus { uploading, retrying, completed, failed, cancelled }
 
-/// One visible queue row. Markdown successes are inserted and removed; a
-/// target policy may instead retain successes as attachments until submit.
 @immutable
 class ComposerUploadItem {
   const ComposerUploadItem({

@@ -11,7 +11,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
-/// Shaped after `githubissue.mustache`, with a close date and two labels.
 const String issueOnebox = '''
 <aside class="onebox githubissue" data-onebox-src="https://github.com/discourse/discourse/issues/12345">
   <header class="source">

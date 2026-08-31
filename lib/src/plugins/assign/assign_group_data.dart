@@ -8,10 +8,6 @@ const assignGroupDataKey = PluginDataKey<AssignGroupData>(
   name: 'group',
 );
 
-/// Assign-owned fields added to Discourse's group serializer.
-///
-/// Null is used for absence at the decoder boundary; once present, omitted
-/// optional values keep their conservative server defaults here.
 @immutable
 final class AssignGroupData {
   const AssignGroupData({

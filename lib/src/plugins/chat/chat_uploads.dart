@@ -13,22 +13,14 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_message.dart';
 
-/// What a message carried besides its words.
-///
-/// A row of its own rather than something folded into the body, because chat
-/// cooks the raw message and not the markdown-with-uploads: unlike a post,
-/// where images arrive baked into the HTML with the lightbox markup around
-/// them, a chat message's attachments are only ever in the `uploads` array and
-/// there is nothing in `cooked` to draw.
+/// Chat attachments exist only in the `uploads` array, not cooked HTML.
 class ChatUploads extends StatelessWidget {
   const ChatUploads({super.key, required this.siteUrl, required this.uploads});
 
   final String siteUrl;
   final List<ChatUpload> uploads;
 
-  /// Never wider than this, however large the image was. Core additionally
-  /// caps every chat image at 150px high, regardless of the site's general
-  /// upload dimensions.
+  /// Core's chat-specific width ceiling; height is separately capped at 150px.
   static const double maxWidth = 420;
   static const double maxHeight = 150;
 
@@ -65,12 +57,8 @@ class _Image extends StatelessWidget {
   final String siteUrl;
   final ChatUpload upload;
 
-  /// Every image on this message, so opening one can be swiped through the
-  /// rest — which is what the lightbox does for a post's gallery.
   final List<ChatUpload> gallery;
 
-  /// Six bare hex digits, the same shape a category colour arrives in. Held
-  /// behind the picture while it loads so the row does not flash white.
   Color? get _placeholder {
     final value = upload.dominantColor;
     if (value == null || value.length != 6) return null;
@@ -85,7 +73,7 @@ class _Image extends StatelessWidget {
     String absolute(String url) => _absoluteUploadUrl(siteUrl, url);
 
     final ratio = upload.aspectRatio;
-    // Shrink to fit, never blow a small image up — Discourse's own rule.
+    // Discourse shrinks oversized chat images but never upscales them.
     final sourceWidth = switch (upload.width) {
       final w? when w > 0 => w.toDouble().clamp(0.0, ChatUploads.maxWidth),
       _ => ChatUploads.maxWidth,
@@ -130,11 +118,6 @@ class _Image extends StatelessWidget {
     );
   }
 
-  /// Opens the full-size image in the viewer a post's images use.
-  ///
-  /// The gallery is built here rather than read out of markup, because there is
-  /// no markup — `LightboxImage` is a plain value object and `LightboxGallery`
-  /// takes a list of them, so nothing about the cooked-HTML path is in the way.
   void _open(BuildContext context, String Function(String) absolute) {
     LightboxImage imageOf(ChatUpload upload) => LightboxImage(
       fullSrc: absolute(upload.url),
@@ -147,8 +130,6 @@ class _Image extends StatelessWidget {
       downloadHref: absolute(upload.url),
       width: upload.width?.toDouble(),
       height: upload.height?.toDouble(),
-      // The URL is unique per upload here — unlike a post, where the same
-      // image can legitimately appear twice — so it makes a fine identity.
       heroTag: 'chat-upload-${upload.url}',
     );
 
@@ -180,11 +161,6 @@ class _Image extends StatelessWidget {
   }
 }
 
-/// Everything that is not an image: a video, a sound, or a file.
-///
-/// One row rather than three players. Playback is a large amount of machinery
-/// for a step that cannot yet post any of it, and a link that hands the file to
-/// the system is honest about what it does.
 class _Attachment extends StatelessWidget {
   const _Attachment({required this.siteUrl, required this.upload});
 

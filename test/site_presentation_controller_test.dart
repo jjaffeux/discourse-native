@@ -397,7 +397,6 @@ void main() {
           ];
         final controller = _controller(api);
 
-        // Nothing fetched yet: no name may fabricate an artwork address.
         expect(controller.knowsEmoji(site, 'tada'), isFalse);
 
         await controller.ensureCustomEmojis(site);
@@ -504,7 +503,6 @@ void main() {
           expect(second, same(first));
           aliasGate.complete({
             'heart': ['love'],
-            // An alias cannot make an emoji absent from the catalog searchable.
             'missing': ['love'],
           });
           await Future.wait([first, second]);
@@ -528,8 +526,6 @@ void main() {
         expect(await controller.ensureEmojiCatalog(site), isNull);
         expect(api.emojiCalls, 1);
 
-        // Prose emoji depend on this catalog, so opening the site again has to be
-        // able to recover; an ensure would keep answering the session-long null.
         expect(await controller.ensureEmojiCatalog(site), isNull);
         expect(api.emojiCalls, 1);
 
@@ -541,7 +537,6 @@ void main() {
         expect(api.emojiCalls, 2);
         expect(controller.knowsEmoji(site, 'wave'), isTrue);
 
-        // Held catalogs are not refetched every time a site is selected.
         expect(await controller.warmEmojiCatalog(site), isNotNull);
         expect(api.emojiCalls, 2);
       });
@@ -565,8 +560,6 @@ void main() {
           ..emojiAliases = const {
             'wave': ['hello'],
           };
-        // A normal ensure call is cache hydration, not an implicit retry loop.
-        // Recovery is user-driven through the picker's explicit retry action.
         expect(await controller.ensureEmojiCatalog(site), isNull);
         expect(await controller.ensureEmojiSearchAliases(site), isNull);
         expect(api.emojiCalls, 1);

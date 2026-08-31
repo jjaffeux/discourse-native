@@ -8,23 +8,13 @@ import '../../shell/cooked_html.dart';
 import '../../theme/app_theme.dart';
 import 'poll.dart';
 
-/// Saves the option digests selected in [poll].
-///
-/// The card deliberately knows nothing about HTTP or post merging. Its caller
-/// owns the write and supplies the personalized poll that comes back from the
-/// server on the next rebuild.
 typedef PollVoteCallback =
     FutureOr<void> Function(Poll poll, List<String> optionIds);
 
-/// Removes the current reader's vote from [poll].
 typedef PollVoteRemovalCallback = FutureOr<void> Function(Poll poll);
 
-/// A native presentation of one serialized Discourse poll.
-///
-/// The serialized [Poll] is authoritative. In particular, missing
-/// [PollOption.votes] are confidential results, not zeroes. Regular and number
-/// polls save immediately; multiple-choice polls keep a local draft until the
-/// reader explicitly casts it.
+/// Treats missing [PollOption.votes] as confidential, not zero. Multiple-choice
+/// polls keep a local draft; other types save immediately.
 class PollCard extends StatefulWidget {
   const PollCard({
     super.key,
@@ -45,34 +35,25 @@ class PollCard extends StatefulWidget {
   final Poll poll;
   final String? siteUrl;
 
-  /// Whether this site currently has a connected account.
   final bool signedIn;
 
   /// Freshly loaded group names. `null` means membership has not been
   /// confirmed yet; an empty iterable means it has and the account is in none.
   final Iterable<String>? currentUserGroups;
 
-  /// Archived topics cannot accept votes even when the poll itself is open.
   final bool archived;
 
-  /// True while another write for the owning post is active.
   final bool pending;
 
   final PollVoteCallback? onVote;
   final PollVoteRemovalCallback? onRemoveVote;
 
-  /// Presentation callbacks normally handle and report write errors
-  /// themselves. This is a final boundary for a callback that unexpectedly
-  /// throws, after the card restores the saved selection.
   final ValueChanged<Object>? onVoteError;
 
-  /// Opens the owning post permalink for ranked-choice or future poll types.
   final VoidCallback? onVoteOnWeb;
 
-  /// Points a signed-out reader at the shell's existing account control.
   final VoidCallback? onConnectAccount;
 
-  /// A deterministic clock for tests. Production callers leave it null.
   final DateTime? now;
 
   @override
@@ -136,9 +117,7 @@ class _PollCardState extends State<PollCard> {
         .toSet();
     final newOptions = _poll.options.map((option) => option.id).toSet();
 
-    // A personalized response (or a post edit) is the new source of truth. A
-    // count-only live update, however, must not erase an uncast multiple-choice
-    // draft.
+    // Count-only live updates must not erase an uncast multiple-choice draft.
     if (oldWidget.poll.name != _poll.name ||
         oldWidget.poll.type != _poll.type ||
         !_sameSet(oldSaved, newSaved) ||
@@ -233,8 +212,7 @@ class _PollCardState extends State<PollCard> {
 
   bool get _multipleSelectionValid {
     if (!_multipleChanged) return false;
-    // Clearing a saved ballot is always valid: min applies to casting a ballot,
-    // not to withdrawing one.
+    // The minimum applies to casting, not withdrawing, a ballot.
     if (_selection.isEmpty) return _savedSelection.isNotEmpty;
     return _selection.length >= _multipleMin &&
         _selection.length <= _multipleMax;
@@ -255,8 +233,6 @@ class _PollCardState extends State<PollCard> {
         }
         await Future<void>.sync(() => remove(_poll));
       } else {
-        // The server accepts digests, but stable serialized option order makes
-        // payloads and fakes deterministic.
         final ordered = [
           for (final option in _poll.options)
             if (_selection.contains(option.id)) option.id,
@@ -269,8 +245,7 @@ class _PollCardState extends State<PollCard> {
       widget.onVoteError?.call(error);
     } finally {
       if (mounted) {
-        // Keep the responsive selection after a successful write while the
-        // owning post applies its personalized response.
+        // Keep selection responsive until the owner applies its personalized response.
         setState(() {
           if (succeeded) _selection = previous;
           _submitting = false;
@@ -794,9 +769,7 @@ class _CloseTime extends StatelessWidget {
   }
 }
 
-/// A safe native fallback when cooked poll markup has no matching serialized
-/// poll. It intentionally ignores the cooked `.poll-info` tally, whose `0` is
-/// only a JavaScript placeholder rather than authoritative state.
+/// Ignores cooked `.poll-info` zeroes, which are JavaScript placeholders.
 class PollFallbackCard extends StatelessWidget {
   const PollFallbackCard({
     super.key,
@@ -883,11 +856,8 @@ class PollFallbackCard extends StatelessWidget {
   );
 }
 
-/// Percentages shown by Discourse polls.
-///
-/// Voters, not total choices, are the denominator. Multiple-choice polls floor
-/// each value independently and may therefore total above 100%; single-choice
-/// polls use Discourse's even rounding so their visible values sum to 100.
+/// Uses voters as the denominator; only single-choice polls receive Discourse's
+/// even rounding to a visible total of 100.
 List<int> calculatePollPercentages(Poll poll) {
   if (poll.options.any((option) => option.votes == null)) return const [];
   if (poll.voters == 0) return List<int>.filled(poll.options.length, 0);
@@ -904,9 +874,7 @@ List<int> calculatePollPercentages(Poll poll) {
   return _evenRound(exact);
 }
 
-/// The number poll's weighted average, using the serialized voter count as the
-/// denominator exactly as Discourse does. Returns null when results are hidden
-/// or an option cannot be interpreted as a number.
+/// Uses Discourse's serialized voter count as the weighted-average denominator.
 double? calculateNumberPollAverage(Poll poll) {
   if (poll.type != PollType.number ||
       poll.options.any((option) => option.votes == null)) {
@@ -924,8 +892,7 @@ double? calculateNumberPollAverage(Poll poll) {
 }
 
 List<int> _evenRound(List<double> values) {
-  // Port of Poll's `even-round`: add one to the entries with the greatest
-  // fractional parts, stopping as soon as the visible floors total 100.
+  // Poll's `even-round` distributes the remainder by fractional part.
   final working = List<double>.of(values);
   final fractions = [for (final value in working) value - value.floor()];
   final additions = fractions

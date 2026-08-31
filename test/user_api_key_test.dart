@@ -59,7 +59,6 @@ void main() {
       expect(url.queryParameters['auth_redirect'], 'discourse://auth_redirect');
       expect(url.queryParameters['scopes'], contains('session_info'));
       expect(url.queryParameters, isNot(contains('push_url')));
-      // The PEM survives being put through query encoding.
       expect(url.queryParameters['public_key'], contains('BEGIN PUBLIC KEY'));
     });
 

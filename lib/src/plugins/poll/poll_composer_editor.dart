@@ -136,7 +136,6 @@ class PollComposerDraft {
   final String resultsSource;
   final bool publicVoters;
 
-  /// Empty means no automatic close; otherwise this is an ISO-8601 value.
   final String close;
   final PollComposerBlock? sourceBlock;
   final _PollDraftSnapshot? _initial;
@@ -254,8 +253,7 @@ class PollComposerDraft {
     return PollComposerValidation(List.unmodifiable(errors));
   }
 
-  /// Serializes one poll. Returning [PollComposerBlock.source] when all sheet
-  /// values return to their starting state is the lossless no-op guarantee.
+  /// Returns the original source when an edit is a semantic no-op.
   String serialize() {
     final original = sourceBlock;
     if (original != null && _matchesInitial) return original.source;
@@ -420,12 +418,8 @@ String _renderPollAttributeValue(String value) {
   throw ArgumentError.value(value, 'value', 'cannot be represented safely');
 }
 
-/// Keeps text inserted at a projected poll's leading boundary on its own line.
-///
-/// The boundary is a real source offset immediately before `[poll]`. Without
-/// the separator, typing or pasting there turns the opener into ordinary text
-/// and makes the pill disappear. Applying this as one text-input transaction
-/// also covers software keyboards and IMEs without disturbing undo history.
+/// Inserts a separator before text added at a projected poll boundary. One
+/// formatter transaction preserves IME and undo behavior.
 class PollComposerInputFormatter extends TextInputFormatter {
   const PollComposerInputFormatter();
 
@@ -549,7 +543,7 @@ class PollComposerMutation {
   final String? message;
 }
 
-/// Replaces exactly the verified block the sheet was opened for.
+/// Refuses replacement if the captured source block changed under the sheet.
 PollComposerMutation replaceVerifiedPoll({
   required TextEditingValue current,
   required String expectedDocument,
@@ -633,12 +627,8 @@ bool _stillContainsExpectedBlock(
   );
 }
 
-/// Inserts at the captured selection, replacing a selected range, with one
-/// blank line on either occupied side of the new block.
-///
-/// A poll at the end still receives one real line ending. The caret lands
-/// after the first following line ending, where typing cannot accidentally
-/// turn `[/poll]` into an invalid closing line.
+/// Keeps one real line ending after an EOF poll so subsequent typing cannot
+/// corrupt `[/poll]`.
 PollComposerMutation insertVerifiedPoll({
   required TextEditingValue current,
   required String expectedDocument,

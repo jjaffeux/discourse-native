@@ -72,7 +72,6 @@ Future<void> showAddInstanceSheet(BuildContext context) {
   );
 }
 
-/// Takes whatever the user types, resolves it to a real Discourse, and adds it.
 class _AddInstanceForm extends StatefulWidget {
   const _AddInstanceForm();
 
@@ -242,8 +241,6 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
         _validatedController = controller;
       });
 
-      // The duplicate check uses the resolved URL, not what was typed —
-      // "meta.discourse.org" and "https://meta.discourse.org/" are one site.
       if (!controller.contains(instance.url)) {
         final added = await controller.addInstance(instance);
         if (!mounted) return;
@@ -348,7 +345,6 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
             suffixIcon: _siteCheckIcon(theme),
             border: const OutlineInputBorder(),
             errorText: _error,
-            // Keeps the surface from resizing as the message appears.
             errorMaxLines: 3,
           ),
         ),

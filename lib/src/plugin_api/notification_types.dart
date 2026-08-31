@@ -6,7 +6,6 @@ import '../models/notification.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 
-/// Stable app identity for one plugin-owned notification definition.
 @immutable
 final class PluginNotificationTypeId {
   const PluginNotificationTypeId({required this.owner, required this.name});
@@ -28,7 +27,6 @@ final class PluginNotificationTypeId {
   String toString() => id;
 }
 
-/// The render-only result of interpreting a notification payload.
 @immutable
 final class NotificationPresentation {
   const NotificationPresentation({
@@ -42,8 +40,6 @@ final class NotificationPresentation {
   final String phrase;
 }
 
-/// Everything the notification list needs after a type owner interpreted a
-/// raw row.
 @immutable
 final class ResolvedNotification {
   const ResolvedNotification({required this.presentation, this.path});
@@ -52,16 +48,12 @@ final class ResolvedNotification {
   final String? path;
 }
 
-/// A feature-owned, total decoder for one registered notification type.
-///
 /// Returning null means the payload was not usable and asks core to render its
 /// safe fallback. The registry also isolates thrown decoder errors so one
 /// malformed plugin row cannot make the user menu unusable.
 typedef NotificationTypeDecoder =
     ResolvedNotification? Function(DiscourseNotification notification);
 
-/// Joins a plugin's stable app identity, Discourse's two wire identities and
-/// the decoder which owns that type's payload, route and presentation.
 @immutable
 final class PluginNotificationType {
   const PluginNotificationType({
@@ -75,8 +67,6 @@ final class PluginNotificationType {
   final NotificationTypeDecoder decode;
 }
 
-/// Core notification definitions, used both for dispatch and for collision
-/// validation at plugin installation.
 const coreNotificationTypes = <PluginNotificationType>[
   PluginNotificationType(
     id: PluginNotificationTypeId(owner: PluginId('core'), name: 'mentioned'),
@@ -266,8 +256,6 @@ const coreNotificationTypes = <PluginNotificationType>[
   ),
 ];
 
-/// Resolves a core type, or returns the safe generic presentation for an
-/// unknown/plugin type in a core-only build.
 ResolvedNotification resolveCoreNotification(
   DiscourseNotification notification,
 ) {
@@ -280,8 +268,6 @@ ResolvedNotification resolveCoreNotification(
   return fallbackNotification(notification);
 }
 
-/// A generic row which assumes nothing about an unowned payload.
-///
 /// Topic identity belongs to the stable envelope, so it is the sole route the
 /// fallback may derive. Plugin payload URLs and ids are deliberately ignored.
 ResolvedNotification fallbackNotification(DiscourseNotification notification) =>
@@ -295,8 +281,6 @@ ResolvedNotification fallbackNotification(DiscourseNotification notification) =>
       path: notificationTopicPath(notification),
     );
 
-/// Discourse's core post URL shape, shared with feature definitions that
-/// explicitly choose a topic/post destination.
 String? notificationTopicPath(DiscourseNotification notification) {
   final topicId = notification.topicId;
   if (topicId == null || topicId <= 0) return null;

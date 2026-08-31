@@ -9,8 +9,6 @@ import 'package:path_provider/path_provider.dart';
 import '../foundation/private_file_document.dart';
 import '../foundation/private_file_permissions.dart';
 
-/// Exact-key persistence for data which must not be mixed into the app's public
-/// preferences.
 abstract interface class PrivateStorage {
   Future<String?> read(String key);
 
@@ -19,9 +17,6 @@ abstract interface class PrivateStorage {
   Future<void> delete(String key);
 }
 
-/// A private store whose contents can be enumerated without crossing a system
-/// authorization boundary.
-///
 /// Only file stores implement this. Keychain enumeration is deliberately not
 /// exposed: the legacy macOS keychain authorizes every item separately, so a
 /// broad read can create one password prompt per credential or draft.
@@ -65,8 +60,6 @@ final PrivateStorage? platformLegacyAppleStorage = _platformStorage.legacyApple;
 final PrivateStorage? platformLegacyClientIdStorage =
     _platformStorage.legacyClientIds;
 
-/// Backwards-compatible name for callers which only need exact-key credential
-/// operations.
 final PrivateStorage platformPrivateStorage = platformCredentialStorage;
 
 final class _PlatformPrivateStorage {
@@ -222,9 +215,6 @@ final class AppleKeychainStorage implements PrivateStorage {
   }
 }
 
-/// Lazily moves one exact item at a time from the legacy Apple login keychain
-/// into the app's Data Protection Keychain service.
-///
 /// Operations are serialized in-process and, in the platform instance, under
 /// an owner-only advisory file lock shared by app processes. Without that
 /// boundary a slow legacy read could finish after a newer write/delete and
@@ -273,8 +263,6 @@ final class MigratingPrivateStorage implements PrivateStorage {
     });
   }
 
-  /// The modern namespace's answer, and whether it is the final one.
-  ///
   /// Unsettled means only that the legacy copy still has to be consulted; it
   /// never means "absent".
   Future<({bool settled, String? value})> _readModern(String key) async {

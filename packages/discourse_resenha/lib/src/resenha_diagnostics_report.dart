@@ -7,8 +7,6 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'resenha_diagnostics.dart';
 import 'resenha_report_exporter.dart';
 
-/// Builds the combined ordinary and deep-capture Resenha diagnostics surface.
-///
 /// The ordinary recorder intentionally retains more detail than Resenha can
 /// safely expose without explicit capture. This boundary owns that projection,
 /// exact de-duplication against deep history, and chronological report merge so
@@ -33,11 +31,9 @@ final class ResenhaDiagnosticsReport {
   final ResenhaDiagnosticsController _resenha;
   final _ResenhaDiagnosticsTimelineProjection _timeline;
 
-  /// The chronological, JSON-shaped events used by the live timeline.
   List<Map<String, Object?>> get events =>
       _timeline.project(_resenha.eventsTail, _diagnostics.events);
 
-  /// Builds the complete combined JSONL report in memory.
   Future<String> buildJson() async {
     final deepReport = await _resenha.buildJsonReport();
     final capturedOrdinaryIds = resenhaDiagnosticsEventIdsInJsonReport(
@@ -64,7 +60,6 @@ final class ResenhaDiagnosticsReport {
     return '$header\n${_mergeResenhaReportEvents(deepEvents, ordinaryRecords)}';
   }
 
-  /// Builds a clipboard-safe tail without materializing a large deep report.
   Future<ResenhaClipboardReport> buildClipboard(int byteLimit) async {
     // A full deep report below the clipboard threshold is cheap enough to
     // build and lets the exact ordinary/deep de-duplicator decide whether the
@@ -121,7 +116,6 @@ final class ResenhaDiagnosticsReport {
     );
   }
 
-  /// Writes the complete combined JSONL report without retaining it in memory.
   Future<void> writeJsonTo(StringSink output) async {
     final ordinarySnapshot = _diagnostics.events
         .where(_isResenhaOrdinaryEvent)
@@ -155,8 +149,6 @@ typedef _ResenhaTimelineEntry = ({
   Map<String, Object?> json,
 });
 
-/// Retains JSON projections while their immutable recorder events are current.
-///
 /// Each recorder already publishes its history in stable event objects. Ordered
 /// maps preserve the timeline's timestamp-and-identity tie break across updates,
 /// leaving each publication as one linear merge instead of a full re-projection
@@ -307,7 +299,6 @@ Map<String, Object?> _ordinaryResenhaEventJson(DiagnosticEvent event) {
       json['event'] = event.operation ?? event.errorType;
       json['component'] = event.source;
     case DiagnosticLogEvent():
-      // The view already understands its `name`, `component`, and `message`.
       break;
     case DiagnosticSessionEvent():
       json['event'] = 'session.${event.state.name}';

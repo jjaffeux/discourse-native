@@ -10,15 +10,6 @@ import '../foundation/diagnostic_errors.dart';
 import 'image_decode.dart';
 import 'site_url.dart';
 
-/// One emoji, drawn from the image the site serves for it.
-///
-/// Goes through [EmojiCache] rather than [Image.network] so repeated URLs share
-/// bytes, failures do not retry on every rebuild, and immutable CDN responses
-/// persist between launches without throttling a picker's initial asset burst.
-///
-/// [alt] is what Discourse writes in the `alt` attribute — `:slight_smile:` —
-/// and is what stands in when the image cannot be fetched. It is a worse answer
-/// than the artwork and a much better one than a gap.
 class EmojiImage extends StatefulWidget {
   const EmojiImage({
     super.key,
@@ -32,7 +23,6 @@ class EmojiImage extends StatefulWidget {
   final double size;
   final String alt;
 
-  /// The prose the emoji is sitting in, for the fallback text only.
   final TextStyle? style;
 
   @override
@@ -108,26 +98,8 @@ class _EmojiImageState extends State<EmojiImage> {
   }
 }
 
-/// How large an inline emoji is relative to the surrounding prose.
-///
-/// Discourse's stylesheet sizes `img.emoji` at `1em`. Here the surrounding
-/// style varies — a post is `bodyMedium`, an onebox body and a user card bio
-/// are `bodySmall` — so the ratio is kept rather than a pixel size, the way
-/// [InlineCode] keeps `0.875`. Public because the composer draws the same
-/// artwork over a shortcode someone is typing, and the two must agree.
 const double emojiScale = 1;
 
-/// Hands `<img class="emoji">` to [EmojiImage], for
-/// [HtmlWidget.customWidgetBuilder].
-///
-/// Without this, emoji do not render at all: Discourse cooks them with a
-/// root-relative `src`, [HtmlWidget] has no base URL to resolve that against,
-/// and its `TagImg` falls back to the `alt` attribute — so every emoji in every
-/// post reads as the literal text `:slight_smile:`.
-///
-/// [siteUrl] is what the relative `src` is resolved against, and is null where
-/// this is drawn outside the shell — a quote in a test. The `alt` fallback
-/// stands there, exactly as it did before this existed.
 Widget? emojiWidgetBuilder(
   dom.Element element,
   String? siteUrl,
@@ -175,7 +147,6 @@ Widget? emojiWidgetBuilder(
   );
 }
 
-/// Matches core's compact `only-emoji` selector contexts.
 bool _hasCompactOnlyEmojiAncestor(dom.Element element) {
   var ancestor = element.parent;
   while (ancestor != null) {
@@ -190,14 +161,6 @@ bool _hasCompactOnlyEmojiAncestor(dom.Element element) {
   return false;
 }
 
-/// Resolves a cooked emoji `src` against the site that cooked it.
-///
-/// Three shapes reach here, depending on whether the site has a CDN and where
-/// its custom emoji are uploaded: absolute, protocol-relative, and — the usual
-/// one — root-relative. A root-relative src already carries a subfolder site's
-/// base path, so it must resolve against the origin rather than being appended
-/// to the stored site URL. Null when there is nothing to resolve it against,
-/// which is not an error; see [emojiWidgetBuilder].
 String? absoluteEmojiUrl(String? src, String? siteUrl) {
   if (src == null || src.isEmpty) return null;
   final resolved = resolveSiteUrl(src, siteUrl);

@@ -24,7 +24,6 @@ abstract interface class DraftPersistence {
   Future<void> deletePrefix(String prefix);
 }
 
-/// The device could not retain the newest draft revision.
 final class DraftWriteException implements Exception {
   const DraftWriteException([this.cause]);
 
@@ -225,20 +224,9 @@ final class _DraftFileState {
   };
 }
 
-/// The copy of a draft the site has not got yet.
-///
-/// Server drafts are for carrying a reply to another device. This is the other
-/// half: what makes quitting and reopening safe when the site could not be
-/// reached, which is exactly when losing what someone wrote hurts most.
-///
-/// It is written on every autosave and deleted the moment the server has the
-/// same text, so its presence means one thing only — there is writing here the
-/// site has not seen. That is what lets a restore prefer it without needing a
-/// timestamp to compare.
-///
-/// Reads and cleanup are best-effort so storage trouble cannot break the
-/// composer. Writes surface [DraftWriteException]: claiming that text is safe
-/// on this device when private storage rejected it would risk losing that text.
+/// Presence means the site has not received this text, so restore prefers it
+/// without comparing timestamps. Reads and cleanup are best-effort, but writes
+/// fail rather than claim that rejected text is safely stored on the device.
 class DraftStore {
   DraftStore({DraftPersistence? persistence})
     : _persistence = persistence ?? _platformDraftPersistence();

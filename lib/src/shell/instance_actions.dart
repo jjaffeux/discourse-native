@@ -12,9 +12,6 @@ import 'platform.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
 
-/// Asks before removing [instance], then performs the removal through the
-/// shell that owns it. Both the rail's context actions and the sidebar header
-/// menu use this path so signing out behaves the same from either affordance.
 Future<void> confirmInstanceRemoval(
   BuildContext context,
   DiscourseInstance instance,
@@ -59,25 +56,9 @@ Future<void> confirmInstanceRemoval(
   );
 }
 
-/// Wraps an action child when its owner needs to arbitrate touch gestures.
-///
-/// [openActions] opens the anchored action menu at an [Offset] local to
-/// [child].
 typedef InstanceTouchGestureBuilder =
     Widget Function(Widget child, ValueChanged<Offset> openActions);
 
-/// What can be done with one site in the rail, kept behind the gesture each
-/// platform already means "what else can this do": a right click with a
-/// pointer, a long press on a touch screen.
-///
-/// The two do not arrive at the same place. A pointer lands on a small menu row
-/// exactly where it was aimed, so removing the site is offered there directly.
-/// A thumb does not — and the press that opened the menu ends somewhere inside
-/// it — so on touch the menu only leads to More Options, and the destructive
-/// button waits in a sheet, deliberately one deliberate tap further away.
-///
-/// Both paths end at the same confirmation: removing a site signs it out, and
-/// nothing here should be able to do that by accident.
 class InstanceActions extends StatefulWidget {
   const InstanceActions({
     super.key,
@@ -93,12 +74,6 @@ class InstanceActions extends StatefulWidget {
   final VoidCallback? onMoveUp;
   final VoidCallback? onMoveDown;
 
-  /// Optionally owns touch gesture recognition around [child].
-  ///
-  /// This is ignored on pointer platforms. On touch platforms, supplying it
-  /// disables this widget's built-in long-press recognizer so the builder is
-  /// the sole owner of that gesture. Calling the provided callback opens the
-  /// existing More Options popover at an offset local to the provided child.
   final InstanceTouchGestureBuilder? touchGestureBuilder;
 
   @override
@@ -112,9 +87,6 @@ class _InstanceActionsState extends State<InstanceActions> {
 
   final MenuController _menu = MenuController();
 
-  /// Opens at the pointer or thumb rather than at the item's corner, which is
-  /// what a context menu is expected to do — and the rail is only 72 wide, so
-  /// a menu pinned to it would be almost entirely over the panel anyway.
   void _open(Offset position) {
     if (_menu.isOpen) {
       _menu.close();
@@ -123,15 +95,11 @@ class _InstanceActionsState extends State<InstanceActions> {
     _menu.open(position: position);
   }
 
-  /// Keyboard and assistive-technology users do not have a pointer position,
-  /// so anchor the same menu to the focused forum control.
   void _openFromKeyboard() {
     if (_menu.isOpen) return;
     _menu.open();
   }
 
-  /// The touch path: everything the menu could not sensibly hold, full width
-  /// and far enough from the press that opened it.
   Future<void> _openSheet() async {
     final asked = await showShellSheet<_InstanceSheetAction>(
       context: context,

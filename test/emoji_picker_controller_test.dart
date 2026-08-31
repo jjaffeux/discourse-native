@@ -140,8 +140,6 @@ void main() {
 
   test('a toned and untoned favorite draw as one cell', () async {
     final store = EmojiPickerStore(persistence: _MemoryPersistence());
-    // What the picker records when the same emoji is chosen under two tones:
-    // the composer tracks the untoned name, the picker the toned one.
     await store.trackEmoji(
       siteUrl: _siteUrl,
       context: CoreEmojiUsageContexts.topic,
@@ -163,9 +161,6 @@ void main() {
 
     await controller.load();
 
-    // The untoned entry is drawn in the current tone, so both resolve to the
-    // same artwork — two identical cells, each spending one of the row's
-    // twenty slots.
     expect(controller.favorites.map((favorite) => favorite.code), ['wave:t5']);
   });
 

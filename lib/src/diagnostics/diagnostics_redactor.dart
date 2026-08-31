@@ -1,10 +1,5 @@
 import 'dart:io';
 
-/// The privacy boundary for values retained by diagnostics.
-///
-/// Request and response bodies are deliberately absent from the diagnostics
-/// model. This class additionally removes credentials and query values from
-/// the strings which are useful enough to retain.
 abstract final class DiagnosticsRedactor {
   static const int maximumStringLength = 64 * 1024;
   static const Set<String> allowedResponseHeaders = {
@@ -58,10 +53,6 @@ abstract final class DiagnosticsRedactor {
     r'(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}(?![A-Za-z0-9_-])',
   );
 
-  /// Returns a URI with no user-info, fragment, or query values.
-  ///
-  /// Query names are kept because they are useful for distinguishing endpoint
-  /// shapes. Repeated names remain repeated and in their original order.
   static String uri(Object? input) {
     // Do not truncate until user-info has been removed. In particular, a very
     // long credential can put its terminating `@` beyond the retention limit;
@@ -93,7 +84,6 @@ abstract final class DiagnosticsRedactor {
     }
   }
 
-  /// Keeps only explicitly safe response metadata.
   static Map<String, List<String>> responseHeaders(
     Map<String, List<String>> headers,
   ) {
@@ -106,7 +96,6 @@ abstract final class DiagnosticsRedactor {
     return Map.unmodifiable(safe);
   }
 
-  /// Scrubs a diagnostic exception or stack trace without ever throwing.
   static String scrub(Object? value, {String? homeDirectory}) {
     var text = safeString(value);
     if (text.isEmpty) return text;
@@ -141,7 +130,6 @@ abstract final class DiagnosticsRedactor {
     return _truncate(text);
   }
 
-  /// Converts even hostile [toString] implementations without propagating.
   static String safeString(Object? value) {
     if (value == null) return '';
     try {

@@ -8,10 +8,7 @@ import '../../models/user_status.dart';
 import 'chat_bookmark.dart';
 import 'chat_preview.dart';
 
-/// One message accepted by the optimistic send boundary.
-///
-/// The trusted seed is typed metadata from an app-owned picker, never inferred
-/// from arbitrary Markdown entered by the reader.
+/// Preview metadata is trusted only when supplied by an app-owned picker.
 @immutable
 final class OutgoingChatMessage {
   const OutgoingChatMessage._(this.raw, this.trustedPreviewSeed, this.uploads);
@@ -58,10 +55,8 @@ final class OutgoingChatMessage {
   final List<ComposerUploadResult> uploads;
 }
 
-/// The terminal result of an accepted optimistic send.
 enum ChatSendResult { sent, failed, cancelled }
 
-/// Synchronous proof that a message was staged, with non-throwing settlement.
 @immutable
 final class ChatSendHandle {
   const ChatSendHandle.internal({
@@ -75,11 +70,6 @@ final class ChatSendHandle {
   final Future<ChatSendResult> settled;
 }
 
-/// Who wrote a message.
-///
-/// Its own type rather than [ChatUser] because a message's author carries what
-/// a channel member does not — the staff flags that decide how the name is
-/// drawn — and a channel member carries nothing an author needs.
 @immutable
 class ChatMessageAuthor {
   const ChatMessageAuthor({
@@ -101,8 +91,7 @@ class ChatMessageAuthor {
       name: jsonText(value['name']),
       avatarUrl: resolveAvatarUrl(jsonText(value['avatar_template']), siteUrl),
       status: UserStatus.fromJson(value['status']),
-      // `staff` is the union of the other two server side and is serialised
-      // beside them, so any of the three is an answer.
+      // Discourse serializes `staff` alongside the two constituent roles.
       isStaff:
           value['admin'] == true ||
           value['moderator'] == true ||
@@ -134,13 +123,7 @@ class ChatMessageAuthor {
       Object.hash(id, username, name, avatarUrl, status, isStaff);
 }
 
-/// One emoji on a message, and how many gave it.
-///
-/// The site serialises at most five of the accounts behind each emoji while
-/// [count] is the true total, so the two disagree on any popular reaction.
-/// [reactorIds] is not what draws the reactor panel — that has an endpoint of
-/// its own — it is what lets a live reaction event be recognised as one this
-/// row has already counted. See `ChatController._applyReactionEvent`.
+/// [reactorIds] is a truncated deduplication aid; [count] is authoritative.
 @immutable
 class ChatReaction {
   const ChatReaction({
@@ -160,38 +143,23 @@ class ChatReaction {
     ]),
   );
 
-  /// Maximum accounts retained for one reaction row.
-  ///
-  /// The site names five and live events append the rest, so this bounds a
-  /// long-lived popular reaction rather than a malformed response. Reaching it
-  /// costs nothing but [namesEveryReactor], which is already false by then.
+  /// Bounds live-event growth beyond the five users serialized by Discourse.
   static const int maximumReactorsNamed = 50;
 
   final String emoji;
   final int count;
 
-  /// Whether this reader is one of them.
   final bool reacted;
 
-  /// The accounts behind [count] this row can name, newest last.
-  ///
-  /// Truncated by the site, and left behind by any event that moved [count]
-  /// without naming an account, so it is a subset rather than the roll.
+  /// Known subset of reactors, newest last.
   final List<int> reactorIds;
 
-  /// Whether [reactorIds] accounts for all of [count].
-  ///
-  /// Only then does "this row does not name them" mean "they did not react".
-  /// While the list is short of [count], somebody unnamed may still be one of
-  /// the reactors the site declined to serialise.
+  /// False when Discourse omitted reactor identities.
   bool get namesEveryReactor => reactorIds.length >= count;
 
-  /// Whether this row already counts [userId] among its reactors.
   bool hasReactor(int userId) => reactorIds.contains(userId);
 
-  /// This row with [userId] added or dropped, bounded by
-  /// [maximumReactorsNamed]. A null id leaves the roll alone, which reads as
-  /// truncation and so keeps the row on the counting path.
+  /// A null user ID preserves truncation semantics.
   List<int> reactorIdsWith(int? userId, {required bool reacted}) {
     if (userId == null) return reactorIds;
     if (!reacted) {
@@ -243,11 +211,7 @@ class ChatReaction {
       Object.hash(emoji, count, reacted, Object.hashAll(reactorIds));
 }
 
-/// What kind of thing an upload is, which decides how it is drawn.
-///
-/// Read from the filename rather than from a field, because there is no field:
-/// `UploadSerializer` reports an extension and a size and leaves the
-/// classification to the client. Mirrors `discourse/lib/uploads`.
+/// Discourse's UploadSerializer leaves media classification to the client.
 enum ChatUploadKind {
   image,
   video,
@@ -304,12 +268,7 @@ enum ChatUploadKind {
   }
 }
 
-/// A file attached to a message.
-///
-/// **Not in `cooked`.** `Chat::Message#cook` cooks the raw `message` and not
-/// `to_markdown`, so unlike a post — where Discourse bakes uploads into the
-/// HTML and the lightbox markup comes free — a chat message's attachments
-/// arrive only in this array and have to be drawn from it.
+/// Chat attachments arrive outside `cooked` and must be rendered separately.
 @immutable
 class ChatUpload {
   const ChatUpload({
@@ -335,8 +294,6 @@ class ChatUpload {
       width: jsonIntOrNull(json['width']),
       height: jsonIntOrNull(json['height']),
       humanFilesize: jsonText(json['human_filesize']),
-      // Six hex digits with no `#`, the same shape a category colour arrives
-      // in. Shown behind an image while it loads so the row does not flash.
       dominantColor: jsonText(json['dominant_color']),
     );
   }
@@ -358,8 +315,6 @@ class ChatUpload {
   final String originalFilename;
   final ChatUploadKind kind;
 
-  /// A smaller copy for the row to draw, when the site made one. [url] is the
-  /// full-size image either way.
   final String? thumbnailUrl;
 
   final int? width;
@@ -404,10 +359,8 @@ class ChatUpload {
   );
 }
 
-/// The message a message is answering.
-///
-/// `Chat::InReplyToSerializer` carries no raw markdown, only the cooked body
-/// and an excerpt — which is all a one-line indicator wants anyway.
+/// `Chat::InReplyToSerializer` carries cooked content and an excerpt, not raw
+/// Markdown.
 @immutable
 class ChatReplyTo {
   const ChatReplyTo({
@@ -448,11 +401,8 @@ class ChatReplyTo {
   int get hashCode => Object.hash(id, userId, excerpt, username, avatarUrl);
 }
 
-/// What a thread looks like from the message that started it.
-///
-/// Only ever present on a thread's original message, and only in a channel with
-/// threading on — where the replies themselves are not in this stream at all
-/// and this summary is the only trace of them.
+/// Discourse includes this only on a thread's original message; replies are
+/// absent from the channel stream.
 @immutable
 class ChatThreadPreview {
   const ChatThreadPreview({
@@ -469,13 +419,7 @@ class ChatThreadPreview {
     this.lastReplyAvatarUrl,
   });
 
-  /// Reads the `thread` block, or null when the message did not start one.
-  ///
-  /// The block is only serialised on a thread's original message, so its mere
-  /// presence is the answer to "did this start a thread"; the `preview` inside
-  /// is what it looks like now. A block without one is tolerated rather than
-  /// dropped — the count is on the thread itself, and a row that says how many
-  /// replies there are without naming the last of them is still worth drawing.
+  /// A thread remains valid without its optional preview block.
   static ChatThreadPreview? fromJson(Object? value, String url) {
     if (value is! Map<String, dynamic>) return null;
     final preview = jsonObject(value['preview']);
@@ -513,8 +457,6 @@ class ChatThreadPreview {
   final String? lastReplyExcerpt;
   final int? lastReplyId;
 
-  /// The author of the newest reply. The older scalar accessors remain while
-  /// existing summary-card callers migrate to this typed representation.
   final ChatMessageAuthor? lastReplyUser;
 
   /// Total distinct participants, which can exceed [participantUsers] because
@@ -522,7 +464,6 @@ class ChatThreadPreview {
   final int? participantCount;
   final List<ChatMessageAuthor> participantUsers;
 
-  /// Compatibility scalars used by the existing compact preview tile.
   final String? lastReplyUsername;
   final String? lastReplyAvatarUrl;
 
@@ -557,15 +498,8 @@ class ChatThreadPreview {
   );
 }
 
-/// One page of a channel, always oldest first, and whether the site says there
-/// is more on either side of it.
-///
-/// Both flags are read as `== true` rather than defaulted, because the site
-/// only answers the one the request was about: a page asked for by direction
-/// leaves the other local unassigned, and Ruby serialises that as `nil`. So a
-/// missing flag is "the site did not say", which for a stream that already
-/// holds the messages in that direction is the same as "no more" — the shape
-/// `Post.canEdit` already uses.
+/// Discourse only returns the pagination flag relevant to the requested
+/// direction; the other is serialized as nil.
 typedef ChatMessagePage = ({
   List<ChatMessage> messages,
   bool canLoadMorePast,
@@ -573,21 +507,11 @@ typedef ChatMessagePage = ({
   int? targetMessageId,
 });
 
-/// Which edge of an oldest-first chat response is adjacent to the caller's
-/// current window.
-///
-/// This matters only for a nonconforming oversized response. Past/newest
-/// requests retain the newest edge, future requests retain the oldest edge,
-/// and the last-read request retains a window around the server's target.
+/// Chooses which edge survives a nonconforming oversized response.
 enum ChatMessagePageWindow { retainNewest, retainOldest, aroundTarget }
 
-/// Where a locally staged message is in its trip to the site.
-///
-/// Canonical messages are [sent] too. [ChatMessage.isOptimistic] distinguishes
-/// those server records from the temporary rows this state is drawn on.
 enum ChatMessageDelivery { sending, sent, failed }
 
-/// One message in a channel.
 @immutable
 class ChatMessage with Storable<ChatMessage> {
   const ChatMessage({
@@ -622,34 +546,19 @@ class ChatMessage with Storable<ChatMessage> {
     this.deliveryUncertain = false,
   });
 
-  /// Maximum distinct reaction rows retained for one message.
-  ///
-  /// The message tile eagerly builds a badge and emoji image for each entry,
-  /// so a malformed response must not turn one message into unbounded work.
+  /// Bounds eager reaction widgets for malformed responses.
   static const int maximumReactionsPerMessage = 50;
 
-  /// Maximum attachment rows retained for one message.
-  ///
-  /// This matches the app's local upload-concurrency ceiling and bounds the
-  /// eager attachment column and image gallery built by a visible message.
+  /// Matches the upload-concurrency ceiling and bounds eager attachment widgets.
   static const int maximumUploadsPerMessage = 30;
 
-  /// The absolute page size accepted from either chat message endpoint.
-  ///
-  /// Discourse caps ordinary pages at 50. Bounding raw slots before model
-  /// construction keeps a malformed response from eagerly cooking an
-  /// arbitrary number of message trees.
+  /// Bounds model construction before parsing a malformed response.
   static const int maximumPageSize = 50;
 
   /// Native preview and edit ceiling; core's default maximum is 20,000.
   static const int maximumEditLength = 20000;
 
-  /// A row inserted before credentials or the network are awaited.
-  ///
-  /// Its negative [id] belongs only to the native store. [stagedId] is the
-  /// opaque correlation token Discourse echoes on `/chat/{channel}`; the two
-  /// deliberately stay separate so canonical positive ids remain a contiguous
-  /// paging window.
+  /// Keeps a negative local row ID separate from Discourse's echoed staged ID.
   factory ChatMessage.optimistic({
     required int id,
     required int channelId,
@@ -687,17 +596,11 @@ class ChatMessage with Storable<ChatMessage> {
     return ChatMessage(
       id: jsonInt(json['id']),
       channelId: jsonInt(json['chat_channel_id']),
-      // Server-rendered, and the same bargain a post makes: Discourse does the
-      // markdown, the mentions, the oneboxes and the emoji.
       cooked: jsonString(json['cooked']),
       author: ChatMessageAuthor.fromJson(json['user'], siteUrl),
       mentionedUserStatuses: userStatusesByUsername(json['mentioned_users']),
-      // Core keeps the source alongside cooked HTML so an edit starts from
-      // Markdown rather than trying to reverse rendered output.
       raw: jsonString(json['message']),
       createdAt: jsonDate(json['created_at']),
-      // Only ever sent to someone allowed to see it — for everyone else a
-      // trashed message is simply not in the stream.
       deletedAt: jsonDate(json['deleted_at']),
       deletedById: jsonIntOrNull(json['deleted_by_id']),
       pinned: json['pinned'] == true,
@@ -707,20 +610,12 @@ class ChatMessage with Storable<ChatMessage> {
       ]),
       userFlagStatus: jsonIntOrNull(json['user_flag_status']),
       reviewableId: jsonIntOrNull(json['reviewable_id']),
-      // The key is written only when it is true and dropped otherwise, so
-      // absence is the answer rather than a missing field. Same shape as
-      // `actions_summary`.
       edited: json['edited'] == true,
       isWebhook: json['chat_webhook_event'] != null,
       replyTo: replyTo == null ? null : ChatReplyTo.fromJson(replyTo, siteUrl),
-      // Only serialised in a channel with threading on, or for a thread forced
-      // into one without it.
       threadId: jsonIntOrNull(json['thread_id']),
       thread: ChatThreadPreview.fromJson(json['thread'], siteUrl),
       bookmark: chatMessageBookmarkFromJson(json),
-      // The key is left out entirely when nobody has reacted, which is most
-      // messages — so the empty list is the default rather than something to
-      // parse.
       reactions: List.unmodifiable([
         for (final entry in jsonObjects(
           json['reactions'],
@@ -736,8 +631,6 @@ class ChatMessage with Storable<ChatMessage> {
     );
   }
 
-  /// Reads a `Chat::MessagesSerializer` payload. See [ChatMessagePage] for why
-  /// both flags are read as `== true` rather than defaulted.
   static ChatMessagePage parsePage(
     Map<String, dynamic> json,
     String siteUrl, {
@@ -835,7 +728,6 @@ class ChatMessage with Storable<ChatMessage> {
   final String raw;
   final DateTime? createdAt;
 
-  /// When it was trashed, or null. Present only for a reader who may see it.
   final DateTime? deletedAt;
   final int? deletedById;
   final bool pinned;
@@ -845,77 +737,46 @@ class ChatMessage with Storable<ChatMessage> {
 
   final bool edited;
 
-  /// Whether an integration posted this rather than a person.
-  ///
-  /// Load-bearing beyond the badge: a run of webhook messages is not a person
-  /// talking, so it never collapses into the message above it.
+  /// Webhook messages never collapse into author message runs.
   final bool isWebhook;
 
-  /// The message this one answers, or null.
-  ///
-  /// Also load-bearing for grouping: a reply that is not answering the message
-  /// directly above it breaks the run, because the two are not consecutive in
-  /// the conversation even though they are consecutive in the list.
+  /// Replies break grouping unless they answer the immediately preceding row.
   final ChatReplyTo? replyTo;
 
   final int? threadId;
 
-  /// The thread this message started, or null if it started none.
   final ChatThreadPreview? thread;
 
   final Bookmark? bookmark;
   final List<ChatReaction> reactions;
   final List<ChatUpload> uploads;
 
-  /// Raw markdown shown as plain text until the site echoes canonical cooked
-  /// HTML. Present only on a locally staged row.
+  /// Raw Markdown shown until canonical cooked HTML arrives.
   final String? optimisticRaw;
 
-  /// App-owned provisional presentation. Never authoritative and never HTML.
-  /// Present only while a locally staged row is waiting for canonical cooked
-  /// content from the site.
+  /// App-owned, non-authoritative provisional presentation.
   final ChatPreviewResult? preview;
 
-  /// The arbitrary correlation token sent as `staged_id` and echoed through
-  /// MessageBus. Null on a message read from the site.
+  /// Correlation token echoed through MessageBus.
   final String? stagedId;
 
-  /// The id returned by a successful POST or its canonical MessageBus echo.
-  ///
-  /// The record itself intentionally keeps its negative local [id] until a
-  /// normal page fetch includes this server id and retires the overlay row.
+  /// Canonical ID retained while the overlay keeps its negative row ID.
   final int? serverId;
 
-  /// Whether the site has supplied the canonical serialized message.
-  ///
-  /// This is deliberately independent of [cooked]: an empty canonical body is
-  /// still an authoritative answer and must replace the optimistic preview.
+  /// Independent of [cooked], because an empty canonical body is authoritative.
   final bool canonicalReceived;
 
   final ChatMessageDelivery delivery;
   final String? sendError;
 
-  /// Whether a transport failure may still have committed on the site.
-  ///
-  /// Discourse does not make `staged_id` an idempotency key, so this state is
-  /// deliberately informational rather than an invitation to resend.
+  /// Informational only: Discourse does not make `staged_id` idempotent.
   final bool deliveryUncertain;
 
   bool get isDeleted => deletedAt != null;
   bool get isOptimistic => stagedId != null;
 
-  /// Adds or removes this reader from one reaction without disturbing any of
-  /// the other reactions a chat message may hold.
-  ///
-  /// The server answers the write with success rather than an updated message,
-  /// so this is both the optimistic projection and the state retained after a
-  /// successful request. Applying the same state twice is intentionally a
-  /// no-op, which makes rollback and a repeated UI callback harmless.
-  ///
-  /// [userId] is this reader's account, and naming it keeps
-  /// [ChatReaction.reactorIds] whole across the reader's own write — without
-  /// it the projection would report a roll one short of [ChatReaction.count]
-  /// and read as truncated for every event that followed.
+  /// Projects the write because Discourse returns no updated message; naming
+  /// the current user preserves complete-versus-truncated reactor semantics.
   ChatMessage withReaction(String emoji, {required bool reacted, int? userId}) {
     final index = reactions.indexWhere((reaction) => reaction.emoji == emoji);
     if (index < 0) {
@@ -1012,11 +873,7 @@ class ChatMessage with Storable<ChatMessage> {
     deliveryUncertain: deliveryUncertain,
   );
 
-  /// Applies the site's canonical echo without changing the local row id.
-  ///
-  /// Keeping that identity stable is the native equivalent of the web client
-  /// mutating its staged object in place. The next page containing [serverId]
-  /// removes this overlay, with no duplicate ever entering the stream.
+  /// Keeps the local row identity stable until a page retires the overlay.
   ChatMessage withCanonical(ChatMessage canonical) => ChatMessage(
     id: id,
     channelId: canonical.channelId,
@@ -1047,7 +904,6 @@ class ChatMessage with Storable<ChatMessage> {
     delivery: ChatMessageDelivery.sent,
   );
 
-  /// Replaces only the thread summary embedded on an original message.
   ChatMessage withThreadPreview(ChatThreadPreview? thread) => ChatMessage(
     id: id,
     channelId: channelId,
@@ -1080,7 +936,6 @@ class ChatMessage with Storable<ChatMessage> {
     deliveryUncertain: deliveryUncertain,
   );
 
-  /// Replaces the reaction aggregate after an incremental MessageBus event.
   ChatMessage withReactions(List<ChatReaction> reactions) => ChatMessage(
     id: id,
     channelId: channelId,
@@ -1113,7 +968,6 @@ class ChatMessage with Storable<ChatMessage> {
     deliveryUncertain: deliveryUncertain,
   );
 
-  /// Replaces only the server deletion timestamp.
   ChatMessage withDeletedAt(
     DateTime? deletedAt, {
     int? deletedById,
@@ -1150,7 +1004,6 @@ class ChatMessage with Storable<ChatMessage> {
     deliveryUncertain: deliveryUncertain,
   );
 
-  /// Projects an edit while the canonical cooked echo is in flight.
   ChatMessage withPendingEdit(
     String raw,
     ChatPreviewResult preview, {
@@ -1187,9 +1040,7 @@ class ChatMessage with Storable<ChatMessage> {
     deliveryUncertain: deliveryUncertain,
   );
 
-  /// Restores only editable presentation state after a rejected write.
-  /// Reactions, bookmarks, deletion state and thread previews may have changed
-  /// concurrently and therefore remain those of this message.
+  /// Preserves state that may have changed concurrently with a rejected edit.
   ChatMessage withContentOf(ChatMessage source) => ChatMessage(
     id: id,
     channelId: channelId,
@@ -1256,8 +1107,6 @@ class ChatMessage with Storable<ChatMessage> {
 
   ChatMessage withBookmarkOf(ChatMessage other) => withBookmark(other.bookmark);
 
-  /// Projects the server's pin state without disturbing a concurrent edit,
-  /// reaction, bookmark, deletion, or thread-preview update.
   ChatMessage withPinned(bool pinned) => ChatMessage(
     id: id,
     channelId: channelId,
@@ -1401,8 +1250,7 @@ class ChatMessage with Storable<ChatMessage> {
     );
   }
 
-  /// Paging windows overlap at their boundary; an unchanged copy should not
-  /// wake the row already drawing this record.
+  /// Avoids waking rows for unchanged records in overlapping pages.
   @override
   ChatMessage merge(ChatMessage incoming) => this == incoming ? this : incoming;
 

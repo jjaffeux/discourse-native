@@ -45,7 +45,6 @@ final class _DecodedDiagnosticsFile {
 abstract interface class DiagnosticsPersistence {
   Future<DiagnosticsPersistenceState> load({required DateTime nowUtc});
 
-  /// Appends one timer batch using a single serialized storage operation.
   Future<void> appendEvents(
     List<DiagnosticEvent> events, {
     required DateTime nowUtc,
@@ -60,8 +59,6 @@ abstract interface class DiagnosticsPersistence {
   Future<void> close();
 }
 
-/// Applies all three rolling-history limits to an already-folded event list.
-///
 /// [bytesOf] supplies a size a caller has already measured. Sizing an event
 /// means encoding it, and the decode that produced these events did that work
 /// off the main isolate deliberately; recomputing it here would put the whole
@@ -99,7 +96,6 @@ List<DiagnosticEvent> retainDiagnosticEvents(
 int diagnosticEventSerializedBytes(DiagnosticEvent event) =>
     utf8.encode(jsonEncode(_eventLine(event))).length + 1;
 
-/// Versioned JSONL persistence in the platform application-support directory.
 final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
   FileDiagnosticsPersistence(this.file);
 
@@ -429,7 +425,6 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
       await target.delete();
     } on FileSystemException {
       if (await target.exists()) rethrow;
-      // It was already absent, which is the requested end state.
     }
   }
 
@@ -673,14 +668,12 @@ Future<_DecodedDiagnosticsFile> _decodeDiagnosticsFile(
   );
 }
 
-/// A deterministic persistence implementation for tests and embedders.
 final class MemoryDiagnosticsPersistence implements DiagnosticsPersistence {
   final Map<String, DiagnosticEvent> _events = {};
   final Map<String, int> _eventBytes = {};
   int _lastSeenSequence = 0;
   int _totalEventBytes = 0;
 
-  /// Exposed for deterministic retention tests and memory-store embedders.
   int get retainedEventCount => _events.length;
 
   @override

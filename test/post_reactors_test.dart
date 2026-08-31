@@ -8,8 +8,6 @@ void main() {
       PostReactors.parse(json, postId: 1, siteUrl: site, filter: filter);
 
   test('reads the envelope the reactions route answers with', () {
-    // `{users, total_rows}` — a different shape from `post_action_users`, which
-    // is why this has a parser of its own.
     final reactors = parse({
       'users': [
         {
@@ -35,7 +33,6 @@ void main() {
   });
 
   test('falls back to the username where the site has no names', () {
-    // `enable_names` off: the route simply leaves the key out.
     final reactors = parse({
       'users': [
         {'id': 3, 'username': 'sam', 'reaction': 'heart'},
@@ -48,9 +45,6 @@ void main() {
   });
 
   test('preserves each server-provided reaction in order', () {
-    // The route's query writes the site's main reaction for a row that is only
-    // a like, so the merged list is uniform and there is no second kind of row
-    // to draw.
     final reactors = parse({
       'users': [
         {'id': 3, 'username': 'sam', 'reaction': 'heart'},
@@ -84,8 +78,6 @@ void main() {
   });
 
   test('the unfiltered list and a per-emoji one are separate records', () {
-    // Both are keyed on the post, so without the filter in the id the second
-    // would overwrite the first and a panel would show the wrong names.
     expect(parse(const {}).storeId, '1');
     expect(parse(const {}, filter: 'clap').storeId, '1:clap');
     expect(PostReactors.key(1, null), isNot(PostReactors.key(1, 'clap')));

@@ -7,7 +7,6 @@ import 'package:pointycastle/export.dart';
 import '../diagnostics/diagnostic_error_cause.dart';
 import 'http_transport.dart';
 
-/// What a site hands back once the user authorizes the app.
 class UserApiCredentials {
   const UserApiCredentials({
     required this.key,
@@ -15,7 +14,6 @@ class UserApiCredentials {
     required this.push,
   });
 
-  /// Sent as the `User-Api-Key` header on every authenticated request.
   final String key;
 
   final int apiVersion;
@@ -23,11 +21,8 @@ class UserApiCredentials {
 }
 
 enum UserApiAuthFailure {
-  /// The user closed the browser without authorizing.
   cancelled,
 
-  /// The browser never opened, so the user was never asked.
-  ///
   /// Distinct from [cancelled] because the user did not choose it and trying
   /// again will not help. On Linux this is a missing or broken WebKitGTK;
   /// anywhere else it is a plugin that did not answer.
@@ -73,13 +68,9 @@ class UserApiAuthException implements Exception, DiagnosticErrorCause {
   String toString() => 'UserApiAuthException($failure)';
 }
 
-/// Builds and interprets Discourse's user API key handshake.
-///
 /// Mirrors DiscourseMobile's `SiteManager.generateAuthURL` /
 /// `handleAuthPayload`: we send a public key and a nonce, the site sends back
 /// an RSA-encrypted payload containing the API key and our nonce.
-///
-/// Pure: no I/O, no plugins, so the whole handshake is testable.
 class UserApiKeyProtocol {
   const UserApiKeyProtocol();
 
@@ -131,7 +122,6 @@ class UserApiKeyProtocol {
     );
   }
 
-  /// Pulls the `payload` parameter out of the redirect we were sent back to.
   String payloadFromCallback(String callbackUrl) {
     if (callbackUrl.length > maximumCallbackUrlCodeUnits) {
       throw const UserApiAuthException(
@@ -167,7 +157,6 @@ class UserApiKeyProtocol {
     return payload;
   }
 
-  /// Decrypts the reply and checks it answers the nonce we sent.
   UserApiCredentials decodePayload({
     required String payload,
     required String privateKeyPem,
@@ -194,7 +183,6 @@ class UserApiKeyProtocol {
       );
     }
 
-    // Guards against a reply being replayed at us from somewhere else.
     if (decoded['nonce'] != expectedNonce) {
       throw const UserApiAuthException(
         UserApiAuthFailure.badReply,
@@ -273,8 +261,6 @@ String _safeAuthFailureDetail(Object error) => switch (error) {
   _ => error.runtimeType.toString(),
 };
 
-/// An RSA key pair in the PEM forms we need: the public one goes to the site,
-/// the private one stays in memory for the duration of the handshake.
 class AuthKeyPair {
   const AuthKeyPair({required this.publicPem, required this.privatePem});
 

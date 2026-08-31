@@ -12,7 +12,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 
-/// Composer taxonomy uses the same compact pickers as the topic sidebar.
 void main() {
   Future<ShellController> pumpComposer(
     WidgetTester tester, {

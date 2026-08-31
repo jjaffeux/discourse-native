@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'json.dart';
 
-/// One tag offered by Discourse's built-in sidebar Tags section.
 @immutable
 final class SidebarTag {
   const SidebarTag({
@@ -14,11 +13,6 @@ final class SidebarTag {
     this.count = 0,
   });
 
-  /// Reads a live tag record or a persisted [toJson] snapshot.
-  ///
-  /// A malformed optional field falls back independently. Records without a
-  /// usable identity are omitted, because they cannot produce a stable sidebar
-  /// destination or a canonical tag-list route.
   static SidebarTag? fromJson(Object? value) {
     if (value is! Map<String, dynamic>) return null;
     final json = value;
@@ -42,18 +36,14 @@ final class SidebarTag {
     );
   }
 
-  /// The stable identity Discourse includes in canonical tag routes.
   final int id;
   final String name;
 
-  /// The route slug, falling back to [name] when the wire record omitted one.
   final String slug;
   final String? description;
 
-  /// Whether the tag belongs to private messages rather than public topics.
   final bool pmOnly;
 
-  /// The non-negative directory count supplied for topics or private messages.
   final int count;
 
   Map<String, Object?> toJson() => {

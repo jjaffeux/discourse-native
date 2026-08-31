@@ -6,7 +6,6 @@ import 'package:http/http.dart' as http;
 import '../diagnostics/diagnostics_redactor.dart';
 import '../foundation/loopback_host.dart';
 
-/// A URL that cannot safely carry a Discourse API request.
 final class UnsafeHttpTransportException implements Exception {
   UnsafeHttpTransportException(Uri url)
     : url = Uri.parse(DiagnosticsRedactor.uri(url));
@@ -19,7 +18,6 @@ final class UnsafeHttpTransportException implements Exception {
   String toString() => 'UnsafeHttpTransportException($url)';
 }
 
-/// A response whose declared or received body exceeded the caller's bound.
 final class HttpResponseTooLargeException implements Exception {
   const HttpResponseTooLargeException(this.url, this.maxBytes);
 
@@ -30,8 +28,7 @@ final class HttpResponseTooLargeException implements Exception {
   String toString() => 'HttpResponseTooLargeException($url, $maxBytes bytes)';
 }
 
-/// Accepts credential-free encrypted HTTP URLs and plaintext URLs for loopback
-/// development.
+/// Plaintext is accepted only for loopback development.
 Uri requireSafeHttpUrl(Uri url) {
   if (!url.hasAuthority || url.host.isEmpty || url.userInfo.isNotEmpty) {
     throw UnsafeHttpTransportException(url);
@@ -51,7 +48,6 @@ Uri requireSafeHttpUrl(Uri url) {
   throw UnsafeHttpTransportException(url);
 }
 
-/// Resolves and validates a redirect without allowing an HTTPS downgrade.
 Uri resolveSafeHttpRedirect(Uri source, String location) {
   final target = source.resolve(location);
   if (source.scheme == 'https' && target.scheme != 'https') {
@@ -60,8 +56,7 @@ Uri resolveSafeHttpRedirect(Uri source, String location) {
   return requireSafeHttpUrl(target);
 }
 
-/// Enforces transport safety at the final request boundary and refuses
-/// automatic redirects.
+/// Rechecks transport safety at the final boundary and refuses redirects.
 final class SafeHttpClient extends http.BaseClient {
   SafeHttpClient.owned(this._client) : _closeClient = true;
 
@@ -85,8 +80,6 @@ final class SafeHttpClient extends http.BaseClient {
   }
 }
 
-/// Sends one request and buffers a bounded response within one total deadline.
-///
 /// `http.Response.fromStream` has neither a body limit nor a timeout once the
 /// response headers arrive. API responses are buffered JSON, so callers need
 /// both: a peer that stalls halfway through a body must not hold the operation

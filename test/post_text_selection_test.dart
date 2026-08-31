@@ -66,9 +66,7 @@ void main() {
     });
 
     test('matches across newlines introduced between cooked blocks', () {
-      // Real cooked HTML separates blocks with `\n` text nodes the renderer
-      // never draws. The selection stream carries no such character, so the
-      // index must not either.
+      // Cooked block separators are not part of Flutter's selection stream.
       expect(
         postQuoteContentsFromSelection(
           '<p>First <strong>bold</strong> thought.</p>\n'
@@ -87,12 +85,10 @@ void main() {
     });
 
     test('collapses whitespace the way the renderer draws it', () {
-      // A soft line break inside a paragraph renders as a single space.
       expect(
         postQuoteContentsFromSelection('<p>hello\nworld</p>', 'hello world'),
         'hello world',
       );
-      // Whitespace between inline elements is drawn, so it stays indexed.
       expect(
         postQuoteContentsFromSelection(
           '<p><strong>a</strong>\n<em>b</em></p>',

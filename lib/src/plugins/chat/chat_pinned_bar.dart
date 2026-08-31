@@ -12,7 +12,6 @@ import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_pin.dart';
 
-/// Compact native counterpart of core's channel pinned-message bar.
 class ChatPinnedBar extends StatefulWidget {
   const ChatPinnedBar({
     super.key,

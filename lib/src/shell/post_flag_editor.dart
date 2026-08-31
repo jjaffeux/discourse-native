@@ -14,7 +14,6 @@ import 'shell_sheet.dart';
 typedef PostFlagSaver =
     Future<String?> Function(PostFlagType type, {String? message});
 
-/// Opens the reader-facing flag composer on the platform's compact surface.
 Future<void> showPostFlagEditor({
   required BuildContext context,
   required String siteUrl,
@@ -42,7 +41,6 @@ Future<void> showPostFlagEditor({
   );
 }
 
-/// Opens core's topic-level flag composer.
 Future<void> showTopicFlagEditor({
   required BuildContext context,
   required String siteUrl,
@@ -75,8 +73,6 @@ Future<void> showTopicFlagEditor({
   );
 }
 
-/// The stateful part of the flag composer, public so its validation and
-/// accessibility behavior can be exercised without opening a route.
 class PostFlagEditor extends StatefulWidget {
   const PostFlagEditor({
     super.key,

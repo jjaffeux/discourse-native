@@ -72,8 +72,6 @@ void main() {
       expect(api.hashtagSearchOrdersRequested, [_expectedOrder]);
       expect(api.hashtagLookupsRequested, isEmpty);
 
-      // Finishing a hand-typed ref makes the editor project it. That public
-      // projection path asks the shell to resolve the ref before drawing it.
       composer.text.value = const TextEditingValue(
         text: 'see #lounge now',
         selection: TextSelection.collapsed(offset: 0),

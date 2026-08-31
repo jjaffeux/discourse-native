@@ -6,7 +6,6 @@ import 'avatar_loader.dart';
 import 'byte_cache.dart';
 import 'site_lifecycle.dart';
 
-/// Encoded artwork returned for a post, composer preview, or chat upload.
 final class SiteImageBytes {
   const SiteImageBytes(this.bytes, {required this.isSvg});
 
@@ -116,7 +115,6 @@ final class SiteImageRepository {
     );
   }
 
-  /// Drops both successful and failed media for an account session.
   void forget(String siteUrl) {
     final _ = _opening.remove(siteUrl);
     _sessions.remove(siteUrl)?.cache.clear();

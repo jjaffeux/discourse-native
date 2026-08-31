@@ -2,11 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'json.dart';
 
-/// Discourse's numeric identity for a notification type.
-///
-/// This is deliberately an open value rather than an enum. Discourse plugins
-/// and newer servers may add ids this build has never seen, and those ids must
-/// survive parsing unchanged so an installed owner can interpret them later.
 @immutable
 final class NotificationTypeId {
   const NotificationTypeId(this.value);
@@ -24,12 +19,6 @@ final class NotificationTypeId {
   String toString() => '$value';
 }
 
-/// Discourse's wire name for a notification type.
-///
-/// Notification rows normally carry the numeric id, while
-/// `filter_by_types` uses these names. Keeping the two values separate avoids
-/// inventing a name for an unknown response id and lets arbitrary server or
-/// plugin names be sent back without a closed core enum.
 @immutable
 final class NotificationTypeName {
   const NotificationTypeName(this.value);
@@ -47,10 +36,6 @@ final class NotificationTypeName {
   String toString() => value;
 }
 
-/// A known pairing of the two notification type identities used by Discourse.
-///
-/// Core declares only core types. Optional feature modules declare their own
-/// pairings beside their decoders and presentation behavior.
 @immutable
 final class NotificationWireType {
   const NotificationWireType(this.wireId, this.wireName);
@@ -71,11 +56,6 @@ final class NotificationWireType {
   String toString() => '$wireName($wireId)';
 }
 
-/// Notification types owned by Discourse core.
-///
-/// Optional Chat, Assign, Reactions, Follow and voting types intentionally do
-/// not appear here. Their modules may register them; without those modules the
-/// raw row remains visible through the generic fallback.
 abstract final class CoreNotificationTypes {
   static const mentioned = NotificationWireType(1, 'mentioned');
   static const replied = NotificationWireType(2, 'replied');
@@ -160,8 +140,6 @@ abstract final class CoreNotificationTypes {
   ];
 }
 
-/// The core notification names Discourse groups into the Replies user-menu
-/// tab, in the order used by core's `CORE_TOP_TABS` definition.
 const userMenuReplyNotificationTypes = <NotificationTypeName>[
   NotificationTypeName('mentioned'),
   NotificationTypeName('group_mentioned'),
@@ -170,12 +148,6 @@ const userMenuReplyNotificationTypes = <NotificationTypeName>[
   NotificationTypeName('replied'),
 ];
 
-/// One notification row exactly as received from Discourse.
-///
-/// The envelope exposes a few stable core fields for list state and a safe
-/// topic fallback. Its type id and free-form [data] remain opaque. Feature
-/// modules decode that data only after their notification definition has been
-/// selected by the installed registry.
 @immutable
 final class DiscourseNotification {
   factory DiscourseNotification({
@@ -205,9 +177,6 @@ final class DiscourseNotification {
     return DiscourseNotification.fromJson(envelope);
   }
 
-  /// A const constructor for local fixtures which do not originate at a JSON
-  /// boundary. Production wire parsing must use [fromJson], which deep-freezes
-  /// the complete envelope and payload.
   @visibleForTesting
   const DiscourseNotification.test({
     required this.id,
@@ -268,19 +237,11 @@ final class DiscourseNotification {
     required this.data,
   });
 
-  /// The complete, deeply immutable wire envelope.
-  ///
-  /// Unknown top-level keys are retained for the same reason unknown payload
-  /// keys are retained: parsing through a smaller/core-only build must not be
-  /// destructive.
   final Map<String, Object?> wire;
 
   final int id;
   final NotificationTypeId typeId;
 
-  /// A name is exposed only when the wire actually supplied one. Normal
-  /// `/notifications` rows carry an id alone, so unknown ids do not acquire a
-  /// fabricated name.
   final NotificationTypeName? typeName;
   final bool read;
   final DateTime? createdAt;
@@ -288,17 +249,12 @@ final class DiscourseNotification {
   final int? postNumber;
   final String slug;
 
-  /// The decoded top-level `fancy_title`, or empty when the envelope omitted
-  /// it. Type-owned alternatives such as `data.topic_title` stay in [data]
-  /// until the registered owner resolves this row.
   final String title;
 
-  /// The complete, deeply immutable type-owned payload.
   final Map<String, Object?> data;
 
   bool get isUnread => !read;
 
-  /// A mutable JSON-shaped copy suitable for persistence or transport.
   Map<String, dynamic> toJson() {
     if (wire.isNotEmpty) return _thawObject(wire);
     return <String, dynamic>{

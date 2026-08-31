@@ -10,7 +10,6 @@ const chatMessageBookmarkTarget = BookmarkTargetType(
   refreshLabel: 'chat message',
 );
 
-/// The complete bookmark object attached by `Chat::MessageSerializer`.
 Bookmark? chatMessageBookmarkFromJson(Map<String, dynamic> json) {
   final raw = json['bookmark'];
   if (raw is! Map<String, dynamic>) return null;

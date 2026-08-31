@@ -1,6 +1,5 @@
 typedef SiteMutation = void Function();
 
-/// Identifies the current account session for each site.
 final class SiteLifecycle {
   final Map<String, Object> _tokens = {};
 
@@ -17,7 +16,6 @@ final class SiteLifecycle {
   }
 }
 
-/// Permission to publish a synchronous state change for one site session.
 final class SiteLease {
   const SiteLease._(this._token, this._currentToken);
 

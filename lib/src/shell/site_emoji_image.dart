@@ -3,11 +3,6 @@ import 'package:flutter/material.dart';
 import 'emoji.dart';
 import 'shell_scope.dart';
 
-/// An emoji whose artwork address comes from one site's live configuration.
-///
-/// Site settings and uploaded emoji arrive after a topic can already be on
-/// screen. Selecting just the resolved URL lets that artwork correct itself
-/// without making the post or message containing it a shell-wide listener.
 class SiteEmojiImage extends StatelessWidget {
   const SiteEmojiImage({
     super.key,

@@ -5,8 +5,6 @@ import 'package:discourse_native/src/shell/composer_marks.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Writes a selection as `text` with the selected part between brackets, so a
-/// failure reads as what someone would see rather than as a pair of offsets.
 String showSelection(TextEditingValue value) {
   final s = value.selection;
   if (!s.isValid) return value.text;
@@ -35,8 +33,6 @@ void main() {
     }
 
     test('wraps a selection, keeping the selection on the text', () {
-      // Markers land outside the selection so a second mark composes onto the
-      // same words rather than onto the first mark's asterisks.
       expectToggle('say [hello] there', '**', 'say **[hello]** there');
       expectToggle('say [hello] there', '*', 'say *[hello]* there');
     });
@@ -66,9 +62,7 @@ void main() {
     });
 
     test('does not mistake bold for a pair of italics', () {
-      // Pressing italic on bold text adds a mark; it does not peel one off.
       expectToggle('say [**hello**] there', '*', 'say *[**hello**]* there');
-      // Which is what makes bold-then-italic reach ***hello***.
       expectToggle('say **[hello]** there', '*', 'say ***[hello]*** there');
     });
 

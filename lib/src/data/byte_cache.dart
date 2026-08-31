@@ -11,23 +11,6 @@ import 'discourse_api.dart';
 import 'http_transport.dart';
 import 'media_request_coordinator.dart';
 
-/// Deduplicates image fetches, caches failures, and optionally bounds work.
-///
-/// Two problems make a plain `NetworkImage` the wrong tool for anything this
-/// app draws off a site:
-///
-/// * A first render can ask for three avatars per topic across thirty topics.
-///   Static media leaves [maxConcurrent] null by default so the HTTP stack and
-///   CDN can fan out; specialized callers may still opt into a local limit.
-/// * The format is not always what the URL says, so the bytes have to be looked
-///   at rather than the extension trusted.
-///
-/// So: cache by URL *including failures*, and let each media owner decide
-/// whether its transport needs an application-level concurrency cap.
-///
-/// Subclasses say what a successful response decodes to and nothing else; the
-/// caching and optional cooldown/semaphore are shared here rather than copied
-/// by each media owner.
 abstract class ByteCache<T extends Object> {
   ByteCache({
     http.Client? client,
@@ -64,40 +47,18 @@ abstract class ByteCache<T extends Object> {
   final MediaRequestCoordinator? _coordinator;
   final ByteCacheStore? store;
 
-  /// Null leaves concurrency to the HTTP stack, which is appropriate for
-  /// small immutable assets normally served by a CDN.
   final int? maxConcurrent;
 
-  /// How many results or unique pending loads are held.
-  ///
-  /// The record `Store` is deliberately never evicted, because an evicted
-  /// record is a blank spot on screen; an evicted image just fetches itself
-  /// again the next time it is wanted, which is worth bounding the memory a
-  /// long-lived session reading busy sites would otherwise accumulate.
   final int maxEntries;
 
-  /// Largest response body this cache will accept.
-  ///
-  /// The response is read as a stream and cancelled as soon as it crosses this
-  /// bound. A declared content length over the bound is rejected before any of
-  /// the body is read.
   final int maxResponseBytes;
 
-  /// Maximum encoded bytes retained across successful entries.
-  ///
-  /// Failures occupy an entry, so they still participate in [maxEntries], but
-  /// cost no bytes here. Successful entries are evicted from the least recently
-  /// used end until both limits are satisfied.
   final int maxCachedBytes;
 
-  /// How long a *transient* failure is remembered. A rate limit is temporary,
-  /// so caching it forever would leave images blank until the app restarts —
-  /// but retrying immediately is what earned the rate limit.
   final Duration retryAfter;
 
   final Duration timeout;
 
-  /// Maximum number of validated redirects followed for one image.
   final int maxRedirects;
 
   final Map<String, _CacheEntry<T>> _cache = {};
@@ -108,39 +69,26 @@ abstract class ByteCache<T extends Object> {
   int _cachedBytes = 0;
   Object _generation = Object();
 
-  /// What a 200 means here, or null when the bytes cannot be drawn.
   @protected
   T? decode(http.Response response);
 
-  /// Extra headers for one request in a manually-followed redirect chain.
-  ///
-  /// The default is deliberately empty. A cache for private site media can
-  /// authenticate the forum-origin hop while withholding credentials from a
-  /// CDN redirect by inspecting [url] for every hop. [original] is the cache
-  /// key and is supplied for policies that also need the source URL.
   @protected
   Map<String, String> requestHeaders(Uri url, Uri original) => const {};
 
-  /// Already-known result, so a rebuild paints without going async again.
   bool isCached(String url) => _cache.containsKey(url) && !_cooledDown(url);
 
-  /// Reads a known result and keeps an image that just painted LRU-recent.
   T? cached(String url) {
     final entry = _cache[url];
     if (entry != null) _touch(url);
     return entry?.value;
   }
 
-  /// True once a transient failure is old enough to be worth retrying.
   bool _cooledDown(String url) {
     final failedAt = _transientFailures[url];
     if (failedAt == null) return false;
     return DateTime.now().difference(failedAt) > retryAfter;
   }
 
-  /// Null means the image is unavailable — a 429, a 404, or a format we cannot
-  /// draw. Failures are cached while retained; transient ones become eligible
-  /// for retry after [retryAfter].
   Future<T?> load(String url) {
     // Validate before consulting either memory or persistent storage. An
     // unsafe key must never be served merely because another cache generation
@@ -182,7 +130,6 @@ abstract class ByteCache<T extends Object> {
     return request;
   }
 
-  /// Moves [url] to the most recently loaded end, and makes room if needed.
   void _put(String url, T? value, {required int byteSize}) {
     final replaced = _cache.remove(url);
     if (replaced != null) _cachedBytes -= replaced.byteSize;
@@ -238,8 +185,6 @@ abstract class ByteCache<T extends Object> {
           _report(error, stackTrace, url, 'image.cacheRead');
         }
       }
-      // This is the generation check which used to happen when the work slot
-      // was acquired after the disk lookup.
       if (!identical(_generation, generation)) return null;
 
       final downloaded = await _download(url);
@@ -247,7 +192,6 @@ abstract class ByteCache<T extends Object> {
       bool current() => identical(_generation, generation);
 
       if (response.statusCode != 200) {
-        // 429 and 5xx pass; 404 and friends are permanent.
         if (current() &&
             (response.statusCode == 429 || response.statusCode >= 500)) {
           _rememberTransientFailure(url);
@@ -316,7 +260,6 @@ abstract class ByteCache<T extends Object> {
       return null;
     } catch (error, stackTrace) {
       _report(error, stackTrace, url, 'image.load');
-      // Offline or timed out: worth another go later.
       if (identical(_generation, generation)) {
         _rememberTransientFailure(url);
         _put(url, null, byteSize: 0);
@@ -436,7 +379,6 @@ abstract class ByteCache<T extends Object> {
       final remaining = _remaining(elapsed);
       final request =
           http.AbortableRequest('GET', url, abortTrigger: timeoutAbort.future)
-            // Sites are friendlier to a request that identifies itself.
             ..headers['User-Agent'] = DiscourseApi.userAgent
             ..followRedirects = false;
       request.headers.addAll(requestHeaders(url, original));
@@ -564,14 +506,12 @@ abstract class ByteCache<T extends Object> {
         waiter.result.complete(false);
         continue;
       }
-      // Transfer this active slot directly to the waiter.
       waiter.result.complete(true);
       return;
     }
     _active--;
   }
 
-  /// Test seam: forget everything fetched so far.
   void clear() {
     _generation = Object();
     _cache.clear();

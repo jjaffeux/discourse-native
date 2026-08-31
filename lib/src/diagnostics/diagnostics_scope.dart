@@ -2,8 +2,6 @@ import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:flutter/widgets.dart';
 
-/// Makes the app-owned diagnostics controller available without subscribing
-/// the surrounding shell to high-frequency event changes.
 final class DiagnosticsScope extends InheritedWidget {
   const DiagnosticsScope({
     required this.controller,

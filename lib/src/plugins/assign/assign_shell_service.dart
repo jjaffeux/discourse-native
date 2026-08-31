@@ -10,7 +10,6 @@ import 'assigned_group_link.dart';
 
 typedef AssignGroupRoutePermission = bool Function(String siteUrl);
 
-/// Assign-owned link routing for the current shell session.
 final class AssignShellService implements PluginLinkHandler {
   const AssignShellService({
     required PluginRouteNavigationHost host,

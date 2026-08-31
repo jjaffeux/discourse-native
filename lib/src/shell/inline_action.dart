@@ -2,12 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-/// A compact interactive value inside prose or metadata.
-///
-/// Inline actions keep their layout visually still under a pointer: the hand
-/// cursor is enough hover feedback for a value that already reads as a link or
-/// action. Keyboard focus remains visible, unlike pointer hover, so the target
-/// does not disappear for people navigating without a mouse.
 class InlineAction extends StatelessWidget {
   const InlineAction({
     super.key,

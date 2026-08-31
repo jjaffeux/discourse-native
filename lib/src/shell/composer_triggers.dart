@@ -1,10 +1,5 @@
 import 'package:flutter/widgets.dart';
 
-/// What someone has started typing that a list could finish.
-///
-/// The sigil is part of the enum for the same reason [ComposerMark] carries its
-/// marker: what `@` means is a fact about mentions, not something the popup
-/// should be told separately.
 enum ComposerTriggerKind {
   mention('@'),
   hashtag('#'),
@@ -14,31 +9,18 @@ enum ComposerTriggerKind {
 
   final String sigil;
 
-  /// What may follow the sigil. A mention allows the dots and hyphens
-  /// Discourse allows in a username; a hashtag allows the colons that name a
-  /// subcategory (`#parent:child`) or settle a collision (`#name::tag`); an
-  /// emoji name allows the `+` of `:+1:` but never a colon, which is what
-  /// stops a finished `:smile:` from reading as the start of another one.
   bool accepts(String character) => switch (this) {
     ComposerTriggerKind.mention => _mentionCharacter.hasMatch(character),
     ComposerTriggerKind.hashtag => _hashtagCharacter.hasMatch(character),
     ComposerTriggerKind.emoji => _emojiCharacter.hasMatch(character),
   };
 
-  /// Enough typed for the answer to be worth asking for.
-  ///
-  /// One character for a person or a place, because `@j` and `#s` already
-  /// narrow a site to something worth reading. Two for an emoji, because a
-  /// single `:` is ordinary punctuation and every "Note: " in a reply would
-  /// otherwise open a list.
   int get minimum => switch (this) {
     ComposerTriggerKind.mention => 1,
     ComposerTriggerKind.hashtag => 1,
     ComposerTriggerKind.emoji => 2,
   };
 
-  /// Longer than any of these can be. A paragraph typed without a space is
-  /// none of them, and is not worth sending to the site as a query.
   int get maximum => switch (this) {
     ComposerTriggerKind.mention => 30,
     // Core's own cap on a hashtag ref.
@@ -47,7 +29,6 @@ enum ComposerTriggerKind {
   };
 }
 
-/// A trigger that is open, and what accepting a suggestion would replace.
 @immutable
 class ComposerTrigger {
   const ComposerTrigger({
@@ -59,13 +40,10 @@ class ComposerTrigger {
 
   final ComposerTriggerKind kind;
 
-  /// What has been typed after the sigil, without it.
   final String query;
 
-  /// Where the sigil is.
   final int start;
 
-  /// The caret. `[start, end)` is what a completion writes over.
   final int end;
 
   @override
@@ -84,19 +62,8 @@ class ComposerTrigger {
   String toString() => '${kind.sigil}$query @$start..$end';
 }
 
-/// How far back the walk will look before giving up.
-///
-/// Not what *refuses* a run — [ComposerTriggerKind.maximum] does that, per
-/// kind, once the kind is known. This only stops the scan from reading the
-/// length of a long paragraph on every keystroke.
 const int runMaximum = 128;
 
-/// The trigger the caret is sitting in, or null.
-///
-/// Pure, so what counts as a trigger is testable without a widget — the same
-/// bargain `toggleMarkdownMark` makes. Every rule here exists to *refuse*: the
-/// cost of a missed trigger is one more keystroke, and the cost of a false one
-/// is a list covering the reply while someone writes an email address.
 ComposerTrigger? composerTriggerAt(TextEditingValue value) {
   final selection = value.selection;
   // A range is somebody selecting text, not somebody typing a name.
@@ -131,14 +98,8 @@ ComposerTrigger? composerTriggerAt(TextEditingValue value) {
   };
   if (kind == null) return null;
 
-  // A colon is the one character two kinds share, and the walk cannot tell
-  // them apart on its own: it stops there, leaving `#parent:child` looking
-  // like an emoji called `child`. So when a colon stopped it, keep going —
-  // over colons as well as names — and if a `#` opens the whole run, this was
-  // a hashtag all along.
-  //
-  // Only in that direction. An emoji name may not contain a colon, so nothing
-  // a `#` starts can be mistaken for one, and `:smile:` is untouched.
+  // `#parent:child` initially looks like emoji `:child`; scan through colons
+  // to recover the full hashtag ref. Emoji names cannot contain colons.
   if (kind == ComposerTriggerKind.emoji) {
     var scan = sigil;
     while (scan > 0 && (_isName(text[scan - 1]) || text[scan - 1] == ':')) {
@@ -168,11 +129,6 @@ ComposerTrigger? composerTriggerAt(TextEditingValue value) {
   return ComposerTrigger(kind: kind, query: query, start: sigil, end: caret);
 }
 
-/// Writes [replacement] over [trigger], sigils and all.
-///
-/// The trailing space is what makes typing straight on work, and is not added
-/// when there is already one there — accepting mid-sentence must not push the
-/// words apart. The caret lands after it either way.
 TextEditingValue applyComposerCompletion(
   TextEditingValue value,
   ComposerTrigger trigger,
@@ -198,16 +154,8 @@ TextEditingValue applyComposerCompletion(
   );
 }
 
-/// What a name may be made of. Also what decides where a run *ends*: a caret
-/// with one of these after it is in the middle of a word.
 bool _isName(String character) => _nameCharacter.hasMatch(character);
 
-/// What may sit immediately before a sigil.
-///
-/// Whitespace, and the punctuation someone opens a parenthetical with — `(@sam
-/// said so)` is a mention. Deliberately not a letter or a digit, which is the
-/// whole of what stops `me@example.com` completing a username and what stops
-/// the second colon of `:smile:` opening a list of its own.
 bool _opensWord(String character) => _wordOpeningCharacter.hasMatch(character);
 
 final RegExp _mentionCharacter = RegExp(r'[A-Za-z0-9_.-]');

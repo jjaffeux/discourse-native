@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-/// A duration accepted by Discourse's `/do-not-disturb.json` endpoint.
 @immutable
 final class DoNotDisturbDuration {
   const DoNotDisturbDuration.minutes(int minutes)
@@ -27,7 +26,6 @@ final class DoNotDisturbDuration {
   int get hashCode => Object.hash(minutes, untilTomorrow);
 }
 
-/// The four choices in Discourse's pause-notifications modal.
 enum DoNotDisturbOption {
   halfHour('30 minutes', DoNotDisturbDuration.minutes(30)),
   oneHour('1 hour', DoNotDisturbDuration.minutes(60)),
@@ -40,7 +38,6 @@ enum DoNotDisturbOption {
   final DoNotDisturbDuration duration;
 }
 
-/// Core's sentinel for a pause with no user-visible expiration.
 final DateTime eternalDoNotDisturbUntil = DateTime.utc(3000);
 
 bool isEternalDoNotDisturb(DateTime? until) {
@@ -51,7 +48,6 @@ bool isEternalDoNotDisturb(DateTime? until) {
       utc.day == eternalDoNotDisturbUntil.day;
 }
 
-/// The minute duration core derives when a custom status pauses notifications.
 DoNotDisturbDuration doNotDisturbDurationUntil(
   DateTime until, {
   DateTime? now,
@@ -70,7 +66,6 @@ DoNotDisturbDuration doNotDisturbDurationUntil(
   return DoNotDisturbDuration.minutes(minutes);
 }
 
-/// A compact future age for the account-menu row.
 String doNotDisturbRemainingLabel(DateTime until, {DateTime? now}) {
   final remaining = until.difference(now ?? DateTime.now());
   if (remaining <= Duration.zero) return 'now';

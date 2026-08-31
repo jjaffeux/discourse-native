@@ -172,9 +172,6 @@ void main() {
       debugOnRebuildDirtyWidget = previousRebuildCallback;
     });
 
-    // On a wide layout, selecting the already-current site changes no visible
-    // shell state. It still emits a shell notification because the same action
-    // returns compact layouts to their sidebar.
     controller.selectInstance(0);
     await tester.pump();
 

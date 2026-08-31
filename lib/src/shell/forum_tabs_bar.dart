@@ -17,12 +17,6 @@ import 'emoji.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 
-/// Presentation data for one tab in a forum's horizontal tab bar.
-///
-/// Prefix precedence matches the instance sidebar: avatar, emoji, category
-/// colour, then [icon]. When none are provided, the label uses the available
-/// prefix space. Emoji URLs are resolved by the caller because custom emoji
-/// belong to the forum that owns the tab.
 @immutable
 class ForumTabItem {
   const ForumTabItem({
@@ -59,11 +53,6 @@ class ForumTabItem {
   final SidebarBadge badge;
 }
 
-/// The horizontal, forum-scoped tab bar shown above the main content header.
-///
-/// The caller owns the lifecycle. Tabs share the available width between the
-/// experiment's 88px and 205px bounds, then scroll horizontally when they no
-/// longer fit. The add action follows the last tab in the scrolling strip.
 class ForumTabsBar extends StatefulWidget {
   ForumTabsBar({
     super.key,
@@ -81,10 +70,8 @@ class ForumTabsBar extends StatefulWidget {
 
   static const double height = shellHeaderHeight;
 
-  /// Compact visuals still need an unambiguous finger and switch target.
   static const double minimumActionTarget = 44;
 
-  /// Leaves a useful selection target beside the 44px close action.
   static const double minimumTabWidth = 88;
 
   final String forumName;
@@ -557,8 +544,6 @@ class _ForumTabState extends State<_ForumTab> {
       _selectedOnPointerDown = false;
       return;
     }
-    // Keyboard activation has no pointer-down gesture, so it still reaches
-    // the same selection command through InkWell's normal tap action.
     widget.onSelect();
   }
 
@@ -869,9 +854,6 @@ class _ForumTabState extends State<_ForumTab> {
                           )
                         : ExcludeSemantics(
                             child: InkWell(
-                              // Desktop tabs conventionally activate on mouse-down.
-                              // Waiting for the full tap gesture makes a fast local
-                              // context switch feel needlessly remote.
                               onTapDown: _handleTapDown,
                               onTap: _handleTap,
                               onDoubleTap: widget.onRename == null
@@ -1146,7 +1128,6 @@ final class _CurrentForumTabsSnapshot {
   );
 }
 
-/// Connects [ForumTabsBar] to the selected forum and its live chat metadata.
 class CurrentForumTabsBar extends StatelessWidget {
   const CurrentForumTabsBar({super.key});
 

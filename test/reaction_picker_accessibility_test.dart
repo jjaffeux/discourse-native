@@ -102,8 +102,6 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // The failed artwork keeps its visible shortcode fallback, while the
-      // cell itself owns one concise name rather than "clap, :clap:".
       expect(find.text(':clap:'), findsOneWidget);
       final target = find.bySemanticsLabel('clap');
       expect(target, findsOneWidget);

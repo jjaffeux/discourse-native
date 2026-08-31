@@ -5,12 +5,8 @@ import '../../shell/avatar_image.dart';
 import '../../theme/app_theme.dart';
 import 'chat_services.dart';
 
-/// A chat avatar with Discourse's live online treatment.
-///
-/// Core keeps the outer size unchanged, insets the image by two pixels and
-/// paints a one-pixel `success` ring with the page (`secondary`) showing
-/// between them. Matching that geometry matters in message gutters: growing
-/// the avatar to add an outside border would move every message body.
+/// Insets the image within a fixed outer size so the upstream online ring does
+/// not move message gutters.
 class ChatUserAvatar extends StatelessWidget {
   const ChatUserAvatar({
     super.key,

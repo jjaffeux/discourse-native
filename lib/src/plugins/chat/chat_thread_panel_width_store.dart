@@ -25,7 +25,6 @@ final class SharedPreferencesChatThreadPanelWidthPersistence
       );
 }
 
-/// Optional global presentation preference for the expanded thread pane.
 final class ChatThreadPanelWidthStore {
   const ChatThreadPanelWidthStore({
     ChatThreadPanelWidthPersistence? persistence,

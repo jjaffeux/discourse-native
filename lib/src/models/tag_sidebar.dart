@@ -2,11 +2,6 @@ import '../theme/d_icons.dart';
 import 'sidebar.dart';
 import 'sidebar_tag.dart';
 
-/// Builds the native equivalent of core's built-in Tags section.
-///
-/// [display] is the server-owned decision to expose the section. An exposed
-/// section remains present when no individual tags are available so its
-/// All tags destination does not disappear during an empty response.
 SidebarSection? buildTagSidebarSection({
   required List<SidebarTag> tags,
   required bool display,
@@ -28,10 +23,6 @@ SidebarSection? buildTagSidebarSection({
   );
 }
 
-/// The native list destination represented by one tag record.
-///
-/// A private-message tag has no usable route without an account name, so it is
-/// omitted rather than exposing a destination the server cannot resolve.
 SidebarDestination? buildTagDestination(SidebarTag tag, {String? username}) {
   final pmUsername = username?.trim();
   if (tag.pmOnly && (pmUsername?.isEmpty ?? true)) return null;

@@ -9,8 +9,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// What `InlineOneboxer` leaves in the cooked HTML once it has fetched a
-/// title for a link that did not sit alone on its line.
 const String prTitle =
     'Add the thing - Pull Request #30604 - discourse/discourse - GitHub';
 const String prUrl = 'https://github.com/discourse/discourse/pull/30604';
@@ -166,8 +164,7 @@ void main() {
     final semantics = tester.ensureSemantics();
     await pumpCooked(tester, '<p>$prInline</p>');
 
-    // RenderParagraph may put newlines in the semantics label where the title
-    // wrapped visually.
+    // RenderParagraph may insert visual wrapping into its semantics label.
     final target = find.semantics.byLabel(
       RegExp(r'Add the thing.*discourse/discourse.*GitHub', dotAll: true),
     );

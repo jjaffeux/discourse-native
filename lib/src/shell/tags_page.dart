@@ -10,7 +10,6 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'shell_scope.dart';
 
-/// The site's browsable tags, loaded from Discourse's native tag directory.
 class TagsPage extends StatefulWidget {
   const TagsPage({super.key, required this.siteUrl});
 

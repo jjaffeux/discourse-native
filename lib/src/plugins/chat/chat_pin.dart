@@ -6,7 +6,6 @@ import 'chat_message.dart';
 
 typedef ChatPins = ({List<ChatPin> pins, ChatMembership? membership});
 
-/// One row from `Chat::PinnedMessageSerializer`.
 @immutable
 class ChatPin {
   const ChatPin({

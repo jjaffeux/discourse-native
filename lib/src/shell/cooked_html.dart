@@ -22,15 +22,6 @@ import 'shell_scope.dart';
 import 'site_image.dart';
 import 'youtube_video.dart';
 
-/// Draws Discourse's `cooked` HTML.
-///
-/// Discourse already resolved the markdown, oneboxes, mentions and emoji, so
-/// [HtmlWidget] does most of the work. The exceptions are the pieces Discourse
-/// styles from its stylesheet rather than inline — [HtmlWidget] has no
-/// stylesheet engine, so those arrive unstyled and are drawn natively instead.
-///
-/// Onebox bodies come back through here, which is why an onebox containing a
-/// code block gets the same code block a post does.
 class CookedHtml extends StatelessWidget {
   const CookedHtml({
     super.key,
@@ -48,54 +39,23 @@ class CookedHtml extends StatelessWidget {
   final String html;
   final TextStyle? textStyle;
 
-  /// The site that cooked [html]. Direct callers may omit it and inherit the
-  /// selected site; long-lived application content always supplies it.
   final String? siteUrl;
 
-  /// The owner of a top-level topic body. Recursive cooked fragments omit it,
-  /// keeping quoted plugin placeholders noninteractive.
   final Post? post;
 
-  /// Topic identity accompanying a top-level post body. Nested cooked
-  /// fragments intentionally omit it, just as they omit [post].
   final PluginContainingTopic? containingTopic;
 
-  /// Plugin renderers to use when this fragment is outside a [PluginScope].
-  ///
-  /// Application content inherits the installed registry from the shell. This
-  /// explicit seam keeps standalone renderers and tests composable without a
-  /// core dependency on any concrete plugin bundle.
   final PluginRegistry? registry;
 
-  /// Uses the compact top-level paragraph rhythm of Discourse chat.
-  ///
-  /// The HTML renderer otherwise applies the browser default `1em` vertical
-  /// margin to every paragraph. Chat overrides that to `0.5em`, with `0.1em`
-  /// at the outer edges, so a reaction row or upload follows the message
-  /// instead of looking detached from it.
   final bool compactParagraphs;
 
-  /// Applies core's edit-history treatment to server-generated diff markup.
-  ///
-  /// Ordinary cooked posts keep the browser meaning of `ins` and `del`.
-  /// Revision payloads instead use those elements, plus `.diff-ins` and
-  /// `.diff-del`, as visual change markers with success/danger backgrounds.
   final bool revisionDiff;
 
-  /// Statuses embedded beside the resolved mentions in this cooked fragment.
   final Map<String, UserStatusReference> mentionedUserStatuses;
 
-  /// Whether [HtmlWidget] will parse this body off the UI isolate by default.
-  ///
-  /// Long topic posts briefly render the package's empty loading widget when
-  /// virtualization rebuilds them. TopicView uses this same threshold to keep
-  /// their last settled row height until the rebuilt body is ready.
   static bool buildsAsynchronously(String html) =>
       html.length > kShouldBuildAsync;
 
-  /// Inline code and emoji size themselves against the prose around them, so
-  /// unlike the other builders those two need the style the widget was given.
-  /// Emoji additionally need the site, to resolve their root-relative `src`.
   static Widget? Function(dom.Element) _customWidget(
     BuildContext context,
     TextStyle? textStyle,
@@ -158,9 +118,6 @@ class CookedHtml extends StatelessWidget {
     );
   }
 
-  /// Discourse leaves links undecorated and lets colour carry them, but
-  /// [HtmlWidget] underlines every `a[href]` by default. Inline styles are the
-  /// only styling it reads, so the override has to arrive as one.
   static Map<String, String>? _customStyles(
     dom.Element element,
     bool compactParagraphs,
@@ -261,9 +218,7 @@ class CookedHtml extends StatelessWidget {
             ),
           )
         : null;
-    // `maybeRead`, because this also renders outside the shell — a quote or an
-    // onebox in a test. Emoji fall back to their shortcode there, which is what
-    // they did everywhere before [emojiWidgetBuilder] existed.
+    // Quotes, oneboxes, and tests can render outside ShellScope.
     final resolvedSiteUrl =
         siteUrl ?? ShellScope.maybeRead(context)?.currentInstance?.url;
     final resolvedRegistry =

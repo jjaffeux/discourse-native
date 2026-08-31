@@ -7,9 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
-/// Real cooked output from meta.discourse.org: a git blob onebox puts a
-/// numbered `<ol>` inside the `<pre>`, which is what wrecked it under
-/// HtmlWidget.
 const String blobOnebox = '''
 <aside class="onebox githubblob" data-onebox-src="https://github.com/discourse/discourse/blob/290ee31/app/models/upload.rb#L78-L80">
   <header class="source">
@@ -53,7 +50,6 @@ void main() {
       expect(lines.first.text, 'def self.get_from_url(url)');
       expect(lines.first.number, 78);
       expect(lines.last.number, 81);
-      // The blank line in the middle is a line, not something to collapse.
       expect(lines[2].text, isEmpty);
     });
 
@@ -78,7 +74,6 @@ void main() {
       final lines = parseBlock(blobOnebox).lines;
 
       expect(lines.first.tokens.any((token) => token.scope != null), isTrue);
-      // The same four lines, still numbered from 78, still selected.
       expect(lines.length, 4);
       expect(lines.first.number, 78);
       expect(lines.first.text, 'def self.get_from_url(url)');
@@ -237,7 +232,6 @@ void main() {
       );
       expect(scrollView.scrollDirection, Axis.horizontal);
       expect(scrollView.controller!.position.maxScrollExtent, greaterThan(0));
-      // And the scrollbar is there to say so.
       expect(
         tester.widget<Scrollbar>(find.byType(Scrollbar)).thumbVisibility,
         isTrue,

@@ -1,12 +1,8 @@
 import '../models/site_emoji.dart';
 import 'emoji_usage.dart';
 
-/// The preference operations an emoji picker is allowed to use.
-///
-/// The application store also owns persistence, hydration and diagnostics,
-/// none of which plugin code needs. Keeping this interface at the picker
-/// boundary lets a scoped host validate each context-bearing operation while
-/// preserving the one shared, forum-level skin-tone preference.
+/// Omits persistence and hydration authority while preserving the shared,
+/// forum-level skin-tone preference.
 abstract interface class EmojiPreferenceStore {
   Future<EmojiSkinTone> readSkinTone({required String siteUrl});
 

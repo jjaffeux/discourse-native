@@ -16,8 +16,6 @@ Uri illegalContentMailtoUri({
   },
 );
 
-/// Explains anonymous reporting before handing the pre-filled report to the
-/// platform mail application.
 Future<void> showAnonymousIllegalContentDialog({
   required BuildContext context,
   required String email,

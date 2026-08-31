@@ -10,7 +10,6 @@ import '../models/do_not_disturb.dart';
 
 typedef DoNotDisturbCommitted = void Function(String siteUrl, DateTime? until);
 
-/// Per-account pause state, writes, live updates, and expiration timers.
 final class DoNotDisturbController extends FrameSafeNotifier {
   DoNotDisturbController({
     required this.api,
@@ -37,13 +36,11 @@ final class DoNotDisturbController extends FrameSafeNotifier {
     saving: _requests.containsKey(siteUrl),
   );
 
-  /// Restores display state before any server result exists in this process.
   void restoreSnapshot(String siteUrl, DateTime? until) {
     if (_locallyAuthoritative.contains(siteUrl)) return;
     _replaceUntil(siteUrl, _activeUntil(until), notify: false);
   }
 
-  /// Reconciles a session read unless a newer local/live mutation owns state.
   DateTime? acceptSnapshot(String siteUrl, DateTime? until) {
     if (!_locallyAuthoritative.contains(siteUrl)) {
       _replaceUntil(siteUrl, _activeUntil(until));
@@ -133,7 +130,6 @@ final class DoNotDisturbController extends FrameSafeNotifier {
     }
   }
 
-  /// Applies `/do-not-disturb/{user_id}`'s `{ ends_at }` message.
   void applyMessage(String siteUrl, Object? data) {
     if (data is! Map<Object?, Object?> || !data.containsKey('ends_at')) return;
     final rawUntil = data['ends_at'];
@@ -152,7 +148,6 @@ final class DoNotDisturbController extends FrameSafeNotifier {
     _replaceUntil(siteUrl, _activeUntil(until), committed: true);
   }
 
-  /// Rechecks timers after an app suspension, where callbacks may not run.
   void checkExpirations() {
     for (final siteUrl in List<String>.of(_untilBySite.keys)) {
       _expireOrTick(siteUrl);

@@ -154,8 +154,6 @@ void main() {
     addTearDown(oldSystemCall.dispose);
     addTearDown(newSystemCall.dispose);
 
-    // This models a ShellController disposal which begins only after its
-    // replacement has already claimed the process-wide method channel.
     await oldSystemCall.dispose();
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(

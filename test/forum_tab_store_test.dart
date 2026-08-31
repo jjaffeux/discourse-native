@@ -31,8 +31,6 @@ void main() {
       ..readError = StateError('preferences unavailable');
     final store = ForumTabStore(persistence: persistence);
 
-    // The shell cannot tell "no tabs stored" from "tabs unreadable": it opens
-    // fresh Topics tabs for either, and saves the first time one is touched.
     expect(await store.load(), isEmpty);
     await store.save([_workspace('fresh')]);
     expect(persistence.writeCount, 0);
@@ -44,7 +42,6 @@ void main() {
       }),
     );
 
-    // A retried load that reads clears it, and saving resumes.
     persistence.readError = null;
     expect(await store.load(), [_workspace('persisted')]);
     await store.save([_workspace('fresh')]);

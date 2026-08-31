@@ -9,7 +9,6 @@ const localDatesSettingsDataKey = PluginDataKey<LocalDatesSettings>(
   name: 'site-settings',
 );
 
-/// Authoring and presentation defaults owned by discourse-local-dates.
 @immutable
 final class LocalDatesSettings {
   const LocalDatesSettings({

@@ -10,12 +10,6 @@ import 'shell_scope.dart';
 
 typedef ComposerOwnership = bool Function();
 
-/// Opens the shared picker and inserts its result into an unchanged composer.
-///
-/// The caller supplies ownership because topic composers live in the shell
-/// while chat composers live in their channel widget. Everything else —
-/// document/selection capture, stale-result rejection, insertion and focus —
-/// is deliberately identical.
 Future<void> openEmojiPickerForComposer({
   required BuildContext context,
   required PluginEmojiHost emoji,
@@ -89,8 +83,6 @@ Future<void> openEmojiPickerForComposer({
   }
 }
 
-/// Topic/edit composer entry point. Chat supplies its local ownership closure
-/// directly to [openEmojiPickerForComposer].
 Future<void> openEmojiPickerForTopicComposer({
   required BuildContext context,
   required ComposerController composer,

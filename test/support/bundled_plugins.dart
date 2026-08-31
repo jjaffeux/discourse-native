@@ -41,7 +41,6 @@ final PluginManifest _testBundledPluginManifest = PluginManifest([
 
 InstalledPlugins? _installedPlugins;
 
-/// A lazily installed full manifest for tests which exercise bundled features.
 InstalledPlugins get installedPlugins =>
     _installedPlugins ??= PluginInstaller.install(_testBundledPluginManifest);
 
@@ -49,5 +48,4 @@ PluginRegistry get pluginRegistry => installedPlugins.registry;
 
 List<SitePlugin> get sitePlugins => pluginRegistry.plugins;
 
-/// Core feature graph for widget hosts that cannot open platform persistence.
 final PluginManifest bundledWidgetTestManifest = _testBundledPluginManifest;

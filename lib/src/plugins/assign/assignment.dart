@@ -8,7 +8,6 @@ const assignmentsDataKey = PluginDataKey<Assignments>(
   name: 'assignment',
 );
 
-/// The two records the Assign plugin accepts as assignment targets.
 enum AssignmentTargetType {
   topic('Topic'),
   post('Post');
@@ -18,7 +17,6 @@ enum AssignmentTargetType {
   final String wireName;
 }
 
-/// An Assign write target and the topic that must be refreshed afterwards.
 @immutable
 class AssignmentTarget {
   const AssignmentTarget.topic(int id)
@@ -49,7 +47,6 @@ class AssignmentTarget {
   int get hashCode => Object.hash(id, topicId, type);
 }
 
-/// A user or group that can own an assignment.
 sealed class AssignmentAssignee {
   const AssignmentAssignee();
 
@@ -183,7 +180,6 @@ final class AssignmentGroup extends AssignmentAssignee {
   );
 }
 
-/// One active assignment.
 @immutable
 class Assignment {
   const Assignment({
@@ -198,7 +194,6 @@ class Assignment {
   final String? note;
   final String? status;
 
-  /// Present for an assignment whose target is a post.
   final int? postId;
   final int? postNumber;
 
@@ -218,11 +213,8 @@ class Assignment {
   int get hashCode => Object.hash(assignee, note, status, postId, postNumber);
 }
 
-/// Everything the plugin serialized for one topic or post.
-///
-/// The nullable parser result is the feature gate. A non-null record with a
-/// null [canAssign] can still be a public, read-only assignment; an explicit
-/// false means the plugin answered the permission question for this target.
+/// A null parser result means the feature is absent. Null [canAssign] preserves
+/// a public read-only assignment; false is an authoritative target denial.
 @immutable
 class Assignments {
   Assignments({
@@ -231,12 +223,7 @@ class Assignments {
     Map<int, Assignment> postAssignments = const {},
   }) : postAssignments = Map.unmodifiable(postAssignments);
 
-  /// Defensive ceiling on parsed assignments across a topic and its posts.
-  ///
-  /// This is not the server's limit: `max_assignments_per_topic` is a raisable
-  /// discourse-assign site setting, so every assignment under any realistic
-  /// configuration must fit. The bound exists only so a pathological payload
-  /// cannot allocate an unbounded assignment map.
+  /// Defensive client ceiling; the server setting itself is raisable.
   static const int maximumPerTopic = 50;
 
   static const _payloadKeys = {
@@ -248,10 +235,7 @@ class Assignments {
     'assignment_status',
   };
 
-  /// Reads Assign fields attached to a topic view or topic-list item.
-  ///
-  /// Null means none of the plugin's fields were present. This is deliberately
-  /// different from an enabled plugin returning `can_assign: false`.
+  /// Null means no Assign fields were present, not a denied target.
   static Assignments? fromTopicJson(Map<String, dynamic> json, String siteUrl) {
     if (!_hasAssignPayload(json)) return null;
 
@@ -284,7 +268,6 @@ class Assignments {
     );
   }
 
-  /// Reads Assign fields attached to an individual post serializer.
   static Assignments? fromPostJson(Map<String, dynamic> json, String siteUrl) {
     if (!_hasAssignPayload(json)) return null;
 
@@ -301,11 +284,8 @@ class Assignments {
 
   final bool? canAssign;
 
-  /// The assignment on this record itself: the topic for a topic payload, or
-  /// the post for a post payload.
   final Assignment? direct;
 
-  /// Active post assignments bundled into a topic payload, keyed by post id.
   final Map<int, Assignment> postAssignments;
 
   bool get hasAssignments => direct != null || postAssignments.isNotEmpty;
@@ -360,11 +340,9 @@ class Assignments {
   );
 }
 
-/// The target-scoped candidates and group restrictions returned before search.
 @immutable
 class AssignmentSuggestions {
-  /// Core returns the current user followed by at most five recent assignees.
-  /// Bound raw slots before resolving avatars or constructing user models.
+  /// Core returns at most the current user plus five recent assignees.
   static const int maximumSuggestedUsers = 6;
 
   AssignmentSuggestions({
@@ -391,10 +369,8 @@ class AssignmentSuggestions {
 
   final List<AssignmentUser> users;
 
-  /// Groups whose members may be offered as user assignees.
   final List<String> assignAllowedOnGroups;
 
-  /// Groups which may themselves be selected as the assignee.
   final List<String> assignAllowedForGroups;
 
   Iterable<AssignmentAssignee> get initialAssignees => [

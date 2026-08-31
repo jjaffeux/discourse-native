@@ -13,7 +13,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
-/// Shaped after `githubcommit.mustache`.
 const String commitOnebox = '''
 <aside class="onebox githubcommit" data-onebox-src="https://github.com/discourse/discourse/commit/9b6ee3f">
   <header class="source">
