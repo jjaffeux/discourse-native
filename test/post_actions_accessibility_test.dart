@@ -60,6 +60,33 @@ void main() {
     );
   });
 
+  testWidgets('post actions ignore non-finite transformed anchors', (
+    tester,
+  ) async {
+    final transform = ValueNotifier(Matrix4.identity());
+    addTearDown(transform.dispose);
+    await _pumpHoveredPostAction(tester, transform: transform);
+
+    final postRegion = tester.widget<MouseRegion>(
+      find
+          .ancestor(
+            of: find.text('Post body'),
+            matching: find.byWidgetPredicate(
+              (widget) => widget is MouseRegion && widget.onHover != null,
+            ),
+          )
+          .first,
+    );
+
+    transform.value = Matrix4.zero();
+    await tester.pump();
+    postRegion.onHover!(const PointerHoverEvent());
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(HoverActionToolbar), findsNothing);
+  });
+
   testWidgets('post actions expose enabled button semantics', (tester) async {
     await _withSemantics(tester, () async {
       final action = (await _pumpHoveredPostAction(tester)).action;
@@ -233,8 +260,9 @@ Future<void> _withSemantics(
 }
 
 Future<({Finder action, FakeDiscourseApi api})> _pumpHoveredPostAction(
-  WidgetTester tester,
-) async {
+  WidgetTester tester, {
+  ValueNotifier<Matrix4>? transform,
+}) async {
   final api = FakeDiscourseApi();
   final controller = ShellController(
     instanceStore: FakeInstanceStore([
@@ -252,31 +280,40 @@ Future<({Finder action, FakeDiscourseApi api})> _pumpHoveredPostAction(
   await controller.load();
   addTearDown(controller.dispose);
 
+  const post = SizedBox(
+    width: 240,
+    height: 100,
+    child: PostActions(
+      siteUrl: _siteUrl,
+      post: Post(
+        id: 1,
+        postNumber: 1,
+        username: 'author',
+        cooked: '<p>Post body</p>',
+        canLike: true,
+      ),
+      child: ColoredBox(
+        color: Colors.transparent,
+        child: Center(child: Text('Post body')),
+      ),
+    ),
+  );
+
   await tester.pumpWidget(
     ShellScope(
       controller: controller,
       child: MaterialApp(
         theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-        home: const Scaffold(
+        home: Scaffold(
           body: Center(
-            child: SizedBox(
-              width: 240,
-              height: 100,
-              child: PostActions(
-                siteUrl: _siteUrl,
-                post: Post(
-                  id: 1,
-                  postNumber: 1,
-                  username: 'author',
-                  cooked: '<p>Post body</p>',
-                  canLike: true,
-                ),
-                child: ColoredBox(
-                  color: Colors.transparent,
-                  child: Center(child: Text('Post body')),
-                ),
-              ),
-            ),
+            child: transform == null
+                ? post
+                : ValueListenableBuilder<Matrix4>(
+                    valueListenable: transform,
+                    builder: (context, value, child) =>
+                        Transform(transform: value, child: child),
+                    child: post,
+                  ),
           ),
         ),
       ),
