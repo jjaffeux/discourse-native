@@ -117,16 +117,6 @@ class _ContentAlignmentSetting extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          'Choose where topic rows, posts, and chat messages appear in the '
-          'available desktop space. Their reading lane is limited to 825 px; '
-          'headers, toolbars, tabs, composers, and auxiliary panes continue '
-          'to use the available width.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
         const SizedBox(height: 20),
         Semantics(
           key: const ValueKey('content-alignment-control'),

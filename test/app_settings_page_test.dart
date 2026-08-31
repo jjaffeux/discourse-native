@@ -40,7 +40,7 @@ void main() {
     expect(find.text('Content alignment'), findsOneWidget);
     expect(
       find.textContaining('reading lane is limited to 825 px'),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.textContaining('Save'), findsNothing);
 
