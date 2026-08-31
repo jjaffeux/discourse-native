@@ -72,11 +72,13 @@ class _TopicListNavigationControls extends StatelessWidget {
             height: 48,
             background: theme.shell.content,
             scrollable: true,
+            fillWidth: true,
             items: [
               _TopicListTabItem(
                 controlKey: const ValueKey('topic-list-latest'),
                 label: 'Recent',
                 textStyle: primaryTextStyle,
+                alignment: Alignment.centerLeft,
                 selected: mode == TopicListMode.latest,
                 onTap: () => unawaited(
                   controller.selectTopicListMode(TopicListMode.latest),
@@ -87,6 +89,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                 label: 'New',
                 count: state.allCount,
                 textStyle: primaryTextStyle,
+                alignment: Alignment.centerLeft,
                 selected: mode.isNew,
                 onTap: () => unawaited(
                   controller.selectTopicListMode(TopicListMode.newActivity),
@@ -97,6 +100,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                 label: 'Unread',
                 count: state.replyCount,
                 textStyle: primaryTextStyle,
+                alignment: Alignment.centerLeft,
                 selected: mode == TopicListMode.unread,
                 onTap: () => unawaited(
                   controller.selectTopicListMode(TopicListMode.unread),
@@ -106,6 +110,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                 controlKey: const ValueKey('topic-list-top'),
                 label: 'Top',
                 textStyle: primaryTextStyle,
+                alignment: Alignment.centerLeft,
                 selected: mode.isTop,
                 onTap: () => unawaited(
                   controller.selectTopicListMode(
@@ -117,6 +122,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                 controlKey: const ValueKey('topic-list-popular'),
                 label: 'Popular',
                 textStyle: primaryTextStyle,
+                alignment: Alignment.centerLeft,
                 selected: mode == TopicListMode.popular,
                 onTap: () => unawaited(
                   controller.selectTopicListMode(TopicListMode.popular),
@@ -231,6 +237,7 @@ class _TopicListTabStrip extends StatelessWidget {
     required this.items,
     this.compactWidth = 400,
     this.scrollable = false,
+    this.fillWidth = false,
   });
 
   final double height;
@@ -238,6 +245,7 @@ class _TopicListTabStrip extends StatelessWidget {
   final List<_TopicListTabItem> items;
   final double compactWidth;
   final bool scrollable;
+  final bool fillWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -252,16 +260,24 @@ class _TopicListTabStrip extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (scrollable) {
+            if (fillWidth && constraints.maxWidth >= 520) {
+              return Row(
+                children: [for (final item in items) Expanded(child: item)],
+              );
+            }
             return SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final item in items)
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 76),
-                      child: item,
-                    ),
-                ],
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: Row(
+                  children: [
+                    for (final item in items)
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(minWidth: 76),
+                        child: item,
+                      ),
+                  ],
+                ),
               ),
             );
           }
@@ -293,12 +309,14 @@ class _TopicListTabItem extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.count = 0,
+    this.alignment = Alignment.center,
   });
 
   final Key controlKey;
   final String label;
   final TextStyle? textStyle;
   final int count;
+  final AlignmentGeometry alignment;
   final bool selected;
   final VoidCallback onTap;
 
@@ -317,7 +335,7 @@ class _TopicListTabItem extends StatelessWidget {
           hoverColor: theme.shell.hover,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
-            alignment: Alignment.center,
+            alignment: alignment,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               border: Border(
