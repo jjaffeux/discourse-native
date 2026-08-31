@@ -30,6 +30,7 @@ import 'composer_galleries.dart';
 import 'composer_images.dart';
 import 'composer_link.dart';
 import 'composer_marks.dart';
+import 'composer_media_editing_coordinator.dart';
 import 'composer_quotes.dart';
 import 'composer_suggestions.dart';
 import 'composer_upload_picker.dart';
@@ -982,44 +983,45 @@ class _ComposerEditorState extends State<ComposerEditor> {
   static const _galleryMenuHeight = 52.0;
 
   final GlobalKey _stackKey = GlobalKey();
-  final OverlayPortalController _selectionPortal = OverlayPortalController();
-  final ValueNotifier<Rect?> _selectionAnchor = ValueNotifier(null);
-  Object? _selectionSyncToken;
-  bool _selectionToolbarFocused = false;
   ComposerQuoteBlock? _pointerDownQuote;
-  ComposerImageBlock? _pointerDownImage;
-  ComposerImageGalleryBlock? _pointerDownGallery;
   ComposerSyntaxOccurrence? _pointerDownSyntax;
   ComposerSyntaxOccurrence? _pointerDownAfterBlockSyntax;
   Offset? _pointerDownPosition;
   int _pointerSequence = 0;
-  bool _dragging = false;
-  ComposerImageGalleryBlock? _dropGallery;
   bool _hoveringMention = false;
   bool _hoveringLink = false;
-  ComposerImageBlock? _selectedImage;
-  ComposerImageGalleryBlock? _selectedGallery;
-  bool _reconcilingSelectedGallery = false;
-  bool _galleryRefreshScheduled = false;
-  bool _pickingGalleryImages = false;
-  final TextEditingController _imageAlt = TextEditingController();
   final ScrollController _scroll = ScrollController();
-  late final ValueChanged<ComposerImageGalleryBlock> _editImageGallery;
-  late final void Function(ComposerImageGalleryBlock, ComposerImageBlock, int)
-  _reorderImageGallery;
+  late final ComposerMediaEditingCoordinator _media;
+  late final _ComposerSelectionOverlay _selectionOverlay;
+  final ValueNotifier<int> _mediaLayoutRevision = ValueNotifier(0);
+  bool _mediaLayoutRefreshScheduled = false;
+  (double, double)? _lastImageMenuPosition;
+  (double, double)? _lastGalleryMenuPosition;
   late final TextInputFormatter _selectedPillInputFormatter;
   late final TextInputFormatter _renderedEmojiInputFormatter;
   late final _ComposerPasteAction _pasteAction;
-  TextSelection _lastQuoteSelection = const TextSelection.collapsed(offset: -1);
-  bool _normalizingQuoteSelection = false;
 
   @override
   void initState() {
     super.initState();
-    _editImageGallery = _selectGallery;
-    _reorderImageGallery = _reorderGalleryImage;
+    _media = ComposerMediaEditingCoordinator(widget.composer)
+      ..addListener(_scheduleMediaLayoutRefresh);
+    _selectionOverlay = _ComposerSelectionOverlay(
+      composer: widget.composer,
+      scroll: _scroll,
+      menuWidth: _menuWidth,
+      isMounted: () => mounted,
+      renderEditable: () => _renderEditable,
+      overlayBox: () {
+        if (!mounted) return null;
+        final object = Overlay.of(context).context.findRenderObject();
+        return object is RenderBox ? object : null;
+      },
+    );
     _selectedPillInputFormatter = _SelectedPillInputFormatter(
-      () => _keyboardSelectedPill != null || _currentSelectedGallery != null,
+      () =>
+          widget.composer.text.keyboardSelectedSyntax != null ||
+          _media.hasSelectedMediaProjection,
     );
     _renderedEmojiInputFormatter = _RenderedEmojiInputFormatter(
       endingAt: (offset) => widget.composer.text.renderedEmojiEndingAt(offset),
@@ -1027,138 +1029,52 @@ class _ComposerEditorState extends State<ComposerEditor> {
           widget.composer.text.renderedEmojiStartingAt(offset),
     );
     _pasteAction = _ComposerPasteAction(_pasteClipboardImages);
-    _lastQuoteSelection = widget.composer.text.selection;
     widget.composer.text.imageScrollController = _scroll;
-    widget.composer.text.onEditImageGallery = _editImageGallery;
-    widget.composer.text.onReorderImageGallery = _reorderImageGallery;
-    widget.composer.text.addListener(_syncSelectionToolbar);
-    widget.composer.focus.addListener(_syncSelectionToolbar);
-    _scroll.addListener(_syncSelectionToolbar);
-    _syncSelectionToolbar();
+    _selectionOverlay.sync();
   }
 
   @override
   void didUpdateWidget(ComposerEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (identical(oldWidget.composer, widget.composer)) return;
-    oldWidget.composer.text.removeListener(_syncSelectionToolbar);
-    oldWidget.composer.focus.removeListener(_syncSelectionToolbar);
-    if (identical(
-      oldWidget.composer.text.onEditImageGallery,
-      _editImageGallery,
-    )) {
-      oldWidget.composer.text.onEditImageGallery = null;
-    }
-    if (identical(
-      oldWidget.composer.text.onReorderImageGallery,
-      _reorderImageGallery,
-    )) {
-      oldWidget.composer.text.onReorderImageGallery = null;
-    }
-    oldWidget.composer.text.clearKeyboardPillSelection();
-    if (_pointerDownImage case final image?) {
-      oldWidget.composer.text.releaseImagePointerEdit(image);
-    }
-    if (_pointerDownGallery case final gallery?) {
-      oldWidget.composer.text.releaseGalleryPointerEdit(gallery);
-    }
     if (_pointerDownSyntax case final syntax?) {
       oldWidget.composer.text.releaseSyntaxPointerEdit(syntax);
     }
     if (_pointerDownAfterBlockSyntax case final syntax?) {
       oldWidget.composer.text.releaseSyntaxPointerEdit(syntax);
     }
-    if (_selectedImage case final image?) {
-      oldWidget.composer.text.releaseImagePointerEdit(image);
-    }
-    if (_selectedGallery case final gallery?) {
-      oldWidget.composer.text.releaseGalleryPointerEdit(gallery);
-    }
     _pointerDownQuote = null;
-    _pointerDownImage = null;
-    _pointerDownGallery = null;
     _pointerDownSyntax = null;
     _pointerDownAfterBlockSyntax = null;
     _pointerDownPosition = null;
     _hoveringMention = false;
     _hoveringLink = false;
-    _selectedImage = null;
-    _selectedGallery = null;
-    _dropGallery = null;
-    _pickingGalleryImages = false;
+    _lastImageMenuPosition = null;
+    _lastGalleryMenuPosition = null;
     if (identical(oldWidget.composer.text.imageScrollController, _scroll)) {
       oldWidget.composer.text.imageScrollController = null;
     }
+    _media.replaceComposer(widget.composer);
+    _selectionOverlay.replaceComposer(widget.composer);
     widget.composer.text.imageScrollController = _scroll;
-    widget.composer.text.onEditImageGallery = _editImageGallery;
-    widget.composer.text.onReorderImageGallery = _reorderImageGallery;
-    _lastQuoteSelection = widget.composer.text.selection;
-    widget.composer.text.addListener(_syncSelectionToolbar);
-    widget.composer.focus.addListener(_syncSelectionToolbar);
-    _syncSelectionToolbar();
   }
 
   @override
   void dispose() {
-    _selectionSyncToken = null;
-    _imageAlt.dispose();
-    widget.composer.text.removeListener(_syncSelectionToolbar);
-    widget.composer.focus.removeListener(_syncSelectionToolbar);
-    if (identical(widget.composer.text.onEditImageGallery, _editImageGallery)) {
-      widget.composer.text.onEditImageGallery = null;
-    }
-    if (identical(
-      widget.composer.text.onReorderImageGallery,
-      _reorderImageGallery,
-    )) {
-      widget.composer.text.onReorderImageGallery = null;
-    }
-    widget.composer.text.clearKeyboardPillSelection();
     _releasePointerDownPillCollapse();
-    if (_selectedImage case final image?) {
-      widget.composer.text.releaseImagePointerEdit(image);
-    }
-    if (_selectedGallery case final gallery?) {
-      widget.composer.text.releaseGalleryPointerEdit(gallery);
-    }
-    _scroll.removeListener(_syncSelectionToolbar);
     if (identical(widget.composer.text.imageScrollController, _scroll)) {
       widget.composer.text.imageScrollController = null;
     }
-    _selectionAnchor.dispose();
+    _media.removeListener(_scheduleMediaLayoutRefresh);
+    _media.dispose();
+    _selectionOverlay.dispose();
+    _mediaLayoutRevision.dispose();
     _scroll.dispose();
     super.dispose();
   }
 
   Future<bool> _pasteClipboardImages() async {
-    final composer = widget.composer;
-    if (composer.imageUploader == null || composer.loadingBody) return false;
-    final selection = composer.text.selection;
-    final offset = selection.isValid
-        ? selection.extentOffset
-        : composer.text.text.length;
-
-    List<ComposerUploadFile> files;
-    try {
-      files = await widget.readClipboardImages();
-    } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'composer.readClipboardImages',
-        source: 'platform',
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-      );
-      return !mounted || !identical(widget.composer, composer);
-    }
-    if (!mounted || !identical(widget.composer, composer)) return true;
-    if (files.isEmpty) return false;
-
-    composer.addImages(files, offset);
-    composer.focus.requestFocus();
-    return true;
+    return _media.pasteClipboardImages(widget.readClipboardImages);
   }
 
   Future<void> _pasteFromContextMenu(EditableTextState state) async {
@@ -1225,69 +1141,14 @@ class _ComposerEditorState extends State<ComposerEditor> {
       !widget.composer.loadingBody &&
       widget.composer.text.selection.isValid;
 
-  void _syncSelectionToolbar() {
-    _reconcileSelectedGallery();
-    if (!_normalizingQuoteSelection) {
-      final current = widget.composer.text.selection;
-      final normalized = widget.composer.text.protectQuoteSelection(
-        current,
-        _lastQuoteSelection,
-      );
-      _lastQuoteSelection = normalized;
-      if (normalized != current) {
-        _normalizingQuoteSelection = true;
-        widget.composer.text.selection = normalized;
-        _normalizingQuoteSelection = false;
-        return;
-      }
-    }
-    final selection = widget.composer.text.selection;
-    if (!_canFormatSelection(selection)) {
-      _selectionSyncToken = null;
-      _selectionAnchor.value = null;
-      if (_selectionPortal.isShowing) _selectionPortal.hide();
-      return;
-    }
-
-    final token = Object();
-    _selectionSyncToken = token;
+  void _scheduleMediaLayoutRefresh() {
+    if (_mediaLayoutRefreshScheduled || !_media.value.hasSelectedMedia) return;
+    _mediaLayoutRefreshScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !identical(_selectionSyncToken, token)) return;
-      final current = widget.composer.text.selection;
-      if (!_canFormat(current)) {
-        _selectionAnchor.value = null;
-        if (_selectionPortal.isShowing) _selectionPortal.hide();
-        return;
+      _mediaLayoutRefreshScheduled = false;
+      if (mounted && _media.value.hasSelectedMedia) {
+        _mediaLayoutRevision.value++;
       }
-
-      final editable = _renderEditable;
-      final overlay = Overlay.of(context).context.findRenderObject();
-      if (editable == null || overlay is! RenderBox || !overlay.hasSize) {
-        if (_selectionPortal.isShowing) _selectionPortal.hide();
-        return;
-      }
-      final endpoints = editable.getEndpointsForSelection(current);
-      if (endpoints.isEmpty) {
-        if (_selectionPortal.isShowing) _selectionPortal.hide();
-        return;
-      }
-
-      final points = [
-        for (final endpoint in endpoints)
-          editable.localToGlobal(endpoint.point, ancestor: overlay),
-      ];
-      final left = points.map((point) => point.dx).reduce(math.min);
-      final right = points.map((point) => point.dx).reduce(math.max);
-      final bottom = points.map((point) => point.dy).reduce(math.min);
-      final lineHeight = editable.preferredLineHeight;
-      final center = (left + right) / 2;
-      _selectionAnchor.value = Rect.fromLTWH(
-        center - _menuWidth / 2,
-        bottom - lineHeight,
-        _menuWidth,
-        lineHeight,
-      );
-      _selectionPortal.show();
     });
   }
 
@@ -1375,24 +1236,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
     ),
   );
 
-  bool _canFormat(TextSelection selection) =>
-      (widget.composer.focus.hasFocus || _selectionToolbarFocused) &&
-      _canFormatSelection(selection);
-
-  bool _canFormatSelection(TextSelection selection) =>
-      selection.isValid &&
-      !selection.isCollapsed &&
-      !selectionTouchesComposerQuote(
-        widget.composer.text.quoteBlocks,
-        selection,
-      );
-
-  void _selectionToolbarFocusChanged(bool focused) {
-    if (_selectionToolbarFocused == focused) return;
-    _selectionToolbarFocused = focused;
-    _syncSelectionToolbar();
-  }
-
   RenderEditable? get _renderEditable {
     final root = _stackKey.currentContext?.findRenderObject();
     if (root == null) return null;
@@ -1416,11 +1259,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
       globalPosition,
     );
     if (gallery != null) {
-      _dropGallery = gallery;
+      _media.updateDropTarget(gallery);
       widget.composer.focus.requestFocus();
       return;
     }
-    _dropGallery = null;
+    _media.updateDropTarget(null);
     final editable = _renderEditable;
     if (editable == null) return;
     final position = editable.getPositionForPoint(globalPosition);
@@ -1436,25 +1279,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
       widget.composer.showNotice('Folders cannot be uploaded here.');
     }
     final files = composerUploadFilesFromDrop(details.files);
-    final gallery = _dropGallery;
-    setState(() {
-      _dragging = false;
-      _dropGallery = null;
-    });
-    if (gallery != null) {
-      widget.composer.addImagesToGallery(files, gallery);
-    } else {
-      widget.composer.addImages(
-        files,
-        widget.composer.text.selection.extentOffset,
-      );
-    }
+    _media.dropImages(
+      files,
+      offset: widget.composer.text.selection.extentOffset,
+    );
   }
 
   bool get _hasPointerDownPill =>
       _pointerDownQuote != null ||
-      _pointerDownImage != null ||
-      _pointerDownGallery != null ||
+      _media.hasPointerCapture ||
       _pointerDownSyntax != null ||
       _pointerDownAfterBlockSyntax != null;
 
@@ -1468,45 +1301,48 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _pointerDownQuote = widget.composer.text.collapsedQuoteAtGlobalPosition(
       position,
     );
-    _pointerDownImage = _pointerDownQuote == null
+    var image = _pointerDownQuote == null
         ? widget.composer.text.collapsedImageAtGlobalPosition(position)
         : null;
-    _pointerDownGallery = _pointerDownQuote == null && _pointerDownImage == null
+    var gallery = _pointerDownQuote == null && image == null
         ? widget.composer.text.collapsedGalleryAtGlobalPosition(position)
         : null;
     _pointerDownSyntax =
-        _pointerDownQuote == null &&
-            _pointerDownImage == null &&
-            _pointerDownGallery == null
+        _pointerDownQuote == null && image == null && gallery == null
         ? widget.composer.text.collapsedSyntaxAtGlobalPosition(position)
         : null;
-    _pointerDownAfterBlockSyntax = !_hasPointerDownPill
+    final hasDirectHit =
+        _pointerDownQuote != null ||
+        image != null ||
+        gallery != null ||
+        _pointerDownSyntax != null;
+    _pointerDownAfterBlockSyntax = !hasDirectHit
         ? widget.composer.text.collapsedBlockSyntaxBeforeGlobalPosition(
             position,
           )
         : null;
-    if (!_hasPointerDownPill) {
+    if (!hasDirectHit && _pointerDownAfterBlockSyntax == null) {
       final editable = _renderEditable;
       if (editable == null) return;
       final offset = editable.getPositionForPoint(position).offset;
       _pointerDownQuote = widget.composer.text.quoteAtOffset(offset);
-      _pointerDownImage = _pointerDownQuote == null
+      image = _pointerDownQuote == null
           ? widget.composer.text.collapsedImageAtOffset(offset)
           : null;
-      final gallery = _pointerDownQuote == null && _pointerDownImage == null
+      final candidateGallery = _pointerDownQuote == null && image == null
           ? widget.composer.text.galleryAtOffset(offset)
           : null;
-      _pointerDownGallery =
-          gallery != null && widget.composer.text.isGalleryCollapsed(gallery)
-          ? gallery
+      gallery =
+          candidateGallery != null &&
+              widget.composer.text.isGalleryCollapsed(candidateGallery)
+          ? candidateGallery
           : null;
       _pointerDownSyntax =
-          _pointerDownQuote == null &&
-              _pointerDownImage == null &&
-              _pointerDownGallery == null
+          _pointerDownQuote == null && image == null && gallery == null
           ? widget.composer.text.collapsedSyntaxAtOffset(offset)
           : null;
     }
+    _media.capturePointer(image: image, gallery: gallery);
     _holdPointerDownPillCollapsed();
   }
 
@@ -1538,24 +1374,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   void _holdPointerDownPillCollapsed() {
     final text = widget.composer.text;
-    if (_pointerDownImage case final image?) {
-      text.keepImageCollapsedForPointerEdit(image);
-    } else if (_pointerDownGallery case final gallery?) {
-      text.keepGalleryCollapsedForPointerEdit(gallery);
-    } else if ((_pointerDownSyntax ?? _pointerDownAfterBlockSyntax)
+    if ((_pointerDownSyntax ?? _pointerDownAfterBlockSyntax)
         case final syntax?) {
       text.keepSyntaxCollapsedForPointerEdit(syntax);
     }
   }
 
   void _releasePointerDownPillCollapse() {
+    _media.cancelPointerCapture();
     final text = widget.composer.text;
-    if (_pointerDownImage case final image?) {
-      text.releaseImagePointerEdit(image);
-    }
-    if (_pointerDownGallery case final gallery?) {
-      text.releaseGalleryPointerEdit(gallery);
-    }
     if (_pointerDownSyntax case final syntax?) {
       text.releaseSyntaxPointerEdit(syntax);
     }
@@ -1567,8 +1394,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
   void _clearPointerDownPill({bool releaseCollapse = true}) {
     if (releaseCollapse) _releasePointerDownPillCollapse();
     _pointerDownQuote = null;
-    _pointerDownImage = null;
-    _pointerDownGallery = null;
     _pointerDownSyntax = null;
     _pointerDownAfterBlockSyntax = null;
     _pointerDownPosition = null;
@@ -1581,18 +1406,16 @@ class _ComposerEditorState extends State<ComposerEditor> {
     // gallery or image it just selected.
     if (!_hasPointerDownPill && _pointerDownPosition == null) return;
     final quote = _pointerDownQuote;
-    final image = _pointerDownImage;
-    final gallery = _pointerDownGallery;
+    final media = _media.takePointerCapture();
+    final image = media.image;
+    final gallery = media.gallery;
     final syntax = _pointerDownSyntax;
     final afterBlockSyntax = _pointerDownAfterBlockSyntax;
     final position = _pointerDownPosition;
     _clearPointerDownPill(releaseCollapse: false);
     if (quote != null) {
-      if (_selectedImage case final selected?) {
-        widget.composer.text.releaseImagePointerEdit(selected);
-        setState(() => _selectedImage = null);
-      }
-      _dismissGallery(requestFocus: false);
+      _media.dismissImage(requestFocus: false);
+      _media.dismissGallery(requestFocus: false);
       if (position != null &&
           widget.composer.text.isQuoteRemoveAtGlobalPosition(quote, position)) {
         widget.composer.removeQuote(quote);
@@ -1604,23 +1427,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
       return;
     }
     if (image != null) {
-      _dismissGallery(requestFocus: false);
-      _selectImageForKeyboard(image);
+      _media.selectImageForKeyboard(image);
       return;
     }
     if (gallery != null) {
-      if (_selectedImage case final selected?) {
-        widget.composer.text.releaseImagePointerEdit(selected);
-        setState(() => _selectedImage = null);
-      }
-      _selectGallery(gallery);
+      _media.selectGallery(gallery);
       return;
     }
-    if (_selectedImage case final selected?) {
-      widget.composer.text.releaseImagePointerEdit(selected);
-      setState(() => _selectedImage = null);
-    }
-    _dismissGallery(requestFocus: false);
+    _media.dismissImage(requestFocus: false);
+    _media.dismissGallery(requestFocus: false);
     if (afterBlockSyntax != null) {
       try {
         _moveCaretAfterSyntax(afterBlockSyntax);
@@ -1660,298 +1475,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
       start <= end &&
       text.substring(start, end) == source;
 
-  void _selectImageForKeyboard(ComposerImageBlock image) {
-    final text = widget.composer.text;
-    if (_selectedImage case final selected?) {
-      text.releaseImagePointerEdit(selected);
-      setState(() => _selectedImage = null);
-    }
-    text.selection = TextSelection.collapsed(offset: image.end);
-    text.releaseImagePointerEdit(image);
-    _selectPillForKeyboard(image);
-  }
-
-  void _selectImage(ComposerImageBlock image) {
-    widget.composer.text.selection = TextSelection.collapsed(offset: image.end);
-    _showImageMenu(image);
-  }
-
-  void _showImageMenu(ComposerImageBlock image, {bool refreshAlt = true}) {
-    if (_selectedImage case final selected?
-        when selected.start != image.start || selected.source != image.source) {
-      widget.composer.text.releaseImagePointerEdit(selected);
-    }
-    widget.composer.text.keepImageCollapsedForPointerEdit(image);
-    if (refreshAlt) _imageAlt.text = image.alt;
-    setState(() => _selectedImage = image);
-    // If pointer-down already moved the caret into the image, the editable
-    // needs one frame to project it again before its render box can anchor the
-    // editor. Refresh the parent after that projection has laid out.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted ||
-          _selectedImage?.start != image.start ||
-          _selectedImage?.source != image.source) {
-        return;
-      }
-      setState(() {});
-    });
-  }
-
-  void _saveImageAlt() {
-    final image = _selectedImage;
-    if (image == null) return;
-    widget.composer.text.releaseImagePointerEdit(image);
-    widget.composer.setImageAlt(image, _imageAlt.text);
-    setState(() => _selectedImage = null);
-    widget.composer.focus.requestFocus();
-  }
-
-  void _scaleImage(int scale) {
-    final image = _selectedImage;
-    if (image == null) return;
-    widget.composer.text.releaseImagePointerEdit(image);
-    widget.composer.setImageScale(image, scale);
-    final resizedImage = widget.composer.text.imageBlocks
-        .where((candidate) => candidate.start == image.start)
-        .firstOrNull;
-    if (resizedImage == null) {
-      setState(() => _selectedImage = null);
-    } else {
-      _selectPillForKeyboard(resizedImage, refreshImageAlt: false);
-    }
-    widget.composer.focus.requestFocus();
-  }
-
-  void _dismissImage() {
-    final image = _selectedImage;
-    if (image == null) return;
-    widget.composer.text.selection = TextSelection.collapsed(offset: image.end);
-    widget.composer.text.releaseImagePointerEdit(image);
-    setState(() => _selectedImage = null);
-    widget.composer.focus.requestFocus();
-  }
-
-  void _deleteSelectedImage() {
-    final image = _selectedImage;
-    if (image == null) return;
-    widget.composer.text.releaseImagePointerEdit(image);
-    setState(() => _selectedImage = null);
-    widget.composer.removeImage(image);
-    widget.composer.focus.requestFocus();
-  }
-
-  void _moveSelectedImageOutOfGallery() {
-    final image = _selectedImage;
-    if (image == null) return;
-    final gallery = widget.composer.galleryForImage(image);
-    if (gallery == null) return;
-    widget.composer.text.releaseImagePointerEdit(image);
-    setState(() => _selectedImage = null);
-    widget.composer.moveImageOutOfGallery(gallery, image);
-    widget.composer.focus.requestFocus();
-  }
-
-  void _reorderGalleryImage(
-    ComposerImageGalleryBlock gallery,
-    ComposerImageBlock image,
-    int newIndex,
-  ) {
-    if (_selectedImage case final selected?) {
-      widget.composer.text.releaseImagePointerEdit(selected);
-      setState(() => _selectedImage = null);
-    }
-    widget.composer.reorderGalleryImage(gallery, image, newIndex);
-    widget.composer.focus.requestFocus();
-  }
-
-  void _selectGallery(ComposerImageGalleryBlock gallery) {
-    if (_selectedGallery case final selected?
-        when selected.start != gallery.start ||
-            selected.source != gallery.source) {
-      widget.composer.text.releaseGalleryPointerEdit(selected);
-    }
-    widget.composer.text.keepGalleryCollapsedForPointerEdit(gallery);
-    widget.composer.text.selection = TextSelection.collapsed(
-      offset: gallery.end,
-    );
-    setState(() => _selectedGallery = gallery);
-  }
-
-  void _dismissGallery({bool requestFocus = true}) {
-    final selected = _selectedGallery;
-    if (selected == null) return;
-    final current = _resolveSelectedGallery(selected);
-    widget.composer.text.releaseGalleryPointerEdit(selected);
-    if (current != null &&
-        (current.start != selected.start ||
-            current.source != selected.source)) {
-      widget.composer.text.releaseGalleryPointerEdit(current);
-    }
-    setState(() => _selectedGallery = null);
-    if (requestFocus) widget.composer.focus.requestFocus();
-  }
-
-  ComposerImageGalleryBlock? get _currentSelectedGallery {
-    final selected = _selectedGallery;
-    if (selected == null) return null;
-    return _resolveSelectedGallery(selected);
-  }
-
-  ComposerImageGalleryBlock? _resolveSelectedGallery(
-    ComposerImageGalleryBlock selected,
-  ) {
-    final galleries = widget.composer.text.galleryBlocks;
-    if (galleries.isEmpty) return null;
-
-    final exact = galleries
-        .where(
-          (gallery) =>
-              gallery.start == selected.start &&
-              gallery.source == selected.source,
-        )
-        .firstOrNull;
-    if (exact != null) return exact;
-
-    // Typing before a selected gallery moves its source range without
-    // changing the gallery itself. Prefer the same lossless source before
-    // considering a coincidental block which has since moved to its old
-    // offset.
-    final sameSource =
-        galleries.where((gallery) => gallery.source == selected.source).toList()
-          ..sort(
-            (left, right) => (left.start - selected.start).abs().compareTo(
-              (right.start - selected.start).abs(),
-            ),
-          );
-    if (sameSource.isNotEmpty) return sameSource.first;
-
-    final selectedUrls = {for (final image in selected.images) image.url};
-    if (selectedUrls.isNotEmpty) {
-      final related = <(ComposerImageGalleryBlock, int)>[
-        for (final gallery in galleries)
-          (
-            gallery,
-            gallery.images
-                .where((image) => selectedUrls.contains(image.url))
-                .length,
-          ),
-      ]..removeWhere((candidate) => candidate.$2 == 0);
-      related.sort((left, right) {
-        final overlap = right.$2.compareTo(left.$2);
-        if (overlap != 0) return overlap;
-        return (left.$1.start - selected.start).abs().compareTo(
-          (right.$1.start - selected.start).abs(),
-        );
-      });
-      if (related.isNotEmpty) return related.first.$1;
-    }
-
-    // Empty galleries have no member identity. Appending their first upload
-    // leaves the opening tag at the same offset, which is sufficient to
-    // reconcile the toolbar without guessing across unrelated galleries.
-    return galleries
-        .where((gallery) => gallery.start == selected.start)
-        .firstOrNull;
-  }
-
-  void _reconcileSelectedGallery() {
-    if (_reconcilingSelectedGallery) return;
-    final selected = _selectedGallery;
-    if (selected == null) return;
-    final current = _resolveSelectedGallery(selected);
-    if (current != null &&
-        current.start == selected.start &&
-        current.source == selected.source) {
-      return;
-    }
-
-    _reconcilingSelectedGallery = true;
-    try {
-      widget.composer.text.releaseGalleryPointerEdit(selected);
-      _selectedGallery = current;
-      if (current != null) {
-        widget.composer.text.keepGalleryCollapsedForPointerEdit(current);
-      }
-    } finally {
-      _reconcilingSelectedGallery = false;
-    }
-    if (_galleryRefreshScheduled) return;
-    _galleryRefreshScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _galleryRefreshScheduled = false;
-      if (mounted) setState(() {});
-    });
-  }
-
-  void _setSelectedGalleryMode(ComposerGalleryMode mode) {
-    final gallery = _currentSelectedGallery;
-    if (gallery == null) {
-      _dismissGallery();
-      return;
-    }
-    widget.composer.text.releaseGalleryPointerEdit(gallery);
-    widget.composer.setGalleryMode(gallery, mode);
-    widget.composer.focus.requestFocus();
-  }
-
-  void _unwrapSelectedGallery() {
-    final gallery = _currentSelectedGallery;
-    if (gallery == null) {
-      _dismissGallery();
-      return;
-    }
-    widget.composer.text.releaseGalleryPointerEdit(gallery);
-    setState(() => _selectedGallery = null);
-    widget.composer.unwrapGallery(gallery);
-    widget.composer.focus.requestFocus();
-  }
-
-  Future<void> _pickImagesForSelectedGallery() async {
-    final gallery = _currentSelectedGallery;
-    if (gallery == null || _pickingGalleryImages) return;
-    final composer = widget.composer;
-    setState(() => _pickingGalleryImages = true);
-    try {
-      final files = await widget.pickImages();
-      if (!mounted || !identical(widget.composer, composer)) return;
-      composer.addImagesToGallery(files, gallery);
-    } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'composer.gallery.pickImages',
-        source: 'platform',
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-      );
-      if (mounted && identical(widget.composer, composer)) {
-        composer.showNotice("Couldn't open the image picker.");
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _pickingGalleryImages = false);
-        if (identical(widget.composer, composer)) {
-          composer.focus.requestFocus();
-        }
-      }
-    }
-  }
-
   Future<void> _addExistingImagesToSelectedGallery() async {
-    final gallery = _currentSelectedGallery;
-    if (gallery == null) return;
-    final images = widget.composer.standaloneImages;
-    if (images.isEmpty) return;
-    final selected = await showDialog<List<ComposerImageBlock>>(
-      context: context,
-      builder: (context) => _ExistingGalleryImagesDialog(images: images),
+    await _media.chooseExistingImagesForSelectedGallery(
+      (images) => showDialog<List<ComposerImageBlock>>(
+        context: context,
+        builder: (context) => _ExistingGalleryImagesDialog(images: images),
+      ),
     );
-    if (!mounted || selected == null || selected.isEmpty) return;
-    widget.composer.text.releaseGalleryPointerEdit(gallery);
-    setState(() => _selectedGallery = null);
-    widget.composer.addExistingImagesToGallery(gallery, selected);
-    widget.composer.focus.requestFocus();
   }
 
   KeyEventResult _onEditorKeyEvent(FocusNode _, KeyEvent event) {
@@ -1961,57 +1491,19 @@ class _ComposerEditorState extends State<ComposerEditor> {
         keyboard.isControlPressed ||
         keyboard.isAltPressed ||
         keyboard.isShiftPressed;
-    final selectedGallery = _currentSelectedGallery;
-    if (_selectedGallery != null && selectedGallery == null) {
-      _dismissGallery(requestFocus: false);
-    } else if (selectedGallery case final gallery?) {
-      final isKeyPress = event is KeyDownEvent || event is KeyRepeatEvent;
-      if (isKeyPress && !hasModifier) {
-        if (event.logicalKey == LogicalKeyboardKey.escape) {
-          _dismissGallery();
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
-            event.logicalKey == LogicalKeyboardKey.arrowRight) {
-          final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
-          _dismissGallery(requestFocus: false);
-          widget.composer.text.selection = TextSelection.collapsed(
-            offset: moveLeft ? gallery.start : gallery.end,
-          );
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.backspace ||
-            event.logicalKey == LogicalKeyboardKey.delete) {
-          return KeyEventResult.handled;
-        }
-      }
-      final isDeletion =
-          event.logicalKey == LogicalKeyboardKey.backspace ||
-          event.logicalKey == LogicalKeyboardKey.delete;
-      if (event.logicalKey == LogicalKeyboardKey.escape ||
-          event.logicalKey == LogicalKeyboardKey.tab) {
-        return KeyEventResult.ignored;
-      }
-      if ((keyboard.isMetaPressed ||
-              keyboard.isControlPressed ||
-              keyboard.isAltPressed) &&
-          !isDeletion) {
-        return KeyEventResult.ignored;
-      }
-      // Keep ordinary typing and deletion out of the collapsed raw BBCode.
-      return KeyEventResult.handled;
+    final mediaResult = _media.handleKeyEvent(
+      event,
+      hasModifier: hasModifier,
+      hasCommandModifier:
+          keyboard.isMetaPressed ||
+          keyboard.isControlPressed ||
+          keyboard.isAltPressed,
+    );
+    if (mediaResult != null) {
+      return mediaResult;
     }
     final selectedPill = _keyboardSelectedPill;
     if (selectedPill != null) {
-      final isPlainEscape =
-          selectedPill is ComposerImageBlock &&
-          event is KeyDownEvent &&
-          !hasModifier &&
-          event.logicalKey == LogicalKeyboardKey.escape;
-      if (isPlainEscape) {
-        _clearKeyboardPillSelection();
-        return KeyEventResult.handled;
-      }
       final isArrowPress = event is KeyDownEvent || event is KeyRepeatEvent;
       final isPlainHorizontalArrow =
           isArrowPress &&
@@ -2025,12 +1517,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
           widget.composer.text.selection = TextSelection.collapsed(
             offset: _pillStart(selectedPill),
           );
-        } else if (selectedPill case final ComposerSyntaxOccurrence syntax) {
-          _moveCaretAfterSyntax(syntax);
         } else {
-          widget.composer.text.selection = TextSelection.collapsed(
-            offset: _pillEnd(selectedPill),
-          );
+          _moveCaretAfterSyntax(selectedPill);
         }
         return KeyEventResult.handled;
       }
@@ -2084,34 +1572,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
 
     final caret = selection.extentOffset;
-    final entersGalleryFromEnd =
-        event.logicalKey == LogicalKeyboardKey.arrowLeft ||
-        event.logicalKey == LogicalKeyboardKey.arrowUp;
-    final entersGalleryFromStart =
-        event.logicalKey == LogicalKeyboardKey.arrowRight ||
-        event.logicalKey == LogicalKeyboardKey.arrowDown;
-    if (!hasModifier && (entersGalleryFromEnd || entersGalleryFromStart)) {
-      final gallery = widget.composer.text.galleryBlocks
-          .where(
-            (candidate) =>
-                widget.composer.text.isGalleryCollapsed(candidate) &&
-                (entersGalleryFromEnd
-                    ? candidate.end == caret
-                    : candidate.start == caret),
-          )
-          .firstOrNull;
-      if (gallery != null) {
-        _selectGallery(gallery);
-        return KeyEventResult.handled;
-      }
-    }
-    if (!hasModifier && event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      final pill = _collapsedPillEndingAt(caret);
-      if (pill is ComposerImageBlock) {
-        _selectPillForKeyboard(pill);
-        return KeyEventResult.handled;
-      }
-    }
     final isPlainHorizontalArrow =
         !hasModifier &&
         (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
@@ -2130,19 +1590,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
         event.logicalKey == LogicalKeyboardKey.backspace ||
         event.logicalKey == LogicalKeyboardKey.delete;
     if (deletes) {
-      final boundaryGallery = widget.composer.text.galleryBlocks
-          .where(
-            (gallery) =>
-                widget.composer.text.isGalleryCollapsed(gallery) &&
-                (event.logicalKey == LogicalKeyboardKey.backspace
-                    ? gallery.end == caret
-                    : gallery.start == caret),
-          )
-          .firstOrNull;
-      if (boundaryGallery != null) {
-        _selectGallery(boundaryGallery);
-        return KeyEventResult.handled;
-      }
       final boundarySyntax = event.logicalKey == LogicalKeyboardKey.backspace
           ? _collapsedPillEndingAt(caret)
           : _collapsedPillStartingAt(caret);
@@ -2161,26 +1608,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
       if (!removesQuote || !widget.composer.text.isQuoteCollapsed(quote)) {
         continue;
       }
-      if (_selectedImage case final selected?) {
-        widget.composer.text.releaseImagePointerEdit(selected);
-        setState(() => _selectedImage = null);
-      }
       widget.composer.removeQuote(quote);
       return KeyEventResult.handled;
     }
     if (event.logicalKey != LogicalKeyboardKey.backspace) {
       return KeyEventResult.ignored;
-    }
-    for (final image in widget.composer.text.imageBlocks) {
-      if (image.end != caret || !widget.composer.text.isImageCollapsed(image)) {
-        continue;
-      }
-      if (_selectedImage case final selected?) {
-        widget.composer.text.releaseImagePointerEdit(selected);
-        setState(() => _selectedImage = null);
-      }
-      widget.composer.removeImage(image);
-      return KeyEventResult.handled;
     }
     for (final syntax in widget.composer.text.syntaxBlocks) {
       if (syntax.end != caret ||
@@ -2196,26 +1628,21 @@ class _ComposerEditorState extends State<ComposerEditor> {
     return KeyEventResult.ignored;
   }
 
-  Object? get _keyboardSelectedPill =>
-      widget.composer.text.keyboardSelectedImage ??
+  ComposerSyntaxOccurrence? get _keyboardSelectedPill =>
       widget.composer.text.keyboardSelectedSyntax;
 
   void _clearKeyboardPillSelection() {
-    final hadSelectedImage = widget.composer.text.keyboardSelectedImage != null;
+    _media.clearKeyboardImageSelection();
     widget.composer.text.clearKeyboardPillSelection();
-    final image = _selectedImage;
-    if (hadSelectedImage && image != null) {
-      widget.composer.text.releaseImagePointerEdit(image);
-      setState(() => _selectedImage = null);
-    }
   }
 
-  void _selectPillForKeyboard(Object pill, {bool refreshImageAlt = true}) {
+  void _selectPillForKeyboard(Object pill) {
+    if (pill case final ComposerImageBlock image) {
+      _media.selectImageForKeyboard(image, moveCaretToEnd: false);
+      return;
+    }
     widget.composer.autocomplete.dismiss();
     widget.composer.text.selectPillForKeyboard(pill);
-    if (pill case final ComposerImageBlock image) {
-      _showImageMenu(image, refreshAlt: refreshImageAlt);
-    }
   }
 
   Object? _collapsedPillEndingAt(int caret) {
@@ -2246,14 +1673,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   static int _pillStart(Object pill) => switch (pill) {
-    ComposerImageBlock image => image.start,
     ComposerSyntaxOccurrence syntax => syntax.start,
-    _ => throw ArgumentError.value(pill, 'pill'),
-  };
-
-  static int _pillEnd(Object pill) => switch (pill) {
-    ComposerImageBlock image => image.end,
-    ComposerSyntaxOccurrence syntax => syntax.end,
     _ => throw ArgumentError.value(pill, 'pill'),
   };
 
@@ -2265,7 +1685,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   void _editPill(Object pill) {
     switch (pill) {
       case ComposerImageBlock image:
-        _selectImage(image);
+        _media.selectImageForKeyboard(image);
         return;
       case ComposerSyntaxOccurrence syntax:
         unawaited(_editSyntax(syntax));
@@ -2277,10 +1697,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   void _removePill(Object pill) {
     switch (pill) {
       case ComposerImageBlock image:
-        if (_selectedImage case final selected?) {
-          widget.composer.text.releaseImagePointerEdit(selected);
-          setState(() => _selectedImage = null);
-        }
+        _media.clearKeyboardImageSelection();
         widget.composer.removeImage(image);
         return;
       case ComposerSyntaxOccurrence syntax:
@@ -2292,13 +1709,19 @@ class _ComposerEditorState extends State<ComposerEditor> {
     throw ArgumentError.value(pill, 'pill');
   }
 
-  (double, double)? _imageMenuPosition(BoxConstraints constraints) {
-    final image = _selectedImage;
+  (double, double)? _imageMenuPosition(
+    BoxConstraints constraints,
+    ComposerImageBlock? image,
+  ) {
+    if (image == null) {
+      _lastImageMenuPosition = null;
+      return null;
+    }
     final stack = _stackKey.currentContext?.findRenderObject();
-    final rect = image == null
-        ? null
-        : widget.composer.text.collapsedImageGlobalRect(image);
-    if (stack is! RenderBox || !stack.hasSize || rect == null) return null;
+    final rect = widget.composer.text.collapsedImageGlobalRect(image);
+    if (stack is! RenderBox || !stack.hasSize || rect == null) {
+      return _lastImageMenuPosition;
+    }
     final topLeft = stack.globalToLocal(rect.topLeft);
     final bottomRight = stack.globalToLocal(rect.bottomRight);
     final width = math.min(_imageMenuPreferredWidth, constraints.maxWidth);
@@ -2309,7 +1732,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     );
     var top = topLeft.dy - height - _menuGap;
     if (top < 0) top = bottomRight.dy + _menuGap;
-    return (
+    return _lastImageMenuPosition = (
       left,
       top.clamp(
         0.0,
@@ -2318,13 +1741,19 @@ class _ComposerEditorState extends State<ComposerEditor> {
     );
   }
 
-  (double, double)? _galleryMenuPosition(BoxConstraints constraints) {
-    final gallery = _currentSelectedGallery;
+  (double, double)? _galleryMenuPosition(
+    BoxConstraints constraints,
+    ComposerImageGalleryBlock? gallery,
+  ) {
+    if (gallery == null) {
+      _lastGalleryMenuPosition = null;
+      return null;
+    }
     final stack = _stackKey.currentContext?.findRenderObject();
-    final rect = gallery == null
-        ? null
-        : widget.composer.text.collapsedGalleryGlobalRect(gallery);
-    if (stack is! RenderBox || !stack.hasSize || rect == null) return null;
+    final rect = widget.composer.text.collapsedGalleryGlobalRect(gallery);
+    if (stack is! RenderBox || !stack.hasSize || rect == null) {
+      return _lastGalleryMenuPosition;
+    }
     final topLeft = stack.globalToLocal(rect.topLeft);
     final bottomRight = stack.globalToLocal(rect.bottomRight);
     final width = math.min(_galleryMenuPreferredWidth, constraints.maxWidth);
@@ -2335,7 +1764,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     );
     var top = topLeft.dy - height - _menuGap;
     if (top < 0) top = bottomRight.dy + _menuGap;
-    return (
+    return _lastGalleryMenuPosition = (
       left,
       top.clamp(
         0.0,
@@ -2344,151 +1773,306 @@ class _ComposerEditorState extends State<ComposerEditor> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final imageMenuPosition = _imageMenuPosition(constraints);
-      final imageMenuWidth = math.min(
-        _imageMenuPreferredWidth,
-        constraints.maxWidth,
-      );
-      final selectedGallery = _currentSelectedGallery;
-      final galleryMenuPosition = _galleryMenuPosition(constraints);
-      final galleryMenuWidth = math.min(
-        _galleryMenuPreferredWidth,
-        constraints.maxWidth,
-      );
-      return OverlayPortal(
-        controller: _selectionPortal,
-        overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
-          valueListenable: _selectionAnchor,
-          builder: (context, anchor, child) => CustomSingleChildLayout(
-            delegate: AnchoredLayout(
-              anchor: anchor,
-              maxWidth: _menuWidth,
-              gap: _menuGap,
-              preferAbove: true,
-            ),
-            child: child!,
-          ),
-          child: _SelectionFormattingMenu(
-            composer: widget.composer,
-            onFocusChange: _selectionToolbarFocusChanged,
-          ),
-        ),
-        child: DropTarget(
-          enable: widget.enableDropTarget && !context.isTouch,
-          onDragEntered: (details) {
-            _moveDropCaret(details.globalPosition);
-            setState(() => _dragging = true);
-          },
-          onDragUpdated: (details) {
-            final previous = _dropGallery?.start;
-            _moveDropCaret(details.globalPosition);
-            if (previous != _dropGallery?.start) setState(() {});
-          },
-          onDragExited: (_) {
-            if (_dragging) {
-              setState(() {
-                _dragging = false;
-                _dropGallery = null;
-              });
-            }
-          },
-          onDragDone: _dropImages,
-          child: Stack(
-            key: _stackKey,
-            clipBehavior: Clip.none,
-            children: [
-              Positioned.fill(
-                child: ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: widget.composer.text,
-                  builder: (context, value, _) => value.text.isEmpty
-                      ? IgnorePointer(
-                          child: Align(
-                            alignment: Alignment.topLeft,
-                            child: Text(
-                              widget.hintText,
-                              style: widget.hintStyle,
-                            ),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
+  Widget _mediaOverlays(BoxConstraints constraints) {
+    final state = _media.value;
+    final imageMenuPosition = _imageMenuPosition(
+      constraints,
+      state.selectedImage,
+    );
+    final imageMenuWidth = math.min(
+      _imageMenuPreferredWidth,
+      constraints.maxWidth,
+    );
+    final galleryMenuPosition = _galleryMenuPosition(
+      constraints,
+      state.selectedGallery,
+    );
+    final galleryMenuWidth = math.min(
+      _galleryMenuPreferredWidth,
+      constraints.maxWidth,
+    );
+    return Positioned.fill(
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          if (imageMenuPosition case (final left, final top))
+            Positioned(
+              left: left,
+              top: top,
+              child: _ImageComposerMenu(
+                width: imageMenuWidth,
+                image: state.selectedImage!,
+                gallery: state.selectedImageGallery,
+                alt: _media.imageAlt,
+                onSaveAlt: _media.saveImageAlt,
+                onScale: _media.scaleImage,
+                onDelete: _media.deleteSelectedImage,
+                onMoveOutsideGallery: _media.moveSelectedImageOutOfGallery,
+                onDismiss: _media.dismissImage,
               ),
-              if (widget.expands)
-                Positioned.fill(child: _field())
-              else
-                _field(),
-              if (imageMenuPosition case (final left, final top))
-                Positioned(
-                  left: left,
-                  top: top,
-                  child: _ImageComposerMenu(
-                    width: imageMenuWidth,
-                    image: _selectedImage!,
-                    gallery: widget.composer.galleryForImage(_selectedImage!),
-                    alt: _imageAlt,
-                    onSaveAlt: _saveImageAlt,
-                    onScale: _scaleImage,
-                    onDelete: _deleteSelectedImage,
-                    onMoveOutsideGallery: _moveSelectedImageOutOfGallery,
-                    onDismiss: _dismissImage,
-                  ),
+            ),
+          if (galleryMenuPosition case (final left, final top))
+            Positioned(
+              left: left,
+              top: top,
+              child: _GalleryComposerMenu(
+                width: galleryMenuWidth,
+                gallery: state.selectedGallery!,
+                hasStandaloneImages: state.hasStandaloneImages,
+                pickingImages: state.pickingGalleryImages,
+                onMode: _media.setSelectedGalleryMode,
+                onUploadImages: () => unawaited(
+                  _media.pickImagesForSelectedGallery(widget.pickImages),
                 ),
-              if (galleryMenuPosition case (final left, final top))
-                Positioned(
-                  left: left,
-                  top: top,
-                  child: _GalleryComposerMenu(
-                    width: galleryMenuWidth,
-                    gallery: selectedGallery!,
-                    hasStandaloneImages:
-                        widget.composer.standaloneImages.isNotEmpty,
-                    pickingImages: _pickingGalleryImages,
-                    onMode: _setSelectedGalleryMode,
-                    onUploadImages: () =>
-                        unawaited(_pickImagesForSelectedGallery()),
-                    onAddExistingImages: () =>
-                        unawaited(_addExistingImagesToSelectedGallery()),
-                    onUnwrap: _unwrapSelectedGallery,
-                    onDismiss: _dismissGallery,
+                onAddExistingImages: () =>
+                    unawaited(_addExistingImagesToSelectedGallery()),
+                onUnwrap: _media.unwrapSelectedGallery,
+                onDismiss: _media.dismissGallery,
+              ),
+            ),
+          if (state.dragging)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.06),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-              if (_dragging)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: 0.06),
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.primary,
-                          width: 2,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Text(
-                            _dropGallery == null
-                                ? 'Drop images to upload'
-                                : 'Drop images into this gallery',
-                          ),
-                        ),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        state.dropGallery == null
+                            ? 'Drop images to upload'
+                            : 'Drop images into this gallery',
                       ),
                     ),
                   ),
                 ),
-            ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => OverlayPortal(
+      controller: _selectionOverlay.portal,
+      overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
+        valueListenable: _selectionOverlay.anchor,
+        builder: (context, anchor, child) => CustomSingleChildLayout(
+          delegate: AnchoredLayout(
+            anchor: anchor,
+            maxWidth: _menuWidth,
+            gap: _menuGap,
+            preferAbove: true,
           ),
+          child: child!,
         ),
-      );
-    },
+        child: _SelectionFormattingMenu(
+          composer: widget.composer,
+          onFocusChange: _selectionOverlay.focusChanged,
+        ),
+      ),
+      child: DropTarget(
+        enable: widget.enableDropTarget && !context.isTouch,
+        onDragEntered: (details) {
+          _moveDropCaret(details.globalPosition);
+          _media.beginDrag();
+        },
+        onDragUpdated: (details) => _moveDropCaret(details.globalPosition),
+        onDragExited: (_) => _media.cancelDrag(),
+        onDragDone: _dropImages,
+        child: Stack(
+          key: _stackKey,
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: widget.composer.text,
+                builder: (context, value, _) => value.text.isEmpty
+                    ? IgnorePointer(
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: Text(widget.hintText, style: widget.hintStyle),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ),
+            if (widget.expands) Positioned.fill(child: _field()) else _field(),
+            ListenableBuilder(
+              listenable: _media,
+              builder: (context, _) => ValueListenableBuilder<int>(
+                valueListenable: _mediaLayoutRevision,
+                builder: (context, _, _) => _mediaOverlays(constraints),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
   );
+}
+
+/// Widget-bound selection geometry kept separate from composer state.
+///
+/// This helper intentionally schedules after layout; unlike application
+/// controllers, it is owned and disposed by the editor State object.
+final class _ComposerSelectionOverlay {
+  _ComposerSelectionOverlay({
+    required ComposerController composer,
+    required this.scroll,
+    required this.menuWidth,
+    required this.isMounted,
+    required this.renderEditable,
+    required this.overlayBox,
+  }) : _composer = composer,
+       _lastQuoteSelection = composer.text.selection {
+    _attach();
+  }
+
+  ComposerController _composer;
+  final ScrollController scroll;
+  final double menuWidth;
+  final bool Function() isMounted;
+  final RenderEditable? Function() renderEditable;
+  final RenderBox? Function() overlayBox;
+
+  final OverlayPortalController portal = OverlayPortalController();
+  final ValueNotifier<Rect?> anchor = ValueNotifier(null);
+
+  Object? _syncToken;
+  bool _toolbarFocused = false;
+  bool _normalizingQuoteSelection = false;
+  bool _disposed = false;
+  TextSelection _lastQuoteSelection;
+
+  void _attach() {
+    _composer.text.addListener(sync);
+    _composer.focus.addListener(sync);
+    scroll.addListener(sync);
+  }
+
+  void _detach() {
+    _composer.text.removeListener(sync);
+    _composer.focus.removeListener(sync);
+    scroll.removeListener(sync);
+  }
+
+  void replaceComposer(ComposerController composer) {
+    if (_disposed || identical(_composer, composer)) return;
+    _detach();
+    _composer = composer;
+    _lastQuoteSelection = composer.text.selection;
+    _normalizingQuoteSelection = false;
+    _toolbarFocused = false;
+    _syncToken = null;
+    anchor.value = null;
+    if (portal.isShowing) portal.hide();
+    _attach();
+    sync();
+  }
+
+  void focusChanged(bool focused) {
+    if (_disposed || _toolbarFocused == focused) return;
+    _toolbarFocused = focused;
+    sync();
+  }
+
+  void sync() {
+    if (_disposed) return;
+    if (!_normalizingQuoteSelection) {
+      final current = _composer.text.selection;
+      final normalized = _composer.text.protectQuoteSelection(
+        current,
+        _lastQuoteSelection,
+      );
+      _lastQuoteSelection = normalized;
+      if (normalized != current) {
+        _normalizingQuoteSelection = true;
+        _composer.text.selection = normalized;
+        _normalizingQuoteSelection = false;
+        return;
+      }
+    }
+
+    final selection = _composer.text.selection;
+    if (!_canFormatSelection(selection)) {
+      _syncToken = null;
+      anchor.value = null;
+      if (portal.isShowing) portal.hide();
+      return;
+    }
+
+    final token = Object();
+    _syncToken = token;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_disposed || !isMounted() || !identical(_syncToken, token)) {
+        return;
+      }
+      final current = _composer.text.selection;
+      if (!_canFormat(current)) {
+        anchor.value = null;
+        if (portal.isShowing) portal.hide();
+        return;
+      }
+
+      final editable = renderEditable();
+      final overlay = overlayBox();
+      if (editable == null || overlay == null || !overlay.hasSize) {
+        if (portal.isShowing) portal.hide();
+        return;
+      }
+      final endpoints = editable.getEndpointsForSelection(current);
+      if (endpoints.isEmpty) {
+        if (portal.isShowing) portal.hide();
+        return;
+      }
+
+      final points = [
+        for (final endpoint in endpoints)
+          editable.localToGlobal(endpoint.point, ancestor: overlay),
+      ];
+      final left = points.map((point) => point.dx).reduce(math.min);
+      final right = points.map((point) => point.dx).reduce(math.max);
+      final bottom = points.map((point) => point.dy).reduce(math.min);
+      final lineHeight = editable.preferredLineHeight;
+      anchor.value = Rect.fromLTWH(
+        (left + right) / 2 - menuWidth / 2,
+        bottom - lineHeight,
+        menuWidth,
+        lineHeight,
+      );
+      portal.show();
+    });
+  }
+
+  bool _canFormat(TextSelection selection) =>
+      (_composer.focus.hasFocus || _toolbarFocused) &&
+      _canFormatSelection(selection);
+
+  bool _canFormatSelection(TextSelection selection) =>
+      selection.isValid &&
+      !selection.isCollapsed &&
+      !selectionTouchesComposerQuote(_composer.text.quoteBlocks, selection);
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _syncToken = null;
+    _detach();
+    anchor.dispose();
+  }
 }
 
 class _ComposerPasteAction extends Action<PasteTextIntent> {

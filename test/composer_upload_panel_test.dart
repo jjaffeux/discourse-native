@@ -1193,8 +1193,17 @@ void main() {
 
       await tester.tap(find.byTooltip('Add images to gallery'));
       await tester.pumpAndSettle();
+      final editorField = find.byWidgetPredicate(
+        (widget) => widget is TextField && widget.controller == composer.text,
+      );
+      final fieldBeforePicker = tester.widget<TextField>(editorField);
       await tester.tap(find.text('Upload new images'));
       await tester.pump();
+      expect(
+        tester.widget<TextField>(editorField),
+        same(fieldBeforePicker),
+        reason: 'picker progress should rebuild only the media overlay',
+      );
 
       final captured = composer.text.galleryBlocks.single;
       composer.setGalleryMode(captured, ComposerGalleryMode.carousel);
@@ -1241,6 +1250,73 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets(
+      'a late gallery picker cannot upload into a replacement composer',
+      (tester) async {
+        final picker = Completer<List<ComposerUploadFile>>();
+        final originalCalls = <_PanelUploadCall>[];
+        final replacementCalls = <_PanelUploadCall>[];
+        final original = ComposerController(
+          _target,
+          imageUploader: (file, {required onProgress, required abortTrigger}) {
+            final call = _PanelUploadCall(onProgress);
+            originalCalls.add(call);
+            return call.result.future;
+          },
+        )..text.text = '[grid]\n![inside](upload://inside)\n[/grid]';
+        final replacement = ComposerController(
+          _target,
+          imageUploader: (file, {required onProgress, required abortTrigger}) {
+            final call = _PanelUploadCall(onProgress);
+            replacementCalls.add(call);
+            return call.result.future;
+          },
+        )..text.text = 'Replacement draft';
+        final shell = await _shell();
+        addTearDown(original.dispose);
+        addTearDown(replacement.dispose);
+        addTearDown(shell.dispose);
+        original.text.selection = TextSelection.collapsed(
+          offset: original.text.galleryBlocks.single.end,
+        );
+        await _pumpPanel(
+          tester,
+          shell,
+          original,
+          pickImages: () => picker.future,
+        );
+        original.focus.requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        await tester.pump();
+        await tester.tap(find.byTooltip('Add images to gallery'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Upload new images'));
+        await tester.pump();
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is PopupMenuButton &&
+                widget.tooltip == 'Add images to gallery' &&
+                !widget.enabled,
+          ),
+          findsOneWidget,
+        );
+
+        await _pumpPanel(tester, shell, replacement);
+        picker.complete([_file]);
+        await tester.pump();
+
+        expect(originalCalls, isEmpty);
+        expect(replacementCalls, isEmpty);
+        expect(replacement.text.text, 'Replacement draft');
+        expect(
+          find.byKey(const ValueKey('composer-gallery-toolbar')),
+          findsNothing,
+        );
+      },
+    );
 
     testWidgets('Ctrl+Enter submits while gallery controls are selected', (
       tester,
