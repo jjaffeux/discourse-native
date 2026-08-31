@@ -89,7 +89,7 @@ void main() {
     }
   });
 
-  testWidgets('Settings is the unconditional bottom-most rail destination', (
+  testWidgets('Diagnostics is the bottom-most rail destination when present', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
@@ -115,12 +115,12 @@ void main() {
       );
       expect(tester.getSize(settings), const Size.square(44));
       expect(
-        tester.getRect(settings).top,
-        greaterThan(tester.getRect(diagnosticsButton).bottom),
+        tester.getRect(diagnosticsButton).top,
+        greaterThan(tester.getRect(settings).bottom),
       );
       expect(
         tester.getRect(find.byType(InstanceRail)).bottom -
-            tester.getRect(settings).bottom,
+            tester.getRect(diagnosticsButton).bottom,
         8,
       );
 

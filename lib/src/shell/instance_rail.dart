@@ -915,13 +915,8 @@ class _RailFooter extends StatelessWidget {
               child: Center(child: _UpdateButton()),
             ),
         ],
-        if (DiagnosticsScope.maybeRead(context) != null)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 4),
-            child: Center(child: _DiagnosticsButton()),
-          ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
+          padding: const EdgeInsets.symmetric(vertical: 4),
           child: Center(
             child: _SettingsButton(
               selected: settingsSelected,
@@ -929,6 +924,11 @@ class _RailFooter extends StatelessWidget {
             ),
           ),
         ),
+        if (DiagnosticsScope.maybeRead(context) != null)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(0, 4, 0, 8),
+            child: Center(child: _DiagnosticsButton()),
+          ),
       ],
     );
   }
