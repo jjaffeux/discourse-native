@@ -4,7 +4,9 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 
+import '../app_shortcuts.dart';
 import '../diagnostics/diagnostics_scope.dart';
 import '../models/discourse_instance.dart';
 import '../models/site_appearance.dart';
@@ -12,6 +14,7 @@ import '../theme/app_theme.dart';
 import '../theme/color_contrast.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_tooltip.dart';
 import 'adaptive_activity_indicator.dart';
 import 'add_instance_sheet.dart';
 import 'avatar_image.dart';
@@ -47,6 +50,9 @@ class InstanceRail extends StatelessWidget {
                       padding: const EdgeInsets.fromLTRB(0, 12, 0, 6),
                       child: _AggregateRailButton(
                         selected: state.rootMode == ShellRootMode.aggregate,
+                        shortcutKey: controller.forumTabsEnabled
+                            ? forumSwitchShortcutKeys.first
+                            : null,
                         onTap: controller.selectAggregate,
                       ),
                     ),
@@ -502,6 +508,11 @@ class _InstanceRailListState extends State<_InstanceRailList> {
                   widget.state.rootMode == ShellRootMode.forum &&
                   index == widget.state.selectedIndex,
               badgeCount: widget.controller.railBadgeFor(instance),
+              shortcutKey:
+                  widget.controller.forumTabsEnabled &&
+                      index + 1 < forumSwitchShortcutKeys.length
+                  ? forumSwitchShortcutKeys[index + 1]
+                  : null,
               onTap: () => widget.controller.selectInstance(index),
             );
             return KeyedSubtree(
@@ -800,9 +811,14 @@ class _RailSnapshot {
 }
 
 class _AggregateRailButton extends StatefulWidget {
-  const _AggregateRailButton({required this.selected, required this.onTap});
+  const _AggregateRailButton({
+    required this.selected,
+    required this.shortcutKey,
+    required this.onTap,
+  });
 
   final bool selected;
+  final LogicalKeyboardKey? shortcutKey;
   final VoidCallback onTap;
 
   @override
@@ -835,8 +851,16 @@ class _AggregateRailButtonState extends State<_AggregateRailButton> {
           ),
         ),
         Center(
-          child: Tooltip(
+          child: DTooltip(
             message: 'Aggregate',
+            shortcut: widget.shortcutKey == null
+                ? null
+                : DShortcut(
+                    primaryShortcutForPlatform(
+                      theme.platform,
+                      widget.shortcutKey!,
+                    ),
+                  ),
             child: InkWell(
               key: const ValueKey('aggregate-rail-button'),
               onTap: widget.onTap,
@@ -1294,6 +1318,7 @@ class _RailItem extends StatefulWidget {
     required this.appearance,
     required this.selected,
     required this.badgeCount,
+    required this.shortcutKey,
     required this.onTap,
   });
 
@@ -1301,6 +1326,7 @@ class _RailItem extends StatefulWidget {
   final SiteAppearance? appearance;
   final bool selected;
   final int badgeCount;
+  final LogicalKeyboardKey? shortcutKey;
   final VoidCallback onTap;
 
   @override
@@ -1374,6 +1400,7 @@ class _RailItemState extends State<_RailItem> {
             child: _RailTooltip(
               instance: widget.instance,
               accent: accent,
+              shortcutKey: widget.shortcutKey,
               child: InkWell(
                 onTap: widget.onTap,
                 onHover: _handleHover,
@@ -1419,6 +1446,7 @@ class _RailTooltip extends StatelessWidget {
   const _RailTooltip({
     required this.instance,
     required this.accent,
+    required this.shortcutKey,
     required this.child,
   });
 
@@ -1432,6 +1460,7 @@ class _RailTooltip extends StatelessWidget {
 
   final DiscourseInstance instance;
   final Color accent;
+  final LogicalKeyboardKey? shortcutKey;
   final Widget child;
 
   @override
@@ -1455,7 +1484,11 @@ class _RailTooltip extends StatelessWidget {
       tooltipBuilder: (context, animation) {
         final callout = ExcludeSemantics(
           child: RepaintBoundary(
-            child: _RailTooltipCallout(instance: instance, accent: accent),
+            child: _RailTooltipCallout(
+              instance: instance,
+              accent: accent,
+              shortcutKey: shortcutKey,
+            ),
           ),
         );
 
@@ -1519,7 +1552,11 @@ class _RailTooltipTransitionState extends State<_RailTooltipTransition> {
 }
 
 class _RailTooltipCallout extends StatelessWidget {
-  const _RailTooltipCallout({required this.instance, required this.accent});
+  const _RailTooltipCallout({
+    required this.instance,
+    required this.accent,
+    required this.shortcutKey,
+  });
 
   static const surface = Color(0xFF3C3D43);
   static const decoration = ShapeDecoration(
@@ -1533,6 +1570,7 @@ class _RailTooltipCallout extends StatelessWidget {
 
   final DiscourseInstance instance;
   final Color accent;
+  final LogicalKeyboardKey? shortcutKey;
 
   @override
   Widget build(BuildContext context) {
@@ -1595,6 +1633,17 @@ class _RailTooltipCallout extends StatelessWidget {
               ),
             ),
           ),
+          if (shortcutKey case final shortcutKey?) ...[
+            const SizedBox(width: 12),
+            DefaultTextStyle(
+              style: const TextStyle(color: Color(0xFFF3F3F4)),
+              child: DShortcutKeycaps(
+                shortcut: DShortcut(
+                  primaryShortcutForPlatform(theme.platform, shortcutKey),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
