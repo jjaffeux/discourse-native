@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart'
     show ChangeNotifier, Listenable, ValueListenable;
 import 'package:flutter/scheduler.dart';
 
+import '../data/account_session_coordinator.dart';
 import '../data/aggregate_preferences_store.dart';
 import '../data/app_settings_store.dart';
 import '../data/authenticator.dart';
@@ -22,7 +23,6 @@ import '../data/site_tracker.dart';
 import '../data/store.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
-import '../data/user_api_key.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/bounded_lru_cache.dart';
 import '../foundation/frame_safe_notifier.dart';
@@ -164,7 +164,11 @@ final class _PluginBookmarkWriteContext extends _BookmarkWriteContext {
 const _pluginBookmarkWriteContext = _PluginBookmarkWriteContext();
 
 class ShellController extends FrameSafeNotifier
-    implements PluginNavigationHost, BookmarkHost, PluginNotificationFeedHost {
+    implements
+        PluginNavigationHost,
+        BookmarkHost,
+        PluginNotificationFeedHost,
+        AccountSessionHost {
   ShellController({
     required this.instanceStore,
     required ShellApiCapabilities api,
@@ -241,6 +245,25 @@ class ShellController extends FrameSafeNotifier
   final DraftStore drafts;
   final EmojiPickerStore emojiPickerStore;
   final SiteLifecycle lifecycle;
+  late final AccountSessionCoordinator _accountSessions =
+      AccountSessionCoordinator(
+        authenticator: authenticator,
+        instances: instanceStore,
+        drafts: drafts,
+        lifecycle: lifecycle,
+        api: api.site,
+        host: this,
+        reportError: (error, stackTrace, operation, {required bool warning}) {
+          _reportOperationalError(
+            error,
+            stackTrace,
+            operation,
+            severity: warning
+                ? DiagnosticSeverity.warning
+                : DiagnosticSeverity.error,
+          );
+        },
+      );
   final SiteImageRepository? _providedSiteImages;
   final InstalledPlugins plugins;
   final bool _ownsPlugins;
@@ -1434,8 +1457,13 @@ class ShellController extends FrameSafeNotifier
   Future<bool> removeInstance(DiscourseInstance instance) async {
     if (!_instances.contains(instance)) return false;
 
-    final lease = await _revokeAndForget(instance);
-    if (lease == null || !lease.isCurrent) return false;
+    final disconnected = await _accountSessions.disconnect(instance.url);
+    final lease = disconnected.lease;
+    if (disconnected.outcome != AccountDisconnectionOutcome.disconnected ||
+        lease == null ||
+        !lease.isCurrent) {
+      return false;
+    }
 
     // Presentation metadata may have replaced the immutable instance object
     // while revocation was in flight. URL is the rail identity; resolve the
@@ -9816,153 +9844,32 @@ class ShellController extends FrameSafeNotifier
   Future<void> connectCurrentInstance() async {
     final instance = currentInstance;
     if (instance == null || _connectingSiteUrl != null) return;
-    var lease = lifecycle.capture(instance.url);
-    UserApiCredentials? credentials;
 
     _connectingSiteUrl = instance.url;
     _connectErrors.remove(instance.url);
     _notify();
 
     try {
-      // Read before the handshake: connecting mints a fresh key and stores it
-      // over whatever was there.
-      final previousKey = await authenticator.apiKeyFor(instance.url);
-      if (!lease.isCurrent || _instanceAt(instance.url) == null) return;
-
-      final connectedCredentials = await authenticator.connect(instance.url);
-      credentials = connectedCredentials;
-      if (!lease.isCurrent || _instanceAt(instance.url) == null) {
-        await _discardCredentials(instance.url, connectedCredentials.key);
-        return;
-      }
-
-      _forgetSiteState(instance.url);
-      lease = lifecycle.capture(instance.url);
-
-      DiscourseInstance? pending;
-      lease.commit(() {
-        final held = _instanceAt(instance.url);
-        if (held == null) return;
-        pending = held.copyWith(
-          apiVersion: connectedCredentials.apiVersion,
-          clearUser: true,
-          clearConfig: true,
-          clearAppearance: true,
-        );
-        _replaceInstance(held, pending!);
-        _notify();
-      });
-      if (pending == null) {
-        await _discardCredentials(instance.url, connectedCredentials.key);
-        return;
-      }
-
-      // The handshake has already replaced the key. Persist the matching
-      // signed-out boundary before anything else can fail, so account A's
-      // profile is never restored from disk beside account B's key.
-      await instanceStore.save(List.of(_instances));
-      if (!lease.isCurrent) return;
-      await drafts.clearSite(instance.url);
-      if (!lease.isCurrent) return;
-
-      // Reconnecting replaces the local key but not its remote authorization.
-      // Revoke the old key best-effort only after the handshake succeeds.
-      if (previousKey != null && previousKey != connectedCredentials.key) {
-        try {
-          await api.site.revokeApiKey(
-            siteUrl: instance.url,
-            apiKey: previousKey,
+      final result = await _accountSessions.connect(instance.url);
+      switch (result.outcome) {
+        case AccountConnectionOutcome.connected:
+          _connectErrors.remove(instance.url);
+          final connected = result.instance!;
+          unawaited(_refreshOne(connected));
+          unawaited(
+            _refreshCustomSidebarSections(instance.url, result.apiKey!),
           );
-        } catch (error, stackTrace) {
-          if (lease.isCurrent) {
-            _reportOperationalError(
-              error,
-              stackTrace,
-              'authentication.revokePreviousKey',
-              severity: DiagnosticSeverity.warning,
-            );
+        case AccountConnectionOutcome.cancelled:
+          _connectErrors.remove(instance.url);
+        case AccountConnectionOutcome.failed:
+          _connectErrors[instance.url] = result.message!;
+          if (result.refreshSignedOutPresentation &&
+              currentInstance?.url == instance.url) {
+            unawaited(_presentation.ensureAppearance(instance.url));
           }
-        }
+        case AccountConnectionOutcome.stale || AccountConnectionOutcome.missing:
+          break;
       }
-      if (!lease.isCurrent) return;
-
-      final responseUser = await api.site.currentUser(
-        siteUrl: instance.url,
-        apiKey: connectedCredentials.key,
-      );
-      if (!lease.isCurrent) return;
-
-      // Account verification can overlap an anonymous appearance refresh.
-      // Rotate the lifecycle before publishing the connected identity.
-      _forgetSiteState(instance.url);
-      lease = lifecycle.capture(instance.url);
-      final user = _acceptDoNotDisturbSnapshot(instance.url, responseUser);
-
-      DiscourseInstance? connected;
-      final accepted = lease.commit(() {
-        final held = _instanceAt(instance.url);
-        if (held == null) return;
-        connected = held.copyWith(
-          user: user,
-          apiVersion: connectedCredentials.apiVersion,
-        );
-        _replaceInstance(held, connected!);
-        _seedGroupedUnreadNotifications(instance.url, user);
-        _sessionUsersRefreshed.add(instance.url);
-        if (currentInstance?.url == instance.url) {
-          // The anonymous palette may have completed while the account lookup
-          // was in flight. This identity boundary must bypass warm persisted
-          // freshness and fetch the authenticated palette exactly once.
-          _resetToInstanceDefault(refreshAppearance: false);
-          unawaited(_presentation.refreshAppearance(instance.url));
-        }
-        _notify();
-      });
-      if (!accepted || connected == null) return;
-
-      await instanceStore.save(List.of(_instances));
-      if (lease.isCurrent) {
-        unawaited(_refreshOne(connected!));
-        unawaited(
-          _refreshCustomSidebarSections(instance.url, connectedCredentials.key),
-        );
-      }
-    } on UserApiAuthException catch (e, stackTrace) {
-      if (credentials != null && lease.isCurrent) {
-        lease = await _rollbackConnection(instance, credentials, lease);
-      }
-      if (!lease.isCurrent) return;
-      // Backing out of the browser is a normal thing to do, not an error.
-      // Everything else has to be said out loud, or the button simply stops
-      // spinning and the user is left guessing. A switch rather than a
-      // ternary so the analyzer flags the next value someone adds.
-      final message = switch (e.failure) {
-        UserApiAuthFailure.cancelled => null,
-        UserApiAuthFailure.launchFailed ||
-        UserApiAuthFailure.badReply => e.message,
-      };
-      if (e.failure != UserApiAuthFailure.cancelled) {
-        _reportOperationalError(e, stackTrace, 'authentication.connect');
-      }
-      if (message == null) {
-        _connectErrors.remove(instance.url);
-      } else {
-        _connectErrors[instance.url] = message;
-      }
-    } on SiteLookupException catch (e, stackTrace) {
-      if (credentials != null && lease.isCurrent) {
-        lease = await _rollbackConnection(instance, credentials, lease);
-      }
-      if (!lease.isCurrent) return;
-      _reportOperationalError(e, stackTrace, 'authentication.loadAccount');
-      _connectErrors[instance.url] = e.message;
-    } catch (e, stackTrace) {
-      if (credentials != null && lease.isCurrent) {
-        lease = await _rollbackConnection(instance, credentials, lease);
-      }
-      if (!lease.isCurrent) return;
-      _reportOperationalError(e, stackTrace, 'authentication.connect');
-      _connectErrors[instance.url] = 'Could not connect to ${instance.host}.';
     } finally {
       if (_connectingSiteUrl == instance.url) _connectingSiteUrl = null;
       final held = _instanceAt(instance.url);
@@ -9976,93 +9883,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  Future<SiteLease> _rollbackConnection(
-    DiscourseInstance instance,
-    UserApiCredentials credentials,
-    SiteLease lease,
-  ) async {
-    if (!lease.isCurrent) return lease;
-
-    // A connected user becomes visible before the final persistence write so
-    // the shell can reset their personalized navigation. If that write fails,
-    // make the local identity boundary explicit before any async cleanup: no
-    // view should keep presenting an account whose new key is being removed.
-    _forgetSiteState(instance.url);
-    final rollbackLease = lifecycle.capture(instance.url);
-    rollbackLease.commit(() {
-      final held = _instanceAt(instance.url);
-      if (held == null) return;
-      _replaceInstance(
-        held,
-        held.copyWith(
-          clearUser: true,
-          clearConfig: true,
-          clearAppearance: true,
-        ),
-      );
-      if (currentInstance?.url == instance.url) {
-        // The replacement key still lives in the credential store until the
-        // cleanup below finishes. Reset the signed-out navigation now, but do
-        // not let its optional appearance refresh race that account boundary.
-        _resetToInstanceDefault(refreshAppearance: false);
-      }
-      _notify();
-    });
-
-    final credentialsDiscarded = await _discardCredentials(
-      instance.url,
-      credentials.key,
-    );
-    if (!rollbackLease.isCurrent) return rollbackLease;
-
-    // The failure may have been the signed-out boundary or the final connected
-    // snapshot. Either way, leave the durable value matching the discarded key
-    // when the platform store recovers. A second attempt covers the transient
-    // failure mode without turning connection into an unbounded retry loop.
-    for (var attempt = 0; attempt < 2; attempt++) {
-      if (!rollbackLease.isCurrent) break;
-      try {
-        await instanceStore.save(List.of(_instances));
-        break;
-      } catch (_) {}
-    }
-    if (credentialsDiscarded &&
-        rollbackLease.isCurrent &&
-        currentInstance?.url == instance.url &&
-        !instance.loginRequired) {
-      // This read is now necessarily anonymous. If deleting the local key
-      // failed, retaining native colors is safer than presenting another
-      // account-derived palette on a signed-out instance.
-      unawaited(_presentation.ensureAppearance(instance.url));
-    }
-    return rollbackLease;
-  }
-
-  Future<bool> _discardCredentials(String siteUrl, String apiKey) async {
-    try {
-      await api.site.revokeApiKey(siteUrl: siteUrl, apiKey: apiKey);
-    } catch (error, stackTrace) {
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'authentication.revokeKey',
-        severity: DiagnosticSeverity.warning,
-      );
-    }
-    try {
-      await authenticator.disconnect(siteUrl);
-      return true;
-    } catch (error, stackTrace) {
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'authentication.deleteCredential',
-        severity: DiagnosticSeverity.warning,
-      );
-      return false;
-    }
-  }
-
   Future<void> disconnectCurrentInstance() async {
     final instance = currentInstance;
     if (instance == null) return;
@@ -10071,112 +9891,76 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<bool> disconnectInstance(String siteUrl) async {
-    final instance = _instanceAt(siteUrl);
-    if (instance == null) return false;
+    final result = await _accountSessions.disconnect(siteUrl);
+    return result.outcome == AccountDisconnectionOutcome.disconnected;
+  }
 
-    final lease = await _revokeAndForget(instance);
-    if (lease == null) return false;
-    final accepted = lease.commit(() {
-      final held = _instanceAt(instance.url);
-      if (held == null) return;
-      // The settings go with the key. On a `login_required` site they were only
-      // readable as that account, so keeping an answer that can no longer be
-      // refreshed would leave the shell drawing something it cannot correct.
-      _replaceInstance(
-        held,
-        held.copyWith(
-          clearUser: true,
-          clearConfig: true,
-          clearAppearance: true,
-        ),
+  @override
+  bool get accountSessionDisposed => isDisposed;
+
+  @override
+  List<DiscourseInstance> get accountSessionInstances =>
+      List.unmodifiable(_instances);
+
+  @override
+  DiscourseInstance? accountSessionInstance(String siteUrl) =>
+      _instanceAt(siteUrl);
+
+  @override
+  void clearAccountSessionState(String siteUrl) {
+    _forgetSiteState(siteUrl, invalidateLifecycle: false);
+  }
+
+  @override
+  DiscourseInstance? applyAccountSessionInstance(
+    DiscourseInstance replacement,
+    AccountSessionPhase phase,
+  ) {
+    final held = _instanceAt(replacement.url);
+    if (held == null) return null;
+
+    var applied = replacement;
+    if (phase == AccountSessionPhase.connected && replacement.user != null) {
+      final user = _acceptDoNotDisturbSnapshot(
+        replacement.url,
+        replacement.user!,
       );
-      if (currentInstance?.url == instance.url) _resetToInstanceDefault();
-      _notify();
-    });
-    if (!accepted) return false;
+      applied = replacement.copyWith(user: user);
+      _seedGroupedUnreadNotifications(replacement.url, user);
+      _sessionUsersRefreshed.add(replacement.url);
+    } else if (phase == AccountSessionPhase.restored &&
+        replacement.user != null) {
+      if (replacement.notificationTotals case final totals?) {
+        accountActivity.restoreTotals(replacement.url, totals);
+      }
+      doNotDisturb.restoreSnapshot(
+        replacement.url,
+        replacement.user?.doNotDisturbUntil,
+      );
+      _seedGroupedUnreadNotifications(replacement.url, replacement.user!);
+    }
 
-    try {
-      await instanceStore.save(List.of(_instances));
-      return true;
-    } catch (_) {
-      if (isDisposed || !lease.isCurrent) return false;
-      try {
-        // Shared-preferences writes are idempotent. Retrying the latest
-        // snapshot prevents a transient platform failure from restoring a
-        // stale connected profile beside a key that has already been deleted.
-        await instanceStore.save(List.of(_instances));
-        return true;
-      } catch (_) {
-        return false;
+    _replaceInstance(held, applied);
+    if (currentInstance?.url == replacement.url) {
+      switch (phase) {
+        case AccountSessionPhase.connecting:
+          break;
+        case AccountSessionPhase.connected:
+          _resetToInstanceDefault(refreshAppearance: false);
+          unawaited(_presentation.refreshAppearance(replacement.url));
+        case AccountSessionPhase.disconnecting ||
+            AccountSessionPhase.rolledBack:
+          _resetToInstanceDefault(refreshAppearance: false);
+        case AccountSessionPhase.disconnected || AccountSessionPhase.restored:
+          _resetToInstanceDefault();
       }
     }
+    _notify();
+    return applied;
   }
 
-  Future<SiteLease?> _revokeAndForget(DiscourseInstance instance) async {
-    _forgetSiteState(instance.url);
-    final lease = lifecycle.capture(instance.url);
-
-    // Persist the private-text boundary before revoking or deleting the key.
-    // If storage cannot retain the blocker, abort while the account and its
-    // credential still agree instead of leaving connected UI backed by no key.
-    try {
-      await drafts.clearSite(instance.url, ifCurrent: () => lease.isCurrent);
-    } catch (_) {
-      return null;
-    }
-    if (!lease.isCurrent) return lease;
-
-    String? apiKey;
-    try {
-      apiKey = await authenticator.apiKeyFor(instance.url);
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'authentication.readCredentialForDisconnect',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
-    }
-    if (!lease.isCurrent) return lease;
-    if (apiKey != null) {
-      try {
-        await api.site.revokeApiKey(siteUrl: instance.url, apiKey: apiKey);
-      } catch (error, stackTrace) {
-        if (lease.isCurrent) {
-          _reportOperationalError(
-            error,
-            stackTrace,
-            'authentication.revokeKey',
-            severity: DiagnosticSeverity.warning,
-          );
-        }
-      }
-    }
-    if (!lease.isCurrent) return lease;
-    try {
-      await authenticator.disconnect(instance.url);
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'authentication.deleteCredential',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
-    }
-    if (!lease.isCurrent) return lease;
-
-    // Rotate once more after asynchronous revocation so intervening work loses
-    // its lease before removal or sign-out commits.
-    _forgetSiteState(instance.url);
-    return lifecycle.capture(instance.url);
-  }
-
-  void _forgetSiteState(String siteUrl) {
-    lifecycle.invalidate(siteUrl);
+  void _forgetSiteState(String siteUrl, {bool invalidateLifecycle = true}) {
+    if (invalidateLifecycle) lifecycle.invalidate(siteUrl);
     siteImages.forget(siteUrl);
     _removeWorkspace(siteUrl);
     if (currentInstance?.url == siteUrl) search.clear();

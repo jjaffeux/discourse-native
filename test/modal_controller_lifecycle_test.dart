@@ -762,9 +762,9 @@ final class _GatedAuthenticator extends FakeAuthenticator {
   final started = Completer<void>();
 
   @override
-  Future<UserApiCredentials> connect(String siteUrl) async {
+  Future<UserApiCredentials> authorize(String siteUrl) async {
     started.complete();
     await gate.future;
-    return super.connect(siteUrl);
+    return super.authorize(siteUrl);
   }
 }

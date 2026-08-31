@@ -18,6 +18,27 @@ const _credentials = UserApiCredentials(
 
 void main() {
   group('Authenticator.connect', () {
+    test('can validate a handshake before persisting its credential', () async {
+      final events = <String>[];
+      final store = _FakeSecureStore(events: events);
+      final authenticator = Authenticator(
+        store: store,
+        protocol: _FakeProtocol(events: events),
+        keyPairGenerator: () async => _pair,
+        nonceGenerator: () => 'nonce',
+        launcher: (_, _) async => 'discourse://auth_redirect?payload=reply',
+      );
+
+      final credentials = await authenticator.authorize(_site);
+
+      expect(credentials, same(_credentials));
+      expect(store.apiKeys, isEmpty);
+
+      await authenticator.persistCredentials(_site, credentials);
+
+      expect(store.apiKeys, {_site: _credentials.key});
+    });
+
     test(
       'runs the handshake before persisting validated credentials',
       () async {

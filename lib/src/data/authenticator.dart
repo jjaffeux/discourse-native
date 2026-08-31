@@ -45,7 +45,20 @@ class Authenticator implements ApiCredentialReader {
     'connection superseded',
   );
 
-  Future<UserApiCredentials> connect(String siteUrl) async {
+  Future<UserApiCredentials> connect(String siteUrl) =>
+      _runConnection(siteUrl, persist: true);
+
+  /// Completes the user API key handshake without changing local credentials.
+  ///
+  /// Account transitions use this boundary to make their signed-out snapshot
+  /// durable before the newly-authorized key can replace an existing account.
+  Future<UserApiCredentials> authorize(String siteUrl) =>
+      _runConnection(siteUrl, persist: false);
+
+  Future<UserApiCredentials> _runConnection(
+    String siteUrl, {
+    required bool persist,
+  }) async {
     final generation = Object();
     _connectionGenerations[siteUrl] = generation;
     try {
@@ -110,8 +123,10 @@ class Authenticator implements ApiCredentialReader {
       );
       _ensureCurrent(siteUrl, generation);
 
-      await store.writeApiKey(siteUrl, credentials.key);
-      _ensureCurrent(siteUrl, generation);
+      if (persist) {
+        await persistCredentials(siteUrl, credentials);
+        _ensureCurrent(siteUrl, generation);
+      }
       return credentials;
     } catch (_) {
       if (!_isCurrent(siteUrl, generation)) throw _supersededConnection;
@@ -122,6 +137,11 @@ class Authenticator implements ApiCredentialReader {
       }
     }
   }
+
+  Future<void> persistCredentials(
+    String siteUrl,
+    UserApiCredentials credentials,
+  ) => store.writeApiKey(siteUrl, credentials.key);
 
   bool _isCurrent(String siteUrl, Object generation) =>
       identical(_connectionGenerations[siteUrl], generation);

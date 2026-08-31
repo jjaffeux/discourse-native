@@ -3839,13 +3839,25 @@ class FakeAuthenticator implements Authenticator {
 
   @override
   Future<UserApiCredentials> connect(String siteUrl) async {
+    final result = await authorize(siteUrl);
+    await persistCredentials(siteUrl, result);
+    return result;
+  }
+
+  @override
+  Future<UserApiCredentials> authorize(String siteUrl) async {
     if (failure != null) throw UserApiAuthException(failure!);
     connected.add(siteUrl);
-    final result =
-        credentials ??
+    return credentials ??
         const UserApiCredentials(key: 'api-key', apiVersion: 4, push: false);
-    keys[siteUrl] = result.key;
-    return result;
+  }
+
+  @override
+  Future<void> persistCredentials(
+    String siteUrl,
+    UserApiCredentials credentials,
+  ) async {
+    keys[siteUrl] = credentials.key;
   }
 
   @override
