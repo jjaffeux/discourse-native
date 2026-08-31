@@ -232,7 +232,7 @@ void main() {
     expect(find.byKey(const ValueKey('topic-list-new-all')), findsNothing);
   });
 
-  testWidgets('primary discovery tabs form a left-aligned full-width row', (
+  testWidgets('primary tabs are compact, centered, and grouped on the left', (
     tester,
   ) async {
     final setup = await _controller();
@@ -271,6 +271,9 @@ void main() {
     final top = tester.getRect(find.byKey(const ValueKey('topic-list-top')));
     final recentLabel = tester.getRect(find.text('Recent'));
     final newLabel = tester.getRect(find.text('New (1059)'));
+    final unreadLabel = tester.getRect(find.text('Unread (5)'));
+    final topLabel = tester.getRect(find.text('Top'));
+    final popularLabel = tester.getRect(find.text('Popular'));
 
     expect(row.left, 0);
     expect(row.right, 800);
@@ -280,8 +283,12 @@ void main() {
     expect(top.left, unread.right);
     expect(popular.left, top.right);
     expect(popular.right, lessThan(row.right - 76));
-    expect(recentLabel.left, recent.left + 8);
-    expect(newLabel.left, newTopics.left + 8);
+    final tabs = [recent, newTopics, unread, top, popular];
+    final labels = [recentLabel, newLabel, unreadLabel, topLabel, popularLabel];
+    for (var index = 0; index < tabs.length; index++) {
+      expect(tabs[index].center.dx, closeTo(labels[index].center.dx, 0.1));
+      expect(tabs[index].width, lessThanOrEqualTo(labels[index].width + 24));
+    }
     expect(tester.takeException(), isNull);
   });
 
