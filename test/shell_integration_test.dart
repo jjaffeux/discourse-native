@@ -114,6 +114,7 @@ import 'package:flutter/gestures.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -4231,10 +4232,14 @@ void main() {
               id: 9,
               title: 'Closed topic',
               slug: 'closed-topic',
+              categoryId: 5,
               closed: true,
             ),
           ],
         },
+        categoryList: const [
+          TopicCategory(id: 5, name: 'Feature', color: '00C58E'),
+        ],
       );
 
       await pumpShell(tester, desktop, api: api);
@@ -4242,9 +4247,30 @@ void main() {
       final title = find.text('Closed topic');
       final row = minimumHeightAncestors(title, TopicListRow.minimumHeight);
       final lock = find.descendant(of: row, matching: find.dIcon(DIcons.lock));
+      final lockGlyph = find.descendant(
+        of: lock,
+        matching: find.byType(SvgPicture),
+      );
+      final categoryBlock = find.descendant(
+        of: row,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.constraints?.minWidth == 9 &&
+              widget.constraints?.maxWidth == 9 &&
+              widget.constraints?.minHeight == 9 &&
+              widget.constraints?.maxHeight == 9,
+        ),
+      );
 
       expect(lock, findsOneWidget);
       expect(tester.getTopLeft(lock).dx, lessThan(tester.getTopLeft(title).dx));
+      expect(lockGlyph, findsOneWidget);
+      expect(categoryBlock, findsOneWidget);
+      expect(
+        tester.getTopLeft(lockGlyph).dx,
+        tester.getTopLeft(categoryBlock).dx,
+      );
       expect(find.bySemanticsLabel('Closed topic'), findsOneWidget);
     });
 
