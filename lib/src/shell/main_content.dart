@@ -300,6 +300,10 @@ class _ContentHeader extends StatelessWidget {
     final controller = ShellScope.read(context);
     final contentHeader = registry.contentHeaderActions(context, route);
     final contentHeaderLeading = registry.contentHeaderLeading(context, route);
+    final contentHeaderTitleTrailing = registry.contentHeaderTitleTrailing(
+      context,
+      route,
+    );
     final contentHeaderTitleAction = registry.contentHeaderTitleAction(
       context,
       route,
@@ -376,25 +380,34 @@ class _ContentHeader extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (route.isTopic && siteUrl != null)
-                            TopicTitle(
-                              route.title,
-                              siteUrl: siteUrl!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
+                          Row(
+                            children: [
+                              Flexible(
+                                fit: FlexFit.loose,
+                                child: route.isTopic && siteUrl != null
+                                    ? TopicTitle(
+                                        route.title,
+                                        siteUrl: siteUrl!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      )
+                                    : Text(
+                                        route.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
                               ),
-                            )
-                          else
-                            Text(
-                              route.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                              ?contentHeaderTitleTrailing,
+                            ],
+                          ),
                           if (route.isGroups && siteUrl != null)
                             _GroupsDirectoryCount(siteUrl: siteUrl!)
                           else if (route.subtitle case final subtitle?)

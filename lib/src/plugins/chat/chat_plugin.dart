@@ -57,6 +57,7 @@ class ChatPlugin
         ContentChromePlugin,
         ContentHeaderPlugin,
         ContentHeaderLeadingPlugin,
+        ContentHeaderTitleTrailingPlugin,
         ContentHeaderTitlePlugin,
         ForumTabPlugin,
         ShellHeaderPlugin,
@@ -473,10 +474,6 @@ class ChatPlugin
       ];
     }
     return [
-      _ChatChannelHeaderStatus(
-        siteUrl: siteUrl,
-        channelId: chatRoute.channelId,
-      ),
       ChatChannelStarButton(siteUrl: siteUrl, channelId: chatRoute.channelId),
       _ChatChannelThreadsButton(
         siteUrl: siteUrl,
@@ -507,6 +504,26 @@ class ChatPlugin
       siteUrl: siteUrl,
       channelId: channel.id,
       fallbackIcon: route.icon,
+    );
+  }
+
+  @override
+  Widget? contentHeaderTitleTrailing(BuildContext context, ContentRoute route) {
+    final chatRoute = ChatRoute.parse(route.id);
+    final siteUrl = PluginUiScope.require(
+      context,
+      chatShellService,
+    ).currentSiteUrl;
+    if (siteUrl == null ||
+        chatRoute == null ||
+        chatRoute.isThread ||
+        chatRoute.isInfo) {
+      return null;
+    }
+
+    return _ChatChannelHeaderStatus(
+      siteUrl: siteUrl,
+      channelId: chatRoute.channelId,
     );
   }
 
@@ -624,13 +641,12 @@ class _ChatChannelHeaderStatus extends StatelessWidget {
             ? channel.users.single
             : null;
         return UserStatusMessage(
+          key: const ValueKey('chat-channel-header-status'),
           siteUrl: siteUrl,
           userId: user?.id,
           status: user?.status,
-          showDescription: true,
           size: 16,
-          style: Theme.of(context).textTheme.bodySmall,
-          descriptionMaxWidth: 100,
+          leadingGap: 5,
         );
       },
     );

@@ -35,6 +35,7 @@ import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
+import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
@@ -178,13 +179,16 @@ Future<void> pumpShell(
   FakeUpdateStore? updateStore,
   Key? key,
   Future<void> Function()? beforeSettle,
+  http.Client? mediaClient,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 
   // Cooked emoji would otherwise trigger network requests in widget tests.
-  _replaceEmojiCache(MockClient((_) async => http.Response('', 404)));
+  _replaceEmojiCache(
+    mediaClient ?? MockClient((_) async => http.Response('', 404)),
+  );
 
   await tester.pumpWidget(
     DiscourseApp(
@@ -17189,6 +17193,7 @@ void main() {
       DiscourseUser user = me,
       ChatPresence presence = const ChatPresence(),
       SiteConfig config = const SiteConfig.unknown(),
+      http.Client? mediaClient,
     }) async {
       await pumpShell(
         tester,
@@ -17218,6 +17223,7 @@ void main() {
           ).copyWith(user: user, config: config),
         ],
         authenticator: FakeAuthenticator()..keys[site] = 'meta-key',
+        mediaClient: mediaClient,
       );
       await tester.pumpAndSettle();
     }
@@ -18324,6 +18330,78 @@ void main() {
     });
 
     group('a channel', () {
+      testWidgets(
+        'shows a direct-message status icon after the title and its text on hover',
+        (tester) async {
+          await pumpChat(
+            tester,
+            direct: [
+              dm(
+                12,
+                users: const [
+                  ChatUser(
+                    id: 2,
+                    username: 'hawk',
+                    avatarUrl: '$site/user_avatar/h/90.png',
+                    status: UserStatus(
+                      description: 'Working today',
+                      emoji: 'computer',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            messages: {key(12): page(const [])},
+            mediaClient: MockClient(
+              (_) async => http.Response.bytes(emojiPng, 200),
+            ),
+          );
+          await tester.tap(sidebarDestination('hawk'));
+          await tester.pumpAndSettle();
+
+          final titleAction = find.byKey(
+            const ValueKey('content-header-title-action'),
+          );
+          final title = find.descendant(
+            of: titleAction,
+            matching: find.text('hawk'),
+          );
+          final status = find.descendant(
+            of: titleAction,
+            matching: find.byKey(const ValueKey('chat-channel-header-status')),
+          );
+          final emoji = find.descendant(
+            of: status,
+            matching: find.byType(SiteEmojiImage),
+          );
+
+          expect(status, findsOneWidget);
+          expect(emoji, findsOneWidget);
+          expect(
+            tester.getRect(emoji).left - tester.getRect(title).right,
+            closeTo(5, 0.01),
+          );
+          expect(
+            find.descendant(
+              of: titleAction,
+              matching: find.text('Working today'),
+            ),
+            findsNothing,
+          );
+
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: Offset.zero);
+          addTearDown(mouse.removePointer);
+          await mouse.moveTo(tester.getCenter(emoji));
+          await tester.pump(const Duration(milliseconds: 500));
+          await tester.pumpAndSettle();
+
+          expect(find.text('Working today'), findsOneWidget);
+        },
+      );
+
       testWidgets('shows a direct-message avatar and its live presence', (
         tester,
       ) async {

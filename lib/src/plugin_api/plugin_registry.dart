@@ -1442,6 +1442,18 @@ final class PluginRegistry
     return null;
   }
 
+  Widget? contentHeaderTitleTrailing(BuildContext context, ContentRoute route) {
+    for (final plugin
+        in plugins.whereType<ContentHeaderTitleTrailingPlugin>()) {
+      final trailing = plugin.contentHeaderTitleTrailing(
+        _uiContext(context, plugin),
+        route,
+      );
+      if (trailing != null) return _owned(plugin, trailing);
+    }
+    return null;
+  }
+
   VoidCallback? contentHeaderTitleAction(
     BuildContext context,
     ContentRoute route,
