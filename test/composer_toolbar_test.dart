@@ -61,6 +61,27 @@ void main() {
       expect(composer.text.text, 'say hello');
     });
 
+    test('only toggles inline code around selected text', () {
+      open('say hello');
+      composer.text.selection = const TextSelection(
+        baseOffset: 4,
+        extentOffset: 9,
+      );
+
+      composer.toggleSelectedInlineCode();
+
+      expect(composer.text.text, 'say `hello`');
+      expect(
+        composer.text.selection,
+        const TextSelection(baseOffset: 5, extentOffset: 10),
+      );
+
+      composer.text.selection = const TextSelection.collapsed(offset: 11);
+      composer.toggleSelectedInlineCode();
+
+      expect(composer.text.text, 'say `hello`');
+    });
+
     test('leaves a selected quote unchanged', () {
       const quote = '[quote="sam"]\nQuoted words.\n[/quote]';
       open(quote);

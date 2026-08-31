@@ -35,6 +35,7 @@ void main() {
     test('wraps a selection, keeping the selection on the text', () {
       expectToggle('say [hello] there', '**', 'say **[hello]** there');
       expectToggle('say [hello] there', '*', 'say *[hello]* there');
+      expectToggle('say [hello] there', '`', 'say `[hello]` there');
     });
 
     test('unwraps when the markers are inside the selection', () {
@@ -75,7 +76,7 @@ void main() {
     });
 
     test('is its own inverse', () {
-      for (final marker in ['**', '*']) {
+      for (final marker in ['**', '*', '`']) {
         const start = 'say [hello] there';
         final once = toggleMarkdownMark(selected(start), marker);
         expect(showSelection(toggleMarkdownMark(once, marker)), start);

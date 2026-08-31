@@ -123,6 +123,8 @@ class ComposerPanel extends StatelessWidget {
                 control: true,
               ): () =>
                   composer.toggleMark(ComposerMark.italic),
+              const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
+                  composer.toggleSelectedInlineCode,
               ...PluginScope.of(
                 context,
               ).registry.composerShortcuts(context, composer),

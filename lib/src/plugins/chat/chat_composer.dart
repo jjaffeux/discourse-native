@@ -631,6 +631,8 @@ class _ChatComposerState extends State<ChatComposer> {
         const SingleActivator(LogicalKeyboardKey.enter): () => _send(composer),
         const SingleActivator(LogicalKeyboardKey.numpadEnter): () =>
             _send(composer),
+        const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
+            composer.toggleSelectedInlineCode,
         if (widget.editingMessage != null)
           const SingleActivator(LogicalKeyboardKey.escape): _cancelEdit,
       },

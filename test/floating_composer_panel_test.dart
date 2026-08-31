@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -372,6 +373,31 @@ void main() {
   });
 
   group('composer presentation and controls', () {
+    testWidgets('Command-E wraps the selected topic body in backticks', (
+      tester,
+    ) async {
+      final composer = ComposerController(_newTopicTarget);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpFloatingPanel(tester, shell, composer);
+
+      composer.text.value = const TextEditingValue(
+        text: 'format me',
+        selection: TextSelection(baseOffset: 0, extentOffset: 6),
+      );
+      composer.focus.requestFocus();
+      await tester.pump();
+
+      await _pressCommandE(tester);
+
+      expect(composer.text.text, '`format` me');
+      expect(
+        composer.text.selection,
+        const TextSelection(baseOffset: 1, extentOffset: 7),
+      );
+    });
+
     testWidgets('shows working formatting controls only for selected text', (
       tester,
     ) async {
@@ -575,6 +601,13 @@ void main() {
       expect(find.byType(ComposerPanel), findsOneWidget);
     });
   });
+}
+
+Future<void> _pressCommandE(WidgetTester tester) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+  await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+  await tester.pump();
 }
 
 Future<T> _withTargetPlatform<T>(

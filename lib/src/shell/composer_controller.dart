@@ -985,6 +985,12 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     text.value = toggleMarkdownMark(text.value, mark.marker);
   }
 
+  void toggleSelectedInlineCode() {
+    final selection = text.selection;
+    if (!selection.isValid || selection.isCollapsed) return;
+    toggleMark(ComposerMark.inlineCode);
+  }
+
   void insertText(String insertion) {
     if (_disposed || insertion.isEmpty) return;
     final old = text.value;

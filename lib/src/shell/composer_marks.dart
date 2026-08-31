@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 enum ComposerMark {
   bold('**'),
-  italic('*');
+  italic('*'),
+  inlineCode('`');
 
   const ComposerMark(this.marker);
 
