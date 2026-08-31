@@ -30,6 +30,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -60,6 +61,33 @@ const _gif = GifResult(
 
 void main() {
   group('draft editing, layout, and uploads', () {
+    testWidgets('follows the desktop reading lane width', (tester) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      final previousPlatform = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      await tester.binding.setSurfaceSize(const Size(1200, 600));
+      try {
+        await tester.pumpWidget(_TestView(shell: fixture.shell));
+        await tester.pumpAndSettle();
+
+        final bar = find.byKey(const ValueKey('chat-composer'));
+        expect(tester.getSize(bar).width, 825);
+        expect(tester.getTopLeft(bar).dx, 187.5);
+
+        await tester.binding.setSurfaceSize(const Size(700, 600));
+        await tester.pumpAndSettle();
+
+        expect(tester.getSize(bar).width, 676);
+        expect(tester.getTopLeft(bar).dx, 12);
+      } finally {
+        debugDefaultTargetPlatformOverride = previousPlatform;
+        await tester.binding.setSurfaceSize(null);
+      }
+    });
+
     testWidgets('Command-E wraps the selected chat text in backticks', (
       tester,
     ) async {

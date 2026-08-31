@@ -13,6 +13,7 @@ import '../../shell/composer_controller.dart';
 import '../../shell/composer_drop.dart';
 import '../../shell/composer_link.dart';
 import '../../shell/composer_panel.dart';
+import '../../shell/content_reading_lane.dart';
 import '../../shell/emoji_composer.dart';
 import '../../shell/emoji_picker.dart';
 import '../../shell/platform.dart';
@@ -566,10 +567,8 @@ class _ChatComposerState extends State<ChatComposer> {
       builder: (context, channel, _) {
         if (channel != null &&
             !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
-          return SafeArea(
-            top: false,
-            minimum: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-            child: Container(
+          return _composerLane(
+            Container(
               key: const ValueKey('chat-composer-read-only'),
               height: 58,
               alignment: Alignment.center,
@@ -591,10 +590,8 @@ class _ChatComposerState extends State<ChatComposer> {
         }
         return ListenableBuilder(
           listenable: composer,
-          builder: (context, _) => SafeArea(
-            top: false,
-            minimum: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-            child: Column(
+          builder: (context, _) => _composerLane(
+            Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (widget.editingMessage case final message?)
@@ -626,6 +623,12 @@ class _ChatComposerState extends State<ChatComposer> {
       },
     );
   }
+
+  Widget _composerLane(Widget child) => SafeArea(
+    top: false,
+    minimum: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+    child: ContentReadingLaneBox(child: child),
+  );
 
   Widget _bar(
     BuildContext context,
