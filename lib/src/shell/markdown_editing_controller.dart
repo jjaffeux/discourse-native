@@ -115,6 +115,7 @@ class MarkdownEditingController extends TextEditingController {
   List<ComposerImageGalleryBlock> _galleryBlocks = const [];
   Set<int> _collapsedGalleryStarts = const {};
   ComposerImageGalleryBlock? _caretSuppressedGallery;
+  ComposerImageBlock? _draggedGalleryImage;
   final Map<int, GlobalKey> _galleryKeys = {};
 
   /// Holds the source caret and composing range still while a pill is selected.
@@ -829,6 +830,7 @@ class MarkdownEditingController extends TextEditingController {
               gallery.images.any(
                 (image) =>
                     _sameProjection(_caretSuppressedImage, image) ||
+                    _sameProjection(_draggedGalleryImage, image) ||
                     isPillSelectedForKeyboard(image),
               ),
         ))
@@ -1251,6 +1253,8 @@ class MarkdownEditingController extends TextEditingController {
                   ? null
                   : (image, newIndex) =>
                         onReorderImageGallery!(gallery, image, newIndex),
+              onReorderStarted: _startGalleryImageDrag,
+              onReorderEnded: (image) => _endGalleryImageDrag(gallery, image),
             ),
           ),
         ),
@@ -1270,6 +1274,39 @@ class MarkdownEditingController extends TextEditingController {
         style: _hidden,
       ),
     ];
+  }
+
+  void _startGalleryImageDrag(ComposerImageBlock image) {
+    if (_sameProjection(_draggedGalleryImage, image)) return;
+    _draggedGalleryImage = image;
+    artworkArrived();
+  }
+
+  void _endGalleryImageDrag(
+    ComposerImageGalleryBlock gallery,
+    ComposerImageBlock image,
+  ) {
+    if (!_sameProjection(_draggedGalleryImage, image)) return;
+
+    // EditableText can move its caret into a WidgetSpan's hidden source before
+    // Draggable wins the pointer. A cancelled reorder has no source mutation
+    // to move it back to a safe boundary, so settle it after the gallery.
+    final current = _galleryBlocksFor(
+      text,
+    ).where((candidate) => _sameProjection(candidate, gallery)).firstOrNull;
+    final selection = value.selection;
+    if (current != null &&
+        selection.isCollapsed &&
+        selection.extentOffset > current.start &&
+        selection.extentOffset < current.end) {
+      value = value.copyWith(
+        selection: TextSelection.collapsed(offset: current.end),
+        composing: TextRange.empty,
+      );
+    }
+
+    _draggedGalleryImage = null;
+    artworkArrived();
   }
 
   void _resolveImageUrls(Set<String> urls) {
