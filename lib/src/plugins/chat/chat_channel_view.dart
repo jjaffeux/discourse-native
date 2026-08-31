@@ -245,6 +245,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         target: ChatChannelTarget(widget.channelId),
         items: _items,
         stream: stream,
+        channelTracking: channel?.tracking,
         highlightMessageId: _highlightMessageId,
         highlightRequest: _highlightRequest,
         onHighlightComplete: _clearHighlight,
@@ -519,6 +520,7 @@ class ChatMessageStream extends StatefulWidget {
     required this.target,
     required this.items,
     required this.stream,
+    this.channelTracking,
     this.highlightMessageId,
     this.highlightRequest = 0,
     this.onHighlightComplete,
@@ -539,6 +541,7 @@ class ChatMessageStream extends StatefulWidget {
   final ChatStreamTarget target;
   final List<ChatStreamItem> items;
   final ChatStreamState stream;
+  final ChatTracking? channelTracking;
   final int? highlightMessageId;
 
   final int highlightRequest;
@@ -575,6 +578,7 @@ class _StreamState extends State<ChatMessageStream>
   DateTime? _readTimerStartedAt;
   Duration _readTimeRemaining = _readInterval;
   bool _readDwellPending = false;
+  bool _recheckVisibleRead = false;
   bool _tickerEnabled = true;
 
   /// Includes target identity because the dwell timer may outlive the route.
@@ -619,6 +623,7 @@ class _StreamState extends State<ChatMessageStream>
     // the old target rather than flushing it during teardown.
     if (changedStream) {
       _cancelReadDwell();
+      _recheckVisibleRead = false;
       _seen = null;
       _anchored = null;
       _filled = null;
@@ -628,6 +633,12 @@ class _StreamState extends State<ChatMessageStream>
       _floatingDay = null;
       _floatingDayOffset = 0;
       _clearHighlight(notify: false);
+      // Core rechecks the visible edge when tracking changes so a delayed
+      // aggregate cannot restore unread state after that edge was credited.
+    } else if (!identical(oldWidget.channelTracking, widget.channelTracking) &&
+        ((widget.channelTracking?.unreadCount ?? 0) > 0 ||
+            (widget.channelTracking?.mentionCount ?? 0) > 0)) {
+      _recheckVisibleRead = true;
     }
 
     if (changedStream ||
@@ -726,10 +737,12 @@ class _StreamState extends State<ChatMessageStream>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _lookScheduled = false;
       if (!mounted) return;
+      final recheckVisibleRead = _recheckVisibleRead;
+      _recheckVisibleRead = false;
       if (_anchorIfFresh()) return;
       _syncFloatingDay();
       _fillTowardsPresent();
-      _noteWhatIsOnScreen();
+      _noteWhatIsOnScreen(recheckVisibleRead: recheckVisibleRead);
     });
   }
 
@@ -863,7 +876,7 @@ class _StreamState extends State<ChatMessageStream>
     WidgetsBinding.instance.scheduleFrame();
   }
 
-  void _noteWhatIsOnScreen() {
+  void _noteWhatIsOnScreen({bool recheckVisibleRead = false}) {
     if (_anchoring) return;
 
     final messageId = _newestVisibleMessageId();
@@ -874,7 +887,15 @@ class _StreamState extends State<ChatMessageStream>
       target: widget.target,
       messageId: messageId,
     );
-    if (seen == _seen) return;
+    if (seen == _seen) {
+      if (recheckVisibleRead &&
+          !_readDwellPending &&
+          _readTimer == null &&
+          _readerActive) {
+        _creditReaderNow();
+      }
+      return;
+    }
     _seen = seen;
     _startReadDwell(_readInterval);
   }
