@@ -913,13 +913,15 @@ plain `Focus` rather than a second `CallbackShortcuts`, which reports a key
 handled whenever one of its activators matches, open or not — binding Escape
 that way would close the composer instead of the list and throw away the reply.
 
-Image uploads enter one queue whether they came from a desktop drop or the
-toolbar's native multiple-file picker. Both adapters stop at
-`ComposerUploadFile`; site extension checks, batch limits, progress, retry and
-markdown insertion therefore cannot drift between the two entry points. The
-picker captures the current caret before opening the platform dialog, so a
-completed upload lands where the user asked for it even though the editor lost
-focus while that dialog was open.
+Image uploads enter one queue whether they came from a clipboard paste, a
+desktop drop or the toolbar's native multiple-file picker. Every adapter stops
+at `ComposerUploadFile`; site extension checks, batch limits, progress, retry
+and markdown insertion therefore cannot drift between the three entry points.
+Flutter's clipboard surface only exposes text, so the paste adapter reads the
+native image representation and lets ordinary text paste fall through to the
+framework unchanged. Both image paste and the picker capture the current caret
+before crossing their asynchronous platform boundary, so a completed upload
+lands where the user asked for it even if focus or selection changed meanwhile.
 
 ### Likes
 

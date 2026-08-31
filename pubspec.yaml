@@ -32,6 +32,9 @@ dependencies:
   # Kept at this boundary: the upload and composer layers consume a small
   # app-owned file abstraction rather than depending on plugin types.
   desktop_drop: ^0.7.1
+  # Flutter's clipboard API exposes text only. This keeps native screenshot
+  # bytes behind the same app-owned upload boundary as drops and the picker.
+  pasteboard: ^0.5.0
   pointycastle: ^4.0.0
   flutter_svg: ^2.3.0
   flutter_widget_from_html_core: ^0.17.2

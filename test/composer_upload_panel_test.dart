@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
+import 'package:discourse_native/src/shell/composer_clipboard.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_galleries.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
@@ -11,6 +12,7 @@ import 'package:discourse_native/src/shell/composer_upload_picker.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,6 +22,220 @@ import 'support/fakes.dart';
 
 void main() {
   group('upload lifecycle', () {
+    testWidgets('native clipboard images become retryable PNG uploads', (
+      tester,
+    ) async {
+      const channel = MethodChannel('pasteboard');
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        expect(call.method, 'image');
+        return Uint8List.fromList(const [1, 2, 3]);
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+      final files = await readComposerClipboardImages();
+
+      expect(files, hasLength(1));
+      expect(files.single.name, 'pasted-image.png');
+      expect(await files.single.length(), 3);
+      expect(await files.single.openRead().expand((chunk) => chunk).toList(), [
+        1,
+        2,
+        3,
+      ]);
+      expect(await files.single.openRead().expand((chunk) => chunk).toList(), [
+        1,
+        2,
+        3,
+      ]);
+    });
+
+    testWidgets('the paste shortcut uploads an image at the captured caret', (
+      tester,
+    ) async {
+      final clipboardResult = Completer<List<ComposerUploadFile>>();
+      final calls = <_PanelUploadCall>[];
+      var clipboardReads = 0;
+      final composer = ComposerController(
+        _target,
+        imageUploader: (file, {required onProgress, required abortTrigger}) {
+          final call = _PanelUploadCall(onProgress);
+          calls.add(call);
+          return call.result.future;
+        },
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.value = const TextEditingValue(
+        text: 'BeforeAfter',
+        selection: TextSelection.collapsed(offset: 6),
+      );
+      await _pumpPanel(
+        tester,
+        shell,
+        composer,
+        readClipboardImages: () {
+          clipboardReads++;
+          return clipboardResult.future;
+        },
+      );
+
+      await _pasteShortcut(tester);
+      expect(clipboardReads, 1);
+
+      // The native read is asynchronous. A later selection does not move the
+      // image away from the caret where Paste was invoked.
+      composer.text.selection = const TextSelection.collapsed(offset: 11);
+      clipboardResult.complete([_file]);
+      await tester.pump();
+      expect(calls, hasLength(1));
+
+      calls.single.result.complete(
+        const ComposerUploadResult(
+          id: 1,
+          originalFilename: 'photo.png',
+          shortUrl: 'upload://photo',
+          url: 'https://meta.discourse.org/uploads/photo.png',
+          thumbnailWidth: 640,
+          thumbnailHeight: 480,
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        composer.text.text,
+        'Before\n![photo|640x480](upload://photo)\nAfter',
+      );
+    });
+
+    testWidgets('a late clipboard read cannot paste into a new composer', (
+      tester,
+    ) async {
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        return switch (call.method) {
+          'Clipboard.getData' => {'text': 'stale paste'},
+          'Clipboard.hasStrings' => {'value': true},
+          _ => null,
+        };
+      });
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      final clipboardResult = Completer<List<ComposerUploadFile>>();
+      final original = ComposerController(
+        _target,
+        imageUploader: (_, {required onProgress, required abortTrigger}) =>
+            Completer<ComposerUploadResult>().future,
+      );
+      final replacement = ComposerController(
+        _target,
+        imageUploader: (_, {required onProgress, required abortTrigger}) =>
+            Completer<ComposerUploadResult>().future,
+      )..text.text = 'New draft';
+      final shell = await _shell();
+      addTearDown(original.dispose);
+      addTearDown(replacement.dispose);
+      addTearDown(shell.dispose);
+      await _pumpPanel(
+        tester,
+        shell,
+        original,
+        readClipboardImages: () => clipboardResult.future,
+      );
+
+      await _pasteShortcut(tester);
+      await _pumpPanel(
+        tester,
+        shell,
+        replacement,
+        readClipboardImages: () async => const [],
+      );
+      clipboardResult.complete(const []);
+      await tester.pump();
+
+      expect(replacement.text.text, 'New draft');
+      expect(replacement.uploads, isEmpty);
+    });
+
+    testWidgets('plain text paste keeps Flutter clipboard behavior', (
+      tester,
+    ) async {
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        return switch (call.method) {
+          'Clipboard.getData' => {'text': ' pasted '},
+          'Clipboard.hasStrings' => {'value': true},
+          _ => null,
+        };
+      });
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      final composer = ComposerController(
+        _target,
+        imageUploader: (_, {required onProgress, required abortTrigger}) =>
+            Completer<ComposerUploadResult>().future,
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.value = const TextEditingValue(
+        text: 'BeforeAfter',
+        selection: TextSelection.collapsed(offset: 6),
+      );
+      await _pumpPanel(
+        tester,
+        shell,
+        composer,
+        readClipboardImages: () async => const [],
+      );
+
+      await _pasteShortcut(tester);
+
+      expect(composer.text.text, 'Before pasted After');
+      expect(composer.uploads, isEmpty);
+    });
+
+    testWidgets('the context menu offers image paste without clipboard text', (
+      tester,
+    ) async {
+      final calls = <_PanelUploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: (file, {required onProgress, required abortTrigger}) {
+          final call = _PanelUploadCall(onProgress);
+          calls.add(call);
+          return call.result.future;
+        },
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpPanel(
+        tester,
+        shell,
+        composer,
+        readClipboardImages: () async => [_file],
+      );
+
+      final textField = tester.widget<TextField>(find.byType(TextField).last);
+      final editable = tester.state<EditableTextState>(
+        find.byType(EditableText).last,
+      );
+      final toolbar =
+          textField.contextMenuBuilder!(editable.context, editable)
+              as AdaptiveTextSelectionToolbar;
+      final paste = toolbar.buttonItems!.singleWhere(
+        (item) => item.type == ContextMenuButtonType.paste,
+      );
+      paste.onPressed!();
+      await tester.pump();
+
+      expect(calls, hasLength(1));
+    });
+
     testWidgets('the upload button picks images at the captured caret', (
       tester,
     ) async {
@@ -1056,19 +1272,36 @@ Future<void> _pumpPanel(
   ShellController shell,
   ComposerController composer, {
   ComposerImagePicker pickImages = _cancelImagePick,
+  ComposerClipboardImageReader readClipboardImages =
+      readComposerClipboardImages,
 }) => tester.pumpWidget(
   MaterialApp(
     theme: AppTheme.dark,
     home: ShellScope(
       controller: shell,
       child: Scaffold(
-        body: ComposerPanel(composer: composer, pickImages: pickImages),
+        body: ComposerPanel(
+          composer: composer,
+          pickImages: pickImages,
+          readClipboardImages: readClipboardImages,
+        ),
       ),
     ),
   ),
 );
 
 Future<List<ComposerUploadFile>> _cancelImagePick() async => const [];
+
+Future<void> _pasteShortcut(WidgetTester tester) async {
+  final modifier = switch (defaultTargetPlatform) {
+    TargetPlatform.iOS || TargetPlatform.macOS => LogicalKeyboardKey.metaLeft,
+    _ => LogicalKeyboardKey.controlLeft,
+  };
+  await tester.sendKeyDownEvent(modifier);
+  await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+  await tester.sendKeyUpEvent(modifier);
+  await tester.pump();
+}
 
 const _target = ComposerTarget(
   siteUrl: 'https://meta.discourse.org',
