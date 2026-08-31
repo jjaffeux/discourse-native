@@ -880,6 +880,16 @@ class _TopicRowBody extends StatelessWidget {
                 children: [
                   Row(
                     children: [
+                      if (topic.closed)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: DIcon(
+                            DIcons.lock,
+                            size: 14,
+                            color: theme.colorScheme.onSurfaceVariant,
+                            semanticLabel: 'Closed topic',
+                          ),
+                        ),
                       if (topic.pinned)
                         Padding(
                           padding: const EdgeInsets.only(right: 6),

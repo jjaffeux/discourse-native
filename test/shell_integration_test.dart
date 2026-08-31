@@ -4223,6 +4223,31 @@ void main() {
       expect(find.text('3'), findsOneWidget);
     });
 
+    testWidgets('closed topics carry a lock before the title', (tester) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': const [
+            Topic(
+              id: 9,
+              title: 'Closed topic',
+              slug: 'closed-topic',
+              closed: true,
+            ),
+          ],
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+
+      final title = find.text('Closed topic');
+      final row = minimumHeightAncestors(title, TopicListRow.minimumHeight);
+      final lock = find.descendant(of: row, matching: find.dIcon(DIcons.lock));
+
+      expect(lock, findsOneWidget);
+      expect(tester.getTopLeft(lock).dx, lessThan(tester.getTopLeft(title).dx));
+      expect(find.bySemanticsLabel('Closed topic'), findsOneWidget);
+    });
+
     testWidgets('mirrored unread fields produce one undoubled count', (
       tester,
     ) async {
