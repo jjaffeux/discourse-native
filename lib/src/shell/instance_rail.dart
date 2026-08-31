@@ -119,7 +119,8 @@ const double _railListPadding = 12;
 const double _railItemExtent = 52;
 const double _railAvatarSize = 44;
 const double _railSourceOpacity = 0.3;
-const double _railInsertionLineOpacity = 0.6;
+const double _railInsertionPinSize = 8;
+const double _railInsertionStrokeWidth = 2;
 const double _railAutoScrollVelocityScalar = 50;
 
 class _InstanceRailList extends StatefulWidget {
@@ -455,15 +456,6 @@ class _InstanceRailListState extends State<_InstanceRailList> {
   Widget build(BuildContext context) {
     final visibleSlot = _visibleInsertionSlot;
     final theme = Theme.of(context);
-    final scaffold = opaqueColorOnCanvas(
-      theme.scaffoldBackgroundColor,
-      theme.brightness,
-    );
-    final indicatorColor = contrastSafeForeground(
-      background: theme.shell.rail,
-      backdrop: scaffold,
-      preferred: [theme.colorScheme.primary, theme.shell.railForeground],
-    );
 
     return SizedBox.expand(
       key: _viewportKey,
@@ -523,9 +515,7 @@ class _InstanceRailListState extends State<_InstanceRailList> {
                   after:
                       visibleSlot == widget.state.instances.length &&
                       index == widget.state.instances.length - 1,
-                  color: indicatorColor.withValues(
-                    alpha: _railInsertionLineOpacity,
-                  ),
+                  color: theme.colorScheme.primary,
                   child: _draggableItem(itemContext, index, instance, item),
                 ),
               ),
@@ -558,18 +548,45 @@ class _RailInsertionSlot extends StatelessWidget {
       child,
       if (before || after)
         Positioned(
-          top: before ? -1 : null,
-          bottom: after ? -1 : null,
+          top: before ? -_railInsertionPinSize / 2 : null,
+          bottom: after ? -_railInsertionPinSize / 2 : null,
           left: 0,
           right: 0,
           child: Center(
-            child: Container(
+            child: SizedBox(
               key: const ValueKey('instance-rail-drop-indicator'),
               width: _railAvatarSize,
-              height: 2,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(1),
+              height: _railInsertionPinSize,
+              child: Stack(
+                alignment: Alignment.centerLeft,
+                children: [
+                  Positioned(
+                    left: _railInsertionPinSize,
+                    right: 0,
+                    child: Container(
+                      key: const ValueKey('instance-rail-drop-indicator-line'),
+                      height: _railInsertionStrokeWidth,
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(
+                          _railInsertionStrokeWidth / 2,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    key: const ValueKey('instance-rail-drop-indicator-pin'),
+                    width: _railInsertionPinSize,
+                    height: _railInsertionPinSize,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: color,
+                        width: _railInsertionStrokeWidth,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
