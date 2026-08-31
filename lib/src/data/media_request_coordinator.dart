@@ -4,31 +4,39 @@ import 'dart:io';
 import 'origin_cooldown.dart';
 import 'origin_request_gate.dart';
 
-/// Optional per-origin backpressure for a specialized media cache.
+/// Aggregate and per-origin backpressure shared by native media caches.
 ///
 /// Configured media caches can use separate HTTP clients. A per-client
 /// connection limit would still let them drain independently, and a 429 for
 /// one URL would not stop other distinct URLs already queued. This coordinator
-/// limits opted-in work by origin and turns the first 429 into a circuit
-/// breaker. Production static-media caches deliberately do not opt in.
+/// limits opted-in work across clients and by origin, and turns the first 429
+/// into a circuit breaker for every cache using it. Interactive media can move
+/// ahead of queued background artwork without bypassing either limit.
 final class MediaRequestCoordinator {
+  static const defaultMaxConcurrent = 16;
+  static const defaultMaxConcurrentPerOrigin = 8;
+
   MediaRequestCoordinator({
-    this.maxConcurrentPerOrigin = 2,
+    this.maxConcurrent = defaultMaxConcurrent,
+    this.maxConcurrentPerOrigin = defaultMaxConcurrentPerOrigin,
     this.maxQueuedPerOrigin = 64,
     this.defaultRateLimitCooldown = const Duration(minutes: 2),
     DateTime Function()? clock,
     OriginCooldown Function()? cooldownFactory,
-  }) : assert(maxConcurrentPerOrigin > 0),
+  }) : assert(maxConcurrent > 0),
+       assert(maxConcurrentPerOrigin > 0),
        assert(maxQueuedPerOrigin > 0),
        assert(defaultRateLimitCooldown >= Duration.zero),
        _clock = clock ?? DateTime.now,
        _gate = OriginRequestGate(
+         maxConcurrent: maxConcurrent,
          maxConcurrentPerOrigin: maxConcurrentPerOrigin,
          maxQueuedPerOrigin: maxQueuedPerOrigin,
          cooldownPolicy: OriginRequestCooldownPolicy.reject,
          cooldownFactory: cooldownFactory,
        );
 
+  final int maxConcurrent;
   final int maxConcurrentPerOrigin;
 
   /// Active leases do not count toward this backlog limit.
@@ -37,12 +45,25 @@ final class MediaRequestCoordinator {
   final DateTime Function() _clock;
   final OriginRequestGate _gate;
 
-  Future<MediaRequestLease> acquire(Uri url, {Uri? relatedUrl}) {
+  Future<MediaRequestLease> acquire(
+    Uri url, {
+    Uri? relatedUrl,
+    MediaRequestPriority priority = MediaRequestPriority.normal,
+  }) {
     if (_gate.isClosed) {
       return Future.error(StateError('Media request coordinator is closed.'));
     }
 
-    return _finishAcquire(_gate.acquire(url), relatedUrl);
+    return _finishAcquire(
+      _gate.acquire(
+        url,
+        priority: switch (priority) {
+          MediaRequestPriority.normal => OriginRequestPriority.normal,
+          MediaRequestPriority.interactive => OriginRequestPriority.interactive,
+        },
+      ),
+      relatedUrl,
+    );
   }
 
   Future<MediaRequestLease> _finishAcquire(
@@ -100,6 +121,8 @@ final class MediaRequestCoordinator {
     _gate.close();
   }
 }
+
+enum MediaRequestPriority { normal, interactive }
 
 /// A held origin slot. The caller releases it after consuming/cancelling the
 /// response body so the cap applies to complete downloads, not just headers.

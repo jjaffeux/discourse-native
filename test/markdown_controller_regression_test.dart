@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
 import 'package:discourse_native/src/shell/markdown_highlight.dart';
@@ -10,6 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+import 'support/media_pipeline.dart';
 
 void main() {
   testWidgets('span cache follows same-brightness theme changes', (
@@ -61,12 +62,9 @@ void main() {
   testWidgets('transient emoji failures retry after the cache cooldown', (
     tester,
   ) async {
-    final previous = EmojiCache.instance;
-    addTearDown(() => EmojiCache.instance = previous);
-
     var attempts = 0;
-    EmojiCache.instance = EmojiCache(
-      retryAfter: Duration.zero,
+    installTestMediaPipeline(
+      rateLimitCooldown: Duration.zero,
       client: MockClient((request) async {
         attempts++;
         return attempts == 1
@@ -139,9 +137,9 @@ TextStyle _textStyle(TextSpan root, String text) => root.children!
     .firstWhere((span) => span.text == text)
     .style!;
 
-MarkdownRun _runAt(String source, int offset) => scanMarkdown(
-  source,
-).firstWhere((run) => run.start <= offset && offset < run.end);
+MarkdownRun _runAt(String source, int offset) =>
+    scanMarkdown(source)
+        .firstWhere((run) => run.start <= offset && offset < run.end);
 
 final Uint8List _pngBytes = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'

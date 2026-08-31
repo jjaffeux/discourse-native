@@ -109,9 +109,11 @@ Requirements line with it.
   `foundation/private_file_document.dart` (how an owner-only whole-file update
   is serialized and committed), `data/serial_operation_queue.dart` (how reads
   observe already-accepted preference writes), `data/origin_request_gate.dart`
-  (how per-origin concurrency, bounded backlogs, cooldown policies, leases, and
-  shutdown are coordinated), `foundation/loopback_host.dart` (which hosts may
-  use plaintext development transports),
+  (how aggregate and per-origin concurrency, bounded backlogs, cooldown
+  policies, leases, and shutdown are coordinated), `data/media_pipeline.dart`
+  (ownership, replacement, and shared admission for avatar and emoji caches),
+  `foundation/loopback_host.dart` (which hosts may use plaintext development
+  transports),
   `plugins/chat/chat_message_timeline.dart` (how canonical chat-message ids are
   merged across pages, live arrivals, and the seam back to the present),
   `packages/discourse_resenha/lib/src/resenha_diagnostics_report.dart` (how

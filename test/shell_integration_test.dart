@@ -5,7 +5,6 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/draft_store.dart';
-import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/data/topic_recommendations_tab_store.dart';
 import 'package:discourse_native/src/data/topic_sidebar_store.dart';
 import 'package:discourse_native/src/data/updater.dart';
@@ -125,6 +124,7 @@ import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 import 'support/finders.dart';
+import 'support/media_pipeline.dart';
 
 const Size phone = Size(390, 844);
 const Size laptop = Size(1000, 800);
@@ -162,14 +162,8 @@ final List<DiscourseInstance> twoSites = List.unmodifiable([
   instance('team.discourse.org', title: 'Discourse Team'),
 ]);
 
-void _replaceEmojiCache(EmojiCache replacement) {
-  final previous = EmojiCache.instance;
-  EmojiCache.instance = replacement;
-  addTearDown(() {
-    replacement.clear();
-    EmojiCache.instance = previous;
-  });
-}
+void _replaceEmojiCache(http.Client client) =>
+    installTestMediaPipeline(client: client);
 
 Future<void> pumpShell(
   WidgetTester tester,
@@ -190,9 +184,7 @@ Future<void> pumpShell(
   addTearDown(tester.view.reset);
 
   // Cooked emoji would otherwise trigger network requests in widget tests.
-  _replaceEmojiCache(
-    EmojiCache(client: MockClient((_) async => http.Response('', 404))),
-  );
+  _replaceEmojiCache(MockClient((_) async => http.Response('', 404)));
 
   await tester.pumpWidget(
     DiscourseApp(
@@ -699,9 +691,7 @@ void main() {
       );
       await pumpShell(tester, laptop, api: api);
       _replaceEmojiCache(
-        EmojiCache(
-          client: MockClient((_) async => http.Response.bytes(emojiPng, 200)),
-        ),
+        MockClient((_) async => http.Response.bytes(emojiPng, 200)),
       );
 
       await tester.enterText(find.byKey(ForumSearch.inputKey), 'emoji');
@@ -1828,9 +1818,8 @@ void main() {
       );
       expect(scrollbar, findsOneWidget);
       expect(
-        ScrollbarTheme.of(
-          tester.element(scrollbar),
-        ).thickness?.resolve(const <WidgetState>{}),
+        ScrollbarTheme.of(tester.element(scrollbar)).thickness
+            ?.resolve(const <WidgetState>{}),
         4,
       );
     } finally {
@@ -3716,9 +3705,8 @@ void main() {
 
       await tester.tap(find.byKey(TopicCreateButton.buttonKey));
       expect(
-        ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        ).visibleComposer,
+        ShellScope.read(tester.element(find.byType(MainContent)))
+            .visibleComposer,
         isNotNull,
       );
       await tester.pumpAndSettle();
@@ -3736,9 +3724,8 @@ void main() {
       await tester.enterText(fields.at(0), 'A native topic');
       await tester.enterText(fields.at(1), 'Created from the docked composer.');
       await tester.pump();
-      final composer = ShellScope.read(
-        tester.element(find.byType(MainContent)),
-      ).visibleComposer!;
+      final composer = ShellScope.read(tester.element(find.byType(MainContent)))
+          .visibleComposer!;
       expect(composer.title.text, 'A native topic');
       expect(composer.raw, 'Created from the docked composer.');
       expect(composer.canSubmit, isTrue);
@@ -4125,9 +4112,9 @@ void main() {
       expect(find.text('tech-advocates'), findsOneWidget);
       expect(find.text('Restored group message'), findsOneWidget);
       expect(
-        ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        ).currentContent?.messageGroupName,
+        ShellScope.read(tester.element(find.byType(MainContent)))
+            .currentContent
+            ?.messageGroupName,
         'tech-advocates',
       );
     });
@@ -6146,9 +6133,8 @@ void main() {
         );
         expect(scrollbar, findsOneWidget);
         expect(
-          ScrollbarTheme.of(
-            tester.element(scrollbar),
-          ).thickness?.resolve(const <WidgetState>{}),
+          ScrollbarTheme.of(tester.element(scrollbar)).thickness
+              ?.resolve(const <WidgetState>{}),
           4,
         );
       } finally {
@@ -6864,9 +6850,8 @@ void main() {
         tester,
         desktop,
         instances: [
-          instance(
-            'meta.discourse.org',
-          ).copyWith(user: reader, config: const SiteConfig.unknown()),
+          instance('meta.discourse.org')
+              .copyWith(user: reader, config: const SiteConfig.unknown()),
         ],
         api: api,
         authenticator: authenticator,
@@ -6919,9 +6904,8 @@ void main() {
         tester,
         desktop,
         instances: [
-          instance(
-            'meta.discourse.org',
-          ).copyWith(user: reader, config: const SiteConfig.unknown()),
+          instance('meta.discourse.org')
+              .copyWith(user: reader, config: const SiteConfig.unknown()),
         ],
         api: api,
         authenticator: authenticator,
@@ -6983,9 +6967,8 @@ void main() {
         tester,
         desktop,
         instances: [
-          instance(
-            'meta.discourse.org',
-          ).copyWith(user: const DiscourseUser(id: 1, username: 'reader')),
+          instance('meta.discourse.org')
+              .copyWith(user: const DiscourseUser(id: 1, username: 'reader')),
         ],
         api: api,
         authenticator: authenticator,
@@ -7155,9 +7138,7 @@ void main() {
 
       await pumpShell(tester, desktop, api: api);
       _replaceEmojiCache(
-        EmojiCache(
-          client: MockClient((_) async => http.Response.bytes(emojiPng, 200)),
-        ),
+        MockClient((_) async => http.Response.bytes(emojiPng, 200)),
       );
 
       await tester.tap(find.text('A real topic'));
@@ -7339,9 +7320,9 @@ void main() {
         (topicId: 7, notificationLevel: TopicNotificationLevel.muted),
       ]);
       expect(
-        ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        ).currentTopic?.notificationLevel,
+        ShellScope.read(tester.element(find.byType(MainContent)))
+            .currentTopic
+            ?.notificationLevel,
         TopicNotificationLevel.muted,
       );
       expect(triggerIcon(), DIcons.discourseBellSlash);
@@ -7384,9 +7365,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        ).currentTopic?.notificationLevel,
+        ShellScope.read(tester.element(find.byType(MainContent)))
+            .currentTopic
+            ?.notificationLevel,
         TopicNotificationLevel.tracking,
       );
       expect(tester.takeException(), isNull);
@@ -7500,23 +7481,23 @@ void main() {
 
         await choose('Close topic');
         expect(
-          ShellScope.read(
-            tester.element(find.byType(MainContent)),
-          ).currentTopic?.closed,
+          ShellScope.read(tester.element(find.byType(MainContent)))
+              .currentTopic
+              ?.closed,
           isTrue,
         );
         await choose('Archive topic');
         expect(
-          ShellScope.read(
-            tester.element(find.byType(MainContent)),
-          ).currentTopic?.archived,
+          ShellScope.read(tester.element(find.byType(MainContent)))
+              .currentTopic
+              ?.archived,
           isTrue,
         );
         await choose('Make topic unlisted');
         expect(
-          ShellScope.read(
-            tester.element(find.byType(MainContent)),
-          ).currentTopic?.visible,
+          ShellScope.read(tester.element(find.byType(MainContent)))
+              .currentTopic
+              ?.visible,
           isFalse,
         );
         expect(api.topicStatusesUpdated, const [
@@ -7854,9 +7835,9 @@ void main() {
 
       expect(api.topicPostNumbersOpened, [6]);
       expect(
-        ShellScope.of(
-          tester.element(find.byType(TopicView)),
-        ).currentContent?.postNumber,
+        ShellScope.of(tester.element(find.byType(TopicView)))
+            .currentContent
+            ?.postNumber,
         6,
       );
     });
@@ -9645,9 +9626,8 @@ void main() {
       expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
       expect(find.byTooltip('Open the latest drafts menu'), findsNothing);
       expect(
-        ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        ).canCreateTopicHere,
+        ShellScope.read(tester.element(find.byType(MainContent)))
+            .canCreateTopicHere,
         isFalse,
       );
     });
@@ -9667,9 +9647,9 @@ void main() {
       await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
 
-      final placeholder = Theme.of(
-        tester.element(find.text('Preferences')),
-      ).shell.placeholder;
+      final placeholder = Theme.of(tester.element(find.text('Preferences')))
+          .shell
+          .placeholder;
 
       expect(
         tester.widget<Text>(find.text('Preferences')).style?.color,
@@ -9759,9 +9739,9 @@ void main() {
         expect(
           tester.widget<Text>(find.text('Activity').last).style?.color,
           isNot(
-            Theme.of(
-              tester.element(find.text('Preferences')),
-            ).shell.placeholder,
+            Theme.of(tester.element(find.text('Preferences')))
+                .shell
+                .placeholder,
           ),
         );
 
@@ -13463,9 +13443,8 @@ void main() {
         tester,
         api,
         store: FakeInstanceStore([
-          instance(
-            'meta.discourse.org',
-          ).copyWith(user: const DiscourseUser(username: 'joffreyj')),
+          instance('meta.discourse.org')
+              .copyWith(user: const DiscourseUser(username: 'joffreyj')),
         ]),
       );
       await controller.load();
@@ -15320,9 +15299,7 @@ void main() {
 
       // Override the shell fixture's network-free emoji fallback for this case.
       _replaceEmojiCache(
-        EmojiCache(
-          client: MockClient((_) async => http.Response.bytes(emojiPng, 200)),
-        ),
+        MockClient((_) async => http.Response.bytes(emojiPng, 200)),
       );
 
       await tester.enterText(find.byType(TextField), 'hey :smile:');

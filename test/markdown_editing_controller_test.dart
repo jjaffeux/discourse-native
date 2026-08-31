@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:discourse_native/src/data/emoji_cache.dart';
+import 'package:discourse_native/src/data/media_pipeline.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
@@ -25,6 +25,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'support/finders.dart';
+import 'support/media_pipeline.dart';
 
 /// Flutter silently assumes offsets in the laid-out span tree and controller
 /// text describe the same string; every projection here must preserve that.
@@ -405,24 +406,20 @@ void main() {
   });
 
   group('emoji artwork', () {
-    void primeCache() {
-      final previous = EmojiCache.instance;
-      addTearDown(() => EmojiCache.instance = previous);
-      EmojiCache.instance = EmojiCache(
-        client: MockClient((request) async {
-          if (request.url.path.contains('smile')) {
-            return http.Response.bytes(_pngBytes, 200);
-          }
-          return http.Response('nope', 404);
-        }),
-      );
-    }
-
     String urlFor(String name) => 'https://meta.discourse.org/$name.png';
 
+    MediaPipeline primeCache() => installTestMediaPipeline(
+      client: MockClient((request) async {
+        if (request.url.path.contains('smile')) {
+          return http.Response.bytes(_pngBytes, 200);
+        }
+        return http.Response('nope', 404);
+      }),
+    );
+
     Future<void> pumpWithEmoji(WidgetTester tester, String source) async {
-      primeCache();
-      await EmojiCache.instance.load(urlFor('smile'));
+      final pipeline = primeCache();
+      await pipeline.emoji.load(urlFor('smile'));
       await pumpField(tester, source, resolveEmoji: urlFor);
       await tester.pump();
       await tester.pump();
@@ -954,9 +951,7 @@ void main() {
     testWidgets('every placeholder is worth exactly one code unit', (
       tester,
     ) async {
-      final previous = EmojiCache.instance;
-      addTearDown(() => EmojiCache.instance = previous);
-      EmojiCache.instance = EmojiCache(
+      final pipeline = installTestMediaPipeline(
         client: MockClient((request) async {
           if (request.url.path.contains('smile')) {
             return http.Response.bytes(_pngBytes, 200);
@@ -964,8 +959,8 @@ void main() {
           return http.Response('nope', 404);
         }),
       );
-      await EmojiCache.instance.load(urlFor('smile'));
-      await EmojiCache.instance.load(urlFor('smile:t3'));
+      await pipeline.emoji.load(urlFor('smile'));
+      await pipeline.emoji.load(urlFor('smile:t3'));
 
       final ComposerPills pills = (
         hashtag: (ref) => switch (ref) {

@@ -1,4 +1,3 @@
-import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -11,28 +10,21 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 void main() {
   final artworkRequests = <Uri>[];
-  late EmojiCache previousEmojiCache;
-  late EmojiCache testEmojiCache;
   setUp(() {
     // Resolving a shortcode must never give this focused rendering test a
     // socket. A miss keeps the fallback deterministic after the first frame,
     // and the log proves which tokens fetched artwork at all.
     artworkRequests.clear();
-    previousEmojiCache = EmojiCache.instance;
-    testEmojiCache = EmojiCache(
+    installTestMediaPipeline(
       client: MockClient((request) async {
         artworkRequests.add(request.url);
         return http.Response('', 404);
       }),
     );
-    EmojiCache.instance = testEmojiCache;
-  });
-  tearDown(() {
-    testEmojiCache.clear();
-    EmojiCache.instance = previousEmojiCache;
   });
 
   group('run projection and styling', () {

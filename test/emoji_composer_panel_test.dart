@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -19,6 +18,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 const _site = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader');
@@ -83,18 +83,12 @@ void main() {
   testWidgets('topic composer deletes rendered emoji atomically', (
     tester,
   ) async {
-    final previousCache = EmojiCache.instance;
-    final emojiCache = EmojiCache(
+    final pipeline = installTestMediaPipeline(
       client: MockClient((_) async => http.Response.bytes(_pngBytes, 200)),
     );
-    EmojiCache.instance = emojiCache;
-    addTearDown(() {
-      emojiCache.clear();
-      EmojiCache.instance = previousCache;
-    });
     final shell = await _openComposer();
     addTearDown(shell.dispose);
-    await EmojiCache.instance.load(shell.emojiUrlFor(_site, 'wave'));
+    await pipeline.emoji.load(shell.emojiUrlFor(_site, 'wave'));
     final composer = shell.visibleComposer!;
     composer.text.value = const TextEditingValue(
       text: ':wave:',

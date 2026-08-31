@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../data/avatar_loader.dart';
+import '../data/media_pipeline.dart';
 import '../foundation/diagnostic_errors.dart';
 import 'image_decode.dart';
 
@@ -49,7 +50,8 @@ class _AvatarImageState extends State<AvatarImage> {
       return;
     }
 
-    final loader = AvatarLoader.instance;
+    final pipeline = MediaPipeline.instance;
+    final loader = pipeline.avatars;
     if (loader.isCached(url)) {
       // Paint synchronously on rebuild, so scrolling back does not flicker.
       _bytes = loader.cached(url);
@@ -61,6 +63,10 @@ class _AvatarImageState extends State<AvatarImage> {
     unawaited(
       loader.load(url).then((bytes) {
         if (!mounted || widget.url != url) return;
+        if (!identical(MediaPipeline.instance, pipeline)) {
+          setState(_resolve);
+          return;
+        }
         setState(() {
           _bytes = bytes;
           _resolved = true;

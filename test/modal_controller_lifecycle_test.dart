@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
-import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -34,6 +33,7 @@ import 'package:http/testing.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 const _siteUrl = 'https://meta.example';
 
@@ -353,14 +353,9 @@ void main() {
       tester,
     ) async {
       const post = Post(id: 1, postNumber: 1, username: 'author', cooked: '');
-      final previousEmojiCache = EmojiCache.instance;
-      EmojiCache.instance = EmojiCache(
+      installTestMediaPipeline(
         client: MockClient((_) async => http.Response('', 404)),
       );
-      addTearDown(() {
-        EmojiCache.instance.clear();
-        EmojiCache.instance = previousEmojiCache;
-      });
 
       final gate = Completer<void>();
       final firstApi = FakeDiscourseApi(
@@ -442,14 +437,9 @@ void main() {
     testWidgets('a replaced controller cannot report a stale reaction error', (
       tester,
     ) async {
-      final previousEmojiCache = EmojiCache.instance;
-      EmojiCache.instance = EmojiCache(
+      installTestMediaPipeline(
         client: MockClient((_) async => http.Response('', 404)),
       );
-      addTearDown(() {
-        EmojiCache.instance.clear();
-        EmojiCache.instance = previousEmojiCache;
-      });
 
       final config = installedPlugins.models.siteConfig(const {
         'discourse_reactions_enabled': true,
@@ -653,9 +643,8 @@ void main() {
 typedef _OpenModal = Future<void> Function(BuildContext context);
 
 ReactionsController _reactionsFor(BuildContext context) =>
-    ShellScope.identityOf(
-      context,
-    ).pluginSession.require(reactionsControllerService);
+    ShellScope.identityOf(context).pluginSession
+        .require(reactionsControllerService);
 
 Widget _host(ShellController controller, _OpenModal open) => ShellScope(
   controller: controller,

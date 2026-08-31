@@ -12,9 +12,13 @@ class AvatarBytes {
 }
 
 class AvatarLoader extends ByteCache<AvatarBytes> {
-  AvatarLoader({super.client, super.retryAfter, super.store});
-
-  static AvatarLoader instance = AvatarLoader();
+  AvatarLoader({
+    super.client,
+    super.retryAfter,
+    super.coordinator,
+    super.requestPool,
+    super.store,
+  });
 
   @override
   AvatarBytes decode(http.Response response) => AvatarBytes(

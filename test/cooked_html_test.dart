@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' show PointerDeviceKind;
 
-import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -32,6 +31,7 @@ import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 import 'support/finders.dart';
+import 'support/media_pipeline.dart';
 
 Future<void> pumpCooked(
   WidgetTester tester,
@@ -62,15 +62,9 @@ Future<ShellController> pumpCookedInShell(
   SiteLifecycle? lifecycle,
   Widget? child,
 }) async {
-  final previousEmojiCache = EmojiCache.instance;
-  final emojiCache = EmojiCache(
+  installTestMediaPipeline(
     client: emoji ?? MockClient((_) async => http.Response('', 404)),
   );
-  EmojiCache.instance = emojiCache;
-  addTearDown(() {
-    emojiCache.clear();
-    EmojiCache.instance = previousEmojiCache;
-  });
 
   final siteLifecycle = lifecycle ?? SiteLifecycle();
   final controller = ShellController(

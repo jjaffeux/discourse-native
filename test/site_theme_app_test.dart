@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
-import 'package:discourse_native/src/data/avatar_loader.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -21,6 +20,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 import 'support/site_appearance_fixtures.dart';
 
 void main() {
@@ -462,8 +462,7 @@ void main() {
     testWidgets('presents site logos with only a small corner radius', (
       tester,
     ) async {
-      final previousLoader = AvatarLoader.instance;
-      AvatarLoader.instance = AvatarLoader(
+      installTestMediaPipeline(
         client: MockClient(
           (_) async => http.Response(
             '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="40">'
@@ -473,10 +472,6 @@ void main() {
           ),
         ),
       );
-      addTearDown(() {
-        AvatarLoader.instance.clear();
-        AvatarLoader.instance = previousLoader;
-      });
       final store = FakeInstanceStore([
         const DiscourseInstance(
           url: siteA,
