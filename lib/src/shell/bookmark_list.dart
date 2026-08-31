@@ -106,6 +106,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
               return NotificationRow(
                 notification: reminder,
                 resolved: resolved,
+                siteUrl: widget.siteUrl,
                 onTap: () => _openReminder(reminder, resolved.path),
               );
             }),

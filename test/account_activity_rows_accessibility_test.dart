@@ -21,6 +21,7 @@ void main() {
             title: 'A useful topic',
             data: {'display_username': 'sam'},
           ),
+          siteUrl: 'https://meta.example',
           onTap: () => opens++,
         ),
       );
