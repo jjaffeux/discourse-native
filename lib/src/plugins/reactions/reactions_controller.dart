@@ -17,6 +17,12 @@ import 'reactions_settings.dart';
 
 typedef _ReactionRequestKey = ({String siteUrl, int postId, String? filter});
 
+const _reactorStorePolicy = StorePolicy(
+  maxEntries: 512,
+  maxEntriesPerSite: 256,
+  maxEntriesPerSiteAndType: 256,
+);
+
 /// Exposes picker currency without leaking the host lifecycle lease.
 final class ReactionPickerSession {
   const ReactionPickerSession._({
@@ -52,7 +58,7 @@ class ReactionsController extends FrameSafeNotifier {
        _siteState = siteState,
        _resolveSiteConfig = resolveSiteConfig,
        _emoji = emoji,
-       _cache = cache ?? Store();
+       _cache = cache ?? Store(policy: _reactorStorePolicy);
 
   final ReactionsApi _api;
   final ReactionsWriteApi? _writes;

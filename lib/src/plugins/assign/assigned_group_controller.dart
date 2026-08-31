@@ -17,6 +17,12 @@ typedef _TopicKey = ({
   AssignedGroupTopicQuery query,
 });
 
+const _assignedTopicStorePolicy = StorePolicy(
+  maxEntries: 1024,
+  maxEntriesPerSite: 512,
+  maxEntriesPerSiteAndType: 512,
+);
+
 /// Pairs every response with its site lease and request token so superseded
 /// account or query requests cannot publish.
 final class AssignedGroupController extends FrameSafeNotifier {
@@ -26,7 +32,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
     Store? topics,
     this.diagnostics = const PluginDiagnosticsReporter.noop(),
   }) : _requests = requests,
-       _topics = topics ?? Store(),
+       _topics = topics ?? Store(policy: _assignedTopicStorePolicy),
        _ownsTopicStore = topics == null;
 
   final AssignedGroupApi api;
