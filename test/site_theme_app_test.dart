@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/app.dart';
+import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/data/avatar_loader.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -24,6 +26,26 @@ import 'support/site_appearance_fixtures.dart';
 void main() {
   const siteA = 'https://a.example';
   const siteB = 'https://b.example';
+
+  testWidgets('hydrates an injected app-wide settings store on startup', (
+    tester,
+  ) async {
+    final appSettingsStore = AppSettingsStore(
+      persistence: MemoryAppSettingsPersistence(contentAlignment: 'right'),
+    );
+
+    await _pumpApp(
+      tester,
+      store: FakeInstanceStore(),
+      api: FakeDiscourseApi(),
+      appSettingsStore: appSettingsStore,
+    );
+
+    expect(
+      _controller(tester).appSettings.contentAlignment,
+      ContentAlignment.right,
+    );
+  });
 
   group('appearance loading and persistence', () {
     testWidgets('renders persisted palettes before refreshing them once', (
@@ -137,6 +159,45 @@ void main() {
   });
 
   group('active theme selection', () {
+    testWidgets('uses the neutral app palette for Settings', (tester) async {
+      final forumAppearance = siteAppearance(
+        accent: const Color(0xFFAA2200),
+        alternateAccent: const Color(0xFF00AACC),
+        mode: SiteAppearanceMode.alternate,
+      );
+      final store = FakeInstanceStore([
+        const DiscourseInstance(
+          url: siteA,
+          title: 'A',
+        ).copyWith(appearance: forumAppearance),
+      ]);
+
+      await _pumpApp(tester, store: store, api: FakeDiscourseApi());
+      final controller = _controller(tester);
+
+      controller.selectSettings();
+      await tester.pump();
+
+      expect(_materialApp(tester).themeMode, ThemeMode.system);
+      expect(
+        _materialApp(tester).theme?.colorScheme.primary,
+        AppTheme.light.colorScheme.primary,
+      );
+      expect(
+        _materialApp(tester).darkTheme?.colorScheme.primary,
+        AppTheme.dark.colorScheme.primary,
+      );
+
+      expect(controller.handleBack(), isTrue);
+      await tester.pump();
+
+      expect(_materialApp(tester).themeMode, ThemeMode.dark);
+      expect(
+        _materialApp(tester).theme?.colorScheme.primary,
+        forumAppearance.base?.tertiary,
+      );
+    });
+
     testWidgets('restores app palettes for the aggregate feed', (tester) async {
       final forumAppearance = siteAppearance(
         accent: const Color(0xFFAA2200),
@@ -449,6 +510,7 @@ Future<void> _pumpApp(
   required FakeInstanceStore store,
   required FakeDiscourseApi api,
   FakeAuthenticator? authenticator,
+  AppSettingsStore? appSettingsStore,
   bool settle = true,
 }) async {
   await tester.pumpWidget(
@@ -456,6 +518,7 @@ Future<void> _pumpApp(
       store: store,
       api: api,
       authenticator: authenticator ?? FakeAuthenticator(),
+      appSettingsStore: appSettingsStore,
       drafts: FakeDraftStore(),
       forumTabs: FakeForumTabStore(),
       trackers: FakeSiteTracker.reset(),

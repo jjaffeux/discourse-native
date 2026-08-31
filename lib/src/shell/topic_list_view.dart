@@ -14,6 +14,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
 import 'avatar_image.dart';
+import 'content_reading_lane.dart';
 import 'loading_skeleton.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
@@ -216,9 +217,11 @@ class _TopicListViewState extends State<TopicListView> {
     final feed = widget.feed;
 
     if (feed.loading && feed.topicIds.isEmpty) {
-      return _TopicListLoadingSkeleton(
-        key: const ValueKey('topic-list-loading-skeleton'),
-        destination: destination,
+      return ContentReadingLaneBox(
+        child: _TopicListLoadingSkeleton(
+          key: const ValueKey('topic-list-loading-skeleton'),
+          destination: destination,
+        ),
       );
     }
     if (feed.error case final error? when feed.topicIds.isEmpty) {
@@ -250,65 +253,80 @@ class _TopicListViewState extends State<TopicListView> {
             onRetry: () => unawaited(controller.loadFeed(destination)),
           ),
         Expanded(
-          child: NotificationListener<ScrollNotification>(
-            // Fetching on a scroll notification rather than from itemBuilder
-            // keeps the request off the hot path of building rows. Both paths
-            // coalesce through a post-frame callback because a viewport can
-            // emit a scroll notification while applying new content
-            // dimensions during layout.
-            onNotification: (notification) {
-              if (notification.depth != 0) return false;
-              // Opening a topic tears this list down, so the position has to
-              // be handed to the controller as it changes rather than on
-              // dispose.
-              if (_isCurrent(controller, feedIdentity) &&
-                  _list?.isAttached == true) {
-                if (_list!.visibleRange case final range?) {
-                  controller.saveFeedScrollRow(destination, range.$1);
-                }
-              }
-              if (notification.metrics.extentAfter < _loadMoreThreshold) {
-                _scheduleLoadMore(controller, destination, feedIdentity, feed);
-              }
-              return false;
-            },
-            // SuperListView preserves measured heights for variably sized rows.
-            child: SuperListView.separated(
-              // Switching destinations swaps the controller, so the scrollable
-              // has to be a new one rather than re-attached to a different
-              // controller.
-              key: ValueKey(feedIdentity),
-              controller: _scroll,
-              listController: _list,
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              itemCount:
-                  feed.topicIds.length +
-                  (feed.loadingMore || feed.pageError ? 1 : 0),
-              separatorBuilder: (context, _) =>
-                  Divider(height: 1, color: Theme.of(context).shell.divider),
-              itemBuilder: (context, index) {
-                if (index >= feed.topicIds.length) {
-                  if (feed.loadingMore) return const _LoadingMoreRow();
-                  return _LoadMoreErrorRow(
-                    message: feed.error!,
-                    onRetry: () =>
-                        unawaited(controller.loadMoreFeed(destination)),
-                  );
-                }
+          child: ContentReadingLane(
+            basePadding: const EdgeInsets.symmetric(vertical: 4),
+            builder: (context, lane) =>
+                NotificationListener<ScrollNotification>(
+                  // Fetching on a scroll notification rather than from
+                  // itemBuilder keeps the request off the hot path of building
+                  // rows. Both paths coalesce through a post-frame callback
+                  // because a viewport can emit a scroll notification while
+                  // applying new content dimensions during layout.
+                  onNotification: (notification) {
+                    if (notification.depth != 0) return false;
+                    // Opening a topic tears this list down, so the position has
+                    // to be handed to the controller as it changes rather than
+                    // on dispose.
+                    if (_isCurrent(controller, feedIdentity) &&
+                        _list?.isAttached == true) {
+                      if (_list!.visibleRange case final range?) {
+                        controller.saveFeedScrollRow(destination, range.$1);
+                      }
+                    }
+                    if (notification.metrics.extentAfter < _loadMoreThreshold) {
+                      _scheduleLoadMore(
+                        controller,
+                        destination,
+                        feedIdentity,
+                        feed,
+                      );
+                    }
+                    return false;
+                  },
+                  // SuperListView preserves measured heights for variably sized
+                  // rows.
+                  child: SuperListView.separated(
+                    // Switching destinations swaps the controller, so the
+                    // scrollable has to be a new one rather than re-attached to
+                    // a different controller.
+                    key: ValueKey(feedIdentity),
+                    controller: _scroll,
+                    listController: _list,
+                    padding: lane.padding,
+                    itemCount:
+                        feed.topicIds.length +
+                        (feed.loadingMore || feed.pageError ? 1 : 0),
+                    separatorBuilder: (context, _) => Divider(
+                      height: 1,
+                      color: Theme.of(context).shell.divider,
+                    ),
+                    itemBuilder: (context, index) {
+                      if (index >= feed.topicIds.length) {
+                        if (feed.loadingMore) return const _LoadingMoreRow();
+                        return _LoadMoreErrorRow(
+                          message: feed.error!,
+                          onRetry: () =>
+                              unawaited(controller.loadMoreFeed(destination)),
+                        );
+                      }
 
-                if (index == feed.topicIds.length - 1 && feed.hasMore) {
-                  _scheduleLoadMore(
-                    controller,
-                    destination,
-                    feedIdentity,
-                    feed,
-                  );
-                }
+                      if (index == feed.topicIds.length - 1 && feed.hasMore) {
+                        _scheduleLoadMore(
+                          controller,
+                          destination,
+                          feedIdentity,
+                          feed,
+                        );
+                      }
 
-                final topicId = feed.topicIds[index];
-                return _TopicRow(key: ValueKey(topicId), topicId: topicId);
-              },
-            ),
+                      final topicId = feed.topicIds[index];
+                      return _TopicRow(
+                        key: ValueKey(topicId),
+                        topicId: topicId,
+                      );
+                    },
+                  ),
+                ),
           ),
         ),
       ],

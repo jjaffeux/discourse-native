@@ -10,6 +10,7 @@ import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
+import 'content_reading_lane.dart';
 import 'external_link.dart';
 import 'inline_action.dart';
 import 'loading_skeleton.dart';
@@ -154,124 +155,130 @@ class _SummaryContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: ListView(
-        key: const PageStorageKey('user-summary-scroll'),
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 36),
-        children: [
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (error case final error?)
-                    _SummaryErrorBanner(
-                      error: error,
-                      refreshing: refreshing,
-                      onRetry: onRefresh,
+    return ContentReadingLane(
+      basePadding: const EdgeInsets.fromLTRB(16, 18, 16, 36),
+      builder: (context, lane) => RefreshIndicator(
+        onRefresh: onRefresh,
+        child: ListView(
+          key: const PageStorageKey('user-summary-scroll'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: lane.padding,
+          children: [
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (error case final error?)
+                      _SummaryErrorBanner(
+                        error: error,
+                        refreshing: refreshing,
+                        onRetry: onRefresh,
+                      ),
+                    if (summary.canSeeSummaryStats) ...[
+                      _Stats(summary: summary),
+                      const SizedBox(height: 28),
+                    ],
+                    _PairedSections(
+                      left: _SummarySection(
+                        title: 'Top Replies',
+                        child: _TopicRows(
+                          emptyMessage: 'No replies yet.',
+                          rows: [
+                            for (final reply in summary.replies)
+                              _SummaryTopicRow(
+                                siteUrl: siteUrl,
+                                topic: reply.topic,
+                                postNumber: reply.postNumber,
+                                createdAt: reply.createdAt,
+                                likes: reply.likeCount,
+                              ),
+                          ],
+                        ),
+                      ),
+                      right: _SummarySection(
+                        title: 'Top Topics',
+                        child: _TopicRows(
+                          emptyMessage: 'No topics yet.',
+                          rows: [
+                            for (final topic in summary.topics)
+                              _SummaryTopicRow(
+                                siteUrl: siteUrl,
+                                topic: topic,
+                                createdAt: topic.createdAt,
+                                likes: topic.likeCount,
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
-                  if (summary.canSeeSummaryStats) ...[
-                    _Stats(summary: summary),
                     const SizedBox(height: 28),
-                  ],
-                  _PairedSections(
-                    left: _SummarySection(
-                      title: 'Top Replies',
-                      child: _TopicRows(
-                        emptyMessage: 'No replies yet.',
-                        rows: [
-                          for (final reply in summary.replies)
-                            _SummaryTopicRow(
-                              siteUrl: siteUrl,
-                              topic: reply.topic,
-                              postNumber: reply.postNumber,
-                              createdAt: reply.createdAt,
-                              likes: reply.likeCount,
-                            ),
-                        ],
+                    _PairedSections(
+                      left: _SummarySection(
+                        title: 'Top Links',
+                        child: _LinkRows(
+                          siteUrl: siteUrl,
+                          links: summary.links,
+                        ),
+                      ),
+                      right: _SummarySection(
+                        title: 'Most Replied To',
+                        child: _UserRows(
+                          siteUrl: siteUrl,
+                          users: summary.mostRepliedToUsers,
+                          emptyMessage: 'No replies yet.',
+                          icon: DIcons.reply,
+                          countLabel: 'replies',
+                        ),
                       ),
                     ),
-                    right: _SummarySection(
-                      title: 'Top Topics',
-                      child: _TopicRows(
-                        emptyMessage: 'No topics yet.',
-                        rows: [
-                          for (final topic in summary.topics)
-                            _SummaryTopicRow(
-                              siteUrl: siteUrl,
-                              topic: topic,
-                              createdAt: topic.createdAt,
-                              likes: topic.likeCount,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  _PairedSections(
-                    left: _SummarySection(
-                      title: 'Top Links',
-                      child: _LinkRows(siteUrl: siteUrl, links: summary.links),
-                    ),
-                    right: _SummarySection(
-                      title: 'Most Replied To',
-                      child: _UserRows(
-                        siteUrl: siteUrl,
-                        users: summary.mostRepliedToUsers,
-                        emptyMessage: 'No replies yet.',
-                        icon: DIcons.reply,
-                        countLabel: 'replies',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  _PairedSections(
-                    left: _SummarySection(
-                      title: 'Most Liked By',
-                      child: _UserRows(
-                        siteUrl: siteUrl,
-                        users: summary.mostLikedByUsers,
-                        emptyMessage: 'No likes yet.',
-                        icon: DIcons.heart,
-                        countLabel: 'likes',
-                      ),
-                    ),
-                    right: _SummarySection(
-                      title: 'Most Liked',
-                      child: _UserRows(
-                        siteUrl: siteUrl,
-                        users: summary.mostLikedUsers,
-                        emptyMessage: 'No likes yet.',
-                        icon: DIcons.heart,
-                        countLabel: 'likes',
-                      ),
-                    ),
-                  ),
-                  if (summary.topCategories.isNotEmpty) ...[
                     const SizedBox(height: 28),
-                    _SummarySection(
-                      title: 'Top Categories',
-                      child: _CategoryRows(
-                        username: username,
-                        categories: summary.topCategories,
+                    _PairedSections(
+                      left: _SummarySection(
+                        title: 'Most Liked By',
+                        child: _UserRows(
+                          siteUrl: siteUrl,
+                          users: summary.mostLikedByUsers,
+                          emptyMessage: 'No likes yet.',
+                          icon: DIcons.heart,
+                          countLabel: 'likes',
+                        ),
+                      ),
+                      right: _SummarySection(
+                        title: 'Most Liked',
+                        child: _UserRows(
+                          siteUrl: siteUrl,
+                          users: summary.mostLikedUsers,
+                          emptyMessage: 'No likes yet.',
+                          icon: DIcons.heart,
+                          countLabel: 'likes',
+                        ),
                       ),
                     ),
+                    if (summary.topCategories.isNotEmpty) ...[
+                      const SizedBox(height: 28),
+                      _SummarySection(
+                        title: 'Top Categories',
+                        child: _CategoryRows(
+                          username: username,
+                          categories: summary.topCategories,
+                        ),
+                      ),
+                    ],
+                    if (badgesEnabled) ...[
+                      const SizedBox(height: 28),
+                      _SummarySection(
+                        title: 'Top Badges',
+                        child: _BadgeRows(badges: summary.badges),
+                      ),
+                    ],
                   ],
-                  if (badgesEnabled) ...[
-                    const SizedBox(height: 28),
-                    _SummarySection(
-                      title: 'Top Badges',
-                      child: _BadgeRows(badges: summary.badges),
-                    ),
-                  ],
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1052,49 +1059,52 @@ class _SummaryLoadingSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LoadingSkeleton(
     semanticsLabel: 'Loading summary',
-    child: SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 36),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const LoadingSkeletonBlock(width: 70, height: 11),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  for (var index = 0; index < 8; index++)
-                    const LoadingSkeletonBlock(
-                      width: 116,
-                      height: 62,
-                      borderRadius: BorderRadius.all(Radius.circular(8)),
-                    ),
+    child: ContentReadingLane(
+      basePadding: const EdgeInsets.fromLTRB(16, 18, 16, 36),
+      builder: (context, lane) => SingleChildScrollView(
+        padding: lane.padding,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const LoadingSkeletonBlock(width: 70, height: 11),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    for (var index = 0; index < 8; index++)
+                      const LoadingSkeletonBlock(
+                        width: 116,
+                        height: 62,
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 30),
+                const LoadingSkeletonBlock(width: 110, height: 11),
+                const SizedBox(height: 12),
+                for (final width in [0.72, 0.9, 0.61]) ...[
+                  FractionallySizedBox(
+                    widthFactor: width,
+                    child: const LoadingSkeletonBlock(height: 44),
+                  ),
+                  const SizedBox(height: 8),
                 ],
-              ),
-              const SizedBox(height: 30),
-              const LoadingSkeletonBlock(width: 110, height: 11),
-              const SizedBox(height: 12),
-              for (final width in [0.72, 0.9, 0.61]) ...[
-                FractionallySizedBox(
-                  widthFactor: width,
-                  child: const LoadingSkeletonBlock(height: 44),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 22),
+                const LoadingSkeletonBlock(width: 90, height: 11),
+                const SizedBox(height: 12),
+                for (final width in [0.86, 0.66]) ...[
+                  FractionallySizedBox(
+                    widthFactor: width,
+                    child: const LoadingSkeletonBlock(height: 52),
+                  ),
+                  const SizedBox(height: 8),
+                ],
               ],
-              const SizedBox(height: 22),
-              const LoadingSkeletonBlock(width: 90, height: 11),
-              const SizedBox(height: 12),
-              for (final width in [0.86, 0.66]) ...[
-                FractionallySizedBox(
-                  widthFactor: width,
-                  child: const LoadingSkeletonBlock(height: 52),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ],
+            ),
           ),
         ),
       ),

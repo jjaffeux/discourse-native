@@ -313,6 +313,28 @@ rotating the account forgets the controller state and invalidates late work.
 Discourse's validation messages are shown as returned, while permission,
 network and rate-limit failures remain retryable without discarding edits.
 
+### App settings
+
+The gear at the very bottom of the instance rail opens **Settings**, an
+app-owned destination which is available even before any forum loads. It is
+not the profile menu's **Preferences** page: Preferences are stored by one
+Discourse server for one forum account, while Settings are local to this app
+installation and apply across every forum. Entering Settings preserves the
+current forum workspace or Aggregate view; Back restores that exact root and,
+on compact layouts, its previous sidebar/content pane.
+
+The first app setting is **Content alignment**. On native macOS, Linux, and
+Windows, primary scrolling content uses a reading lane no wider than 825
+logical pixels. Left and Right are physical screen edges, independent of text
+direction; Center is the default. The scroll viewport itself stays full width,
+so wheel and trackpad gestures in the empty gutters continue scrolling. Topic
+and Aggregate lists, topic posts, Chat streams, and other route bodies follow
+the lane, while headers, tabs, toolbars, composers, progress chrome, split
+panes, and the pinned 344-point topic sidebar keep their existing geometry.
+Narrow desktop windows fill their available width, and mobile and web layouts
+are unchanged. Changes apply immediately and are stored under the global
+`discourse_native.content_alignment` preference key; there is no Save action.
+
 ### Pausing notifications
 
 The profile tab's **Pause notifications** row is the native Do Not Disturb

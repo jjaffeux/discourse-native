@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
+import '../../shell/content_reading_lane.dart';
 import '../../shell/user_card.dart';
 import '../../shell/user_status.dart';
 import '../../theme/d_button.dart';
@@ -235,85 +236,56 @@ class _ChannelSettings extends StatelessWidget {
             );
             final membership = channel.membership;
 
-            return ListView(
-              key: const ValueKey('chat-channel-settings'),
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
-              children: [
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 760),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _InfoSection(
-                          title: 'Title',
-                          children: [
-                            _InfoRow(
-                              value: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(channel.title),
-                                  if (channel.isCategoryChannel)
-                                    InkWell(
-                                      key: const ValueKey(
-                                        'chat-channel-settings-channel-link',
-                                      ),
-                                      onTap: () => PluginUiScope.require(
-                                        context,
-                                        chatShellService,
-                                      ).openChannel(channel.id),
-                                      child: Text(
-                                        '/chat/c/${channel.slug ?? '-'}/${channel.id}',
-                                        style: TextStyle(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              action: canEdit
-                                  ? DButton(
-                                      key: const ValueKey(
-                                        'chat-channel-edit-title',
-                                      ),
-                                      label: const Text('Edit'),
-                                      onPressed: () => unawaited(
-                                        showChatChannelTitleEditor(
-                                          context: context,
-                                          chat: chat,
-                                          siteUrl: siteUrl,
-                                          channel: channel,
-                                        ),
-                                      ),
-                                      variant: DButtonVariant.link,
-                                    )
-                                  : null,
-                            ),
-                          ],
-                        ),
-                        if (channel.isCategoryChannel)
+            return ContentReadingLane(
+              basePadding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+              builder: (context, lane) => ListView(
+                key: const ValueKey('chat-channel-settings'),
+                padding: lane.padding,
+                children: [
+                  Align(
+                    alignment: lane.alignment,
+                    child: ConstrainedBox(
+                      key: const ValueKey('chat-channel-settings-lane-content'),
+                      constraints: const BoxConstraints(maxWidth: 760),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                           _InfoSection(
-                            title: 'Description',
+                            title: 'Title',
                             children: [
                               _InfoRow(
-                                value: Text(
-                                  channel.description ??
-                                      'Tell people what this channel is about.',
+                                value: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(channel.title),
+                                    if (channel.isCategoryChannel)
+                                      InkWell(
+                                        key: const ValueKey(
+                                          'chat-channel-settings-channel-link',
+                                        ),
+                                        onTap: () => PluginUiScope.require(
+                                          context,
+                                          chatShellService,
+                                        ).openChannel(channel.id),
+                                        child: Text(
+                                          '/chat/c/${channel.slug ?? '-'}/${channel.id}',
+                                          style: TextStyle(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                                 action: canEdit
                                     ? DButton(
                                         key: const ValueKey(
-                                          'chat-channel-edit-description',
+                                          'chat-channel-edit-title',
                                         ),
-                                        label: Text(
-                                          channel.description == null
-                                              ? 'Add'
-                                              : 'Edit',
-                                        ),
+                                        label: const Text('Edit'),
                                         onPressed: () => unawaited(
-                                          showChatChannelDescriptionEditor(
+                                          showChatChannelTitleEditor(
                                             context: context,
                                             chat: chat,
                                             siteUrl: siteUrl,
@@ -326,186 +298,227 @@ class _ChannelSettings extends StatelessWidget {
                               ),
                             ],
                           ),
-                        if (channel.status == ChatChannelStatus.open &&
-                            (membership.following || canEdit))
-                          _InfoSection(
-                            title: 'Settings',
-                            children: [
-                              if (membership.following)
+                          if (channel.isCategoryChannel)
+                            _InfoSection(
+                              title: 'Description',
+                              children: [
                                 _InfoRow(
-                                  label: 'Mute channel',
-                                  action: Switch.adaptive(
-                                    key: const ValueKey(
-                                      'chat-channel-muted-setting',
-                                    ),
-                                    value: membership.muted,
-                                    onChanged: notificationBusy
-                                        ? null
-                                        : (muted) => unawaited(
-                                            _changeNotifications(
-                                              context,
-                                              muted: muted,
+                                  value: Text(
+                                    channel.description ??
+                                        'Tell people what this channel is about.',
+                                  ),
+                                  action: canEdit
+                                      ? DButton(
+                                          key: const ValueKey(
+                                            'chat-channel-edit-description',
+                                          ),
+                                          label: Text(
+                                            channel.description == null
+                                                ? 'Add'
+                                                : 'Edit',
+                                          ),
+                                          onPressed: () => unawaited(
+                                            showChatChannelDescriptionEditor(
+                                              context: context,
+                                              chat: chat,
+                                              siteUrl: siteUrl,
+                                              channel: channel,
                                             ),
                                           ),
+                                          variant: DButtonVariant.link,
+                                        )
+                                      : null,
+                                ),
+                              ],
+                            ),
+                          if (channel.status == ChatChannelStatus.open &&
+                              (membership.following || canEdit))
+                            _InfoSection(
+                              title: 'Settings',
+                              children: [
+                                if (membership.following)
+                                  _InfoRow(
+                                    label: 'Mute channel',
+                                    action: Switch.adaptive(
+                                      key: const ValueKey(
+                                        'chat-channel-muted-setting',
+                                      ),
+                                      value: membership.muted,
+                                      onChanged: notificationBusy
+                                          ? null
+                                          : (muted) => unawaited(
+                                              _changeNotifications(
+                                                context,
+                                                muted: muted,
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                if (membership.following && !membership.muted)
+                                  _InfoRow(
+                                    label: 'Push notifications',
+                                    action:
+                                        DropdownButton<
+                                          ChatChannelNotificationLevel
+                                        >(
+                                          key: const ValueKey(
+                                            'chat-channel-notification-setting',
+                                          ),
+                                          value: membership.notificationLevel,
+                                          onChanged: notificationBusy
+                                              ? null
+                                              : (level) {
+                                                  if (level != null) {
+                                                    unawaited(
+                                                      _changeNotifications(
+                                                        context,
+                                                        notificationLevel:
+                                                            level,
+                                                      ),
+                                                    );
+                                                  }
+                                                },
+                                          items: const [
+                                            DropdownMenuItem(
+                                              value:
+                                                  ChatChannelNotificationLevel
+                                                      .never,
+                                              child: Text('Never'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value:
+                                                  ChatChannelNotificationLevel
+                                                      .mention,
+                                              child: Text('Mentions only'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value:
+                                                  ChatChannelNotificationLevel
+                                                      .always,
+                                              child: Text('All activity'),
+                                            ),
+                                          ],
+                                        ),
+                                  ),
+                                if (canEdit)
+                                  _InfoRow(
+                                    label: 'Threading',
+                                    description:
+                                        'Replies create separate conversations alongside the main channel.',
+                                    action: Switch.adaptive(
+                                      key: const ValueKey(
+                                        'chat-channel-threading-switch',
+                                      ),
+                                      value: channel.threadingEnabled,
+                                      onChanged: settingsBusy
+                                          ? null
+                                          : (enabled) => unawaited(
+                                              _toggleThreading(
+                                                context,
+                                                enabled,
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          _InfoSection(
+                            title: 'Channel information',
+                            children: [
+                              if (channel.isCategoryChannel)
+                                _InfoRow(
+                                  label: 'Category',
+                                  action: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (channel.categoryColor
+                                          case final color?) ...[
+                                        Container(
+                                          width: 12,
+                                          height: 12,
+                                          decoration: BoxDecoration(
+                                            color: color,
+                                            borderRadius: BorderRadius.circular(
+                                              3,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                      ],
+                                      if (channel.readRestricted) ...[
+                                        const DIcon(DIcons.lock, size: 14),
+                                        const SizedBox(width: 4),
+                                      ],
+                                      Text(
+                                        channel.categoryName ??
+                                            channel.slug ??
+                                            'Category',
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              if (membership.following && !membership.muted)
-                                _InfoRow(
-                                  label: 'Push notifications',
-                                  action:
-                                      DropdownButton<
-                                        ChatChannelNotificationLevel
-                                      >(
-                                        key: const ValueKey(
-                                          'chat-channel-notification-setting',
-                                        ),
-                                        value: membership.notificationLevel,
-                                        onChanged: notificationBusy
-                                            ? null
-                                            : (level) {
-                                                if (level != null) {
-                                                  unawaited(
-                                                    _changeNotifications(
-                                                      context,
-                                                      notificationLevel: level,
-                                                    ),
-                                                  );
-                                                }
-                                              },
-                                        items: const [
-                                          DropdownMenuItem(
-                                            value: ChatChannelNotificationLevel
-                                                .never,
-                                            child: Text('Never'),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: ChatChannelNotificationLevel
-                                                .mention,
-                                            child: Text('Mentions only'),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: ChatChannelNotificationLevel
-                                                .always,
-                                            child: Text('All activity'),
-                                          ),
-                                        ],
-                                      ),
+                              _InfoRow(
+                                label: 'History',
+                                action: Text(
+                                  _retentionLabel(
+                                    channel.isDirectMessage
+                                        ? config
+                                              .chatSettings
+                                              .directMessageRetentionDays
+                                        : config
+                                              .chatSettings
+                                              .channelRetentionDays,
+                                  ),
                                 ),
-                              if (canEdit)
+                              ),
+                              if (canChangeStatus)
                                 _InfoRow(
-                                  label: 'Threading',
-                                  description:
-                                      'Replies create separate conversations alongside the main channel.',
-                                  action: Switch.adaptive(
+                                  label: 'Status',
+                                  action: DButton(
                                     key: const ValueKey(
-                                      'chat-channel-threading-switch',
+                                      'chat-channel-toggle-status',
                                     ),
-                                    value: channel.threadingEnabled,
-                                    onChanged: settingsBusy
-                                        ? null
-                                        : (enabled) => unawaited(
-                                            _toggleThreading(context, enabled),
-                                          ),
+                                    label: Text(
+                                      channel.status == ChatChannelStatus.closed
+                                          ? 'Open channel'
+                                          : 'Close channel',
+                                    ),
+                                    onPressed: () => unawaited(
+                                      showChatChannelStatusDialog(
+                                        context: context,
+                                        chat: chat,
+                                        siteUrl: siteUrl,
+                                        channel: channel,
+                                      ),
+                                    ),
+                                    variant: DButtonVariant.link,
                                   ),
                                 ),
                             ],
                           ),
-                        _InfoSection(
-                          title: 'Channel information',
-                          children: [
-                            if (channel.isCategoryChannel)
-                              _InfoRow(
-                                label: 'Category',
-                                action: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (channel.categoryColor
-                                        case final color?) ...[
-                                      Container(
-                                        width: 12,
-                                        height: 12,
-                                        decoration: BoxDecoration(
-                                          color: color,
-                                          borderRadius: BorderRadius.circular(
-                                            3,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                    ],
-                                    if (channel.readRestricted) ...[
-                                      const DIcon(DIcons.lock, size: 14),
-                                      const SizedBox(width: 4),
-                                    ],
-                                    Text(
-                                      channel.categoryName ??
-                                          channel.slug ??
-                                          'Category',
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            _InfoRow(
-                              label: 'History',
-                              action: Text(
-                                _retentionLabel(
-                                  channel.isDirectMessage
-                                      ? config
-                                            .chatSettings
-                                            .directMessageRetentionDays
-                                      : config
-                                            .chatSettings
-                                            .channelRetentionDays,
-                                ),
+                          if (membership.following &&
+                              channel.isCategoryChannel) ...[
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: DButton(
+                                key: const ValueKey('chat-channel-leave'),
+                                label: const Text('Leave channel'),
+                                onPressed: () =>
+                                    unawaited(_leave(context, channel)),
+                                icon: const DIcon(DIcons.rightFromBracket),
+                                variant: DButtonVariant.danger,
+                                loading: followingBusy,
+                                loadingLabel: const Text('Leaving…'),
                               ),
                             ),
-                            if (canChangeStatus)
-                              _InfoRow(
-                                label: 'Status',
-                                action: DButton(
-                                  key: const ValueKey(
-                                    'chat-channel-toggle-status',
-                                  ),
-                                  label: Text(
-                                    channel.status == ChatChannelStatus.closed
-                                        ? 'Open channel'
-                                        : 'Close channel',
-                                  ),
-                                  onPressed: () => unawaited(
-                                    showChatChannelStatusDialog(
-                                      context: context,
-                                      chat: chat,
-                                      siteUrl: siteUrl,
-                                      channel: channel,
-                                    ),
-                                  ),
-                                  variant: DButtonVariant.link,
-                                ),
-                              ),
                           ],
-                        ),
-                        if (membership.following &&
-                            channel.isCategoryChannel) ...[
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: DButton(
-                              key: const ValueKey('chat-channel-leave'),
-                              label: const Text('Leave channel'),
-                              onPressed: () =>
-                                  unawaited(_leave(context, channel)),
-                              icon: const DIcon(DIcons.rightFromBracket),
-                              variant: DButtonVariant.danger,
-                              loading: followingBusy,
-                              loadingLabel: const Text('Leaving…'),
-                            ),
-                          ),
                         ],
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             );
           },
         );
@@ -691,36 +704,45 @@ class _ChannelMembersState extends State<_ChannelMembers> {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                key: const ValueKey('chat-channel-member-filter'),
-                autofocus: true,
-                onChanged: _filterChanged,
-                textInputAction: TextInputAction.search,
-                decoration: const InputDecoration(
-                  hintText: 'Filter members',
-                  prefixIcon: DIcon(DIcons.magnifyingGlass),
-                  border: OutlineInputBorder(),
-                  isDense: true,
+    return ContentReadingLane(
+      basePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      builder: (context, lane) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(
+              left: lane.padding.left,
+              top: lane.padding.top,
+              right: lane.padding.right,
+            ),
+            child: Align(
+              alignment: lane.alignment,
+              child: ConstrainedBox(
+                key: const ValueKey('chat-channel-member-filter-lane-content'),
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: TextField(
+                  key: const ValueKey('chat-channel-member-filter'),
+                  autofocus: true,
+                  onChanged: _filterChanged,
+                  textInputAction: TextInputAction.search,
+                  decoration: const InputDecoration(
+                    hintText: 'Filter members',
+                    prefixIcon: DIcon(DIcons.magnifyingGlass),
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
-              Expanded(child: _memberList()),
-            ],
+            ),
           ),
-        ),
+          const SizedBox(height: 12),
+          Expanded(child: _memberList(lane)),
+        ],
       ),
     );
   }
 
-  Widget _memberList() {
+  Widget _memberList(ContentReadingLaneGeometry lane) {
     if (!_loaded && _loading) {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
@@ -747,6 +769,10 @@ class _ChannelMembersState extends State<_ChannelMembers> {
     return ListView.builder(
       key: const ValueKey('chat-channel-member-list'),
       controller: _scroll,
+      padding: EdgeInsets.only(
+        left: lane.padding.left,
+        right: lane.padding.right,
+      ),
       itemCount: _members.length + (_loading ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == _members.length) {
@@ -756,29 +782,37 @@ class _ChannelMembersState extends State<_ChannelMembers> {
           );
         }
         final member = _members[index];
-        return UserCardTarget(
-          username: member.username,
-          siteUrl: widget.siteUrl,
-          child: ListTile(
-            key: ValueKey('chat-channel-member-${member.id}'),
-            contentPadding: EdgeInsets.zero,
-            leading: ChatUserAvatar(
+        return Align(
+          alignment: lane.alignment,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: UserCardTarget(
+              username: member.username,
               siteUrl: widget.siteUrl,
-              userId: member.id,
-              url: member.avatarUrl,
-              size: 36,
-              fallback: const DIcon(DIcons.user),
-            ),
-            title: Text(member.displayName),
-            subtitle: member.name == null ? null : Text('@${member.username}'),
-            trailing: UserStatusMessage(
-              siteUrl: widget.siteUrl,
-              userId: member.id,
-              status: member.status,
-              showDescription: true,
-              size: 16,
-              style: Theme.of(context).textTheme.bodySmall,
-              descriptionMaxWidth: 120,
+              child: ListTile(
+                key: ValueKey('chat-channel-member-${member.id}'),
+                contentPadding: EdgeInsets.zero,
+                leading: ChatUserAvatar(
+                  siteUrl: widget.siteUrl,
+                  userId: member.id,
+                  url: member.avatarUrl,
+                  size: 36,
+                  fallback: const DIcon(DIcons.user),
+                ),
+                title: Text(member.displayName),
+                subtitle: member.name == null
+                    ? null
+                    : Text('@${member.username}'),
+                trailing: UserStatusMessage(
+                  siteUrl: widget.siteUrl,
+                  userId: member.id,
+                  status: member.status,
+                  showDescription: true,
+                  size: 16,
+                  style: Theme.of(context).textTheme.bodySmall,
+                  descriptionMaxWidth: 120,
+                ),
+              ),
             ),
           ),
         );

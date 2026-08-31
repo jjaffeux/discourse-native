@@ -10,6 +10,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
 import 'aggregate_feed_controller.dart';
+import 'content_reading_lane.dart';
 import 'forum_tabs_bar.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -221,53 +222,56 @@ class _AggregateViewState extends State<AggregateView> {
       );
     }
 
-    return RefreshIndicator.adaptive(
-      onRefresh: controller.refreshAggregate,
-      child: ListView.separated(
-        key: PageStorageKey(('aggregate-topic-list', tabId)),
-        controller: _scrollFor(tabId),
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-        itemCount:
-            state.topics.length +
-            (state.failures.isNotEmpty ? 1 : 0) +
-            (state.loadingMore ? 1 : 0),
-        separatorBuilder: (context, index) => const SizedBox(height: 9),
-        itemBuilder: (context, index) {
-          if (state.failures.isNotEmpty) {
-            if (index == 0) {
+    return ContentReadingLane(
+      basePadding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+      builder: (context, lane) => RefreshIndicator.adaptive(
+        onRefresh: controller.refreshAggregate,
+        child: ListView.separated(
+          key: PageStorageKey(('aggregate-topic-list', tabId)),
+          controller: _scrollFor(tabId),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: lane.padding,
+          itemCount:
+              state.topics.length +
+              (state.failures.isNotEmpty ? 1 : 0) +
+              (state.loadingMore ? 1 : 0),
+          separatorBuilder: (context, index) => const SizedBox(height: 9),
+          itemBuilder: (context, index) {
+            if (state.failures.isNotEmpty) {
+              if (index == 0) {
+                return _AggregateCard(
+                  child: _PartialFailureBanner(
+                    failed: state.failures.length,
+                    onRetry: () => unawaited(controller.refreshAggregate()),
+                  ),
+                );
+              }
+              index--;
+            }
+            if (index >= state.topics.length) {
               return _AggregateCard(
-                child: _PartialFailureBanner(
-                  failed: state.failures.length,
-                  onRetry: () => unawaited(controller.refreshAggregate()),
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Center(
+                    child: AdaptiveActivityIndicator(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
                 ),
               );
             }
-            index--;
-          }
-          if (index >= state.topics.length) {
+            final reference = state.topics[index];
             return _AggregateCard(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Center(
-                  child: AdaptiveActivityIndicator(
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
+              key: ValueKey(
+                'aggregate-topic-card-${reference.siteUrl}-${reference.topicId}',
+              ),
+              child: _AggregateTopicRow(
+                key: ValueKey(reference),
+                reference: reference,
               ),
             );
-          }
-          final reference = state.topics[index];
-          return _AggregateCard(
-            key: ValueKey(
-              'aggregate-topic-card-${reference.siteUrl}-${reference.topicId}',
-            ),
-            child: _AggregateTopicRow(
-              key: ValueKey(reference),
-              reference: reference,
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
   }

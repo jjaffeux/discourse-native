@@ -315,7 +315,9 @@ class ChatThreadView extends StatefulWidget {
 }
 
 class _ChatThreadViewState extends State<ChatThreadView> {
-  late final Object _viewToken;
+  Object? _viewToken;
+  bool _tickerEnabled = true;
+  ChatShellService? _shell;
   Listenable? _navigation;
   bool _opened = false;
   bool _handledUnavailable = false;
@@ -335,6 +337,25 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   final ChatUploadDropController _uploadDropController =
       ChatUploadDropController();
 
+  bool get _viewerActive => _tickerEnabled && (_shell?.forumActive ?? false);
+
+  void _handleShellChanged() => _syncViewing();
+
+  void _syncViewing() {
+    if (_viewerActive) {
+      _viewToken ??= widget.chat.beginViewingThread(
+        widget.siteUrl,
+        widget.target,
+      );
+      return;
+    }
+    final viewToken = _viewToken;
+    _viewToken = null;
+    if (viewToken != null) {
+      widget.chat.endViewingThread(widget.siteUrl, widget.target, viewToken);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -344,17 +365,23 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final navigation = PluginUiScope.require(
-      context,
-      chatShellService,
-    ).navigation;
-    if (identical(navigation, _navigation)) return;
-    _navigation?.removeListener(_consumeNavigation);
-    _navigation = navigation;
-    navigation.addListener(_consumeNavigation);
-    if (!_consumeNavigation() && !_opened) {
-      _opened = true;
-      unawaited(widget.chat.openThread(widget.siteUrl, widget.target));
+    final shell = PluginUiScope.require(context, chatShellService);
+    if (!identical(shell, _shell)) {
+      _shell?.removeListener(_handleShellChanged);
+      _shell = shell..addListener(_handleShellChanged);
+    }
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    _syncViewing();
+
+    final navigation = shell.navigation;
+    if (!identical(navigation, _navigation)) {
+      _navigation?.removeListener(_consumeNavigation);
+      _navigation = navigation;
+      navigation.addListener(_consumeNavigation);
+      if (!_consumeNavigation() && !_opened) {
+        _opened = true;
+        unawaited(widget.chat.openThread(widget.siteUrl, widget.target));
+      }
     }
   }
 
@@ -389,8 +416,12 @@ class _ChatThreadViewState extends State<ChatThreadView> {
 
   @override
   void dispose() {
+    _shell?.removeListener(_handleShellChanged);
     _navigation?.removeListener(_consumeNavigation);
-    widget.chat.endViewingThread(widget.siteUrl, widget.target, _viewToken);
+    final viewToken = _viewToken;
+    if (viewToken != null) {
+      widget.chat.endViewingThread(widget.siteUrl, widget.target, viewToken);
+    }
     super.dispose();
   }
 

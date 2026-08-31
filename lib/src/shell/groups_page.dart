@@ -8,6 +8,7 @@ import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'choice_menu.dart';
+import 'content_reading_lane.dart';
 import 'shell_scope.dart';
 
 @immutable
@@ -140,115 +141,136 @@ class _GroupsPageState extends State<GroupsPage> {
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
-    return RefreshIndicator(
-      onRefresh: _refresh,
-      child: NotificationListener<ScrollNotification>(
-        onNotification: _onScroll,
-        child: CustomScrollView(
-          key: const PageStorageKey('groups-directory-scroll'),
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                child: _DirectoryControls(
-                  data: data,
-                  searchController: _searchController,
-                  searchFocus: _searchFocus,
-                  onSearchChanged: _search,
-                  onSearchSubmitted: _submitSearch,
-                  onTypeChanged: widget.onTypeChanged,
-                  onCreateGroup: widget.onCreateGroup,
-                ),
-              ),
-            ),
-            if (data.loading && data.groups.isNotEmpty)
-              const SliverToBoxAdapter(
-                child: LinearProgressIndicator(minHeight: 2),
-              ),
-            if (data.error != null && (!data.pageError || data.groups.isEmpty))
-              SliverToBoxAdapter(
-                child: _DirectoryError(
-                  message: data.error!,
-                  onRetry: widget.onRefresh,
-                ),
-              ),
-            if (!data.loaded && data.groups.isEmpty && data.loading)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: CircularProgressIndicator.adaptive(
-                    key: ValueKey('groups-loading'),
-                  ),
-                ),
-              )
-            else if (data.groups.isEmpty && data.loaded && data.error == null)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: _EmptyDirectory(),
-              )
-            else
+    return ContentReadingLane(
+      basePadding: const EdgeInsets.symmetric(horizontal: 16),
+      builder: (context, lane) => RefreshIndicator(
+        onRefresh: _refresh,
+        child: NotificationListener<ScrollNotification>(
+          onNotification: _onScroll,
+          child: CustomScrollView(
+            key: const PageStorageKey('groups-directory-scroll'),
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
-                sliver: SliverLayoutBuilder(
-                  builder: (context, constraints) {
-                    final width = constraints.crossAxisExtent;
-                    final columns = width >= 980
-                        ? 3
-                        : width >= 620
-                        ? 2
-                        : 1;
-                    return SliverGrid.builder(
-                      itemCount: data.groups.length,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: columns,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        mainAxisExtent: 170,
+                padding: EdgeInsets.only(
+                  left: lane.leftInset,
+                  right: lane.rightInset,
+                ),
+                sliver: SliverMainAxisGroup(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                        child: _DirectoryControls(
+                          data: data,
+                          searchController: _searchController,
+                          searchFocus: _searchFocus,
+                          onSearchChanged: _search,
+                          onSearchSubmitted: _submitSearch,
+                          onTypeChanged: widget.onTypeChanged,
+                          onCreateGroup: widget.onCreateGroup,
+                        ),
                       ),
-                      itemBuilder: (context, index) {
-                        final group = data.groups[index];
-                        return _GroupDirectoryCard(
-                          key: ValueKey('group-card-${group.name}'),
-                          group: group,
-                          onTap: () => _openGroup(group),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-            if (data.loadingMore)
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: 24),
-                  child: Center(
-                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                  ),
-                ),
-              ),
-            if (data.pageError && data.error != null)
-              SliverToBoxAdapter(
-                child: _DirectoryError(
-                  message: data.error!,
-                  onRetry: widget.onLoadMore,
-                ),
-              ),
-            if (data.hasMore && !data.loadingMore && data.groups.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 32),
-                  child: Center(
-                    child: DButton(
-                      key: const ValueKey('groups-load-more'),
-                      label: const Text('Load more'),
-                      onPressed: widget.onLoadMore,
                     ),
-                  ),
+                    if (data.loading && data.groups.isNotEmpty)
+                      const SliverToBoxAdapter(
+                        child: LinearProgressIndicator(minHeight: 2),
+                      ),
+                    if (data.error != null &&
+                        (!data.pageError || data.groups.isEmpty))
+                      SliverToBoxAdapter(
+                        child: _DirectoryError(
+                          message: data.error!,
+                          onRetry: widget.onRefresh,
+                        ),
+                      ),
+                    if (!data.loaded && data.groups.isEmpty && data.loading)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: CircularProgressIndicator.adaptive(
+                            key: ValueKey('groups-loading'),
+                          ),
+                        ),
+                      )
+                    else if (data.groups.isEmpty &&
+                        data.loaded &&
+                        data.error == null)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _EmptyDirectory(),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+                        sliver: SliverLayoutBuilder(
+                          builder: (context, constraints) {
+                            final width = constraints.crossAxisExtent;
+                            final columns = width >= 980
+                                ? 3
+                                : width >= 620
+                                ? 2
+                                : 1;
+                            return SliverGrid.builder(
+                              itemCount: data.groups.length,
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: columns,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    mainAxisExtent: 170,
+                                  ),
+                              itemBuilder: (context, index) {
+                                final group = data.groups[index];
+                                return _GroupDirectoryCard(
+                                  key: ValueKey('group-card-${group.name}'),
+                                  group: group,
+                                  onTap: () => _openGroup(group),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    if (data.loadingMore)
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: 24),
+                          child: Center(
+                            child: CircularProgressIndicator.adaptive(
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (data.pageError && data.error != null)
+                      SliverToBoxAdapter(
+                        child: _DirectoryError(
+                          message: data.error!,
+                          onRetry: widget.onLoadMore,
+                        ),
+                      ),
+                    if (data.hasMore &&
+                        !data.loadingMore &&
+                        data.groups.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 32),
+                          child: Center(
+                            child: DButton(
+                              key: const ValueKey('groups-load-more'),
+                              label: const Text('Load more'),
+                              onPressed: widget.onLoadMore,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );

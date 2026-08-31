@@ -48,6 +48,12 @@ export 'src/plugin_api/site_plugin_api.dart';
 export 'src/plugins/chat/chat_contract.dart';
 export 'src/shell/adaptive_dialog_action.dart';
 export 'src/shell/avatar_image.dart';
+export 'src/shell/content_reading_lane.dart'
+    show
+        ContentReadingLane,
+        ContentReadingLaneBox,
+        ContentReadingLaneBuilder,
+        ContentReadingLaneGeometry;
 export 'src/shell/diagnostics_text.dart';
 export 'src/shell/select.dart';
 export 'src/shell/site_url.dart';

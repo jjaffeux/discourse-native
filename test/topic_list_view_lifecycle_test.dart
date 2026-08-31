@@ -8,6 +8,8 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -237,6 +239,56 @@ void main() {
     final second = tester.widget<SuperListView>(find.byType(SuperListView));
     expect(second.controller, isNot(same(first.controller)));
     expect(second.controller!.offset, 0);
+  });
+
+  testWidgets('desktop rows use a scrollable full-width viewport', (
+    tester,
+  ) async {
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      await tester.binding.setSurfaceSize(const Size(1200, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final topics = _topics(1, 40);
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([sites.first]),
+        api: FakeDiscourseApi(feeds: {'/latest.json': topics}),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      controller.store.putAll(sites.first.url, topics);
+      final feed = TopicFeed(
+        topicIds: [for (final topic in topics) topic.id],
+        loaded: true,
+      );
+
+      await tester.pumpWidget(_TestList(controller: controller, feed: feed));
+      await tester.pumpAndSettle();
+
+      final viewport = find.byType(SuperListView);
+      final list = tester.widget<SuperListView>(viewport);
+      final firstRow = find.byKey(const ValueKey(1));
+      expect(tester.getSize(viewport).width, 1200);
+      expect(tester.getSize(firstRow).width, 825);
+      expect(tester.getTopLeft(firstRow).dx, 187.5);
+
+      const gutterPoint = Offset(1100, 300);
+      expect(tester.getRect(firstRow).contains(gutterPoint), isFalse);
+      await tester.sendEventToBinding(
+        const PointerScrollEvent(
+          position: gutterPoint,
+          scrollDelta: Offset(0, 400),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(list.controller!.offset, greaterThan(0));
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
   });
 
   testWidgets('a restored row is bounded by the currently loaded page', (

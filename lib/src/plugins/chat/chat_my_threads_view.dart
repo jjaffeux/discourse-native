@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
+import '../../shell/content_reading_lane.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/user_status.dart';
 import '../../theme/d_button.dart';
@@ -83,47 +84,50 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
           _chat.myThreadsLoadingMore(widget.siteUrl) ||
           error != null ||
           _chat.myThreadsHaveMore(widget.siteUrl);
-      return RefreshIndicator.adaptive(
-        onRefresh: () => _chat.loadMyThreads(widget.siteUrl, force: true),
-        child: ListView.separated(
-          key: const PageStorageKey('chat-my-threads'),
-          controller: _scroll,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: threads.length + (hasFooter ? 1 : 0),
-          separatorBuilder: (_, _) => const Divider(height: 1),
-          itemBuilder: (context, index) {
-            if (index < threads.length) {
-              return ChatThreadListRow(
-                siteUrl: widget.siteUrl,
-                thread: threads[index],
-              );
-            }
-            if (_chat.myThreadsLoadingMore(widget.siteUrl)) {
-              return const Padding(
-                padding: EdgeInsets.all(20),
-                child: Center(child: CircularProgressIndicator.adaptive()),
-              );
-            }
-            return Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (error case final message?) ...[
-                    Text(message, textAlign: TextAlign.center),
-                    const SizedBox(height: 8),
-                  ],
-                  DButton(
-                    label: Text(error == null ? 'Load more' : 'Try again'),
-                    onPressed: () => unawaited(
-                      _chat.loadMyThreads(widget.siteUrl, more: true),
+      return ContentReadingLane(
+        basePadding: const EdgeInsets.symmetric(vertical: 8),
+        builder: (context, lane) => RefreshIndicator.adaptive(
+          onRefresh: () => _chat.loadMyThreads(widget.siteUrl, force: true),
+          child: ListView.separated(
+            key: const PageStorageKey('chat-my-threads'),
+            controller: _scroll,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: lane.padding,
+            itemCount: threads.length + (hasFooter ? 1 : 0),
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              if (index < threads.length) {
+                return ChatThreadListRow(
+                  siteUrl: widget.siteUrl,
+                  thread: threads[index],
+                );
+              }
+              if (_chat.myThreadsLoadingMore(widget.siteUrl)) {
+                return const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(child: CircularProgressIndicator.adaptive()),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (error case final message?) ...[
+                      Text(message, textAlign: TextAlign.center),
+                      const SizedBox(height: 8),
+                    ],
+                    DButton(
+                      label: Text(error == null ? 'Load more' : 'Try again'),
+                      onPressed: () => unawaited(
+                        _chat.loadMyThreads(widget.siteUrl, more: true),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       );
     },

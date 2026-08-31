@@ -11,6 +11,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
 import 'adaptive_dialog_action.dart';
+import 'content_reading_lane.dart';
 import 'external_link.dart';
 import 'loading_skeleton.dart';
 import 'relative_time.dart';
@@ -158,48 +159,51 @@ class _DraftListLoadingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return LoadingSkeleton(
       semanticsLabel: 'Loading drafts',
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth - 32 < 520;
-          final rowHeight = compact ? _compactRowHeight : _wideRowHeight;
-          final availableHeight = constraints.hasBoundedHeight
-              ? constraints.maxHeight - _outerVerticalPadding
-              : double.infinity;
-          final visibleRowCount = constraints.hasBoundedHeight
-              ? (availableHeight / rowHeight).ceil()
-              : _patternLength;
-          final rowCount = visibleRowCount < 1 ? 1 : visibleRowCount;
+      child: ContentReadingLane(
+        basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        builder: (context, lane) => LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = lane.width < 520;
+            final rowHeight = compact ? _compactRowHeight : _wideRowHeight;
+            final availableHeight = constraints.hasBoundedHeight
+                ? constraints.maxHeight - _outerVerticalPadding
+                : double.infinity;
+            final visibleRowCount = constraints.hasBoundedHeight
+                ? (availableHeight / rowHeight).ceil()
+                : _patternLength;
+            final rowCount = visibleRowCount < 1 ? 1 : visibleRowCount;
 
-          return ClipRect(
-            child: OverflowBox(
-              alignment: Alignment.topCenter,
-              maxHeight: double.infinity,
-              child: SizedBox(
-                width: double.infinity,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1200),
-                      child: Column(
-                        key: const ValueKey(
-                          'draft-list-loading-skeleton-content',
-                        ),
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (var index = 0; index < rowCount; index++) ...[
-                            if (index > 0) const Divider(height: 1),
-                            _rowAt(index),
+            return ClipRect(
+              child: OverflowBox(
+                alignment: Alignment.topCenter,
+                maxHeight: double.infinity,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Padding(
+                    padding: lane.padding,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1200),
+                        child: Column(
+                          key: const ValueKey(
+                            'draft-list-loading-skeleton-content',
+                          ),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (var index = 0; index < rowCount; index++) ...[
+                              if (index > 0) const Divider(height: 1),
+                              _rowAt(index),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -326,86 +330,93 @@ class _Drafts extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
-          if (feed.error case final error?)
-            Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.errorContainer,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  DIcon(
-                    DIcons.triangleExclamation,
-                    size: 18,
-                    color: theme.colorScheme.onErrorContainer,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(error)),
-                  DButton(
-                    label: const Text('Retry'),
-                    onPressed: () => unawaited(onRefresh()),
-                    variant: DButtonVariant.link,
-                  ),
-                ],
-              ),
-            ),
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200),
-              child: Column(
-                children: [
-                  for (var index = 0; index < feed.drafts.length; index++) ...[
-                    _DraftRow(
-                      siteUrl: siteUrl,
-                      draft: feed.drafts[index],
-                      deleting: controller.draftList.deleting(
-                        siteUrl,
-                        feed.drafts[index].key,
-                      ),
-                      onResume: feed.drafts[index].canResume
-                          ? () => unawaited(
-                              controller.resumeDraft(
-                                siteUrl,
-                                feed.drafts[index],
-                              ),
-                            )
-                          : null,
-                      onOpenForum: () => unawaited(
-                        openExternalLink(
-                          '$siteUrl/u/'
-                          '${Uri.encodeComponent(instance.user!.username)}'
-                          '/activity/drafts',
-                        ),
-                      ),
-                      onRemove: () => onRemove(feed.drafts[index]),
+    return ContentReadingLane(
+      basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      builder: (context, lane) => RefreshIndicator(
+        onRefresh: onRefresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: lane.padding,
+          children: [
+            if (feed.error case final error?)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    DIcon(
+                      DIcons.triangleExclamation,
+                      size: 18,
+                      color: theme.colorScheme.onErrorContainer,
                     ),
-                    const Divider(height: 1),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(error)),
+                    DButton(
+                      label: const Text('Retry'),
+                      onPressed: () => unawaited(onRefresh()),
+                      variant: DButtonVariant.link,
+                    ),
                   ],
-                ],
+                ),
               ),
-            ),
-          ),
-          if (feed.hasMore)
             Center(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: DButton(
-                  label: const Text('Load more'),
-                  onPressed: () =>
-                      unawaited(controller.draftList.load(instance)),
-                  loading: feed.loading,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                child: Column(
+                  children: [
+                    for (
+                      var index = 0;
+                      index < feed.drafts.length;
+                      index++
+                    ) ...[
+                      _DraftRow(
+                        siteUrl: siteUrl,
+                        draft: feed.drafts[index],
+                        deleting: controller.draftList.deleting(
+                          siteUrl,
+                          feed.drafts[index].key,
+                        ),
+                        onResume: feed.drafts[index].canResume
+                            ? () => unawaited(
+                                controller.resumeDraft(
+                                  siteUrl,
+                                  feed.drafts[index],
+                                ),
+                              )
+                            : null,
+                        onOpenForum: () => unawaited(
+                          openExternalLink(
+                            '$siteUrl/u/'
+                            '${Uri.encodeComponent(instance.user!.username)}'
+                            '/activity/drafts',
+                          ),
+                        ),
+                        onRemove: () => onRemove(feed.drafts[index]),
+                      ),
+                      const Divider(height: 1),
+                    ],
+                  ],
                 ),
               ),
             ),
-        ],
+            if (feed.hasMore)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: DButton(
+                    label: const Text('Load more'),
+                    onPressed: () =>
+                        unawaited(controller.draftList.load(instance)),
+                    loading: feed.loading,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

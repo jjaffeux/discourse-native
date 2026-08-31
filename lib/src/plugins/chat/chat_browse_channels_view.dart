@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
+import '../../shell/content_reading_lane.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -222,45 +223,48 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     }
 
     final hasFooter = _loadingMore || _error != null || _hasMore;
-    return RefreshIndicator.adaptive(
-      onRefresh: () => _load(reset: true),
-      child: ListView.builder(
-        key: const PageStorageKey('chat-browse-channels'),
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
-        itemCount: channels.length + (hasFooter ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index < channels.length) {
-            return _ChannelCard(
-              siteUrl: widget.siteUrl,
-              channel: channels[index],
-              chat: _chat,
-              onChanged: _replaceChannel,
-            );
-          }
-          if (_loadingMore) {
-            return const Padding(
-              padding: EdgeInsets.all(20),
-              child: Center(child: CircularProgressIndicator.adaptive()),
-            );
-          }
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Column(
-              children: [
-                if (_error case final error?) ...[
-                  Text(error, textAlign: TextAlign.center),
-                  const SizedBox(height: 8),
+    return ContentReadingLane(
+      basePadding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+      builder: (context, lane) => RefreshIndicator.adaptive(
+        onRefresh: () => _load(reset: true),
+        child: ListView.builder(
+          key: const PageStorageKey('chat-browse-channels'),
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: lane.padding,
+          itemCount: channels.length + (hasFooter ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index < channels.length) {
+              return _ChannelCard(
+                siteUrl: widget.siteUrl,
+                channel: channels[index],
+                chat: _chat,
+                onChanged: _replaceChannel,
+              );
+            }
+            if (_loadingMore) {
+              return const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(child: CircularProgressIndicator.adaptive()),
+              );
+            }
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                children: [
+                  if (_error case final error?) ...[
+                    Text(error, textAlign: TextAlign.center),
+                    const SizedBox(height: 8),
+                  ],
+                  DButton(
+                    label: Text(_error == null ? 'Load more' : 'Try again'),
+                    onPressed: () => unawaited(_load(reset: false)),
+                  ),
                 ],
-                DButton(
-                  label: Text(_error == null ? 'Load more' : 'Try again'),
-                  onPressed: () => unawaited(_load(reset: false)),
-                ),
-              ],
-            ),
-          );
-        },
+              ),
+            );
+          },
+        ),
       ),
     );
   }

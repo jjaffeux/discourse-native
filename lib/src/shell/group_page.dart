@@ -15,6 +15,7 @@ import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'choice_menu.dart';
 import 'command_menu.dart';
+import 'content_reading_lane.dart';
 import 'relative_time.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
@@ -1202,42 +1203,45 @@ class _MembersSectionState extends State<_MembersSection> {
       builder: (context, constraints) {
         final desktop = constraints.maxWidth >= 760;
         final extra = widget.hasMore || widget.loadingMore ? 1 : 0;
-        return ListView.separated(
-          key: const PageStorageKey('group-members-scroll'),
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-          itemCount: page.members.length + extra + (desktop ? 1 : 0),
-          separatorBuilder: (_, _) => desktop
-              ? Divider(height: 1, color: Theme.of(context).shell.divider)
-              : const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            if (desktop && index == 0) return const _MemberTableHeader();
-            final memberIndex = desktop ? index - 1 : index;
-            if (memberIndex == page.members.length) {
-              return _LoadMoreRow(
-                loading: widget.loadingMore,
-                onPressed: widget.onLoadMore,
+        return ContentReadingLane(
+          basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+          builder: (context, lane) => ListView.separated(
+            key: const PageStorageKey('group-members-scroll'),
+            padding: lane.padding,
+            itemCount: page.members.length + extra + (desktop ? 1 : 0),
+            separatorBuilder: (_, _) => desktop
+                ? Divider(height: 1, color: Theme.of(context).shell.divider)
+                : const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              if (desktop && index == 0) return const _MemberTableHeader();
+              final memberIndex = desktop ? index - 1 : index;
+              if (memberIndex == page.members.length) {
+                return _LoadMoreRow(
+                  loading: widget.loadingMore,
+                  onPressed: widget.onLoadMore,
+                );
+              }
+              final member = page.members[memberIndex];
+              final actions = _MemberActions(
+                member: member,
+                group: widget.group,
+                currentUserStaff: widget.currentUserStaff,
+                mutating: widget.mutating,
+                onAction: widget.onMemberAction,
               );
-            }
-            final member = page.members[memberIndex];
-            final actions = _MemberActions(
-              member: member,
-              group: widget.group,
-              currentUserStaff: widget.currentUserStaff,
-              mutating: widget.mutating,
-              onAction: widget.onMemberAction,
-            );
-            return desktop
-                ? _MemberTableRow(
-                    member: member,
-                    onTap: () => widget.onOpenMember(context, member),
-                    actions: actions,
-                  )
-                : _MemberCard(
-                    member: member,
-                    onTap: () => widget.onOpenMember(context, member),
-                    actions: actions,
-                  );
-          },
+              return desktop
+                  ? _MemberTableRow(
+                      member: member,
+                      onTap: () => widget.onOpenMember(context, member),
+                      actions: actions,
+                    )
+                  : _MemberCard(
+                      member: member,
+                      onTap: () => widget.onOpenMember(context, member),
+                      actions: actions,
+                    );
+            },
+          ),
         );
       },
     );
@@ -2167,70 +2171,72 @@ class _ActivityRows extends StatelessWidget {
     if (page!.posts.isEmpty && !loading) {
       return _GroupState(icon: DIcons.comment, title: 'No $kind yet.');
     }
-    return ListView.separated(
-      key: PageStorageKey('group-activity-$kind-scroll'),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
-      itemCount: page!.posts.length + (hasMore || loadingMore ? 1 : 0),
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        if (index == page!.posts.length) {
-          return _LoadMoreRow(loading: loadingMore, onPressed: onLoadMore);
-        }
-        final post = page!.posts[index];
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
-            child: Card(
-              margin: EdgeInsets.zero,
-              child: InkWell(
-                onTap: () => onOpenPost?.call(post),
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        post.topicTitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
+    return ContentReadingLane(
+      basePadding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+      builder: (context, lane) => ListView.separated(
+        key: PageStorageKey('group-activity-$kind-scroll'),
+        padding: lane.padding,
+        itemCount: page!.posts.length + (hasMore || loadingMore ? 1 : 0),
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          if (index == page!.posts.length) {
+            return _LoadMoreRow(loading: loadingMore, onPressed: onLoadMore);
+          }
+          final post = page!.posts[index];
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Card(
+                margin: EdgeInsets.zero,
+                child: InkWell(
+                  onTap: () => onOpenPost?.call(post),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          post.topicTitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        post.plainExcerpt,
-                        maxLines: 4,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 9),
-                      Row(
-                        children: [
-                          if (post.username case final username?)
-                            Expanded(
-                              child: Text(
-                                '@$username',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            )
-                          else
-                            const Spacer(),
-                          Text(
-                            '#${post.postNumber}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          const SizedBox(width: 5),
-                          const DIcon(DIcons.chevronRight, size: 13),
-                        ],
-                      ),
-                    ],
+                        const SizedBox(height: 6),
+                        Text(
+                          post.plainExcerpt,
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 9),
+                        Row(
+                          children: [
+                            if (post.username case final username?)
+                              Expanded(
+                                child: Text(
+                                  '@$username',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              )
+                            else
+                              const Spacer(),
+                            Text(
+                              '#${post.postNumber}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            const SizedBox(width: 5),
+                            const DIcon(DIcons.chevronRight, size: 13),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -2268,78 +2274,84 @@ class _RequestsSection extends StatelessWidget {
         title: 'There are no pending membership requests.',
       );
     }
-    return ListView.separated(
-      key: const PageStorageKey('group-requests-scroll'),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
-      itemCount: page!.requesters.length + (hasMore ? 1 : 0),
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        if (index == page!.requesters.length) {
-          return _LoadMoreRow(loading: loading, onPressed: onLoadMore);
-        }
-        final requester = page!.requesters[index];
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
-            child: Card(
-              margin: EdgeInsets.zero,
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      requester.name?.trim().isNotEmpty == true
-                          ? requester.name!
-                          : requester.username,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
+    return ContentReadingLane(
+      basePadding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+      builder: (context, lane) => ListView.separated(
+        key: const PageStorageKey('group-requests-scroll'),
+        padding: lane.padding,
+        itemCount: page!.requesters.length + (hasMore ? 1 : 0),
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          if (index == page!.requesters.length) {
+            return _LoadMoreRow(loading: loading, onPressed: onLoadMore);
+          }
+          final requester = page!.requesters[index];
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        requester.name?.trim().isNotEmpty == true
+                            ? requester.name!
+                            : requester.username,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    Text('@${requester.username}'),
-                    if (requester.reason case final reason?
-                        when reason.trim().isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(reason),
-                    ],
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        DButton(
-                          key: ValueKey('accept-${requester.username}'),
-                          label: const Text('Accept'),
-                          variant: DButtonVariant.success,
-                          size: DButtonSize.small,
-                          onPressed: mutating || onAction == null
-                              ? null
-                              : () => unawaited(
-                                  onAction!(
-                                    requester,
-                                    GroupRequestAction.accept,
-                                  ),
-                                ),
-                        ),
-                        DButton(
-                          key: ValueKey('deny-${requester.username}'),
-                          label: const Text('Deny'),
-                          variant: DButtonVariant.danger,
-                          size: DButtonSize.small,
-                          onPressed: mutating || onAction == null
-                              ? null
-                              : () => unawaited(
-                                  onAction!(requester, GroupRequestAction.deny),
-                                ),
-                        ),
+                      Text('@${requester.username}'),
+                      if (requester.reason case final reason?
+                          when reason.trim().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(reason),
                       ],
-                    ),
-                  ],
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          DButton(
+                            key: ValueKey('accept-${requester.username}'),
+                            label: const Text('Accept'),
+                            variant: DButtonVariant.success,
+                            size: DButtonSize.small,
+                            onPressed: mutating || onAction == null
+                                ? null
+                                : () => unawaited(
+                                    onAction!(
+                                      requester,
+                                      GroupRequestAction.accept,
+                                    ),
+                                  ),
+                          ),
+                          DButton(
+                            key: ValueKey('deny-${requester.username}'),
+                            label: const Text('Deny'),
+                            variant: DButtonVariant.danger,
+                            size: DButtonSize.small,
+                            onPressed: mutating || onAction == null
+                                ? null
+                                : () => unawaited(
+                                    onAction!(
+                                      requester,
+                                      GroupRequestAction.deny,
+                                    ),
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -2414,34 +2426,37 @@ class _PermissionsSection extends StatelessWidget {
         title: 'This group has no category permissions.',
       );
     }
-    return ListView.separated(
-      key: const PageStorageKey('group-permissions-scroll'),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
-      itemCount: permissions.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final permission = permissions[index];
-        final label = switch (permission.type) {
-          GroupPermissionType.full => 'Create, reply, and see',
-          GroupPermissionType.createPost => 'Reply and see',
-          GroupPermissionType.readOnly => 'See',
-          GroupPermissionType.unknown => 'Custom access',
-        };
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
-            child: ListTile(
-              tileColor: Theme.of(context).colorScheme.surfaceContainerLow,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+    return ContentReadingLane(
+      basePadding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+      builder: (context, lane) => ListView.separated(
+        key: const PageStorageKey('group-permissions-scroll'),
+        padding: lane.padding,
+        itemCount: permissions.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          final permission = permissions[index];
+          final label = switch (permission.type) {
+            GroupPermissionType.full => 'Create, reply, and see',
+            GroupPermissionType.createPost => 'Reply and see',
+            GroupPermissionType.readOnly => 'See',
+            GroupPermissionType.unknown => 'Custom access',
+          };
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: ListTile(
+                tileColor: Theme.of(context).colorScheme.surfaceContainerLow,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                leading: const DIcon(DIcons.lock, size: 17),
+                title: Text(permission.category.name),
+                subtitle: Text(label),
               ),
-              leading: const DIcon(DIcons.lock, size: 17),
-              title: Text(permission.category.name),
-              subtitle: Text(label),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -2760,35 +2775,39 @@ class _GroupManageFormState extends State<_GroupManageForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Form(
-      key: _formKey,
-      child: ListView(
-        key: PageStorageKey('group-manage-${widget.subsection}-scroll'),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
-        children: [
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _manageFields(),
-                  const SizedBox(height: 20),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: DButton(
-                      key: ValueKey('save-group-${widget.subsection}'),
-                      label: const Text('Save changes'),
-                      loading: widget.saving,
-                      variant: DButtonVariant.primary,
-                      onPressed: widget.onSave == null ? null : _save,
+    return ContentReadingLane(
+      basePadding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
+      builder: (context, lane) => Form(
+        key: _formKey,
+        child: ListView(
+          key: PageStorageKey('group-manage-${widget.subsection}-scroll'),
+          padding: lane.padding,
+          children: [
+            Align(
+              alignment: lane.alignment,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _manageFields(),
+                    const SizedBox(height: 20),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: DButton(
+                        key: ValueKey('save-group-${widget.subsection}'),
+                        label: const Text('Save changes'),
+                        loading: widget.saving,
+                        variant: DButtonVariant.primary,
+                        onPressed: widget.onSave == null ? null : _save,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -3160,35 +3179,38 @@ class _GroupLogs extends StatelessWidget {
         title: 'No group changes have been recorded.',
       );
     }
-    return ListView.separated(
-      key: const PageStorageKey('group-logs-scroll'),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
-      itemCount: page!.logs.length + (!page!.allLoaded ? 1 : 0),
-      separatorBuilder: (_, _) => const Divider(height: 1),
-      itemBuilder: (context, index) {
-        if (index == page!.logs.length) {
-          return _LoadMoreRow(loading: loadingMore, onPressed: onLoadMore);
-        }
-        final log = page!.logs[index];
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
-            child: ListTile(
-              leading: const DIcon(DIcons.farClock, size: 17),
-              title: Text(_humanizeLog(log.action)),
-              subtitle: Text(
-                [
-                  if (log.actingUser case final user?) '@${user.username}',
-                  if (log.targetUser case final user?) '→ @${user.username}',
-                  ?log.subject,
-                  if (log.previousValue != null || log.newValue != null)
-                    '${log.previousValue ?? '—'} → ${log.newValue ?? '—'}',
-                ].join('  '),
+    return ContentReadingLane(
+      basePadding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+      builder: (context, lane) => ListView.separated(
+        key: const PageStorageKey('group-logs-scroll'),
+        padding: lane.padding,
+        itemCount: page!.logs.length + (!page!.allLoaded ? 1 : 0),
+        separatorBuilder: (_, _) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          if (index == page!.logs.length) {
+            return _LoadMoreRow(loading: loadingMore, onPressed: onLoadMore);
+          }
+          final log = page!.logs[index];
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: ListTile(
+                leading: const DIcon(DIcons.farClock, size: 17),
+                title: Text(_humanizeLog(log.action)),
+                subtitle: Text(
+                  [
+                    if (log.actingUser case final user?) '@${user.username}',
+                    if (log.targetUser case final user?) '→ @${user.username}',
+                    ?log.subject,
+                    if (log.previousValue != null || log.newValue != null)
+                      '${log.previousValue ?? '—'} → ${log.newValue ?? '—'}',
+                  ].join('  '),
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

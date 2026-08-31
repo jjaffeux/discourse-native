@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'content_reading_lane.dart';
 import 'shell_scope.dart';
 
 class TagsPage extends StatefulWidget {
@@ -61,40 +62,43 @@ class _TagsPageState extends State<TagsPage> {
         return const _TagPageState(icon: DIcons.tag, title: 'No tags yet');
       }
 
-      return RefreshIndicator.adaptive(
-        onRefresh: () =>
-            ShellScope.read(context).loadTags(widget.siteUrl, force: true),
-        child: ListView.separated(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          itemCount:
-              feed.tags.length +
-              (feed.loading ? 1 : 0) +
-              (feed.error == null ? 0 : 1),
-          separatorBuilder: (_, _) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            var tagIndex = index;
-            if (feed.loading) {
-              if (tagIndex == 0) {
-                return const LinearProgressIndicator(minHeight: 2);
+      return ContentReadingLane(
+        basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        builder: (context, lane) => RefreshIndicator.adaptive(
+          onRefresh: () =>
+              ShellScope.read(context).loadTags(widget.siteUrl, force: true),
+          child: ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: lane.padding,
+            itemCount:
+                feed.tags.length +
+                (feed.loading ? 1 : 0) +
+                (feed.error == null ? 0 : 1),
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              var tagIndex = index;
+              if (feed.loading) {
+                if (tagIndex == 0) {
+                  return const LinearProgressIndicator(minHeight: 2);
+                }
+                tagIndex--;
               }
-              tagIndex--;
-            }
-            if (feed.error case final message?) {
-              if (tagIndex == 0) {
-                return _TagErrorBanner(
-                  message: message,
-                  onRetry: () => _request(force: true),
-                );
+              if (feed.error case final message?) {
+                if (tagIndex == 0) {
+                  return _TagErrorBanner(
+                    message: message,
+                    onRetry: () => _request(force: true),
+                  );
+                }
+                tagIndex--;
               }
-              tagIndex--;
-            }
-            final tag = feed.tags[tagIndex];
-            return _TagRow(
-              tag: tag,
-              onTap: () => ShellScope.read(context).openTag(tag),
-            );
-          },
+              final tag = feed.tags[tagIndex];
+              return _TagRow(
+                tag: tag,
+                onTap: () => ShellScope.read(context).openTag(tag),
+              );
+            },
+          ),
         ),
       );
     },

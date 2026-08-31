@@ -56,6 +56,8 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
 
   ShellController? _shell;
   TopicFilterController? _filter;
+  bool _visible = true;
+  bool _visibilityDismissScheduled = false;
 
   TopicFilterController get filter => _filter!;
 
@@ -66,8 +68,11 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   }
 
   void _onFocusChanged() {
-    if (_focus.hasFocus && _filter != null) {
+    if (_filter == null) return;
+    if (_focus.hasFocus) {
       unawaited(filter.openSuggestions());
+    } else {
+      filter.dismiss();
     }
   }
 
@@ -76,6 +81,15 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     super.didChangeDependencies();
     final shell = ShellScope.identityOf(context);
     if (!identical(_shell, shell)) _replaceController(shell);
+    _visible = Visibility.of(context);
+    if (_visible || _visibilityDismissScheduled) return;
+    _visibilityDismissScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _visibilityDismissScheduled = false;
+      if (!mounted || _visible) return;
+      filter.dismiss();
+      _focus.unfocus();
+    });
   }
 
   @override
