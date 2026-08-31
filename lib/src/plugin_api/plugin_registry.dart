@@ -1303,6 +1303,19 @@ final class PluginRegistry
     return null;
   }
 
+  ({bool owned, VoidCallback? action}) contentSearch(
+    BuildContext context,
+    ContentRoute route,
+  ) {
+    for (final plugin in plugins.whereType<ContentSearchPlugin>()) {
+      final pluginContext = _uiContext(context, plugin);
+      if (!plugin.ownsContentSearch(pluginContext, route)) continue;
+      final action = plugin.contentSearchAction(pluginContext, route);
+      return (owned: true, action: action);
+    }
+    return (owned: false, action: null);
+  }
+
   bool ownsContentChrome(BuildContext context, ContentRoute route) =>
       plugins.whereType<ContentChromePlugin>().any(
         (plugin) =>

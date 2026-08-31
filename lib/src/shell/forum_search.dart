@@ -250,10 +250,9 @@ class _ForumSearchState extends State<ForumSearch> {
 
     final theme = Theme.of(context);
     final topicScoped = search.topicId != null;
-    final shortcutKey = topicScoped ? 'F' : 'K';
     final shortcut = defaultTargetPlatform == TargetPlatform.macOS
-        ? '⌘$shortcutKey'
-        : 'Ctrl $shortcutKey';
+        ? '⌘F'
+        : 'Ctrl F';
     final searchLabel = topicScoped ? 'Search this topic' : 'Search this forum';
 
     return LayoutBuilder(

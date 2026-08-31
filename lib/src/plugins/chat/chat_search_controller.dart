@@ -136,6 +136,7 @@ final class ChatSearchController {
   final Map<String, Timer> _scopedTimers = {};
   final Map<String, Object> _globalRequests = {};
   final Map<String, Object> _scopedRequests = {};
+  final Map<String, VoidCallback> _globalFocus = {};
   bool _disposed = false;
 
   static String _scopedKey(String siteUrl, int channelId) =>
@@ -151,6 +152,20 @@ final class ChatSearchController {
 
   GlobalChatSearchState globalState(String siteUrl) =>
       _global[siteUrl] ?? const GlobalChatSearchState();
+
+  VoidCallback registerGlobalFocus(String siteUrl, VoidCallback focus) {
+    if (_disposed) return () {};
+    _globalFocus[siteUrl] = focus;
+    return () {
+      if (identical(_globalFocus[siteUrl], focus)) {
+        _globalFocus.remove(siteUrl);
+      }
+    };
+  }
+
+  void requestGlobalFocus(String siteUrl) {
+    if (!_disposed) _globalFocus[siteUrl]?.call();
+  }
 
   ValueListenable<ScopedChatSearchState> scopedRef(
     String siteUrl,
@@ -598,6 +613,7 @@ final class ChatSearchController {
   void forget(String siteUrl) {
     _cancelGlobal(siteUrl);
     _global.remove(siteUrl);
+    _globalFocus.remove(siteUrl);
     final globalRef = _globalRefs.remove(siteUrl);
     globalRef?.value = const GlobalChatSearchState();
 
@@ -638,5 +654,6 @@ final class ChatSearchController {
     _scopedRefs.clear();
     _global.clear();
     _scoped.clear();
+    _globalFocus.clear();
   }
 }

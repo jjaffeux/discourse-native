@@ -43,6 +43,7 @@ import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
@@ -479,7 +480,7 @@ void main() {
 
         expect(find.byType(ForumSearch), findsNothing);
         await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyK), isFalse);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isFalse);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
         await tester.pump();
         expect(find.byKey(ForumSearch.panelKey), findsNothing);
@@ -489,7 +490,7 @@ void main() {
 
         expect(find.byType(ForumSearch), findsOneWidget);
         await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyK), isTrue);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isTrue);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
         await tester.pump();
         expect(
@@ -899,7 +900,13 @@ void main() {
           .focusNode;
 
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyK), isFalse);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(searchInput.hasFocus, isFalse);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isTrue);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await tester.pump();
       expect(
@@ -977,8 +984,10 @@ void main() {
         );
 
         await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isFalse);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isTrue);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pump();
+        expect(controller.search.topicId, isNull);
 
         controller.pushContent(
           ContentRoute.topic(
@@ -15987,6 +15996,81 @@ void main() {
           find.byKey(const ValueKey('chat-channel-search-field')),
           findsOneWidget,
         );
+      });
+
+      testWidgets('Command F opens and refocuses global Chat search', (
+        tester,
+      ) async {
+        final previous = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await pumpChat(
+            tester,
+            public: [channel(9)],
+            messages: {key(9): page(const [])},
+            config: chatConfig(searchEnabled: true),
+          );
+
+          await tester.tap(sidebarDestination('Bugs'));
+          await tester.pumpAndSettle();
+
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+          expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isTrue);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+          await tester.pumpAndSettle();
+
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          final searchField = tester
+              .widget<EditableText>(
+                find.descendant(
+                  of: find.byKey(const ValueKey('chat-search-field')),
+                  matching: find.byType(EditableText),
+                ),
+              )
+              .focusNode;
+          expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+          expect(searchField.hasFocus, isTrue);
+
+          searchField.unfocus();
+          await tester.pump();
+          expect(searchField.hasFocus, isFalse);
+
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+          expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isTrue);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+          await tester.pump();
+          expect(searchField.hasFocus, isTrue);
+        } finally {
+          debugDefaultTargetPlatformOverride = previous;
+        }
+      });
+
+      testWidgets('Command F stays native when Chat search is unavailable', (
+        tester,
+      ) async {
+        final previous = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await pumpChat(
+            tester,
+            public: [channel(9)],
+            messages: {key(9): page(const [])},
+          );
+
+          await tester.tap(sidebarDestination('Bugs'));
+          await tester.pumpAndSettle();
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+          expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isFalse);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+          await tester.pump();
+
+          expect(find.byKey(const ValueKey('chat-search-field')), findsNothing);
+          expect(find.byKey(ForumSearch.panelKey), findsNothing);
+        } finally {
+          debugDefaultTargetPlatformOverride = previous;
+        }
       });
 
       testWidgets('opens a global search result at its exact message', (
