@@ -16,6 +16,14 @@ void main() {
   Future<ShellController> pumpComposer(
     WidgetTester tester, {
     required TargetPlatform platform,
+    List<TopicCategory> categories = const [
+      TopicCategory(id: 5, name: 'Support', color: '0088CC', permission: 1),
+    ],
+    Map<String, List<TopicCategory>> categorySearches = const {
+      '': [
+        TopicCategory(id: 5, name: 'Support', color: '0088CC', permission: 1),
+      ],
+    },
   }) async {
     final shell = ShellController(
       instanceStore: FakeInstanceStore([
@@ -26,19 +34,8 @@ void main() {
       api: FakeDiscourseApi(
         feeds: const {'/latest.json': <Topic>[]},
         creatableFeedPaths: const {'/latest.json'},
-        categoryList: const [
-          TopicCategory(id: 5, name: 'Support', color: '0088CC', permission: 1),
-        ],
-        categorySearches: const {
-          '': [
-            TopicCategory(
-              id: 5,
-              name: 'Support',
-              color: '0088CC',
-              permission: 1,
-            ),
-          ],
-        },
+        categoryList: categories,
+        categorySearches: categorySearches,
         composerCapabilities: const TopicComposerCapabilities(
           canTagTopics: true,
         ),
@@ -137,6 +134,54 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('topic-category-option-5')));
     await tester.pump();
     expect(shell.visibleComposer!.categoryId, 5);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('the category value and picker include a subcategory parent', (
+    tester,
+  ) async {
+    const parent = TopicCategory(
+      id: 5,
+      name: 'Support',
+      color: '0088CC',
+      permission: 1,
+    );
+    const child = TopicCategory(
+      id: 6,
+      name: 'Bugs',
+      color: 'FF6600',
+      parentCategoryId: 5,
+      permission: 1,
+    );
+    final shell = await pumpComposer(
+      tester,
+      platform: TargetPlatform.macOS,
+      categories: const [parent, child],
+      categorySearches: const {
+        '': [parent, child],
+      },
+    );
+
+    shell.visibleComposer!.setCategory(child.id);
+    await tester.pump();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('composer-category')),
+        matching: find.text('Support > Bugs'),
+      ),
+      findsOneWidget,
+    );
+
+    await open(tester, const ValueKey('composer-category-action'));
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-category-option-6')),
+        matching: find.text('Support > Bugs'),
+      ),
+      findsOneWidget,
+    );
     await tester.pump(const Duration(seconds: 2));
   });
 

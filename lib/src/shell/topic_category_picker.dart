@@ -57,17 +57,8 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
           siteUrl: widget.siteUrl,
           term: term,
         ),
-        labelFor: (category) {
-          final parentId = category.parentCategoryId;
-          if (parentId == null) return category.name;
-          final parent = shell
-              .topicComposerCategories(widget.siteUrl)
-              .where((candidate) => candidate.id == parentId)
-              .firstOrNull;
-          return parent == null
-              ? category.name
-              : '${parent.name} > ${category.name}';
-        },
+        labelFor: (category) =>
+            shell.topicCategoryLabel(category, siteUrl: widget.siteUrl),
       );
       if (!mounted || selected == null || selected == widget.categoryId) return;
 
