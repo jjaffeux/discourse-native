@@ -111,6 +111,52 @@ void main() {
     );
   }
 
+  for (final platform in const [
+    TargetPlatform.macOS,
+    TargetPlatform.linux,
+    TargetPlatform.windows,
+  ]) {
+    testWidgets(
+      '${platform.name} opens and closes tabs with its primary shortcuts',
+      (tester) => _withPlatform(platform, () async {
+        await _pumpShell(tester);
+        final controller = ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        );
+        final originalTabId = controller.activeTabId!;
+        final modifier = platform == TargetPlatform.macOS
+            ? LogicalKeyboardKey.metaLeft
+            : LogicalKeyboardKey.controlLeft;
+
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyT), isFalse);
+        expect(controller.tabsForCurrentForum, hasLength(1));
+
+        expect(
+          await _pressShortcut(tester, modifier, LogicalKeyboardKey.keyT),
+          isTrue,
+        );
+        await tester.pumpAndSettle();
+
+        final openedTabId = controller.activeTabId!;
+        expect(openedTabId, isNot(originalTabId));
+        expect(controller.tabsForCurrentForum, hasLength(2));
+        expect(_bar(tester).selectedId, openedTabId);
+
+        expect(
+          await _pressShortcut(tester, modifier, LogicalKeyboardKey.keyW),
+          isTrue,
+        );
+        await tester.pumpAndSettle();
+
+        expect(controller.tabsForCurrentForum.map((tab) => tab.id), [
+          originalTabId,
+        ]);
+        expect(controller.activeTabId, originalTabId);
+        expect(_bar(tester).selectedId, originalTabId);
+      }),
+    );
+  }
+
   testWidgets(
     'maps current routes and delegates tab lifecycle actions',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
@@ -504,6 +550,17 @@ Future<void> _withPlatform(
   } finally {
     debugDefaultTargetPlatformOverride = previous;
   }
+}
+
+Future<bool> _pressShortcut(
+  WidgetTester tester,
+  LogicalKeyboardKey modifier,
+  LogicalKeyboardKey key,
+) async {
+  await tester.sendKeyDownEvent(modifier);
+  final handled = await tester.sendKeyEvent(key);
+  await tester.sendKeyUpEvent(modifier);
+  return handled;
 }
 
 final class _PathGatedApi extends FakeDiscourseApi {

@@ -139,15 +139,16 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     if (!modifierPressed) return false;
 
     final controller = ShellScope.read(context);
+    final extraModifierPressed =
+        keyboard.isShiftPressed ||
+        keyboard.isAltPressed ||
+        (usesMetaModifier
+            ? keyboard.isControlPressed
+            : keyboard.isMetaPressed);
+    if (extraModifierPressed) return false;
+
     if (event.logicalKey == LogicalKeyboardKey.keyF) {
       if (controller.rootMode != ShellRootMode.forum) return false;
-      final extraModifierPressed =
-          keyboard.isShiftPressed ||
-          keyboard.isAltPressed ||
-          (usesMetaModifier
-              ? keyboard.isControlPressed
-              : keyboard.isMetaPressed);
-      if (extraModifierPressed) return false;
 
       final route = controller.currentContent;
       final pluginSearch = route == null
@@ -165,13 +166,15 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       return true;
     }
 
+    if (event.logicalKey == LogicalKeyboardKey.keyT) {
+      return _openTab(controller);
+    }
+    if (event.logicalKey == LogicalKeyboardKey.keyW) {
+      return _closeCurrentTab(controller);
+    }
+
     final tabIndex = _tabShortcutKeys.indexOf(event.logicalKey);
     if (tabIndex < 0) return false;
-    final extraModifierPressed =
-        keyboard.isShiftPressed ||
-        keyboard.isAltPressed ||
-        (usesMetaModifier ? keyboard.isControlPressed : keyboard.isMetaPressed);
-    if (extraModifierPressed) return false;
 
     if (controller.rootMode == ShellRootMode.aggregate) {
       final tabs = controller.aggregateTabs;
@@ -188,6 +191,36 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     }
 
     controller.selectTab(tabs[tabIndex].id);
+    return true;
+  }
+
+  bool _openTab(ShellController controller) {
+    if (!controller.forumTabsEnabled) return false;
+    switch (controller.rootMode) {
+      case ShellRootMode.aggregate:
+        if (!controller.canCreateAggregateTab) return false;
+        controller.createAggregateTab();
+      case ShellRootMode.forum:
+        if (!controller.canCreateTab) return false;
+        controller.createTab();
+      case ShellRootMode.settings:
+        return false;
+    }
+    return true;
+  }
+
+  bool _closeCurrentTab(ShellController controller) {
+    if (!controller.forumTabsEnabled) return false;
+    switch (controller.rootMode) {
+      case ShellRootMode.aggregate:
+        controller.closeAggregateTab(controller.activeAggregateTabId);
+      case ShellRootMode.forum:
+        final activeTabId = controller.activeTabId;
+        if (activeTabId == null) return false;
+        controller.closeTab(activeTabId);
+      case ShellRootMode.settings:
+        return false;
+    }
     return true;
   }
 
