@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/src/app.dart';
+import 'package:discourse_native/src/app_shortcuts.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
@@ -11,6 +14,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_native_icons.dart';
+import 'package:discourse_native/src/theme/d_tooltip.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,43 +25,85 @@ import 'support/fakes.dart';
 const _compact = Size(390, 844);
 const _medium = Size(1000, 800);
 const _expanded = Size(1440, 900);
-const _tabShortcutKeys = [
-  LogicalKeyboardKey.digit1,
-  LogicalKeyboardKey.digit2,
-  LogicalKeyboardKey.digit3,
-  LogicalKeyboardKey.digit4,
-  LogicalKeyboardKey.digit5,
-  LogicalKeyboardKey.digit6,
-  LogicalKeyboardKey.digit7,
-  LogicalKeyboardKey.digit8,
-  LogicalKeyboardKey.digit9,
-];
 
 void main() {
   testWidgets(
-    'number shortcuts map directly to the first nine ordered tabs',
+    'number shortcuts map Aggregate and the first eight ordered forums',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
-      await _pumpShell(tester);
+      final forums = [
+        for (var index = 1; index <= 8; index++)
+          instance('forum-$index.example', title: 'Forum $index'),
+      ];
+      await _pumpShell(tester, instances: forums);
       final controller = ShellScope.read(
         tester.element(find.byType(MainContent)),
       );
-      for (var index = 1; index < _tabShortcutKeys.length; index++) {
-        controller.createTab();
-      }
+
+      expect(controller.instanceIndex, 0);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      expect(await tester.sendKeyEvent(forumSwitchShortcutKeys.first), isTrue);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
       await tester.pumpAndSettle();
+      expect(controller.rootMode, ShellRootMode.aggregate);
 
-      final tabIds = [for (final tab in controller.tabsForCurrentForum) tab.id];
-      expect(tabIds, hasLength(_tabShortcutKeys.length));
-
-      for (var index = 0; index < _tabShortcutKeys.length; index++) {
+      for (var index = 0; index < forums.length; index++) {
         await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-        expect(await tester.sendKeyEvent(_tabShortcutKeys[index]), isTrue);
+        expect(
+          await tester.sendKeyEvent(forumSwitchShortcutKeys[index + 1]),
+          isTrue,
+        );
         await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
         await tester.pumpAndSettle();
 
-        expect(controller.activeTabId, tabIds[index]);
-        expect(_bar(tester).selectedId, tabIds[index]);
+        expect(controller.rootMode, ShellRootMode.forum);
+        expect(controller.instanceIndex, index);
+        expect(controller.currentInstance?.url, forums[index].url);
       }
+    }),
+  );
+
+  testWidgets(
+    'rail tooltips show the shortcuts for Aggregate and each forum',
+    (tester) => _withPlatform(TargetPlatform.macOS, () async {
+      await _pumpShell(tester, twoForums: true);
+
+      final aggregateButton = find.byKey(
+        const ValueKey('aggregate-rail-button'),
+      );
+      final aggregateTooltip = tester.widget<DTooltip>(
+        find.ancestor(of: aggregateButton, matching: find.byType(DTooltip)),
+      );
+      final aggregateShortcut = aggregateTooltip.shortcut![0];
+      expect(aggregateTooltip.message, 'Aggregate');
+      expect(aggregateShortcut.trigger, LogicalKeyboardKey.digit1);
+      expect(aggregateShortcut.meta, isTrue);
+      expect(aggregateShortcut.control, isFalse);
+
+      final forum = find.byKey(const ValueKey('https://two.example'));
+      final rawTooltip = tester.widget<RawTooltip>(
+        find.descendant(of: forum, matching: find.byType(RawTooltip)),
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(forum));
+      await tester.pump(rawTooltip.hoverDelay);
+      await tester.pumpAndSettle();
+
+      final callout = find.byKey(
+        const ValueKey('instance-rail-callout-https://two.example'),
+      );
+      final shortcut = tester
+          .widget<DShortcutKeycaps>(
+            find.descendant(
+              of: callout,
+              matching: find.byType(DShortcutKeycaps),
+            ),
+          )
+          .shortcut[0];
+      expect(shortcut.trigger, LogicalKeyboardKey.digit3);
+      expect(shortcut.meta, isTrue);
+      expect(shortcut.control, isFalse);
     }),
   );
 
@@ -67,9 +113,9 @@ void main() {
     TargetPlatform.windows,
   ]) {
     testWidgets(
-      '${platform.name} switches to a numbered tab with its primary shortcut',
+      '${platform.name} switches forums only with its primary shortcut',
       (tester) => _withPlatform(platform, () async {
-        await _pumpShell(tester);
+        await _pumpShell(tester, twoForums: true);
         final controller = ShellScope.read(
           tester.element(find.byType(MainContent)),
         );
@@ -77,36 +123,42 @@ void main() {
         controller.createTab();
         await tester.pump();
 
-        final tabIds = [
-          for (final tab in controller.tabsForCurrentForum) tab.id,
-        ];
-        expect(controller.activeTabId, tabIds[2]);
+        final activeTabId = controller.activeTabId;
+        expect(controller.instanceIndex, 0);
 
-        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit2), isFalse);
-        expect(controller.activeTabId, tabIds[2]);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit3), isFalse);
+        expect(controller.instanceIndex, 0);
 
         final modifier = platform == TargetPlatform.macOS
             ? LogicalKeyboardKey.metaLeft
             : LogicalKeyboardKey.controlLeft;
         await tester.sendKeyDownEvent(modifier);
-        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit2), isTrue);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit3), isTrue);
         await tester.sendKeyUpEvent(modifier);
         await tester.pump();
 
-        expect(controller.activeTabId, tabIds[1]);
-        expect(_bar(tester).selectedId, tabIds[1]);
+        expect(controller.instanceIndex, 1);
+        expect(_bar(tester).forumName, 'Two');
 
         await tester.sendKeyDownEvent(modifier);
         expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit4), isFalse);
         await tester.sendKeyUpEvent(modifier);
-        expect(controller.activeTabId, tabIds[1]);
+        expect(controller.instanceIndex, 1);
 
         await tester.sendKeyDownEvent(modifier);
         await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit1), isFalse);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit2), isFalse);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
         await tester.sendKeyUpEvent(modifier);
-        expect(controller.activeTabId, tabIds[1]);
+        expect(controller.instanceIndex, 1);
+
+        await tester.sendKeyDownEvent(modifier);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit2), isTrue);
+        await tester.sendKeyUpEvent(modifier);
+        await tester.pump();
+
+        expect(controller.instanceIndex, 0);
+        expect(controller.activeTabId, activeTabId);
       }),
     );
   }
@@ -507,6 +559,7 @@ Finder _contentTextOutsideTabs(String label) =>
 Future<void> _pumpShell(
   WidgetTester tester, {
   bool twoForums = false,
+  List<DiscourseInstance>? instances,
   Size size = _medium,
   Key? key,
   FakeDiscourseApi? api,
@@ -516,14 +569,16 @@ Future<void> _pumpShell(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
-  final instances = [
-    instance('one.example', title: 'One'),
-    if (twoForums) instance('two.example', title: 'Two'),
-  ];
+  final configuredInstances =
+      instances ??
+      [
+        instance('one.example', title: 'One'),
+        if (twoForums) instance('two.example', title: 'Two'),
+      ];
   await tester.pumpWidget(
     DiscourseApp(
       key: key,
-      store: FakeInstanceStore(instances),
+      store: FakeInstanceStore(configuredInstances),
       api: api ?? FakeDiscourseApi(feeds: const {'/latest.json': []}),
       authenticator: FakeAuthenticator(),
       drafts: FakeDraftStore(),

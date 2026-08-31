@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../app_shortcuts.dart';
 import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
 import '../plugin_api/plugin_scope.dart';
@@ -17,14 +18,6 @@ import 'avatar_image.dart';
 import 'emoji.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
-
-SingleActivator _primaryShortcut(
-  BuildContext context,
-  LogicalKeyboardKey trigger,
-) {
-  final macOS = Theme.of(context).platform == TargetPlatform.macOS;
-  return SingleActivator(trigger, meta: macOS, control: !macOS);
-}
 
 @immutable
 class ForumTabItem {
@@ -437,7 +430,12 @@ class _NewTabButtonState extends State<_NewTabButton> {
           message: label,
           shortcut: widget.onPressed == null
               ? null
-              : DShortcut(_primaryShortcut(context, LogicalKeyboardKey.keyT)),
+              : DShortcut(
+                  primaryShortcutForPlatform(
+                    Theme.of(context).platform,
+                    LogicalKeyboardKey.keyT,
+                  ),
+                ),
           excludeFromSemantics: true,
           child: SizedBox(
             width: ForumTabsBar.minimumActionTarget,
@@ -891,7 +889,10 @@ class _ForumTabState extends State<_ForumTab> {
                     foreground: foreground,
                     shortcut: widget.selected
                         ? DShortcut(
-                            _primaryShortcut(context, LogicalKeyboardKey.keyW),
+                            primaryShortcutForPlatform(
+                              Theme.of(context).platform,
+                              LogicalKeyboardKey.keyW,
+                            ),
                           )
                         : null,
                     onPressed: widget.onClose,
@@ -985,7 +986,10 @@ class _ForumTabActionsState extends State<_ForumTabActions> {
             key: ValueKey('forum-tab-menu-close-${widget.tabId}'),
             leadingIcon: const DIcon(DIcons.xmark, size: 16),
             shortcut: widget.selected
-                ? _primaryShortcut(context, LogicalKeyboardKey.keyW)
+                ? primaryShortcutForPlatform(
+                    Theme.of(context).platform,
+                    LogicalKeyboardKey.keyW,
+                  )
                 : null,
             onPressed: widget.onClose,
             child: const Text('Close tab'),

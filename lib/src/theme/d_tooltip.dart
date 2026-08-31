@@ -117,7 +117,7 @@ class _TooltipSurface extends StatelessWidget {
             children: [
               Text(message),
               if (shortcut case final shortcut?)
-                _ShortcutKeycaps(shortcut: shortcut),
+                DShortcutKeycaps(shortcut: shortcut),
             ],
           ),
         ),
@@ -126,16 +126,16 @@ class _TooltipSurface extends StatelessWidget {
   }
 }
 
-class _ShortcutKeycaps extends StatefulWidget {
-  const _ShortcutKeycaps({required this.shortcut});
+class DShortcutKeycaps extends StatefulWidget {
+  const DShortcutKeycaps({super.key, required this.shortcut});
 
   final DShortcut shortcut;
 
   @override
-  State<_ShortcutKeycaps> createState() => _ShortcutKeycapsState();
+  State<DShortcutKeycaps> createState() => _ShortcutKeycapsState();
 }
 
-class _ShortcutKeycapsState extends State<_ShortcutKeycaps> {
+class _ShortcutKeycapsState extends State<DShortcutKeycaps> {
   int _completedSteps = 0;
 
   @override
@@ -145,7 +145,7 @@ class _ShortcutKeycapsState extends State<_ShortcutKeycaps> {
   }
 
   @override
-  void didUpdateWidget(_ShortcutKeycaps oldWidget) {
+  void didUpdateWidget(DShortcutKeycaps oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.shortcut != widget.shortcut) _completedSteps = 0;
   }

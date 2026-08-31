@@ -71,18 +71,6 @@ class AdaptiveShell extends StatefulWidget {
 }
 
 class _AdaptiveShellState extends State<AdaptiveShell> {
-  static const _tabShortcutKeys = [
-    LogicalKeyboardKey.digit1,
-    LogicalKeyboardKey.digit2,
-    LogicalKeyboardKey.digit3,
-    LogicalKeyboardKey.digit4,
-    LogicalKeyboardKey.digit5,
-    LogicalKeyboardKey.digit6,
-    LogicalKeyboardKey.digit7,
-    LogicalKeyboardKey.digit8,
-    LogicalKeyboardKey.digit9,
-  ];
-
   static const DiagnosticsPanelWidthStore _diagnosticsWidthStore =
       DiagnosticsPanelWidthStore();
   static const SidebarWidthStore _sidebarWidthStore = SidebarWidthStore();
@@ -142,9 +130,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     final extraModifierPressed =
         keyboard.isShiftPressed ||
         keyboard.isAltPressed ||
-        (usesMetaModifier
-            ? keyboard.isControlPressed
-            : keyboard.isMetaPressed);
+        (usesMetaModifier ? keyboard.isControlPressed : keyboard.isMetaPressed);
     if (extraModifierPressed) return false;
 
     if (event.logicalKey == LogicalKeyboardKey.keyF) {
@@ -173,24 +159,20 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       return _closeCurrentTab(controller);
     }
 
-    final tabIndex = _tabShortcutKeys.indexOf(event.logicalKey);
-    if (tabIndex < 0) return false;
+    final shortcutIndex = forumSwitchShortcutKeys.indexOf(event.logicalKey);
+    if (shortcutIndex < 0 || !controller.forumTabsEnabled) return false;
 
-    if (controller.rootMode == ShellRootMode.aggregate) {
-      final tabs = controller.aggregateTabs;
-      if (!controller.forumTabsEnabled || tabIndex >= tabs.length) {
-        return false;
-      }
-      controller.selectAggregateTab(tabs[tabIndex].id);
+    if (shortcutIndex == 0) {
+      if (controller.instances.isEmpty) return false;
+      controller.selectAggregate();
       return true;
     }
-    if (controller.rootMode == ShellRootMode.settings) return false;
-    final tabs = controller.tabsForCurrentForum;
-    if (!controller.forumTabsEnabled || tabIndex >= tabs.length) {
+
+    final forumIndex = shortcutIndex - 1;
+    if (forumIndex >= controller.instances.length) {
       return false;
     }
-
-    controller.selectTab(tabs[tabIndex].id);
+    controller.selectInstance(forumIndex);
     return true;
   }
 
