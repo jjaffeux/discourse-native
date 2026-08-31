@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../theme/d_button.dart';
 import 'composer_galleries.dart';
 import 'composer_images.dart';
 import 'image_decode.dart';
@@ -149,7 +150,7 @@ class ComposerImageGalleryControl extends StatelessWidget {
   final int imageCount;
   final VoidCallback? onEdit;
 
-  static const double extent = 44;
+  static const double extent = DButton.minimumDimension;
 
   @override
   Widget build(BuildContext context) {
@@ -157,25 +158,13 @@ class ComposerImageGalleryControl extends StatelessWidget {
 
     return MergeSemantics(
       child: Semantics(
-        label: 'Gallery options',
         hint: '$count. Add or remove images.',
-        child: Tooltip(
-          message: 'Gallery options',
-          excludeFromSemantics: true,
-          child: IconButton(
-            onPressed: onEdit,
-            constraints: const BoxConstraints.tightFor(
-              width: extent,
-              height: extent,
-            ),
-            style: IconButton.styleFrom(
-              fixedSize: const Size.square(extent),
-              minimumSize: const Size.square(extent),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            padding: EdgeInsets.zero,
-            icon: const Icon(Icons.tune, size: 20),
-          ),
+        child: DButton.iconOnly(
+          onPressed: onEdit,
+          tooltip: 'Gallery options',
+          semanticLabel: 'Gallery options',
+          variant: DButtonVariant.flat,
+          icon: const Icon(Icons.tune),
         ),
       ),
     );
