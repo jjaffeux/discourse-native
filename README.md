@@ -688,6 +688,14 @@ posts. In both cases paging is by id (`/t/{id}/posts.json?post_ids[]=…`) rathe
 than by page number. Fetched posts are merged in post-number order, not append
 order.
 
+`TopicView` owns render objects, post measurement, and composition. Its
+`TopicViewportCoordinator` is a separate lifecycle-owned `Listenable` for the
+reader state machine: it replaces and disposes scroll/list controllers with
+topic identity, rejects paging callbacks from retired generations, preserves a
+prepend anchor, and pauses or credits read dwell with the app lifecycle. The
+same coordinator publishes floating-day and progress state, so those changes
+do not become shell-wide notifications.
+
 The floating topic-progress control follows core's stream-index semantics: its
 current and total values count visible stream entries, and its expandable
 slider can jump to any one of them. A stream index is not assumed to be a post
