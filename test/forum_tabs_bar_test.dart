@@ -7,8 +7,10 @@ import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/theme/d_tooltip.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -181,8 +183,41 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('forum-tabs-add')));
       expect(addCount, 1);
-      expect(find.byTooltip('Open a new tab'), findsOneWidget);
-      expect(find.byTooltip('Close A long-running topic'), findsOneWidget);
+
+      final platform = Theme.of(
+        tester.element(find.byKey(const ValueKey('forum-tabs-bar'))),
+      ).platform;
+      final addTooltip = tester.widget<DTooltip>(
+        find.descendant(
+          of: find.byKey(const ValueKey('forum-tabs-add')),
+          matching: find.byType(DTooltip),
+        ),
+      );
+      final selectedCloseTooltip = tester.widget<DTooltip>(
+        find.descendant(
+          of: find.byKey(const ValueKey('forum-tab-close-topic-1')),
+          matching: find.byType(DTooltip),
+        ),
+      );
+      final inactiveCloseTooltip = tester.widget<DTooltip>(
+        find.descendant(
+          of: find.byKey(const ValueKey('forum-tab-close-chat-2')),
+          matching: find.byType(DTooltip),
+        ),
+      );
+      expect(addTooltip.message, 'Open a new tab');
+      expect(selectedCloseTooltip.message, 'Close A long-running topic');
+      _expectPrimaryShortcut(
+        addTooltip.shortcut![0],
+        platform,
+        LogicalKeyboardKey.keyT,
+      );
+      _expectPrimaryShortcut(
+        selectedCloseTooltip.shortcut![0],
+        platform,
+        LogicalKeyboardKey.keyW,
+      );
+      expect(inactiveCloseTooltip.shortcut, isNull);
     });
 
     testWidgets('delegate horizontal drag-and-drop reordering by ID', (
@@ -315,6 +350,14 @@ void main() {
         expect(find.text('Close tab'), findsOneWidget);
         expect(find.text('Close other tabs'), findsOneWidget);
         expect(selected, isEmpty);
+        expect(
+          tester
+              .widget<MenuItemButton>(
+                find.byKey(const ValueKey('forum-tab-menu-close-chat-2')),
+              )
+              .shortcut,
+          isNull,
+        );
 
         await tester.tap(
           find.byKey(const ValueKey('forum-tab-menu-close-others-chat-2')),
@@ -351,6 +394,14 @@ void main() {
 
       final closeOthers = tester.widget<MenuItemButton>(
         find.byKey(const ValueKey('forum-tab-menu-close-others-topic-1')),
+      );
+      final close = tester.widget<MenuItemButton>(
+        find.byKey(const ValueKey('forum-tab-menu-close-topic-1')),
+      );
+      _expectPrimaryShortcut(
+        close.shortcut,
+        Theme.of(tester.element(find.byType(ForumTabsBar))).platform,
+        LogicalKeyboardKey.keyW,
       );
       expect(closeOthers.onPressed, isNull);
     });
@@ -693,6 +744,14 @@ void main() {
       expect(data.flagsCollection.isButton, isTrue);
       expect(data.flagsCollection.isEnabled, Tristate.isFalse);
       expect(data.hasAction(SemanticsAction.tap), isFalse);
+      expect(
+        tester
+            .widget<DTooltip>(
+              find.descendant(of: target, matching: find.byType(DTooltip)),
+            )
+            .shortcut,
+        isNull,
+      );
       semantics.dispose();
     });
   });
@@ -713,6 +772,20 @@ ScrollableState _scrollable(WidgetTester tester) =>
         matching: find.byType(Scrollable),
       ),
     );
+
+void _expectPrimaryShortcut(
+  Object? shortcut,
+  TargetPlatform platform,
+  LogicalKeyboardKey trigger,
+) {
+  expect(shortcut, isA<SingleActivator>());
+  final activator = shortcut! as SingleActivator;
+  expect(activator.trigger, trigger);
+  expect(activator.meta, platform == TargetPlatform.macOS);
+  expect(activator.control, platform != TargetPlatform.macOS);
+  expect(activator.alt, isFalse);
+  expect(activator.shift, isFalse);
+}
 
 Future<void> _pumpBar(
   WidgetTester tester, {

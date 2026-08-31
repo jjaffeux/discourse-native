@@ -12,10 +12,19 @@ import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_tooltip.dart';
 import 'avatar_image.dart';
 import 'emoji.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
+
+SingleActivator _primaryShortcut(
+  BuildContext context,
+  LogicalKeyboardKey trigger,
+) {
+  final macOS = Theme.of(context).platform == TargetPlatform.macOS;
+  return SingleActivator(trigger, meta: macOS, control: !macOS);
+}
 
 @immutable
 class ForumTabItem {
@@ -424,8 +433,11 @@ class _NewTabButtonState extends State<_NewTabButton> {
       label: label,
       onTap: widget.onPressed,
       child: ExcludeSemantics(
-        child: Tooltip(
+        child: DTooltip(
           message: label,
+          shortcut: widget.onPressed == null
+              ? null
+              : DShortcut(_primaryShortcut(context, LogicalKeyboardKey.keyT)),
           excludeFromSemantics: true,
           child: SizedBox(
             width: ForumTabsBar.minimumActionTarget,
@@ -877,6 +889,11 @@ class _ForumTabState extends State<_ForumTab> {
                     tabId: widget.item.id,
                     label: closeLabel,
                     foreground: foreground,
+                    shortcut: widget.selected
+                        ? DShortcut(
+                            _primaryShortcut(context, LogicalKeyboardKey.keyW),
+                          )
+                        : null,
                     onPressed: widget.onClose,
                   ),
                 ],
@@ -967,6 +984,9 @@ class _ForumTabActionsState extends State<_ForumTabActions> {
           MenuItemButton(
             key: ValueKey('forum-tab-menu-close-${widget.tabId}'),
             leadingIcon: const DIcon(DIcons.xmark, size: 16),
+            shortcut: widget.selected
+                ? _primaryShortcut(context, LogicalKeyboardKey.keyW)
+                : null,
             onPressed: widget.onClose,
             child: const Text('Close tab'),
           ),
@@ -1004,12 +1024,14 @@ class _ForumTabCloseButton extends StatefulWidget {
     required this.tabId,
     required this.label,
     required this.foreground,
+    required this.shortcut,
     required this.onPressed,
   });
 
   final String tabId;
   final String label;
   final Color foreground;
+  final DShortcut? shortcut;
   final VoidCallback onPressed;
 
   @override
@@ -1038,8 +1060,9 @@ class _ForumTabCloseButtonState extends State<_ForumTabCloseButton> {
       label: widget.label,
       onTap: widget.onPressed,
       child: ExcludeSemantics(
-        child: Tooltip(
+        child: DTooltip(
           message: widget.label,
+          shortcut: widget.shortcut,
           excludeFromSemantics: true,
           child: SizedBox(
             width: ForumTabsBar.minimumActionTarget,
