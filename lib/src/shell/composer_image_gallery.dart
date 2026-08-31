@@ -47,39 +47,27 @@ class ComposerImageGalleryPreview extends StatelessWidget {
   final ValueChanged<ComposerImageBlock>? onReorderStarted;
   final ValueChanged<ComposerImageBlock>? onReorderEnded;
 
-  static const double tileExtent = 56;
+  static const double tileExtent = 80;
   static const double gap = 6;
   static const double inset = 8;
   static const double verticalMargin = 4;
-  static const int maxColumns = 3;
 
-  static int columnCount(int itemCount) =>
-      itemCount <= 0 ? 1 : math.min(itemCount, maxColumns);
-
-  static Size _tileAreaSize(int itemCount) {
-    if (itemCount == 0) return Size.zero;
-    final columns = columnCount(itemCount);
-    final rows = (itemCount / columns).ceil();
-    return Size(
-      tileExtent * columns + gap * (columns - 1),
-      tileExtent * rows + gap * (rows - 1),
-    );
-  }
+  static double _tileStripWidth(int itemCount) =>
+      itemCount == 0 ? 0 : tileExtent * itemCount + gap * (itemCount - 1);
 
   static double displayHeight(int itemCount) {
-    final tiles = _tileAreaSize(itemCount);
-    final tileSpacing = itemCount == 0 ? 0 : gap;
     return verticalMargin * 2 +
         inset * 2 +
-        tiles.height +
-        tileSpacing +
-        ComposerImageGalleryControl.extent;
+        math.max(
+          itemCount == 0 ? 0 : tileExtent,
+          ComposerImageGalleryControl.extent,
+        );
   }
 
   @override
   Widget build(BuildContext context) {
     final height = displayHeight(items.length);
-    final tileArea = _tileAreaSize(items.length);
+    final tileStripWidth = _tileStripWidth(items.length);
     final scheme = Theme.of(context).colorScheme;
 
     return SizedBox(
@@ -106,30 +94,35 @@ class ComposerImageGalleryPreview extends StatelessWidget {
                 color: scheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   if (items.isNotEmpty) ...[
-                    SizedBox(
-                      width: tileArea.width,
-                      height: tileArea.height,
-                      child: Wrap(
-                        spacing: gap,
-                        runSpacing: gap,
-                        children: [
-                          for (final (index, item) in items.indexed)
-                            _ReorderableGalleryTile(
-                              item: item,
-                              index: index,
-                              siteUrl: siteUrl,
-                              onReorder: onReorder,
-                              onReorderStarted: onReorderStarted,
-                              onReorderEnded: onReorderEnded,
-                            ),
-                        ],
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: tileStripWidth,
+                          height: tileExtent,
+                          child: Row(
+                            children: [
+                              for (final (index, item) in items.indexed) ...[
+                                if (index > 0) const SizedBox(width: gap),
+                                _ReorderableGalleryTile(
+                                  item: item,
+                                  index: index,
+                                  siteUrl: siteUrl,
+                                  onReorder: onReorder,
+                                  onReorderStarted: onReorderStarted,
+                                  onReorderEnded: onReorderEnded,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: gap),
+                    const SizedBox(width: gap),
                   ],
                   ComposerImageGalleryControl(
                     key: const ValueKey('composer-gallery-control'),
@@ -156,7 +149,7 @@ class ComposerImageGalleryControl extends StatelessWidget {
   final int imageCount;
   final VoidCallback? onEdit;
 
-  static const double extent = 40;
+  static const double extent = 44;
 
   @override
   Widget build(BuildContext context) {
@@ -164,15 +157,25 @@ class ComposerImageGalleryControl extends StatelessWidget {
 
     return MergeSemantics(
       child: Semantics(
+        label: 'Gallery options',
         hint: '$count. Add or remove images.',
-        child: TextButton(
-          onPressed: onEdit,
-          style: TextButton.styleFrom(
-            minimumSize: const Size(0, extent),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        child: Tooltip(
+          message: 'Gallery options',
+          excludeFromSemantics: true,
+          child: IconButton(
+            onPressed: onEdit,
+            constraints: const BoxConstraints.tightFor(
+              width: extent,
+              height: extent,
+            ),
+            style: IconButton.styleFrom(
+              fixedSize: const Size.square(extent),
+              minimumSize: const Size.square(extent),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            padding: EdgeInsets.zero,
+            icon: const Icon(Icons.tune, size: 20),
           ),
-          child: const Text('Gallery options'),
         ),
       ),
     );

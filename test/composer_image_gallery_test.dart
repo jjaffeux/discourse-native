@@ -25,9 +25,7 @@ const _source =
 
 void main() {
   group('gallery preview layout', () {
-    testWidgets('fills the available width with square tiles above options', (
-      tester,
-    ) async {
+    testWidgets('uses large square tiles beside options', (tester) async {
       final gallery = parseComposerImageGalleries(_source).single;
       final keys = [for (var i = 0; i < 3; i++) GlobalKey()];
 
@@ -55,7 +53,9 @@ void main() {
       expect(find.byType(ComposerImageGalleryControl), findsOneWidget);
 
       for (final tile in find.byType(ComposerImageGalleryTile).evaluate()) {
-        expect(tester.getSize(find.byWidget(tile.widget)).aspectRatio, 1);
+        final size = tester.getSize(find.byWidget(tile.widget));
+        expect(size.aspectRatio, 1);
+        expect(size.shortestSide, greaterThanOrEqualTo(80));
       }
 
       final galleryRect = tester.getRect(
@@ -72,7 +72,7 @@ void main() {
         expect(galleryRect.contains(tileRect.topLeft), isTrue);
         expect(galleryRect.contains(tileRect.bottomRight), isTrue);
         expect(tileRect.overlaps(controlRect), isFalse);
-        expect(controlRect.top, greaterThan(tileRect.bottom));
+        expect(tileRect.center.dy, controlRect.center.dy);
       }
     });
 
@@ -139,7 +139,7 @@ void main() {
         280,
       );
       expect(find.byType(ComposerImageGalleryTile), findsNWidgets(3));
-      expect(find.text('Gallery options'), findsOneWidget);
+      expect(find.byTooltip('Gallery options'), findsOneWidget);
       expect(
         tester.getSize(find.byType(ComposerImageGalleryControl)).height,
         ComposerImageGalleryControl.extent,
@@ -502,7 +502,7 @@ void main() {
       expect(find.byType(ComposerImageGalleryPreview), findsOneWidget);
       expect(find.byType(ComposerImageGalleryTile), findsNothing);
       expect(find.byType(ComposerImageGalleryControl), findsOneWidget);
-      expect(find.text('Gallery options'), findsOneWidget);
+      expect(find.byTooltip('Gallery options'), findsOneWidget);
       expect(
         tester.getSize(find.byType(ComposerImageGalleryControl)).height,
         ComposerImageGalleryControl.extent,
