@@ -1,6 +1,3 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
 import '../diagnostics/diagnostics_redactor.dart';
@@ -40,7 +37,6 @@ import 'discourse_api_contracts.dart';
 import 'discourse_transport.dart';
 import 'http_transport.dart';
 import 'json_decode.dart';
-import 'site_appearance_loader.dart';
 
 export 'discourse_api_contracts.dart';
 export 'plugin_transport.dart';
@@ -49,15 +45,23 @@ export 'shell_api_ports.dart';
 class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
   DiscourseApi({
     http.Client? client,
+    DiscourseTransport? transport,
     this.models = const DiscourseModelCodec.core(),
     this.timeout = const Duration(seconds: 10),
     int maxResponseBytes = 16 * 1024 * 1024,
   }) : assert(timeout > Duration.zero),
        assert(maxResponseBytes > 0),
-       _maxResponseBytes = maxResponseBytes,
-       _client = client == null
-           ? SafeHttpClient.create()
-           : SafeHttpClient.owned(client);
+       assert(
+         client == null || transport == null,
+         'Provide either client or transport, not both.',
+       ),
+       _transport =
+           transport ??
+           DiscourseTransport.create(
+             client: client,
+             timeout: timeout,
+             maxResponseBytes: maxResponseBytes,
+           );
 
   static const int minimumApiVersion = 2;
   static const int maximumSearchTermLength = maximumDiscourseSearchTermLength;
@@ -68,30 +72,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
   static const int maximumUserMenuBookmarkRows = 20;
   static const int maximumUserActivityPageSize = UserActivityPage.maximumItems;
   static const int maximumUserDraftPageSize = 30;
-  static const int _maxRedirects = 5;
-
-  final SafeHttpClient _client;
   @override
   final DiscourseModelCodec models;
   @override
   final Duration timeout;
 
-  final int _maxResponseBytes;
-
-  late final DiscourseTransport _transport = DiscourseTransport(
-    _client,
-    timeout,
-    _maxResponseBytes,
-  );
-
-  late final SiteAppearanceLoader _siteAppearanceLoader = SiteAppearanceLoader(
-    client: _client,
-    coordinator: _transport.coordinator,
-    timeout: timeout,
-    maxResponseBytes: _maxResponseBytes < 2 * 1024 * 1024
-        ? _maxResponseBytes
-        : 2 * 1024 * 1024,
-  );
+  final DiscourseTransport _transport;
 
   static const int maximumForumAddressLength = 2048;
 
@@ -145,9 +131,9 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
   Future<DiscourseInstance> lookup(String term) async {
     final probe = normalize(term).resolve('/user-api-key/new');
 
-    final _HeadResult head;
+    final DiscourseHeadResponse head;
     try {
-      head = await _head(probe);
+      head = await _transport.head(probe);
     } on SiteLookupException {
       rethrow;
     } catch (error, stackTrace) {
@@ -193,8 +179,9 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
 
     final Map<String, dynamic> info;
     try {
-      final response = await _send(
-        http.Request('GET', Uri.parse('$baseUrl/site/basic-info.json')),
+      final response = await _transport.request(
+        'GET',
+        Uri.parse('$baseUrl/site/basic-info.json'),
       );
       if (response.statusCode != 200) {
         throw SiteLookupException(
@@ -225,32 +212,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
       apiVersion: apiVersion,
       loginRequired: info['login_required'] == true,
     );
-  }
-
-  Future<_HeadResult> _head(Uri url) async {
-    var current = url;
-
-    for (var hop = 0; hop <= _maxRedirects; hop++) {
-      final request = http.Request('HEAD', current);
-      final response = await _send(request);
-
-      final location = response.headers['location'];
-      final isRedirect = const {
-        301,
-        302,
-        303,
-        307,
-        308,
-      }.contains(response.statusCode);
-
-      if (!isRedirect || location == null) {
-        return _HeadResult(current, response.statusCode, response.headers);
-      }
-
-      current = resolveSafeHttpRedirect(current, location);
-    }
-
-    throw SiteLookupException(SiteLookupFailure.unreachable, url.toString());
   }
 
   @override
@@ -415,7 +376,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     String? username,
     String? apiKey,
     String? clientId,
-  }) => _siteAppearanceLoader.load(
+  }) => _transport.siteAppearance(
     siteUrl: siteUrl,
     username: username,
     apiKey: apiKey,
@@ -2670,39 +2631,20 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
       throw ComposerUploadException("Couldn't read ${file.name}.");
     }
 
-    var sent = 0;
-    final timeoutAbort = Completer<void>();
-    final timer = Timer(const Duration(minutes: 5), timeoutAbort.complete);
-    final request =
-        http.AbortableMultipartRequest(
-            'POST',
-            Uri.parse('$siteUrl/uploads.json'),
-            abortTrigger: Future.any<void>([abortTrigger, timeoutAbort.future]),
-          )
-          ..fields['upload_type'] = uploadType.wireName
-          ..files.add(
-            http.MultipartFile(
-              'file',
-              file.openRead().map((chunk) {
-                sent += chunk.length;
-                onProgress(
-                  fileLength == 0 ? 0 : (sent / fileLength).clamp(0, 1),
-                );
-                return chunk;
-              }),
-              fileLength,
-              filename: file.name,
-            ),
-          );
-
+    final fileBytes = file.openRead();
     final http.Response response;
     try {
-      response = await _transport.sendAuthenticated(
-        request,
+      response = await _transport.upload(
+        url: Uri.parse('$siteUrl/uploads.json'),
         siteUrl: siteUrl,
         apiKey: apiKey,
+        uploadType: uploadType.wireName,
+        filename: file.name,
+        fileLength: fileLength,
+        fileBytes: fileBytes,
+        onProgress: onProgress,
+        abortTrigger: abortTrigger,
         clientId: clientId,
-        requestTimeout: const Duration(minutes: 5),
       );
     } catch (error) {
       throw ComposerUploadException(
@@ -2710,8 +2652,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
             ? 'Upload cancelled.'
             : "Couldn't upload ${file.name}.",
       );
-    } finally {
-      timer.cancel();
     }
 
     final decoded = DiscourseTransport.decodeObjectOrEmpty(response.body);
@@ -2763,15 +2703,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
   }) async {
     final requested = shortUrls.toSet();
     if (requested.isEmpty) return const {};
-    final request = http.Request(
+    final response = await _transport.requestAuthenticated(
       'POST',
       Uri.parse('$siteUrl/uploads/lookup-urls'),
-    )..body = jsonEncode({'short_urls': requested.toList()});
-    final response = await _transport.sendAuthenticated(
-      request,
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
+      jsonBody: {'short_urls': requested.toList()},
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ComposerUploadException(
@@ -3087,12 +3025,9 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     String? clientId,
   }) async {
-    final request = http.Request(
+    final response = await _transport.requestAuthenticated(
       'POST',
       Uri.parse('$siteUrl/user-api-key/revoke'),
-    );
-    final response = await _transport.sendAuthenticated(
-      request,
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
@@ -3112,9 +3047,6 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     }
   }
 
-  Future<http.Response> _send(http.BaseRequest request) =>
-      _transport.send(request);
-
   static const String userAgent = DiscourseTransport.userAgent;
 
   static Map<String, String> authHeaders(String apiKey, {String? clientId}) =>
@@ -3131,10 +3063,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
   }
 
   @override
-  void close() {
-    _transport.close();
-    _client.close();
-  }
+  void close() => _transport.close();
 }
 
 Iterable<Map<String, dynamic>> _flattenCategories(Object? categories) sync* {
@@ -3162,11 +3091,3 @@ Iterable<Map<String, dynamic>> _flattenCategories(Object? categories) sync* {
 List<SidebarTag> _navigationTags(Object? values) => List.unmodifiable([
   for (final json in jsonObjects(values)) ?SidebarTag.fromJson(json),
 ]);
-
-class _HeadResult {
-  const _HeadResult(this.url, this.statusCode, this.headers);
-
-  final Uri url;
-  final int statusCode;
-  final Map<String, String> headers;
-}
