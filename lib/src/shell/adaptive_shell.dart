@@ -1214,6 +1214,15 @@ class _WideShell extends StatelessWidget {
                                     child: const InstanceSidebar(),
                                   ),
                                 ),
+                                SizedBox(
+                                  key: const ValueKey(
+                                    'sidebar-content-divider',
+                                  ),
+                                  width: 1,
+                                  child: ColoredBox(
+                                    color: Theme.of(context).shell.divider,
+                                  ),
+                                ),
                                 Expanded(child: MainContent(layout: layout)),
                               ],
                             ),

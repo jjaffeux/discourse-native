@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -12,7 +13,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 
-const _totals = NotificationTotals(topicTrackingNew: 9, topicTrackingUnread: 5);
+const _totals = NotificationTotals(
+  topicTrackingNew: 1054,
+  topicTrackingUnread: 5,
+);
 
 const _user = DiscourseUser(id: 7, username: 'sam', unifiedNewEnabled: true);
 
@@ -27,6 +31,14 @@ const _allNewTopic = Topic(
 const _newTopic = Topic(id: 3, title: 'New topic only', slug: 'new-topic-only');
 
 const _newReply = Topic(id: 4, title: 'New reply only', slug: 'new-reply-only');
+
+const _unreadTopic = Topic(id: 5, title: 'Unread topic', slug: 'unread-topic');
+
+const _topYearTopic = Topic(id: 6, title: 'Top this year', slug: 'top-year');
+
+const _topWeekTopic = Topic(id: 7, title: 'Top this week', slug: 'top-week');
+
+const _popularTopic = Topic(id: 8, title: 'Popular topic', slug: 'popular');
 
 void main() {
   test('keeps New out of the connected sidebar', () {
@@ -53,6 +65,26 @@ void main() {
         id: 'new-replies',
         path: '/new.json?subset=replies',
       ),
+      TopicListMode.unread: (id: 'unread', path: '/unread.json'),
+      TopicListMode.topAll: (id: 'top-all', path: '/top.json?period=all'),
+      TopicListMode.topYearly: (
+        id: 'top-yearly',
+        path: '/top.json?period=yearly',
+      ),
+      TopicListMode.topQuarterly: (
+        id: 'top-quarterly',
+        path: '/top.json?period=quarterly',
+      ),
+      TopicListMode.topMonthly: (
+        id: 'top-monthly',
+        path: '/top.json?period=monthly',
+      ),
+      TopicListMode.topWeekly: (
+        id: 'top-weekly',
+        path: '/top.json?period=weekly',
+      ),
+      TopicListMode.topDaily: (id: 'top-daily', path: '/top.json?period=daily'),
+      TopicListMode.popular: (id: 'hot', path: '/hot.json'),
     };
 
     for (final entry in expectations.entries) {
@@ -67,7 +99,7 @@ void main() {
     }
   });
 
-  testWidgets('switches Latest and unified New lists inside Topics', (
+  testWidgets('switches every web discovery list inside Topics', (
     tester,
   ) async {
     final setup = await _controller();
@@ -92,10 +124,29 @@ void main() {
 
     expect(find.byKey(const ValueKey('topic-list-navigation')), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-latest')), findsOneWidget);
-    expect(find.text('New (14)'), findsOneWidget);
+    expect(find.text('New (1059)'), findsOneWidget);
+    expect(find.text('Unread (5)'), findsOneWidget);
+    expect(find.text('Top'), findsOneWidget);
+    expect(find.text('Popular'), findsOneWidget);
     expect(find.text('Latest topic'), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-new-all')), findsNothing);
-    expect(controller.sidebarBadgeFor('latest').count, 14);
+    expect(controller.sidebarBadgeFor('latest').count, 1059);
+
+    final latestText = _tabText(tester, 'topic-list-latest');
+    final newText = _tabText(tester, 'topic-list-new');
+    expect(latestText.style?.fontSize, newText.style?.fontSize);
+    expect(latestText.style?.fontWeight, newText.style?.fontWeight);
+    expect(latestText.overflow, TextOverflow.visible);
+    expect(newText.overflow, TextOverflow.visible);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('topic-list-unread')));
+    await tester.tap(find.byKey(const ValueKey('topic-list-unread')));
+    await tester.pumpAndSettle();
+
+    expect(controller.currentTopicListMode, TopicListMode.unread);
+    expect(find.text('Unread topic'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('topic-list-new')));
 
     await tester.tap(find.byKey(const ValueKey('topic-list-new')));
     await tester.pumpAndSettle();
@@ -103,10 +154,24 @@ void main() {
     expect(controller.currentTopicListMode, TopicListMode.newActivity);
     expect(controller.activeTab?.rootDestinationId, 'latest');
     expect(controller.contentStack, hasLength(1));
-    expect(find.text('All (14)'), findsOneWidget);
-    expect(find.text('Topics (9)'), findsOneWidget);
+    expect(find.text('All (1059)'), findsOneWidget);
+    expect(find.text('Topics (1054)'), findsOneWidget);
     expect(find.text('Replies (5)'), findsOneWidget);
     expect(find.text('All new activity'), findsOneWidget);
+
+    final allText = _tabText(tester, 'topic-list-new-all');
+    final topicsText = _tabText(tester, 'topic-list-new-topics');
+    final repliesText = _tabText(tester, 'topic-list-new-replies');
+    expect(allText.style?.fontWeight, FontWeight.w400);
+    expect(topicsText.style?.fontWeight, allText.style?.fontWeight);
+    expect(repliesText.style?.fontWeight, allText.style?.fontWeight);
+    expect(
+      allText.style?.fontSize,
+      lessThan(_tabText(tester, 'topic-list-new').style!.fontSize!),
+    );
+    expect(allText.overflow, TextOverflow.visible);
+    expect(topicsText.overflow, TextOverflow.visible);
+    expect(repliesText.overflow, TextOverflow.visible);
 
     await tester.tap(find.byKey(const ValueKey('topic-list-new-topics')));
     await tester.pumpAndSettle();
@@ -119,13 +184,43 @@ void main() {
 
     expect(controller.currentTopicListMode, TopicListMode.newReplies);
     expect(find.text('New reply only'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('topic-list-top')));
+    await tester.tap(find.byKey(const ValueKey('topic-list-top')));
+    await tester.pumpAndSettle();
+
+    expect(controller.currentTopicListMode, TopicListMode.topYearly);
+    expect(find.text('Top this year'), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-list-top-period')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('topic-list-top-period')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Week'));
+    await tester.pumpAndSettle();
+
+    expect(controller.currentTopicListMode, TopicListMode.topWeekly);
+    expect(find.text('Top this week'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('topic-list-popular')),
+    );
+    await tester.tap(find.byKey(const ValueKey('topic-list-popular')));
+    await tester.pumpAndSettle();
+
+    expect(controller.currentTopicListMode, TopicListMode.popular);
+    expect(find.text('Popular topic'), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-list-top-period')), findsNothing);
     expect(
       api.feedPaths,
       containsAllInOrder(const [
         '/latest.json',
+        '/unread.json',
         '/new.json',
         '/new.json?subset=topics',
         '/new.json?subset=replies',
+        '/top.json?period=yearly',
+        '/top.json?period=weekly',
+        '/hot.json',
       ]),
     );
     expect(tester.takeException(), isNull);
@@ -137,13 +232,44 @@ void main() {
     expect(find.byKey(const ValueKey('topic-list-new-all')), findsNothing);
   });
 
+  testWidgets('wide shell divides the sidebar from main content', (
+    tester,
+  ) async {
+    final setup = await _controller();
+    final controller = setup.controller;
+    addTearDown(controller.dispose);
+
+    tester.view.physicalSize = const Size(900, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(theme: AppTheme.dark, home: const AdaptiveShell()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final divider = find.byKey(const ValueKey('sidebar-content-divider'));
+    expect(divider, findsOneWidget);
+    expect(tester.getSize(divider).width, 1);
+    final dividerColor = tester
+        .widget<ColoredBox>(
+          find.descendant(of: divider, matching: find.byType(ColoredBox)),
+        )
+        .color;
+    expect(dividerColor, Theme.of(tester.element(divider)).shell.divider);
+    expect(tester.takeException(), isNull);
+  });
+
   test('legacy New has no reply subset and counts only new topics', () async {
     const user = DiscourseUser(id: 8, username: 'lee');
     final setup = await _controller(user: user);
     final controller = setup.controller;
     addTearDown(controller.dispose);
 
-    expect(controller.newActivityCount, 9);
+    expect(controller.newActivityCount, 1054);
     expect(controller.sidebarBadgeFor('latest').count, 5);
 
     await controller.selectTopicListMode(TopicListMode.newReplies);
@@ -156,15 +282,29 @@ void main() {
     expect(controller.currentTopicListMode, TopicListMode.newActivity);
     expect(setup.api.feedPaths, contains('/new.json'));
   });
+
+  test('uses the forum-configured default period when entering Top', () async {
+    final setup = await _controller(
+      config: const SiteConfig(topPageDefaultPeriod: 'monthly'),
+    );
+    addTearDown(setup.controller.dispose);
+
+    expect(setup.controller.defaultTopTopicListMode, TopicListMode.topMonthly);
+  });
 }
+
+Text _tabText(WidgetTester tester, String key) => tester.widget<Text>(
+  find.descendant(of: find.byKey(ValueKey(key)), matching: find.byType(Text)),
+);
 
 Future<({ShellController controller, FakeDiscourseApi api})> _controller({
   DiscourseUser user = _user,
+  SiteConfig config = const SiteConfig.unknown(),
 }) async {
   final site = instance(
     'meta.discourse.org',
     title: 'Discourse Meta',
-  ).copyWith(user: user, notificationTotals: _totals);
+  ).copyWith(user: user, notificationTotals: _totals, config: config);
   final authenticator = FakeAuthenticator()..keys[site.url] = 'api-key';
   final api = FakeDiscourseApi(
     user: user,
@@ -174,6 +314,10 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
       '/new.json': [_allNewTopic],
       '/new.json?subset=topics': [_newTopic],
       '/new.json?subset=replies': [_newReply],
+      '/unread.json': [_unreadTopic],
+      '/top.json?period=yearly': [_topYearTopic],
+      '/top.json?period=weekly': [_topWeekTopic],
+      '/hot.json': [_popularTopic],
     },
   );
   final controller = ShellController(

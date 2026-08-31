@@ -30,6 +30,7 @@ class SiteConfig {
     this.fixedCategoryPositions = false,
     this.allowUncategorizedTopics = false,
     this.defaultNavigationMenuCategoryIds = const [],
+    this.topPageDefaultPeriod = defaultTopPagePeriod,
     this.badgesEnabled = true,
     this.allowUsernameInShareLinks = true,
     this.readTimeWordCount = defaultReadTimeWordCount,
@@ -96,6 +97,15 @@ class SiteConfig {
   static const int defaultShowTimeGapDays = 7;
   static const int maximumShowTimeGapDays = 36500;
   static const int defaultMinPersonalMessagePostLength = 10;
+  static const String defaultTopPagePeriod = 'yearly';
+  static const Set<String> topPagePeriods = {
+    'all',
+    'yearly',
+    'quarterly',
+    'monthly',
+    'weekly',
+    'daily',
+  };
 
   static const int defaultMaxTagSearchResults = 5;
 
@@ -145,6 +155,7 @@ class SiteConfig {
       defaultNavigationMenuCategoryIds: _categoryIds(
         json['default_navigation_menu_categories'],
       ),
+      topPageDefaultPeriod: _topPagePeriod(json['top_page_default_timeframe']),
       badgesEnabled: json['enable_badges'] != false,
       allowUsernameInShareLinks: json['allow_username_in_share_links'] != false,
       readTimeWordCount: _positiveInt(
@@ -212,6 +223,7 @@ class SiteConfig {
     defaultNavigationMenuCategoryIds: _categoryIds(
       json['defaultNavigationMenuCategoryIds'],
     ),
+    topPageDefaultPeriod: _topPagePeriod(json['topPageDefaultPeriod']),
     badgesEnabled: json['badgesEnabled'] != false,
     allowUsernameInShareLinks: json['allowUsernameInShareLinks'] != false,
     readTimeWordCount: _positiveInt(
@@ -259,6 +271,7 @@ class SiteConfig {
       'fixedCategoryPositions': fixedCategoryPositions,
       'allowUncategorizedTopics': allowUncategorizedTopics,
       'defaultNavigationMenuCategoryIds': defaultNavigationMenuCategoryIds,
+      'topPageDefaultPeriod': topPageDefaultPeriod,
       'badgesEnabled': badgesEnabled,
       'allowUsernameInShareLinks': allowUsernameInShareLinks,
       'readTimeWordCount': readTimeWordCount,
@@ -308,6 +321,7 @@ class SiteConfig {
   final bool fixedCategoryPositions;
   final bool allowUncategorizedTopics;
   final List<int> defaultNavigationMenuCategoryIds;
+  final String topPageDefaultPeriod;
 
   final bool badgesEnabled;
   final bool allowUsernameInShareLinks;
@@ -393,6 +407,7 @@ class SiteConfig {
     fixedCategoryPositions: fixedCategoryPositions,
     allowUncategorizedTopics: allowUncategorizedTopics,
     defaultNavigationMenuCategoryIds: defaultNavigationMenuCategoryIds,
+    topPageDefaultPeriod: topPageDefaultPeriod,
     badgesEnabled: badgesEnabled,
     allowUsernameInShareLinks: allowUsernameInShareLinks,
     readTimeWordCount: readTimeWordCount,
@@ -437,6 +452,7 @@ class SiteConfig {
         other.defaultNavigationMenuCategoryIds,
         defaultNavigationMenuCategoryIds,
       ) &&
+      other.topPageDefaultPeriod == topPageDefaultPeriod &&
       other.badgesEnabled == badgesEnabled &&
       other.allowUsernameInShareLinks == allowUsernameInShareLinks &&
       other.readTimeWordCount == readTimeWordCount &&
@@ -474,6 +490,7 @@ class SiteConfig {
     fixedCategoryPositions,
     allowUncategorizedTopics,
     Object.hashAll(defaultNavigationMenuCategoryIds),
+    topPageDefaultPeriod,
     badgesEnabled,
     allowUsernameInShareLinks,
     readTimeWordCount,
@@ -484,6 +501,11 @@ class SiteConfig {
     suggestWeekendsInDatePickers,
     plugins,
   ]);
+
+  static String _topPagePeriod(Object? raw) {
+    final value = jsonText(raw);
+    return topPagePeriods.contains(value) ? value! : defaultTopPagePeriod;
+  }
 
   static List<String> _extensionList(Object? raw, List<String> fallback) {
     final values = switch (raw) {

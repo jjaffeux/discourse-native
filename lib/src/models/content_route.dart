@@ -7,11 +7,38 @@ import 'group_route.dart';
 import 'list_link.dart';
 import 'sidebar.dart';
 
+enum TopPeriod {
+  all('all', 'All time'),
+  yearly('yearly', 'Year'),
+  quarterly('quarterly', 'Quarter'),
+  monthly('monthly', 'Month'),
+  weekly('weekly', 'Week'),
+  daily('daily', 'Today');
+
+  const TopPeriod(this.queryValue, this.label);
+
+  static TopPeriod fromQueryValue(String value) => values.firstWhere(
+    (period) => period.queryValue == value,
+    orElse: () => yearly,
+  );
+
+  final String queryValue;
+  final String label;
+}
+
 enum TopicListMode {
   latest,
   newActivity,
   newTopics,
-  newReplies;
+  newReplies,
+  unread,
+  topAll,
+  topYearly,
+  topQuarterly,
+  topMonthly,
+  topWeekly,
+  topDaily,
+  popular;
 
   static TopicListMode? fromRoute(ContentRoute? route) =>
       switch ((route?.id, route?.feedPath)) {
@@ -19,14 +46,39 @@ enum TopicListMode {
         ('new', '/new.json') => newActivity,
         ('new-topics', '/new.json?subset=topics') => newTopics,
         ('new-replies', '/new.json?subset=replies') => newReplies,
+        ('unread', '/unread.json') => unread,
+        ('top-all', '/top.json?period=all') => topAll,
+        ('top-yearly', '/top.json?period=yearly') => topYearly,
+        ('top-quarterly', '/top.json?period=quarterly') => topQuarterly,
+        ('top-monthly', '/top.json?period=monthly') => topMonthly,
+        ('top-weekly', '/top.json?period=weekly') => topWeekly,
+        ('top-daily', '/top.json?period=daily') => topDaily,
+        ('hot', '/hot.json') => popular,
         _ => null,
       };
+
+  static TopicListMode top(TopPeriod period) => switch (period) {
+    TopPeriod.all => topAll,
+    TopPeriod.yearly => topYearly,
+    TopPeriod.quarterly => topQuarterly,
+    TopPeriod.monthly => topMonthly,
+    TopPeriod.weekly => topWeekly,
+    TopPeriod.daily => topDaily,
+  };
 
   String get routeId => switch (this) {
     latest => 'latest',
     newActivity => 'new',
     newTopics => 'new-topics',
     newReplies => 'new-replies',
+    unread => 'unread',
+    topAll => 'top-all',
+    topYearly => 'top-yearly',
+    topQuarterly => 'top-quarterly',
+    topMonthly => 'top-monthly',
+    topWeekly => 'top-weekly',
+    topDaily => 'top-daily',
+    popular => 'hot',
   };
 
   String? get feedPath => switch (this) {
@@ -34,9 +86,32 @@ enum TopicListMode {
     newActivity => '/new.json',
     newTopics => '/new.json?subset=topics',
     newReplies => '/new.json?subset=replies',
+    unread => '/unread.json',
+    topAll => '/top.json?period=all',
+    topYearly => '/top.json?period=yearly',
+    topQuarterly => '/top.json?period=quarterly',
+    topMonthly => '/top.json?period=monthly',
+    topWeekly => '/top.json?period=weekly',
+    topDaily => '/top.json?period=daily',
+    popular => '/hot.json',
   };
 
-  bool get isNew => this != latest;
+  bool get isNew => switch (this) {
+    newActivity || newTopics || newReplies => true,
+    _ => false,
+  };
+
+  bool get isTop => topPeriod != null;
+
+  TopPeriod? get topPeriod => switch (this) {
+    topAll => TopPeriod.all,
+    topYearly => TopPeriod.yearly,
+    topQuarterly => TopPeriod.quarterly,
+    topMonthly => TopPeriod.monthly,
+    topWeekly => TopPeriod.weekly,
+    topDaily => TopPeriod.daily,
+    _ => null,
+  };
 
   bool get isSubset => this == newTopics || this == newReplies;
 }
