@@ -2032,15 +2032,20 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
 
     final caret = selection.extentOffset;
-    if (!hasModifier &&
-        (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
-            event.logicalKey == LogicalKeyboardKey.arrowRight)) {
-      final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+    final entersGalleryFromEnd =
+        event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+        event.logicalKey == LogicalKeyboardKey.arrowUp;
+    final entersGalleryFromStart =
+        event.logicalKey == LogicalKeyboardKey.arrowRight ||
+        event.logicalKey == LogicalKeyboardKey.arrowDown;
+    if (!hasModifier && (entersGalleryFromEnd || entersGalleryFromStart)) {
       final gallery = widget.composer.text.galleryBlocks
           .where(
             (candidate) =>
                 widget.composer.text.isGalleryCollapsed(candidate) &&
-                (moveLeft ? candidate.end == caret : candidate.start == caret),
+                (entersGalleryFromEnd
+                    ? candidate.end == caret
+                    : candidate.start == caret),
           )
           .firstOrNull;
       if (gallery != null) {
