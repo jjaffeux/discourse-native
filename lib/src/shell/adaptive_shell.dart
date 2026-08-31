@@ -158,6 +158,12 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     if (event.logicalKey == LogicalKeyboardKey.keyW) {
       return _closeCurrentTab(controller);
     }
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      return _selectAdjacentTab(controller, -1);
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      return _selectAdjacentTab(controller, 1);
+    }
 
     final shortcutIndex = forumSwitchShortcutKeys.indexOf(event.logicalKey);
     if (shortcutIndex < 0 || !controller.forumTabsEnabled) return false;
@@ -200,6 +206,36 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         final activeTabId = controller.activeTabId;
         if (activeTabId == null) return false;
         controller.closeTab(activeTabId);
+      case ShellRootMode.settings:
+        return false;
+    }
+    return true;
+  }
+
+  bool _selectAdjacentTab(ShellController controller, int offset) {
+    if (!controller.forumTabsEnabled || _formControlHasFocus) return false;
+
+    final (tabs, activeTabId) = switch (controller.rootMode) {
+      ShellRootMode.aggregate => (
+        controller.aggregateTabs.map((tab) => tab.id).toList(),
+        controller.activeAggregateTabId,
+      ),
+      ShellRootMode.forum => (
+        controller.tabsForCurrentForum.map((tab) => tab.id).toList(),
+        controller.activeTabId,
+      ),
+      ShellRootMode.settings => (const <String>[], null),
+    };
+    if (tabs.length < 2 || activeTabId == null) return false;
+
+    final activeIndex = tabs.indexOf(activeTabId);
+    if (activeIndex < 0) return false;
+    final targetId = tabs[(activeIndex + offset) % tabs.length];
+    switch (controller.rootMode) {
+      case ShellRootMode.aggregate:
+        controller.selectAggregateTab(targetId);
+      case ShellRootMode.forum:
+        controller.selectTab(targetId);
       case ShellRootMode.settings:
         return false;
     }
