@@ -6150,13 +6150,20 @@ void main() {
     });
 
     testWidgets(
-      'sidebar taxonomy values navigate while pencils remain edit actions',
+      'sidebar taxonomy values show subcategory parents and navigate',
       (tester) async {
+        const parent = TopicCategory(
+          id: 4,
+          name: 'Trust and safety',
+          color: '7C3AED',
+          slug: 'trust-and-safety',
+        );
         const category = TopicCategory(
           id: 5,
           name: 'Security',
           color: 'EC4899',
           slug: 'security',
+          parentCategoryId: 4,
         );
         const tag = TopicTag(name: 'security / fix');
         const reader = DiscourseUser(id: 1, username: 'reader');
@@ -6171,12 +6178,12 @@ void main() {
           user: reader,
           feeds: {
             '/latest.json': listed,
-            '/c/security/5.json': const [],
+            '/c/trust-and-safety/security/5.json': const [],
             '/topics/private-messages-tags/reader/'
                     'security%20%2F%20fix.json':
                 const [],
           },
-          categoryList: const [category],
+          categoryList: const [parent, category],
           topics: {
             7: (
               detail: base.detail.copyWith(
@@ -6212,6 +6219,13 @@ void main() {
         expect(find.byTooltip('Edit topic category'), findsOneWidget);
         expect(find.byTooltip('Edit topic tags'), findsOneWidget);
         expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('topic-sidebar-category')),
+            matching: find.text('Trust and safety > Security'),
+          ),
+          findsOneWidget,
+        );
+        expect(
           tester
               .getSize(
                 find.byKey(const ValueKey('topic-sidebar-category-action')),
@@ -6241,7 +6255,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(controller.currentContent?.id, 'category-5');
-        expect(controller.currentContent?.feedPath, '/c/security/5.json');
+        expect(
+          controller.currentContent?.feedPath,
+          '/c/trust-and-safety/security/5.json',
+        );
         expect(
           find.byKey(const ValueKey('topic-category-picker-popover')),
           findsNothing,

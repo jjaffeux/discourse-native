@@ -796,7 +796,12 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
                       label: 'Category',
                       child: TopicCategoryValue(
                         valueKey: const ValueKey('composer-category'),
-                        label: category?.name ?? 'Choose a category',
+                        label: category == null
+                            ? 'Choose a category'
+                            : shell.topicCategoryLabel(
+                                category,
+                                siteUrl: composer.target.siteUrl,
+                              ),
                         color: category == null
                             ? null
                             : Color(category.colorValue),
@@ -846,7 +851,10 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
           siteUrl: composer.target.siteUrl,
           term: term,
         )).where((category) => category.canCreateTopic).toList(),
-        labelFor: (category) => _categoryLabel(shell, category),
+        labelFor: (category) => shell.topicCategoryLabel(
+          category,
+          siteUrl: composer.target.siteUrl,
+        ),
       );
       if (!mounted || selected == null || selected == composer.categoryId) {
         return;
@@ -878,16 +886,6 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
     } finally {
       _showingTags = false;
     }
-  }
-
-  String _categoryLabel(ShellController shell, TopicCategory category) {
-    final parentId = category.parentCategoryId;
-    if (parentId == null) return category.name;
-    final parent = shell
-        .topicComposerCategories(composer.target.siteUrl)
-        .where((candidate) => candidate.id == parentId)
-        .firstOrNull;
-    return parent == null ? category.name : '${parent.name} > ${category.name}';
   }
 }
 

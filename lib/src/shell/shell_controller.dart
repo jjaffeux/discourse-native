@@ -2043,6 +2043,11 @@ class ShellController extends FrameSafeNotifier
     return store.read<TopicCategory>(sourceSite, categoryId);
   }
 
+  String topicCategoryLabel(TopicCategory category, {String? siteUrl}) {
+    final parent = categoryFor(category.parentCategoryId, siteUrl: siteUrl);
+    return parent == null ? category.name : '${parent.name} > ${category.name}';
+  }
+
   Ref<Topic> topicRef(String siteUrl, int topicId) =>
       store.ref<Topic>(siteUrl, topicId);
 

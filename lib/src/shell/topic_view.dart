@@ -3347,10 +3347,12 @@ class _TopicPropertiesCard extends StatelessWidget {
                       label: 'Category',
                       child: TopicCategoryValue(
                         valueKey: const ValueKey('topic-sidebar-category'),
-                        label:
-                            category?.name ??
-                            route?.subtitle ??
-                            'Uncategorized',
+                        label: category == null
+                            ? route?.subtitle ?? 'Uncategorized'
+                            : controller.topicCategoryLabel(
+                                category,
+                                siteUrl: siteUrl,
+                              ),
                         color: category == null
                             ? route?.color
                             : Color(category.colorValue),
