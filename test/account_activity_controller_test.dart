@@ -7,9 +7,11 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/notification_type_counts.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/plugin_api/notification_counters.dart';
 import 'package:discourse_native/src/plugin_api/notification_feed_host.dart';
+import 'package:discourse_native/src/plugins/chat/chat_notifications.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
 import 'package:discourse_native/src/shell/account_activity_controller.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
@@ -25,6 +27,76 @@ const _counter = PluginNotificationCounter(
   ),
   wireName: 'test_alerts',
 );
+
+String _dismissChatConfirmation(int unreadCount) =>
+    'Mark $unreadCount chat notifications as read?';
+
+const _dismissibleChatFeed = PluginNotificationFeedSource(
+  id: PluginNotificationFeedId(
+    owner: PluginId('chat'),
+    name: 'dismissible-notifications',
+  ),
+  filterByTypes: [
+    NotificationTypeName('chat_invitation'),
+    NotificationTypeName('chat_mention'),
+    NotificationTypeName('chat_message'),
+    NotificationTypeName('chat_quoted'),
+    NotificationTypeName('chat_watched_thread'),
+  ],
+  reconnectMessage: 'Reconnect.',
+  failureMessage: 'Failed.',
+  emptyMessage: 'Empty.',
+  dismissal: PluginNotificationFeedDismissal(
+    notificationTypes: [
+      ChatNotificationTypes.invitation,
+      ChatNotificationTypes.mention,
+      ChatNotificationTypes.message,
+      ChatNotificationTypes.quoted,
+      ChatNotificationTypes.watchedThread,
+    ],
+    buttonLabel: 'Dismiss',
+    buttonTooltip: 'Mark chat notifications as read',
+    confirmationMessage: _dismissChatConfirmation,
+  ),
+);
+
+String _dismissTestConfirmation(int unreadCount) =>
+    'Mark $unreadCount test notifications as read?';
+
+const _dismissibleReplyFeed = PluginNotificationFeedSource(
+  id: PluginNotificationFeedId(
+    owner: PluginId('test-plugin'),
+    name: 'reply-notifications',
+  ),
+  filterByTypes: [NotificationTypeName('replied')],
+  reconnectMessage: 'Reconnect.',
+  failureMessage: 'Failed.',
+  emptyMessage: 'Empty.',
+  dismissal: PluginNotificationFeedDismissal(
+    notificationTypes: [CoreNotificationTypes.replied],
+    buttonLabel: 'Dismiss',
+    buttonTooltip: 'Mark reply notifications as read',
+    confirmationMessage: _dismissTestConfirmation,
+  ),
+);
+
+const _dismissibleQuoteFeed = PluginNotificationFeedSource(
+  id: PluginNotificationFeedId(
+    owner: PluginId('test-plugin'),
+    name: 'quote-notifications',
+  ),
+  filterByTypes: [NotificationTypeName('quoted')],
+  reconnectMessage: 'Reconnect.',
+  failureMessage: 'Failed.',
+  emptyMessage: 'Empty.',
+  dismissal: PluginNotificationFeedDismissal(
+    notificationTypes: [CoreNotificationTypes.quoted],
+    buttonLabel: 'Dismiss',
+    buttonTooltip: 'Mark quote notifications as read',
+    confirmationMessage: _dismissTestConfirmation,
+  ),
+);
+
 const _notification = DiscourseNotification.test(
   id: 11,
   typeId: NotificationTypeId(2),
@@ -39,6 +111,11 @@ const _chatNotification = DiscourseNotification.test(
   id: 14,
   typeId: NotificationTypeId(29),
   data: {'mentioned_by_username': 'alex', 'chat_channel_title': 'dev'},
+);
+const _newChatNotification = DiscourseNotification.test(
+  id: 15,
+  typeId: NotificationTypeId(29),
+  data: {'mentioned_by_username': 'new', 'chat_channel_title': 'dev'},
 );
 const _reminder = DiscourseNotification.test(
   id: 12,
@@ -112,6 +189,7 @@ class _AccountApi implements AccountActivityApi {
   activityRequests = [];
   final List<String> totalsRequested = [];
   final List<int> markedRead = [];
+  final List<List<NotificationTypeName>> markedTypesRead = [];
 
   @override
   Future<NotificationTotals> notificationTotals({
@@ -181,6 +259,16 @@ class _AccountApi implements AccountActivityApi {
     String? clientId,
   }) async {
     markedRead.add(id);
+  }
+
+  @override
+  Future<void> markNotificationsRead({
+    required String siteUrl,
+    required String apiKey,
+    required List<NotificationTypeName> types,
+    String? clientId,
+  }) async {
+    markedTypesRead.add(List.unmodifiable(types));
   }
 }
 
@@ -319,6 +407,70 @@ void main() {
         throwsStateError,
       );
     });
+
+    test(
+      'live refresh waits for an active loaded plugin fetch then reads again',
+      () async {
+        final api = _SequencedNotificationsApi(3);
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+
+        final initial = controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+        await api.started[0].future;
+        api.gates[0].complete();
+        await initial;
+
+        final olderRefresh = controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+        await api.started[1].future;
+        final liveRefresh = controller.refreshLoadedPluginNotifications(
+          connected,
+        );
+        api.gates[1].complete();
+        await olderRefresh;
+        await api.started[2].future;
+
+        expect(api.calls, 3);
+        api.gates[2].complete();
+        await liveRefresh;
+      },
+    );
+
+    test(
+      'live refresh during the initial plugin fetch forces a newer read',
+      () async {
+        final api = _SequencedNotificationsApi(2);
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+
+        final initial = controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+        await api.started[0].future;
+        expect(controller.hasTrackedPluginNotifications(_siteUrl), isTrue);
+
+        final liveRefresh = controller.refreshLoadedPluginNotifications(
+          connected,
+        );
+        api.gates[0].complete();
+        await initial;
+        await api.started[1].future;
+
+        expect(api.calls, 2);
+        api.gates[1].complete();
+        await liveRefresh;
+      },
+    );
 
     test('a forced bookmark load replays behind an older request', () async {
       final api = _SequencedBookmarksApi(2);
@@ -873,6 +1025,754 @@ void main() {
   });
 
   group('mark-read reconciliation', () {
+    test(
+      'typed plugin dismissal marks cached rows and clears declared grouped counts',
+      () async {
+        final api = _AccountApi(
+          totals: const NotificationTotals(unreadNotifications: 1),
+          chatNotificationList: const [_chatNotification],
+        );
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+        controller.restoreTotals(
+          _siteUrl,
+          NotificationTotals(
+            unreadNotifications: 4,
+            groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+              '29': 3,
+              '2': 1,
+            }),
+          ),
+        );
+        await controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+
+        await controller.dismissPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+
+        expect(api.markedTypesRead, [_dismissibleChatFeed.filterByTypes]);
+        expect(
+          controller
+              .pluginNotificationsFor(_dismissibleChatFeed.id, _siteUrl)
+              .notifications
+              .single
+              .read,
+          isTrue,
+        );
+        final totals = controller.totalsFor(_siteUrl)!;
+        expect(
+          totals.groupedUnreadNotifications.count(
+            ChatNotificationTypes.mention,
+          ),
+          0,
+        );
+        expect(
+          totals.groupedUnreadNotifications.count(
+            CoreNotificationTypes.replied,
+          ),
+          1,
+        );
+        expect(totals.unreadNotifications, 1);
+      },
+    );
+
+    test(
+      'typed dismissal clears its badge without depending on a cached row',
+      () async {
+        final api = _AccountApi(
+          totals: const NotificationTotals(),
+          chatNotificationList: const [],
+        );
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+        controller.restoreTotals(
+          _siteUrl,
+          NotificationTotals(
+            groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+              '29': 173,
+            }),
+          ),
+        );
+        await controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+
+        await controller.dismissPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+
+        expect(
+          controller
+              .totalsFor(_siteUrl)!
+              .groupedUnreadNotifications
+              .count(ChatNotificationTypes.mention),
+          0,
+        );
+      },
+    );
+
+    test(
+      'typed dismissal does not pin a row received during the write as read',
+      () async {
+        final api = _GatedBulkDismissApi();
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+        await controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+
+        final dismissing = controller.dismissPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+        await api.dismissStarted.future;
+        api.notificationAnswer = const [
+          _chatNotification,
+          _newChatNotification,
+        ];
+        await controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+        api.dismissGate.complete();
+        await dismissing;
+
+        expect(api.notificationCalls, 3);
+        final notifications = controller
+            .pluginNotificationsFor(_dismissibleChatFeed.id, _siteUrl)
+            .notifications;
+        expect(notifications.singleWhere((row) => row.id == 14).read, isTrue);
+        expect(notifications.singleWhere((row) => row.id == 15).read, isFalse);
+      },
+    );
+
+    test(
+      'a failed click restores a same-type row received during dismissal',
+      () async {
+        final api = _GatedBulkDismissApi();
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+        controller.restoreTotals(
+          _siteUrl,
+          NotificationTotals(
+            groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+              '29': 1,
+            }),
+          ),
+        );
+        await controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+
+        final dismissing = controller.dismissPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+        await api.dismissStarted.future;
+        api.notificationAnswer = const [
+          _chatNotification,
+          _newChatNotification,
+        ];
+        await controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+        controller.applyLiveNotificationState(_siteUrl, const {
+          'grouped_unread_notifications': {'29': 2},
+        });
+
+        controller.readNotification(connected, _newChatNotification);
+        await api.readStarted.future;
+        api.dismissGate.complete();
+        await dismissing;
+        api.readGate.complete();
+        await api.readCompleted.future;
+        await pumpEventQueue();
+        await controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+
+        final notifications = controller
+            .pluginNotificationsFor(_dismissibleChatFeed.id, _siteUrl)
+            .notifications;
+        expect(notifications.singleWhere((row) => row.id == 14).read, isTrue);
+        expect(
+          notifications.singleWhere((row) => row.id == 15).isUnread,
+          isTrue,
+        );
+        expect(
+          controller
+              .totalsFor(_siteUrl)!
+              .groupedUnreadNotifications
+              .count(ChatNotificationTypes.mention),
+          1,
+        );
+      },
+    );
+
+    test('typed dismissal preserves a newer live grouped count', () async {
+      final api = _GatedBulkDismissApi();
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+      final connected = _connectedInstance();
+      controller.restoreTotals(
+        _siteUrl,
+        NotificationTotals(
+          groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+            '29': 3,
+          }),
+        ),
+      );
+      await controller.loadPluginNotifications(connected, _dismissibleChatFeed);
+
+      final dismissing = controller.dismissPluginNotifications(
+        connected,
+        _dismissibleChatFeed,
+      );
+      await api.dismissStarted.future;
+      controller.applyCounts(
+        _siteUrl,
+        (held) => held.withGroupedUnreadNotifications(
+          NotificationTypeCounts.fromWire(const {'29': 7}),
+        ),
+      );
+      api.dismissGate.complete();
+      await dismissing;
+
+      expect(
+        controller
+            .totalsFor(_siteUrl)!
+            .groupedUnreadNotifications
+            .count(ChatNotificationTypes.mention),
+        7,
+      );
+    });
+
+    test(
+      'typed dismissal preserves a newer identical grouped snapshot',
+      () async {
+        final api = _GatedBulkDismissApi();
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+        controller.restoreTotals(
+          _siteUrl,
+          NotificationTotals(
+            groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+              '29': 3,
+            }),
+          ),
+        );
+        await controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+
+        final dismissing = controller.dismissPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+        await api.dismissStarted.future;
+        controller.applyLiveNotificationState(_siteUrl, const {
+          'grouped_unread_notifications': {'29': 3},
+        });
+        api.dismissGate.complete();
+        await dismissing;
+
+        expect(
+          controller
+              .totalsFor(_siteUrl)!
+              .groupedUnreadNotifications
+              .count(ChatNotificationTypes.mention),
+          3,
+        );
+      },
+    );
+
+    test(
+      'a disjoint bulk dismissal does not suppress failed row rollback',
+      () async {
+        final api = _GatedFailedReadApi(
+          totals: const NotificationTotals(),
+          chatNotificationList: const [],
+        );
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+        controller.restoreTotals(
+          _siteUrl,
+          NotificationTotals(
+            groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+              '2': 3,
+              '29': 4,
+            }),
+          ),
+        );
+
+        controller.readNotification(connected, _notification);
+        await api.started.future;
+        expect(
+          controller
+              .totalsFor(_siteUrl)!
+              .groupedUnreadNotifications
+              .count(CoreNotificationTypes.replied),
+          2,
+        );
+
+        await controller.dismissPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+        expect(
+          controller
+              .totalsFor(_siteUrl)!
+              .groupedUnreadNotifications
+              .count(ChatNotificationTypes.mention),
+          0,
+        );
+
+        api.fail.complete();
+        await api.completed.future;
+        await pumpEventQueue();
+
+        final counts = controller
+            .totalsFor(_siteUrl)!
+            .groupedUnreadNotifications;
+        expect(counts.count(CoreNotificationTypes.replied), 3);
+        expect(counts.count(ChatNotificationTypes.mention), 0);
+      },
+    );
+
+    test(
+      'a successful same-type dismissal remains authoritative after a failed row click',
+      () async {
+        final api = _GatedFailedReadApi(
+          totals: const NotificationTotals(),
+          chatNotificationList: const [_chatNotification],
+        );
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+        controller.restoreTotals(
+          _siteUrl,
+          NotificationTotals(
+            groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+              '29': 1,
+            }),
+          ),
+        );
+        await controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+
+        controller.readNotification(connected, _chatNotification);
+        await api.started.future;
+        await controller.dismissPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+
+        api.fail.complete();
+        await api.completed.future;
+        await pumpEventQueue();
+        await controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+
+        expect(
+          controller
+              .totalsFor(_siteUrl)!
+              .groupedUnreadNotifications
+              .count(ChatNotificationTypes.mention),
+          0,
+        );
+        expect(
+          controller
+              .pluginNotificationsFor(_dismissibleChatFeed.id, _siteUrl)
+              .notifications
+              .single
+              .read,
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'a same-type dismissal re-pins a row whose optimistic write failed first',
+      () async {
+        final api = _GatedFailedReadApi(
+          totals: const NotificationTotals(),
+          chatNotificationList: const [_chatNotification],
+          gateDismissal: true,
+        );
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+        controller.restoreTotals(
+          _siteUrl,
+          NotificationTotals(
+            groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+              '29': 1,
+            }),
+          ),
+        );
+        await controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+
+        controller.readNotification(connected, _chatNotification);
+        await api.started.future;
+        final dismissing = controller.dismissPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+        await api.dismissStarted.future;
+
+        api.fail.complete();
+        await api.completed.future;
+        await pumpEventQueue();
+        expect(
+          controller
+              .pluginNotificationsFor(_dismissibleChatFeed.id, _siteUrl)
+              .notifications
+              .single
+              .isUnread,
+          isTrue,
+        );
+
+        api.dismissGate.complete();
+        await dismissing;
+        await controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+
+        expect(
+          controller
+              .totalsFor(_siteUrl)!
+              .groupedUnreadNotifications
+              .count(ChatNotificationTypes.mention),
+          0,
+        );
+        expect(
+          controller
+              .pluginNotificationsFor(_dismissibleChatFeed.id, _siteUrl)
+              .notifications
+              .single
+              .read,
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'a failed stale row write cannot remove an earlier dismissal pin',
+      () async {
+        final api = _GatedFailedReadApi(
+          totals: const NotificationTotals(),
+          chatNotificationList: const [_chatNotification],
+        );
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+        controller.restoreTotals(
+          _siteUrl,
+          NotificationTotals(
+            groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+              '29': 1,
+            }),
+          ),
+        );
+        await controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+        await controller.dismissPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+
+        controller.readNotification(connected, _chatNotification);
+        await api.started.future;
+        api.fail.complete();
+        await api.completed.future;
+        await pumpEventQueue();
+        await controller.loadPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+
+        expect(
+          controller
+              .pluginNotificationsFor(_dismissibleChatFeed.id, _siteUrl)
+              .notifications
+              .single
+              .read,
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'overlapping disjoint bulk dismissals clear both grouped counts',
+      () async {
+        final api = _GatedDisjointBulkDismissApi();
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+        controller.restoreTotals(
+          _siteUrl,
+          NotificationTotals(
+            groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+              '2': 3,
+              '3': 5,
+            }),
+          ),
+        );
+
+        final dismissingReplies = controller.dismissPluginNotifications(
+          connected,
+          _dismissibleReplyFeed,
+        );
+        await api.replyStarted.future;
+        final dismissingQuotes = controller.dismissPluginNotifications(
+          connected,
+          _dismissibleQuoteFeed,
+        );
+        await api.quoteStarted.future;
+
+        api.replyGate.complete();
+        await dismissingReplies;
+        var counts = controller.totalsFor(_siteUrl)!.groupedUnreadNotifications;
+        expect(counts.count(CoreNotificationTypes.replied), 0);
+        expect(counts.count(CoreNotificationTypes.quoted), 5);
+
+        api.quoteGate.complete();
+        await dismissingQuotes;
+        counts = controller.totalsFor(_siteUrl)!.groupedUnreadNotifications;
+        expect(counts.count(CoreNotificationTypes.replied), 0);
+        expect(counts.count(CoreNotificationTypes.quoted), 0);
+        expect(api.markedTypesRead, [
+          _dismissibleReplyFeed.filterByTypes,
+          _dismissibleQuoteFeed.filterByTypes,
+        ]);
+      },
+    );
+
+    test(
+      'an unread row click decrements its grouped count optimistically',
+      () async {
+        final api = _AccountApi(totals: const NotificationTotals());
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        controller.restoreTotals(
+          _siteUrl,
+          NotificationTotals(
+            groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+              '29': 3,
+            }),
+          ),
+        );
+
+        controller.readNotification(_connectedInstance(), _chatNotification);
+
+        expect(
+          controller
+              .totalsFor(_siteUrl)!
+              .groupedUnreadNotifications
+              .count(ChatNotificationTypes.mention),
+          2,
+        );
+        await pumpEventQueue();
+        expect(api.markedRead, [_chatNotification.id]);
+      },
+    );
+
+    test('a failed row click restores its grouped count', () async {
+      final api = _FailedReadApi();
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+      final connected = _connectedInstance();
+      controller.restoreTotals(
+        _siteUrl,
+        NotificationTotals(
+          groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+            '2': 3,
+          }),
+        ),
+      );
+      await controller.loadNotifications(connected);
+      expect(
+        controller.notificationsFor(_siteUrl).notifications.single.isUnread,
+        isTrue,
+      );
+
+      controller.readNotification(connected, _notification);
+      expect(
+        controller
+            .totalsFor(_siteUrl)!
+            .groupedUnreadNotifications
+            .count(CoreNotificationTypes.replied),
+        2,
+      );
+      expect(
+        controller.notificationsFor(_siteUrl).notifications.single.read,
+        isTrue,
+      );
+      await api.failed.future;
+      await pumpEventQueue();
+
+      expect(
+        controller
+            .totalsFor(_siteUrl)!
+            .groupedUnreadNotifications
+            .count(CoreNotificationTypes.replied),
+        3,
+      );
+      expect(
+        controller.notificationsFor(_siteUrl).notifications.single.isUnread,
+        isTrue,
+      );
+    });
+
+    test(
+      'an unavailable first totals response does not suppress failed row rollback',
+      () async {
+        final api = _UnavailableTotalsFailedReadApi();
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final connected = _connectedInstance();
+        controller.restoreTotals(
+          _siteUrl,
+          NotificationTotals(
+            groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+              '2': 3,
+            }),
+          ),
+        );
+        await controller.loadNotifications(connected);
+
+        final refreshing = controller.refresh(connected);
+        await api.totalsStarted.future;
+        controller.readNotification(connected, _notification);
+        await api.readStarted.future;
+
+        expect(
+          controller
+              .totalsFor(_siteUrl)!
+              .groupedUnreadNotifications
+              .count(CoreNotificationTypes.replied),
+          2,
+        );
+        expect(
+          controller.notificationsFor(_siteUrl).notifications.single.read,
+          isTrue,
+        );
+
+        api.totalsGate.complete();
+        await refreshing;
+        expect(
+          controller
+              .totalsFor(_siteUrl)!
+              .groupedUnreadNotifications
+              .count(CoreNotificationTypes.replied),
+          2,
+        );
+        expect(
+          controller.notificationsFor(_siteUrl).notifications.single.read,
+          isTrue,
+        );
+
+        api.readGate.complete();
+        await api.readFailed.future;
+        await pumpEventQueue();
+
+        expect(
+          controller
+              .totalsFor(_siteUrl)!
+              .groupedUnreadNotifications
+              .count(CoreNotificationTypes.replied),
+          3,
+        );
+        expect(
+          controller.notificationsFor(_siteUrl).notifications.single.isUnread,
+          isTrue,
+        );
+      },
+    );
+
+    test('a failed row click does not overwrite a newer live count', () async {
+      final api = _GatedFailedReadApi(notificationList: const [_notification]);
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+      final connected = _connectedInstance();
+      controller.restoreTotals(
+        _siteUrl,
+        NotificationTotals(
+          groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+            '2': 3,
+          }),
+        ),
+      );
+      await controller.loadNotifications(connected);
+
+      controller.readNotification(connected, _notification);
+      await api.started.future;
+      expect(
+        controller.notificationsFor(_siteUrl).notifications.single.read,
+        isTrue,
+      );
+      controller.applyLiveNotificationState(_siteUrl, const {
+        'grouped_unread_notifications': {'2': 8},
+      });
+      api.fail.complete();
+      await api.completed.future;
+      await pumpEventQueue();
+
+      expect(
+        controller
+            .totalsFor(_siteUrl)!
+            .groupedUnreadNotifications
+            .count(CoreNotificationTypes.replied),
+        8,
+      );
+      expect(
+        controller.notificationsFor(_siteUrl).notifications.single.isUnread,
+        isTrue,
+      );
+    });
+
     test(
       'reading a notification reconciles every cached feed and totals',
       () async {
@@ -1581,6 +2481,171 @@ final class _FailedReadApi extends _AccountApi {
     String? clientId,
   }) async {
     if (!failed.isCompleted) failed.complete();
+    throw StateError('write failed');
+  }
+}
+
+final class _GatedFailedReadApi extends _AccountApi {
+  _GatedFailedReadApi({
+    super.totals,
+    super.notificationList,
+    super.chatNotificationList,
+    this.gateDismissal = false,
+  });
+
+  final bool gateDismissal;
+  final Completer<void> started = Completer<void>();
+  final Completer<void> fail = Completer<void>();
+  final Completer<void> completed = Completer<void>();
+  final Completer<void> dismissStarted = Completer<void>();
+  final Completer<void> dismissGate = Completer<void>();
+
+  @override
+  Future<void> markNotificationRead({
+    required String siteUrl,
+    required String apiKey,
+    required int id,
+    String? clientId,
+  }) async {
+    started.complete();
+    await fail.future;
+    completed.complete();
+    throw StateError('write failed');
+  }
+
+  @override
+  Future<void> markNotificationsRead({
+    required String siteUrl,
+    required String apiKey,
+    required List<NotificationTypeName> types,
+    String? clientId,
+  }) async {
+    markedTypesRead.add(List.unmodifiable(types));
+    if (!gateDismissal) return;
+    dismissStarted.complete();
+    await dismissGate.future;
+  }
+}
+
+final class _UnavailableTotalsFailedReadApi extends _AccountApi {
+  _UnavailableTotalsFailedReadApi()
+    : super(notificationList: const [_notification]);
+
+  final Completer<void> totalsStarted = Completer<void>();
+  final Completer<void> totalsGate = Completer<void>();
+  final Completer<void> readStarted = Completer<void>();
+  final Completer<void> readGate = Completer<void>();
+  final Completer<void> readFailed = Completer<void>();
+
+  @override
+  Future<NotificationTotals> notificationTotals({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    totalsStarted.complete();
+    await totalsGate.future;
+    return const NotificationTotals(unreadNotifications: 7);
+  }
+
+  @override
+  Future<void> markNotificationRead({
+    required String siteUrl,
+    required String apiKey,
+    required int id,
+    String? clientId,
+  }) async {
+    readStarted.complete();
+    await readGate.future;
+    readFailed.complete();
+    throw StateError('write failed');
+  }
+}
+
+final class _GatedDisjointBulkDismissApi extends _AccountApi {
+  _GatedDisjointBulkDismissApi() : super(totals: const NotificationTotals());
+
+  final Completer<void> replyStarted = Completer<void>();
+  final Completer<void> quoteStarted = Completer<void>();
+  final Completer<void> replyGate = Completer<void>();
+  final Completer<void> quoteGate = Completer<void>();
+
+  @override
+  Future<List<DiscourseNotification>> notifications({
+    required String siteUrl,
+    required String apiKey,
+    int limit = 30,
+    List<NotificationTypeName> filterByTypes = const [],
+    String? clientId,
+  }) async => const [];
+
+  @override
+  Future<void> markNotificationsRead({
+    required String siteUrl,
+    required String apiKey,
+    required List<NotificationTypeName> types,
+    String? clientId,
+  }) async {
+    markedTypesRead.add(List.unmodifiable(types));
+    final type = types.single.value;
+    switch (type) {
+      case 'replied':
+        replyStarted.complete();
+        await replyGate.future;
+      case 'quoted':
+        quoteStarted.complete();
+        await quoteGate.future;
+      default:
+        throw StateError('Unexpected notification type: $type');
+    }
+  }
+}
+
+final class _GatedBulkDismissApi extends _AccountApi {
+  _GatedBulkDismissApi() : super(totals: const NotificationTotals());
+
+  final Completer<void> dismissStarted = Completer<void>();
+  final Completer<void> dismissGate = Completer<void>();
+  final Completer<void> readStarted = Completer<void>();
+  final Completer<void> readGate = Completer<void>();
+  final Completer<void> readCompleted = Completer<void>();
+  List<DiscourseNotification> notificationAnswer = const [_chatNotification];
+  int notificationCalls = 0;
+
+  @override
+  Future<List<DiscourseNotification>> notifications({
+    required String siteUrl,
+    required String apiKey,
+    int limit = 30,
+    List<NotificationTypeName> filterByTypes = const [],
+    String? clientId,
+  }) async {
+    notificationCalls++;
+    return List.unmodifiable(notificationAnswer);
+  }
+
+  @override
+  Future<void> markNotificationsRead({
+    required String siteUrl,
+    required String apiKey,
+    required List<NotificationTypeName> types,
+    String? clientId,
+  }) async {
+    markedTypesRead.add(List.unmodifiable(types));
+    dismissStarted.complete();
+    await dismissGate.future;
+  }
+
+  @override
+  Future<void> markNotificationRead({
+    required String siteUrl,
+    required String apiKey,
+    required int id,
+    String? clientId,
+  }) async {
+    readStarted.complete();
+    await readGate.future;
+    readCompleted.complete();
     throw StateError('write failed');
   }
 }

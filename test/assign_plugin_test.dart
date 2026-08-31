@@ -1,8 +1,14 @@
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/group_route.dart';
+import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/notification_type_counts.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
+import 'package:discourse_native/src/plugins/assign/assign_icons.dart';
+import 'package:discourse_native/src/plugins/assign/assign_notifications.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
+import 'package:discourse_native/src/plugins/assign/assign_user_menu.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -13,6 +19,122 @@ const _siteUrl = 'https://forum.example.com';
 const _plugin = AssignPlugin();
 
 void main() {
+  test('registers its group-plus artwork as a plugin-owned icon', () {
+    final registry = PluginRegistry.validated(const [_plugin]);
+
+    expect(
+      registry.iconNamed('group-plus', fallback: DIcons.users),
+      AssignIcons.groupPlus,
+    );
+    expect(
+      PluginRegistry.empty.iconNamed('group-plus', fallback: DIcons.users),
+      DIcons.users,
+    );
+  });
+
+  group('user menu', () {
+    DiscourseUser user({
+      required bool canAssign,
+      required bool canAssignGlobally,
+      int storedUnread = 0,
+    }) => DiscourseUser(
+      username: 'reader',
+      groupedUnreadNotifications: NotificationTypeCounts.fromWire({
+        '34': storedUnread,
+      }),
+      plugins: PluginData.none.withValue(
+        assignCurrentUserDataKey,
+        AssignCurrentUser(
+          canAssign: canAssign,
+          canAssignGlobally: canAssignGlobally,
+        ),
+      ),
+    );
+
+    PluginUserMenuContext context(
+      DiscourseUser user, {
+      NotificationTotals? totals,
+    }) => PluginUserMenuContext(siteUrl: _siteUrl, user: user, totals: totals);
+
+    test('fails closed unless both core Assign permissions are true', () {
+      expect(
+        _plugin.userMenuSections(
+          context(user(canAssign: false, canAssignGlobally: true)),
+        ),
+        isEmpty,
+      );
+      expect(
+        _plugin.userMenuSections(
+          context(user(canAssign: true, canAssignGlobally: false)),
+        ),
+        isEmpty,
+      );
+      expect(
+        _plugin.userMenuSections(
+          context(user(canAssign: true, canAssignGlobally: true)),
+        ),
+        hasLength(1),
+      );
+    });
+
+    test('contributes its feed-backed tab with the assigned unread count', () {
+      final storedSections = _plugin.userMenuSections(
+        context(
+          user(canAssign: true, canAssignGlobally: true, storedUnread: 3),
+        ),
+      );
+      final sections = _plugin.userMenuSections(
+        context(
+          user(canAssign: true, canAssignGlobally: true, storedUnread: 3),
+          totals: NotificationTotals.fromJson(const {
+            'grouped_unread_notifications': {'34': 8},
+          }),
+        ),
+      );
+
+      expect(storedSections.single.badge, 3);
+      expect(sections.single.id, AssignPlugin.notificationsSection);
+      expect(sections.single.icon, DIcons.userPlus);
+      expect(sections.single.label, 'Assign list');
+      expect(sections.single.badge, 8);
+      expect(sections.single.linkWhenActive, '/u/reader/activity/assigned');
+      expect(_plugin.notificationFeeds, [assignNotificationFeed]);
+    });
+
+    testWidgets('forwards the assigned count to feed dismissal', (
+      tester,
+    ) async {
+      final section = _plugin
+          .userMenuSections(
+            context(
+              user(canAssign: true, canAssignGlobally: true, storedUnread: 3),
+            ),
+          )
+          .single;
+      late Widget built;
+
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Builder(
+            builder: (context) {
+              built = section.builder(
+                context,
+                PluginUserMenuRenderContext(onDismiss: () {}),
+              );
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
+      expect(built, isA<AssignUserMenuNotifications>());
+      final widget = built as AssignUserMenuNotifications;
+      expect(widget.unreadCount, 3);
+      expect(widget.viewAllPath, '/u/reader/activity/assigned');
+    });
+  });
+
   group('serializer projection', () {
     test('keeps Assign absent when its block is absent', () {
       expect(_plugin.readTopic(const {}, _siteUrl), isNull);

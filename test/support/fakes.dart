@@ -735,6 +735,7 @@ class FakeDiscourseApi
   final List<int> deletedBookmarks = [];
 
   final List<int> markedRead = [];
+  final List<List<NotificationTypeName>> markedTypesRead = [];
 
   final Map<String, List<Topic>> feeds;
   final Map<String, List<TopicCategory>> feedCategoriesByPath;
@@ -1487,6 +1488,18 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     markedRead.add(id);
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> markNotificationsRead({
+    required String siteUrl,
+    required String apiKey,
+    required List<NotificationTypeName> types,
+    String? clientId,
+  }) async {
+    markedTypesRead.add(List.unmodifiable(types));
     final failure = writeFailure;
     if (failure != null) throw failure;
   }

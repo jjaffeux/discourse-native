@@ -276,6 +276,12 @@ final class DiscourseNotification {
     final updated = toJson()..['read'] = true;
     return DiscourseNotification.fromJson(updated);
   }
+
+  DiscourseNotification asUnread() {
+    if (!read) return this;
+    final updated = toJson()..['read'] = false;
+    return DiscourseNotification.fromJson(updated);
+  }
 }
 
 Map<String, Object?> _freezeObject(Map<dynamic, dynamic> source) =>

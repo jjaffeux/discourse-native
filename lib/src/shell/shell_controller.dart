@@ -41,9 +41,8 @@ import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
 import '../models/group_route.dart';
 import '../models/list_link.dart';
-import '../models/notification.dart';
-import '../models/notification_feed.dart';
 import '../models/notification_totals.dart';
+import '../models/notification_type_counts.dart';
 import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/post_flag.dart';
@@ -198,6 +197,9 @@ class ShellController extends FrameSafeNotifier
     this.ownsApi = true,
     this.topicLoadTimeout = const Duration(seconds: 30),
     this.anchorPersistDebounce = const Duration(milliseconds: 500),
+    this.pluginNotificationFeedRefreshDebounce = const Duration(
+      milliseconds: 500,
+    ),
     ShellRootMode initialRootMode = ShellRootMode.forum,
     InstalledPlugins? plugins,
     PluginDiagnosticsReporter? pluginDiagnosticsReporter,
@@ -213,6 +215,7 @@ class ShellController extends FrameSafeNotifier
        emojiPickerStore = emojiPickerStore ?? EmojiPickerStore(),
        assert(topicLoadTimeout > Duration.zero),
        assert(anchorPersistDebounce >= Duration.zero),
+       assert(pluginNotificationFeedRefreshDebounce >= Duration.zero),
        store = store ?? Store(),
        lifecycle = lifecycle ?? SiteLifecycle(),
        _providedSiteImages = siteImages,
@@ -244,6 +247,8 @@ class ShellController extends FrameSafeNotifier
   final Duration topicLoadTimeout;
 
   final Duration anchorPersistDebounce;
+
+  final Duration pluginNotificationFeedRefreshDebounce;
 
   final Authenticator authenticator;
   final DraftStore drafts;
@@ -610,6 +615,8 @@ class ShellController extends FrameSafeNotifier
         lifecycle: lifecycle,
         onTotalsLoaded: _onTotalsLoaded,
         onTotalsChanged: _onTotalsChanged,
+        onGroupedUnreadAuthorityAdvanced:
+            _advanceGroupedUnreadNotificationVersion,
       );
 
   late final DoNotDisturbController doNotDisturb = DoNotDisturbController(
@@ -1177,7 +1184,18 @@ class ShellController extends FrameSafeNotifier
       ..clear()
       ..addAll(stored);
     for (final instance in stored) {
-      if (instance.notificationTotals case final totals?) {
+      var totals = instance.notificationTotals;
+      final storedGroupedCounts = instance.user?.groupedUnreadNotifications;
+      if (totals?.groupedUnreadNotifications.isAvailable != true &&
+          storedGroupedCounts?.isAvailable == true) {
+        // Older snapshots kept grouped counts only on the current user. Seed
+        // AccountActivity before local read/dismiss writes so their zero is an
+        // available authoritative value, rather than falling back to stale
+        // user counts in plugin menu contexts.
+        totals = (totals ?? const NotificationTotals())
+            .withGroupedUnreadNotifications(storedGroupedCounts!);
+      }
+      if (totals != null) {
         accountActivity.restoreTotals(instance.url, totals);
       }
       doNotDisturb.restoreSnapshot(
@@ -1725,6 +1743,14 @@ class ShellController extends FrameSafeNotifier
     instanceStore.save(List.of(_instances)).ignore();
   }
 
+  void _advanceGroupedUnreadNotificationVersion(String siteUrl) {
+    _groupedUnreadNotificationVersions.update(
+      siteUrl,
+      (version) => version + 1,
+      ifAbsent: () => 1,
+    );
+  }
+
   void _onPreferencesSaved(
     String siteUrl,
     PreferenceSection section,
@@ -1825,15 +1851,39 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     PluginNotificationFeedSource source,
   ) async {
-    if (plugins.registry.notificationFeed(source.id) != source) {
+    final registered = plugins.registry.notificationFeed(source.id);
+    if (registered != source) {
       throw StateError(
         'Notification feed ${source.id.id} is not installed in this build.',
       );
     }
     final instance = _instanceAt(siteUrl);
     if (instance != null) {
-      await accountActivity.loadPluginNotifications(instance, source);
+      await accountActivity.loadPluginNotifications(instance, registered!);
     }
+  }
+
+  @override
+  Future<void> dismissPluginNotifications(
+    String siteUrl,
+    PluginNotificationFeedSource source,
+  ) async {
+    final registered = plugins.registry.notificationFeed(source.id);
+    if (registered != source) {
+      throw StateError(
+        'Notification feed ${source.id.id} is not installed in this build.',
+      );
+    }
+    if (registered!.dismissal == null) {
+      throw StateError(
+        'Notification feed ${source.id.id} does not support dismissal.',
+      );
+    }
+    final instance = _instanceAt(siteUrl);
+    if (instance == null) {
+      throw StateError('No forum is registered for $siteUrl.');
+    }
+    await accountActivity.dismissPluginNotifications(instance, registered);
   }
 
   @override
@@ -2335,6 +2385,8 @@ class ShellController extends FrameSafeNotifier
   final Map<String, Object> _hidePresenceWrites = {};
   final Map<String, String> _hidePresenceErrors = {};
   final Map<String, int> _hidePresenceVersions = {};
+  final Map<String, int> _groupedUnreadNotificationVersions = {};
+  final Map<String, Timer> _pluginNotificationFeedRefreshTimers = {};
 
   final Set<String> _sessionUsersRefreshed = {};
 
@@ -2554,6 +2606,38 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
+  void _acceptLiveNotificationState(
+    String siteUrl,
+    Object? data,
+    SiteLease lease,
+  ) {
+    // This is called only from the tracker's lifecycle-bound commit closure.
+    // Advancing here, rather than in the raw MessageBus callback, prevents a
+    // retired account generation from invalidating current feeds or counts.
+    final groupedCounts = data is Map
+        ? NotificationTypeCounts.fromWire(data['grouped_unread_notifications'])
+        : NotificationTypeCounts.unavailable;
+    if (groupedCounts.isAvailable) {
+      _advanceGroupedUnreadNotificationVersion(siteUrl);
+    }
+    accountActivity.applyLiveNotificationState(siteUrl, data);
+    if (!accountActivity.hasTrackedPluginNotifications(siteUrl)) return;
+
+    _pluginNotificationFeedRefreshTimers.remove(siteUrl)?.cancel();
+    late final Timer timer;
+    timer = Timer(pluginNotificationFeedRefreshDebounce, () {
+      if (!identical(_pluginNotificationFeedRefreshTimers[siteUrl], timer)) {
+        return;
+      }
+      _pluginNotificationFeedRefreshTimers.remove(siteUrl);
+      if (isDisposed || !lease.isCurrent) return;
+      final instance = _instanceAt(siteUrl);
+      if (instance?.isConnected != true) return;
+      accountActivity.refreshLoadedPluginNotifications(instance!).ignore();
+    });
+    _pluginNotificationFeedRefreshTimers[siteUrl] = timer;
+  }
+
   Future<void> _startTracking(DiscourseInstance instance) async {
     final siteUrl = instance.url;
     if (instance.loginRequired && !instance.isConnected) return;
@@ -2623,9 +2707,8 @@ class ShellController extends FrameSafeNotifier
           onIncomingTopics: () => commit(() {
             if (currentInstance?.url == siteUrl) _notify();
           }),
-          onNotifications: (data) => commit(
-            () => _applyCounts(siteUrl, (held) => held.withNotification(data)),
-          ),
+          onNotifications: (data) =>
+              commit(() => _acceptLiveNotificationState(siteUrl, data, lease)),
           onReviewableCounts: (data) => commit(
             () => _applyCounts(
               siteUrl,
@@ -2842,9 +2925,17 @@ class ShellController extends FrameSafeNotifier
     }
 
     final hidePresenceVersion = _hidePresenceVersions[siteUrl] ?? 0;
+    final groupedUnreadNotificationVersion =
+        _groupedUnreadNotificationVersions[siteUrl] ?? 0;
     late final Future<DiscourseUser?> request;
-    request = _readSessionUser(siteUrl, apiKey, session, hidePresenceVersion)
-        .whenComplete(() {
+    request =
+        _readSessionUser(
+          siteUrl,
+          apiKey,
+          session,
+          hidePresenceVersion,
+          groupedUnreadNotificationVersion,
+        ).whenComplete(() {
           if (identical(_sessionUserRequests[siteUrl], request)) {
             final removed = _sessionUserRequests.remove(siteUrl);
             assert(identical(removed, request));
@@ -2859,6 +2950,7 @@ class ShellController extends FrameSafeNotifier
     String apiKey,
     SiteLease lease,
     int hidePresenceVersion,
+    int groupedUnreadNotificationVersion,
   ) async {
     if (!lease.isCurrent || _connectingSiteUrl == siteUrl) return null;
 
@@ -2906,9 +2998,21 @@ class ShellController extends FrameSafeNotifier
           !accountChanged &&
           (_hidePresenceWrites.containsKey(siteUrl) ||
               (_hidePresenceVersions[siteUrl] ?? 0) != hidePresenceVersion);
-      committedUser = preserveConfirmedPresence
+      final groupedCountsAreCurrent =
+          (_groupedUnreadNotificationVersions[siteUrl] ?? 0) ==
+          groupedUnreadNotificationVersion;
+      var reconciledUser = preserveConfirmedPresence
           ? withPreservedPlugins.withHidePresence(previousUser?.hidePresence)
           : withPreservedPlugins;
+      if (!accountChanged && !groupedCountsAreCurrent && previousUser != null) {
+        // The response predates a live snapshot or a local read/dismiss write.
+        // Keep accepting its unrelated current-user fields, but do not expose
+        // its stale grouped map through the menu's user fallback.
+        reconciledUser = reconciledUser.withGroupedUnreadNotifications(
+          previousUser.groupedUnreadNotifications,
+        );
+      }
+      committedUser = reconciledUser;
       _sessionUsersRefreshed.add(siteUrl);
       _hidePresenceErrors.remove(siteUrl);
       if (previousUser != committedUser || accountChanged) {
@@ -2927,6 +3031,9 @@ class ShellController extends FrameSafeNotifier
             clearNotificationTotals: accountChanged,
           ),
         );
+      }
+      if (accountChanged || groupedCountsAreCurrent) {
+        _seedGroupedUnreadNotifications(siteUrl, committedUser!);
       }
       _notify();
     });
@@ -2949,6 +3056,12 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     NotificationTotals Function(NotificationTotals held) fold,
   ) => accountActivity.applyCounts(siteUrl, fold);
+
+  void _seedGroupedUnreadNotifications(String siteUrl, DiscourseUser user) {
+    final counts = user.groupedUnreadNotifications;
+    if (!counts.isAvailable) return;
+    accountActivity.applyGroupedUnreadSnapshot(siteUrl, counts);
+  }
 
   UserStatus? userStatusFor(String siteUrl, int? userId, UserStatus? snapshot) {
     final overrides = _userStatusOverrides[siteUrl];
@@ -10515,6 +10628,7 @@ class ShellController extends FrameSafeNotifier
           apiVersion: connectedCredentials.apiVersion,
         );
         _replaceInstance(held, connected!);
+        _seedGroupedUnreadNotifications(instance.url, user);
         _sessionUsersRefreshed.add(instance.url);
         if (currentInstance?.url == instance.url) {
           // The anonymous palette may have completed while the account lookup
@@ -10901,6 +11015,8 @@ class ShellController extends FrameSafeNotifier
     _hidePresenceWrites.remove(siteUrl);
     _hidePresenceErrors.remove(siteUrl);
     _hidePresenceVersions.remove(siteUrl);
+    _groupedUnreadNotificationVersions.remove(siteUrl);
+    _pluginNotificationFeedRefreshTimers.remove(siteUrl)?.cancel();
     _disposeTracking(siteUrl);
     _notify();
   }
@@ -11652,6 +11768,11 @@ class ShellController extends FrameSafeNotifier
     _hidePresenceWrites.clear();
     _hidePresenceErrors.clear();
     _hidePresenceVersions.clear();
+    _groupedUnreadNotificationVersions.clear();
+    for (final timer in _pluginNotificationFeedRefreshTimers.values) {
+      timer.cancel();
+    }
+    _pluginNotificationFeedRefreshTimers.clear();
     _topicDeletionWrites.clear();
     _topicPostSelections.clear();
     _topicPostSelectionWrites.clear();
@@ -12435,6 +12556,12 @@ final class _ShellPluginNotificationFeedHost
   ) => _shell.loadPluginNotificationFeed(siteUrl, source);
 
   @override
+  Future<void> dismissPluginNotifications(
+    String siteUrl,
+    PluginNotificationFeedSource source,
+  ) => _shell.dismissPluginNotifications(siteUrl, source);
+
+  @override
   void readPluginNotification(
     String siteUrl,
     DiscourseNotification notification,
@@ -12497,7 +12624,28 @@ final class _ShellScopedPluginNotificationFeedHost
         '${source.id.id}.',
       );
     }
-    return _host.loadPluginNotificationFeed(siteUrl, source);
+    return _host.loadPluginNotificationFeed(siteUrl, registered);
+  }
+
+  @override
+  Future<void> dismissPluginNotifications(
+    String siteUrl,
+    PluginNotificationFeedSource source,
+  ) {
+    final registered = _requireDeclared(source.id);
+    if (registered != source) {
+      throw PluginInstallationException(
+        'Plugin $_consumer must use its registered notification feed '
+        '${source.id.id}.',
+      );
+    }
+    if (registered.dismissal == null) {
+      throw PluginInstallationException(
+        'Plugin $_consumer did not register dismissal for notification feed '
+        '${source.id.id}.',
+      );
+    }
+    return _host.dismissPluginNotifications(siteUrl, registered);
   }
 
   @override

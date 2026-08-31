@@ -145,6 +145,12 @@ final class PluginUserMenuContext {
   final String siteUrl;
   final DiscourseUser user;
   final NotificationTotals? totals;
+
+  int unreadCountFor(NotificationWireType type) {
+    final live = totals?.groupedUnreadNotifications;
+    if (live?.isAvailable == true) return live!.count(type);
+    return user.groupedUnreadNotifications.count(type);
+  }
 }
 
 @immutable
@@ -165,12 +171,18 @@ final class PluginUserMenuSection {
     required this.label,
     required this.builder,
     this.badge = 0,
+    this.linkWhenActive,
   });
 
   final PluginUserMenuSectionId id;
   final DIconData icon;
   final String label;
   final int badge;
+
+  /// Relative forum path opened when an already-selected desktop tab is
+  /// selected again. This mirrors Discourse's user-menu tab contract while
+  /// leaving same-origin navigation and browser fallback with the shell.
+  final String? linkWhenActive;
   final PluginUserMenuSectionBuilder builder;
 }
 

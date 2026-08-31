@@ -699,6 +699,26 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
   }
 
   @override
+  Future<void> markNotificationsRead({
+    required String siteUrl,
+    required String apiKey,
+    required List<NotificationTypeName> types,
+    String? clientId,
+  }) async {
+    if (types.isEmpty) {
+      throw ArgumentError.value(types, 'types', 'Must not be empty');
+    }
+    await _write(
+      Uri.parse('$siteUrl/notifications/mark-read.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'dismiss_types': types.map((type) => type.value).join(',')},
+    );
+  }
+
+  @override
   Future<TopicList> topicList({
     required String siteUrl,
     required String path,

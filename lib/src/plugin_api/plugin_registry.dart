@@ -6,7 +6,6 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../models/content_route.dart';
 import '../models/discourse_user.dart';
 import '../models/forum_workspace.dart';
-import '../models/notification.dart';
 import '../models/post.dart';
 import '../models/sidebar.dart';
 import '../models/topic.dart';
@@ -22,6 +21,33 @@ final RegExp _notificationWireNamePattern = RegExp(
   r'^[a-z0-9]+(?:_[a-z0-9]+)*$',
 );
 
+typedef _OwnedNotificationFeedDeclaration = ({
+  String owner,
+  PluginNotificationFeedSource source,
+});
+
+PluginNotificationFeedSource _freezeNotificationFeedSource(
+  PluginNotificationFeedSource source,
+) {
+  final dismissal = source.dismissal;
+  return PluginNotificationFeedSource(
+    id: source.id,
+    filterByTypes: List.unmodifiable(source.filterByTypes),
+    reconnectMessage: source.reconnectMessage,
+    failureMessage: source.failureMessage,
+    emptyMessage: source.emptyMessage,
+    compare: source.compare,
+    dismissal: dismissal == null
+        ? null
+        : PluginNotificationFeedDismissal(
+            notificationTypes: List.unmodifiable(dismissal.notificationTypes),
+            buttonLabel: dismissal.buttonLabel,
+            buttonTooltip: dismissal.buttonTooltip,
+            confirmationMessage: dismissal.confirmationMessage,
+          ),
+  );
+}
+
 @immutable
 final class PluginRegistry
     implements
@@ -30,12 +56,30 @@ final class PluginRegistry
         TopicRecommendationSourceDecoder,
         TopicRecommendationSourceMigrationRegistry,
         PluginNotificationCounterCodec {
-  const PluginRegistry(this.plugins);
+  const PluginRegistry(this.plugins) : _notificationFeedDeclarations = null;
+
+  const PluginRegistry._validated(
+    this.plugins,
+    this._notificationFeedDeclarations,
+  );
 
   static const PluginRegistry empty = PluginRegistry([]);
 
   factory PluginRegistry.validated(Iterable<SitePlugin> plugins) {
-    final registry = PluginRegistry(List.unmodifiable(plugins));
+    final installed = List<SitePlugin>.unmodifiable(plugins);
+    final notificationFeedDeclarations =
+        List<_OwnedNotificationFeedDeclaration>.unmodifiable([
+          for (final plugin in installed.whereType<NotificationFeedPlugin>())
+            for (final source in plugin.notificationFeeds)
+              (
+                owner: (plugin as SitePlugin).name,
+                source: _freezeNotificationFeedSource(source),
+              ),
+        ]);
+    final registry = PluginRegistry._validated(
+      installed,
+      notificationFeedDeclarations,
+    );
     registry._validateRecordOwners();
     registry._validateComposerTargetOwners();
     registry._validateHashtagKinds();
@@ -167,6 +211,7 @@ final class PluginRegistry
   }
 
   final List<SitePlugin> plugins;
+  final List<_OwnedNotificationFeedDeclaration>? _notificationFeedDeclarations;
 
   List<PluginIconCatalog> get iconCatalogs => List.unmodifiable([
     for (final plugin in plugins.whereType<IconCatalogPlugin>())
@@ -363,11 +408,17 @@ final class PluginRegistry
     return null;
   }
 
-  List<PluginNotificationFeedSource> get notificationFeeds =>
-      List.unmodifiable([
-        for (final plugin in plugins.whereType<NotificationFeedPlugin>())
-          ...plugin.notificationFeeds,
-      ]);
+  List<PluginNotificationFeedSource> get notificationFeeds {
+    final declarations = _notificationFeedDeclarations;
+    return List.unmodifiable(
+      declarations == null
+          ? [
+              for (final plugin in plugins.whereType<NotificationFeedPlugin>())
+                ...plugin.notificationFeeds,
+            ]
+          : [for (final declaration in declarations) declaration.source],
+    );
+  }
 
   PluginNotificationFeedSource? notificationFeed(PluginNotificationFeedId id) =>
       notificationFeeds.where((source) => source.id == id).firstOrNull;
@@ -524,48 +575,87 @@ final class PluginRegistry
 
   void _validateNotificationFeeds() {
     final owners = <PluginNotificationFeedId, String>{};
+    final declaredTypes = <NotificationTypeName, NotificationWireType>{
+      for (final plugin in plugins.whereType<NotificationTypePlugin>())
+        for (final type in plugin.notificationTypes)
+          NotificationTypeName(type.wireType.wireName): type.wireType,
+    };
     final typeOwners = <NotificationTypeName, String>{
       for (final plugin in plugins.whereType<NotificationTypePlugin>())
         for (final type in plugin.notificationTypes)
           NotificationTypeName(type.wireType.wireName):
               (plugin as SitePlugin).name,
     };
-    for (final plugin in plugins.whereType<NotificationFeedPlugin>()) {
-      final pluginName = (plugin as SitePlugin).name;
-      for (final source in plugin.notificationFeeds) {
-        if (source.id.owner != PluginId(pluginName) ||
-            source.id.name.trim().isEmpty ||
-            source.id.name.contains('/')) {
-          throw ArgumentError(
-            'Notification feed ${source.id.id} must be namespaced to '
-            '$pluginName.',
-          );
-        }
-        if (source.reconnectMessage.trim().isEmpty ||
-            source.failureMessage.trim().isEmpty ||
-            source.emptyMessage.trim().isEmpty) {
-          throw ArgumentError(
-            'Notification feed ${source.id.id} must declare its messages.',
-          );
-        }
-        if (source.filterByTypes.isEmpty ||
-            source.filterByTypes.any(
-              (type) => typeOwners[type] != pluginName,
-            )) {
-          throw ArgumentError(
-            'Notification feed ${source.id.id} must filter only notification '
-            'types owned by $pluginName.',
-          );
-        }
-        final previous = owners[source.id];
-        if (previous != null) {
-          throw ArgumentError(
-            'Notification feed ${source.id.id} is claimed by both '
-            '$previous and $pluginName.',
-          );
-        }
-        owners[source.id] = pluginName;
+    final declarations =
+        _notificationFeedDeclarations ??
+        [
+          for (final plugin in plugins.whereType<NotificationFeedPlugin>())
+            for (final source in plugin.notificationFeeds)
+              (owner: (plugin as SitePlugin).name, source: source),
+        ];
+    for (final declaration in declarations) {
+      final pluginName = declaration.owner;
+      final source = declaration.source;
+      if (source.id.owner != PluginId(pluginName) ||
+          source.id.name.trim().isEmpty ||
+          source.id.name.contains('/')) {
+        throw ArgumentError(
+          'Notification feed ${source.id.id} must be namespaced to '
+          '$pluginName.',
+        );
       }
+      if (source.reconnectMessage.trim().isEmpty ||
+          source.failureMessage.trim().isEmpty ||
+          source.emptyMessage.trim().isEmpty) {
+        throw ArgumentError(
+          'Notification feed ${source.id.id} must declare its messages.',
+        );
+      }
+      final dismissal = source.dismissal;
+      if (dismissal != null &&
+          (dismissal.buttonLabel.trim().isEmpty ||
+              dismissal.buttonTooltip.trim().isEmpty)) {
+        throw ArgumentError(
+          'Notification feed ${source.id.id} must declare its dismissal '
+          'button label and tooltip.',
+        );
+      }
+      if (dismissal != null) {
+        final dismissedNames = [
+          for (final type in dismissal.notificationTypes)
+            NotificationTypeName(type.wireName),
+        ];
+        final matchesFilter =
+            dismissedNames.length == source.filterByTypes.length &&
+            dismissedNames.toSet().containsAll(source.filterByTypes) &&
+            source.filterByTypes.toSet().containsAll(dismissedNames);
+        final matchesDeclarations = dismissal.notificationTypes.every((type) {
+          final declared = declaredTypes[NotificationTypeName(type.wireName)];
+          return declared?.wireId == type.wireId &&
+              declared?.wireName == type.wireName;
+        });
+        if (!matchesFilter || !matchesDeclarations) {
+          throw ArgumentError(
+            'Notification feed ${source.id.id} may dismiss only its '
+            'declared filter notification types.',
+          );
+        }
+      }
+      if (source.filterByTypes.isEmpty ||
+          source.filterByTypes.any((type) => typeOwners[type] != pluginName)) {
+        throw ArgumentError(
+          'Notification feed ${source.id.id} must filter only notification '
+          'types owned by $pluginName.',
+        );
+      }
+      final previous = owners[source.id];
+      if (previous != null) {
+        throw ArgumentError(
+          'Notification feed ${source.id.id} is claimed by both '
+          '$previous and $pluginName.',
+        );
+      }
+      owners[source.id] = pluginName;
     }
   }
 
@@ -1230,6 +1320,15 @@ final class PluginRegistry
         if (!owners.add(section.id)) {
           throw StateError('Duplicate user-menu section ${section.id.id}.');
         }
+        final linkWhenActive = section.linkWhenActive;
+        if (linkWhenActive != null &&
+            (!_isRelativeForumPath(linkWhenActive) ||
+                linkWhenActive.contains('\\'))) {
+          throw StateError(
+            'User-menu section ${section.id.id} active link must be a '
+            'relative forum path.',
+          );
+        }
         final owner = PluginId(pluginName);
         sections.add(
           PluginUserMenuSection(
@@ -1237,6 +1336,7 @@ final class PluginRegistry
             icon: section.icon,
             label: section.label,
             badge: section.badge,
+            linkWhenActive: linkWhenActive,
             builder: (buildContext, actions) => PluginUiScope.own(
               owner,
               section.builder(
@@ -1446,4 +1546,15 @@ final class _OwnedDiagnosticsPlugin implements DiagnosticsPlugin {
       diagnostics,
     ),
   );
+}
+
+bool _isRelativeForumPath(String value) {
+  if (value.isEmpty ||
+      value.trim() != value ||
+      !value.startsWith('/') ||
+      value.startsWith('//')) {
+    return false;
+  }
+  final uri = Uri.tryParse(value);
+  return uri != null && !uri.hasScheme && !uri.hasAuthority;
 }

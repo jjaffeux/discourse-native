@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
@@ -61,9 +63,69 @@ void main() {
       expect(find.byKey(_betaBodyKey), findsOneWidget);
     },
   );
+
+  testWidgets('reselecting a plugin tab opens its active link', (tester) async {
+    var dismissals = 0;
+    await _pumpUserMenu(
+      tester,
+      const PluginManifest([
+        _MenuModule(
+          'alpha',
+          'Alpha activity',
+          _alphaBodyKey,
+          linkWhenActive: '/latest',
+        ),
+      ]),
+      onDismiss: () => dismissals += 1,
+    );
+
+    await tester.tap(find.byKey(_alphaTabKey));
+    await tester.pump();
+    expect(dismissals, 0);
+
+    await tester.tap(find.byKey(_alphaTabKey));
+    await tester.pump();
+    expect(dismissals, 1);
+  });
+
+  testWidgets('an open touch section rebuilds from live totals', (
+    tester,
+  ) async {
+    final controller = await _pumpUserMenu(
+      tester,
+      const PluginManifest([
+        _MenuModule(
+          'alpha',
+          'Alpha activity',
+          _alphaBodyKey,
+          showsUnreadCount: true,
+        ),
+      ]),
+      totals: const NotificationTotals(unreadNotifications: 3),
+    );
+
+    unawaited(showUserMenuSheet(tester.element(find.byType(UserMenuPanel))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Alpha activity').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Unread: 3'), findsOneWidget);
+
+    controller.accountActivity.applyCounts(
+      _siteUrl,
+      (held) => held.copyWith(unreadNotifications: 0),
+    );
+    await tester.pump();
+
+    expect(find.text('Unread: 0'), findsOneWidget);
+  });
 }
 
-Future<void> _pumpUserMenu(WidgetTester tester, PluginManifest manifest) async {
+Future<ShellController> _pumpUserMenu(
+  WidgetTester tester,
+  PluginManifest manifest, {
+  VoidCallback onDismiss = _ignore,
+  NotificationTotals totals = const NotificationTotals(),
+}) async {
   const user = DiscourseUser(id: 7, username: 'reader', name: 'Reader');
   final plugins = PluginInstaller.install(manifest);
   final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
@@ -73,7 +135,7 @@ Future<void> _pumpUserMenu(WidgetTester tester, PluginManifest manifest) async {
     ]),
     api: FakeDiscourseApi(
       user: user,
-      totals: const NotificationTotals(),
+      totals: totals,
       notificationList: const [],
     ),
     authenticator: authenticator,
@@ -94,38 +156,63 @@ Future<void> _pumpUserMenu(WidgetTester tester, PluginManifest manifest) async {
       controller: controller,
       child: MaterialApp(
         theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-        home: const Scaffold(
-          body: Center(child: UserMenuPanel(onDismiss: _ignore)),
+        home: Scaffold(
+          body: Center(child: UserMenuPanel(onDismiss: onDismiss)),
         ),
       ),
     ),
   );
   await tester.pump();
+  return controller;
 }
 
 final class _MenuModule implements PluginModule {
-  const _MenuModule(this.id, this.label, this.bodyKey);
+  const _MenuModule(
+    this.id,
+    this.label,
+    this.bodyKey, {
+    this.linkWhenActive,
+    this.showsUnreadCount = false,
+  });
 
   final String id;
   final String label;
   final Key bodyKey;
+  final String? linkWhenActive;
+  final bool showsUnreadCount;
 
   @override
   PluginDescriptor get descriptor => PluginDescriptor(id: PluginId(id));
 
   @override
   void register(PluginRegistrar registrar) {
-    registrar.addCapability(_MenuPlugin(id, label, bodyKey));
+    registrar.addCapability(
+      _MenuPlugin(
+        id,
+        label,
+        bodyKey,
+        linkWhenActive: linkWhenActive,
+        showsUnreadCount: showsUnreadCount,
+      ),
+    );
   }
 }
 
 final class _MenuPlugin implements SitePlugin, UserMenuSectionPlugin {
-  const _MenuPlugin(this.name, this.label, this.bodyKey);
+  const _MenuPlugin(
+    this.name,
+    this.label,
+    this.bodyKey, {
+    this.linkWhenActive,
+    this.showsUnreadCount = false,
+  });
 
   @override
   final String name;
   final String label;
   final Key bodyKey;
+  final String? linkWhenActive;
+  final bool showsUnreadCount;
 
   @override
   List<PluginUserMenuSection> userMenuSections(PluginUserMenuContext context) =>
@@ -134,7 +221,13 @@ final class _MenuPlugin implements SitePlugin, UserMenuSectionPlugin {
           id: PluginUserMenuSectionId(owner: PluginId(name), name: 'activity'),
           icon: DIcons.bell,
           label: label,
-          builder: (_, _) => Text('$label content', key: bodyKey),
+          linkWhenActive: linkWhenActive,
+          builder: (_, _) => Text(
+            showsUnreadCount
+                ? 'Unread: ${context.totals?.unreadNotifications ?? 0}'
+                : '$label content',
+            key: bodyKey,
+          ),
         ),
       ];
 }

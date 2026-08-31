@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../plugin_api/plugin_data.dart';
 import 'bookmark.dart';
 import 'json.dart';
+import 'notification_type_counts.dart';
 import 'sidebar_tag.dart';
 import 'user_status.dart';
 
@@ -35,6 +36,7 @@ class DiscourseUser {
     this.watchedFirstPostCategoryIds,
     this.doNotDisturbUntil,
     this.doNotDisturbChannelPosition,
+    this.groupedUnreadNotifications = NotificationTypeCounts.unavailable,
     this.timezone,
     this.hidePresence,
     this.bookmarkAutoDeletePreference =
@@ -87,6 +89,9 @@ class DiscourseUser {
     doNotDisturbUntil: jsonDate(json['doNotDisturbUntil']),
     doNotDisturbChannelPosition: jsonIntOrNull(
       json['doNotDisturbChannelPosition'],
+    ),
+    groupedUnreadNotifications: NotificationTypeCounts.fromWire(
+      json['groupedUnreadNotifications'],
     ),
     timezone: json['timezone'] as String?,
     // Null distinguishes an old snapshot from a server-confirmed false.
@@ -156,6 +161,8 @@ class DiscourseUser {
 
   final int? doNotDisturbChannelPosition;
 
+  final NotificationTypeCounts groupedUnreadNotifications;
+
   final String? timezone;
 
   final bool? hidePresence;
@@ -199,6 +206,7 @@ class DiscourseUser {
         'watchedFirstPostCategoryIds': watchedFirstPostCategoryIds,
       'doNotDisturbUntil': doNotDisturbUntil?.toIso8601String(),
       'doNotDisturbChannelPosition': doNotDisturbChannelPosition,
+      'groupedUnreadNotifications': ?groupedUnreadNotifications.toJson(),
       'timezone': timezone,
       if (hidePresence != null) 'hidePresence': hidePresence,
       'bookmarkAutoDeletePreference': bookmarkAutoDeletePreference.wireValue,
@@ -235,6 +243,7 @@ class DiscourseUser {
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
     doNotDisturbUntil: doNotDisturbUntil,
     doNotDisturbChannelPosition: doNotDisturbChannelPosition,
+    groupedUnreadNotifications: groupedUnreadNotifications,
     timezone: timezone,
     hidePresence: hidePresence,
     bookmarkAutoDeletePreference: bookmarkAutoDeletePreference,
@@ -268,11 +277,47 @@ class DiscourseUser {
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
     doNotDisturbUntil: until,
     doNotDisturbChannelPosition: doNotDisturbChannelPosition,
+    groupedUnreadNotifications: groupedUnreadNotifications,
     timezone: timezone,
     hidePresence: hidePresence,
     bookmarkAutoDeletePreference: bookmarkAutoDeletePreference,
     plugins: plugins,
   );
+
+  DiscourseUser withGroupedUnreadNotifications(NotificationTypeCounts counts) =>
+      DiscourseUser(
+        username: username,
+        id: id,
+        name: name,
+        avatarUrl: avatarUrl,
+        status: status,
+        draftCount: draftCount,
+        canCreateTopic: canCreateTopic,
+        canCreateGroup: canCreateGroup,
+        canChangePostOwner: canChangePostOwner,
+        admin: admin,
+        staff: staff,
+        whisperer: whisperer,
+        canSendPrivateMessages: canSendPrivateMessages,
+        canInviteToForum: canInviteToForum,
+        groups: groups,
+        messageGroupNames: messageGroupNames,
+        sidebarCategoryIds: sidebarCategoryIds,
+        sidebarTags: sidebarTags,
+        displaySidebarTags: displaySidebarTags,
+        unifiedNewEnabled: unifiedNewEnabled,
+        sidebarShowCountOfNewItems: sidebarShowCountOfNewItems,
+        trackedCategoryIds: trackedCategoryIds,
+        watchedCategoryIds: watchedCategoryIds,
+        watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
+        doNotDisturbUntil: doNotDisturbUntil,
+        doNotDisturbChannelPosition: doNotDisturbChannelPosition,
+        groupedUnreadNotifications: counts,
+        timezone: timezone,
+        hidePresence: hidePresence,
+        bookmarkAutoDeletePreference: bookmarkAutoDeletePreference,
+        plugins: plugins,
+      );
 
   DiscourseUser withPreferences({
     String? timezone,
@@ -304,6 +349,7 @@ class DiscourseUser {
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
     doNotDisturbUntil: doNotDisturbUntil,
     doNotDisturbChannelPosition: doNotDisturbChannelPosition,
+    groupedUnreadNotifications: groupedUnreadNotifications,
     timezone: timezone ?? this.timezone,
     hidePresence: hidePresence,
     bookmarkAutoDeletePreference:
@@ -338,6 +384,7 @@ class DiscourseUser {
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
     doNotDisturbUntil: doNotDisturbUntil,
     doNotDisturbChannelPosition: doNotDisturbChannelPosition,
+    groupedUnreadNotifications: groupedUnreadNotifications,
     timezone: timezone,
     hidePresence: hidePresence,
     bookmarkAutoDeletePreference: bookmarkAutoDeletePreference,
@@ -371,6 +418,7 @@ class DiscourseUser {
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
     doNotDisturbUntil: doNotDisturbUntil,
     doNotDisturbChannelPosition: doNotDisturbChannelPosition,
+    groupedUnreadNotifications: groupedUnreadNotifications,
     timezone: timezone,
     hidePresence: hidePresence,
     bookmarkAutoDeletePreference: bookmarkAutoDeletePreference,
@@ -409,6 +457,7 @@ class DiscourseUser {
       ) &&
       other.doNotDisturbUntil == doNotDisturbUntil &&
       other.doNotDisturbChannelPosition == doNotDisturbChannelPosition &&
+      other.groupedUnreadNotifications == groupedUnreadNotifications &&
       other.timezone == timezone &&
       other.hidePresence == hidePresence &&
       other.bookmarkAutoDeletePreference == bookmarkAutoDeletePreference &&
@@ -442,6 +491,7 @@ class DiscourseUser {
     Object.hashAll(watchedFirstPostCategoryIds ?? const <int>[]),
     doNotDisturbUntil,
     doNotDisturbChannelPosition,
+    groupedUnreadNotifications,
     timezone,
     hidePresence,
     bookmarkAutoDeletePreference,

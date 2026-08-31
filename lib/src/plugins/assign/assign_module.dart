@@ -90,6 +90,10 @@ final class AssignModule implements PluginModule {
               assignedGroups,
             ),
             PluginService<Object>(assignGroupNavigationService, shell),
+            PluginService<Object>(
+              assignNotificationHostService,
+              bindings.require(corePluginNotificationFeedPort),
+            ),
           ],
           capabilities: [controller, shell],
         );
@@ -103,6 +107,7 @@ final class AssignModule implements PluginModule {
         corePluginTopicRefreshPort,
         corePluginSiteStatePort,
         corePluginRouteNavigationPort,
+        corePluginNotificationFeedPort,
         pluginDiagnosticsReporterPort,
       ],
     );

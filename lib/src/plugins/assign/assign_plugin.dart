@@ -13,8 +13,10 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'assign_data.dart';
 import 'assign_group_data.dart';
+import 'assign_icons.dart';
 import 'assign_notifications.dart';
 import 'assign_services.dart';
+import 'assign_user_menu.dart';
 import 'assigned_group_view.dart';
 import 'assignment.dart';
 import 'assignment_sheet.dart';
@@ -26,6 +28,7 @@ export 'assign_data.dart';
 final class AssignPlugin
     implements
         SitePlugin,
+        IconCatalogPlugin,
         SiteSettingsPlugin<AssignSettings>,
         CurrentUserPlugin<AssignCurrentUser>,
         GroupRecordPlugin<AssignGroupData>,
@@ -39,17 +42,60 @@ final class AssignPlugin
         PostMenuPlugin,
         TopicLivePlugin,
         TopicLiveReloadPlugin,
+        UserMenuSectionPlugin,
+        NotificationFeedPlugin,
         NotificationTypePlugin,
         PostSmallActionPlugin {
   const AssignPlugin();
 
   static const String assignmentChannel = '/staff/topic-assignment';
+  static const PluginUserMenuSectionId notificationsSection =
+      PluginUserMenuSectionId(
+        owner: PluginId('discourse-assign'),
+        name: 'assign-list',
+      );
 
   @override
   String get name => 'discourse-assign';
 
   @override
+  PluginIconCatalog get iconCatalog => assignIconCatalog;
+
+  @override
   List<PluginNotificationType> get notificationTypes => assignNotificationTypes;
+
+  @override
+  List<PluginNotificationFeedSource> get notificationFeeds => const [
+    assignNotificationFeed,
+  ];
+
+  @override
+  List<PluginUserMenuSection> userMenuSections(PluginUserMenuContext context) {
+    if (context.user.canAssign != true ||
+        context.user.canAssignGlobally != true) {
+      return const [];
+    }
+    final unreadCount = context.unreadCountFor(
+      AssignNotificationTypes.assigned,
+    );
+    final fullListPath =
+        '/u/${Uri.encodeComponent(context.user.username)}/activity/assigned';
+    return [
+      PluginUserMenuSection(
+        id: notificationsSection,
+        icon: DIcons.userPlus,
+        label: 'Assign list',
+        badge: unreadCount,
+        linkWhenActive: fullListPath,
+        builder: (buildContext, actions) => AssignUserMenuNotifications(
+          siteUrl: context.siteUrl,
+          onOpened: actions.onDismiss,
+          unreadCount: unreadCount,
+          viewAllPath: fullListPath,
+        ),
+      ),
+    ];
+  }
 
   @override
   PluginDataPersistenceCodec<AssignSettings> get siteSettingsCodec =>

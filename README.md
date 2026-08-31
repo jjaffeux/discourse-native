@@ -105,13 +105,25 @@ v1.5**. `basic_utils`' `rsaDecrypt` uses raw unpadded RSA and will not work;
 
 ### Counters
 
-Every number the shell shows — the rail badge and all the sidebar counts —
-comes from a single call to `/notifications/totals.json`, not from a request per
-section. It returns `unread_notifications`, `unread_personal_messages`,
-`unseen_reviewables`, `topic_tracking.{unread,new}` and `username`. Installed
-plugins register additional namespaced counters and own their wire keys; Chat,
-for example, registers `chat/notifications` backed by `chat_notifications`.
-Core-only builds do not interpret that field.
+The shell-wide numbers — the rail badge and the sidebar counts — come from one
+call to `/notifications/totals.json`, not from a request per section. It returns
+`unread_notifications`, `unread_personal_messages`, `unseen_reviewables`,
+`topic_tracking.{unread,new}` and `username`. Installed plugins register
+additional namespaced counters and own their wire keys; Chat, for example,
+registers `chat/notifications` backed by `chat_notifications`. Core-only builds
+do not interpret that field.
+
+A notification-type badge on a plugin-contributed user-menu tab is the one
+different shape. The current-user serializer and
+`/notification/{user_id}` MessageBus messages carry
+`grouped_unread_notifications`, keyed by numeric notification type id.
+`PluginUserMenuContext.unreadCountFor` exposes that open map without teaching
+core the plugin's type names: the current-user snapshot seeds the badge and an
+available live snapshot takes precedence, including an available empty map.
+Those type buckets are already part of the ordinary unread-notification total,
+so they are never added to the rail badge again. Nor can a tab infer its badge
+from its filtered feed, whose thirty-row limit may be smaller than the unread
+backlog.
 
 The rail badge counts only things *addressed to you* (notifications, PMs, chat,
 reviewables). Unread and new topics are sidebar counts, not rail badges —
@@ -179,6 +191,40 @@ payload must expose `chat_notifications`, and an explicit
 links preserve their exact message destination and open connected
 channel/thread routes natively; disconnected or unclaimable destinations keep
 the browser fallback.
+
+### Assign notifications
+
+Assign contributes an **Assign list** user-menu tab only when its current-user
+record says both `can_assign` and `can_assign_globally`. The second gate is
+deliberately stricter than permission to assign in one category: this feed is
+account-wide. Its badge reads the plugin-owned `assigned` wire type (numeric id
+34) from `grouped_unread_notifications`.
+
+The tab owns a separate `/notifications.json` feed with `recent=true`,
+`limit=30`, `silent=true`, and `filter_by_types=assigned`; it does not filter an
+already-capped Notifications list in memory. Rows are sorted unread first,
+then by `topic_bumped_at` descending and `created_at` descending. Direct
+assignment rows use the user-plus icon without misidentifying the assigner as
+an actor; group assignments name the group and use Assign's own group-plus
+artwork. Topic-title emoji shortcodes use the forum's emoji catalog instead of
+appearing as literal `:shortcodes:`. A topic assignment opens the topic, while
+a post assignment retains its post number in both the description and
+destination. Selecting the already-active desktop tab
+follows `/u/{username}/activity/assigned` through the shell's ordinary
+native-or-browser link path, matching the web tab's full-list destination. The
+feed also exposes that destination as **View all assigned** on touch layouts;
+its empty state links to notification preferences.
+
+Opening an unread row marks every cached copy of its notification id read and
+optimistically decrements type 34. A failed write restores that count unless a
+newer live grouped snapshot has already superseded it.
+
+When that authoritative badge count is non-zero, **Dismiss** always asks for
+confirmation and sends `PUT /notifications/mark-read.json` with
+`dismiss_types=assigned`. Success marks every cached copy of those rows read,
+clears type 34 from the grouped snapshot, and refreshes the aggregate totals.
+If a newer MessageBus grouped count arrived while the write was in flight, that
+newer value wins instead of being cleared by the older response.
 
 ### Activity
 
@@ -522,11 +568,14 @@ and the count pill on the avatar that opens it. The avatar repeats the current
 site's exact total, as core's header does; the rail keeps the same number visible
 while switching among sites.
 
-Plugin-owned live counts use an owner-scoped account-events host. A feature can
-reduce only a counter registered to its own module; it cannot replace core
-totals. If an HTTP refresh overlaps a live event, response presence remains
-authoritative while a count changed during the request stays live, and the
-result is persisted with the instance snapshot.
+Top-level plugin-owned live counters use an owner-scoped account-events host. A
+feature can reduce only a counter registered to its own module; it cannot
+replace core totals. If an HTTP refresh overlaps a live event, response
+presence remains authoritative while a count changed during the request stays
+live, and the result is persisted with the instance snapshot. The grouped
+per-type map remains a server-owned snapshot instead: a delayed current-user
+read cannot overwrite a newer map already accepted from this channel, and the
+accepted value is persisted with the same instance.
 
 The arithmetic is the trap. The message carries its own `unread_notifications`,
 and it is **not** the field `/notifications/totals.json` returns under that
@@ -545,10 +594,15 @@ Two counts stay as they were, refreshed only by the totals call: chat, which is
 published on a channel of its own, and the sidebar's unread and new topic
 counts, which core derives from the per-topic state map this app does not keep.
 
-The rows in the menu are not patched from the message either. Core splices the
-`last_notification` it carries into its cached list and applies the read flags
-in `recent`; here the tab refetches every time it is opened, so there is never
-a stale list to reconcile — only a count, which is what the dot needs.
+The core Notifications and Replies rows are not patched from the message.
+Core's web client splices the `last_notification` it carries into its cached
+list and applies the read flags in `recent`; here those tabs refetch when
+opened. An already-loaded plugin feed also treats the message as an
+invalidation: changes for one site are coalesced for 500 ms, then only that
+site's loaded plugin feeds are fetched again. An unopened feed remains lazy,
+and an invalidation which overlaps its active request waits for that request
+before starting the newer read. The grouped map can therefore update a tab's
+badge immediately while the bounded row list catches up just afterwards.
 
 Both channels are named after the account, so they need its id — which meant
 storing one. Sites connected before that get healed on the next launch: finding
@@ -1100,6 +1154,22 @@ interfaces while Chat and Reactions retain separate models and behavior.
 `DiscourseApi` contains only core endpoints; plugins adapt the shared
 `PluginApiTransport` themselves. Production core never imports
 `lib/src/plugins`, and an architecture test enforces that dependency direction.
+
+Plugin-contributed user-menu notification tabs use two cooperating registry
+seams. `UserMenuSectionPlugin` owns the permission gate, label, icon, badge and
+panel; `NotificationFeedPlugin` declares an owner-namespaced feed id, the
+notification types to request, its states, and an optional row comparator or
+typed bulk-dismissal contract. Registration rejects foreign ids, filters for
+notification types the same module did not register, and dismissal targets
+which differ from the source's exact filter. At runtime an owner-scoped
+`PluginNotificationFeedHost` accepts only that exact declared source, while the
+shell retains credentials, per-site caches, cross-feed read reconciliation and
+native-or-browser link handling. A feed panel may add host-routed view-all and
+empty-state actions, while a section may separately provide a validated
+same-origin relative path for reselecting its already-active desktop tab. Open
+touch panels rebuild their section badge and dismissal state from the same live
+totals as desktop. This makes adding a tab a plugin capability, not a new shell
+branch or a plugin endpoint on `DiscourseApi`.
 
 ### Reactions
 

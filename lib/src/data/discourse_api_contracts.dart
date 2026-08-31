@@ -873,6 +873,13 @@ abstract interface class AccountActivityApi {
     required int id,
     String? clientId,
   });
+
+  Future<void> markNotificationsRead({
+    required String siteUrl,
+    required String apiKey,
+    required List<NotificationTypeName> types,
+    String? clientId,
+  });
 }
 
 abstract interface class UserPreferencesApi {

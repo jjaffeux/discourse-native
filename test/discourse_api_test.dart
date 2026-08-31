@@ -1524,6 +1524,58 @@ void _authGroups() {
       expect(path, '/notifications/mark-read.json');
       expect(jsonDecode(body!), {'id': 12});
     });
+
+    test(
+      'names the notification types to mark in one typed dismissal',
+      () async {
+        String? method;
+        String? path;
+        String? body;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            method = request.method;
+            path = request.url.path;
+            body = request.body;
+            return http.Response(jsonEncode({'success': 'OK'}), 200);
+          }),
+        );
+
+        await api.markNotificationsRead(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          types: const [
+            NotificationTypeName('assigned'),
+            NotificationTypeName('assigned_reminder'),
+          ],
+        );
+
+        expect(method, 'PUT');
+        expect(path, '/notifications/mark-read.json');
+        expect(jsonDecode(body!), {
+          'dismiss_types': 'assigned,assigned_reminder',
+        });
+      },
+    );
+
+    test('rejects an empty typed dismissal before sending', () async {
+      var requests = 0;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          requests++;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      await expectLater(
+        api.markNotificationsRead(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          types: const [],
+        ),
+        throwsArgumentError,
+      );
+      expect(requests, 0);
+    });
   });
 
   group('revokeApiKey', () {

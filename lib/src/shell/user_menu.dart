@@ -14,6 +14,7 @@ import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'bookmark_list.dart';
 import 'do_not_disturb_dialog.dart';
+import 'external_link.dart';
 import 'notification_list.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -322,6 +323,18 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
                             _openMessages(controller);
                             return;
                           }
+                          final activePath = selected.plugin?.linkWhenActive;
+                          if (id == _sectionId && activePath != null) {
+                            widget.onDismiss();
+                            unawaited(
+                              _openPluginUserMenuLink(
+                                controller,
+                                siteUrl!,
+                                activePath,
+                              ),
+                            );
+                            return;
+                          }
                           setState(() => _sectionId = id);
                         },
                       ),
@@ -335,6 +348,16 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
       );
     },
   );
+}
+
+Future<void> _openPluginUserMenuLink(
+  ShellController controller,
+  String siteUrl,
+  String path,
+) async {
+  final url = controller.absoluteUrl(path, siteUrl: siteUrl);
+  if (await controller.openNotificationUrl(url)) return;
+  await openExternalLink(url);
 }
 
 class _TabRail extends StatelessWidget {
@@ -990,7 +1013,6 @@ class _SectionList extends StatelessWidget {
     BuildContext context,
     UserMenuSection section,
     String siteUrl,
-    String host,
   ) async {
     if (section.isMessages) {
       final controller = ShellScope.read(context);
@@ -1004,11 +1026,9 @@ class _SectionList extends StatelessWidget {
       title: section.label,
       nested: true,
       padding: const EdgeInsets.symmetric(vertical: 8),
-      builder: (nestedContext) => _SectionBody(
-        section: section,
+      builder: (nestedContext) => _LiveNestedSectionBody(
+        sectionId: section.id,
         siteUrl: siteUrl,
-        host: host,
-        showHeader: false,
         onDismiss: () =>
             Navigator.of(nestedContext).pop(UserMenuAction.dismiss),
         onPauseNotifications: () =>
@@ -1101,9 +1121,92 @@ class _SectionList extends StatelessWidget {
               for (final section in sections)
                 _SectionTile(
                   section: section,
-                  onTap: () => _open(context, section, currentSiteUrl, host),
+                  onTap: () => _open(context, section, currentSiteUrl),
                 ),
             ],
+          );
+        },
+      );
+    },
+  );
+}
+
+class _LiveNestedSectionBody extends StatelessWidget {
+  const _LiveNestedSectionBody({
+    required this.sectionId,
+    required this.siteUrl,
+    required this.onDismiss,
+    required this.onPauseNotifications,
+    required this.onDisconnect,
+  });
+
+  final String sectionId;
+  final String siteUrl;
+  final VoidCallback onDismiss;
+  final VoidCallback onPauseNotifications;
+  final VoidCallback onDisconnect;
+
+  @override
+  Widget build(BuildContext context) => ShellSelector<_SectionListSnapshot>(
+    select: (controller) {
+      final instance = controller.instances
+          .where((instance) => instance.url == siteUrl)
+          .firstOrNull;
+      return (
+        controller: controller,
+        siteUrl: instance?.url,
+        host: instance?.host,
+        user: instance?.user,
+        userStatusEnabled: instance?.config.userStatusEnabled ?? false,
+      );
+    },
+    builder: (context, state, _) {
+      final currentSiteUrl = state.siteUrl;
+      final host = state.host;
+      final user = state.user;
+      if (currentSiteUrl == null || host == null) {
+        return const UserMenuMessage(text: 'This site is no longer available.');
+      }
+      if (user == null) {
+        return const UserMenuMessage(
+          text: 'This account is no longer connected.',
+        );
+      }
+
+      return ListenableBuilder(
+        listenable: state.controller.accountActivity.totalsListenable,
+        builder: (context, _) {
+          final totals = state.controller.accountActivity.totalsFor(
+            currentSiteUrl,
+          );
+          final sections = userMenuSections(
+            totals,
+            user: user,
+            userStatusEnabled: state.userStatusEnabled,
+            pluginSections: PluginScope.of(context).registry.userMenuSections(
+              PluginUserMenuContext(
+                siteUrl: currentSiteUrl,
+                user: user,
+                totals: totals,
+              ),
+            ),
+          );
+          final section = sections
+              .where((candidate) => candidate.id == sectionId)
+              .firstOrNull;
+          if (section == null) {
+            return const UserMenuMessage(
+              text: 'This section is no longer available.',
+            );
+          }
+          return _SectionBody(
+            section: section,
+            siteUrl: currentSiteUrl,
+            host: host,
+            showHeader: false,
+            onDismiss: onDismiss,
+            onPauseNotifications: onPauseNotifications,
+            onDisconnect: onDisconnect,
           );
         },
       );

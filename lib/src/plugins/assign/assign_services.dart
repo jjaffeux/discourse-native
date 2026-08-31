@@ -1,3 +1,4 @@
+import '../../plugin_api/notification_feed_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import 'assign_shell_service.dart';
 import 'assigned_group_controller.dart';
@@ -20,3 +21,9 @@ const assignGroupNavigationService = PluginServiceKey<AssignShellService>(
   owner: assignPluginId,
   name: 'group-navigation',
 );
+
+const assignNotificationHostService =
+    PluginServiceKey<PluginNotificationFeedHost>(
+      owner: assignPluginId,
+      name: 'notification-feed-host',
+    );
