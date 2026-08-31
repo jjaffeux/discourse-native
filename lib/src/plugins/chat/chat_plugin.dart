@@ -53,6 +53,7 @@ class ChatPlugin
         IconCatalogPlugin,
         SidebarPlugin,
         ContentPlugin,
+        ContentSearchPlugin,
         ContentChromePlugin,
         ContentHeaderPlugin,
         ContentHeaderLeadingPlugin,
@@ -418,6 +419,38 @@ class ChatPlugin
     return chatRoute.isThread
         ? ChatThreadWorkspace(route: chatRoute)
         : ChatChannelView(channelId: chatRoute.channelId);
+  }
+
+  @override
+  bool ownsContentSearch(BuildContext context, ContentRoute route) {
+    final chatRoute = ChatRoute.parse(route.id);
+    return chatRoute != null ||
+        route.id == browseRouteId ||
+        route.id == myThreadsRouteId ||
+        route.id == searchRouteId ||
+        channelIdFromThreadsRoute(route.id) != null;
+  }
+
+  @override
+  VoidCallback? contentSearchAction(BuildContext context, ContentRoute route) {
+    if (!ownsContentSearch(context, route)) return null;
+    final shell = PluginUiScope.require(context, chatShellService);
+    final siteUrl = shell.currentSiteUrl;
+    final available =
+        siteUrl != null &&
+        shell.isConnected(siteUrl) &&
+        shell.chat.siteConfigFor(siteUrl).chatSearchEnabled == true &&
+        shell.currentUser?.hasChatEnabled != false &&
+        shell.currentTotals?.hasChatEnabled == true;
+    if (!available) return null;
+
+    final search = PluginUiScope.require(context, chatSearchControllerService);
+    return () {
+      shell.openSearch();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        search.requestGlobalFocus(siteUrl);
+      });
+    };
   }
 
   @override

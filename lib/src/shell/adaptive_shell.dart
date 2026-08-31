@@ -137,11 +137,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     if (!modifierPressed) return false;
 
     final controller = ShellScope.read(context);
-    if (event.logicalKey == LogicalKeyboardKey.keyK) {
-      if (controller.rootMode != ShellRootMode.forum) return false;
-      controller.search.requestFocus();
-      return true;
-    }
     if (event.logicalKey == LogicalKeyboardKey.keyF) {
       if (controller.rootMode != ShellRootMode.forum) return false;
       final extraModifierPressed =
@@ -151,9 +146,20 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
               ? keyboard.isControlPressed
               : keyboard.isMetaPressed);
       if (extraModifierPressed) return false;
-      final topicId = controller.currentContent?.topicId;
-      if (topicId == null) return false;
-      controller.search.requestTopicFocus(topicId);
+
+      final route = controller.currentContent;
+      final pluginSearch = route == null
+          ? (owned: false, action: null)
+          : PluginScope.of(context).registry.contentSearch(context, route);
+      if (pluginSearch.owned) {
+        pluginSearch.action?.call();
+        return pluginSearch.action != null;
+      }
+      if (route?.topicId case final topicId?) {
+        controller.search.requestTopicFocus(topicId);
+      } else {
+        controller.search.requestFocus();
+      }
       return true;
     }
 

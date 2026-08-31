@@ -25,12 +25,15 @@ class ChatSearchView extends StatefulWidget {
 class _ChatSearchViewState extends State<ChatSearchView> {
   late final ChatSearchController _search;
   late final TextEditingController _query;
+  late final FocusNode _focus;
   late final ScrollController _scroll;
+  VoidCallback? _unregisterFocus;
   bool _ready = false;
 
   @override
   void initState() {
     super.initState();
+    _focus = FocusNode(debugLabel: 'chat search');
     _scroll = ScrollController()..addListener(_maybeLoadMore);
   }
 
@@ -42,12 +45,18 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     _query = TextEditingController(
       text: _search.globalState(widget.siteUrl).query,
     );
+    _unregisterFocus = _search.registerGlobalFocus(
+      widget.siteUrl,
+      _focus.requestFocus,
+    );
     _ready = true;
   }
 
   @override
   void dispose() {
+    _unregisterFocus?.call();
     _scroll.dispose();
+    _focus.dispose();
     _query.dispose();
     super.dispose();
   }
@@ -65,6 +74,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
         children: [
           _SearchControls(
             controller: _query,
+            focusNode: _focus,
             state: state,
             onChanged: (value) => _search.setGlobalQuery(widget.siteUrl, value),
             onClear: () {
@@ -174,6 +184,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
 class _SearchControls extends StatelessWidget {
   const _SearchControls({
     required this.controller,
+    required this.focusNode,
     required this.state,
     required this.onChanged,
     required this.onClear,
@@ -181,6 +192,7 @@ class _SearchControls extends StatelessWidget {
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final GlobalChatSearchState state;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
@@ -220,6 +232,7 @@ class _SearchControls extends StatelessWidget {
             child: TextField(
               key: const ValueKey('chat-search-field'),
               controller: controller,
+              focusNode: focusNode,
               autofocus: true,
               textInputAction: TextInputAction.search,
               onChanged: onChanged,

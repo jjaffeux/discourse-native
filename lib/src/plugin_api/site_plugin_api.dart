@@ -489,6 +489,13 @@ abstract interface class ContentPlugin {
   Widget? content(BuildContext context, ContentRoute route);
 }
 
+abstract interface class ContentSearchPlugin {
+  bool ownsContentSearch(BuildContext context, ContentRoute route);
+
+  /// Returns null when this route owns search but search is unavailable.
+  VoidCallback? contentSearchAction(BuildContext context, ContentRoute route);
+}
+
 abstract interface class ContentChromePlugin {
   bool ownsContentChrome(BuildContext context, ContentRoute route);
 }

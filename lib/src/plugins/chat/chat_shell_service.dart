@@ -193,6 +193,14 @@ final class ChatShellService
     ),
   );
 
+  void openSearch() => _host.selectDestination(
+    const SidebarDestination(
+      id: ChatPlugin.searchRouteId,
+      label: 'Search',
+      icon: DIcons.magnifyingGlass,
+    ),
+  );
+
   void returnToChannel(int channelId) => openChannel(channelId);
 
   void openThread({
