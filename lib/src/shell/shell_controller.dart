@@ -3424,10 +3424,19 @@ class ShellController extends FrameSafeNotifier
     postNumber: topic.firstUnreadPostNumber,
   );
 
-  void openCategory(TopicCategory category) {
-    final instance = currentInstance;
-    if (instance == null) return;
-    final categories = _categoriesBySite[instance.url] ?? const [];
+  void openCategory(TopicCategory category, {String? siteUrl}) {
+    final targetSiteUrl = siteUrl ?? currentInstance?.url;
+    if (targetSiteUrl == null) return;
+    final index = _instances.indexWhere(
+      (instance) => instance.url == targetSiteUrl,
+    );
+    if (index < 0) return;
+    if (index != _instanceIndex || _rootMode != ShellRootMode.forum) {
+      selectInstance(index);
+    }
+    if (currentInstance?.url != targetSiteUrl) return;
+
+    final categories = _categoriesBySite[targetSiteUrl] ?? const [];
     final byId = <int, TopicCategory>{
       for (final item in categories) item.id: item,
       category.id: category,
@@ -3435,7 +3444,10 @@ class ShellController extends FrameSafeNotifier
     final route = ContentRoute.fromDestination(
       buildCategoryDestination(category, categoriesById: byId),
     );
-    if (currentContent?.id == route.id) return;
+    if (currentContent?.id == route.id) {
+      showPluginContent();
+      return;
+    }
     pushContent(route);
     unawaited(loadFeed(route.id));
   }
@@ -3452,6 +3464,134 @@ class ShellController extends FrameSafeNotifier
     if (currentContent?.id == route.id) return;
     pushContent(route);
     unawaited(loadFeed(route.id));
+  }
+
+  Future<bool> openTopicTag(
+    TopicTag tag, {
+    required String siteUrl,
+    bool privateMessage = false,
+  }) async {
+    var resolvedTag = _topicTagWithKnownIdentity(siteUrl, tag);
+    final isPrivateMessage =
+        privateMessage ||
+        resolvedTag.pmOnly ||
+        _isKnownPrivateMessageOnlyTag(siteUrl, resolvedTag);
+    if (!isPrivateMessage &&
+        resolvedTag.id == null &&
+        int.tryParse(resolvedTag.name.trim()) != null) {
+      final source = (
+        rootMode: _rootMode,
+        instanceUrl: currentInstance?.url,
+        tabId: activeTabId,
+        contentId: currentContent?.id,
+        stackDepth: contentStack.length,
+        mobilePane: _mobilePane,
+        aggregateTabId: activeAggregateTabId,
+      );
+      final lease = lifecycle.capture(siteUrl);
+      final found = await searchHashtags(
+        siteUrl: siteUrl,
+        term: resolvedTag.name,
+      );
+      if (!lease.isCurrent ||
+          isDisposed ||
+          _rootMode != source.rootMode ||
+          currentInstance?.url != source.instanceUrl ||
+          activeTabId != source.tabId ||
+          currentContent?.id != source.contentId ||
+          contentStack.length != source.stackDepth ||
+          _mobilePane != source.mobilePane ||
+          activeAggregateTabId != source.aggregateTabId) {
+        return false;
+      }
+      final normalizedName = resolvedTag.name.trim().toLowerCase();
+      final match = found.where((candidate) {
+        if (candidate.type != 'tag' || candidate.id <= 0) return false;
+        return candidate.slug.trim().toLowerCase() == normalizedName ||
+            candidate.text.trim().toLowerCase() == normalizedName;
+      }).firstOrNull;
+      if (match == null) return false;
+      resolvedTag = _topicTagWithIdentity(
+        resolvedTag,
+        id: match.id,
+        slug: match.slug,
+      );
+    }
+
+    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0) return false;
+
+    final instance = _instances[index];
+    final destination = buildTopicTagDestination(
+      resolvedTag,
+      username: instance.user?.username,
+      privateMessage: isPrivateMessage,
+    );
+    if (destination == null) return false;
+
+    if (index != _instanceIndex || _rootMode != ShellRootMode.forum) {
+      selectInstance(index);
+    }
+    if (currentInstance?.url != siteUrl) return false;
+
+    final route = ContentRoute.fromDestination(destination);
+    if (currentContent?.id == route.id) {
+      showPluginContent();
+      return true;
+    }
+    pushContent(route);
+    unawaited(loadFeed(route.id));
+    return true;
+  }
+
+  TopicTag _topicTagWithKnownIdentity(String siteUrl, TopicTag topicTag) {
+    if (topicTag.id case final id? when id > 0) return topicTag;
+    final known = _knownTopicTag(siteUrl, topicTag);
+    if (known == null) return topicTag;
+    return _topicTagWithIdentity(
+      topicTag,
+      id: known.id,
+      slug: known.slug,
+      pmOnly: topicTag.pmOnly || known.pmOnly,
+    );
+  }
+
+  TopicTag _topicTagWithIdentity(
+    TopicTag tag, {
+    required int id,
+    required String slug,
+    bool? pmOnly,
+  }) => TopicTag(
+    id: id,
+    name: tag.name,
+    slug: slug,
+    pmOnly: pmOnly ?? tag.pmOnly,
+    count: tag.count,
+    disabled: tag.disabled,
+    disabledReason: tag.disabledReason,
+  );
+
+  SidebarTag? _knownTopicTag(String siteUrl, TopicTag topicTag) {
+    final topicTagId = topicTag.id;
+    final topicTagName = topicTag.name.trim().toLowerCase();
+    for (final tag in _knownTagsFor(siteUrl)) {
+      if ((topicTagId != null && topicTagId > 0 && tag.id == topicTagId) ||
+          tag.name.trim().toLowerCase() == topicTagName) {
+        return tag;
+      }
+    }
+    return null;
+  }
+
+  Iterable<SidebarTag> _knownTagsFor(String siteUrl) sync* {
+    yield* _instanceAt(siteUrl)?.user?.sidebarTags ?? const [];
+    yield* _siteTopTagsBySite[siteUrl] ?? const [];
+    yield* _anonymousDefaultTagsBySite[siteUrl] ?? const [];
+    yield* tagDirectoryFeedFor(siteUrl).tags;
+  }
+
+  bool _isKnownPrivateMessageOnlyTag(String siteUrl, TopicTag topicTag) {
+    return _knownTopicTag(siteUrl, topicTag)?.pmOnly == true;
   }
 
   void openSearchResult(SearchPostHit hit) {

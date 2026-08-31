@@ -562,6 +562,7 @@ class TopicDetail with Storable<TopicDetail> {
     this.wordCount = 0,
     this.hasSummary = false,
     this.isNestedView = false,
+    this.privateMessage = false,
     this.categoryId,
     this.canCreatePost = false,
     this.canEdit = false,
@@ -628,6 +629,7 @@ class TopicDetail with Storable<TopicDetail> {
         wordCount: jsonInt(json['word_count']),
         hasSummary: json['has_summary'] == true,
         isNestedView: json['is_nested_view'] == true,
+        privateMessage: json['archetype'] == 'private_message',
         categoryId: json['category_id'] == null
             ? null
             : jsonInt(json['category_id']),
@@ -717,6 +719,7 @@ class TopicDetail with Storable<TopicDetail> {
   final int wordCount;
   final bool hasSummary;
   final bool isNestedView;
+  final bool privateMessage;
   final int? categoryId;
 
   final bool canCreatePost;
@@ -944,6 +947,7 @@ class TopicDetail with Storable<TopicDetail> {
     wordCount: wordCount,
     hasSummary: hasSummary,
     isNestedView: isNestedView,
+    privateMessage: privateMessage,
     categoryId: categoryId,
     canCreatePost: canCreatePost,
     canEdit: canEdit,
@@ -1017,6 +1021,7 @@ class TopicDetail with Storable<TopicDetail> {
     bool? archived,
     bool? closed,
     bool? visible,
+    bool? privateMessage,
     DateTime? deletedAt,
     bool clearDeletedAt = false,
     int? categoryId,
@@ -1048,6 +1053,7 @@ class TopicDetail with Storable<TopicDetail> {
     wordCount: wordCount,
     hasSummary: hasSummary,
     isNestedView: isNestedView,
+    privateMessage: privateMessage ?? this.privateMessage,
     categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
     canCreatePost: canCreatePost,
     canEdit: canEdit ?? this.canEdit,
@@ -1103,6 +1109,7 @@ class TopicDetail with Storable<TopicDetail> {
           other.wordCount == wordCount &&
           other.hasSummary == hasSummary &&
           other.isNestedView == isNestedView &&
+          other.privateMessage == privateMessage &&
           other.categoryId == categoryId &&
           other.canCreatePost == canCreatePost &&
           other.canEdit == canEdit &&
@@ -1151,6 +1158,7 @@ class TopicDetail with Storable<TopicDetail> {
     wordCount,
     hasSummary,
     isNestedView,
+    privateMessage,
     categoryId,
     canCreatePost,
     canEdit,

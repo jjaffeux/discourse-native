@@ -14,6 +14,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
 import 'avatar_image.dart';
+import 'inline_action.dart';
 import 'list_boundary_shortcuts.dart';
 import 'loading_skeleton.dart';
 import 'relative_time.dart';
@@ -813,6 +814,7 @@ class _TopicRowBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final controller = ShellScope.read(context);
     final effectiveTitleStyle = titleStyle ?? theme.textTheme.titleMedium;
 
     final row = InkWell(
@@ -939,18 +941,26 @@ class _TopicRowBody extends StatelessWidget {
                       if (category case final category?)
                         Padding(
                           padding: const EdgeInsets.only(right: 10),
-                          child: _CategoryBadge(category: category),
+                          child: _CategoryBadge(
+                            category: category,
+                            onTap: () => controller.openCategory(
+                              category,
+                              siteUrl: siteUrl,
+                            ),
+                          ),
                         ),
                       for (var index = 0; index < topic.tags.length; index++)
                         _TopicTag(
                           tag: topic.tags[index],
+                          onTap: () => controller.openTopicTag(
+                            topic.tags[index],
+                            siteUrl: siteUrl,
+                            privateMessage: topic.privateMessage,
+                          ),
                           hasComma: index < topic.tags.length - 1,
                           trailingSpacing: index < topic.tags.length - 1
                               ? 3
                               : 10,
-                          semanticsLabel: index == 0
-                              ? 'Tags: ${topic.tags.map((tag) => tag.name).join(', ')}'
-                              : null,
                         ),
                       for (final metadata
                           in (PluginScope.maybeOf(context)?.registry ??
@@ -1000,43 +1010,53 @@ class _TopicRowBody extends StatelessWidget {
 }
 
 class _CategoryBadge extends StatelessWidget {
-  const _CategoryBadge({required this.category});
+  const _CategoryBadge({required this.category, required this.onTap});
 
   final TopicCategory category;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 9,
-          height: 9,
-          decoration: BoxDecoration(
-            color: Color(category.colorValue),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 5),
-        // Same 200px cap as a tag, and flexible on top of it: a category name
-        // long enough to fill the metadata row must ellipsize, not overflow.
-        Flexible(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 200),
-            child: Text(
-              category.name,
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+    return InlineAction.link(
+      onTap: onTap,
+      semanticLabel: 'Category: ${category.name}',
+      excludeChildSemantics: true,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 9,
+              height: 9,
+              decoration: BoxDecoration(
+                color: Color(category.colorValue),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-          ),
+            const SizedBox(width: 5),
+            // Same 200px cap as a tag, and flexible on top of it: a category
+            // name long enough to fill the metadata row must ellipsize, not
+            // overflow.
+            Flexible(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 200),
+                child: Text(
+                  category.name,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -1044,15 +1064,15 @@ class _CategoryBadge extends StatelessWidget {
 class _TopicTag extends StatelessWidget {
   const _TopicTag({
     required this.tag,
+    required this.onTap,
     required this.hasComma,
     required this.trailingSpacing,
-    this.semanticsLabel,
   });
 
   final TopicTag tag;
+  final VoidCallback onTap;
   final bool hasComma;
   final double trailingSpacing;
-  final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -1061,30 +1081,32 @@ class _TopicTag extends StatelessWidget {
       color: theme.colorScheme.onSurfaceVariant,
     );
 
-    final child = Padding(
+    return Padding(
       padding: EdgeInsets.only(right: trailingSpacing),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 200),
-        child: Text(
-          '${tag.name}${hasComma ? ',' : ''}',
-          maxLines: 1,
-          softWrap: false,
-          overflow: TextOverflow.ellipsis,
-          style: style,
+      child: InlineAction.link(
+        onTap: onTap,
+        semanticLabel: 'Tag: ${tag.name}',
+        excludeChildSemantics: true,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            widthFactor: 1,
+            heightFactor: 1,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 200),
+              child: Text(
+                '${tag.name}${hasComma ? ',' : ''}',
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: style,
+              ),
+            ),
+          ),
         ),
       ),
     );
-
-    if (semanticsLabel case final semanticsLabel?) {
-      return Semantics(
-        container: true,
-        label: semanticsLabel,
-        excludeSemantics: true,
-        child: child,
-      );
-    }
-
-    return ExcludeSemantics(child: child);
   }
 }
 

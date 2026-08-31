@@ -134,6 +134,7 @@ class Topic with Storable<Topic> {
     this.newPosts = 0,
     this.seen = true,
     this.isNestedView = false,
+    this.privateMessage = false,
     this.hasNewReplies = false,
     this.lastReadPostNumber,
     this.highestPostNumber = 0,
@@ -182,6 +183,7 @@ class Topic with Storable<Topic> {
       newPosts: jsonInt(json['new_posts']),
       seen: json['unseen'] != true,
       isNestedView: json['is_nested_view'] == true,
+      privateMessage: json['archetype'] == 'private_message',
       hasNewReplies: json['has_new_replies'] == true,
       lastReadPostNumber: jsonIntOrNull(json['last_read_post_number']),
       highestPostNumber: jsonInt(json['highest_post_number']),
@@ -230,6 +232,8 @@ class Topic with Storable<Topic> {
   final bool seen;
 
   final bool isNestedView;
+
+  final bool privateMessage;
 
   final bool hasNewReplies;
 
@@ -292,6 +296,7 @@ class Topic with Storable<Topic> {
     bool? bookmarked,
     bool? pinned,
     bool? closed,
+    bool? privateMessage,
     bool markRead = false,
   }) => Topic(
     id: id,
@@ -310,6 +315,7 @@ class Topic with Storable<Topic> {
     newPosts: markRead ? 0 : newPosts,
     seen: markRead ? true : seen,
     isNestedView: isNestedView,
+    privateMessage: privateMessage ?? this.privateMessage,
     hasNewReplies: markRead ? false : hasNewReplies,
     lastReadPostNumber: markRead && this.highestPostNumber > 0
         ? this.highestPostNumber
@@ -339,6 +345,7 @@ class Topic with Storable<Topic> {
     newPosts: newPosts,
     seen: seen,
     isNestedView: isNestedView,
+    privateMessage: privateMessage,
     hasNewReplies: hasNewReplies,
     lastReadPostNumber: lastReadPostNumber,
     highestPostNumber: highestPostNumber,
@@ -367,6 +374,7 @@ class Topic with Storable<Topic> {
           other.newPosts == newPosts &&
           other.seen == seen &&
           other.isNestedView == isNestedView &&
+          other.privateMessage == privateMessage &&
           other.hasNewReplies == hasNewReplies &&
           other.lastReadPostNumber == lastReadPostNumber &&
           other.highestPostNumber == highestPostNumber &&
@@ -392,6 +400,7 @@ class Topic with Storable<Topic> {
     newPosts,
     seen,
     isNestedView,
+    privateMessage,
     hasNewReplies,
     lastReadPostNumber,
     highestPostNumber,

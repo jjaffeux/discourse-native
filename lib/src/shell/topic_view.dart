@@ -3282,8 +3282,20 @@ class _TopicPropertiesCard extends StatelessWidget {
                         actionKey: const ValueKey(
                           'topic-sidebar-category-action',
                         ),
+                        editActionKey: const ValueKey(
+                          'topic-sidebar-category-edit-action',
+                        ),
+                        editIconKey: const ValueKey(
+                          'topic-sidebar-category-edit-indicator',
+                        ),
                         saving: saving,
-                        onTap: openMenu,
+                        onNavigate: category == null
+                            ? null
+                            : () => controller.openCategory(
+                                category,
+                                siteUrl: siteUrl,
+                              ),
+                        onEdit: openMenu,
                       ),
                     ),
                   ),
@@ -3299,7 +3311,12 @@ class _TopicPropertiesCard extends StatelessWidget {
                       child: TopicTagsValue(
                         tags: topic.tags,
                         saving: saving,
-                        onTap: openMenu,
+                        onTagNavigate: (tag) => controller.openTopicTag(
+                          tag,
+                          siteUrl: siteUrl,
+                          privateMessage: topic.privateMessage,
+                        ),
+                        onEdit: openMenu,
                         tagKey: (tag) =>
                             ValueKey(('topic-sidebar-tag', tag.name)),
                         addKey: const ValueKey('topic-sidebar-add-tag'),

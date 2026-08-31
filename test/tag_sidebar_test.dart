@@ -142,6 +142,7 @@ void main() {
         tags: tags,
         username: 'sam name',
       )!;
+      expect(connected.destinations[1].id, 'pm-tag-2');
       expect(
         connected.destinations[1].feedPath,
         ('/topics/private-messages-tags/'
