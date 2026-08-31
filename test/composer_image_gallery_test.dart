@@ -9,6 +9,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -51,6 +52,7 @@ void main() {
 
       expect(find.byType(ComposerImageGalleryTile), findsNWidgets(3));
       expect(find.byType(ComposerImageGalleryControl), findsOneWidget);
+      expect(find.byType(DButton), findsOneWidget);
 
       for (final tile in find.byType(ComposerImageGalleryTile).evaluate()) {
         final size = tester.getSize(find.byWidget(tile.widget));
@@ -139,7 +141,7 @@ void main() {
         280,
       );
       expect(find.byType(ComposerImageGalleryTile), findsNWidgets(3));
-      expect(find.byTooltip('Gallery options'), findsOneWidget);
+      expect(find.byType(DButton), findsOneWidget);
       expect(
         tester.getSize(find.byType(ComposerImageGalleryControl)).height,
         ComposerImageGalleryControl.extent,
@@ -502,7 +504,7 @@ void main() {
       expect(find.byType(ComposerImageGalleryPreview), findsOneWidget);
       expect(find.byType(ComposerImageGalleryTile), findsNothing);
       expect(find.byType(ComposerImageGalleryControl), findsOneWidget);
-      expect(find.byTooltip('Gallery options'), findsOneWidget);
+      expect(find.byType(DButton), findsOneWidget);
       expect(
         tester.getSize(find.byType(ComposerImageGalleryControl)).height,
         ComposerImageGalleryControl.extent,
