@@ -86,6 +86,45 @@ void main() {
       );
     });
 
+    testWidgets('Command-L links the selected chat text', (tester) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      final controller = _field(tester).controller!;
+      controller.value = const TextEditingValue(
+        text: 'format me',
+        selection: TextSelection(baseOffset: 0, extentOffset: 6),
+      );
+      _field(tester).focusNode!.requestFocus();
+      await tester.pump();
+
+      await _pressCommandL(tester);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('composer-link-dialog')),
+        findsOneWidget,
+      );
+      final anchor = tester.widget<TextField>(
+        find.byKey(const ValueKey('composer-link-anchor')),
+      );
+      expect(anchor.controller!.text, 'format');
+
+      await tester.enterText(
+        find.byKey(const ValueKey('composer-link-url')),
+        'https://example.com',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('composer-link-insert')));
+      await tester.pumpAndSettle();
+
+      expect(controller.text, '[format](https://example.com) me');
+    });
+
     testWidgets('chat composer deletes a rendered emoji atomically', (
       tester,
     ) async {
@@ -1205,6 +1244,13 @@ String _text(WidgetTester tester) => _field(tester).controller!.text;
 Future<void> _pressCommandE(WidgetTester tester) async {
   await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
   await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+  await tester.pump();
+}
+
+Future<void> _pressCommandL(WidgetTester tester) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+  await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
   await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
   await tester.pump();
 }

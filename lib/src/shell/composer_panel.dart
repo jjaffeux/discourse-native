@@ -27,6 +27,7 @@ import 'composer_controller.dart';
 import 'composer_drop.dart';
 import 'composer_galleries.dart';
 import 'composer_images.dart';
+import 'composer_link.dart';
 import 'composer_marks.dart';
 import 'composer_quotes.dart';
 import 'composer_suggestions.dart';
@@ -125,6 +126,13 @@ class ComposerPanel extends StatelessWidget {
                   composer.toggleMark(ComposerMark.italic),
               const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
                   composer.toggleSelectedInlineCode,
+              const SingleActivator(LogicalKeyboardKey.keyL, meta: true): () =>
+                  unawaited(
+                    showComposerLinkDialog(
+                      context: context,
+                      composer: composer,
+                    ),
+                  ),
               ...PluginScope.of(
                 context,
               ).registry.composerShortcuts(context, composer),
