@@ -120,10 +120,7 @@ void main() {
   group('composerLinkValue', () {
     test('replaces the captured selection with a markdown link', () {
       open('visit Discourse today');
-      const selection = TextSelection(
-        baseOffset: 6,
-        extentOffset: 15,
-      );
+      const selection = TextSelection(baseOffset: 6, extentOffset: 15);
 
       final value = composerLinkValue(
         current: composer.text.value,
@@ -134,10 +131,7 @@ void main() {
       );
 
       expect(value, isNotNull);
-      expect(
-        value!.text,
-        'visit [Discourse](https://discourse.org) today',
-      );
+      expect(value!.text, 'visit [Discourse](https://discourse.org) today');
       expect(value.selection.isCollapsed, isTrue);
       expect(value.selection.extentOffset, 40);
     });
@@ -192,11 +186,86 @@ void main() {
 
     test('leaves escaped links and links in code as raw source', () {
       open('');
-      const source = r'\[escaped](https://example.com) '
+      const source =
+          r'\[escaped](https://example.com) '
           '`[inline](https://example.com)`\n\n'
           '```\n[block](https://example.com)\n```';
 
-      expect(parseComposerLinks(source), isEmpty);
+      expect(parseComposerLinks(source, enableLinkify: false), isEmpty);
     });
+
+    test('linkifies fuzzy domains, protocol URLs, and email like core', () {
+      open('');
+      const source =
+          'Try google.fr/path?q=one, https://example.test/a and '
+          'team@discourse.org.';
+
+      final links = parseComposerLinks(source);
+
+      expect(links.map((link) => (link.source, link.url, link.kind)), [
+        (
+          'google.fr/path?q=one',
+          'http://google.fr/path?q=one',
+          ComposerLinkKind.linkify,
+        ),
+        (
+          'https://example.test/a',
+          'https://example.test/a',
+          ComposerLinkKind.linkify,
+        ),
+        (
+          'team@discourse.org',
+          'mailto:team@discourse.org',
+          ComposerLinkKind.linkify,
+        ),
+      ]);
+    });
+
+    test('uses the configured fuzzy TLDs but always links protocols', () {
+      open('');
+      const source =
+          'www.cnn.com test.it http://test.com https://test.ab https://a';
+
+      final links = parseComposerLinks(source, linkifyTlds: const ['it']);
+
+      expect(links.map((link) => link.source), [
+        'test.it',
+        'http://test.com',
+        'https://test.ab',
+        'https://a',
+      ]);
+      expect(parseComposerLinks(source, enableLinkify: false), isEmpty);
+    });
+
+    test('keeps punctuation out and balanced URL parentheses in', () {
+      open('');
+      const source =
+          '(google.fr), http://en.wikipedia.org/wiki/The_Dark_Knight_(film).';
+
+      final links = parseComposerLinks(source);
+
+      expect(links.map((link) => link.source), [
+        'google.fr',
+        'http://en.wikipedia.org/wiki/The_Dark_Knight_(film)',
+      ]);
+    });
+
+    test(
+      'does not linkify code, markdown links, images, references, or HTML',
+      () {
+        open('');
+        const source =
+            '`google.fr` [google.fr](https://google.fr) '
+            '![google.fr](https://google.fr/logo.png)\n'
+            '[ref]: https://google.fr\n'
+            '<a href="https://google.fr">site</a>';
+
+        final links = parseComposerLinks(source);
+
+        expect(links, hasLength(1));
+        expect(links.single.kind, ComposerLinkKind.markdown);
+        expect(links.single.source, '[google.fr](https://google.fr)');
+      },
+    );
   });
 }

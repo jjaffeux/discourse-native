@@ -927,7 +927,13 @@ become stale while the dialog was open. Away from an interior editing caret,
 the raw `[text](url)` projects as one link-labelled anchor while retaining one
 source offset per character. Clicking that projection reopens the dialog with
 both fields populated; moving the caret inside still reveals the raw Markdown
-for direct editing.
+for direct editing. Plain addresses use the same projection without rewriting
+the draft: `google.fr` stays `google.fr`, but is drawn as a link to
+`http://google.fr`. This follows core's `linkify-it` split: protocol URLs are
+recognized without consulting the TLD list, while fuzzy domains and email
+addresses do consult it; the site's `enable_markdown_linkify` gate controls
+both. Code, existing Markdown links and images, reference definitions, and
+HTML tag attributes remain raw.
 
 Image uploads enter one queue whether they came from a clipboard paste, a
 desktop drop or the toolbar's native multiple-file picker. Every adapter stops

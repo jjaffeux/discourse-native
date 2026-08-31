@@ -225,6 +225,27 @@ void main() {
       await tester.pump();
       expect(find.byType(ComposerLinkPill), findsOneWidget);
     });
+
+    testWidgets('a fuzzy domain is projected as a source-preserving link', (
+      tester,
+    ) async {
+      const source = 'visit google.fr now';
+      await pumpField(tester, source);
+
+      final pill = tester.widget<ComposerLinkPill>(
+        find.byType(ComposerLinkPill),
+      );
+      expect(pill.anchor, 'google.fr');
+      expect(pill.url, 'http://google.fr');
+      expect(controller.text, source);
+      expect(editable(tester).renderEditable.plainText.length, source.length);
+
+      controller.updateMarkdownLinkify(enabled: false, tlds: const []);
+      await tester.pump();
+
+      expect(find.byType(ComposerLinkPill), findsNothing);
+      expect(controller.text, source);
+    });
   });
 
   group('deferred fence highlighting', () {

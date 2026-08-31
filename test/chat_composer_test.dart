@@ -127,6 +127,25 @@ void main() {
       expect(find.byType(ComposerLinkPill), findsOneWidget);
     });
 
+    testWidgets('a typed domain becomes a link in chat', (tester) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(_composerField(), 'google.fr');
+      await tester.pump();
+
+      final pill = tester.widget<ComposerLinkPill>(
+        find.byType(ComposerLinkPill),
+      );
+      expect(pill.anchor, 'google.fr');
+      expect(pill.url, 'http://google.fr');
+      expect(_text(tester), 'google.fr');
+    });
+
     testWidgets('chat composer deletes a rendered emoji atomically', (
       tester,
     ) async {

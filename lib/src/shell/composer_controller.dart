@@ -11,6 +11,7 @@ import '../data/draft_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
+import '../models/site_config.dart';
 import '../models/topic_tag.dart';
 import '../plugin_api/composer_syntax.dart';
 import '../plugin_api/emoji_usage.dart';
@@ -310,6 +311,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     this.canUploadImage,
     this.simultaneousUploads = 15,
     bool enableAutoGridImages = true,
+    bool enableMarkdownLinkify = true,
+    List<String> markdownLinkifyTlds = SiteConfig.defaultMarkdownLinkifyTlds,
     int maxImageWidth = 690,
     int maxImageHeight = 500,
     int minimumRequiredTags = 0,
@@ -323,6 +326,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
          formatQuoteContents: formatQuoteContents,
          syntaxPolicies: syntaxPolicies,
          resolveUploadUrls: resolveUploadUrls,
+         enableMarkdownLinkify: enableMarkdownLinkify,
+         markdownLinkifyTlds: markdownLinkifyTlds,
          maxImageWidth: maxImageWidth,
          maxImageHeight: maxImageHeight,
          enableImageGalleries: !_target.isPlugin,
@@ -381,6 +386,11 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       }
     }
   }
+
+  void updateMarkdownLinkify({
+    required bool enabled,
+    required List<String> tlds,
+  }) => text.updateMarkdownLinkify(enabled: enabled, tlds: tlds);
 
   final ComposerPluginStateReader? pluginStateReader;
   final bool Function()? isCurrentComposer;
