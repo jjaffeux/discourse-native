@@ -446,7 +446,7 @@ void main() {
   });
 
   test(
-    'panel width store restores a valid write and rejects invalid values',
+    'panel width store restores positive finite widths and ignores invalid values',
     () async {
       final persistence = _MemoryPanelWidthPersistence();
       final store = ChatThreadPanelWidthStore(persistence: persistence);

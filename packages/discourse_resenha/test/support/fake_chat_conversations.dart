@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:discourse_native/src/plugins/chat/chat_contract.dart';
 import 'package:flutter/foundation.dart';
 
@@ -19,8 +17,8 @@ final class FakeChatConversationCapability
     required int channelId,
     required int threadId,
     ChatConversationSnapshot snapshot = const ChatConversationSnapshot(),
-    List<ChatMessage> olderMessages = const [],
-    bool canLoadMoreAfterOlder = false,
+    ChatConversationSnapshot? snapshotAfterLoadOlder,
+    ChatConversationSnapshot? snapshotAfterSend,
   }) {
     final key = (siteUrl: siteUrl, channelId: channelId, threadId: threadId);
     final conversation = FakeChatConversation(
@@ -28,8 +26,8 @@ final class FakeChatConversationCapability
       channelId: channelId,
       threadId: threadId,
       snapshot: snapshot,
-      olderMessages: olderMessages,
-      canLoadMoreAfterOlder: canLoadMoreAfterOlder,
+      snapshotAfterLoadOlder: snapshotAfterLoadOlder,
+      snapshotAfterSend: snapshotAfterSend,
     );
     conversations[key] = conversation;
     return conversation;
@@ -72,8 +70,8 @@ final class FakeChatConversation extends ChangeNotifier
     required this.channelId,
     required this.threadId,
     ChatConversationSnapshot snapshot = const ChatConversationSnapshot(),
-    this.olderMessages = const [],
-    this.canLoadMoreAfterOlder = false,
+    this.snapshotAfterLoadOlder,
+    this.snapshotAfterSend,
   }) : _value = snapshot;
 
   @override
@@ -85,16 +83,13 @@ final class FakeChatConversation extends ChangeNotifier
   @override
   final int threadId;
 
-  List<ChatMessage> olderMessages;
-  bool canLoadMoreAfterOlder;
-  bool holdRefreshes = false;
+  final ChatConversationSnapshot? snapshotAfterLoadOlder;
+  final ChatConversationSnapshot? snapshotAfterSend;
   int refreshCalls = 0;
   int loadOlderCalls = 0;
   int closeCalls = 0;
   final List<String> sentMessages = [];
-  final List<Completer<ChatConversationSnapshot>> pendingRefreshes = [];
-  Object? sendFailure;
-  String? sendError;
+  bool _closed = false;
 
   ChatConversationSnapshot _value;
 
@@ -109,54 +104,27 @@ final class FakeChatConversation extends ChangeNotifier
   @override
   Future<void> refresh({bool force = false}) async {
     refreshCalls++;
-    if (!holdRefreshes) return;
-    final response = Completer<ChatConversationSnapshot>();
-    pendingRefreshes.add(response);
-    setSnapshot(
-      ChatConversationSnapshot(
-        messages: _value.messages,
-        loading: true,
-        sending: _value.sending,
-        canLoadMorePast: _value.canLoadMorePast,
-        error: _value.error,
-      ),
-    );
-    setSnapshot(await response.future);
   }
 
   @override
   Future<void> loadOlder() async {
     loadOlderCalls++;
-    if (!_value.canLoadMorePast || olderMessages.isEmpty) return;
-    final byId = <int, ChatMessage>{
-      for (final message in [...olderMessages, ..._value.messages])
-        message.id: message,
-    };
-    final messages = byId.values.toList()
-      ..sort((left, right) => left.id.compareTo(right.id));
-    setSnapshot(
-      ChatConversationSnapshot(
-        messages: List.unmodifiable(messages),
-        canLoadMorePast: canLoadMoreAfterOlder,
-      ),
-    );
+    final configured = snapshotAfterLoadOlder;
+    if (configured != null) setSnapshot(configured);
   }
 
   @override
   Future<void> send(String message) async {
     sentMessages.add(message);
-    if (sendFailure case final failure?) throw failure;
-    if (sendError case final error?) {
-      setSnapshot(
-        ChatConversationSnapshot(
-          messages: _value.messages,
-          canLoadMorePast: _value.canLoadMorePast,
-          error: error,
-        ),
-      );
-    }
+    final configured = snapshotAfterSend;
+    if (configured != null) setSnapshot(configured);
   }
 
   @override
-  void close() => closeCalls++;
+  void close() {
+    closeCalls++;
+    if (_closed) return;
+    _closed = true;
+    dispose();
+  }
 }

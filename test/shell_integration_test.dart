@@ -149,10 +149,19 @@ Finder minimumHeightAncestors(Finder child, double minimumHeight) =>
       ),
     );
 
-final List<DiscourseInstance> twoSites = [
+final List<DiscourseInstance> twoSites = List.unmodifiable([
   instance('meta.discourse.org', title: 'Discourse Meta'),
   instance('team.discourse.org', title: 'Discourse Team'),
-];
+]);
+
+void _replaceEmojiCache(EmojiCache replacement) {
+  final previous = EmojiCache.instance;
+  EmojiCache.instance = replacement;
+  addTearDown(() {
+    replacement.clear();
+    EmojiCache.instance = previous;
+  });
+}
 
 Future<void> pumpShell(
   WidgetTester tester,
@@ -177,10 +186,9 @@ Future<void> pumpShell(
   // tests looked like before emoji rendered at all — nothing here is about
   // artwork. Unlike avatars, which no fixture supplies a URL for, cooked HTML
   // is what most of these tests are made of, so this cannot be left to luck.
-  EmojiCache.instance = EmojiCache(
-    client: MockClient((_) async => http.Response('', 404)),
+  _replaceEmojiCache(
+    EmojiCache(client: MockClient((_) async => http.Response('', 404))),
   );
-  addTearDown(EmojiCache.instance.clear);
 
   await tester.pumpWidget(
     DiscourseApp(
@@ -437,6 +445,9 @@ Future<void> tapPostAction(WidgetTester tester, String tooltip) async {
   await tester.tap(action);
 }
 
+/// Cross-feature contracts that require the fully assembled application shell.
+/// Narrower model, controller, and widget behavior stays with its production
+/// owner instead of being added here.
 void main() {
   group('forum search', () {
     testWidgets('uses the macOS title strip and current non-macOS headers', (
@@ -705,10 +716,11 @@ void main() {
         },
       );
       await pumpShell(tester, laptop, api: api);
-      EmojiCache.instance = EmojiCache(
-        client: MockClient((_) async => http.Response.bytes(emojiPng, 200)),
+      _replaceEmojiCache(
+        EmojiCache(
+          client: MockClient((_) async => http.Response.bytes(emojiPng, 200)),
+        ),
       );
-      addTearDown(EmojiCache.instance.clear);
 
       await tester.enterText(find.byKey(ForumSearch.inputKey), 'emoji');
       await tester.pump(const Duration(milliseconds: 400));
@@ -1292,7 +1304,7 @@ void main() {
     });
   });
 
-  group('compact', () {
+  group('compact shell layout', () {
     testWidgets('shows the rail and the sidebar, but no main content', (
       tester,
     ) async {
@@ -1352,7 +1364,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Topic 1'), findsWidgets);
+      expect(find.text('Topic 1'), findsOneWidget);
 
       await tester.tap(find.dIcon(DIcons.arrowLeft));
       await tester.pumpAndSettle();
@@ -1400,7 +1412,7 @@ void main() {
     });
   });
 
-  group('medium', () {
+  group('medium shell layout', () {
     testWidgets('shows rail, sidebar and content together', (tester) async {
       await pumpShell(tester, laptop);
 
@@ -1410,7 +1422,7 @@ void main() {
     });
   });
 
-  group('expanded', () {
+  group('expanded shell layout', () {
     testWidgets('shows rail, sidebar and content', (tester) async {
       await pumpShell(tester, desktop);
 
@@ -2607,7 +2619,7 @@ void main() {
       expect(find.byType(InstanceRail), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsOneWidget);
       expect(controller.search.siteUrl, 'https://meetup.discourse.org');
-      expect(find.byKey(ForumSearch.inputKey), findsWidgets);
+      expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
     });
 
     testWidgets('a failed lookup reports why and adds nothing', (tester) async {
@@ -4816,7 +4828,7 @@ void main() {
       return FakeSiteTracker.built.first;
     }
 
-    testWidgets('the account id is what names the counter channels', (
+    testWidgets('the account ID is what names the counter channels', (
       tester,
     ) async {
       final tracker = await pumpConnected(tester);
@@ -5363,7 +5375,7 @@ void main() {
     );
 
     testWidgets(
-      'topic header spans the floating sidebar and keeps actions ordered',
+      'lays the header across the floating sidebar and keeps actions ordered',
       (tester) async {
         const longTitle =
             'Chris weekly update for 2026 with roadmap decisions, operational '
@@ -5799,73 +5811,72 @@ void main() {
       }
     });
 
-    testWidgets(
-      'topic actions promote sharing and overflow administrative actions',
-      (tester) async {
-        const reader = DiscourseUser(id: 1, username: 'reader');
-        const spam = PostFlagType(
-          id: 8,
-          nameKey: 'spam',
-          name: 'Spam',
-          description: 'Promotional content',
-          appliesTo: ['Topic'],
-        );
-        final api = FakeDiscourseApi(
-          feeds: {'/latest.json': listed},
-          topics: {
-            7: detail(
-              pinned: true,
-              canCloseTopic: true,
-              canFlagTopic: true,
-              canCreatePost: true,
-              topicActions: const [PostActionSummary(id: 8, canAct: true)],
-            ),
-          },
-          categoryPostActionCatalog: const SitePostActionCatalog(
-            topicFlags: [spam],
+    testWidgets('promotes sharing and overflows administrative actions', (
+      tester,
+    ) async {
+      const reader = DiscourseUser(id: 1, username: 'reader');
+      const spam = PostFlagType(
+        id: 8,
+        nameKey: 'spam',
+        name: 'Spam',
+        description: 'Promotional content',
+        appliesTo: ['Topic'],
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: detail(
+            pinned: true,
+            canCloseTopic: true,
+            canFlagTopic: true,
+            canCreatePost: true,
+            topicActions: const [PostActionSummary(id: 8, canAct: true)],
           ),
+        },
+        categoryPostActionCatalog: const SitePostActionCatalog(
+          topicFlags: [spam],
+        ),
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [instance('meta.discourse.org').copyWith(user: reader)],
+        api: api,
+        authenticator: authenticator,
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+
+      for (final tooltip in [
+        'Share topic',
+        'Bookmark this topic',
+        'More topic actions',
+        'Topic notifications',
+        'Reply to this topic',
+      ]) {
+        final trigger = find.byTooltip(tooltip);
+        expect(trigger, findsOneWidget, reason: tooltip);
+        final button = find.ancestor(
+          of: trigger,
+          matching: find.byType(DButton),
         );
-        final authenticator = FakeAuthenticator()
-          ..keys['https://meta.discourse.org'] = 'meta-key';
+        expect(button, findsOneWidget, reason: tooltip);
+      }
 
-        await pumpShell(
-          tester,
-          desktop,
-          instances: [instance('meta.discourse.org').copyWith(user: reader)],
-          api: api,
-          authenticator: authenticator,
-        );
-        await tester.tap(contentText('A real topic'));
-        await tester.pumpAndSettle();
+      expect(find.byTooltip('Flag this topic'), findsNothing);
+      expect(find.byTooltip('Pinned topic options'), findsNothing);
 
-        for (final tooltip in [
-          'Share topic',
-          'Bookmark this topic',
-          'More topic actions',
-          'Topic notifications',
-          'Reply to this topic',
-        ]) {
-          final trigger = find.byTooltip(tooltip);
-          expect(trigger, findsOneWidget, reason: tooltip);
-          final button = find.ancestor(
-            of: trigger,
-            matching: find.byType(DButton),
-          );
-          expect(button, findsOneWidget, reason: tooltip);
-        }
+      await tester.tap(find.byTooltip('More topic actions'));
+      await tester.pumpAndSettle();
 
-        expect(find.byTooltip('Flag this topic'), findsNothing);
-        expect(find.byTooltip('Pinned topic options'), findsNothing);
-
-        await tester.tap(find.byTooltip('More topic actions'));
-        await tester.pumpAndSettle();
-
-        expect(find.text('Share topic'), findsNothing);
-        expect(find.text('Flag topic'), findsOneWidget);
-        expect(find.text('Unpin topic'), findsOneWidget);
-        expect(find.text('Close topic'), findsOneWidget);
-      },
-    );
+      expect(find.text('Share topic'), findsNothing);
+      expect(find.text('Flag topic'), findsOneWidget);
+      expect(find.text('Unpin topic'), findsOneWidget);
+      expect(find.text('Close topic'), findsOneWidget);
+    });
 
     testWidgets(
       'uncategorized sidebar picker server-searches and saves a subcategory',
@@ -6337,7 +6348,7 @@ void main() {
       );
     });
 
-    testWidgets('topic sharing copies and hands off core’s canonical link', (
+    testWidgets('offers copy and system share for core’s canonical link', (
       tester,
     ) async {
       final copied = watchClipboard(tester);
@@ -6652,10 +6663,11 @@ void main() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      EmojiCache.instance = EmojiCache(
-        client: MockClient((_) async => http.Response.bytes(emojiPng, 200)),
+      _replaceEmojiCache(
+        EmojiCache(
+          client: MockClient((_) async => http.Response.bytes(emojiPng, 200)),
+        ),
       );
-      addTearDown(EmojiCache.instance.clear);
 
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
@@ -6889,78 +6901,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets(
-      'topic actions show hover affordances and stay inside the viewport',
-      (tester) async {
-        const reader = DiscourseUser(username: 'reader', name: 'Reader');
-        final api = FakeDiscourseApi(
-          feeds: {'/latest.json': listed},
-          topics: {
-            7: detail(
-              canCloseTopic: true,
-              canArchiveTopic: true,
-              canToggleTopicVisibility: true,
-              canDeleteTopic: true,
-            ),
-          },
-        );
-        final authenticator = FakeAuthenticator()
-          ..keys['https://meta.discourse.org'] = 'meta-key';
-
-        await pumpShell(
-          tester,
-          desktop,
-          instances: [
-            instance(
-              'meta.discourse.org',
-              title: 'Discourse Meta',
-            ).copyWith(user: reader),
-          ],
-          api: api,
-          authenticator: authenticator,
-        );
-        await tester.tap(contentText('A real topic'));
-        await tester.pumpAndSettle();
-        tester.view.physicalSize = const Size(508, 700);
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.byTooltip('Show topic sidebar'));
-        await tester.pumpAndSettle();
-        final trigger = find.byKey(const ValueKey('topic-status-button'));
-        await tester.tap(trigger);
-        await tester.pumpAndSettle();
-
-        final item = find.byKey(const ValueKey('topic-status-closed'));
-        final button = tester.widget<TextButton>(
-          find.descendant(of: item, matching: find.byType(TextButton)),
-        );
-        final theme = Theme.of(tester.element(item));
-        final hoverColor = Color.alphaBlend(
-          theme.colorScheme.onSurface.withValues(
-            alpha: theme.brightness == Brightness.dark ? 0.10 : 0.06,
-          ),
-          theme.shell.floating,
-        );
-        expect(
-          button.style!.backgroundColor!.resolve({WidgetState.hovered}),
-          hoverColor,
-        );
-        expect(
-          button.style!.mouseCursor!.resolve({}),
-          SystemMouseCursors.click,
-        );
-
-        final menuSurface = find.byKey(const ValueKey('command-menu-surface'));
-        expect(menuSurface, findsOneWidget);
-        final menuRect = tester.getRect(menuSurface);
-        expect(menuRect.left, greaterThanOrEqualTo(10));
-        expect(menuRect.top, greaterThanOrEqualTo(10));
-        expect(menuRect.right, lessThanOrEqualTo(498));
-        expect(menuRect.bottom, lessThanOrEqualTo(690));
-      },
-    );
-
-    testWidgets('topic actions follow guardian status gates and update state', (
+    testWidgets('keeps action hover affordances inside the viewport', (
       tester,
     ) async {
       const reader = DiscourseUser(username: 'reader', name: 'Reader');
@@ -6971,6 +6912,7 @@ void main() {
             canCloseTopic: true,
             canArchiveTopic: true,
             canToggleTopicVisibility: true,
+            canDeleteTopic: true,
           ),
         },
       );
@@ -6991,47 +6933,114 @@ void main() {
       );
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
+      tester.view.physicalSize = const Size(508, 700);
+      await tester.pumpAndSettle();
 
-      Future<void> choose(String label) async {
+      await tester.tap(find.byTooltip('Show topic sidebar'));
+      await tester.pumpAndSettle();
+      final trigger = find.byKey(const ValueKey('topic-status-button'));
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+
+      final item = find.byKey(const ValueKey('topic-status-closed'));
+      final button = tester.widget<TextButton>(
+        find.descendant(of: item, matching: find.byType(TextButton)),
+      );
+      final theme = Theme.of(tester.element(item));
+      final hoverColor = Color.alphaBlend(
+        theme.colorScheme.onSurface.withValues(
+          alpha: theme.brightness == Brightness.dark ? 0.10 : 0.06,
+        ),
+        theme.shell.floating,
+      );
+      expect(
+        button.style!.backgroundColor!.resolve({WidgetState.hovered}),
+        hoverColor,
+      );
+      expect(button.style!.mouseCursor!.resolve({}), SystemMouseCursors.click);
+
+      final menuSurface = find.byKey(const ValueKey('command-menu-surface'));
+      expect(menuSurface, findsOneWidget);
+      final menuRect = tester.getRect(menuSurface);
+      expect(menuRect.left, greaterThanOrEqualTo(10));
+      expect(menuRect.top, greaterThanOrEqualTo(10));
+      expect(menuRect.right, lessThanOrEqualTo(498));
+      expect(menuRect.bottom, lessThanOrEqualTo(690));
+    });
+
+    testWidgets(
+      'gates status actions by guardian permissions and updates state',
+      (tester) async {
+        const reader = DiscourseUser(username: 'reader', name: 'Reader');
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {
+            7: detail(
+              canCloseTopic: true,
+              canArchiveTopic: true,
+              canToggleTopicVisibility: true,
+            ),
+          },
+        );
+        final authenticator = FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key';
+
+        await pumpShell(
+          tester,
+          desktop,
+          instances: [
+            instance(
+              'meta.discourse.org',
+              title: 'Discourse Meta',
+            ).copyWith(user: reader),
+          ],
+          api: api,
+          authenticator: authenticator,
+        );
+        await tester.tap(contentText('A real topic'));
+        await tester.pumpAndSettle();
+
+        Future<void> choose(String label) async {
+          await tester.tap(find.byTooltip('More topic actions'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text(label));
+          await tester.pumpAndSettle();
+        }
+
+        await choose('Close topic');
+        expect(
+          ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          ).currentTopic?.closed,
+          isTrue,
+        );
+        await choose('Archive topic');
+        expect(
+          ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          ).currentTopic?.archived,
+          isTrue,
+        );
+        await choose('Make topic unlisted');
+        expect(
+          ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          ).currentTopic?.visible,
+          isFalse,
+        );
+        expect(api.topicStatusesUpdated, const [
+          (topicId: 7, status: TopicStatusProperty.closed, enabled: true),
+          (topicId: 7, status: TopicStatusProperty.archived, enabled: true),
+          (topicId: 7, status: TopicStatusProperty.visible, enabled: false),
+        ]);
+
         await tester.tap(find.byTooltip('More topic actions'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text(label));
-        await tester.pumpAndSettle();
-      }
-
-      await choose('Close topic');
-      expect(
-        ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        ).currentTopic?.closed,
-        isTrue,
-      );
-      await choose('Archive topic');
-      expect(
-        ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        ).currentTopic?.archived,
-        isTrue,
-      );
-      await choose('Make topic unlisted');
-      expect(
-        ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        ).currentTopic?.visible,
-        isFalse,
-      );
-      expect(api.topicStatusesUpdated, const [
-        (topicId: 7, status: TopicStatusProperty.closed, enabled: true),
-        (topicId: 7, status: TopicStatusProperty.archived, enabled: true),
-        (topicId: 7, status: TopicStatusProperty.visible, enabled: false),
-      ]);
-
-      await tester.tap(find.byTooltip('More topic actions'));
-      await tester.pumpAndSettle();
-      expect(find.text('Open topic'), findsOneWidget);
-      expect(find.text('Unarchive topic'), findsOneWidget);
-      expect(find.text('Make topic visible'), findsOneWidget);
-    });
+        expect(find.text('Open topic'), findsOneWidget);
+        expect(find.text('Unarchive topic'), findsOneWidget);
+        expect(find.text('Make topic visible'), findsOneWidget);
+      },
+    );
 
     testWidgets('staff can delete and recover a topic from its action menu', (
       tester,
@@ -7275,38 +7284,41 @@ void main() {
       await tester.tap(sidebarDestination('Topics'));
       await tester.pumpAndSettle();
       final semantics = tester.ensureSemantics();
+      try {
+        await tester.tap(find.text('A real topic'));
+        await tester.pump();
 
-      await tester.tap(find.text('A real topic'));
-      await tester.pump();
-
-      expect(
-        find.byKey(const ValueKey('topic-loading-skeleton')),
-        findsOneWidget,
-      );
-      expect(
-        tester
-            .getSize(
-              find.byKey(const ValueKey('topic-loading-skeleton-content')),
-            )
-            .height,
-        greaterThanOrEqualTo(
+        expect(
+          find.byKey(const ValueKey('topic-loading-skeleton')),
+          findsOneWidget,
+        );
+        expect(
           tester
-              .getSize(find.byKey(const ValueKey('topic-loading-skeleton')))
+              .getSize(
+                find.byKey(const ValueKey('topic-loading-skeleton-content')),
+              )
               .height,
-        ),
-      );
-      final skeletonPosts = minimumHeightDescendants(
-        find.byKey(const ValueKey('topic-loading-skeleton')),
-        TopicView.minimumPostHeight,
-      );
-      expect(skeletonPosts, findsWidgets);
-      expect(
-        tester.getSize(skeletonPosts.first).height,
-        greaterThanOrEqualTo(TopicView.minimumPostHeight),
-      );
-      expect(find.bySemanticsLabel('Loading topic'), findsOneWidget);
-      expect(activityIndicators, findsNothing);
-      expect(tester.takeException(), isNull);
+          greaterThanOrEqualTo(
+            tester
+                .getSize(find.byKey(const ValueKey('topic-loading-skeleton')))
+                .height,
+          ),
+        );
+        final skeletonPosts = minimumHeightDescendants(
+          find.byKey(const ValueKey('topic-loading-skeleton')),
+          TopicView.minimumPostHeight,
+        );
+        expect(skeletonPosts, findsWidgets);
+        expect(
+          tester.getSize(skeletonPosts.first).height,
+          greaterThanOrEqualTo(TopicView.minimumPostHeight),
+        );
+        expect(find.bySemanticsLabel('Loading topic'), findsOneWidget);
+        expect(activityIndicators, findsNothing);
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
 
       gate.complete();
       await tester.pumpAndSettle();
@@ -7320,13 +7332,12 @@ void main() {
         find.byType(TopicView),
         TopicView.minimumPostHeight,
       );
-      expect(loadedPosts, findsWidgets);
+      expect(loadedPosts, findsOneWidget);
       expect(
         tester.getSize(loadedPosts.first).height,
         greaterThanOrEqualTo(TopicView.minimumPostHeight),
       );
       expect(tester.takeException(), isNull);
-      semantics.dispose();
     });
 
     testWidgets('an unread row opens at its first unread post', (tester) async {
@@ -7472,7 +7483,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('remaining posts are fetched by id, not by page', (
+    testWidgets('remaining posts are fetched by ID, not by page', (
       tester,
     ) async {
       final api = FakeDiscourseApi(
@@ -8210,9 +8221,7 @@ void main() {
       expect(launched, ['https://meta.discourse.org/signup']);
     });
 
-    testWidgets('connecting records the account against the site', (
-      tester,
-    ) async {
+    testWidgets('records the account against the site', (tester) async {
       final store = FakeInstanceStore(twoSites);
       final auth = FakeAuthenticator();
 
@@ -9017,7 +9026,7 @@ void main() {
 
         expect(find.text('Likes'), findsOneWidget);
         expect(find.textContaining('sam replied to'), findsNothing);
-        expect(find.textContaining('liked your post'), findsWidgets);
+        expect(find.textContaining('liked your post'), findsNWidgets(2));
       } finally {
         debugDefaultTargetPlatformOverride = previous;
       }
@@ -9569,7 +9578,7 @@ void main() {
       expect(launched, isEmpty);
       // Closing the menu would only have revealed the screen it was already
       // over, so it stays.
-      expect(find.byType(NotificationRow), findsWidgets);
+      expect(find.byType(NotificationRow), findsNWidgets(4));
     });
 
     testWidgets('notifications that will not load can be asked for again', (
@@ -10824,7 +10833,7 @@ void main() {
       },
     );
 
-    testWidgets('replying to a topic posts what was typed', (tester) async {
+    testWidgets('to a topic posts what was typed', (tester) async {
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
@@ -10922,9 +10931,7 @@ void main() {
       expect(api.created.single['whisper'], isTrue);
     });
 
-    testWidgets('replying to a post addresses it by post number', (
-      tester,
-    ) async {
+    testWidgets('to a post addresses it by post number', (tester) async {
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
@@ -11786,9 +11793,7 @@ void main() {
       expect(button.onPressed, isNull);
     });
 
-    testWidgets('deleting re-reads what it did, and offers the undo', (
-      tester,
-    ) async {
+    testWidgets('re-reads a soft-deleted post and offers undo', (tester) async {
       final api = await openTopic(
         tester,
         post: mine(),
@@ -13320,7 +13325,9 @@ void main() {
       expect(find.text('Sam Saffron'), findsNothing);
     });
 
-    testWidgets('and says so when it cannot find out', (tester) async {
+    testWidgets('a failed liker lookup explains that names are unavailable', (
+      tester,
+    ) async {
       await openTopic(tester, first: post(likeCount: 2));
 
       final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -14436,7 +14443,7 @@ void main() {
       expect(FakeSiteTracker.built.last.watchedTopic, isNull);
     });
 
-    testWidgets('a write of this reader own is not read back over', (
+    testWidgets("a write of this reader's own is not read back over", (
       tester,
     ) async {
       // The echo of their own reaction arrives while their request is still in
@@ -14466,7 +14473,9 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('and says so when it cannot find out', (tester) async {
+    testWidgets('a failed reactor lookup explains that names are unavailable', (
+      tester,
+    ) async {
       await openTopic(
         tester,
         config: configured,
@@ -14931,10 +14940,11 @@ void main() {
       // `pumpShell` answers 404 for every emoji, which is right for the tests
       // that are about cooked HTML and wrong for this one. Swapped after the
       // shell is up so only this composer sees artwork.
-      EmojiCache.instance = EmojiCache(
-        client: MockClient((_) async => http.Response.bytes(emojiPng, 200)),
+      _replaceEmojiCache(
+        EmojiCache(
+          client: MockClient((_) async => http.Response.bytes(emojiPng, 200)),
+        ),
       );
-      addTearDown(EmojiCache.instance.clear);
 
       await tester.enterText(find.byType(TextField), 'hey :smile:');
       await tester.pumpAndSettle();
@@ -17323,11 +17333,23 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('Close channel'), findsWidgets);
-        expect(find.textContaining('prevents non-staff users'), findsOneWidget);
-        await tester.tap(
-          find.byKey(const ValueKey('chat-channel-status-confirm')),
+        final statusDialog = find.byKey(
+          const ValueKey('chat-channel-status-dialog'),
         );
+        expect(statusDialog, findsOneWidget);
+        expect(
+          find.descendant(
+            of: statusDialog,
+            matching: find.text('Close channel'),
+          ),
+          findsNWidgets(2),
+        );
+        expect(find.textContaining('prevents non-staff users'), findsOneWidget);
+        final confirm = find.byKey(
+          const ValueKey('chat-channel-status-confirm'),
+        );
+        expect(confirm, findsOneWidget);
+        await tester.tap(confirm);
         await tester.pumpAndSettle();
 
         expect(api.chatChannelStatusesUpdated, const [
@@ -17539,72 +17561,77 @@ void main() {
         );
 
         final semantics = tester.ensureSemantics();
-        await tester.tap(sidebarDestination('Bugs'));
-        await tester.pump();
-        expect(
-          find.byKey(const ValueKey('chat-loading-skeleton')),
-          findsOneWidget,
-        );
-        expect(
-          tester
-              .getSize(
-                find.byKey(const ValueKey('chat-loading-skeleton-content')),
-              )
-              .height,
-          greaterThanOrEqualTo(
+        try {
+          await tester.tap(sidebarDestination('Bugs'));
+          await tester.pump();
+          expect(
+            find.byKey(const ValueKey('chat-loading-skeleton')),
+            findsOneWidget,
+          );
+          expect(
             tester
-                .getSize(find.byKey(const ValueKey('chat-loading-skeleton')))
+                .getSize(
+                  find.byKey(const ValueKey('chat-loading-skeleton-content')),
+                )
                 .height,
-          ),
-        );
-        final skeletonMessages = minimumHeightDescendants(
-          find.byKey(const ValueKey('chat-loading-skeleton')),
-          ChatMessageTile.minimumUnchainedHeight,
-        );
-        final chainedSkeletonMessages = minimumHeightDescendants(
-          find.byKey(const ValueKey('chat-loading-skeleton')),
-          ChatMessageTile.minimumChainedHeight,
-        );
-        expect(skeletonMessages, findsWidgets);
-        expect(chainedSkeletonMessages, findsWidgets);
-        expect(
-          tester.getSize(skeletonMessages.first).height,
-          greaterThanOrEqualTo(ChatMessageTile.minimumUnchainedHeight),
-        );
-        expect(
-          tester.getSize(chainedSkeletonMessages.first).height,
-          greaterThanOrEqualTo(ChatMessageTile.minimumChainedHeight),
-        );
-        expect(find.bySemanticsLabel('Loading chat channel'), findsOneWidget);
-        expect(find.byKey(const ValueKey('chat-composer')), findsOneWidget);
-        expect(activityIndicators, findsNothing);
-        expect(tester.takeException(), isNull);
+            greaterThanOrEqualTo(
+              tester
+                  .getSize(find.byKey(const ValueKey('chat-loading-skeleton')))
+                  .height,
+            ),
+          );
+          final skeletonMessages = minimumHeightDescendants(
+            find.byKey(const ValueKey('chat-loading-skeleton')),
+            ChatMessageTile.minimumUnchainedHeight,
+          );
+          final chainedSkeletonMessages = minimumHeightDescendants(
+            find.byKey(const ValueKey('chat-loading-skeleton')),
+            ChatMessageTile.minimumChainedHeight,
+          );
+          expect(skeletonMessages, findsWidgets);
+          expect(chainedSkeletonMessages, findsWidgets);
+          expect(
+            tester.getSize(skeletonMessages.first).height,
+            greaterThanOrEqualTo(ChatMessageTile.minimumUnchainedHeight),
+          );
+          expect(
+            tester.getSize(chainedSkeletonMessages.first).height,
+            greaterThanOrEqualTo(ChatMessageTile.minimumChainedHeight),
+          );
+          expect(find.bySemanticsLabel('Loading chat channel'), findsOneWidget);
+          expect(find.byKey(const ValueKey('chat-composer')), findsOneWidget);
+          expect(activityIndicators, findsNothing);
+          expect(tester.takeException(), isNull);
 
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
-        var shellNotifications = 0;
-        void countShellNotification() => shellNotifications += 1;
-        shell.addListener(countShellNotification);
-        addTearDown(() => shell.removeListener(countShellNotification));
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          var shellNotifications = 0;
+          void countShellNotification() => shellNotifications += 1;
+          shell.addListener(countShellNotification);
+          addTearDown(() => shell.removeListener(countShellNotification));
 
-        gate.complete();
-        await tester.pumpAndSettle();
+          gate.complete();
+          await tester.pumpAndSettle();
 
-        expect(renderedText('Hello there'), findsOneWidget);
-        expect(
-          find.byKey(const ValueKey('chat-loading-skeleton')),
-          findsNothing,
-        );
-        final loadedMessage = minimumHeightAncestors(
-          find.byKey(const ValueKey('chat-message-1')),
-          ChatMessageTile.minimumUnchainedHeight,
-        );
-        expect(
-          tester.getSize(loadedMessage.first).height,
-          greaterThanOrEqualTo(ChatMessageTile.minimumUnchainedHeight),
-        );
-        expect(shellNotifications, 0);
-        expect(tester.takeException(), isNull);
-        semantics.dispose();
+          expect(renderedText('Hello there'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('chat-loading-skeleton')),
+            findsNothing,
+          );
+          final loadedMessage = minimumHeightAncestors(
+            find.byKey(const ValueKey('chat-message-1')),
+            ChatMessageTile.minimumUnchainedHeight,
+          );
+          expect(
+            tester.getSize(loadedMessage.first).height,
+            greaterThanOrEqualTo(ChatMessageTile.minimumUnchainedHeight),
+          );
+          expect(shellNotifications, 0);
+          expect(tester.takeException(), isNull);
+        } finally {
+          semantics.dispose();
+        }
       });
 
       testWidgets('puts the newest message at the bottom', (tester) async {

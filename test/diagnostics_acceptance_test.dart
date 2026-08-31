@@ -43,9 +43,8 @@ void main() {
     await diagnostics.close();
   });
 
-  test(
-    'a topic timeout keeps the topic failure state and records its cause',
-    () async {
+  group('topic timeout diagnostics', () {
+    test('preserves the topic failure state and records its cause', () async {
       final credentials = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
       final shell = ShellController(
         instanceStore: FakeInstanceStore([instance('meta.example')]),
@@ -75,12 +74,9 @@ void main() {
         source: 'shell',
         stackFrame: '_TimeoutApi.topic',
       );
-    },
-  );
+    });
 
-  test(
-    'a stalled credential read cannot leave a topic loading forever',
-    () async {
+    test('bounds a stalled credential read and clears loading state', () async {
       final credentials = _StalledAuthenticator();
       final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
       final shell = ShellController(
@@ -102,7 +98,20 @@ void main() {
           title: 'Stalled credentials',
         ),
       );
-      await shell.loadTopic(7, 'stalled-credentials');
+      final timers = <_ManualTimer>[];
+      final loading = _withManualTimers(
+        timers,
+        () => shell.loadTopic(7, 'stalled-credentials'),
+      );
+      expect(timers, hasLength(1));
+      expect(timers.single.delay, greaterThan(Duration.zero));
+      expect(
+        timers.single.delay,
+        lessThanOrEqualTo(const Duration(milliseconds: 20)),
+      );
+
+      timers.single.fire();
+      await loading;
 
       expect(shell.currentTopic, isNull);
       expect(shell.currentTopicLoading, isFalse);
@@ -116,12 +125,9 @@ void main() {
       expect(error.correlationId, isNotNull);
       expect(error.handled, isTrue);
       expect(error.degraded, isFalse);
-    },
-  );
+    });
 
-  test(
-    'a correlated loopback topic timeout remains diagnosable after restart',
-    () async {
+    test('persists a correlated loopback timeout across restart', () async {
       diagnosticsBinding.close();
       await diagnostics.close();
 
@@ -259,12 +265,11 @@ void main() {
       expect(persistedError.stackTrace, contains('sendBoundedHttpRequest'));
       expect(persistedError.operation, persistedRequest.operation);
       expect(persistedError.correlationId, correlationId);
-    },
-  );
+    });
+  });
 
-  test(
-    'a channel timeout keeps the channel failure state and records its cause',
-    () async {
+  group('channel timeout diagnostics', () {
+    test('preserves the channel failure state and records its cause', () async {
       final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'api-key';
       final chat = ChatController(
         api: _TimeoutApi(),
@@ -287,12 +292,9 @@ void main() {
         source: 'chat',
         stackFrame: '_TimeoutApi.chatMessages',
       );
-    },
-  );
+    });
 
-  test(
-    'a correlated loopback channel timeout remains diagnosable after restart',
-    () async {
+    test('persists a correlated loopback timeout across restart', () async {
       diagnosticsBinding.close();
       await diagnostics.close();
 
@@ -321,6 +323,7 @@ void main() {
 
       final ioClient = IOClient(RecordingHttpClient(HttpClient(), diagnostics));
       final api = _LoopbackTimeoutApi(ioClient);
+      addTearDown(api.close);
       final siteUrl = 'http://${server.address.address}:${server.port}';
       final credentials = FakeApiCredentialReader()..keys[siteUrl] = 'api-key';
       final chat = ChatController(
@@ -410,70 +413,71 @@ void main() {
       expect(persistedError.stackTrace, contains('sendBoundedHttpRequest'));
       expect(persistedError.operation, persistedRequest.operation);
       expect(persistedError.correlationId, correlationId);
-    },
-  );
+    });
+  });
 
-  test(
-    'a disposed channel request is excluded from operational errors',
-    () async {
-      final api = _GatedTimeoutApi();
-      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'api-key';
-      final chat = ChatController(
-        api: api,
-        requests: FakePluginRequestHost(credentials: credentials),
-        store: Store(),
-      );
+  group('excluded failures', () {
+    test(
+      'excludes a disposed channel request from operational errors',
+      () async {
+        final api = _GatedTimeoutApi();
+        final credentials = FakeApiCredentialReader()
+          ..keys[_siteUrl] = 'api-key';
+        final chat = ChatController(
+          api: api,
+          requests: FakePluginRequestHost(credentials: credentials),
+          store: Store(),
+        );
 
-      final opening = chat.openChannel(_siteUrl, 9);
-      await api.started.future;
-      chat.dispose();
-      api.release.complete();
-      await opening;
+        final opening = chat.openChannel(_siteUrl, 9);
+        await api.started.future;
+        chat.dispose();
+        api.release.complete();
+        await opening;
 
-      expect(
-        diagnostics.events.whereType<ErrorDiagnosticEvent>().where(
-          (event) => event.operation == 'chat.loadWindow',
-        ),
-        isEmpty,
-      );
-    },
-  );
+        expect(
+          diagnostics.events.whereType<ErrorDiagnosticEvent>().where(
+            (event) => event.operation == 'chat.loadWindow',
+          ),
+          isEmpty,
+        );
+      },
+    );
 
-  test(
-    'a channel failure from an invalidated site session is excluded',
-    () async {
-      final api = _GatedTimeoutApi();
-      final lifecycle = SiteLifecycle();
-      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'api-key';
-      final chat = ChatController(
-        api: api,
-        requests: FakePluginRequestHost(
-          credentials: credentials,
-          lifecycle: lifecycle,
-        ),
-        store: Store(),
-      );
-      addTearDown(chat.dispose);
+    test(
+      'excludes a channel failure from an invalidated site session',
+      () async {
+        final api = _GatedTimeoutApi();
+        final lifecycle = SiteLifecycle();
+        final credentials = FakeApiCredentialReader()
+          ..keys[_siteUrl] = 'api-key';
+        final chat = ChatController(
+          api: api,
+          requests: FakePluginRequestHost(
+            credentials: credentials,
+            lifecycle: lifecycle,
+          ),
+          store: Store(),
+        );
+        addTearDown(chat.dispose);
 
-      final opening = chat.openChannel(_siteUrl, 9);
-      await api.started.future;
-      lifecycle.invalidate(_siteUrl);
-      chat.forget(_siteUrl);
-      api.release.complete();
-      await opening;
+        final opening = chat.openChannel(_siteUrl, 9);
+        await api.started.future;
+        lifecycle.invalidate(_siteUrl);
+        chat.forget(_siteUrl);
+        api.release.complete();
+        await opening;
 
-      expect(
-        diagnostics.events.whereType<ErrorDiagnosticEvent>().where(
-          (event) => event.operation == 'chat.loadWindow',
-        ),
-        isEmpty,
-      );
-    },
-  );
+        expect(
+          diagnostics.events.whereType<ErrorDiagnosticEvent>().where(
+            (event) => event.operation == 'chat.loadWindow',
+          ),
+          isEmpty,
+        );
+      },
+    );
 
-  test(
-    'a topic failure from an invalidated site session is excluded',
-    () async {
+    test('excludes a topic failure from an invalidated site session', () async {
       final api = _GatedTopicTimeoutApi();
       final credentials = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
       final shell = ShellController(
@@ -506,8 +510,8 @@ void main() {
         ),
         isEmpty,
       );
-    },
-  );
+    });
+  });
 }
 
 void _expectTimeoutEvent(
@@ -534,17 +538,70 @@ Future<HttpDiagnosticEvent> _waitForTerminalRequest(
   DiagnosticsController diagnostics, {
   required String path,
 }) async {
-  for (var attempt = 0; attempt < 200; attempt += 1) {
+  final completed = Completer<HttpDiagnosticEvent>();
+
+  void completeWhenTerminal() {
+    if (completed.isCompleted) return;
     final candidates = diagnostics.events
         .whereType<HttpDiagnosticEvent>()
-        .where((event) => event.uri.contains(path));
-    if (candidates.isNotEmpty) {
-      final event = candidates.single;
-      if (event.state != DiagnosticHttpState.pending) return event;
+        .where((event) => event.uri.contains(path))
+        .toList();
+    if (candidates.isEmpty) return;
+    final event = candidates.single;
+    if (event.state != DiagnosticHttpState.pending) {
+      completed.complete(event);
     }
-    await Future<void>.delayed(const Duration(milliseconds: 5));
   }
-  throw StateError('The loopback request for $path never became terminal.');
+
+  diagnostics.eventsListenable.addListener(completeWhenTerminal);
+  try {
+    completeWhenTerminal();
+    return await completed.future.timeout(
+      const Duration(seconds: 2),
+      onTimeout: () => throw StateError(
+        'The loopback request for $path never became terminal.',
+      ),
+    );
+  } finally {
+    diagnostics.eventsListenable.removeListener(completeWhenTerminal);
+  }
+}
+
+T _withManualTimers<T>(List<_ManualTimer> timers, T Function() body) =>
+    runZoned(
+      body,
+      zoneSpecification: ZoneSpecification(
+        createTimer: (self, parent, zone, duration, callback) {
+          final timer = _ManualTimer(duration, zone.bindCallback(callback));
+          timers.add(timer);
+          return timer;
+        },
+      ),
+    );
+
+final class _ManualTimer implements Timer {
+  _ManualTimer(this.delay, this._callback);
+
+  final Duration delay;
+  final void Function() _callback;
+  bool _active = true;
+  int _tick = 0;
+
+  void fire() {
+    if (!_active) return;
+    _active = false;
+    _tick = 1;
+    _callback();
+  }
+
+  @override
+  void cancel() => _active = false;
+
+  @override
+  bool get isActive => _active;
+
+  @override
+  int get tick => _tick;
 }
 
 class _TimeoutApi extends FakeDiscourseApi {

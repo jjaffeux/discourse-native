@@ -3,66 +3,72 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('the desktop installer quotes an arbitrary bundle path', () async {
-    if (Platform.isWindows) return;
+  test(
+    'the desktop installer quotes an arbitrary bundle path',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'discourse-desktop-installer-',
+      );
+      addTearDown(() => root.delete(recursive: true));
 
-    final root = await Directory.systemTemp.createTemp(
-      'discourse-desktop-installer-',
-    );
-    addTearDown(() => root.delete(recursive: true));
+      final bundle = Directory('${root.path}/Discourse Native &\$`"\\| (100%)')
+        ..createSync(recursive: true);
+      final desktopAssets = Directory('${bundle.path}/data/desktop')
+        ..createSync(recursive: true);
+      final iconTheme = Directory('${desktopAssets.path}/icons/hicolor')
+        ..createSync(recursive: true);
+      await File(
+        'linux/packaging/org.discourse.native.desktop',
+      ).copy('${desktopAssets.path}/org.discourse.native.desktop');
+      final installer = await File(
+        'linux/packaging/install-desktop-entry.sh',
+      ).copy('${bundle.path}/install-desktop-entry.sh');
+      await File(
+        '${iconTheme.path}/index.theme',
+      ).writeAsString('[Icon Theme]\n');
+      final binary = File('${bundle.path}/discourse_native');
+      await binary.writeAsString('#!/bin/sh\n');
+      final chmod = await Process.run('chmod', ['755', binary.path]);
+      expect(chmod.exitCode, 0, reason: '${chmod.stderr}');
 
-    final bundle = Directory('${root.path}/Discourse Native &\$`"\\| (100%)')
-      ..createSync(recursive: true);
-    final desktopAssets = Directory('${bundle.path}/data/desktop')
-      ..createSync(recursive: true);
-    final iconTheme = Directory('${desktopAssets.path}/icons/hicolor')
-      ..createSync(recursive: true);
-    await File(
-      'linux/packaging/org.discourse.native.desktop',
-    ).copy('${desktopAssets.path}/org.discourse.native.desktop');
-    final installer = await File(
-      'linux/packaging/install-desktop-entry.sh',
-    ).copy('${bundle.path}/install-desktop-entry.sh');
-    await File('${iconTheme.path}/index.theme').writeAsString('[Icon Theme]\n');
-    final binary = File('${bundle.path}/discourse_native');
-    await binary.writeAsString('#!/bin/sh\n');
-    final chmod = await Process.run('chmod', ['755', binary.path]);
-    expect(chmod.exitCode, 0, reason: '${chmod.stderr}');
+      final dataHome = Directory('${root.path}/installed data')
+        ..createSync(recursive: true);
+      final result = await Process.run(
+        '/bin/sh',
+        [installer.path],
+        environment: {...Platform.environment, 'XDG_DATA_HOME': dataHome.path},
+      );
 
-    final dataHome = Directory('${root.path}/installed data')
-      ..createSync(recursive: true);
-    final result = await Process.run(
-      '/bin/sh',
-      [installer.path],
-      environment: {...Platform.environment, 'XDG_DATA_HOME': dataHome.path},
-    );
-
-    expect(result.exitCode, 0, reason: '${result.stderr}');
-    final desktopFile = File(
-      '${dataHome.path}/applications/org.discourse.native.desktop',
-    );
-    final exec = (await desktopFile.readAsLines()).singleWhere(
-      (line) => line.startsWith('Exec='),
-    );
-    expect(exec, 'Exec="${_desktopExec(binary.path)}"');
-    expect(
-      _parseSingleDesktopExec(exec.substring('Exec='.length)),
-      binary.path,
-    );
-    try {
-      final validation = await Process.run('desktop-file-validate', [
-        desktopFile.path,
-      ]);
-      expect(validation.exitCode, 0, reason: '${validation.stderr}');
-    } on ProcessException {
-      // desktop-file-utils is present in the Linux packaging job, but it is
-      // not a Flutter development dependency on Apple hosts.
-    }
-    expect(
-      File('${dataHome.path}/icons/hicolor/index.theme').existsSync(),
-      isTrue,
-    );
-  });
+      expect(result.exitCode, 0, reason: '${result.stderr}');
+      final desktopFile = File(
+        '${dataHome.path}/applications/org.discourse.native.desktop',
+      );
+      final exec = (await desktopFile.readAsLines()).singleWhere(
+        (line) => line.startsWith('Exec='),
+      );
+      expect(exec, 'Exec="${_desktopExec(binary.path)}"');
+      expect(
+        _parseSingleDesktopExec(exec.substring('Exec='.length)),
+        binary.path,
+      );
+      try {
+        final validation = await Process.run('desktop-file-validate', [
+          desktopFile.path,
+        ]);
+        expect(validation.exitCode, 0, reason: '${validation.stderr}');
+      } on ProcessException {
+        // desktop-file-utils is present in the Linux packaging job, but it is
+        // not a Flutter development dependency on Apple hosts.
+      }
+      expect(
+        File('${dataHome.path}/icons/hicolor/index.theme').existsSync(),
+        isTrue,
+      );
+    },
+    skip: Platform.isWindows
+        ? 'Requires a POSIX shell and Linux desktop-entry filesystem layout.'
+        : false,
+  );
 }
 
 String _desktopExec(String path) => path

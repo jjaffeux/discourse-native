@@ -16,391 +16,442 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 void main() {
-  testWidgets('replaces the controller when an injected dependency changes', (
-    tester,
-  ) async {
-    final key = GlobalKey();
-    final api = FakeDiscourseApi();
-    final authenticator = FakeAuthenticator();
-    final drafts = FakeDraftStore();
-    final forumTabs = FakeForumTabStore();
-    final updater = FakeUpdater();
-    final updateStore = FakeUpdateStore();
-    final trackers = FakeSiteTracker.reset();
-
-    await tester.pumpWidget(
-      DiscourseApp(
-        key: key,
-        store: FakeInstanceStore([instance('first.example')]),
-        api: api,
-        authenticator: authenticator,
-        drafts: drafts,
-        forumTabs: forumTabs,
-        trackers: trackers,
-        updater: updater,
-        updateStore: updateStore,
-        initialRootMode: ShellRootMode.forum,
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final firstController = _controller(tester);
-    final firstTracker = FakeSiteTracker.built.single;
-    expect(firstController.currentInstance?.host, 'first.example');
-
-    await tester.pumpWidget(
-      DiscourseApp(
-        key: key,
-        store: FakeInstanceStore([instance('second.example')]),
-        api: api,
-        authenticator: authenticator,
-        drafts: drafts,
-        forumTabs: forumTabs,
-        trackers: trackers,
-        updater: updater,
-        updateStore: updateStore,
-        initialRootMode: ShellRootMode.forum,
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final secondController = _controller(tester);
-    expect(secondController, isNot(same(firstController)));
-    expect(secondController.currentInstance?.host, 'second.example');
-    expect(firstTracker.disposed, isTrue);
-    expect(api.closeCalls, 0);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    expect(api.closeCalls, 1);
-  });
-
-  testWidgets('a replacement controller preserves the app lifecycle state', (
-    tester,
-  ) async {
-    final key = GlobalKey();
-    final longPollChecks = <bool Function()>[];
-    final built = <FakeSiteTracker>[];
-    SiteTracker trackers({
-      required String siteUrl,
-      required void Function() onIncomingTopics,
-      required void Function(Object? data) onNotifications,
-      required void Function(Object? data) onReviewableCounts,
-      int? userId,
-      String? apiKey,
-      String? clientId,
-      bool Function()? shouldLongPoll,
-    }) {
-      longPollChecks.add(shouldLongPoll!);
-      final tracker = FakeSiteTracker(
-        siteUrl: siteUrl,
-        onIncomingTopics: onIncomingTopics,
-        onNotifications: onNotifications,
-        onReviewableCounts: onReviewableCounts,
-        userId: userId,
-        apiKey: apiKey,
-      );
-      built.add(tracker);
-      return tracker;
-    }
-
-    final api = FakeDiscourseApi();
-    final authenticator = FakeAuthenticator();
-    final drafts = FakeDraftStore();
-    final forumTabs = FakeForumTabStore();
-    final updater = FakeUpdater();
-    final updateStore = FakeUpdateStore();
-
-    Widget app(InstanceStore store) => DiscourseApp(
-      key: key,
-      store: store,
-      api: api,
-      authenticator: authenticator,
-      drafts: drafts,
-      forumTabs: forumTabs,
-      trackers: trackers,
-      updater: updater,
-      updateStore: updateStore,
-      initialRootMode: ShellRootMode.forum,
-    );
-
-    await tester.pumpWidget(
-      app(FakeInstanceStore([instance('first.example')])),
-    );
-    await tester.pumpAndSettle();
-    final firstController = _controller(tester);
-    final lifecycleObserver =
-        tester.state(find.byType(DiscourseApp)) as WidgetsBindingObserver;
-    expect(longPollChecks.single(), isTrue);
-
-    lifecycleObserver.didChangeAppLifecycleState(AppLifecycleState.paused);
-    await tester.pump();
-    expect(built.first.polling, isFalse);
-
-    await tester.pumpWidget(
-      app(FakeInstanceStore([instance('second.example')])),
-    );
-    await tester.pumpAndSettle();
-
-    expect(_controller(tester), isNot(same(firstController)));
-    // A controller created while the process is paused does not spend any
-    // credentials or create a poller until the process becomes visible.
-    expect(built, hasLength(1));
-    expect(built.first.disposed, isTrue);
-
-    lifecycleObserver.didChangeAppLifecycleState(AppLifecycleState.resumed);
-    await tester.pumpAndSettle();
-    expect(built, hasLength(2));
-    expect(longPollChecks, hasLength(2));
-    expect(longPollChecks.last(), isTrue);
-    expect(built.last.polling, isTrue);
-  });
-
-  testWidgets('closes each API when the app releases it', (tester) async {
-    final key = GlobalKey();
-    final store = FakeInstanceStore();
-    final authenticator = FakeAuthenticator();
-    final drafts = FakeDraftStore();
-    final forumTabs = FakeForumTabStore();
-    final trackers = FakeSiteTracker.reset();
-    final updater = FakeUpdater();
-    final updateStore = FakeUpdateStore();
-    final firstApi = FakeDiscourseApi();
-    final secondApi = FakeDiscourseApi();
-
-    Widget app(FakeDiscourseApi api) => DiscourseApp(
-      key: key,
-      store: store,
-      api: api,
-      authenticator: authenticator,
-      drafts: drafts,
-      forumTabs: forumTabs,
-      trackers: trackers,
-      updater: updater,
-      updateStore: updateStore,
-      initialRootMode: ShellRootMode.forum,
-    );
-
-    await tester.pumpWidget(app(firstApi));
-    await tester.pumpAndSettle();
-    await tester.pumpWidget(app(secondApi));
-    await tester.pumpAndSettle();
-
-    expect(firstApi.closeCalls, 1);
-    expect(secondApi.closeCalls, 0);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    expect(firstApi.closeCalls, 1);
-    expect(secondApi.closeCalls, 1);
-  });
-
-  testWidgets(
-    'dispatches app state and background flush to every registered lifecycle',
-    (tester) async {
-      final persistence = _TrackingDiagnosticsPersistence();
-      final diagnostics = await DiagnosticsController.create(
-        persistence: persistence,
-        sessionId: 'app-lifecycle-dispatch',
-      );
-      addTearDown(diagnostics.close);
-      final first = _LifecycleProbe();
-      final second = _LifecycleProbe();
-      final manifest = PluginManifest([
-        _LifecycleTestModule('lifecycle-one', first),
-        _LifecycleTestModule('lifecycle-two', second),
-      ]);
+  group('controller replacement and ownership', () {
+    testWidgets('replaces the controller when an injected dependency changes', (
+      tester,
+    ) async {
+      final key = GlobalKey();
+      final api = FakeDiscourseApi();
+      final authenticator = FakeAuthenticator();
+      final drafts = FakeDraftStore();
+      final forumTabs = FakeForumTabStore();
+      final updater = FakeUpdater();
+      final updateStore = FakeUpdateStore();
+      final trackers = FakeSiteTracker.reset();
 
       await tester.pumpWidget(
         DiscourseApp(
-          store: FakeInstanceStore(),
-          api: FakeDiscourseApi(),
-          authenticator: FakeAuthenticator(),
-          drafts: FakeDraftStore(),
-          forumTabs: FakeForumTabStore(),
-          trackers: FakeSiteTracker.reset(),
-          updater: FakeUpdater(),
-          updateStore: FakeUpdateStore(),
-          diagnostics: diagnostics,
-          pluginManifest: manifest,
+          key: key,
+          store: FakeInstanceStore([instance('first.example')]),
+          api: api,
+          authenticator: authenticator,
+          drafts: drafts,
+          forumTabs: forumTabs,
+          trackers: trackers,
+          updater: updater,
+          updateStore: updateStore,
           initialRootMode: ShellRootMode.forum,
         ),
       );
       await tester.pumpAndSettle();
-      final appendCallsBeforeBackground = persistence.appendCalls;
-      diagnostics.recordLog(name: 'before.background', source: 'test');
-      expect(persistence.appendCalls, appendCallsBeforeBackground);
 
-      final observer =
-          tester.state(find.byType(DiscourseApp)) as WidgetsBindingObserver;
-      observer.didChangeAppLifecycleState(AppLifecycleState.paused);
-      await tester.pump();
-      await tester.pump();
+      final firstController = _controller(tester);
+      final firstTracker = FakeSiteTracker.built.single;
+      expect(firstController.currentInstance?.host, 'first.example');
 
-      for (final probe in [first, second]) {
-        expect(probe.states.last, ('paused', false));
-        expect(probe.flushCalls, 1);
-      }
-      expect(persistence.appendCalls, appendCallsBeforeBackground + 1);
+      await tester.pumpWidget(
+        DiscourseApp(
+          key: key,
+          store: FakeInstanceStore([instance('second.example')]),
+          api: api,
+          authenticator: authenticator,
+          drafts: drafts,
+          forumTabs: forumTabs,
+          trackers: trackers,
+          updater: updater,
+          updateStore: updateStore,
+          initialRootMode: ShellRootMode.forum,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final secondController = _controller(tester);
+      expect(secondController, isNot(same(firstController)));
+      expect(secondController.currentInstance?.host, 'second.example');
+      expect(firstTracker.disposed, isTrue);
+      expect(api.closeCalls, 0);
+
       await tester.pumpWidget(const SizedBox.shrink());
-      await diagnostics.close();
-    },
-  );
-  testWidgets('releases replaced diagnostics without replacing the shell', (
-    tester,
-  ) async {
-    final firstPersistence = _TrackingDiagnosticsPersistence();
-    final secondPersistence = _TrackingDiagnosticsPersistence();
-    final firstDiagnostics = await DiagnosticsController.create(
-      persistence: firstPersistence,
-      sessionId: 'first-app-diagnostics',
-    );
-    final secondDiagnostics = await DiagnosticsController.create(
-      persistence: secondPersistence,
-      sessionId: 'second-app-diagnostics',
-    );
-    addTearDown(firstDiagnostics.close);
-    addTearDown(secondDiagnostics.close);
+      expect(api.closeCalls, 1);
+    });
 
-    final key = GlobalKey();
-    final api = FakeDiscourseApi();
-    final store = FakeInstanceStore();
-    final authenticator = FakeAuthenticator();
-    final drafts = FakeDraftStore();
-    final forumTabs = FakeForumTabStore();
-    final trackers = FakeSiteTracker.reset();
-    final updater = FakeUpdater();
-    final updateStore = FakeUpdateStore();
-    final reporterProbe = _ReporterProbe();
-    final manifest = PluginManifest([_ReporterTestModule(reporterProbe)]);
+    testWidgets('preserves app lifecycle state across replacement', (
+      tester,
+    ) async {
+      final key = GlobalKey();
+      final longPollChecks = <bool Function()>[];
+      final built = <FakeSiteTracker>[];
+      SiteTracker trackers({
+        required String siteUrl,
+        required void Function() onIncomingTopics,
+        required void Function(Object? data) onNotifications,
+        required void Function(Object? data) onReviewableCounts,
+        int? userId,
+        String? apiKey,
+        String? clientId,
+        bool Function()? shouldLongPoll,
+      }) {
+        longPollChecks.add(shouldLongPoll!);
+        final tracker = FakeSiteTracker(
+          siteUrl: siteUrl,
+          onIncomingTopics: onIncomingTopics,
+          onNotifications: onNotifications,
+          onReviewableCounts: onReviewableCounts,
+          userId: userId,
+          apiKey: apiKey,
+        );
+        built.add(tracker);
+        return tracker;
+      }
 
-    Widget app(DiagnosticsController diagnostics) => DiscourseApp(
-      key: key,
-      store: store,
-      api: api,
-      authenticator: authenticator,
-      drafts: drafts,
-      forumTabs: forumTabs,
-      trackers: trackers,
-      updater: updater,
-      updateStore: updateStore,
-      diagnostics: diagnostics,
-      pluginManifest: manifest,
-      initialRootMode: ShellRootMode.forum,
-    );
+      final api = FakeDiscourseApi();
+      final authenticator = FakeAuthenticator();
+      final drafts = FakeDraftStore();
+      final forumTabs = FakeForumTabStore();
+      final updater = FakeUpdater();
+      final updateStore = FakeUpdateStore();
 
-    await tester.pumpWidget(app(firstDiagnostics));
-    await tester.pumpAndSettle();
-    final shell = _controller(tester);
-    reporterProbe.record('before-replacement');
-    expect(
-      firstDiagnostics.events.whereType<DiagnosticLogEvent>().map(
-        (event) => event.name,
-      ),
-      contains('before-replacement'),
-    );
+      Widget app(InstanceStore store) => DiscourseApp(
+        key: key,
+        store: store,
+        api: api,
+        authenticator: authenticator,
+        drafts: drafts,
+        forumTabs: forumTabs,
+        trackers: trackers,
+        updater: updater,
+        updateStore: updateStore,
+        initialRootMode: ShellRootMode.forum,
+      );
 
-    await tester.pumpWidget(app(secondDiagnostics));
-    await tester.pumpAndSettle();
-    await firstPersistence.closed.future;
-    reporterProbe.record('after-replacement');
+      await tester.pumpWidget(
+        app(FakeInstanceStore([instance('first.example')])),
+      );
+      await tester.pumpAndSettle();
+      final firstController = _controller(tester);
+      final lifecycleObserver =
+          tester.state(find.byType(DiscourseApp)) as WidgetsBindingObserver;
+      expect(longPollChecks.single(), isTrue);
 
-    expect(_controller(tester), same(shell));
-    expect(api.closeCalls, 0);
-    expect(firstPersistence.closeCalls, 1);
-    expect(secondPersistence.closeCalls, 0);
-    expect(
-      secondDiagnostics.events.whereType<DiagnosticLogEvent>().map(
-        (event) => event.name,
-      ),
-      contains('after-replacement'),
-    );
-    expect(
-      firstDiagnostics.events.whereType<DiagnosticLogEvent>().map(
-        (event) => event.name,
-      ),
-      isNot(contains('after-replacement')),
-    );
+      lifecycleObserver.didChangeAppLifecycleState(AppLifecycleState.paused);
+      await tester.pump();
+      expect(built.first.polling, isFalse);
 
-    await tester.pumpWidget(const SizedBox.shrink());
-    await secondPersistence.closed.future;
+      await tester.pumpWidget(
+        app(FakeInstanceStore([instance('second.example')])),
+      );
+      await tester.pumpAndSettle();
 
-    expect(api.closeCalls, 1);
-    expect(firstPersistence.closeCalls, 1);
-    expect(secondPersistence.closeCalls, 1);
+      expect(_controller(tester), isNot(same(firstController)));
+      // A controller created while the process is paused does not spend any
+      // credentials or create a poller until the process becomes visible.
+      expect(built, hasLength(1));
+      expect(built.first.disposed, isTrue);
+
+      lifecycleObserver.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(built, hasLength(2));
+      expect(longPollChecks, hasLength(2));
+      expect(longPollChecks.last(), isTrue);
+      expect(built.last.polling, isTrue);
+    });
+
+    testWidgets('closes each owned API exactly once when released', (
+      tester,
+    ) async {
+      final key = GlobalKey();
+      final store = FakeInstanceStore();
+      final authenticator = FakeAuthenticator();
+      final drafts = FakeDraftStore();
+      final forumTabs = FakeForumTabStore();
+      final trackers = FakeSiteTracker.reset();
+      final updater = FakeUpdater();
+      final updateStore = FakeUpdateStore();
+      final firstApi = FakeDiscourseApi();
+      final secondApi = FakeDiscourseApi();
+
+      Widget app(FakeDiscourseApi api) => DiscourseApp(
+        key: key,
+        store: store,
+        api: api,
+        authenticator: authenticator,
+        drafts: drafts,
+        forumTabs: forumTabs,
+        trackers: trackers,
+        updater: updater,
+        updateStore: updateStore,
+        initialRootMode: ShellRootMode.forum,
+      );
+
+      await tester.pumpWidget(app(firstApi));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(app(secondApi));
+      await tester.pumpAndSettle();
+
+      expect(firstApi.closeCalls, 1);
+      expect(secondApi.closeCalls, 0);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(firstApi.closeCalls, 1);
+      expect(secondApi.closeCalls, 1);
+    });
   });
 
-  testWidgets('observes a released diagnostics close failure', (tester) async {
-    final closeError = StateError('diagnostics persistence close failed');
-    final firstPersistence = _TrackingDiagnosticsPersistence(
-      closeError: closeError,
+  group('plugin lifecycle and diagnostics', () {
+    testWidgets(
+      'dispatches app state and background flush to every registered lifecycle',
+      (tester) async {
+        final persistence = _TrackingDiagnosticsPersistence();
+        final diagnostics = await DiagnosticsController.create(
+          persistence: persistence,
+          sessionId: 'app-lifecycle-dispatch',
+        );
+        addTearDown(diagnostics.close);
+        final first = _LifecycleProbe();
+        final second = _LifecycleProbe();
+        final manifest = PluginManifest([
+          _LifecycleTestModule('lifecycle-one', first),
+          _LifecycleTestModule('lifecycle-two', second),
+        ]);
+
+        await tester.pumpWidget(
+          DiscourseApp(
+            store: FakeInstanceStore(),
+            api: FakeDiscourseApi(),
+            authenticator: FakeAuthenticator(),
+            drafts: FakeDraftStore(),
+            forumTabs: FakeForumTabStore(),
+            trackers: FakeSiteTracker.reset(),
+            updater: FakeUpdater(),
+            updateStore: FakeUpdateStore(),
+            diagnostics: diagnostics,
+            pluginManifest: manifest,
+            initialRootMode: ShellRootMode.forum,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final appendCallsBeforeBackground = persistence.appendCalls;
+        diagnostics.recordLog(name: 'before.background', source: 'test');
+        expect(persistence.appendCalls, appendCallsBeforeBackground);
+
+        final observer =
+            tester.state(find.byType(DiscourseApp)) as WidgetsBindingObserver;
+        observer.didChangeAppLifecycleState(AppLifecycleState.paused);
+        await tester.pump();
+        await tester.pump();
+
+        for (final probe in [first, second]) {
+          expect(probe.states.last, ('paused', false));
+          expect(probe.flushCalls, 1);
+        }
+        expect(persistence.appendCalls, appendCallsBeforeBackground + 1);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await diagnostics.close();
+      },
     );
-    final secondPersistence = _TrackingDiagnosticsPersistence();
-    final firstDiagnostics = await DiagnosticsController.create(
-      persistence: firstPersistence,
-      sessionId: 'failing-app-diagnostics',
-    );
-    final secondDiagnostics = await DiagnosticsController.create(
-      persistence: secondPersistence,
-      sessionId: 'replacement-app-diagnostics',
-    );
-    addTearDown(firstDiagnostics.close);
-    addTearDown(secondDiagnostics.close);
-    final diagnosticsSink = _RecordingDiagnosticsSink();
-    final sinkBinding = DiagnosticsSink.install(diagnosticsSink);
-    addTearDown(sinkBinding.close);
+    testWidgets('releases replaced diagnostics without replacing the shell', (
+      tester,
+    ) async {
+      final firstPersistence = _TrackingDiagnosticsPersistence();
+      final secondPersistence = _TrackingDiagnosticsPersistence();
+      final firstDiagnostics = await DiagnosticsController.create(
+        persistence: firstPersistence,
+        sessionId: 'first-app-diagnostics',
+      );
+      final secondDiagnostics = await DiagnosticsController.create(
+        persistence: secondPersistence,
+        sessionId: 'second-app-diagnostics',
+      );
+      addTearDown(firstDiagnostics.close);
+      addTearDown(secondDiagnostics.close);
 
-    final key = GlobalKey();
-    final api = FakeDiscourseApi();
-    final store = FakeInstanceStore();
-    final authenticator = FakeAuthenticator();
-    final drafts = FakeDraftStore();
-    final forumTabs = FakeForumTabStore();
-    final trackers = FakeSiteTracker.reset();
-    final updater = FakeUpdater();
-    final updateStore = FakeUpdateStore();
+      final key = GlobalKey();
+      final api = FakeDiscourseApi();
+      final store = FakeInstanceStore();
+      final authenticator = FakeAuthenticator();
+      final drafts = FakeDraftStore();
+      final forumTabs = FakeForumTabStore();
+      final trackers = FakeSiteTracker.reset();
+      final updater = FakeUpdater();
+      final updateStore = FakeUpdateStore();
+      final reporterProbe = _ReporterProbe();
+      final manifest = PluginManifest([_ReporterTestModule(reporterProbe)]);
 
-    Widget app(DiagnosticsController diagnostics) => DiscourseApp(
-      key: key,
-      store: store,
-      api: api,
-      authenticator: authenticator,
-      drafts: drafts,
-      forumTabs: forumTabs,
-      trackers: trackers,
-      updater: updater,
-      updateStore: updateStore,
-      diagnostics: diagnostics,
-      initialRootMode: ShellRootMode.forum,
-    );
+      Widget app(DiagnosticsController diagnostics) => DiscourseApp(
+        key: key,
+        store: store,
+        api: api,
+        authenticator: authenticator,
+        drafts: drafts,
+        forumTabs: forumTabs,
+        trackers: trackers,
+        updater: updater,
+        updateStore: updateStore,
+        diagnostics: diagnostics,
+        pluginManifest: manifest,
+        initialRootMode: ShellRootMode.forum,
+      );
 
-    await tester.pumpWidget(app(firstDiagnostics));
-    await tester.pumpAndSettle();
-    await tester.pumpWidget(app(secondDiagnostics));
-    await firstPersistence.closed.future;
-    await diagnosticsSink.reported.future;
+      await tester.pumpWidget(app(firstDiagnostics));
+      await tester.pumpAndSettle();
+      final shell = _controller(tester);
+      reporterProbe.record('before-replacement');
+      expect(
+        firstDiagnostics.events.whereType<DiagnosticLogEvent>().map(
+          (event) => event.name,
+        ),
+        contains('before-replacement'),
+      );
 
-    expect(diagnosticsSink.error, same(closeError));
-    expect(diagnosticsSink.operation, 'app.diagnostics.close');
-    expect(diagnosticsSink.source, 'diagnostics');
-    expect(diagnosticsSink.severity, DiagnosticSeverity.warning);
-    expect(diagnosticsSink.handled, isTrue);
-    expect(diagnosticsSink.degraded, isFalse);
-    expect(tester.takeException(), isNull);
+      await tester.pumpWidget(app(secondDiagnostics));
+      await tester.pumpAndSettle();
+      await firstPersistence.closed.future;
+      reporterProbe.record('after-replacement');
 
-    await tester.pumpWidget(const SizedBox.shrink());
-    await secondPersistence.closed.future;
+      expect(_controller(tester), same(shell));
+      expect(api.closeCalls, 0);
+      expect(firstPersistence.closeCalls, 1);
+      expect(secondPersistence.closeCalls, 0);
+      expect(
+        secondDiagnostics.events.whereType<DiagnosticLogEvent>().map(
+          (event) => event.name,
+        ),
+        contains('after-replacement'),
+      );
+      expect(
+        firstDiagnostics.events.whereType<DiagnosticLogEvent>().map(
+          (event) => event.name,
+        ),
+        isNot(contains('after-replacement')),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await secondPersistence.closed.future;
+
+      expect(api.closeCalls, 1);
+      expect(firstPersistence.closeCalls, 1);
+      expect(secondPersistence.closeCalls, 1);
+    });
+
+    testWidgets('reports a released diagnostics close failure', (tester) async {
+      final closeError = StateError('diagnostics persistence close failed');
+      final firstPersistence = _TrackingDiagnosticsPersistence(
+        closeError: closeError,
+      );
+      final secondPersistence = _TrackingDiagnosticsPersistence();
+      final firstDiagnostics = await DiagnosticsController.create(
+        persistence: firstPersistence,
+        sessionId: 'failing-app-diagnostics',
+      );
+      final secondDiagnostics = await DiagnosticsController.create(
+        persistence: secondPersistence,
+        sessionId: 'replacement-app-diagnostics',
+      );
+      addTearDown(firstDiagnostics.close);
+      addTearDown(secondDiagnostics.close);
+      final diagnosticsSink = _RecordingDiagnosticsSink();
+      final sinkBinding = DiagnosticsSink.install(diagnosticsSink);
+      addTearDown(sinkBinding.close);
+
+      final key = GlobalKey();
+      final api = FakeDiscourseApi();
+      final store = FakeInstanceStore();
+      final authenticator = FakeAuthenticator();
+      final drafts = FakeDraftStore();
+      final forumTabs = FakeForumTabStore();
+      final trackers = FakeSiteTracker.reset();
+      final updater = FakeUpdater();
+      final updateStore = FakeUpdateStore();
+
+      Widget app(DiagnosticsController diagnostics) => DiscourseApp(
+        key: key,
+        store: store,
+        api: api,
+        authenticator: authenticator,
+        drafts: drafts,
+        forumTabs: forumTabs,
+        trackers: trackers,
+        updater: updater,
+        updateStore: updateStore,
+        diagnostics: diagnostics,
+        initialRootMode: ShellRootMode.forum,
+      );
+
+      await tester.pumpWidget(app(firstDiagnostics));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(app(secondDiagnostics));
+      await firstPersistence.closed.future;
+      await diagnosticsSink.reported.future;
+
+      expect(diagnosticsSink.error, same(closeError));
+      expect(diagnosticsSink.operation, 'app.diagnostics.close');
+      expect(diagnosticsSink.source, 'diagnostics');
+      expect(diagnosticsSink.severity, DiagnosticSeverity.warning);
+      expect(diagnosticsSink.handled, isTrue);
+      expect(diagnosticsSink.degraded, isFalse);
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await secondPersistence.closed.future;
+    });
   });
 
-  test(
-    'backgrounding while tracker credentials resolve starts no poll',
-    () async {
-      const siteUrl = 'https://first.example';
+  group('connected forum tracking', () {
+    test(
+      'starts no poll while tracker credentials resolve in the background',
+      () async {
+        const siteUrl = 'https://first.example';
+        const user = DiscourseUser(id: 7, username: 'reader');
+        final api = FakeDiscourseApi(user: user);
+        final authenticator = _GatedAuthenticator(siteUrl)
+          ..keys[siteUrl] = 'first-key';
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            instance('first.example').copyWith(user: user),
+          ]),
+          api: api,
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          updateStore: FakeUpdateStore(),
+        );
+        addTearDown(shell.dispose);
+
+        await shell.load();
+        await authenticator.started.future;
+
+        shell.setForeground(false);
+        authenticator.release();
+        await pumpEventQueue();
+
+        expect(
+          FakeSiteTracker.built,
+          isEmpty,
+          reason:
+              'a hidden app must not construct a tracker that starts one poll',
+        );
+
+        shell.setForeground(true);
+        await pumpEventQueue();
+
+        expect(FakeSiteTracker.built, hasLength(1));
+        expect(FakeSiteTracker.built.single.siteUrl, siteUrl);
+        expect(FakeSiteTracker.built.single.polling, isTrue);
+      },
+    );
+
+    test('preserves tracker startup across a site switch', () async {
+      const firstUrl = 'https://first.example';
+      const secondUrl = 'https://second.example';
       const user = DiscourseUser(id: 7, username: 'reader');
       final api = FakeDiscourseApi(user: user);
-      final authenticator = _GatedAuthenticator(siteUrl)
-        ..keys[siteUrl] = 'first-key';
+      final authenticator = _GatedAuthenticator(firstUrl)
+        ..keys[firstUrl] = 'first-key'
+        ..keys[secondUrl] = 'second-key';
       final shell = ShellController(
         instanceStore: FakeInstanceStore([
           instance('first.example').copyWith(user: user),
+          instance('second.example').copyWith(user: user),
         ]),
         api: api,
         authenticator: authenticator,
@@ -413,152 +464,114 @@ void main() {
       await shell.load();
       await authenticator.started.future;
 
-      shell.setForeground(false);
+      shell.selectInstance(1);
+      await pumpEventQueue();
+      expect(FakeSiteTracker.built.map((tracker) => tracker.siteUrl), [
+        secondUrl,
+      ]);
+
       authenticator.release();
       await pumpEventQueue();
 
+      expect(FakeSiteTracker.built.map((tracker) => tracker.siteUrl), [
+        secondUrl,
+        firstUrl,
+      ], reason: 'connected forum badges need both polls while visible');
+      expect(FakeSiteTracker.built.every((tracker) => tracker.polling), isTrue);
+    });
+
+    test('pauses and resumes every connected forum poll', () async {
+      const firstUrl = 'https://first.example';
+      const secondUrl = 'https://second.example';
+      const user = DiscourseUser(id: 7, username: 'reader');
+      final authenticator = FakeAuthenticator()
+        ..keys[firstUrl] = 'first-key'
+        ..keys[secondUrl] = 'second-key';
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance('first.example').copyWith(user: user),
+          instance('second.example').copyWith(user: user),
+        ]),
+        api: FakeDiscourseApi(user: user),
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(shell.dispose);
+
+      await shell.load();
+      await pumpEventQueue();
+      expect(FakeSiteTracker.built, hasLength(2));
+      expect(FakeSiteTracker.built.every((tracker) => tracker.polling), isTrue);
+
+      shell.setForeground(false);
       expect(
-        FakeSiteTracker.built,
-        isEmpty,
-        reason:
-            'a hidden app must not construct a tracker that starts one poll',
+        FakeSiteTracker.built.every((tracker) => !tracker.polling),
+        isTrue,
       );
 
       shell.setForeground(true);
-      await pumpEventQueue();
-
-      expect(FakeSiteTracker.built, hasLength(1));
-      expect(FakeSiteTracker.built.single.siteUrl, siteUrl);
-      expect(FakeSiteTracker.built.single.polling, isTrue);
-    },
-  );
-
-  test('connected tracker startup survives a site switch', () async {
-    const firstUrl = 'https://first.example';
-    const secondUrl = 'https://second.example';
-    const user = DiscourseUser(id: 7, username: 'reader');
-    final api = FakeDiscourseApi(user: user);
-    final authenticator = _GatedAuthenticator(firstUrl)
-      ..keys[firstUrl] = 'first-key'
-      ..keys[secondUrl] = 'second-key';
-    final shell = ShellController(
-      instanceStore: FakeInstanceStore([
-        instance('first.example').copyWith(user: user),
-        instance('second.example').copyWith(user: user),
-      ]),
-      api: api,
-      authenticator: authenticator,
-      drafts: FakeDraftStore(),
-      trackers: FakeSiteTracker.reset(),
-      updateStore: FakeUpdateStore(),
-    );
-    addTearDown(shell.dispose);
-
-    await shell.load();
-    await authenticator.started.future;
-
-    shell.selectInstance(1);
-    await pumpEventQueue();
-    expect(FakeSiteTracker.built.map((tracker) => tracker.siteUrl), [
-      secondUrl,
-    ]);
-
-    authenticator.release();
-    await pumpEventQueue();
-
-    expect(FakeSiteTracker.built.map((tracker) => tracker.siteUrl), [
-      secondUrl,
-      firstUrl,
-    ], reason: 'connected forum badges need both polls while visible');
-    expect(FakeSiteTracker.built.every((tracker) => tracker.polling), isTrue);
+      expect(FakeSiteTracker.built.every((tracker) => tracker.polling), isTrue);
+      expect(
+        FakeSiteTracker.built.map((tracker) => tracker.pollNowCalls),
+        everyElement(1),
+      );
+    });
   });
 
-  test('the app lifecycle controls every connected forum poll', () async {
-    const firstUrl = 'https://first.example';
-    const secondUrl = 'https://second.example';
-    const user = DiscourseUser(id: 7, username: 'reader');
-    final authenticator = FakeAuthenticator()
-      ..keys[firstUrl] = 'first-key'
-      ..keys[secondUrl] = 'second-key';
-    final shell = ShellController(
-      instanceStore: FakeInstanceStore([
-        instance('first.example').copyWith(user: user),
-        instance('second.example').copyWith(user: user),
-      ]),
-      api: FakeDiscourseApi(user: user),
-      authenticator: authenticator,
-      drafts: FakeDraftStore(),
-      trackers: FakeSiteTracker.reset(),
-      updateStore: FakeUpdateStore(),
-    );
-    addTearDown(shell.dispose);
+  group('disposed controller guards', () {
+    test('ignore a pending initial load', () async {
+      final gate = Completer<List<DiscourseInstance>>();
+      final trackers = FakeSiteTracker.reset();
+      final controller = ShellController(
+        instanceStore: _GatedInstanceStore(gate.future),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: trackers,
+        updateStore: FakeUpdateStore(),
+      );
 
-    await shell.load();
-    await pumpEventQueue();
-    expect(FakeSiteTracker.built, hasLength(2));
-    expect(FakeSiteTracker.built.every((tracker) => tracker.polling), isTrue);
+      final load = controller.load();
+      controller.dispose();
+      gate.complete([instance('late.example')]);
+      await load;
+      await Future<void>.delayed(Duration.zero);
 
-    shell.setForeground(false);
-    expect(FakeSiteTracker.built.every((tracker) => !tracker.polling), isTrue);
+      expect(controller.loaded, isFalse);
+      expect(controller.instances, isEmpty);
+      expect(FakeSiteTracker.built, isEmpty);
+    });
 
-    shell.setForeground(true);
-    expect(FakeSiteTracker.built.every((tracker) => tracker.polling), isTrue);
-    expect(
-      FakeSiteTracker.built.map((tracker) => tracker.pollNowCalls),
-      everyElement(1),
-    );
-  });
+    test('invalidate an in-flight feed write', () async {
+      final gate = Completer<void>();
+      const topic = Topic(id: 7, title: 'Late topic', slug: 'late-topic');
+      final api = FakeDiscourseApi(
+        feeds: const {
+          '/latest.json': [topic],
+        },
+        gate: gate,
+      );
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([instance('late.example')]),
+        api: api,
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
 
-  test('a disposed controller ignores a pending initial load', () async {
-    final gate = Completer<List<DiscourseInstance>>();
-    final trackers = FakeSiteTracker.reset();
-    final controller = ShellController(
-      instanceStore: _GatedInstanceStore(gate.future),
-      api: FakeDiscourseApi(),
-      authenticator: FakeAuthenticator(),
-      drafts: FakeDraftStore(),
-      trackers: trackers,
-      updateStore: FakeUpdateStore(),
-    );
+      await controller.load();
+      await Future<void>.delayed(Duration.zero);
+      expect(api.feedPaths, ['/latest.json']);
 
-    final load = controller.load();
-    controller.dispose();
-    gate.complete([instance('late.example')]);
-    await load;
-    await Future<void>.delayed(Duration.zero);
+      controller.dispose();
+      gate.complete();
+      await Future<void>.delayed(Duration.zero);
 
-    expect(controller.loaded, isFalse);
-    expect(controller.instances, isEmpty);
-    expect(FakeSiteTracker.built, isEmpty);
-  });
-
-  test('disposing invalidates an in-flight feed write', () async {
-    final gate = Completer<void>();
-    const topic = Topic(id: 7, title: 'Late topic', slug: 'late-topic');
-    final api = FakeDiscourseApi(
-      feeds: const {
-        '/latest.json': [topic],
-      },
-      gate: gate,
-    );
-    final controller = ShellController(
-      instanceStore: FakeInstanceStore([instance('late.example')]),
-      api: api,
-      authenticator: FakeAuthenticator(),
-      drafts: FakeDraftStore(),
-      trackers: FakeSiteTracker.reset(),
-      updateStore: FakeUpdateStore(),
-    );
-
-    await controller.load();
-    await Future<void>.delayed(Duration.zero);
-    expect(api.feedPaths, ['/latest.json']);
-
-    controller.dispose();
-    gate.complete();
-    await Future<void>.delayed(Duration.zero);
-
-    expect(controller.store.read<Topic>('https://late.example', 7), isNull);
+      expect(controller.store.read<Topic>('https://late.example', 7), isNull);
+    });
   });
 }
 

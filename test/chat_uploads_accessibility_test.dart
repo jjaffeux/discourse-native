@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('attachment is a named 44 pixel keyboard link', (tester) async {
+  testWidgets('attachment is a named 44-pixel keyboard link', (tester) async {
     const launcher = MethodChannel('plugins.flutter.io/url_launcher');
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;

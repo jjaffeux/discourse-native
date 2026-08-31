@@ -138,6 +138,7 @@ Widget _plainActionsHost(ShellController shell, Post post) => ShellScope(
 
 Future<TestGesture> _hoverPost(WidgetTester tester) async {
   final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+  addTearDown(pointer.removePointer);
   await pointer.addPointer(location: Offset.zero);
   await pointer.moveTo(tester.getCenter(find.text('Post body')));
   await tester.pump();
@@ -162,7 +163,6 @@ void main() {
       await _pumpFrames(tester);
 
       final pointer = await _hoverPost(tester);
-      addTearDown(pointer.removePointer);
       expect(
         find.byTooltip('Privately flag this post for attention'),
         findsOneWidget,
@@ -238,7 +238,6 @@ void main() {
     await tester.pumpWidget(_plainActionsHost(shell, _availablePost));
     await _pumpFrames(tester);
     final pointer = await _hoverPost(tester);
-    addTearDown(pointer.removePointer);
 
     expect(find.byTooltip('Report illegal content by email'), findsNothing);
     expect(find.byTooltip('More actions'), findsOneWidget);

@@ -180,13 +180,11 @@ void main() {
       // blank and otherwise turns notifications back on.
       'should_notify': 'false',
     });
-    expect(transport.writes[0].body, isNot(contains('group_name')));
     expect(transport.writes[1].body, {
       'target_id': 71,
       'target_type': 'Post',
       'group_name': 'triage',
     });
-    expect(transport.writes[1].body, isNot(contains('username')));
   });
 
   test('unassign removes only the exact topic or post target', () async {

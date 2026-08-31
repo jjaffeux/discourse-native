@@ -7,9 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const siteUrl = 'https://forum.example';
 
-  test(
-    'directory and detail use public reads and preserve query semantics',
-    () async {
+  group('directory, member, and topic reads', () {
+    test('directory is public and preserves every query dimension', () async {
       final transport = _RecordingTransport()
         ..getResponse = {
           'groups': [
@@ -29,7 +28,8 @@ void main() {
         username: 'sam',
       );
 
-      final directoryUri = Uri.parse(transport.gets.single.path);
+      final request = transport.gets.single;
+      final directoryUri = Uri.parse(request.path);
       expect(directoryUri.path, '/groups.json');
       expect(directoryUri.queryParameters, {
         'page': '2',
@@ -39,39 +39,41 @@ void main() {
         'asc': 'false',
         'username': 'sam',
       });
-      expect(transport.gets.single.apiKey, isNull);
+      expect(request.apiKey, isNull);
       expect(directory.groups.single.name, 'team+ops');
+    });
 
-      transport.getResponse = {
-        'group': {'id': 1, 'name': 'team+ops'},
-        'extras': {
-          'visible_group_names': ['team+ops'],
-        },
-      };
+    test('detail encodes the group name and decodes visible groups', () async {
+      final transport = _RecordingTransport()
+        ..getResponse = {
+          'group': {'id': 1, 'name': 'team+ops'},
+          'extras': {
+            'visible_group_names': ['team+ops'],
+          },
+        };
+      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
       final detail = await api.detail(
         siteUrl: siteUrl,
         groupName: 'team+ops',
         apiKey: 'secret',
       );
 
-      expect(transport.gets.last.path, '/groups/team%2Bops.json');
+      expect(transport.gets.single.path, '/groups/team%2Bops.json');
       expect(detail.visibleGroupNames, ['team+ops']);
-    },
-  );
+    });
 
-  test(
-    'member, requester, activity, and log reads map exact filters',
-    () async {
-      final transport = _RecordingTransport();
+    test('members maps every paging, ordering, and filter query', () async {
+      final transport = _RecordingTransport()
+        ..getResponse = {
+          'members': [
+            {'id': 2, 'username': 'sam'},
+          ],
+          'owners': <Map<String, Object?>>[],
+          'meta': {'total': 1, 'limit': 25, 'offset': 50},
+        };
       final api = GroupsApi(transport, const DiscourseModelCodec.core());
 
-      transport.getResponse = {
-        'members': [
-          {'id': 2, 'username': 'sam'},
-        ],
-        'owners': <Map<String, Object?>>[],
-        'meta': {'total': 1, 'limit': 25, 'offset': 50},
-      };
       final members = await api.members(
         siteUrl: siteUrl,
         apiKey: 'secret',
@@ -83,7 +85,8 @@ void main() {
         filter: ' Sam ',
         includeCustomFields: true,
       );
-      expect(Uri.parse(transport.gets.last.path).queryParameters, {
+
+      expect(Uri.parse(transport.gets.single.path).queryParameters, {
         'offset': '50',
         'limit': '25',
         'order': 'last_seen_at',
@@ -92,57 +95,74 @@ void main() {
         'include_custom_fields': 'true',
       });
       expect(members.members.single.username, 'sam');
+    });
 
-      transport.getResponse = {
-        'members': [
-          {'id': 3, 'username': 'lee', 'reason': 'Please'},
-        ],
-        'meta': {'total': 1, 'limit': 50, 'offset': 0},
-      };
+    test('requesters sets its discriminator and decodes reasons', () async {
+      final transport = _RecordingTransport()
+        ..getResponse = {
+          'members': [
+            {'id': 3, 'username': 'lee', 'reason': 'Please'},
+          ],
+          'meta': {'total': 1, 'limit': 50, 'offset': 0},
+        };
+      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
       final requesters = await api.requesters(
         siteUrl: siteUrl,
         apiKey: 'secret',
         groupName: 'support',
       );
-      expect(
-        Uri.parse(transport.gets.last.path).queryParameters['requesters'],
-        'true',
-      );
-      expect(requesters.requesters.single.reason, 'Please');
 
-      transport.getResponse = {
-        'posts': [
-          {
-            'id': 5,
-            'topic_id': 6,
-            'post_number': 1,
-            'topic_title': 'Hello',
-            'topic_slug': 'hello',
-            'excerpt': 'Body',
-          },
-        ],
-      };
-      final before = DateTime.utc(2026, 8, 28, 10, 30);
+      expect(Uri.parse(transport.gets.single.path).queryParameters, {
+        'requesters': 'true',
+        'offset': '0',
+        'limit': '50',
+      });
+      expect(requesters.requesters.single.reason, 'Please');
+    });
+
+    test('mentions maps its cursor and category filter exactly', () async {
+      final transport = _RecordingTransport()
+        ..getResponse = {
+          'posts': [
+            {
+              'id': 5,
+              'topic_id': 6,
+              'post_number': 1,
+              'topic_title': 'Hello',
+              'topic_slug': 'hello',
+              'excerpt': 'Body',
+            },
+          ],
+        };
+      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
       final activity = await api.mentions(
         siteUrl: siteUrl,
         groupName: 'support',
-        before: before,
+        before: DateTime.utc(2026, 8, 28, 10, 30),
         categoryId: 4,
       );
-      final activityUri = Uri.parse(transport.gets.last.path);
+
+      final activityUri = Uri.parse(transport.gets.single.path);
       expect(activityUri.path, '/groups/support/mentions.json');
       expect(activityUri.queryParameters, {
         'before': '2026-08-28T10:30:00.000Z',
         'category_id': '4',
       });
       expect(activity.posts.single.id, 5);
+    });
 
-      transport.getResponse = {
-        'logs': [
-          {'action': 'add_user_to_group'},
-        ],
-        'all_loaded': true,
-      };
+    test('logs maps every administrative filter exactly', () async {
+      final transport = _RecordingTransport()
+        ..getResponse = {
+          'logs': [
+            {'action': 'add_user_to_group'},
+          ],
+          'all_loaded': true,
+        };
+      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
       final logs = await api.logs(
         siteUrl: siteUrl,
         apiKey: 'secret',
@@ -153,7 +173,8 @@ void main() {
         targetUsername: 'sam',
         subject: 'Support',
       );
-      expect(Uri.parse(transport.gets.last.path).queryParameters, {
+
+      expect(Uri.parse(transport.gets.single.path).queryParameters, {
         'offset': '25',
         'filters[action]': 'add_user_to_group',
         'filters[acting_username]': 'admin',
@@ -161,23 +182,38 @@ void main() {
         'filters[subject]': 'Support',
       });
       expect(logs.logs.single.action, 'add_user_to_group');
-    },
-  );
+    });
 
-  test(
-    'topic tabs decode through the model codec and constrain cursors',
-    () async {
+    test(
+      'topics encodes the group name and decodes through the model codec',
+      () async {
+        final transport = _RecordingTransport()
+          ..getResponse = {
+            'topic_list': {
+              'topics': [
+                {'id': 8, 'title': 'Team topic', 'slug': 'team-topic'},
+              ],
+            },
+          };
+        final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+        final topics = await api.topics(
+          siteUrl: siteUrl,
+          groupName: 'team+ops',
+        );
+
+        expect(transport.gets.single.path, '/topics/groups/team%2Bops.json');
+        expect(topics.topics.single.id, 8);
+      },
+    );
+
+    test('messages encodes its group and archived mailbox path', () async {
       final transport = _RecordingTransport()
         ..getResponse = {
-          'topic_list': {
-            'topics': [
-              {'id': 8, 'title': 'Team topic', 'slug': 'team-topic'},
-            ],
-          },
+          'topic_list': {'topics': <Map<String, Object?>>[]},
         };
       final api = GroupsApi(transport, const DiscourseModelCodec.core());
 
-      final topics = await api.topics(siteUrl: siteUrl, groupName: 'team+ops');
       await api.messages(
         siteUrl: siteUrl,
         apiKey: 'secret',
@@ -185,18 +221,26 @@ void main() {
         groupName: 'team+ops',
         archived: true,
       );
+
+      expect(
+        transport.gets.single.path,
+        '/topics/private-messages-group/sam/team%2Bops/archive.json',
+      );
+    });
+
+    test('topic-page cursors stay on the forum origin', () async {
+      final transport = _RecordingTransport()
+        ..getResponse = {
+          'topic_list': {'topics': <Map<String, Object?>>[]},
+        };
+      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
       await api.topicPage(
         siteUrl: siteUrl,
         path: '/topics/groups/team+ops?page=1',
       );
 
-      expect(transport.gets[0].path, '/topics/groups/team%2Bops.json');
-      expect(
-        transport.gets[1].path,
-        '/topics/private-messages-group/sam/team%2Bops/archive.json',
-      );
-      expect(transport.gets[2].path, '/topics/groups/team+ops.json?page=1');
-      expect(topics.topics.single.id, 8);
+      expect(transport.gets.single.path, '/topics/groups/team+ops.json?page=1');
       expect(
         () => api.topicPage(
           siteUrl: siteUrl,
@@ -204,188 +248,268 @@ void main() {
         ),
         throwsArgumentError,
       );
-    },
-  );
+    });
 
-  test(
-    'permissions use the bare-array transport at the compatibility path',
-    () async {
-      final transport = _RecordingTransport()
-        ..listResponse = [
-          {
-            'permission_type': 1,
-            'category': {'id': 4, 'name': 'Help', 'color': '0088CC'},
-          },
-        ];
+    test(
+      'permissions use the bare-array transport at the compatibility path',
+      () async {
+        final transport = _RecordingTransport()
+          ..listResponse = [
+            {
+              'permission_type': 1,
+              'category': {'id': 4, 'name': 'Help', 'color': '0088CC'},
+            },
+          ];
+        final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+        final permissions = await api.permissions(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          groupName: 'support',
+        );
+
+        expect(transport.listGets.single.path, '/g/support/permissions');
+        expect(permissions.single.type, GroupPermissionType.full);
+        expect(permissions.single.category.name, 'Help');
+      },
+    );
+  });
+
+  group('membership mutations', () {
+    test('join and leave use the core group routes', () async {
+      final transport = _RecordingTransport();
       final api = GroupsApi(transport, const DiscourseModelCodec.core());
 
-      final permissions = await api.permissions(
+      await api.join(siteUrl: siteUrl, apiKey: 'secret', groupId: 7);
+      await api.leave(siteUrl: siteUrl, apiKey: 'secret', groupId: 7);
+
+      expect(transport.writes.map((write) => (write.method, write.path)), [
+        ('PUT', '/groups/7/join.json'),
+        ('DELETE', '/groups/7/leave.json'),
+      ]);
+      expect(transport.writes.map((write) => write.body), [
+        <String, Object?>{},
+        <String, Object?>{},
+      ]);
+    });
+
+    test('membership request trims its reason and returns its route', () async {
+      final transport = _RecordingTransport()
+        ..writeResponse = {'relative_url': '/g/support/requests'};
+      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+      final requestUrl = await api.requestMembership(
         siteUrl: siteUrl,
         apiKey: 'secret',
         groupName: 'support',
+        reason: ' I can help ',
       );
 
-      expect(transport.listGets.single.path, '/g/support/permissions');
-      expect(permissions.single.type, GroupPermissionType.full);
-      expect(permissions.single.category.name, 'Help');
-    },
-  );
-
-  test('membership mutations use the core group routes and payloads', () async {
-    final transport = _RecordingTransport();
-    final api = GroupsApi(transport, const DiscourseModelCodec.core());
-
-    await api.join(siteUrl: siteUrl, apiKey: 'secret', groupId: 7);
-    await api.leave(siteUrl: siteUrl, apiKey: 'secret', groupId: 7);
-    transport.writeResponse = {'relative_url': '/g/support/requests'};
-    final requestUrl = await api.requestMembership(
-      siteUrl: siteUrl,
-      apiKey: 'secret',
-      groupName: 'support',
-      reason: ' I can help ',
-    );
-    await api.setNotificationLevel(
-      siteUrl: siteUrl,
-      apiKey: 'secret',
-      groupName: 'support',
-      notificationLevel: 3,
-      userId: 2,
-    );
-
-    transport.writeResponse = {
-      'usernames': ['sam'],
-      'emails': ['lee@example.com'],
-      'skipped_usernames': ['missing'],
-    };
-    final added = await api.addMembers(
-      siteUrl: siteUrl,
-      apiKey: 'secret',
-      groupId: 7,
-      usernames: const [' sam '],
-      emails: const [' lee@example.com '],
-      notifyUsers: false,
-      skipEmail: true,
-    );
-    await api.removeMembers(
-      siteUrl: siteUrl,
-      apiKey: 'secret',
-      groupId: 7,
-      userIds: const [2, 3],
-    );
-    await api.handleMembershipRequest(
-      siteUrl: siteUrl,
-      apiKey: 'secret',
-      groupId: 7,
-      userId: 4,
-      accept: false,
-    );
-
-    expect(requestUrl, '/g/support/requests');
-    expect(added.usernames, ['sam']);
-    expect(transport.writes[0].method, 'PUT');
-    expect(transport.writes[0].path, '/groups/7/join.json');
-    expect(transport.writes[0].body, isEmpty);
-    expect(transport.writes[1].method, 'DELETE');
-    expect(transport.writes[2].body, {'reason': 'I can help'});
-    expect(transport.writes[3].body, {'notification_level': 3, 'user_id': 2});
-    expect(transport.writes[4].body, {
-      'usernames': 'sam',
-      'emails': 'lee@example.com',
-      'notify_users': false,
-      'skip_email': 'true',
+      expect(requestUrl, '/g/support/requests');
+      expect(transport.writes.single.body, {'reason': 'I can help'});
     });
-    expect(transport.writes[5].body, {'user_ids': '2,3'});
-    expect(transport.writes[6].body, {'user_id': 4});
+
+    test('notification level sends the selected level and user', () async {
+      final transport = _RecordingTransport();
+      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+      await api.setNotificationLevel(
+        siteUrl: siteUrl,
+        apiKey: 'secret',
+        groupName: 'support',
+        notificationLevel: 3,
+        userId: 2,
+      );
+
+      expect(transport.writes.single.body, {
+        'notification_level': 3,
+        'user_id': 2,
+      });
+    });
+
+    test('member writes normalize additions and encode removal IDs', () async {
+      final transport = _RecordingTransport()
+        ..writeResponse = {
+          'usernames': ['sam'],
+          'emails': ['lee@example.com'],
+          'skipped_usernames': ['missing'],
+        };
+      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+      final added = await api.addMembers(
+        siteUrl: siteUrl,
+        apiKey: 'secret',
+        groupId: 7,
+        usernames: const [' sam '],
+        emails: const [' lee@example.com '],
+        notifyUsers: false,
+        skipEmail: true,
+      );
+      await api.removeMembers(
+        siteUrl: siteUrl,
+        apiKey: 'secret',
+        groupId: 7,
+        userIds: const [2, 3],
+      );
+
+      expect(added.usernames, ['sam']);
+      expect(transport.writes.first.body, {
+        'usernames': 'sam',
+        'emails': 'lee@example.com',
+        'notify_users': false,
+        'skip_email': 'true',
+      });
+      expect(transport.writes.last.body, {'user_ids': '2,3'});
+    });
+
+    test('membership-request refusal sends the target user', () async {
+      final transport = _RecordingTransport();
+      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+      await api.handleMembershipRequest(
+        siteUrl: siteUrl,
+        apiKey: 'secret',
+        groupId: 7,
+        userId: 4,
+        accept: false,
+      );
+
+      expect(transport.writes.single.body, {'user_id': 4});
+    });
+
+    test(
+      'group invitations support both email delivery and one-use links',
+      () async {
+        final transport = _RecordingTransport();
+        final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+        transport.writeResponse = {
+          'id': 42,
+          'email': 'lee@example.com',
+          'expires_at': '2026-09-01T12:00:00.000Z',
+        };
+        final emailed = await api.createInvite(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          groupId: 7,
+          email: ' lee@example.com ',
+          customMessage: ' Welcome ',
+          expiresAt: DateTime.utc(2026, 9, 1, 12),
+        );
+
+        transport.writeResponse = {'id': 43, 'link': '/invites/abc'};
+        final linked = await api.createInvite(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          groupId: 7,
+        );
+
+        expect(emailed.email, 'lee@example.com');
+        expect(transport.writes.first.path, '/invites.json');
+        expect(transport.writes.first.method, 'POST');
+        expect(transport.writes.first.body, {
+          'group_ids': '7',
+          'email': 'lee@example.com',
+          'custom_message': 'Welcome',
+          'expires_at': '2026-09-01T12:00:00.000Z',
+        });
+        expect(linked.link, '/invites/abc');
+        expect(transport.writes.last.body, {
+          'group_ids': '7',
+          'max_redemptions_allowed': 1,
+        });
+      },
+    );
   });
 
-  test(
-    'group invitations support both email delivery and one-use links',
-    () async {
+  group('administrative mutations', () {
+    test(
+      'owner and primary-group writes use their exact admin contracts',
+      () async {
+        final transport = _RecordingTransport();
+        final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+        await api.addOwners(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          groupId: 7,
+          usernames: const ['sam'],
+        );
+        await api.removeOwners(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          groupId: 7,
+          usernames: const ['sam'],
+        );
+        await api.setPrimaryGroup(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          groupId: 7,
+          usernames: const ['sam'],
+          primary: false,
+        );
+
+        expect(transport.writes.map((write) => (write.method, write.path)), [
+          ('PUT', '/groups/7/owners.json'),
+          ('DELETE', '/admin/groups/7/owners.json'),
+          ('PUT', '/admin/groups/7/primary.json'),
+        ]);
+        expect(transport.writes.map((write) => write.body), [
+          <String, Object?>{'usernames': 'sam'},
+          <String, Object?>{
+            'group': {'usernames': 'sam'},
+          },
+          <String, Object?>{
+            'group': {'usernames': 'sam'},
+            'primary': 'false',
+          },
+        ]);
+      },
+    );
+
+    test(
+      'create and update send group values and decode their responses',
+      () async {
+        final transport = _RecordingTransport()
+          ..writeResponse = {
+            'basic_group': {'id': 8, 'name': 'new-group'},
+          };
+        final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+        final created = await api.createGroup(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          values: const {'name': 'new-group'},
+        );
+        transport.writeResponse = {
+          'group': {'id': 7, 'name': 'support', 'full_name': 'Support Team'},
+        };
+        final updated = await api.updateGroup(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          groupId: 7,
+          values: const {'full_name': 'Support Team'},
+          updateExistingUsers: true,
+        );
+
+        expect(created.name, 'new-group');
+        expect(updated.fullName, 'Support Team');
+        expect(transport.writes.first.path, '/admin/groups.json');
+        expect(transport.writes.first.body, {
+          'group': {'name': 'new-group'},
+        });
+        expect(transport.writes.last.path, '/groups/7.json');
+        expect(transport.writes.last.body, {
+          'group': {'full_name': 'Support Team'},
+          'update_existing_users': 'true',
+        });
+      },
+    );
+
+    test('SMTP check sends every connection field', () async {
       final transport = _RecordingTransport();
       final api = GroupsApi(transport, const DiscourseModelCodec.core());
 
-      transport.writeResponse = {
-        'id': 42,
-        'email': 'lee@example.com',
-        'expires_at': '2026-09-01T12:00:00.000Z',
-      };
-      final emailed = await api.createInvite(
-        siteUrl: siteUrl,
-        apiKey: 'secret',
-        groupId: 7,
-        email: ' lee@example.com ',
-        customMessage: ' Welcome ',
-        expiresAt: DateTime.utc(2026, 9, 1, 12),
-      );
-
-      transport.writeResponse = {'id': 43, 'link': '/invites/abc'};
-      final linked = await api.createInvite(
-        siteUrl: siteUrl,
-        apiKey: 'secret',
-        groupId: 7,
-      );
-
-      expect(emailed.email, 'lee@example.com');
-      expect(transport.writes.first.path, '/invites.json');
-      expect(transport.writes.first.method, 'POST');
-      expect(transport.writes.first.body, {
-        'group_ids': '7',
-        'email': 'lee@example.com',
-        'custom_message': 'Welcome',
-        'expires_at': '2026-09-01T12:00:00.000Z',
-      });
-      expect(linked.link, '/invites/abc');
-      expect(transport.writes.last.body, {
-        'group_ids': '7',
-        'max_redemptions_allowed': 1,
-      });
-    },
-  );
-
-  test(
-    'owner, settings, SMTP, count, create, and delete routes are exact',
-    () async {
-      final transport = _RecordingTransport();
-      final api = GroupsApi(transport, const DiscourseModelCodec.core());
-
-      await api.addOwners(
-        siteUrl: siteUrl,
-        apiKey: 'secret',
-        groupId: 7,
-        usernames: const ['sam'],
-      );
-      await api.removeOwners(
-        siteUrl: siteUrl,
-        apiKey: 'secret',
-        groupId: 7,
-        usernames: const ['sam'],
-      );
-      await api.setPrimaryGroup(
-        siteUrl: siteUrl,
-        apiKey: 'secret',
-        groupId: 7,
-        usernames: const ['sam'],
-        primary: false,
-      );
-
-      transport.writeResponse = {
-        'basic_group': {'id': 8, 'name': 'new-group'},
-      };
-      final created = await api.createGroup(
-        siteUrl: siteUrl,
-        apiKey: 'secret',
-        values: const {'name': 'new-group'},
-      );
-      transport.writeResponse = {
-        'group': {'id': 7, 'name': 'support', 'full_name': 'Support Team'},
-      };
-      final updated = await api.updateGroup(
-        siteUrl: siteUrl,
-        apiKey: 'secret',
-        groupId: 7,
-        values: const {'full_name': 'Support Team'},
-        updateExistingUsers: true,
-      );
       await api.testSmtpSettings(
         siteUrl: siteUrl,
         apiKey: 'secret',
@@ -397,39 +521,56 @@ void main() {
         emailPassword: 'secret',
         emailFromAlias: 'support',
       );
-      transport.writeResponse = {'user_count': 12};
-      final count = await api.automaticMembershipCount(
-        siteUrl: siteUrl,
-        apiKey: 'secret',
-        emailDomains: ' example.com ',
+
+      expect(
+        transport.writes.single.path,
+        '/groups/7/test_email_settings.json',
       );
+      expect(transport.writes.single.body, {
+        'smtp_server': 'smtp.example.com',
+        'smtp_port': 587,
+        'smtp_ssl_mode': 1,
+        'email_username': 'group@example.com',
+        'email_password': 'secret',
+        'email_from_alias': 'support',
+      });
+    });
+
+    test(
+      'automatic membership count trims domains and decodes the count',
+      () async {
+        final transport = _RecordingTransport()
+          ..writeResponse = {'user_count': 12};
+        final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+        final count = await api.automaticMembershipCount(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          emailDomains: ' example.com ',
+        );
+
+        expect(count, 12);
+        expect(
+          transport.writes.single.path,
+          '/admin/groups/automatic_membership_count.json',
+        );
+        expect(transport.writes.single.body, {
+          'automatic_membership_email_domains': 'example.com',
+        });
+      },
+    );
+
+    test('delete uses the exact administrative group route', () async {
+      final transport = _RecordingTransport();
+      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
       await api.deleteGroup(siteUrl: siteUrl, apiKey: 'secret', groupId: 7);
 
-      expect(created.name, 'new-group');
-      expect(updated.fullName, 'Support Team');
-      expect(count, 12);
-      expect(transport.writes[0].path, '/groups/7/owners.json');
-      expect(transport.writes[1].path, '/admin/groups/7/owners.json');
-      expect(transport.writes[1].body, {
-        'group': {'usernames': 'sam'},
-      });
-      expect(transport.writes[2].body, {
-        'group': {'usernames': 'sam'},
-        'primary': 'false',
-      });
-      expect(transport.writes[3].path, '/admin/groups.json');
-      expect(transport.writes[4].body, {
-        'group': {'full_name': 'Support Team'},
-        'update_existing_users': 'true',
-      });
-      expect(transport.writes[5].path, '/groups/7/test_email_settings.json');
-      expect(
-        transport.writes[6].path,
-        '/admin/groups/automatic_membership_count.json',
-      );
-      expect(transport.writes.last.path, '/admin/groups/7.json');
-    },
-  );
+      final write = transport.writes.single;
+      expect((write.method, write.path), ('DELETE', '/admin/groups/7.json'));
+      expect(write.body, isEmpty);
+    });
+  });
 
   test('input validation rejects unsafe names, windows, and cursors', () {
     final api = GroupsApi(

@@ -26,7 +26,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
-    'directory pagination merges by id and preserves the confirmed page',
+    'directory pagination merges by ID and preserves the confirmed page',
     () async {
       final transport = _ControlledGroupTransport()
         ..objects.addAll([
@@ -183,7 +183,7 @@ void main() {
   });
 
   test(
-    'authenticated reads send the user API client id with the key',
+    'authenticated reads send the user API client ID with the key',
     () async {
       final transport = _ControlledGroupTransport()
         ..objects.add(

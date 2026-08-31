@@ -16,83 +16,54 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://meta.example';
 
 void main() {
-  testWidgets('post action buttons have accessible keyboard targets', (
+  testWidgets('hovered post actions use exact toolbar geometry and styling', (
     tester,
   ) async {
-    final api = FakeDiscourseApi();
-    final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
-    final controller = ShellController(
-      instanceStore: FakeInstanceStore([
-        instance('meta.example').copyWith(
-          user: const DiscourseUser(username: 'reader', name: 'Reader'),
-        ),
-      ]),
-      api: api,
-      authenticator: authenticator,
-      drafts: FakeDraftStore(),
-      trackers: FakeSiteTracker.reset(),
-      updater: FakeUpdater(),
-      updateStore: FakeUpdateStore(),
-    );
-    await controller.load();
-    addTearDown(controller.dispose);
+    final action = (await _pumpHoveredPostAction(tester)).action;
 
-    final semantics = tester.ensureSemantics();
-    try {
-      await tester.pumpWidget(
-        ShellScope(
-          controller: controller,
-          child: MaterialApp(
-            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-            home: const Scaffold(
-              body: Center(
-                child: SizedBox(
-                  width: 240,
-                  height: 100,
-                  child: PostActions(
-                    siteUrl: _siteUrl,
-                    post: Post(
-                      id: 1,
-                      postNumber: 1,
-                      username: 'author',
-                      cooked: '<p>Post body</p>',
-                      canLike: true,
-                    ),
-                    child: ColoredBox(
-                      color: Colors.transparent,
-                      child: Center(child: Text('Post body')),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+    expect(tester.getSize(action), HoverActionButton.size);
+    final menu = find
+        .ancestor(
+          of: action,
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Material && widget.elevation == 2,
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        )
+        .first;
+    expect(tester.getSize(menu).width, HoverActionButton.width);
+    expect(
+      tester.getRect(menu).right,
+      closeTo(tester.getRect(find.byType(PostActions)).right - 8, 0.01),
+    );
+    final button = find
+        .ancestor(of: action, matching: find.byType(DButton))
+        .first;
+    final filledButton = tester.widget<FilledButton>(
+      find.descendant(of: button, matching: find.byType(FilledButton)),
+    );
+    final hoverShape = filledButton.style!.shape!.resolve({
+      WidgetState.hovered,
+    });
+    expect(hoverShape, isA<RoundedRectangleBorder>());
+    final theme = Theme.of(tester.element(button));
+    expect(
+      (hoverShape! as RoundedRectangleBorder).borderRadius,
+      BorderRadius.circular(theme.discourseButtons.borderRadius),
+    );
+    expect(
+      filledButton.style!.backgroundColor!.resolve({WidgetState.hovered}),
+      theme.shell.hover,
+    );
+    expect(
+      filledButton.style!.fixedSize!.resolve({}),
+      const Size.square(DButton.minimumDimension),
+    );
+  });
 
-      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await pointer.addPointer(location: Offset.zero);
-      addTearDown(pointer.removePointer);
-      await pointer.moveTo(tester.getCenter(find.text('Post body')));
-      await tester.pump();
+  testWidgets('post actions expose enabled button semantics', (tester) async {
+    await _withSemantics(tester, () async {
+      final action = (await _pumpHoveredPostAction(tester)).action;
 
-      final action = find.byTooltip('Like this post');
-      expect(action, findsOneWidget);
-      expect(tester.getSize(action), HoverActionButton.size);
-      final menu = find
-          .ancestor(
-            of: action,
-            matching: find.byWidgetPredicate(
-              (widget) => widget is Material && widget.elevation == 2,
-            ),
-          )
-          .first;
-      expect(tester.getSize(menu).width, HoverActionButton.width);
-      expect(
-        tester.getRect(menu).right,
-        closeTo(tester.getRect(find.byType(PostActions)).right - 8, 0.01),
-      );
       expect(
         tester.getSemantics(action),
         isSemantics(
@@ -105,40 +76,13 @@ void main() {
           hasFocusAction: true,
         ),
       );
+    });
+  });
 
-      final button = find
-          .ancestor(of: action, matching: find.byType(DButton))
-          .first;
-      final filledButton = tester.widget<FilledButton>(
-        find.descendant(of: button, matching: find.byType(FilledButton)),
-      );
-      final hoverShape = filledButton.style!.shape!.resolve({
-        WidgetState.hovered,
-      });
-      expect(hoverShape, isA<RoundedRectangleBorder>());
-      final theme = Theme.of(tester.element(button));
-      expect(
-        (hoverShape! as RoundedRectangleBorder).borderRadius,
-        BorderRadius.circular(theme.discourseButtons.borderRadius),
-      );
-      expect(
-        filledButton.style!.backgroundColor!.resolve({WidgetState.hovered}),
-        theme.shell.hover,
-      );
-      expect(
-        filledButton.style!.fixedSize!.resolve({}),
-        const Size.square(DButton.minimumDimension),
-      );
-      final inkWell = find.descendant(
-        of: button,
-        matching: find.byType(InkWell),
-      );
-      expect(inkWell, findsOneWidget);
-      final focusChild = find
-          .descendant(of: inkWell, matching: find.byType(MouseRegion))
-          .first;
-      final focus = Focus.of(tester.element(focusChild));
-      focus.requestFocus();
+  testWidgets('focused post actions activate with Enter', (tester) async {
+    await _withSemantics(tester, () async {
+      final (:action, :api) = await _pumpHoveredPostAction(tester);
+      final focus = _buttonFocus(tester, action)..requestFocus();
       await tester.pumpAndSettle();
 
       expect(focus.hasPrimaryFocus, isTrue);
@@ -151,106 +95,35 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(api.liked, [1]);
-    } finally {
-      semantics.dispose();
-    }
+    });
   });
 
-  testWidgets('context menu keys reveal actions and focus the first one', (
+  testWidgets('Shift+F10 reveals and focuses the first post action', (
     tester,
   ) async {
-    final api = FakeDiscourseApi();
-    final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
-    final controller = ShellController(
-      instanceStore: FakeInstanceStore([
-        instance('meta.example').copyWith(
-          user: const DiscourseUser(username: 'reader', name: 'Reader'),
-        ),
-      ]),
-      api: api,
-      authenticator: authenticator,
-      drafts: FakeDraftStore(),
-      trackers: FakeSiteTracker.reset(),
-      updater: FakeUpdater(),
-      updateStore: FakeUpdateStore(),
-    );
-    await controller.load();
-    addTearDown(controller.dispose);
-
-    final semantics = tester.ensureSemantics();
-    try {
-      await tester.pumpWidget(
-        ShellScope(
-          controller: controller,
-          child: MaterialApp(
-            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-            home: Scaffold(
-              body: Center(
-                child: SizedBox(
-                  width: 240,
-                  height: 100,
-                  child: PostActions(
-                    siteUrl: _siteUrl,
-                    post: const Post(
-                      id: 1,
-                      postNumber: 1,
-                      username: 'author',
-                      cooked: '<p>Post body</p>',
-                      canLike: true,
-                    ),
-                    child: TextButton(
-                      key: const ValueKey('post-control'),
-                      onPressed: () {},
-                      child: const Text('Post body'),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final postFocus = _focusButton(
-        tester,
-        find.byKey(const ValueKey('post-control')),
-      );
-      await tester.pumpAndSettle();
+    await _withSemantics(tester, () async {
+      await _pumpFocusedPostActions(tester);
 
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.f10);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
       await tester.pumpAndSettle();
 
-      var action = find.byTooltip('Like this post');
-      expect(action, findsOneWidget);
-      expect(_buttonFocus(tester, action).hasPrimaryFocus, isTrue);
-      expect(
-        tester.getSemantics(action),
-        isSemantics(isFocusable: true, isFocused: true),
-      );
+      _expectFocusedLikeAction(tester);
+    });
+  });
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-      expect(api.liked, [1]);
-      expect(action, findsNothing);
+  testWidgets('the Context Menu key focuses the first post action', (
+    tester,
+  ) async {
+    await _withSemantics(tester, () async {
+      await _pumpFocusedPostActions(tester);
 
-      postFocus.requestFocus();
-      await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
       await tester.pumpAndSettle();
 
-      action = find.byTooltip('Like this post');
-      expect(action, findsOneWidget);
-      expect(_buttonFocus(tester, action).hasPrimaryFocus, isTrue);
-      expect(
-        tester.getSemantics(action),
-        isSemantics(isFocusable: true, isFocused: true),
-      );
-    } finally {
-      semantics.dispose();
-    }
+      _expectFocusedLikeAction(tester);
+    });
   });
 
   testWidgets('core hidden actions use one labelled More actions menu', (
@@ -345,6 +218,145 @@ void main() {
       theme.hoverColor,
     );
   });
+}
+
+Future<void> _withSemantics(
+  WidgetTester tester,
+  Future<void> Function() body,
+) async {
+  final semantics = tester.ensureSemantics();
+  try {
+    await body();
+  } finally {
+    semantics.dispose();
+  }
+}
+
+Future<({Finder action, FakeDiscourseApi api})> _pumpHoveredPostAction(
+  WidgetTester tester,
+) async {
+  final api = FakeDiscourseApi();
+  final controller = ShellController(
+    instanceStore: FakeInstanceStore([
+      instance('meta.example').copyWith(
+        user: const DiscourseUser(username: 'reader', name: 'Reader'),
+      ),
+    ]),
+    api: api,
+    authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+    updater: FakeUpdater(),
+    updateStore: FakeUpdateStore(),
+  );
+  await controller.load();
+  addTearDown(controller.dispose);
+
+  await tester.pumpWidget(
+    ShellScope(
+      controller: controller,
+      child: MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: const Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 240,
+              height: 100,
+              child: PostActions(
+                siteUrl: _siteUrl,
+                post: Post(
+                  id: 1,
+                  postNumber: 1,
+                  username: 'author',
+                  cooked: '<p>Post body</p>',
+                  canLike: true,
+                ),
+                child: ColoredBox(
+                  color: Colors.transparent,
+                  child: Center(child: Text('Post body')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+  await pointer.addPointer(location: Offset.zero);
+  addTearDown(pointer.removePointer);
+  await pointer.moveTo(tester.getCenter(find.text('Post body')));
+  await tester.pump();
+
+  final action = find.byTooltip('Like this post');
+  expect(action, findsOneWidget);
+  return (action: action, api: api);
+}
+
+Future<void> _pumpFocusedPostActions(WidgetTester tester) async {
+  final controller = ShellController(
+    instanceStore: FakeInstanceStore([
+      instance('meta.example').copyWith(
+        user: const DiscourseUser(username: 'reader', name: 'Reader'),
+      ),
+    ]),
+    api: FakeDiscourseApi(),
+    authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+    updater: FakeUpdater(),
+    updateStore: FakeUpdateStore(),
+  );
+  await controller.load();
+  addTearDown(controller.dispose);
+
+  await tester.pumpWidget(
+    ShellScope(
+      controller: controller,
+      child: MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 240,
+              height: 100,
+              child: PostActions(
+                siteUrl: _siteUrl,
+                post: const Post(
+                  id: 1,
+                  postNumber: 1,
+                  username: 'author',
+                  cooked: '<p>Post body</p>',
+                  canLike: true,
+                ),
+                child: TextButton(
+                  key: const ValueKey('post-control'),
+                  onPressed: () {},
+                  child: const Text('Post body'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  _focusButton(tester, find.byKey(const ValueKey('post-control')));
+  await tester.pumpAndSettle();
+}
+
+void _expectFocusedLikeAction(WidgetTester tester) {
+  final action = find.byTooltip('Like this post');
+  expect(action, findsOneWidget);
+  expect(_buttonFocus(tester, action).hasPrimaryFocus, isTrue);
+  expect(
+    tester.getSemantics(action),
+    isSemantics(isFocusable: true, isFocused: true),
+  );
 }
 
 FocusNode _focusButton(WidgetTester tester, Finder button) {

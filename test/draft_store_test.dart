@@ -23,266 +23,278 @@ void main() {
     store = DraftStore(persistence: persistence);
   });
 
-  test('writes drafts to secure persistence', () async {
-    await store.write(siteUrl, draftKey, '{"reply": "Half a thought"}');
+  group('secure persistence and write ordering', () {
+    test('writes drafts to secure persistence', () async {
+      await store.write(siteUrl, draftKey, '{"reply": "Half a thought"}');
 
-    expect(persistence.values[storageKey], '{"reply": "Half a thought"}');
-    expect(
-      (await SharedPreferences.getInstance()).containsKey(storageKey),
-      isFalse,
-    );
-  });
-
-  test('reports when secure persistence cannot retain a draft', () async {
-    persistence.failWrites = true;
-
-    await expectLater(
-      store.write(siteUrl, draftKey, 'unsaved text'),
-      throwsA(isA<DraftWriteException>()),
-    );
-
-    expect(persistence.values, isEmpty);
-  });
-
-  test(
-    'diagnostics never retain a storage parser source or draft text',
-    () async {
-      const secretDraft = 'private draft body sentinel';
-      final diagnostics = await DiagnosticsController.create(
-        persistence: MemoryDiagnosticsPersistence(),
-        sessionId: 'draft-privacy',
+      expect(persistence.values[storageKey], '{"reply": "Half a thought"}');
+      expect(
+        (await SharedPreferences.getInstance()).containsKey(storageKey),
+        isFalse,
       );
-      final binding = DiagnosticsSink.install(diagnostics);
-      addTearDown(() async {
-        binding.close();
-        await diagnostics.close();
-      });
-      final privateStore = DraftStore(
-        persistence: const _ThrowingDraftPersistence(
-          FormatException('secure write failed', secretDraft, 1),
-        ),
-      );
+    });
+
+    test('reports when secure persistence cannot retain a draft', () async {
+      persistence.failWrites = true;
 
       await expectLater(
-        privateStore.write(siteUrl, draftKey, secretDraft),
-        throwsA(
-          isA<DraftWriteException>().having(
-            (error) => '$error',
-            'toString',
-            isNot(contains(secretDraft)),
-          ),
-        ),
+        store.write(siteUrl, draftKey, 'unsaved text'),
+        throwsA(isA<DraftWriteException>()),
       );
 
-      final report = diagnostics.buildJsonReport();
-      expect(report, contains('secure write failed'));
-      expect(report, isNot(contains(secretDraft)));
-    },
-  );
+      expect(persistence.values, isEmpty);
+    });
 
-  test('reads drafts from secure persistence', () async {
-    persistence.values[storageKey] = '{"reply": "Half a thought"}';
+    test(
+      'diagnostics never retain a storage parser source or draft text',
+      () async {
+        const secretDraft = 'private draft body sentinel';
+        final diagnostics = await DiagnosticsController.create(
+          persistence: MemoryDiagnosticsPersistence(),
+          sessionId: 'draft-privacy',
+        );
+        final binding = DiagnosticsSink.install(diagnostics);
+        addTearDown(() async {
+          binding.close();
+          await diagnostics.close();
+        });
+        final privateStore = DraftStore(
+          persistence: const _ThrowingDraftPersistence(
+            FormatException('secure write failed', secretDraft, 1),
+          ),
+        );
 
-    expect(await store.read(siteUrl, draftKey), '{"reply": "Half a thought"}');
-  });
+        await expectLater(
+          privateStore.write(siteUrl, draftKey, secretDraft),
+          throwsA(
+            isA<DraftWriteException>().having(
+              (error) => '$error',
+              'toString',
+              isNot(contains(secretDraft)),
+            ),
+          ),
+        );
 
-  test('reads nothing back for a draft never written', () async {
-    expect(await store.read(siteUrl, draftKey), isNull);
-  });
-
-  test('conditional writing rejects a stale session', () async {
-    await store.write(
-      siteUrl,
-      draftKey,
-      'old account text',
-      ifCurrent: () => false,
+        final report = diagnostics.buildJsonReport();
+        expect(report, contains('secure write failed'));
+        expect(report, isNot(contains(secretDraft)));
+      },
     );
 
-    expect(await store.read(siteUrl, draftKey), isNull);
-  });
+    test('reads drafts from secure persistence', () async {
+      persistence.values[storageKey] = '{"reply": "Half a thought"}';
 
-  test('conditional writing rechecks after storage initialization', () async {
-    var current = true;
-    final write = store.write(
-      siteUrl,
-      draftKey,
-      'old account text',
-      ifCurrent: () => current,
-    );
-    current = false;
+      expect(
+        await store.read(siteUrl, draftKey),
+        '{"reply": "Half a thought"}',
+      );
+    });
 
-    await write;
+    test('reads nothing back for a draft never written', () async {
+      expect(await store.read(siteUrl, draftKey), isNull);
+    });
 
-    expect(persistence.values, isEmpty);
-  });
-
-  test(
-    'a newer write wins when an older secure write is still running',
-    () async {
-      final gate = Completer<void>();
-      persistence.firstWriteGate = gate;
-      var oldSessionIsCurrent = true;
-
-      final oldWrite = store.write(
+    test('conditional writing rejects a stale session', () async {
+      await store.write(
         siteUrl,
         draftKey,
         'old account text',
-        ifCurrent: () => oldSessionIsCurrent,
+        ifCurrent: () => false,
       );
-      await persistence.firstWriteStarted.future;
-
-      oldSessionIsCurrent = false;
-      final newWrite = store.write(siteUrl, draftKey, 'new account text');
-      await Future<void>.delayed(Duration.zero);
-      expect(persistence.writeCount, 1);
-
-      gate.complete();
-      await Future.wait([oldWrite, newWrite]);
-
-      expect(persistence.values[storageKey], 'new account text');
-    },
-  );
-
-  test('site clearing waits for an older write before deleting it', () async {
-    final gate = Completer<void>();
-    persistence.firstWriteGate = gate;
-
-    final write = store.write(siteUrl, draftKey, 'old account text');
-    await persistence.firstWriteStarted.future;
-    final clear = store.clearSite(siteUrl);
-
-    gate.complete();
-    await Future.wait([write, clear]);
-
-    expect(persistence.values, isEmpty);
-  });
-
-  test('clearing removes only the one draft', () async {
-    await store.write(siteUrl, draftKey, 'kept elsewhere');
-    await store.write(siteUrl, 'topic_43', 'also kept');
-    await store.clear(siteUrl, draftKey);
-
-    expect(await store.read(siteUrl, draftKey), isNull);
-    expect(await store.read(siteUrl, 'topic_43'), 'also kept');
-  });
-
-  test('clearing a draft that was never written is nothing', () async {
-    await store.clear(siteUrl, draftKey);
-    expect(await store.read(siteUrl, draftKey), isNull);
-  });
-
-  test('conditional clearing keeps a newer session draft', () async {
-    await store.write(siteUrl, draftKey, 'newer account text');
-
-    await store.clear(siteUrl, draftKey, ifCurrent: () => false);
-
-    expect(await store.read(siteUrl, draftKey), 'newer account text');
-  });
-
-  test('the same draft key on two sites is two drafts', () async {
-    await store.write(siteUrl, draftKey, 'first site');
-    await store.write('https://other.example.com', draftKey, 'second site');
-
-    expect(await store.read(siteUrl, draftKey), 'first site');
-    expect(
-      await store.read('https://other.example.com', draftKey),
-      'second site',
-    );
-  });
-
-  test('clearing a site removes all of its drafts and no others', () async {
-    await store.write(siteUrl, draftKey, 'first');
-    await store.write(siteUrl, 'topic_43', 'second');
-    await store.write('https://other.example.com', draftKey, 'other site');
-
-    await store.clearSite(siteUrl);
-
-    expect(await store.read(siteUrl, draftKey), isNull);
-    expect(await store.read(siteUrl, 'topic_43'), isNull);
-    expect(
-      await store.read('https://other.example.com', draftKey),
-      'other site',
-    );
-  });
-
-  test('site clearing fails closed when its blocker is not durable', () async {
-    const error = FileSystemException('draft file unavailable');
-    await store.write(siteUrl, draftKey, 'previous account text');
-    persistence.deletePrefixError = error;
-
-    await expectLater(store.clearSite(siteUrl), throwsA(same(error)));
-
-    expect(persistence.values[storageKey], 'previous account text');
-  });
-
-  test('conditional site clearing keeps a newer session draft', () async {
-    await store.write(siteUrl, draftKey, 'newer account text');
-
-    await store.clearSite(siteUrl, ifCurrent: () => false);
-
-    expect(await store.read(siteUrl, draftKey), 'newer account text');
-  });
-
-  test('migrates a plaintext legacy draft into secure persistence', () async {
-    SharedPreferences.setMockInitialValues({storageKey: 'legacy text'});
-
-    expect(await store.read(siteUrl, draftKey), 'legacy text');
-    expect(persistence.values[storageKey], 'legacy text');
-    expect(
-      (await SharedPreferences.getInstance()).containsKey(storageKey),
-      isFalse,
-    );
-  });
-
-  test('keeps the legacy draft when secure migration fails', () async {
-    SharedPreferences.setMockInitialValues({storageKey: 'legacy text'});
-    persistence.failWrites = true;
-
-    expect(await store.read(siteUrl, draftKey), 'legacy text');
-    expect(
-      (await SharedPreferences.getInstance()).getString(storageKey),
-      'legacy text',
-    );
-  });
-
-  test(
-    'does not reveal or overwrite fallback data when secure read fails',
-    () async {
-      persistence
-        ..values[storageKey] = 'new secure text'
-        ..failReads = true;
-      SharedPreferences.setMockInitialValues({storageKey: 'old legacy text'});
 
       expect(await store.read(siteUrl, draftKey), isNull);
-      expect(persistence.values[storageKey], 'new secure text');
-      expect(persistence.writeCount, 0);
-      expect(
-        (await SharedPreferences.getInstance()).getString(storageKey),
-        'old legacy text',
+    });
+
+    test('conditional writing rechecks after storage initialization', () async {
+      var current = true;
+      final write = store.write(
+        siteUrl,
+        draftKey,
+        'old account text',
+        ifCurrent: () => current,
       );
-    },
-  );
+      current = false;
 
-  test('secure persistence takes precedence over a legacy draft', () async {
-    persistence.values[storageKey] = 'secure text';
-    SharedPreferences.setMockInitialValues({storageKey: 'stale legacy text'});
+      await write;
 
-    expect(await store.read(siteUrl, draftKey), 'secure text');
-    expect(
-      (await SharedPreferences.getInstance()).containsKey(storageKey),
-      isFalse,
+      expect(persistence.values, isEmpty);
+    });
+
+    test(
+      'a newer write wins when an older secure write is still running',
+      () async {
+        final gate = Completer<void>();
+        persistence.firstWriteGate = gate;
+        var oldSessionIsCurrent = true;
+
+        final oldWrite = store.write(
+          siteUrl,
+          draftKey,
+          'old account text',
+          ifCurrent: () => oldSessionIsCurrent,
+        );
+        await persistence.firstWriteStarted.future;
+
+        oldSessionIsCurrent = false;
+        final newWrite = store.write(siteUrl, draftKey, 'new account text');
+        await Future<void>.delayed(Duration.zero);
+        expect(persistence.writeCount, 1);
+
+        gate.complete();
+        await Future.wait([oldWrite, newWrite]);
+
+        expect(persistence.values[storageKey], 'new account text');
+      },
     );
   });
 
-  test('a durable blocker suppresses a stale preference draft', () async {
-    persistence.allowPreferenceFallback = false;
-    SharedPreferences.setMockInitialValues({storageKey: 'stale text'});
+  group('clearing and site isolation', () {
+    test('site clearing waits for an older write before deleting it', () async {
+      final gate = Completer<void>();
+      persistence.firstWriteGate = gate;
 
-    expect(await store.read(siteUrl, draftKey), isNull);
-    expect(
-      (await SharedPreferences.getInstance()).containsKey(storageKey),
-      isFalse,
+      final write = store.write(siteUrl, draftKey, 'old account text');
+      await persistence.firstWriteStarted.future;
+      final clear = store.clearSite(siteUrl);
+
+      gate.complete();
+      await Future.wait([write, clear]);
+
+      expect(persistence.values, isEmpty);
+    });
+
+    test('clearing removes only the one draft', () async {
+      await store.write(siteUrl, draftKey, 'kept elsewhere');
+      await store.write(siteUrl, 'topic_43', 'also kept');
+      await store.clear(siteUrl, draftKey);
+
+      expect(await store.read(siteUrl, draftKey), isNull);
+      expect(await store.read(siteUrl, 'topic_43'), 'also kept');
+    });
+
+    test('clearing a draft that was never written is nothing', () async {
+      await store.clear(siteUrl, draftKey);
+      expect(await store.read(siteUrl, draftKey), isNull);
+    });
+
+    test('conditional clearing keeps a newer session draft', () async {
+      await store.write(siteUrl, draftKey, 'newer account text');
+
+      await store.clear(siteUrl, draftKey, ifCurrent: () => false);
+
+      expect(await store.read(siteUrl, draftKey), 'newer account text');
+    });
+
+    test('the same draft key on two sites is two drafts', () async {
+      await store.write(siteUrl, draftKey, 'first site');
+      await store.write('https://other.example.com', draftKey, 'second site');
+
+      expect(await store.read(siteUrl, draftKey), 'first site');
+      expect(
+        await store.read('https://other.example.com', draftKey),
+        'second site',
+      );
+    });
+
+    test('clearing a site removes all of its drafts and no others', () async {
+      await store.write(siteUrl, draftKey, 'first');
+      await store.write(siteUrl, 'topic_43', 'second');
+      await store.write('https://other.example.com', draftKey, 'other site');
+
+      await store.clearSite(siteUrl);
+
+      expect(await store.read(siteUrl, draftKey), isNull);
+      expect(await store.read(siteUrl, 'topic_43'), isNull);
+      expect(
+        await store.read('https://other.example.com', draftKey),
+        'other site',
+      );
+    });
+
+    test(
+      'site clearing fails closed when its blocker is not durable',
+      () async {
+        const error = FileSystemException('draft file unavailable');
+        await store.write(siteUrl, draftKey, 'previous account text');
+        persistence.deletePrefixError = error;
+
+        await expectLater(store.clearSite(siteUrl), throwsA(same(error)));
+
+        expect(persistence.values[storageKey], 'previous account text');
+      },
     );
+
+    test('conditional site clearing keeps a newer session draft', () async {
+      await store.write(siteUrl, draftKey, 'newer account text');
+
+      await store.clearSite(siteUrl, ifCurrent: () => false);
+
+      expect(await store.read(siteUrl, draftKey), 'newer account text');
+    });
+  });
+
+  group('legacy preference migration', () {
+    test('migrates a plaintext legacy draft into secure persistence', () async {
+      SharedPreferences.setMockInitialValues({storageKey: 'legacy text'});
+
+      expect(await store.read(siteUrl, draftKey), 'legacy text');
+      expect(persistence.values[storageKey], 'legacy text');
+      expect(
+        (await SharedPreferences.getInstance()).containsKey(storageKey),
+        isFalse,
+      );
+    });
+
+    test('keeps the legacy draft when secure migration fails', () async {
+      SharedPreferences.setMockInitialValues({storageKey: 'legacy text'});
+      persistence.failWrites = true;
+
+      expect(await store.read(siteUrl, draftKey), 'legacy text');
+      expect(
+        (await SharedPreferences.getInstance()).getString(storageKey),
+        'legacy text',
+      );
+    });
+
+    test(
+      'does not reveal or overwrite fallback data when secure read fails',
+      () async {
+        persistence
+          ..values[storageKey] = 'new secure text'
+          ..failReads = true;
+        SharedPreferences.setMockInitialValues({storageKey: 'old legacy text'});
+
+        expect(await store.read(siteUrl, draftKey), isNull);
+        expect(persistence.values[storageKey], 'new secure text');
+        expect(persistence.writeCount, 0);
+        expect(
+          (await SharedPreferences.getInstance()).getString(storageKey),
+          'old legacy text',
+        );
+      },
+    );
+
+    test('secure persistence takes precedence over a legacy draft', () async {
+      persistence.values[storageKey] = 'secure text';
+      SharedPreferences.setMockInitialValues({storageKey: 'stale legacy text'});
+
+      expect(await store.read(siteUrl, draftKey), 'secure text');
+      expect(
+        (await SharedPreferences.getInstance()).containsKey(storageKey),
+        isFalse,
+      );
+    });
+
+    test('a durable blocker suppresses a stale preference draft', () async {
+      persistence.allowPreferenceFallback = false;
+      SharedPreferences.setMockInitialValues({storageKey: 'stale text'});
+
+      expect(await store.read(siteUrl, draftKey), isNull);
+      expect(
+        (await SharedPreferences.getInstance()).containsKey(storageKey),
+        isFalse,
+      );
+    });
   });
 }
 

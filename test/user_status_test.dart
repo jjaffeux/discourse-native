@@ -73,7 +73,7 @@ void main() {
     );
   });
 
-  test('keeps user ids with cooked mention statuses for live updates', () {
+  test('keeps user IDs with cooked mention statuses for live updates', () {
     final statuses = userStatusesByUsername(const [
       {
         'id': 42,
@@ -117,8 +117,10 @@ void main() {
       doNotDisturbChannelPosition: 88,
     );
     final authenticator = FakeAuthenticator()..keys[siteUrl] = 'key';
+    final statusEndsAt = DateTime.now().add(const Duration(hours: 2));
     final api = FakeDiscourseApi(
       user: user,
+      doNotDisturbUntil: statusEndsAt,
       feeds: const {'/latest.json': <Topic>[]},
       siteConfigs: const {siteUrl: SiteConfig(userStatusEnabled: true)},
     );
@@ -184,7 +186,6 @@ void main() {
       DateTime.utc(2030, 8, 28, 12),
     );
 
-    final statusEndsAt = DateTime.now().add(const Duration(hours: 2));
     expect(
       await shell.setUserStatus(
         siteUrl,
@@ -199,6 +200,10 @@ void main() {
     expect(
       api.doNotDisturbDurations.single.minutes,
       inInclusiveRange(119, 120),
+    );
+    expect(
+      shell.currentInstance?.user?.doNotDisturbUntil,
+      statusEndsAt.toUtc(),
     );
     expect(shell.currentInstance?.user?.status?.description, 'Pairing');
 

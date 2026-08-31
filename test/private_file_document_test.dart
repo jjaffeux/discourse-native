@@ -20,9 +20,8 @@ void main() {
     if (await directory.exists()) await directory.delete(recursive: true);
   });
 
-  test(
-    'no-op access leaves no document and commits owner-only files',
-    () async {
+  group('file persistence and permissions', () {
+    test('leaves no document after no-op reads and updates', () async {
       final document = _mapDocument(target.path);
 
       expect(
@@ -31,106 +30,134 @@ void main() {
       );
       await document.update<void>((_) => PrivateFileResult.done);
       expect(await target.exists(), isFalse);
+    });
 
-      await document.update<void>((values) {
-        values['secret'] = 'value';
-        return PrivateFileResult.done;
-      });
+    test(
+      'commits data with owner-only directory, file, and lock modes',
+      () async {
+        final document = _mapDocument(target.path);
 
-      expect(
-        await document.read((values) => PrivateFileResult(Map.of(values))),
-        {'secret': 'value'},
-      );
-      expect((await directory.stat()).mode & 0x1ff, 0x1c0); // 0700
-      expect((await target.stat()).mode & 0x1ff, 0x180); // 0600
-      expect((await File('${target.path}.lock').stat()).mode & 0x1ff, 0x180);
-      expect(await _temporaryFiles(directory), isEmpty);
-    },
-  );
-
-  test('serializes updates across document instances for one path', () async {
-    final first = _mapDocument(target.path);
-    final second = _mapDocument(target.path);
-
-    await Future.wait([
-      for (var index = 0; index < 40; index++)
-        (index.isEven ? first : second).update<void>((values) {
-          values['key-$index'] = 'value-$index';
+        await document.update<void>((values) {
+          values['secret'] = 'value';
           return PrivateFileResult.done;
-        }),
-    ]);
+        });
 
-    final values = await first.read(
-      (values) => PrivateFileResult(Map.of(values)),
+        expect(
+          await document.read((values) => PrivateFileResult(Map.of(values))),
+          {'secret': 'value'},
+        );
+        expect((await directory.stat()).mode & 0x1ff, 0x1c0); // 0700
+        expect((await target.stat()).mode & 0x1ff, 0x180); // 0600
+        expect((await File('${target.path}.lock').stat()).mode & 0x1ff, 0x180);
+        expect(await _temporaryFiles(directory), isEmpty);
+      },
     );
-    expect(values, hasLength(40));
-    for (var index = 0; index < 40; index++) {
-      expect(values['key-$index'], 'value-$index');
-    }
   });
 
-  test(
-    'a failed codec leaves the target intact and does not poison the queue',
-    () async {
-      final document = PrivateFileDocument<Map<String, String>>(
-        target: () => target,
-        empty: () => <String, String>{},
-        decode: _decodeMap,
-        encode: (values) {
-          if (values.containsKey('refused')) {
-            throw StateError('encoding refused');
-          }
-          return _encodeMap(values);
-        },
+  group('write coordination', () {
+    test('serializes document instances targeting one path', () async {
+      final first = _mapDocument(target.path);
+      final second = _mapDocument(target.path);
+
+      await Future.wait([
+        for (var index = 0; index < 40; index++)
+          (index.isEven ? first : second).update<void>((values) {
+            values['key-$index'] = 'value-$index';
+            return PrivateFileResult.done;
+          }),
+      ]);
+
+      final values = await first.read(
+        (values) => PrivateFileResult(Map.of(values)),
       );
-      await document.update<void>((values) {
-        values['kept'] = 'original';
-        return PrivateFileResult.done;
+      expect(values, hasLength(40));
+      for (var index = 0; index < 40; index++) {
+        expect(values['key-$index'], 'value-$index');
+      }
+    });
+
+    test('coordinates independent isolates through the sidecar lock', () async {
+      await Future.wait([
+        Isolate.run(() => _writeSeries(target.path, 'first')),
+        Isolate.run(() => _writeSeries(target.path, 'second')),
+      ]).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw TestFailure(
+          'Independent isolates did not release the document sidecar lock.',
+        ),
+      );
+
+      final values = await _setDocument(
+        target.path,
+      ).read((values) => PrivateFileResult(Set.of(values)));
+      expect(values, {
+        for (final series in ['first', 'second'])
+          for (var index = 0; index < 12; index++) '$series-$index',
       });
-      final original = await target.readAsString();
+    });
+  });
+
+  group('transaction rejection', () {
+    test(
+      'keeps the target intact and queue usable after codec failure',
+      () async {
+        final document = PrivateFileDocument<Map<String, String>>(
+          target: () => target,
+          empty: () => <String, String>{},
+          decode: _decodeMap,
+          encode: (values) {
+            if (values.containsKey('refused')) {
+              throw StateError('encoding refused');
+            }
+            return _encodeMap(values);
+          },
+        );
+        await document.update<void>((values) {
+          values['kept'] = 'original';
+          return PrivateFileResult.done;
+        });
+        final original = await target.readAsString();
+
+        await expectLater(
+          document.update<void>((values) {
+            values['refused'] = 'partial';
+            return PrivateFileResult.done;
+          }),
+          throwsStateError,
+        );
+
+        expect(await target.readAsString(), original);
+        await document.update<void>((values) {
+          values['later'] = 'committed';
+          return PrivateFileResult.done;
+        });
+        expect(
+          await document.read((values) => PrivateFileResult(Map.of(values))),
+          {'kept': 'original', 'later': 'committed'},
+        );
+        expect(await _temporaryFiles(directory), isEmpty);
+      },
+    );
+
+    test('never replaces a corrupt document with an update', () async {
+      await target.writeAsString('not json');
+      final document = _mapDocument(target.path);
+      var mutationRan = false;
 
       await expectLater(
         document.update<void>((values) {
-          values['refused'] = 'partial';
+          mutationRan = true;
+          values['secret'] = 'value';
           return PrivateFileResult.done;
         }),
-        throwsStateError,
+        throwsFormatException,
       );
 
-      expect(await target.readAsString(), original);
-      await document.update<void>((values) {
-        values['later'] = 'committed';
-        return PrivateFileResult.done;
-      });
-      expect(
-        await document.read((values) => PrivateFileResult(Map.of(values))),
-        {'kept': 'original', 'later': 'committed'},
-      );
-      expect(await _temporaryFiles(directory), isEmpty);
-    },
-  );
+      expect(mutationRan, isFalse);
+      expect(await target.readAsString(), 'not json');
+    });
 
-  test('a corrupt document is never replaced by an update', () async {
-    await target.writeAsString('not json');
-    final document = _mapDocument(target.path);
-    var mutationRan = false;
-
-    await expectLater(
-      document.update<void>((values) {
-        mutationRan = true;
-        values['secret'] = 'value';
-        return PrivateFileResult.done;
-      }),
-      throwsFormatException,
-    );
-
-    expect(mutationRan, isFalse);
-    expect(await target.readAsString(), 'not json');
-  });
-
-  test(
-    'rejects a Future-valued transaction result without committing',
-    () async {
+    test('rejects a Future-valued result without committing', () async {
       final document = _mapDocument(target.path);
 
       await expectLater(
@@ -146,73 +173,62 @@ void main() {
       await Future<void>.delayed(Duration.zero);
 
       expect(await target.exists(), isFalse);
-    },
-  );
-
-  test('the sidecar lock coordinates independent isolates', () async {
-    await Future.wait([
-      Isolate.run(() => _writeSeries(target.path, 'first')),
-      Isolate.run(() => _writeSeries(target.path, 'second')),
-    ]);
-
-    final values = await _setDocument(
-      target.path,
-    ).read((values) => PrivateFileResult(Set.of(values)));
-    expect(values, hasLength(24));
-    for (final series in ['first', 'second']) {
-      for (var index = 0; index < 12; index++) {
-        expect(values, contains('$series-$index'));
-      }
-    }
+    });
   });
 
-  test('removes only abandoned stages owned by this protocol', () async {
-    await target.parent.create(recursive: true);
-    final abandoned = File(
-      '${target.path}.1234.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-      '.private-document.tmp',
-    );
-    final fixedTemporary = File('${target.path}.tmp');
-    final similarlyNamed = File(
-      '${target.path}.1234.gggggggggggggggggggggggggggggggg'
-      '.private-document.tmp',
-    );
-    await abandoned.writeAsString('old secret');
-    await fixedTemporary.writeAsString('another protocol');
-    await similarlyNamed.writeAsString('not our random suffix');
+  group('stage cleanup and recovery', () {
+    test('removes only abandoned stages owned by this protocol', () async {
+      await target.parent.create(recursive: true);
+      final abandoned = File(
+        '${target.path}.1234.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        '.private-document.tmp',
+      );
+      final fixedTemporary = File('${target.path}.tmp');
+      final similarlyNamed = File(
+        '${target.path}.1234.gggggggggggggggggggggggggggggggg'
+        '.private-document.tmp',
+      );
+      await abandoned.writeAsString('old secret');
+      await fixedTemporary.writeAsString('another protocol');
+      await similarlyNamed.writeAsString('not our random suffix');
 
-    await _mapDocument(
-      target.path,
-    ).read((values) => PrivateFileResult(Map.of(values)));
+      await _mapDocument(
+        target.path,
+      ).read((values) => PrivateFileResult(Map.of(values)));
 
-    expect(await abandoned.exists(), isFalse);
-    expect(await fixedTemporary.exists(), isTrue);
-    expect(await similarlyNamed.exists(), isTrue);
-  });
-
-  test('a filesystem commit failure cleans its stage and queue', () async {
-    await Directory(target.path).create(recursive: true);
-    final document = _mapDocument(target.path);
-
-    await expectLater(
-      document.update<void>((values) {
-        values['secret'] = 'first';
-        return PrivateFileResult.done;
-      }),
-      throwsA(isA<FileSystemException>()),
-    );
-
-    expect(await Directory(target.path).exists(), isTrue);
-    expect(await _temporaryFiles(directory), isEmpty);
-
-    await Directory(target.path).delete();
-    await document.update<void>((values) {
-      values['secret'] = 'second';
-      return PrivateFileResult.done;
+      expect(await abandoned.exists(), isFalse);
+      expect(await fixedTemporary.exists(), isTrue);
+      expect(await similarlyNamed.exists(), isTrue);
     });
-    expect(await document.read((values) => PrivateFileResult(Map.of(values))), {
-      'secret': 'second',
-    });
+
+    test(
+      'cleans the stage and queue after a filesystem commit failure',
+      () async {
+        await Directory(target.path).create(recursive: true);
+        final document = _mapDocument(target.path);
+
+        await expectLater(
+          document.update<void>((values) {
+            values['secret'] = 'first';
+            return PrivateFileResult.done;
+          }),
+          throwsA(isA<FileSystemException>()),
+        );
+
+        expect(await Directory(target.path).exists(), isTrue);
+        expect(await _temporaryFiles(directory), isEmpty);
+
+        await Directory(target.path).delete();
+        await document.update<void>((values) {
+          values['secret'] = 'second';
+          return PrivateFileResult.done;
+        });
+        expect(
+          await document.read((values) => PrivateFileResult(Map.of(values))),
+          {'secret': 'second'},
+        );
+      },
+    );
   });
 }
 

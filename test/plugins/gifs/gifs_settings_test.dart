@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 const _registry = PluginRegistry([GifsPlugin()]);
 
 void main() {
-  test('installed plugin decodes its site-settings wire keys', () {
+  test('GIF plugin decodes its site-settings wire keys', () {
     final config = SiteConfig.fromSettings(const {
       'enable_gifs': true,
       'klipy_file_detail': 'gif',
@@ -29,7 +29,7 @@ void main() {
     expect(config.gifMaxResults, 96);
   });
 
-  test('namespaced settings round-trip without flat feature keys', () {
+  test('GIF settings round-trip without flat feature keys', () {
     final config = SiteConfig.fromJson({
       'plugins': {
         gifsSettingsDataKey.id: const {
@@ -56,7 +56,7 @@ void main() {
     expect(restored.hashCode, config.hashCode);
   });
 
-  test('legacy flat settings migrate into the plugin namespace', () {
+  test('legacy flat GIF settings migrate into the plugin namespace', () {
     final config = SiteConfig.fromJson(const {
       'gifsEnabled': true,
       'gifFileDetail': 'gif',

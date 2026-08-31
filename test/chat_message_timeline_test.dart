@@ -32,7 +32,7 @@ ChatTimelineSnapshot snapshot(
 
 void main() {
   group('merging canonical messages', () {
-    test('orders a replacement window by wire date and then id', () {
+    test('orders a replacement window by wire date and then ID', () {
       final ids = ChatMessageTimeline.merge(
         held: snapshot(const [], const []),
         arrived: [
@@ -48,7 +48,7 @@ void main() {
       expect(ids, [6, 7, 8]);
     });
 
-    test('deduplicates overlap and repeated arrivals by message id', () {
+    test('deduplicates overlap and repeated arrivals by message ID', () {
       final held = [5];
       final ids = ChatMessageTimeline.merge(
         held: snapshot(held, [message(5, minute: 5)]),
@@ -99,7 +99,7 @@ void main() {
       expect(ids, same(held));
     });
 
-    test('puts undated records first and still orders them by id', () {
+    test('puts undated records first and still orders them by ID', () {
       final ids = ChatMessageTimeline.merge(
         held: snapshot(const [], const []),
         arrived: [
@@ -139,7 +139,7 @@ void main() {
       expect(ids, [1, 4, 3]);
     });
 
-    test('uses the id tiebreak when a live timestamp equals the newest', () {
+    test('uses the ID tiebreak when a live timestamp equals the newest', () {
       final ids = ChatMessageTimeline.admitLive(
         held: snapshot([1, 3], [message(1), message(3, minute: 2)]),
         message: message(2, minute: 2),

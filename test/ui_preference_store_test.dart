@@ -69,7 +69,7 @@ void main() {
     );
   });
 
-  test('serializes diagnostics width writes in request order', () async {
+  test('continues queued diagnostics writes after a rejected write', () async {
     final persistence = _ControlledDiagnosticsPanelWidthPersistence();
     final store = DiagnosticsPanelWidthStore(persistence: persistence);
 
@@ -78,22 +78,9 @@ void main() {
     final secondWrite = store.write(560);
     await Future<void>.delayed(Duration.zero);
 
-    expect(persistence.attemptedWidths, [480]);
-
-    persistence.finishFirstWrite.complete(true);
-    await Future.wait([firstWrite, secondWrite]);
-
-    expect(persistence.attemptedWidths, [480, 560]);
-    expect(persistence.persistedWidth, 560);
-  });
-
-  test('continues queued diagnostics writes after a rejected write', () async {
-    final persistence = _ControlledDiagnosticsPanelWidthPersistence();
-    final store = DiagnosticsPanelWidthStore(persistence: persistence);
-
-    final firstWrite = store.write(480);
-    await persistence.firstWriteStarted.future;
-    final secondWrite = store.write(560);
+    expect(persistence.attemptedWidths, [
+      480,
+    ], reason: 'the second write must wait for the first result');
     persistence.finishFirstWrite.complete(false);
 
     await Future.wait([firstWrite, secondWrite]);

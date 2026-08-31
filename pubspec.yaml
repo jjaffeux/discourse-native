@@ -84,7 +84,8 @@ dev_dependencies:
     sdk: flutter
 
   # Exercises platform integration on a real device.
-  # Run with: flutter test integration_test -d <device>
+  # Run with: flutter test integration_test \
+  #   --test-randomize-ordering-seed=random -d <device>
   integration_test:
     sdk: flutter
 

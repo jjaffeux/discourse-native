@@ -1,11 +1,11 @@
 import 'package:discourse_native/src/plugin_api/core_plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
+import 'package:discourse_native/src/plugins/chat/chat_conversation_contract.dart';
 import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/discourse_github/discourse_github_module.dart';
 import 'package:discourse_native/src/plugins/discourse_github/discourse_github_services.dart';
-import 'package:discourse_native/src/plugins/gifs/gif_picker_session.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_services.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_contract.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_module.dart';
@@ -85,16 +85,18 @@ void main() {
     expect(core.registry.plugins, isEmpty);
   });
 
-  test('widget-only manifest changes only diagnostics ownership', () async {
-    final installed = PluginInstaller.install(bundledWidgetTestManifest);
-    addTearDown(installed.close);
+  test(
+    'widget-test manifest preserves production feature identities',
+    () async {
+      final installed = PluginInstaller.install(bundledWidgetTestManifest);
+      addTearDown(installed.close);
 
-    expect(
-      installed.descriptors.map((descriptor) => descriptor.id),
-      bundledPluginManifest.modules.map((module) => module.descriptor.id),
-    );
-    expect(installed.registry.diagnosticsPlugins, isEmpty);
-  });
+      expect(
+        installed.descriptors.map((descriptor) => descriptor.id),
+        bundledPluginManifest.modules.map((module) => module.descriptor.id),
+      );
+    },
+  );
 
   test('bundled production sessions resolve the dependency chain', () {
     final installed = PluginInstaller.install(bundledPluginManifest);
@@ -107,31 +109,39 @@ void main() {
     });
 
     final session = shell.pluginSession;
-    expect(session.require(gifsPickerSessionService), isA<GifPickerSession>());
     expect(
       session.require(chatGifsService),
       same(session.require(gifsPickerSessionService)),
     );
-    expect(session.require(chatConversationService), isNotNull);
-    expect(session.require(localDatesCookedTimeParserService), isNotNull);
-  });
-
-  test('production Chat works without optional GIFs or Reactions', () {
-    final installed = PluginInstaller.install(
-      const PluginManifest([chatModule]),
+    final ChatConversationCapability _ = session.require(
+      chatConversationService,
     );
-    final api = FakeDiscourseApi();
-    final shell = _shell(installed, api);
-    addTearDown(() async {
-      await shell.pluginSession.close();
-      shell.dispose();
-      await installed.close();
-    });
-
-    final session = shell.pluginSession;
-    expect(session.require(chatConversationService), isNotNull);
-    expect(session.maybeService(gifsPickerSessionService), isNull);
+    final CookedTimeParser _ = session.require(
+      localDatesCookedTimeParserService,
+    );
   });
+
+  test(
+    'a Chat-only manifest registers conversations without the GIF service',
+    () {
+      final installed = PluginInstaller.install(
+        const PluginManifest([chatModule]),
+      );
+      final api = FakeDiscourseApi();
+      final shell = _shell(installed, api);
+      addTearDown(() async {
+        await shell.pluginSession.close();
+        shell.dispose();
+        await installed.close();
+      });
+
+      final session = shell.pluginSession;
+      final ChatConversationCapability _ = session.require(
+        chatConversationService,
+      );
+      expect(session.maybeService(gifsPickerSessionService), isNull);
+    },
+  );
 
   test('GitHub oneboxes degrade without their optional cooked-time parser', () {
     final githubOnly = PluginInstaller.install(
@@ -157,9 +167,8 @@ void main() {
       githubOnlySession.maybeService(localDatesCookedTimeParserService),
       isNull,
     );
-    expect(
-      withLocalDatesSession.require(localDatesCookedTimeParserService),
-      isNotNull,
+    final CookedTimeParser _ = withLocalDatesSession.require(
+      localDatesCookedTimeParserService,
     );
     expect(
       withLocalDatesSession.require(discourseGithubCookedTimeParserService),

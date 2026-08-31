@@ -55,6 +55,7 @@ void main() {
             return null;
           });
       addTearDown(() {
+        if (!releaseSeverity.isCompleted) releaseSeverity.complete();
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(channel, null);
       });

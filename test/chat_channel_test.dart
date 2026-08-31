@@ -538,7 +538,7 @@ void main() {
       expect(channels.direct.single.id, 12);
     });
 
-    test('folds in the tracking counts, which arrive keyed by a string id', () {
+    test('folds in tracking counts keyed by a string ID', () {
       // `Chat::TrackingStateReport` is a Ruby hash keyed by integer, and JSON
       // object keys are strings — so channel 9 is looked up as '9'. Reading it
       // as an int finds nothing and reports "all read", which is a quiet enough
@@ -752,7 +752,7 @@ void main() {
       expect(channels.presence.lastMessageId, 47);
     });
 
-    test('applies presence joins and leaves by user id', () {
+    test('applies presence joins and leaves by user ID', () {
       const held = ChatPresence(userIds: {2, 3}, lastMessageId: 47);
 
       final updated = held.withMessage({
@@ -767,7 +767,7 @@ void main() {
     });
   });
 
-  group('what a row says about unread', () {
+  group('unread badge presentation', () {
     ChatChannel withCounts(
       Map<String, dynamic> json, {
       int unread = 0,
@@ -797,7 +797,7 @@ void main() {
       },
     );
 
-    test('is urgent for a mention, which is', () {
+    test('is urgent for a mention addressed to the reader', () {
       final badge = withCounts(categoryChannel(), unread: 4, mentions: 1).badge;
 
       expect(badge.urgent, isTrue);
@@ -905,13 +905,10 @@ void main() {
     },
   );
 
-  group('route ids', () {
-    test(
-      'round-trips a channel id through the id its sidebar entry carries',
-      () {
-        expect(ChatChannel.channelIdIn(ChatChannel.routeId(42)), 42);
-      },
-    );
+  group('route IDs', () {
+    test('round-trips a channel ID through its sidebar entry ID', () {
+      expect(ChatChannel.channelIdIn(ChatChannel.routeId(42)), 42);
+    });
 
     test('claims no route it did not write', () {
       expect(ChatChannel.channelIdIn('latest'), isNull);

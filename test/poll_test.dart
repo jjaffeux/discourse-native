@@ -66,7 +66,7 @@ void main() {
       expect(Polls.fromJson(const {}, 'https://forum.example'), isNull);
     });
 
-    test('parses named polls, every field, and reader selections', () {
+    test('parses named polls, metadata, lifecycle, and reader selections', () {
       final polls = Polls.fromJson({
         'polls': [
           pollJson(name: 'lunch', type: 'multiple'),
@@ -100,7 +100,11 @@ void main() {
       expect(poll.rankedChoiceOutcome?.winningCandidate?.digest, 'a');
       expect(poll.rankedChoiceOutcome?.rounds.single.round, 1);
       expect(poll.selection.optionIds, ['a', 'b']);
-      expect(poll.preloadedVoters, isA<Map<String, Object?>>());
+      expect(poll.preloadedVoters, {
+        'a': [
+          {'id': 1, 'username': 'alice'},
+        ],
+      });
     });
 
     test('unknown future poll values remain a read-only record', () {

@@ -171,82 +171,178 @@ ReactionsController _controller({
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('an old finalizer cannot release a new session request', () async {
-    final oldGate = Completer<void>();
-    final newGate = Completer<void>();
-    final api = _SequencedReactorsApi([oldGate, newGate]);
-    final lifecycle = SiteLifecycle();
-    final requests = FakePluginRequestHost(lifecycle: lifecycle);
-    final controller = _controller(api: api, requests: requests);
-    addTearDown(controller.dispose);
+  group('request replacement and finalizers', () {
+    test('an old finalizer cannot release a replacement request', () async {
+      final oldGate = Completer<void>();
+      final newGate = Completer<void>();
+      final api = _SequencedReactorsApi([oldGate, newGate]);
+      final lifecycle = SiteLifecycle();
+      final requests = FakePluginRequestHost(lifecycle: lifecycle);
+      final controller = _controller(api: api, requests: requests);
+      addTearDown(controller.dispose);
 
-    final oldLoad = controller.load(siteUrl: _siteUrl, postId: 7);
-    await Future<void>.delayed(Duration.zero);
-    lifecycle.invalidate(_siteUrl);
-    controller.forget(_siteUrl);
+      final oldLoad = controller.load(siteUrl: _siteUrl, postId: 7);
+      await pumpEventQueue();
+      lifecycle.invalidate(_siteUrl);
+      controller.forget(_siteUrl);
 
-    final newLoad = controller.load(siteUrl: _siteUrl, postId: 7);
-    await Future<void>.delayed(Duration.zero);
-    expect(api.requests, 2);
+      final newLoad = controller.load(siteUrl: _siteUrl, postId: 7);
+      await pumpEventQueue();
+      expect(api.requests, 2);
 
-    oldGate.complete();
-    await oldLoad;
-    await controller.load(siteUrl: _siteUrl, postId: 7);
+      oldGate.complete();
+      await oldLoad;
+      await controller.load(siteUrl: _siteUrl, postId: 7);
 
-    // The old request's `finally` did not remove the new request's loading
-    // guard, so opening the same list again did not start a third request.
-    expect(api.requests, 2);
-    expect(controller.reactors(_siteUrl, 7), isNull);
+      // The old request's `finally` did not remove the new request's loading
+      // guard, so opening the same list again did not start a third request.
+      expect(api.requests, 2);
+      expect(controller.reactors(_siteUrl, 7), isNull);
 
-    newGate.complete();
-    await newLoad;
+      newGate.complete();
+      await newLoad;
 
-    expect(api.requests, 2);
-    expect(
-      controller.reactors(_siteUrl, 7)?.reactors.single.username,
-      'account-b',
+      expect(api.requests, 2);
+      expect(
+        controller.reactors(_siteUrl, 7),
+        const PostReactors(
+          postId: 7,
+          total: 1,
+          reactors: [
+            PostReactor(id: 2, username: 'account-b', reaction: 'heart'),
+          ],
+        ),
+      );
+    });
+
+    test('a replacement supersedes a pending credential lookup', () async {
+      final oldKey = Completer<String?>();
+      final replacementKey = Completer<String?>();
+      final credentials = _SequencedApiKeys([oldKey, replacementKey]);
+      final response = Completer<void>();
+      final api = _SequencedReactorsApi([response]);
+      final controller = _controller(
+        api: api,
+        requests: FakePluginRequestHost(credentials: credentials),
+      );
+      addTearDown(controller.dispose);
+
+      final oldLoad = controller.load(siteUrl: _siteUrl, postId: 7);
+      await pumpEventQueue();
+      controller.forget(_siteUrl);
+      final replacementLoad = controller.load(siteUrl: _siteUrl, postId: 7);
+      await pumpEventQueue();
+
+      replacementKey.complete('replacement-key');
+      await pumpEventQueue();
+      expect(credentials.apiKeyCalls, 2);
+      expect(api.requests, 1);
+
+      oldKey.complete('stale-key');
+      await oldLoad;
+      expect(api.requests, 1);
+
+      response.complete();
+      await replacementLoad;
+      expect(
+        controller.reactors(_siteUrl, 7),
+        const PostReactors(
+          postId: 7,
+          total: 1,
+          reactors: [
+            PostReactor(id: 1, username: 'account-a', reaction: 'heart'),
+          ],
+        ),
+      );
+    });
+  });
+
+  group('forget and site identity', () {
+    test('forget notifies when request state disappears', () async {
+      final api = _SequencedReactorsApi([]);
+      final controller = _controller(
+        api: api,
+        requests: FakePluginRequestHost(),
+      );
+      addTearDown(controller.dispose);
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      final load = controller.load(siteUrl: _siteUrl, postId: 7);
+      expect(notifications, 1);
+
+      controller.forget(_siteUrl);
+      expect(notifications, 2);
+      await load;
+      expect(api.requests, 0);
+      expect(notifications, 2);
+    });
+
+    test('forget during credential lookup sends no stale request', () async {
+      final credentials = _GatedCredentials();
+      final api = _SequencedReactorsApi([]);
+      final controller = _controller(
+        api: api,
+        requests: FakePluginRequestHost(credentials: credentials),
+      );
+      addTearDown(controller.dispose);
+
+      final load = controller.load(siteUrl: _siteUrl, postId: 7);
+      await credentials.apiKeyStarted.future;
+      controller.forget(_siteUrl);
+      credentials.apiKeyResult.complete('stale-key');
+      await credentials.clientIdStarted.future;
+      credentials.clientIdResult.complete('stale-client');
+      await load;
+
+      expect(api.requests, 0);
+    });
+
+    test(
+      'forget matches site identities rather than string prefixes',
+      () async {
+        const forgottenSite = 'https://meta.discourse.org/';
+        const retainedSite = 'https://meta.discourse.org/~tenant';
+        final key = Completer<String?>();
+        final unexpectedKey = Completer<String?>();
+        final credentials = _SequencedApiKeys([key, unexpectedKey]);
+        final response = Completer<void>();
+        final api = _SequencedReactorsApi([response]);
+        final controller = _controller(
+          api: api,
+          requests: FakePluginRequestHost(credentials: credentials),
+        );
+        addTearDown(controller.dispose);
+
+        final load = controller.load(siteUrl: retainedSite, postId: 7);
+        await pumpEventQueue();
+        controller.forget(forgottenSite);
+        final duplicateLoad = controller.load(siteUrl: retainedSite, postId: 7);
+        await pumpEventQueue();
+
+        expect(credentials.apiKeyCalls, 1);
+
+        key.complete('retained-key');
+        await pumpEventQueue();
+        expect(api.requests, 1);
+        response.complete();
+        await Future.wait([load, duplicateLoad]);
+        expect(
+          controller.reactors(retainedSite, 7),
+          const PostReactors(
+            postId: 7,
+            total: 1,
+            reactors: [
+              PostReactor(id: 1, username: 'account-a', reaction: 'heart'),
+            ],
+          ),
+        );
+      },
     );
   });
 
-  test('forget notifies direct consumers when request state disappears', () {
-    final controller = _controller(
-      api: _SequencedReactorsApi([Completer<void>()]),
-      requests: FakePluginRequestHost(),
-    );
-    addTearDown(controller.dispose);
-    var notifications = 0;
-    controller.addListener(() => notifications++);
-
-    unawaited(controller.load(siteUrl: _siteUrl, postId: 7));
-    expect(notifications, 1);
-
-    controller.forget(_siteUrl);
-    expect(notifications, 2);
-  });
-
-  test('forget while credentials are pending sends no stale request', () async {
-    final credentials = _GatedCredentials();
-    final api = _SequencedReactorsApi([]);
-    final controller = _controller(
-      api: api,
-      requests: FakePluginRequestHost(credentials: credentials),
-    );
-    addTearDown(controller.dispose);
-
-    final load = controller.load(siteUrl: _siteUrl, postId: 7);
-    await credentials.apiKeyStarted.future;
-    controller.forget(_siteUrl);
-    credentials.apiKeyResult.complete('stale-key');
-    await credentials.clientIdStarted.future;
-    credentials.clientIdResult.complete('stale-client');
-    await load;
-
-    expect(api.requests, 0);
-  });
-
-  test(
-    'account invalidation during client id lookup sends no request',
-    () async {
+  group('account invalidation', () {
+    test('during client ID lookup sends no request', () async {
       final credentials = _GatedCredentials();
       final api = _SequencedReactorsApi([]);
       final lifecycle = SiteLifecycle();
@@ -268,102 +364,43 @@ void main() {
       await load;
 
       expect(api.requests, 0);
-    },
-  );
+    });
+  });
 
-  test(
-    'a replacement request supersedes a pending credential lookup',
-    () async {
-      final oldKey = Completer<String?>();
-      final replacementKey = Completer<String?>();
-      final credentials = _SequencedApiKeys([oldKey, replacementKey]);
-      final response = Completer<void>();
-      final api = _SequencedReactorsApi([response]);
+  group('disposal', () {
+    test('dispose during client ID lookup sends no request', () async {
+      final credentials = _GatedCredentials();
+      final api = _SequencedReactorsApi([]);
       final controller = _controller(
         api: api,
         requests: FakePluginRequestHost(credentials: credentials),
       );
-      addTearDown(controller.dispose);
 
-      final oldLoad = controller.load(siteUrl: _siteUrl, postId: 7);
-      await pumpEventQueue();
-      controller.forget(_siteUrl);
-      final replacementLoad = controller.load(siteUrl: _siteUrl, postId: 7);
-      await pumpEventQueue();
+      final load = controller.load(siteUrl: _siteUrl, postId: 7);
+      await credentials.apiKeyStarted.future;
+      credentials.apiKeyResult.complete('stale-key');
+      await credentials.clientIdStarted.future;
+      controller.dispose();
+      credentials.clientIdResult.complete('stale-client');
+      await load;
 
-      replacementKey.complete('replacement-key');
-      await pumpEventQueue();
-      expect(api.requests, 1);
+      expect(api.requests, 0);
+    });
 
-      oldKey.complete('stale-key');
-      await oldLoad;
-      expect(api.requests, 1);
+    test('load after dispose reads no credentials', () async {
+      final credentials = _GatedCredentials();
+      final api = _SequencedReactorsApi([]);
+      final controller = _controller(
+        api: api,
+        requests: FakePluginRequestHost(credentials: credentials),
+      );
+      controller.dispose();
 
-      response.complete();
-      await replacementLoad;
-    },
-  );
+      await controller.load(siteUrl: _siteUrl, postId: 7);
 
-  test('forget matches site identities rather than string prefixes', () async {
-    const forgottenSite = 'https://meta.discourse.org/';
-    const retainedSite = 'https://meta.discourse.org/~tenant';
-    final key = Completer<String?>();
-    final unexpectedKey = Completer<String?>();
-    final credentials = _SequencedApiKeys([key, unexpectedKey]);
-    final response = Completer<void>();
-    final api = _SequencedReactorsApi([response]);
-    final controller = _controller(
-      api: api,
-      requests: FakePluginRequestHost(credentials: credentials),
-    );
-    addTearDown(controller.dispose);
-
-    final load = controller.load(siteUrl: retainedSite, postId: 7);
-    await pumpEventQueue();
-    controller.forget(forgottenSite);
-    await controller.load(siteUrl: retainedSite, postId: 7);
-
-    expect(credentials.apiKeyCalls, 1);
-
-    key.complete('retained-key');
-    await pumpEventQueue();
-    expect(api.requests, 1);
-    response.complete();
-    await load;
-  });
-
-  test('dispose during client id lookup sends no request', () async {
-    final credentials = _GatedCredentials();
-    final api = _SequencedReactorsApi([]);
-    final controller = _controller(
-      api: api,
-      requests: FakePluginRequestHost(credentials: credentials),
-    );
-
-    final load = controller.load(siteUrl: _siteUrl, postId: 7);
-    await credentials.apiKeyStarted.future;
-    credentials.apiKeyResult.complete('stale-key');
-    await credentials.clientIdStarted.future;
-    controller.dispose();
-    credentials.clientIdResult.complete('stale-client');
-    await load;
-
-    expect(api.requests, 0);
-  });
-
-  test('load after dispose completes without reading credentials', () async {
-    final credentials = _GatedCredentials();
-    final api = _SequencedReactorsApi([]);
-    final controller = _controller(
-      api: api,
-      requests: FakePluginRequestHost(credentials: credentials),
-    );
-    controller.dispose();
-
-    await controller.load(siteUrl: _siteUrl, postId: 7);
-
-    expect(credentials.apiKeyStarted.isCompleted, isFalse);
-    expect(credentials.clientIdStarted.isCompleted, isFalse);
-    expect(api.requests, 0);
+      expect(credentials.apiKeyStarted.isCompleted, isFalse);
+      expect(credentials.clientIdStarted.isCompleted, isFalse);
+      expect(api.requests, 0);
+    });
   });
 }

@@ -10,7 +10,7 @@ import 'support/bundled_plugins.dart';
 
 void main() {
   test(
-    'GIF adapter owns route construction, validation, and parsing',
+    'GIF adapter normalizes search parameters and parses the result page',
     () async {
       final transport = _RecordingTransport()
         ..getResponse = {
@@ -77,39 +77,37 @@ void main() {
     },
   );
 
-  test(
-    'Reactions adapter supports public reads and injected post decoding',
-    () async {
-      final transport = _RecordingTransport()
-        ..getResponse = {
-          'users': [
-            {'id': 3, 'username': 'sam', 'reaction': 'clap'},
-          ],
-          'total_rows': 1,
-        };
-      final api = ReactionsApiClient(
-        transport,
-        DiscourseModelCodec(
-          extensions: pluginRegistry,
-          recommendationSources: pluginRegistry,
-          icons: pluginRegistry,
-        ),
-      );
+  test('Reactions adapter sends a public filtered reactor read', () async {
+    final transport = _RecordingTransport()
+      ..getResponse = {
+        'users': [
+          {'id': 3, 'username': 'sam', 'reaction': 'clap'},
+        ],
+        'total_rows': 1,
+      };
+    final api = ReactionsApiClient(transport, _models());
 
-      final reactors = await api.postReactors(
-        siteUrl: 'https://forum.example',
-        postId: 7,
-        reaction: '+1',
-      );
+    final reactors = await api.postReactors(
+      siteUrl: 'https://forum.example',
+      postId: 7,
+      reaction: '+1',
+    );
 
-      expect(transport.gets.single.apiKey, isNull);
-      expect(Uri.parse(transport.gets.single.pathAndQuery).queryParameters, {
-        'limit': '30',
-        'reaction_value': '+1',
-      });
-      expect(reactors.reactors.single.username, 'sam');
+    expect(transport.gets.single.apiKey, isNull);
+    expect(
+      transport.gets.single.path,
+      '/discourse-reactions/posts/7/reactions-users-list.json',
+    );
+    expect(Uri.parse(transport.gets.single.pathAndQuery).queryParameters, {
+      'limit': '30',
+      'reaction_value': '+1',
+    });
+    expect(reactors.reactors.single.username, 'sam');
+  });
 
-      transport.writeResponse = {
+  test('Reactions adapter decodes the personalized toggle response', () async {
+    final transport = _RecordingTransport()
+      ..writeResponse = {
         'id': 7,
         'post_number': 1,
         'username': 'sam',
@@ -119,20 +117,33 @@ void main() {
         ],
         'reaction_users_count': 1,
       };
-      final post = await api.toggleReaction(
-        siteUrl: 'https://forum.example',
-        apiKey: 'secret',
-        postId: 7,
-        reaction: '+1',
-      );
-      expect(
-        transport.writes.single.path,
-        '/discourse-reactions/posts/7/custom-reactions/%2B1/toggle.json',
-      );
-      expect(post?.plugins.get(reactionsDataKey), isNotNull);
-    },
-  );
+    final api = ReactionsApiClient(transport, _models());
+
+    final post = await api.toggleReaction(
+      siteUrl: 'https://forum.example',
+      apiKey: 'secret',
+      postId: 7,
+      reaction: '+1',
+    );
+
+    expect(transport.writes.single.method, 'PUT');
+    expect(
+      transport.writes.single.path,
+      '/discourse-reactions/posts/7/custom-reactions/%2B1/toggle.json',
+    );
+    expect(transport.writes.single.body, isEmpty);
+    expect(
+      post?.plugins.get(reactionsDataKey),
+      const Reactions(entries: [Reaction(id: 'clap', count: 1)], userCount: 1),
+    );
+  });
 }
+
+DiscourseModelCodec _models() => DiscourseModelCodec(
+  extensions: pluginRegistry,
+  recommendationSources: pluginRegistry,
+  icons: pluginRegistry,
+);
 
 Map<String, Object?> _poll(String name) => {
   'id': 1,

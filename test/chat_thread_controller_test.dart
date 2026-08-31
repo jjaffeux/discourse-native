@@ -415,7 +415,7 @@ FakeSiteTracker attachTracker(ChatController chat) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('My Threads caches and appends core account pages', () async {
+  test('my threads caches and appends core account pages', () async {
     final secondThread = threadDetail(
       replyCount: 1,
       title: 'Second thread',
@@ -625,7 +625,7 @@ void main() {
   );
 
   test(
-    'openThread waits for detail, stores its cursor, then targets messages',
+    'opening a thread waits for detail, stores its cursor, then targets messages',
     () async {
       final api = _AdversarialThreadApi(
         detail: threadDetail(messageBusLastId: 701),
@@ -750,7 +750,7 @@ void main() {
   );
 
   test(
-    'sendMessageTo posts the thread id and never enters the channel stream',
+    'sending a thread reply includes its ID and never enters the channel stream',
     () async {
       final api = _AdversarialThreadApi(detail: threadDetail());
       final store = Store()
@@ -844,69 +844,74 @@ void main() {
     },
   );
 
-  test('original author can update the thread title', () async {
-    final api = _AdversarialThreadApi(
-      detail: threadDetail(originalAuthorId: currentUser.id!),
-    );
-    final store = Store()
-      ..put(site, threadDetail(originalAuthorId: currentUser.id!));
-    final subject = _controllerFor(api, store: store);
+  group('thread title permissions', () {
+    test('the original author can update the title', () async {
+      final api = _AdversarialThreadApi(
+        detail: threadDetail(originalAuthorId: currentUser.id!),
+      );
+      final store = Store()
+        ..put(site, threadDetail(originalAuthorId: currentUser.id!));
+      final subject = _controllerFor(api, store: store);
 
-    expect(
-      subject.chat.canEditThreadTitle(
-        site,
-        subject.chat.thread(site, target.threadId),
-      ),
-      isTrue,
-    );
-    expect(
-      await subject.chat.updateThreadTitle(site, target, 'Deploy plan'),
-      isTrue,
-    );
+      expect(
+        subject.chat.canEditThreadTitle(
+          site,
+          subject.chat.thread(site, target.threadId),
+        ),
+        isTrue,
+      );
+      expect(
+        await subject.chat.updateThreadTitle(site, target, 'Deploy plan'),
+        isTrue,
+      );
 
-    expect(api.chatThreadTitlesUpdated, const [
-      (channelId: 9, threadId: 22, title: 'Deploy plan'),
-    ]);
-    expect(subject.chat.thread(site, target.threadId)?.title, 'Deploy plan');
-  });
+      expect(api.chatThreadTitlesUpdated, const [
+        (channelId: 9, threadId: 22, title: 'Deploy plan'),
+      ]);
+      expect(subject.chat.thread(site, target.threadId)?.title, 'Deploy plan');
+    });
 
-  test('thread title updates are hidden from ordinary participants', () async {
-    final api = _AdversarialThreadApi(detail: threadDetail());
-    final store = Store()..put(site, threadDetail());
-    final subject = _controllerFor(api, store: store);
+    test('ordinary participants cannot update the title', () async {
+      final api = _AdversarialThreadApi(detail: threadDetail());
+      final store = Store()..put(site, threadDetail());
+      final subject = _controllerFor(api, store: store);
 
-    expect(
-      subject.chat.canEditThreadTitle(
-        site,
-        subject.chat.thread(site, target.threadId),
-      ),
-      isFalse,
-    );
-    expect(
-      await subject.chat.updateThreadTitle(site, target, 'Not mine'),
-      isFalse,
-    );
-    expect(api.chatThreadTitlesUpdated, isEmpty);
-    expect(subject.chat.thread(site, target.threadId)?.title, isNull);
-  });
+      expect(
+        subject.chat.canEditThreadTitle(
+          site,
+          subject.chat.thread(site, target.threadId),
+        ),
+        isFalse,
+      );
+      expect(
+        await subject.chat.updateThreadTitle(site, target, 'Not mine'),
+        isFalse,
+      );
+      expect(api.chatThreadTitlesUpdated, isEmpty);
+      expect(subject.chat.thread(site, target.threadId)?.title, isNull);
+    });
 
-  test('staff can update another author\'s thread title', () async {
-    final api = _AdversarialThreadApi(detail: threadDetail());
-    final store = Store()..put(site, threadDetail());
-    final subject = _controllerFor(
-      api,
-      store: store,
-      user: const DiscourseUser(id: 7, username: 'moderator', staff: true),
-    );
+    test('staff can update another author\'s title', () async {
+      final api = _AdversarialThreadApi(detail: threadDetail());
+      final store = Store()..put(site, threadDetail());
+      final subject = _controllerFor(
+        api,
+        store: store,
+        user: const DiscourseUser(id: 7, username: 'moderator', staff: true),
+      );
 
-    expect(
-      await subject.chat.updateThreadTitle(site, target, 'Moderated title'),
-      isTrue,
-    );
-    expect(
-      subject.chat.thread(site, target.threadId)?.title,
-      'Moderated title',
-    );
+      expect(
+        await subject.chat.updateThreadTitle(site, target, 'Moderated title'),
+        isTrue,
+      );
+      expect(api.chatThreadTitlesUpdated, const [
+        (channelId: 9, threadId: 22, title: 'Moderated title'),
+      ]);
+      expect(
+        subject.chat.thread(site, target.threadId)?.title,
+        'Moderated title',
+      );
+    });
   });
 
   test(
@@ -1514,7 +1519,9 @@ void main() {
         subject.chat.channel(site, 9)?.tracking.watchedThreadsUnreadCount,
         1,
       );
-      expect(subject.chat.channel(site, 9)?.unreadThreadOverview, contains(22));
+      expect(subject.chat.channel(site, 9)?.unreadThreadOverview, {
+        22: DateTime.utc(2026, 8, 12, 12),
+      });
     },
   );
 

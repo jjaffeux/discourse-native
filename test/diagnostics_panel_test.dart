@@ -371,184 +371,172 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('filters, freezes, inspects, and clears diagnostics', (
-    tester,
-  ) async {
-    Finder menuItem(String label) =>
-        find.widgetWithText(CheckedPopupMenuItem<String>, label);
-    final copied = <String>[];
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'Clipboard.setData') {
-          copied.add(
-            (call.arguments as Map<Object?, Object?>)['text']! as String,
-          );
-        }
-        return null;
-      },
-    );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        null,
-      ),
-    );
+  group('timeline interactions', () {
+    testWidgets('category, severity, source, and text filters compose', (
+      tester,
+    ) async {
+      await _pumpPopulatedDiagnosticsPanel(tester);
 
-    final diagnostics = await _controller();
-    _recordRequest(diagnostics);
-    diagnostics.reportError(
-      TimeoutException('topic load took too long'),
-      StackTrace.fromString('loadTopic (shell_controller.dart:1203)'),
-      operation: 'load topic',
-      source: 'topic',
-    );
-    await _pumpApp(tester, const Size(1000, 800), diagnostics);
-    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
-    await tester.pumpAndSettle();
+      final request = find.text('https://example.test/t/42?token');
+      final error = find.textContaining('topic load took too long');
+      expect(request, findsOneWidget);
+      expect(error, findsOneWidget);
+      final timeline = tester.widget<ListView>(
+        find.byKey(const ValueKey('diagnostics-timeline')),
+      );
+      final scrollbar = tester.widget<Scrollbar>(find.byType(Scrollbar));
+      expect(scrollbar.controller, same(timeline.controller));
 
-    final request = find.text('https://example.test/t/42?token');
-    expect(request, findsOneWidget);
-    expect(find.textContaining('topic load took too long'), findsOneWidget);
-    expect(find.textContaining('Bodies, credentials, cookies'), findsNothing);
-    final timeline = tester.widget<ListView>(
-      find.byKey(const ValueKey('diagnostics-timeline')),
-    );
-    final scrollbar = tester.widget<Scrollbar>(find.byType(Scrollbar));
-    expect(scrollbar.controller, same(timeline.controller));
+      await tester.tap(find.text('Requests'));
+      await tester.pump();
+      expect(request, findsOneWidget);
+      expect(error, findsNothing);
 
-    await tester.tap(find.text('Requests'));
-    await tester.pump();
-    expect(request, findsOneWidget);
-    expect(find.textContaining('topic load took too long'), findsNothing);
+      await tester.tap(find.text('Errors'));
+      await tester.pump();
+      expect(request, findsNothing);
+      expect(error, findsOneWidget);
 
-    await tester.tap(find.text('Errors'));
-    await tester.pump();
-    expect(request, findsNothing);
-    expect(find.textContaining('topic load took too long'), findsOneWidget);
+      await tester.tap(find.text('All'));
+      await tester.tap(
+        find.byKey(const ValueKey('diagnostics-severity-filter')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(_diagnosticsMenuItem('Error'));
+      await tester.pumpAndSettle();
+      expect(request, findsNothing);
+      expect(error, findsOneWidget);
 
-    await tester.tap(find.text('All'));
-    await tester.tap(find.byKey(const ValueKey('diagnostics-severity-filter')));
-    await tester.pumpAndSettle();
-    await tester.tap(menuItem('Error'));
-    await tester.pumpAndSettle();
-    expect(request, findsNothing);
-    expect(find.textContaining('topic load took too long'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('diagnostics-severity-filter')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(_diagnosticsMenuItem('Error'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('diagnostics-source-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(_diagnosticsMenuItem('Topic'));
+      await tester.pumpAndSettle();
+      expect(request, findsNothing);
+      expect(error, findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('diagnostics-severity-filter')));
-    await tester.pumpAndSettle();
-    await tester.tap(menuItem('Error'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('diagnostics-source-filter')));
-    await tester.pumpAndSettle();
-    await tester.tap(menuItem('Topic'));
-    await tester.pumpAndSettle();
-    expect(request, findsNothing);
-    expect(find.textContaining('topic load took too long'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('diagnostics-source-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(_diagnosticsMenuItem('Topic'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('diagnostics-search')),
+        '/t/42',
+      );
+      await tester.pump();
+      expect(request, findsOneWidget);
+      expect(error, findsNothing);
+    });
 
-    await tester.tap(find.byKey(const ValueKey('diagnostics-source-filter')));
-    await tester.pumpAndSettle();
-    await tester.tap(menuItem('Topic'));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('diagnostics-search')),
-      '/t/42',
-    );
-    await tester.pump();
-    expect(request, findsOneWidget);
-    expect(find.textContaining('topic load took too long'), findsNothing);
+    testWidgets('freezing holds new events until the timeline resumes', (
+      tester,
+    ) async {
+      final diagnostics = await _pumpPopulatedDiagnosticsPanel(tester);
 
-    await tester.enterText(
-      find.byKey(const ValueKey('diagnostics-search')),
-      '',
-    );
-    await tester.tap(find.byKey(const ValueKey('diagnostics-freeze')));
-    await tester.pump();
-    expect(diagnostics.panelState.frozen, isTrue);
+      await tester.tap(find.byKey(const ValueKey('diagnostics-freeze')));
+      await tester.pump();
+      expect(diagnostics.panelState.frozen, isTrue);
 
-    diagnostics.reportError(
-      StateError('arrived while frozen'),
-      StackTrace.fromString('frozen stack'),
-      operation: 'background refresh',
-      source: 'refresh',
-    );
-    await tester.pump();
-    expect(find.textContaining('arrived while frozen'), findsNothing);
+      diagnostics.reportError(
+        StateError('arrived while frozen'),
+        StackTrace.fromString('frozen stack'),
+        operation: 'background refresh',
+        source: 'refresh',
+      );
+      await tester.pump();
+      expect(find.textContaining('arrived while frozen'), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('diagnostics-freeze')));
-    await tester.pump();
-    expect(find.textContaining('arrived while frozen'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('diagnostics-freeze')));
+      await tester.pump();
+      expect(diagnostics.panelState.frozen, isFalse);
+      expect(find.textContaining('arrived while frozen'), findsOneWidget);
+    });
 
-    await tester.tap(find.byKey(const ValueKey('diagnostics-copy-report')));
-    await tester.pump();
-    expect(copied, hasLength(1));
-    expect(copied.single, contains('"version": 1'));
-    expect(copied.single, contains('https://example.test/t/42?token'));
-    expect(copied.single, isNot(contains('secret')));
+    testWidgets('copied reports and event details redact request secrets', (
+      tester,
+    ) async {
+      final copied = _recordClipboardWrites(tester);
+      await _pumpPopulatedDiagnosticsPanel(tester);
+      final request = find.text('https://example.test/t/42?token');
 
-    await tester.tap(request);
-    await tester.pump();
-    expect(find.text('Event details'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('diagnostics-copy-event')));
-    await tester.pump();
-    expect(copied, hasLength(2));
-    expect(copied.last, contains('"id": "request-42"'));
-    expect(copied.last, isNot(contains('secret')));
-    final detail = find.byKey(const ValueKey('diagnostic-detail-request-42'));
-    await tester.drag(detail, const Offset(0, -600));
-    await tester.pumpAndSettle();
-    expect(find.text('Response Headers'), findsOneWidget);
-    await tester.drag(detail, const Offset(0, -300));
-    await tester.pumpAndSettle();
-    expect(find.text('120000'), findsOneWidget);
+      expect(find.textContaining('Bodies, credentials, cookies'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('diagnostics-copy-report')));
+      await tester.pump();
+      expect(copied, hasLength(1));
+      expect(copied.single, contains('"version": 1'));
+      expect(copied.single, contains('https://example.test/t/42?token'));
+      expect(copied.single, isNot(contains('secret')));
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pump();
-    expect(find.text('Diagnostics'), findsOneWidget);
-    expect(find.text('Event details'), findsNothing);
+      await tester.tap(request);
+      await tester.pump();
+      expect(find.text('Event details'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('diagnostics-copy-event')));
+      await tester.pump();
+      expect(copied, hasLength(2));
+      expect(copied.last, contains('"id": "request-42"'));
+      expect(copied.last, isNot(contains('secret')));
 
-    await tester.tap(find.byKey(const ValueKey('diagnostics-source-filter')));
-    await tester.pumpAndSettle();
-    await tester.tap(menuItem('Refresh'));
-    await tester.pumpAndSettle();
-    expect(diagnostics.panelState.sources, {'refresh'});
+      final detail = find.byKey(const ValueKey('diagnostic-detail-request-42'));
+      await tester.drag(detail, const Offset(0, -600));
+      await tester.pumpAndSettle();
+      expect(find.text('Response Headers'), findsOneWidget);
+      await tester.drag(detail, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(find.text('120000'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('diagnostics-clear')));
-    await tester.pumpAndSettle();
-    expect(find.text('Clear diagnostics history?'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Clear history'));
-    await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(find.text('Diagnostics'), findsOneWidget);
+      expect(find.text('Event details'), findsNothing);
+    });
 
-    expect(diagnostics.events, isEmpty);
-    expect(find.text('No diagnostics yet'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('diagnostics-source-filter')));
-    await tester.pumpAndSettle();
-    expect(menuItem('Refresh'), findsOneWidget);
-    await tester.tap(menuItem('Refresh'));
-    await tester.pumpAndSettle();
-    expect(diagnostics.panelState.sources, isEmpty);
+    testWidgets('clear keeps an unavailable source filter resettable', (
+      tester,
+    ) async {
+      final diagnostics = await _pumpPopulatedDiagnosticsPanel(tester);
+      diagnostics.reportError(
+        StateError('background refresh failed'),
+        StackTrace.fromString('refresh stack'),
+        operation: 'background refresh',
+        source: 'refresh',
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('diagnostics-source-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(_diagnosticsMenuItem('Refresh'));
+      await tester.pumpAndSettle();
+      expect(diagnostics.panelState.sources, {'refresh'});
+
+      await tester.tap(find.byKey(const ValueKey('diagnostics-clear')));
+      await tester.pumpAndSettle();
+      expect(find.text('Clear diagnostics history?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Clear history'));
+      await tester.pumpAndSettle();
+
+      expect(diagnostics.events, isEmpty);
+      expect(find.text('No diagnostics yet'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('diagnostics-source-filter')));
+      await tester.pumpAndSettle();
+      expect(_diagnosticsMenuItem('Refresh'), findsOneWidget);
+      await tester.tap(_diagnosticsMenuItem('Refresh'));
+      await tester.pumpAndSettle();
+      expect(diagnostics.panelState.sources, isEmpty);
+    });
   });
 
   testWidgets('starts, stops, and copies a topic scroll capture', (
     tester,
   ) async {
     final copied = <String>[];
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'Clipboard.setData') {
-          copied.add(
-            (call.arguments as Map<Object?, Object?>)['text']! as String,
-          );
-        }
-        return null;
-      },
-    );
+    final messenger = tester.binding.defaultBinaryMessenger;
     addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        null,
-      ),
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
     );
 
     final diagnostics = await _controller();
@@ -579,13 +567,26 @@ void main() {
     await tester.pump();
     expect(find.text('Capture ready'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('topic-scroll-capture-copy')));
     await tester.runAsync(() async {
-      for (var attempt = 0; attempt < 100 && copied.isEmpty; attempt += 1) {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
+      final clipboardWrite = Completer<void>();
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied.add(
+            (call.arguments as Map<Object?, Object?>)['text']! as String,
+          );
+          if (!clipboardWrite.isCompleted) clipboardWrite.complete();
+        }
+        return null;
+      });
+      await tester.tap(find.byKey(const ValueKey('topic-scroll-capture-copy')));
+      await clipboardWrite.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () =>
+            fail('copying the capture never reached the platform clipboard'),
+      );
     });
     await tester.pump();
+
     expect(copied, hasLength(1));
     expect(copied.single, contains('"kind": "topic-scroll-capture"'));
     expect(copied.single, contains('scroll.notification'));
@@ -712,6 +713,41 @@ void main() {
     expect(rebuilt, isNot(contains(sidebar)));
     expect(rebuilt, isNot(contains(content)));
   });
+}
+
+Finder _diagnosticsMenuItem(String label) =>
+    find.widgetWithText(CheckedPopupMenuItem<String>, label);
+
+List<String> _recordClipboardWrites(WidgetTester tester) {
+  final copied = <String>[];
+  final messenger = tester.binding.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+    if (call.method == 'Clipboard.setData') {
+      copied.add((call.arguments as Map<Object?, Object?>)['text']! as String);
+    }
+    return null;
+  });
+  addTearDown(
+    () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+  );
+  return copied;
+}
+
+Future<DiagnosticsController> _pumpPopulatedDiagnosticsPanel(
+  WidgetTester tester,
+) async {
+  final diagnostics = await _controller();
+  _recordRequest(diagnostics);
+  diagnostics.reportError(
+    TimeoutException('topic load took too long'),
+    StackTrace.fromString('loadTopic (shell_controller.dart:1203)'),
+    operation: 'load topic',
+    source: 'topic',
+  );
+  await _pumpApp(tester, const Size(1000, 800), diagnostics);
+  await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+  await tester.pumpAndSettle();
+  return diagnostics;
 }
 
 Future<DiagnosticsController> _controller() => DiagnosticsController.create(

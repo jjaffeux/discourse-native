@@ -19,14 +19,16 @@ dart format --output=none --set-exit-if-changed \
   packages/discourse_resenha/lib packages/discourse_resenha/test \
   packages/discourse_resenha/tool profiles/full/lib
 flutter analyze
-flutter test
-(cd packages/discourse_resenha && flutter analyze && flutter test)
+flutter test --test-randomize-ordering-seed=random
+(cd packages/discourse_resenha && \
+  flutter analyze && flutter test --test-randomize-ordering-seed=random)
 (cd profiles/full && flutter analyze)
 ```
 
-The Flutter version is pinned in `.fvmrc`; all three `pubspec.lock` files are
-enforced in CI. If you re-resolve dependencies, update the affected lockfile;
-if the Flutter pin moves, update the README's Requirements line with it.
+The Flutter version is pinned in `.fvmrc`; the root, Resenha, and full-profile
+`pubspec.lock` files are enforced in CI. If you re-resolve dependencies, update
+the affected lockfile; if the Flutter pin moves, update the README's
+Requirements line with it.
 
 ## Conventions that are easy to miss
 
@@ -117,4 +119,6 @@ if the Flutter pin moves, update the README's Requirements line with it.
   merged).
 - Root tests live under `test/`; Resenha tests live under
   `packages/discourse_resenha/test/`. A change to `foo.dart` almost always has
-  a `foo_test.dart` in its owning package to extend.
+  a `foo_test.dart` in its owning package to extend. Follow
+  `docs/testing.md` for suite ownership, naming, assertions, async control,
+  and cleanup.

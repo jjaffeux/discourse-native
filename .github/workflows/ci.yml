@@ -49,8 +49,9 @@ jobs:
 
       - name: Test
         run: |
-          flutter test
-          (cd packages/discourse_resenha && flutter test)
+          flutter test --test-randomize-ordering-seed=random
+          (cd packages/discourse_resenha && \
+            flutter test --test-randomize-ordering-seed=random)
 
   linux-bundle:
     # Keep the native plugin graph buildable between releases without turning

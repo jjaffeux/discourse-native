@@ -20,7 +20,7 @@ DiscourseNotification parse(
 
 void main() {
   group('opaque notification wire envelope', () {
-    test('preserves unknown ids, names, keys and nested payloads', () {
+    test('preserves unknown IDs, names, keys and nested payloads', () {
       final source = <String, dynamic>{
         'id': 7,
         'notification_type': 4242,

@@ -34,10 +34,10 @@ void main() {
     final repository = await Directory.systemTemp.createTemp(
       'vendor-contract-repository-',
     );
+    addTearDown(() => repository.delete(recursive: true));
     final outside = await Directory.systemTemp.createTemp(
       'vendor-contract-outside-',
     );
-    addTearDown(() => repository.delete(recursive: true));
     addTearDown(() => outside.delete(recursive: true));
     final tool = Directory('${repository.path}/packages/owner/tool');
     await tool.create(recursive: true);

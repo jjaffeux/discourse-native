@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('injected Resenha diagnostics remains caller-owned', (
+  testWidgets('injected Resenha diagnostics remain caller-owned', (
     tester,
   ) async {
     final key = GlobalKey();

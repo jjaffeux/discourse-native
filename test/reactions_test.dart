@@ -221,9 +221,13 @@ void main() {
 
       final next = held.withToggled('emoji-511');
 
-      expect(next.entries, hasLength(count));
-      expect(next.entries.first, const Reaction(id: 'emoji-000', count: 512));
-      expect(next.entries.last, const Reaction(id: 'emoji-511', count: 2));
+      expect(next.entries, [
+        for (var index = 0; index < count; index++)
+          Reaction(
+            id: 'emoji-${index.toString().padLeft(3, '0')}',
+            count: index == count - 1 ? 2 : count - index,
+          ),
+      ]);
       expect(next.mine, const Reaction(id: 'emoji-511', canUndo: true));
       expect(next.userCount, count + 1);
       expect(() => next.entries.clear(), throwsUnsupportedError);

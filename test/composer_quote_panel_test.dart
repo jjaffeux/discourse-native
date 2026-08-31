@@ -31,343 +31,368 @@ const _longQuote =
     '[/quote]';
 
 void main() {
-  testWidgets('renders a selected post quote as a read-only post-style block', (
-    tester,
-  ) async {
-    final composer = ComposerController(_target);
-    final shell = await _shell();
-    addTearDown(composer.dispose);
-    addTearDown(shell.dispose);
-    composer.text.value = const TextEditingValue(
-      text: 'Before\n\n$_quote\n\nAfter',
-      selection: TextSelection.collapsed(offset: 0),
-    );
+  group('quote editing', () {
+    testWidgets('projects a selected quote as a read-only post block', (
+      tester,
+    ) async {
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.value = const TextEditingValue(
+        text: 'Before\n\n$_quote\n\nAfter',
+        selection: TextSelection.collapsed(offset: 0),
+      );
 
-    await _pumpPanel(tester, shell, composer);
-    await tester.pump();
+      await _pumpPanel(tester, shell, composer);
+      await tester.pump();
 
-    expect(find.byType(ComposerQuotePreview), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byType(ComposerQuotePreview),
-        matching: find.byType(QuotePanel),
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Régis'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byType(ComposerQuotePreview),
-        matching: find.textContaining('You’ll yell the story'),
-      ),
-      findsOneWidget,
-    );
-    expect(find.byTooltip('Remove quote'), findsOneWidget);
+      expect(find.byType(ComposerQuotePreview), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(ComposerQuotePreview),
+          matching: find.byType(QuotePanel),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Régis'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(ComposerQuotePreview),
+          matching: find.textContaining('You’ll yell the story'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Remove quote'), findsOneWidget);
 
-    final quote = composer.text.quoteBlocks.single;
-    final previewBottom = tester
-        .getBottomLeft(find.byType(ComposerQuotePreview))
-        .dy;
-    final editable = tester.state<EditableTextState>(find.byType(EditableText));
-    final render = editable.renderEditable;
-    final caretTop = render
-        .localToGlobal(
-          render.getLocalRectForCaret(TextPosition(offset: quote.end)).topLeft,
-        )
-        .dy;
+      final quote = composer.text.quoteBlocks.single;
+      final previewBottom = tester
+          .getBottomLeft(find.byType(ComposerQuotePreview))
+          .dy;
+      final editable = tester.state<EditableTextState>(
+        find.byType(EditableText),
+      );
+      final render = editable.renderEditable;
+      final caretTop = render
+          .localToGlobal(
+            render
+                .getLocalRectForCaret(TextPosition(offset: quote.end))
+                .topLeft,
+          )
+          .dy;
 
-    expect(caretTop - previewBottom, inInclusiveRange(0, 32));
+      expect(caretTop - previewBottom, inInclusiveRange(0, 32));
 
-    composer.text.selection = TextSelection.collapsed(offset: quote.start + 1);
-    await tester.pump();
-
-    expect(composer.text.selection, TextSelection.collapsed(offset: quote.end));
-    expect(find.byType(ComposerQuotePreview), findsOneWidget);
-    expect(composer.text.text, 'Before\n\n$_quote\n\nAfter');
-  });
-
-  testWidgets('the remove affordance deletes the complete quote', (
-    tester,
-  ) async {
-    final composer = ComposerController(_target);
-    final shell = await _shell();
-    addTearDown(composer.dispose);
-    addTearDown(shell.dispose);
-    composer.text.text = '$_quote\n\n';
-
-    await _pumpPanel(tester, shell, composer);
-    await tester.pump();
-    await tester.tapAt(tester.getCenter(find.byTooltip('Remove quote')));
-    await tester.pump();
-
-    expect(composer.text.text, isEmpty);
-    expect(find.byType(ComposerQuotePreview), findsNothing);
-  });
-
-  testWidgets('does not offer formatting for a selected quote', (tester) async {
-    final composer = ComposerController(_target);
-    final shell = await _shell();
-    addTearDown(composer.dispose);
-    addTearDown(shell.dispose);
-    const source = 'Before\n\n$_quote';
-    composer.text.text = source;
-
-    await _pumpPanel(tester, shell, composer);
-    await tester.pump();
-
-    final quote = composer.text.quoteBlocks.single;
-    composer.text.selection = TextSelection(
-      baseOffset: quote.start + 1,
-      extentOffset: quote.end - 1,
-    );
-    composer.focus.requestFocus();
-    await tester.pumpAndSettle();
-
-    expect(
-      composer.text.selection,
-      TextSelection(baseOffset: quote.start, extentOffset: quote.end),
-    );
-    expect(
-      find.byKey(const ValueKey('composer-selection-toolbar')),
-      findsNothing,
-    );
-    expect(find.byTooltip('Bold'), findsNothing);
-    expect(find.byTooltip('Italic'), findsNothing);
-
-    composer.text.selection = TextSelection(
-      baseOffset: 0,
-      extentOffset: quote.start,
-    );
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey('composer-selection-toolbar')),
-      findsNothing,
-    );
-    expect(composer.text.text, source);
-  });
-
-  testWidgets('Backspace and Delete remove a quote atomically', (tester) async {
-    final composer = ComposerController(_target);
-    final shell = await _shell();
-    addTearDown(composer.dispose);
-    addTearDown(shell.dispose);
-    composer.text.text = _quote;
-
-    await _pumpPanel(tester, shell, composer);
-    await tester.pump();
-    var quote = composer.text.quoteBlocks.single;
-    composer.text.selection = TextSelection.collapsed(offset: quote.end);
-    composer.focus.requestFocus();
-    await tester.pump();
-    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
-    await tester.pump();
-    expect(composer.text.text, isEmpty);
-
-    composer.text.text = _quote;
-    await tester.pump();
-    quote = composer.text.quoteBlocks.single;
-    composer.text.selection = TextSelection.collapsed(offset: quote.start);
-    await tester.pump();
-    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
-    await tester.pump();
-    expect(composer.text.text, isEmpty);
-  });
-
-  testWidgets('shows the full quote and places following text below it', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(900, 360));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    final composer = ComposerController(_target);
-    final shell = await _shell();
-    addTearDown(composer.dispose);
-    addTearDown(shell.dispose);
-    composer.text.text = '$_longQuote\n\nTyped after the quote';
-
-    await _pumpPanel(tester, shell, composer);
-    final quote = composer.text.quoteBlocks.single;
-    composer.text.selection = TextSelection.collapsed(
-      offset: composer.text.text.length,
-    );
-    composer.focus.requestFocus();
-    await tester.pumpAndSettle();
-
-    expect(composer.text.imageScrollController!.offset, greaterThan(0));
-
-    final body = tester.widget<Text>(
-      find.descendant(
-        of: find.byType(ComposerQuotePreview),
-        matching: find.text(_longQuoteBody),
-      ),
-    );
-    expect(body.maxLines, isNull);
-    expect(body.overflow, isNot(TextOverflow.ellipsis));
-
-    final previewBottom = tester
-        .getBottomLeft(find.byType(ComposerQuotePreview))
-        .dy;
-    final editable = tester.state<EditableTextState>(find.byType(EditableText));
-    final render = editable.renderEditable;
-    final caretTop = render
-        .localToGlobal(
-          render.getLocalRectForCaret(TextPosition(offset: quote.end)).topLeft,
-        )
-        .dy;
-
-    expect(caretTop, greaterThanOrEqualTo(previewBottom));
-  });
-
-  testWidgets('typing under a quote does not rebuild it', (tester) async {
-    // Every keystroke rebuilds the composer's span tree, and each quote in it
-    // is a `WidgetSpan` whose child comes with it. The controller used to mint
-    // a fresh `GlobalKey` per quote on every text change, so that child was not
-    // rebuilt but *recreated* — new element, new render objects, and every
-    // memo below them thrown away, including the scan of the quoted text. A
-    // reply is mostly quotation often enough for that to be the largest thing
-    // on the typing path.
-    //
-    // Typing under a quote does not move it, so nothing about it has changed.
-    final composer = ComposerController(_target);
-    final shell = await _shell();
-    addTearDown(composer.dispose);
-    addTearDown(shell.dispose);
-    composer.text.text = '$_longQuote\n\n';
-
-    await _pumpPanel(tester, shell, composer);
-    final preview = tester.element(find.byType(ComposerQuotePreview));
-    final scansAfterFirstBuild = ComposerQuotePreview.scans;
-    expect(scansAfterFirstBuild, greaterThan(0));
-
-    for (final typed in const ['T', 'Ty', 'Typ', 'Type', 'Typed']) {
-      final text = '$_longQuote\n\n$typed';
-      composer.text.value = TextEditingValue(
-        text: text,
-        selection: TextSelection.collapsed(offset: text.length),
+      composer.text.selection = TextSelection.collapsed(
+        offset: quote.start + 1,
       );
       await tester.pump();
-    }
 
-    expect(ComposerQuotePreview.scans, scansAfterFirstBuild);
-    expect(
-      tester.element(find.byType(ComposerQuotePreview)),
-      same(preview),
-      reason: 'the quote was recreated rather than left alone',
-    );
-  });
-
-  testWidgets('a quote that moves is still drawn from its own text', (
-    tester,
-  ) async {
-    // The other half: keys are pruned to the quotes that are there, so text
-    // typed *above* one gives it a new start and a new key. What must not
-    // happen is a preview reusing an element and going on showing the text of
-    // whatever used to be at that offset.
-    final composer = ComposerController(_target);
-    final shell = await _shell();
-    addTearDown(composer.dispose);
-    addTearDown(shell.dispose);
-    composer.text.text = '$_longQuote\n\n';
-
-    await _pumpPanel(tester, shell, composer);
-    expect(find.text(_longQuoteBody), findsOneWidget);
-
-    const before = 'Before.\n\n';
-    const moved = '$before$_longQuote\n\n';
-    composer.text.value = const TextEditingValue(
-      text: moved,
-      selection: TextSelection.collapsed(offset: moved.length),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text(_longQuoteBody), findsOneWidget);
-    expect(composer.text.quoteBlocks.single.start, before.length);
-  });
-
-  testWidgets('renders quote Markdown without exposing its markers', (
-    tester,
-  ) async {
-    const body = 'First paragraph.\n\nSecond **bold** and *italic* line.';
-    const quote = '[quote="Régis"]\n$body\n[/quote]';
-    final composer = ComposerController(_target);
-    final shell = await _shell();
-    addTearDown(composer.dispose);
-    addTearDown(shell.dispose);
-    composer.text.text = quote;
-
-    await _pumpPanel(tester, shell, composer);
-    await tester.pump();
-
-    final bodyText = tester.widget<Text>(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Text &&
-            widget.textSpan?.toPlainText() ==
-                'First paragraph.\n\nSecond bold and italic line.',
-      ),
-    );
-    final styles = <TextStyle?>[];
-    bodyText.textSpan!.visitChildren((span) {
-      if (span is TextSpan) styles.add(span.style);
-      return true;
+      expect(
+        composer.text.selection,
+        TextSelection.collapsed(offset: quote.end),
+      );
+      expect(find.byType(ComposerQuotePreview), findsOneWidget);
+      expect(composer.text.text, 'Before\n\n$_quote\n\nAfter');
     });
 
-    expect(styles.any((style) => style?.fontWeight == FontWeight.w700), isTrue);
-    expect(styles.any((style) => style?.fontStyle == FontStyle.italic), isTrue);
+    testWidgets('the remove affordance deletes the complete quote', (
+      tester,
+    ) async {
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.text = '$_quote\n\n';
+
+      await _pumpPanel(tester, shell, composer);
+      await tester.pump();
+      await tester.tapAt(tester.getCenter(find.byTooltip('Remove quote')));
+      await tester.pump();
+
+      expect(composer.text.text, isEmpty);
+      expect(find.byType(ComposerQuotePreview), findsNothing);
+    });
+
+    testWidgets('does not offer formatting for a selected quote', (
+      tester,
+    ) async {
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      const source = 'Before\n\n$_quote';
+      composer.text.text = source;
+
+      await _pumpPanel(tester, shell, composer);
+      await tester.pump();
+
+      final quote = composer.text.quoteBlocks.single;
+      composer.text.selection = TextSelection(
+        baseOffset: quote.start + 1,
+        extentOffset: quote.end - 1,
+      );
+      composer.focus.requestFocus();
+      await tester.pumpAndSettle();
+
+      expect(
+        composer.text.selection,
+        TextSelection(baseOffset: quote.start, extentOffset: quote.end),
+      );
+      expect(
+        find.byKey(const ValueKey('composer-selection-toolbar')),
+        findsNothing,
+      );
+      expect(find.byTooltip('Bold'), findsNothing);
+      expect(find.byTooltip('Italic'), findsNothing);
+
+      composer.text.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: quote.start,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('composer-selection-toolbar')),
+        findsNothing,
+      );
+      expect(composer.text.text, source);
+    });
+
+    testWidgets('backspace and delete remove a quote atomically', (
+      tester,
+    ) async {
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.text = _quote;
+
+      await _pumpPanel(tester, shell, composer);
+      await tester.pump();
+      var quote = composer.text.quoteBlocks.single;
+      composer.text.selection = TextSelection.collapsed(offset: quote.end);
+      composer.focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pump();
+      expect(composer.text.text, isEmpty);
+
+      composer.text.text = _quote;
+      await tester.pump();
+      quote = composer.text.quoteBlocks.single;
+      composer.text.selection = TextSelection.collapsed(offset: quote.start);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await tester.pump();
+      expect(composer.text.text, isEmpty);
+    });
   });
 
-  testWidgets('recovers paragraphs for an already-flattened quote', (
-    tester,
-  ) async {
-    const cooked =
-        '<p>I’ll put on a blindfold.</p>'
-        '<p>You’ll yell the story at me.</p>'
-        '<p>I’ll try to solve the cube.</p>'
-        '<p>This is either going to work beautifully or fail spectacularly.</p>';
-    const flattened =
-        'I’ll put on a blindfold.'
-        'You’ll yell the story at me.'
-        'I’ll try to solve the cube.'
-        'This is either going to work beautifully or fail spectacularly.';
-    const expected =
-        'I’ll put on a blindfold.\n\n'
-        'You’ll yell the story at me.\n\n'
-        'I’ll try to solve the cube.\n\n'
-        'This is either going to work beautifully or fail spectacularly.';
-    final composer = ComposerController(_target);
-    final shell = await _shell();
-    addTearDown(composer.dispose);
-    addTearDown(shell.dispose);
-    shell.store.put(
-      _target.siteUrl,
-      const TopicDetail(id: 650, title: 'Quote support', stream: [42]),
-    );
-    shell.store.put(
-      _target.siteUrl,
-      const Post(
-        id: 42,
-        postNumber: 5,
-        username: 'zogstrip',
-        name: 'Régis',
-        cooked: cooked,
-      ),
-    );
-    composer.text.text =
-        '[quote="Régis, post:5, topic:650, username:zogstrip"]\n'
-        '$flattened\n'
-        '[/quote]';
+  group('preview rendering', () {
+    testWidgets('shows the full body above following text', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(900, 360));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.text = '$_longQuote\n\nTyped after the quote';
 
-    await _pumpPanel(tester, shell, composer);
-    await tester.pump();
+      await _pumpPanel(tester, shell, composer);
+      final quote = composer.text.quoteBlocks.single;
+      composer.text.selection = TextSelection.collapsed(
+        offset: composer.text.text.length,
+      );
+      composer.focus.requestFocus();
+      await tester.pumpAndSettle();
 
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Text && widget.textSpan?.toPlainText() == expected,
-      ),
-      findsOneWidget,
-    );
-    expect(composer.text.text, contains(flattened));
+      expect(composer.text.imageScrollController!.offset, greaterThan(0));
+
+      final body = tester.widget<Text>(
+        find.descendant(
+          of: find.byType(ComposerQuotePreview),
+          matching: find.text(_longQuoteBody),
+        ),
+      );
+      expect(body.maxLines, isNull);
+      expect(body.overflow, isNot(TextOverflow.ellipsis));
+
+      final previewBottom = tester
+          .getBottomLeft(find.byType(ComposerQuotePreview))
+          .dy;
+      final editable = tester.state<EditableTextState>(
+        find.byType(EditableText),
+      );
+      final render = editable.renderEditable;
+      final caretTop = render
+          .localToGlobal(
+            render
+                .getLocalRectForCaret(TextPosition(offset: quote.end))
+                .topLeft,
+          )
+          .dy;
+
+      expect(caretTop, greaterThanOrEqualTo(previewBottom));
+    });
+
+    testWidgets('keeps the preview element stable while typing below it', (
+      tester,
+    ) async {
+      // Every keystroke rebuilds the composer's span tree, and each quote in it
+      // is a `WidgetSpan` whose child comes with it. The controller used to mint
+      // a fresh `GlobalKey` per quote on every text change, so that child was not
+      // rebuilt but *recreated* — new element, new render objects, and every
+      // memo below them thrown away, including the scan of the quoted text. A
+      // reply is mostly quotation often enough for that to be the largest thing
+      // on the typing path.
+      //
+      // Typing under a quote does not move it, so nothing about it has changed.
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.text = '$_longQuote\n\n';
+
+      await _pumpPanel(tester, shell, composer);
+      final preview = tester.element(find.byType(ComposerQuotePreview));
+      final scansAfterFirstBuild = ComposerQuotePreview.scans;
+      expect(scansAfterFirstBuild, greaterThan(0));
+
+      for (final typed in const ['T', 'Ty', 'Typ', 'Type', 'Typed']) {
+        final text = '$_longQuote\n\n$typed';
+        composer.text.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+        await tester.pump();
+      }
+
+      expect(ComposerQuotePreview.scans, scansAfterFirstBuild);
+      expect(
+        tester.element(find.byType(ComposerQuotePreview)),
+        same(preview),
+        reason: 'the quote was recreated rather than left alone',
+      );
+    });
+
+    testWidgets('redraws a moved quote from its own text', (tester) async {
+      // The other half: keys are pruned to the quotes that are there, so text
+      // typed *above* one gives it a new start and a new key. What must not
+      // happen is a preview reusing an element and going on showing the text of
+      // whatever used to be at that offset.
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.text = '$_longQuote\n\n';
+
+      await _pumpPanel(tester, shell, composer);
+      expect(find.text(_longQuoteBody), findsOneWidget);
+
+      const before = 'Before.\n\n';
+      const moved = '$before$_longQuote\n\n';
+      composer.text.value = const TextEditingValue(
+        text: moved,
+        selection: TextSelection.collapsed(offset: moved.length),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(_longQuoteBody), findsOneWidget);
+      expect(composer.text.quoteBlocks.single.start, before.length);
+    });
+
+    testWidgets('renders markdown without exposing source markers', (
+      tester,
+    ) async {
+      const body = 'First paragraph.\n\nSecond **bold** and *italic* line.';
+      const quote = '[quote="Régis"]\n$body\n[/quote]';
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.text = quote;
+
+      await _pumpPanel(tester, shell, composer);
+      await tester.pump();
+
+      final bodyText = tester.widget<Text>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Text &&
+              widget.textSpan?.toPlainText() ==
+                  'First paragraph.\n\nSecond bold and italic line.',
+        ),
+      );
+      final styles = <TextStyle?>[];
+      bodyText.textSpan!.visitChildren((span) {
+        if (span is TextSpan) styles.add(span.style);
+        return true;
+      });
+
+      expect(
+        styles.any((style) => style?.fontWeight == FontWeight.w700),
+        isTrue,
+      );
+      expect(
+        styles.any((style) => style?.fontStyle == FontStyle.italic),
+        isTrue,
+      );
+    });
+
+    testWidgets('recovers paragraphs from a cached cooked post', (
+      tester,
+    ) async {
+      const cooked =
+          '<p>I’ll put on a blindfold.</p>'
+          '<p>You’ll yell the story at me.</p>'
+          '<p>I’ll try to solve the cube.</p>'
+          '<p>This is either going to work beautifully or fail spectacularly.</p>';
+      const flattened =
+          'I’ll put on a blindfold.'
+          'You’ll yell the story at me.'
+          'I’ll try to solve the cube.'
+          'This is either going to work beautifully or fail spectacularly.';
+      const expected =
+          'I’ll put on a blindfold.\n\n'
+          'You’ll yell the story at me.\n\n'
+          'I’ll try to solve the cube.\n\n'
+          'This is either going to work beautifully or fail spectacularly.';
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      shell.store.put(
+        _target.siteUrl,
+        const TopicDetail(id: 650, title: 'Quote support', stream: [42]),
+      );
+      shell.store.put(
+        _target.siteUrl,
+        const Post(
+          id: 42,
+          postNumber: 5,
+          username: 'zogstrip',
+          name: 'Régis',
+          cooked: cooked,
+        ),
+      );
+      composer.text.text =
+          '[quote="Régis, post:5, topic:650, username:zogstrip"]\n'
+          '$flattened\n'
+          '[/quote]';
+
+      await _pumpPanel(tester, shell, composer);
+      await tester.pump();
+
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Text && widget.textSpan?.toPlainText() == expected,
+        ),
+        findsOneWidget,
+      );
+      expect(composer.text.text, contains(flattened));
+    });
   });
 }
 

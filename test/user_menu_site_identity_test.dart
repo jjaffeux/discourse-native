@@ -2,6 +2,7 @@ import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/do_not_disturb.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
@@ -89,476 +90,490 @@ const _teamBookmark = Bookmark(
 );
 
 void main() {
-  testWidgets(
-    'pointer tabs expose 44 pixel selected controls with keyboard actions',
-    (tester) => _withMenu(tester, TargetPlatform.macOS, (_) async {
-      final semantics = tester.ensureSemantics();
-      try {
-        await tester.tap(find.byKey(UserMenuButton.avatarKey));
-        await tester.pumpAndSettle();
+  group('menu controls', () {
+    testWidgets(
+      'expose 44 pixel selected tabs with keyboard actions on pointer platforms',
+      (tester) => _withMenu(tester, TargetPlatform.macOS, (_) async {
+        final semantics = tester.ensureSemantics();
+        try {
+          await tester.tap(find.byKey(UserMenuButton.avatarKey));
+          await tester.pumpAndSettle();
 
-        final notifications = find.byKey(const ValueKey('user-menu-tab-all'));
-        final bookmarks = find.byKey(const ValueKey('user-menu-tab-bookmarks'));
-        final replies = find.byKey(const ValueKey('user-menu-tab-replies'));
+          final notifications = find.byKey(const ValueKey('user-menu-tab-all'));
+          final bookmarks = find.byKey(
+            const ValueKey('user-menu-tab-bookmarks'),
+          );
+          final replies = find.byKey(const ValueKey('user-menu-tab-replies'));
 
-        for (final tab in [notifications, bookmarks, replies]) {
-          expect(tester.getSize(tab), const Size.square(44));
+          for (final tab in [notifications, bookmarks, replies]) {
+            expect(tester.getSize(tab), const Size.square(44));
+          }
+          expect(
+            tester.getSemantics(notifications),
+            isSemantics(
+              label: 'Notifications',
+              isButton: true,
+              hasSelectedState: true,
+              isSelected: true,
+              hasTapAction: true,
+            ),
+          );
+          expect(
+            tester.getSemantics(bookmarks),
+            isSemantics(
+              label: 'Bookmarks',
+              isButton: true,
+              hasSelectedState: true,
+              isSelected: false,
+              hasTapAction: true,
+            ),
+          );
+
+          await _focusTab(tester, bookmarks);
+          expect(
+            tester.getSemantics(bookmarks),
+            isSemantics(isFocusable: true, isFocused: true),
+          );
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+
+          expect(find.byType(BookmarkSection), findsOneWidget);
+          expect(
+            tester.getSemantics(bookmarks),
+            isSemantics(hasSelectedState: true, isSelected: true),
+          );
+          expect(
+            tester.getSemantics(notifications),
+            isSemantics(hasSelectedState: true, isSelected: false),
+          );
+
+          await _focusTab(tester, replies);
+          await tester.sendKeyEvent(LogicalKeyboardKey.space);
+          await tester.pumpAndSettle();
+
+          expect(find.byType(RepliesSection), findsOneWidget);
+          expect(
+            tester.getSemantics(replies),
+            isSemantics(hasSelectedState: true, isSelected: true),
+          );
+        } finally {
+          semantics.dispose();
         }
-        expect(
-          tester.getSemantics(notifications),
-          isSemantics(
-            label: 'Notifications',
-            isButton: true,
-            hasSelectedState: true,
-            isSelected: true,
-            hasTapAction: true,
-          ),
-        );
-        expect(
-          tester.getSemantics(bookmarks),
-          isSemantics(
-            label: 'Bookmarks',
-            isButton: true,
-            hasSelectedState: true,
-            isSelected: false,
-            hasTapAction: true,
-          ),
-        );
+      }),
+    );
 
-        await _focusTab(tester, bookmarks);
-        expect(
-          tester.getSemantics(bookmarks),
-          isSemantics(isFocusable: true, isFocused: true),
-        );
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    testWidgets(
+      'pause and resume notifications accessibly from the keyboard',
+      (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
+        final semantics = tester.ensureSemantics();
+        try {
+          await tester.tap(find.byKey(UserMenuButton.avatarKey));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('Profile'));
+          await tester.pumpAndSettle();
+
+          var row = find.byKey(const ValueKey('pause-notifications-row'));
+          expect(tester.getSize(row).height, greaterThanOrEqualTo(44));
+          expect(
+            tester.getSemantics(row),
+            isSemantics(
+              label: 'Pause notifications',
+              value: 'Off',
+              isButton: true,
+              hasEnabledState: true,
+              isEnabled: true,
+              hasToggledState: true,
+              isToggled: false,
+              hasTapAction: true,
+            ),
+          );
+          expect(
+            tester
+                .widget<DIcon>(
+                  find.descendant(of: row, matching: find.byType(DIcon)),
+                )
+                .color,
+            Theme.of(tester.element(row)).colorScheme.onSurfaceVariant,
+          );
+
+          await tester.tap(row);
+          await tester.pumpAndSettle();
+          expect(find.byType(UserMenuPanel), findsNothing);
+          expect(find.text('Pause notifications for…'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('do-not-disturb-halfHour')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const ValueKey('do-not-disturb-oneHour')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const ValueKey('do-not-disturb-twoHours')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const ValueKey('do-not-disturb-tomorrow')),
+            findsOneWidget,
+          );
+
+          final halfHour = find.byKey(
+            const ValueKey('do-not-disturb-halfHour'),
+          );
+          final focusChild = find
+              .descendant(of: halfHour, matching: find.byType(MouseRegion))
+              .first;
+          Focus.of(tester.element(focusChild)).requestFocus();
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+
+          expect(fixture.api.doNotDisturbDurations, [
+            const DoNotDisturbDuration.minutes(30),
+          ]);
+          expect(find.text('Pause notifications for…'), findsNothing);
+
+          await tester.tap(find.byKey(UserMenuButton.avatarKey));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('Profile'));
+          await tester.pumpAndSettle();
+          row = find.byKey(const ValueKey('pause-notifications-row'));
+          expect(
+            tester.getSemantics(row),
+            isSemantics(
+              label: 'Pause notifications',
+              isButton: true,
+              hasToggledState: true,
+              isToggled: true,
+            ),
+          );
+          expect(
+            tester
+                .widget<DIcon>(
+                  find.descendant(of: row, matching: find.byType(DIcon)),
+                )
+                .color,
+            Theme.of(tester.element(row)).colorScheme.primary,
+          );
+          expect(find.text('30m'), findsOneWidget);
+
+          await tester.tap(row);
+          await tester.pumpAndSettle();
+          expect(fixture.api.doNotDisturbResumes, [_metaUrl]);
+          expect(
+            tester.getSemantics(row),
+            isSemantics(hasToggledState: true, isToggled: false),
+          );
+          expect(
+            tester
+                .widget<DIcon>(
+                  find.descendant(of: row, matching: find.byType(DIcon)),
+                )
+                .color,
+            Theme.of(tester.element(row)).colorScheme.onSurfaceVariant,
+          );
+        } finally {
+          semantics.dispose();
+        }
+      }),
+    );
+
+    testWidgets(
+      'close both touch sheets before showing pause choices',
+      (tester) => _withMenu(tester, TargetPlatform.android, (_) async {
+        await _openNestedSection(tester, 'Profile');
+        await tester.tap(find.byKey(const ValueKey('pause-notifications-row')));
         await tester.pumpAndSettle();
 
-        expect(find.byType(BookmarkSection), findsOneWidget);
-        expect(
-          tester.getSemantics(bookmarks),
-          isSemantics(hasSelectedState: true, isSelected: true),
-        );
-        expect(
-          tester.getSemantics(notifications),
-          isSemantics(hasSelectedState: true, isSelected: false),
-        );
-
-        await _focusTab(tester, replies);
-        await tester.sendKeyEvent(LogicalKeyboardKey.space);
-        await tester.pumpAndSettle();
-
-        expect(find.byType(RepliesSection), findsOneWidget);
-        expect(
-          tester.getSemantics(replies),
-          isSemantics(hasSelectedState: true, isSelected: true),
-        );
-      } finally {
-        semantics.dispose();
-      }
-    }),
-  );
-
-  testWidgets(
-    'pause notifications is an accessible keyboard control that can resume',
-    (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
-      final semantics = tester.ensureSemantics();
-      try {
-        await tester.tap(find.byKey(UserMenuButton.avatarKey));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Profile'));
-        await tester.pumpAndSettle();
-
-        var row = find.byKey(const ValueKey('pause-notifications-row'));
-        expect(tester.getSize(row).height, greaterThanOrEqualTo(44));
-        expect(
-          tester.getSemantics(row),
-          isSemantics(
-            label: 'Pause notifications',
-            value: 'Off',
-            isButton: true,
-            hasEnabledState: true,
-            isEnabled: true,
-            hasToggledState: true,
-            isToggled: false,
-            hasTapAction: true,
-          ),
-        );
-        expect(
-          tester
-              .widget<DIcon>(
-                find.descendant(of: row, matching: find.byType(DIcon)),
-              )
-              .color,
-          Theme.of(tester.element(row)).colorScheme.onSurfaceVariant,
-        );
-
-        await tester.tap(row);
-        await tester.pumpAndSettle();
-        expect(find.byType(UserMenuPanel), findsNothing);
         expect(find.text('Pause notifications for…'), findsOneWidget);
-        expect(
-          find.byKey(const ValueKey('do-not-disturb-halfHour')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('do-not-disturb-oneHour')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('do-not-disturb-twoHours')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('do-not-disturb-tomorrow')),
-          findsOneWidget,
-        );
+        expect(find.text('Profile'), findsNothing);
+        expect(find.text('Meta User'), findsNothing);
+      }),
+    );
 
-        final halfHour = find.byKey(const ValueKey('do-not-disturb-halfHour'));
-        final focusChild = find
-            .descendant(of: halfHour, matching: find.byType(MouseRegion))
-            .first;
-        Focus.of(tester.element(focusChild)).requestFocus();
-        await tester.pump();
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        await tester.pumpAndSettle();
-
-        expect(fixture.api.doNotDisturbDurations.single.wireValue, 30);
-        expect(find.text('Pause notifications for…'), findsNothing);
-
+    testWidgets(
+      'link pause choices to the source account notification schedule',
+      (tester) => _withMenu(tester, TargetPlatform.macOS, (_) async {
+        final launched = _watchBrowser(tester);
         await tester.tap(find.byKey(UserMenuButton.avatarKey));
         await tester.pumpAndSettle();
         await tester.tap(find.byTooltip('Profile'));
         await tester.pumpAndSettle();
-        row = find.byKey(const ValueKey('pause-notifications-row'));
-        expect(
-          tester.getSemantics(row),
-          isSemantics(
-            label: 'Pause notifications',
-            isButton: true,
-            hasToggledState: true,
-            isToggled: true,
-          ),
-        );
-        expect(
-          tester
-              .widget<DIcon>(
-                find.descendant(of: row, matching: find.byType(DIcon)),
-              )
-              .color,
-          Theme.of(tester.element(row)).colorScheme.primary,
-        );
-        expect(find.text('30m'), findsOneWidget);
-
-        await tester.tap(row);
+        await tester.tap(find.byKey(const ValueKey('pause-notifications-row')));
         await tester.pumpAndSettle();
-        expect(fixture.api.doNotDisturbResumes, [_metaUrl]);
-        expect(
-          tester.getSemantics(row),
-          isSemantics(hasToggledState: true, isToggled: false),
+        await tester.tap(find.text('Set a notification schedule'));
+        await tester.pumpAndSettle();
+
+        expect(launched, ['$_metaUrl/u/meta-user/preferences/notifications']);
+      }),
+    );
+
+    testWidgets(
+      'open the custom-status editor from the profile row',
+      (tester) => _withMenu(tester, TargetPlatform.macOS, (_) async {
+        await tester.tap(find.byKey(UserMenuButton.avatarKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Profile'));
+        await tester.pumpAndSettle();
+
+        final status = find.byKey(const ValueKey('user-menu-row-user-status'));
+        expect(status, findsOneWidget);
+
+        await tester.tap(status);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Set custom status'), findsOneWidget);
+        expect(find.text('What’s your status?'), findsOneWidget);
+        expect(find.text('Clear after'), findsOneWidget);
+      }),
+    );
+  });
+
+  group('site-scoped menu content', () {
+    testWidgets(
+      'reloads each selected activity section when an open popover changes sites',
+      (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
+        final api = fixture.api;
+
+        await tester.tap(find.byKey(UserMenuButton.avatarKey));
+        await tester.pumpAndSettle();
+
+        expect(api.notificationSites, [_metaUrl]);
+        expect(find.textContaining('Meta Helper'), findsOneWidget);
+
+        final shell = ShellScope.read(
+          tester.element(find.byType(UserMenuPanel)),
         );
-        expect(
-          tester
-              .widget<DIcon>(
-                find.descendant(of: row, matching: find.byType(DIcon)),
-              )
-              .color,
-          Theme.of(tester.element(row)).colorScheme.onSurfaceVariant,
+        shell.selectInstance(1);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(UserMenuPanel), findsOneWidget);
+        expect(api.notificationSites, [_metaUrl, _teamUrl]);
+        expect(find.textContaining('Team Helper'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Replies'));
+        await tester.pumpAndSettle();
+        expect(api.replySites, [_teamUrl]);
+        expect(find.textContaining('Team reply'), findsOneWidget);
+
+        shell.selectInstance(0);
+        await tester.pumpAndSettle();
+
+        expect(api.replySites, [_teamUrl, _metaUrl]);
+        expect(find.textContaining('Meta reply'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Bookmarks'));
+        await tester.pumpAndSettle();
+        expect(api.bookmarkSites, [_metaUrl]);
+        expect(find.textContaining('Meta chat message'), findsOneWidget);
+
+        shell.selectInstance(1);
+        await tester.pumpAndSettle();
+
+        expect(api.bookmarkSites, [_metaUrl, _teamUrl]);
+        expect(find.textContaining('Team chat message'), findsOneWidget);
+      }),
+    );
+
+    testWidgets(
+      'keeps nested notification actions on their source site',
+      (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
+        final launched = _watchBrowser(tester);
+        final api = fixture.api;
+
+        await _openNestedSection(tester, 'Notifications');
+        final section = find.byType(NotificationSection);
+        final shell = ShellScope.read(tester.element(section));
+
+        shell.selectInstance(1);
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Meta Helper'), findsOneWidget);
+        expect(api.notificationSites, [_metaUrl]);
+
+        await tester.tap(find.textContaining('Meta Helper'));
+        await tester.pumpAndSettle();
+
+        expect(launched, ['$_metaUrl/badges/11/meta-helper']);
+        expect(api.readSites, [(siteUrl: _metaUrl, id: 11)]);
+      }),
+    );
+
+    testWidgets(
+      'keeps nested Replies content on its source site',
+      (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
+        final api = fixture.api;
+
+        await _openNestedSection(tester, 'Replies');
+        final section = find.byType(RepliesSection);
+        final shell = ShellScope.read(tester.element(section));
+
+        shell.selectInstance(1);
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Meta reply'), findsOneWidget);
+        expect(api.replySites, [_metaUrl]);
+      }),
+    );
+
+    testWidgets(
+      'keeps nested bookmark actions on their source site',
+      (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
+        final launched = _watchBrowser(tester);
+        final api = fixture.api;
+
+        await _openNestedSection(tester, 'Bookmarks');
+        final section = find.byType(BookmarkSection);
+        final shell = ShellScope.read(tester.element(section));
+
+        shell.selectInstance(1);
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Meta chat message'), findsOneWidget);
+        expect(api.bookmarkSites, [_metaUrl]);
+
+        await tester.tap(find.textContaining('Meta chat message'));
+        await tester.pumpAndSettle();
+
+        expect(launched, ['$_metaUrl/chat/c/meta/1/31']);
+      }),
+    );
+  });
+
+  group('preferences navigation', () {
+    testWidgets(
+      'closes the pointer menu and restores prior content on Back',
+      (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
+        await tester.tap(find.byKey(UserMenuButton.avatarKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Profile'));
+        await tester.pumpAndSettle();
+
+        final panel = find.byType(UserMenuPanel);
+        final preferences = find.descendant(
+          of: panel,
+          matching: find.byKey(const ValueKey('user-menu-row-preferences')),
         );
-      } finally {
-        semantics.dispose();
-      }
-    }),
-  );
 
-  testWidgets(
-    'touch profile closes both sheets before showing pause choices',
-    (tester) => _withMenu(tester, TargetPlatform.android, (_) async {
-      await _openNestedSection(tester, 'Profile');
-      await tester.tap(find.byKey(const ValueKey('pause-notifications-row')));
-      await tester.pumpAndSettle();
+        final shell = ShellScope.read(tester.element(panel));
+        final priorRoute = shell.currentContent;
+        await tester.tap(preferences);
+        await tester.pumpAndSettle();
 
-      expect(find.text('Pause notifications for…'), findsOneWidget);
-      expect(find.text('Profile'), findsNothing);
-      expect(find.text('Meta User'), findsNothing);
-    }),
-  );
+        expect(find.byType(UserMenuPanel), findsNothing);
+        expect(find.byType(PreferencesPage), findsOneWidget);
+        expect(
+          tester.widget<PreferencesPage>(find.byType(PreferencesPage)).siteUrl,
+          _metaUrl,
+        );
+        expect(shell.currentInstance?.url, _metaUrl);
+        expect(shell.currentContent?.isPreferences, isTrue);
+        expect(fixture.api.userPreferenceLoads, [
+          (siteUrl: _metaUrl, username: 'meta-user', clientId: 'test-client'),
+        ]);
 
-  testWidgets(
-    'pause choices link to the account notification schedule',
-    (tester) => _withMenu(tester, TargetPlatform.macOS, (_) async {
-      final launched = _watchBrowser(tester);
-      await tester.tap(find.byKey(UserMenuButton.avatarKey));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Profile'));
-      await tester.pumpAndSettle();
-      final shell = ShellScope.read(tester.element(find.byType(UserMenuPanel)));
-      final username = shell.currentInstance!.user!.username;
+        await tester.tap(find.byTooltip('Back'));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('pause-notifications-row')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Set a notification schedule'));
-      await tester.pumpAndSettle();
+        expect(find.byType(PreferencesPage), findsNothing);
+        expect(shell.currentContent, priorRoute);
+      }),
+    );
 
-      expect(launched, [
-        '$_metaUrl/u/${Uri.encodeComponent(username)}/preferences/notifications',
-      ]);
-    }),
-  );
+    testWidgets(
+      'closes both touch sheets and keeps the source account',
+      (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
+        await _openNestedSection(tester, 'Profile');
+        final preferences = find.byKey(
+          const ValueKey('user-menu-row-preferences'),
+        );
+        final shell = ShellScope.read(tester.element(preferences));
+        shell.selectInstance(1);
+        await tester.pumpAndSettle();
+        expect(shell.currentInstance?.url, _teamUrl);
 
-  testWidgets(
-    'an open popover requests activity for each selected site',
-    (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
-      final api = fixture.api;
+        await tester.tap(preferences);
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(UserMenuButton.avatarKey));
-      await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('shell-sheet-keyboard-inset')),
+          findsNothing,
+        );
+        expect(find.byType(PreferencesPage), findsOneWidget);
+        expect(
+          tester.widget<PreferencesPage>(find.byType(PreferencesPage)).siteUrl,
+          _metaUrl,
+        );
+        expect(shell.currentInstance?.url, _metaUrl);
+        expect(shell.currentContent?.isPreferences, isTrue);
+        expect(fixture.api.userPreferenceLoads, [
+          (siteUrl: _metaUrl, username: 'meta-user', clientId: 'test-client'),
+        ]);
+      }),
+    );
+  });
 
-      expect(api.notificationSites, [_metaUrl]);
-      expect(find.textContaining('Meta Helper'), findsOneWidget);
+  group('profile source actions', () {
+    testWidgets(
+      'disconnect the nested profile account and retain the exact other account',
+      (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
+        await _openNestedSection(tester, 'Profile');
+        final shell = ShellScope.read(tester.element(find.text('Disconnect')));
+        shell.selectInstance(1);
+        await tester.pumpAndSettle();
 
-      final shell = ShellScope.read(tester.element(find.byType(UserMenuPanel)));
-      shell.selectInstance(1);
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Disconnect'));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(UserMenuPanel), findsOneWidget);
-      expect(api.notificationSites, [_metaUrl, _teamUrl]);
-      expect(find.textContaining('Team Helper'), findsOneWidget);
+        expect(fixture.auth.disconnected, [_metaUrl]);
+        expect(shell.currentInstance?.url, _teamUrl);
+        expect(shell.currentInstance?.user, _teamUser);
+      }),
+    );
 
-      await tester.tap(find.byTooltip('Replies'));
-      await tester.pumpAndSettle();
-      expect(api.replySites, [_teamUrl]);
-      expect(find.textContaining('Team reply'), findsOneWidget);
+    testWidgets(
+      'return to and load the nested profile account for Activity',
+      (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
+        final api = fixture.api;
 
-      shell.selectInstance(0);
-      await tester.pumpAndSettle();
+        await _openNestedSection(tester, 'Profile');
+        final shell = ShellScope.read(tester.element(find.text('Disconnect')));
+        shell.selectInstance(1);
+        await tester.pumpAndSettle();
 
-      expect(api.replySites, [_teamUrl, _metaUrl]);
-      expect(find.textContaining('Meta reply'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('user-menu-row-activity')));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Bookmarks'));
-      await tester.pumpAndSettle();
-      expect(api.bookmarkSites, [_metaUrl]);
-      expect(find.textContaining('Meta chat message'), findsOneWidget);
+        expect(find.byType(UserMenuPanel), findsNothing);
+        expect(find.byType(UserActivityView), findsOneWidget);
+        expect(shell.currentInstance?.url, _metaUrl);
+        expect(shell.currentContent?.id, 'activity');
+        expect(api.userActivitySites, [_metaUrl]);
+        expect(api.userActivityUsers, ['meta-user']);
+      }),
+    );
 
-      shell.selectInstance(1);
-      await tester.pumpAndSettle();
+    testWidgets(
+      'change presence only for the nested profile account',
+      (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
+        final api = fixture.api;
 
-      expect(api.bookmarkSites, [_metaUrl, _teamUrl]);
-      expect(find.textContaining('Team chat message'), findsOneWidget);
-    }),
-  );
+        await _openNestedSection(tester, 'Profile');
+        final shell = ShellScope.read(tester.element(find.text('Online')));
+        shell.selectInstance(1);
+        await tester.pumpAndSettle();
 
-  testWidgets(
-    'a nested notification section keeps its source site',
-    (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
-      final launched = _watchBrowser(tester);
-      final api = fixture.api;
+        await tester.tap(find.text('Online'));
+        await tester.pumpAndSettle();
 
-      await _openNestedSection(tester, 'Notifications');
-      final section = find.byType(NotificationSection);
-      final shell = ShellScope.read(tester.element(section));
-
-      shell.selectInstance(1);
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('Meta Helper'), findsOneWidget);
-      expect(api.notificationSites, [_metaUrl]);
-
-      await tester.tap(find.textContaining('Meta Helper'));
-      await tester.pumpAndSettle();
-
-      expect(launched, ['$_metaUrl/badges/11/meta-helper']);
-      expect(api.readSites, [(siteUrl: _metaUrl, id: 11)]);
-    }),
-  );
-
-  testWidgets(
-    'a nested Replies section keeps its source site',
-    (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
-      final api = fixture.api;
-
-      await _openNestedSection(tester, 'Replies');
-      final section = find.byType(RepliesSection);
-      final shell = ShellScope.read(tester.element(section));
-
-      shell.selectInstance(1);
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('Meta reply'), findsOneWidget);
-      expect(api.replySites, [_metaUrl]);
-    }),
-  );
-
-  testWidgets(
-    'a nested bookmark section keeps its source site',
-    (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
-      final launched = _watchBrowser(tester);
-      final api = fixture.api;
-
-      await _openNestedSection(tester, 'Bookmarks');
-      final section = find.byType(BookmarkSection);
-      final shell = ShellScope.read(tester.element(section));
-
-      shell.selectInstance(1);
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('Meta chat message'), findsOneWidget);
-      expect(api.bookmarkSites, [_metaUrl]);
-
-      await tester.tap(find.textContaining('Meta chat message'));
-      await tester.pumpAndSettle();
-
-      expect(launched, ['$_metaUrl/chat/c/meta/1/31']);
-    }),
-  );
-
-  testWidgets(
-    'a nested profile disconnects its source account',
-    (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
-      final auth = fixture.auth;
-
-      await _openNestedSection(tester, 'Profile');
-      final shell = ShellScope.read(tester.element(find.text('Disconnect')));
-      shell.selectInstance(1);
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Disconnect'));
-      await tester.pumpAndSettle();
-
-      expect(auth.disconnected, [_metaUrl]);
-      expect(shell.currentInstance?.url, _teamUrl);
-      expect(shell.currentInstance?.user, isNotNull);
-    }),
-  );
-
-  testWidgets(
-    'pointer Preferences closes the menu and Back restores prior content',
-    (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
-      await tester.tap(find.byKey(UserMenuButton.avatarKey));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Profile'));
-      await tester.pumpAndSettle();
-
-      final panel = find.byType(UserMenuPanel);
-      final drafts = find.descendant(
-        of: panel,
-        matching: find.byKey(const ValueKey('user-menu-row-drafts')),
-      );
-      final status = find.descendant(
-        of: panel,
-        matching: find.byKey(const ValueKey('user-menu-row-user-status')),
-      );
-      final preferences = find.descendant(
-        of: panel,
-        matching: find.byKey(const ValueKey('user-menu-row-preferences')),
-      );
-      expect(drafts, findsOneWidget);
-      expect(status, findsOneWidget);
-      expect(tester.widget<InkWell>(drafts).onTap, isNotNull);
-      expect(tester.widget<InkWell>(status).onTap, isNotNull);
-
-      final shell = ShellScope.read(tester.element(panel));
-      final priorRoute = shell.currentContent;
-      final sourceUsername = shell.currentInstance!.user!.username;
-      await tester.tap(preferences);
-      await tester.pumpAndSettle();
-
-      expect(find.byType(UserMenuPanel), findsNothing);
-      expect(find.byType(PreferencesPage), findsOneWidget);
-      expect(
-        tester.widget<PreferencesPage>(find.byType(PreferencesPage)).siteUrl,
-        _metaUrl,
-      );
-      expect(shell.currentInstance?.url, _metaUrl);
-      expect(shell.currentContent?.isPreferences, isTrue);
-      expect(fixture.api.userPreferenceLoads.single.siteUrl, _metaUrl);
-      expect(fixture.api.userPreferenceLoads.single.username, sourceUsername);
-      expect(fixture.api.userPreferenceLoads.single.clientId, 'test-client');
-
-      await tester.tap(find.byTooltip('Back'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(PreferencesPage), findsNothing);
-      expect(shell.currentContent, priorRoute);
-    }),
-  );
-
-  testWidgets(
-    'touch Preferences closes both sheets and keeps its source account',
-    (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
-      await _openNestedSection(tester, 'Profile');
-      final preferences = find.byKey(
-        const ValueKey('user-menu-row-preferences'),
-      );
-      final shell = ShellScope.read(tester.element(preferences));
-      final sourceUsername = shell.instanceFor(_metaUrl)!.user!.username;
-
-      shell.selectInstance(1);
-      await tester.pumpAndSettle();
-      expect(shell.currentInstance?.url, _teamUrl);
-
-      await tester.tap(preferences);
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byKey(const ValueKey('shell-sheet-keyboard-inset')),
-        findsNothing,
-      );
-      expect(find.byType(PreferencesPage), findsOneWidget);
-      expect(
-        tester.widget<PreferencesPage>(find.byType(PreferencesPage)).siteUrl,
-        _metaUrl,
-      );
-      expect(shell.currentInstance?.url, _metaUrl);
-      expect(shell.currentContent?.isPreferences, isTrue);
-      expect(fixture.api.userPreferenceLoads.single.siteUrl, _metaUrl);
-      expect(fixture.api.userPreferenceLoads.single.username, sourceUsername);
-      expect(fixture.api.userPreferenceLoads.single.clientId, 'test-client');
-    }),
-  );
-
-  testWidgets(
-    'profile Activity returns to and loads its source account',
-    (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
-      final api = fixture.api;
-
-      await _openNestedSection(tester, 'Profile');
-      final shell = ShellScope.read(tester.element(find.text('Disconnect')));
-      shell.selectInstance(1);
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const ValueKey('user-menu-row-activity')));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(UserMenuPanel), findsNothing);
-      expect(find.byType(UserActivityView), findsOneWidget);
-      expect(shell.currentInstance?.url, _metaUrl);
-      expect(shell.currentContent?.id, 'activity');
-      expect(api.userActivitySites, [_metaUrl]);
-      expect(api.userActivityUsers, ['meta-user']);
-    }),
-  );
-
-  testWidgets(
-    'a nested profile changes presence only for its source account',
-    (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
-      final api = fixture.api;
-
-      await _openNestedSection(tester, 'Profile');
-      final shell = ShellScope.read(tester.element(find.text('Online')));
-      shell.selectInstance(1);
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Online'));
-      await tester.pumpAndSettle();
-
-      expect(api.presenceUpdates, [
-        (siteUrl: _metaUrl, username: 'meta-user', hidePresence: true),
-      ]);
-      expect(shell.hidePresenceFor(_metaUrl), isTrue);
-      expect(shell.hidePresenceFor(_teamUrl), isTrue);
-    }),
-  );
+        expect(api.presenceUpdates, [
+          (siteUrl: _metaUrl, username: 'meta-user', hidePresence: true),
+        ]);
+        expect(shell.hidePresenceFor(_metaUrl), isTrue);
+        expect(shell.hidePresenceFor(_teamUrl), isTrue);
+      }),
+    );
+  });
 }
 
 Future<void> _focusTab(WidgetTester tester, Finder tab) async {
@@ -604,7 +619,9 @@ Future<_MenuFixture> _pumpMenu(WidgetTester tester) async {
       config: const SiteConfig(userStatusEnabled: true),
     ),
   ];
-  final api = _SiteMenuApi();
+  final api = _SiteMenuApi(
+    doNotDisturbUntil: DateTime.now().add(const Duration(minutes: 30)),
+  );
   final auth = FakeAuthenticator()
     ..keys[_metaUrl] = 'meta-key'
     ..keys[_teamUrl] = 'team-key';
@@ -647,8 +664,9 @@ List<String> _watchBrowser(WidgetTester tester) {
 }
 
 final class _SiteMenuApi extends FakeDiscourseApi {
-  _SiteMenuApi()
+  _SiteMenuApi({required DateTime doNotDisturbUntil})
     : super(
+        doNotDisturbUntil: doNotDisturbUntil,
         siteConfigs: const {
           _metaUrl: SiteConfig(userStatusEnabled: true),
           _teamUrl: SiteConfig(userStatusEnabled: true),

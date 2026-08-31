@@ -94,10 +94,9 @@ void main() {
 
     expect(host.currentContent?.id, 'resenha-room-7');
     expect(host.currentContent?.title, 'Watercooler');
-    expect(
-      transport.reads.map((request) => request.path),
-      contains('/resenha/rooms.json'),
-    );
+    expect(transport.reads.map((request) => request.path), [
+      '/resenha/rooms.json',
+    ]);
   });
 
   testWidgets('a cooked room without Resenha falls back to its safe link', (

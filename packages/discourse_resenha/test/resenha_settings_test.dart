@@ -101,14 +101,39 @@ void main() {
       },
     }, extensions: _registry);
 
-    expect(config.resenhaSettings.enabled, isTrue);
-    expect(config.resenhaSettings.videoMaxPublishers, 6);
-    expect(config.resenhaSettings.maxCameraQuality, 'high');
-    expect(config.resenhaSettings.chatEnabled, isFalse);
     expect(
-      config.toJson(extensions: _registry)['plugins'],
-      contains(resenhaSettingsDataKey.id),
+      config.resenhaSettings,
+      const ResenhaClientConfig(
+        enabled: true,
+        videoEnabled: true,
+        videoMaxPublishers: 6,
+        recordingEnabled: true,
+        maxVoiceQuality: 'standard',
+        maxCameraQuality: 'high',
+        maxScreenShareQuality: 'maximum',
+        idleThresholdMinutes: 4,
+        afkAutoMuteThresholdMinutes: 14,
+        afkDisconnectThresholdMinutes: 34,
+        autoStatusEnabled: true,
+        chatEnabled: false,
+      ),
     );
+    expect(config.toJson(extensions: _registry)['plugins'], {
+      resenhaSettingsDataKey.id: {
+        'enabled': true,
+        'videoEnabled': true,
+        'videoMaxPublishers': 6,
+        'recordingEnabled': true,
+        'maxVoiceQuality': 'standard',
+        'maxCameraQuality': 'high',
+        'maxScreenShareQuality': 'maximum',
+        'idleThresholdMinutes': 4,
+        'afkAutoMuteThresholdMinutes': 14,
+        'afkDisconnectThresholdMinutes': 34,
+        'autoStatusEnabled': true,
+        'chatEnabled': false,
+      },
+    });
   });
 
   test('site-feature compatibility dispatch uses typed Resenha settings', () {

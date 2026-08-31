@@ -160,7 +160,7 @@ void main() {
       },
     );
 
-    test('topic details skip malformed posts and stream ids', () {
+    test('topic details skip malformed posts and stream IDs', () {
       final payload = TopicDetail.parse({
         'id': 7,
         'details': 'not an object',

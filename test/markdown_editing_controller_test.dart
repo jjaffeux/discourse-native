@@ -137,7 +137,7 @@ void main() {
     expect(controller.scans, after);
   });
 
-  testWidgets('typing does read it again', (tester) async {
+  testWidgets('changing text rescans the markdown source', (tester) async {
     await pumpField(tester, 'say');
     final before = controller.scans;
 
@@ -424,7 +424,7 @@ void main() {
       expect(find.byType(EmojiImage), findsOneWidget);
     });
 
-    testWidgets('and the text is still every character of it', (tester) async {
+    testWidgets('preserves every source character', (tester) async {
       const source = 'hey :smile: there';
       await pumpWithEmoji(tester, source);
 
@@ -442,7 +442,7 @@ void main() {
       );
     });
 
-    testWidgets('the caret still lands where it is drawn', (tester) async {
+    testWidgets('preserves caret hit testing', (tester) async {
       const source = 'hey :smile: there';
       await pumpWithEmoji(tester, source);
 
@@ -507,7 +507,7 @@ void main() {
     });
   });
 
-  group('pills', () {
+  group('pill projection', () {
     late Map<String, FoundHashtag?> known;
     late Map<String, bool> real;
     late List<Set<String>> refBatches;
@@ -729,7 +729,7 @@ void main() {
       );
     });
 
-    testWidgets('the caret still lands where it is drawn', (tester) async {
+    testWidgets('preserves caret hit testing', (tester) async {
       known['bug'] = bug;
       await pumpAway(tester, 'filed under #bug today');
 
@@ -1013,6 +1013,22 @@ void main() {
         resolve: (refs, names) {},
       );
 
+      // RenderEditable.plainText delegates to this exact span flattening.
+      // The fixed widget cases above cover that handoff; build the randomized
+      // spans directly so this property pays for projection, not 1,600 frames.
+      late BuildContext spanContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Builder(
+            builder: (context) {
+              spanContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
       final random = Random(31337);
       for (var round = 0; round < 400; round++) {
         final buffer = StringBuffer();
@@ -1021,36 +1037,50 @@ void main() {
         }
         final source = buffer.toString();
 
-        await pumpField(tester, source, resolveEmoji: urlFor, pills: pills);
+        final candidate = MarkdownEditingController(
+          text: source,
+          resolveEmoji: urlFor,
+          pills: pills,
+          syntaxPolicies: const [_FakeSyntaxPolicy()],
+        );
 
-        // Both ends and the middle: a caret touching a run is what keeps it
-        // as characters, so each offset paints a different set of spans.
-        for (final caret in <int>{0, source.length ~/ 2, source.length}) {
-          controller.selection = TextSelection.collapsed(offset: caret);
-          await tester.pump();
-
-          final painted = editable(tester).renderEditable.plainText;
-          expect(
-            painted.length,
-            source.length,
-            reason:
+        try {
+          // Both ends and the middle: a caret touching a run is what keeps it
+          // as characters, so each offset paints a different set of spans.
+          for (final caret in <int>{0, source.length ~/ 2, source.length}) {
+            candidate.selection = TextSelection.collapsed(offset: caret);
+            final painted = candidate
+                .buildTextSpan(
+                  context: spanContext,
+                  style: const TextStyle(),
+                  withComposing: false,
+                )
+                .toPlainText(includeSemanticsLabels: false);
+            if (painted.length != source.length) {
+              fail(
                 'caret $caret on ${jsonEncode(source)} painted '
                 '${jsonEncode(painted)}',
-          );
-          for (var i = 0; i < painted.length; i++) {
-            if (painted.codeUnitAt(i) == 0xFFFC) continue;
-            expect(
-              painted[i],
-              source[i],
-              reason:
-                  'offset $i, caret $caret on ${jsonEncode(source)} '
-                  'painted ${jsonEncode(painted)}',
-            );
+              );
+            }
+            for (var i = 0; i < painted.length; i++) {
+              if (painted.codeUnitAt(i) == 0xFFFC || painted[i] == source[i]) {
+                continue;
+              }
+              fail(
+                'offset $i, caret $caret on ${jsonEncode(source)} '
+                'painted ${jsonEncode(painted)}',
+              );
+            }
           }
+        } finally {
+          candidate.dispose();
         }
       }
     });
-    testWidgets('so does every block a pill stands in for', (tester) async {
+
+    testWidgets('every projected block preserves the source-length invariant', (
+      tester,
+    ) async {
       // The block projections are the other half: a quote, an image, and
       // arbitrary plugin syntax each replace a whole range with one pill and
       // account for every remaining code unit themselves — as a transparent
@@ -1091,7 +1121,13 @@ void main() {
         '> ',
       ];
 
+      // Keep the real EditableText layout path, but update one mounted field
+      // throughout the generated corpus instead of rebuilding MaterialApp,
+      // Theme, and Scaffold for every source.
+      await pumpField(tester, '');
+
       final random = Random(4242);
+      final reachedProjectionKinds = <String>{};
       for (var round = 0; round < 300; round++) {
         final buffer = StringBuffer();
         for (var i = 0; i < random.nextInt(10); i++) {
@@ -1099,7 +1135,17 @@ void main() {
         }
         final source = buffer.toString();
 
-        await pumpField(tester, source);
+        controller.value = TextEditingValue(text: source);
+        await tester.pump();
+        if (controller.quoteBlocks.isNotEmpty) {
+          reachedProjectionKinds.add('quote');
+        }
+        if (controller.imageBlocks.isNotEmpty) {
+          reachedProjectionKinds.add('image');
+        }
+        if (controller.syntaxBlocks.isNotEmpty) {
+          reachedProjectionKinds.add('plugin syntax');
+        }
         expect(
           tester.takeException(),
           isNull,
@@ -1121,6 +1167,8 @@ void main() {
           );
         }
       }
+
+      expect(reachedProjectionKinds, {'quote', 'image', 'plugin syntax'});
     });
   });
 }

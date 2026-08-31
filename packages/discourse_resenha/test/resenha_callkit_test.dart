@@ -191,12 +191,16 @@ void main() {
       final oldSystemCall = NativeResenhaSystemCall(
         audioSessionForTesting: oldAudio,
       );
+      addTearDown(oldSystemCall.dispose);
       await oldSystemCall.audioSessionReadyForTesting;
       expect(state.owner, 'old');
       expect(state.mode, 'external');
 
       final resetStarted = Completer<void>();
       final resetGate = Completer<void>();
+      addTearDown(() {
+        if (!resetGate.isCompleted) resetGate.complete();
+      });
       oldAudio
         ..resetStarted = resetStarted
         ..resetGate = resetGate;

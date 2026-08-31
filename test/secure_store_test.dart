@@ -5,8 +5,8 @@ import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('client id', () {
-    test('reuses the persisted id without generating a replacement', () async {
+  group('client ID', () {
+    test('reuses the persisted ID without generating a replacement', () async {
       var generations = 0;
       final storage = _FakeStorage();
       final clientIds = _FakeClientIds('persisted');
@@ -26,7 +26,7 @@ void main() {
       expect(storage.events, isEmpty);
     });
 
-    test('copies the old private-storage id to preferences once', () async {
+    test('copies the old private-storage ID to preferences once', () async {
       final storage = _FakeStorage({'client_id': 'legacy-id'});
       final clientIds = _FakeClientIds();
       final store = SecureStore(
@@ -41,7 +41,7 @@ void main() {
       expect(storage.events, ['read:client_id']);
     });
 
-    test('creates a missing id in preferences', () async {
+    test('creates a missing ID in preferences', () async {
       final storage = _FakeStorage();
       final clientIds = _FakeClientIds();
       final store = SecureStore(
@@ -83,11 +83,10 @@ void main() {
         'generated-id',
       ]);
       expect(generations, 1);
-      expect(clientIds.events.where((event) => event == 'read'), hasLength(1));
-      expect(clientIds.events.where((event) => event == 'write'), hasLength(1));
+      expect(clientIds.events, ['read', 'write']);
     });
 
-    test('replacement stores share one client-id creation cycle', () async {
+    test('replacement stores share one client ID creation cycle', () async {
       final readGate = Completer<void>();
       final readStarted = Completer<void>();
       final clientIds = _FakeClientIds()
@@ -136,7 +135,7 @@ void main() {
       expect(clientIds.events, ['read', 'write', 'read', 'read']);
     });
 
-    test('different client-id persistence owners remain independent', () async {
+    test('different client ID persistence owners remain independent', () async {
       final firstReadGate = Completer<void>();
       final firstReadStarted = Completer<void>();
       final firstClientIds = _FakeClientIds()
@@ -178,11 +177,11 @@ void main() {
       clientIds.writeError = null;
 
       expect(await store.readOrCreateClientId(), 'generated-id');
-      expect(clientIds.events.where((event) => event == 'read'), hasLength(2));
+      expect(clientIds.events, ['read', 'write', 'read', 'write']);
     });
   });
 
-  group('API keys', () {
+  group('API key storage', () {
     test('keeps credentials isolated by site', () async {
       final storage = _FakeStorage();
       final store = SecureStore(storage: storage);
@@ -423,7 +422,6 @@ void main() {
       await store.deleteApiKey('https://meta.discourse.org');
 
       expect(storage.values, isEmpty);
-      expect(storage.events, ['delete:api_key::https://meta.discourse.org']);
       expect(await store.readApiKey('https://meta.discourse.org'), isNull);
       expect(storage.events, ['delete:api_key::https://meta.discourse.org']);
     });

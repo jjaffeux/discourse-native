@@ -15,62 +15,71 @@ const _counter = PluginNotificationCounter(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test(
-    'account events are scoped to registered counters owned by the caller',
-    () {
-      PluginAccountEventsHost? accountEvents;
-      final installed = PluginInstaller.install(
-        PluginManifest([_CounterModule((host) => accountEvents = host)]),
-      );
-      final shell = ShellController(
-        instanceStore: FakeInstanceStore(),
-        api: FakeDiscourseApi(),
-        authenticator: FakeAuthenticator(),
-        drafts: FakeDraftStore(),
-        trackers: FakeSiteTracker.reset(),
-        plugins: installed,
-      );
-      addTearDown(shell.dispose);
-      addTearDown(installed.close);
+  test('registered counters update their site total', () {
+    final (:host, :shell) = _fixture();
 
-      shell.pluginSession;
-      final host = accountEvents!;
-      host.updateNotificationCounter(
+    host.updateNotificationCounter(
+      'https://example.com',
+      _counter.id,
+      (current) => current + 3,
+    );
+
+    expect(
+      shell.accountActivity
+          .totalsFor('https://example.com')
+          ?.pluginCounter(_counter.id),
+      3,
+    );
+  });
+
+  test('account events reject counter IDs owned by another plugin', () {
+    final host = _fixture().host;
+
+    expect(
+      () => host.updateNotificationCounter(
         'https://example.com',
-        _counter.id,
-        (current) => current + 3,
-      );
+        const PluginNotificationCounterId(
+          owner: PluginId('other'),
+          name: 'alerts',
+        ),
+        (current) => current + 1,
+      ),
+      throwsA(isA<PluginInstallationException>()),
+    );
+  });
 
-      expect(
-        shell.accountActivity
-            .totalsFor('https://example.com')
-            ?.pluginCounter(_counter.id),
-        3,
-      );
-      expect(
-        () => host.updateNotificationCounter(
-          'https://example.com',
-          const PluginNotificationCounterId(
-            owner: PluginId('other'),
-            name: 'alerts',
-          ),
-          (current) => current + 1,
-        ),
-        throwsA(isA<PluginInstallationException>()),
-      );
-      expect(
-        () => host.updateNotificationCounter(
-          'https://example.com',
-          const PluginNotificationCounterId(
-            owner: _owner,
-            name: 'unregistered',
-          ),
-          (current) => current + 1,
-        ),
-        throwsA(isA<PluginInstallationException>()),
-      );
-    },
+  test('account events reject unregistered counter IDs', () {
+    final host = _fixture().host;
+
+    expect(
+      () => host.updateNotificationCounter(
+        'https://example.com',
+        const PluginNotificationCounterId(owner: _owner, name: 'unregistered'),
+        (current) => current + 1,
+      ),
+      throwsA(isA<PluginInstallationException>()),
+    );
+  });
+}
+
+({PluginAccountEventsHost host, ShellController shell}) _fixture() {
+  PluginAccountEventsHost? accountEvents;
+  final installed = PluginInstaller.install(
+    PluginManifest([_CounterModule((host) => accountEvents = host)]),
   );
+  final shell = ShellController(
+    instanceStore: FakeInstanceStore(),
+    api: FakeDiscourseApi(),
+    authenticator: FakeAuthenticator(),
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+    plugins: installed,
+  );
+  addTearDown(shell.dispose);
+  addTearDown(installed.close);
+
+  shell.pluginSession;
+  return (host: accountEvents!, shell: shell);
 }
 
 final class _CounterModule implements PluginModule {

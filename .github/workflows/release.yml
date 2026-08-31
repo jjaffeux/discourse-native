@@ -160,9 +160,10 @@ jobs:
       - name: Analyze and test
         run: |
           flutter analyze
-          flutter test
+          flutter test --test-randomize-ordering-seed=random
           (cd packages/discourse_resenha && flutter analyze)
-          (cd packages/discourse_resenha && flutter test)
+          (cd packages/discourse_resenha && \
+            flutter test --test-randomize-ordering-seed=random)
           (cd profiles/full && flutter analyze)
 
       - name: Build

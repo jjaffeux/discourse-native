@@ -41,6 +41,12 @@ void main() {
     expect(registry.siteUrls, {secondSite});
     betaSecond.release();
     expect(registry.siteUrls, isEmpty);
+    expect(changes, [
+      {firstSite},
+      {firstSite, secondSite},
+      {secondSite},
+      <String>{},
+    ]);
   });
 
   test('an owner can be revoked without touching another owner', () {

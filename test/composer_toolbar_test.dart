@@ -26,73 +26,75 @@ void main() {
     composer.dispose();
   });
 
-  test('marks up the selection', () {
-    open('say hello');
-    composer.text.selection = const TextSelection(
-      baseOffset: 4,
-      extentOffset: 9,
-    );
+  group('ComposerController.toggleMark', () {
+    test('wraps the current selection in the requested mark', () {
+      open('say hello');
+      composer.text.selection = const TextSelection(
+        baseOffset: 4,
+        extentOffset: 9,
+      );
 
-    composer.toggleMark(ComposerMark.bold);
+      composer.toggleMark(ComposerMark.bold);
 
-    expect(composer.text.text, 'say **hello**');
-  });
+      expect(composer.text.text, 'say **hello**');
+    });
 
-  test('marks compose', () {
-    open('say hello');
-    composer.text.selection = const TextSelection(
-      baseOffset: 4,
-      extentOffset: 9,
-    );
+    test('composes multiple marks around the same selection', () {
+      open('say hello');
+      composer.text.selection = const TextSelection(
+        baseOffset: 4,
+        extentOffset: 9,
+      );
 
-    composer.toggleMark(ComposerMark.bold);
-    composer.toggleMark(ComposerMark.italic);
+      composer.toggleMark(ComposerMark.bold);
+      composer.toggleMark(ComposerMark.italic);
 
-    expect(composer.text.text, 'say ***hello***');
-  });
+      expect(composer.text.text, 'say ***hello***');
+    });
 
-  test('unmarking takes it away again', () {
-    open('**say hello**');
-    composer.text.selection = const TextSelection(
-      baseOffset: 0,
-      extentOffset: 13,
-    );
+    test('removes an existing mark when toggled again', () {
+      open('**say hello**');
+      composer.text.selection = const TextSelection(
+        baseOffset: 0,
+        extentOffset: 13,
+      );
 
-    composer.toggleMark(ComposerMark.bold);
+      composer.toggleMark(ComposerMark.bold);
 
-    expect(composer.text.text, 'say hello');
-  });
+      expect(composer.text.text, 'say hello');
+    });
 
-  test('does not mark up a selected quote', () {
-    const quote = '[quote="sam"]\nQuoted words.\n[/quote]';
-    open(quote);
-    composer.text.selection = const TextSelection(
-      baseOffset: 0,
-      extentOffset: quote.length,
-    );
+    test('leaves a selected quote unchanged', () {
+      const quote = '[quote="sam"]\nQuoted words.\n[/quote]';
+      open(quote);
+      composer.text.selection = const TextSelection(
+        baseOffset: 0,
+        extentOffset: quote.length,
+      );
 
-    composer.toggleMark(ComposerMark.bold);
-    composer.toggleMark(ComposerMark.italic);
+      composer.toggleMark(ComposerMark.bold);
+      composer.toggleMark(ComposerMark.italic);
 
-    expect(composer.text.text, quote);
-  });
+      expect(composer.text.text, quote);
+    });
 
-  test('does not insert a mark at a quote opening boundary', () {
-    const quote = '[quote="sam"]\nQuoted words.\n[/quote]';
-    const source = 'Before\n\n$quote';
-    open(source);
-    final quoteStart = source.indexOf('[quote');
-    composer.text.selection = TextSelection.collapsed(offset: quoteStart);
+    test('leaves a quote opening boundary unchanged', () {
+      const quote = '[quote="sam"]\nQuoted words.\n[/quote]';
+      const source = 'Before\n\n$quote';
+      open(source);
+      final quoteStart = source.indexOf('[quote');
+      composer.text.selection = TextSelection.collapsed(offset: quoteStart);
 
-    composer.toggleMark(ComposerMark.bold);
-    expect(composer.text.text, source);
+      composer.toggleMark(ComposerMark.bold);
+      expect(composer.text.text, source);
 
-    composer.text.selection = TextSelection(
-      baseOffset: 0,
-      extentOffset: quoteStart,
-    );
-    composer.toggleMark(ComposerMark.italic);
+      composer.text.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: quoteStart,
+      );
+      composer.toggleMark(ComposerMark.italic);
 
-    expect(composer.text.text, source);
+      expect(composer.text.text, source);
+    });
   });
 }

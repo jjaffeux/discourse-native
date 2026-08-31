@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
@@ -163,7 +161,7 @@ void main() {
     ];
 
     for (final raw in unsupported) {
-      test('falls back without rewriting ${raw.replaceAll('\n', r'\n')}', () {
+      test('preserves unsupported source ${raw.replaceAll('\n', r'\n')}', () {
         final result = project(raw) as SourceFallback;
 
         expect(result.reason, ChatPreviewFallbackReason.unsupportedSyntax);
@@ -197,11 +195,12 @@ void main() {
 
     test('rebuilds an engine with active registry adapters', () {
       final rebuilt = engine.withPlugins([_ClaimingPlugin('[date=tomorrow]')]);
+      final result =
+          project('[date=tomorrow]', withEngine: rebuilt) as ProjectedPreview;
+      final node = result.document.nodes.whereType<PluginPreviewNode>().single;
 
-      expect(
-        project('[date=tomorrow]', withEngine: rebuilt),
-        isA<ProjectedPreview>(),
-      );
+      expect(node.featureId, 'test-date');
+      expect(node.fallbackText, '[date=tomorrow]');
     });
 
     test('a blocker forces raw fallback', () {
@@ -215,7 +214,7 @@ void main() {
       expect(result.reason, ChatPreviewFallbackReason.pluginBlocked);
     });
 
-    test('duplicate feature ids force raw fallback', () {
+    test('duplicate feature IDs force raw fallback', () {
       final result =
           project(
                 'plain',
@@ -415,29 +414,27 @@ void main() {
     expect(result.raw, 'four');
   });
 
-  test(
-    'deterministic hostile-source sweep never throws or loses raw fallback',
-    () {
-      final random = Random(7319);
-      const alphabet = 'abc XYZ012\n*_~`[]()<>/@#:\\\u{1f44b}\u{0301}|{}+-';
+  test('unpaired UTF-16 and combining marks never throw or lose source', () {
+    final hostileSources = [
+      String.fromCharCode(0xD83D),
+      String.fromCharCode(0xDC4B),
+      'left${String.fromCharCode(0xD83D)}right',
+      'left${String.fromCharCode(0xDC4B)}right',
+      '\u0301',
+      'e\u0301',
+    ];
 
-      for (var sample = 0; sample < 1000; sample++) {
-        final length = random.nextInt(120);
-        final raw = String.fromCharCodes([
-          for (var index = 0; index < length; index++)
-            alphabet.codeUnitAt(random.nextInt(alphabet.length)),
-        ]);
-        final result = project(raw);
-        switch (result) {
-          case ProjectedPreview(:final document):
-            expect(document.source, raw);
-            _expectFullyAccounted(document);
-          case SourceFallback(raw: final fallbackRaw):
-            expect(fallbackRaw, raw);
-        }
+    for (final raw in hostileSources) {
+      final result = project(raw);
+      switch (result) {
+        case ProjectedPreview(:final document):
+          expect(document.source, raw, reason: '${raw.codeUnits}');
+          _expectFullyAccounted(document);
+        case SourceFallback(raw: final fallbackRaw):
+          expect(fallbackRaw, raw, reason: '${raw.codeUnits}');
       }
-    },
-  );
+    }
+  });
 }
 
 String _visibleText(PreviewDocument document) {

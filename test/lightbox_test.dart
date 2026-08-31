@@ -287,19 +287,13 @@ void main() {
   });
 
   group('LightboxImage.galleryFor', () {
-    test('collects every image in the post, in the order they are written', () {
-      final gallery = LightboxImage.galleryFor(anchorIn(threeImages));
-
-      expect(gallery.map((i) => i.title), ['one.png', 'two.png', 'three.png']);
-    });
-
-    test('includes spoilered images, matching the web client', () {
+    test('collects every image, including spoilers, in written order', () {
       // `*:not(.spoiler):not(.spoiled) .lightbox` reads as an exclusion but
       // does not act as one: div.lightbox-wrapper is itself an ancestor that
       // is neither, so the descendant combinator is satisfied.
       final gallery = LightboxImage.galleryFor(anchorIn(threeImages));
 
-      expect(gallery.map((i) => i.title), contains('two.png'));
+      expect(gallery.map((i) => i.title), ['one.png', 'two.png', 'three.png']);
     });
 
     test('is the same gallery whichever image it is asked about', () {
@@ -757,7 +751,9 @@ void main() {
       expect(find.text('2 / 3'), findsNothing);
     });
 
-    testWidgets('mouse-wheel zoom works over a toolbar button', (tester) async {
+    testWidgets('scrolling up over a toolbar button increases image scale', (
+      tester,
+    ) async {
       await pumpGallery(tester);
       final controller = photoControllerAt(tester, 0);
       final initialScale = controller.scale!;

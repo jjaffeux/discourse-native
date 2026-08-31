@@ -22,7 +22,7 @@ void main() {
       expect(ChatRoute.parse(members.routeId), members);
     });
 
-    test('rejects aliases, prefixes, suffixes, and invalid ids', () {
+    test('rejects aliases, prefixes, suffixes, and invalid IDs', () {
       for (final value in [
         '',
         'chat-c-',
@@ -44,7 +44,7 @@ void main() {
       }
     });
 
-    test('factories refuse non-positive ids', () {
+    test('factories refuse non-positive IDs', () {
       expect(() => ChatRoute.channel(0), throwsArgumentError);
       expect(
         () => ChatRoute.thread(channelId: 9, threadId: -1),

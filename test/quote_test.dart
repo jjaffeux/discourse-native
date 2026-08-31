@@ -46,7 +46,7 @@ QuoteData parse(String source) {
 
 void main() {
   group('QuoteData', () {
-    test('reads the attribution of a quoted post', () {
+    test('reads a quoted post attribution without its controls', () {
       final data = parse(postQuote);
 
       expect(data.username, 'martin');
@@ -57,10 +57,6 @@ void main() {
       );
       expect(data.link, isNull);
       expect(data.bodyHtml, contains('combining New and Unread'));
-    });
-
-    test('drops the quote controls from the attribution', () {
-      expect(parse(postQuote).title, isNot(contains('quote-controls')));
     });
 
     test('reads a cross-topic quote as a link to its source', () {

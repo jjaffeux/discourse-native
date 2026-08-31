@@ -154,115 +154,119 @@ Future<void> _seed(PreferencesController controller) async {
 void main() {
   // Deliberately no TestWidgetsFlutterBinding.ensureInitialized(): this file
   // also pins that the controller remains usable by headless entry points.
-  test('loads the connected account and saves a server-backed edit', () async {
-    final saved = <UserPreferences>[];
-    final api = _PreferencesApi();
-    final credentials = _ReadyCredentials();
-    final controller = _controller(
-      api,
-      credentials: credentials,
-      onSaved: (_, _, preferences) => saved.add(preferences),
+  group('section-scoped saves', () {
+    test(
+      'loads the connected account and saves a server-backed edit',
+      () async {
+        final saved = <UserPreferences>[];
+        final api = _PreferencesApi();
+        final credentials = _ReadyCredentials();
+        final controller = _controller(
+          api,
+          credentials: credentials,
+          onSaved: (_, _, preferences) => saved.add(preferences),
+        );
+        addTearDown(controller.dispose);
+
+        await controller.load(_accountA);
+
+        expect(api.loads, [
+          (
+            siteUrl: _siteUrl,
+            apiKey: 'api-key',
+            clientId: 'test-client',
+            username: 'alice',
+          ),
+        ]);
+        expect(controller.stateFor(_siteUrl)?.draft, _initial);
+
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.notifications,
+          (current) => current.copyWith(notifyOnLinkedPosts: false),
+        );
+
+        expect(
+          await controller.save(_accountA, PreferenceSection.notifications),
+          isTrue,
+        );
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.dirty(PreferenceSection.notifications), isFalse);
+        expect(state.savedSection, PreferenceSection.notifications);
+        expect(state.saving, isFalse);
+        expect(saved.single.notifyOnLinkedPosts, isFalse);
+        expect(credentials.sites, [_siteUrl, _siteUrl]);
+      },
     );
-    addTearDown(controller.dispose);
 
-    await controller.load(_accountA);
+    test(
+      'forwards each supported section as one flat partial payload',
+      () async {
+        expect(PreferenceSection.values, [
+          PreferenceSection.profile,
+          PreferenceSection.notifications,
+          PreferenceSection.tracking,
+          PreferenceSection.interface,
+        ]);
 
-    expect(api.loads, [
-      (
-        siteUrl: _siteUrl,
-        apiKey: 'api-key',
-        clientId: 'test-client',
-        username: 'alice',
-      ),
-    ]);
-    expect(controller.stateFor(_siteUrl)?.draft, _initial);
+        final cases =
+            <
+              PreferenceSection,
+              ({
+                UserPreferences Function(UserPreferences) change,
+                Map<String, Object?> payload,
+              })
+            >{
+              PreferenceSection.profile: (
+                change: (current) => current.copyWith(timezone: 'Europe/Paris'),
+                payload: const {'timezone': 'Europe/Paris'},
+              ),
+              PreferenceSection.notifications: (
+                change: (current) => current.copyWith(
+                  likeNotificationFrequency: 3,
+                  notifyOnLinkedPosts: false,
+                ),
+                payload: const {
+                  'like_notification_frequency': 3,
+                  'notify_on_linked_posts': false,
+                },
+              ),
+              PreferenceSection.tracking: (
+                change: (current) => current.copyWith(
+                  newTopicDurationMinutes: 10080,
+                  autoTrackTopicsAfterMsecs: 60000,
+                  notificationLevelWhenReplying: 3,
+                ),
+                payload: const {
+                  'new_topic_duration_minutes': 10080,
+                  'auto_track_topics_after_msecs': 60000,
+                  'notification_level_when_replying': 3,
+                },
+              ),
+              PreferenceSection.interface: (
+                change: (current) => current.copyWith(
+                  bookmarkAutoDeletePreference:
+                      BookmarkAutoDeletePreference.onOwnerReply,
+                ),
+                payload: const {'bookmark_auto_delete_preference': 2},
+              ),
+            };
 
-    controller.edit(
-      _siteUrl,
-      PreferenceSection.notifications,
-      (current) => current.copyWith(notifyOnLinkedPosts: false),
+        for (final MapEntry(key: section, value: testCase) in cases.entries) {
+          final api = _PreferencesApi();
+          final controller = _controller(api);
+          addTearDown(controller.dispose);
+          await _seed(controller);
+
+          controller.edit(_siteUrl, section, testCase.change);
+          expect(await controller.save(_accountA, section), isTrue);
+
+          expect(api.updates.single.values, testCase.payload);
+        }
+      },
     );
 
-    expect(
-      await controller.save(_accountA, PreferenceSection.notifications),
-      isTrue,
-    );
-    final state = controller.stateFor(_siteUrl)!;
-    expect(state.dirty(PreferenceSection.notifications), isFalse);
-    expect(state.savedSection, PreferenceSection.notifications);
-    expect(state.saving, isFalse);
-    expect(saved.single.notifyOnLinkedPosts, isFalse);
-    expect(credentials.sites, [_siteUrl, _siteUrl]);
-  });
-
-  test('forwards each supported section as one flat partial payload', () async {
-    expect(PreferenceSection.values, [
-      PreferenceSection.profile,
-      PreferenceSection.notifications,
-      PreferenceSection.tracking,
-      PreferenceSection.interface,
-    ]);
-
-    final cases =
-        <
-          PreferenceSection,
-          ({
-            UserPreferences Function(UserPreferences) change,
-            Map<String, Object?> payload,
-          })
-        >{
-          PreferenceSection.profile: (
-            change: (current) => current.copyWith(timezone: 'Europe/Paris'),
-            payload: const {'timezone': 'Europe/Paris'},
-          ),
-          PreferenceSection.notifications: (
-            change: (current) => current.copyWith(
-              likeNotificationFrequency: 3,
-              notifyOnLinkedPosts: false,
-            ),
-            payload: const {
-              'like_notification_frequency': 3,
-              'notify_on_linked_posts': false,
-            },
-          ),
-          PreferenceSection.tracking: (
-            change: (current) => current.copyWith(
-              newTopicDurationMinutes: 10080,
-              autoTrackTopicsAfterMsecs: 60000,
-              notificationLevelWhenReplying: 3,
-            ),
-            payload: const {
-              'new_topic_duration_minutes': 10080,
-              'auto_track_topics_after_msecs': 60000,
-              'notification_level_when_replying': 3,
-            },
-          ),
-          PreferenceSection.interface: (
-            change: (current) => current.copyWith(
-              bookmarkAutoDeletePreference:
-                  BookmarkAutoDeletePreference.onOwnerReply,
-            ),
-            payload: const {'bookmark_auto_delete_preference': 2},
-          ),
-        };
-
-    for (final MapEntry(key: section, value: testCase) in cases.entries) {
-      final api = _PreferencesApi();
-      final controller = _controller(api);
-      await _seed(controller);
-
-      controller.edit(_siteUrl, section, testCase.change);
-      expect(await controller.save(_accountA, section), isTrue);
-
-      expect(api.updates.single.values, testCase.payload);
-      expect(api.updates.single.values.keys, testCase.payload.keys);
-      controller.dispose();
-    }
-  });
-
-  test(
-    'saving one section does not confirm or emit another unsaved edit',
-    () async {
+    test('does not confirm or emit another section unsaved edit', () async {
       final saved = <UserPreferences>[];
       final api = _PreferencesApi();
       final controller = _controller(
@@ -296,244 +300,259 @@ void main() {
       expect(state.dirty(PreferenceSection.notifications), isFalse);
       expect(state.dirty(PreferenceSection.profile), isTrue);
       expect(saved.single.timezone, 'Etc/UTC');
-    },
-  );
+    });
 
-  test(
-    'retains edits and the server validation error after a failed save',
-    () async {
-      final api = _PreferencesApi(
-        onUpdate: (_) async => throw const WriteException(
-          WriteFailure.validation,
-          errors: ['The selected timezone is not available.'],
-        ),
+    test(
+      'retains edits and the server validation error after failure',
+      () async {
+        final api = _PreferencesApi(
+          onUpdate: (_) async => throw const WriteException(
+            WriteFailure.validation,
+            errors: ['The selected timezone is not available.'],
+          ),
+        );
+        final controller = _controller(api);
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.profile,
+          (current) => current.copyWith(timezone: 'Mars/Olympus'),
+        );
+
+        expect(
+          await controller.save(_accountA, PreferenceSection.profile),
+          isFalse,
+        );
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.draft?.timezone, 'Mars/Olympus');
+        expect(state.confirmed?.timezone, 'Etc/UTC');
+        expect(state.dirty(PreferenceSection.profile), isTrue);
+        expect(state.error, 'The selected timezone is not available.');
+        expect(state.saving, isFalse);
+        expect(state.savedSection, isNull);
+      },
+    );
+  });
+
+  group('write and refresh ordering', () {
+    test('serializes writes and supersedes an obsolete queued value', () async {
+      final firstWrite = Completer<UserPreferences>();
+      late final _PreferencesApi api;
+      api = _PreferencesApi(
+        onUpdate: (call) => api.updates.length == 1
+            ? firstWrite.future
+            : Future<UserPreferences>.value(call.fallback),
       );
       final controller = _controller(api);
       addTearDown(controller.dispose);
       await _seed(controller);
 
-      controller.edit(
-        _siteUrl,
-        PreferenceSection.profile,
-        (current) => current.copyWith(timezone: 'Mars/Olympus'),
-      );
-
-      expect(
-        await controller.save(_accountA, PreferenceSection.profile),
-        isFalse,
-      );
-      final state = controller.stateFor(_siteUrl)!;
-      expect(state.draft?.timezone, 'Mars/Olympus');
-      expect(state.confirmed?.timezone, 'Etc/UTC');
-      expect(state.dirty(PreferenceSection.profile), isTrue);
-      expect(state.error, 'The selected timezone is not available.');
-      expect(state.saving, isFalse);
-      expect(state.savedSection, isNull);
-    },
-  );
-
-  test('serializes writes and supersedes an obsolete queued value', () async {
-    final firstWrite = Completer<UserPreferences>();
-    late final _PreferencesApi api;
-    api = _PreferencesApi(
-      onUpdate: (call) => api.updates.length == 1
-          ? firstWrite.future
-          : Future<UserPreferences>.value(call.fallback),
-    );
-    final controller = _controller(api);
-    addTearDown(controller.dispose);
-    await _seed(controller);
-
-    controller.edit(
-      _siteUrl,
-      PreferenceSection.notifications,
-      (current) => current.copyWith(likeNotificationFrequency: 2),
-    );
-    final firstSave = controller.save(
-      _accountA,
-      PreferenceSection.notifications,
-    );
-    await pumpEventQueue();
-    expect(api.updates, hasLength(1));
-
-    controller.edit(
-      _siteUrl,
-      PreferenceSection.notifications,
-      (current) => current.copyWith(likeNotificationFrequency: 3),
-    );
-    final obsoleteSave = controller.save(
-      _accountA,
-      PreferenceSection.notifications,
-    );
-    controller.edit(
-      _siteUrl,
-      PreferenceSection.notifications,
-      (current) => current.copyWith(likeNotificationFrequency: 0),
-    );
-    final latestSave = controller.save(
-      _accountA,
-      PreferenceSection.notifications,
-    );
-    await pumpEventQueue();
-
-    expect(api.updates, hasLength(1));
-    expect(controller.stateFor(_siteUrl)?.pendingWrites, 3);
-    firstWrite.complete(_initial.copyWith(likeNotificationFrequency: 2));
-
-    expect(await firstSave, isFalse);
-    expect(await obsoleteSave, isFalse);
-    expect(await latestSave, isTrue);
-    expect(api.maxActiveUpdates, 1);
-    expect(
-      api.updates.map((call) => call.values['like_notification_frequency']),
-      [2, 0],
-    );
-    final state = controller.stateFor(_siteUrl)!;
-    expect(state.draft?.likeNotificationFrequency, 0);
-    expect(state.confirmed?.likeNotificationFrequency, 0);
-    expect(state.pendingWrites, 0);
-  });
-
-  test('a stale refresh cannot clobber a newer local edit', () async {
-    final refresh = Completer<UserPreferences>();
-    var loadCount = 0;
-    final api = _PreferencesApi(
-      onLoad: (_) {
-        loadCount++;
-        return loadCount == 1
-            ? Future<UserPreferences>.value(_initial)
-            : refresh.future;
-      },
-    );
-    final controller = _controller(api);
-    addTearDown(controller.dispose);
-    await _seed(controller);
-
-    final refreshTask = controller.load(_accountA, refresh: true);
-    await pumpEventQueue();
-    controller.edit(
-      _siteUrl,
-      PreferenceSection.profile,
-      (current) => current.copyWith(timezone: 'Europe/Paris'),
-    );
-    refresh.complete(_initial.copyWith(timezone: 'America/New_York'));
-    await refreshTask;
-
-    final state = controller.stateFor(_siteUrl)!;
-    expect(state.loading, isFalse);
-    expect(state.draft?.timezone, 'Europe/Paris');
-    expect(state.confirmed?.timezone, 'Etc/UTC');
-    expect(state.dirty(PreferenceSection.profile), isTrue);
-  });
-
-  test('forget during a credential read dispatches no stale load', () async {
-    final key = Completer<String?>();
-    final api = _PreferencesApi();
-    final credentials = _SequencedCredentials([key.future]);
-    final controller = _controller(api, credentials: credentials);
-    addTearDown(controller.dispose);
-
-    final load = controller.load(_accountA);
-    await pumpEventQueue();
-    controller.forget(_siteUrl);
-    key.complete('stale-key');
-    await load;
-
-    expect(api.loads, isEmpty);
-    expect(controller.stateFor(_siteUrl), isNull);
-  });
-
-  test(
-    'session invalidation and forget cancel a pending save credential read',
-    () async {
-      final saveKey = Completer<String?>();
-      final credentials = _SequencedCredentials([
-        Future<String?>.value('seed-key'),
-        saveKey.future,
-      ]);
-      final api = _PreferencesApi();
-      final lifecycle = SiteLifecycle();
-      final controller = _controller(
-        api,
-        credentials: credentials,
-        lifecycle: lifecycle,
-      );
-      addTearDown(controller.dispose);
-      await _seed(controller);
       controller.edit(
         _siteUrl,
         PreferenceSection.notifications,
-        (current) => current.copyWith(notifyOnLinkedPosts: false),
+        (current) => current.copyWith(likeNotificationFrequency: 2),
       );
-
-      final save = controller.save(_accountA, PreferenceSection.notifications);
-      await pumpEventQueue();
-      lifecycle.invalidate(_siteUrl);
-      controller.forget(_siteUrl);
-      saveKey.complete('stale-key');
-
-      expect(await save, isFalse);
-      expect(api.updates, isEmpty);
-      expect(controller.stateFor(_siteUrl), isNull);
-    },
-  );
-
-  test(
-    'a late response from another account cannot cross the account lane',
-    () async {
-      final accountA = Completer<UserPreferences>();
-      final accountB = Completer<UserPreferences>();
-      final api = _PreferencesApi(
-        onLoad: (call) => switch (call.username) {
-          'alice' => accountA.future,
-          'bob' => accountB.future,
-          _ => throw StateError('Unexpected account ${call.username}'),
-        },
+      final firstSave = controller.save(
+        _accountA,
+        PreferenceSection.notifications,
       );
-      final controller = _controller(api);
-      addTearDown(controller.dispose);
-
-      final oldLoad = controller.load(_accountA);
       await pumpEventQueue();
-      final newLoad = controller.load(_accountB);
+      expect(api.updates, hasLength(1));
+
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.notifications,
+        (current) => current.copyWith(likeNotificationFrequency: 3),
+      );
+      final obsoleteSave = controller.save(
+        _accountA,
+        PreferenceSection.notifications,
+      );
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.notifications,
+        (current) => current.copyWith(likeNotificationFrequency: 0),
+      );
+      final latestSave = controller.save(
+        _accountA,
+        PreferenceSection.notifications,
+      );
       await pumpEventQueue();
 
-      accountB.complete(
-        _initial.copyWith(username: 'bob', timezone: 'Europe/Paris'),
-      );
-      await newLoad;
-      accountA.complete(_initial.copyWith(timezone: 'America/New_York'));
-      await oldLoad;
+      expect(api.updates, hasLength(1));
+      expect(controller.stateFor(_siteUrl)?.pendingWrites, 3);
+      firstWrite.complete(_initial.copyWith(likeNotificationFrequency: 2));
 
-      expect(api.loads.map((call) => call.username), ['alice', 'bob']);
+      expect(await firstSave, isFalse);
+      expect(await obsoleteSave, isFalse);
+      expect(await latestSave, isTrue);
+      expect(api.maxActiveUpdates, 1);
+      expect(
+        api.updates.map((call) => call.values['like_notification_frequency']),
+        [2, 0],
+      );
       final state = controller.stateFor(_siteUrl)!;
-      expect(state.accountIdentity, 'id:20');
-      expect(state.username, 'bob');
-      expect(state.draft?.username, 'bob');
-      expect(state.draft?.timezone, 'Europe/Paris');
-    },
-  );
+      expect(state.draft?.likeNotificationFrequency, 0);
+      expect(state.confirmed?.likeNotificationFrequency, 0);
+      expect(state.pendingWrites, 0);
+    });
 
-  test('disposal during a credential read is safe without a binding', () async {
-    final key = Completer<String?>();
-    final api = _PreferencesApi();
-    final controller = _controller(
-      api,
-      credentials: _SequencedCredentials([key.future]),
+    test(
+      'prevents a stale refresh from clobbering a newer local edit',
+      () async {
+        final refresh = Completer<UserPreferences>();
+        var loadCount = 0;
+        final api = _PreferencesApi(
+          onLoad: (_) {
+            loadCount++;
+            return loadCount == 1
+                ? Future<UserPreferences>.value(_initial)
+                : refresh.future;
+          },
+        );
+        final controller = _controller(api);
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        final refreshTask = controller.load(_accountA, refresh: true);
+        await pumpEventQueue();
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.profile,
+          (current) => current.copyWith(timezone: 'Europe/Paris'),
+        );
+        refresh.complete(_initial.copyWith(timezone: 'America/New_York'));
+        await refreshTask;
+
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.loading, isFalse);
+        expect(state.draft?.timezone, 'Europe/Paris');
+        expect(state.confirmed?.timezone, 'Etc/UTC');
+        expect(state.dirty(PreferenceSection.profile), isTrue);
+      },
     );
-    var notifications = 0;
-    controller.addListener(() => notifications++);
+  });
 
-    final load = controller.load(_accountA);
-    await pumpEventQueue();
-    expect(notifications, 1);
+  group('site and account invalidation', () {
+    test(
+      'dispatches no stale load after forget during credential lookup',
+      () async {
+        final key = Completer<String?>();
+        final api = _PreferencesApi();
+        final credentials = _SequencedCredentials([key.future]);
+        final controller = _controller(api, credentials: credentials);
+        addTearDown(controller.dispose);
 
-    controller.dispose();
-    key.complete('stale-key');
-    await load;
+        final load = controller.load(_accountA);
+        await pumpEventQueue();
+        controller.forget(_siteUrl);
+        key.complete('stale-key');
+        await load;
 
-    expect(api.loads, isEmpty);
-    expect(notifications, 1);
-    expect(controller.stateFor(_siteUrl), isNull);
+        expect(api.loads, isEmpty);
+        expect(controller.stateFor(_siteUrl), isNull);
+      },
+    );
+
+    test(
+      'cancels a pending save credential read after invalidation and forget',
+      () async {
+        final saveKey = Completer<String?>();
+        final credentials = _SequencedCredentials([
+          Future<String?>.value('seed-key'),
+          saveKey.future,
+        ]);
+        final api = _PreferencesApi();
+        final lifecycle = SiteLifecycle();
+        final controller = _controller(
+          api,
+          credentials: credentials,
+          lifecycle: lifecycle,
+        );
+        addTearDown(controller.dispose);
+        await _seed(controller);
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.notifications,
+          (current) => current.copyWith(notifyOnLinkedPosts: false),
+        );
+
+        final save = controller.save(
+          _accountA,
+          PreferenceSection.notifications,
+        );
+        await pumpEventQueue();
+        lifecycle.invalidate(_siteUrl);
+        controller.forget(_siteUrl);
+        saveKey.complete('stale-key');
+
+        expect(await save, isFalse);
+        expect(api.updates, isEmpty);
+        expect(controller.stateFor(_siteUrl), isNull);
+      },
+    );
+
+    test(
+      'keeps a late response from crossing into another account lane',
+      () async {
+        final accountA = Completer<UserPreferences>();
+        final accountB = Completer<UserPreferences>();
+        final api = _PreferencesApi(
+          onLoad: (call) => switch (call.username) {
+            'alice' => accountA.future,
+            'bob' => accountB.future,
+            _ => throw StateError('Unexpected account ${call.username}'),
+          },
+        );
+        final controller = _controller(api);
+        addTearDown(controller.dispose);
+
+        final oldLoad = controller.load(_accountA);
+        await pumpEventQueue();
+        final newLoad = controller.load(_accountB);
+        await pumpEventQueue();
+
+        accountB.complete(
+          _initial.copyWith(username: 'bob', timezone: 'Europe/Paris'),
+        );
+        await newLoad;
+        accountA.complete(_initial.copyWith(timezone: 'America/New_York'));
+        await oldLoad;
+
+        expect(api.loads.map((call) => call.username), ['alice', 'bob']);
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.accountIdentity, 'id:20');
+        expect(state.username, 'bob');
+        expect(state.draft?.username, 'bob');
+        expect(state.draft?.timezone, 'Europe/Paris');
+      },
+    );
+  });
+
+  group('headless disposal', () {
+    test('is safe during a credential read without a binding', () async {
+      final key = Completer<String?>();
+      final api = _PreferencesApi();
+      final controller = _controller(
+        api,
+        credentials: _SequencedCredentials([key.future]),
+      );
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      final load = controller.load(_accountA);
+      await pumpEventQueue();
+      expect(notifications, 1);
+
+      controller.dispose();
+      key.complete('stale-key');
+      await load;
+
+      expect(api.loads, isEmpty);
+      expect(notifications, 1);
+      expect(controller.stateFor(_siteUrl), isNull);
+    });
   });
 }

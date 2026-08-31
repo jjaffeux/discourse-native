@@ -56,77 +56,8 @@ void main() {
     },
   );
 
-  test('chat writes reject invalid coordinates before transport', () async {
-    var calls = 0;
-    final api = DiscourseApi(
-      client: MockClient((_) async {
-        calls++;
-        return http.Response('{}', 200);
-      }),
-    );
-
-    final invalidCalls = <Future<void> Function()>[
-      () => ChatApiClient(api).markChatChannelRead(
-        siteUrl: 'https://example.com',
-        apiKey: 'key',
-        channelId: 0,
-        messageId: 1,
-      ),
-      () => ChatApiClient(api).markChatChannelRead(
-        siteUrl: 'https://example.com',
-        apiKey: 'key',
-        channelId: 1,
-        messageId: -1,
-      ),
-      () async {
-        await ChatApiClient(api).sendChatMessage(
-          siteUrl: 'https://example.com',
-          apiKey: 'key',
-          channelId: -1,
-          message: 'hello',
-        );
-      },
-      () async {
-        await ChatApiClient(api).sendChatMessage(
-          siteUrl: 'https://example.com',
-          apiKey: 'key',
-          channelId: 1,
-          message: '   ',
-        );
-      },
-      () async {
-        await ChatApiClient(api).sendChatMessage(
-          siteUrl: 'https://example.com',
-          apiKey: 'key',
-          channelId: 1,
-          threadId: 0,
-          message: 'hello',
-        );
-      },
-      () => ChatApiClient(api).markChatThreadRead(
-        siteUrl: 'https://example.com',
-        apiKey: 'key',
-        channelId: 1,
-        threadId: 0,
-        messageId: 2,
-      ),
-      () => ChatApiClient(api).markChatThreadRead(
-        siteUrl: 'https://example.com',
-        apiKey: 'key',
-        channelId: 1,
-        threadId: 2,
-        messageId: 0,
-      ),
-    ];
-
-    for (final call in invalidCalls) {
-      await expectLater(call(), throwsArgumentError);
-    }
-    expect(calls, 0);
-  });
-
   test(
-    'post and poll writes reject invalid identities before transport',
+    'chat writes reject invalid identities and blank messages before transport',
     () async {
       var calls = 0;
       final api = DiscourseApi(
@@ -136,123 +67,258 @@ void main() {
         }),
       );
 
-      final invalidCalls = <Future<void> Function()>[
-        () async {
-          await api.createPost(
+      final invalidCalls = <({String reason, Future<void> Function() call})>[
+        (
+          reason: 'zero channel id for a channel read',
+          call: () => ChatApiClient(api).markChatChannelRead(
             siteUrl: 'https://example.com',
             apiKey: 'key',
-            topicId: 0,
-            raw: 'hello',
-            typingDuration: Duration.zero,
-            composerOpenDuration: Duration.zero,
-          );
-        },
-        () async {
-          await api.createPost(
-            siteUrl: 'https://example.com',
-            apiKey: 'key',
-            topicId: 1,
-            replyToPostNumber: 0,
-            raw: 'hello',
-            typingDuration: Duration.zero,
-            composerOpenDuration: Duration.zero,
-          );
-        },
-        () async {
-          await api.createTopic(
-            siteUrl: 'https://example.com',
-            apiKey: 'key',
-            categoryId: 0,
-            title: 'Title',
-            raw: 'hello',
-            typingDuration: Duration.zero,
-            composerOpenDuration: Duration.zero,
-          );
-        },
-        () => api.updateTopic(
-          siteUrl: 'https://example.com',
-          apiKey: 'key',
-          topicId: 0,
-          title: 'Title',
-          originalTitle: 'Old',
-          tags: const [],
-          originalTags: const [],
+            channelId: 0,
+            messageId: 1,
+          ),
         ),
-        () => api.updateTopicTags(
-          siteUrl: 'https://example.com',
-          apiKey: 'key',
-          topicId: 0,
-          tags: const [],
+        (
+          reason: 'negative message id for a channel read',
+          call: () => ChatApiClient(api).markChatChannelRead(
+            siteUrl: 'https://example.com',
+            apiKey: 'key',
+            channelId: 1,
+            messageId: -1,
+          ),
         ),
-        () async {
-          await api.updatePost(
-            siteUrl: 'https://example.com',
-            apiKey: 'key',
-            postId: 0,
-            raw: 'hello',
-          );
-        },
-        () => api.deletePost(
-          siteUrl: 'https://example.com',
-          apiKey: 'key',
-          postId: 0,
+        (
+          reason: 'negative channel id for a send',
+          call: () async {
+            await ChatApiClient(api).sendChatMessage(
+              siteUrl: 'https://example.com',
+              apiKey: 'key',
+              channelId: -1,
+              message: 'hello',
+            );
+          },
         ),
-        () async {
-          await api.likePost(
+        (
+          reason: 'blank message for a send',
+          call: () async {
+            await ChatApiClient(api).sendChatMessage(
+              siteUrl: 'https://example.com',
+              apiKey: 'key',
+              channelId: 1,
+              message: '   ',
+            );
+          },
+        ),
+        (
+          reason: 'zero thread id for a send',
+          call: () async {
+            await ChatApiClient(api).sendChatMessage(
+              siteUrl: 'https://example.com',
+              apiKey: 'key',
+              channelId: 1,
+              threadId: 0,
+              message: 'hello',
+            );
+          },
+        ),
+        (
+          reason: 'zero thread id for a thread read',
+          call: () => ChatApiClient(api).markChatThreadRead(
             siteUrl: 'https://example.com',
             apiKey: 'key',
-            postId: 0,
-          );
-        },
-        () async {
-          await api.unlikePost(
+            channelId: 1,
+            threadId: 0,
+            messageId: 2,
+          ),
+        ),
+        (
+          reason: 'zero message id for a thread read',
+          call: () => ChatApiClient(api).markChatThreadRead(
             siteUrl: 'https://example.com',
             apiKey: 'key',
-            postId: 0,
-          );
-        },
-        () async {
-          await ReactionsApiClient(api, api.models).toggleReaction(
-            siteUrl: 'https://example.com',
-            apiKey: 'key',
-            postId: 0,
-            reaction: 'clap',
-          );
-        },
-        () async {
-          await ReactionsApiClient(api, api.models).toggleReaction(
-            siteUrl: 'https://example.com',
-            apiKey: 'key',
-            postId: 1,
-            reaction: '',
-          );
-        },
-        () async {
-          await PollApi(api).votePoll(
-            siteUrl: 'https://example.com',
-            apiKey: 'key',
-            postId: 0,
-            pollName: 'poll',
-            options: const ['a'],
-          );
-        },
-        () async {
-          await PollApi(api).removePollVote(
-            siteUrl: 'https://example.com',
-            apiKey: 'key',
-            postId: 0,
-            pollName: 'poll',
-          );
-        },
-        () => api.recoverPost(
-          siteUrl: 'https://example.com',
-          apiKey: 'key',
-          postId: 0,
+            channelId: 1,
+            threadId: 2,
+            messageId: 0,
+          ),
         ),
       ];
 
-      for (final call in invalidCalls) {
-        await expectLater(call(), throwsArgumentError);
+      for (final (:reason, :call) in invalidCalls) {
+        await expectLater(call(), throwsArgumentError, reason: reason);
+      }
+      expect(calls, 0);
+    },
+  );
+
+  test(
+    'post and poll writes reject invalid identities and blank reactions before transport',
+    () async {
+      var calls = 0;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          calls++;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      final invalidCalls = <({String reason, Future<void> Function() call})>[
+        (
+          reason: 'zero topic id for a post create',
+          call: () async {
+            await api.createPost(
+              siteUrl: 'https://example.com',
+              apiKey: 'key',
+              topicId: 0,
+              raw: 'hello',
+              typingDuration: Duration.zero,
+              composerOpenDuration: Duration.zero,
+            );
+          },
+        ),
+        (
+          reason: 'zero reply post number for a post create',
+          call: () async {
+            await api.createPost(
+              siteUrl: 'https://example.com',
+              apiKey: 'key',
+              topicId: 1,
+              replyToPostNumber: 0,
+              raw: 'hello',
+              typingDuration: Duration.zero,
+              composerOpenDuration: Duration.zero,
+            );
+          },
+        ),
+        (
+          reason: 'zero category id for a topic create',
+          call: () async {
+            await api.createTopic(
+              siteUrl: 'https://example.com',
+              apiKey: 'key',
+              categoryId: 0,
+              title: 'Title',
+              raw: 'hello',
+              typingDuration: Duration.zero,
+              composerOpenDuration: Duration.zero,
+            );
+          },
+        ),
+        (
+          reason: 'zero topic id for a topic update',
+          call: () => api.updateTopic(
+            siteUrl: 'https://example.com',
+            apiKey: 'key',
+            topicId: 0,
+            title: 'Title',
+            originalTitle: 'Old',
+            tags: const [],
+            originalTags: const [],
+          ),
+        ),
+        (
+          reason: 'zero topic id for a tag update',
+          call: () => api.updateTopicTags(
+            siteUrl: 'https://example.com',
+            apiKey: 'key',
+            topicId: 0,
+            tags: const [],
+          ),
+        ),
+        (
+          reason: 'zero post id for a post update',
+          call: () async {
+            await api.updatePost(
+              siteUrl: 'https://example.com',
+              apiKey: 'key',
+              postId: 0,
+              raw: 'hello',
+            );
+          },
+        ),
+        (
+          reason: 'zero post id for a delete',
+          call: () => api.deletePost(
+            siteUrl: 'https://example.com',
+            apiKey: 'key',
+            postId: 0,
+          ),
+        ),
+        (
+          reason: 'zero post id for a like',
+          call: () async {
+            await api.likePost(
+              siteUrl: 'https://example.com',
+              apiKey: 'key',
+              postId: 0,
+            );
+          },
+        ),
+        (
+          reason: 'zero post id for an unlike',
+          call: () async {
+            await api.unlikePost(
+              siteUrl: 'https://example.com',
+              apiKey: 'key',
+              postId: 0,
+            );
+          },
+        ),
+        (
+          reason: 'zero post id for a reaction',
+          call: () async {
+            await ReactionsApiClient(api, api.models).toggleReaction(
+              siteUrl: 'https://example.com',
+              apiKey: 'key',
+              postId: 0,
+              reaction: 'clap',
+            );
+          },
+        ),
+        (
+          reason: 'blank reaction name',
+          call: () async {
+            await ReactionsApiClient(api, api.models).toggleReaction(
+              siteUrl: 'https://example.com',
+              apiKey: 'key',
+              postId: 1,
+              reaction: '',
+            );
+          },
+        ),
+        (
+          reason: 'zero post id for a poll vote',
+          call: () async {
+            await PollApi(api).votePoll(
+              siteUrl: 'https://example.com',
+              apiKey: 'key',
+              postId: 0,
+              pollName: 'poll',
+              options: const ['a'],
+            );
+          },
+        ),
+        (
+          reason: 'zero post id for removing a poll vote',
+          call: () async {
+            await PollApi(api).removePollVote(
+              siteUrl: 'https://example.com',
+              apiKey: 'key',
+              postId: 0,
+              pollName: 'poll',
+            );
+          },
+        ),
+        (
+          reason: 'zero post id for recovery',
+          call: () => api.recoverPost(
+            siteUrl: 'https://example.com',
+            apiKey: 'key',
+            postId: 0,
+          ),
+        ),
+      ];
+
+      for (final (:reason, :call) in invalidCalls) {
+        await expectLater(call(), throwsArgumentError, reason: reason);
       }
       expect(calls, 0);
     },

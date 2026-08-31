@@ -24,16 +24,23 @@ void main() {
       siteUrl: _siteUrl,
       filter: 'clap',
     );
+    final ReactionUsersPage presentation = page;
 
     expect(page.channelId, 9);
     expect(page.messageId, 44);
     expect(page.filter, 'clap');
-    expect(page, isA<ReactionUsersPage>());
-    expect(page.total, 4);
-    expect(page.reactors.single, isA<ChatReactor>());
-    expect(page.reactors.single.username, 'sam');
+    expect(presentation.total, 4);
+    expect(
+      presentation.reactors.single,
+      const ChatReactor(
+        id: 3,
+        username: 'sam',
+        name: 'Sam Saffron',
+        avatarUrl: 'https://meta.discourse.org/user_avatar/meta/sam/90/1.png',
+        reaction: 'clap',
+      ),
+    );
     expect(page.reactors.single.displayName, 'Sam Saffron');
-    expect(page.reactors.single.reaction, 'clap');
     expect(page.storeId, ChatMessageReactors.key(9, 44, 'clap'));
   });
 

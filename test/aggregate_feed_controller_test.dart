@@ -19,319 +19,368 @@ const _secondUrl = 'https://two.example';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('mixes the exact per-forum filter results', () async {
-    final api = _AggregateApi(
-      pages: {
-        '$_firstUrl|${_AggregateApi.openPage}': [
-          // A fully read topic remains because inclusion now belongs to the
-          // explicit filter query rather than a native unread heuristic.
-          _topic(1, minute: 10, seen: true),
-          _topic(2, minute: 8, unreadPosts: 2),
-        ],
-        '$_secondUrl|${_AggregateApi.uxPage}': [
-          _topic(5, minute: 11, seen: true),
-        ],
-      },
-      filterOptions: const [TopicFilterOption(name: 'status:', priority: 1)],
-    );
-    final credentials = FakeApiCredentialReader()
-      ..keys[_firstUrl] = 'one-key'
-      ..keys[_secondUrl] = 'two-key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-    final forums = [
-      _connected(_firstUrl, 'One'),
-      _connected(_secondUrl, 'Two'),
-    ];
-
-    await controller.setForumFilters(
-      allForums: forums,
-      includedConnectedForums: {_firstUrl, _secondUrl},
-      queries: {_firstUrl: 'status:open', _secondUrl: 'tag:ux'},
-    );
-    await controller.refresh(forums);
-
-    expect(controller.state.topics, const [
-      AggregateTopicRef(siteUrl: _secondUrl, topicId: 5),
-      AggregateTopicRef(siteUrl: _firstUrl, topicId: 1),
-      AggregateTopicRef(siteUrl: _firstUrl, topicId: 2),
-    ]);
-    expect(controller.state.failures, isEmpty);
-    expect(
-      api.paths,
-      containsAll([_AggregateApi.openPage, _AggregateApi.uxPage]),
-    );
-    expect(controller.queryFor(_firstUrl), 'status:open');
-    expect(controller.queryFor(_secondUrl), 'tag:ux');
-    expect(controller.filterOptionsFor(_firstUrl).single.name, 'status:');
-  });
-
-  test('persists exclusions and normalized queries', () async {
-    final persistence = MemoryAggregatePreferencesPersistence();
-    final store = AggregatePreferencesStore(persistence: persistence);
-
-    await store.save(
-      excludedForums: {_secondUrl},
-      queries: {_firstUrl: '  status:open  ', _secondUrl: ''},
-    );
-    final restored = await AggregatePreferencesStore(
-      persistence: persistence,
-    ).load();
-
-    expect(restored.excludedForums, {_secondUrl});
-    expect(restored.queries, {_firstUrl: 'status:open'});
-  });
-
-  test('loads version one exclusions without inventing queries', () async {
-    final persistence = MemoryAggregatePreferencesPersistence()
-      ..value = '{"version":1,"excluded_forums":["https://two.example"]}';
-
-    final restored = await AggregatePreferencesStore(
-      persistence: persistence,
-    ).load();
-
-    expect(restored.excludedForums, {_secondUrl});
-    expect(restored.queries, isEmpty);
-  });
-
-  test('migrates version two filters into the first aggregate tab', () async {
-    final persistence = MemoryAggregatePreferencesPersistence()
-      ..value =
-          '{"version":2,"excluded_forums":["$_secondUrl"],'
-          '"queries":{"$_firstUrl":"status:open"}}';
-
-    final restored = await AggregatePreferencesStore(
-      persistence: persistence,
-    ).load();
-
-    expect(restored.tabs, hasLength(1));
-    expect(restored.excludedForums, {_secondUrl});
-    expect(restored.queries, {_firstUrl: 'status:open'});
-  });
-
-  test('persists ordered aggregate tabs and their active selection', () async {
-    final persistence = MemoryAggregatePreferencesPersistence();
-    final store = AggregatePreferencesStore(persistence: persistence);
-
-    await store.save(
-      tabs: [
-        AggregateTabPreferences(
-          id: 'first',
-          name: 'Open work',
-          queries: {_firstUrl: 'status:open'},
-        ),
-        AggregateTabPreferences(
-          id: 'second',
-          excludedForums: {_firstUrl},
-          queries: {_secondUrl: 'tag:ux'},
-        ),
-      ],
-      activeTabId: 'second',
-    );
-
-    final restored = await store.load();
-
-    expect(restored.tabs.map((tab) => tab.id), ['first', 'second']);
-    expect(restored.tabs.map((tab) => tab.name), ['Open work', null]);
-    expect(restored.activeTabId, 'second');
-    expect(restored.tabs.first.queries, {_firstUrl: 'status:open'});
-    expect(restored.tabs.last.excludedForums, {_firstUrl});
-    expect(restored.tabs.last.queries, {_secondUrl: 'tag:ux'});
-  });
-
-  test('loads unnamed version three tabs', () async {
-    final persistence = MemoryAggregatePreferencesPersistence()
-      ..value =
-          '{"version":3,"active_tab_id":"first","tabs":['
-          '{"id":"first","excluded_forums":[],"queries":{}}]}';
-
-    final restored = await AggregatePreferencesStore(
-      persistence: persistence,
-    ).load();
-
-    expect(restored.tabs.single.id, 'first');
-    expect(restored.tabs.single.name, isNull);
-  });
-
-  test(
-    'closing other aggregate tabs keeps and activates the requested tab',
-    () async {
-      final persistence = MemoryAggregatePreferencesPersistence();
-      final preferences = AggregatePreferencesStore(persistence: persistence);
-      final controller = AggregateFeedController(
-        api: FakeDiscourseApi(),
-        credentials: FakeApiCredentialReader(),
-        lifecycle: SiteLifecycle(),
-        store: Store(),
-        preferences: preferences,
-        readPersonalizationVersion: (_) => 0,
-        prepareTopic: (_, topic, _) => topic,
+  group('feed loading and filtering', () {
+    test('mixes exact per-forum filter results by bump time', () async {
+      final api = _AggregateApi(
+        pages: {
+          '$_firstUrl|${_AggregateApi.openPage}': [
+            // A fully read topic remains because inclusion now belongs to the
+            // explicit filter query rather than a native unread heuristic.
+            _topic(1, minute: 10, seen: true),
+            _topic(2, minute: 8, unreadPosts: 2),
+          ],
+          '$_secondUrl|${_AggregateApi.uxPage}': [
+            _topic(5, minute: 11, seen: true),
+          ],
+        },
+        filterOptions: const [TopicFilterOption(name: 'status:', priority: 1)],
       );
+      final credentials = FakeApiCredentialReader()
+        ..keys[_firstUrl] = 'one-key'
+        ..keys[_secondUrl] = 'two-key';
+      final controller = _controller(api, credentials);
       addTearDown(controller.dispose);
-      final keptId = controller.activeTabId;
-      controller.createTab();
-      controller.createTab();
+      final forums = [
+        _connected(_firstUrl, 'One'),
+        _connected(_secondUrl, 'Two'),
+      ];
 
-      expect(controller.closeOtherTabs(keptId), isTrue);
+      await controller.setForumFilters(
+        allForums: forums,
+        includedConnectedForums: {_firstUrl, _secondUrl},
+        queries: {_firstUrl: 'status:open', _secondUrl: 'tag:ux'},
+      );
+      await controller.refresh(forums);
 
-      expect(controller.tabs.map((tab) => tab.id), [keptId]);
-      expect(controller.activeTabId, keptId);
-      final restored = await preferences.load();
-      expect(restored.tabs.map((tab) => tab.id), [keptId]);
-      expect(restored.activeTabId, keptId);
-    },
-  );
+      expect(controller.state.topics, const [
+        AggregateTopicRef(siteUrl: _secondUrl, topicId: 5),
+        AggregateTopicRef(siteUrl: _firstUrl, topicId: 1),
+        AggregateTopicRef(siteUrl: _firstUrl, topicId: 2),
+      ]);
+      expect(controller.state.failures, isEmpty);
+      expect(
+        api.paths,
+        unorderedEquals([_AggregateApi.openPage, _AggregateApi.uxPage]),
+      );
+      expect(controller.queryFor(_firstUrl), 'status:open');
+      expect(controller.queryFor(_secondUrl), 'tag:ux');
+      expect(controller.filterOptionsFor(_firstUrl), const [
+        TopicFilterOption(name: 'status:', priority: 1),
+      ]);
+    });
 
-  test('forum selection and blank filters use only included forums', () async {
-    final api = _AggregateApi(
-      pages: {
-        '$_firstUrl|${_AggregateApi.defaultOneForumPage}': [
-          _topic(1, minute: 1),
+    test(
+      'uses only included connected forums and default filters for blank queries',
+      () async {
+        final api = _AggregateApi(
+          pages: {
+            '$_firstUrl|${_AggregateApi.defaultOneForumPage}': [
+              _topic(1, minute: 1),
+            ],
+          },
+        );
+        final credentials = FakeApiCredentialReader()
+          ..keys[_firstUrl] = 'one-key'
+          ..keys[_secondUrl] = 'two-key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final forums = [
+          _connected(_firstUrl, 'One'),
+          _connected(_secondUrl, 'Two'),
+          const DiscourseInstance(
+            url: 'https://signed-out.example',
+            title: 'Out',
+          ),
+        ];
+
+        await controller.setForumFilters(
+          allForums: forums,
+          includedConnectedForums: {_firstUrl},
+          queries: const {},
+        );
+        await controller.refresh(forums);
+
+        expect(controller.state.includedForums, 1);
+        expect(controller.state.topics, const [
+          AggregateTopicRef(siteUrl: _firstUrl, topicId: 1),
+        ]);
+        expect(api.sitePaths, [
+          '$_firstUrl|${_AggregateApi.defaultOneForumPage}',
+        ]);
+      },
+    );
+
+    test(
+      'keeps the forced refresh result when an older response finishes',
+      () async {
+        final api = _RefreshRaceApi();
+        final credentials = FakeApiCredentialReader()..keys[_firstUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final forum = _connected(_firstUrl, 'One');
+
+        final older = controller.refresh([forum]);
+        await api.firstStarted.future;
+        final newer = controller.refresh([forum], force: true);
+        await newer;
+        api.releaseFirst.complete();
+        await older;
+
+        expect(controller.state.topics, const [
+          AggregateTopicRef(siteUrl: _firstUrl, topicId: 2),
+        ]);
+        expect(api.calls, 2);
+      },
+    );
+  });
+
+  group('preference persistence and migration', () {
+    test('normalizes queries and persists exclusions', () async {
+      final persistence = MemoryAggregatePreferencesPersistence();
+      final store = AggregatePreferencesStore(persistence: persistence);
+
+      await store.save(
+        excludedForums: {_secondUrl},
+        queries: {_firstUrl: '  status:open  ', _secondUrl: ''},
+      );
+      final restored = await AggregatePreferencesStore(
+        persistence: persistence,
+      ).load();
+
+      expect(restored.excludedForums, {_secondUrl});
+      expect(restored.queries, {_firstUrl: 'status:open'});
+    });
+
+    test('loads version 1 exclusions without inventing queries', () async {
+      final persistence = MemoryAggregatePreferencesPersistence()
+        ..value = '{"version":1,"excluded_forums":["https://two.example"]}';
+
+      final restored = await AggregatePreferencesStore(
+        persistence: persistence,
+      ).load();
+
+      expect(restored.excludedForums, {_secondUrl});
+      expect(restored.queries, isEmpty);
+    });
+
+    test('migrates version 2 filters into the default tab', () async {
+      final persistence = MemoryAggregatePreferencesPersistence()
+        ..value =
+            '{"version":2,"excluded_forums":["$_secondUrl"],'
+            '"queries":{"$_firstUrl":"status:open"}}';
+
+      final restored = await AggregatePreferencesStore(
+        persistence: persistence,
+      ).load();
+
+      expect(restored.activeTabId, AggregatePreferencesStore.defaultTabId);
+      expect(restored.tabs.map((tab) => tab.toJson()).toList(), [
+        {
+          'id': AggregatePreferencesStore.defaultTabId,
+          'excluded_forums': [_secondUrl],
+          'queries': {_firstUrl: 'status:open'},
+        },
+      ]);
+    });
+
+    test('round-trips ordered tabs and their active selection', () async {
+      final persistence = MemoryAggregatePreferencesPersistence();
+      final store = AggregatePreferencesStore(persistence: persistence);
+
+      await store.save(
+        tabs: [
+          AggregateTabPreferences(
+            id: 'first',
+            name: 'Open work',
+            queries: {_firstUrl: 'status:open'},
+          ),
+          AggregateTabPreferences(
+            id: 'second',
+            excludedForums: {_firstUrl},
+            queries: {_secondUrl: 'tag:ux'},
+          ),
         ],
+        activeTabId: 'second',
+      );
+
+      final restored = await store.load();
+
+      expect(restored.activeTabId, 'second');
+      expect(restored.tabs.map((tab) => tab.toJson()).toList(), [
+        {
+          'id': 'first',
+          'name': 'Open work',
+          'excluded_forums': <String>[],
+          'queries': {_firstUrl: 'status:open'},
+        },
+        {
+          'id': 'second',
+          'excluded_forums': [_firstUrl],
+          'queries': {_secondUrl: 'tag:ux'},
+        },
+      ]);
+    });
+
+    test('loads unnamed version 3 tabs', () async {
+      final persistence = MemoryAggregatePreferencesPersistence()
+        ..value =
+            '{"version":3,"active_tab_id":"first","tabs":['
+            '{"id":"first","excluded_forums":[],"queries":{}}]}';
+
+      final restored = await AggregatePreferencesStore(
+        persistence: persistence,
+      ).load();
+
+      expect(restored.activeTabId, 'first');
+      expect(restored.tabs.single.toJson(), {
+        'id': 'first',
+        'excluded_forums': <String>[],
+        'queries': <String, String>{},
+      });
+    });
+  });
+
+  group('tab lifecycle', () {
+    test(
+      'closing other tabs retains, activates, and persists the requested tab',
+      () async {
+        final persistence = MemoryAggregatePreferencesPersistence();
+        final preferences = AggregatePreferencesStore(persistence: persistence);
+        final controller = AggregateFeedController(
+          api: FakeDiscourseApi(),
+          credentials: FakeApiCredentialReader(),
+          lifecycle: SiteLifecycle(),
+          store: Store(),
+          preferences: preferences,
+          readPersonalizationVersion: (_) => 0,
+          prepareTopic: (_, topic, _) => topic,
+        );
+        addTearDown(controller.dispose);
+        final keptId = controller.activeTabId;
+        controller.createTab();
+        controller.createTab();
+
+        expect(controller.closeOtherTabs(keptId), isTrue);
+
+        expect(controller.tabs.map((tab) => tab.id), [keptId]);
+        expect(controller.activeTabId, keptId);
+        final restored = await preferences.load();
+        expect(restored.tabs.map((tab) => tab.id), [keptId]);
+        expect(restored.activeTabId, keptId);
       },
     );
-    final credentials = FakeApiCredentialReader()
-      ..keys[_firstUrl] = 'one-key'
-      ..keys[_secondUrl] = 'two-key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-    final forums = [
-      _connected(_firstUrl, 'One'),
-      _connected(_secondUrl, 'Two'),
-      const DiscourseInstance(url: 'https://signed-out.example', title: 'Out'),
-    ];
 
-    await controller.setForumFilters(
-      allForums: forums,
-      includedConnectedForums: {_firstUrl},
-      queries: const {},
-    );
-    await controller.refresh(forums);
+    test('keeps filters and feed snapshots isolated per tab', () async {
+      const openPath = '/filter.json?per_page=30&q=status%3Aopen';
+      const uxPath = '/filter.json?per_page=30&q=tag%3Aux';
+      final api = _AggregateApi(
+        pages: {
+          '$_firstUrl|$openPath': [_topic(1, minute: 1)],
+          '$_firstUrl|$uxPath': [_topic(2, minute: 2)],
+        },
+      );
+      final credentials = FakeApiCredentialReader()..keys[_firstUrl] = 'key';
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+      final forum = _connected(_firstUrl, 'One');
 
-    expect(controller.state.includedForums, 1);
-    expect(controller.state.topics, const [
-      AggregateTopicRef(siteUrl: _firstUrl, topicId: 1),
-    ]);
-    expect(api.sitePaths, ['$_firstUrl|${_AggregateApi.defaultOneForumPage}']);
-  });
+      await controller.setForumFilters(
+        allForums: [forum],
+        includedConnectedForums: {_firstUrl},
+        queries: {_firstUrl: 'status:open'},
+      );
+      await controller.refresh([forum]);
+      final firstTabId = controller.activeTabId;
 
-  test('a forced refresh cannot be overwritten by an older response', () async {
-    final api = _RefreshRaceApi();
-    final credentials = FakeApiCredentialReader()..keys[_firstUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-    final forum = _connected(_firstUrl, 'One');
+      final secondTabId = controller.createTab()!;
+      await controller.setForumFilters(
+        allForums: [forum],
+        includedConnectedForums: {_firstUrl},
+        queries: {_firstUrl: 'tag:ux'},
+      );
+      await controller.refresh([forum]);
 
-    final older = controller.refresh([forum]);
-    await api.firstStarted.future;
-    final newer = controller.refresh([forum], force: true);
-    await newer;
-    api.releaseFirst.complete();
-    await older;
+      expect(controller.state.topics, const [
+        AggregateTopicRef(siteUrl: _firstUrl, topicId: 2),
+      ]);
+      expect(controller.queryFor(_firstUrl), 'tag:ux');
 
-    expect(controller.state.topics, const [
-      AggregateTopicRef(siteUrl: _firstUrl, topicId: 2),
-    ]);
-  });
+      controller.selectTab(firstTabId);
+      expect(controller.state.topics, const [
+        AggregateTopicRef(siteUrl: _firstUrl, topicId: 1),
+      ]);
+      expect(controller.queryFor(_firstUrl), 'status:open');
 
-  test('tabs keep independent filters and feed snapshots', () async {
-    const openPath = '/filter.json?per_page=30&q=status%3Aopen';
-    const uxPath = '/filter.json?per_page=30&q=tag%3Aux';
-    final api = _AggregateApi(
-      pages: {
-        '$_firstUrl|$openPath': [_topic(1, minute: 1)],
-        '$_firstUrl|$uxPath': [_topic(2, minute: 2)],
+      controller.selectTab(secondTabId);
+      expect(controller.state.topics, const [
+        AggregateTopicRef(siteUrl: _firstUrl, topicId: 2),
+      ]);
+      expect(controller.queryFor(_firstUrl), 'tag:ux');
+      expect(api.paths, [openPath, uxPath]);
+    });
+
+    test(
+      'reorders tabs without changing or losing the active selection',
+      () async {
+        final persistence = MemoryAggregatePreferencesPersistence();
+        final api = _AggregateApi(pages: const {});
+        final credentials = FakeApiCredentialReader();
+        final controller = _controller(
+          api,
+          credentials,
+          preferences: AggregatePreferencesStore(persistence: persistence),
+        );
+        addTearDown(controller.dispose);
+        final firstTabId = controller.activeTabId;
+        final secondTabId = controller.createTab()!;
+        final thirdTabId = controller.createTab()!;
+
+        expect(controller.moveTab(firstTabId, 2), isTrue);
+        expect(controller.tabs.map((tab) => tab.id), [
+          secondTabId,
+          thirdTabId,
+          firstTabId,
+        ]);
+        expect(controller.activeTabId, thirdTabId);
+
+        final restored = _controller(
+          api,
+          credentials,
+          preferences: AggregatePreferencesStore(persistence: persistence),
+        );
+        addTearDown(restored.dispose);
+        await restored.loadPreferences(const []);
+
+        expect(restored.tabs.map((tab) => tab.id), [
+          secondTabId,
+          thirdTabId,
+          firstTabId,
+        ]);
+        expect(restored.activeTabId, thirdTabId);
       },
     );
-    final credentials = FakeApiCredentialReader()..keys[_firstUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-    final forum = _connected(_firstUrl, 'One');
 
-    await controller.setForumFilters(
-      allForums: [forum],
-      includedConnectedForums: {_firstUrl},
-      queries: {_firstUrl: 'status:open'},
+    test(
+      'normalizes and persists a tab name while rejecting blank names',
+      () async {
+        final persistence = MemoryAggregatePreferencesPersistence();
+        final preferences = AggregatePreferencesStore(persistence: persistence);
+        final controller = _controller(
+          _AggregateApi(pages: const {}),
+          FakeApiCredentialReader(),
+          preferences: preferences,
+        );
+        addTearDown(controller.dispose);
+
+        final id = controller.activeTabId;
+        expect(controller.renameTab(id, '  Product   triage  '), isTrue);
+        expect(controller.tabs.single.name, 'Product triage');
+        expect(controller.renameTab(id, '   '), isFalse);
+
+        final restored = await preferences.load();
+        expect(restored.tabs.single.name, 'Product triage');
+      },
     );
-    await controller.refresh([forum]);
-    final firstTabId = controller.activeTabId;
-
-    final secondTabId = controller.createTab()!;
-    await controller.setForumFilters(
-      allForums: [forum],
-      includedConnectedForums: {_firstUrl},
-      queries: {_firstUrl: 'tag:ux'},
-    );
-    await controller.refresh([forum]);
-
-    expect(controller.state.topics.single.topicId, 2);
-    expect(controller.queryFor(_firstUrl), 'tag:ux');
-
-    controller.selectTab(firstTabId);
-    expect(controller.state.topics.single.topicId, 1);
-    expect(controller.queryFor(_firstUrl), 'status:open');
-
-    controller.selectTab(secondTabId);
-    expect(controller.state.topics.single.topicId, 2);
-    expect(api.paths, [openPath, uxPath]);
-  });
-
-  test('reorders aggregate tabs without changing the active tab', () async {
-    final persistence = MemoryAggregatePreferencesPersistence();
-    final api = _AggregateApi(pages: const {});
-    final credentials = FakeApiCredentialReader();
-    final controller = _controller(
-      api,
-      credentials,
-      preferences: AggregatePreferencesStore(persistence: persistence),
-    );
-    addTearDown(controller.dispose);
-    final firstTabId = controller.activeTabId;
-    final secondTabId = controller.createTab()!;
-    final thirdTabId = controller.createTab()!;
-
-    expect(controller.moveTab(firstTabId, 2), isTrue);
-    expect(controller.tabs.map((tab) => tab.id), [
-      secondTabId,
-      thirdTabId,
-      firstTabId,
-    ]);
-    expect(controller.activeTabId, thirdTabId);
-
-    await Future<void>.delayed(Duration.zero);
-    final restored = _controller(
-      api,
-      credentials,
-      preferences: AggregatePreferencesStore(persistence: persistence),
-    );
-    addTearDown(restored.dispose);
-    await restored.loadPreferences(const []);
-
-    expect(restored.tabs.map((tab) => tab.id), [
-      secondTabId,
-      thirdTabId,
-      firstTabId,
-    ]);
-    expect(restored.activeTabId, thirdTabId);
-  });
-
-  test('renames and persists an aggregate tab', () async {
-    final persistence = MemoryAggregatePreferencesPersistence();
-    final preferences = AggregatePreferencesStore(persistence: persistence);
-    final controller = _controller(
-      _AggregateApi(pages: const {}),
-      FakeApiCredentialReader(),
-      preferences: preferences,
-    );
-    addTearDown(controller.dispose);
-
-    final id = controller.activeTabId;
-    expect(controller.renameTab(id, '  Product   triage  '), isTrue);
-    expect(controller.tabs.single.name, 'Product triage');
-    expect(controller.renameTab(id, '   '), isFalse);
-
-    final restored = await preferences.load();
-    expect(restored.tabs.single.name, 'Product triage');
   });
 }
 

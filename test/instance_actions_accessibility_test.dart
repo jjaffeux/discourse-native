@@ -10,56 +10,34 @@ import 'support/fakes.dart';
 const _showForumActions = CustomSemanticsAction(label: 'Show forum actions');
 
 void main() {
-  testWidgets('forum context actions have keyboard and semantic routes', (
+  testWidgets('Shift+F10 opens the forum context actions', (tester) async {
+    await _pumpFocusedActions(tester);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f10);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+
+    _expectDesktopActions();
+  });
+
+  testWidgets('the Context Menu key opens the forum context actions', (
+    tester,
+  ) async {
+    await _pumpFocusedActions(tester);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+    await tester.pumpAndSettle();
+
+    _expectDesktopActions();
+  });
+
+  testWidgets('the forum semantics action opens its context actions', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
     try {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-          home: Scaffold(
-            body: Center(
-              child: InstanceActions(
-                instance: instance('meta.example', title: 'Meta'),
-                onMoveDown: () {},
-                child: TextButton(
-                  key: const ValueKey('forum-button'),
-                  onPressed: () {},
-                  child: const Text('Meta'),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final button = find.byKey(const ValueKey('forum-button'));
-      final focus = _focusButton(tester, button);
-      await tester.pumpAndSettle();
-      expect(focus.hasPrimaryFocus, isTrue);
-
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-      await tester.sendKeyEvent(LogicalKeyboardKey.f10);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-      await tester.pumpAndSettle();
-      _expectDesktopActions();
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(find.text('Remove forum'), findsNothing);
-      focus.requestFocus();
-      await tester.pumpAndSettle();
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
-      await tester.pumpAndSettle();
-      _expectDesktopActions();
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      focus.requestFocus();
-      await tester.pumpAndSettle();
+      final button = await _pumpFocusedActions(tester);
 
       final node = tester.getSemantics(button);
       final customActions = [
@@ -68,7 +46,7 @@ void main() {
                 const <int>[])
           CustomSemanticsAction.getAction(id),
       ];
-      expect(customActions, contains(_showForumActions));
+      expect(customActions, [_showForumActions]);
 
       final semanticsOwner = find.descendant(
         of: find.byType(InstanceActions),
@@ -87,11 +65,40 @@ void main() {
           .properties
           .customSemanticsActions![_showForumActions]!();
       await tester.pumpAndSettle();
+
       _expectDesktopActions();
     } finally {
       semantics.dispose();
     }
   });
+}
+
+Future<Finder> _pumpFocusedActions(WidgetTester tester) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+      home: Scaffold(
+        body: Center(
+          child: InstanceActions(
+            instance: instance('meta.example', title: 'Meta'),
+            onMoveDown: () {},
+            child: TextButton(
+              key: const ValueKey('forum-button'),
+              onPressed: () {},
+              child: const Text('Meta'),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  final button = find.byKey(const ValueKey('forum-button'));
+  final focus = _focusButton(tester, button);
+  await tester.pumpAndSettle();
+  expect(focus.hasPrimaryFocus, isTrue);
+  return button;
 }
 
 void _expectDesktopActions() {

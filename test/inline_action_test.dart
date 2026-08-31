@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('inline actions use a hand cursor without a hover fill', (
+  testWidgets('inline buttons expose semantics and pointer feedback', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();

@@ -85,12 +85,16 @@ void main() {
     String phraseFor(String code, {String? who}) =>
         SmallActionDescription.of(smallAction(code, who: who))!.phrase;
 
-    test('reads like Discourse does', () {
-      expect(phraseFor('closed.enabled'), 'closed this topic');
-      expect(phraseFor('autoclosed.disabled'), 'opened this topic');
-      expect(phraseFor('visible.disabled'), 'unlisted this topic');
-      expect(phraseFor('user_left'), 'removed themselves from this message');
-    });
+    for (final (:code, :phrase) in [
+      (code: 'closed.enabled', phrase: 'closed this topic'),
+      (code: 'autoclosed.disabled', phrase: 'opened this topic'),
+      (code: 'visible.disabled', phrase: 'unlisted this topic'),
+      (code: 'user_left', phrase: 'removed themselves from this message'),
+    ]) {
+      test('$code reads as "$phrase"', () {
+        expect(phraseFor(code), phrase);
+      });
+    }
 
     test('names who an action was taken on', () {
       expect(phraseFor('invited_user', who: '@jane'), 'invited @jane');

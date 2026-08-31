@@ -2663,7 +2663,14 @@ void main() {
       expect(local.optimisticRaw, '  hello chat  ');
       expect(local.stagedId, 'native-${now.microsecondsSinceEpoch}-0');
       expect(local.delivery, ChatMessageDelivery.sending);
-      expect(local.preview, isA<ProjectedPreview>());
+      final preview = local.preview as ProjectedPreview;
+      expect(preview.document.source, '  hello chat  ');
+      expect(
+        preview.document.nodes.whereType<ChatPreviewText>().map(
+          (node) => node.text,
+        ),
+        ['  hello chat  '],
+      );
       expect(local.author.username, currentUser.username);
       expect(subject.api.chatMessagesSent, isEmpty);
 
@@ -2709,7 +2716,7 @@ void main() {
     });
 
     test(
-      'stages and sends an upload-only message with its upload id',
+      'stages and sends an upload-only message with its upload ID',
       () async {
         const upload = ComposerUploadResult(
           id: 73,
@@ -3200,7 +3207,7 @@ void main() {
       },
     );
 
-    test('read receipts ignore a local negative message id', () async {
+    test('read receipts ignore a local negative message ID', () async {
       final subject = build(currentUser: currentUser);
       addTearDown(subject.chat.dispose);
       subject.store.put(site, channel(9, lastRead: 3));
@@ -3307,7 +3314,7 @@ void main() {
   });
 
   group('editing a message', () {
-    test('projects source immediately and retains attachment ids', () async {
+    test('projects source immediately and retains attachment IDs', () async {
       final gate = Completer<void>();
       final subject = build(currentUser: currentUser, editGate: gate);
       addTearDown(subject.chat.dispose);
@@ -3588,7 +3595,7 @@ void main() {
   });
 
   group('generating a selected-message transcript', () {
-    test('sorts and de-duplicates loaded message ids for core', () async {
+    test('sorts and de-duplicates loaded message IDs for core', () async {
       final subject = build(quoteMarkdown: '[chat channel="Bugs"]\nHello');
       addTearDown(subject.chat.dispose);
       subject.store.put(site, message(12));
@@ -4933,7 +4940,7 @@ void main() {
     });
 
     test(
-      'a replacement window stops an older page after client-id lookup',
+      'a replacement window stops an older page after client ID lookup',
       () async {
         final api = FakeDiscourseApi(
           chatMessagesByKey: {

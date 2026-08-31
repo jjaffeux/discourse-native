@@ -492,7 +492,7 @@ void main() {
     });
 
     test(
-      'chat sends serialize optimistic metadata and return the message id',
+      'chat sends serialize optimistic metadata and return the message ID',
       () async {
         late http.Request sent;
         final api = DiscourseApi(

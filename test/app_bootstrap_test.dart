@@ -96,7 +96,7 @@ void main() {
 
 Future<({Object error, StackTrace stackTrace})> _startAndCaptureFatalError(
   _RecordingBootstrapHost host,
-) {
+) async {
   final forwarded = Completer<({Object error, StackTrace stackTrace})>();
   runZonedGuarded<void>(() => AppBootstrap(host: host).start(), (
     error,
@@ -106,7 +106,16 @@ Future<({Object error, StackTrace stackTrace})> _startAndCaptureFatalError(
       forwarded.complete((error: error, stackTrace: stackTrace));
     }
   });
-  return forwarded.future.timeout(const Duration(seconds: 1));
+  // Startup deliberately crosses several completed Future boundaries. Give
+  // that finite chain enough event turns to reach the parent zone, then fail
+  // diagnostically instead of leaving a missed forwarder to hang the suite.
+  await pumpEventQueue(times: 20);
+  expect(
+    forwarded.isCompleted,
+    isTrue,
+    reason: 'a fatal bootstrap error was not forwarded to the parent zone',
+  );
+  return forwarded.future;
 }
 
 typedef _ReportedError = ({

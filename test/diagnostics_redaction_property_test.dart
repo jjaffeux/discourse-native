@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:discourse_native/src/diagnostics/diagnostics_redactor.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -40,9 +38,7 @@ const _keys = [
 const _hosts = ['example.com', 'meta.discourse.org', 'localhost:4200'];
 
 /// URLs, which [DiagnosticsRedactor.uri] must strip whether or not they parse.
-List<String> _uriShapes(Random random) {
-  final key = _keys[random.nextInt(_keys.length)];
-  final host = _hosts[random.nextInt(_hosts.length)];
+List<String> _uriShapes({required String key, required String host}) {
   return [
     'https://$host/t/1?$key=$_secret',
     'https://$host/t/1?a=b&$key=$_secret&c=d',
@@ -70,9 +66,7 @@ List<String> _uriShapes(Random random) {
 
 /// Prose: exception messages and stack frames, which is what actually reaches
 /// [DiagnosticsRedactor.scrub].
-List<String> _proseShapes(Random random) {
-  final key = _keys[random.nextInt(_keys.length)];
-  final host = _hosts[random.nextInt(_hosts.length)];
+List<String> _proseShapes({required String key, required String host}) {
   return [
     'GET /t/1.json?$key=$_secret HTTP/1.1',
     '$key: $_secret',
@@ -98,31 +92,34 @@ void main() {
   // position they claim, nothing gets through. An alternation reordered or an
   // anchor tightened can lose one spelling while every example still passes.
   test('no shape the redactor claims lets a credential through', () {
-    final random = Random(20260823);
     final survived = <String>{};
+    var run = 0;
 
-    for (var run = 0; run < 200; run++) {
-      // Credentials arrive inside a sentence, not on their own.
-      final prefix = run.isEven ? 'ClientException while sending ' : '';
-      final suffix = run.isEven ? ' (attempt $run)' : '';
+    for (final key in _keys) {
+      for (final host in _hosts) {
+        // Credentials arrive inside a sentence, not on their own.
+        final prefix = run.isEven ? 'ClientException while sending ' : '';
+        final suffix = run.isEven ? ' (attempt $run)' : '';
 
-      for (final shape in _proseShapes(random)) {
-        final scrubbed = DiagnosticsRedactor.scrub(
-          '$prefix$shape$suffix',
-          homeDirectory: '/Users/nobody',
-        );
-        if (scrubbed.contains(_secret)) survived.add(shape);
-      }
-
-      for (final shape in _uriShapes(random)) {
-        if (DiagnosticsRedactor.uri(shape).contains(_secret)) {
-          survived.add('uri: $shape');
+        for (final shape in _proseShapes(key: key, host: host)) {
+          final scrubbed = DiagnosticsRedactor.scrub(
+            '$prefix$shape$suffix',
+            homeDirectory: '/Users/nobody',
+          );
+          if (scrubbed.contains(_secret)) survived.add(shape);
         }
-        final scrubbed = DiagnosticsRedactor.scrub(
-          '$prefix$shape$suffix',
-          homeDirectory: '/Users/nobody',
-        );
-        if (scrubbed.contains(_secret)) survived.add('scrub: $shape');
+
+        for (final shape in _uriShapes(key: key, host: host)) {
+          if (DiagnosticsRedactor.uri(shape).contains(_secret)) {
+            survived.add('uri: $shape');
+          }
+          final scrubbed = DiagnosticsRedactor.scrub(
+            '$prefix$shape$suffix',
+            homeDirectory: '/Users/nobody',
+          );
+          if (scrubbed.contains(_secret)) survived.add('scrub: $shape');
+        }
+        run++;
       }
     }
 

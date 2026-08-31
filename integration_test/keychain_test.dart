@@ -10,39 +10,45 @@ import 'package:integration_test/integration_test.dart';
 /// its application identifier is supplied by TestFlight/App Store signing and
 /// must also be checked in a distribution-signed smoke test.
 ///
-///   `flutter test integration_test/keychain_test.dart -d macos`
+/// ```sh
+/// flutter test integration_test/keychain_test.dart \
+///   --test-randomize-ordering-seed=random -d macos
+/// ```
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  test('api keys round-trip through private storage', () async {
+  test('API key lifecycle persists across reopened stores', () async {
     final store = SecureStore();
     const site = 'https://keychain-test.invalid';
+    addTearDown(() => SecureStore().deleteApiKey(site));
 
     await store.writeApiKey(site, 'first-key');
-    await store.writeApiKey(site, 'secret-key');
-    final reopened = SecureStore();
-    expect(await reopened.readApiKey(site), 'secret-key');
+    final afterWrite = SecureStore();
+    expect(await afterWrite.readApiKey(site), 'first-key');
 
-    await reopened.deleteApiKey(site);
+    await afterWrite.writeApiKey(site, 'replacement-key');
+    final afterReplacement = SecureStore();
+    expect(await afterReplacement.readApiKey(site), 'replacement-key');
+
+    await afterReplacement.deleteApiKey(site);
     expect(await SecureStore().readApiKey(site), isNull);
   });
 
-  test('deleting a key that was never written is not an error', () async {
+  test('deleting an already-absent API key is idempotent', () async {
     final store = SecureStore();
+    const site = 'https://never-connected.invalid';
 
     // Removing a site that was never connected asks for exactly this. It must
     // remain idempotent and must never enumerate unrelated legacy items.
-    await expectLater(
-      store.deleteApiKey('https://never-connected.invalid'),
-      completes,
-    );
+    await store.deleteApiKey(site);
+    await expectLater(store.deleteApiKey(site), completes);
   });
 
-  test('the client id is created once and then reused', () async {
+  test('the client ID remains stable across reopened stores', () async {
     final store = SecureStore();
 
     final first = await store.readOrCreateClientId();
     expect(first, isNotEmpty);
-    expect(await store.readOrCreateClientId(), first);
+    expect(await SecureStore().readOrCreateClientId(), first);
   });
 }

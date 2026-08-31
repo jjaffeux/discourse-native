@@ -21,15 +21,15 @@ final Uint8List pngBytes = Uint8List.fromList([
 ]);
 
 void main() {
-  group('looksLikeSvg', () {
-    test('believes an svg content type', () {
+  group('AvatarLoader.looksLikeSvg', () {
+    test('recognizes an SVG content type without sniffing', () {
       expect(
         AvatarLoader.looksLikeSvg(pngBytes, contentType: 'image/svg+xml'),
         isTrue,
       );
     });
 
-    test('believes a declared raster type without sniffing', () {
+    test('trusts a declared raster type over SVG-like bytes', () {
       expect(
         AvatarLoader.looksLikeSvg(
           bytes('<svg xmlns="..."></svg>'),
@@ -39,7 +39,7 @@ void main() {
       );
     });
 
-    test('sniffs when the type is missing or unhelpful', () {
+    test('sniffs bytes when the content type is absent or inconclusive', () {
       expect(
         AvatarLoader.looksLikeSvg(bytes('<svg width="10"></svg>')),
         isTrue,
@@ -55,7 +55,7 @@ void main() {
     });
   });
 
-  group('load', () {
+  group('AvatarLoader.load', () {
     test('reports the format Discourse actually served', () async {
       final loader = AvatarLoader(
         client: MockClient(
@@ -74,7 +74,7 @@ void main() {
     });
 
     test(
-      'fetches a given url once, however many times it is asked for',
+      'fetches a given URL once, however many times it is requested',
       () async {
         var requests = 0;
         final loader = AvatarLoader(

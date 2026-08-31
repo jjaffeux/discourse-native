@@ -22,61 +22,65 @@ void main() {
     final controller = await _controlledShell(api, sites.first);
     addTearDown(controller.dispose);
     final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(_LiveTestList(controller: controller));
+      await tester.pump();
 
-    await tester.pumpWidget(_LiveTestList(controller: controller));
-    await tester.pump();
-
-    expect(
-      find.byKey(const ValueKey('topic-list-loading-skeleton')),
-      findsOneWidget,
-    );
-    expect(
-      tester
-          .getSize(
-            find.byKey(const ValueKey('topic-list-loading-skeleton-content')),
-          )
-          .height,
-      greaterThanOrEqualTo(
+      expect(
+        find.byKey(const ValueKey('topic-list-loading-skeleton')),
+        findsOneWidget,
+      );
+      expect(
         tester
-            .getSize(find.byKey(const ValueKey('topic-list-loading-skeleton')))
+            .getSize(
+              find.byKey(const ValueKey('topic-list-loading-skeleton-content')),
+            )
             .height,
-      ),
-    );
-    final skeletonRows = find.descendant(
-      of: find.byKey(const ValueKey('topic-list-loading-skeleton')),
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is ConstrainedBox &&
-            widget.constraints.minHeight == TopicListRow.minimumHeight,
-      ),
-    );
-    expect(skeletonRows, findsWidgets);
-    expect(
-      tester.getSize(skeletonRows.first).height,
-      greaterThanOrEqualTo(TopicListRow.minimumHeight),
-    );
-    expect(find.bySemanticsLabel('Loading topics'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(tester.takeException(), isNull);
+        greaterThanOrEqualTo(
+          tester
+              .getSize(
+                find.byKey(const ValueKey('topic-list-loading-skeleton')),
+              )
+              .height,
+        ),
+      );
+      final skeletonRows = find.descendant(
+        of: find.byKey(const ValueKey('topic-list-loading-skeleton')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is ConstrainedBox &&
+              widget.constraints.minHeight == TopicListRow.minimumHeight,
+        ),
+      );
+      expect(skeletonRows, findsWidgets);
+      expect(
+        tester.getSize(skeletonRows.first).height,
+        greaterThanOrEqualTo(TopicListRow.minimumHeight),
+      );
+      expect(find.bySemanticsLabel('Loading topics'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(tester.takeException(), isNull);
 
-    api.requests.single.response.complete(_page(1));
-    await tester.pumpAndSettle();
+      api.requests.single.response.complete(_page(1));
+      await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('topic-list-loading-skeleton')),
-      findsNothing,
-    );
-    expect(find.text('Topic 1'), findsOneWidget);
-    final topicRow = find.descendant(
-      of: find.byType(TopicListView),
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is ConstrainedBox &&
-            widget.constraints.minHeight == TopicListRow.minimumHeight,
-      ),
-    );
-    expect(tester.getSize(topicRow.first).height, TopicListRow.minimumHeight);
-    semantics.dispose();
+      expect(
+        find.byKey(const ValueKey('topic-list-loading-skeleton')),
+        findsNothing,
+      );
+      expect(find.text('Topic 1'), findsOneWidget);
+      final topicRow = find.descendant(
+        of: find.byType(TopicListView),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is ConstrainedBox &&
+              widget.constraints.minHeight == TopicListRow.minimumHeight,
+        ),
+      );
+      expect(tester.getSize(topicRow.first).height, TopicListRow.minimumHeight);
+    } finally {
+      semantics.dispose();
+    }
   });
 
   testWidgets('failed first load retries once from the empty state', (
@@ -380,7 +384,13 @@ final class _ControlledPagingApi extends FakeDiscourseApi {
 
   Future<void> waitForRequests(int count) async {
     while (requests.length < count) {
-      await _requestsChanged.future;
+      await _requestsChanged.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw TestFailure(
+          'Expected $count topic-page requests, but received '
+          '${requests.length}.',
+        ),
+      );
     }
   }
 }

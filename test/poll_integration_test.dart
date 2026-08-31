@@ -301,7 +301,7 @@ void main() {
     });
 
     test(
-      'subscribes to poll invalidations and extracts only valid post ids',
+      'subscribes to poll invalidations and extracts only valid post IDs',
       () {
         expect(plugin.topicChannels(42), ['/polls/42']);
         expect(plugin.stalePosts('/polls/42', const {'post_id': 9}), [9]);

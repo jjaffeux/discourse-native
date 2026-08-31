@@ -68,32 +68,50 @@ void main() {
   });
 
   test('keeps sign-in available when APNs registration fails', () async {
+    final methods = <String>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(
-          channel,
-          (_) async => throw PlatformException(code: 'registration_failed'),
-        );
+        .setMockMethodCallHandler(channel, (call) async {
+          methods.add(call.method);
+          throw PlatformException(code: 'registration_failed');
+        });
     final provider = PlatformPushRegistrationProvider(
       channel: channel,
       platform: TargetPlatform.macOS,
     );
 
     expect(await provider.registration(), isNull);
+    expect(methods, ['registrationToken']);
   });
 
-  test(
-    'keeps sign-in available when APNs registration never answers',
-    () async {
-      final never = Completer<String?>();
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (_) => never.future);
-      final provider = PlatformPushRegistrationProvider(
-        channel: channel,
-        platform: TargetPlatform.macOS,
-        registrationTimeout: const Duration(milliseconds: 10),
-      );
+  testWidgets('keeps sign-in available when APNs registration never answers', (
+    tester,
+  ) async {
+    final methods = <String>[];
+    final never = Completer<String?>();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) {
+          methods.add(call.method);
+          return never.future;
+        });
+    final provider = PlatformPushRegistrationProvider(
+      channel: channel,
+      platform: TargetPlatform.macOS,
+      registrationTimeout: const Duration(milliseconds: 10),
+    );
 
-      expect(await provider.registration(), isNull);
-    },
-  );
+    var completed = false;
+    final registration = provider.registration().then((result) {
+      completed = true;
+      return result;
+    });
+    await tester.pump(const Duration(milliseconds: 9));
+
+    expect(methods, ['registrationToken']);
+    expect(completed, isFalse);
+
+    await tester.pump(const Duration(milliseconds: 1));
+
+    expect(await registration, isNull);
+    expect(completed, isTrue);
+  });
 }

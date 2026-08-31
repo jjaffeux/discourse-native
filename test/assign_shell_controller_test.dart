@@ -41,49 +41,50 @@ DiscourseUser _assignUser({
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('Assign group URL opens its group tab natively', () async {
-    final api = FakeDiscourseApi(
-      user: _assignUser(canAssignGlobally: true),
-      feeds: const {'/latest.json': <Topic>[]},
-      siteConfigs: const {_site: SiteConfig.unknown()},
-    );
-    final shell = await _loadListShell(
-      api,
-      user: _assignUser(canAssignGlobally: true),
-    );
-    addTearDown(shell.dispose);
+  group('Assign routes', () {
+    test('open a group tab natively when globally permitted', () async {
+      final api = FakeDiscourseApi(
+        user: _assignUser(canAssignGlobally: true),
+        feeds: const {'/latest.json': <Topic>[]},
+        siteConfigs: const {_site: SiteConfig.unknown()},
+      );
+      final shell = await _loadListShell(
+        api,
+        user: _assignUser(canAssignGlobally: true),
+      );
+      addTearDown(shell.dispose);
 
-    expect(await shell.openPluginUrl('/g/support/assigned/support'), isTrue);
-    await pumpEventQueue();
+      expect(await shell.openPluginUrl('/g/support/assigned/support'), isTrue);
+      await pumpEventQueue();
 
-    expect(shell.currentContent?.groupRoute?.groupName, 'support');
-    expect(shell.currentContent?.groupRoute?.pluginOwner, 'discourse-assign');
-    expect(shell.currentContent?.groupRoute?.section, 'assigned');
-    expect(shell.currentContent?.groupRoute?.subsection, 'support');
-    expect(shell.currentContent?.feedPath, isNull);
+      expect(shell.currentContent?.groupRoute?.groupName, 'support');
+      expect(shell.currentContent?.groupRoute?.pluginOwner, 'discourse-assign');
+      expect(shell.currentContent?.groupRoute?.section, 'assigned');
+      expect(shell.currentContent?.groupRoute?.subsection, 'support');
+      expect(shell.currentContent?.feedPath, isNull);
+    });
+
+    test('reject group tabs without global permission', () async {
+      const assignedPath =
+          '/topics/group-topics-assigned/support.json?direct=true';
+      final api = FakeDiscourseApi(
+        user: _assignUser(canAssign: true, canAssignGlobally: false),
+        feeds: const {'/latest.json': <Topic>[]},
+        siteConfigs: const {_site: SiteConfig.unknown()},
+      );
+      final shell = await _loadListShell(
+        api,
+        user: _assignUser(canAssign: true, canAssignGlobally: false),
+      );
+      addTearDown(shell.dispose);
+
+      expect(await shell.openPluginUrl('/g/support/assigned/support'), isFalse);
+      expect(api.feedPaths, isNot(contains(assignedPath)));
+    });
   });
 
-  test('Assign group URL requires the global Assign permission', () async {
-    const assignedPath =
-        '/topics/group-topics-assigned/support.json?direct=true';
-    final api = FakeDiscourseApi(
-      user: _assignUser(canAssign: true, canAssignGlobally: false),
-      feeds: const {'/latest.json': <Topic>[]},
-      siteConfigs: const {_site: SiteConfig.unknown()},
-    );
-    final shell = await _loadListShell(
-      api,
-      user: _assignUser(canAssign: true, canAssignGlobally: false),
-    );
-    addTearDown(shell.dispose);
-
-    expect(await shell.openPluginUrl('/g/support/assigned/support'), isFalse);
-    expect(api.feedPaths, isNot(contains(assignedPath)));
-  });
-
-  test(
-    'Shell writes only an exact assignable target and reloads its topic',
-    () async {
+  group('assignment writes', () {
+    test('send only an exact assignable target and reload its topic', () async {
       final api = FakeDiscourseApi(
         user: _assignUser(),
         feeds: const {'/latest.json': <Topic>[]},
@@ -113,12 +114,9 @@ void main() {
         'status': 'New',
       });
       expect(api.topicsOpened, [7, 7]);
-    },
-  );
+    });
 
-  test(
-    'Shell rejects post #1 even if its post serializer says assignable',
-    () async {
+    test('reject post #1 even when its serializer says assignable', () async {
       final api = FakeDiscourseApi(
         user: _assignUser(),
         feeds: const {'/latest.json': <Topic>[]},
@@ -140,12 +138,9 @@ void main() {
       expect(error, contains("can't post"));
       expect(api.pluginWrites, isEmpty);
       expect(api.topicsOpened, [7]);
-    },
-  );
+    });
 
-  test(
-    'Shell never substitutes a global capability for target denial',
-    () async {
+    test('respect per-target denial over a global capability', () async {
       final api = FakeDiscourseApi(
         user: _assignUser(canAssignGlobally: true),
         feeds: const {'/latest.json': <Topic>[]},
@@ -166,37 +161,13 @@ void main() {
 
       expect(error, contains("can't post"));
       expect(api.pluginWrites, isEmpty);
-    },
-  );
-
-  test('a fresh session capability supports older target payloads', () async {
-    final api = FakeDiscourseApi(
-      user: _assignUser(),
-      feeds: const {'/latest.json': <Topic>[]},
-      topics: {7: _payload(canAssignPost: null)},
-      siteConfigs: const {_site: SiteConfig.unknown()},
-      pluginResponses: const {
-        'PUT /assign/assign.json': {'success': 'OK'},
-      },
-    );
-    final shell = await _loadShell(api);
-    addTearDown(shell.dispose);
-
-    final error = await _assignments(shell).assign(
-      _site,
-      const AssignmentTarget.post(12, topicId: 7),
-      const AssignmentUser(username: 'sam'),
-    );
-
-    expect(error, isNull);
-    expect(api.pluginWrites, hasLength(1));
+    });
   });
 
-  test(
-    'a persisted capability never substitutes for a fresh absence',
-    () async {
+  group('legacy capability fallback', () {
+    test('uses a fresh session capability for older target payloads', () async {
       final api = FakeDiscourseApi(
-        user: const DiscourseUser(username: 'reader'),
+        user: _assignUser(),
         feeds: const {'/latest.json': <Topic>[]},
         topics: {7: _payload(canAssignPost: null)},
         siteConfigs: const {_site: SiteConfig.unknown()},
@@ -204,24 +175,8 @@ void main() {
           'PUT /assign/assign.json': {'success': 'OK'},
         },
       );
-      final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
-      final shell = ShellController(
-        plugins: installedPlugins,
-        instanceStore: FakeInstanceStore([
-          instance('meta.discourse.org').copyWith(user: _assignUser()),
-        ]),
-        api: api,
-        authenticator: authenticator,
-        drafts: FakeDraftStore(),
-        trackers: FakeSiteTracker.reset(),
-      );
+      final shell = await _loadShell(api);
       addTearDown(shell.dispose);
-      await shell.load();
-      await pumpEventQueue();
-      shell.pushContent(
-        ContentRoute.topic(topicId: 7, slug: 'topic', title: 'Topic'),
-      );
-      await shell.loadTopic(7, 'topic');
 
       final error = await _assignments(shell).assign(
         _site,
@@ -229,53 +184,99 @@ void main() {
         const AssignmentUser(username: 'sam'),
       );
 
-      expect(error, isNotNull);
-      expect(api.pluginWrites, isEmpty);
-    },
-  );
+      expect(error, isNull);
+      expect(api.pluginWrites, hasLength(1));
+    });
 
-  test('a plugin-route 404 disables only the legacy fallback', () async {
-    final api = FakeDiscourseApi(
-      user: _assignUser(),
-      feeds: const {'/latest.json': <Topic>[]},
-      topics: {7: _payload(canAssignPost: null)},
-      siteConfigs: const {_site: SiteConfig.unknown()},
-      pluginResponses: const {
-        'PUT /assign/assign.json': {'success': 'OK'},
+    test(
+      'does not reuse a persisted capability when the fresh session omits it',
+      () async {
+        final api = FakeDiscourseApi(
+          user: const DiscourseUser(username: 'reader'),
+          feeds: const {'/latest.json': <Topic>[]},
+          topics: {7: _payload(canAssignPost: null)},
+          siteConfigs: const {_site: SiteConfig.unknown()},
+          pluginResponses: const {
+            'PUT /assign/assign.json': {'success': 'OK'},
+          },
+        );
+        final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
+        final shell = ShellController(
+          plugins: installedPlugins,
+          instanceStore: FakeInstanceStore([
+            instance('meta.discourse.org').copyWith(user: _assignUser()),
+          ]),
+          api: api,
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(shell.dispose);
+        await shell.load();
+        await pumpEventQueue();
+        shell.pushContent(
+          ContentRoute.topic(topicId: 7, slug: 'topic', title: 'Topic'),
+        );
+        await shell.loadTopic(7, 'topic');
+
+        final error = await _assignments(shell).assign(
+          _site,
+          const AssignmentTarget.post(12, topicId: 7),
+          const AssignmentUser(username: 'sam'),
+        );
+
+        expect(error, isNotNull);
+        expect(api.pluginWrites, isEmpty);
       },
-      pluginWriteFailures: {
-        'PUT /assign/assign.json': const WriteException(
-          WriteFailure.unreachable,
-          statusCode: 404,
-        ),
+    );
+
+    test(
+      'disables only the legacy fallback after a plugin-route 404',
+      () async {
+        final api = FakeDiscourseApi(
+          user: _assignUser(),
+          feeds: const {'/latest.json': <Topic>[]},
+          topics: {7: _payload(canAssignPost: null)},
+          siteConfigs: const {_site: SiteConfig.unknown()},
+          pluginResponses: const {
+            'PUT /assign/assign.json': {'success': 'OK'},
+          },
+          pluginWriteFailures: {
+            'PUT /assign/assign.json': const WriteException(
+              WriteFailure.unreachable,
+              statusCode: 404,
+            ),
+          },
+        );
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        final assignments = shell.pluginSession.require(
+          assignmentControllerService,
+        );
+        const legacyTarget = AssignmentTarget.post(12, topicId: 7);
+        expect(assignments.canAssign(_site, legacyTarget), isTrue);
+
+        final error = await _assignments(shell).assign(
+          _site,
+          const AssignmentTarget.post(12, topicId: 7),
+          const AssignmentUser(username: 'sam'),
+        );
+
+        expect(error, 'This assignment target is no longer available.');
+        expect(assignments.canAssign(_site, legacyTarget), isFalse);
+        // Explicit modern per-target capabilities stay authoritative.
+        expect(
+          assignments.canAssign(_site, const AssignmentTarget.topic(7)),
+          isTrue,
+        );
       },
-    );
-    final shell = await _loadShell(api);
-    addTearDown(shell.dispose);
-    final assignments = shell.pluginSession.require(
-      assignmentControllerService,
-    );
-    const legacyTarget = AssignmentTarget.post(12, topicId: 7);
-    expect(assignments.canAssign(_site, legacyTarget), isTrue);
-
-    final error = await _assignments(shell).assign(
-      _site,
-      const AssignmentTarget.post(12, topicId: 7),
-      const AssignmentUser(username: 'sam'),
-    );
-
-    expect(error, 'This assignment target is no longer available.');
-    expect(assignments.canAssign(_site, legacyTarget), isFalse);
-    // Explicit modern per-target capabilities stay authoritative.
-    expect(
-      assignments.canAssign(_site, const AssignmentTarget.topic(7)),
-      isTrue,
     );
   });
 
-  testWidgets(
-    'controller-backed unavailable Assign contributes no topic header',
-    (tester) async {
+  group('plugin contributions', () {
+    testWidgets('omit the topic header when Assign is unavailable', (
+      tester,
+    ) async {
       final api = FakeDiscourseApi(
         user: _assignUser(),
         feeds: const {'/latest.json': <Topic>[]},
@@ -317,67 +318,66 @@ void main() {
 
       expect(contribution, isEmpty);
       expect(find.byKey(const Key('assign-topic-property')), findsNothing);
-    },
-  );
+    });
 
-  testWidgets('a sidebar post assignment loads around its exact post', (
-    tester,
-  ) async {
-    const assignment = Assignment(
-      assignee: AssignmentUser(username: 'sam', name: 'Sam'),
-      postId: 12,
-      postNumber: 2,
-    );
-    final api = FakeDiscourseApi(
-      user: _assignUser(),
-      feeds: const {'/latest.json': <Topic>[]},
-      topics: {
-        7: _payload(
-          canAssignTopic: false,
-          canAssignPost: false,
-          postAssignment: assignment,
-        ),
-      },
-      siteConfigs: const {_site: SiteConfig.unknown()},
-    );
-    final shell = (await tester.runAsync(() => _loadShell(api)))!;
-    addTearDown(shell.dispose);
+    testWidgets('open a sidebar assignment around its exact post', (
+      tester,
+    ) async {
+      const assignment = Assignment(
+        assignee: AssignmentUser(username: 'sam', name: 'Sam'),
+        postId: 12,
+        postNumber: 2,
+      );
+      final api = FakeDiscourseApi(
+        user: _assignUser(),
+        feeds: const {'/latest.json': <Topic>[]},
+        topics: {
+          7: _payload(
+            canAssignTopic: false,
+            canAssignPost: false,
+            postAssignment: assignment,
+          ),
+        },
+        siteConfigs: const {_site: SiteConfig.unknown()},
+      );
+      final shell = (await tester.runAsync(() => _loadShell(api)))!;
+      addTearDown(shell.dispose);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: ShellScope(
-          controller: shell,
-          child: Scaffold(
-            body: Builder(
-              builder: (context) => Column(
-                children: [
-                  for (final section
-                      in PluginScope.of(context).registry.topicProperties(
-                        context,
-                        _site,
-                        shell.currentTopic!,
-                      ))
-                    ...section.values,
-                ],
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(
+              body: Builder(
+                builder: (context) => Column(
+                  children: [
+                    for (final section
+                        in PluginScope.of(context).registry.topicProperties(
+                          context,
+                          _site,
+                          shell.currentTopic!,
+                        ))
+                      ...section.values,
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
+      );
 
-    await tester.tap(find.byKey(const Key('assign-topic-property-post-12')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('assign-topic-property-post-12')));
+      await tester.pumpAndSettle();
 
-    expect(api.topicsOpened, [7, 7]);
-    expect(api.topicPostNumbersOpened, [null, 2]);
-    expect(shell.currentContent?.postNumber, 2);
-  });
+      expect(api.topicsOpened, [7, 7]);
+      expect(api.topicPostNumbersOpened, [null, 2]);
+      expect(shell.currentContent?.postNumber, 2);
+    });
 
-  testWidgets(
-    'a legacy 404 rebuilds away topic properties and post-menu contributions',
-    (tester) async {
+    testWidgets('remove topic and post-menu actions after a legacy 404', (
+      tester,
+    ) async {
       final api = FakeDiscourseApi(
         user: _assignUser(),
         feeds: const {'/latest.json': <Topic>[]},
@@ -489,102 +489,104 @@ void main() {
       expect(find.byKey(const Key('assign-topic-property')), findsNothing);
       expect(postMenu.entries, isEmpty);
       expect(identical(postMenu.rebuildOn, assignments), isTrue);
-    },
-  );
+    });
 
-  testWidgets('a legacy 404 rebuilds an assigned post as read-only', (
-    tester,
-  ) async {
-    const assignment = Assignment(
-      assignee: AssignmentUser(username: 'sam', name: 'Sam'),
-      status: 'New',
-      postId: 12,
-      postNumber: 2,
-    );
-    final api = FakeDiscourseApi(
-      user: _assignUser(),
-      feeds: const {'/latest.json': <Topic>[]},
-      topics: {
-        7: _payload(
-          canAssignTopic: null,
-          canAssignPost: null,
-          postAssignment: assignment,
-        ),
-      },
-      siteConfigs: const {_site: SiteConfig.unknown()},
-      pluginWriteFailures: {
-        'PUT /assign/assign.json': const WriteException(
-          WriteFailure.unreachable,
-          statusCode: 404,
-        ),
-      },
-    );
-    final shell = (await tester.runAsync(() => _loadShell(api)))!;
-    addTearDown(shell.dispose);
+    testWidgets('keep an assigned post read-only after a legacy 404', (
+      tester,
+    ) async {
+      const assignment = Assignment(
+        assignee: AssignmentUser(username: 'sam', name: 'Sam'),
+        status: 'New',
+        postId: 12,
+        postNumber: 2,
+      );
+      final api = FakeDiscourseApi(
+        user: _assignUser(),
+        feeds: const {'/latest.json': <Topic>[]},
+        topics: {
+          7: _payload(
+            canAssignTopic: null,
+            canAssignPost: null,
+            postAssignment: assignment,
+          ),
+        },
+        siteConfigs: const {_site: SiteConfig.unknown()},
+        pluginWriteFailures: {
+          'PUT /assign/assign.json': const WriteException(
+            WriteFailure.unreachable,
+            statusCode: 404,
+          ),
+        },
+      );
+      final shell = (await tester.runAsync(() => _loadShell(api)))!;
+      addTearDown(shell.dispose);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: ShellScope(
-          controller: shell,
-          child: Scaffold(
-            body: Builder(
-              builder: (context) {
-                final topic = shell.currentTopic!;
-                final post = shell.store.read<Post>(_site, 12)!;
-                return Column(
-                  children: PluginScope.of(
-                    context,
-                  ).registry.postDecorations(context, _site, topic, post),
-                );
-              },
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(
+              body: Builder(
+                builder: (context) {
+                  final topic = shell.currentTopic!;
+                  final post = shell.store.read<Post>(_site, 12)!;
+                  return Column(
+                    children: PluginScope.of(
+                      context,
+                    ).registry.postDecorations(context, _site, topic, post),
+                  );
+                },
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
 
-    final assignmentRow = find.byKey(const Key('assign-post-12-assignment'));
-    Finder editIcon() => find.descendant(
-      of: assignmentRow,
-      matching: find.byWidgetPredicate(
-        (widget) => widget is DIcon && widget.icon == DIcons.pencil,
-      ),
-    );
-    expect(assignmentRow, findsOneWidget);
-    expect(editIcon(), findsOneWidget);
+      final assignmentRow = find.byKey(const Key('assign-post-12-assignment'));
+      Finder editIcon() => find.descendant(
+        of: assignmentRow,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.pencil,
+        ),
+      );
+      expect(assignmentRow, findsOneWidget);
+      expect(editIcon(), findsOneWidget);
 
-    final error = await _assignments(shell).assign(
-      _site,
-      const AssignmentTarget.post(12, topicId: 7),
-      const AssignmentUser(username: 'other'),
-    );
-    await tester.pumpAndSettle();
+      final error = await _assignments(shell).assign(
+        _site,
+        const AssignmentTarget.post(12, topicId: 7),
+        const AssignmentUser(username: 'other'),
+      );
+      await tester.pumpAndSettle();
 
-    expect(error, 'This assignment target is no longer available.');
-    expect(assignmentRow, findsOneWidget);
-    expect(find.text('Post #2 assigned to Sam'), findsOneWidget);
-    expect(editIcon(), findsNothing);
+      expect(error, 'This assignment target is no longer available.');
+      expect(assignmentRow, findsOneWidget);
+      expect(find.text('Post #2 assigned to Sam'), findsOneWidget);
+      expect(editIcon(), findsNothing);
+    });
   });
 
-  test('a failed reconciliation makes the next ordinary open retry', () async {
-    final api = _OneFailedRefreshApi();
-    final shell = await _loadShell(api);
-    addTearDown(shell.dispose);
+  group('assignment reconciliation', () {
+    test('retries an ordinary open after a failed forced refresh', () async {
+      final api = _OneFailedRefreshApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
 
-    final error = await _assignments(shell).assign(
-      _site,
-      const AssignmentTarget.post(12, topicId: 7),
-      const AssignmentUser(username: 'sam'),
-    );
+      final error = await _assignments(shell).assign(
+        _site,
+        const AssignmentTarget.post(12, topicId: 7),
+        const AssignmentUser(username: 'sam'),
+      );
 
-    expect(error, isNull);
-    expect(api.topicsOpened, [7, 7]);
+      expect(error, isNull);
+      expect(api.topicsOpened, [7, 7]);
 
-    // The topic is still held, but the failed forced reconciliation prevents
-    // it from becoming a permanent cache hit.
-    await shell.loadTopic(7, 'topic');
-    expect(api.topicsOpened, [7, 7, 7]);
+      // The topic is still held, but the failed forced reconciliation prevents
+      // it from becoming a permanent cache hit.
+      await shell.loadTopic(7, 'topic');
+      expect(api.topicsOpened, [7, 7, 7]);
+    });
   });
 }
 

@@ -64,9 +64,9 @@ void main() {
     });
   });
 
-  group('load', () {
+  group('EmojiCache.load', () {
     test(
-      'fetches a given url once, however many times it is asked for',
+      'fetches a given URL once, however many times it is requested',
       () async {
         // The point of the cache: the same handful of emoji repeat across every
         // post on a site.

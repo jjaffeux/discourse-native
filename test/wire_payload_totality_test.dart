@@ -264,6 +264,39 @@ Map<String, dynamic> _object(Random random, int depth) => {
     _keys[random.nextInt(_keys.length)]: _value(random, depth),
 };
 
+void _recordCorpusShapes(Object? value, Set<String> reached) {
+  switch (value) {
+    case null:
+      reached.add('null');
+    case bool():
+      reached.add('boolean');
+    case int():
+      reached.add('integer');
+    case double():
+      reached.add('double');
+    case String():
+      reached.add(value.isEmpty ? 'empty string' : 'non-empty string');
+    case List<Object?>():
+      reached.add(value.isEmpty ? 'empty list' : 'non-empty list');
+      if (value.any((item) => item is List || item is Map)) {
+        reached.add('list with nested collection');
+      }
+      for (final item in value) {
+        _recordCorpusShapes(item, reached);
+      }
+    case Map<Object?, Object?>():
+      reached.add(value.isEmpty ? 'empty object' : 'non-empty object');
+      if (value.values.any((item) => item is List || item is Map)) {
+        reached.add('object with nested collection');
+      }
+      for (final item in value.values) {
+        _recordCorpusShapes(item, reached);
+      }
+    default:
+      reached.add('other');
+  }
+}
+
 void main() {
   // `json.dart` states the rule the whole model layer is written to: "Every
   // parser answers that with a default rather than a throw — a field the site
@@ -284,6 +317,7 @@ void main() {
     final random = Random(20260823);
     const site = 'https://example.com';
     final failures = <String, String>{};
+    final reachedShapes = <String>{};
 
     void probe(String label, void Function() body, Object? json) {
       try {
@@ -296,6 +330,8 @@ void main() {
     for (var run = 0; run < 4000; run++) {
       final json = _object(random, 0);
       final loose = _value(random, 0);
+      _recordCorpusShapes(json, reachedShapes);
+      _recordCorpusShapes(loose, reachedShapes);
 
       probe('Bookmark', () => Bookmark.fromJson(json), json);
       probe('ComposerDraft', () => ComposerDraft.fromJson(json), json);
@@ -565,6 +601,20 @@ void main() {
     }
 
     expect(failures.values, isEmpty);
+    expect(reachedShapes, {
+      'null',
+      'boolean',
+      'integer',
+      'double',
+      'empty string',
+      'non-empty string',
+      'empty list',
+      'non-empty list',
+      'empty object',
+      'non-empty object',
+      'list with nested collection',
+      'object with nested collection',
+    }, reason: 'the fixed-seed corpus must reach every intended JSON shape');
   });
   // The instruction above — add every new wire parser here — is only as good
   // as somebody remembering it, and the parser it is forgotten for is the one

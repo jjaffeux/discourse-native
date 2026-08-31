@@ -119,6 +119,11 @@ void main() {
 
   test('overlapping shares own distinct temporary files', () async {
     final environment = _GatedShareEnvironment(directory);
+    addTearDown(() {
+      for (final gate in environment.release.values) {
+        if (!gate.isCompleted) gate.complete();
+      }
+    });
     final exporter = NativeResenhaReportExporter(
       platform: TargetPlatform.iOS,
       environment: environment,

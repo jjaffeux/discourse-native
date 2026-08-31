@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/shell/anchored_layout.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderConstrainedBox;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -74,7 +75,15 @@ void main() {
     });
 
     test('answers null when either box is missing', () {
-      expect(anchorRect(anchor: null, overlay: null), isNull);
+      final box = RenderConstrainedBox(
+        additionalConstraints: const BoxConstraints.tightFor(
+          width: 1,
+          height: 1,
+        ),
+      );
+
+      expect(anchorRect(anchor: null, overlay: box), isNull);
+      expect(anchorRect(anchor: box, overlay: null), isNull);
     });
   });
 

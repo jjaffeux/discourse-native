@@ -45,90 +45,91 @@ void main() {
     lifecycle = SiteLifecycle();
   });
 
-  test('global search stores results and appends unique pages', () async {
-    final api = FakeDiscourseApi(
-      chatSearchPagesByKey: {
-        FakeDiscourseApi.chatSearchKey('needle'): ChatSearchPage(
-          hits: [hit(1), hit(2)],
-          hasMore: true,
+  group('global search', () {
+    test('stores results and appends unique pages', () async {
+      final api = FakeDiscourseApi(
+        chatSearchPagesByKey: {
+          FakeDiscourseApi.chatSearchKey('needle'): ChatSearchPage(
+            hits: [hit(1), hit(2)],
+            hasMore: true,
+          ),
+          FakeDiscourseApi.chatSearchKey('needle', offset: 2): ChatSearchPage(
+            hits: [hit(2), hit(3)],
+            hasMore: true,
+          ),
+          FakeDiscourseApi.chatSearchKey('needle', offset: 4): ChatSearchPage(
+            hits: [hit(4)],
+          ),
+        },
+      );
+      final search = ChatSearchController(
+        api: api,
+        requests: FakePluginRequestHost(
+          credentials: credentials,
+          lifecycle: lifecycle,
         ),
-        FakeDiscourseApi.chatSearchKey('needle', offset: 2): ChatSearchPage(
-          hits: [hit(2), hit(3)],
-          hasMore: true,
+        store: store,
+        debounceDuration: Duration.zero,
+      );
+      addTearDown(search.dispose);
+
+      search.setGlobalQuery(site, 'needle');
+      await drain();
+      expect(search.globalState(site).hits.map((entry) => entry.id), [1, 2]);
+      expect(store.read<ChatMessage>(site, 1), isNotNull);
+
+      search.loadMore(site);
+      await drain();
+      expect(search.globalState(site).hits.map((entry) => entry.id), [1, 2, 3]);
+      expect(api.chatSearchesRequested.last.offset, 2);
+
+      search.loadMore(site);
+      await drain();
+      expect(search.globalState(site).hits.map((entry) => entry.id), [
+        1,
+        2,
+        3,
+        4,
+      ]);
+      expect(api.chatSearchesRequested.last.offset, 4);
+    });
+
+    test('a newer query owns the answer', () async {
+      final gate = Completer<void>();
+      final api = FakeDiscourseApi(
+        chatSearchGate: gate,
+        chatSearchPagesByKey: {
+          FakeDiscourseApi.chatSearchKey('old'): ChatSearchPage(hits: [hit(1)]),
+          FakeDiscourseApi.chatSearchKey('new'): ChatSearchPage(hits: [hit(2)]),
+        },
+      );
+      final search = ChatSearchController(
+        api: api,
+        requests: FakePluginRequestHost(
+          credentials: credentials,
+          lifecycle: lifecycle,
         ),
-        FakeDiscourseApi.chatSearchKey('needle', offset: 4): ChatSearchPage(
-          hits: [hit(4)],
-        ),
-      },
-    );
-    final search = ChatSearchController(
-      api: api,
-      requests: FakePluginRequestHost(
-        credentials: credentials,
-        lifecycle: lifecycle,
-      ),
-      store: store,
-      debounceDuration: Duration.zero,
-    );
-    addTearDown(search.dispose);
+        store: store,
+        debounceDuration: Duration.zero,
+      );
+      addTearDown(search.dispose);
 
-    search.setGlobalQuery(site, 'needle');
-    await drain();
-    expect(search.globalState(site).hits.map((entry) => entry.id), [1, 2]);
-    expect(store.read<ChatMessage>(site, 1), isNotNull);
+      search.setGlobalQuery(site, 'old');
+      await drain();
+      search.setGlobalQuery(site, 'new');
+      await drain();
+      expect(api.chatSearchesRequested, hasLength(2));
+      gate.complete();
+      await drain();
 
-    search.loadMore(site);
-    await drain();
-    expect(search.globalState(site).hits.map((entry) => entry.id), [1, 2, 3]);
-    expect(api.chatSearchesRequested.last.offset, 2);
-
-    search.loadMore(site);
-    await drain();
-    expect(search.globalState(site).hits.map((entry) => entry.id), [
-      1,
-      2,
-      3,
-      4,
-    ]);
-    expect(api.chatSearchesRequested.last.offset, 4);
+      expect(search.globalState(site).query, 'new');
+      expect(search.globalState(site).hits.single.id, 2);
+      expect(store.read<ChatMessage>(site, 1), isNull);
+    });
   });
 
-  test('a newer global query owns the answer', () async {
-    final gate = Completer<void>();
-    final api = FakeDiscourseApi(
-      chatSearchGate: gate,
-      chatSearchPagesByKey: {
-        FakeDiscourseApi.chatSearchKey('old'): ChatSearchPage(hits: [hit(1)]),
-        FakeDiscourseApi.chatSearchKey('new'): ChatSearchPage(hits: [hit(2)]),
-      },
-    );
-    final search = ChatSearchController(
-      api: api,
-      requests: FakePluginRequestHost(
-        credentials: credentials,
-        lifecycle: lifecycle,
-      ),
-      store: store,
-      debounceDuration: Duration.zero,
-    );
-    addTearDown(search.dispose);
-
-    search.setGlobalQuery(site, 'old');
-    await drain();
-    search.setGlobalQuery(site, 'new');
-    await drain();
-    expect(api.chatSearchesRequested, hasLength(2));
-    gate.complete();
-    await drain();
-
-    expect(search.globalState(site).query, 'new');
-    expect(search.globalState(site).hits.single.id, 2);
-    expect(store.read<ChatMessage>(site, 1), isNull);
-  });
-
-  test(
-    'channel search uses latest, excludes replies, and cycles results',
-    () async {
+  group('channel search', () {
+    test('uses latest, excludes replies, and cycles results', () async {
       final api = FakeDiscourseApi(
         chatSearchPagesByKey: {
           FakeDiscourseApi.chatSearchKey(
@@ -167,42 +168,42 @@ void main() {
       expect(search.scopedState(site, 9).selectedHit?.id, 2);
       search.selectNext(site, 9);
       expect(search.scopedState(site, 9).selectedHit?.id, 1);
-    },
-  );
+    });
 
-  test('closing a channel search rejects its late response', () async {
-    final gate = Completer<void>();
-    final api = FakeDiscourseApi(
-      chatSearchGate: gate,
-      chatSearchPagesByKey: {
-        FakeDiscourseApi.chatSearchKey(
-          'needle',
-          channelId: 9,
-          sort: ChatSearchSort.latest,
-        ): ChatSearchPage(
-          hits: [hit(1)],
+    test('closing rejects its late response', () async {
+      final gate = Completer<void>();
+      final api = FakeDiscourseApi(
+        chatSearchGate: gate,
+        chatSearchPagesByKey: {
+          FakeDiscourseApi.chatSearchKey(
+            'needle',
+            channelId: 9,
+            sort: ChatSearchSort.latest,
+          ): ChatSearchPage(
+            hits: [hit(1)],
+          ),
+        },
+      );
+      final search = ChatSearchController(
+        api: api,
+        requests: FakePluginRequestHost(
+          credentials: credentials,
+          lifecycle: lifecycle,
         ),
-      },
-    );
-    final search = ChatSearchController(
-      api: api,
-      requests: FakePluginRequestHost(
-        credentials: credentials,
-        lifecycle: lifecycle,
-      ),
-      store: store,
-      debounceDuration: Duration.zero,
-    );
-    addTearDown(search.dispose);
+        store: store,
+        debounceDuration: Duration.zero,
+      );
+      addTearDown(search.dispose);
 
-    search.openScoped(site, 9);
-    search.setScopedQuery(site, 9, 'needle');
-    await drain();
-    search.closeScoped(site, 9);
-    gate.complete();
-    await drain();
+      search.openScoped(site, 9);
+      search.setScopedQuery(site, 9, 'needle');
+      await drain();
+      search.closeScoped(site, 9);
+      gate.complete();
+      await drain();
 
-    expect(search.scopedState(site, 9), const ScopedChatSearchState());
-    expect(store.read<ChatMessage>(site, 1), isNull);
+      expect(search.scopedState(site, 9), const ScopedChatSearchState());
+      expect(store.read<ChatMessage>(site, 1), isNull);
+    });
   });
 }

@@ -88,92 +88,95 @@ const _summary = UserSummary(
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('read-time formatting matches the web summary units', () {
-    expect(summaryDuration(100000), (short: '1d', long: '1 day'));
-    expect(summaryDuration(1000), (short: '17m', long: '17 mins'));
-    expect(summaryDuration(0), (short: '<1m', long: 'less than 1 min'));
-    expect(summaryDuration(2700), (short: '1h', long: 'about 1 hour'));
-    expect(summaryDuration(7776000), (short: '3mon', long: '3 months'));
+  group('duration formatting', () {
+    test('matches the web summary units', () {
+      expect(summaryDuration(100000), (short: '1d', long: '1 day'));
+      expect(summaryDuration(1000), (short: '17m', long: '17 mins'));
+      expect(summaryDuration(0), (short: '<1m', long: 'less than 1 min'));
+      expect(summaryDuration(2700), (short: '1h', long: 'about 1 hour'));
+      expect(summaryDuration(7776000), (short: '3mon', long: '3 months'));
+    });
   });
 
-  for (final layout in [
-    (name: 'compact', size: const Size(390, 844)),
-    (name: 'wide', size: const Size(1440, 900)),
-  ]) {
-    testWidgets(
-      'the Profile Summary row opens and closes a native ${layout.name} route',
-      (tester) async {
-        final fixture = await _pump(tester, size: layout.size);
-        final semantics = tester.ensureSemantics();
-        try {
-          await _openSummaryFromMenu(tester);
+  group('route lifecycle', () {
+    for (final layout in [
+      (name: 'compact', size: const Size(390, 844)),
+      (name: 'wide', size: const Size(1440, 900)),
+    ]) {
+      testWidgets(
+        'opens and closes from the profile row in ${layout.name} layout',
+        (tester) async {
+          final fixture = await _pump(tester, size: layout.size);
+          final semantics = tester.ensureSemantics();
+          try {
+            await _openSummaryFromMenu(tester);
 
-          expect(find.byType(UserMenuPanel), findsNothing);
-          expect(find.byType(UserSummaryView), findsOneWidget);
-          expect(fixture.api.userSummaryRequests, [
-            (siteUrl: _siteUrl, username: 'reader'),
-          ]);
-          expect(fixture.controller.currentContent?.id, 'summary');
-          expect(fixture.controller.contentStack.map((route) => route.id), [
-            'latest',
-            'summary',
-          ]);
+            expect(find.byType(UserMenuPanel), findsNothing);
+            expect(find.byType(UserSummaryView), findsOneWidget);
+            expect(fixture.api.userSummaryRequests, [
+              (siteUrl: _siteUrl, username: 'reader'),
+            ]);
+            expect(fixture.controller.currentContent?.id, 'summary');
+            expect(fixture.controller.contentStack.map((route) => route.id), [
+              'latest',
+              'summary',
+            ]);
 
-          await tester.tap(find.byTooltip('Back'));
-          await tester.pumpAndSettle();
-          expect(find.byType(UserSummaryView), findsNothing);
-          expect(fixture.controller.currentContent?.id, 'latest');
-          if (layout.name == 'compact') {
-            expect(fixture.controller.mobilePane, MobilePane.content);
             await tester.tap(find.byTooltip('Back'));
             await tester.pumpAndSettle();
-            expect(fixture.controller.mobilePane, MobilePane.sidebar);
+            expect(find.byType(UserSummaryView), findsNothing);
+            expect(fixture.controller.currentContent?.id, 'latest');
+            if (layout.name == 'compact') {
+              expect(fixture.controller.mobilePane, MobilePane.content);
+              await tester.tap(find.byTooltip('Back'));
+              await tester.pumpAndSettle();
+              expect(fixture.controller.mobilePane, MobilePane.sidebar);
+            }
+          } finally {
+            semantics.dispose();
           }
-        } finally {
-          semantics.dispose();
-        }
-      },
-    );
-  }
+        },
+      );
+    }
 
-  testWidgets('a restored Summary route loads the native destination', (
-    tester,
-  ) async {
-    final workspace = ForumWorkspace(
-      siteUrl: _siteUrl,
-      accountIdentity: 'user:reader',
-      tabs: [
-        ForumTab(
-          id: 'restored-summary',
-          rootDestinationId: 'latest',
-          contentStack: const [
-            ContentRoute(
-              id: 'latest',
-              title: 'Topics',
-              icon: DIcons.layerGroup,
-            ),
-            ContentRoute(id: 'summary', title: 'Summary', icon: DIcons.user),
-          ],
-        ),
-      ],
-      activeTabId: 'restored-summary',
-    );
-
-    final fixture = await _pump(
+    testWidgets('loads the native destination for a restored route', (
       tester,
-      forumTabs: FakeForumTabStore([workspace]),
-    );
+    ) async {
+      final workspace = ForumWorkspace(
+        siteUrl: _siteUrl,
+        accountIdentity: 'user:reader',
+        tabs: [
+          ForumTab(
+            id: 'restored-summary',
+            rootDestinationId: 'latest',
+            contentStack: const [
+              ContentRoute(
+                id: 'latest',
+                title: 'Topics',
+                icon: DIcons.layerGroup,
+              ),
+              ContentRoute(id: 'summary', title: 'Summary', icon: DIcons.user),
+            ],
+          ),
+        ],
+        activeTabId: 'restored-summary',
+      );
 
-    expect(find.byType(UserSummaryView), findsOneWidget);
-    expect(fixture.controller.currentContent?.id, 'summary');
-    expect(fixture.api.userSummaryRequests, [
-      (siteUrl: _siteUrl, username: 'reader'),
-    ]);
-  });
+      final fixture = await _pump(
+        tester,
+        forumTabs: FakeForumTabStore([workspace]),
+      );
 
-  testWidgets(
-    'a mounted Summary reloads after the account generation rotates',
-    (tester) async {
+      expect(find.byType(UserSummaryView), findsOneWidget);
+      expect(fixture.controller.currentContent?.id, 'summary');
+      expect(fixture.api.userSummaryRequests, [
+        (siteUrl: _siteUrl, username: 'reader'),
+      ]);
+    });
+
+    testWidgets('reloads a mounted view after the account generation rotates', (
+      tester,
+    ) async {
       final fixture = await _pump(tester);
       await _openSummaryFromMenu(tester);
 
@@ -186,137 +189,147 @@ void main() {
         (siteUrl: _siteUrl, username: 'reader'),
         (siteUrl: _siteUrl, username: 'reader'),
       ]);
-    },
-  );
-
-  testWidgets('summary rows navigate to the exact native post and back', (
-    tester,
-  ) async {
-    final fixture = await _pump(tester);
-    await _openSummaryFromMenu(tester);
-
-    await tester.tap(find.bySemanticsLabel('Open Top native reply, 3 likes'));
-    await tester.pump();
-
-    expect(fixture.controller.currentContent?.topicId, 12);
-    expect(fixture.controller.currentContent?.postNumber, 4);
-    expect(fixture.api.topicsOpened, [12]);
-    expect(fixture.api.topicPostNumbersOpened, [4]);
-
-    fixture.controller.handleBack(canReturnToSidebar: false);
-    await tester.pumpAndSettle();
-    expect(find.byType(UserSummaryView), findsOneWidget);
-    expect(
-      fixture.api.userSummaryRequests,
-      hasLength(1),
-      reason: 'the account-scoped summary stays cached when returning',
-    );
+    });
   });
 
-  testWidgets('category counts enter the same author/category filters as web', (
-    tester,
-  ) async {
-    final fixture = await _pump(tester);
-    await _openSummaryFromMenu(tester);
-
-    await tester.tap(
-      find.bySemanticsLabel('Search 2 topics by @reader in Support'),
-    );
-    await tester.pump();
-
-    expect(fixture.controller.search.query, '@reader #support in:first');
-    expect(fixture.controller.search.mode, SearchMode.topics);
-  });
-
-  testWidgets('summary content exposes meaningful button and value semantics', (
-    tester,
-  ) async {
-    await _pump(tester);
-    final semantics = tester.ensureSemantics();
-    try {
+  group('native destinations', () {
+    testWidgets('post rows navigate to the exact post and back', (
+      tester,
+    ) async {
+      final fixture = await _pump(tester);
       await _openSummaryFromMenu(tester);
 
-      expect(
-        find.bySemanticsLabel('read time: 1 day, all time'),
-        findsOneWidget,
-      );
-      expect(
-        find.bySemanticsLabel('recent read time: 17 mins, in the last 60 days'),
-        findsOneWidget,
-      );
-      expect(
-        find.bySemanticsLabel('Open Top native topic, 5 likes'),
-        findsOneWidget,
-      );
-      expect(
-        find.bySemanticsLabel('View profile for Sam Example, 4 replies'),
-        findsOneWidget,
-      );
-      expect(find.bySemanticsLabel('Helpful, earned 2 times'), findsOneWidget);
-    } finally {
-      semantics.dispose();
-    }
-  });
-
-  testWidgets('loading and error states are announced and retryable', (
-    tester,
-  ) async {
-    final gate = Completer<void>();
-    final loading = await _pump(tester, summaryGate: gate);
-    final semantics = tester.ensureSemantics();
-    try {
-      await _openSummaryFromMenu(tester, settle: false);
+      await tester.tap(find.bySemanticsLabel('Open Top native reply, 3 likes'));
       await tester.pump();
 
-      final loadingSemantics = find.byWidgetPredicate(
-        (widget) =>
-            widget is Semantics && widget.properties.label == 'Loading summary',
-      );
-      expect(loadingSemantics, findsOneWidget);
-      final loadingWidget = tester.widget<Semantics>(loadingSemantics);
-      expect(loadingWidget.container, isTrue);
-      expect(loadingWidget.properties.liveRegion, isTrue);
-      gate.complete();
+      expect(fixture.controller.currentContent?.topicId, 12);
+      expect(fixture.controller.currentContent?.postNumber, 4);
+      expect(fixture.api.topicsOpened, [12]);
+      expect(fixture.api.topicPostNumbersOpened, [4]);
+
+      fixture.controller.handleBack(canReturnToSidebar: false);
       await tester.pumpAndSettle();
       expect(find.byType(UserSummaryView), findsOneWidget);
-      expect(loading.api.userSummaryRequests, hasLength(1));
+      expect(
+        fixture.api.userSummaryRequests,
+        hasLength(1),
+        reason: 'the account-scoped summary stays cached when returning',
+      );
+    });
 
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpAndSettle();
-
-      final failed = await _pump(tester, summary: null);
+    testWidgets('category counts enter the web-equivalent search filters', (
+      tester,
+    ) async {
+      final fixture = await _pump(tester);
       await _openSummaryFromMenu(tester);
-      expect(
-        find.text("Couldn't load your summary from meta.discourse.org."),
-        findsOneWidget,
-      );
-      expect(
-        find.bySemanticsLabel(
-          "Couldn't load your summary from meta.discourse.org.",
-        ),
-        findsOneWidget,
-      );
 
-      await tester.tap(find.text('Try again'));
-      await tester.pumpAndSettle();
-      expect(failed.api.userSummaryRequests, hasLength(2));
-    } finally {
-      semantics.dispose();
-    }
+      await tester.tap(
+        find.bySemanticsLabel('Search 2 topics by @reader in Support'),
+      );
+      await tester.pump();
+
+      expect(fixture.controller.search.query, '@reader #support in:first');
+      expect(fixture.controller.search.mode, SearchMode.topics);
+    });
   });
 
-  testWidgets('an empty account keeps the web section-specific empty states', (
-    tester,
-  ) async {
-    await _pump(tester, summary: const UserSummary(canSeeSummaryStats: true));
-    await _openSummaryFromMenu(tester);
+  group('content states', () {
+    testWidgets('exposes meaningful button and value semantics', (
+      tester,
+    ) async {
+      await _pump(tester);
+      final semantics = tester.ensureSemantics();
+      try {
+        await _openSummaryFromMenu(tester);
 
-    expect(find.text('<1m'), findsOneWidget);
-    expect(find.text('No replies yet.'), findsNWidgets(2));
-    expect(find.text('No topics yet.'), findsOneWidget);
-    expect(find.text('No links yet.'), findsOneWidget);
-    expect(find.text('No likes yet.'), findsNWidgets(2));
-    expect(find.text('No badges yet.'), findsOneWidget);
+        expect(
+          find.bySemanticsLabel('read time: 1 day, all time'),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel(
+            'recent read time: 17 mins, in the last 60 days',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel('Open Top native topic, 5 likes'),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel('View profile for Sam Example, 4 replies'),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel('Helpful, earned 2 times'),
+          findsOneWidget,
+        );
+      } finally {
+        semantics.dispose();
+      }
+    });
+
+    testWidgets('announces loading and supports retry after failure', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final loading = await _pump(tester, summaryGate: gate);
+      final semantics = tester.ensureSemantics();
+      try {
+        await _openSummaryFromMenu(tester, settle: false);
+        await tester.pump();
+
+        final loadingSemantics = find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics &&
+              widget.properties.label == 'Loading summary',
+        );
+        expect(loadingSemantics, findsOneWidget);
+        final loadingWidget = tester.widget<Semantics>(loadingSemantics);
+        expect(loadingWidget.container, isTrue);
+        expect(loadingWidget.properties.liveRegion, isTrue);
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(find.byType(UserSummaryView), findsOneWidget);
+        expect(loading.api.userSummaryRequests, hasLength(1));
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+
+        final failed = await _pump(tester, summary: null);
+        await _openSummaryFromMenu(tester);
+        expect(
+          find.text("Couldn't load your summary from meta.discourse.org."),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel(
+            "Couldn't load your summary from meta.discourse.org.",
+          ),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.text('Try again'));
+        await tester.pumpAndSettle();
+        expect(failed.api.userSummaryRequests, hasLength(2));
+      } finally {
+        semantics.dispose();
+      }
+    });
+
+    testWidgets('keeps section-specific empty states for an empty account', (
+      tester,
+    ) async {
+      await _pump(tester, summary: const UserSummary(canSeeSummaryStats: true));
+      await _openSummaryFromMenu(tester);
+
+      expect(find.text('<1m'), findsOneWidget);
+      expect(find.text('No replies yet.'), findsNWidgets(2));
+      expect(find.text('No topics yet.'), findsOneWidget);
+      expect(find.text('No links yet.'), findsOneWidget);
+      expect(find.text('No likes yet.'), findsNWidgets(2));
+      expect(find.text('No badges yet.'), findsOneWidget);
+    });
   });
 }
 

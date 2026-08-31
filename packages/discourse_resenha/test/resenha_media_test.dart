@@ -748,20 +748,26 @@ void main() {
       },
     );
 
-    test('the lower-id peer keeps its offer during a collision', () async {
-      final peer = _FakePeerConnection();
-      final media = _meshSession(peer: peer, audioPublishingAllowed: false);
-      await media.connect();
-      peer.prepareAssociatedTransceivers();
+    test(
+      'the peer with the lower ID keeps its offer during a collision',
+      () async {
+        final peer = _FakePeerConnection();
+        final media = _meshSession(peer: peer, audioPublishingAllowed: false);
+        await media.connect();
+        peer.prepareAssociatedTransceivers();
 
-      await media.handleSignal(20, {'type': 'offer', 'sdp': 'fallback-offer'});
+        await media.handleSignal(20, {
+          'type': 'offer',
+          'sdp': 'fallback-offer',
+        });
 
-      expect(peer.rollbackCount, 0);
-      expect(peer.createdAnswers, 0);
-      expect((await peer.getLocalDescription())?.type, 'offer');
-      expect(await peer.getRemoteDescription(), isNull);
-      await media.dispose();
-    });
+        expect(peer.rollbackCount, 0);
+        expect(peer.createdAnswers, 0);
+        expect((await peer.getLocalDescription())?.type, 'offer');
+        expect(await peer.getRemoteDescription(), isNull);
+        await media.dispose();
+      },
+    );
 
     test('ignores an answer when no local offer is outstanding', () async {
       final peer = _FakePeerConnection();
@@ -950,6 +956,8 @@ void main() {
         const privateCause =
             'candidate-private-user device-private 203.0.113.120';
         final uncaught = <Object>[];
+        final timers = <_ManualTimer>[];
+        final sendAttempted = Completer<void>();
         final diagnostics = _DiagnosticsRecorder();
         final peer = _FakePeerConnection();
         final media = _meshSession(
@@ -959,21 +967,39 @@ void main() {
           audioPublishingAllowed: false,
           diagnostics: diagnostics,
           correlationId: 'candidate-failure-call',
-          sendSignal: (_, _) async => throw StateError(privateCause),
+          sendSignal: (_, _) async {
+            if (!sendAttempted.isCompleted) sendAttempted.complete();
+            throw StateError(privateCause);
+          },
         );
         await media.connect();
 
-        final operation = runZonedGuarded<Future<void>>(() async {
-          peer.onIceCandidate?.call(
-            rtc.RTCIceCandidate(
-              'candidate:1 1 udp 2122260223 203.0.113.120 54321 typ host',
-              '0',
-              0,
-            ),
-          );
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-        }, (error, _) => uncaught.add(error));
-        await operation;
+        runZonedGuarded<void>(
+          () {
+            peer.onIceCandidate?.call(
+              rtc.RTCIceCandidate(
+                'candidate:1 1 udp 2122260223 203.0.113.120 54321 typ host',
+                '0',
+                0,
+              ),
+            );
+            expect(timers.single.delay, const Duration(milliseconds: 30));
+            timers.single.fire();
+          },
+          (error, _) => uncaught.add(error),
+          zoneSpecification: ZoneSpecification(
+            createTimer: (self, parent, zone, duration, callback) {
+              final timer = _ManualTimer(
+                duration,
+                () => zone.runGuarded(callback),
+              );
+              timers.add(timer);
+              return timer;
+            },
+          ),
+        );
+        expect(sendAttempted.isCompleted, isTrue);
+        await _pumpEventQueue();
 
         expect(uncaught, isEmpty);
         final failure = diagnostics.records.singleWhere(
@@ -1037,6 +1063,7 @@ void main() {
 
     test('samples raw peer stats only while capture is enabled', () async {
       final diagnostics = _DiagnosticsRecorder();
+      final timers = <_ManualPeriodicTimer>[];
       final peer = _FakePeerConnection();
       final media = _meshSession(
         peer: peer,
@@ -1046,27 +1073,47 @@ void main() {
         rawStatsInterval: const Duration(milliseconds: 5),
         enumerateDevices: () async => const [],
       );
-      await media.connect();
 
-      await Future<void>.delayed(const Duration(milliseconds: 12));
-      expect(
-        diagnostics.rawRecords.where(
-          (record) => record.event == 'mesh.peer.stats',
+      await runZoned(
+        () async {
+          await media.connect();
+
+          final statsTimer = timers.singleWhere(
+            (timer) => timer.delay == const Duration(milliseconds: 5),
+          );
+          statsTimer.fire();
+          await _pumpEventQueue();
+          expect(
+            diagnostics.rawRecords.where(
+              (record) => record.event == 'mesh.peer.stats',
+            ),
+            isEmpty,
+          );
+
+          diagnostics.captureEnabled = true;
+          statsTimer.fire();
+          await _pumpEventQueue();
+          final stats = diagnostics.rawRecords.where(
+            (record) => record.event == 'mesh.peer.stats',
+          );
+          expect(stats, isNotEmpty);
+          expect(
+            stats.every((record) => record.correlationId == 'stats-call'),
+            true,
+          );
+          await media.dispose();
+        },
+        zoneSpecification: ZoneSpecification(
+          createPeriodicTimer: (self, parent, zone, duration, callback) {
+            final timer = _ManualPeriodicTimer(
+              duration,
+              (timer) => zone.runUnaryGuarded(callback, timer),
+            );
+            timers.add(timer);
+            return timer;
+          },
         ),
-        isEmpty,
       );
-
-      diagnostics.captureEnabled = true;
-      await Future<void>.delayed(const Duration(milliseconds: 12));
-      final stats = diagnostics.rawRecords.where(
-        (record) => record.event == 'mesh.peer.stats',
-      );
-      expect(stats, isNotEmpty);
-      expect(
-        stats.every((record) => record.correlationId == 'stats-call'),
-        true,
-      );
-      await media.dispose();
     });
 
     test('records full device inventory only during deep capture', () async {
@@ -1301,6 +1348,7 @@ void main() {
 
   test('samples raw LiveKit track stats only during deep capture', () async {
     final diagnostics = _DiagnosticsRecorder();
+    final timers = <_ManualPeriodicTimer>[];
     final meshJoin = _meshJoin(localUserId: 10, remoteUserId: 20);
     var collectionCount = 0;
     var enumerationCount = 0;
@@ -1351,29 +1399,48 @@ void main() {
         ];
       },
     );
-    media.startRawStatsTimerForTesting();
+    await runZoned(
+      () async {
+        media.startRawStatsTimerForTesting();
 
-    await Future<void>.delayed(const Duration(milliseconds: 12));
-    expect(collectionCount, 0);
-    expect(enumerationCount, 0);
-    expect(diagnostics.rawRecords, isEmpty);
+        final statsTimer = timers.singleWhere(
+          (timer) => timer.delay == const Duration(milliseconds: 5),
+        );
+        statsTimer.fire();
+        await _pumpEventQueue();
+        expect(collectionCount, 0);
+        expect(enumerationCount, 0);
+        expect(diagnostics.rawRecords, isEmpty);
 
-    diagnostics.captureEnabled = true;
-    await Future<void>.delayed(const Duration(milliseconds: 18));
-    expect(collectionCount, greaterThan(0));
-    expect(enumerationCount, 1);
-    expect(
-      diagnostics.rawRecords.map((record) => record.event),
-      containsAll({'media.devices.enumerated', 'livekit.track.stats'}),
+        diagnostics.captureEnabled = true;
+        statsTimer.fire();
+        await _pumpEventQueue();
+        expect(collectionCount, 1);
+        expect(enumerationCount, 1);
+        expect(
+          diagnostics.rawRecords.map((record) => record.event),
+          containsAll({'media.devices.enumerated', 'livekit.track.stats'}),
+        );
+        final stats = diagnostics.rawRecords.firstWhere(
+          (record) => record.event == 'livekit.track.stats',
+        );
+        expect(stats.correlationId, 'livekit-stats-call');
+        expect(stats.data['participantIdentity'], 'remote-user');
+        expect(stats.data['direction'], 'receiver');
+        expect(stats.data['reports'], isNotEmpty);
+        await media.dispose();
+      },
+      zoneSpecification: ZoneSpecification(
+        createPeriodicTimer: (self, parent, zone, duration, callback) {
+          final timer = _ManualPeriodicTimer(
+            duration,
+            (timer) => zone.runUnaryGuarded(callback, timer),
+          );
+          timers.add(timer);
+          return timer;
+        },
+      ),
     );
-    final stats = diagnostics.rawRecords.firstWhere(
-      (record) => record.event == 'livekit.track.stats',
-    );
-    expect(stats.correlationId, 'livekit-stats-call');
-    expect(stats.data['participantIdentity'], 'remote-user');
-    expect(stats.data['direction'], 'receiver');
-    expect(stats.data['reports'], isNotEmpty);
-    await media.dispose();
   });
 
   group('LiveKitResenhaMediaSession', () {
@@ -2217,6 +2284,30 @@ final class _ManualTimer implements Timer {
     _active = false;
     _tick = 1;
     _callback();
+  }
+
+  @override
+  void cancel() => _active = false;
+
+  @override
+  bool get isActive => _active;
+
+  @override
+  int get tick => _tick;
+}
+
+final class _ManualPeriodicTimer implements Timer {
+  _ManualPeriodicTimer(this.delay, this._callback);
+
+  final Duration delay;
+  final void Function(Timer) _callback;
+  bool _active = true;
+  int _tick = 0;
+
+  void fire() {
+    if (!_active) return;
+    _tick += 1;
+    _callback(this);
   }
 
   @override

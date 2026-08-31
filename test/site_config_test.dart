@@ -62,6 +62,7 @@ Map<String, dynamic> settings({
   String? gifFileDetail,
   bool? gifResultLimitEnabled,
   Object? gifMaxResults,
+  bool? enableAutoGridImages,
 }) => {
   'enable_emoji': ?emojiEnabled,
   'emoji_set': ?emojiSet,
@@ -104,6 +105,7 @@ Map<String, dynamic> settings({
   'klipy_file_detail': ?gifFileDetail,
   'klipy_limit_infinite_search_results': ?gifResultLimitEnabled,
   'klipy_max_results_limit': ?gifMaxResults,
+  'enable_auto_grid_images': ?enableAutoGridImages,
 };
 
 void main() {
@@ -119,6 +121,20 @@ void main() {
       expect(SiteConfig.fromSettings(const {}).emojiEnabled, isTrue);
       expect(
         SiteConfig.fromSettings(settings(emojiEnabled: false)).emojiEnabled,
+        isFalse,
+      );
+    });
+
+    test('reads and preserves the automatic image gallery gate', () {
+      final disabled = SiteConfig.fromSettings(
+        settings(enableAutoGridImages: false),
+      );
+      final restored = SiteConfig.fromJson(disabled.toJson());
+
+      expect(disabled.enableAutoGridImages, isFalse);
+      expect(restored.enableAutoGridImages, isFalse);
+      expect(
+        disabled.withPlugins(disabled.plugins).enableAutoGridImages,
         isFalse,
       );
     });
@@ -149,6 +165,7 @@ void main() {
       expect(SiteConfig.fromSettings(const {}), unknown);
       expect(unknown.emojiSet, 'twitter');
       expect(unknown.emojiEnabled, isTrue);
+      expect(unknown.enableAutoGridImages, isTrue);
       expect(unknown.mainReaction, isNull);
       expect(unknown.offeredReactions, isEmpty);
       expect(unknown.minSearchTermLength, 3);
@@ -337,12 +354,12 @@ void main() {
       expect(config.defaultNavigationMenuCategoryIds, [4, 2]);
     });
 
-    test('treats an empty external emoji url as no external emoji url', () {
+    test('treats an empty external emoji URL as no external emoji URL', () {
       // Discourse writes "" rather than null for an unset string setting.
       expect(SiteConfig.fromSettings(settings()).externalEmojiUrl, isNull);
     });
 
-    test('drops a trailing slash from the external emoji url', () {
+    test('drops a trailing slash from the external emoji URL', () {
       expect(
         SiteConfig.fromSettings(
           settings(externalEmojiUrl: 'https://cdn.example/emoji/'),
@@ -663,7 +680,7 @@ void main() {
       ),
     );
 
-    test('survives a round trip through preferences', () {
+    test('preserves the complete core and plugin setting snapshot', () {
       final decoded = restorePluginSettings(full);
 
       expect(decoded, full);

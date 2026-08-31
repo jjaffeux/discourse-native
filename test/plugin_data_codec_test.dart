@@ -113,7 +113,7 @@ void main() {
     },
   );
 
-  test('legacy users without ids fall back to case-insensitive usernames', () {
+  test('legacy users without IDs fall back to case-insensitive usernames', () {
     final held = DiscourseUser.fromJson(const {
       'username': 'Sam',
       'plugins': {

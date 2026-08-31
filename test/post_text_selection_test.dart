@@ -27,253 +27,271 @@ const _body = 'Read selected words here';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('builds Discourse-compatible quote markup', () {
-    expect(
-      buildPostQuote(post: _post, topicId: 7, contents: '  selected words  '),
-      '[quote="sam, post:2, topic:7"]\nselected words\n[/quote]\n\n',
-    );
+  group('post quote serialization', () {
+    test('builds Discourse-compatible markup', () {
+      expect(
+        buildPostQuote(post: _post, topicId: 7, contents: '  selected words  '),
+        '[quote="sam, post:2, topic:7"]\nselected words\n[/quote]\n\n',
+      );
+    });
+
+    test('keeps a display name attributable to its username', () {
+      const named = Post(
+        id: 22,
+        postNumber: 2,
+        username: 'sam',
+        name: 'Sam “Saffron”',
+        cooked: '',
+      );
+
+      expect(
+        buildPostQuote(post: named, topicId: 7, contents: 'hello'),
+        '[quote="Sam Saffron, post:2, topic:7, username:sam"]\n'
+        'hello\n[/quote]\n\n',
+      );
+    });
   });
 
-  test('keeps a display name attributable to its username', () {
-    const named = Post(
-      id: 22,
-      postNumber: 2,
-      username: 'sam',
-      name: 'Sam “Saffron”',
-      cooked: '',
-    );
-
-    expect(
-      buildPostQuote(post: named, topicId: 7, contents: 'hello'),
-      '[quote="Sam Saffron, post:2, topic:7, username:sam"]\n'
-      'hello\n[/quote]\n\n',
-    );
-  });
-
-  test('restores cooked paragraphs and inline formatting to a selection', () {
-    expect(
-      postQuoteContentsFromSelection(
-        '<p>First <strong>bold</strong> thought.</p>'
-            '<p>Second <em>formatted</em> line.<br>Still second.</p>',
-        'First bold thought.Second formatted line.Still second.',
-      ),
-      'First **bold** thought.\n\n'
-      'Second *formatted* line.\nStill second.',
-    );
-  });
-
-  test('matches selections across the newlines markdown cooks between '
-      'blocks', () {
-    // Real cooked HTML separates blocks with `\n` text nodes the renderer
-    // never draws. The selection stream carries no such character, so the
-    // index must not either.
-    expect(
-      postQuoteContentsFromSelection(
-        '<p>First <strong>bold</strong> thought.</p>\n'
-            '<p>Second <em>formatted</em> line.</p>',
-        'First bold thought.Second formatted line.',
-      ),
-      'First **bold** thought.\n\nSecond *formatted* line.',
-    );
-    expect(
-      postQuoteContentsFromSelection(
-        '<ul>\n<li>one</li>\n<li>two</li>\n</ul>',
-        'onetwo',
-      ),
-      'one\n\ntwo',
-    );
-  });
-
-  test('collapses cooked whitespace the way the renderer draws it', () {
-    // A soft line break inside a paragraph renders as a single space.
-    expect(
-      postQuoteContentsFromSelection('<p>hello\nworld</p>', 'hello world'),
-      'hello world',
-    );
-    // Whitespace between inline elements is drawn, so it stays indexed.
-    expect(
-      postQuoteContentsFromSelection(
-        '<p><strong>a</strong>\n<em>b</em></p>',
-        'a b',
-      ),
-      '**a** *b*',
-    );
-  });
-
-  test('preserves preformatted whitespace inside code blocks', () {
-    expect(
-      postQuoteContentsFromSelection(
-        '<pre><code>code\n  indented more</code></pre>',
-        'code\n  indented more',
-      ),
-      '`code\n  indented more`',
-    );
-  });
-
-  test('restores deeply nested cooked formatting without recursion', () {
-    const depth = 1000;
-    final cooked =
-        '${List.filled(depth, '<strong>').join()}'
-        'selected'
-        '${List.filled(depth, '</strong>').join()}';
-
-    final contents = postQuoteContentsFromSelection(cooked, 'selected');
-
-    expect(
-      contents,
-      '${List.filled(depth, '**').join()}selected'
-      '${List.filled(depth, '**').join()}',
-    );
-  });
-
-  test('one cooked resolver handles repeated selection adjustments', () {
-    final resolver = PostQuoteSelectionResolver(
-      '<p>First <strong>bold</strong> thought.</p>'
-      '<p>Second <em>formatted</em> line.</p>',
-    );
-
-    expect(resolver.contentsFor('bold'), '**bold**');
-    expect(
-      resolver.contentsFor('First bold thought.Second formatted line.'),
-      'First **bold** thought.\n\nSecond *formatted* line.',
-    );
-    expect(resolver.contentsFor('missing selection'), 'missing selection');
-  });
-
-  testWidgets('selection shows quote actions and copies portable markup', (
-    tester,
-  ) async {
-    String? clipboard;
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'Clipboard.setData') {
-          clipboard =
-              (call.arguments as Map<Object?, Object?>)['text'] as String;
-        }
-        return null;
-      },
-    );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        null,
-      ),
-    );
-
-    final shell = await _pumpSelection(tester);
-    addTearDown(shell.dispose);
-    await _selectWord(tester);
-
-    expect(find.byKey(const ValueKey('quote-selection')), findsOneWidget);
-    expect(find.byKey(const ValueKey('copy-quote-selection')), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('copy-quote-selection')));
-    await tester.pumpAndSettle();
-
-    expect(clipboard, '[quote="sam, post:2, topic:7"]\nselected\n[/quote]\n\n');
-    expect(find.text('Quote copied to clipboard.'), findsOneWidget);
-  });
-
-  testWidgets('copying across cooked blocks keeps their Markdown structure', (
-    tester,
-  ) async {
-    const cookedPost = Post(
-      id: 23,
-      postNumber: 3,
-      username: 'sam',
-      cooked:
+  group('cooked selection reconstruction', () {
+    test('restores paragraphs and inline formatting', () {
+      expect(
+        postQuoteContentsFromSelection(
           '<p>First <strong>bold</strong> thought.</p>'
-          '<p>Second <em>formatted</em> line.</p>',
-    );
-    String? clipboard;
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'Clipboard.setData') {
-          clipboard =
-              (call.arguments as Map<Object?, Object?>)['text'] as String;
-        }
-        return null;
-      },
-    );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+              '<p>Second <em>formatted</em> line.<br>Still second.</p>',
+          'First bold thought.Second formatted line.Still second.',
+        ),
+        'First **bold** thought.\n\n'
+        'Second *formatted* line.\nStill second.',
+      );
+    });
+
+    test('matches across newlines introduced between cooked blocks', () {
+      // Real cooked HTML separates blocks with `\n` text nodes the renderer
+      // never draws. The selection stream carries no such character, so the
+      // index must not either.
+      expect(
+        postQuoteContentsFromSelection(
+          '<p>First <strong>bold</strong> thought.</p>\n'
+              '<p>Second <em>formatted</em> line.</p>',
+          'First bold thought.Second formatted line.',
+        ),
+        'First **bold** thought.\n\nSecond *formatted* line.',
+      );
+      expect(
+        postQuoteContentsFromSelection(
+          '<ul>\n<li>one</li>\n<li>two</li>\n</ul>',
+          'onetwo',
+        ),
+        'one\n\ntwo',
+      );
+    });
+
+    test('collapses whitespace the way the renderer draws it', () {
+      // A soft line break inside a paragraph renders as a single space.
+      expect(
+        postQuoteContentsFromSelection('<p>hello\nworld</p>', 'hello world'),
+        'hello world',
+      );
+      // Whitespace between inline elements is drawn, so it stays indexed.
+      expect(
+        postQuoteContentsFromSelection(
+          '<p><strong>a</strong>\n<em>b</em></p>',
+          'a b',
+        ),
+        '**a** *b*',
+      );
+    });
+
+    test('preserves preformatted whitespace inside code blocks', () {
+      expect(
+        postQuoteContentsFromSelection(
+          '<pre><code>code\n  indented more</code></pre>',
+          'code\n  indented more',
+        ),
+        '`code\n  indented more`',
+      );
+    });
+
+    test('restores deeply nested formatting without recursion', () {
+      const depth = 1000;
+      final cooked =
+          '${List.filled(depth, '<strong>').join()}'
+          'selected'
+          '${List.filled(depth, '</strong>').join()}';
+
+      final contents = postQuoteContentsFromSelection(cooked, 'selected');
+
+      expect(
+        contents,
+        '${List.filled(depth, '**').join()}selected'
+        '${List.filled(depth, '**').join()}',
+      );
+    });
+
+    test('reuses one resolver across repeated selections', () {
+      final resolver = PostQuoteSelectionResolver(
+        '<p>First <strong>bold</strong> thought.</p>'
+        '<p>Second <em>formatted</em> line.</p>',
+      );
+
+      expect(resolver.contentsFor('bold'), '**bold**');
+      expect(
+        resolver.contentsFor('First bold thought.Second formatted line.'),
+        'First **bold** thought.\n\nSecond *formatted* line.',
+      );
+      expect(resolver.contentsFor('missing selection'), 'missing selection');
+    });
+  });
+
+  group('selection actions', () {
+    testWidgets('copy portable markup for a pointer selection', (tester) async {
+      String? clipboard;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
         SystemChannels.platform,
-        null,
-      ),
-    );
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            clipboard =
+                (call.arguments as Map<Object?, Object?>)['text'] as String;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
 
-    final shell = await _pumpSelection(
+      final shell = await _pumpSelection(tester);
+      addTearDown(shell.dispose);
+      await _selectWord(tester);
+
+      expect(find.byKey(const ValueKey('quote-selection')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('copy-quote-selection')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('copy-quote-selection')));
+      await tester.pumpAndSettle();
+
+      expect(
+        clipboard,
+        '[quote="sam, post:2, topic:7"]\nselected\n[/quote]\n\n',
+      );
+      expect(find.text('Quote copied to clipboard.'), findsOneWidget);
+    });
+
+    testWidgets('preserve Markdown structure across cooked blocks', (
       tester,
-      post: cookedPost,
-      child: CookedHtml(html: cookedPost.cooked),
-    );
-    addTearDown(shell.dispose);
-    tester
-        .state<SelectionAreaState>(find.byType(SelectionArea))
-        .selectableRegion
-        .selectAll(SelectionChangedCause.toolbar);
-    await tester.pump(const Duration(milliseconds: 151));
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('copy-quote-selection')));
-    await tester.pumpAndSettle();
+    ) async {
+      const cookedPost = Post(
+        id: 23,
+        postNumber: 3,
+        username: 'sam',
+        cooked:
+            '<p>First <strong>bold</strong> thought.</p>'
+            '<p>Second <em>formatted</em> line.</p>',
+      );
+      String? clipboard;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            clipboard =
+                (call.arguments as Map<Object?, Object?>)['text'] as String;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
 
-    expect(
-      clipboard,
-      '[quote="sam, post:3, topic:7"]\n'
-      'First **bold** thought.\n\nSecond *formatted* line.\n'
-      '[/quote]\n\n',
-    );
+      final shell = await _pumpSelection(
+        tester,
+        post: cookedPost,
+        child: CookedHtml(html: cookedPost.cooked),
+      );
+      addTearDown(shell.dispose);
+      tester
+          .state<SelectionAreaState>(find.byType(SelectionArea))
+          .selectableRegion
+          .selectAll(SelectionChangedCause.toolbar);
+      await tester.pump(const Duration(milliseconds: 151));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('copy-quote-selection')));
+      await tester.pumpAndSettle();
+
+      expect(
+        clipboard,
+        '[quote="sam, post:3, topic:7"]\n'
+        'First **bold** thought.\n\nSecond *formatted* line.\n'
+        '[/quote]\n\n',
+      );
+    });
+
+    testWidgets('open the quote toolbar from a touch long press', (
+      tester,
+    ) async {
+      final shell = await _pumpSelection(tester);
+      addTearDown(shell.dispose);
+
+      await tester.longPress(find.text(_body));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('quote-selection')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('copy-quote-selection')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('open a reply with the selected block', (tester) async {
+      final shell = await _pumpSelection(tester);
+      addTearDown(shell.dispose);
+      await _selectWord(tester);
+
+      await tester.tap(find.byKey(const ValueKey('quote-selection')));
+      await tester.pumpAndSettle();
+
+      expect(
+        shell.visibleComposer?.raw,
+        '[quote="sam, post:2, topic:7"]\nselected\n[/quote]',
+      );
+      expect(shell.visibleComposer?.target.replyToPostNumber, 2);
+      expect(shell.visibleComposer?.target.replyToUsername, 'sam');
+
+      // Closing cancels the draft debounce started by inserting the quote.
+      shell.closeComposer();
+      await tester.pump();
+    });
   });
 
-  testWidgets('a touch long press opens the quote toolbar', (tester) async {
-    final shell = await _pumpSelection(tester);
-    addTearDown(shell.dispose);
+  group('quote composer integration', () {
+    test('restores an unfinished draft before appending', () async {
+      final drafts = FakeDraftStore();
+      drafts.saved['$_siteUrl::topic_7'] = const ComposerDraft(
+        reply: 'Existing draft',
+      ).encode();
+      final shell = await _shell(drafts: drafts);
+      addTearDown(shell.dispose);
 
-    await tester.longPress(find.text(_body));
-    await tester.pumpAndSettle();
+      await shell.openQuote(
+        _post,
+        buildPostQuote(post: _post, topicId: 7, contents: 'selected'),
+      );
 
-    expect(find.byKey(const ValueKey('quote-selection')), findsOneWidget);
-    expect(find.byKey(const ValueKey('copy-quote-selection')), findsOneWidget);
-  });
-
-  testWidgets('Quote opens a reply with the selected block', (tester) async {
-    final shell = await _pumpSelection(tester);
-    addTearDown(shell.dispose);
-    await _selectWord(tester);
-
-    await tester.tap(find.byKey(const ValueKey('quote-selection')));
-    await tester.pumpAndSettle();
-
-    expect(
-      shell.visibleComposer?.raw,
-      '[quote="sam, post:2, topic:7"]\nselected\n[/quote]',
-    );
-    expect(shell.visibleComposer?.target.replyToPostNumber, 2);
-    expect(shell.visibleComposer?.target.replyToUsername, 'sam');
-    shell.closeComposer();
-    await tester.pump();
-  });
-
-  test('Quote restores an unfinished draft before appending', () async {
-    final drafts = FakeDraftStore();
-    drafts.saved['$_siteUrl::topic_7'] = const ComposerDraft(
-      reply: 'Existing draft',
-    ).encode();
-    final shell = await _shell(drafts: drafts);
-    addTearDown(shell.dispose);
-
-    await shell.openQuote(
-      _post,
-      buildPostQuote(post: _post, topicId: 7, contents: 'selected'),
-    );
-
-    expect(
-      shell.visibleComposer?.raw,
-      'Existing draft\n\n'
-      '[quote="sam, post:2, topic:7"]\nselected\n[/quote]',
-    );
+      expect(
+        shell.visibleComposer?.raw,
+        'Existing draft\n\n'
+        '[quote="sam, post:2, topic:7"]\nselected\n[/quote]',
+      );
+    });
   });
 }
 
