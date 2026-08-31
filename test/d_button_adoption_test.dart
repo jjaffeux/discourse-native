@@ -15,7 +15,6 @@ const _intentionalMaterialButtons = <String, int>{
   'lib/src/plugins/poll/poll_card.dart': 3, // Vote/result control group.
   'lib/src/plugins/chat/chat_channel_view.dart': 2, // Dense selection strips.
   'lib/src/shell/composer_panel.dart': 1, // Bespoke composer submit control.
-  'lib/src/shell/composer_image_gallery.dart': 1, // Fixed gallery edit strip.
   'lib/src/shell/do_not_disturb_dialog.dart': 1, // Fixed 44px option grid.
   'lib/src/shell/reaction_presentation.dart': 1, // Fixed 44px picker action.
   'lib/src/shell/topic_create_button.dart': 3, // Split primary/menu control.
