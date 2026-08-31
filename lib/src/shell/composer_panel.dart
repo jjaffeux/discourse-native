@@ -22,6 +22,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
 import 'composer_autocomplete.dart';
+import 'composer_clipboard.dart';
 import 'composer_controller.dart';
 import 'composer_drop.dart';
 import 'composer_galleries.dart';
@@ -62,6 +63,7 @@ class ComposerPanel extends StatelessWidget {
     this.onMove,
     this.onMoveEnd,
     this.pickImages = pickComposerImages,
+    this.readClipboardImages = readComposerClipboardImages,
   });
 
   final ComposerController composer;
@@ -69,6 +71,7 @@ class ComposerPanel extends StatelessWidget {
   final ValueChanged<Offset>? onMove;
   final VoidCallback? onMoveEnd;
   final ComposerImagePicker pickImages;
+  final ComposerClipboardImageReader readClipboardImages;
 
   @override
   Widget build(BuildContext context) {
@@ -181,6 +184,7 @@ class ComposerPanel extends StatelessWidget {
                       child: ComposerEditor(
                         composer: composer,
                         pickImages: pickImages,
+                        readClipboardImages: readClipboardImages,
                         onSuggestionAction:
                             ({
                               required context,
@@ -941,6 +945,7 @@ class ComposerEditor extends StatefulWidget {
     this.enableDropTarget = true,
     this.expands = true,
     this.pickImages = pickComposerImages,
+    this.readClipboardImages = readComposerClipboardImages,
     this.onSuggestionAction,
   });
 
@@ -951,6 +956,7 @@ class ComposerEditor extends StatefulWidget {
   final bool autofocus;
   final bool enableDropTarget;
   final ComposerImagePicker pickImages;
+  final ComposerClipboardImageReader readClipboardImages;
 
   /// Whether the field fills its parent's height instead of sizing to its
   /// content. Compact surfaces can turn this off and impose a maximum height
@@ -998,6 +1004,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   _reorderImageGallery;
   late final TextInputFormatter _selectedPillInputFormatter;
   late final TextInputFormatter _renderedEmojiInputFormatter;
+  late final _ComposerPasteAction _pasteAction;
   TextSelection _lastQuoteSelection = const TextSelection.collapsed(offset: -1);
   bool _normalizingQuoteSelection = false;
 
@@ -1014,6 +1021,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       startingAt: (offset) =>
           widget.composer.text.renderedEmojiStartingAt(offset),
     );
+    _pasteAction = _ComposerPasteAction(_pasteClipboardImages);
     _lastQuoteSelection = widget.composer.text.selection;
     widget.composer.text.imageScrollController = _scroll;
     widget.composer.text.onEditImageGallery = _editImageGallery;
@@ -1116,6 +1124,101 @@ class _ComposerEditorState extends State<ComposerEditor> {
     super.dispose();
   }
 
+  Future<bool> _pasteClipboardImages() async {
+    final composer = widget.composer;
+    if (composer.imageUploader == null || composer.loadingBody) return false;
+    final selection = composer.text.selection;
+    final offset = selection.isValid
+        ? selection.extentOffset
+        : composer.text.text.length;
+
+    List<ComposerUploadFile> files;
+    try {
+      files = await widget.readClipboardImages();
+    } catch (error, stackTrace) {
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'composer.readClipboardImages',
+        source: 'platform',
+        severity: DiagnosticSeverity.warning,
+        handled: true,
+        degraded: true,
+      );
+      return !mounted || !identical(widget.composer, composer);
+    }
+    if (!mounted || !identical(widget.composer, composer)) return true;
+    if (files.isEmpty) return false;
+
+    composer.addImages(files, offset);
+    composer.focus.requestFocus();
+    return true;
+  }
+
+  Future<void> _pasteFromContextMenu(EditableTextState state) async {
+    if (await _pasteClipboardImages()) {
+      if (state.mounted) state.hideToolbar();
+      return;
+    }
+    if (state.mounted) {
+      await state.pasteText(SelectionChangedCause.toolbar);
+    }
+  }
+
+  Widget _contextMenu(
+    BuildContext context,
+    EditableTextState editableTextState,
+  ) {
+    if (SystemContextMenu.isSupportedByField(editableTextState)) {
+      final items = SystemContextMenu.getDefaultItems(editableTextState);
+      final replacement = IOSSystemContextMenuItemCustom(
+        title: WidgetsLocalizations.of(context).pasteButtonLabel,
+        onPressed: () => unawaited(_pasteFromContextMenu(editableTextState)),
+      );
+      final paste = items.indexWhere(
+        (item) => item is IOSSystemContextMenuItemPaste,
+      );
+      if (paste >= 0) {
+        items[paste] = replacement;
+      } else if (_canPasteImages) {
+        final selectAll = items.indexWhere(
+          (item) => item is IOSSystemContextMenuItemSelectAll,
+        );
+        items.insert(selectAll < 0 ? items.length : selectAll, replacement);
+      }
+      return SystemContextMenu.editableText(
+        editableTextState: editableTextState,
+        items: items,
+      );
+    }
+
+    final items = editableTextState.contextMenuButtonItems.toList();
+    final replacement = ContextMenuButtonItem(
+      onPressed: () => unawaited(_pasteFromContextMenu(editableTextState)),
+      type: ContextMenuButtonType.paste,
+    );
+    final paste = items.indexWhere(
+      (item) => item.type == ContextMenuButtonType.paste,
+    );
+    if (paste >= 0) {
+      items[paste] = replacement;
+    } else if (_canPasteImages) {
+      final selectAll = items.indexWhere(
+        (item) => item.type == ContextMenuButtonType.selectAll,
+      );
+      items.insert(selectAll < 0 ? items.length : selectAll, replacement);
+    }
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: editableTextState.contextMenuAnchors,
+      buttonItems: items,
+    );
+  }
+
+  bool get _canPasteImages =>
+      widget.composer.imageUploader != null &&
+      !widget.composer.loadingBody &&
+      widget.composer.text.selection.isValid;
+
   void _syncSelectionToolbar() {
     _reconcileSelectedGallery();
     if (!_normalizingQuoteSelection) {
@@ -1206,47 +1309,53 @@ class _ComposerEditorState extends State<ComposerEditor> {
         field: ClipRect(
           child: Focus(
             onKeyEvent: _onEditorKeyEvent,
-            child: ValueListenableBuilder<TextEditingValue>(
-              valueListenable: widget.composer.text,
-              builder: (_, _, _) => TextField(
-                // Not decoration: a new key builds a new editable, and with it
-                // a new undo stack. It is the only way to stop undo reaching
-                // back into a reply that has already been sent.
-                key: ValueKey(widget.composer.fieldGeneration),
-                controller: widget.composer.text,
-                scrollController: _scroll,
-                focusNode: widget.composer.focus,
-                autofocus: widget.autofocus,
-                expands: widget.expands,
-                maxLines: null,
-                minLines: widget.expands ? null : 1,
-                textAlignVertical: TextAlignVertical.top,
-                keyboardType: TextInputType.multiline,
-                textCapitalization: TextCapitalization.sentences,
-                inputFormatters: [
-                  _selectedPillInputFormatter,
-                  _renderedEmojiInputFormatter,
-                  const ComposerQuoteInputFormatter(),
-                  ...widget.composer.text.syntaxInputFormatters,
-                ],
-                showCursor:
-                    widget
-                        .composer
-                        .text
-                        .keyboardSelectedSyntax
-                        ?.projection
-                        .hidesCursorWhenSelected !=
-                    true,
-                onTapAlwaysCalled: true,
-                onTap: _activatePointerDownPill,
-                // TextField owns the deepest cursor region. Changing only the
-                // editor-level hover region leaves its text cursor in front.
-                mouseCursor: _hoveringMention ? SystemMouseCursors.click : null,
-                style: widget.textStyle,
-                // InputDecorator only gives the editable one text line when
-                // the TextField expands. The composer draws its hint separately
-                // so either viewport mode fills the available editor width.
-                decoration: null,
+            child: Actions(
+              actions: {PasteTextIntent: _pasteAction},
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: widget.composer.text,
+                builder: (_, _, _) => TextField(
+                  // Not decoration: a new key builds a new editable, and with it
+                  // a new undo stack. It is the only way to stop undo reaching
+                  // back into a reply that has already been sent.
+                  key: ValueKey(widget.composer.fieldGeneration),
+                  controller: widget.composer.text,
+                  scrollController: _scroll,
+                  focusNode: widget.composer.focus,
+                  autofocus: widget.autofocus,
+                  expands: widget.expands,
+                  maxLines: null,
+                  minLines: widget.expands ? null : 1,
+                  textAlignVertical: TextAlignVertical.top,
+                  keyboardType: TextInputType.multiline,
+                  textCapitalization: TextCapitalization.sentences,
+                  inputFormatters: [
+                    _selectedPillInputFormatter,
+                    _renderedEmojiInputFormatter,
+                    const ComposerQuoteInputFormatter(),
+                    ...widget.composer.text.syntaxInputFormatters,
+                  ],
+                  contextMenuBuilder: _contextMenu,
+                  showCursor:
+                      widget
+                          .composer
+                          .text
+                          .keyboardSelectedSyntax
+                          ?.projection
+                          .hidesCursorWhenSelected !=
+                      true,
+                  onTapAlwaysCalled: true,
+                  onTap: _activatePointerDownPill,
+                  // TextField owns the deepest cursor region. Changing only the
+                  // editor-level hover region leaves its text cursor in front.
+                  mouseCursor: _hoveringMention
+                      ? SystemMouseCursors.click
+                      : null,
+                  style: widget.textStyle,
+                  // InputDecorator only gives the editable one text line when
+                  // the TextField expands. The composer draws its hint separately
+                  // so either viewport mode fills the available editor width.
+                  decoration: null,
+                ),
               ),
             ),
           ),
@@ -2364,6 +2473,34 @@ class _ComposerEditorState extends State<ComposerEditor> {
       );
     },
   );
+}
+
+class _ComposerPasteAction extends Action<PasteTextIntent> {
+  _ComposerPasteAction(this._pasteImages);
+
+  final Future<bool> Function() _pasteImages;
+
+  @override
+  Object? invoke(PasteTextIntent intent) {
+    final fallback = callingAction;
+    return _invoke(intent, fallback);
+  }
+
+  Future<Object?> _invoke(
+    PasteTextIntent intent,
+    Action<PasteTextIntent>? fallback,
+  ) async {
+    if (await _pasteImages()) return null;
+    return fallback?.invoke(intent);
+  }
+
+  @override
+  bool isEnabled(PasteTextIntent intent) =>
+      callingAction?.isEnabled(intent) ?? true;
+
+  @override
+  bool consumesKey(PasteTextIntent intent) =>
+      callingAction?.consumesKey(intent) ?? true;
 }
 
 class _SelectionFormattingMenu extends StatelessWidget {
