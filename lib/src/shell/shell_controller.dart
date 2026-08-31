@@ -107,6 +107,31 @@ enum InstanceLoadStatus { loading, ready, failed }
 enum AggregateTopicOpenResult { opened, tabLimitReached, unavailable }
 
 typedef TopicMoveDestination = ({int id, String title, String slug});
+typedef _DraftSessionKey = ({String siteUrl, String draftKey, Object session});
+
+final class _ComposerDraftContext {
+  _ComposerDraftContext(this.lease, this.generation);
+
+  final SiteLease lease;
+  final int generation;
+  final Object owner = Object();
+  ComposerController? composer;
+
+  _DraftSessionKey keyFor(ComposerTarget target) => (
+    siteUrl: target.siteUrl,
+    draftKey: target.draftKey,
+    session: lease.session,
+  );
+}
+
+final class _RetiredComposerDraftSaves {
+  _RetiredComposerDraftSaves({required this.owner, required this.previous});
+
+  final Object owner;
+  final _RetiredComposerDraftSaves? previous;
+  late final Future<void> task;
+}
+
 typedef TopicMoveDestinationSearchResult = ({
   List<TopicMoveDestination> destinations,
   String? error,
@@ -1543,6 +1568,26 @@ class ShellController extends FrameSafeNotifier
     return _instanceAt(siteUrl)?.user?.draftCount ?? 0;
   }
 
+  void _recordDraftDestroyed(
+    String siteUrl,
+    String draftKey, {
+    required bool knownToExist,
+  }) {
+    final wasListed = draftList
+        .feedFor(siteUrl)
+        .drafts
+        .any((draft) => draft.key == draftKey);
+    draftList.recordDeleted(siteUrl, draftKey);
+    if (!knownToExist || wasListed) return;
+    final instance = _instanceAt(siteUrl);
+    if (instance?.isConnected == true) {
+      // A cached count may predate a newly-created draft, so subtracting can
+      // under-count. Refresh the authoritative account count instead.
+      draftList.invalidateTotalCount(siteUrl);
+      unawaited(_refreshSessionUserFor(instance!, force: true));
+    }
+  }
+
   Future<void> _refreshOne(DiscourseInstance instance) async {
     await accountActivity.refresh(instance);
   }
@@ -1566,7 +1611,10 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  Future<void> _refreshSessionUserFor(DiscourseInstance instance) async {
+  Future<void> _refreshSessionUserFor(
+    DiscourseInstance instance, {
+    bool force = false,
+  }) async {
     final lease = lifecycle.capture(instance.url);
     try {
       final credential = await _readSessionValue(
@@ -1575,7 +1623,7 @@ class ShellController extends FrameSafeNotifier
       );
       if (credential == null || !lease.isCurrent) return;
       if (credential.value case final apiKey?) {
-        await _sessionUser(instance.url, apiKey, lease: lease);
+        await _sessionUser(instance.url, apiKey, lease: lease, force: force);
         if (!lease.isCurrent || currentInstance?.url != instance.url) return;
         await _refreshCustomSidebarSections(instance.url, apiKey, lease: lease);
       }
@@ -2740,17 +2788,25 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     String apiKey, {
     SiteLease? lease,
+    bool force = false,
   }) {
     final held = _instanceAt(siteUrl);
     if (held == null) return Future.value();
-    if (_sessionUsersRefreshed.contains(siteUrl)) {
+    if (!force && _sessionUsersRefreshed.contains(siteUrl)) {
       return Future.value(held.user);
     }
 
     final active = _sessionUserRequests[siteUrl];
-    if (active != null) return active;
-
     final session = lease ?? lifecycle.capture(siteUrl);
+    if (active != null) {
+      if (!force) return active;
+      return () async {
+        await active;
+        if (!session.isCurrent) return null;
+        return _sessionUser(siteUrl, apiKey, lease: session, force: true);
+      }();
+    }
+
     final hidePresenceVersion = _hidePresenceVersions[siteUrl] ?? 0;
     late final Future<DiscourseUser?> request;
     request = _readSessionUser(siteUrl, apiKey, session, hidePresenceVersion)
@@ -4804,7 +4860,12 @@ class ShellController extends FrameSafeNotifier
   }
 
   ComposerController? _composer;
-  Future<void>? _composerDraftRestore;
+  Future<bool>? _composerDraftRestore;
+  final Expando<_ComposerDraftContext> _composerDraftContexts = Expando();
+  int _composerDraftGeneration = 0;
+  final Map<_DraftSessionKey, int> _latestComposerDraftGenerations = {};
+  final Map<_DraftSessionKey, _RetiredComposerDraftSaves>
+  _retiredComposerDraftSaves = {};
 
   ComposerController? get visibleComposer {
     final composer = _composer;
@@ -4829,6 +4890,12 @@ class ShellController extends FrameSafeNotifier
     int minimumRequiredTags = 0,
   }) {
     final config = siteConfigFor(target.siteUrl);
+    final draftContext = persistsDraft
+        ? _ComposerDraftContext(
+            lifecycle.capture(target.siteUrl),
+            ++_composerDraftGeneration,
+          )
+        : null;
     ComposerPluginState readPluginState() {
       final currentUser = currentUserFor(target.siteUrl);
       final freshCurrentUser = freshCurrentUserFor(target.siteUrl);
@@ -4850,7 +4917,12 @@ class ShellController extends FrameSafeNotifier
     late final ComposerController composer;
     composer = ComposerController(
       target,
-      onSaveDraft: persistsDraft ? _saveDraft : null,
+      onSaveDraft: draftContext == null
+          ? null
+          : (save) => _saveDraft(save, draftContext),
+      onStageDraft: draftContext == null
+          ? null
+          : (save) => _stageDraftLocally(save, draftContext),
       search: _composerSearch(target),
       onEmojiAccepted: (code) => unawaited(
         emojiPickerStore.trackEmoji(
@@ -4898,7 +4970,11 @@ class ShellController extends FrameSafeNotifier
       maxImageHeight: config.maxImageHeight,
       minimumRequiredTags: minimumRequiredTags,
     );
-    if (persistsDraft) composer.draftSequence = _draftSequence(target);
+    if (draftContext != null) {
+      _composerDraftContexts[composer] = draftContext;
+      draftContext.composer = composer;
+      composer.draftSequence = _draftSequence(target);
+    }
     return composer;
   }
 
@@ -4959,7 +5035,7 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
-    _replaceComposer();
+    if (!_replaceComposer()) return;
     final target = ComposerTarget(
       siteUrl: siteUrl,
       tabId: tabId,
@@ -5079,7 +5155,7 @@ class ShellController extends FrameSafeNotifier
     _categoriesBySite[instance.url] = List.unmodifiable(categories);
     _topicComposerCapabilities[instance.url] = capabilities;
     store.putAll(instance.url, categories);
-    _replaceComposer();
+    if (!_replaceComposer()) return;
     final target = ComposerTarget(
       siteUrl: instance.url,
       tabId: tabId,
@@ -5138,7 +5214,7 @@ class ShellController extends FrameSafeNotifier
     final category = topicComposerCategories(siteUrl)
         .where((item) => item.id == detail.categoryId && item.canCreateTopic)
         .firstOrNull;
-    _replaceComposer();
+    if (!_replaceComposer()) return;
     final target = ComposerTarget(
       siteUrl: siteUrl,
       tabId: tabId,
@@ -5222,7 +5298,7 @@ class ShellController extends FrameSafeNotifier
         composer.target.tabId == tabId &&
         composer.target.originFeedId == feedId;
     if (!reusable) {
-      _replaceComposer();
+      if (!_replaceComposer()) return OpenComposerResult.unavailable;
       final target = ComposerTarget(
         siteUrl: siteUrl,
         tabId: tabId,
@@ -5406,6 +5482,7 @@ class ShellController extends FrameSafeNotifier
         replyingToWhisper ?? _replyTargetsWhisper(replyToPostNumber);
 
     final existing = _composer;
+    if (existing?.discarding == true) return;
     if (existing != null &&
         !existing.target.isEdit &&
         existing.target.topicId == topicId &&
@@ -5420,7 +5497,7 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
-    _replaceComposer();
+    if (!_replaceComposer()) return;
     final target = ComposerTarget(
       siteUrl: instance.url,
       tabId: activeTabId,
@@ -5510,7 +5587,7 @@ class ShellController extends FrameSafeNotifier
     if (instance == null || topicId == null || !post.canEdit) return;
     unawaited(_ensureTopicComposerCapabilities(instance.url));
 
-    _replaceComposer();
+    if (!_replaceComposer()) return;
     final detail = currentTopic;
     final editsTopic = post.postNumber == 1 && detail?.canEdit == true;
     final target = ComposerTarget(
@@ -5552,7 +5629,7 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     unawaited(_ensureTopicComposerCapabilities(instance.url));
-    _replaceComposer();
+    if (!_replaceComposer()) return;
     final target = ComposerTarget(
       siteUrl: instance.url,
       tabId: activeTabId,
@@ -5742,7 +5819,7 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     unawaited(_ensureTopicComposerCapabilities(instance.url));
-    _replaceComposer();
+    if (!_replaceComposer()) return;
     final target = ComposerTarget(
       siteUrl: instance.url,
       tabId: activeTabId,
@@ -7928,37 +8005,467 @@ class ShellController extends FrameSafeNotifier
     });
   }
 
-  void _replaceComposer() {
+  void _retireComposerDraftSaves(ComposerController composer) {
+    if (!composer.canSaveDraft || !composer.draftPersistencePending) return;
+    final context = _composerDraftContexts[composer];
+    if (context == null) return;
+    final key = context.keyFor(composer.target);
+    final previous = _retiredComposerDraftSaves[key];
+    final drain = composer.finishDraftSaves();
+    final retired = _RetiredComposerDraftSaves(
+      owner: context.owner,
+      previous: previous,
+    );
+    retired.task = () async {
+      if (previous != null) {
+        try {
+          await previous.task;
+        } catch (_) {}
+      }
+      try {
+        await drain;
+      } catch (_) {}
+    }();
+    _retiredComposerDraftSaves[key] = retired;
+    unawaited(
+      retired.task.then((_) {
+        if (identical(_retiredComposerDraftSaves[key], retired)) {
+          final _ = _retiredComposerDraftSaves.remove(key);
+        }
+      }),
+    );
+  }
+
+  Future<void> _waitForRetiredComposerDraftSaves(
+    ComposerTarget target,
+    _ComposerDraftContext context,
+  ) async {
+    final latest = _retiredComposerDraftSaves[context.keyFor(target)];
+    if (latest == null) return;
+
+    // A controller being retired must wait behind older controllers, but not
+    // behind the retirement task which is itself waiting for this save. A new
+    // controller waits for the entire chain before it may write locally or
+    // remotely, so an old queued revision cannot land after the new text.
+    var cursor = latest;
+    while (!identical(cursor.owner, context.owner)) {
+      final previous = cursor.previous;
+      if (previous == null) {
+        try {
+          await latest.task;
+        } catch (_) {}
+        return;
+      }
+      cursor = previous;
+    }
+    final previous = cursor.previous;
+    if (previous != null) {
+      try {
+        await previous.task;
+      } catch (_) {}
+    }
+  }
+
+  bool _replaceComposer() {
     final existing = _composer;
     if (existing == null) {
       _composerDraftRestore = null;
-      return;
+      return true;
     }
-    if (existing.draftPending) {
-      unawaited(existing.flushDraft());
-    }
+    if (existing.discarding) return false;
+    _retireComposerDraftSaves(existing);
     existing.dispose();
     _composer = null;
     _composerDraftRestore = null;
+    return true;
   }
 
   void closeComposer() {
     final composer = _composer;
-    if (composer == null) return;
-    if (composer.draftPending) {
-      unawaited(composer.flushDraft());
-    }
+    if (composer == null || composer.discarding) return;
+    _retireComposerDraftSaves(composer);
     composer.dispose();
     _composer = null;
     _composerDraftRestore = null;
     _notify();
   }
 
+  Future<bool> finishComposerDraftRestore(ComposerController composer) async {
+    if (isDisposed || !identical(_composer, composer)) return false;
+    var restore = _composerDraftRestore;
+    if (restore == null && composer.canSaveDraft) {
+      restore = _restoreDraft(composer);
+      _composerDraftRestore = restore;
+      unawaited(restore);
+    }
+    var restored = true;
+    if (restore != null) {
+      try {
+        restored = await restore;
+      } catch (_) {
+        restored = false;
+      }
+    }
+    if (!restored &&
+        !isDisposed &&
+        identical(_composer, composer) &&
+        !composer.isDisposed) {
+      if (identical(_composerDraftRestore, restore)) {
+        _composerDraftRestore = null;
+      }
+      composer.showNotice("Couldn't check for an existing draft. Try again.");
+    }
+    return restored &&
+        !isDisposed &&
+        identical(_composer, composer) &&
+        !composer.isDisposed;
+  }
+
+  final Map<ComposerController, Future<String?>> _composerDiscardTasks = {};
+
+  Future<String?> discardComposer(ComposerController composer) {
+    final running = _composerDiscardTasks[composer];
+    if (running != null) return running;
+
+    final task = _discardComposer(composer);
+    _composerDiscardTasks[composer] = task;
+    unawaited(
+      task.then<void>(
+        (_) {
+          if (identical(_composerDiscardTasks[composer], task)) {
+            final _ = _composerDiscardTasks.remove(composer);
+          }
+        },
+        onError: (Object _, StackTrace _) {
+          if (identical(_composerDiscardTasks[composer], task)) {
+            final _ = _composerDiscardTasks.remove(composer);
+          }
+        },
+      ),
+    );
+    return task;
+  }
+
+  Future<String?> _discardComposer(ComposerController composer) async {
+    if (!await finishComposerDraftRestore(composer)) return null;
+
+    if (composer.hasUnappliedDraft) {
+      final revision = composer.beginDiscard();
+      if (revision == null) {
+        return "Couldn't discard this draft. Try again.";
+      }
+      const failure = "Couldn't discard this draft. Try again.";
+      const changed =
+          'This draft changed before it could be discarded. Review it and try again.';
+      final target = composer.target;
+      final context = _composerDraftContexts[composer];
+      bool isCurrent() =>
+          context != null &&
+          context.lease.isCurrent &&
+          identical(_composer, composer) &&
+          !composer.isDisposed;
+      String failAndResaveCurrentDraft() {
+        if (isCurrent()) unawaited(composer.flushDraft());
+        return failure;
+      }
+
+      try {
+        final preserved = composer.unappliedDraft;
+        if (!isCurrent()) return null;
+        if (context == null || preserved == null) {
+          return failAndResaveCurrentDraft();
+        }
+        await composer.finishInFlightDraftSaveForDiscard();
+        if (!isCurrent()) return null;
+        if (!composer.discardRevisionIsCurrent(revision)) {
+          unawaited(composer.flushDraft());
+          return changed;
+        }
+
+        final overwritten = composer.unappliedDraftOverwritten;
+        if (overwritten || composer.unappliedDraftWasLocal) {
+          // An in-flight replacement save can complete after Discard was
+          // pressed. Put the protected snapshot back on-device before repairing
+          // the server so a process exit between those operations cannot lose
+          // both versions.
+          await drafts.write(
+            target.siteUrl,
+            target.draftKey,
+            preserved.encode(),
+            ifCurrent: () =>
+                isCurrent() && composer.discardRevisionIsCurrent(revision),
+          );
+        }
+        if (!isCurrent()) return null;
+        if (!composer.discardRevisionIsCurrent(revision)) {
+          unawaited(composer.flushDraft());
+          return changed;
+        }
+
+        if (overwritten) {
+          final credential = await _credentialForWrite(target.siteUrl);
+          if (!isCurrent()) return null;
+          if (credential.failure != null) {
+            return failAndResaveCurrentDraft();
+          }
+          final clientId = await authenticator.clientId();
+          if (!isCurrent()) return null;
+          await _waitForRetiredComposerDraftSaves(target, context);
+          if (!isCurrent()) return null;
+          if (!composer.discardRevisionIsCurrent(revision)) {
+            unawaited(composer.flushDraft());
+            return changed;
+          }
+
+          final key = context.keyFor(target);
+          final restored = await _serializeDraftOperation<bool>(key, () async {
+            if (!isCurrent() || !composer.discardRevisionIsCurrent(revision)) {
+              return false;
+            }
+            final sequence = _draftSequence(target);
+            if (composer.unappliedDraftWasLocal) {
+              await api.drafts.deleteUserDraft(
+                siteUrl: target.siteUrl,
+                apiKey: credential.apiKey!,
+                draftKey: target.draftKey,
+                sequence: sequence,
+              );
+              context.lease.commit(() {
+                _knownServerDrafts.remove(key);
+                _draftsCreatedAfterCachedCount.remove(key);
+              });
+              if (!isCurrent() ||
+                  !composer.discardRevisionIsCurrent(revision)) {
+                return false;
+              }
+            } else {
+              final nextSequence = await api.composerPersistence.saveDraft(
+                siteUrl: target.siteUrl,
+                apiKey: credential.apiKey!,
+                draftKey: target.draftKey,
+                sequence: sequence,
+                data: preserved.encode(),
+                owner: clientId,
+              );
+              context.lease.commit(() {
+                if (nextSequence != null) {
+                  final sequenceKey = _draftKey(
+                    target.siteUrl,
+                    target.draftKey,
+                  );
+                  final knownSequence = _draftSequences[sequenceKey] ?? 0;
+                  final committedSequence = nextSequence > knownSequence
+                      ? nextSequence
+                      : knownSequence;
+                  _draftSequences[sequenceKey] = committedSequence;
+                  composer.draftSequence = committedSequence;
+                }
+                _knownServerDrafts.add(key);
+                _draftsCreatedAfterCachedCount.remove(key);
+              });
+              if (!isCurrent() ||
+                  !composer.discardRevisionIsCurrent(revision)) {
+                return false;
+              }
+            }
+            return true;
+          });
+          if (!restored) {
+            if (!isCurrent()) return null;
+            unawaited(composer.flushDraft());
+            return changed;
+          }
+        }
+
+        if (!composer.unappliedDraftWasLocal) {
+          final cleared = await drafts.clearChecked(
+            target.siteUrl,
+            target.draftKey,
+            ifCurrent: () =>
+                isCurrent() && composer.discardRevisionIsCurrent(revision),
+          );
+          if (!cleared &&
+              isCurrent() &&
+              composer.discardRevisionIsCurrent(revision)) {
+            return failAndResaveCurrentDraft();
+          }
+        }
+        if (!isCurrent()) return null;
+        if (!composer.discardRevisionIsCurrent(revision)) {
+          unawaited(composer.flushDraft());
+          return changed;
+        }
+        composer.dispose();
+        _composer = null;
+        _composerDraftRestore = null;
+        _notify();
+        return null;
+      } catch (error, stackTrace) {
+        if (isCurrent()) {
+          _reportOperationalError(
+            error,
+            stackTrace,
+            'composer.preserveUnappliedDraft',
+          );
+          return failAndResaveCurrentDraft();
+        }
+        return null;
+      } finally {
+        if (!composer.isDisposed) composer.finishDiscard();
+      }
+    }
+
+    final revision = composer.beginDiscard();
+    if (revision == null) {
+      return "Couldn't discard this draft. Try again.";
+    }
+
+    final target = composer.target;
+    final lease = lifecycle.capture(target.siteUrl);
+    bool isCurrent() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_composer, composer) &&
+        !composer.isDisposed;
+
+    const failure = "Couldn't discard this draft. Try again.";
+    const changed =
+        'This draft changed before it could be discarded. Review it and try again.';
+
+    try {
+      if (composer.canSaveDraft) {
+        final credential = await _credentialForWrite(target.siteUrl);
+        if (!isCurrent()) return null;
+        if (credential.failure != null) return failure;
+
+        await composer.finishInFlightDraftSaveForDiscard();
+        if (!isCurrent()) return null;
+        if (!composer.discardRevisionIsCurrent(revision)) {
+          unawaited(composer.flushDraft());
+          return changed;
+        }
+        final context = _composerDraftContexts[composer];
+        if (context == null) return failure;
+        await _waitForRetiredComposerDraftSaves(target, context);
+        if (!isCurrent()) return null;
+        if (!composer.discardRevisionIsCurrent(revision)) {
+          unawaited(composer.flushDraft());
+          return changed;
+        }
+
+        final key = context.keyFor(target);
+        final discarded = await _serializeDraftOperation<bool>(key, () async {
+          if (!isCurrent() || !composer.discardRevisionIsCurrent(revision)) {
+            return false;
+          }
+          final sequence = _draftSequence(target);
+          final draftWasKnown =
+              _knownServerDrafts.contains(key) ||
+              draftList
+                  .feedFor(target.siteUrl)
+                  .drafts
+                  .any((draft) => draft.key == target.draftKey) ||
+              (!target.createsTopic &&
+                  store
+                          .read<TopicDetail>(target.siteUrl, target.topicId)
+                          ?.draft !=
+                      null);
+          await api.drafts.deleteUserDraft(
+            siteUrl: target.siteUrl,
+            apiKey: credential.apiKey!,
+            draftKey: target.draftKey,
+            sequence: sequence,
+          );
+          final localCleared = await drafts.clearChecked(
+            target.siteUrl,
+            target.draftKey,
+            ifCurrent: () =>
+                isCurrent() && composer.discardRevisionIsCurrent(revision),
+          );
+          if (!localCleared) {
+            if (!isCurrent() || !composer.discardRevisionIsCurrent(revision)) {
+              return false;
+            }
+            throw const DraftWriteException();
+          }
+          if (!isCurrent() || !composer.discardRevisionIsCurrent(revision)) {
+            return false;
+          }
+          if (!target.createsTopic) {
+            store.update<TopicDetail>(
+              target.siteUrl,
+              target.topicId,
+              (detail) => detail.withDraft(null, sequence),
+            );
+          }
+          _recordDraftDestroyed(
+            target.siteUrl,
+            target.draftKey,
+            knownToExist:
+                draftWasKnown && !_draftsCreatedAfterCachedCount.contains(key),
+          );
+          _knownServerDrafts.remove(key);
+          _draftsCreatedAfterCachedCount.remove(key);
+          composer.draftSettled();
+          composer.dispose();
+          _composer = null;
+          _composerDraftRestore = null;
+          _notify();
+          return true;
+        });
+        if (discarded) return null;
+        if (!isCurrent()) return null;
+        await composer.flushDraft();
+        return changed;
+      }
+
+      if (!isCurrent()) return null;
+      composer.dispose();
+      _composer = null;
+      _composerDraftRestore = null;
+      _notify();
+      return null;
+    } catch (error, stackTrace) {
+      if (isCurrent()) {
+        _reportOperationalError(error, stackTrace, 'composer.discardDraft');
+        if (composer.canSaveDraft) unawaited(composer.flushDraft());
+        return failure;
+      }
+      return null;
+    } finally {
+      if (!composer.isDisposed) composer.finishDiscard();
+    }
+  }
+
   final Map<String, int> _draftSequences = {};
-  final Map<String, Object> _draftSaveRequests = {};
+  final Map<_DraftSessionKey, Object> _draftSaveRequests = {};
+  final Map<_DraftSessionKey, Future<void>> _draftOperations = {};
+  final Set<_DraftSessionKey> _knownServerDrafts = {};
+  final Set<_DraftSessionKey> _draftsCreatedAfterCachedCount = {};
 
   static String _draftKey(String siteUrl, String draftKey) =>
       '$siteUrl#$draftKey';
+
+  Future<T> _serializeDraftOperation<T>(
+    _DraftSessionKey key,
+    Future<T> Function() operation,
+  ) {
+    final previous = _draftOperations[key] ?? Future<void>.value();
+    final result = previous.then<T>((_) => operation());
+    final tail = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    _draftOperations[key] = tail;
+    unawaited(
+      tail.then((_) {
+        if (identical(_draftOperations[key], tail)) {
+          final _ = _draftOperations.remove(key);
+        }
+      }),
+    );
+    return result;
+  }
 
   int _draftSequence(ComposerTarget target) =>
       _draftSequences[_draftKey(target.siteUrl, target.draftKey)] ??
@@ -7969,98 +8476,157 @@ class ShellController extends FrameSafeNotifier
                 ?.draftSequence) ??
       0;
 
-  Future<int?> _saveDraft(ComposerDraftSave save) async {
-    final target = save.target;
-    final data = save.draft.encode();
-    final key = _draftKey(target.siteUrl, target.draftKey);
-    final request = Object();
-    _draftSaveRequests[key] = request;
-    final lease = lifecycle.capture(target.siteUrl);
+  Future<void> _stageDraftLocally(
+    ComposerDraftSave save,
+    _ComposerDraftContext context,
+  ) {
+    final key = context.keyFor(save.target);
+    _claimComposerDraftGeneration(key, context.generation);
+    return drafts.write(
+      save.target.siteUrl,
+      save.target.draftKey,
+      save.draft.encode(),
+      ifCurrent: () =>
+          save.isCurrent() &&
+          context.lease.isCurrent &&
+          _latestComposerDraftGenerations[key] == context.generation,
+    );
+  }
 
-    try {
-      DraftWriteException? localFailure;
+  void _claimComposerDraftGeneration(_DraftSessionKey key, int generation) {
+    final current = _latestComposerDraftGenerations[key];
+    if (current == null || generation > current) {
+      _latestComposerDraftGenerations[key] = generation;
+    }
+  }
+
+  Future<int?> _saveDraft(
+    ComposerDraftSave save,
+    _ComposerDraftContext context,
+  ) async {
+    final target = save.target;
+    final lease = context.lease;
+    final data = save.draft.encode();
+    final key = context.keyFor(target);
+    final sequenceKey = _draftKey(target.siteUrl, target.draftKey);
+    _claimComposerDraftGeneration(key, context.generation);
+    bool ownsLatestGeneration() =>
+        _latestComposerDraftGenerations[key] == context.generation;
+
+    // Preserve the local-first durability guarantee even when an older
+    // controller is still draining. Its later queued writes are generation
+    // guarded, so they cannot overwrite this newer composer's local copy.
+    final localWrite = () async {
+      DraftWriteException? failure;
       try {
         await drafts.write(
           target.siteUrl,
           target.draftKey,
           data,
           ifCurrent: () =>
-              save.isCurrent() &&
-              identical(_draftSaveRequests[key], request) &&
-              lease.commit(() {}),
+              save.isCurrent() && ownsLatestGeneration() && lease.commit(() {}),
         );
       } on DraftWriteException catch (error) {
-        localFailure = error;
+        failure = error;
       } catch (error) {
-        localFailure = DraftWriteException(error);
+        failure = DraftWriteException(error);
       }
-      if (!lease.commit(() {})) return null;
+      return failure;
+    }();
 
-      // After the sync has given up, the local copy above is the whole save:
-      // the site is not asked again, and the copy is not cleared.
-      if (save.localOnly) {
-        if (localFailure != null) throw localFailure;
-        return null;
-      }
+    await _waitForRetiredComposerDraftSaves(target, context);
+    final localFailure = await localWrite;
+    if (!lease.isCurrent || !save.isCurrent()) return null;
 
+    final request = Object();
+    _draftSaveRequests[key] = request;
+
+    return _serializeDraftOperation<int?>(key, () async {
       try {
-        final credential = await _credentialForWrite(target.siteUrl);
-        if (!lease.isCurrent) return null;
-        if (credential.failure case final failure?) throw failure;
-        final apiKey = credential.apiKey!;
-        final clientId = await authenticator.clientId();
-        if (!lease.isCurrent) return null;
+        if (!lease.commit(() {})) return null;
 
-        final sequence = await api.composerPersistence.saveDraft(
-          siteUrl: target.siteUrl,
-          apiKey: apiKey,
-          draftKey: target.draftKey,
-          sequence: save.sequence,
-          data: data,
-          // Discourse uses this to tell the same account writing from somewhere
-          // else apart from this client coming back.
-          owner: clientId,
-        );
-
-        var clearLocal = false;
-        lease.commit(() {
-          if (sequence != null) _draftSequences[key] = sequence;
-          if (!save.isCurrent() ||
-              !identical(_draftSaveRequests[key], request)) {
-            return;
-          }
-
-          if (!target.createsTopic) {
-            store.update<TopicDetail>(
-              target.siteUrl,
-              target.topicId,
-              (detail) =>
-                  detail.withDraft(save.draft, sequence ?? save.sequence),
-            );
-          }
-          clearLocal = true;
-        });
-        if (clearLocal) {
-          await drafts.clear(
-            target.siteUrl,
-            target.draftKey,
-            ifCurrent: () =>
-                save.isCurrent() &&
-                identical(_draftSaveRequests[key], request) &&
-                lease.commit(() {}),
-          );
+        // After the sync has given up, the local copy above is the whole save:
+        // the site is not asked again, and the copy is not cleared.
+        if (save.localOnly) {
+          if (localFailure != null) throw localFailure;
+          return null;
         }
 
-        return sequence;
-      } catch (_) {
-        if (localFailure != null) throw localFailure;
-        rethrow;
+        try {
+          final credential = await _credentialForWrite(target.siteUrl);
+          if (!lease.isCurrent) return null;
+          if (credential.failure case final failure?) throw failure;
+          final apiKey = credential.apiKey!;
+          final clientId = await authenticator.clientId();
+          if (!lease.isCurrent) return null;
+
+          final requestSequence = _draftSequence(target);
+          final sequence = await api.composerPersistence.saveDraft(
+            siteUrl: target.siteUrl,
+            apiKey: apiKey,
+            draftKey: target.draftKey,
+            sequence: requestSequence,
+            data: data,
+            // Discourse uses this to tell the same account writing from somewhere
+            // else apart from this client coming back.
+            owner: clientId,
+          );
+
+          var clearLocal = false;
+          var committedSequence = sequence;
+          lease.commit(() {
+            if (sequence != null) {
+              final knownSequence = _draftSequences[sequenceKey] ?? 0;
+              committedSequence = sequence > knownSequence
+                  ? sequence
+                  : knownSequence;
+              _draftSequences[sequenceKey] = committedSequence!;
+            }
+            context.composer?.unappliedDraftWasOverwritten();
+            if (_knownServerDrafts.add(key)) {
+              _draftsCreatedAfterCachedCount.add(key);
+            }
+            if (!save.isCurrent() ||
+                !identical(_draftSaveRequests[key], request)) {
+              return;
+            }
+
+            if (!target.createsTopic) {
+              store.update<TopicDetail>(
+                target.siteUrl,
+                target.topicId,
+                (detail) => detail.withDraft(
+                  save.draft,
+                  committedSequence ?? requestSequence,
+                ),
+              );
+            }
+            if (!ownsLatestGeneration()) return;
+            clearLocal = true;
+          });
+          if (clearLocal) {
+            await drafts.clear(
+              target.siteUrl,
+              target.draftKey,
+              ifCurrent: () =>
+                  save.isCurrent() &&
+                  ownsLatestGeneration() &&
+                  identical(_draftSaveRequests[key], request) &&
+                  lease.commit(() {}),
+            );
+          }
+
+          return committedSequence;
+        } catch (_) {
+          if (localFailure != null) throw localFailure;
+          rethrow;
+        }
+      } finally {
+        if (identical(_draftSaveRequests[key], request)) {
+          _draftSaveRequests.remove(key);
+        }
       }
-    } finally {
-      if (identical(_draftSaveRequests[key], request)) {
-        _draftSaveRequests.remove(key);
-      }
-    }
+    });
   }
 
   Future<ComposerUploadResult> _uploadComposerImage(
@@ -8113,9 +8679,10 @@ class ShellController extends FrameSafeNotifier
     unawaited(restore);
   }
 
-  Future<void> _restoreDraft(ComposerController composer) async {
+  Future<bool> _restoreDraft(ComposerController composer) async {
     final target = composer.target;
     final lease = lifecycle.capture(target.siteUrl);
+    final startingRevision = composer.draftRevision;
 
     bool isCurrent() =>
         !isDisposed && lease.isCurrent && identical(_composer, composer);
@@ -8123,10 +8690,24 @@ class ShellController extends FrameSafeNotifier
     // The local copy exists only while the site does not have the text, so if
     // there is one it is the newer of the two by construction — no timestamps
     // to compare, and no chance of restoring over something newer.
-    final local = ComposerDraft.decode(
-      await drafts.read(target.siteUrl, target.draftKey),
-    );
-    if (!isCurrent()) return;
+    var localRead = await drafts.readChecked(target.siteUrl, target.draftKey);
+    if (!localRead.succeeded) return false;
+    var local = ComposerDraft.decode(localRead.value);
+    if (!isCurrent()) return true;
+    if (local == null) {
+      final context = _composerDraftContexts[composer];
+      if (context != null) {
+        await _waitForRetiredComposerDraftSaves(target, context);
+        if (!isCurrent()) return true;
+        // A retired controller may have failed its first local write and then
+        // completed a remote save while this composer was opening. Re-read
+        // after the drain so that save is never classified as an empty draft.
+        localRead = await drafts.readChecked(target.siteUrl, target.draftKey);
+        if (!localRead.succeeded) return false;
+        local = ComposerDraft.decode(localRead.value);
+        if (!isCurrent()) return true;
+      }
+    }
     ComposerDraft? remote;
     var remoteSequence = 0;
     if (local == null && target.createsTopic) {
@@ -8135,30 +8716,56 @@ class ShellController extends FrameSafeNotifier
           lease,
           () => _credentialForWrite(target.siteUrl),
         );
-        if (held == null || !isCurrent()) return;
-        if (held.value.failure == null) {
-          final found = await api.composerPersistence.draft(
-            siteUrl: target.siteUrl,
-            apiKey: held.value.apiKey!,
-            draftKey: target.draftKey,
-          );
-          remote = found.draft;
-          remoteSequence = found.sequence;
-        }
-      } catch (_) {}
+        if (held == null || !isCurrent()) return true;
+        if (held.value.failure != null) return false;
+        final found = await api.composerPersistence.draft(
+          siteUrl: target.siteUrl,
+          apiKey: held.value.apiKey!,
+          draftKey: target.draftKey,
+        );
+        remote = found.draft;
+        remoteSequence = found.sequence;
+      } catch (_) {
+        return false;
+      }
     }
-    if (!isCurrent()) return;
+    if (!isCurrent()) return true;
     lease.commit(() {
       if (!identical(_composer, composer)) return;
-      final draft =
-          local ??
-          remote ??
-          (target.createsTopic
-              ? null
-              : store.read<TopicDetail>(target.siteUrl, target.topicId)?.draft);
+      if (target.createsTopic && remoteSequence > 0) {
+        final key = _draftKey(target.siteUrl, target.draftKey);
+        final knownSequence = _draftSequences[key] ?? composer.draftSequence;
+        final currentSequence = remoteSequence > knownSequence
+            ? remoteSequence
+            : knownSequence;
+        composer.draftSequence = currentSequence;
+        _draftSequences[key] = currentSequence;
+      }
+      final cached = target.createsTopic
+          ? null
+          : store.read<TopicDetail>(target.siteUrl, target.topicId)?.draft;
+      final draft = local ?? remote ?? cached;
       if (draft == null) return;
+      final context = _composerDraftContexts[composer];
+      if (context != null && (remote != null || cached != null)) {
+        final key = context.keyFor(target);
+        _knownServerDrafts.add(key);
+        _draftsCreatedAfterCachedCount.remove(key);
+      }
+      if (!composer.canRestoreDraft(draft)) {
+        composer.protectUnappliedDraft(draft, wasLocal: local != null);
+        return;
+      }
 
-      composer.restore(draft);
+      // Body, title, category, tags and whisper all advance this revision.
+      // Never restore an older snapshot over any choice made while the lookup
+      // was in flight.
+      if (composer.draftRevision != startingRevision) return;
+
+      if (!composer.restore(draft)) {
+        composer.protectUnappliedDraft(draft, wasLocal: local != null);
+        return;
+      }
       composer.setMinimumRequiredTags(
         topicComposerCategories(target.siteUrl)
                 .where((category) => category.id == composer.categoryId)
@@ -8166,11 +8773,6 @@ class ShellController extends FrameSafeNotifier
                 ?.minimumRequiredTags ??
             0,
       );
-      if (target.createsTopic && remoteSequence > 0) {
-        composer.draftSequence = remoteSequence;
-        _draftSequences[_draftKey(target.siteUrl, target.draftKey)] =
-            remoteSequence;
-      }
       if (draft.replyToPostNumber != null &&
           target.replyToPostNumber == null &&
           identical(_composer, composer)) {
@@ -8180,11 +8782,17 @@ class ShellController extends FrameSafeNotifier
         );
       }
     });
+    return true;
   }
 
   Future<void> submitComposer() async {
     final composer = _composer;
-    if (composer == null || composer.submitting || !composer.canSubmit) return;
+    if (composer == null ||
+        composer.discarding ||
+        composer.submitting ||
+        !composer.canSubmit) {
+      return;
+    }
 
     final target = composer.target;
     final raw = composer.raw;
@@ -8786,6 +9394,7 @@ class ShellController extends FrameSafeNotifier
     ComposerController composer,
     SiteLease lease,
   ) {
+    _forgetKnownServerDraft(composer);
     final post = creation.post;
     if (post != null) {
       store.put(target.siteUrl, post);
@@ -8840,6 +9449,7 @@ class ShellController extends FrameSafeNotifier
     ComposerController composer,
     SiteLease lease,
   ) {
+    _forgetKnownServerDraft(composer);
     composer.draftSettled();
     unawaited(
       drafts.clear(
@@ -8881,6 +9491,7 @@ class ShellController extends FrameSafeNotifier
     String slug,
     String title,
   ) {
+    _forgetKnownServerDraft(composer);
     composer.draftSettled();
     unawaited(
       drafts.clear(
@@ -8896,6 +9507,15 @@ class ShellController extends FrameSafeNotifier
       if (origin != null && target.isNewTopic) {
         unawaited(loadFeed(origin, force: true));
       }
+    }
+  }
+
+  void _forgetKnownServerDraft(ComposerController composer) {
+    final context = _composerDraftContexts[composer];
+    if (context != null) {
+      final key = context.keyFor(composer.target);
+      _knownServerDrafts.remove(key);
+      _draftsCreatedAfterCachedCount.remove(key);
     }
   }
 
@@ -10133,7 +10753,14 @@ class ShellController extends FrameSafeNotifier
     siteImages.forget(siteUrl);
     _removeWorkspace(siteUrl);
     if (currentInstance?.url == siteUrl) search.clear();
-    _draftSaveRequests.removeWhere((key, _) => key.startsWith('$siteUrl#'));
+    _draftSaveRequests.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _draftOperations.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _retiredComposerDraftSaves.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _latestComposerDraftGenerations.removeWhere(
+      (key, _) => key.siteUrl == siteUrl,
+    );
+    _knownServerDrafts.removeWhere((key) => key.siteUrl == siteUrl);
+    _draftsCreatedAfterCachedCount.removeWhere((key) => key.siteUrl == siteUrl);
     _draftSequences.removeWhere((key, _) => key.startsWith('$siteUrl#'));
 
     final composer = _composer;
@@ -10691,7 +11318,10 @@ class ShellController extends FrameSafeNotifier
     final index = workspace.tabs.indexWhere((tab) => tab.id == id);
     if (index < 0) return;
 
-    if (_composer?.target.tabId == id) closeComposer();
+    if (_composer case final composer? when composer.target.tabId == id) {
+      if (composer.discarding) return;
+      closeComposer();
+    }
 
     final closedActive = workspace.activeTabId == id;
     late ForumWorkspace replacement;
@@ -10729,6 +11359,7 @@ class ShellController extends FrameSafeNotifier
     if (kept == null) return;
 
     if (_composer case final composer? when composer.target.tabId != id) {
+      if (composer.discarding) return;
       closeComposer();
     }
 

@@ -518,6 +518,7 @@ void main() {
     ) async {
       final composer = ComposerController(
         _target,
+        onSaveDraft: (save) async => save.sequence + 1,
         resolveUploadUrls: (_) async => const {},
       );
       final shell = await _InteractionTrackingShellController.create();
@@ -547,6 +548,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
       expect(shell.closeCalls, 1);
+      composer.draftSettled();
     });
 
     testWidgets('selecting a projected image shows its editing controls', (
@@ -1245,6 +1247,7 @@ void main() {
     ) async {
       final composer = ComposerController(
         _target,
+        onSaveDraft: (save) async => save.sequence + 1,
         resolveUploadUrls: (_) async => const {},
       );
       final shell = await _InteractionTrackingShellController.create();
@@ -1299,6 +1302,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
       expect(shell.closeCalls, 1);
+      composer.draftSettled();
     });
 
     testWidgets('dropping an image over a gallery appends it there', (
@@ -1469,6 +1473,10 @@ final class _InteractionTrackingShellController extends ShellController {
 
   @override
   void closeComposer() => closeCalls++;
+
+  @override
+  Future<bool> finishComposerDraftRestore(ComposerController composer) async =>
+      true;
 
   @override
   Future<void> submitComposer() async => submitCalls++;

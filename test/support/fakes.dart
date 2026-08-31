@@ -226,6 +226,15 @@ class FakeDraftStore implements DraftStore {
       saved[_key(siteUrl, draftKey)];
 
   @override
+  Future<DraftStoreRead> readChecked(String siteUrl, String draftKey) async {
+    try {
+      return (value: await read(siteUrl, draftKey), succeeded: true);
+    } catch (_) {
+      return (value: null, succeeded: false);
+    }
+  }
+
+  @override
   Future<void> write(
     String siteUrl,
     String draftKey,
@@ -246,6 +255,21 @@ class FakeDraftStore implements DraftStore {
     if (ifCurrent != null && !ifCurrent()) return;
     saved.remove(_key(siteUrl, draftKey));
     events.add('clear');
+  }
+
+  @override
+  Future<bool> clearChecked(
+    String siteUrl,
+    String draftKey, {
+    bool Function()? ifCurrent,
+  }) async {
+    if (ifCurrent?.call() == false) return false;
+    try {
+      await clear(siteUrl, draftKey);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
@@ -520,6 +544,11 @@ class FakeDiscourseApi
     this.permanentDeletionReason,
     this.draftFailure,
     this.draftGate,
+    this.draftDeleteFailure,
+    this.draftDeleteGate,
+    this.draftToRestore = const (draft: null, sequence: 0),
+    this.draftRestoreGate,
+    this.draftRestoreFailure,
     this.likeResponses = const {},
     this.likeFailure,
     this.likeGate,
@@ -1213,6 +1242,16 @@ class FakeDiscourseApi
   final WriteException? draftFailure;
 
   final Completer<void>? draftGate;
+
+  final WriteException? draftDeleteFailure;
+
+  final Completer<void>? draftDeleteGate;
+
+  final ({ComposerDraft? draft, int sequence}) draftToRestore;
+
+  final Completer<void>? draftRestoreGate;
+
+  WriteException? draftRestoreFailure;
 
   final List<Map<String, Object?>> draftsSaved = [];
 
@@ -3480,6 +3519,7 @@ class FakeDiscourseApi
   }) async {
     draftsSaved.add({
       'siteUrl': siteUrl,
+      'apiKey': apiKey,
       'draftKey': draftKey,
       'sequence': sequence,
       'data': data,
@@ -3495,7 +3535,11 @@ class FakeDiscourseApi
     required String apiKey,
     required String draftKey,
     String? clientId,
-  }) async => (draft: null, sequence: 0);
+  }) async {
+    await draftRestoreGate?.future;
+    if (draftRestoreFailure != null) throw draftRestoreFailure!;
+    return draftToRestore;
+  }
 
   @override
   Future<List<UserDraft>> userDrafts({
@@ -3550,6 +3594,8 @@ class FakeDiscourseApi
       draftKey: draftKey,
       sequence: sequence,
     ));
+    await draftDeleteGate?.future;
+    if (draftDeleteFailure != null) throw draftDeleteFailure!;
   }
 
   @override

@@ -22,6 +22,11 @@ final class SiteLease {
   final Object _token;
   final Object? Function() _currentToken;
 
+  /// Stable identity for this account session. Work queues can use it to keep
+  /// an old account's delayed operations from blocking or mutating a new
+  /// account connected at the same URL.
+  Object get session => _token;
+
   bool get isCurrent => identical(_token, _currentToken());
 
   bool commit(SiteMutation mutation) {

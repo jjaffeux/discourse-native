@@ -21,6 +21,70 @@ void main() {
     expect(composer.text.imageSiteUrl, _target.siteUrl);
   });
 
+  test('a reply is changed only when its trimmed body differs', () {
+    final composer = ComposerController(_target);
+    addTearDown(composer.dispose);
+
+    expect(composer.hasChanges, isFalse);
+    composer.text.text = '   ';
+    expect(composer.hasChanges, isFalse);
+    composer.text.text = 'A reply';
+    expect(composer.hasChanges, isTrue);
+  });
+
+  test('an edit compares changes with the body loaded from the site', () {
+    final composer = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 7,
+        slug: 'a-topic',
+        topicTitle: 'A topic',
+        editingPostId: 11,
+        editingPostNumber: 2,
+      ),
+    );
+    addTearDown(composer.dispose);
+
+    composer.loadedBody('Original body');
+    expect(composer.hasChanges, isFalse);
+    composer.text.text = 'Changed body';
+    expect(composer.hasChanges, isTrue);
+    composer.text.text = ' Original body ';
+    expect(composer.hasChanges, isFalse);
+    composer.text.clear();
+    expect(composer.hasChanges, isTrue);
+  });
+
+  test('new-topic dirty state matches core title and body semantics', () {
+    final composer = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 0,
+        slug: '',
+        topicTitle: 'New topic',
+        mode: ComposerMode.newTopic,
+      ),
+    );
+    addTearDown(composer.dispose);
+
+    composer.setCategory(7);
+    composer.setTags(const [TopicTag(name: 'mobile')]);
+    expect(composer.metadataChanged, isTrue);
+    expect(composer.hasChanges, isFalse);
+
+    composer.title.text = 'A title';
+    expect(composer.hasChanges, isTrue);
+  });
+
+  test('an unresolved composer can still be discarded', () {
+    final composer = ComposerController(_target);
+    addTearDown(composer.dispose);
+
+    composer.unresolved();
+    expect(composer.beginDiscard(), isNotNull);
+    expect(composer.discarding, isTrue);
+  });
+
   testWidgets('whisper state is restored and saved with the reply draft', (
     tester,
   ) async {
@@ -156,6 +220,36 @@ void main() {
     await finishing;
     expect(composer.draftPending, isFalse);
   });
+
+  testWidgets(
+    'discard waits for an active save without starting a queued one',
+    (tester) async {
+      final gate = Completer<void>();
+      final saves = <ComposerDraftSave>[];
+      final composer = ComposerController(
+        _target,
+        onSaveDraft: (save) async {
+          saves.add(save);
+          await gate.future;
+          return save.sequence + 1;
+        },
+      );
+      addTearDown(composer.dispose);
+
+      composer.text.text = 'active save';
+      await tester.pump(ComposerController.draftDebounce);
+      composer.text.text = 'queued save';
+      await tester.pump(ComposerController.draftDebounce);
+
+      final finishing = composer.finishInFlightDraftSaveForDiscard();
+      expect(saves.map((save) => save.draft.reply), ['active save']);
+
+      gate.complete();
+      await finishing;
+      expect(saves.map((save) => save.draft.reply), ['active save']);
+      expect(composer.draftPending, isFalse);
+    },
+  );
 
   testWidgets('a failed autocomplete search closes stale suggestions', (
     tester,

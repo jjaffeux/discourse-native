@@ -94,6 +94,15 @@ void main() {
       expect(await store.read(siteUrl, draftKey), isNull);
     });
 
+    test('checked reads distinguish storage failure from no draft', () async {
+      persistence.failReads = true;
+
+      expect(await store.readChecked(siteUrl, draftKey), (
+        value: null,
+        succeeded: false,
+      ));
+    });
+
     test('conditional writing rejects a stale session', () async {
       await store.write(
         siteUrl,
@@ -175,6 +184,14 @@ void main() {
     test('clearing a draft that was never written is nothing', () async {
       await store.clear(siteUrl, draftKey);
       expect(await store.read(siteUrl, draftKey), isNull);
+    });
+
+    test('checked clearing reports when secure deletion fails', () async {
+      await store.write(siteUrl, draftKey, 'must remain recoverable');
+      persistence.deleteError = StateError('secure storage unavailable');
+
+      expect(await store.clearChecked(siteUrl, draftKey), isFalse);
+      expect(persistence.values[storageKey], 'must remain recoverable');
     });
 
     test('conditional clearing keeps a newer session draft', () async {
@@ -303,6 +320,7 @@ final class MemoryDraftPersistence implements DraftPersistence {
   bool failReads = false;
   bool failWrites = false;
   bool allowPreferenceFallback = true;
+  Object? deleteError;
   Object? deletePrefixError;
   Completer<void>? firstWriteGate;
   final Completer<void> firstWriteStarted = Completer<void>();
@@ -310,6 +328,7 @@ final class MemoryDraftPersistence implements DraftPersistence {
 
   @override
   Future<void> delete(String key) async {
+    if (deleteError case final error?) throw error;
     values.remove(key);
   }
 

@@ -4,6 +4,7 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/data/topic_recommendations_tab_store.dart';
 import 'package:discourse_native/src/data/topic_sidebar_store.dart';
@@ -34,6 +35,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
+import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
@@ -3698,7 +3700,7 @@ void main() {
       final categoryRequestCount = api.categoryRequests.length;
       final capabilityRequestCount = api.topicComposerCapabilityRequests.length;
 
-      await tester.tap(find.byTooltip('Close composer'));
+      await tester.tap(find.byTooltip('Save and close'));
       await tester.pumpAndSettle();
       expect(find.byType(ComposerPanel), findsNothing);
 
@@ -3855,7 +3857,7 @@ void main() {
       expect(shell.currentContent?.isMessages, isTrue);
       expect(shell.visibleComposer?.target.isNewTopic, isTrue);
 
-      await tester.tap(find.byTooltip('Close composer'));
+      await tester.tap(find.byTooltip('Save and close'));
       await tester.pumpAndSettle();
       shell.selectAggregate();
       await tester.pumpAndSettle();
@@ -11903,7 +11905,7 @@ void main() {
       await openTopic(tester, api);
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Close composer'));
+      await tester.tap(find.byTooltip('Save and close'));
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsNothing);
@@ -12053,6 +12055,48 @@ void main() {
         find.widgetWithText(FilledButton, 'Save'),
       );
       expect(button.onPressed, isNull);
+    });
+
+    testWidgets('closing a changed edit asks before discarding it', (
+      tester,
+    ) async {
+      await openTopic(
+        tester,
+        post: mine(),
+        postsById: {
+          1: const Post(
+            id: 1,
+            postNumber: 1,
+            username: 'joffreyj',
+            cooked: '<p>First post body</p>',
+            raw: 'First post body',
+          ),
+        },
+      );
+
+      await hoverPost(tester);
+      await tapPostAction(tester, 'Edit this post');
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Changed post body');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cancel edit'), findsOneWidget);
+      await tester.tap(find.byTooltip('Close composer'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Do you want to discard your changes?'), findsOneWidget);
+      expect(find.text('Discard changes'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('composer-cancel-discard')));
+      await tester.pumpAndSettle();
+      expect(find.text('Changed post body'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsNothing);
     });
 
     testWidgets('an edit never saves over a post it could not read', (
@@ -15200,13 +15244,14 @@ void main() {
       WidgetTester tester,
       FakeDiscourseApi api, {
       FakeDraftStore? drafts,
+      FakeAuthenticator? authenticator,
     }) async {
       await pumpShell(
         tester,
         desktop,
         api: api,
         instances: connectedSites(),
-        authenticator: signedIn(),
+        authenticator: authenticator ?? signedIn(),
         drafts: drafts,
       );
       await tester.tap(find.text('A real topic'));
@@ -15219,6 +15264,1015 @@ void main() {
       await tester.pump(ComposerController.draftDebounce);
       await tester.pumpAndSettle();
     }
+
+    testWidgets('discard closes an empty reply without confirmation', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+      );
+
+      await openComposer(tester, api);
+      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('composer-discard-dialog')),
+        findsNothing,
+      );
+      expect(find.byType(ComposerPanel), findsNothing);
+      expect(api.userDraftsDeleted, const [
+        (
+          siteUrl: 'https://meta.discourse.org',
+          draftKey: 'topic_7',
+          sequence: 0,
+        ),
+      ]);
+    });
+
+    testWidgets('save and close removes an empty reply draft', (tester) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+      );
+
+      await openComposer(tester, api);
+      await tester.tap(find.byTooltip('Save and close'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('composer-discard-dialog')),
+        findsNothing,
+      );
+      expect(find.byType(ComposerPanel), findsNothing);
+      expect(api.userDraftsDeleted, const [
+        (
+          siteUrl: 'https://meta.discourse.org',
+          draftKey: 'topic_7',
+          sequence: 0,
+        ),
+      ]);
+    });
+
+    testWidgets('close waits for draft restoration before choosing an action', (
+      tester,
+    ) async {
+      final drafts = _GatedDraftReadStore();
+      addTearDown(() {
+        if (!drafts.release.isCompleted) drafts.release.complete();
+      });
+      await drafts.write(
+        'https://meta.discourse.org',
+        'topic_7',
+        const ComposerDraft(reply: 'Restored after close was pressed').encode(),
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+      );
+
+      await openComposer(tester, api, drafts: drafts);
+      expect(drafts.started.isCompleted, isTrue);
+      await tester.tap(find.byTooltip('Save and close'));
+      await tester.pump();
+
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(api.userDraftsDeleted, isEmpty);
+
+      drafts.release.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsNothing);
+      expect(api.userDraftsDeleted, isEmpty);
+      expect(drafts.saved.values.single, contains('Restored after close'));
+    });
+
+    testWidgets('a failed local read is retried before close can delete', (
+      tester,
+    ) async {
+      final drafts = _FlakyDraftStore(readFailures: 1);
+      await drafts.write(
+        'https://meta.discourse.org',
+        'topic_7',
+        const ComposerDraft(reply: 'Temporarily unreadable').encode(),
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+      );
+
+      await openComposer(tester, api, drafts: drafts);
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      expect(shell.visibleComposer?.text.text, isEmpty);
+
+      await tester.tap(find.byTooltip('Save and close'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(api.userDraftsDeleted, isEmpty);
+
+      await tester.tap(find.byTooltip('Save and close'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ComposerPanel), findsNothing);
+      expect(api.userDraftsDeleted, isEmpty);
+      expect(drafts.saved.values.single, contains('Temporarily unreadable'));
+    });
+
+    testWidgets('close does not delete an unseen draft after restore fails', (
+      tester,
+    ) async {
+      const writer = DiscourseUser(
+        username: 'joffreyj',
+        name: 'Joffrey',
+        canCreateTopic: true,
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        creatableFeedPaths: const {'/latest.json'},
+        draftRestoreFailure: const WriteException(WriteFailure.unreachable),
+        draftToRestore: const (
+          draft: ComposerDraft(
+            reply: 'Recovered server draft',
+            title: 'Recovered title',
+          ),
+          sequence: 3,
+        ),
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: writer),
+        ],
+        authenticator: signedIn(),
+      );
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+
+      await shell.openNewTopic();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Save and close'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(
+        find.text("Couldn't check for an existing draft. Try again."),
+        findsOneWidget,
+      );
+      expect(api.userDraftsDeleted, isEmpty);
+
+      api.draftRestoreFailure = null;
+      await tester.tap(find.byTooltip('Save and close'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsNothing);
+      expect(api.userDraftsDeleted, isEmpty);
+    });
+
+    testWidgets('closing a PM preserves a draft for different recipients', (
+      tester,
+    ) async {
+      const writer = DiscourseUser(
+        username: 'joffreyj',
+        name: 'Joffrey',
+        canSendPrivateMessages: true,
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        user: writer,
+        draftToRestore: const (
+          draft: ComposerDraft(
+            reply: 'Message for moderators',
+            title: 'Moderation question',
+            action: ComposerDraft.privateMessageAction,
+            archetypeId: ComposerDraft.privateMessageArchetype,
+            recipients: 'moderators',
+          ),
+          sequence: 5,
+        ),
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: writer),
+        ],
+        authenticator: signedIn(),
+      );
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+
+      shell.openPrivateMessage(
+        siteUrl: 'https://meta.discourse.org',
+        targetRecipients: 'tech-leads',
+      );
+      await tester.pumpAndSettle();
+
+      expect(shell.visibleComposer?.text.text, isEmpty);
+      expect(shell.visibleComposer?.hasUnappliedDraft, isTrue);
+      await tester.tap(find.byTooltip('Save and close'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsNothing);
+      expect(api.userDraftsDeleted, isEmpty);
+      expect(api.draftsSaved, isEmpty);
+    });
+
+    testWidgets('discarding a fresh PM cannot delete another PM draft', (
+      tester,
+    ) async {
+      final restoreGate = Completer<void>();
+      addTearDown(() {
+        if (!restoreGate.isCompleted) restoreGate.complete();
+      });
+      const writer = DiscourseUser(
+        username: 'joffreyj',
+        name: 'Joffrey',
+        canSendPrivateMessages: true,
+      );
+      final api = FakeDiscourseApi(
+        user: writer,
+        feeds: {'/latest.json': listed},
+        draftRestoreGate: restoreGate,
+        draftToRestore: const (
+          draft: ComposerDraft(
+            reply: 'Message for moderators',
+            title: 'Moderation question',
+            action: ComposerDraft.privateMessageAction,
+            archetypeId: ComposerDraft.privateMessageArchetype,
+            recipients: 'moderators',
+          ),
+          sequence: 5,
+        ),
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: writer),
+        ],
+        authenticator: signedIn(),
+      );
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      shell.openPrivateMessage(
+        siteUrl: 'https://meta.discourse.org',
+        targetRecipients: 'tech-leads',
+      );
+      await tester.pump();
+      shell.visibleComposer!.text.text = 'A new message not saved yet';
+      restoreGate.complete();
+      await tester.pumpAndSettle();
+      expect(shell.visibleComposer!.protectsUnappliedDraft, isTrue);
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsNothing);
+      expect(api.userDraftsDeleted, isEmpty);
+      expect(api.draftsSaved, isEmpty);
+    });
+
+    testWidgets(
+      'discard restores another PM after its replacement save was in flight',
+      (tester) async {
+        final saveGate = Completer<void>();
+        addTearDown(() {
+          if (!saveGate.isCompleted) saveGate.complete();
+        });
+        const writer = DiscourseUser(
+          username: 'joffreyj',
+          name: 'Joffrey',
+          canSendPrivateMessages: true,
+        );
+        const preserved = ComposerDraft(
+          reply: 'Message for moderators',
+          title: 'Moderation question',
+          action: ComposerDraft.privateMessageAction,
+          archetypeId: ComposerDraft.privateMessageArchetype,
+          recipients: 'moderators',
+        );
+        final drafts = FakeDraftStore();
+        final api = FakeDiscourseApi(
+          user: writer,
+          feeds: {'/latest.json': listed},
+          draftGate: saveGate,
+          draftToRestore: const (draft: preserved, sequence: 5),
+        );
+        await pumpShell(
+          tester,
+          desktop,
+          api: api,
+          instances: [
+            instance(
+              'meta.discourse.org',
+              title: 'Discourse Meta',
+            ).copyWith(user: writer),
+          ],
+          authenticator: signedIn(),
+          drafts: drafts,
+        );
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        shell.openPrivateMessage(
+          siteUrl: 'https://meta.discourse.org',
+          targetRecipients: 'tech-leads',
+        );
+        await tester.pumpAndSettle();
+        final composer = shell.visibleComposer!;
+        expect(composer.protectsUnappliedDraft, isTrue);
+        composer
+          ..title.text = 'Replacement title'
+          ..text.text = 'Replacement already saving';
+        await tester.pump(ComposerController.draftDebounce);
+        await tester.pump();
+        expect(api.draftsSaved, hasLength(1));
+
+        await tester.tap(find.byKey(const ValueKey('composer-discard')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('composer-confirm-discard')),
+        );
+        await tester.pump();
+        expect(composer.discarding, isTrue);
+
+        saveGate.complete();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ComposerPanel), findsNothing);
+        expect(api.userDraftsDeleted, isEmpty);
+        expect(api.draftsSaved, hasLength(2));
+        expect(
+          api.draftsSaved.first['data'],
+          contains('Replacement already saving'),
+        );
+        expect(api.draftsSaved.last['sequence'], 6);
+        expect(api.draftsSaved.last['data'], preserved.encode());
+        expect(drafts.saved, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'discard keeps a local PM after its replacement save was in flight',
+      (tester) async {
+        final saveGate = Completer<void>();
+        addTearDown(() {
+          if (!saveGate.isCompleted) saveGate.complete();
+        });
+        const writer = DiscourseUser(
+          username: 'joffreyj',
+          name: 'Joffrey',
+          canSendPrivateMessages: true,
+        );
+        const preserved = ComposerDraft(
+          reply: 'Local message for moderators',
+          title: 'Local moderation question',
+          action: ComposerDraft.privateMessageAction,
+          archetypeId: ComposerDraft.privateMessageArchetype,
+          recipients: 'moderators',
+        );
+        final drafts = FakeDraftStore();
+        await drafts.write(
+          'https://meta.discourse.org',
+          ComposerDraft.newPrivateMessageDraftKey,
+          preserved.encode(),
+        );
+        final api = FakeDiscourseApi(
+          user: writer,
+          feeds: {'/latest.json': listed},
+          draftGate: saveGate,
+        );
+        await pumpShell(
+          tester,
+          desktop,
+          api: api,
+          instances: [
+            instance(
+              'meta.discourse.org',
+              title: 'Discourse Meta',
+            ).copyWith(user: writer),
+          ],
+          authenticator: signedIn(),
+          drafts: drafts,
+        );
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        shell.openPrivateMessage(
+          siteUrl: 'https://meta.discourse.org',
+          targetRecipients: 'tech-leads',
+        );
+        await tester.pumpAndSettle();
+        final composer = shell.visibleComposer!;
+        expect(composer.protectsUnappliedDraft, isTrue);
+        composer
+          ..title.text = 'Replacement title'
+          ..text.text = 'Replacement already saving';
+        await tester.pump(ComposerController.draftDebounce);
+        await tester.pump();
+        expect(api.draftsSaved, hasLength(1));
+
+        await tester.tap(find.byKey(const ValueKey('composer-discard')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('composer-confirm-discard')),
+        );
+        await tester.pump();
+        saveGate.complete();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ComposerPanel), findsNothing);
+        expect(api.draftsSaved, hasLength(1));
+        expect(api.userDraftsDeleted, const [
+          (
+            siteUrl: 'https://meta.discourse.org',
+            draftKey: ComposerDraft.newPrivateMessageDraftKey,
+            sequence: 1,
+          ),
+        ]);
+        expect(drafts.saved.values.single, preserved.encode());
+      },
+    );
+
+    testWidgets('a late restore cannot regress the draft sequence', (
+      tester,
+    ) async {
+      const writer = DiscourseUser(
+        username: 'joffreyj',
+        name: 'Joffrey',
+        canCreateTopic: true,
+      );
+      final restoreGate = Completer<void>();
+      addTearDown(() {
+        if (!restoreGate.isCompleted) restoreGate.complete();
+      });
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        creatableFeedPaths: const {'/latest.json'},
+        draftRestoreGate: restoreGate,
+        draftToRestore: const (
+          draft: ComposerDraft(reply: 'Older server snapshot'),
+          sequence: 1,
+        ),
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: writer),
+        ],
+        authenticator: signedIn(),
+      );
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+
+      await shell.openNewTopic();
+      await tester.pump();
+      final composer = shell.visibleComposer!;
+      composer.title.text = 'A topic title';
+      composer.text.text = 'First local revision';
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+      expect(api.draftsSaved, hasLength(1));
+      composer.text.text = 'Second local revision';
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+      expect(api.draftsSaved, hasLength(2));
+
+      restoreGate.complete();
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pumpAndSettle();
+      expect(composer.draftSequence, 2);
+      expect(composer.text.text, 'Second local revision');
+
+      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
+      await tester.pumpAndSettle();
+
+      expect(api.userDraftsDeleted.single.sequence, 2);
+    });
+
+    testWidgets('a late restore preserves taxonomy and advances its sequence', (
+      tester,
+    ) async {
+      const writer = DiscourseUser(
+        username: 'joffreyj',
+        name: 'Joffrey',
+        canCreateTopic: true,
+      );
+      final restoreGate = Completer<void>();
+      addTearDown(() {
+        if (!restoreGate.isCompleted) restoreGate.complete();
+      });
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        creatableFeedPaths: const {'/latest.json'},
+        draftRestoreGate: restoreGate,
+        draftToRestore: const (
+          draft: ComposerDraft(
+            reply: 'Older server text',
+            title: 'Older title',
+            categoryId: 3,
+          ),
+          sequence: 7,
+        ),
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: writer),
+        ],
+        authenticator: signedIn(),
+      );
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+
+      await shell.openNewTopic();
+      await tester.pump();
+      final composer = shell.visibleComposer!;
+      composer.setCategory(99);
+
+      restoreGate.complete();
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pumpAndSettle();
+
+      expect(composer.categoryId, 99);
+      expect(composer.title.text, isEmpty);
+      expect(composer.text.text, isEmpty);
+      expect(composer.draftSequence, 8);
+      expect(api.draftsSaved.single['sequence'], 7);
+      expect(api.draftsSaved.single['data'], contains('"categoryId":99'));
+    });
+
+    testWidgets('discard confirmation can keep or remove a changed reply', (
+      tester,
+    ) async {
+      final drafts = FakeDraftStore();
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draftSequence: 4)},
+      );
+
+      await openComposer(tester, api, drafts: drafts);
+      await tester.enterText(find.byType(TextField), 'Come back to this');
+      await settleDraft(tester);
+      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Do you want to discard your post?'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('composer-cancel-discard')));
+      await tester.pumpAndSettle();
+      expect(find.text('Come back to this'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(1, 1));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('composer-discard-dialog')),
+        findsNothing,
+      );
+      expect(find.text('Come back to this'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsNothing);
+      expect(api.userDraftsDeleted, const [
+        (
+          siteUrl: 'https://meta.discourse.org',
+          draftKey: 'topic_7',
+          sequence: 5,
+        ),
+      ]);
+      expect(drafts.saved, isEmpty);
+      expect(drafts.events.last, 'clear');
+    });
+
+    testWidgets('composer discard removes the cached draft and badge', (
+      tester,
+    ) async {
+      const draft = ComposerDraft(reply: 'Draft from the list');
+      const writer = DiscourseUser(
+        username: 'joffreyj',
+        name: 'Joffrey',
+        draftCount: 1,
+      );
+      final api = FakeDiscourseApi(
+        user: writer,
+        userDraftList: const [
+          UserDraft(
+            key: 'topic_7',
+            sequence: 4,
+            data: draft,
+            topicId: 7,
+            title: 'A real topic',
+            slug: 'a-real-topic',
+          ),
+        ],
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draft: draft, draftSequence: 4)},
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: writer),
+        ],
+        authenticator: signedIn(),
+      );
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      await shell.draftList.load(shell.currentInstance!, refresh: true);
+
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
+      await tester.pumpAndSettle();
+
+      expect(
+        shell.draftList.feedFor(shell.currentInstance!.url).drafts,
+        isEmpty,
+      );
+      expect(shell.draftCountFor(shell.currentInstance!.url), 0);
+    });
+
+    testWidgets('empty close does not decrement unrelated draft counts', (
+      tester,
+    ) async {
+      const writer = DiscourseUser(
+        username: 'joffreyj',
+        name: 'Joffrey',
+        draftCount: 3,
+      );
+      final api = FakeDiscourseApi(
+        user: writer,
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draftSequence: 5)},
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: writer),
+        ],
+        authenticator: signedIn(),
+      );
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+      for (var attempt = 0; attempt < 2; attempt++) {
+        await tester.tap(find.byTooltip('Reply to this topic'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Save and close'));
+        await tester.pumpAndSettle();
+      }
+
+      expect(shell.draftCountFor(shell.currentInstance!.url), 3);
+    });
+
+    testWidgets('discard locks editing and preserves a concurrent change', (
+      tester,
+    ) async {
+      final deleteGate = Completer<void>();
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draftSequence: 4)},
+        draftDeleteGate: deleteGate,
+      );
+
+      await openComposer(tester, api);
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final composer = shell.visibleComposer!;
+      await tester.enterText(find.byType(TextField), 'First revision');
+      await settleDraft(tester);
+      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tester.pumpAndSettle();
+      final confirm = find.byKey(const ValueKey('composer-confirm-discard'));
+      await tester.tap(confirm);
+      await tester.tap(confirm);
+      await tester.pump();
+
+      expect(api.userDraftsDeleted, hasLength(1));
+      expect(composer.discarding, isTrue);
+      expect(
+        tester
+            .widget<EditableText>(
+              find.descendant(
+                of: find.byType(ComposerPanel),
+                matching: find.byType(EditableText),
+              ),
+            )
+            .readOnly,
+        isTrue,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('composer-discard-dialog')),
+        findsOneWidget,
+      );
+
+      // An upload or plugin can still finish programmatically while the field
+      // is locked. The revision check must keep and re-save that newer text.
+      composer.text.text = 'Changed during discard';
+      deleteGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(
+        find.text(
+          'This draft changed before it could be discarded. '
+          'Review it and try again.',
+        ),
+        findsOneWidget,
+      );
+      expect(composer.discarding, isFalse);
+      expect(api.draftsSaved.last['data'], contains('Changed during discard'));
+    });
+
+    testWidgets('discard waits for an older save of the same draft key', (
+      tester,
+    ) async {
+      final saveGate = Completer<void>();
+      final drafts = FakeDraftStore();
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draftSequence: 4)},
+        draftGate: saveGate,
+      );
+
+      await openComposer(tester, api, drafts: drafts);
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      await tester.enterText(find.byType(TextField), 'Save still in flight');
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+      expect(api.draftsSaved, hasLength(1));
+      await tester.enterText(find.byType(TextField), 'Queued latest revision');
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+      expect(api.draftsSaved, hasLength(1));
+
+      shell.closeComposer();
+      shell.openReply();
+      await tester.pumpAndSettle();
+      expect(shell.visibleComposer?.text.text, 'Queued latest revision');
+
+      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
+      await tester.pump();
+      expect(api.userDraftsDeleted, isEmpty);
+
+      saveGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(api.draftsSaved, hasLength(2));
+      expect(api.draftsSaved.last['data'], contains('Queued latest revision'));
+      expect(api.userDraftsDeleted, const [
+        (
+          siteUrl: 'https://meta.discourse.org',
+          draftKey: 'topic_7',
+          sequence: 6,
+        ),
+      ]);
+      expect(find.byType(ComposerPanel), findsNothing);
+    });
+
+    testWidgets('a new composer stays locally durable behind an old save', (
+      tester,
+    ) async {
+      final saveGate = Completer<void>();
+      final drafts = FakeDraftStore();
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draftSequence: 4)},
+        draftGate: saveGate,
+      );
+
+      await openComposer(tester, api, drafts: drafts);
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      await tester.enterText(find.byType(TextField), 'Old first revision');
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'Old queued revision');
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+
+      shell.closeComposer();
+      shell.openReply();
+      await tester.pump();
+      final newComposer = shell.visibleComposer!;
+      newComposer.text.text = 'New first revision';
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+      expect(
+        drafts.saved.values.single,
+        contains('New first revision'),
+        reason: 'the new text must be durable before the old request returns',
+      );
+
+      newComposer.text.text = 'New queued revision';
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+      expect(
+        drafts.saved.values.single,
+        contains('New queued revision'),
+        reason: 'a queued revision must not live only in memory',
+      );
+
+      shell.closeComposer();
+      saveGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(api.draftsSaved, hasLength(3));
+      expect(api.draftsSaved[1]['data'], contains('Old queued revision'));
+      expect(api.draftsSaved.last['data'], contains('New queued revision'));
+      expect(shell.currentTopic?.draft?.reply, 'New queued revision');
+      expect(drafts.saved, isEmpty);
+    });
+
+    testWidgets('restore sees an old remote save when its local write failed', (
+      tester,
+    ) async {
+      final saveGate = Completer<void>();
+      final drafts = _FailingDraftStore(failures: 1);
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draftSequence: 4)},
+        draftGate: saveGate,
+      );
+
+      await openComposer(tester, api, drafts: drafts);
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      await tester.enterText(find.byType(TextField), 'Remote-only revision');
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+      expect(drafts.saved, isEmpty);
+      expect(api.draftsSaved, hasLength(1));
+
+      shell.closeComposer();
+      shell.openReply();
+      await tester.pump();
+      expect(find.text('Remote-only revision'), findsNothing);
+
+      saveGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Remote-only revision'), findsOneWidget);
+      expect(api.userDraftsDeleted, isEmpty);
+    });
+
+    testWidgets('retired saves cannot cross a reconnected account boundary', (
+      tester,
+    ) async {
+      final saveGate = Completer<void>();
+      final drafts = FakeDraftStore();
+      final auth = signedIn();
+      final api = FakeDiscourseApi(
+        user: me,
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draftSequence: 4)},
+        draftGate: saveGate,
+      );
+
+      await openComposer(tester, api, drafts: drafts, authenticator: auth);
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      await tester.enterText(find.byType(TextField), 'Account A first');
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'Account A queued');
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+      shell.closeComposer();
+
+      await shell.disconnectCurrentInstance();
+      await shell.connectCurrentInstance();
+      await tester.pumpAndSettle();
+      expect(auth.keys['https://meta.discourse.org'], 'api-key');
+
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.pumpAndSettle();
+      final accountBComposer = shell.visibleComposer!;
+      accountBComposer.text.text = 'Account B draft';
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+
+      expect(api.draftsSaved, hasLength(2));
+      expect(api.draftsSaved.first['apiKey'], 'meta-key');
+      expect(api.draftsSaved.last['apiKey'], 'api-key');
+      expect(api.draftsSaved.last['data'], contains('Account B draft'));
+      expect(drafts.saved.values.single, contains('Account B draft'));
+
+      saveGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(api.draftsSaved, hasLength(2));
+      expect(
+        api.draftsSaved.where(
+          (save) => (save['data'] as String).contains('Account A queued'),
+        ),
+        isEmpty,
+      );
+    });
+
+    testWidgets('a failed discard keeps the draft and the queue usable', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draftSequence: 4)},
+        draftDeleteFailure: const WriteException(WriteFailure.unreachable),
+      );
+
+      await openComposer(tester, api);
+      await tester.enterText(find.byType(TextField), 'Keep this revision');
+      await settleDraft(tester);
+      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(
+        find.text("Couldn't discard this draft. Try again."),
+        findsOneWidget,
+      );
+      expect(api.draftsSaved, hasLength(2));
+      expect(api.draftsSaved.last['sequence'], 5);
+      expect(api.draftsSaved.last['data'], contains('Keep this revision'));
+
+      await tester.tap(find.byKey(const ValueKey('composer-cancel-discard')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Queue still works');
+      await settleDraft(tester);
+
+      expect(api.draftsSaved, hasLength(3));
+      expect(api.draftsSaved.last['sequence'], 6);
+      expect(api.draftsSaved.last['data'], contains('Queue still works'));
+    });
+
+    testWidgets('a failed local clear keeps and re-saves the composer', (
+      tester,
+    ) async {
+      final drafts = _FlakyDraftStore();
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draftSequence: 4)},
+      );
+
+      await openComposer(tester, api, drafts: drafts);
+      await tester.enterText(find.byType(TextField), 'Must not resurrect');
+      await settleDraft(tester);
+      drafts.clearFailures = 1;
+
+      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(
+        find.text("Couldn't discard this draft. Try again."),
+        findsOneWidget,
+      );
+      expect(api.userDraftsDeleted, hasLength(1));
+      expect(api.draftsSaved, hasLength(2));
+      expect(api.draftsSaved.last['data'], contains('Must not resurrect'));
+      expect(drafts.saved, isEmpty);
+    });
 
     testWidgets('typing is saved to the site after a pause', (tester) async {
       final api = FakeDiscourseApi(
@@ -15313,7 +16367,7 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Come back to this');
       await settleDraft(tester);
 
-      await tester.tap(find.byTooltip('Close composer'));
+      await tester.tap(find.byTooltip('Save and close'));
       await tester.pumpAndSettle();
       expect(find.byType(ComposerPanel), findsNothing);
 
@@ -18992,6 +20046,67 @@ void main() {
       });
     });
   });
+}
+
+final class _GatedDraftReadStore extends FakeDraftStore {
+  final started = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<String?> read(String siteUrl, String draftKey) async {
+    if (!started.isCompleted) started.complete();
+    await release.future;
+    return super.read(siteUrl, draftKey);
+  }
+}
+
+final class _FailingDraftStore extends FakeDraftStore {
+  _FailingDraftStore({required this.failures});
+
+  int failures;
+
+  @override
+  Future<void> write(
+    String siteUrl,
+    String draftKey,
+    String data, {
+    bool Function()? ifCurrent,
+  }) async {
+    if (failures > 0) {
+      failures--;
+      throw const DraftWriteException();
+    }
+    return super.write(siteUrl, draftKey, data, ifCurrent: ifCurrent);
+  }
+}
+
+final class _FlakyDraftStore extends FakeDraftStore {
+  _FlakyDraftStore({this.readFailures = 0});
+
+  int readFailures;
+  int clearFailures = 0;
+
+  @override
+  Future<String?> read(String siteUrl, String draftKey) async {
+    if (readFailures > 0) {
+      readFailures--;
+      throw StateError('Draft read failed');
+    }
+    return super.read(siteUrl, draftKey);
+  }
+
+  @override
+  Future<void> clear(
+    String siteUrl,
+    String draftKey, {
+    bool Function()? ifCurrent,
+  }) async {
+    if (clearFailures > 0) {
+      clearFailures--;
+      throw StateError('Draft clear failed');
+    }
+    return super.clear(siteUrl, draftKey, ifCurrent: ifCurrent);
+  }
 }
 
 double _textWidth(WidgetTester tester, Finder text) {

@@ -784,6 +784,17 @@ asterisks around a bold word while `controller.text` keeps every character. The
 markers stay visible on purpose — hiding them is where an editor starts lying
 about what will be posted.
 
+Composer exit follows core's two-action contract. The header X is **Save and
+close** for reply, topic and message composers, flushing even an incomplete
+draft before disposal. The footer's **Discard** action closes an untouched
+composer directly, but changed content first asks “Do you want to discard your
+post?”; Cancel, Escape and dismissing that dialog all keep the composer and its
+draft. Edits use core's **Cancel edit**, “discard your changes” and **Discard
+changes** copy. Native deliberately does not save edit drafts because core uses
+the topic's one draft key for both replies and edits here, so a changed edit's
+header close goes through the same discard confirmation instead of silently
+throwing the edit away or overwriting an unfinished reply.
+
 One invariant carries the whole thing:
 
 > the painted text equals `controller.text`, character for character.
