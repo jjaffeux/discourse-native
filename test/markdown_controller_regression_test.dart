@@ -137,9 +137,9 @@ TextStyle _textStyle(TextSpan root, String text) => root.children!
     .firstWhere((span) => span.text == text)
     .style!;
 
-MarkdownRun _runAt(String source, int offset) =>
-    scanMarkdown(source)
-        .firstWhere((run) => run.start <= offset && offset < run.end);
+MarkdownRun _runAt(String source, int offset) => scanMarkdown(
+  source,
+).firstWhere((run) => run.start <= offset && offset < run.end);
 
 final Uint8List _pngBytes = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'

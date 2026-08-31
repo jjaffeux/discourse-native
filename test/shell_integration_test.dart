@@ -1818,8 +1818,9 @@ void main() {
       );
       expect(scrollbar, findsOneWidget);
       expect(
-        ScrollbarTheme.of(tester.element(scrollbar)).thickness
-            ?.resolve(const <WidgetState>{}),
+        ScrollbarTheme.of(
+          tester.element(scrollbar),
+        ).thickness?.resolve(const <WidgetState>{}),
         4,
       );
     } finally {
@@ -3705,8 +3706,9 @@ void main() {
 
       await tester.tap(find.byKey(TopicCreateButton.buttonKey));
       expect(
-        ShellScope.read(tester.element(find.byType(MainContent)))
-            .visibleComposer,
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).visibleComposer,
         isNotNull,
       );
       await tester.pumpAndSettle();
@@ -3724,8 +3726,9 @@ void main() {
       await tester.enterText(fields.at(0), 'A native topic');
       await tester.enterText(fields.at(1), 'Created from the docked composer.');
       await tester.pump();
-      final composer = ShellScope.read(tester.element(find.byType(MainContent)))
-          .visibleComposer!;
+      final composer = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      ).visibleComposer!;
       expect(composer.title.text, 'A native topic');
       expect(composer.raw, 'Created from the docked composer.');
       expect(composer.canSubmit, isTrue);
@@ -4112,9 +4115,9 @@ void main() {
       expect(find.text('tech-advocates'), findsOneWidget);
       expect(find.text('Restored group message'), findsOneWidget);
       expect(
-        ShellScope.read(tester.element(find.byType(MainContent)))
-            .currentContent
-            ?.messageGroupName,
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).currentContent?.messageGroupName,
         'tech-advocates',
       );
     });
@@ -6133,8 +6136,9 @@ void main() {
         );
         expect(scrollbar, findsOneWidget);
         expect(
-          ScrollbarTheme.of(tester.element(scrollbar)).thickness
-              ?.resolve(const <WidgetState>{}),
+          ScrollbarTheme.of(
+            tester.element(scrollbar),
+          ).thickness?.resolve(const <WidgetState>{}),
           4,
         );
       } finally {
@@ -6850,8 +6854,9 @@ void main() {
         tester,
         desktop,
         instances: [
-          instance('meta.discourse.org')
-              .copyWith(user: reader, config: const SiteConfig.unknown()),
+          instance(
+            'meta.discourse.org',
+          ).copyWith(user: reader, config: const SiteConfig.unknown()),
         ],
         api: api,
         authenticator: authenticator,
@@ -6904,8 +6909,9 @@ void main() {
         tester,
         desktop,
         instances: [
-          instance('meta.discourse.org')
-              .copyWith(user: reader, config: const SiteConfig.unknown()),
+          instance(
+            'meta.discourse.org',
+          ).copyWith(user: reader, config: const SiteConfig.unknown()),
         ],
         api: api,
         authenticator: authenticator,
@@ -6967,8 +6973,9 @@ void main() {
         tester,
         desktop,
         instances: [
-          instance('meta.discourse.org')
-              .copyWith(user: const DiscourseUser(id: 1, username: 'reader')),
+          instance(
+            'meta.discourse.org',
+          ).copyWith(user: const DiscourseUser(id: 1, username: 'reader')),
         ],
         api: api,
         authenticator: authenticator,
@@ -7320,9 +7327,9 @@ void main() {
         (topicId: 7, notificationLevel: TopicNotificationLevel.muted),
       ]);
       expect(
-        ShellScope.read(tester.element(find.byType(MainContent)))
-            .currentTopic
-            ?.notificationLevel,
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).currentTopic?.notificationLevel,
         TopicNotificationLevel.muted,
       );
       expect(triggerIcon(), DIcons.discourseBellSlash);
@@ -7365,9 +7372,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        ShellScope.read(tester.element(find.byType(MainContent)))
-            .currentTopic
-            ?.notificationLevel,
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).currentTopic?.notificationLevel,
         TopicNotificationLevel.tracking,
       );
       expect(tester.takeException(), isNull);
@@ -7481,23 +7488,23 @@ void main() {
 
         await choose('Close topic');
         expect(
-          ShellScope.read(tester.element(find.byType(MainContent)))
-              .currentTopic
-              ?.closed,
+          ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          ).currentTopic?.closed,
           isTrue,
         );
         await choose('Archive topic');
         expect(
-          ShellScope.read(tester.element(find.byType(MainContent)))
-              .currentTopic
-              ?.archived,
+          ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          ).currentTopic?.archived,
           isTrue,
         );
         await choose('Make topic unlisted');
         expect(
-          ShellScope.read(tester.element(find.byType(MainContent)))
-              .currentTopic
-              ?.visible,
+          ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          ).currentTopic?.visible,
           isFalse,
         );
         expect(api.topicStatusesUpdated, const [
@@ -7835,9 +7842,9 @@ void main() {
 
       expect(api.topicPostNumbersOpened, [6]);
       expect(
-        ShellScope.of(tester.element(find.byType(TopicView)))
-            .currentContent
-            ?.postNumber,
+        ShellScope.of(
+          tester.element(find.byType(TopicView)),
+        ).currentContent?.postNumber,
         6,
       );
     });
@@ -9626,8 +9633,9 @@ void main() {
       expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
       expect(find.byTooltip('Open the latest drafts menu'), findsNothing);
       expect(
-        ShellScope.read(tester.element(find.byType(MainContent)))
-            .canCreateTopicHere,
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).canCreateTopicHere,
         isFalse,
       );
     });
@@ -9647,9 +9655,9 @@ void main() {
       await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
 
-      final placeholder = Theme.of(tester.element(find.text('Preferences')))
-          .shell
-          .placeholder;
+      final placeholder = Theme.of(
+        tester.element(find.text('Preferences')),
+      ).shell.placeholder;
 
       expect(
         tester.widget<Text>(find.text('Preferences')).style?.color,
@@ -9739,9 +9747,9 @@ void main() {
         expect(
           tester.widget<Text>(find.text('Activity').last).style?.color,
           isNot(
-            Theme.of(tester.element(find.text('Preferences')))
-                .shell
-                .placeholder,
+            Theme.of(
+              tester.element(find.text('Preferences')),
+            ).shell.placeholder,
           ),
         );
 
@@ -13443,8 +13451,9 @@ void main() {
         tester,
         api,
         store: FakeInstanceStore([
-          instance('meta.discourse.org')
-              .copyWith(user: const DiscourseUser(username: 'joffreyj')),
+          instance(
+            'meta.discourse.org',
+          ).copyWith(user: const DiscourseUser(username: 'joffreyj')),
         ]),
       );
       await controller.load();

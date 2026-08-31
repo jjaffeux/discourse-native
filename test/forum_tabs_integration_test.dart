@@ -238,11 +238,7 @@ void main() {
         final lastForumTabId = controller.activeTabId!;
 
         expect(
-          await _pressShortcut(
-            tester,
-            modifier,
-            LogicalKeyboardKey.arrowRight,
-          ),
+          await _pressShortcut(tester, modifier, LogicalKeyboardKey.arrowRight),
           isTrue,
         );
         await tester.pumpAndSettle();
@@ -250,11 +246,7 @@ void main() {
         expect(_bar(tester).selectedId, firstForumTabId);
 
         expect(
-          await _pressShortcut(
-            tester,
-            modifier,
-            LogicalKeyboardKey.arrowLeft,
-          ),
+          await _pressShortcut(tester, modifier, LogicalKeyboardKey.arrowLeft),
           isTrue,
         );
         await tester.pumpAndSettle();
@@ -270,22 +262,14 @@ void main() {
         final lastAggregateTabId = controller.activeAggregateTabId;
 
         expect(
-          await _pressShortcut(
-            tester,
-            modifier,
-            LogicalKeyboardKey.arrowRight,
-          ),
+          await _pressShortcut(tester, modifier, LogicalKeyboardKey.arrowRight),
           isTrue,
         );
         await tester.pumpAndSettle();
         expect(controller.activeAggregateTabId, firstAggregateTabId);
 
         expect(
-          await _pressShortcut(
-            tester,
-            modifier,
-            LogicalKeyboardKey.arrowLeft,
-          ),
+          await _pressShortcut(tester, modifier, LogicalKeyboardKey.arrowLeft),
           isTrue,
         );
         await tester.pumpAndSettle();
@@ -297,11 +281,7 @@ void main() {
         await tester.tap(find.byKey(ForumSearch.inputKey));
         await tester.pump();
 
-        await _pressShortcut(
-          tester,
-          modifier,
-          LogicalKeyboardKey.arrowRight,
-        );
+        await _pressShortcut(tester, modifier, LogicalKeyboardKey.arrowRight);
         await tester.pump();
         expect(
           controller.activeTabId,

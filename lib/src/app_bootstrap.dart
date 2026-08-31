@@ -11,11 +11,12 @@ import 'macos_launch_screen.dart';
 import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
 
-typedef AppBootstrapUnhandledErrorReporter = void Function(
-  Object error,
-  StackTrace stackTrace, {
-  required String source,
-});
+typedef AppBootstrapUnhandledErrorReporter =
+    void Function(
+      Object error,
+      StackTrace stackTrace, {
+      required String source,
+    });
 
 abstract interface class AppBootstrapHost {
   void ensureFlutterInitialized();

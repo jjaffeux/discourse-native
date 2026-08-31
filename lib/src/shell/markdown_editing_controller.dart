@@ -1236,9 +1236,9 @@ class MarkdownEditingController extends TextEditingController {
     // EditableText can move its caret into a WidgetSpan's hidden source before
     // Draggable wins the pointer. A cancelled reorder has no source mutation
     // to move it back to a safe boundary, so settle it after the gallery.
-    final current = _galleryBlocksFor(text)
-        .where((candidate) => _sameProjection(candidate, gallery))
-        .firstOrNull;
+    final current = _galleryBlocksFor(
+      text,
+    ).where((candidate) => _sameProjection(candidate, gallery)).firstOrNull;
     final selection = value.selection;
     if (current != null &&
         selection.isCollapsed &&

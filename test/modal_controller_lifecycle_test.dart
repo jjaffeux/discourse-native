@@ -643,8 +643,9 @@ void main() {
 typedef _OpenModal = Future<void> Function(BuildContext context);
 
 ReactionsController _reactionsFor(BuildContext context) =>
-    ShellScope.identityOf(context).pluginSession
-        .require(reactionsControllerService);
+    ShellScope.identityOf(
+      context,
+    ).pluginSession.require(reactionsControllerService);
 
 Widget _host(ShellController controller, _OpenModal open) => ShellScope(
   controller: controller,
