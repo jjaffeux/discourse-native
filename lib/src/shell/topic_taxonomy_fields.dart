@@ -78,22 +78,24 @@ class TopicCategoryValue extends StatelessWidget {
     final category = Row(
       key: valueKey,
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          key: colorKey,
-          width: 9,
-          height: 9,
-          decoration: BoxDecoration(
-            color: color ?? theme.colorScheme.outline,
-            borderRadius: BorderRadius.circular(2),
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Container(
+            key: colorKey,
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(
+              color: color ?? theme.colorScheme.outline,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
         ),
         const SizedBox(width: 7),
         Flexible(
           child: Text(
             label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelMedium?.copyWith(
               color: theme.colorScheme.onSurface,
               fontWeight: FontWeight.w500,

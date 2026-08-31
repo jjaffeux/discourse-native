@@ -4523,8 +4523,12 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(TopicListView),
-          matching: find.text('Support docs'),
+          matching: find.text('Support > Support docs'),
         ),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel('Category: Support > Support docs'),
         findsOneWidget,
       );
       expect(api.categoryIdsRequested, isEmpty);
