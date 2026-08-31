@@ -10,6 +10,7 @@ import '../theme/d_icon.dart';
 import 'account_activity_loader.dart';
 import 'external_link.dart';
 import 'shell_controller.dart';
+import 'site_emoji_text.dart';
 import 'user_menu_message.dart';
 
 @immutable
@@ -176,6 +177,7 @@ class _PluginNotificationsSectionState
             return NotificationRow(
               notification: notification,
               resolved: resolved,
+              siteUrl: widget.siteUrl,
               onTap: () => _open(notification, resolved.path),
             );
           }),
@@ -263,6 +265,7 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
               return NotificationRow(
                 notification: notification,
                 resolved: resolved,
+                siteUrl: widget.siteUrl,
                 onTap: () => _open(notification, resolved.path),
               );
             }),
@@ -277,11 +280,13 @@ class NotificationRow extends StatelessWidget {
   const NotificationRow({
     super.key,
     required this.notification,
+    required this.siteUrl,
     required this.onTap,
     this.resolved,
   });
 
   final DiscourseNotification notification;
+  final String siteUrl;
   final VoidCallback onTap;
   final ResolvedNotification? resolved;
 
@@ -329,19 +334,16 @@ class NotificationRow extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          if (description.actor case final actor?)
-                            TextSpan(
-                              text: '$actor ',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          TextSpan(text: description.phrase),
-                        ],
-                      ),
+                    child: SiteEmojiText(
+                      [
+                        if (description.actor case final actor?)
+                          SiteEmojiTextRun(
+                            '$actor ',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        SiteEmojiTextRun(description.phrase),
+                      ],
+                      siteUrl: siteUrl,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyMedium,

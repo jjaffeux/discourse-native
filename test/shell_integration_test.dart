@@ -8991,6 +8991,49 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    testWidgets('notification rows render site emoji shortcodes', (
+      tester,
+    ) async {
+      const notification = DiscourseNotification.test(
+        id: 52,
+        typeId: NotificationTypeId(2),
+        title: ':telephone: Engineering call',
+        data: {'display_username': 'sam'},
+      );
+      final api = FakeDiscourseApi(
+        notificationList: const [notification],
+        emojisBySite: const {
+          'https://meta.discourse.org': [
+            SiteEmoji(name: 'telephone', url: '/images/emoji/telephone.png'),
+          ],
+        },
+      );
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openNotifications(tester);
+
+      final row = find.byType(NotificationRow);
+      expect(
+        find.descendant(of: row, matching: find.byType(SiteEmojiImage)),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<SiteEmojiImage>(
+              find.descendant(of: row, matching: find.byType(SiteEmojiImage)),
+            )
+            .name,
+        'telephone',
+      );
+      expect(api.emojisRequested, ['https://meta.discourse.org']);
+    });
+
     testWidgets('a thumb gets a sheet, and one sheet per section inside it', (
       tester,
     ) async {
