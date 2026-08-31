@@ -513,9 +513,7 @@ void main() {
       expect(editable.renderEditable.plainText.length, source.length);
     });
 
-    testWidgets('selects the gallery and opens its toolbar from options', (
-      tester,
-    ) async {
+    testWidgets('keeps the caret outside a selected gallery', (tester) async {
       final composer = ComposerController(
         _target,
         resolveUploadUrls: (_) async => const {},
@@ -585,6 +583,36 @@ void main() {
             .highlighted,
         isTrue,
       );
+      expect(_composerEditable(tester).showCursor, isFalse);
+
+      composer.focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump();
+      expect(composer.text.selection.extentOffset, gallery.start);
+      expect(
+        find.byKey(const ValueKey('composer-gallery-toolbar')),
+        findsNothing,
+      );
+      expect(_composerEditable(tester).showCursor, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(composer.text.selection.extentOffset, gallery.end);
+      expect(
+        find.byKey(const ValueKey('composer-gallery-toolbar')),
+        findsOneWidget,
+      );
+      expect(_composerEditable(tester).showCursor, isFalse);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(composer.text.selection.extentOffset, gallery.end);
+      expect(
+        find.byKey(const ValueKey('composer-gallery-toolbar')),
+        findsNothing,
+      );
+      expect(_composerEditable(tester).showCursor, isTrue);
     });
   });
 
@@ -631,6 +659,18 @@ void main() {
     });
   });
 }
+
+EditableText _composerEditable(WidgetTester tester) =>
+    tester.widget<EditableText>(
+      find.descendant(
+        of: find.byType(ComposerEditor),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is EditableText &&
+              widget.controller is MarkdownEditingController,
+        ),
+      ),
+    );
 
 const _target = ComposerTarget(
   siteUrl: 'https://meta.discourse.org',

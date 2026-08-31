@@ -150,6 +150,16 @@ class MarkdownEditingController extends TextEditingController {
       ? _keyboardSelectedProjection as ComposerSyntaxOccurrence
       : null;
 
+  bool get selectedProjectionHidesCursor {
+    if (_caretSuppressedImage != null || _caretSuppressedGallery != null) {
+      return true;
+    }
+    return switch (keyboardSelectedSyntax) {
+      final syntax? => syntax.projection.hidesCursorWhenSelected,
+      null => keyboardSelectedImage != null,
+    };
+  }
+
   void selectPillForKeyboard(Object projection) {
     if (projection is! ComposerImageBlock &&
         projection is! ComposerSyntaxOccurrence) {

@@ -10,6 +10,7 @@ import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_image_gallery.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/composer_upload_picker.dart';
+import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -502,6 +503,7 @@ void main() {
             .highlighted,
         isTrue,
       );
+      expect(_composerEditable(tester).showCursor, isFalse);
       expect(find.byTooltip('Decrease image size'), findsOneWidget);
       expect(find.byTooltip('Increase image size'), findsOneWidget);
       expect(find.byTooltip('Save alt text'), findsOneWidget);
@@ -634,6 +636,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pump();
       expect(composer.text.keyboardSelectedImage, isNull);
+      expect(_composerEditable(tester).showCursor, isTrue);
       expect(find.byTooltip('Save alt text'), findsNothing);
 
       final resizedImage = composer.text.imageBlocks.single;
@@ -1412,6 +1415,18 @@ Future<void> _pasteShortcut(WidgetTester tester) async {
   await tester.sendKeyUpEvent(modifier);
   await tester.pump();
 }
+
+EditableText _composerEditable(WidgetTester tester) =>
+    tester.widget<EditableText>(
+      find.descendant(
+        of: find.byType(ComposerEditor),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is EditableText &&
+              widget.controller is MarkdownEditingController,
+        ),
+      ),
+    );
 
 const _target = ComposerTarget(
   siteUrl: 'https://meta.discourse.org',
