@@ -616,6 +616,67 @@ void main() {
       );
       expect(_composerEditable(tester).showCursor, isTrue);
     });
+
+    testWidgets('selects a gallery when a vertical arrow enters it', (
+      tester,
+    ) async {
+      final composer = ComposerController(
+        _target,
+        resolveUploadUrls: (_) async => const {},
+      );
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore(),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      await shell.load();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      const source = 'Before\n$_source';
+      composer.text.text = source;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(body: ComposerPanel(composer: composer)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final gallery = composer.text.galleryBlocks.single;
+      composer.focus.requestFocus();
+      for (final (caret, key) in [
+        (gallery.start, LogicalKeyboardKey.arrowDown),
+        (gallery.end, LogicalKeyboardKey.arrowUp),
+      ]) {
+        composer.text.selection = TextSelection.collapsed(offset: caret);
+        await tester.pump();
+
+        await tester.sendKeyEvent(key);
+        await tester.pump();
+
+        expect(composer.text.text, source);
+        expect(
+          composer.text.selection,
+          TextSelection.collapsed(offset: gallery.end),
+        );
+        expect(composer.text.isGalleryCollapsed(gallery), isTrue);
+        expect(find.byType(ComposerImageGalleryPreview), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('composer-gallery-toolbar')),
+          findsOneWidget,
+        );
+        expect(_composerEditable(tester).showCursor, isFalse);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pump();
+      }
+    });
   });
 
   group('gallery reordering', () {
