@@ -57,8 +57,8 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
           siteUrl: widget.siteUrl,
           term: term,
         ),
-        labelFor: (category) =>
-            shell.topicCategoryLabel(category, siteUrl: widget.siteUrl),
+        pathLabelFor: (category) =>
+            shell.topicCategoryPathLabel(category, siteUrl: widget.siteUrl),
       );
       if (!mounted || selected == null || selected == widget.categoryId) return;
 
@@ -97,7 +97,7 @@ Future<int?> showTopicCategoryPicker({
   required BuildContext anchorContext,
   required int? selectedCategoryId,
   required TopicCategorySearchCallback search,
-  String Function(TopicCategory category)? labelFor,
+  required String Function(TopicCategory category) pathLabelFor,
 }) => showAnchoredPicker<int>(
   context: context,
   anchorContext: anchorContext,
@@ -107,7 +107,7 @@ Future<int?> showTopicCategoryPicker({
   builder: (pickerContext) => TopicCategoryPicker(
     selectedCategoryId: selectedCategoryId,
     search: search,
-    labelFor: labelFor,
+    pathLabelFor: pathLabelFor,
     onSelected: Navigator.of(pickerContext).pop,
   ),
 );
@@ -118,13 +118,13 @@ class TopicCategoryPicker extends StatefulWidget {
     required this.selectedCategoryId,
     required this.search,
     required this.onSelected,
-    this.labelFor,
+    required this.pathLabelFor,
   });
 
   final int? selectedCategoryId;
   final TopicCategorySearchCallback search;
   final ValueChanged<int> onSelected;
-  final String Function(TopicCategory category)? labelFor;
+  final String Function(TopicCategory category) pathLabelFor;
 
   @override
   State<TopicCategoryPicker> createState() => _TopicCategoryPickerState();
@@ -232,7 +232,7 @@ class _TopicCategoryPickerState extends State<TopicCategoryPicker> {
                   borderRadius: BorderRadius.circular(5),
                 ),
               ),
-              title: Text(widget.labelFor?.call(category) ?? category.name),
+              title: Text(widget.pathLabelFor(category)),
               onTap: () => widget.onSelected(category.id),
             ),
           if (_results.isEmpty)

@@ -659,6 +659,12 @@ whole-topic permission or the narrower `can_edit_tags` capability. Topics
 without the corresponding permission keep the same read-only property, so the
 sidebar never implies a write the site will reject.
 
+Generated category paths use one presentation contract across topic-list
+taxonomy, the topic sidebar, category pickers, and the new-topic composer. A
+subcategory is shown as `Parent › Child`; that same readable label supplies the
+linked category's accessible name, while the category id and slug path remain
+the navigation authority.
+
 Topic-list rows carry `last_read_post_number` and `highest_post_number`. Like
 Discourse's web client, an unread row opens at `last_read_post_number + 1`,
 capped at the highest post; a fully read row opens at its last post. The

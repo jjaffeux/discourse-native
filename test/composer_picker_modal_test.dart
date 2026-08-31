@@ -3,6 +3,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_category_path.dart';
 import 'package:discourse_native/src/shell/topic_category_picker.dart';
 import 'package:discourse_native/src/shell/topic_tag_picker.dart';
 import 'package:discourse_native/src/shell/topic_taxonomy_fields.dart';
@@ -161,6 +162,7 @@ void main() {
         '': [parent, child],
       },
     );
+    final categoryPath = topicCategoryPathLabel(child, parent: parent);
 
     shell.visibleComposer!.setCategory(child.id);
     await tester.pump();
@@ -168,7 +170,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('composer-category')),
-        matching: find.text('Support > Bugs'),
+        matching: find.text(categoryPath),
       ),
       findsOneWidget,
     );
@@ -178,7 +180,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('topic-category-option-6')),
-        matching: find.text('Support > Bugs'),
+        matching: find.text(categoryPath),
       ),
       findsOneWidget,
     );
