@@ -520,6 +520,10 @@ abstract interface class ContentHeaderLeadingPlugin {
   Widget? contentHeaderLeading(BuildContext context, ContentRoute route);
 }
 
+abstract interface class ContentHeaderTitleTrailingPlugin {
+  Widget? contentHeaderTitleTrailing(BuildContext context, ContentRoute route);
+}
+
 abstract interface class ContentHeaderTitlePlugin {
   VoidCallback? contentHeaderTitleAction(
     BuildContext context,
