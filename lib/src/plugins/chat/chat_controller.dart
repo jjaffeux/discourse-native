@@ -26,6 +26,7 @@ import 'chat_pin.dart';
 import 'chat_plugin_data.dart';
 import 'chat_preview.dart';
 import 'chat_reactors.dart';
+import 'chat_send_coordinator.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread.dart';
 import 'chat_wire.dart';
@@ -260,13 +261,37 @@ class ChatController extends FrameSafeNotifier {
     this.onSiteUnreachable,
     this.minimumWindowRefreshInterval = const Duration(seconds: 30),
     DateTime Function()? clock,
+    ChatSendCoordinatorFactory? sendCoordinatorFactory,
   }) : assert(minimumWindowRefreshInterval >= Duration.zero),
        _requests = requests,
        _store = store,
        _currentUserFor = currentUserFor ?? _noCurrentUser,
        _siteConfigFor = siteConfigFor ?? _unknownSiteConfig,
        _previewEngine = previewEngine ?? ChatPreviewEngine(),
-       _clock = clock ?? DateTime.now;
+       _clock = clock ?? DateTime.now {
+    final sendHost = ChatSendCoordinatorHost(
+      isDisposed: () => isDisposed,
+      canSend: canSendMessageTo,
+      currentUserFor: _currentUserFor,
+      projectPreview: _projectPreview,
+      stage: _stageOutgoing,
+      markSent: _markOutgoingSent,
+      markFailed: _markOutgoingFailed,
+      onSent: _onOutgoingSent,
+      hasUnsettledMessages: _hasUnsettledOutgoingMessages,
+      reconcileSentEvent: _applySendMessage,
+      report: (error, stackTrace, operation, severity) =>
+          _report(error, stackTrace, operation, severity: severity),
+    );
+    _sendCoordinator =
+        sendCoordinatorFactory?.call(sendHost) ??
+        DefaultChatSendCoordinator(
+          api: api,
+          requests: requests,
+          host: sendHost,
+          clock: _clock,
+        );
+  }
 
   final ChatApi api;
   final PluginRequestHost _requests;
@@ -279,6 +304,7 @@ class ChatController extends FrameSafeNotifier {
   final ChatNotificationsDelta? onChatNotificationsDelta;
   final ValueChanged<String>? onSiteUnreachable;
   final DateTime Function() _clock;
+  late final ChatSendCoordinator _sendCoordinator;
 
   ChatPreviewEngine get previewEngine => _previewEngine;
 
@@ -434,16 +460,10 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, Object> _pinListRequests = {};
   final Map<String, FrameSafeValueNotifier<ChatPinsState>> _pinListRefs = {};
   final Map<String, Object> _threadTitleWrites = {};
-  final Map<String, _ChatSendQueue> _sendQueues = {};
-  final Map<String, PluginLiveChannelSubscription> _sendSubscriptions = {};
-  final Set<({String siteUrl, ChatStreamTarget target})>
-  _sendSubscriptionTargets = {};
   final Map<_ChatReactionWriteKey, Object> _reactionWrites = {};
   final Map<_ChatReactorsKey, Object> _reactorRequests = {};
   final Map<_ChatReactorsKey, String> _reactorErrors = {};
   final Map<String, int> _bookmarkVersions = {};
-  int _nextLocalMessageId = -1;
-  int _nextStagedSequence = 0;
 
   static String _channelsKey(String siteUrl) => '$siteUrl~channels';
   static String _myThreadsKey(String siteUrl) => '$siteUrl~my-threads';
@@ -2947,17 +2967,12 @@ class ChatController extends FrameSafeNotifier {
     if (!identical(_channelHosts[siteUrl], channels)) {
       _cancelPresence(siteUrl);
       _cancelLiveChatSubscriptions(siteUrl);
-      _cancelSendSubscriptions(siteUrl, forgetTargets: false);
       _cancelActiveStreamSubscriptions(siteUrl);
     }
     _channelHosts[siteUrl] = channels;
+    _sendCoordinator.attachTracker(siteUrl, channels);
     _syncPresence(siteUrl);
     _syncNewMessageSubscriptions(siteUrl);
-    for (final target in _sendSubscriptionTargets) {
-      if (target.siteUrl == siteUrl) {
-        _ensureSendSubscription(target.siteUrl, target.target);
-      }
-    }
     for (final key in _rootViewTokens.keys.where(
       (key) => key.startsWith('$siteUrl~'),
     )) {
@@ -3150,32 +3165,6 @@ class ChatController extends FrameSafeNotifier {
         'chat.presence.unsubscribe',
         severity: DiagnosticSeverity.warning,
       );
-    }
-  }
-
-  void _cancelSendSubscriptions(String siteUrl, {bool forgetTargets = true}) {
-    final cancelled = <PluginLiveChannelSubscription>[];
-    _sendSubscriptions.removeWhere((key, subscription) {
-      if (!key.startsWith('$siteUrl~')) return false;
-      cancelled.add(subscription);
-      return true;
-    });
-    if (forgetTargets) {
-      _sendSubscriptionTargets.removeWhere(
-        (target) => target.siteUrl == siteUrl,
-      );
-    }
-    for (final subscription in cancelled) {
-      try {
-        subscription.cancel();
-      } catch (error, stackTrace) {
-        _report(
-          error,
-          stackTrace,
-          'chat.sendMessage.unsubscribe',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
     }
   }
 
@@ -3704,29 +3693,7 @@ class ChatController extends FrameSafeNotifier {
     _threadMessageCursors.removeWhere(
       (targetKey, _) => targetKey.startsWith(threadPrefix),
     );
-    final kickedQueues = _sendQueues.values
-        .where(
-          (queue) =>
-              queue.siteUrl == siteUrl && queue.target.channelId == channelId,
-        )
-        .toList(growable: false);
-    for (final queue in kickedQueues) {
-      _sendQueues.remove(queue.key);
-      _cancelSendQueue(queue);
-    }
-    final kickedSendTargets = _sendSubscriptionTargets
-        .where(
-          (target) =>
-              target.siteUrl == siteUrl && target.target.channelId == channelId,
-        )
-        .toList(growable: false);
-    for (final target in kickedSendTargets) {
-      _sendSubscriptionTargets.remove(target);
-      _cancelSubscription(
-        _sendSubscriptions.remove(_targetKey(siteUrl, target.target)),
-        'chat.kick.unsubscribe',
-      );
-    }
+    _sendCoordinator.cancelChannel(siteUrl, channelId);
     final unavailableStreams = _streams.keys
         .where(
           (targetKey) => targetKey == key || targetKey.startsWith(threadPrefix),
@@ -4180,7 +4147,7 @@ class ChatController extends FrameSafeNotifier {
           _applyLiveMessage(siteUrl, key, window, message);
         }
         if (data['staged_id'] is String) {
-          _applySendMessage(siteUrl, target, data);
+          _sendCoordinator.reconcileSentEvent(siteUrl, target, data);
         }
         if (data['type'] == 'restore') {
           _bumpStreamsHolding(siteUrl, message.id);
@@ -4324,7 +4291,7 @@ class ChatController extends FrameSafeNotifier {
           _applyLiveMessage(siteUrl, key, window, message);
         }
         if (data['staged_id'] is String) {
-          _applySendMessage(siteUrl, target, data);
+          _sendCoordinator.reconcileSentEvent(siteUrl, target, data);
         }
         break;
       case 'delete':
@@ -4926,39 +4893,14 @@ class ChatController extends FrameSafeNotifier {
     String siteUrl,
     ChatStreamTarget target,
     OutgoingChatMessage message,
-  ) {
-    final text = message.raw;
-    if ((text.trim().isEmpty && message.uploads.isEmpty) ||
-        !canSendMessageTo(siteUrl, target)) {
-      return null;
-    }
-    final key = _targetKey(siteUrl, target);
+  ) => _sendCoordinator.sendMessage(siteUrl, target, message);
 
-    final createdAt = _clock().toUtc();
-    final stagedId =
-        'native-${createdAt.microsecondsSinceEpoch}-${_nextStagedSequence++}';
-    final user = _currentUserFor(siteUrl);
-    final preview = _projectPreview(siteUrl, message);
-    final local = ChatMessage.optimistic(
-      id: _nextLocalMessageId--,
-      channelId: target.channelId,
-      threadId: target.threadId,
-      raw: text,
-      stagedId: stagedId,
-      preview: preview,
-      author: ChatMessageAuthor(
-        id: user?.id ?? 0,
-        username: user?.username ?? '',
-        name: user?.name,
-        avatarUrl: user?.avatarUrl,
-        isStaff: user?.staff ?? false,
-      ),
-      createdAt: createdAt,
-      uploads: [
-        for (final upload in message.uploads)
-          ChatUpload.fromComposerUpload(upload),
-      ],
-    );
+  void _stageOutgoing(
+    String siteUrl,
+    ChatStreamTarget target,
+    ChatMessage local,
+  ) {
+    final key = _targetKey(siteUrl, target);
     _store.put(siteUrl, local);
     final held = streamFor(siteUrl, target);
     _setStream(
@@ -4968,33 +4910,6 @@ class ChatController extends FrameSafeNotifier {
         clearError: true,
       ),
     );
-
-    final subscriptionTarget = (siteUrl: siteUrl, target: target);
-    _sendSubscriptionTargets.add(subscriptionTarget);
-    _ensureSendSubscription(siteUrl, target);
-
-    final settlement = Completer<ChatSendResult>();
-    final handle = ChatSendHandle.internal(
-      localId: local.id,
-      stagedId: stagedId,
-      settled: settlement.future,
-    );
-    final queue = _sendQueues.putIfAbsent(
-      key,
-      () => _ChatSendQueue(siteUrl: siteUrl, target: target, key: key),
-    );
-    queue.pending.add(
-      _QueuedChatSend(
-        local: local,
-        uploadIds: List.unmodifiable([
-          for (final upload in message.uploads) upload.id,
-        ]),
-        settlement: settlement,
-        lease: _requests.capture(siteUrl),
-      ),
-    );
-    _scheduleSendQueue(queue);
-    return handle;
   }
 
   ChatPreviewResult _projectPreview(
@@ -5017,169 +4932,51 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  void _scheduleSendQueue(_ChatSendQueue queue) {
-    if (queue.scheduled || queue.cancelled) return;
-    queue.scheduled = true;
-    scheduleMicrotask(() {
-      queue.scheduled = false;
-      _pumpSendQueue(queue);
-    });
-  }
-
-  void _pumpSendQueue(_ChatSendQueue queue) {
-    if (queue.active != null || queue.cancelled) return;
-    if (!identical(_sendQueues[queue.key], queue) || isDisposed) {
-      _cancelSendQueue(queue);
-      return;
-    }
-    if (queue.pending.isEmpty) {
-      _sendQueues.remove(queue.key);
-      return;
-    }
-
-    final item = queue.pending.removeFirst();
-    queue.active = item;
-    unawaited(
-      _guardSendQueued(queue, item).whenComplete(() {
-        if (identical(queue.active, item)) queue.active = null;
-        _scheduleSendQueue(queue);
-      }),
+  void _markOutgoingSent(
+    String siteUrl,
+    ChatStreamTarget target,
+    String stagedId,
+    int? serverId,
+  ) {
+    final localId = _updateOutgoing(
+      siteUrl,
+      target,
+      stagedId,
+      (held) => held.withSendState(
+        delivery: ChatMessageDelivery.sent,
+        serverId: serverId,
+      ),
     );
-  }
-
-  Future<void> _guardSendQueued(
-    _ChatSendQueue queue,
-    _QueuedChatSend item,
-  ) async {
-    try {
-      await _sendQueued(queue, item);
-    } catch (error, stackTrace) {
-      item.complete(
-        _ownsSend(queue, item)
-            ? ChatSendResult.failed
-            : ChatSendResult.cancelled,
-      );
-      try {
-        _report(error, stackTrace, 'chat.sendMessage');
-      } catch (_) {
-        // A broken diagnostic sink must not prevent settlement or queue progress.
-      }
+    if (serverId != null &&
+        localId != null &&
+        streamFor(siteUrl, target).messageIds.contains(serverId)) {
+      _removeLocalMessage(siteUrl, target, localId);
     }
   }
 
-  bool _ownsSend(_ChatSendQueue queue, _QueuedChatSend item) =>
-      !queue.cancelled &&
-      identical(_sendQueues[queue.key], queue) &&
-      identical(queue.active, item);
-
-  Future<void> _sendQueued(_ChatSendQueue queue, _QueuedChatSend item) async {
-    final siteUrl = queue.siteUrl;
-    final target = queue.target;
-    final channelId = target.channelId;
-    final local = item.local;
-    bool ownsRequest() => _ownsSend(queue, item);
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!_requestIsCurrent(item.lease, ownsRequest)) {
-        item.complete(ChatSendResult.cancelled);
-        return;
-      }
-      if (apiKey == null) {
-        throw const WriteException(WriteFailure.forbidden);
-      }
-      final clientId = requestCredentials.clientId;
-      if (!_requestIsCurrent(item.lease, ownsRequest)) {
-        item.complete(ChatSendResult.cancelled);
-        return;
-      }
-      if (!canSendMessageTo(siteUrl, target)) {
-        throw const WriteException(WriteFailure.forbidden);
-      }
-      final serverId = await api.sendChatMessage(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        channelId: channelId,
-        threadId: target.threadId,
-        message: local.optimisticRaw!,
-        uploadIds: item.uploadIds,
-        stagedId: local.stagedId,
-        clientCreatedAt: local.createdAt,
-      );
-      if (!_requestIsCurrent(item.lease, ownsRequest)) {
-        item.complete(ChatSendResult.cancelled);
-        return;
-      }
-      item.lease.commit(() {
-        final localId = _updateOutgoing(
-          siteUrl,
-          target,
-          local.stagedId!,
-          (held) => held.withSendState(
-            delivery: ChatMessageDelivery.sent,
-            serverId: serverId,
-          ),
-        );
-        if (serverId != null &&
-            localId != null &&
-            streamFor(siteUrl, target).messageIds.contains(serverId)) {
-          _removeLocalMessage(siteUrl, target, localId);
-        }
-      });
-      if (target is ChatThreadTarget) {
-        _scheduleThreadDetailRefresh(siteUrl, target);
-      }
-      item.complete(ChatSendResult.sent);
-    } catch (error, stackTrace) {
-      if (_requestIsCurrent(item.lease, ownsRequest)) {
-        final failure = error is WriteException
-            ? error
-            : const WriteException(WriteFailure.unreachable);
-        var canonicalAlreadyArrived = false;
-        item.lease.commit(
-          () => _updateOutgoing(siteUrl, target, local.stagedId!, (held) {
-            canonicalAlreadyArrived = held.serverId != null;
-            return canonicalAlreadyArrived
-                ? held
-                : held.withSendState(
-                    delivery: ChatMessageDelivery.failed,
-                    error: failure.message,
-                    deliveryUncertain:
-                        failure.failure == WriteFailure.unreachable,
-                  );
-          }),
-        );
-        item.lease.commit(
-          () => _releaseSendSubscriptionIfSettled(siteUrl, target),
-        );
-        _report(error, stackTrace, 'chat.sendMessage');
-        item.complete(
-          canonicalAlreadyArrived ? ChatSendResult.sent : ChatSendResult.failed,
-        );
-      } else {
-        item.complete(ChatSendResult.cancelled);
-      }
-    }
+  bool _markOutgoingFailed(
+    String siteUrl,
+    ChatStreamTarget target,
+    String stagedId,
+    WriteException failure,
+  ) {
+    var canonicalAlreadyArrived = false;
+    _updateOutgoing(siteUrl, target, stagedId, (held) {
+      canonicalAlreadyArrived = held.serverId != null;
+      return canonicalAlreadyArrived
+          ? held
+          : held.withSendState(
+              delivery: ChatMessageDelivery.failed,
+              error: failure.message,
+              deliveryUncertain: failure.failure == WriteFailure.unreachable,
+            );
+    });
+    return canonicalAlreadyArrived;
   }
 
-  void _cancelSendQueue(_ChatSendQueue queue) {
-    if (queue.cancelled) return;
-    queue.cancelled = true;
-    queue.active?.complete(ChatSendResult.cancelled);
-    while (queue.pending.isNotEmpty) {
-      queue.pending.removeFirst().complete(ChatSendResult.cancelled);
-    }
-  }
-
-  void _cancelSendQueues({String? siteUrl}) {
-    final queues = _sendQueues.values
-        .where((queue) => siteUrl == null || queue.siteUrl == siteUrl)
-        .toList(growable: false);
-    for (final queue in queues) {
-      _sendQueues.remove(queue.key);
-      _cancelSendQueue(queue);
+  void _onOutgoingSent(String siteUrl, ChatStreamTarget target) {
+    if (target is ChatThreadTarget) {
+      _scheduleThreadDetailRefresh(siteUrl, target);
     }
   }
 
@@ -5216,13 +5013,10 @@ class ChatController extends FrameSafeNotifier {
       ),
     );
     _store.remove<ChatMessage>(siteUrl, localId);
-    _releaseSendSubscriptionIfSettled(siteUrl, target);
+    _sendCoordinator.releaseReconciliationIfSettled(siteUrl, target);
   }
 
-  void _releaseSendSubscriptionIfSettled(
-    String siteUrl,
-    ChatStreamTarget target,
-  ) {
+  bool _hasUnsettledOutgoingMessages(String siteUrl, ChatStreamTarget target) {
     final window = streamFor(siteUrl, target);
     for (final id in window.localMessageIds) {
       final local = _store.read<ChatMessage>(siteUrl, id);
@@ -5231,65 +5025,24 @@ class ChatController extends FrameSafeNotifier {
           local.deliveryUncertain ||
           local.delivery == ChatMessageDelivery.sent &&
               !local.canonicalReceived) {
-        return;
+        return true;
       }
     }
-
-    final key = _targetKey(siteUrl, target);
-    _sendSubscriptionTargets.remove((siteUrl: siteUrl, target: target));
-    final subscription = _sendSubscriptions.remove(key);
-    if (subscription == null) return;
-    try {
-      subscription.cancel();
-    } catch (error, stackTrace) {
-      _report(
-        error,
-        stackTrace,
-        'chat.sendMessage.unsubscribe',
-        severity: DiagnosticSeverity.warning,
-      );
-    }
-  }
-
-  void _ensureSendSubscription(String siteUrl, ChatStreamTarget target) {
-    final key = _targetKey(siteUrl, target);
-    if (_sendSubscriptions.containsKey(key)) return;
-    final tracker = _channelHosts[siteUrl];
-    if (tracker == null) return;
-
-    try {
-      _sendSubscriptions[key] = tracker.subscribe(
-        target.threadId == null
-            ? '/chat/${target.channelId}'
-            : '/chat/${target.channelId}/thread/${target.threadId}',
-        (data, _) => _applySendMessage(siteUrl, target, data),
-      );
-    } catch (error, stackTrace) {
-      _report(
-        error,
-        stackTrace,
-        'chat.sendMessage.subscribe',
-        severity: DiagnosticSeverity.warning,
-      );
-      // POST marks the row sent; a later ordinary fetch supplies canonical data.
-    }
+    return false;
   }
 
   void _applySendMessage(
     String siteUrl,
     ChatStreamTarget target,
-    Object? data,
+    String stagedId,
+    Object? payload,
   ) {
-    if (data is! Map<String, dynamic>) return;
-    if (data['type'] != 'sent' || data['staged_id'] is! String) return;
-    final stagedId = data['staged_id'] as String;
     final window = streamFor(siteUrl, target);
     for (final id in window.localMessageIds) {
       final local = _store.read<ChatMessage>(siteUrl, id);
       if (local?.stagedId != stagedId) continue;
 
       // This temporary listener only reconciles this client's remaining local rows.
-      final payload = data['chat_message'];
       if (payload is! Map<String, dynamic>) return;
       final canonical = ChatMessage.fromJson(payload, siteUrl);
       if (canonical.id <= 0 ||
@@ -5322,7 +5075,6 @@ class ChatController extends FrameSafeNotifier {
         _removeLocalMessage(siteUrl, target, id);
       } else {
         _store.put(siteUrl, local!.withCanonical(canonical));
-        _releaseSendSubscriptionIfSettled(siteUrl, target);
       }
       return;
     }
@@ -6248,7 +6000,7 @@ class ChatController extends FrameSafeNotifier {
                 targetMessageId ?? page.targetMessageId ?? lastReadOnOpen,
           ),
         );
-        _releaseSendSubscriptionIfSettled(siteUrl, target);
+        _sendCoordinator.releaseReconciliationIfSettled(siteUrl, target);
       });
       return _ChatWindowFetchResult.loaded;
     } catch (error, stackTrace) {
@@ -6380,7 +6132,7 @@ class ChatController extends FrameSafeNotifier {
             fetchedOnce: true,
           ),
         );
-        _releaseSendSubscriptionIfSettled(siteUrl, target);
+        _sendCoordinator.releaseReconciliationIfSettled(siteUrl, target);
       });
     } catch (error, stackTrace) {
       if (!_requestIsCurrent(lease, ownsRequest)) {
@@ -6501,7 +6253,7 @@ class ChatController extends FrameSafeNotifier {
             fetchedOnce: true,
           ),
         );
-        _releaseSendSubscriptionIfSettled(siteUrl, target);
+        _sendCoordinator.releaseReconciliationIfSettled(siteUrl, target);
       });
     } catch (error, stackTrace) {
       if (!_requestIsCurrent(lease, ownsRequest)) {
@@ -6711,9 +6463,8 @@ class ChatController extends FrameSafeNotifier {
   }
 
   void forget(String siteUrl) {
-    _cancelSendQueues(siteUrl: siteUrl);
+    _sendCoordinator.forget(siteUrl);
     _cancelPresence(siteUrl);
-    _cancelSendSubscriptions(siteUrl);
     _cancelLiveChatSubscriptions(siteUrl);
     _cancelActiveStreamSubscriptions(siteUrl);
     _channelHosts.remove(siteUrl);
@@ -6832,7 +6583,7 @@ class ChatController extends FrameSafeNotifier {
 
   @override
   void dispose() {
-    _cancelSendQueues();
+    _sendCoordinator.dispose();
     for (final siteUrl in _presenceSubscriptions.keys.toList()) {
       _cancelPresence(siteUrl);
     }
@@ -6930,15 +6681,6 @@ class ChatController extends FrameSafeNotifier {
     _myThreadRuns.clear();
     _channelThreadListRequests.clear();
     _channelThreadListRuns.clear();
-    for (final subscription in _sendSubscriptions.values) {
-      try {
-        subscription.cancel();
-      } catch (_) {
-        // Tracker teardown is best-effort; remaining refs must still dispose.
-      }
-    }
-    _sendSubscriptions.clear();
-    _sendSubscriptionTargets.clear();
     _reactionWrites.clear();
     _messageEditWrites.clear();
     _messageDeletionWrites.clear();
@@ -6959,40 +6701,6 @@ class ChatController extends FrameSafeNotifier {
     }
     _streamRefs.clear();
     super.dispose();
-  }
-}
-
-final class _ChatSendQueue {
-  _ChatSendQueue({
-    required this.siteUrl,
-    required this.target,
-    required this.key,
-  });
-
-  final String siteUrl;
-  final ChatStreamTarget target;
-  final String key;
-  final ListQueue<_QueuedChatSend> pending = ListQueue<_QueuedChatSend>();
-  _QueuedChatSend? active;
-  bool scheduled = false;
-  bool cancelled = false;
-}
-
-final class _QueuedChatSend {
-  _QueuedChatSend({
-    required this.local,
-    required this.uploadIds,
-    required this.settlement,
-    required this.lease,
-  });
-
-  final ChatMessage local;
-  final List<int> uploadIds;
-  final Completer<ChatSendResult> settlement;
-  final PluginSiteLease lease;
-
-  void complete(ChatSendResult result) {
-    if (!settlement.isCompleted) settlement.complete(result);
   }
 }
 
