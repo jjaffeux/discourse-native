@@ -95,7 +95,6 @@ import 'package:discourse_native/src/shell/user_activity.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/color_contrast.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -2769,6 +2768,12 @@ void main() {
       ValueKey<String>('instance-rail-drag-feedback-https://$host'),
     );
     const dropIndicator = ValueKey<String>('instance-rail-drop-indicator');
+    const dropIndicatorLine = ValueKey<String>(
+      'instance-rail-drop-indicator-line',
+    );
+    const dropIndicatorPin = ValueKey<String>(
+      'instance-rail-drop-indicator-pin',
+    );
     List<DiscourseInstance> overflowingSites() => [
       for (var index = 0; index < 24; index++)
         instance(
@@ -2830,28 +2835,26 @@ void main() {
 
         final indicator = find.byKey(dropIndicator);
         expect(indicator, findsOneWidget);
-        expect(tester.getSize(indicator), const Size(44, 2));
+        expect(tester.getSize(indicator), const Size(44, 8));
         expect(
           tester.getRect(indicator).center.dy,
           closeTo(targetRect.top, 0.1),
         );
-        final indicatorDecoration =
-            tester.widget<Container>(indicator).decoration! as BoxDecoration;
+        final line = find.byKey(dropIndicatorLine);
+        final pin = find.byKey(dropIndicatorPin);
+        expect(tester.getSize(line), const Size(36, 2));
+        expect(tester.getSize(pin), const Size.square(8));
+        final lineDecoration =
+            tester.widget<Container>(line).decoration! as BoxDecoration;
+        final pinDecoration =
+            tester.widget<Container>(pin).decoration! as BoxDecoration;
         final indicatorTheme = Theme.of(tester.element(indicator));
-        expect(
-          indicatorDecoration.color,
-          contrastSafeForeground(
-            background: indicatorTheme.shell.rail,
-            backdrop: opaqueColorOnCanvas(
-              indicatorTheme.scaffoldBackgroundColor,
-              indicatorTheme.brightness,
-            ),
-            preferred: [
-              indicatorTheme.colorScheme.primary,
-              indicatorTheme.shell.railForeground,
-            ],
-          ).withValues(alpha: 0.6),
-        );
+        expect(lineDecoration.color, indicatorTheme.colorScheme.primary);
+        expect(pinDecoration.shape, BoxShape.circle);
+        expect(pinDecoration.border, isA<Border>());
+        final pinBorder = pinDecoration.border! as Border;
+        expect(pinBorder.top.color, indicatorTheme.colorScheme.primary);
+        expect(pinBorder.top.width, 2);
         expect(dragFeedback('meta.discourse.org'), findsOneWidget);
         expect(
           tester.getCenter(dragFeedback('meta.discourse.org')),
