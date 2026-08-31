@@ -61,17 +61,15 @@ final class _GatedAuthenticator extends FakeAuthenticator {
   final started = Completer<void>();
 
   @override
-  Future<UserApiCredentials> connect(String siteUrl) async {
+  Future<UserApiCredentials> authorize(String siteUrl) async {
     connected.add(siteUrl);
     started.complete();
     await gate.future;
-    const result = UserApiCredentials(
+    return const UserApiCredentials(
       key: 'new-account-key',
       apiVersion: 4,
       push: false,
     );
-    keys[siteUrl] = result.key;
-    return result;
   }
 }
 
@@ -82,7 +80,7 @@ final class _GatedAuthFailureAuthenticator extends FakeAuthenticator {
   final started = Completer<void>();
 
   @override
-  Future<UserApiCredentials> connect(String siteUrl) async {
+  Future<UserApiCredentials> authorize(String siteUrl) async {
     connected.add(siteUrl);
     started.complete();
     await gate.future;
@@ -689,7 +687,7 @@ void main() {
     );
 
     test(
-      'does not pair old account metadata with a replacement key after lookup fails',
+      'restores old metadata without ever pairing it with a replacement key',
       () async {
         final currentUserGate = Completer<void>();
         final api = _GatedCurrentUserApi(currentUserGate);
@@ -719,15 +717,15 @@ void main() {
 
         expect(shell.currentInstance?.user, isNull);
         expect((await store.load()).single.user, isNull);
-        expect(authenticator.keys[_siteUrl], 'account-b-key');
+        expect(authenticator.keys[_siteUrl], 'account-a-key');
 
         currentUserGate.complete();
         await connecting;
 
-        expect(shell.currentInstance?.user, isNull);
-        expect((await store.load()).single.user, isNull);
-        expect(authenticator.keys[_siteUrl], isNull);
-        expect(api.revokedKeys, ['account-a-key', 'account-b-key']);
+        expect(shell.currentInstance?.user?.username, 'account-a');
+        expect((await store.load()).single.user?.username, 'account-a');
+        expect(authenticator.keys[_siteUrl], 'account-a-key');
+        expect(api.revokedKeys, ['account-b-key']);
         expect(shell.connectError, isNotNull);
       },
     );
@@ -836,7 +834,7 @@ void main() {
     }
 
     test(
-      'refreshes signed-out appearance only after a failed connection discards its key',
+      'never exposes an authorized but uncommitted key to appearance',
       () async {
         final signedOutAppearance = siteAppearance();
         final accountAppearance = siteAppearance(
@@ -878,23 +876,24 @@ void main() {
         await api.revocationStarted.future;
         await Future<void>.delayed(Duration.zero);
 
-        // Rollback has already cleared the account presentation, but revocation
-        // is deliberately held open and the replacement key still exists. No
-        // appearance request may cross that boundary with the doomed key.
-        expect(authenticator.keys[_siteUrl], 'discarded-account-key');
-        expect(api.appearanceRequests, [
-          (apiKey: null, credentialsDiscarded: false),
-        ]);
+        // Authorization exists remotely, but the account lookup failed before
+        // the coordinator committed it to local private storage.
+        expect(authenticator.keys[_siteUrl], isNull);
+        expect(
+          api.appearanceRequests.every((request) => request.apiKey == null),
+          isTrue,
+        );
 
         api.finishRevocation.complete();
         await connecting;
         await Future<void>.delayed(Duration.zero);
 
         expect(authenticator.keys[_siteUrl], isNull);
-        expect(api.appearanceRequests, [
-          (apiKey: null, credentialsDiscarded: false),
-          (apiKey: null, credentialsDiscarded: true),
-        ]);
+        expect(api.appearanceRequests, isNotEmpty);
+        expect(
+          api.appearanceRequests.every((request) => request.apiKey == null),
+          isTrue,
+        );
         expect(shell.currentSiteAppearance, signedOutAppearance);
         expect((await store.load()).single.appearance, signedOutAppearance);
         expect(shell.connectError, isNotNull);
@@ -999,133 +998,122 @@ void main() {
         // forum document once the account has been signed out.
         expect(authenticator.keys[_siteUrl], 'orphaned-account-key');
         expect(shell.currentInstance?.user, isNull);
-        expect(api.appearanceRequests, [
-          (apiKey: 'orphaned-account-key', clientId: 'test-client'),
-          (apiKey: null, clientId: null),
-        ]);
-        expect(api.configRequests, [
-          (apiKey: 'orphaned-account-key', clientId: 'test-client'),
-          (apiKey: null, clientId: null),
-        ]);
-        expect(api.customEmojiRequests, [
-          (apiKey: 'orphaned-account-key', clientId: 'test-client'),
-          (apiKey: null, clientId: null),
-        ]);
+        expect(api.appearanceRequests.first, (
+          apiKey: 'orphaned-account-key',
+          clientId: 'test-client',
+        ));
+        expect(
+          api.appearanceRequests
+              .skip(1)
+              .every((request) => request.apiKey == null),
+          isTrue,
+        );
+        expect(api.configRequests.first, (
+          apiKey: 'orphaned-account-key',
+          clientId: 'test-client',
+        ));
+        expect(
+          api.configRequests.skip(1).every((request) => request.apiKey == null),
+          isTrue,
+        );
+        expect(api.customEmojiRequests.first, (
+          apiKey: 'orphaned-account-key',
+          clientId: 'test-client',
+        ));
+        expect(
+          api.customEmojiRequests
+              .skip(1)
+              .every((request) => request.apiKey == null),
+          isTrue,
+        );
         expect(shell.currentSiteAppearance, signedOutAppearance);
         expect((await store.load()).single.appearance, signedOutAppearance);
         expect(api.revoked, [_siteUrl]);
       },
     );
 
-    for (final accountAppearanceCompletesBeforeSignOut in [true, false]) {
-      test(
-        accountAppearanceCompletesBeforeSignOut
-            ? 'drops an account appearance completed before sign-out'
-            : 'rejects an account appearance completed after sign-out',
-        () async {
-          const otherSite = 'https://other.example.com';
-          final initialAccountAppearance = siteAppearance(
-            accent: const Color(0xFF112233),
-          );
-          final racingAccountAppearance = siteAppearance(
-            accent: const Color(0xFFAA2200),
-          );
-          final signedOutAppearance = siteAppearance(
-            accent: const Color(0xFF0066BB),
-          );
-          final store = FakeInstanceStore([
-            instance(
-              'meta.discourse.org',
-            ).copyWith(user: const DiscourseUser(id: 7, username: 'account')),
-            instance('other.example.com'),
-          ]);
-          final authenticator = FakeAuthenticator()
-            ..keys[_siteUrl] = 'account-key';
-          final api = _DisconnectRaceAppearanceApi(
-            initialAccountAppearance: initialAccountAppearance,
-            racingAccountAppearance: racingAccountAppearance,
-            signedOutAppearance: signedOutAppearance,
-          );
-          addTearDown(() {
-            if (!api.finishRevocation.isCompleted) {
-              api.finishRevocation.complete();
-            }
-            if (!api.finishRacingAppearance.isCompleted) {
-              api.finishRacingAppearance.complete();
-            }
-          });
-          final shell = ShellController(
-            instanceStore: store,
-            api: api,
-            authenticator: authenticator,
-            drafts: FakeDraftStore(),
-            trackers: FakeSiteTracker.reset(),
-          );
-          addTearDown(shell.dispose);
-
-          await shell.load();
-          await api.initialAppearanceStarted.future;
-          await Future<void>.delayed(Duration.zero);
-
-          final disconnecting = shell.disconnectInstance(_siteUrl);
-          await api.revocationStarted.future;
-
-          // Re-entering the site while revocation is held open starts a new
-          // authenticated appearance request in the generation created by the
-          // first forget.
-          shell.selectInstance(1);
-          expect(shell.currentInstance?.url, otherSite);
-          shell.selectInstance(0);
-          await api.racingAppearanceStarted.future;
-          expect(api.targetAppearanceRequests, [
-            (apiKey: 'account-key', clientId: 'test-client'),
-            (apiKey: 'account-key', clientId: 'test-client'),
-          ]);
-
-          if (accountAppearanceCompletesBeforeSignOut) {
-            api.finishRacingAppearance.complete();
-            await Future<void>.delayed(Duration.zero);
-            expect(shell.currentSiteAppearance, racingAccountAppearance);
-          }
-
-          api.finishRevocation.complete();
-          expect(await disconnecting, isTrue);
-          await api.signedOutAppearanceStarted.future;
-
-          if (!accountAppearanceCompletesBeforeSignOut) {
-            api.finishRacingAppearance.complete();
-          }
-          await Future<void>.delayed(Duration.zero);
-
-          expect(authenticator.keys[_siteUrl], isNull);
-          expect(shell.currentInstance?.user, isNull);
-          expect(api.targetAppearanceRequests, [
-            (apiKey: 'account-key', clientId: 'test-client'),
-            (apiKey: 'account-key', clientId: 'test-client'),
-            (apiKey: null, clientId: null),
-          ]);
-          expect(shell.currentSiteAppearance, signedOutAppearance);
-          expect(
-            (await store.load())
-                .firstWhere((instance) => instance.url == _siteUrl)
-                .appearance,
-            signedOutAppearance,
-          );
-        },
-      );
-    }
-  });
-
-  group('connection and removal operations', () {
     test(
-      'remove a site despite instance replacement during revocation',
+      'blocks account appearance reads as soon as disconnect starts',
       () async {
         const otherSite = 'https://other.example.com';
         final initialAccountAppearance = siteAppearance(
           accent: const Color(0xFF112233),
         );
-        final racingAccountAppearance = siteAppearance(
-          accent: const Color(0xFFAA2200),
+        final signedOutAppearance = siteAppearance(
+          accent: const Color(0xFF0066BB),
+        );
+        final store = FakeInstanceStore([
+          instance(
+            'meta.discourse.org',
+          ).copyWith(user: const DiscourseUser(id: 7, username: 'account')),
+          instance('other.example.com'),
+        ]);
+        final authenticator = FakeAuthenticator()
+          ..keys[_siteUrl] = 'account-key';
+        final api = _DisconnectRaceAppearanceApi(
+          initialAccountAppearance: initialAccountAppearance,
+          racingAccountAppearance: siteAppearance(
+            accent: const Color(0xFFAA2200),
+          ),
+          signedOutAppearance: signedOutAppearance,
+        );
+        addTearDown(() {
+          if (!api.finishRevocation.isCompleted) {
+            api.finishRevocation.complete();
+          }
+        });
+        final shell = ShellController(
+          instanceStore: store,
+          api: api,
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(shell.dispose);
+
+        await shell.load();
+        await api.initialAppearanceStarted.future;
+        await Future<void>.delayed(Duration.zero);
+
+        final disconnecting = shell.disconnectInstance(_siteUrl);
+        await api.revocationStarted.future;
+        shell.selectInstance(1);
+        expect(shell.currentInstance?.url, otherSite);
+        shell.selectInstance(0);
+        await api.signedOutAppearanceStarted.future;
+
+        expect(api.racingAppearanceStarted.isCompleted, isFalse);
+        expect(
+          api.targetAppearanceRequests
+              .skip(1)
+              .every((request) => request.apiKey == null),
+          isTrue,
+        );
+
+        api.finishRevocation.complete();
+        expect(await disconnecting, isTrue);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(authenticator.keys[_siteUrl], isNull);
+        expect(shell.currentInstance?.user, isNull);
+        expect(shell.currentSiteAppearance, signedOutAppearance);
+        expect(
+          (await store.load())
+              .firstWhere((instance) => instance.url == _siteUrl)
+              .appearance,
+          signedOutAppearance,
+        );
+      },
+    );
+  });
+
+  group('connection and removal operations', () {
+    test(
+      'remove a site despite signed-out presentation replacement during revocation',
+      () async {
+        const otherSite = 'https://other.example.com';
+        final initialAccountAppearance = siteAppearance(
+          accent: const Color(0xFF112233),
         );
         final signedOutAppearance = siteAppearance(
           accent: const Color(0xFF0066BB),
@@ -1141,15 +1129,14 @@ void main() {
           ..keys[_siteUrl] = 'account-key';
         final api = _DisconnectRaceAppearanceApi(
           initialAccountAppearance: initialAccountAppearance,
-          racingAccountAppearance: racingAccountAppearance,
+          racingAccountAppearance: siteAppearance(
+            accent: const Color(0xFFAA2200),
+          ),
           signedOutAppearance: signedOutAppearance,
         );
         addTearDown(() {
           if (!api.finishRevocation.isCompleted) {
             api.finishRevocation.complete();
-          }
-          if (!api.finishRacingAppearance.isCompleted) {
-            api.finishRacingAppearance.complete();
           }
         });
         final shell = ShellController(
@@ -1169,13 +1156,13 @@ void main() {
         await api.revocationStarted.future;
         shell.selectInstance(1);
         shell.selectInstance(0);
-        await api.racingAppearanceStarted.future;
+        await api.signedOutAppearanceStarted.future;
 
-        // This accepted response replaces the immutable instance object while
-        // removeInstance still holds the older snapshot supplied by its caller.
-        api.finishRacingAppearance.complete();
+        // This anonymous response replaces the immutable signed-out instance
+        // while removeInstance still holds the object supplied by its caller.
         await Future<void>.delayed(Duration.zero);
-        expect(shell.currentSiteAppearance, racingAccountAppearance);
+        expect(shell.currentSiteAppearance, signedOutAppearance);
+        expect(api.racingAppearanceStarted.isCompleted, isFalse);
 
         api.finishRevocation.complete();
         expect(await removing, isTrue);
@@ -1185,24 +1172,22 @@ void main() {
           otherSite,
         ]);
 
-        // Re-adding the URL in the same process must start from public colors;
-        // the account palette completed during revocation was forgotten.
+        // Re-adding the URL in the same process must keep using public colors.
         expect(await shell.addInstance(instance('meta.discourse.org')), isTrue);
         await api.signedOutAppearanceStarted.future;
         await Future<void>.delayed(Duration.zero);
 
-        expect(api.targetAppearanceRequests, [
-          (apiKey: 'account-key', clientId: 'test-client'),
-          (apiKey: 'account-key', clientId: 'test-client'),
-          (apiKey: null, clientId: null),
-        ]);
-        expect(shell.currentSiteAppearance, signedOutAppearance);
+        expect(api.targetAppearanceRequests.first, (
+          apiKey: 'account-key',
+          clientId: 'test-client',
+        ));
         expect(
-          (await store.load())
-              .firstWhere((instance) => instance.url == _siteUrl)
-              .appearance,
-          signedOutAppearance,
+          api.targetAppearanceRequests
+              .skip(1)
+              .every((request) => request.apiKey == null),
+          isTrue,
         );
+        expect(shell.currentSiteAppearance, signedOutAppearance);
       },
     );
 
@@ -1263,7 +1248,7 @@ void main() {
 
         expect(shell.instances, isEmpty);
         expect(authenticator.keys[_siteUrl], isNull);
-        expect(authenticator.disconnected, [_siteUrl, _siteUrl]);
+        expect(authenticator.disconnected, [_siteUrl]);
         expect(api.revoked, [_siteUrl]);
         expect(shell.connectError, isNull);
       },

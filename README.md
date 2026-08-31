@@ -75,6 +75,16 @@ DiscourseMobile uses (`SiteManager.generateAuthURL` / `handleAuthPayload`):
 4. We decrypt it and check the nonce matches the one we sent, which is what
    stops a reply from elsewhere being replayed at us.
 
+The handshake validates and returns its key before changing local credential
+storage. `AccountSessionCoordinator` then owns the account transaction: it
+durably clears account-bound drafts, rotates the site's lifecycle and caches,
+persists a signed-out instance boundary, verifies the new account, writes the
+replacement key, revokes the previous key, and only then publishes and persists
+the new profile. A failure before the key write restores the previous account;
+a failure after it writes keeps the signed-out boundary and compensates by
+revoking and deleting the replacement key. Stale completions are generation
+checked at every suspension point.
+
 Scopes requested: `read,write,session_info,notifications`. The `notifications`
 scope also authorizes a site-approved push URL, so a separate `push` scope is
 not needed.
@@ -2036,6 +2046,12 @@ disconnect and removing a site. Deleting only our copy would leave a live key in
 the user's authorized-apps list with nothing tying it back to us. A 404 is
 tolerated — older sites lack the route — and so is being offline; the key is
 forgotten locally either way, since keeping one we can no longer see is worse.
+
+Disconnect first writes the draft blocker and signed-out instance snapshot,
+then withdraws the account presentation before remote revocation and local key
+deletion. If either cleanup fails, the remaining key is an ignored orphan: API
+credential reads are gated by the signed-out instance. A second lifecycle
+rotation rejects anonymous or account work started during cleanup.
 
 ### macOS keychain
 

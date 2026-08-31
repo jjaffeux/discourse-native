@@ -131,7 +131,7 @@ void main() {
   test('a failed removal save restores a signed-out retryable site', () async {
     const user = DiscourseUser(username: 'sam', id: 7);
     final stored = instance('saved.example').copyWith(user: user);
-    final store = _FailingFirstSaveStore(stored);
+    final store = _FailingFirstSaveStore(stored, failureCalls: {2});
     final controller = _controller(store);
     addTearDown(controller.dispose);
 
@@ -144,7 +144,7 @@ void main() {
     expect(store.saved, hasLength(1));
     expect(store.saved.single.url, stored.url);
     expect(store.saved.single.user, isNull);
-    expect(store.saveCount, 2);
+    expect(store.saveCount, 3);
 
     expect(
       await controller.removeInstance(controller.instances.single),
@@ -152,7 +152,7 @@ void main() {
     );
     expect(controller.instances, isEmpty);
     expect(store.saved, isEmpty);
-    expect(store.saveCount, 3);
+    expect(store.saveCount, 5);
   });
 
   test('disconnect retries a transient signed-out snapshot failure', () async {
@@ -277,9 +277,10 @@ final class _SequencedInstanceStore implements InstanceStore {
 }
 
 final class _FailingFirstSaveStore implements InstanceStore {
-  _FailingFirstSaveStore(this.stored);
+  _FailingFirstSaveStore(this.stored, {this.failureCalls = const {1}});
 
   final DiscourseInstance stored;
+  final Set<int> failureCalls;
   int saveCount = 0;
   List<DiscourseInstance> saved = const [];
 
@@ -289,7 +290,9 @@ final class _FailingFirstSaveStore implements InstanceStore {
   @override
   Future<void> save(List<DiscourseInstance> instances) async {
     saveCount++;
-    if (saveCount == 1) throw StateError('preferences unavailable');
+    if (failureCalls.contains(saveCount)) {
+      throw StateError('preferences unavailable');
+    }
     saved = List.of(instances);
   }
 }
