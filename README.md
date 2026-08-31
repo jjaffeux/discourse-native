@@ -570,10 +570,10 @@ as Related and Suggested share a second card with tabs. Assignments use their
 own titled card: the topic is always the first compact row, followed by one row
 per assigned post in post order. The topic row opens the shared anchored picker
 to set, update, or remove its assignment, while a numbered post row navigates
-to that post. On pointer layouts the editor is a 360-point user/group popover
-with Note and optional Status fields; touch layouts use the shared bottom
-sheet. The panel-shaped toggle removes the entire sidebar from the layout, and
-that preference is remembered per forum.
+to that post. On pointer layouts the editor is a stable 360-by-400-point
+user/group popover with Note and optional Status fields; touch layouts use the
+shared bottom sheet. The panel-shaped toggle removes the entire sidebar from
+the layout, and that preference is remembered per forum.
 Medium and compact layouts keep the same controls available through a transient
 right-side overlay instead of shrinking the reading column.
 

@@ -12,6 +12,9 @@ import 'shell_sheet.dart';
 ///
 /// Sidebar property pickers share this route so switching between category
 /// and tag editing does not also switch surface geometry or animation.
+/// Pointer popovers reserve their expected dimensions from the first frame so
+/// asynchronous results cannot move the surface from one side of its anchor to
+/// the other when they arrive.
 Future<T?> showAnchoredPicker<T>({
   required BuildContext context,
   required String title,
@@ -21,6 +24,7 @@ Future<T?> showAnchoredPicker<T>({
   BuildContext? anchorContext,
   Rect? anchor,
   double popoverWidth = _AnchoredPickerSurface.defaultWidth,
+  double popoverHeight = _AnchoredPickerSurface.defaultHeight,
   EdgeInsetsGeometry popoverPadding = EdgeInsets.zero,
   bool nested = false,
   bool sheetEnableDrag = true,
@@ -84,6 +88,7 @@ Future<T?> showAnchoredPicker<T>({
                 child: _AnchoredPickerSurface(
                   key: popoverKey,
                   width: popoverWidth,
+                  height: popoverHeight,
                   padding: popoverPadding,
                   child: builder(routeContext),
                 ),
@@ -368,13 +373,16 @@ class _AnchoredPickerSurface extends StatelessWidget {
   const _AnchoredPickerSurface({
     super.key,
     required this.width,
+    required this.height,
     required this.padding,
     required this.child,
   });
 
   static const double defaultWidth = 252;
+  static const double defaultHeight = 360;
 
   final double width;
+  final double height;
   final EdgeInsetsGeometry padding;
   final Widget child;
 
@@ -390,6 +398,7 @@ class _AnchoredPickerSurface extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: Container(
         width: width,
+        height: height,
         constraints: const BoxConstraints(maxHeight: 440),
         decoration: BoxDecoration(
           border: Border.all(color: theme.shell.divider),
