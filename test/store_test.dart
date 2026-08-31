@@ -161,6 +161,109 @@ void main() {
       expect(store.read<_Record>(_site, 3)?.label, 'three');
     });
 
+    test('bounds long sessions by global, site, and record-kind shares', () {
+      const policy = StorePolicy(
+        maxEntries: 48,
+        maxEntriesPerSite: 16,
+        maxEntriesPerSiteAndType: 10,
+      );
+      final store = Store(policy: policy);
+      const sites = [_site, _otherSite, 'https://three.example'];
+
+      for (var id = 0; id < 10000; id++) {
+        final site = sites[id % sites.length];
+        if (id.isEven) {
+          store.put(site, _Record(id, '$id'));
+        } else {
+          store.put(site, _OtherRecord(id));
+        }
+      }
+
+      final statistics = store.statisticsForTesting;
+      expect(statistics.entries, lessThanOrEqualTo(policy.maxEntries));
+      expect(statistics.records, statistics.entries);
+      expect(statistics.evictions, greaterThan(9000));
+      expect(statistics.recordEvictions, statistics.evictions);
+      for (final site in sites) {
+        expect(
+          statistics.entriesBySite[site],
+          lessThanOrEqualTo(policy.maxEntriesPerSite!),
+          reason: site,
+        );
+        expect(
+          statistics.entriesFor<_Record>(site),
+          lessThanOrEqualTo(policy.maxEntriesPerSiteAndType!),
+          reason: '$site records',
+        );
+        expect(
+          statistics.entriesFor<_OtherRecord>(site),
+          lessThanOrEqualTo(policy.maxEntriesPerSiteAndType!),
+          reason: '$site other records',
+        );
+      }
+    });
+
+    test('fair eviction protects smaller site and type working sets', () {
+      final sites = Store(policy: const StorePolicy(maxEntries: 4))
+        ..put(_site, const _Record(1, 'one'))
+        ..put(_site, const _Record(2, 'two'))
+        ..put(_otherSite, const _Record(1, 'other one'))
+        ..put(_otherSite, const _Record(2, 'other two'));
+      // Make the other site's rows globally oldest. Plain global LRU would
+      // evict one even though the first site is the partition growing.
+      sites
+        ..read<_Record>(_site, 1)
+        ..read<_Record>(_site, 2)
+        ..put(_site, const _Record(3, 'three'));
+
+      expect(sites.read<_Record>(_site, 1), isNull);
+      expect(sites.read<_Record>(_site, 2), isNotNull);
+      expect(sites.read<_Record>(_site, 3), isNotNull);
+      expect(sites.read<_Record>(_otherSite, 1), isNotNull);
+      expect(sites.read<_Record>(_otherSite, 2), isNotNull);
+
+      final types = Store(policy: const StorePolicy(maxEntries: 4))
+        ..put(_site, const _Record(1, 'one'))
+        ..put(_site, const _Record(2, 'two'))
+        ..put(_site, const _OtherRecord(1))
+        ..put(_site, const _OtherRecord(2));
+      types
+        ..read<_Record>(_site, 1)
+        ..read<_Record>(_site, 2)
+        ..put(_site, const _Record(3, 'three'));
+
+      expect(types.read<_Record>(_site, 1), isNull);
+      expect(types.read<_Record>(_site, 2), isNotNull);
+      expect(types.read<_Record>(_site, 3), isNotNull);
+      expect(types.read<_OtherRecord>(_site, 1), isNotNull);
+      expect(types.read<_OtherRecord>(_site, 2), isNotNull);
+    });
+
+    test('record eviction advances only the affected generation', () {
+      final store = Store(maxEntries: 2)
+        ..put(_site, const _Record(1, 'one'))
+        ..put(_site, const _Record(2, 'two'));
+      final beforeEviction = store.generationOf<_Record>(_site);
+
+      store.put(_site, const _Record(3, 'three'));
+
+      expect(
+        store.generationOf<_Record>(_site),
+        beforeEviction + 2,
+        reason: 'one generation for eviction and one for insertion',
+      );
+      expect(store.generationOf<_OtherRecord>(_site), 0);
+      expect(store.statisticsForTesting.recordEvictions, 1);
+
+      final emptyRefs = Store(maxEntries: 2)
+        ..ref<_Record>(_site, 1)
+        ..ref<_Record>(_site, 2)
+        ..ref<_Record>(_site, 3);
+      expect(emptyRefs.generationOf<_Record>(_site), 0);
+      expect(emptyRefs.statisticsForTesting.evictions, 1);
+      expect(emptyRefs.statisticsForTesting.recordEvictions, 0);
+    });
+
     test('pins observed refs while evicting an unobserved record', () {
       final store = Store(maxEntries: 2);
       final pinned = store.ref<_Record>(_site, 1);
@@ -177,6 +280,38 @@ void main() {
       expect(pinned.value?.label, 'pinned');
       expect(store.read<_Record>(_site, 2), isNull);
       expect(store.read<_Record>(_site, 3)?.label, 'latest');
+    });
+
+    test('reports pinned overflow without detaching listened refs', () {
+      final store = Store(maxEntries: 2);
+      final first = store.ref<_Record>(_site, 1);
+      final second = store.ref<_Record>(_site, 2);
+      void listener() {}
+
+      first.addListener(listener);
+      second.addListener(listener);
+      addTearDown(() {
+        first.removeListener(listener);
+        second.removeListener(listener);
+      });
+      store
+        ..put(_site, const _Record(1, 'first'))
+        ..put(_site, const _Record(2, 'second'))
+        ..put(_site, const _Record(3, 'third'));
+
+      expect(store.ref<_Record>(_site, 1), same(first));
+      expect(store.ref<_Record>(_site, 2), same(second));
+      expect(first.value?.label, 'first');
+      expect(second.value?.label, 'second');
+      expect(store.statisticsForTesting.observedEntries, 2);
+      expect(store.statisticsForTesting.overCapacity, 1);
+
+      store.put(_site, const _Record(4, 'fourth'));
+
+      expect(store.read<_Record>(_site, 3), isNull);
+      expect(store.read<_Record>(_site, 4), isNotNull);
+      expect(store.statisticsForTesting.entries, 3);
+      expect(store.statisticsForTesting.overCapacity, 1);
     });
 
     test('fully deletes an unobserved tombstone', () {
@@ -211,6 +346,8 @@ void main() {
       expect(secondNotifications, 2);
       expect(otherNotifications, 1);
       expect(store.length, 1);
+      expect(store.statisticsForTesting.entriesBySite, {_otherSite: 1});
+      expect(store.statisticsForTesting.entriesFor<_Record>(_site), 0);
 
       final reconnected = store.ref<_Record>(_site, 1);
       expect(reconnected, isNot(same(first)));

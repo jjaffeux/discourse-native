@@ -109,6 +109,15 @@ enum AggregateTopicOpenResult { opened, tabLimitReached, unavailable }
 
 typedef TopicMoveDestination = ({int id, String title, String slug});
 
+// A site can retain a substantial topic, post, and taxonomy working set, while
+// per-site/type shares stop one long browsing session from displacing every
+// other connected forum.
+const _shellEntityStorePolicy = StorePolicy(
+  maxEntries: 4096,
+  maxEntriesPerSite: 2048,
+  maxEntriesPerSiteAndType: 1024,
+);
+
 typedef TopicMoveDestinationSearchResult = ({
   List<TopicMoveDestination> destinations,
   String? error,
@@ -194,7 +203,7 @@ class ShellController extends FrameSafeNotifier
        assert(topicLoadTimeout > Duration.zero),
        assert(anchorPersistDebounce >= Duration.zero),
        assert(pluginNotificationFeedRefreshDebounce >= Duration.zero),
-       store = store ?? Store(),
+       store = store ?? Store(policy: _shellEntityStorePolicy),
        lifecycle = lifecycle ?? SiteLifecycle(),
        _providedSiteImages = siteImages,
        _rootMode = initialRootMode,

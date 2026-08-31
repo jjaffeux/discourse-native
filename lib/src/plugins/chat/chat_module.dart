@@ -17,6 +17,14 @@ import 'chat_shell_service.dart';
 
 const chatModule = ChatModule();
 
+// Message history gets the largest partition in this private plugin store;
+// site fairness keeps an extended channel session from flushing other forums.
+const _chatEntityStorePolicy = StorePolicy(
+  maxEntries: 4096,
+  maxEntriesPerSite: 2048,
+  maxEntriesPerSiteAndType: 1536,
+);
+
 typedef ChatApiFactory = ChatApi Function(PluginApiTransport transport);
 
 final class ChatModule implements PluginModule {
@@ -48,7 +56,7 @@ final class ChatModule implements PluginModule {
       (bindings, dependencies) {
         final transport = bindings.require(corePluginTransportPort);
         final requests = bindings.require(corePluginRequestPort);
-        final store = Store();
+        final store = Store(policy: _chatEntityStorePolicy);
         final siteState = bindings.require(corePluginSiteStatePort);
         final accountEvents = bindings.require(corePluginAccountEventsPort);
         final composerHost = bindings.require(corePluginComposerPort);

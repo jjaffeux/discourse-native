@@ -328,6 +328,9 @@ class ChatController extends FrameSafeNotifier {
   T? readRecordForTesting<T extends Storable<T>>(String siteUrl, Object id) =>
       _store.read<T>(siteUrl, id);
 
+  @visibleForTesting
+  StorePolicy? get cachePolicyForTesting => _store.policy;
+
   PluginSiteLease captureSession(String siteUrl) => _requests.capture(siteUrl);
 
   void _report(
