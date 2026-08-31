@@ -2835,15 +2835,20 @@ void main() {
 
         final indicator = find.byKey(dropIndicator);
         expect(indicator, findsOneWidget);
-        expect(tester.getSize(indicator), const Size(44, 8));
+        expect(tester.getSize(indicator), const Size(62, 8));
         expect(
           tester.getRect(indicator).center.dy,
           closeTo(targetRect.top, 0.1),
         );
         final line = find.byKey(dropIndicatorLine);
         final pin = find.byKey(dropIndicatorPin);
-        expect(tester.getSize(line), const Size(36, 2));
+        expect(tester.getSize(line), const Size(54, 2));
         expect(tester.getSize(pin), const Size.square(8));
+        expect(
+          tester.getRect(pin).left -
+              tester.getRect(find.byType(InstanceRail)).left,
+          5,
+        );
         final lineDecoration =
             tester.widget<Container>(line).decoration! as BoxDecoration;
         final pinDecoration =

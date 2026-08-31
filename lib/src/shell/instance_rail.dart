@@ -119,6 +119,7 @@ const double _railListPadding = 12;
 const double _railItemExtent = 52;
 const double _railAvatarSize = 44;
 const double _railSourceOpacity = 0.3;
+const double _railInsertionHorizontalInset = 5;
 const double _railInsertionPinSize = 8;
 const double _railInsertionStrokeWidth = 2;
 const double _railAutoScrollVelocityScalar = 50;
@@ -550,44 +551,41 @@ class _RailInsertionSlot extends StatelessWidget {
         Positioned(
           top: before ? -_railInsertionPinSize / 2 : null,
           bottom: after ? -_railInsertionPinSize / 2 : null,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: SizedBox(
-              key: const ValueKey('instance-rail-drop-indicator'),
-              width: _railAvatarSize,
-              height: _railInsertionPinSize,
-              child: Stack(
-                alignment: Alignment.centerLeft,
-                children: [
-                  Positioned(
-                    left: _railInsertionPinSize,
-                    right: 0,
-                    child: Container(
-                      key: const ValueKey('instance-rail-drop-indicator-line'),
-                      height: _railInsertionStrokeWidth,
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(
-                          _railInsertionStrokeWidth / 2,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    key: const ValueKey('instance-rail-drop-indicator-pin'),
-                    width: _railInsertionPinSize,
-                    height: _railInsertionPinSize,
+          left: _railInsertionHorizontalInset,
+          right: _railInsertionHorizontalInset,
+          child: SizedBox(
+            key: const ValueKey('instance-rail-drop-indicator'),
+            height: _railInsertionPinSize,
+            child: Stack(
+              alignment: Alignment.centerLeft,
+              children: [
+                Positioned(
+                  left: _railInsertionPinSize,
+                  right: 0,
+                  child: Container(
+                    key: const ValueKey('instance-rail-drop-indicator-line'),
+                    height: _railInsertionStrokeWidth,
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: color,
-                        width: _railInsertionStrokeWidth,
+                      color: color,
+                      borderRadius: BorderRadius.circular(
+                        _railInsertionStrokeWidth / 2,
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+                Container(
+                  key: const ValueKey('instance-rail-drop-indicator-pin'),
+                  width: _railInsertionPinSize,
+                  height: _railInsertionPinSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: color,
+                      width: _railInsertionStrokeWidth,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
