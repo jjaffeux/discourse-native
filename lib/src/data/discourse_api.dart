@@ -42,6 +42,12 @@ export 'discourse_api_contracts.dart';
 export 'plugin_transport.dart';
 export 'shell_api_ports.dart';
 
+part 'discourse_account_api.dart';
+part 'discourse_composer_api.dart';
+part 'discourse_search_api.dart';
+part 'discourse_site_api.dart';
+part 'discourse_topic_api.dart';
+
 class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
   DiscourseApi({
     http.Client? client,
@@ -63,15 +69,21 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
              maxResponseBytes: maxResponseBytes,
            );
 
-  static const int minimumApiVersion = 2;
+  static const int minimumApiVersion = DiscourseSiteApi.minimumApiVersion;
   static const int maximumSearchTermLength = maximumDiscourseSearchTermLength;
   static const int maximumAutocompleteResults = TopicTagSearch.maximumResults;
-  static const int maximumCategorySearchTermLength = 250;
-  static const int maximumCategorySearchResults = 25;
-  static const int maximumRecentNotifications = 60;
-  static const int maximumUserMenuBookmarkRows = 20;
-  static const int maximumUserActivityPageSize = UserActivityPage.maximumItems;
-  static const int maximumUserDraftPageSize = 30;
+  static const int maximumCategorySearchTermLength =
+      DiscourseSiteApi.maximumCategorySearchTermLength;
+  static const int maximumCategorySearchResults =
+      DiscourseSiteApi.maximumCategorySearchResults;
+  static const int maximumRecentNotifications =
+      DiscourseAccountApi.maximumRecentNotifications;
+  static const int maximumUserMenuBookmarkRows =
+      DiscourseAccountApi.maximumUserMenuBookmarkRows;
+  static const int maximumUserActivityPageSize =
+      DiscourseAccountApi.maximumUserActivityPageSize;
+  static const int maximumUserDraftPageSize =
+      DiscourseAccountApi.maximumUserDraftPageSize;
   @override
   final DiscourseModelCodec models;
   @override
@@ -79,163 +91,36 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
 
   final DiscourseTransport _transport;
 
-  static const int maximumForumAddressLength = 2048;
+  late final DiscourseAccountApi _account = DiscourseAccountApi(
+    _transport,
+    models,
+  );
+  late final DiscourseComposerApi _composer = DiscourseComposerApi(
+    _transport,
+    models,
+  );
+  late final DiscourseSearchApi _search = DiscourseSearchApi(_transport);
+  late final DiscourseSiteApi _site = DiscourseSiteApi(_transport, models);
+  late final DiscourseTopicApi _topic = DiscourseTopicApi(_transport, models);
 
-  static Uri normalize(String term) {
-    var trimmed = term.trim();
-    if (trimmed.length > maximumForumAddressLength) {
-      // Do not echo or redact a rejected oversized value: it may contain a
-      // credential whose terminating delimiter lies beyond any safe prefix.
-      throw const SiteLookupException(
-        SiteLookupFailure.unreachable,
-        'that forum address',
-        cause: FormatException('Forum address is too long.'),
-      );
-    }
-    // Do not trim the two slashes that belong to a bare scheme. Turning
-    // `https://` into `https:` would make the default-scheme branch reinterpret
-    // `https` as a host and send a pointless validation request there.
-    final schemeSeparator = trimmed.indexOf('://');
-    final minimumEnd = schemeSeparator < 0 ? 0 : schemeSeparator + 3;
-    var end = trimmed.length;
-    while (end > minimumEnd && trimmed.codeUnitAt(end - 1) == 0x2F) {
-      end--;
-    }
-    if (end != trimmed.length) trimmed = trimmed.substring(0, end);
-    if (!RegExp(r'^https?://', caseSensitive: false).hasMatch(trimmed)) {
-      trimmed = 'https://$trimmed';
-    }
-    try {
-      final url = Uri.parse(trimmed);
-      return requireSafeHttpUrl(url);
-    } on UnsafeHttpTransportException catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        error.url.toString(),
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    } on FormatException catch (_, stackTrace) {
-      // Uri.parse's exception can retain its complete source, including
-      // credentials or query values. Replace it at this user-input boundary.
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        DiagnosticsRedactor.uri(trimmed),
-        cause: const FormatException('Invalid forum URL.'),
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  static const int maximumForumAddressLength =
+      DiscourseSiteApi.maximumForumAddressLength;
+
+  static Uri normalize(String term) => DiscourseSiteApi.normalize(term);
 
   @override
-  Future<DiscourseInstance> lookup(String term) async {
-    final probe = normalize(term).resolve('/user-api-key/new');
-
-    final DiscourseHeadResponse head;
-    try {
-      head = await _transport.head(probe);
-    } on SiteLookupException {
-      rethrow;
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        term,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-
-    // A Discourse always has this route; a 404 means we are talking to
-    // something else, or to a version that predates the user API.
-    if (head.statusCode == 404) {
-      throw SiteLookupException(
-        SiteLookupFailure.notDiscourse,
-        term,
-        statusCode: head.statusCode,
-      );
-    }
-    if (head.statusCode != 200) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        term,
-        statusCode: head.statusCode,
-      );
-    }
-
-    final apiVersion =
-        int.tryParse(head.headers['auth-api-version'] ?? '') ?? 0;
-    if (apiVersion < minimumApiVersion) {
-      throw SiteLookupException(SiteLookupFailure.notDiscourse, term);
-    }
-
-    // Redirects may have moved us; keep where we landed, not where we started.
-    //
-    // Unlike DiscourseMobile we keep any port, which it strips — that would
-    // break connecting to a site on localhost during development.
-    final baseUrl = head.url
-        .toString()
-        .replaceFirst(RegExp(r'/user-api-key/new/*$'), '')
-        .replaceFirst(RegExp(r'/+$'), '');
-
-    final Map<String, dynamic> info;
-    try {
-      final response = await _transport.request(
-        'GET',
-        Uri.parse('$baseUrl/site/basic-info.json'),
-      );
-      if (response.statusCode != 200) {
-        throw SiteLookupException(
-          SiteLookupFailure.unreachable,
-          term,
-          statusCode: response.statusCode,
-        );
-      }
-      info = await decodeJsonHttpResponse(response) as Map<String, dynamic>;
-    } on SiteLookupException {
-      rethrow;
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        term,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-
-    final title = jsonText(info['title']);
-
-    return DiscourseInstance(
-      url: baseUrl,
-      title: title == null || title.isEmpty ? Uri.parse(baseUrl).host : title,
-      description: jsonText(info['description']),
-      iconUrl: _absoluteIcon(jsonText(info['apple_touch_icon_url']), baseUrl),
-      apiVersion: apiVersion,
-      loginRequired: info['login_required'] == true,
-    );
-  }
+  Future<DiscourseInstance> lookup(String term) async => _site.lookup(term);
 
   @override
   Future<DiscourseUser> currentUser({
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async {
-    final body = await _getObject(
-      Uri.parse('$siteUrl/session/current.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    final user = switch (body['current_user']) {
-      final Map<String, dynamic> user => user,
-      _ => null,
-    };
-    final username = jsonText(user?['username']);
-    if (user == null || username == null) {
-      throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
-    }
-    return models.currentUser(user, siteUrl);
-  }
+  }) async => _account.currentUser(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<TopicTrackingState> topicTrackingState({
@@ -243,31 +128,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required String username,
     String? clientId,
-  }) async {
-    final response = await _get(
-      Uri.parse(
-        '$siteUrl/u/${Uri.encodeComponent(username)}/topic-tracking-state.json',
-      ),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    try {
-      final decoded = await decodeJsonHttpResponse(response);
-      if (decoded is! List<dynamic>) {
-        throw const FormatException('Expected a topic tracking state list');
-      }
-      return TopicTrackingState.fromJson(decoded);
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  }) async => _account.topicTrackingState(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    clientId: clientId,
+  );
 
   @override
   Future<UserPreferences> loadUserPreferences({
@@ -275,15 +141,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required String username,
     String? clientId,
-  }) async {
-    final body = await _getObject(
-      Uri.parse('$siteUrl/u/${Uri.encodeComponent(username)}.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    return UserPreferences.fromJson(jsonObject(body['user']));
-  }
+  }) async => _account.loadUserPreferences(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    clientId: clientId,
+  );
 
   @override
   Future<UserPreferences> updateUserPreferences({
@@ -293,82 +156,25 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required UserPreferences fallback,
     required Map<String, Object?> values,
     String? clientId,
-  }) async {
-    _validateUserPreferenceValues(values);
-    final body = await _write(
-      Uri.parse(
-        '$siteUrl/u/${Uri.encodeComponent(username.toLowerCase())}.json',
-      ),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: values,
-    );
-    return UserPreferences.fromJson(
-      jsonObject(body['user']),
-      fallback: fallback,
-    );
-  }
-
-  static const Set<String> _userPreferenceFields = {
-    'timezone',
-    'like_notification_frequency',
-    'notify_on_linked_posts',
-    'new_topic_duration_minutes',
-    'auto_track_topics_after_msecs',
-    'notification_level_when_replying',
-    'bookmark_auto_delete_preference',
-  };
-
-  static void _validateUserPreferenceValues(Map<String, Object?> values) {
-    final unsupported = values.keys.where(
-      (key) => !_userPreferenceFields.contains(key),
-    );
-    if (unsupported.isNotEmpty) {
-      throw ArgumentError.value(
-        unsupported.first,
-        'values',
-        'Unsupported user preference field',
-      );
-    }
-  }
+  }) async => _account.updateUserPreferences(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    fallback: fallback,
+    values: values,
+    clientId: clientId,
+  );
 
   @override
   Future<List<SidebarSection>> customSidebarSections({
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async {
-    final body = await _getObject(
-      Uri.parse('$siteUrl/sidebar_sections.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    try {
-      final sections = <SidebarSection>[];
-      var index = 0;
-      for (final json in jsonObjects(body['sidebar_sections'])) {
-        final section = SidebarSection.customFromJson(
-          json,
-          index: index,
-          icons: models.icons,
-        );
-        if (section != null) sections.add(section);
-        index++;
-      }
-      return List.unmodifiable(sections);
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  }) async => _account.customSidebarSections(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<SiteAppearance?> siteAppearance({
@@ -376,7 +182,7 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     String? username,
     String? apiKey,
     String? clientId,
-  }) => _transport.siteAppearance(
+  }) => _site.siteAppearance(
     siteUrl: siteUrl,
     username: username,
     apiKey: apiKey,
@@ -388,16 +194,11 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async {
-    final body = await _getObject(
-      Uri.parse('$siteUrl/notifications/totals.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    return models.notificationTotals(body);
-  }
+  }) async => _account.notificationTotals(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<List<DiscourseNotification>> notifications({
@@ -406,32 +207,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
     String? clientId,
-  }) async {
-    if (limit < 1 || limit > maximumRecentNotifications) {
-      throw RangeError.range(limit, 1, maximumRecentNotifications, 'limit');
-    }
-    final url = Uri.parse('$siteUrl/notifications.json').replace(
-      queryParameters: {
-        'recent': 'true',
-        'limit': '$limit',
-        if (filterByTypes.isNotEmpty) ...{
-          'filter_by_types': filterByTypes.map((type) => type.value).join(','),
-          'silent': 'true',
-        },
-      },
-    );
-    final body = await _getObject(
-      url,
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    return List.unmodifiable([
-      for (final entry in jsonObjects(body['notifications']).take(limit))
-        DiscourseNotification.fromJson(entry),
-    ]);
-  }
+  }) async => _account.notifications(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    limit: limit,
+    filterByTypes: filterByTypes,
+    clientId: clientId,
+  );
 
   @override
   Future<BookmarkPayload> bookmarks({
@@ -439,35 +221,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required String username,
     String? clientId,
-  }) async {
-    final body = await _getObject(
-      Uri.parse(
-        '$siteUrl/u/${Uri.encodeComponent(username)}/user-menu-bookmarks.json',
-      ),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    // Core gives this menu route one twenty-row budget, with due reminders
-    // first. Keep that boundary locally too: a broken serializer response must
-    // not turn opening the user menu into an arbitrary eager list build.
-    final reminderEntries = jsonObjects(
-      body['notifications'],
-    ).take(maximumUserMenuBookmarkRows).toList(growable: false);
-    final bookmarkBudget = maximumUserMenuBookmarkRows - reminderEntries.length;
-
-    return (
-      reminders: List<DiscourseNotification>.unmodifiable([
-        for (final entry in reminderEntries)
-          DiscourseNotification.fromJson(entry),
-      ]),
-      bookmarks: List<Bookmark>.unmodifiable([
-        for (final entry in jsonObjects(body['bookmarks']).take(bookmarkBudget))
-          Bookmark.fromJson(entry),
-      ]),
-    );
-  }
+  }) async => _account.bookmarks(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    clientId: clientId,
+  );
 
   @override
   Future<UserActivityPage> userActivity({
@@ -477,31 +236,14 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     int offset = 0,
     int limit = 30,
     String? clientId,
-  }) async {
-    if (offset < 0) {
-      throw RangeError.value(offset, 'offset', 'Must not be negative.');
-    }
-    if (limit < 1 || limit > maximumUserActivityPageSize) {
-      throw RangeError.range(limit, 1, maximumUserActivityPageSize, 'limit');
-    }
-    final url = Uri.parse('$siteUrl/user_actions.json').replace(
-      queryParameters: {
-        'offset': '$offset',
-        'username': username,
-        'filter':
-            '${UserActivityItem.topicActionType},'
-            '${UserActivityItem.replyActionType}',
-        'limit': '$limit',
-      },
-    );
-    final body = await _getObject(
-      url,
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    return UserActivityPage.fromJson(body, siteUrl, limit: limit);
-  }
+  }) async => _account.userActivity(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    offset: offset,
+    limit: limit,
+    clientId: clientId,
+  );
 
   @override
   Future<int> createBookmark({
@@ -513,29 +255,16 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     DateTime? reminderAt,
     BookmarkAutoDeletePreference? autoDeletePreference,
     String? clientId,
-  }) async {
-    _requirePositiveId(targetId, 'targetId');
-    _validateBookmarkDraft(name: name, reminderAt: reminderAt);
-    final body = await _write(
-      Uri.parse('$siteUrl/bookmarks.json'),
-      siteUrl: siteUrl,
-      method: 'POST',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {
-        'bookmarkable_id': targetId,
-        'bookmarkable_type': targetType.wireName,
-        'name': name,
-        'reminder_at': reminderAt?.toUtc().toIso8601String(),
-        'auto_delete_preference': autoDeletePreference?.wireValue,
-      },
-    );
-    final id = jsonIntOrNull(body['id']);
-    if (id == null || id <= 0) {
-      throw const WriteException(WriteFailure.unreachable);
-    }
-    return id;
-  }
+  }) async => _account.createBookmark(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    targetType: targetType,
+    targetId: targetId,
+    name: name,
+    reminderAt: reminderAt,
+    autoDeletePreference: autoDeletePreference,
+    clientId: clientId,
+  );
 
   @override
   Future<void> updateBookmark({
@@ -546,22 +275,15 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     DateTime? reminderAt,
     required BookmarkAutoDeletePreference autoDeletePreference,
     String? clientId,
-  }) async {
-    _requirePositiveId(bookmarkId, 'bookmarkId');
-    _validateBookmarkDraft(name: name, reminderAt: reminderAt);
-    await _write(
-      Uri.parse('$siteUrl/bookmarks/$bookmarkId.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {
-        'name': name,
-        'reminder_at': reminderAt?.toUtc().toIso8601String(),
-        'auto_delete_preference': autoDeletePreference.wireValue,
-      },
-    );
-  }
+  }) async => _account.updateBookmark(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    bookmarkId: bookmarkId,
+    name: name,
+    reminderAt: reminderAt,
+    autoDeletePreference: autoDeletePreference,
+    clientId: clientId,
+  );
 
   @override
   Future<bool?> deleteBookmark({
@@ -570,22 +292,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required int bookmarkId,
     required BookmarkTargetType targetType,
     String? clientId,
-  }) async {
-    _requirePositiveId(bookmarkId, 'bookmarkId');
-    final body = await _write(
-      Uri.parse('$siteUrl/bookmarks/$bookmarkId.json'),
-      siteUrl: siteUrl,
-      method: 'DELETE',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: const {},
-    );
-    final topicBookmarked = body['topic_bookmarked'];
-    if (targetType.updatesTopicBookmarkState && topicBookmarked is! bool) {
-      throw const WriteException(WriteFailure.unreachable);
-    }
-    return topicBookmarked is bool ? topicBookmarked : null;
-  }
+  }) async => _account.deleteBookmark(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    bookmarkId: bookmarkId,
+    targetType: targetType,
+    clientId: clientId,
+  );
 
   @override
   Future<void> deleteTopicBookmarks({
@@ -593,54 +306,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required int topicId,
     String? clientId,
-  }) async {
-    _requirePositiveId(topicId, 'topicId');
-    await _write(
-      Uri.parse('$siteUrl/t/$topicId/remove_bookmarks'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: const {},
-    );
-  }
-
-  static void _validateBookmarkDraft({
-    required String? name,
-    required DateTime? reminderAt,
-  }) {
-    if (name != null && name.length > 100) {
-      throw const WriteException(
-        WriteFailure.validation,
-        errors: ['Bookmark notes must be 100 characters or fewer.'],
-      );
-    }
-    if (reminderAt == null) return;
-    final now = DateTime.now().toUtc();
-    final reminder = reminderAt.toUtc();
-    if (!reminder.isAfter(now)) {
-      throw const WriteException(
-        WriteFailure.validation,
-        errors: ['Bookmark reminders must be in the future.'],
-      );
-    }
-    final maximum = DateTime.utc(
-      now.year + 10,
-      now.month,
-      now.day,
-      now.hour,
-      now.minute,
-      now.second,
-      now.millisecond,
-      now.microsecond,
-    );
-    if (reminder.isAfter(maximum)) {
-      throw const WriteException(
-        WriteFailure.validation,
-        errors: ['Bookmark reminders cannot be more than 10 years away.'],
-      );
-    }
-  }
+  }) async => _account.deleteTopicBookmarks(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    clientId: clientId,
+  );
 
   @override
   Future<void> markNotificationRead({
@@ -648,17 +319,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required int id,
     String? clientId,
-  }) async {
-    _requirePositiveId(id, 'id');
-    await _write(
-      Uri.parse('$siteUrl/notifications/mark-read.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'id': id},
-    );
-  }
+  }) async => _account.markNotificationRead(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    id: id,
+    clientId: clientId,
+  );
 
   @override
   Future<void> markNotificationsRead({
@@ -666,19 +332,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required List<NotificationTypeName> types,
     String? clientId,
-  }) async {
-    if (types.isEmpty) {
-      throw ArgumentError.value(types, 'types', 'Must not be empty');
-    }
-    await _write(
-      Uri.parse('$siteUrl/notifications/mark-read.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'dismiss_types': types.map((type) => type.value).join(',')},
-    );
-  }
+  }) async => _account.markNotificationsRead(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    types: types,
+    clientId: clientId,
+  );
 
   @override
   Future<TopicList> topicList({
@@ -686,16 +345,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String path,
     String? apiKey,
     String? clientId,
-  }) async {
-    final body = await _getObject(
-      Uri.parse('$siteUrl$path'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    return models.topicList(body, siteUrl);
-  }
+  }) async => _topic.topicList(
+    siteUrl: siteUrl,
+    path: path,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<SearchResults> searchPosts({
@@ -707,34 +362,16 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     String? restrictToArchetype,
     String? apiKey,
     String? clientId,
-  }) async {
-    if (term.length > maximumSearchTermLength) {
-      // Do not attach the value: search text can contain private names and
-      // phrases, and this error may be forwarded to diagnostics.
-      throw ArgumentError(
-        'Search terms must be at most $maximumSearchTermLength characters.',
-      );
-    }
-    if (topicId != null) _requirePositiveId(topicId, 'topicId');
-    final body = await _getObject(
-      Uri.parse('$siteUrl/search/query.json').replace(
-        queryParameters: {
-          'term': term,
-          'type_filter': ?typeFilter,
-          if (topicId != null) ...{
-            'search_context[type]': 'topic',
-            'search_context[id]': '$topicId',
-          },
-          if (searchForId) 'search_for_id': 'true',
-          'restrict_to_archetype': ?restrictToArchetype,
-        },
-      ),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    return SearchResults.fromJson(body, siteUrl);
-  }
+  }) async => _search.searchPosts(
+    siteUrl: siteUrl,
+    term: term,
+    typeFilter: typeFilter,
+    topicId: topicId,
+    searchForId: searchForId,
+    restrictToArchetype: restrictToArchetype,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<FoundUsersAndGroups> searchUsersAndGroups({
@@ -743,67 +380,35 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     int limit = 6,
     String? apiKey,
     String? clientId,
-  }) async {
-    _validateAutocompleteRequest(term: term, limit: limit);
-    final body = await _getObject(
-      Uri.parse('$siteUrl/u/search/users.json').replace(
-        queryParameters: {
-          if (term.isNotEmpty) 'term': term else 'last_seen_users': 'true',
-          'include_groups': 'true',
-          'limit': '$limit',
-        },
-      ),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    return FoundUsersAndGroups(
-      users: List.unmodifiable([
-        for (final user in jsonObjects(body['users']).take(limit))
-          FoundUser.fromJson(user, siteUrl),
-      ]),
-      groups: List.unmodifiable([
-        for (final group in jsonObjects(body['groups']).take(limit))
-          FoundGroup.fromJson(group, siteUrl),
-      ]),
-    );
-  }
+  }) async => _search.searchUsersAndGroups(
+    siteUrl: siteUrl,
+    term: term,
+    limit: limit,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<List<String>> recentSearches({
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async {
-    final body = await _getObject(
-      Uri.parse('$siteUrl/u/recent-searches.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    return List.unmodifiable(
-      jsonArray(
-        body['recent_searches'],
-      ).map(jsonText).whereType<String>().take(5),
-    );
-  }
+  }) async => _search.recentSearches(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<void> resetRecentSearches({
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async {
-    await _write(
-      Uri.parse('$siteUrl/u/recent-searches.json'),
-      siteUrl: siteUrl,
-      method: 'DELETE',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: const {},
-    );
-  }
+  }) async => _search.resetRecentSearches(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<void> logSearchClick({
@@ -813,21 +418,14 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required Object resultId,
     required SearchResultKind resultKind,
     String? clientId,
-  }) async {
-    _requirePositiveId(searchLogId, 'searchLogId');
-    await _write(
-      Uri.parse('$siteUrl/search/click.json'),
-      siteUrl: siteUrl,
-      method: 'POST',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {
-        'search_log_id': searchLogId,
-        'search_result_id': resultId,
-        'search_result_type': resultKind.name,
-      },
-    );
-  }
+  }) async => _search.logSearchClick(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    searchLogId: searchLogId,
+    resultId: resultId,
+    resultKind: resultKind,
+    clientId: clientId,
+  );
 
   @override
   Future<TopicPayload> topic({
@@ -838,32 +436,15 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     bool summary = false,
     String? apiKey,
     String? clientId,
-  }) async {
-    _requirePositiveId(id, 'id');
-    if (postNumber != null) {
-      _requirePositiveId(postNumber, 'postNumber');
-    }
-    final query = <String, String>{
-      if (postNumber != null) 'post_number': '$postNumber',
-      if (summary) 'summary': 'true',
-    };
-    final body = await _getObject(
-      // Topic ids are stable; slugs are presentation metadata and can become
-      // stale after a title change. Discourse redirects `/t/{old-slug}/{id}`
-      // to the current slug, while the authenticated transport deliberately
-      // refuses automatic redirects. Its id-only JSON route skips that
-      // canonicalization, and `post_number` keeps the numbered form
-      // unambiguous with `/t/{slug}/{id}`.
-      Uri.parse(
-        '$siteUrl/t/$id.json',
-      ).replace(queryParameters: query.isEmpty ? null : query),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    return models.topic(body, siteUrl);
-  }
+  }) async => _topic.topic(
+    siteUrl: siteUrl,
+    slug: slug,
+    id: id,
+    postNumber: postNumber,
+    summary: summary,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<void> recordTopicRead({
@@ -873,25 +454,14 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required int postNumber,
     int milliseconds = 500,
     String? clientId,
-  }) async {
-    _requirePositiveId(topicId, 'topicId');
-    _requirePositiveId(postNumber, 'postNumber');
-    if (milliseconds <= 0) {
-      throw RangeError.value(milliseconds, 'milliseconds', 'Must be positive.');
-    }
-    await _write(
-      Uri.parse('$siteUrl/topics/timings.json'),
-      siteUrl: siteUrl,
-      method: 'POST',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {
-        'topic_id': topicId,
-        'topic_time': milliseconds,
-        'timings': {'$postNumber': milliseconds},
-      },
-    );
-  }
+  }) async => _topic.recordTopicRead(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    postNumber: postNumber,
+    milliseconds: milliseconds,
+    clientId: clientId,
+  );
 
   @override
   Future<void> updateTopicNotificationLevel({
@@ -900,17 +470,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required int topicId,
     required TopicNotificationLevel notificationLevel,
     String? clientId,
-  }) async {
-    _requirePositiveId(topicId, 'topicId');
-    await _write(
-      Uri.parse('$siteUrl/t/$topicId/notifications'),
-      siteUrl: siteUrl,
-      method: 'POST',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'notification_level': notificationLevel.value},
-    );
-  }
+  }) async => _topic.updateTopicNotificationLevel(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    notificationLevel: notificationLevel,
+    clientId: clientId,
+  );
 
   @override
   Future<void> updateTopicPinForUser({
@@ -919,17 +485,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required int topicId,
     required bool pinned,
     String? clientId,
-  }) async {
-    _requirePositiveId(topicId, 'topicId');
-    await _write(
-      Uri.parse('$siteUrl/t/$topicId/${pinned ? 're-pin' : 'clear-pin'}'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: const {},
-    );
-  }
+  }) async => _topic.updateTopicPinForUser(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    pinned: pinned,
+    clientId: clientId,
+  );
 
   @override
   Future<void> updateTopicStatus({
@@ -939,17 +501,14 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required TopicStatusProperty status,
     required bool enabled,
     String? clientId,
-  }) async {
-    _requirePositiveId(topicId, 'topicId');
-    await _write(
-      Uri.parse('$siteUrl/t/$topicId/status'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'status': status.wireName, 'enabled': enabled},
-    );
-  }
+  }) async => _topic.updateTopicStatus(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    status: status,
+    enabled: enabled,
+    clientId: clientId,
+  );
 
   @override
   Future<void> deleteTopic({
@@ -957,17 +516,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required int topicId,
     String? clientId,
-  }) async {
-    _requirePositiveId(topicId, 'topicId');
-    await _write(
-      Uri.parse('$siteUrl/t/$topicId.json'),
-      siteUrl: siteUrl,
-      method: 'DELETE',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'context': '/t/$topicId'},
-    );
-  }
+  }) async => _topic.deleteTopic(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    clientId: clientId,
+  );
 
   @override
   Future<void> permanentlyDeleteTopic({
@@ -975,17 +529,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required int topicId,
     String? clientId,
-  }) async {
-    _requirePositiveId(topicId, 'topicId');
-    await _write(
-      Uri.parse('$siteUrl/t/$topicId.json'),
-      siteUrl: siteUrl,
-      method: 'DELETE',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'context': '/t/$topicId', 'force_destroy': true},
-    );
-  }
+  }) async => _topic.permanentlyDeleteTopic(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    clientId: clientId,
+  );
 
   @override
   Future<void> recoverTopic({
@@ -993,17 +542,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required int topicId,
     String? clientId,
-  }) async {
-    _requirePositiveId(topicId, 'topicId');
-    await _write(
-      Uri.parse('$siteUrl/t/$topicId/recover.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'context': '/t/$topicId'},
-    );
-  }
+  }) async => _topic.recoverTopic(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    clientId: clientId,
+  );
 
   @override
   Future<List<Post>> posts({
@@ -1013,20 +557,14 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     bool includeRaw = false,
     String? apiKey,
     String? clientId,
-  }) async {
-    if (ids.isEmpty) return const [];
-    _validatePostWindow(topicId, ids);
-
-    return (await _topicPosts(
-      siteUrl: siteUrl,
-      topicId: topicId,
-      ids: ids,
-      includeRaw: includeRaw,
-      includeSuggested: false,
-      apiKey: apiKey,
-      clientId: clientId,
-    )).posts;
-  }
+  }) async => _topic.posts(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    ids: ids,
+    includeRaw: includeRaw,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<TopicPostsPayload> topicPosts({
@@ -1035,52 +573,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required List<int> ids,
     String? apiKey,
     String? clientId,
-  }) {
-    if (ids.isEmpty) {
-      return Future.value((posts: const <Post>[], recommendations: null));
-    }
-    _validatePostWindow(topicId, ids);
-    return _topicPosts(
-      siteUrl: siteUrl,
-      topicId: topicId,
-      ids: ids,
-      includeRaw: false,
-      includeSuggested: true,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-  }
-
-  Future<TopicPostsPayload> _topicPosts({
-    required String siteUrl,
-    required int topicId,
-    required List<int> ids,
-    required bool includeRaw,
-    required bool includeSuggested,
-    String? apiKey,
-    String? clientId,
-  }) async {
-    final query = [
-      ...ids.map((id) => 'post_ids[]=$id'),
-      if (includeRaw) 'include_raw=true',
-      if (includeSuggested) 'include_suggested=true',
-    ].join('&');
-    final body = await _getObject(
-      Uri.parse('$siteUrl/t/$topicId/posts.json?$query'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    final stream = jsonObject(body['post_stream']);
-    return (
-      posts: List<Post>.unmodifiable([
-        for (final post in jsonObjects(stream['posts']))
-          models.post(post, siteUrl),
-      ]),
-      recommendations: models.topicRecommendations(body, siteUrl),
-    );
-  }
+  }) => _topic.topicPosts(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    ids: ids,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<PostRevision> postRevision({
@@ -1089,20 +588,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     int? revision,
     String? apiKey,
     String? clientId,
-  }) async {
-    _requirePositiveId(postId, 'postId');
-    if (revision != null && revision < 2) {
-      throw ArgumentError.value(revision, 'revision', 'must be at least 2');
-    }
-    final target = revision?.toString() ?? 'latest';
-    final body = await _getObject(
-      Uri.parse('$siteUrl/posts/$postId/revisions/$target.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    return PostRevision.fromJson(body, siteUrl);
-  }
+  }) async => _topic.postRevision(
+    siteUrl: siteUrl,
+    postId: postId,
+    revision: revision,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<UserCard> userCard({
@@ -1110,23 +602,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String username,
     String? apiKey,
     String? clientId,
-  }) async {
-    final body = await _getObject(
-      Uri.parse('$siteUrl/u/${Uri.encodeComponent(username)}/card.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    final user = switch (body['user']) {
-      final Map<String, dynamic> user => user,
-      _ => null,
-    };
-    if (user == null) {
-      throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
-    }
-    return models.userCard(user, siteUrl);
-  }
+  }) async => _account.userCard(
+    siteUrl: siteUrl,
+    username: username,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<void> setUserStatus({
@@ -1136,51 +617,25 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String emoji,
     DateTime? endsAt,
     String? clientId,
-  }) async {
-    final normalizedDescription = description.trim();
-    final normalizedEmoji = emoji
-        .trim()
-        .replaceFirst(RegExp(r'^:'), '')
-        .replaceFirst(RegExp(r':$'), '');
-    if (normalizedDescription.isEmpty || normalizedDescription.length > 100) {
-      throw ArgumentError.value(
-        description,
-        'description',
-        'must contain between 1 and 100 characters',
-      );
-    }
-    if (normalizedEmoji.isEmpty || normalizedEmoji.length > 100) {
-      throw ArgumentError.value(emoji, 'emoji', 'must name one emoji');
-    }
-    await _write(
-      Uri.parse('$siteUrl/user-status.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {
-        'description': normalizedDescription,
-        'emoji': normalizedEmoji,
-        if (endsAt != null) 'ends_at': endsAt.toUtc().toIso8601String(),
-      },
-    );
-  }
+  }) async => _account.setUserStatus(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    description: description,
+    emoji: emoji,
+    endsAt: endsAt,
+    clientId: clientId,
+  );
 
   @override
   Future<void> clearUserStatus({
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async {
-    await _write(
-      Uri.parse('$siteUrl/user-status.json'),
-      siteUrl: siteUrl,
-      method: 'DELETE',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: const {},
-    );
-  }
+  }) async => _account.clearUserStatus(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<DateTime> enterDoNotDisturb({
@@ -1188,37 +643,23 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required DoNotDisturbDuration duration,
     String? clientId,
-  }) async {
-    final body = await _write(
-      Uri.parse('$siteUrl/do-not-disturb.json'),
-      siteUrl: siteUrl,
-      method: 'POST',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'duration': duration.wireValue},
-    );
-    final endsAt = jsonDate(body['ends_at']);
-    if (endsAt == null) {
-      throw const WriteException(WriteFailure.unreachable);
-    }
-    return endsAt.toUtc();
-  }
+  }) async => _account.enterDoNotDisturb(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    duration: duration,
+    clientId: clientId,
+  );
 
   @override
   Future<void> leaveDoNotDisturb({
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async {
-    await _write(
-      Uri.parse('$siteUrl/do-not-disturb.json'),
-      siteUrl: siteUrl,
-      method: 'DELETE',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: const {},
-    );
-  }
+  }) async => _account.leaveDoNotDisturb(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<void> updateHidePresence({
@@ -1227,80 +668,29 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String username,
     required bool hidePresence,
     String? clientId,
-  }) async {
-    await _write(
-      Uri.parse('$siteUrl/u/${Uri.encodeComponent(username)}.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'hide_presence': hidePresence},
-    );
-  }
+  }) async => _account.updateHidePresence(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    hidePresence: hidePresence,
+    clientId: clientId,
+  );
 
   @override
   Future<SiteConfig> siteConfig({
     required String siteUrl,
     String? apiKey,
     String? clientId,
-  }) async {
-    final body = await _getObject(
-      Uri.parse('$siteUrl/site/settings.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    try {
-      return models.siteConfig(body, siteUrl);
-    } catch (error, stackTrace) {
-      // A payload this cannot read is an answer it cannot use: report it the
-      // way every other failure here is reported, rather than letting a decode
-      // error escape the contract callers swallow by.
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  }) async =>
+      _site.siteConfig(siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
 
   @override
   Future<Map<String, String>> customEmojis({
     required String siteUrl,
     String? apiKey,
     String? clientId,
-  }) async {
-    final response = await _get(
-      Uri.parse('$siteUrl/site/emoji.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    try {
-      return switch (await decodeJsonHttpResponse(response)) {
-        final Map<String, dynamic> byName => {
-          for (final entry in byName.entries)
-            if (entry.value is String) entry.key: entry.value as String,
-        },
-        final List<dynamic> list => {
-          for (final item in list)
-            if (item case {'name': final String name, 'url': final String url})
-              name: url,
-        },
-        _ => const <String, String>{},
-      };
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  }) async =>
+      _site.customEmojis(siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
 
   @override
   Future<List<FoundUser>> searchUsers({
@@ -1310,38 +700,14 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     int limit = 10,
     String? apiKey,
     String? clientId,
-  }) async {
-    _validateAutocompleteRequest(term: term, limit: limit);
-    if (topicId != null) _requirePositiveId(topicId, 'topicId');
-    final query = {
-      if (term.isNotEmpty) 'term': term else 'last_seen_users': 'true',
-      'limit': '$limit',
-      if (topicId != null) 'topic_id': '$topicId',
-    };
-    final response = await _get(
-      Uri.parse('$siteUrl/u/search/users.json').replace(queryParameters: query),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    try {
-      return switch (await decodeJsonHttpResponse(response)) {
-        {'users': final List<dynamic> users} => [
-          for (final user in users.take(limit))
-            if (user is Map<String, dynamic>) FoundUser.fromJson(user, siteUrl),
-        ],
-        _ => const <FoundUser>[],
-      };
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  }) async => _search.searchUsers(
+    siteUrl: siteUrl,
+    term: term,
+    topicId: topicId,
+    limit: limit,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<List<TopicFilterLookupValue>> searchFilterTags({
@@ -1350,38 +716,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     int limit = 5,
     String? apiKey,
     String? clientId,
-  }) async {
-    _validateAutocompleteRequest(term: term, limit: limit);
-    final response = await _get(
-      Uri.parse(
-        '$siteUrl/tags/filter/search.json',
-      ).replace(queryParameters: {'q': term, 'limit': '$limit'}),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    try {
-      final body = await decodeJsonHttpResponse(response);
-      if (body is! Map<String, dynamic>) return const [];
-      return List.unmodifiable([
-        for (final entry in jsonArray(body['results']).take(limit))
-          if (entry is Map<String, dynamic>)
-            if (jsonText(entry['name']) case final name?)
-              TopicFilterLookupValue(
-                name: name,
-                description: '${jsonInt(entry['count'])}',
-              ),
-      ]);
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  }) async => _search.searchFilterTags(
+    siteUrl: siteUrl,
+    term: term,
+    limit: limit,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<List<TopicFilterLookupValue>> searchFilterTagGroups({
@@ -1390,43 +731,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     int limit = 10,
     String? apiKey,
     String? clientId,
-  }) async {
-    _validateAutocompleteRequest(term: term, limit: limit);
-    final response = await _get(
-      Uri.parse(
-        '$siteUrl/tag_groups/filter/search.json',
-      ).replace(queryParameters: {'q': term, 'limit': '$limit'}),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    try {
-      final body = await decodeJsonHttpResponse(response);
-      if (body is! Map<String, dynamic>) return const [];
-      return List.unmodifiable([
-        for (final entry in jsonArray(body['results']).take(limit))
-          if (entry is Map<String, dynamic>)
-            if (jsonText(entry['name']) case final name?)
-              TopicFilterLookupValue(
-                name: name,
-                description: [
-                  for (final tag in jsonArray(
-                    entry['tags'],
-                  ).take(maximumAutocompleteResults))
-                    if (tag is Map<String, dynamic>) ?jsonText(tag['name']),
-                ].join(', '),
-              ),
-      ]);
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  }) async => _search.searchFilterTagGroups(
+    siteUrl: siteUrl,
+    term: term,
+    limit: limit,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<List<TopicFilterLookupValue>> searchFilterGroups({
@@ -1435,42 +746,17 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     int limit = 10,
     String? apiKey,
     String? clientId,
-  }) async {
-    _validateAutocompleteRequest(term: term, limit: limit);
-    final response = await _get(
-      Uri.parse('$siteUrl/groups/search.json').replace(
-        queryParameters: {if (term.isNotEmpty) 'term': term, 'limit': '$limit'},
-      ),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
+  }) async => _search.searchFilterGroups(
+    siteUrl: siteUrl,
+    term: term,
+    limit: limit,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
-    try {
-      final body = await decodeJsonHttpResponse(response);
-      if (body is! List<dynamic>) return const [];
-      return List.unmodifiable([
-        for (final item in body.take(limit))
-          if (item is Map<String, dynamic>)
-            if (jsonText(item['name']) case final name?)
-              TopicFilterLookupValue(
-                name: name,
-                description: jsonText(item['full_name']) ?? name,
-              ),
-      ]);
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  static const int hashtagsPerRequest = DiscourseSearchApi.hashtagsPerRequest;
 
-  static const int hashtagsPerRequest = maximumDiscourseHashtagsPerRequest;
-
-  static const List<String> hashtagOrder = defaultDiscourseHashtagOrder;
+  static const List<String> hashtagOrder = DiscourseSearchApi.hashtagOrder;
 
   @override
   Future<List<FoundHashtag>> searchHashtags({
@@ -1479,38 +765,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     List<String> order = hashtagOrder,
     String? apiKey,
     String? clientId,
-  }) async {
-    _validateComposerLookupValue(term, allowEmpty: true);
-    _validateHashtagOrder(order);
-    final response = await _get(
-      Uri.parse('$siteUrl/hashtags/search.json').replace(
-        // `<String, dynamic>` so the list is emitted as a repeated parameter.
-        // A `Map<String, String>` would stringify it to `[category, tag]` and
-        // the site would reject the lot.
-        queryParameters: <String, dynamic>{'term': term, 'order[]': order},
-      ),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    try {
-      return switch (await decodeJsonHttpResponse(response)) {
-        {'results': final List<dynamic> results} => [
-          for (final item in results.take(maximumAutocompleteResults))
-            if (item is Map<String, dynamic>) ?FoundHashtag.fromJson(item),
-        ],
-        _ => const <FoundHashtag>[],
-      };
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  }) async => _search.searchHashtags(
+    siteUrl: siteUrl,
+    term: term,
+    order: order,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<List<FoundHashtag>> lookupHashtags({
@@ -1519,56 +780,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     List<String> order = hashtagOrder,
     String? apiKey,
     String? clientId,
-  }) async {
-    _validateHashtagOrder(order);
-    final slugs = refs.take(hashtagsPerRequest).toList(growable: false);
-    if (slugs.isEmpty) return const [];
-    for (final slug in slugs) {
-      _validateComposerLookupValue(slug);
-    }
-    final requested = slugs.toSet();
-
-    final response = await _get(
-      Uri.parse('$siteUrl/hashtags.json').replace(
-        queryParameters: <String, dynamic>{'slugs[]': slugs, 'order[]': order},
-      ),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    try {
-      final body = await decodeJsonHttpResponse(response);
-      if (body is! Map<String, dynamic>) return const [];
-      return <FoundHashtag>[
-        for (final entry in body.values)
-          if (entry is List<dynamic>)
-            for (final item in entry)
-              if (item is Map<String, dynamic>)
-                if (FoundHashtag.fromJson(item) case final hashtag?
-                    when requested.contains(hashtag.ref))
-                  hashtag,
-      ].take(hashtagsPerRequest).toList(growable: false);
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
-
-  static void _validateHashtagOrder(List<String> order) {
-    if (order.isEmpty || order.length > hashtagsPerRequest) {
-      throw RangeError.range(
-        order.length,
-        1,
-        hashtagsPerRequest,
-        'order.length',
-      );
-    }
-  }
+  }) async => _search.lookupHashtags(
+    siteUrl: siteUrl,
+    refs: refs,
+    order: order,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<Set<String>> checkMentions({
@@ -1577,133 +795,32 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     int? topicId,
     String? apiKey,
     String? clientId,
-  }) async {
-    final asked = names.take(hashtagsPerRequest).toList(growable: false);
-    if (asked.isEmpty) return const {};
-    for (final name in asked) {
-      _validateComposerLookupValue(name);
-    }
-    if (topicId != null) _requirePositiveId(topicId, 'topicId');
-    final requested = asked.toSet();
-
-    final response = await _get(
-      Uri.parse('$siteUrl/composer/mentions').replace(
-        queryParameters: <String, dynamic>{
-          'names[]': asked,
-          if (topicId != null) 'topic_id': '$topicId',
-        },
-      ),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    try {
-      final body = await decodeJsonHttpResponse(response);
-      if (body is! Map<String, dynamic>) return const {};
-      return {
-        for (final name in jsonArray(body['users']))
-          if (name is String && requested.contains(name)) name,
-        for (final name in jsonObject(body['groups']).keys)
-          if (requested.contains(name)) name,
-      };
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  }) async => _search.checkMentions(
+    siteUrl: siteUrl,
+    names: names,
+    topicId: topicId,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<SiteEmojiCatalog> emojiCatalog({
     required String siteUrl,
     String? apiKey,
     String? clientId,
-  }) async {
-    final response = await _get(
-      Uri.parse('$siteUrl/emojis.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    try {
-      final decoded = await decodeJsonHttpResponse(response);
-      if (decoded is! Map<String, dynamic>) return SiteEmojiCatalog.empty;
-
-      final groups = <SiteEmojiGroup>[];
-      for (final entry in decoded.entries) {
-        if (entry.value is! List<dynamic>) continue;
-        final emojis = <SiteEmoji>[];
-        for (final row in entry.value as List<dynamic>) {
-          if (row is! Map<String, dynamic>) continue;
-          final name = row['name'];
-          final url = row['url'];
-          if (name is! String || name.isEmpty || url is! String) continue;
-          final resolved = _absoluteIcon(url, siteUrl);
-          if (resolved == null) continue;
-          emojis.add(
-            SiteEmoji(
-              name: name,
-              url: resolved,
-              tonable: row['tonable'] == true,
-            ),
-          );
-        }
-        groups.add(SiteEmojiGroup(id: entry.key, emojis: emojis));
-      }
-      return SiteEmojiCatalog(groups: groups);
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  }) async =>
+      _site.emojiCatalog(siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
 
   @override
   Future<Map<String, List<String>>> emojiSearchAliases({
     required String siteUrl,
     String? apiKey,
     String? clientId,
-  }) async {
-    final response = await _get(
-      Uri.parse('$siteUrl/emojis/search-aliases.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    try {
-      final decoded = await decodeJsonHttpResponse(response);
-      if (decoded is! Map<String, dynamic>) return const {};
-
-      final aliases = <String, List<String>>{};
-      for (final entry in decoded.entries) {
-        if (entry.key.isEmpty || entry.value is! List<dynamic>) continue;
-        final unique = <String>{};
-        for (final raw in entry.value as List<dynamic>) {
-          if (raw is! String) continue;
-          final alias = raw.trim();
-          if (alias.isNotEmpty) unique.add(alias);
-        }
-        aliases[entry.key] = List<String>.unmodifiable(unique);
-      }
-      return Map<String, List<String>>.unmodifiable(aliases);
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  }) async => _site.emojiSearchAliases(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<List<TopicCategory>> categories({
@@ -1711,12 +828,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     String? apiKey,
     String? clientId,
     int page = 1,
-  }) async => (await loadCategories(
+  }) async => _site.categories(
     siteUrl: siteUrl,
     apiKey: apiKey,
     clientId: clientId,
     page: page,
-  )).categories;
+  );
 
   @override
   Future<CategoryLoadResult> loadCategories({
@@ -1724,120 +841,19 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     String? apiKey,
     String? clientId,
     int page = 1,
-  }) async {
-    if (page < 1) throw RangeError.value(page, 'page', 'Must be positive');
-
-    // Start both page-one requests before yielding. A controller lease is
-    // known-current when this method is entered; dispatching the site metadata
-    // request only after the category response could send a key whose session
-    // was revoked while that response was in flight.
-    final categoryRequest = _getObject(
-      Uri.parse('$siteUrl/categories.json').replace(
-        queryParameters: {
-          'include_subcategories': 'true',
-          'include_topics': 'true',
-          if (page > 1) 'page': '$page',
-        },
-      ),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    final siteRequest = page > 1
-        ? null
-        : _categorySiteMetadata(
-            siteUrl: siteUrl,
-            apiKey: apiKey,
-            clientId: clientId,
-          );
-
-    final body = await categoryRequest;
-    final list = jsonObject(body['category_list']);
-    final roots = jsonObjects(list['categories']).toList(growable: false);
-    final rootCategoryIds = <int>[
-      for (final category in roots)
-        if (category['parent_category_id'] == null)
-          if (jsonIntOrNull(category['id']) case final id? when id > 0) id,
-    ];
-    final rawById = <int, Map<String, dynamic>>{};
-
-    for (final category in _flattenCategories(roots)) {
-      rawById.putIfAbsent(jsonInt(category['id']), () => category);
-    }
-
-    // CategoryList is paginated on sites that lazy-load categories. Core puts
-    // a signed-in user's selected sidebar categories and their ancestors in
-    // site.json specifically so navigation never loses choices beyond page 1.
-    final siteResult = await siteRequest;
-    final site = siteResult?.body ?? const <String, dynamic>{};
-    for (final category in _flattenCategories(site['categories'])) {
-      rawById.putIfAbsent(jsonInt(category['id']), () => category);
-    }
-    final uncategorizedId = jsonIntOrNull(site['uncategorized_category_id']);
-
-    return CategoryLoadResult(
-      [
-        for (final entry in rawById.entries)
-          TopicCategory.fromJson(
-            entry.key == uncategorizedId
-                ? {...entry.value, 'is_uncategorized': true}
-                : entry.value,
-          ),
-      ],
-      rootCategoryIds: rootCategoryIds,
-      complete: siteResult?.complete ?? true,
-      canCreateTopic: list['can_create_topic'] == true,
-      postActionCatalog: apiKey == null || siteResult?.body == null
-          ? null
-          : SitePostActionCatalog.fromJson(site),
-      siteTopTags: siteResult?.body == null
-          ? null
-          : _navigationTags(site['navigation_menu_site_top_tags']),
-      anonymousDefaultTags: siteResult?.body == null
-          ? null
-          : _navigationTags(site['anonymous_default_navigation_menu_tags']),
-    );
-  }
+  }) async => _site.loadCategories(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+    page: page,
+  );
 
   @override
   Future<List<SidebarTag>> tags({
     required String siteUrl,
     String? apiKey,
     String? clientId,
-  }) async {
-    final body = await _getObject(
-      Uri.parse('$siteUrl/tags.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    final byId = <int, SidebarTag>{};
-
-    void add(Object? values) {
-      for (final json in jsonObjects(values)) {
-        final tag = SidebarTag.fromJson(json);
-        if (tag != null) byId.putIfAbsent(tag.id, () => tag);
-      }
-    }
-
-    add(body['tags']);
-    final extras = jsonObject(body['extras']);
-    for (final group in jsonObjects(extras['tag_groups'])) {
-      add(group['tags']);
-    }
-    for (final category in jsonObjects(extras['categories'])) {
-      add(category['tags']);
-    }
-
-    final result = byId.values.toList(growable: false)
-      ..sort((left, right) {
-        final folded = left.name.toLowerCase().compareTo(
-          right.name.toLowerCase(),
-        );
-        return folded != 0 ? folded : left.name.compareTo(right.name);
-      });
-    return List.unmodifiable(result);
-  }
+  }) async => _site.tags(siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
 
   @override
   Future<List<TopicCategory>> findCategories({
@@ -1845,29 +861,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required Iterable<int> ids,
     String? apiKey,
     String? clientId,
-  }) async {
-    final uniqueIds = <int>{};
-    for (final id in ids) {
-      _requirePositiveId(id, 'categoryId');
-      uniqueIds.add(id);
-    }
-    if (uniqueIds.isEmpty) return const [];
-
-    final body = await _getObject(
-      Uri.parse('$siteUrl/categories/find.json').replace(
-        queryParameters: {
-          'ids[]': uniqueIds.map((id) => '$id').toList(growable: false),
-        },
-      ),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    return List.unmodifiable([
-      for (final category in jsonObjects(body['categories']))
-        TopicCategory.fromJson(category),
-    ]);
-  }
+  }) async => _site.findCategories(
+    siteUrl: siteUrl,
+    ids: ids,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<List<TopicCategory>> searchCategories({
@@ -1876,61 +875,24 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     bool includeUncategorized = true,
     String? clientId,
-  }) async {
-    final normalized = term.trim();
-    final bounded = normalized.length <= maximumCategorySearchTermLength
-        ? normalized
-        : normalized.substring(0, maximumCategorySearchTermLength);
-    final body = await _transport.postObject(
-      Uri.parse('$siteUrl/categories/search.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {
-        'term': bounded,
-        'include_uncategorized': includeUncategorized,
-        'include_subcategories': true,
-        'limit': maximumCategorySearchResults,
-      },
-    );
-    return List.unmodifiable([
-      for (final category in jsonObjects(body['categories']))
-        TopicCategory.fromJson(category),
-    ]);
-  }
-
-  Future<({Map<String, dynamic>? body, bool complete})> _categorySiteMetadata({
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) async {
-    try {
-      final body = await _getObject(
-        Uri.parse('$siteUrl/site.json'),
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-      );
-      return (body: body, complete: true);
-    } on SiteLookupException {
-      return (body: null, complete: false);
-    }
-  }
+  }) async => _site.searchCategories(
+    siteUrl: siteUrl,
+    term: term,
+    apiKey: apiKey,
+    includeUncategorized: includeUncategorized,
+    clientId: clientId,
+  );
 
   @override
   Future<TopicComposerCapabilities> topicComposerCapabilities({
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async {
-    final body = await _getObject(
-      Uri.parse('$siteUrl/site.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    return TopicComposerCapabilities.fromJson(body);
-  }
+  }) async => _composer.topicComposerCapabilities(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<TopicTagSearch> searchTopicTags({
@@ -1941,26 +903,15 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     Iterable<int> selectedTagIds = const [],
     int limit = SiteConfig.defaultMaxTagSearchResults,
     String? clientId,
-  }) async {
-    _validateAutocompleteRequest(term: term, limit: limit);
-    if (categoryId != null) _requirePositiveId(categoryId, 'categoryId');
-    final body = await _getObject(
-      Uri.parse('$siteUrl/tags/filter/search.json').replace(
-        queryParameters: <String, dynamic>{
-          'q': term,
-          'limit': '$limit',
-          if (categoryId != null) 'categoryId': '$categoryId',
-          if (selectedTagIds.isNotEmpty)
-            'selected_tag_ids[]': selectedTagIds.map((id) => '$id').toList(),
-          'filterForInput': 'true',
-        },
-      ),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    return TopicTagSearch.fromJson(body, limit: limit);
-  }
+  }) async => _composer.searchTopicTags(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    term: term,
+    categoryId: categoryId,
+    selectedTagIds: selectedTagIds,
+    limit: limit,
+    clientId: clientId,
+  );
 
   @override
   Future<PostCreation> createPost({
@@ -1974,36 +925,18 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     bool whisper = false,
     String? draftKey,
     String? clientId,
-  }) async {
-    _requirePositiveId(topicId, 'topicId');
-    if (replyToPostNumber != null) {
-      _requirePositiveId(replyToPostNumber, 'replyToPostNumber');
-    }
-    final body = await _write(
-      Uri.parse('$siteUrl/posts.json'),
-      siteUrl: siteUrl,
-      method: 'POST',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {
-        'raw': raw,
-        'topic_id': topicId,
-        // A post *number*, not an id. `reply_to_post_id` is not a parameter
-        // Discourse permits, and sending it is silently ignored — the reply
-        // lands in the topic addressed to nobody.
-        'reply_to_post_number': replyToPostNumber,
-        'whisper': whisper ? true : null,
-        'typing_duration_msecs': typingDuration.inMilliseconds,
-        'composer_open_duration_msecs': composerOpenDuration.inMilliseconds,
-        'draft_key': draftKey,
-        // Asks for the envelope, which is the only shape carrying `action`.
-        // Without it a queued post is indistinguishable from a published one.
-        'nested_post': true,
-      },
-    );
-
-    return models.postCreation(body, siteUrl);
-  }
+  }) async => _composer.createPost(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    raw: raw,
+    typingDuration: typingDuration,
+    composerOpenDuration: composerOpenDuration,
+    replyToPostNumber: replyToPostNumber,
+    whisper: whisper,
+    draftKey: draftKey,
+    clientId: clientId,
+  );
 
   @override
   Future<PostCreation> createTopic({
@@ -2018,34 +951,19 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     String? targetRecipients,
     String draftKey = ComposerDraft.newTopicDraftKey,
     String? clientId,
-  }) async {
-    if (categoryId != null) _requirePositiveId(categoryId, 'categoryId');
-    final recipients = targetRecipients == null
-        ? null
-        : _normalizePrivateMessageRecipients(targetRecipients);
-    final body = await _write(
-      Uri.parse('$siteUrl/posts.json'),
-      siteUrl: siteUrl,
-      method: 'POST',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {
-        'title': title,
-        'raw': raw,
-        'category': categoryId,
-        'tags': tags.map((tag) => tag.toJson()).toList(),
-        'archetype': recipients == null
-            ? null
-            : ComposerDraft.privateMessageArchetype,
-        'target_recipients': recipients,
-        'typing_duration_msecs': typingDuration.inMilliseconds,
-        'composer_open_duration_msecs': composerOpenDuration.inMilliseconds,
-        'draft_key': draftKey,
-        'nested_post': true,
-      },
-    );
-    return models.postCreation(body, siteUrl);
-  }
+  }) async => _composer.createTopic(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    title: title,
+    raw: raw,
+    typingDuration: typingDuration,
+    composerOpenDuration: composerOpenDuration,
+    categoryId: categoryId,
+    tags: tags,
+    targetRecipients: targetRecipients,
+    draftKey: draftKey,
+    clientId: clientId,
+  );
 
   @override
   Future<void> updateTopic({
@@ -2058,24 +976,17 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required Iterable<TopicTag> originalTags,
     int? categoryId,
     String? clientId,
-  }) async {
-    _requirePositiveId(topicId, 'topicId');
-    if (categoryId != null) _requirePositiveId(categoryId, 'categoryId');
-    await _write(
-      Uri.parse('$siteUrl/t/$topicId.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {
-        'title': title,
-        'category_id': categoryId,
-        'tags': tags.map((tag) => tag.toJson()).toList(),
-        'original_title': originalTitle,
-        'original_tags': originalTags.map((tag) => tag.toJson()).toList(),
-      },
-    );
-  }
+  }) async => _topic.updateTopic(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    title: title,
+    originalTitle: originalTitle,
+    tags: tags,
+    originalTags: originalTags,
+    categoryId: categoryId,
+    clientId: clientId,
+  );
 
   @override
   Future<void> updateTopicTags({
@@ -2084,17 +995,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required int topicId,
     required Iterable<TopicTag> tags,
     String? clientId,
-  }) async {
-    _requirePositiveId(topicId, 'topicId');
-    await _write(
-      Uri.parse('$siteUrl/t/$topicId/tags.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'tags': tags.map((tag) => tag.toJson()).toList()},
-    );
-  }
+  }) async => _topic.updateTopicTags(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    tags: tags,
+    clientId: clientId,
+  );
 
   @override
   Future<Post> updatePost({
@@ -2105,32 +1012,15 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     String? originalText,
     String? editReason,
     String? clientId,
-  }) async {
-    _requirePositiveId(postId, 'postId');
-    final body = await _write(
-      Uri.parse('$siteUrl/posts/$postId.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      // Nested, which is what the controller reads — a top-level `raw` is
-      // ignored and the post comes back unchanged.
-      body: {
-        'post': {
-          'raw': raw,
-          'original_text': ?originalText,
-          'edit_reason': ?editReason,
-        },
-      },
-    );
-
-    final post = switch (body['post']) {
-      final Map<String, dynamic> post => post,
-      _ => null,
-    };
-    if (post == null) throw const WriteException(WriteFailure.unreachable);
-    return models.post(post, siteUrl);
-  }
+  }) async => _composer.updatePost(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    postId: postId,
+    raw: raw,
+    originalText: originalText,
+    editReason: editReason,
+    clientId: clientId,
+  );
 
   @override
   Future<void> deletePost({
@@ -2138,17 +1028,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required int postId,
     String? clientId,
-  }) async {
-    _requirePositiveId(postId, 'postId');
-    await _write(
-      Uri.parse('$siteUrl/posts/$postId.json'),
-      siteUrl: siteUrl,
-      method: 'DELETE',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: const {},
-    );
-  }
+  }) async => _topic.deletePost(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    postId: postId,
+    clientId: clientId,
+  );
 
   @override
   Future<({bool allowed, String? reason})> checkPermanentPostDeletion({
@@ -2156,19 +1041,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required int postId,
     String? clientId,
-  }) async {
-    _requirePositiveId(postId, 'postId');
-    final body = await _getObject(
-      Uri.parse('$siteUrl/posts/$postId/permanently_delete_check.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    return (
-      allowed: body['can_permanently_delete'] == true,
-      reason: jsonText(body['reason']),
-    );
-  }
+  }) async => _topic.checkPermanentPostDeletion(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    postId: postId,
+    clientId: clientId,
+  );
 
   @override
   Future<void> permanentlyDeletePost({
@@ -2177,18 +1055,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required int topicId,
     required int postId,
     String? clientId,
-  }) async {
-    _requirePositiveId(topicId, 'topicId');
-    _requirePositiveId(postId, 'postId');
-    await _write(
-      Uri.parse('$siteUrl/posts/$postId.json'),
-      siteUrl: siteUrl,
-      method: 'DELETE',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'context': '/t/$topicId', 'force_destroy': true},
-    );
-  }
+  }) async => _topic.permanentlyDeletePost(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    postId: postId,
+    clientId: clientId,
+  );
 
   @override
   Future<void> deletePosts({
@@ -2196,17 +1069,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required List<int> postIds,
     String? clientId,
-  }) async {
-    _validateSelectedPostIds(postIds);
-    await _write(
-      Uri.parse('$siteUrl/posts/destroy_many.json'),
-      siteUrl: siteUrl,
-      method: 'DELETE',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'post_ids': postIds, 'agree_with_first_reply_flag': true},
-    );
-  }
+  }) async => _topic.deletePosts(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    postIds: postIds,
+    clientId: clientId,
+  );
 
   @override
   Future<void> mergePosts({
@@ -2214,17 +1082,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required List<int> postIds,
     String? clientId,
-  }) async {
-    _validateSelectedPostIds(postIds, minimum: 2);
-    await _write(
-      Uri.parse('$siteUrl/posts/merge_posts.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'post_ids': postIds},
-    );
-  }
+  }) async => _topic.mergePosts(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    postIds: postIds,
+    clientId: clientId,
+  );
 
   @override
   Future<String> movePosts({
@@ -2238,54 +1101,18 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     List<int> tagIds = const [],
     bool chronologicalOrder = false,
     String? clientId,
-  }) async {
-    _requirePositiveId(topicId, 'topicId');
-    _validateSelectedPostIds(postIds);
-    if (destinationTopicId != null) {
-      _requirePositiveId(destinationTopicId, 'destinationTopicId');
-    }
-    if (categoryId != null) _requirePositiveId(categoryId, 'categoryId');
-    if (tagIds.any((id) => id <= 0)) {
-      throw ArgumentError.value(tagIds, 'tagIds', 'must contain positive ids');
-    }
-    final trimmedTitle = title?.trim();
-    if ((destinationTopicId == null) ==
-        (trimmedTitle == null || trimmedTitle.isEmpty)) {
-      throw ArgumentError(
-        'Exactly one of destinationTopicId or a non-empty title is required.',
-      );
-    }
-    if (destinationTopicId == topicId) {
-      throw ArgumentError.value(
-        destinationTopicId,
-        'destinationTopicId',
-        'must differ from topicId',
-      );
-    }
-
-    final body = await _write(
-      Uri.parse('$siteUrl/t/$topicId/move-posts.json'),
-      siteUrl: siteUrl,
-      method: 'POST',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {
-        'post_ids': postIds,
-        'destination_topic_id': ?destinationTopicId,
-        if (trimmedTitle != null && trimmedTitle.isNotEmpty)
-          'title': trimmedTitle,
-        'category_id': ?categoryId,
-        if (tagIds.isNotEmpty) 'tag_ids': tagIds,
-        if (destinationTopicId != null)
-          'chronological_order': chronologicalOrder,
-      },
-    );
-    final url = jsonText(body['url']);
-    if (body['success'] != true || url == null) {
-      throw const WriteException(WriteFailure.unreachable);
-    }
-    return url;
-  }
+  }) async => _topic.movePosts(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    postIds: postIds,
+    destinationTopicId: destinationTopicId,
+    title: title,
+    categoryId: categoryId,
+    tagIds: tagIds,
+    chronologicalOrder: chronologicalOrder,
+    clientId: clientId,
+  );
 
   @override
   Future<void> changePostOwners({
@@ -2295,29 +1122,14 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required List<int> postIds,
     required String username,
     String? clientId,
-  }) async {
-    _requirePositiveId(topicId, 'topicId');
-    _validateSelectedPostIds(postIds);
-    final trimmedUsername = username.trim();
-    if (trimmedUsername.isEmpty) {
-      throw ArgumentError.value(
-        username.length,
-        'username',
-        'must not be empty',
-      );
-    }
-    final body = await _write(
-      Uri.parse('$siteUrl/t/$topicId/change-owner.json'),
-      siteUrl: siteUrl,
-      method: 'POST',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'post_ids': postIds, 'username': trimmedUsername},
-    );
-    if (body['success'] != true) {
-      throw const WriteException(WriteFailure.unreachable);
-    }
-  }
+  }) async => _topic.changePostOwners(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    postIds: postIds,
+    username: username,
+    clientId: clientId,
+  );
 
   @override
   Future<void> updatePostWiki({
@@ -2326,17 +1138,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required int postId,
     required bool wiki,
     String? clientId,
-  }) async {
-    _requirePositiveId(postId, 'postId');
-    await _write(
-      Uri.parse('$siteUrl/posts/$postId/wiki.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'wiki': wiki},
-    );
-  }
+  }) async => _topic.updatePostWiki(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    postId: postId,
+    wiki: wiki,
+    clientId: clientId,
+  );
 
   @override
   Future<void> updatePostLocked({
@@ -2345,17 +1153,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required int postId,
     required bool locked,
     String? clientId,
-  }) async {
-    _requirePositiveId(postId, 'postId');
-    await _write(
-      Uri.parse('$siteUrl/posts/$postId/locked.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'locked': locked},
-    );
-  }
+  }) async => _topic.updatePostLocked(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    postId: postId,
+    locked: locked,
+    clientId: clientId,
+  );
 
   @override
   Future<void> unhidePost({
@@ -2363,17 +1167,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required int postId,
     String? clientId,
-  }) async {
-    _requirePositiveId(postId, 'postId');
-    await _write(
-      Uri.parse('$siteUrl/posts/$postId/unhide.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: const {},
-    );
-  }
+  }) async => _topic.unhidePost(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    postId: postId,
+    clientId: clientId,
+  );
 
   @override
   Future<void> updatePostType({
@@ -2382,21 +1181,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required int postId,
     required int postType,
     String? clientId,
-  }) async {
-    _requirePositiveId(postId, 'postId');
-    if (postType != Post.regularPostType &&
-        postType != Post.moderatorPostType) {
-      throw ArgumentError.value(postType, 'postType', 'must be 1 or 2');
-    }
-    await _write(
-      Uri.parse('$siteUrl/posts/$postId/post_type.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'post_type': postType},
-    );
-  }
+  }) async => _topic.updatePostType(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    postId: postId,
+    postType: postType,
+    clientId: clientId,
+  );
 
   @override
   Future<void> updatePostNotice({
@@ -2405,18 +1196,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required int postId,
     String? notice,
     String? clientId,
-  }) async {
-    _requirePositiveId(postId, 'postId');
-    final trimmed = notice?.trim();
-    await _write(
-      Uri.parse('$siteUrl/posts/$postId/notice.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {if (trimmed != null && trimmed.isNotEmpty) 'notice': trimmed},
-    );
-  }
+  }) async => _topic.updatePostNotice(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    postId: postId,
+    notice: notice,
+    clientId: clientId,
+  );
 
   @override
   Future<Post?> likePost({
@@ -2424,20 +1210,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required int postId,
     String? clientId,
-  }) async {
-    _requirePositiveId(postId, 'postId');
-    return _actedPost(
-      await _write(
-        Uri.parse('$siteUrl/post_actions.json'),
-        siteUrl: siteUrl,
-        method: 'POST',
-        apiKey: apiKey,
-        clientId: clientId,
-        body: {'id': postId, 'post_action_type_id': Post.likeActionId},
-      ),
-      siteUrl,
-    );
-  }
+  }) async => _topic.likePost(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    postId: postId,
+    clientId: clientId,
+  );
 
   @override
   Future<Post> createPostFlag({
@@ -2447,29 +1225,14 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required int postActionTypeId,
     String? message,
     String? clientId,
-  }) async {
-    _requirePositiveId(postId, 'postId');
-    _requirePositiveId(postActionTypeId, 'postActionTypeId');
-    final post = _actedPost(
-      await _write(
-        Uri.parse('$siteUrl/post_actions.json'),
-        siteUrl: siteUrl,
-        method: 'POST',
-        apiKey: apiKey,
-        clientId: clientId,
-        body: {
-          'id': postId,
-          'post_action_type_id': postActionTypeId,
-          'message': ?message,
-        },
-      ),
-      siteUrl,
-    );
-    if (post == null) {
-      throw const WriteException(WriteFailure.unreachable);
-    }
-    return post;
-  }
+  }) async => _topic.createPostFlag(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    postId: postId,
+    postActionTypeId: postActionTypeId,
+    message: message,
+    clientId: clientId,
+  );
 
   @override
   Future<void> createTopicFlag({
@@ -2479,23 +1242,14 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required int postActionTypeId,
     String? message,
     String? clientId,
-  }) async {
-    _requirePositiveId(topicId, 'topicId');
-    _requirePositiveId(postActionTypeId, 'postActionTypeId');
-    await _write(
-      Uri.parse('$siteUrl/post_actions.json'),
-      siteUrl: siteUrl,
-      method: 'POST',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {
-        'id': topicId,
-        'post_action_type_id': postActionTypeId,
-        'flag_topic': true,
-        'message': ?message,
-      },
-    );
-  }
+  }) async => _topic.createTopicFlag(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    postActionTypeId: postActionTypeId,
+    message: message,
+    clientId: clientId,
+  );
 
   @override
   Future<Post?> unlikePost({
@@ -2503,26 +1257,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required int postId,
     String? clientId,
-  }) async {
-    _requirePositiveId(postId, 'postId');
-    return _actedPost(
-      await _write(
-        Uri.parse(
-          '$siteUrl/post_actions/$postId.json'
-          '?post_action_type_id=${Post.likeActionId}',
-        ),
-        siteUrl: siteUrl,
-        method: 'DELETE',
-        apiKey: apiKey,
-        clientId: clientId,
-        body: const {},
-      ),
-      siteUrl,
-    );
-  }
-
-  Post? _actedPost(Map<String, dynamic> body, String siteUrl) =>
-      body['id'] == null ? null : models.post(body, siteUrl);
+  }) async => _topic.unlikePost(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    postId: postId,
+    clientId: clientId,
+  );
 
   @override
   Future<PostLikers> postLikers({
@@ -2531,23 +1271,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     int limit = 25,
     String? apiKey,
     String? clientId,
-  }) async {
-    _requirePositiveId(postId, 'postId');
-    if (limit < 1 || limit > PostLikers.maximumPageSize) {
-      throw RangeError.range(limit, 1, PostLikers.maximumPageSize, 'limit');
-    }
-    final body = await _getObject(
-      Uri.parse(
-        '$siteUrl/post_action_users.json'
-        '?id=$postId&post_action_type_id=${Post.likeActionId}&limit=$limit',
-      ),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    return PostLikers.parse(body, postId: postId, siteUrl: siteUrl);
-  }
+  }) async => _topic.postLikers(
+    siteUrl: siteUrl,
+    postId: postId,
+    limit: limit,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<void> recoverPost({
@@ -2555,17 +1285,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required int postId,
     String? clientId,
-  }) async {
-    _requirePositiveId(postId, 'postId');
-    await _write(
-      Uri.parse('$siteUrl/posts/$postId/recover.json'),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: const {},
-    );
-  }
+  }) async => _topic.recoverPost(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    postId: postId,
+    clientId: clientId,
+  );
 
   @override
   Future<int?> saveDraft({
@@ -2576,34 +1301,15 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String data,
     String? owner,
     String? clientId,
-  }) async {
-    Future<Map<String, dynamic>> send({required bool force}) => _write(
-      Uri.parse('$siteUrl/drafts.json'),
-      siteUrl: siteUrl,
-      method: 'POST',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {
-        'draft_key': draftKey,
-        'sequence': sequence,
-        // A JSON string rather than an object: the controller rejects anything
-        // that is not a String outright.
-        'data': data,
-        'owner': owner,
-        if (force) 'force_save': true,
-      },
-    );
-
-    Map<String, dynamic> body;
-    try {
-      body = await send(force: false);
-    } on WriteException catch (e) {
-      if (e.failure != WriteFailure.conflict) rethrow;
-      body = await send(force: true);
-    }
-
-    return jsonIntOrNull(body['draft_sequence']);
-  }
+  }) async => _composer.saveDraft(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    draftKey: draftKey,
+    sequence: sequence,
+    data: data,
+    owner: owner,
+    clientId: clientId,
+  );
 
   @override
   Future<ComposerUploadResult> uploadComposerImage({
@@ -2614,85 +1320,15 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required Future<void> abortTrigger,
     ComposerUploadType uploadType = ComposerUploadType.composer,
     String? clientId,
-  }) async {
-    final int fileLength;
-    try {
-      final resolvedLength = await Future.any<int?>([
-        abortTrigger.then((_) => null),
-        file.length().then<int?>((value) => value),
-      ]);
-      if (resolvedLength == null) {
-        throw const ComposerUploadException('Upload cancelled.');
-      }
-      fileLength = resolvedLength;
-    } on ComposerUploadException {
-      rethrow;
-    } catch (_) {
-      throw ComposerUploadException("Couldn't read ${file.name}.");
-    }
-
-    final fileBytes = file.openRead();
-    final http.Response response;
-    try {
-      response = await _transport.upload(
-        url: Uri.parse('$siteUrl/uploads.json'),
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        uploadType: uploadType.wireName,
-        filename: file.name,
-        fileLength: fileLength,
-        fileBytes: fileBytes,
-        onProgress: onProgress,
-        abortTrigger: abortTrigger,
-        clientId: clientId,
-      );
-    } catch (error) {
-      throw ComposerUploadException(
-        error is http.RequestAbortedException
-            ? 'Upload cancelled.'
-            : "Couldn't upload ${file.name}.",
-      );
-    }
-
-    final decoded = DiscourseTransport.decodeObjectOrEmpty(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ComposerUploadException(
-        _uploadError(decoded, file.name),
-        statusCode: response.statusCode,
-      );
-    }
-
-    final originalFilename = jsonText(decoded['original_filename']);
-    final id = jsonIntOrNull(decoded['id']);
-    final url = jsonText(decoded['url']);
-    final shortUrl = jsonText(decoded['short_url']) ?? url;
-    if (id == null ||
-        id <= 0 ||
-        originalFilename == null ||
-        url == null ||
-        shortUrl == null) {
-      throw ComposerUploadException(
-        "The site returned an incomplete upload for ${file.name}.",
-        statusCode: response.statusCode,
-      );
-    }
-    final thumbnail = jsonObject(decoded['thumbnail']);
-    onProgress(1);
-    return ComposerUploadResult(
-      id: id,
-      originalFilename: originalFilename,
-      shortUrl: shortUrl,
-      url: _absoluteUploadUrl(siteUrl, url),
-      width: jsonIntOrNull(decoded['width']),
-      height: jsonIntOrNull(decoded['height']),
-      thumbnailWidth: jsonIntOrNull(decoded['thumbnail_width']),
-      thumbnailHeight: jsonIntOrNull(decoded['thumbnail_height']),
-      thumbnailUrl: switch (jsonText(thumbnail['url'])) {
-        final value? => _absoluteUploadUrl(siteUrl, value),
-        null => null,
-      },
-    );
-  }
+  }) async => _composer.uploadComposerImage(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    file: file,
+    onProgress: onProgress,
+    abortTrigger: abortTrigger,
+    uploadType: uploadType,
+    clientId: clientId,
+  );
 
   @override
   Future<Map<String, String>> lookupUploadUrls({
@@ -2700,51 +1336,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required Iterable<String> shortUrls,
     String? clientId,
-  }) async {
-    final requested = shortUrls.toSet();
-    if (requested.isEmpty) return const {};
-    final response = await _transport.requestAuthenticated(
-      'POST',
-      Uri.parse('$siteUrl/uploads/lookup-urls'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-      jsonBody: {'short_urls': requested.toList()},
-    );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ComposerUploadException(
-        "Couldn't load image previews.",
-        statusCode: response.statusCode,
-      );
-    }
-    final decoded = await decodeJsonHttpResponse(response);
-    if (decoded is! List<dynamic>) return const {};
-    return {
-      for (final value in decoded)
-        if (value is Map<String, dynamic>)
-          if ((jsonText(value['short_url']), jsonText(value['url'])) case (
-            final shortUrl?,
-            final url?,
-          ))
-            shortUrl: _absoluteUploadUrl(siteUrl, url),
-    };
-  }
-
-  static String _absoluteUploadUrl(String siteUrl, String url) =>
-      Uri.parse(siteUrl).resolve(url).toString();
-
-  static String _uploadError(Map<String, dynamic> body, String filename) {
-    final message = jsonText(body['message']);
-    if (message != null && message.trim().isNotEmpty) return message.trim();
-    final errors = jsonArray(body['errors'])
-        .map(jsonText)
-        .whereType<String>()
-        .where((value) => value.trim().isNotEmpty)
-        .toList();
-    return errors.isEmpty
-        ? "Couldn't upload $filename."
-        : errors.map((value) => value.trim()).join('\n');
-  }
+  }) async => _composer.lookupUploadUrls(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    shortUrls: shortUrls,
+    clientId: clientId,
+  );
 
   @override
   Future<({ComposerDraft? draft, int sequence})> draft({
@@ -2752,22 +1349,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required String draftKey,
     String? clientId,
-  }) async {
-    final body = await _getObject(
-      Uri.parse('$siteUrl/drafts/${Uri.encodeComponent(draftKey)}.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    return (
-      draft: switch (body['draft']) {
-        final String value => ComposerDraft.decode(value),
-        final Map<String, dynamic> value => ComposerDraft.fromJson(value),
-        _ => null,
-      },
-      sequence: jsonIntOrNull(body['draft_sequence']) ?? 0,
-    );
-  }
+  }) async => _composer.draft(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    draftKey: draftKey,
+    clientId: clientId,
+  );
 
   @override
   Future<List<UserDraft>> userDrafts({
@@ -2776,29 +1363,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     int offset = 0,
     int limit = 30,
     String? clientId,
-  }) async {
-    if (offset < 0) {
-      throw RangeError.value(offset, 'offset', 'Must not be negative.');
-    }
-    if (limit < 1 || limit > maximumUserDraftPageSize) {
-      throw RangeError.range(limit, 1, maximumUserDraftPageSize, 'limit');
-    }
-    final url = Uri.parse(
-      '$siteUrl/drafts.json',
-    ).replace(queryParameters: {'offset': '$offset', 'limit': '$limit'});
-    final body = await _getObject(
-      url,
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    return List.unmodifiable(
-      jsonObjects(body['drafts'])
-          .take(limit)
-          .map(UserDraft.fromJson)
-          .where((draft) => draft.key.isNotEmpty),
-    );
-  }
+  }) async => _account.userDrafts(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    offset: offset,
+    limit: limit,
+    clientId: clientId,
+  );
 
   @override
   Future<void> deleteUserDraft({
@@ -2807,17 +1378,13 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String draftKey,
     required int sequence,
     String? clientId,
-  }) async {
-    final encoded = Uri.encodeComponent(draftKey);
-    await _write(
-      Uri.parse('$siteUrl/drafts/$encoded.json?sequence=$sequence'),
-      siteUrl: siteUrl,
-      method: 'DELETE',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: const {},
-    );
-  }
+  }) async => _account.deleteUserDraft(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    draftKey: draftKey,
+    sequence: sequence,
+    clientId: clientId,
+  );
 
   @override
   Future<UserSummary> userSummary({
@@ -2825,16 +1392,12 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String apiKey,
     required String username,
     String? clientId,
-  }) async {
-    final encoded = Uri.encodeComponent(username);
-    final body = await _getObject(
-      Uri.parse('$siteUrl/u/$encoded/summary.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    return UserSummary.fromJson(body, siteUrl);
-  }
+  }) async => _account.userSummary(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    clientId: clientId,
+  );
 
   Future<Map<String, dynamic>> _write(
     Uri url, {
@@ -2945,149 +1508,22 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     return target;
   }
 
-  static void _requirePositiveId(int value, String name) {
-    if (value <= 0) throw RangeError.value(value, name, 'Must be positive.');
-  }
-
-  static String _normalizePrivateMessageRecipients(String value) {
-    if (value.length > maximumSearchTermLength || value.contains('\u0000')) {
-      throw ArgumentError.value(value, 'targetRecipients');
-    }
-    final recipients = value
-        .split(',')
-        .map((recipient) => recipient.trim())
-        .where((recipient) => recipient.isNotEmpty)
-        .toList();
-    if (recipients.isEmpty) {
-      throw ArgumentError.value(value, 'targetRecipients');
-    }
-    return recipients.join(',');
-  }
-
-  static void _validateSelectedPostIds(List<int> postIds, {int minimum = 1}) {
-    if (postIds.length < minimum ||
-        postIds.any((id) => id <= 0) ||
-        postIds.toSet().length != postIds.length) {
-      throw ArgumentError.value(
-        postIds,
-        'postIds',
-        'must contain at least $minimum unique positive ids',
-      );
-    }
-  }
-
-  static void _validatePostWindow(int topicId, List<int> ids) {
-    _requirePositiveId(topicId, 'topicId');
-    if (ids.length > TopicDetail.maximumInitialPosts) {
-      throw RangeError.range(
-        ids.length,
-        1,
-        TopicDetail.maximumInitialPosts,
-        'ids.length',
-      );
-    }
-    for (final id in ids) {
-      _requirePositiveId(id, 'ids');
-    }
-  }
-
-  static void _validateComposerLookupValue(
-    String value, {
-    bool allowEmpty = false,
-  }) {
-    if ((!allowEmpty && value.isEmpty) ||
-        value.length > maximumSearchTermLength) {
-      throw ArgumentError(
-        'Composer lookup values must be ${allowEmpty ? 'at most' : 'between 1 and'} '
-        '$maximumSearchTermLength characters.',
-      );
-    }
-  }
-
-  static void _validateAutocompleteRequest({
-    required String term,
-    required int limit,
-  }) {
-    if (term.length > maximumSearchTermLength) {
-      throw ArgumentError(
-        'Autocomplete terms must be at most '
-        '$maximumSearchTermLength characters.',
-      );
-    }
-    if (limit < 1 || limit > maximumAutocompleteResults) {
-      throw RangeError.range(limit, 1, maximumAutocompleteResults, 'limit');
-    }
-  }
-
   @override
   Future<void> revokeApiKey({
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async {
-    final response = await _transport.requestAuthenticated(
-      'POST',
-      Uri.parse('$siteUrl/user-api-key/revoke'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-
-    // 404 means the site predates the revoke route; nothing to do about it.
-    // Every other non-2xx response is a failed revocation. In particular,
-    // SafeHttpClient deliberately refuses automatic redirects, so accepting a
-    // 3xx here would delete our local key while leaving the remote key live.
-    if ((response.statusCode < 200 || response.statusCode >= 300) &&
-        response.statusCode != 404) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        statusCode: response.statusCode,
-      );
-    }
-  }
+  }) async => _account.revokeApiKey(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   static const String userAgent = DiscourseTransport.userAgent;
 
   static Map<String, String> authHeaders(String apiKey, {String? clientId}) =>
       DiscourseTransport.authHeaders(apiKey, clientId: clientId);
 
-  static String? _absoluteIcon(String? icon, String baseUrl) {
-    if (icon == null || icon.isEmpty) return null;
-    if (icon.startsWith('//')) {
-      final scheme = Uri.tryParse(baseUrl)?.scheme;
-      return '${scheme == null || scheme.isEmpty ? 'https' : scheme}:$icon';
-    }
-    if (icon.startsWith('http://') || icon.startsWith('https://')) return icon;
-    return '$baseUrl${icon.startsWith('/') ? '' : '/'}$icon';
-  }
-
   @override
   void close() => _transport.close();
 }
-
-Iterable<Map<String, dynamic>> _flattenCategories(Object? categories) sync* {
-  // Category nesting is site-controlled. Keep preorder without recursively
-  // nesting sync* iterators, so a malformed deep tree cannot exhaust the Dart
-  // call stack while the otherwise valid response is committed.
-  final pending = <Map<String, dynamic>>[];
-
-  void pushReversed(Object? value) {
-    final values = jsonArray(value);
-    for (var index = values.length - 1; index >= 0; index--) {
-      final entry = values[index];
-      if (entry is Map<String, dynamic>) pending.add(entry);
-    }
-  }
-
-  pushReversed(categories);
-  while (pending.isNotEmpty) {
-    final category = pending.removeLast();
-    yield category;
-    pushReversed(category['subcategory_list']);
-  }
-}
-
-List<SidebarTag> _navigationTags(Object? values) => List.unmodifiable([
-  for (final json in jsonObjects(values)) ?SidebarTag.fromJson(json),
-]);
