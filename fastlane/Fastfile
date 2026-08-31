@@ -113,6 +113,15 @@ lane :beta do |options|
 
   ensure_clean_worktree!(allow_dirty: allow_dirty)
   quality_checks unless skip_checks
+
+  # `flutter build --config-only` does not reliably refresh package_config
+  # when a path dependency's pubspec changes. Keep dependency hydration out of
+  # the optional quality checks so `skip_checks:true` cannot archive with stale
+  # package resolution or plugin registrants.
+  Dir.chdir(FULL_PROFILE_ROOT) do
+    sh("flutter", "pub", "get", "--enforce-lockfile")
+  end
+
   ensure_clean_worktree!(allow_dirty: allow_dirty)
 
   auth = { api_key_path: api_key_path }
