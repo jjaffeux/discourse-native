@@ -1011,6 +1011,90 @@ void main() {
   });
 
   group('live updates and mounted presentation', () {
+    testWidgets('a visible live message clears its sidebar unread state', (
+      tester,
+    ) async {
+      const reader = DiscourseUser(id: 7, username: 'reader');
+      final api = _ChatApi(
+        user: reader,
+        chatChannelsBySite: {
+          firstSite: ChatChannels(
+            public: [
+              ChatChannel(
+                id: 9,
+                title: 'Chat',
+                kind: ChatChannelKind.category,
+                membership: const ChatMembership(
+                  following: true,
+                  lastReadMessageId: 1,
+                ),
+                lastMessageId: 1,
+                lastMessageAt: DateTime.utc(2026, 1, 1, 0, 1),
+              ),
+            ],
+          ),
+        },
+        openPages: {
+          firstSite: [_messagesPage(1, 1)],
+        },
+      );
+      final controller = await _controller(
+        api,
+        sites: const [firstSite],
+        user: reader,
+      );
+      addTearDown(controller.dispose);
+      await controller.chat.loadChannels(firstSite);
+      await controller.chat.openChannel(firstSite, 9);
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pumpAndSettle();
+
+      final tracker = FakeSiteTracker.built.singleWhere(
+        (tracker) => tracker.siteUrl == firstSite,
+      );
+      tracker.deliverPluginMessage('/chat/9/new-messages', {
+        'type': 'channel',
+        'channel_id': 9,
+        'message': {
+          'id': 2,
+          'chat_channel_id': 9,
+          'message': 'hello',
+          'cooked': '<p>hello</p>',
+          'created_at': '2026-01-01T00:02:00.000Z',
+          'user': {'id': 2, 'username': 'sam'},
+        },
+      });
+      await tester.pump();
+
+      expect(controller.chat.channel(firstSite, 9)?.badge.dot, isTrue);
+
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump();
+
+      expect(api.chatReadsMarked, [(channelId: 9, messageId: 2)]);
+      expect(
+        controller.chat.channel(firstSite, 9)?.tracking,
+        ChatTracking.none,
+      );
+      expect(controller.chat.channel(firstSite, 9)?.badge.isVisible, isFalse);
+
+      // Tracking and the channel stream are independent MessageBus channels.
+      // A delayed aggregate can arrive after the pane has already credited
+      // the same visible edge.
+      tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
+        'channel_id': 9,
+        'last_read_message_id': 2,
+        'unread_count': 1,
+        'mention_count': 0,
+        'watched_threads_unread_count': 0,
+      });
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+
+      expect(api.chatReadsMarked, [(channelId: 9, messageId: 2)]);
+      expect(controller.chat.channel(firstSite, 9)?.badge.isVisible, isFalse);
+    });
+
     testWidgets(
       'scrolling hides message actions until the pointer moves again',
       (tester) async {
