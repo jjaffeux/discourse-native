@@ -43,6 +43,8 @@ class ComposerImageGalleryPreview extends StatelessWidget {
     this.highlighted = false,
     this.onEdit,
     this.onReorder,
+    this.onReorderStarted,
+    this.onReorderEnded,
   });
 
   final ComposerImageGalleryBlock gallery;
@@ -51,6 +53,8 @@ class ComposerImageGalleryPreview extends StatelessWidget {
   final bool highlighted;
   final VoidCallback? onEdit;
   final void Function(ComposerImageBlock image, int newIndex)? onReorder;
+  final ValueChanged<ComposerImageBlock>? onReorderStarted;
+  final ValueChanged<ComposerImageBlock>? onReorderEnded;
 
   static const double tileExtent = 56;
   static const double gap = 6;
@@ -134,6 +138,8 @@ class ComposerImageGalleryPreview extends StatelessWidget {
                               index: index,
                               siteUrl: siteUrl,
                               onReorder: onReorder,
+                              onReorderStarted: onReorderStarted,
+                              onReorderEnded: onReorderEnded,
                             ),
                         ],
                       ),
@@ -198,12 +204,16 @@ class _ReorderableGalleryTile extends StatelessWidget {
     required this.index,
     required this.siteUrl,
     required this.onReorder,
+    required this.onReorderStarted,
+    required this.onReorderEnded,
   });
 
   final ComposerImageGalleryItem item;
   final int index;
   final String? siteUrl;
   final void Function(ComposerImageBlock image, int newIndex)? onReorder;
+  final ValueChanged<ComposerImageBlock>? onReorderStarted;
+  final ValueChanged<ComposerImageBlock>? onReorderEnded;
 
   @override
   Widget build(BuildContext context) => DragTarget<ComposerImageBlock>(
@@ -222,6 +232,8 @@ class _ReorderableGalleryTile extends StatelessWidget {
       return Draggable<ComposerImageBlock>(
         data: item.image,
         dragAnchorStrategy: pointerDragAnchorStrategy,
+        onDragStarted: () => onReorderStarted?.call(item.image),
+        onDragEnd: (_) => onReorderEnded?.call(item.image),
         feedback: ExcludeSemantics(
           child: Material(
             color: Colors.transparent,

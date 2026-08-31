@@ -948,7 +948,28 @@ void main() {
       final tiles = find.byType(ComposerImageGalleryTile);
       final first = tester.getCenter(tiles.at(0));
       final last = tester.getCenter(tiles.at(2));
-      await tester.dragFrom(first, last - first);
+      final drag = await tester.startGesture(
+        first,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump();
+      for (var step = 1; step <= 10; step++) {
+        await drag.moveTo(Offset.lerp(first, last, step / 10)!);
+        if (step == 3) {
+          final draggedImage = composer.text.galleryBlocks.single.images.first;
+          composer.text.selection = TextSelection.collapsed(
+            offset: draggedImage.start + 1,
+          );
+        }
+        await tester.pump();
+        expect(
+          find.byType(ComposerImageGalleryPreview),
+          findsOneWidget,
+          reason: 'reordering must not expose the gallery Markdown',
+        );
+      }
+
+      await drag.up();
       await tester.pumpAndSettle();
 
       expect(
@@ -957,6 +978,49 @@ void main() {
         ).single.images.map((image) => image.url),
         ['upload://two', 'upload://three', 'upload://one'],
       );
+    });
+
+    testWidgets('a cancelled gallery reorder keeps the gallery projected', (
+      tester,
+    ) async {
+      final composer = ComposerController(
+        _target,
+        resolveUploadUrls: (_) async => const {},
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.text =
+          '[grid]\n'
+          '![one](upload://one)\n'
+          '![two](upload://two)\n'
+          '[/grid]';
+
+      await _pumpPanel(tester, shell, composer);
+      await tester.pumpAndSettle();
+
+      final source = composer.text.text;
+      final first = tester.getCenter(
+        find.byType(ComposerImageGalleryTile).first,
+      );
+      final outsideTarget = tester.getCenter(
+        find.byType(ComposerImageGalleryControl),
+      );
+      final drag = await tester.startGesture(
+        first,
+        kind: PointerDeviceKind.mouse,
+      );
+      await drag.moveTo(outsideTarget);
+      final draggedImage = composer.text.galleryBlocks.single.images.first;
+      composer.text.selection = TextSelection.collapsed(
+        offset: draggedImage.start + 1,
+      );
+      await tester.pump();
+      await drag.up();
+      await tester.pumpAndSettle();
+
+      expect(composer.text.text, source);
+      expect(find.byType(ComposerImageGalleryPreview), findsOneWidget);
     });
 
     testWidgets('a gallery can import multiple standalone draft images', (
