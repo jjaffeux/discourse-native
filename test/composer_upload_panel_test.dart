@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
@@ -27,9 +28,14 @@ void main() {
     ) async {
       const channel = MethodChannel('pasteboard');
       final messenger = tester.binding.defaultBinaryMessenger;
+      final calls = <String>[];
       messenger.setMockMethodCallHandler(channel, (call) async {
-        expect(call.method, 'image');
-        return Uint8List.fromList(const [1, 2, 3]);
+        calls.add(call.method);
+        return switch (call.method) {
+          'files' => const <String>[],
+          'image' => Uint8List.fromList(const [1, 2, 3]),
+          _ => fail('Unexpected pasteboard method: ${call.method}'),
+        };
       });
       addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
@@ -48,7 +54,47 @@ void main() {
         2,
         3,
       ]);
+      expect(calls, ['files', 'image']);
     });
+
+    testWidgets(
+      'copied image files use their pixels instead of the file icon',
+      (tester) async {
+        final directory = Directory.systemTemp.createTempSync(
+          'discourse-native-clipboard-',
+        );
+        addTearDown(() => directory.deleteSync(recursive: true));
+        final copiedImage = File('${directory.path}/copied screenshot.png');
+        copiedImage.writeAsBytesSync(const [4, 5, 6, 7]);
+
+        const channel = MethodChannel('pasteboard');
+        final messenger = tester.binding.defaultBinaryMessenger;
+        final calls = <String>[];
+        messenger.setMockMethodCallHandler(channel, (call) async {
+          calls.add(call.method);
+          return switch (call.method) {
+            'files' => <String>[copiedImage.path],
+            'image' => Uint8List.fromList(const [80, 78, 71]),
+            _ => fail('Unexpected pasteboard method: ${call.method}'),
+          };
+        });
+        addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+        final files = await readComposerClipboardImages();
+
+        expect(files, hasLength(1));
+        expect(files.single.name, 'copied screenshot.png');
+        final upload = await tester.runAsync(
+          () async => (
+            await files.single.length(),
+            await files.single.openRead().expand((chunk) => chunk).toList(),
+          ),
+        );
+        expect(upload?.$1, 4);
+        expect(upload?.$2, [4, 5, 6, 7]);
+        expect(calls, ['files']);
+      },
+    );
 
     testWidgets('the paste shortcut uploads an image at the captured caret', (
       tester,
