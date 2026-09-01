@@ -120,6 +120,40 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('horizontal arrows move across a rendered emoji atomically', (
+    tester,
+  ) async {
+    final pipeline = installTestMediaPipeline(
+      client: MockClient((_) async => http.Response.bytes(_pngBytes, 200)),
+    );
+    final shell = await _openComposer();
+    addTearDown(shell.dispose);
+    await pipeline.emoji.load(shell.emojiUrlFor(_site, 'wave'));
+    final composer = shell.visibleComposer!;
+    composer.text.value = const TextEditingValue(
+      text: ':wave:',
+      selection: TextSelection.collapsed(offset: 6),
+    );
+    await _pumpComposer(tester, shell);
+
+    expect(find.byType(EmojiImage), findsOneWidget);
+    composer.focus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+
+    expect(composer.text.text, ':wave:');
+    expect(composer.text.selection, const TextSelection.collapsed(offset: 0));
+    expect(find.byType(EmojiImage), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+
+    expect(composer.text.selection, const TextSelection.collapsed(offset: 6));
+    expect(find.byType(EmojiImage), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('topic composer inserts a picker selection at captured caret', (
     tester,
   ) async {
