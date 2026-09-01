@@ -973,9 +973,22 @@ class _ChatComposerState extends State<ChatComposer> {
                     builder: (context, openMenu) => DButton.iconOnly(
                       key: const ValueKey('chat-composer-add'),
                       onPressed: openMenu,
-                      icon: const DIcon(DIcons.plus, size: 18),
+                      icon: DecoratedBox(
+                        key: const ValueKey('chat-composer-add-icon'),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.08,
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.all(5),
+                          child: DIcon(DIcons.plus, size: 18),
+                        ),
+                      ),
                       tooltip: 'Add to message',
                       variant: DButtonVariant.flat,
+                      interactiveBackgroundColor: Colors.transparent,
                     ),
                   ),
                 );
