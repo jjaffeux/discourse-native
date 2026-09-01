@@ -2090,9 +2090,6 @@ final class _TokenProjection implements ComposerSyntaxProjection {
   bool get protectsAdjacentDelete => false;
 
   @override
-  bool get hidesCursorWhenSelected => false;
-
-  @override
   List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context) => [
     TextSpan(text: source, style: context.baseStyle),
   ];

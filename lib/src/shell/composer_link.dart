@@ -333,9 +333,6 @@ final class ComposerLinkSyntaxProjection implements ComposerSyntaxProjection {
   bool get protectsAdjacentDelete => block.kind == ComposerLinkKind.markdown;
 
   @override
-  bool get hidesCursorWhenSelected => true;
-
-  @override
   List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context) => [
     WidgetSpan(
       alignment: PlaceholderAlignment.middle,

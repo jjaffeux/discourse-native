@@ -144,8 +144,6 @@ abstract interface class ComposerSyntaxProjection {
 
   bool get protectsAdjacentDelete;
 
-  bool get hidesCursorWhenSelected;
-
   List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context);
 
   FutureOr<void> edit(BuildContext context, ComposerEditorHost editor);

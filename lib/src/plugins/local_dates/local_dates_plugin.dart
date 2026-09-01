@@ -365,9 +365,6 @@ final class LocalDateComposerSyntaxProjection
   bool get protectsAdjacentDelete => false;
 
   @override
-  bool get hidesCursorWhenSelected => true;
-
-  @override
   List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context) =>
       buildCollapsedLocalDateSpans(
         block: block,

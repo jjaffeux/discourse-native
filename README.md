@@ -893,12 +893,12 @@ into the field's string. So:
   the seven characters of `:smile:` silently puts every later offset out by six.
   `markdown_highlight_test.dart` fuzzes 2000 inputs against the invariant, and
   `markdown_editing_controller_test.dart` round-trips the caret for it.
-- **An atomic projection owns its cursor state.** Horizontal keyboard traversal
+- **Atomic selection owns the cursor state.** Horizontal keyboard traversal
   has three states: caret before, selected with no caret, and caret after. A
   block image or gallery reserves its height with transparent source characters,
   whose interior caret geometry is not a meaningful editor position. The
-  controller therefore decides whether the selected projection hides the
-  cursor; the field does not special-case individual component kinds.
+  controller therefore hides the cursor for every selected projection; neither
+  the field nor individual component kinds decide this independently.
 - **The composer field must never set `spellCheckConfiguration`.** `EditableText`
   routes around `controller.buildTextSpan` entirely once spell-check results
   arrive, so highlighting would vanish by flickering rather than by breaking.

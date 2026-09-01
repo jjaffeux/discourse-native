@@ -254,9 +254,6 @@ final class PollComposerSyntaxProjection
   bool get protectsAdjacentDelete => true;
 
   @override
-  bool get hidesCursorWhenSelected => true;
-
-  @override
   List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context) =>
       buildCollapsedPollSpans(
         block: block,
