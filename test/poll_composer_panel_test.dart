@@ -1506,6 +1506,7 @@ void main() {
             .highlighted,
         isFalse,
       );
+      expect(_composerEditable(tester).showCursor, isTrue);
       expect(find.text('Edit date and time'), findsNothing);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pump();
@@ -1516,6 +1517,7 @@ void main() {
             .highlighted,
         isTrue,
       );
+      expect(_composerEditable(tester).showCursor, isFalse);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pump();
       expect(composer.text.selection.extentOffset, block.end);
@@ -1526,9 +1528,11 @@ void main() {
             .highlighted,
         isFalse,
       );
+      expect(_composerEditable(tester).showCursor, isTrue);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pump();
       expect(composer.text.keyboardSelectedLocalDate, isNotNull);
+      expect(_composerEditable(tester).showCursor, isFalse);
       final selectedValue = composer.text.value;
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump(const Duration(milliseconds: 500));
@@ -1543,6 +1547,7 @@ void main() {
             .highlighted,
         isTrue,
       );
+      expect(_composerEditable(tester).showCursor, isFalse);
       composer.focus.requestFocus();
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
