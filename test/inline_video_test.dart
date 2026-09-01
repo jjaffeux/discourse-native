@@ -4,6 +4,7 @@ import 'package:discourse_native/src/shell/inline_video.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:video_player/video_player.dart';
@@ -292,6 +293,24 @@ void main() {
       'Exit full screen',
     );
     await tester.tap(find.byKey(closeButton));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('inline-video-fullscreen-view')),
+      findsNothing,
+    );
+    expect(find.byKey(fullscreenButton), findsOneWidget);
+    expect(controllerBuilds, 1);
+    expect(controller.value.isPlaying, isTrue);
+
+    await tester.tap(find.byKey(fullscreenButton));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('inline-video-fullscreen-view')),
+      findsOneWidget,
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
 
     expect(

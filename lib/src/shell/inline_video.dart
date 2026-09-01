@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, immutable, visibleForTesting;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:html/dom.dart' as dom;
 import 'package:video_player/video_player.dart';
 import 'package:webview_all/webview_all.dart';
@@ -651,56 +652,65 @@ class _InlineVideoFullscreen extends StatelessWidget {
   final VoidCallback onTogglePlayback;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    key: const ValueKey('inline-video-fullscreen-view'),
-    backgroundColor: Colors.black,
-    body: SafeArea(
-      child: AnimatedBuilder(
-        animation: controller,
-        builder: (context, _) {
-          final value = controller.value;
-          final ratio = value.aspectRatio.isFinite && value.aspectRatio > 0
-              ? value.aspectRatio
-              : data.aspectRatio;
-          return Semantics(
-            label: 'Full-screen video player: ${data.title}',
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Center(
-                  child: AspectRatio(
-                    aspectRatio: ratio,
-                    child: VideoPlayer(controller),
-                  ),
-                ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: DecoratedBox(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Color(0xDD000000)],
+  Widget build(BuildContext context) => CallbackShortcuts(
+    bindings: {
+      const SingleActivator(LogicalKeyboardKey.escape): () =>
+          Navigator.of(context).pop(),
+    },
+    child: Focus(
+      autofocus: true,
+      child: Scaffold(
+        key: const ValueKey('inline-video-fullscreen-view'),
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: AnimatedBuilder(
+            animation: controller,
+            builder: (context, _) {
+              final value = controller.value;
+              final ratio = value.aspectRatio.isFinite && value.aspectRatio > 0
+                  ? value.aspectRatio
+                  : data.aspectRatio;
+              return Semantics(
+                label: 'Full-screen video player: ${data.title}',
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Center(
+                      child: AspectRatio(
+                        aspectRatio: ratio,
+                        child: VideoPlayer(controller),
                       ),
                     ),
-                    child: _NativeVideoControls(
-                      controller: controller,
-                      value: value,
-                      onTogglePlayback: onTogglePlayback,
-                      onExitFullscreen: Navigator.of(context).pop,
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Color(0xDD000000)],
+                          ),
+                        ),
+                        child: _NativeVideoControls(
+                          controller: controller,
+                          value: value,
+                          onTogglePlayback: onTogglePlayback,
+                          onExitFullscreen: Navigator.of(context).pop,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (value.isBuffering)
+                      const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
+                  ],
                 ),
-                if (value.isBuffering)
-                  const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  ),
-              ],
-            ),
-          );
-        },
+              );
+            },
+          ),
+        ),
       ),
     ),
   );
