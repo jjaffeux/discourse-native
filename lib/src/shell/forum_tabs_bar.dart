@@ -984,7 +984,6 @@ class _ForumTabActionsState extends State<_ForumTabActions> {
         menuChildren: [
           MenuItemButton(
             key: ValueKey('forum-tab-menu-close-${widget.tabId}'),
-            leadingIcon: const DIcon(DIcons.xmark, size: 16),
             shortcut: widget.selected
                 ? primaryShortcutForPlatform(
                     Theme.of(context).platform,
@@ -996,7 +995,6 @@ class _ForumTabActionsState extends State<_ForumTabActions> {
           ),
           MenuItemButton(
             key: ValueKey('forum-tab-menu-close-others-${widget.tabId}'),
-            leadingIcon: const DIcon(DIcons.xmark, size: 16),
             onPressed: widget.onCloseOthers,
             child: const Text('Close other tabs'),
           ),
