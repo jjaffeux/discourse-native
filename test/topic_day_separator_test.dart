@@ -87,6 +87,73 @@ void main() {
     expect(taps, 1);
   });
 
+  testWidgets('does not separate a topic opening post made today', (
+    tester,
+  ) async {
+    final now = DateTime(2026, 9, 1, 12);
+    final today = DateTime(now.year, now.month, now.day);
+    final site = instance('meta.example');
+    final posts = [_post(1, day: today), _post(2, day: today)];
+    final controller = _controller(site);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (final post in posts) post.id],
+          postsCount: posts.length,
+        ),
+      )
+      ..putAll(site.url, posts);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    await tester.pumpWidget(_topicView(controller, now: () => now));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey(1)), findsOneWidget);
+    expect(find.byKey(const ValueKey(2)), findsOneWidget);
+    expect(find.byKey(ValueKey(('topic-day', today))), findsNothing);
+    expect(find.byType(StreamDaySeparator), findsNothing);
+  });
+
+  testWidgets('still separates today from an older topic opening post', (
+    tester,
+  ) async {
+    final now = DateTime(2026, 9, 1, 12);
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = DateTime(now.year, now.month, now.day - 1);
+    final site = instance('meta.example');
+    final posts = [_post(1, day: yesterday), _post(2, day: today)];
+    final controller = _controller(site);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (final post in posts) post.id],
+          postsCount: posts.length,
+        ),
+      )
+      ..putAll(site.url, posts);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    await tester.pumpWidget(_topicView(controller, now: () => now));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(ValueKey(('topic-day', yesterday))), findsOneWidget);
+    expect(find.byKey(ValueKey(('topic-day', today))), findsOneWidget);
+  });
+
   testWidgets('calls out a gap strictly longer than the site threshold', (
     tester,
   ) async {
@@ -334,10 +401,14 @@ ShellController _controller(DiscourseInstance site, {FakeDiscourseApi? api}) {
   );
 }
 
-Widget _topicView(ShellController controller, {ThemeData? theme}) => ShellScope(
+Widget _topicView(
+  ShellController controller, {
+  ThemeData? theme,
+  DateTime Function()? now,
+}) => ShellScope(
   controller: controller,
   child: MaterialApp(
     theme: theme ?? AppTheme.light,
-    home: const Scaffold(body: TopicView()),
+    home: Scaffold(body: TopicView(now: now)),
   ),
 );
