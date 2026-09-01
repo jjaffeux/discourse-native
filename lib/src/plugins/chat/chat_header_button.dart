@@ -50,6 +50,19 @@ class ChatHeaderButton extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
+        final exitsChat =
+            shell.chatActive &&
+            shell.separateSidebarMode != ChatSeparateSidebarMode.never;
+        if (exitsChat) {
+          return DButton.iconOnly(
+            key: buttonKey,
+            tooltip: 'Exit chat',
+            onPressed: shell.closeSidebarPanel,
+            variant: DButtonVariant.flat,
+            icon: const DIcon(DIcons.shuffle, size: 22),
+          );
+        }
+
         final preference =
             user.chatCurrentUser?.headerIndicatorPreference ??
             ChatHeaderIndicatorPreference.allNew;

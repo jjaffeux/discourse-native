@@ -5,8 +5,10 @@ import 'package:flutter/foundation.dart';
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
+import '../models/discourse_user.dart';
 import '../models/notification_totals.dart';
 import '../models/sidebar.dart';
+import '../models/user_preferences.dart';
 import 'live_channels.dart';
 import 'plugin_manifest.dart';
 
@@ -76,6 +78,23 @@ abstract interface class PluginNavigationHost {
   void replaceCurrentContent(ContentRoute route);
   void selectDestination(SidebarDestination destination);
   void showPluginContent();
+
+  /// Saves the active forum tab and restores this plugin's last tab snapshot.
+  /// Returns whether a plugin snapshot was available.
+  bool activatePluginPane(PluginId owner);
+
+  /// Saves the active plugin tab and restores the forum snapshot captured when
+  /// the pane was entered. A fresh forum root is used after a cold launch.
+  void deactivatePluginPane(PluginId owner);
+}
+
+/// Lets the shell preserve a plugin panel before a navigation target leaves
+/// that panel through an ordinary link, logo action, or core destination.
+abstract interface class PluginPaneRoutePolicy
+    implements PluginSessionCapability {
+  PluginId get pluginPaneOwner;
+  bool ownsPluginPaneRoute(String routeId);
+  bool separatesPluginPane(String routeId);
 }
 
 abstract interface class PluginLinkHandler implements PluginSessionCapability {
@@ -121,6 +140,15 @@ abstract interface class PluginTrackerAttachment
 abstract interface class PluginCurrentUserObserver
     implements PluginSessionCapability {
   void pluginCurrentUserRefreshed(String siteUrl);
+}
+
+abstract interface class PluginUserPreferenceMirror
+    implements PluginSessionCapability {
+  DiscourseUser mirrorUserPreference(
+    DiscourseUser user,
+    PreferenceSection section,
+    UserPreferences preferences,
+  );
 }
 
 abstract interface class PluginBookmarkTargetStrategy

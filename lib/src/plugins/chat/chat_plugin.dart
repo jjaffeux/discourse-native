@@ -30,6 +30,7 @@ import 'chat_new_direct_message.dart';
 import 'chat_notification_counter.dart';
 import 'chat_notifications.dart';
 import 'chat_plugin_data.dart';
+import 'chat_preferences.dart';
 import 'chat_route.dart';
 import 'chat_search_view.dart';
 import 'chat_services.dart';
@@ -52,6 +53,7 @@ class ChatPlugin
         SitePlugin,
         IconCatalogPlugin,
         SidebarPlugin,
+        SidebarPanelPlugin,
         ContentPlugin,
         ContentSearchPlugin,
         ContentChromePlugin,
@@ -71,6 +73,7 @@ class ChatPlugin
         NotificationCounterPlugin,
         SiteSettingsPlugin<ChatSettings>,
         CurrentUserPlugin<ChatCurrentUser>,
+        UserPreferenceSectionPlugin,
         PluginCurrentUserFeature {
   const ChatPlugin();
 
@@ -97,6 +100,14 @@ class ChatPlugin
     final match = RegExp(r'^chat-c-([1-9]\d*)-threads$').firstMatch(routeId);
     return match == null ? null : int.parse(match.group(1)!);
   }
+
+  static bool ownsRouteId(String? routeId) =>
+      routeId != null &&
+      (ChatRoute.parse(routeId) != null ||
+          routeId == browseRouteId ||
+          routeId == myThreadsRouteId ||
+          routeId == searchRouteId ||
+          channelIdFromThreadsRoute(routeId) != null);
 
   @override
   String get name => 'chat';
@@ -187,6 +198,12 @@ class ChatPlugin
       ChatCurrentUser.fromCurrentUser(json);
 
   @override
+  PluginUserPreferenceSection? userPreferenceSection(
+    BuildContext context,
+    PluginUserPreferenceContext preferences,
+  ) => chatUserPreferenceSection(preferences);
+
+  @override
   bool currentUserFeatureEnabled(PluginData currentUser) =>
       currentUser.chatCurrentUser?.hasChatEnabled != false;
 
@@ -237,7 +254,7 @@ class ChatPlugin
 
     return [
       if (chatAvailable)
-        const SidebarSection(
+        SidebarSection(
           id: 'chat-browse',
           title: '',
           showHeader: false,
@@ -247,11 +264,12 @@ class ChatPlugin
               id: browseRouteId,
               label: 'Browse channels',
               icon: DIcons.list,
+              onTap: shell.openBrowseChannels,
             ),
           ],
         ),
       if (myThreadsEnabled)
-        const SidebarSection(
+        SidebarSection(
           id: 'chat-my-threads',
           title: '',
           showHeader: false,
@@ -261,11 +279,12 @@ class ChatPlugin
               id: myThreadsRouteId,
               label: 'My threads',
               icon: DIcons.comments,
+              onTap: shell.openMyThreads,
             ),
           ],
         ),
       if (searchEnabled)
-        const SidebarSection(
+        SidebarSection(
           id: 'chat-search',
           title: '',
           showHeader: false,
@@ -275,6 +294,7 @@ class ChatPlugin
               id: searchRouteId,
               label: 'Search',
               icon: DIcons.magnifyingGlass,
+              onTap: shell.openSearch,
             ),
           ],
         ),
@@ -284,7 +304,11 @@ class ChatPlugin
           title: 'Starred channels',
           destinations: [
             for (final channel in starred)
-              destination(channel, siteUrl: siteUrl),
+              destination(
+                channel,
+                siteUrl: siteUrl,
+                onTap: () => shell.openChannel(channel.id),
+              ),
           ],
         ),
       if (public.isNotEmpty)
@@ -293,7 +317,11 @@ class ChatPlugin
           title: 'Chat',
           destinations: [
             for (final channel in public)
-              destination(channel, siteUrl: siteUrl),
+              destination(
+                channel,
+                siteUrl: siteUrl,
+                onTap: () => shell.openChannel(channel.id),
+              ),
           ],
         ),
       if (chat.channelsLoaded(siteUrl) &&
@@ -315,10 +343,44 @@ class ChatPlugin
               : null,
           destinations: [
             for (final channel in direct)
-              destination(channel, siteUrl: siteUrl),
+              destination(
+                channel,
+                siteUrl: siteUrl,
+                onTap: () => shell.openChannel(channel.id),
+              ),
           ],
         ),
     ];
+  }
+
+  @override
+  SidebarPanelContribution? sidebarPanel(BuildContext context) {
+    final shell = PluginUiScope.require(context, chatShellService);
+    final siteUrl = shell.currentSiteUrl;
+    if (siteUrl == null) return null;
+
+    final active = ownsRouteId(shell.currentContent?.id);
+    final available =
+        shell.isConnected(siteUrl) &&
+        shell.currentUser?.hasChatEnabled != false &&
+        shell.currentTotals?.hasChatEnabled == true;
+    if (!available && !active) return null;
+
+    final mode = shell.separateSidebarMode;
+    final anonymous = shell.currentUser == null;
+    return SidebarPanelContribution(
+      label: 'Chat',
+      icon: DIcons.comment,
+      active: active,
+      separateWhenActive: mode != ChatSeparateSidebarMode.never,
+      // Anonymous visitors have no panel controls, so core leaves their Chat
+      // sections in the forum panel until they enter full-page Chat.
+      includeSectionsWhenInactive:
+          anonymous || mode != ChatSeparateSidebarMode.always,
+      showSwitch: !anonymous && mode != ChatSeparateSidebarMode.never,
+      onOpen: () => unawaited(shell.openShortcut()),
+      onClose: shell.closeSidebarPanel,
+    );
   }
 
   @override
@@ -424,12 +486,7 @@ class ChatPlugin
 
   @override
   bool ownsContentSearch(BuildContext context, ContentRoute route) {
-    final chatRoute = ChatRoute.parse(route.id);
-    return chatRoute != null ||
-        route.id == browseRouteId ||
-        route.id == myThreadsRouteId ||
-        route.id == searchRouteId ||
-        channelIdFromThreadsRoute(route.id) != null;
+    return ownsRouteId(route.id);
   }
 
   @override
@@ -561,6 +618,7 @@ class ChatPlugin
   static SidebarDestination destination(
     ChatChannel channel, {
     String? siteUrl,
+    VoidCallback? onTap,
   }) {
     final directUser = channel.isDirectMessage && channel.users.length == 1
         ? channel.users.first
@@ -604,6 +662,7 @@ class ChatPlugin
           ? DIcons.lock
           : null,
       badge: channel.badge,
+      onTap: onTap,
       hoverActionBuilder: siteUrl == null
           ? null
           : (context) =>

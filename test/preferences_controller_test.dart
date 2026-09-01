@@ -207,6 +207,7 @@ void main() {
           PreferenceSection.notifications,
           PreferenceSection.tracking,
           PreferenceSection.interface,
+          PreferenceSection.chat,
         ]);
 
         final cases =
@@ -249,6 +250,13 @@ void main() {
                       BookmarkAutoDeletePreference.onOwnerReply,
                 ),
                 payload: const {'bookmark_auto_delete_preference': 2},
+              ),
+              PreferenceSection.chat: (
+                change: (current) => current.copyWith(
+                  chatSeparateSidebarMode:
+                      ChatSeparateSidebarPreference.fullscreen,
+                ),
+                payload: const {'chat_separate_sidebar_mode': 'fullscreen'},
               ),
             };
 

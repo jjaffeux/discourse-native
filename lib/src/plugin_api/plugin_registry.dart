@@ -10,6 +10,7 @@ import '../models/post.dart';
 import '../models/sidebar.dart';
 import '../models/topic.dart';
 import '../models/user_card.dart';
+import '../models/user_preferences.dart';
 import '../shell/composer_controller.dart';
 import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
@@ -1351,16 +1352,72 @@ final class PluginRegistry
     return List.unmodifiable(sections);
   }
 
-  List<SidebarSection> sidebarSections(BuildContext context) => [
-    for (final plugin in plugins.whereType<SidebarPlugin>())
-      ...plugin
-          .sidebarSections(_uiContext(context, plugin))
-          .map((section) => _ownedSection(plugin, section)),
+  List<OwnedSidebarPanel> sidebarPanels(BuildContext context) => [
+    for (final plugin in plugins.whereType<SidebarPanelPlugin>())
+      if (plugin.sidebarPanel(_uiContext(context, plugin)) case final panel?)
+        OwnedSidebarPanel(owner: _owner(plugin), panel: panel),
   ];
 
-  List<Listenable> sidebarListenables(BuildContext context) {
+  List<PluginUserPreferenceSection> userPreferenceSections(
+    BuildContext context,
+    PluginUserPreferenceContext preferences,
+  ) {
+    final sections = <PluginUserPreferenceSection>[];
+    final owners = <PreferenceSection, String>{};
+    for (final plugin in plugins.whereType<UserPreferenceSectionPlugin>()) {
+      final section = plugin.userPreferenceSection(
+        _uiContext(context, plugin),
+        preferences,
+      );
+      if (section == null) continue;
+      final owner = _ownerOf(plugin);
+      if (section.section != PreferenceSection.chat) {
+        throw StateError(
+          '$owner cannot replace core preference section '
+          '${section.section.name}.',
+        );
+      }
+      if (section.title.trim().isEmpty) {
+        throw StateError('$owner returned an empty preference section title.');
+      }
+      final previous = owners[section.section];
+      if (previous != null) {
+        throw StateError(
+          'Preference section ${section.section.name} is provided by both '
+          '$previous and $owner.',
+        );
+      }
+      owners[section.section] = owner;
+      sections.add(
+        PluginUserPreferenceSection(
+          section: section.section,
+          title: section.title,
+          icon: section.icon,
+          content: _owned(plugin, section.content),
+        ),
+      );
+    }
+    return List.unmodifiable(sections);
+  }
+
+  List<SidebarSection> sidebarSections(
+    BuildContext context, {
+    bool Function(PluginId owner)? includeOwner,
+  }) => [
+    for (final plugin in plugins.whereType<SidebarPlugin>())
+      if (includeOwner?.call(_owner(plugin)) ?? true)
+        ...plugin
+            .sidebarSections(_uiContext(context, plugin))
+            .map((section) => _ownedSection(plugin, section)),
+  ];
+
+  List<Listenable> sidebarListenables(
+    BuildContext context, {
+    bool Function(PluginId owner)? includeOwner,
+  }) {
     final listenables = <Listenable>[];
     for (final plugin in plugins.whereType<SidebarPlugin>()) {
+      if (!(includeOwner?.call(_owner(plugin)) ?? true)) continue;
       final listenable = plugin.sidebarListenable(_uiContext(context, plugin));
       if (listenable != null) listenables.add(listenable);
     }

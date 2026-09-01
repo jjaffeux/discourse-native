@@ -11,6 +11,7 @@ import '../../models/discourse_user.dart';
 import '../../models/notification_totals.dart';
 import '../../models/post_flag.dart';
 import '../../models/sidebar.dart';
+import '../../models/user_preferences.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import '../../plugin_api/plugin_runtime.dart';
@@ -38,8 +39,10 @@ final class ChatShellService
         PluginLinkHandler,
         PluginRouteRetry,
         PluginRouteHydrator,
+        PluginPaneRoutePolicy,
         PluginTotalsObserver,
         PluginTrackerAttachment,
+        PluginUserPreferenceMirror,
         PluginBookmarkTargetStrategy {
   ChatShellService({
     required this.chat,
@@ -73,8 +76,15 @@ final class ChatShellService
   DiscourseUser? get currentUser => _host.currentInstance?.user;
   NotificationTotals? get currentTotals => _host.currentTotals;
   ContentRoute? get currentContent => _host.currentContent;
-  bool get chatActive =>
-      ChatRoute.parse(_host.currentContent?.id ?? '') != null;
+  bool get chatActive => ChatPlugin.ownsRouteId(_host.currentContent?.id);
+  ChatSeparateSidebarMode get separateSidebarMode {
+    final siteUrl = currentSiteUrl;
+    if (siteUrl == null) return ChatSeparateSidebarMode.never;
+    return effectiveChatSeparateSidebarMode(
+      settings: chat.siteConfigFor(siteUrl).chatSettings,
+      currentUser: currentUser?.chatCurrentUser,
+    );
+  }
 
   bool isConnected(String siteUrl) =>
       _host.currentInstance?.url == siteUrl &&
@@ -148,7 +158,18 @@ final class ChatShellService
   }
 
   @override
-  bool handlesPluginRoute(String routeId) => ChatRoute.parse(routeId) != null;
+  bool handlesPluginRoute(String routeId) => ChatPlugin.ownsRouteId(routeId);
+
+  @override
+  PluginId get pluginPaneOwner => chatPluginId;
+
+  @override
+  bool ownsPluginPaneRoute(String routeId) => ChatPlugin.ownsRouteId(routeId);
+
+  @override
+  bool separatesPluginPane(String routeId) =>
+      ChatPlugin.ownsRouteId(routeId) &&
+      separateSidebarMode != ChatSeparateSidebarMode.never;
 
   @override
   Future<void> hydratePluginRoute(String siteUrl, String routeId) =>
@@ -170,6 +191,35 @@ final class ChatShellService
       chat.attachTracker(siteUrl, channels);
 
   @override
+  DiscourseUser mirrorUserPreference(
+    DiscourseUser user,
+    PreferenceSection section,
+    UserPreferences preferences,
+  ) {
+    if (section != PreferenceSection.chat) return user;
+    final held = user.chatCurrentUser ?? const ChatCurrentUser();
+    final updated = ChatCurrentUser(
+      hasChatEnabled: held.hasChatEnabled,
+      canChat: held.canChat,
+      canDirectMessage: held.canDirectMessage,
+      headerIndicatorPreference: held.headerIndicatorPreference,
+      separateSidebarMode: switch (preferences.chatSeparateSidebarMode) {
+        ChatSeparateSidebarPreference.siteDefault =>
+          ChatSeparateSidebarMode.siteDefault,
+        ChatSeparateSidebarPreference.always => ChatSeparateSidebarMode.always,
+        ChatSeparateSidebarPreference.fullscreen =>
+          ChatSeparateSidebarMode.fullscreen,
+        ChatSeparateSidebarPreference.never => ChatSeparateSidebarMode.never,
+      },
+      lastChannelId: held.lastChannelId,
+      ignoredUsernames: held.ignoredUsernames,
+    );
+    return user.withPlugins(
+      user.plugins.withValue(chatCurrentUserDataKey, updated),
+    );
+  }
+
+  @override
   BookmarkTargetType get pluginBookmarkTarget => chatMessageBookmarkTarget;
 
   @override
@@ -186,21 +236,38 @@ final class ChatShellService
     if (message != null) await chat.reconcileMessageBookmark(siteUrl, message);
   }
 
-  void openBrowseChannels() => _host.selectDestination(
-    const SidebarDestination(
-      id: ChatPlugin.browseRouteId,
-      label: 'Browse channels',
-      icon: DIcons.list,
-    ),
-  );
+  void openBrowseChannels() {
+    _activateSeparatedPane();
+    _host.selectDestination(
+      const SidebarDestination(
+        id: ChatPlugin.browseRouteId,
+        label: 'Browse channels',
+        icon: DIcons.list,
+      ),
+    );
+  }
 
-  void openSearch() => _host.selectDestination(
-    const SidebarDestination(
-      id: ChatPlugin.searchRouteId,
-      label: 'Search',
-      icon: DIcons.magnifyingGlass,
-    ),
-  );
+  void openMyThreads() {
+    _activateSeparatedPane();
+    _host.selectDestination(
+      const SidebarDestination(
+        id: ChatPlugin.myThreadsRouteId,
+        label: 'My threads',
+        icon: DIcons.comments,
+      ),
+    );
+  }
+
+  void openSearch() {
+    _activateSeparatedPane();
+    _host.selectDestination(
+      const SidebarDestination(
+        id: ChatPlugin.searchRouteId,
+        label: 'Search',
+        icon: DIcons.magnifyingGlass,
+      ),
+    );
+  }
 
   void returnToChannel(int channelId) => openChannel(channelId);
 
@@ -269,6 +336,7 @@ final class ChatShellService
     final channel = chat.channel(siteUrl, channelId);
     if (channel?.threadingEnabled != true) return false;
     if (_host.currentInstance?.url != siteUrl) _host.selectInstance(index);
+    _activateSeparatedPane();
 
     final routeId = ChatPlugin.channelThreadsRouteId(channelId);
     if (_host.currentContent?.id != routeId) {
@@ -356,14 +424,37 @@ final class ChatShellService
     final siteUrl = instance.url;
     await chat.loadChannels(siteUrl);
     if (_host.currentInstance?.url != siteUrl) return;
+    if (_activateSeparatedPane()) {
+      _host.showPluginContent();
+      return;
+    }
     final channel = chat.shortcutChannel(
       siteUrl,
       lastChannelId: _host.currentInstance?.user?.lastChatChannelId,
     );
     if (channel != null) {
-      _host.selectDestination(ChatPlugin.destination(channel));
+      _openRoute(siteUrl, ChatRoute.channel(channel.id));
+    } else {
+      openBrowseChannels();
     }
   }
+
+  void closeSidebarPanel() {
+    if (!_usesSidebarPaneNavigation || !chatActive) {
+      return;
+    }
+    _host.deactivatePluginPane(chatPluginId);
+  }
+
+  bool _activateSeparatedPane() {
+    if (!_usesSidebarPaneNavigation || chatActive) {
+      return false;
+    }
+    return _host.activatePluginPane(chatPluginId);
+  }
+
+  bool get _usesSidebarPaneNavigation =>
+      separateSidebarMode != ChatSeparateSidebarMode.never;
 
   bool _openRoute(
     String siteUrl,
@@ -375,6 +466,7 @@ final class ChatShellService
     final channel = chat.channel(siteUrl, route.channelId);
     if (channel == null) return false;
     if (route.isInfo) return _openInfoRoute(siteUrl, channel, route);
+    _activateSeparatedPane();
 
     final currentRoute = switch (_host.currentContent?.id) {
       final id? => ChatRoute.parse(id),
@@ -421,6 +513,7 @@ final class ChatShellService
 
   bool _openInfoRoute(String siteUrl, ChatChannel channel, ChatRoute route) {
     if (_host.currentInstance?.url != siteUrl || !route.isInfo) return false;
+    _activateSeparatedPane();
     final currentRoute = switch (_host.currentContent?.id) {
       final id? => ChatRoute.parse(id),
       null => null,

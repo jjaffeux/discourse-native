@@ -14,21 +14,25 @@ void main() {
   group('Chat wire decoding', () {
     test('decodes site-settings keys into typed data', () {
       final config = SiteConfig.fromSettings(const {
+        'chat_enabled': false,
         'chat_allow_uploads': false,
         'chat_search_enabled': true,
         'chat_channel_retention_days': 180,
         'chat_dm_retention_days': 30,
         'chat_max_direct_message_users': 35,
+        'chat_separate_sidebar_mode': 'fullscreen',
       }, extensions: _registry);
 
       expect(
         config.chatSettings,
         const ChatSettings(
+          chatEnabled: false,
           uploadsEnabled: false,
           searchEnabled: true,
           channelRetentionDays: 180,
           directMessageRetentionDays: 30,
           maximumDirectMessageUsers: 35,
+          separateSidebarMode: ChatSeparateSidebarMode.fullscreen,
         ),
       );
     });
@@ -39,18 +43,24 @@ void main() {
         'id': 7,
         'username': 'sam',
         'has_chat_enabled': true,
+        'can_chat': true,
         'can_direct_message': true,
         'ignored_users': ['hawk', false, 'kris', null],
         'custom_fields': {'last_chat_channel_id': '42'},
-        'user_option': {'chat_header_indicator_preference': 'only_mentions'},
+        'user_option': {
+          'chat_header_indicator_preference': 'only_mentions',
+          'chat_separate_sidebar_mode': 'always',
+        },
       }, 'https://forum.example');
 
       expect(
         user.chatCurrentUser,
         const ChatCurrentUser(
           hasChatEnabled: true,
+          canChat: true,
           canDirectMessage: true,
           headerIndicatorPreference: ChatHeaderIndicatorPreference.onlyMentions,
+          separateSidebarMode: ChatSeparateSidebarMode.always,
           lastChannelId: 42,
           ignoredUsernames: ['hawk', 'kris'],
         ),
@@ -62,7 +72,119 @@ void main() {
         'username': 'sam',
       }, 'https://forum.example');
       expect(absent.chatCurrentUser?.hasChatEnabled, isFalse);
+      expect(absent.canChat, isFalse);
       expect(absent.canDirectMessage, isFalse);
+      expect(
+        absent.chatSeparateSidebarMode,
+        ChatSeparateSidebarMode.siteDefault,
+      );
+    });
+
+    test(
+      'keeps legacy settings enabled unless chat is explicitly disabled',
+      () {
+        expect(ChatSettings.fromSettings(const {}).chatEnabled, isTrue);
+        expect(ChatSettings.fromStored(const {}).chatEnabled, isTrue);
+        expect(
+          ChatSettings.fromStored(const {'chatEnabled': false}).chatEnabled,
+          isFalse,
+        );
+        expect(
+          chatSettingsPersistenceCodec.encode(
+            const ChatSettings(chatEnabled: false),
+          ),
+          containsPair('chatEnabled', false),
+        );
+      },
+    );
+
+    test('decodes every supported separate-sidebar wire value', () {
+      const siteModes = {
+        'never': ChatSeparateSidebarMode.never,
+        'always': ChatSeparateSidebarMode.always,
+        'fullscreen': ChatSeparateSidebarMode.fullscreen,
+      };
+      for (final entry in siteModes.entries) {
+        expect(
+          ChatSettings.fromSettings({
+            'chat_separate_sidebar_mode': entry.key,
+          }).separateSidebarMode,
+          entry.value,
+        );
+      }
+
+      for (final mode in ChatSeparateSidebarMode.values) {
+        expect(
+          ChatCurrentUser.fromCurrentUser({
+            'user_option': {'chat_separate_sidebar_mode': mode.wireName},
+          }).separateSidebarMode,
+          mode,
+        );
+      }
+    });
+
+    test('uses safe defaults for absent and malformed sidebar modes', () {
+      for (final malformed in [null, true, 7, 'sometimes', 'default']) {
+        expect(
+          ChatSettings.fromSettings({
+            'chat_separate_sidebar_mode': malformed,
+          }).separateSidebarMode,
+          ChatSeparateSidebarMode.never,
+        );
+      }
+
+      expect(
+        ChatCurrentUser.fromCurrentUser(const {
+          'user_option': {'chat_separate_sidebar_mode': null},
+        }).separateSidebarMode,
+        ChatSeparateSidebarMode.siteDefault,
+      );
+      for (final malformed in [true, 7, 'sometimes']) {
+        expect(
+          ChatCurrentUser.fromCurrentUser({
+            'user_option': {'chat_separate_sidebar_mode': malformed},
+          }).separateSidebarMode,
+          ChatSeparateSidebarMode.never,
+        );
+      }
+    });
+
+    test('resolves default against the site setting and honors overrides', () {
+      for (final siteMode in const [
+        ChatSeparateSidebarMode.never,
+        ChatSeparateSidebarMode.always,
+        ChatSeparateSidebarMode.fullscreen,
+      ]) {
+        expect(
+          effectiveChatSeparateSidebarMode(
+            settings: ChatSettings(separateSidebarMode: siteMode),
+            currentUser: const ChatCurrentUser(),
+          ),
+          siteMode,
+        );
+        expect(
+          effectiveChatSeparateSidebarMode(
+            settings: ChatSettings(separateSidebarMode: siteMode),
+          ),
+          siteMode,
+        );
+      }
+
+      for (final userMode in const [
+        ChatSeparateSidebarMode.never,
+        ChatSeparateSidebarMode.always,
+        ChatSeparateSidebarMode.fullscreen,
+      ]) {
+        expect(
+          effectiveChatSeparateSidebarMode(
+            settings: const ChatSettings(
+              separateSidebarMode: ChatSeparateSidebarMode.fullscreen,
+            ),
+            currentUser: ChatCurrentUser(separateSidebarMode: userMode),
+          ),
+          userMode,
+        );
+      }
     });
   });
 
@@ -76,6 +198,7 @@ void main() {
             'channelRetentionDays': 90,
             'directMessageRetentionDays': 14,
             'maximumDirectMessageUsers': 30,
+            'separateSidebarMode': 'fullscreen',
           },
         },
       }, extensions: _registry);
@@ -84,8 +207,10 @@ void main() {
         'plugins': {
           chatCurrentUserDataKey.id: const {
             'hasChatEnabled': true,
+            'canChat': true,
             'canDirectMessage': true,
             'headerIndicatorPreference': 'dm_and_mentions',
+            'separateSidebarMode': 'always',
             'lastChannelId': 17,
             'ignoredUsernames': ['hawk', 'kris'],
           },
@@ -102,6 +227,7 @@ void main() {
           'channelRetentionDays': 90,
           'directMessageRetentionDays': 14,
           'maximumDirectMessageUsers': 30,
+          'separateSidebarMode': 'fullscreen',
         },
       });
       expect(storedUser, isNot(contains('hasChatEnabled')));
@@ -110,8 +236,10 @@ void main() {
       expect(storedUser['plugins'], {
         chatCurrentUserDataKey.id: {
           'hasChatEnabled': true,
+          'canChat': true,
           'canDirectMessage': true,
           'headerIndicatorPreference': 'dm_and_mentions',
+          'separateSidebarMode': 'always',
           'lastChannelId': 17,
           'ignoredUsernames': ['hawk', 'kris'],
         },
@@ -119,6 +247,32 @@ void main() {
 
       expect(SiteConfig.fromJson(storedConfig, extensions: _registry), config);
       expect(DiscourseUser.fromJson(storedUser, extensions: _registry), user);
+    });
+
+    test('round-trips every separate-sidebar mode through stored data', () {
+      for (final mode in const [
+        ChatSeparateSidebarMode.never,
+        ChatSeparateSidebarMode.always,
+        ChatSeparateSidebarMode.fullscreen,
+      ]) {
+        final settings = ChatSettings(separateSidebarMode: mode);
+        expect(
+          chatSettingsPersistenceCodec.decode(
+            chatSettingsPersistenceCodec.encode(settings),
+          ),
+          settings,
+        );
+      }
+
+      for (final mode in ChatSeparateSidebarMode.values) {
+        final currentUser = ChatCurrentUser(separateSidebarMode: mode);
+        expect(
+          chatCurrentUserPersistenceCodec.decode(
+            chatCurrentUserPersistenceCodec.encode(currentUser),
+          ),
+          currentUser,
+        );
+      }
     });
 
     test('migrates legacy flat values into namespaces', () {
@@ -196,6 +350,7 @@ void main() {
         chatCurrentUserDataKey.id: {
           'hasChatEnabled': true,
           'headerIndicatorPreference': 'only_mentions',
+          'separateSidebarMode': 'default',
           'lastChannelId': 42,
           'ignoredUsernames': ['hawk', 'kris'],
         },
