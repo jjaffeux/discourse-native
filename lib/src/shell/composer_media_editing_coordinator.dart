@@ -535,12 +535,16 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
           dismissGallery();
           return KeyEventResult.handled;
         }
-        if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
-            event.logicalKey == LogicalKeyboardKey.arrowRight) {
-          final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+        final movesBefore =
+            event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+            event.logicalKey == LogicalKeyboardKey.arrowUp;
+        final movesAfter =
+            event.logicalKey == LogicalKeyboardKey.arrowRight ||
+            event.logicalKey == LogicalKeyboardKey.arrowDown;
+        if (movesBefore || movesAfter) {
           dismissGallery(requestFocus: false);
           _composer.text.selection = TextSelection.collapsed(
-            offset: moveLeft ? gallery.start : gallery.end,
+            offset: movesBefore ? gallery.start : gallery.end,
           );
           return KeyEventResult.handled;
         }
