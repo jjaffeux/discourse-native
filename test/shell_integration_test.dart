@@ -17517,6 +17517,13 @@ void main() {
             find.byKey(ChatDrawerOverlay.fullPageButtonKey),
             findsOneWidget,
           );
+          expect(
+            find.descendant(
+              of: find.byKey(ChatDrawerOverlay.collapseButtonKey),
+              matching: find.dIcon(DIcons.discourseCompress),
+            ),
+            findsOneWidget,
+          );
 
           final categoryRequests = api.categoryRequests.length;
           await tester.tap(sidebarDestination('Topics'));
