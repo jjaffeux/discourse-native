@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_galleries.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
@@ -11,6 +13,7 @@ import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -728,6 +731,87 @@ void main() {
       );
     });
 
+    testWidgets('paints a gallery at the same scroll rate as text', (
+      tester,
+    ) async {
+      const galleryColor = Color(0xFFFF00FF);
+      final composer = ComposerController(
+        _target,
+        resolveUploadUrls: (_) async => const {},
+      );
+      composer.text.text = [
+        for (var index = 0; index < 8; index++) 'Before $index',
+        _gallerySource(3),
+        for (var index = 0; index < 20; index++) 'After $index',
+      ].join('\n');
+      addTearDown(composer.dispose);
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(600, 180);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(
+            colorScheme: ThemeData.dark().colorScheme.copyWith(
+              surfaceContainerLow: galleryColor,
+            ),
+          ),
+          home: Scaffold(
+            body: RepaintBoundary(
+              key: const ValueKey('composer-paint-boundary'),
+              child: ComposerEditor(
+                composer: composer,
+                hintText: '',
+                textStyle: const TextStyle(fontSize: 14, height: 1),
+                hintStyle: const TextStyle(fontSize: 14, height: 1),
+                autofocus: false,
+                enableDropTarget: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final scrollable = find.descendant(
+        of: find.byType(EditableText),
+        matching: find.byType(Scrollable),
+      );
+      final position = tester.state<ScrollableState>(scrollable).position;
+      position.jumpTo(0);
+      await tester.pump();
+
+      final gallery = composer.text.galleryBlocks.single;
+      final geometryBeforeScroll = composer.text.collapsedGalleryGlobalRect(
+        gallery,
+      )!;
+      final paintedBeforeScroll = await _paintedColorBounds(
+        tester,
+        galleryColor,
+      );
+      const scrollDelta = 40.0;
+      position.jumpTo(scrollDelta);
+      await tester.pump();
+      final paintedAfterScroll = await _paintedColorBounds(
+        tester,
+        galleryColor,
+      );
+      final geometryAfterScroll = composer.text.collapsedGalleryGlobalRect(
+        gallery,
+      )!;
+
+      expect(position.pixels, scrollDelta);
+      expect(
+        paintedAfterScroll.top,
+        closeTo(paintedBeforeScroll.top - scrollDelta, 1),
+      );
+      expect(
+        geometryAfterScroll.top,
+        closeTo(geometryBeforeScroll.top - scrollDelta, 0.01),
+      );
+    });
+
     testWidgets('maps gallery, image, and control positions to source blocks', (
       tester,
     ) async {
@@ -1099,9 +1183,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final gallery = composer.text.galleryBlocks.single;
-      final controlCenter = tester.getCenter(
-        find.byType(ComposerImageGalleryControl),
-      );
+      final controlCenter = _paintedGalleryControlCenter(tester, composer);
       for (final (key, expectedOffset) in [
         (LogicalKeyboardKey.arrowUp, gallery.start),
         (LogicalKeyboardKey.arrowDown, gallery.end),
@@ -1161,9 +1243,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final gallery = composer.text.galleryBlocks.single;
-      await tester.tapAt(
-        tester.getCenter(find.byType(ComposerImageGalleryControl)),
-      );
+      await tester.tapAt(_paintedGalleryControlCenter(tester, composer));
       await tester.pump();
       await tester.pump();
       expect(
@@ -1298,6 +1378,70 @@ void main() {
       expect(destination, 2);
     });
   });
+}
+
+Future<Rect> _paintedColorBounds(WidgetTester tester, Color color) async {
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(const ValueKey('composer-paint-boundary')),
+  );
+  final capture = await tester.runAsync(() async {
+    final image = await boundary.toImage(pixelRatio: 1);
+    final result = (
+      width: image.width,
+      height: image.height,
+      bytes: await image.toByteData(format: ui.ImageByteFormat.rawRgba),
+    );
+    image.dispose();
+    return result;
+  });
+  final (:width, :height, :bytes) = capture!;
+  if (bytes == null) fail('Could not read the rendered composer pixels.');
+  final argb = color.toARGB32();
+  final red = (argb >> 16) & 0xFF;
+  final green = (argb >> 8) & 0xFF;
+  final blue = argb & 0xFF;
+  final alpha = (argb >> 24) & 0xFF;
+
+  var left = width;
+  var top = height;
+  var right = -1;
+  var bottom = -1;
+  for (var y = 0; y < height; y++) {
+    for (var x = 0; x < width; x++) {
+      final offset = (y * width + x) * 4;
+      if (bytes.getUint8(offset) != red ||
+          bytes.getUint8(offset + 1) != green ||
+          bytes.getUint8(offset + 2) != blue ||
+          bytes.getUint8(offset + 3) != alpha) {
+        continue;
+      }
+      left = x < left ? x : left;
+      top = y < top ? y : top;
+      right = x > right ? x : right;
+      bottom = y > bottom ? y : bottom;
+    }
+  }
+  if (right < 0) fail('The gallery paint color was not rendered.');
+  return Rect.fromLTRB(
+    left.toDouble(),
+    top.toDouble(),
+    (right + 1).toDouble(),
+    (bottom + 1).toDouble(),
+  );
+}
+
+Offset _paintedGalleryControlCenter(
+  WidgetTester tester,
+  ComposerController composer,
+) {
+  final gallery = composer.text.galleryBlocks.single;
+  final paintedGallery = composer.text.collapsedGalleryGlobalRect(gallery)!;
+  final laidOutGallery = tester.getRect(
+    find.byType(ComposerImageGalleryPreview),
+  );
+  return tester.getCenter(find.byType(ComposerImageGalleryControl)) +
+      paintedGallery.topLeft -
+      laidOutGallery.topLeft;
 }
 
 EditableText _composerEditable(WidgetTester tester) =>
