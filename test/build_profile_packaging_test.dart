@@ -41,78 +41,60 @@ void main() {
       );
     });
 
-    test(
-      'the core app declares no Resenha packages and resolves no media SDKs',
-      () {
-        final pubspec = File(_corePubspecPath).readAsStringSync();
-        final declaredPackages = {
-          ..._mappingKeys(pubspec, 'dependencies'),
-          ..._mappingKeys(pubspec, 'dependency_overrides'),
-        };
-        final lockedPackages = _mappingKeys(
-          File(_coreLockPath).readAsStringSync(),
-          'packages',
-        );
+    test('the root app declares and resolves the complete Resenha graph', () {
+      final pubspec = File(_corePubspecPath).readAsStringSync();
+      final declaredPackages = {
+        ..._mappingKeys(pubspec, 'dependencies'),
+        ..._mappingKeys(pubspec, 'dependency_overrides'),
+      };
+      final lockedPackages = _mappingKeys(
+        File(_coreLockPath).readAsStringSync(),
+        'packages',
+      );
 
-        expect(
-          declaredPackages.intersection(_resenhaOwnedDependencies),
-          isEmpty,
-          reason:
-              'Selecting a Dart target cannot remove native plugins. The root '
-              'pubspec is the core build boundary and must not resolve Resenha.',
-        );
-        expect(
-          lockedPackages.intersection(_resenhaGraphPackages),
-          isEmpty,
-          reason:
-              'The checked-in core lock must describe the same SDK-free graph '
-              'as the core pubspec.',
-        );
-      },
-    );
+      expect(
+        declaredPackages.intersection(_resenhaOwnedDependencies),
+        containsAll(_resenhaOwnedDependencies),
+        reason:
+            'Every application build includes Resenha, its native bridge, '
+            'and both media SDKs.',
+      );
+      expect(
+        lockedPackages.intersection(_resenhaGraphPackages),
+        containsAll(_resenhaGraphPackages),
+        reason:
+            'The checked-in root lock must prove that ordinary builds '
+            'resolve Resenha and both media SDKs.',
+      );
+      expect(
+        _dependencyPath(pubspec, 'dependencies', 'discourse_resenha'),
+        'packages/discourse_resenha',
+      );
+      expect(
+        _dependencyPath(pubspec, 'dependency_overrides', 'flutter_webrtc'),
+        'packages/discourse_resenha/third_party/flutter_webrtc',
+      );
+    });
 
-    test('Resenha owns its SDK dependencies and reviewed WebRTC fork', () {
+    test('the Resenha child package is only the native iOS bridge', () {
       const pubspecPath = '$_resenhaPackagePath/pubspec.yaml';
       final pubspec = File(pubspecPath).readAsStringSync();
       final dependencies = _mappingKeys(pubspec, 'dependencies');
-      final overrides = _mappingKeys(pubspec, 'dependency_overrides');
 
-      expect(
-        dependencies,
-        containsAll({
-          'discourse_native',
-          'flutter_webrtc',
-          'livekit_client',
-          'logger',
-          'logging',
-        }),
-      );
-      expect(
-        _dependencyPath(pubspec, 'dependencies', 'discourse_native'),
-        '../..',
-        reason:
-            'Resenha extends the core package; core must never depend back on '
-            'Resenha.',
-      );
-      expect(overrides, contains('flutter_webrtc'));
-      expect(
-        _dependencyPath(pubspec, 'dependency_overrides', 'flutter_webrtc'),
-        'third_party/flutter_webrtc',
-      );
+      expect(dependencies, {'flutter'});
 
       final lock = File('$_resenhaPackagePath/pubspec.lock').readAsStringSync();
       expect(
-        _mappingKeys(lock, 'packages'),
-        containsAll({'flutter_webrtc', 'livekit_client'}),
-      );
-      expect(
-        _dependencyPath(lock, 'packages', 'flutter_webrtc'),
-        'third_party/flutter_webrtc',
+        _mappingKeys(lock, 'packages').intersection(_resenhaGraphPackages),
+        isEmpty,
+        reason:
+            'The native bridge must not depend back on the main package or '
+            'own the Dart media graph.',
       );
     });
 
     test(
-      'the full application composes Resenha in a separate locked graph',
+      'the compatibility application inherits the same locked Resenha graph',
       () {
         const pubspecPath = '$_fullProfilePath/pubspec.yaml';
         const lockPath = '$_fullProfilePath/pubspec.lock';
@@ -121,24 +103,18 @@ void main() {
         final lock = File(lockPath).readAsStringSync();
         final lockedPackages = _mappingKeys(lock, 'packages');
 
-        expect(
-          dependencies,
-          containsAll({'discourse_native', 'discourse_resenha'}),
-        );
+        expect(dependencies, contains('discourse_native'));
+        expect(dependencies, isNot(contains('discourse_resenha')));
         expect(
           _dependencyPath(pubspec, 'dependencies', 'discourse_native'),
           '../..',
-        );
-        expect(
-          _dependencyPath(pubspec, 'dependencies', 'discourse_resenha'),
-          '../../packages/discourse_resenha',
         );
         expect(
           _dependencyPath(pubspec, 'dependency_overrides', 'flutter_webrtc'),
           '../../packages/discourse_resenha/third_party/flutter_webrtc',
           reason:
               'Pub ignores transitive overrides, so every application which '
-              'enables Resenha must activate its reviewed WebRTC fork itself.',
+              'builds Resenha must activate its reviewed WebRTC fork itself.',
         );
         expect(
           _dependencyPath(
@@ -155,8 +131,7 @@ void main() {
           lockedPackages,
           containsAll(_resenhaGraphPackages),
           reason:
-              'The full lock is a build artifact: it must prove that the full '
-              'profile, unlike core, resolves Resenha and both media SDKs.',
+              'Every application lock must resolve Resenha and both media SDKs.',
         );
         expect(
           _dependencyPath(lock, 'packages', 'discourse_resenha'),
@@ -181,72 +156,42 @@ void main() {
   });
 
   group('source and native ownership', () {
-    test(
-      'core production sources do not reach across the Resenha boundary',
-      () {
-        expect(Directory('lib/src/plugins/resenha').existsSync(), isFalse);
-
-        final violations = <String>[];
-        for (final file in _filesUnder('lib', extension: '.dart')) {
-          final source = file.readAsStringSync();
-          for (final package in _resenhaGraphPackages) {
-            if (source.contains('package:$package/')) {
-              violations.add('${_relativePath(file)} imports package:$package');
-            }
-          }
-        }
-
-        expect(
-          violations,
-          isEmpty,
-          reason:
-              'Core production Dart must be independently analyzable without '
-              'the Resenha package graph.\n${violations.join('\n')}',
-        );
-      },
-    );
-
-    test('Resenha Dart sources have one package owner', () {
+    test('Resenha Dart sources are owned by the main application package', () {
       final sources = _filesUnder(
-        '$_resenhaPackagePath/lib/src',
+        'lib/src/plugins/resenha',
         extension: '.dart',
       ).toList(growable: false);
-      final staleImports = <String>[];
-      for (final file in sources) {
-        if (file.readAsStringSync().contains(
-          'package:discourse_native/src/plugins/resenha/',
-        )) {
-          staleImports.add(_relativePath(file));
-        }
-      }
 
       expect(sources, isNotEmpty);
       expect(
-        staleImports,
-        isEmpty,
+        Directory('$_resenhaPackagePath/lib/src').existsSync(),
+        isFalse,
         reason:
-            'Resenha may depend on core contracts, but must never import a '
-            'second copy of itself from the core package.\n'
-            '${staleImports.join('\n')}',
+            'The native bridge must not contain a second copy of the Dart '
+            'feature implementation.',
       );
     });
 
-    test('the outer full composition is the only app which adds Resenha', () {
-      final coreManifest = File(
+    test('every application entry point uses the Resenha manifest', () {
+      final bundledManifest = File(
         'lib/src/plugins/bundled_plugin_manifest.dart',
       ).readAsStringSync();
       final fullManifest = File(
         '$_fullProfilePath/lib/full_plugin_manifest.dart',
       ).readAsStringSync();
+      final compatibilityTarget = File('lib/main_core.dart').readAsStringSync();
 
-      expect(coreManifest, isNot(contains('resenha')));
-      expect(fullManifest, contains('package:discourse_resenha/'));
-      expect(fullManifest, contains('resenhaModule'));
+      expect(bundledManifest, contains("import 'resenha/resenha_module.dart'"));
+      expect(bundledManifest, contains('resenhaModule'));
+      expect(fullManifest, contains('bundledPluginManifest'));
+      expect(fullManifest, isNot(contains('resenhaModule')));
+      expect(compatibilityTarget, contains('bundledPluginManifest'));
+      expect(compatibilityTarget, isNot(contains('corePluginManifest')));
     });
 
     test('Resenha reaches Chat only through its declared contract edge', () {
       final module = File(
-        '$_resenhaPackagePath/lib/src/resenha_module.dart',
+        'lib/src/plugins/resenha/resenha_module.dart',
       ).readAsStringSync();
 
       expect(
@@ -262,7 +207,7 @@ void main() {
         r'''package:discourse_native/src/plugins/[^'"\s]+''',
       );
       for (final file in _filesUnder(
-        '$_resenhaPackagePath/lib',
+        'lib/src/plugins/resenha',
         extension: '.dart',
       )) {
         for (final match in pluginImport.allMatches(file.readAsStringSync())) {
@@ -274,7 +219,7 @@ void main() {
         implementationImports,
         isEmpty,
         reason:
-            'The separately packaged plugin may use Chat only through its '
+            'Resenha may use Chat only through its '
             'approved contract.\n${implementationImports.join('\n')}',
       );
     });
@@ -379,60 +324,57 @@ void main() {
   });
 
   group('generated native registrants', () {
-    test(
-      'macOS registrants exclude SDKs from core and include them in full',
-      () {
-        _expectRegistrantMarkers(
-          corePath: 'macos/Flutter/GeneratedPluginRegistrant.swift',
-          fullPath:
-              '$_fullProfilePath/macos/Flutter/GeneratedPluginRegistrant.swift',
-          markers: const {
-            'flutter_webrtc': [
-              'import flutter_webrtc',
-              'FlutterWebRTCPlugin.register',
-            ],
-            'livekit_client': [
-              'import livekit_client',
-              'LiveKitPlugin.register',
-            ],
-          },
-        );
-      },
-    );
+    test('macOS registrants include Resenha media SDKs in every app', () {
+      _expectAllRegistrantMarkers(
+        paths: const [
+          'macos/Flutter/GeneratedPluginRegistrant.swift',
+          '$_fullProfilePath/macos/Flutter/GeneratedPluginRegistrant.swift',
+        ],
+        markers: const {
+          'flutter_webrtc': [
+            'import flutter_webrtc',
+            'FlutterWebRTCPlugin.register',
+          ],
+          'livekit_client': ['import livekit_client', 'LiveKitPlugin.register'],
+        },
+      );
+    });
 
-    test(
-      'Linux registrants exclude SDKs from core and include them in full',
-      () {
-        _expectRegistrantMarkers(
-          corePath: 'linux/flutter/generated_plugins.cmake',
-          fullPath: '$_fullProfilePath/linux/flutter/generated_plugins.cmake',
-          markers: const {
-            'flutter_webrtc': ['flutter_webrtc'],
-            'livekit_client': ['livekit_client'],
-          },
-        );
-        _expectRegistrantMarkers(
-          corePath: 'linux/flutter/generated_plugin_registrant.cc',
-          fullPath:
-              '$_fullProfilePath/linux/flutter/generated_plugin_registrant.cc',
-          markers: const {
-            'flutter_webrtc': [
-              '<flutter_webrtc/flutter_web_r_t_c_plugin.h>',
-              'flutter_web_r_t_c_plugin_register_with_registrar',
-            ],
-            'livekit_client': [
-              '<livekit_client/live_kit_plugin.h>',
-              'live_kit_plugin_register_with_registrar',
-            ],
-          },
-        );
-      },
-    );
+    test('Linux registrants include Resenha media SDKs in every app', () {
+      _expectAllRegistrantMarkers(
+        paths: const [
+          'linux/flutter/generated_plugins.cmake',
+          '$_fullProfilePath/linux/flutter/generated_plugins.cmake',
+        ],
+        markers: const {
+          'flutter_webrtc': ['flutter_webrtc'],
+          'livekit_client': ['livekit_client'],
+        },
+      );
+      _expectAllRegistrantMarkers(
+        paths: const [
+          'linux/flutter/generated_plugin_registrant.cc',
+          '$_fullProfilePath/linux/flutter/generated_plugin_registrant.cc',
+        ],
+        markers: const {
+          'flutter_webrtc': [
+            '<flutter_webrtc/flutter_web_r_t_c_plugin.h>',
+            'flutter_web_r_t_c_plugin_register_with_registrar',
+          ],
+          'livekit_client': [
+            '<livekit_client/live_kit_plugin.h>',
+            'live_kit_plugin_register_with_registrar',
+          ],
+        },
+      );
+    });
 
-    test('iOS registration is selected by each independent package graph', () {
-      _expectRegistrantMarkers(
-        corePath: 'ios/Runner/GeneratedPluginRegistrant.m',
-        fullPath: '$_fullProfilePath/ios/Runner/GeneratedPluginRegistrant.m',
+    test('iOS registration includes Resenha in every app graph', () {
+      _expectAllRegistrantMarkers(
+        paths: const [
+          'ios/Runner/GeneratedPluginRegistrant.m',
+          '$_fullProfilePath/ios/Runner/GeneratedPluginRegistrant.m',
+        ],
         markers: const {
           'discourse_resenha': ['discourse_resenha', 'DiscourseResenhaPlugin'],
           'flutter_webrtc': ['flutter_webrtc', 'FlutterWebRTCPlugin'],
@@ -456,7 +398,7 @@ void main() {
         File('$_fullProfilePath/pubspec.lock').readAsStringSync(),
         'packages',
       );
-      expect(coreLock.intersection(_resenhaGraphPackages), isEmpty);
+      expect(coreLock, containsAll(_resenhaGraphPackages));
       expect(fullLock, containsAll(_resenhaGraphPackages));
 
       final resenhaPubspec = File(
@@ -471,33 +413,27 @@ void main() {
         ], 'pluginClass'),
         isNotEmpty,
         reason:
-            'The full graph must contribute an iOS plugin for generated '
-            'registration; the core graph cannot see this package.',
+            'Every graph must contribute the iOS CallKit bridge for generated '
+            'registration.',
       );
     });
   });
 }
 
-void _expectRegistrantMarkers({
-  required String corePath,
-  required String fullPath,
+void _expectAllRegistrantMarkers({
+  required List<String> paths,
   required Map<String, List<String>> markers,
 }) {
-  final core = File(corePath).readAsStringSync();
-  final full = File(fullPath).readAsStringSync();
-
-  for (final entry in markers.entries) {
-    for (final marker in entry.value) {
-      expect(
-        core,
-        isNot(contains(marker)),
-        reason: '$corePath must not register ${entry.key}.',
-      );
-      expect(
-        full,
-        contains(marker),
-        reason: '$fullPath must register ${entry.key}.',
-      );
+  for (final path in paths) {
+    final source = File(path).readAsStringSync();
+    for (final entry in markers.entries) {
+      for (final marker in entry.value) {
+        expect(
+          source,
+          contains(marker),
+          reason: '$path must register ${entry.key}.',
+        );
+      }
     }
   }
 }

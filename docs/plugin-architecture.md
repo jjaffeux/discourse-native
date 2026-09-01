@@ -1,11 +1,10 @@
 # Plugin architecture
 
 The application installs one immutable `PluginManifest` before creating its
-API or shell. The production full build is the independent Flutter application
-under `profiles/full`; it adds `discourse_resenha` to the root package's bundled
-modules. The core-only build is resolved from the repository root, uses
-`corePluginManifest`, and can be run with
-`flutter run -t lib/main_core.dart`.
+API or shell. Every application entry point installs the same complete bundled
+manifest, including Resenha. `profiles/full` remains as a compatibility wrapper
+for release tooling, and `lib/main_core.dart` remains as a compatibility target;
+neither removes features from the build.
 
 ```text
 discourse_plugin_api (pure Dart contracts)
@@ -105,14 +104,13 @@ UI code cannot walk the session graph.
 
 ## Dependency rule
 
-Production core never imports or exports a file under `lib/src/plugins`.
-Dependencies point in one direction: plugins may use core and the stable
-`lib/src/plugin_api` surface, while core discovers optional behavior through
-registries, session capabilities, services, and host ports. The root bundled
-manifest composes the SDK-free feature set. The outer
-`profiles/full/lib/full_plugin_manifest.dart` composition root is the only
-application source allowed to add `discourse_resenha`. Every other bundled
-feature owns a production module and its service keys under
+Shared host layers never import or export a feature implementation under
+`lib/src/plugins`. Dependencies point in one direction: plugins may use core
+and the stable `lib/src/plugin_api` surface, while core discovers optional
+behavior through registries, session capabilities, services, and host ports.
+The root bundled manifest is the deliberate composition boundary and includes
+the complete feature set, including Resenha. Every bundled feature owns a
+production module and its service keys under
 `lib/src/plugins/<feature>/`; the bundled manifest imports only those module
 entrypoints. `plugin_dependency_boundary_test.dart` and
 `build_profile_packaging_test.dart` enforce these rules.
@@ -124,10 +122,10 @@ Core records hold immutable `PluginData` addressed by stable
 model codec; `SiteConfig` and `DiscourseUser` contain only core fields plus that
 opaque bag. Installed `SiteSettingsPlugin<T>` and `CurrentUserPlugin<T>`
 readers own their feature's wire keys and defaults. Poll, Assign, Chat,
-Reactions, GIFs, and Local Dates therefore decode only when their modules are
-in the selected manifest. Resenha's codecs live in its own package and are
-available only to the full package graph. A core-only manifest ignores those
-live schemas rather than silently growing optional model fields.
+Reactions, GIFs, Local Dates, and Resenha therefore decode only when their
+modules are in a selected test manifest. Application manifests always include
+the complete feature graph; site payloads and settings still determine whether
+each feature is available for a particular instance.
 
 Chat's current-user value also owns `ignored_users`. Core retains no ignored
 user field; Chat decodes and persists the usernames it uses to suppress unread
@@ -476,43 +474,32 @@ interfaces. Moving those remaining surfaces to full UI contributions is
 intentionally deferred; core does not import a plugin type or wire key through
 these compatibility seams.
 
-## Build profiles
+## Application composition
 
-- The repository root is the core Flutter package and application graph. Its
-  `pubspec.yaml`, lockfile, and generated registrants contain neither Resenha,
-  `flutter_webrtc`, nor `livekit_client`. `lib/main_core.dart` launches the
-  empty optional-plugin manifest; `lib/main.dart` launches the SDK-free bundled
-  modules.
+- The repository root owns the Flutter application and the complete bundled
+  feature manifest. Its pubspec, lockfile, and native registrants always contain
+  Resenha, `flutter_webrtc`, and `livekit_client`. Both `lib/main.dart` and the
+  legacy `lib/main_core.dart` target launch that manifest.
 - `packages/discourse_plugin_api` is a pure-Dart package containing the stable
   manifest, lifecycle, host-port, and service-key contracts.
-- `lib/discourse_plugin_sdk.dart` is the public Flutter host facade for
-  repository-owned plugin packages. It exposes the approved host contracts and
-  UI primitives without requiring imports from `package:discourse_native/src`.
-- `packages/discourse_resenha` owns all Resenha Dart integration, the iOS
-  CallKit Flutter plugin, native media SDK dependencies, SDK diagnostics, and
-  the reviewed `third_party/flutter_webrtc` fork plus its provenance tool.
-  It depends on the core package; the core package never depends back on it.
-- `profiles/full` is a separate Flutter application root. Its pubspec depends
-  on both packages, activates Resenha's vendored WebRTC override (Pub ignores
-  overrides from transitive dependencies), and owns independent iOS, macOS,
-  and Linux generated registrants. `fullPluginManifest` adds `resenhaModule`
-  to the SDK-free bundled modules.
-
-This split is a package boundary, not an entrypoint convention. Flutter derives
-native registration and packaging from the resolved pubspec, so `-t` alone can
-never remove a plugin. Resolve and run each graph from its own root:
+- `lib/discourse_plugin_sdk.dart` is the public Flutter host facade. It exposes
+  the approved host contracts and UI primitives.
+- `lib/src/plugins/resenha` owns Resenha's Dart module, UI, media integration,
+  diagnostics, and tests. `packages/discourse_resenha` is deliberately narrower:
+  it owns the iOS CallKit Flutter plugin and reviewed
+  `third_party/flutter_webrtc` fork, and depends only on Flutter so the root app
+  can depend on it without a package cycle.
+- `profiles/full` is a compatibility application wrapper for release tooling.
+  It aliases `bundledPluginManifest`, inherits Resenha through the root package,
+  and keeps independent iOS, macOS, and Linux runners. Its WebRTC override
+  mirrors the root override because Pub ignores transitive overrides.
 
 ```sh
-# Core: no Resenha or media SDK in the package graph or artifact.
 flutter pub get --enforce-lockfile
-flutter run -t lib/main_core.dart -d macos
-
-# Full: independent graph and registrants, including Resenha.
-(cd profiles/full && flutter pub get --enforce-lockfile)
-(cd profiles/full && flutter run -d macos)
+flutter run -d macos
 ```
 
-`build_profile_packaging_test.dart` checks the two lockfiles, source ownership,
-CallKit location, vendored provenance location, and the tracked
-iOS/macOS/Linux registrants. CI additionally builds both Linux artifacts and
-rejects a core executable containing WebRTC or LiveKit registration markers.
+`build_profile_packaging_test.dart` checks both application lockfiles, manifest
+composition, Dart/native ownership, vendored provenance, and the tracked
+iOS/macOS/Linux registrants. CI builds both wrappers and requires WebRTC and
+LiveKit registration markers in both artifacts.

@@ -1,13 +1,13 @@
-# Full application profile
+# Compatibility application profile
 
-This is the Flutter application composition which includes
-`discourse_resenha`. It has its own dependency lock and generated native
-registrants; those artifacts must never be shared with the core application at
-the repository root.
+This wrapper is retained for release tooling and existing launch
+configurations. It uses the same complete bundled manifest as the repository
+root, including Resenha, WebRTC, LiveKit, and CallKit. There is no core-only
+application graph.
 
-The isolated full profile currently supports iOS, macOS, and Linux. Android
-remains planned; the root repository's placeholder Android tree is not a full
-profile runner and does not establish Android support.
+This compatibility wrapper currently supports iOS, macOS, and Linux. Android
+remains planned; the root repository's placeholder Android tree does not
+establish Android support.
 
 Run commands from this directory:
 
@@ -18,6 +18,6 @@ flutter build ios --no-codesign
 flutter build linux
 ```
 
-Run the core profile from the repository root instead. Choosing
-`lib/main_core.dart` as a target in this full package changes only Dart
-reachability; it does not remove native plugins from the artifact.
+The repository-root app can be run directly with `flutter run`. The legacy
+`lib/main_core.dart` target is also an alias of the complete bundled manifest,
+so no launch target removes Resenha.

@@ -1,7 +1,8 @@
 # TestFlight releases
 
 One Fastlane lane builds and uploads the iOS and macOS apps from
-`profiles/full`, the only application graph that includes Resenha. It queries
+`profiles/full`, a compatibility wrapper around the same always-bundled
+manifest used by the root app. It queries
 App Store Connect first, then assigns two unused integer build numbers so the
 two platform builds never share the same bundle ID, version, and build tuple.
 
@@ -38,8 +39,8 @@ bundle exec fastlane beta version:1.0.1
 
 The lane performs these steps:
 
-1. Resolves the core, Resenha, and full graphs, then runs formatting, analysis,
-   and the core/package tests.
+1. Resolves the root app, native CallKit bridge, and compatibility wrapper,
+   then runs formatting, analysis, and the complete application tests.
 2. Fetches the latest iOS and macOS build numbers from App Store Connect.
 3. Configures Flutter and builds signed `.ipa` and `.pkg` artifacts.
 4. Uploads both artifacts to TestFlight.

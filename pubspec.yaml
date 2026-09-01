@@ -9,6 +9,8 @@ environment:
 dependencies:
   discourse_plugin_api:
     path: packages/discourse_plugin_api
+  discourse_resenha:
+    path: packages/discourse_resenha
   flutter:
     sdk: flutter
   flutter_localizations:
@@ -82,16 +84,29 @@ dependencies:
   # Persistent drafts, private storage, cached media and diagnostics all live
   # in platform-appropriate application data directories.
   path_provider: ^2.1.6
-  # Core image and topic exports use the platform share sheet. The separately
-  # packaged Resenha report exporter deliberately uses the same reviewed API.
+  # Native media transports for the always-bundled Resenha voice-room plugin.
+  # Both expose native ABIs and must be upgraded together after exercising Mesh
+  # and LiveKit rooms on every supported platform.
+  flutter_webrtc: 1.6.0
+  livekit_client: 2.10.0
+  # Resenha diagnostics bridges the SDK-specific logging APIs into the app's
+  # redacted diagnostics stream.
+  logger: ^2.7.0
+  logging: ^1.3.0
+  # Core and Resenha exports use the platform share sheet.
   share_plus: ^12.0.2
   file_selector: ^1.1.0
 
-# The current AVFoundation implementation exposes an Apple type that is
-# deprecated only when its Objective-C module is imported by Swift. Keep the
-# warning workaround inside the reviewed package fork instead of weakening the
-# application's warning policy. See packages/video_player_avfoundation/PATCHES.md.
 dependency_overrides:
+  # Version 1.6.0 lacks the iOS required-reason privacy manifest. Keep every
+  # consumer, including livekit_client, on the reviewed local copy.
+  flutter_webrtc:
+    path: packages/discourse_resenha/third_party/flutter_webrtc
+  # The current AVFoundation implementation exposes an Apple type that is
+  # deprecated only when its Objective-C module is imported by Swift. Keep the
+  # warning workaround inside the reviewed package fork instead of weakening
+  # the application's warning policy. See
+  # packages/video_player_avfoundation/PATCHES.md.
   video_player_avfoundation:
     path: packages/video_player_avfoundation
 

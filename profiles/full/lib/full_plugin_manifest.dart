@@ -1,8 +1,7 @@
 import 'package:discourse_native/discourse_bundled.dart';
-import 'package:discourse_resenha/discourse_resenha.dart';
 
-/// This composition root keeps Resenha's native SDKs out of core's package graph.
-final PluginManifest fullPluginManifest = PluginManifest([
-  ...bundledPluginManifest.modules,
-  resenhaModule,
-]);
+/// Compatibility alias for the former optional full profile.
+///
+/// The main package now always bundles Resenha, so every application entry
+/// point uses the same feature graph.
+final PluginManifest fullPluginManifest = bundledPluginManifest;

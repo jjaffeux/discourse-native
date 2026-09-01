@@ -8,6 +8,7 @@ import 'gifs/gifs_module.dart';
 import 'local_dates/local_dates_module.dart';
 import 'poll/poll_module.dart';
 import 'reactions/reactions_module.dart';
+import 'resenha/resenha_module.dart';
 
 final PluginManifest bundledPluginManifest = PluginManifest([
   localDatesModule,
@@ -19,7 +20,18 @@ final PluginManifest bundledPluginManifest = PluginManifest([
   discourseAiModule,
   assignModule,
   chatModule,
+  resenhaModule,
 ]);
 
-final PluginManifest bundledPluginManifestWithoutDiagnostics =
-    bundledPluginManifest;
+final PluginManifest bundledPluginManifestWithoutDiagnostics = PluginManifest([
+  localDatesModule,
+  discourseGithubModule,
+  discourseLazyVideosModule,
+  reactionsModule,
+  pollModule,
+  gifsModule,
+  discourseAiModule,
+  assignModule,
+  chatModule,
+  const ResenhaModule.withoutDiagnostics(),
+]);

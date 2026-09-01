@@ -13,6 +13,7 @@ const _pluginIdsByDirectory = <String, String>{
   'local_dates': 'discourse-local-dates',
   'poll': 'poll',
   'reactions': 'discourse-reactions',
+  'resenha': 'resenha',
 };
 
 const _approvedCrossFeatureContracts = <String, String>{
@@ -67,6 +68,7 @@ const _featureModuleEntrypoints = <String>{
   'local_dates/local_dates_module.dart',
   'poll/poll_module.dart',
   'reactions/reactions_module.dart',
+  'resenha/resenha_module.dart',
 };
 
 const _publicPluginContractExports = <String>{
@@ -108,6 +110,7 @@ void main() {
         final path = _workspacePath(file);
         if (path.startsWith('lib/src/plugins/') ||
             path == 'lib/main.dart' ||
+            path == 'lib/main_core.dart' ||
             path == 'lib/discourse_bundled.dart') {
           continue;
         }
@@ -132,7 +135,7 @@ void main() {
         reason:
             'Plugin implementations may depend on core, but core must extend '
             'through lib/src/plugin_api instead of importing a plugin. Only the '
-            'full-build composition roots may assemble bundled plugins.\n'
+            'application composition roots may assemble bundled plugins.\n'
             '${violations.join('\n')}',
       );
     });
@@ -453,11 +456,7 @@ void main() {
         File('lib/src/plugins/chat/chat_shell_service.dart').readAsStringSync(),
         isNot(contains('on ShellController')),
       );
-      expect(
-        Directory('lib/src/plugins/resenha').existsSync(),
-        isFalse,
-        reason: 'Resenha is owned by packages/discourse_resenha.',
-      );
+      expect(Directory('lib/src/plugins/resenha').existsSync(), isTrue);
     });
   });
 

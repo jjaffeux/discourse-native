@@ -1,3 +1,3 @@
+/// Native platform registration for the Resenha feature bundled by
+/// `package:discourse_native`.
 library;
-
-export 'src/resenha_module.dart' show ResenhaModule, resenhaModule;

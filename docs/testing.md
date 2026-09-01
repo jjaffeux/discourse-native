@@ -7,11 +7,9 @@ class and by making a failure useful to diagnose.
 
 ## Suite boundaries
 
-- `test/` owns the core package. A production owner normally has one matching
+- `test/` owns the application package, including Resenha. A production owner normally has one matching
   test file; cross-owner contracts use an explicitly named `*_boundary_test`
   or `*_contract_test` file.
-- `packages/discourse_resenha/test/` owns Resenha behavior and its native-media
-  adapters. Core tests must remain able to run without that package graph.
 - `integration_test/` is reserved for behavior that needs a real platform,
   such as Keychain persistence. Unit tests still cover all controllable
   success, failure, migration, and ordering branches around that seam.
@@ -55,7 +53,7 @@ later contract, or when its name has to enumerate several independent
 features. Keep setup local unless a fixture makes the scenario more legible;
 shared mutable setup is reset for every test.
 
-The complete core and Resenha suites run with a random ordering seed. Flutter
+The complete application suite runs with a random ordering seed. Flutter
 prints the chosen seed so an order-dependent failure can be reproduced by
 passing that integer in place of `random`. A test must therefore restore all
 state it changes instead of depending on another test running first.
@@ -134,10 +132,10 @@ does not improve the suite.
 
 Register cleanup beside resource creation with `addTearDown`; dispose
 controllers, close streams and plugin installations, reset test view changes,
-and complete or cancel outstanding work. The root and Resenha
-`flutter_test_config.dart` hooks each provide a fresh in-memory preferences
-store for every test. A test that needs stored values sets them explicitly in
-its own setup.
+and complete or cancel outstanding work. The root
+`flutter_test_config.dart` hook provides a fresh in-memory preferences store
+for every test. A test that needs stored values sets them explicitly in its own
+setup.
 
 Fakes expose observed requests and explicit gates. They do not reproduce the
 production algorithm or add implicit timing. Put broadly reused fakes in
@@ -158,5 +156,5 @@ Before adding or retaining a test, check that:
 7. the owning package's format, analysis, and test gates pass.
 
 The exact commands are listed in the README's Checks section and in
-`CLAUDE.md`. Run focused tests while editing, then the complete core and
-Resenha gates before merging.
+`CLAUDE.md`. Run focused tests while editing, then the complete application
+gate before merging.

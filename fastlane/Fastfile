@@ -80,7 +80,6 @@ private_lane :quality_checks do
       "integration_test",
       "tool",
       "packages/discourse_resenha/lib",
-      "packages/discourse_resenha/test",
       "packages/discourse_resenha/tool",
       "profiles/full/lib"
     )
@@ -90,7 +89,6 @@ private_lane :quality_checks do
   Dir.chdir(RESENHA_PACKAGE_ROOT) do
     sh("flutter", "pub", "get", "--enforce-lockfile")
     sh("flutter", "analyze")
-    sh("flutter", "test")
   end
   Dir.chdir(FULL_PROFILE_ROOT) do
     sh("flutter", "pub", "get", "--enforce-lockfile")

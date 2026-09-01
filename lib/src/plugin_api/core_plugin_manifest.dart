@@ -1,4 +1,6 @@
 import 'plugin_manifest.dart';
 
-/// Intentionally empty, so core-only builds expose hidden optional dependencies.
+/// Intentionally empty for tests which exercise absent-plugin compatibility.
+///
+/// Application entry points always use `bundledPluginManifest`.
 const PluginManifest corePluginManifest = PluginManifest([]);

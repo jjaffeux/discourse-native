@@ -200,7 +200,7 @@ packages:
     source: path
     version: "0.1.0"
   discourse_resenha:
-    dependency: "direct main"
+    dependency: transitive
     description:
       path: "../../packages/discourse_resenha"
       relative: true

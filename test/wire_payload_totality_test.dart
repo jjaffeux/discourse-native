@@ -48,6 +48,9 @@ import 'package:discourse_native/src/plugins/poll/poll_data.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics_models.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_models.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _keys = [
@@ -577,6 +580,53 @@ void main() {
         json,
       );
       probe('AiTopicSummary', () => AiTopicSummary.fromJson(json), json);
+
+      probe(
+        'ResenhaClientConfig',
+        () => ResenhaClientConfig.fromJson(json),
+        json,
+      );
+      probe(
+        'ResenhaDiagnosticRecord',
+        () => ResenhaDiagnosticRecord.fromJson(loose),
+        loose,
+      );
+      probe(
+        'ResenhaParticipant',
+        () => ResenhaParticipant.fromJson(json),
+        json,
+      );
+      probe('ResenhaMembership', () => ResenhaMembership.fromJson(json), json);
+      probe('ResenhaRecording', () => ResenhaRecording.fromJson(json), json);
+      probe('ResenhaRoom', () => ResenhaRoom.fromJson(json), json);
+      probe('ResenhaDirectory', () => ResenhaDirectory.fromJson(json), json);
+      probe('ResenhaIceServer', () => ResenhaIceServer.fromJson(json), json);
+      probe(
+        'ResenhaIceConfiguration',
+        () => ResenhaIceConfiguration.fromJson(json),
+        json,
+      );
+      probe(
+        'ResenhaLiveKitCredentials',
+        () => ResenhaLiveKitCredentials.fromJson(json),
+        json,
+      );
+      final joinJson = <String, dynamic>{
+        'transport': 'mesh',
+        'room': <String, dynamic>{...json, '_corpus_probe': true},
+        'ice': json,
+      };
+      probe(
+        'ResenhaJoinResponse',
+        () => ResenhaJoinResponse.fromJson(joinJson),
+        joinJson,
+      );
+      probe(
+        'ResenhaChatSession',
+        () => ResenhaChatSession.fromJson(json),
+        json,
+      );
+      probe('ResenhaRoomEvent', () => ResenhaRoomEvent.fromJson(json), json);
 
       probe('TopicLink', () => TopicLink.parse('$loose'), loose);
       probe('ListLink', () => ListLink.parse('$loose'), loose);
