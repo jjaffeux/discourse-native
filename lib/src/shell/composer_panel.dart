@@ -1029,6 +1029,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   ComposerQuoteBlock? _pointerDownQuote;
   ComposerSyntaxOccurrence? _pointerDownSyntax;
   ComposerSyntaxOccurrence? _pointerDownAfterBlockSyntax;
+  ComposerImageGalleryBlock? _gallerySelectedAtPointerDown;
   Offset? _pointerDownPosition;
   int _pointerSequence = 0;
   bool _hoveringMention = false;
@@ -1335,6 +1336,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _pointerDownAfterBlockSyntax != null;
 
   void _onEditorPointerDown(PointerDownEvent event) {
+    _gallerySelectedAtPointerDown = _media.value.selectedGallery;
     _clearKeyboardPillSelection();
     _releasePointerDownPillCollapse();
     _pointerDownAfterBlockSyntax = null;
@@ -1439,6 +1441,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _pointerDownQuote = null;
     _pointerDownSyntax = null;
     _pointerDownAfterBlockSyntax = null;
+    _gallerySelectedAtPointerDown = null;
     _pointerDownPosition = null;
   }
 
@@ -1454,6 +1457,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final gallery = media.gallery;
     final syntax = _pointerDownSyntax;
     final afterBlockSyntax = _pointerDownAfterBlockSyntax;
+    final selectedGallery = _gallerySelectedAtPointerDown;
     final position = _pointerDownPosition;
     _clearPointerDownPill(releaseCollapse: false);
     if (quote != null) {
@@ -1474,6 +1478,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
       return;
     }
     if (gallery != null) {
+      final togglesSelectedGallery =
+          selectedGallery != null &&
+          selectedGallery.start == gallery.start &&
+          selectedGallery.end == gallery.end;
+      if (togglesSelectedGallery) {
+        _media.dismissGallery(requestFocus: false);
+        widget.composer.text.releaseGalleryPointerEdit(gallery);
+        return;
+      }
       _media.selectGallery(gallery);
       return;
     }
