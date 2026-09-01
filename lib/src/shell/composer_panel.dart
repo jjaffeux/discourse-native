@@ -1593,6 +1593,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
             event.logicalKey == LogicalKeyboardKey.arrowRight);
     if (isPlainHorizontalArrow) {
       final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+      final emoji = moveLeft
+          ? widget.composer.text.renderedEmojiEndingAt(caret)
+          : widget.composer.text.renderedEmojiStartingAt(caret);
+      if (emoji != null) {
+        widget.composer.text.selection = TextSelection.collapsed(
+          offset: moveLeft ? emoji.start : emoji.end,
+        );
+        return KeyEventResult.handled;
+      }
       final pill = moveLeft
           ? _collapsedPillEndingAt(caret)
           : _collapsedPillStartingAt(caret);
