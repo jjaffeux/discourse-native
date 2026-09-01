@@ -15,10 +15,12 @@ class ChatChannelStarButton extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.channelId,
+    this.size = DButtonSize.regular,
   });
 
   final String siteUrl;
   final int channelId;
+  final DButtonSize size;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +46,7 @@ class ChatChannelStarButton extends StatelessWidget {
                   : () => unawaited(_change(context, chat, !starred)),
               loading: busy,
               variant: DButtonVariant.flat,
+              size: size,
               icon: busy
                   ? const SizedBox.square(
                       dimension: 18,

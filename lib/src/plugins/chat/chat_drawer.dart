@@ -626,6 +626,7 @@ class _DrawerHeader extends StatelessWidget {
       builder: (context, constraints) {
         final overflowActions =
             expanded && constraints.maxWidth < _narrowActionsWidth;
+        final showLeading = !overflowActions || titleTrailing == null;
         return GestureDetector(
           key: ChatDrawerOverlay.headerKey,
           behavior: HitTestBehavior.opaque,
@@ -643,13 +644,14 @@ class _DrawerHeader extends StatelessWidget {
                   )
                 else
                   const SizedBox(width: 10),
-                if (leading != null) ...[
-                  SizedBox(width: 24, height: 24, child: leading),
-                  const SizedBox(width: 6),
-                ] else ...[
-                  const DIcon(DIcons.comment, size: 18),
-                  const SizedBox(width: 7),
-                ],
+                if (showLeading)
+                  if (leading != null) ...[
+                    SizedBox(width: 24, height: 24, child: leading),
+                    const SizedBox(width: 6),
+                  ] else ...[
+                    const DIcon(DIcons.comment, size: 18),
+                    const SizedBox(width: 7),
+                  ],
                 Expanded(
                   child: InkWell(
                     onTap: expanded ? (titleAction ?? onToggle) : onToggle,

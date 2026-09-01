@@ -674,13 +674,25 @@ class _ChannelPaneHeader extends StatelessWidget {
                   const DIcon(DIcons.comment, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      channel?.title ?? 'Chat',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: Row(
+                      children: [
+                        Flexible(
+                          fit: FlexFit.loose,
+                          child: Text(
+                            channel?.title ?? 'Chat',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        ChatChannelStarButton(
+                          siteUrl: siteUrl,
+                          channelId: channelId,
+                          size: DButtonSize.small,
+                        ),
+                      ],
                     ),
                   ),
                 ] else if (carriesSearch)
@@ -692,7 +704,6 @@ class _ChannelPaneHeader extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                 ],
-                ChatChannelStarButton(siteUrl: siteUrl, channelId: channelId),
                 ChatChannelSearchButton(siteUrl: siteUrl, channelId: channelId),
                 if (ShellTitleBar.columnsCarryUserMenu) ...[
                   ChatHeaderButton(ringColor: theme.shell.content),
