@@ -1034,7 +1034,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   int _pointerSequence = 0;
   bool _hoveringMention = false;
   bool _hoveringLink = false;
-  final ScrollController _scroll = ScrollController();
+  late final ScrollController _scroll;
   late final ComposerMediaEditingCoordinator _media;
   late final _ComposerSelectionOverlay _selectionOverlay;
   final ValueNotifier<int> _mediaLayoutRevision = ValueNotifier(0);
@@ -1048,6 +1048,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
   @override
   void initState() {
     super.initState();
+    _scroll = _ComposerScrollController(
+      extraExtent: () => widget.composer.text.galleryScrollExtentCompensation,
+    );
     _media = ComposerMediaEditingCoordinator(widget.composer)
       ..addListener(_scheduleMediaLayoutRefresh);
     _selectionOverlay = _ComposerSelectionOverlay(
@@ -2153,6 +2156,50 @@ final class _ComposerSelectionOverlay {
     _syncToken = null;
     _detach();
     anchor.dispose();
+  }
+}
+
+class _ComposerScrollController extends ScrollController {
+  _ComposerScrollController({required this.extraExtent});
+
+  final double Function() extraExtent;
+
+  @override
+  ScrollPosition createScrollPosition(
+    ScrollPhysics physics,
+    ScrollContext context,
+    ScrollPosition? oldPosition,
+  ) => _ComposerScrollPosition(
+    physics: physics,
+    context: context,
+    initialPixels: initialScrollOffset,
+    keepScrollOffset: keepScrollOffset,
+    oldPosition: oldPosition,
+    debugLabel: debugLabel,
+    extraExtent: extraExtent,
+  );
+}
+
+class _ComposerScrollPosition extends ScrollPositionWithSingleContext {
+  _ComposerScrollPosition({
+    required super.physics,
+    required super.context,
+    required this.extraExtent,
+    super.initialPixels,
+    super.keepScrollOffset,
+    super.oldPosition,
+    super.debugLabel,
+  });
+
+  final double Function() extraExtent;
+
+  @override
+  bool applyContentDimensions(double minScrollExtent, double maxScrollExtent) {
+    final compensation = extraExtent();
+    return super.applyContentDimensions(
+      minScrollExtent,
+      maxScrollExtent + (compensation.isFinite ? math.max(0, compensation) : 0),
+    );
   }
 }
 

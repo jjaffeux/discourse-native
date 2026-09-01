@@ -102,6 +102,27 @@ class MarkdownEditingController extends TextEditingController {
   ComposerImageGalleryBlock? _caretSuppressedGallery;
   ComposerImageBlock? _draggedGalleryImage;
   final Map<int, GlobalKey> _galleryKeys = {};
+  final Map<int, double> _galleryLayoutHeights = {};
+
+  double get galleryScrollExtentCompensation {
+    var compensation = 0.0;
+    for (final gallery in _galleryBlocksFor(text)) {
+      if (gallery.mode != ComposerGalleryMode.grid || gallery.images.isEmpty) {
+        continue;
+      }
+      final height =
+          _galleryLayoutHeights[gallery.start] ??
+          ComposerImageGalleryPreview.displayHeight(gallery.images.length);
+      final singleRowHeight = ComposerImageGalleryPreview.displayHeight(
+        gallery.images.length,
+        mode: ComposerGalleryMode.carousel,
+      );
+      if (height > singleRowHeight) {
+        compensation += height - singleRowHeight;
+      }
+    }
+    return compensation;
+  }
 
   @override
   set value(TextEditingValue newValue) {
@@ -345,6 +366,14 @@ class MarkdownEditingController extends TextEditingController {
       _galleryBlocks,
       blocks,
       (block) => block.start,
+    );
+    final previousByStart = {
+      for (final block in _galleryBlocks) block.start: block,
+    };
+    final nextByStart = {for (final block in blocks) block.start: block};
+    _galleryLayoutHeights.removeWhere(
+      (start, _) =>
+          !_sameProjection(previousByStart[start], nextByStart[start]),
     );
     return _galleryBlocks = blocks;
   }
@@ -1148,9 +1177,12 @@ class MarkdownEditingController extends TextEditingController {
       );
     }
 
-    final galleryHeight = ComposerImageGalleryPreview.displayHeight(
+    final defaultGalleryHeight = ComposerImageGalleryPreview.displayHeight(
       items.length,
+      mode: gallery.mode,
     );
+    final galleryHeight =
+        _galleryLayoutHeights[gallery.start] ?? defaultGalleryHeight;
     final lineHeight = (base.fontSize ?? 14) * (base.height ?? 1.4);
     final breaks = (galleryHeight / lineHeight).ceil().clamp(
       1,
@@ -1184,6 +1216,11 @@ class MarkdownEditingController extends TextEditingController {
                         onReorderImageGallery!(gallery, image, newIndex),
               onReorderStarted: _startGalleryImageDrag,
               onReorderEnded: (image) => _endGalleryImageDrag(gallery, image),
+              onLayoutHeight: (height) => _cacheGalleryLayoutHeight(
+                gallery,
+                height,
+                defaultHeight: defaultGalleryHeight,
+              ),
             ),
           ),
         ),
@@ -1208,6 +1245,28 @@ class MarkdownEditingController extends TextEditingController {
   void _startGalleryImageDrag(ComposerImageBlock image) {
     if (_sameProjection(_draggedGalleryImage, image)) return;
     _draggedGalleryImage = image;
+    artworkArrived();
+  }
+
+  void _cacheGalleryLayoutHeight(
+    ComposerImageGalleryBlock gallery,
+    double height, {
+    required double defaultHeight,
+  }) {
+    if (_disposed) return;
+    ComposerImageGalleryBlock? current;
+    for (final candidate in _galleryBlocksFor(text)) {
+      if (candidate.start == gallery.start) {
+        current = candidate;
+        break;
+      }
+    }
+    if (!_sameProjection(current, gallery)) return;
+
+    final previous = _galleryLayoutHeights[gallery.start];
+    if (previous == height) return;
+    _galleryLayoutHeights[gallery.start] = height;
+    if (previous == null && height == defaultHeight) return;
     artworkArrived();
   }
 

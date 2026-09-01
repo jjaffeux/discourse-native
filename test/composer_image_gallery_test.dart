@@ -78,6 +78,90 @@ void main() {
       }
     });
 
+    testWidgets('matches the rendered grid column rules', (tester) async {
+      for (final (imageCount, expectedColumns, expectedRows) in [
+        (4, 2, 2),
+        (7, 3, 3),
+      ]) {
+        final gallery = parseComposerImageGalleries(
+          _gallerySource(imageCount),
+        ).single;
+        final keys = [for (var i = 0; i < imageCount; i++) GlobalKey()];
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: ComposerImageGalleryPreview(
+                gallery: gallery,
+                items: [
+                  for (final (index, image) in gallery.images.indexed)
+                    ComposerImageGalleryItem(
+                      image: image,
+                      url: null,
+                      imageKey: keys[index],
+                      highlighted: false,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        final rects = [for (final key in keys) tester.getRect(find.byKey(key))];
+        expect(
+          rects.map((rect) => rect.left).toSet(),
+          hasLength(expectedColumns),
+        );
+        expect(rects.map((rect) => rect.top).toSet(), hasLength(expectedRows));
+        expect(
+          tester.getSize(find.byType(ComposerImageGalleryPreview)).height,
+          ComposerImageGalleryPreview.displayHeight(imageCount),
+        );
+      }
+    });
+
+    testWidgets('keeps carousel images on one scrollable row', (tester) async {
+      final gallery = parseComposerImageGalleries(
+        _gallerySource(7, mode: ComposerGalleryMode.carousel),
+      ).single;
+      final keys = [for (var i = 0; i < 7; i++) GlobalKey()];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              child: ComposerImageGalleryPreview(
+                gallery: gallery,
+                items: [
+                  for (final (index, image) in gallery.images.indexed)
+                    ComposerImageGalleryItem(
+                      image: image,
+                      url: null,
+                      imageKey: keys[index],
+                      highlighted: false,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final rects = [for (final key in keys) tester.getRect(find.byKey(key))];
+      expect(rects.map((rect) => rect.top).toSet(), hasLength(1));
+      expect(find.byType(SingleChildScrollView), findsOneWidget);
+      expect(
+        tester.getSize(find.byType(ComposerImageGalleryPreview)).height,
+        ComposerImageGalleryPreview.displayHeight(
+          7,
+          mode: ComposerGalleryMode.carousel,
+        ),
+      );
+    });
+
     testWidgets('keeps the selected border inside its paint bounds', (
       tester,
     ) async {
@@ -188,6 +272,15 @@ void main() {
       expect(
         tester.getSize(find.byType(ComposerImageGalleryControl)).height,
         ComposerImageGalleryControl.extent,
+      );
+      final tiles = find.byType(ComposerImageGalleryTile);
+      expect(
+        tester.getTopLeft(tiles.at(0)).dy,
+        tester.getTopLeft(tiles.at(1)).dy,
+      );
+      expect(
+        tester.getTopLeft(tiles.at(2)).dy,
+        greaterThan(tester.getTopLeft(tiles.at(0)).dy),
       );
     });
   });
@@ -349,6 +442,75 @@ void main() {
         greaterThanOrEqualTo(
           tester.getSize(find.byType(ComposerImageGalleryPreview)).height,
         ),
+      );
+    });
+
+    testWidgets('keeps wrapped rows scrollable in a narrow editor', (
+      tester,
+    ) async {
+      final composer = ComposerController(
+        _target,
+        resolveUploadUrls: (_) async => const {},
+      );
+      composer.text.text = _gallerySource(7);
+      addTearDown(composer.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 280,
+                height: 180,
+                child: ComposerEditor(
+                  composer: composer,
+                  hintText: '',
+                  textStyle: const TextStyle(fontSize: 14),
+                  hintStyle: const TextStyle(fontSize: 14),
+                  autofocus: false,
+                  enableDropTarget: false,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final preview = find.byType(ComposerImageGalleryPreview);
+      expect(
+        tester.getSize(preview).height,
+        ComposerImageGalleryPreview.displayHeight(7, gridColumns: 2),
+      );
+      final scrollable = find.descendant(
+        of: find.byType(EditableText),
+        matching: find.byType(Scrollable),
+      );
+      final scrollState = tester.state<ScrollableState>(scrollable);
+      expect(
+        scrollState.position.maxScrollExtent,
+        greaterThanOrEqualTo(tester.getSize(preview).height - 180),
+      );
+      scrollState.position.jumpTo(scrollState.position.maxScrollExtent);
+      await tester.pump();
+
+      final gallery = composer.text.galleryBlocks.single;
+      final galleryRect = composer.text.collapsedGalleryGlobalRect(gallery)!;
+      final lastImageRect = composer.text.collapsedImageGlobalRect(
+        gallery.images.last,
+      )!;
+      expect(galleryRect.contains(lastImageRect.center), isTrue);
+      expect(
+        tester
+            .getRect(find.byType(EditableText))
+            .contains(lastImageRect.center),
+        isTrue,
+      );
+      expect(
+        composer.text.collapsedImageAtGlobalPosition(lastImageRect.center),
+        same(gallery.images.last),
       );
     });
 
@@ -942,3 +1104,18 @@ const _target = ComposerTarget(
   slug: 'gallery-topic',
   topicTitle: 'Gallery topic',
 );
+
+String _gallerySource(
+  int imageCount, {
+  ComposerGalleryMode mode = ComposerGalleryMode.grid,
+}) {
+  final opening = switch (mode) {
+    ComposerGalleryMode.grid => '[grid]',
+    ComposerGalleryMode.carousel => '[grid mode=carousel]',
+  };
+  final images = [
+    for (var index = 0; index < imageCount; index++)
+      '![Image ${index + 1}](upload://image-${index + 1})',
+  ].join('\n');
+  return '$opening\n$images\n[/grid]';
+}
