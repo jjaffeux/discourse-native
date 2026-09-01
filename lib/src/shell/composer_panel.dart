@@ -37,6 +37,7 @@ import 'composer_upload_picker.dart';
 import 'emoji_composer.dart';
 import 'emoji_picker.dart';
 import 'image_decode.dart';
+import 'markdown_highlight.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
@@ -919,12 +920,26 @@ class _RenderedEmojiInputFormatter extends TextInputFormatter {
     final selection = oldValue.selection;
     if (!selection.isValid ||
         !selection.isCollapsed ||
-        oldValue.text.length != newValue.text.length + 1 ||
         (oldValue.isComposingRangeValid && !oldValue.composing.isCollapsed)) {
       return newValue;
     }
 
     final caret = selection.extentOffset;
+    final insertedLength = newValue.text.length - oldValue.text.length;
+    if (insertedLength > 0 &&
+        startingAt(caret) != null &&
+        newValue.text.startsWith(oldValue.text.substring(0, caret)) &&
+        newValue.text.substring(caret + insertedLength) ==
+            oldValue.text.substring(caret)) {
+      final inserted = newValue.text.substring(caret, caret + insertedLength);
+      final lastCharacter = String.fromCharCode(inserted.runes.last);
+      if (!isEmojiShortcodeBoundary(lastCharacter)) {
+        return _insertEmojiBoundary(newValue, caret + insertedLength);
+      }
+    }
+
+    if (oldValue.text.length != newValue.text.length + 1) return newValue;
+
     TextRange? emoji;
     if (caret > 0 &&
         newValue.text == oldValue.text.replaceRange(caret - 1, caret, '')) {
@@ -938,6 +953,33 @@ class _RenderedEmojiInputFormatter extends TextInputFormatter {
     return TextEditingValue(
       text: oldValue.text.replaceRange(emoji.start, emoji.end, ''),
       selection: TextSelection.collapsed(offset: emoji.start),
+    );
+  }
+
+  static TextEditingValue _insertEmojiBoundary(
+    TextEditingValue value,
+    int offset,
+  ) {
+    int shifted(int original) => original > offset ? original + 1 : original;
+
+    final selection = value.selection;
+    final composing = value.composing;
+    return value.copyWith(
+      text: value.text.replaceRange(offset, offset, ' '),
+      selection: selection.isValid
+          ? TextSelection(
+              baseOffset: shifted(selection.baseOffset),
+              extentOffset: shifted(selection.extentOffset),
+              affinity: selection.affinity,
+              isDirectional: selection.isDirectional,
+            )
+          : selection,
+      composing: composing.isValid
+          ? TextRange(
+              start: shifted(composing.start),
+              end: shifted(composing.end),
+            )
+          : composing,
     );
   }
 }
