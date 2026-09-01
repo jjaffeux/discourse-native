@@ -16,8 +16,6 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
 import 'categories_page.dart';
-import 'composer_controller.dart';
-import 'composer_panel.dart';
 import 'draft_list.dart';
 import 'forum_search.dart';
 import 'forum_tabs_bar.dart';
@@ -107,33 +105,20 @@ class _MainContentBody extends StatelessWidget {
                 registry: registry,
               ),
             Expanded(
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: KeyedSubtree(
-                      key: contentKey,
-                      child: _ContentViewport(
-                        layout: layout,
-                        route: route,
-                        siteUrl: state.siteUrl,
-                        isConnected: state.isConnected,
-                        canReply: state.canReply,
-                        bookmarkBusy: state.bookmarkBusy,
-                        registry: registry,
-                        pluginContent: pluginContent,
-                        filterCategories: state.filterCategories,
-                        categoryFeed: state.categoryFeed,
-                      ),
-                    ),
-                  ),
-                  if (state.composer case final composer?)
-                    Positioned.fill(
-                      child: FloatingComposerPanel(
-                        key: ObjectKey(composer),
-                        composer: composer,
-                      ),
-                    ),
-                ],
+              child: KeyedSubtree(
+                key: contentKey,
+                child: _ContentViewport(
+                  layout: layout,
+                  route: route,
+                  siteUrl: state.siteUrl,
+                  isConnected: state.isConnected,
+                  canReply: state.canReply,
+                  bookmarkBusy: state.bookmarkBusy,
+                  registry: registry,
+                  pluginContent: pluginContent,
+                  filterCategories: state.filterCategories,
+                  categoryFeed: state.categoryFeed,
+                ),
               ),
             ),
           ],
@@ -718,7 +703,6 @@ class _MainContentSnapshot {
     required this.siteUrl,
     required this.activeTabId,
     required this.route,
-    required this.composer,
     required this.canPop,
     required this.canReply,
     required this.bookmarkBusy,
@@ -732,7 +716,6 @@ class _MainContentSnapshot {
         siteUrl: controller.currentInstance?.url,
         activeTabId: controller.activeTabId,
         route: controller.currentContent,
-        composer: controller.visibleComposer,
         canPop: controller.canPopContent,
         canReply: controller.canReplyHere,
         bookmarkBusy: switch ((
@@ -769,7 +752,6 @@ class _MainContentSnapshot {
   final String? siteUrl;
   final String? activeTabId;
   final ContentRoute? route;
-  final ComposerController? composer;
   final bool canPop;
   final bool canReply;
   final bool bookmarkBusy;
@@ -783,7 +765,6 @@ class _MainContentSnapshot {
       siteUrl == other.siteUrl &&
       activeTabId == other.activeTabId &&
       identical(route, other.route) &&
-      identical(composer, other.composer) &&
       canPop == other.canPop &&
       canReply == other.canReply &&
       bookmarkBusy == other.bookmarkBusy &&
@@ -796,7 +777,6 @@ class _MainContentSnapshot {
     siteUrl,
     activeTabId,
     identityHashCode(route),
-    identityHashCode(composer),
     canPop,
     canReply,
     bookmarkBusy,

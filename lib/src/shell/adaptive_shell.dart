@@ -17,6 +17,8 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'aggregate_view.dart';
 import 'app_settings_page.dart';
+import 'composer_controller.dart';
+import 'composer_panel.dart';
 import 'diagnostics_panel.dart';
 import 'empty_state.dart';
 import 'instance_actions.dart';
@@ -393,6 +395,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                 ),
               ),
               ...PluginScope.of(context).registry.shellOverlays(context),
+              const Positioned.fill(child: _ComposerViewportOverlay()),
             ],
           );
 
@@ -498,6 +501,18 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       child: child,
     );
   }
+}
+
+class _ComposerViewportOverlay extends StatelessWidget {
+  const _ComposerViewportOverlay();
+
+  @override
+  Widget build(BuildContext context) => ShellSelector<ComposerController?>(
+    select: (controller) => controller.visibleComposer,
+    builder: (context, composer, _) => composer == null
+        ? const SizedBox.shrink()
+        : FloatingComposerPanel(key: ObjectKey(composer), composer: composer),
+  );
 }
 
 class _ForumBoundaryShell extends StatelessWidget {
