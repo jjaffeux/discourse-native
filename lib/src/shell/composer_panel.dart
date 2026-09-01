@@ -1153,6 +1153,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   @override
+  void reassemble() {
+    super.reassemble();
+    // Hot reload preserves the controller and its projected TextSpan cache.
+    // Layout code can change while that span still contains the old component
+    // reservation lines, so rebuild it before painting the reassembled editor.
+    widget.composer.text.artworkArrived();
+  }
+
+  @override
   void dispose() {
     _releasePointerDownPillCollapse();
     if (identical(widget.composer.text.imageScrollController, _scroll)) {
