@@ -541,6 +541,156 @@ void main() {
       },
     );
 
+    testWidgets(
+      'Arrow Up edits the latest non-deleted message from the current user',
+      (tester) async {
+        const reader = ChatMessageAuthor(id: 7, username: 'reader');
+        final fixture = await _fixture(
+          pages: {
+            FakeDiscourseApi.chatMessagesKey(9): (
+              messages: [
+                ChatMessage(
+                  id: 1,
+                  channelId: 9,
+                  raw: 'older message',
+                  cooked: '<p>older message</p>',
+                  author: reader,
+                  createdAt: DateTime.utc(2026, 8, 11, 10),
+                ),
+                ChatMessage(
+                  id: 2,
+                  channelId: 9,
+                  raw: 'another user',
+                  cooked: '<p>another user</p>',
+                  author: const ChatMessageAuthor(id: 8, username: 'sam'),
+                  createdAt: DateTime.utc(2026, 8, 11, 11),
+                ),
+                ChatMessage(
+                  id: 3,
+                  channelId: 9,
+                  raw: 'latest editable message',
+                  cooked: '<p>latest editable message</p>',
+                  author: reader,
+                  createdAt: DateTime.utc(2026, 8, 11, 12),
+                ),
+                ChatMessage(
+                  id: 4,
+                  channelId: 9,
+                  raw: 'deleted message',
+                  cooked: '<p>deleted message</p>',
+                  author: reader,
+                  createdAt: DateTime.utc(2026, 8, 11, 13),
+                  deletedAt: DateTime.utc(2026, 8, 11, 14),
+                ),
+              ],
+              canLoadMorePast: false,
+              canLoadMoreFuture: false,
+              targetMessageId: null,
+            ),
+          },
+          sessionUser: const DiscourseUser(id: 7, username: 'reader'),
+        );
+        addTearDown(fixture.shell.dispose);
+        await tester.pumpWidget(_TestView(shell: fixture.shell));
+        await tester.pumpAndSettle();
+
+        _field(tester).focusNode!.requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('chat-composer-editing')),
+          findsOneWidget,
+        );
+        expect(_text(tester), 'latest editable message');
+      },
+    );
+
+    testWidgets(
+      'Arrow Up does not fall back past the latest uneditable user message',
+      (tester) async {
+        const reader = ChatMessageAuthor(id: 7, username: 'reader');
+        final fixture = await _fixture(
+          pages: {
+            FakeDiscourseApi.chatMessagesKey(9): (
+              messages: [
+                ChatMessage(
+                  id: 1,
+                  channelId: 9,
+                  raw: 'older editable message',
+                  cooked: '<p>older editable message</p>',
+                  author: reader,
+                  createdAt: DateTime.utc(2026, 8, 11, 10),
+                ),
+                ChatMessage(
+                  id: -1,
+                  channelId: 9,
+                  raw: 'message still sending',
+                  cooked: '',
+                  author: reader,
+                  createdAt: DateTime.utc(2026, 8, 11, 11),
+                  stagedId: 'pending-message',
+                ),
+              ],
+              canLoadMorePast: false,
+              canLoadMoreFuture: false,
+              targetMessageId: null,
+            ),
+          },
+          sessionUser: const DiscourseUser(id: 7, username: 'reader'),
+        );
+        addTearDown(fixture.shell.dispose);
+        await tester.pumpWidget(_TestView(shell: fixture.shell));
+        await tester.pumpAndSettle();
+
+        _field(tester).focusNode!.requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('chat-composer-editing')),
+          findsNothing,
+        );
+        expect(_text(tester), isEmpty);
+      },
+    );
+
+    testWidgets('Arrow Up does not edit while the draft has content', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        pages: {
+          FakeDiscourseApi.chatMessagesKey(9): (
+            messages: [
+              ChatMessage(
+                id: 1,
+                channelId: 9,
+                raw: 'previous message',
+                cooked: '<p>previous message</p>',
+                author: const ChatMessageAuthor(id: 7, username: 'reader'),
+                createdAt: DateTime.utc(2026, 8, 11, 10),
+              ),
+            ],
+            canLoadMorePast: false,
+            canLoadMoreFuture: false,
+            targetMessageId: null,
+          ),
+        },
+        sessionUser: const DiscourseUser(id: 7, username: 'reader'),
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(_composerField(), 'draft in progress');
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('chat-composer-editing')), findsNothing);
+    });
+
     testWidgets('the channel drop target honors the site upload setting', (
       tester,
     ) async {

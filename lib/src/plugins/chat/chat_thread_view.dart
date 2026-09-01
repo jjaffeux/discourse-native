@@ -524,6 +524,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
               focusRequest: _focusComposerRequest,
               uploadDropController: _uploadDropController,
               editingMessage: _editingMessage,
+              onEditMessage: _editMessage,
               onEditFinished: _finishEditing,
             ),
         ],
