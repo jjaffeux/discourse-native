@@ -623,6 +623,67 @@ void main() {
       expect(_composerEditable(tester).showCursor, isTrue);
     });
 
+    testWidgets('vertical arrows leave a selected gallery', (tester) async {
+      final composer = ComposerController(
+        _target,
+        resolveUploadUrls: (_) async => const {},
+      );
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore(),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      await shell.load();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.text = _source;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(body: ComposerPanel(composer: composer)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final gallery = composer.text.galleryBlocks.single;
+      final controlCenter = tester.getCenter(
+        find.byType(ComposerImageGalleryControl),
+      );
+      for (final (key, expectedOffset) in [
+        (LogicalKeyboardKey.arrowUp, gallery.start),
+        (LogicalKeyboardKey.arrowDown, gallery.end),
+      ]) {
+        await tester.tapAt(controlCenter);
+        await tester.pump();
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey('composer-gallery-toolbar')),
+          findsOneWidget,
+        );
+
+        composer.focus.requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(key);
+        await tester.pump();
+
+        expect(
+          composer.text.selection,
+          TextSelection.collapsed(offset: expectedOffset),
+        );
+        expect(
+          find.byKey(const ValueKey('composer-gallery-toolbar')),
+          findsNothing,
+        );
+        expect(_composerEditable(tester).showCursor, isTrue);
+      }
+    });
+
     testWidgets('selects a gallery when a vertical arrow enters it', (
       tester,
     ) async {
