@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../shell/relative_time.dart';
 import '../../shell/shell_sheet.dart';
+import '../../shell/site_emoji_text.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
@@ -111,8 +112,9 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
             key: ValueKey('chat-pin-${pin.id}'),
             minTileHeight: 56,
             leading: const DIcon(DIcons.thumbtack, size: 18),
-            title: Text(
+            title: SiteEmojiText.plain(
               pin.excerpt.isEmpty ? pin.message.raw : pin.excerpt,
+              siteUrl: widget.siteUrl,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -197,8 +199,9 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          Text(
+                          SiteEmojiText.plain(
                             excerpt,
+                            siteUrl: widget.siteUrl,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
