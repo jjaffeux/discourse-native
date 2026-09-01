@@ -374,6 +374,62 @@ void main() {
   });
 
   group('composer presentation and controls', () {
+    testWidgets('minimizes and restores a topic without losing its work', (
+      tester,
+    ) async {
+      final composer = ComposerController(_newTopicTarget);
+      composer.title.text = 'A draft topic';
+      composer.text.text = 'The draft body';
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpFloatingPanel(tester, shell, composer);
+
+      await tester.drag(
+        find.byKey(const ValueKey('composer-drag-handle')),
+        const Offset(-48, -72),
+      );
+      await tester.pump();
+      await tester.drag(
+        find.byKey(const ValueKey('composer-resize-top')),
+        const Offset(0, -40),
+      );
+      await tester.pump();
+      final expanded = tester.getRect(find.byType(ComposerPanel));
+
+      composer.focus.requestFocus();
+      await tester.pump();
+      expect(composer.focus.hasFocus, isTrue);
+
+      await tester.tap(find.byTooltip('Minimize composer'));
+      await tester.pump();
+
+      final minimized = tester.getRect(find.byType(ComposerPanel));
+      expect(minimized, Rect.fromLTWH(expanded.left, 588, expanded.width, 46));
+      expect(composer.focus.hasFocus, isFalse);
+      expect(find.byKey(const ValueKey('composer-minimize')), findsNothing);
+      expect(find.byKey(const ValueKey('composer-restore')), findsOneWidget);
+      expect(find.byType(ComposerEditor), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Create topic'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('composer-resize-bottom-right')),
+        findsNothing,
+      );
+      expect(composer.title.text, 'A draft topic');
+      expect(composer.text.text, 'The draft body');
+
+      await tester.tap(find.byTooltip('Restore composer'));
+      await tester.pump();
+
+      expect(tester.getRect(find.byType(ComposerPanel)), expanded);
+      expect(find.byKey(const ValueKey('composer-minimize')), findsOneWidget);
+      expect(find.byKey(const ValueKey('composer-restore')), findsNothing);
+      expect(find.byType(ComposerEditor), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Create topic'), findsOneWidget);
+      expect(composer.title.text, 'A draft topic');
+      expect(composer.text.text, 'The draft body');
+    });
+
     testWidgets('Command-E wraps the selected topic body in backticks', (
       tester,
     ) async {
