@@ -243,6 +243,21 @@ bool _isWhitespace(int unit) =>
     unit == 0x3000 ||
     unit == 0xFEFF;
 
+final RegExp _emojiBoundaryPunctuationPattern = RegExp(
+  r'[\p{P}\p{S}]',
+  unicode: true,
+);
+
+/// Whether [character] can immediately precede an emoji shortcode.
+///
+/// This mirrors Discourse's default shortcode boundary. Keeping it shared
+/// prevents composer edits from preserving artwork for source that the site
+/// would no longer render as an emoji.
+bool isEmojiShortcodeBoundary(String character) =>
+    character == '\u200B' ||
+    _isWhitespace(character.codeUnitAt(0)) ||
+    _emojiBoundaryPunctuationPattern.hasMatch(character);
+
 bool _isAsciiPunctuation(int unit) =>
     (unit >= 0x21 && unit <= 0x2F) ||
     (unit >= 0x3A && unit <= 0x40) ||
@@ -688,7 +703,10 @@ class _Scan {
       if (!_free(match.start, match.end)) continue;
       // Match Core's default shortcode boundary so times and `word:smile:`
       // remain text. This scanner cannot see the setting that relaxes it.
-      if (match.start > 0 && !_opensEmoji(source[match.start - 1])) continue;
+      if (match.start > 0 &&
+          !isEmojiShortcodeBoundary(source[match.start - 1])) {
+        continue;
+      }
       _markToken(match.start, match.end, Md.emoji, match.group(1)!);
       _close(match.start, match.end);
       _cuts.add(match.start);
@@ -743,16 +761,6 @@ class _Scan {
       }
     }
   }
-
-  static bool _opensEmoji(String character) =>
-      character == '\u200B' ||
-      _isWhitespace(character.codeUnitAt(0)) ||
-      _punctuationPattern.hasMatch(character);
-
-  static final RegExp _punctuationPattern = RegExp(
-    r'[\p{P}\p{S}]',
-    unicode: true,
-  );
 
   static bool _isBoundary(String character) =>
       !_boundaryPattern.hasMatch(character);

@@ -154,6 +154,51 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('typing before a rendered emoji preserves its boundary', (
+    tester,
+  ) async {
+    final pipeline = installTestMediaPipeline(
+      client: MockClient((_) async => http.Response.bytes(_pngBytes, 200)),
+    );
+    final shell = await _openComposer();
+    addTearDown(shell.dispose);
+    await pipeline.emoji.load(shell.emojiUrlFor(_site, 'wave'));
+    final composer = shell.visibleComposer!;
+    composer.text.value = const TextEditingValue(
+      text: ':wave:',
+      selection: TextSelection.collapsed(offset: 0),
+    );
+    await _pumpComposer(tester, shell);
+
+    expect(find.byType(EmojiImage), findsOneWidget);
+    composer.focus.requestFocus();
+    await tester.pump();
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'd:wave:',
+        selection: TextSelection.collapsed(offset: 1),
+      ),
+    );
+    await tester.pump();
+
+    expect(composer.text.text, 'd :wave:');
+    expect(composer.text.selection, const TextSelection.collapsed(offset: 1));
+    expect(find.byType(EmojiImage), findsOneWidget);
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'do :wave:',
+        selection: TextSelection.collapsed(offset: 2),
+      ),
+    );
+    await tester.pump();
+
+    expect(composer.text.text, 'do :wave:');
+    expect(composer.text.selection, const TextSelection.collapsed(offset: 2));
+    expect(find.byType(EmojiImage), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('topic composer inserts a picker selection at captured caret', (
     tester,
   ) async {
