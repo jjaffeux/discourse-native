@@ -66,9 +66,9 @@ void main() {
       expect(find.byTooltip('Remove quote'), findsOneWidget);
 
       final quote = composer.text.quoteBlocks.single;
-      final previewBottom = tester
-          .getBottomLeft(find.byType(ComposerQuotePreview))
-          .dy;
+      final previewBottom = composer.text
+          .collapsedQuoteGlobalRect(quote)!
+          .bottom;
       final editable = tester.state<EditableTextState>(
         find.byType(EditableText),
       );
@@ -218,9 +218,9 @@ void main() {
       expect(body.maxLines, isNull);
       expect(body.overflow, isNot(TextOverflow.ellipsis));
 
-      final previewBottom = tester
-          .getBottomLeft(find.byType(ComposerQuotePreview))
-          .dy;
+      final previewBottom = composer.text
+          .collapsedQuoteGlobalRect(quote)!
+          .bottom;
       final editable = tester.state<EditableTextState>(
         find.byType(EditableText),
       );

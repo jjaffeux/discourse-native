@@ -144,6 +144,19 @@ class MarkdownEditingController extends TextEditingController {
     artworkArrived();
   }
 
+  Rect _editorPaintRect(RenderBox renderObject) {
+    final scroll = _imageScrollController;
+    final scrollOffset = scroll != null && scroll.hasClients
+        ? scroll.offset
+        : 0.0;
+    // RenderEditable applies its viewport offset while painting inline
+    // children, but omits it from their local-to-global transform. Account for
+    // that difference only when querying projected-component geometry; moving
+    // the child itself would apply the scroll twice on screen.
+    return (renderObject.localToGlobal(Offset.zero) - Offset(0, scrollOffset)) &
+        renderObject.size;
+  }
+
   List<ComposerImageBlock> get imageBlocks =>
       List.unmodifiable(_imageBlocksFor(text));
 
@@ -264,7 +277,7 @@ class MarkdownEditingController extends TextEditingController {
     final renderObject = _imageKeys[image.start]?.currentContext
         ?.findRenderObject();
     if (renderObject is! RenderBox || !renderObject.hasSize) return null;
-    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+    return _editorPaintRect(renderObject);
   }
 
   ComposerImageGalleryBlock? collapsedGalleryAtGlobalPosition(
@@ -283,7 +296,7 @@ class MarkdownEditingController extends TextEditingController {
     final renderObject = _galleryKeys[gallery.start]?.currentContext
         ?.findRenderObject();
     if (renderObject is! RenderBox || !renderObject.hasSize) return null;
-    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+    return _editorPaintRect(renderObject);
   }
 
   void cacheImageUrl(String shortUrl, String url) {
@@ -449,7 +462,7 @@ class MarkdownEditingController extends TextEditingController {
     final renderObject = _syntaxPillKeys[_syntaxKey(block)]?.currentContext
         ?.findRenderObject();
     if (renderObject is! RenderBox || !renderObject.hasSize) return null;
-    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+    return _editorPaintRect(renderObject);
   }
 
   List<ComposerSyntaxOccurrence> _syntaxBlocksFor(String source) {
@@ -524,7 +537,7 @@ class MarkdownEditingController extends TextEditingController {
     final renderObject = _quoteRemoveKeys[block.start]?.currentContext
         ?.findRenderObject();
     if (renderObject is! RenderBox || !renderObject.hasSize) return false;
-    final rect = renderObject.localToGlobal(Offset.zero) & renderObject.size;
+    final rect = _editorPaintRect(renderObject);
     return rect.inflate(4).contains(globalPosition);
   }
 
@@ -533,7 +546,7 @@ class MarkdownEditingController extends TextEditingController {
     final renderObject = _quoteKeys[block.start]?.currentContext
         ?.findRenderObject();
     if (renderObject is! RenderBox || !renderObject.hasSize) return null;
-    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+    return _editorPaintRect(renderObject);
   }
 
   TextSelection protectQuoteSelection(
@@ -620,7 +633,7 @@ class MarkdownEditingController extends TextEditingController {
     for (final key in _mentionPillKeys.values) {
       final renderObject = key.currentContext?.findRenderObject();
       if (renderObject is! RenderBox || !renderObject.hasSize) continue;
-      final rect = renderObject.localToGlobal(Offset.zero) & renderObject.size;
+      final rect = _editorPaintRect(renderObject);
       if (rect.contains(globalPosition)) return true;
     }
     return false;
@@ -1023,17 +1036,14 @@ class MarkdownEditingController extends TextEditingController {
             () => GlobalKey(debugLabel: 'composer-quote-${block.start}'),
           ),
           child: IgnorePointer(
-            child: _FollowEditorScroll(
-              controller: _imageScrollController,
-              child: ComposerQuotePreview(
-                block: block,
-                contents: displayedContents,
-                baseStyle: base,
-                removeKey: _quoteRemoveKeys.putIfAbsent(
-                  block.start,
-                  () => GlobalKey(
-                    debugLabel: 'composer-quote-remove-${block.start}',
-                  ),
+            child: ComposerQuotePreview(
+              block: block,
+              contents: displayedContents,
+              baseStyle: base,
+              removeKey: _quoteRemoveKeys.putIfAbsent(
+                block.start,
+                () => GlobalKey(
+                  debugLabel: 'composer-quote-remove-${block.start}',
                 ),
               ),
             ),
@@ -1064,19 +1074,16 @@ class MarkdownEditingController extends TextEditingController {
             () => GlobalKey(debugLabel: 'composer-image-${image.start}'),
           ),
           child: IgnorePointer(
-            child: _FollowEditorScroll(
-              controller: _imageScrollController,
-              child: ComposerImagePreview(
-                image: image,
-                url: url,
-                siteUrl: imageSiteUrl,
-                highlighted: highlighted,
-                onNaturalSize: (size) {
-                  if (_naturalImageSizes[image.url] == size) return;
-                  _naturalImageSizes[image.url] = size;
-                  artworkArrived();
-                },
-              ),
+            child: ComposerImagePreview(
+              image: image,
+              url: url,
+              siteUrl: imageSiteUrl,
+              highlighted: highlighted,
+              onNaturalSize: (size) {
+                if (_naturalImageSizes[image.url] == size) return;
+                _naturalImageSizes[image.url] = size;
+                artworkArrived();
+              },
             ),
           ),
         ),
@@ -1119,30 +1126,27 @@ class MarkdownEditingController extends TextEditingController {
       WidgetSpan(
         alignment: PlaceholderAlignment.top,
         style: base,
-        child: _FollowEditorScroll(
-          controller: _imageScrollController,
-          child: KeyedSubtree(
-            key: _galleryKeys.putIfAbsent(
-              gallery.start,
-              () => GlobalKey(
-                debugLabel: 'composer-image-gallery-${gallery.start}',
-              ),
+        child: KeyedSubtree(
+          key: _galleryKeys.putIfAbsent(
+            gallery.start,
+            () => GlobalKey(
+              debugLabel: 'composer-image-gallery-${gallery.start}',
             ),
-            child: ComposerImageGalleryPreview(
-              gallery: gallery,
-              items: items,
-              siteUrl: imageSiteUrl,
-              highlighted: _sameProjection(_caretSuppressedGallery, gallery),
-              onEdit: onEditImageGallery == null
-                  ? null
-                  : () => onEditImageGallery!(gallery),
-              onReorder: onReorderImageGallery == null
-                  ? null
-                  : (image, newIndex) =>
-                        onReorderImageGallery!(gallery, image, newIndex),
-              onReorderStarted: _startGalleryImageDrag,
-              onReorderEnded: (image) => _endGalleryImageDrag(gallery, image),
-            ),
+          ),
+          child: ComposerImageGalleryPreview(
+            gallery: gallery,
+            items: items,
+            siteUrl: imageSiteUrl,
+            highlighted: _sameProjection(_caretSuppressedGallery, gallery),
+            onEdit: onEditImageGallery == null
+                ? null
+                : () => onEditImageGallery!(gallery),
+            onReorder: onReorderImageGallery == null
+                ? null
+                : (image, newIndex) =>
+                      onReorderImageGallery!(gallery, image, newIndex),
+            onReorderStarted: _startGalleryImageDrag,
+            onReorderEnded: (image) => _endGalleryImageDrag(gallery, image),
           ),
         ),
       ),
@@ -1488,27 +1492,6 @@ class MarkdownEditingController extends TextEditingController {
       for (var i = 0; i < cuts.length - 1; i++)
         MarkdownRun(cuts[i], cuts[i + 1], run.mask, run.detail, run.token),
     ];
-  }
-}
-
-class _FollowEditorScroll extends StatelessWidget {
-  const _FollowEditorScroll({required this.controller, required this.child});
-
-  final ScrollController? controller;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final scroll = controller;
-    if (scroll == null) return child;
-    return AnimatedBuilder(
-      animation: scroll,
-      child: child,
-      builder: (context, child) => Transform.translate(
-        offset: Offset(0, scroll.hasClients ? -scroll.offset : 0),
-        child: child,
-      ),
-    );
   }
 }
 

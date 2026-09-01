@@ -756,8 +756,8 @@ void main() {
       scrollState.position.jumpTo(0);
       await tester.pump();
 
-      final preview = find.byType(ComposerImagePreview);
-      final oldTop = tester.getTopLeft(preview).dy;
+      final image = composer.text.imageBlocks.single;
+      final oldTop = composer.text.collapsedImageGlobalRect(image)!.top;
       await tester.sendEventToBinding(
         PointerScrollEvent(
           position: tester.getRect(find.byType(TextField)).center,
@@ -767,7 +767,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(scrollState.position.pixels, greaterThan(0));
-      expect(tester.getTopLeft(preview).dy, lessThan(oldTop));
+      expect(
+        composer.text.collapsedImageGlobalRect(image)!.top,
+        lessThan(oldTop),
+      );
     });
   });
 
