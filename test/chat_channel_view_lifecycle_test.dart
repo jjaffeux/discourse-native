@@ -4,6 +4,7 @@ import 'dart:ui' show Tristate;
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
@@ -18,6 +19,7 @@ import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/shell/loading_skeleton.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -27,11 +29,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 void main() {
   const firstSite = 'https://one.example';
@@ -786,6 +791,99 @@ void main() {
       expect(
         controller.chat.channel(firstSite, 9)?.membership.hasUnseenPins,
         isFalse,
+      );
+    });
+
+    testWidgets('pinned previews render emoji in the bar and complete list', (
+      tester,
+    ) async {
+      installTestMediaPipeline(
+        client: MockClient((_) async => http.Response('', 404)),
+      );
+      final first = _message(2).withPinned(true);
+      final second = _message(3).withPinned(true);
+      final api = _ChatApi(
+        openPages: {
+          firstSite: [_messagesPage(1, 3)],
+        },
+        emojisBySite: {
+          firstSite: const [
+            SiteEmoji(name: 'megaphone', url: '/emoji/megaphone.png'),
+            SiteEmoji(name: 'tada', url: '/emoji/tada.png'),
+          ],
+        },
+        chatPinsByChannel: {
+          9: (
+            pins: [
+              ChatPin(
+                id: 91,
+                messageId: 2,
+                message: first,
+                pinnedBy: const ChatMessageAuthor(id: 4, username: 'sam'),
+                excerpt: ':megaphone: First important answer',
+              ),
+              ChatPin(
+                id: 92,
+                messageId: 3,
+                message: second,
+                pinnedBy: const ChatMessageAuthor(id: 7, username: 'reader'),
+                excerpt: ':tada: Newest important answer',
+              ),
+            ],
+            membership: const ChatMembership(following: true),
+          ),
+        },
+      );
+      final controller = await _controller(
+        api,
+        sites: const [firstSite],
+        user: const DiscourseUser(id: 7, username: 'reader'),
+      );
+      addTearDown(controller.dispose);
+      controller.chatRecords.put(
+        firstSite,
+        _channel(lastRead: 3, pinnedMessagesCount: 2),
+      );
+
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<SiteEmojiImage>(
+              find.descendant(
+                of: find.byKey(const ValueKey('chat-pinned-message-bar')),
+                matching: find.byType(SiteEmojiImage),
+              ),
+            )
+            .name,
+        'tada',
+      );
+
+      await tester.tap(find.byTooltip('Pinned messages'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<SiteEmojiImage>(
+              find.descendant(
+                of: find.byKey(const ValueKey('chat-pin-91')),
+                matching: find.byType(SiteEmojiImage),
+              ),
+            )
+            .name,
+        'megaphone',
+      );
+      expect(
+        tester
+            .widget<SiteEmojiImage>(
+              find.descendant(
+                of: find.byKey(const ValueKey('chat-pin-92')),
+                matching: find.byType(SiteEmojiImage),
+              ),
+            )
+            .name,
+        'tada',
       );
     });
 
@@ -1634,6 +1732,7 @@ typedef _FailedOpen = ({String siteUrl, int number});
 final class _ChatApi extends FakeDiscourseApi {
   _ChatApi({
     super.user,
+    super.emojisBySite,
     super.chatChannelsBySite,
     super.chatPinsByChannel,
     super.chatQuoteMarkdown,
