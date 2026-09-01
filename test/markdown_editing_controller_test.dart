@@ -235,6 +235,13 @@ void main() {
       expect(controller.text, source);
       expect(editable(tester).renderEditable.plainText.length, source.length);
 
+      controller.selection = const TextSelection(
+        baseOffset: 0,
+        extentOffset: source.length,
+      );
+      await tester.pump();
+      expect(find.byType(ComposerLinkPill), findsOneWidget);
+
       controller.selection = const TextSelection.collapsed(offset: 8);
       await tester.pump();
       expect(find.byType(ComposerLinkPill), findsNothing);
@@ -479,10 +486,17 @@ void main() {
       }
     });
 
-    testWidgets('shows the characters again when the caret is inside', (
+    testWidgets('selection keeps artwork while an interior caret reveals it', (
       tester,
     ) async {
       await pumpWithEmoji(tester, 'hey :smile: there');
+      expect(find.byType(EmojiImage), findsOneWidget);
+
+      controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: controller.text.length,
+      );
+      await tester.pump();
       expect(find.byType(EmojiImage), findsOneWidget);
 
       controller.selection = const TextSelection.collapsed(offset: 7);
@@ -857,6 +871,24 @@ void main() {
         editable(tester).textEditingValue.text.substring(0, 16),
         'filed under #bug',
       );
+      expect(find.byType(HashtagPill), findsOneWidget);
+    });
+
+    testWidgets('range selection keeps mention and hashtag pills rendered', (
+      tester,
+    ) async {
+      known['bug'] = bug;
+      real['sam'] = true;
+      await pumpAway(tester, 'ask @sam about #bug today');
+
+      controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: controller.text.length,
+      );
+      await tester.pump();
+
+      expect(find.byType(MentionPill), findsOneWidget);
+      expect(find.byType(HashtagPill), findsOneWidget);
     });
   });
 

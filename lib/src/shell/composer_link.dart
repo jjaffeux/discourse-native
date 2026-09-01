@@ -304,16 +304,13 @@ final class ComposerLinkSyntaxProjection implements ComposerSyntaxProjection {
     required bool suppressCollapsedCaret,
   }) {
     final selection = document.selection;
-    if (!selection.isValid) return false;
-    if (selection.isCollapsed) {
-      if (selection.extentOffset == start || selection.extentOffset == end) {
-        return false;
-      }
-      return !suppressCollapsedCaret &&
-          selection.extentOffset > start &&
-          selection.extentOffset < end;
+    if (!selection.isValid || !selection.isCollapsed) return false;
+    if (selection.extentOffset == start || selection.extentOffset == end) {
+      return false;
     }
-    return selection.start < end && selection.end > start;
+    return !suppressCollapsedCaret &&
+        selection.extentOffset > start &&
+        selection.extentOffset < end;
   }
 
   @override

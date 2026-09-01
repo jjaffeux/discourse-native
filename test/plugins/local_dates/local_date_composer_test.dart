@@ -278,6 +278,13 @@ void main() {
       );
       controller.clearKeyboardPillSelection();
 
+      controller.selection = const TextSelection(
+        baseOffset: 0,
+        extentOffset: date.length,
+      );
+      await tester.pump();
+      expect(find.byType(LocalDateComposerPill), findsOneWidget);
+
       controller.selection = const TextSelection.collapsed(offset: 4);
       await tester.pump();
       expect(find.byType(LocalDateComposerPill), findsNothing);

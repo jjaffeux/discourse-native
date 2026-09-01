@@ -130,15 +130,12 @@ Widget? inlineVideoWidgetBuilder(dom.Element element, {String? siteUrl}) {
   return data == null ? null : InlineVideo(data: data, siteUrl: siteUrl);
 }
 
-typedef InlineVideoPlayerBuilder = Widget Function(
-  BuildContext context,
-  InlineVideoData data,
-);
+typedef InlineVideoPlayerBuilder =
+    Widget Function(BuildContext context, InlineVideoData data);
 
 @visibleForTesting
-typedef InlineVideoControllerBuilder = VideoPlayerController Function(
-  Uri source,
-);
+typedef InlineVideoControllerBuilder =
+    VideoPlayerController Function(Uri source);
 
 /// A lazy, app-owned shell around the platform video implementation.
 class InlineVideo extends StatefulWidget {
@@ -757,8 +754,9 @@ class _NativeVideoControls extends StatelessWidget {
       const SizedBox(width: 8),
       Text(
         '${_duration(value.position)} / ${_duration(value.duration)}',
-        style: Theme.of(context).textTheme.labelSmall
-            ?.copyWith(color: Colors.white),
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(color: Colors.white),
       ),
       if (onEnterFullscreen case final enter?)
         IconButton(

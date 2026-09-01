@@ -171,16 +171,13 @@ bool localDateBlockNeedsRawSource({
     return true;
   }
   final selection = value.selection;
-  if (!selection.isValid) return false;
-  if (selection.isCollapsed) {
-    if (selection.extentOffset == block.start ||
-        selection.extentOffset == block.end) {
-      return false;
-    }
-    return !suppressCollapsedCaret &&
-        block.containsOffset(selection.extentOffset);
+  if (!selection.isValid || !selection.isCollapsed) return false;
+  if (selection.extentOffset == block.start ||
+      selection.extentOffset == block.end) {
+    return false;
   }
-  return _overlap(block.start, block.end, selection.start, selection.end);
+  return !suppressCollapsedCaret &&
+      block.containsOffset(selection.extentOffset);
 }
 
 bool _overlap(int aStart, int aEnd, int bStart, int bEnd) =>
