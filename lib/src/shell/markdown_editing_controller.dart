@@ -718,6 +718,10 @@ class MarkdownEditingController extends TextEditingController {
 
     final theme = Theme.of(context);
     final base = style ?? const TextStyle();
+    final componentLineHeight = collapsedComponentLineHeight(
+      style: base,
+      textScaler: MediaQuery.textScalerOf(context),
+    );
 
     // The range an IME is still deciding about. Honoured rather than dropped:
     // without it a dead key on macOS and every CJK keystroke lose the underline
@@ -871,6 +875,7 @@ class MarkdownEditingController extends TextEditingController {
           syntaxProjection: syntaxProjection,
           imageProjection: imageProjection,
           galleryProjection: galleryProjection,
+          componentLineHeight: componentLineHeight,
         )) {
       return cached.span;
     }
@@ -933,7 +938,12 @@ class MarkdownEditingController extends TextEditingController {
         _SpanProjection(
           block.start,
           block.end,
-          () => _buildQuoteSpans(block, _displayedContentsFor(block), base),
+          () => _buildQuoteSpans(
+            block,
+            _displayedContentsFor(block),
+            base,
+            componentLineHeight,
+          ),
         ),
       for (final block in collapsedSyntax)
         _SpanProjection(
@@ -963,6 +973,7 @@ class MarkdownEditingController extends TextEditingController {
             image,
             base,
             unresolvedImages,
+            componentLineHeight: componentLineHeight,
             highlighted: isPillSelectedForKeyboard(image),
           ),
         ),
@@ -970,7 +981,12 @@ class MarkdownEditingController extends TextEditingController {
         _SpanProjection(
           gallery.start,
           gallery.end,
-          () => _buildGallerySpans(gallery, base, unresolvedImages),
+          () => _buildGallerySpans(
+            gallery,
+            base,
+            unresolvedImages,
+            componentLineHeight: componentLineHeight,
+          ),
         ),
     ]..sort((a, b) => a.start.compareTo(b.start));
 
@@ -1021,6 +1037,7 @@ class MarkdownEditingController extends TextEditingController {
       syntaxProjection: syntaxProjection,
       imageProjection: imageProjection,
       galleryProjection: galleryProjection,
+      componentLineHeight: componentLineHeight,
       span: span,
     );
     return span;
@@ -1030,12 +1047,13 @@ class MarkdownEditingController extends TextEditingController {
     ComposerQuoteBlock block,
     String displayedContents,
     TextStyle base,
+    double componentLineHeight,
   ) {
-    final lineHeight = (base.fontSize ?? 14) * (base.height ?? 1.4);
     final sourceLineCount = '\n'.allMatches(block.source).length + 1;
     final quoteHeight =
-        _quoteLayoutHeights[block.start] ?? sourceLineCount * lineHeight;
-    final reserveLines = ((quoteHeight / lineHeight).ceil() - 1).clamp(
+        _quoteLayoutHeights[block.start] ??
+        sourceLineCount * componentLineHeight;
+    final reserveLines = ((quoteHeight / componentLineHeight).ceil() - 1).clamp(
       1,
       (block.end - block.start - 1) ~/ 2,
     );
@@ -1110,6 +1128,7 @@ class MarkdownEditingController extends TextEditingController {
     ComposerImageBlock image,
     TextStyle base,
     Set<String> unresolved, {
+    required double componentLineHeight,
     required bool highlighted,
   }) {
     final url = resolvedImageUrl(image);
@@ -1121,8 +1140,7 @@ class MarkdownEditingController extends TextEditingController {
     // transparent line breaks to reserve the same vertical space while keeping
     // one laid-out character for every raw Markdown character.
     final imageHeight = ComposerImagePreview.displaySize(image).height + 8;
-    final lineHeight = (base.fontSize ?? 14) * (base.height ?? 1.4);
-    final breaks = (imageHeight / lineHeight).ceil().clamp(
+    final breaks = (imageHeight / componentLineHeight).ceil().clamp(
       1,
       image.end - image.start - 1,
     );
@@ -1173,8 +1191,9 @@ class MarkdownEditingController extends TextEditingController {
   List<InlineSpan> _buildGallerySpans(
     ComposerImageGalleryBlock gallery,
     TextStyle base,
-    Set<String> unresolved,
-  ) {
+    Set<String> unresolved, {
+    required double componentLineHeight,
+  }) {
     final items = <ComposerImageGalleryItem>[];
     for (final image in gallery.images) {
       final url = resolvedImageUrl(image);
@@ -1206,13 +1225,10 @@ class MarkdownEditingController extends TextEditingController {
     );
     final galleryHeight =
         _galleryLayoutHeights[gallery.start] ?? defaultGalleryHeight;
-    final lineHeight = (base.fontSize ?? 14) * (base.height ?? 1.4);
     // A zero-width anchor keeps each transparent line measurable. Consecutive
     // bare line endings collapse to the same caret geometry in TextPainter.
-    final reserveLines = ((galleryHeight / lineHeight).ceil() - 1).clamp(
-      1,
-      (gallery.end - gallery.start - 1) ~/ 2,
-    );
+    final reserveLines = ((galleryHeight / componentLineHeight).ceil() - 1)
+        .clamp(1, (gallery.end - gallery.start - 1) ~/ 2);
 
     return [
       WidgetSpan(
@@ -1648,6 +1664,7 @@ class _CachedMarkdownSpan {
     required this.syntaxProjection,
     required this.imageProjection,
     required this.galleryProjection,
+    required this.componentLineHeight,
     required this.span,
   });
 
@@ -1661,6 +1678,7 @@ class _CachedMarkdownSpan {
   final int syntaxProjection;
   final int imageProjection;
   final int galleryProjection;
+  final double componentLineHeight;
   final TextSpan span;
 
   bool matches({
@@ -1674,6 +1692,7 @@ class _CachedMarkdownSpan {
     required int syntaxProjection,
     required int imageProjection,
     required int galleryProjection,
+    required double componentLineHeight,
   }) =>
       this.source == source &&
       this.style == style &&
@@ -1684,7 +1703,8 @@ class _CachedMarkdownSpan {
       this.quoteProjection == quoteProjection &&
       this.syntaxProjection == syntaxProjection &&
       this.imageProjection == imageProjection &&
-      this.galleryProjection == galleryProjection;
+      this.galleryProjection == galleryProjection &&
+      this.componentLineHeight == componentLineHeight;
 }
 
 class _SpanProjection {

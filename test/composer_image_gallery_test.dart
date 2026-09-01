@@ -445,44 +445,76 @@ void main() {
       );
     });
 
-    testWidgets('keeps the trailing caret next to a long gallery', (
+    testWidgets('keeps the trailing caret next to a scaled long gallery', (
       tester,
     ) async {
       final source = [
         '[grid]',
-        for (var index = 0; index < 20; index++)
+        for (var index = 0; index < 10; index++)
           '![Image $index](upload://image$index)',
         '[/grid]',
-        'After',
       ].join('\n');
-      final controller = MarkdownEditingController(text: source);
-      addTearDown(controller.dispose);
+      final composer = ComposerController(
+        _target,
+        resolveUploadUrls: (_) async => const {},
+      );
+      composer.text.value = TextEditingValue(
+        text: source,
+        selection: TextSelection.collapsed(offset: source.length),
+      );
+      addTearDown(composer.dispose);
+      final editorLayout = ValueNotifier((width: 280.0, scale: 1.0));
+      addTearDown(editorLayout.dispose);
 
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
           home: Scaffold(
-            body: SizedBox(
-              width: 600,
-              child: TextField(controller: controller, maxLines: null),
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: ValueListenableBuilder<({double scale, double width})>(
+                valueListenable: editorLayout,
+                builder: (context, layout, _) => SizedBox(
+                  width: layout.width,
+                  height: 600,
+                  child: MediaQuery(
+                    data: MediaQuery.of(
+                      context,
+                    ).copyWith(textScaler: TextScaler.linear(layout.scale)),
+                    child: ComposerEditor(
+                      composer: composer,
+                      hintText: '',
+                      textStyle: Theme.of(context).textTheme.bodyMedium,
+                      hintStyle: Theme.of(context).textTheme.bodyMedium,
+                      enableDropTarget: false,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
       );
+      await tester.pumpAndSettle();
+      editorLayout.value = (width: 600, scale: 1.5);
+      await tester.pumpAndSettle();
 
-      final gallery = controller.galleryBlocks.single;
-      final galleryBottom = tester
-          .getBottomLeft(find.byType(ComposerImageGalleryPreview))
-          .dy;
+      final gallery = composer.text.galleryBlocks.single;
+      final galleryHeight = tester
+          .getSize(find.byType(ComposerImageGalleryPreview))
+          .height;
       final render = tester
           .state<EditableTextState>(find.byType(EditableText))
           .renderEditable;
-      final caret = render
-          .getLocalRectForCaret(TextPosition(offset: gallery.end))
-          .shift(render.localToGlobal(Offset.zero));
+      final caret = render.getLocalRectForCaret(
+        TextPosition(offset: gallery.end),
+      );
 
-      expect(caret.top - galleryBottom, inInclusiveRange(-8, 32));
-      expect(render.getPositionForPoint(caret.center).offset, gallery.end);
+      expect(caret.top - galleryHeight, inInclusiveRange(-8, 32));
+      expect(
+        render.getPositionForPoint(render.localToGlobal(caret.center)).offset,
+        gallery.end,
+      );
       expect(render.plainText.length, source.length);
     });
 

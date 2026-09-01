@@ -159,6 +159,63 @@ void main() {
     },
   );
 
+  testWidgets('scaled block components keep their trailing caret adjacent', (
+    tester,
+  ) async {
+    Future<void> verify({
+      required String source,
+      required Finder component,
+      required int Function(MarkdownEditingController) componentEnd,
+    }) async {
+      final componentController = MarkdownEditingController(text: source);
+      addTearDown(componentController.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(1.5)),
+              child: Scaffold(
+                body: SizedBox(
+                  width: 600,
+                  child: TextField(
+                    controller: componentController,
+                    maxLines: null,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final render = editable(tester).renderEditable;
+      final caret = render.getLocalRectForCaret(
+        TextPosition(offset: componentEnd(componentController)),
+      );
+      expect(
+        caret.top - tester.getSize(component).height,
+        inInclusiveRange(-render.preferredLineHeight, 40),
+      );
+      expect(render.plainText.length, source.length);
+    }
+
+    await verify(
+      source: '![alt|320x180](upload://image)',
+      component: find.byType(ComposerImagePreview),
+      componentEnd: (controller) => controller.imageBlocks.single.end,
+    );
+    await verify(
+      source: '[quote="sam"]\nquoted\n[/quote]',
+      component: find.byType(ComposerQuotePreview),
+      componentEnd: (controller) => controller.quoteBlocks.single.end,
+    );
+  });
+
   testWidgets('moving the caret does not read the source again', (
     tester,
   ) async {
