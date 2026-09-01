@@ -684,6 +684,69 @@ void main() {
       }
     });
 
+    testWidgets('Backspace deletes a selected gallery', (tester) async {
+      final composer = ComposerController(
+        _target,
+        resolveUploadUrls: (_) async => const {},
+      );
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore(),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      await shell.load();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      const source = 'Before\n$_source';
+      composer.text.text = source;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(body: ComposerPanel(composer: composer)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final gallery = composer.text.galleryBlocks.single;
+      await tester.tapAt(
+        tester.getCenter(find.byType(ComposerImageGalleryControl)),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('composer-gallery-toolbar')),
+        findsOneWidget,
+      );
+
+      composer.focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pump();
+
+      expect(
+        composer.text.text,
+        source.replaceRange(gallery.start, gallery.end, ''),
+      );
+      expect(
+        composer.text.selection,
+        TextSelection.collapsed(offset: gallery.start),
+      );
+      expect(composer.text.galleryBlocks, isEmpty);
+      expect(composer.text.imageBlocks, isEmpty);
+      expect(find.byType(ComposerImageGalleryPreview), findsNothing);
+      expect(
+        find.byKey(const ValueKey('composer-gallery-toolbar')),
+        findsNothing,
+      );
+      expect(_composerEditable(tester).showCursor, isTrue);
+    });
+
     testWidgets('selects a gallery when a vertical arrow enters it', (
       tester,
     ) async {

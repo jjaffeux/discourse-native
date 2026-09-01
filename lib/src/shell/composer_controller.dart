@@ -1273,6 +1273,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     );
   }
 
+  void removeGallery(ComposerImageGalleryBlock gallery) {
+    _replaceGallery(gallery, '', preservePendingTarget: false);
+  }
+
   void moveImageOutOfGallery(
     ComposerImageGalleryBlock gallery,
     ComposerImageBlock image,
