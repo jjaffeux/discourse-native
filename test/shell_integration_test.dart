@@ -5205,7 +5205,7 @@ void main() {
       expect(material.type, MaterialType.transparency);
     });
 
-    testWidgets('the account avatar carries a legible success count', (
+    testWidgets('the account avatar carries a blue count with white text', (
       tester,
     ) async {
       await pumpConnected(
@@ -5217,9 +5217,12 @@ void main() {
       final decoration = badge.decoration! as BoxDecoration;
       final theme = Theme.of(tester.element(avatarBadge));
       final size = tester.getSize(avatarBadge);
+      final label = tester.widget<Text>(
+        find.descendant(of: avatarBadge, matching: find.text('3')),
+      );
 
-      expect(decoration.color, theme.discourse.success);
-      expect(decoration.color, isNot(theme.colorScheme.error));
+      expect(decoration.color, theme.colorScheme.primary);
+      expect(label.style?.color, Colors.white);
       expect(size.width, greaterThanOrEqualTo(20));
       expect(size.height, greaterThanOrEqualTo(20));
       expect(
@@ -5240,6 +5243,21 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(avatarBadge, findsOneWidget);
+    });
+
+    testWidgets('chat-only activity stays off the account avatar', (
+      tester,
+    ) async {
+      await pumpConnected(
+        tester,
+        totals: chatNotificationTotals(chatNotifications: 1),
+      );
+
+      final railBadge = find.byKey(
+        const ValueKey('instance-rail-badge-https://meta.discourse.org'),
+      );
+      expect(railBadge, findsOneWidget);
+      expect(avatarBadge, findsNothing);
     });
 
     testWidgets('reading them somewhere else takes the mark away', (

@@ -64,8 +64,18 @@ void main() {
     final semantics = tester.ensureSemantics();
     try {
       final button = find.byKey(ChatHeaderButton.buttonKey);
+      final badge = find.byKey(ChatHeaderButton.urgentBadgeKey);
       expect(find.text('99+'), findsOneWidget);
       expect(find.byTooltip('Chat, 103 urgent messages'), findsOneWidget);
+
+      final decoration =
+          tester.widget<Container>(badge).decoration! as BoxDecoration;
+      final theme = Theme.of(tester.element(badge));
+      final label = tester.widget<Text>(
+        find.descendant(of: badge, matching: find.text('99+')),
+      );
+      expect(decoration.color, theme.colorScheme.primary);
+      expect(label.style?.color, Colors.white);
 
       final node = tester.getSemantics(button);
       expect(node.tooltip, 'Chat, 103 urgent messages');

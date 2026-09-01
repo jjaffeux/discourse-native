@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../models/user_status.dart';
 import '../theme/app_theme.dart';
-import '../theme/color_contrast.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -112,18 +111,12 @@ class _UserMenuButtonState extends State<UserMenuButton> {
         builder: (context, _) {
           final connecting = account.connecting;
 
-          // Account totals arrive live on the site's `/notification/` channel.
+          // Plugin counters have their own header affordances. Keeping them out
+          // of the account badge prevents one Chat notification from marking
+          // both the Chat shortcut and the avatar.
           final unreadCount =
-              controller.accountActivity.totalsFor(siteUrl)?.badge ?? 0;
-          final badgeBackground = theme.discourse.success;
-          final badgeForeground = contrastSafeForeground(
-            background: badgeBackground,
-            backdrop: widget.ringColor ?? theme.scaffoldBackgroundColor,
-            // Core draws high-priority counts with `--secondary` on
-            // `--success`. These are the native equivalents for the current
-            // forum's resolved palette.
-            preferred: [theme.colorScheme.surface, theme.colorScheme.onSurface],
-          );
+              controller.accountActivity.totalsFor(siteUrl)?.coreBadge ?? 0;
+          final badgeBackground = theme.colorScheme.primary;
 
           final tooltip = connecting
               ? 'Connecting…'
@@ -165,7 +158,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                     child: _UnreadBadge(
                       count: unreadCount,
                       background: badgeBackground,
-                      foreground: badgeForeground,
+                      foreground: Colors.white,
                       ringColor:
                           widget.ringColor ?? theme.scaffoldBackgroundColor,
                     ),

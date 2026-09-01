@@ -53,6 +53,21 @@ void main() {
     );
   });
 
+  test('core badge excludes plugin-owned counters', () {
+    final totals = NotificationTotals(
+      unreadNotifications: 3,
+      unreadPersonalMessages: 2,
+      unseenReviewables: 1,
+      pluginCounters: PluginNotificationCounters.single(
+        _pluginCounter,
+        count: 4,
+      ),
+    );
+
+    expect(totals.coreBadge, 6);
+    expect(totals.badge, 10);
+  });
+
   test('floors impossible initial core counts', () {
     final totals = NotificationTotals.fromJson(const {
       'unread_notifications': -1,

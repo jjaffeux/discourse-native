@@ -137,12 +137,12 @@ backlog.
 
 The rail badge counts only things *addressed to you* (notifications, PMs, chat,
 reviewables). Unread and new topics are sidebar counts, not rail badges —
-otherwise a busy site would sit permanently at a four-digit number.
-Because the rail folds those addressed kinds into one total, its badge uses the
-site's `success` colour like core's high-priority notification badge. The
-current site's avatar repeats that total in core's padded count pill, using the
-same `success` colour. The `danger` colour remains reserved for actual error
-surfaces.
+otherwise a busy site would sit permanently at a four-digit number. Because
+the rail folds those addressed kinds into one total, its badge uses the site's
+`success` colour. The current site's avatar carries only core account activity;
+plugin counters such as Chat stay on their own header shortcuts instead of
+marking two places. Header count pills use the site's primary colour with white
+text. The `danger` colour remains reserved for actual error surfaces.
 
 Counter presence is distinct from its value: zero may be available, while an
 absent plugin field means the feature is unavailable. The last snapshot is
@@ -574,9 +574,9 @@ further down.
 every time anything about the account's notifications changes — an arrival, a
 read, a dismissal. It keeps [`NotificationTotals`](lib/src/models/notification_totals.dart)
 live, which is the one thing behind the rail badge, the user menu's tab counts
-and the count pill on the avatar that opens it. The avatar repeats the current
-site's exact total, as core's header does; the rail keeps the same number visible
-while switching among sites.
+and the count pill on the avatar that opens it. The avatar shows the current
+site's core account total, while the rail includes installed plugin counters and
+keeps that aggregate visible while switching among sites.
 
 Top-level plugin-owned live counters use an owner-scoped account-events host. A
 feature can reduce only a counter registered to its own module; it cannot
