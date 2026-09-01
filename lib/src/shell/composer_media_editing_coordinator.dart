@@ -532,6 +532,7 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
     cancelDrag();
     if (gallery != null) {
       _composer.addImagesToGallery(files, gallery);
+      selectGallery(gallery);
     } else {
       _composer.addImages(files, offset);
     }
