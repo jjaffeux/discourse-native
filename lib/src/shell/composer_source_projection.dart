@@ -1,6 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+/// The line height [TextPainter] will use for source-accounting spans.
+///
+/// Block components have a fixed visual height, while the transparent lines
+/// that reserve their editor space participate in ambient text scaling. Keep
+/// every component's reservation calculation on the same measured baseline so
+/// accessibility scaling cannot push following text and the caret away from
+/// the component.
+double collapsedComponentLineHeight({
+  required TextStyle style,
+  required TextScaler textScaler,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(text: '\u200B', style: style),
+    textDirection: TextDirection.ltr,
+    textScaler: textScaler,
+  );
+  try {
+    return painter.preferredLineHeight;
+  } finally {
+    painter.dispose();
+  }
+}
+
 /// Makes the source accounting behind a collapsed composer component
 /// layout-neutral without changing any source offsets.
 ///
