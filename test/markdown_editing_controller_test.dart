@@ -126,6 +126,25 @@ void main() {
     expect(controller.scans, after);
   });
 
+  test('every keyboard-selected projection hides the cursor', () {
+    final selectedController = MarkdownEditingController(
+      text: '![alt](https://example.com/a.png) [[token]]',
+      syntaxPolicies: const [_FakeSyntaxPolicy()],
+    );
+    addTearDown(selectedController.dispose);
+
+    expect(selectedController.selectedProjectionHidesCursor, isFalse);
+    for (final projection in [
+      selectedController.imageBlocks.single,
+      selectedController.syntaxBlocks.single,
+    ]) {
+      selectedController.selectPillForKeyboard(projection);
+      expect(selectedController.selectedProjectionHidesCursor, isTrue);
+      selectedController.clearKeyboardPillSelection();
+      expect(selectedController.selectedProjectionHidesCursor, isFalse);
+    }
+  });
+
   testWidgets('changing text rescans the markdown source', (tester) async {
     await pumpField(tester, 'say');
     final before = controller.scans;
@@ -1196,9 +1215,6 @@ final class _FakeSyntaxProjection implements ComposerSyntaxProjection {
 
   @override
   bool get protectsAdjacentDelete => false;
-
-  @override
-  bool get hidesCursorWhenSelected => false;
 
   @override
   List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context) => [
