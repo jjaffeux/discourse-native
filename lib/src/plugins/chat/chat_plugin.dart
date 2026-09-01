@@ -594,7 +594,7 @@ class ChatPlugin
             tooltip: 'Close full-screen chat',
             onPressed: () => unawaited(shell.openDrawerFromFullPage()),
             variant: DButtonVariant.flat,
-            icon: const DIcon(DIcons.circleMinus, size: 18),
+            icon: const DIcon(DIcons.discourseCompress, size: 18),
           )
         : null;
     if (siteUrl == null || chatRoute == null) {
