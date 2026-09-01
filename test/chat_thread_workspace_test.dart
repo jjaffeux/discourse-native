@@ -542,6 +542,69 @@ void main() {
     expect(scale.scale.value, 1);
   });
 
+  testWidgets('Arrow Up edits the last current-user message in a thread', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      threadPage: (
+        messages: [
+          ChatMessage(
+            id: 51,
+            channelId: _channelId,
+            raw: 'thread reply from reader',
+            cooked: '<p>thread reply from reader</p>',
+            author: const ChatMessageAuthor(
+              id: 7,
+              username: 'reader',
+              name: 'Reader',
+            ),
+            createdAt: DateTime.utc(2026, 8, 11, 10),
+            threadId: _threadId,
+          ),
+          ChatMessage(
+            id: 52,
+            channelId: _channelId,
+            raw: 'later reply from Sam',
+            cooked: '<p>later reply from Sam</p>',
+            author: const ChatMessageAuthor(
+              id: 2,
+              username: 'sam',
+              name: 'Sam',
+            ),
+            createdAt: DateTime.utc(2026, 8, 11, 11),
+            threadId: _threadId,
+          ),
+        ],
+        canLoadMorePast: false,
+        canLoadMoreFuture: false,
+        targetMessageId: null,
+      ),
+    );
+    addTearDown(fixture.shell.dispose);
+    await _pumpWorkspace(tester, fixture.shell, width: 1000);
+
+    final threadView = find.byType(ChatThreadView);
+    final field = find.descendant(
+      of: threadView,
+      matching: find.byType(TextField),
+    );
+    await tester.tap(field);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: threadView,
+        matching: find.byKey(const ValueKey('chat-composer-editing')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<TextField>(field).controller!.text,
+      'thread reply from reader',
+    );
+  });
+
   testWidgets('original author can edit the thread title', (tester) async {
     final fixture = await _fixture(editableThread: true);
     addTearDown(fixture.shell.dispose);

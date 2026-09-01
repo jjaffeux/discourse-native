@@ -308,6 +308,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
               channelId: widget.channelId,
               uploadDropController: _uploadDropController,
               editingMessage: _editingMessage,
+              onEditMessage: _editMessage,
               onEditFinished: _finishEditing,
             ),
         ],

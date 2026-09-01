@@ -157,6 +157,7 @@ class ChatComposer extends StatefulWidget {
     this.focusRequest = 0,
     this.uploadDropController,
     this.editingMessage,
+    this.onEditMessage,
     this.onEditFinished,
   });
 
@@ -165,6 +166,7 @@ class ChatComposer extends StatefulWidget {
   final int? threadId;
   final ChatUploadDropController? uploadDropController;
   final ChatMessage? editingMessage;
+  final ValueChanged<ChatMessage>? onEditMessage;
   final VoidCallback? onEditFinished;
 
   /// A counter lets repeated Reply actions refocus an already-open thread.
@@ -630,6 +632,43 @@ class _ChatComposerState extends State<ChatComposer> {
     child: ContentReadingLaneBox(child: child),
   );
 
+  KeyEventResult _handleEditLastMessage(
+    KeyEvent event,
+    ComposerController composer,
+  ) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.arrowUp ||
+        HardwareKeyboard.instance.isAltPressed ||
+        HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isShiftPressed ||
+        widget.onEditMessage == null ||
+        widget.editingMessage != null ||
+        composer.text.text.isNotEmpty ||
+        composer.uploads.isNotEmpty) {
+      return KeyEventResult.ignored;
+    }
+
+    final chat = _chat;
+    final userId = chat?.currentUserFor(widget.siteUrl)?.id;
+    if (chat == null || userId == null) return KeyEventResult.ignored;
+
+    ChatMessage? lastUserMessage;
+    for (final message in chat.messagesFor(widget.siteUrl, _target).reversed) {
+      if (message.author.id == userId && !message.isDeleted) {
+        lastUserMessage = message;
+        break;
+      }
+    }
+    if (lastUserMessage == null ||
+        !chat.canEditMessage(widget.siteUrl, lastUserMessage)) {
+      return KeyEventResult.ignored;
+    }
+
+    widget.onEditMessage?.call(lastUserMessage);
+    return KeyEventResult.handled;
+  }
+
   Widget _bar(
     BuildContext context,
     ComposerController composer,
@@ -681,33 +720,39 @@ class _ChatComposerState extends State<ChatComposer> {
                       constraints: BoxConstraints(
                         maxHeight: MediaQuery.sizeOf(context).height * 0.25,
                       ),
-                      child: ComposerEditor(
-                        composer: composer,
-                        expands: false,
-                        enableDropTarget: widget.uploadDropController == null,
-                        onSuggestionAction:
-                            ({
-                              required context,
-                              required composer,
-                              required suggestion,
-                              anchor,
-                            }) async {
-                              if (suggestion.action !=
-                                  ComposerSuggestionAction.openEmojiPicker) {
-                                return;
-                              }
-                              await _pickEmoji(
-                                pickerContext: context,
-                                initialQuery:
-                                    composer.autocomplete.trigger?.query ??
-                                    suggestion.value,
-                                anchor: anchor,
-                              );
-                            },
-                        hintText: hint,
-                        textStyle: theme.textTheme.bodyMedium,
-                        hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                      child: Focus(
+                        canRequestFocus: false,
+                        skipTraversal: true,
+                        onKeyEvent: (_, event) =>
+                            _handleEditLastMessage(event, composer),
+                        child: ComposerEditor(
+                          composer: composer,
+                          expands: false,
+                          enableDropTarget: widget.uploadDropController == null,
+                          onSuggestionAction:
+                              ({
+                                required context,
+                                required composer,
+                                required suggestion,
+                                anchor,
+                              }) async {
+                                if (suggestion.action !=
+                                    ComposerSuggestionAction.openEmojiPicker) {
+                                  return;
+                                }
+                                await _pickEmoji(
+                                  pickerContext: context,
+                                  initialQuery:
+                                      composer.autocomplete.trigger?.query ??
+                                      suggestion.value,
+                                  anchor: anchor,
+                                );
+                              },
+                          hintText: hint,
+                          textStyle: theme.textTheme.bodyMedium,
+                          hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     ),
