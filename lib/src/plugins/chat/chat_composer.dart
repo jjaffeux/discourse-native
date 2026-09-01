@@ -596,12 +596,6 @@ class _ChatComposerState extends State<ChatComposer> {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (widget.editingMessage case final message?)
-                  _ChatComposerEditDetails(
-                    message: message,
-                    saving: _savingEdit,
-                    onCancel: _cancelEdit,
-                  ),
                 if (composer.uploads.isNotEmpty)
                   ComposerUploadQueue(composer: composer),
                 if (composer.notice case final message?)
@@ -832,6 +826,17 @@ class _ChatComposerState extends State<ChatComposer> {
                     : const SizedBox.shrink();
               },
             ),
+            if (widget.editingMessage != null)
+              Center(
+                heightFactor: 1,
+                child: DButton.iconOnly(
+                  key: const ValueKey('chat-composer-edit-cancel'),
+                  onPressed: _savingEdit ? null : _cancelEdit,
+                  icon: const DIcon(DIcons.xmark, size: 18),
+                  tooltip: 'Cancel edit',
+                  variant: DButtonVariant.flat,
+                ),
+              ),
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: composer.text,
               builder: (context, _, _) => Center(
@@ -871,74 +876,6 @@ class _ChatComposerState extends State<ChatComposer> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ChatComposerEditDetails extends StatelessWidget {
-  const _ChatComposerEditDetails({
-    required this.message,
-    required this.saving,
-    required this.onCancel,
-  });
-
-  final ChatMessage message;
-  final bool saving;
-  final VoidCallback onCancel;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final excerpt = message.raw.replaceAll(RegExp(r'\s+'), ' ').trim();
-    final author = message.author.username.isEmpty
-        ? message.author.displayName
-        : '@${message.author.username}';
-    return Container(
-      key: const ValueKey('chat-composer-editing'),
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          const DIcon(DIcons.pencil, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Editing $author',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (excerpt.isNotEmpty)
-                  Text(
-                    excerpt,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          IconButton(
-            key: const ValueKey('chat-composer-edit-cancel'),
-            onPressed: saving ? null : onCancel,
-            icon: const DIcon(DIcons.xmark, size: 16),
-            tooltip: 'Cancel edit',
-            visualDensity: VisualDensity.compact,
-          ),
-        ],
       ),
     );
   }

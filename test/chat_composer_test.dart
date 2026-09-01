@@ -447,7 +447,7 @@ void main() {
     );
 
     testWidgets(
-      'editing replaces the pinned composer with message text and uploads',
+      'editing fills the composer with message text and uploads',
       (tester) async {
         const thumbnail =
             'data:image/png;base64,'
@@ -508,9 +508,13 @@ void main() {
         expect(find.text('Edit message'), findsNothing);
         expect(
           find.byKey(const ValueKey('chat-composer-editing')),
+          findsNothing,
+        );
+        expect(find.text('Editing @reader'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('chat-composer-edit-cancel')),
           findsOneWidget,
         );
-        expect(find.text('Editing @reader'), findsOneWidget);
         expect(_text(tester), '**before**\nsecond line\nthird line');
         expect(
           tester.getSize(find.byKey(const ValueKey('chat-composer'))).height,
@@ -529,7 +533,7 @@ void main() {
         expect(request.message, '**after**');
         expect(request.uploadIds, [31]);
         expect(
-          find.byKey(const ValueKey('chat-composer-editing')),
+          find.byKey(const ValueKey('chat-composer-edit-cancel')),
           findsNothing,
         );
         expect(_text(tester), isEmpty);
@@ -542,7 +546,7 @@ void main() {
     );
 
     testWidgets(
-      'Arrow Up edits the latest non-deleted message from the current user',
+      'Arrow Up edits the latest message and inline cancel exits editing',
       (tester) async {
         const reader = ChatMessageAuthor(id: 7, username: 'reader');
         final fixture = await _fixture(
@@ -600,10 +604,22 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(
-          find.byKey(const ValueKey('chat-composer-editing')),
+          find.byKey(const ValueKey('chat-composer-edit-cancel')),
           findsOneWidget,
         );
         expect(_text(tester), 'latest editable message');
+
+        await tester.tap(
+          find.byKey(const ValueKey('chat-composer-edit-cancel')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('chat-composer-edit-cancel')),
+          findsNothing,
+        );
+        expect(_text(tester), isEmpty);
+        expect(find.byTooltip('Send message'), findsOneWidget);
       },
     );
 
@@ -650,7 +666,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(
-          find.byKey(const ValueKey('chat-composer-editing')),
+          find.byKey(const ValueKey('chat-composer-edit-cancel')),
           findsNothing,
         );
         expect(_text(tester), isEmpty);
@@ -688,7 +704,10 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('chat-composer-editing')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('chat-composer-edit-cancel')),
+        findsNothing,
+      );
     });
 
     testWidgets('the channel drop target honors the site upload setting', (
