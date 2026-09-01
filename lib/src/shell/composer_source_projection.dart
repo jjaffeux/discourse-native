@@ -1,28 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-
-/// The line height [TextPainter] will use for source-accounting spans.
-///
-/// Block components have a fixed visual height, while the transparent lines
-/// that reserve their editor space participate in ambient text scaling. Keep
-/// every component's reservation calculation on the same measured baseline so
-/// accessibility scaling cannot push following text and the caret away from
-/// the component.
-double collapsedComponentLineHeight({
-  required TextStyle style,
-  required TextScaler textScaler,
-}) {
-  final painter = TextPainter(
-    text: TextSpan(text: '\u200B', style: style),
-    textDirection: TextDirection.ltr,
-    textScaler: textScaler,
-  );
-  try {
-    return painter.preferredLineHeight;
-  } finally {
-    painter.dispose();
-  }
-}
 
 /// Makes the source accounting behind a collapsed composer component
 /// layout-neutral without changing any source offsets.
@@ -55,61 +31,6 @@ List<InlineSpan> normalizeCollapsedComponentSourceSpans({
     'the component projection drifted from its source range',
   );
   return normalized;
-}
-
-/// Reports a projected component's laid-out size without participating in its
-/// visual layout.
-///
-/// Tall block components use the measured height to reserve equivalent editor
-/// scroll space with source-accounting spans. Reporting after layout avoids a
-/// build/layout feedback loop; unchanged sizes are not reported again.
-class ComposerComponentLayoutReporter extends SingleChildRenderObjectWidget {
-  const ComposerComponentLayoutReporter({
-    super.key,
-    required this.identity,
-    required this.onSize,
-    required super.child,
-  });
-
-  final Object identity;
-  final ValueChanged<Size> onSize;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderComposerComponentLayoutReporter(identity, onSize);
-
-  @override
-  void updateRenderObject(BuildContext context, RenderObject renderObject) {
-    (renderObject as _RenderComposerComponentLayoutReporter).update(
-      identity: identity,
-      onSize: onSize,
-    );
-  }
-}
-
-final class _RenderComposerComponentLayoutReporter extends RenderProxyBox {
-  _RenderComposerComponentLayoutReporter(this._identity, this._onSize);
-
-  Object _identity;
-  ValueChanged<Size> _onSize;
-  Size? _reportedSize;
-
-  void update({required Object identity, required ValueChanged<Size> onSize}) {
-    _onSize = onSize;
-    if (_identity == identity) return;
-    _identity = identity;
-    _reportedSize = null;
-  }
-
-  @override
-  void performLayout() {
-    super.performLayout();
-    if (_reportedSize == size) return;
-    _reportedSize = size;
-    final reportedSize = size;
-    final report = _onSize;
-    WidgetsBinding.instance.addPostFrameCallback((_) => report(reportedSize));
-  }
 }
 
 int _trailingHorizontalWhitespaceStart(String source) {

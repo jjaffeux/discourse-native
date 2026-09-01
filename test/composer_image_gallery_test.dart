@@ -417,11 +417,24 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: Scaffold(
-            body: SizedBox(
-              width: 600,
-              child: TextField(controller: controller, maxLines: null),
-            ),
+          home: Builder(
+            builder: (context) {
+              final style = Theme.of(context).textTheme.bodyMedium!;
+              return Scaffold(
+                body: SizedBox(
+                  width: 600,
+                  child: TextField(
+                    controller: controller,
+                    maxLines: null,
+                    style: style,
+                    strutStyle: StrutStyle.fromTextStyle(
+                      style,
+                      forceStrutHeight: false,
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       );
@@ -500,22 +513,50 @@ void main() {
       await tester.pumpAndSettle();
 
       final gallery = composer.text.galleryBlocks.single;
-      final galleryHeight = tester
-          .getSize(find.byType(ComposerImageGalleryPreview))
-          .height;
+      final galleryRect = tester.getRect(
+        find.byType(ComposerImageGalleryPreview),
+      );
       final render = tester
           .state<EditableTextState>(find.byType(EditableText))
           .renderEditable;
       final caret = render.getLocalRectForCaret(
         TextPosition(offset: gallery.end),
       );
+      final globalCaret = caret.shift(render.localToGlobal(Offset.zero));
 
-      expect(caret.top - galleryHeight, inInclusiveRange(-8, 32));
+      expect(globalCaret.top - galleryRect.bottom, inInclusiveRange(-8, 32));
       expect(
         render.getPositionForPoint(render.localToGlobal(caret.center)).offset,
         gallery.end,
       );
       expect(render.plainText.length, source.length);
+
+      final belowGallery = Offset(
+        galleryRect.left + 24,
+        galleryRect.bottom + 24,
+      );
+      expect(
+        tester.getRect(find.byType(EditableText)).contains(belowGallery),
+        isTrue,
+      );
+      expect(
+        composer.text.collapsedGalleryAtGlobalPosition(belowGallery),
+        isNull,
+      );
+
+      await tester.tapAt(belowGallery);
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        composer.text.selection,
+        TextSelection.collapsed(offset: gallery.end),
+      );
+      expect(
+        find.byKey(const ValueKey('composer-gallery-toolbar')),
+        findsNothing,
+      );
+      expect(_composerEditable(tester).showCursor, isTrue);
     });
 
     testWidgets('keeps wrapped rows scrollable in a narrow editor', (
