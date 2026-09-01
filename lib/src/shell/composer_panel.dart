@@ -48,12 +48,16 @@ import 'topic_tag_picker.dart';
 import 'topic_taxonomy_fields.dart';
 
 const double _composerPanelRadius = 22;
+const double _composerHeaderHeight = 44;
 
 class ComposerPanel extends StatelessWidget {
   const ComposerPanel({
     super.key,
     required this.composer,
     this.height,
+    this.minimized = false,
+    this.onMinimize,
+    this.onRestore,
     this.onMove,
     this.onMoveEnd,
     this.pickImages = pickComposerImages,
@@ -62,6 +66,9 @@ class ComposerPanel extends StatelessWidget {
 
   final ComposerController composer;
   final double? height;
+  final bool minimized;
+  final VoidCallback? onMinimize;
+  final VoidCallback? onRestore;
   final ValueChanged<Offset>? onMove;
   final VoidCallback? onMoveEnd;
   final ComposerImagePicker pickImages;
@@ -160,10 +167,12 @@ class ComposerPanel extends StatelessWidget {
                       closeTooltip: composer.canSaveDraft
                           ? 'Save and close'
                           : 'Close composer',
-                      onMove: onMove,
+                      onMinimize: minimized ? null : onMinimize,
+                      onRestore: minimized ? onRestore : null,
+                      onMove: minimized ? null : onMove,
                       onMoveEnd: onMoveEnd,
                     ),
-                    if (target.isPrivateMessage)
+                    if (!minimized && target.isPrivateMessage)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
                         child: InputDecorator(
@@ -177,7 +186,8 @@ class ComposerPanel extends StatelessWidget {
                           child: Text(target.targetRecipients!),
                         ),
                       ),
-                    if (target.createsTopic || target.editsTopicMetadata)
+                    if (!minimized &&
+                        (target.createsTopic || target.editsTopicMetadata))
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
                         child: TextField(
@@ -190,11 +200,12 @@ class ComposerPanel extends StatelessWidget {
                           ),
                         ),
                       ),
-                    if (target.isNewTopic ||
-                        target.editsTopicMetadata ||
-                        target.isTaxonomyEdit)
+                    if (!minimized &&
+                        (target.isNewTopic ||
+                            target.editsTopicMetadata ||
+                            target.isTaxonomyEdit))
                       _TopicTaxonomy(composer: composer),
-                    if (!target.isTaxonomyEdit) ...[
+                    if (!minimized && !target.isTaxonomyEdit) ...[
                       Expanded(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
@@ -241,54 +252,56 @@ class ComposerPanel extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ] else
+                    ] else if (!minimized)
                       const Spacer(),
-                    if (composer.uploads.isNotEmpty)
+                    if (!minimized && composer.uploads.isNotEmpty)
                       ComposerUploadQueue(composer: composer),
-                    _Footer(
-                      composer: composer,
-                      pickImages: pickImages,
-                      message:
-                          error?.message ??
-                          notice ??
-                          composer.taxonomyValidationMessage ??
-                          (composer.localDraftFailed
-                              ? "Couldn't save this draft on this device."
-                              : composer.draftStatus == DraftStatus.failing ||
-                                    composer.draftsGaveUp
-                              ? 'Not saved on the site — kept on this device only.'
-                              : null),
-                      isError:
-                          error != null ||
-                          composer.localDraftFailed ||
-                          composer.taxonomyValidationMessage != null,
-                      busy:
-                          composer.discarding ||
-                          composer.submitting ||
-                          composer.state == ComposerState.checking ||
-                          composer.loadingBody,
-                      label: switch (composer) {
-                        _ when composer.canRecheck => 'Check again',
-                        _ when target.isEdit => 'Save',
-                        _ when target.isPrivateMessage => 'Send message',
-                        _ when target.isNewTopic => 'Create topic',
-                        _ => 'Reply',
-                      },
-                      onSubmit: switch (composer) {
-                        _ when composer.canRecheck =>
-                          controller.recheckComposer,
-                        _ when composer.canSubmit => controller.submitComposer,
-                        _ => null,
-                      },
-                      discardLabel: target.isEdit ? 'Cancel edit' : 'Discard',
-                      onDiscard: () => unawaited(
-                        requestComposerDiscard(
-                          context: context,
-                          composer: composer,
-                          controller: controller,
+                    if (!minimized)
+                      _Footer(
+                        composer: composer,
+                        pickImages: pickImages,
+                        message:
+                            error?.message ??
+                            notice ??
+                            composer.taxonomyValidationMessage ??
+                            (composer.localDraftFailed
+                                ? "Couldn't save this draft on this device."
+                                : composer.draftStatus == DraftStatus.failing ||
+                                      composer.draftsGaveUp
+                                ? 'Not saved on the site — kept on this device only.'
+                                : null),
+                        isError:
+                            error != null ||
+                            composer.localDraftFailed ||
+                            composer.taxonomyValidationMessage != null,
+                        busy:
+                            composer.discarding ||
+                            composer.submitting ||
+                            composer.state == ComposerState.checking ||
+                            composer.loadingBody,
+                        label: switch (composer) {
+                          _ when composer.canRecheck => 'Check again',
+                          _ when target.isEdit => 'Save',
+                          _ when target.isPrivateMessage => 'Send message',
+                          _ when target.isNewTopic => 'Create topic',
+                          _ => 'Reply',
+                        },
+                        onSubmit: switch (composer) {
+                          _ when composer.canRecheck =>
+                            controller.recheckComposer,
+                          _ when composer.canSubmit =>
+                            controller.submitComposer,
+                          _ => null,
+                        },
+                        discardLabel: target.isEdit ? 'Cancel edit' : 'Discard',
+                        onDiscard: () => unawaited(
+                          requestComposerDiscard(
+                            context: context,
+                            composer: composer,
+                            controller: controller,
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -320,6 +333,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   static const double _minimumWidth = 360;
   static const double _minimumReplyHeight = 180;
   static const double _minimumTopicHeight = 300;
+  static const double _minimizedHeight = _composerHeaderHeight + 2;
   static const double _edgeHandleExtent = 16;
   static const double _cornerHandleExtent =
       _edgeHandleExtent + _composerPanelRadius;
@@ -330,6 +344,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   ComposerGeometryPreference? _restoredPreference;
   bool _geometryLoaded = false;
   bool _geometryChanged = false;
+  bool _minimized = false;
   Future<void> _pendingGeometryWrite = Future.value();
 
   @override
@@ -344,7 +359,10 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
       if (!_geometryLoaded) return const SizedBox.shrink();
 
       final bounds = Size(constraints.maxWidth, constraints.maxHeight);
-      final geometry = _geometryFor(bounds);
+      final expandedGeometry = _geometryFor(bounds);
+      final geometry = _minimized
+          ? _minimizedGeometry(expandedGeometry, bounds)
+          : expandedGeometry;
 
       return Stack(
         clipBehavior: Clip.none,
@@ -367,98 +385,103 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                   child: ComposerPanel(
                     composer: widget.composer,
                     height: geometry.size.height,
+                    minimized: _minimized,
+                    onMinimize: _minimize,
+                    onRestore: _restore,
                     onMove: (delta) => _move(delta, bounds),
                     onMoveEnd: () => _persistGeometry(bounds),
                   ),
                 ),
-                _resizeHandle(
-                  key: const ValueKey('composer-resize-top'),
-                  cursor: SystemMouseCursors.resizeUpDown,
-                  top: _edgeHandleExtent / 2,
-                  left: _cornerHandleExtent,
-                  right: _cornerHandleExtent,
-                  height: _edgeHandleExtent,
-                  onResize: (delta) => _resize(delta, bounds, top: true),
-                  onResizeEnd: () => _persistGeometry(bounds),
-                ),
-                _resizeHandle(
-                  key: const ValueKey('composer-resize-bottom'),
-                  cursor: SystemMouseCursors.resizeUpDown,
-                  bottom: _edgeHandleExtent / 2,
-                  left: _cornerHandleExtent,
-                  right: _cornerHandleExtent,
-                  height: _edgeHandleExtent,
-                  onResize: (delta) => _resize(delta, bounds, bottom: true),
-                  onResizeEnd: () => _persistGeometry(bounds),
-                ),
-                _resizeHandle(
-                  key: const ValueKey('composer-resize-left'),
-                  cursor: SystemMouseCursors.resizeLeftRight,
-                  top: _cornerHandleExtent,
-                  bottom: _cornerHandleExtent,
-                  left: _edgeHandleExtent / 2,
-                  width: _edgeHandleExtent,
-                  onResize: (delta) => _resize(delta, bounds, left: true),
-                  onResizeEnd: () => _persistGeometry(bounds),
-                ),
-                _resizeHandle(
-                  key: const ValueKey('composer-resize-right'),
-                  cursor: SystemMouseCursors.resizeLeftRight,
-                  top: _cornerHandleExtent,
-                  bottom: _cornerHandleExtent,
-                  right: _edgeHandleExtent / 2,
-                  width: _edgeHandleExtent,
-                  onResize: (delta) => _resize(delta, bounds, right: true),
-                  onResizeEnd: () => _persistGeometry(bounds),
-                ),
-                _cornerResizeHandle(
-                  key: const ValueKey('composer-resize-top-left'),
-                  cursor: _cornerResizeCursor(
-                    macOS: SystemMouseCursors.resizeLeft,
-                    otherwise: SystemMouseCursors.resizeUpLeftDownRight,
+                if (!_minimized) ...[
+                  _resizeHandle(
+                    key: const ValueKey('composer-resize-top'),
+                    cursor: SystemMouseCursors.resizeUpDown,
+                    top: _edgeHandleExtent / 2,
+                    left: _cornerHandleExtent,
+                    right: _cornerHandleExtent,
+                    height: _edgeHandleExtent,
+                    onResize: (delta) => _resize(delta, bounds, top: true),
+                    onResizeEnd: () => _persistGeometry(bounds),
                   ),
-                  top: true,
-                  left: true,
-                  onResize: (delta) =>
-                      _resize(delta, bounds, top: true, left: true),
-                  onResizeEnd: () => _persistGeometry(bounds),
-                ),
-                _cornerResizeHandle(
-                  key: const ValueKey('composer-resize-top-right'),
-                  cursor: _cornerResizeCursor(
-                    macOS: SystemMouseCursors.resizeRight,
-                    otherwise: SystemMouseCursors.resizeUpRightDownLeft,
+                  _resizeHandle(
+                    key: const ValueKey('composer-resize-bottom'),
+                    cursor: SystemMouseCursors.resizeUpDown,
+                    bottom: _edgeHandleExtent / 2,
+                    left: _cornerHandleExtent,
+                    right: _cornerHandleExtent,
+                    height: _edgeHandleExtent,
+                    onResize: (delta) => _resize(delta, bounds, bottom: true),
+                    onResizeEnd: () => _persistGeometry(bounds),
                   ),
-                  top: true,
-                  left: false,
-                  onResize: (delta) =>
-                      _resize(delta, bounds, top: true, right: true),
-                  onResizeEnd: () => _persistGeometry(bounds),
-                ),
-                _cornerResizeHandle(
-                  key: const ValueKey('composer-resize-bottom-left'),
-                  cursor: _cornerResizeCursor(
-                    macOS: SystemMouseCursors.resizeLeft,
-                    otherwise: SystemMouseCursors.resizeUpRightDownLeft,
+                  _resizeHandle(
+                    key: const ValueKey('composer-resize-left'),
+                    cursor: SystemMouseCursors.resizeLeftRight,
+                    top: _cornerHandleExtent,
+                    bottom: _cornerHandleExtent,
+                    left: _edgeHandleExtent / 2,
+                    width: _edgeHandleExtent,
+                    onResize: (delta) => _resize(delta, bounds, left: true),
+                    onResizeEnd: () => _persistGeometry(bounds),
                   ),
-                  top: false,
-                  left: true,
-                  onResize: (delta) =>
-                      _resize(delta, bounds, bottom: true, left: true),
-                  onResizeEnd: () => _persistGeometry(bounds),
-                ),
-                _cornerResizeHandle(
-                  key: const ValueKey('composer-resize-bottom-right'),
-                  cursor: _cornerResizeCursor(
-                    macOS: SystemMouseCursors.resizeRight,
-                    otherwise: SystemMouseCursors.resizeUpLeftDownRight,
+                  _resizeHandle(
+                    key: const ValueKey('composer-resize-right'),
+                    cursor: SystemMouseCursors.resizeLeftRight,
+                    top: _cornerHandleExtent,
+                    bottom: _cornerHandleExtent,
+                    right: _edgeHandleExtent / 2,
+                    width: _edgeHandleExtent,
+                    onResize: (delta) => _resize(delta, bounds, right: true),
+                    onResizeEnd: () => _persistGeometry(bounds),
                   ),
-                  top: false,
-                  left: false,
-                  onResize: (delta) =>
-                      _resize(delta, bounds, bottom: true, right: true),
-                  onResizeEnd: () => _persistGeometry(bounds),
-                ),
+                  _cornerResizeHandle(
+                    key: const ValueKey('composer-resize-top-left'),
+                    cursor: _cornerResizeCursor(
+                      macOS: SystemMouseCursors.resizeLeft,
+                      otherwise: SystemMouseCursors.resizeUpLeftDownRight,
+                    ),
+                    top: true,
+                    left: true,
+                    onResize: (delta) =>
+                        _resize(delta, bounds, top: true, left: true),
+                    onResizeEnd: () => _persistGeometry(bounds),
+                  ),
+                  _cornerResizeHandle(
+                    key: const ValueKey('composer-resize-top-right'),
+                    cursor: _cornerResizeCursor(
+                      macOS: SystemMouseCursors.resizeRight,
+                      otherwise: SystemMouseCursors.resizeUpRightDownLeft,
+                    ),
+                    top: true,
+                    left: false,
+                    onResize: (delta) =>
+                        _resize(delta, bounds, top: true, right: true),
+                    onResizeEnd: () => _persistGeometry(bounds),
+                  ),
+                  _cornerResizeHandle(
+                    key: const ValueKey('composer-resize-bottom-left'),
+                    cursor: _cornerResizeCursor(
+                      macOS: SystemMouseCursors.resizeLeft,
+                      otherwise: SystemMouseCursors.resizeUpRightDownLeft,
+                    ),
+                    top: false,
+                    left: true,
+                    onResize: (delta) =>
+                        _resize(delta, bounds, bottom: true, left: true),
+                    onResizeEnd: () => _persistGeometry(bounds),
+                  ),
+                  _cornerResizeHandle(
+                    key: const ValueKey('composer-resize-bottom-right'),
+                    cursor: _cornerResizeCursor(
+                      macOS: SystemMouseCursors.resizeRight,
+                      otherwise: SystemMouseCursors.resizeUpLeftDownRight,
+                    ),
+                    top: false,
+                    left: false,
+                    onResize: (delta) =>
+                        _resize(delta, bounds, bottom: true, right: true),
+                    onResizeEnd: () => _persistGeometry(bounds),
+                  ),
+                ],
               ],
             ),
           ),
@@ -565,6 +588,31 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   }) => !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS
       ? macOS
       : otherwise;
+
+  _ComposerGeometry _minimizedGeometry(
+    _ComposerGeometry expanded,
+    Size bounds,
+  ) {
+    final verticalInset = math.min(_inset, bounds.height / 2);
+    final height = math.min(
+      _minimizedHeight,
+      math.max(0.0, bounds.height - verticalInset * 2),
+    );
+    return _ComposerGeometry(
+      size: Size(expanded.size.width, height),
+      position: Offset(
+        expanded.position.dx,
+        bounds.height - height - verticalInset,
+      ),
+    );
+  }
+
+  void _minimize() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _minimized = true);
+  }
+
+  void _restore() => setState(() => _minimized = false);
 
   _ComposerGeometry _geometryFor(Size bounds) {
     final horizontalInset = math.min(_inset, bounds.width / 2);
@@ -2611,6 +2659,8 @@ class _Header extends StatelessWidget {
     required this.composer,
     required this.onClose,
     required this.closeTooltip,
+    this.onMinimize,
+    this.onRestore,
     this.onMove,
     this.onMoveEnd,
   });
@@ -2618,6 +2668,8 @@ class _Header extends StatelessWidget {
   final ComposerController composer;
   final VoidCallback onClose;
   final String closeTooltip;
+  final VoidCallback? onMinimize;
+  final VoidCallback? onRestore;
   final ValueChanged<Offset>? onMove;
   final VoidCallback? onMoveEnd;
 
@@ -2648,7 +2700,7 @@ class _Header extends StatelessWidget {
 
     final header = SizedBox(
       key: const ValueKey('composer-drag-handle'),
-      height: 44,
+      height: _composerHeaderHeight,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
         child: Row(
@@ -2757,6 +2809,20 @@ class _Header extends StatelessWidget {
                 ),
               ),
             ),
+            if (onRestore case final restore?)
+              IconButton(
+                key: const ValueKey('composer-restore'),
+                onPressed: restore,
+                icon: const DIcon(DIcons.expand, size: 16),
+                tooltip: 'Restore composer',
+              )
+            else if (onMinimize case final minimize?)
+              IconButton(
+                key: const ValueKey('composer-minimize'),
+                onPressed: minimize,
+                icon: const Icon(Icons.minimize, size: 18),
+                tooltip: 'Minimize composer',
+              ),
             IconButton(
               onPressed: onClose,
               icon: const DIcon(DIcons.xmark, size: 18),

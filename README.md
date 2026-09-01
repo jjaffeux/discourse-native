@@ -879,6 +879,10 @@ the topic's one draft key for both replies and edits here, so a changed edit's
 header close goes through the same discard confirmation instead of silently
 throwing the edit away or overwriting an unfinished reply.
 
+The floating topic composer can be minimized to its header without closing its
+draft. The minimized bar stays at the bottom of the content pane; restoring it
+returns to the previous position and size with the title and body intact.
+
 One invariant carries the whole thing:
 
 > the painted text equals `controller.text`, character for character.
