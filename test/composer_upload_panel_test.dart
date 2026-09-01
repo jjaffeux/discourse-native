@@ -775,6 +775,56 @@ void main() {
   });
 
   group('gallery editing', () {
+    testWidgets('Enter before text following a gallery preserves the gallery', (
+      tester,
+    ) async {
+      addTearDown(tester.view.resetPhysicalSize);
+      final pixelRatio = tester.view.devicePixelRatio;
+      tester.view.physicalSize = Size(1455 * pixelRatio, 1022 * pixelRatio);
+      final composer = ComposerController(
+        _target,
+        resolveUploadUrls: (_) async => const {},
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      const source =
+          '[grid]\n'
+          '![one|640x480](upload://one)\n'
+          '![two|640x480](upload://two)\n'
+          '[/grid]\n'
+          'dog\n'
+          '![dog|640x480](upload://dog)';
+      // RenderEditable can leave the caret at the first layout-neutral source
+      // offset even though it is painted immediately before the following
+      // prose. Typing Enter from this reported state used to split `[grid]`.
+      composer.text.value = const TextEditingValue(
+        text: source,
+        selection: TextSelection.collapsed(offset: 2),
+      );
+
+      await _pumpPanel(tester, shell, composer, height: 900);
+      await tester.pumpAndSettle();
+
+      final galleryEnd = composer.text.galleryBlocks.single.end;
+      final tappedValue = composer.text.value;
+      final caret = tappedValue.selection.extentOffset;
+      expect(caret, 2);
+      tester.testTextInput.updateEditingValue(
+        tappedValue.copyWith(
+          text: tappedValue.text.replaceRange(caret, caret, '\n'),
+          selection: TextSelection.collapsed(offset: caret + 1),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        composer.text.text,
+        source.replaceRange(galleryEnd, galleryEnd, '\n'),
+      );
+      expect(composer.text.galleryBlocks, hasLength(1));
+    });
+
     testWidgets('gallery and member toolbars edit mode and membership', (
       tester,
     ) async {
@@ -1516,6 +1566,7 @@ Future<void> _pumpPanel(
   WidgetTester tester,
   ShellController shell,
   ComposerController composer, {
+  double? height,
   ComposerImagePicker pickImages = _cancelImagePick,
   ComposerClipboardImageReader readClipboardImages =
       readComposerClipboardImages,
@@ -1527,6 +1578,7 @@ Future<void> _pumpPanel(
       child: Scaffold(
         body: ComposerPanel(
           composer: composer,
+          height: height,
           pickImages: pickImages,
           readClipboardImages: readClipboardImages,
         ),

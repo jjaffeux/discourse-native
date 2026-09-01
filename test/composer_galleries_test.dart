@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:discourse_native/src/shell/composer_galleries.dart';
 import 'package:discourse_native/src/shell/composer_images.dart';
 import 'package:discourse_native/src/shell/markdown_highlight.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -379,6 +380,47 @@ unfinished
         expect(wrapComposerImagesInGallery(changed, [standalone]), isNull);
       },
     );
+  });
+
+  group('gallery native input protection', () {
+    const formatter = ComposerImageGalleryInputFormatter();
+    const source = '[grid]\n![one](upload://one)\n[/grid]\ndog';
+
+    test('relocates an insertion from hidden source after the gallery', () {
+      final gallery = parseComposerImageGalleries(source).single;
+      const oldValue = TextEditingValue(
+        text: source,
+        selection: TextSelection.collapsed(offset: 2),
+      );
+      const newValue = TextEditingValue(
+        text: '[g\nrid]\n![one](upload://one)\n[/grid]\ndog',
+        selection: TextSelection.collapsed(offset: 3),
+      );
+
+      final result = formatter.formatEditUpdate(oldValue, newValue);
+
+      expect(result.text, source.replaceRange(gallery.end, gallery.end, '\n'));
+      expect(
+        result.selection,
+        TextSelection.collapsed(offset: gallery.end + 1),
+      );
+      expect(parseComposerImageGalleries(result.text), hasLength(1));
+    });
+
+    test('rejects a partial replacement of gallery source', () {
+      final result = formatter.formatEditUpdate(
+        const TextEditingValue(
+          text: source,
+          selection: TextSelection(baseOffset: 1, extentOffset: 5),
+        ),
+        const TextEditingValue(
+          text: '[x]\n![one](upload://one)\n[/grid]\ndog',
+          selection: TextSelection.collapsed(offset: 3),
+        ),
+      );
+
+      expect(result.text, source);
+    });
   });
 }
 
