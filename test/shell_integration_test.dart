@@ -17527,7 +17527,7 @@ void main() {
           expect(
             find.descendant(
               of: find.byKey(ChatDrawerOverlay.collapseButtonKey),
-              matching: find.dIcon(DIcons.discourseCompress),
+              matching: find.dIcon(DIcons.minus),
             ),
             findsOneWidget,
           );

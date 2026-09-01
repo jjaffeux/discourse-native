@@ -672,7 +672,7 @@ class _DrawerHeader extends StatelessWidget {
                     tooltip: 'Collapse Chat Drawer',
                     onPressed: onToggle,
                     variant: DButtonVariant.flat,
-                    icon: const DIcon(DIcons.discourseCompress, size: 18),
+                    icon: const DIcon(DIcons.minus, size: 18),
                   )
                 else
                   _CollapsedDrawerToggleButton(onPressed: onToggle),
