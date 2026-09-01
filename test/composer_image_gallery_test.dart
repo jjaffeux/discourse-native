@@ -521,7 +521,9 @@ void main() {
       expect(editable.renderEditable.plainText.length, source.length);
     });
 
-    testWidgets('keeps the caret outside a selected gallery', (tester) async {
+    testWidgets('gallery options toggle while keeping the caret outside', (
+      tester,
+    ) async {
       final composer = ComposerController(
         _target,
         resolveUploadUrls: (_) async => const {},
@@ -590,6 +592,32 @@ void main() {
             )
             .highlighted,
         isTrue,
+      );
+      expect(_composerEditable(tester).showCursor, isFalse);
+
+      await tester.tapAt(controlCenter);
+      await tester.pump();
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('composer-gallery-toolbar')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<ComposerImageGalleryPreview>(
+              find.byType(ComposerImageGalleryPreview),
+            )
+            .highlighted,
+        isFalse,
+      );
+      expect(_composerEditable(tester).showCursor, isTrue);
+
+      await tester.tapAt(controlCenter);
+      await tester.pump();
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('composer-gallery-toolbar')),
+        findsOneWidget,
       );
       expect(_composerEditable(tester).showCursor, isFalse);
 
