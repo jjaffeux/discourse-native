@@ -429,7 +429,7 @@ void main() {
       },
     );
 
-    testWidgets('reveals source while the caret is inside the gallery', (
+    testWidgets('never reveals source for selections crossing the gallery', (
       tester,
     ) async {
       final controller = MarkdownEditingController(text: _source);
@@ -444,23 +444,29 @@ void main() {
       );
 
       final gallery = controller.galleryBlocks.single;
-      controller.selection = TextSelection.collapsed(
-        offset: gallery.contentStart,
-      );
-      await tester.pump();
+      for (final selection in [
+        TextSelection.collapsed(offset: gallery.contentStart),
+        TextSelection(baseOffset: 0, extentOffset: gallery.contentStart),
+        TextSelection(baseOffset: 0, extentOffset: gallery.end + 1),
+        TextSelection(
+          baseOffset: gallery.end + 1,
+          extentOffset: gallery.contentStart,
+        ),
+      ]) {
+        controller.selection = selection;
+        await tester.pump();
 
-      expect(find.byType(ComposerImageGalleryPreview), findsNothing);
-      expect(find.byType(ComposerImagePreview), findsNothing);
-      expect(controller.isGalleryCollapsed(gallery), isFalse);
-
-      controller.selection = TextSelection.collapsed(offset: gallery.end);
-      await tester.pump();
-      expect(find.byType(ComposerImageGalleryPreview), findsOneWidget);
+        expect(
+          find.byType(ComposerImageGalleryPreview),
+          findsOneWidget,
+          reason: 'selection $selection exposed the gallery Markdown',
+        );
+        expect(find.byType(ComposerImagePreview), findsNothing);
+        expect(controller.isGalleryCollapsed(gallery), isTrue);
+      }
     });
 
-    testWidgets('keeps projection during a pointer edit until released', (
-      tester,
-    ) async {
+    testWidgets('a pointer edit cannot reveal gallery source', (tester) async {
       final controller = MarkdownEditingController(text: _source);
       addTearDown(controller.dispose);
       await tester.pumpWidget(
@@ -482,7 +488,7 @@ void main() {
 
       controller.releaseGalleryPointerEdit(gallery);
       await tester.pump();
-      expect(find.byType(ComposerImageGalleryPreview), findsNothing);
+      expect(find.byType(ComposerImageGalleryPreview), findsOneWidget);
     });
 
     testWidgets('keeps an empty gallery as an editable options target', (

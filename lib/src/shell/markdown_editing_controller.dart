@@ -767,22 +767,10 @@ class MarkdownEditingController extends TextEditingController {
     );
 
     final galleries = _galleryBlocksFor(source);
-    final collapsedGalleries = [
-      for (final gallery in galleries)
-        if (!_galleryNeedsRawSource(
-          gallery,
-          value,
-          suppressCollapsedCaret:
-              _sameProjection(_caretSuppressedGallery, gallery) ||
-              gallery.images.any(
-                (image) =>
-                    _sameProjection(_caretSuppressedImage, image) ||
-                    _sameProjection(_draggedGalleryImage, image) ||
-                    isPillSelectedForKeyboard(image),
-              ),
-        ))
-          gallery,
-    ];
+    // Galleries are atomic editor components. Native drag selection can still
+    // cross their source offsets, but it must never replace the component with
+    // its implementation Markdown.
+    final collapsedGalleries = galleries;
     _collapsedGalleryStarts = {
       for (final gallery in collapsedGalleries) gallery.start,
     };
@@ -1303,25 +1291,6 @@ class MarkdownEditingController extends TextEditingController {
           selection.extentOffset < image.end;
     }
     return selection.start < image.end && selection.end > image.start;
-  }
-
-  static bool _galleryNeedsRawSource(
-    ComposerImageGalleryBlock gallery,
-    TextEditingValue value, {
-    bool suppressCollapsedCaret = false,
-  }) {
-    final selection = value.selection;
-    if (!selection.isValid) return false;
-    if (selection.isCollapsed) {
-      if (selection.extentOffset == gallery.start ||
-          selection.extentOffset == gallery.end) {
-        return false;
-      }
-      return !suppressCollapsedCaret &&
-          selection.extentOffset > gallery.start &&
-          selection.extentOffset < gallery.end;
-    }
-    return selection.start < gallery.end && selection.end > gallery.start;
   }
 
   void artworkArrived() {
