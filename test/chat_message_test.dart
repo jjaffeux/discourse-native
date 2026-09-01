@@ -188,32 +188,35 @@ void main() {
       expect(read.createdAt, DateTime.parse('2026-05-05T10:00:00.000Z'));
     });
 
-    test('reads the complete Chat::Message bookmark object', () {
-      final read = messageFrom(
-        message(
-          id: 42,
-          bookmark: const {
-            'id': 81,
-            'bookmarkable_id': 42,
-            'bookmarkable_type': 'Chat::Message',
-            'name': 'Follow this up',
-            'reminder_at': '2030-01-02T03:04:05.000Z',
-            'auto_delete_preference': 1,
-          },
-        ),
-      );
+    test('reads and normalizes a persisted Chat message bookmark', () {
+      for (final serializedType in ['ChatMessage', 'Chat::Message']) {
+        final read = messageFrom(
+          message(
+            id: 42,
+            bookmark: {
+              'id': 81,
+              'bookmarkable_id': 42,
+              'bookmarkable_type': serializedType,
+              'name': 'Follow this up',
+              'reminder_at': '2030-01-02T03:04:05.000Z',
+              'auto_delete_preference': 1,
+            },
+          ),
+        );
 
-      expect(
-        read.bookmark,
-        Bookmark(
-          id: 81,
-          bookmarkableId: 42,
-          bookmarkableType: 'Chat::Message',
-          name: 'Follow this up',
-          reminderAt: DateTime.utc(2030, 1, 2, 3, 4, 5),
-          autoDeletePreference: BookmarkAutoDeletePreference.whenReminderSent,
-        ),
-      );
+        expect(
+          read.bookmark,
+          Bookmark(
+            id: 81,
+            bookmarkableId: 42,
+            bookmarkableType: 'Chat::Message',
+            name: 'Follow this up',
+            reminderAt: DateTime.utc(2030, 1, 2, 3, 4, 5),
+            autoDeletePreference: BookmarkAutoDeletePreference.whenReminderSent,
+          ),
+          reason: serializedType,
+        );
+      }
     });
 
     test('drops absent, null, and malformed chat bookmark attachments', () {

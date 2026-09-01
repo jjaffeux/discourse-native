@@ -1277,20 +1277,25 @@ void main() {
       );
     });
 
-    testWidgets('a chat bookmark shows its state and edit action', (
+    testWidgets('a persisted chat bookmark shows its state and edit action', (
       tester,
     ) async {
+      final api = FakeDiscourseApi();
       final controller = await _controller(
         _message(
           null,
-          bookmark: Bookmark(
-            id: 81,
-            bookmarkableId: 7,
-            bookmarkableType: 'Chat::Message',
-            reminderAt: DateTime.now().add(const Duration(days: 1)),
-          ),
+          bookmark: chatMessageBookmarkFromJson(const {
+            'id': 7,
+            'bookmark': {
+              'id': 81,
+              'bookmarkable_id': 7,
+              'bookmarkable_type': 'ChatMessage',
+              'reminder_at': '2030-01-02T03:04:05.000Z',
+            },
+          }),
         ),
         signedIn: true,
+        api: api,
       );
       addTearDown(controller.dispose);
 
@@ -1313,6 +1318,24 @@ void main() {
       final action = find.byTooltip('Edit bookmark');
       expect(action, findsOneWidget);
       expect(tester.getSize(action), HoverActionButton.size);
+
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Chat message bookmark'), findsOneWidget);
+      expect(find.text('Bookmark chat message'), findsNothing);
+      expect(api.createdBookmarks, isEmpty);
+
+      await tester.tap(find.text('Delete bookmark'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(api.deletedBookmarks, [81]);
+      expect(
+        controller.chatRecords.read<ChatMessage>(_siteUrl, 7)?.bookmark,
+        isNull,
+      );
     });
 
     testWidgets(
