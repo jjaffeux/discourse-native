@@ -1311,6 +1311,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                   inputFormatters: [
                     _selectedPillInputFormatter,
                     _renderedEmojiInputFormatter,
+                    const ComposerImageGalleryInputFormatter(),
                     const ComposerQuoteInputFormatter(),
                     ...widget.composer.text.syntaxInputFormatters,
                   ],

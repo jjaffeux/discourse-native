@@ -1,9 +1,83 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import 'composer_images.dart';
 import 'markdown_highlight.dart';
 
 enum ComposerGalleryMode { grid, carousel }
+
+/// Keeps native text edits out of an atomically projected image gallery.
+///
+/// A collapsed gallery preserves its raw source offsets with layout-neutral
+/// text. Flutter can leave a visually trailing caret at one of those hidden
+/// offsets. An insertion from that caret belongs after the gallery; partial
+/// replacements of its implementation Markdown are rejected.
+class ComposerImageGalleryInputFormatter extends TextInputFormatter {
+  const ComposerImageGalleryInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (oldValue.text == newValue.text) return newValue;
+    final galleries = parseComposerImageGalleries(oldValue.text);
+    if (galleries.isEmpty) return newValue;
+
+    var replacementStart = 0;
+    final sharedLength = math.min(oldValue.text.length, newValue.text.length);
+    while (replacementStart < sharedLength &&
+        oldValue.text.codeUnitAt(replacementStart) ==
+            newValue.text.codeUnitAt(replacementStart)) {
+      replacementStart++;
+    }
+    var sharedSuffixLength = 0;
+    while (sharedSuffixLength < oldValue.text.length - replacementStart &&
+        sharedSuffixLength < newValue.text.length - replacementStart &&
+        oldValue.text.codeUnitAt(
+              oldValue.text.length - sharedSuffixLength - 1,
+            ) ==
+            newValue.text.codeUnitAt(
+              newValue.text.length - sharedSuffixLength - 1,
+            )) {
+      sharedSuffixLength++;
+    }
+    final replacementEnd = oldValue.text.length - sharedSuffixLength;
+
+    for (final gallery in galleries) {
+      if (oldValue.selection.isValid &&
+          oldValue.selection.isCollapsed &&
+          oldValue.selection.extentOffset == replacementStart &&
+          replacementStart == replacementEnd &&
+          replacementStart > gallery.start &&
+          replacementStart < gallery.end) {
+        if (newValue.isComposingRangeValid && !newValue.composing.isCollapsed) {
+          return oldValue;
+        }
+        final insertedEnd = newValue.text.length - sharedSuffixLength;
+        final inserted = newValue.text.substring(replacementStart, insertedEnd);
+        final caret = gallery.end + inserted.length;
+        return TextEditingValue(
+          text: oldValue.text.replaceRange(gallery.end, gallery.end, inserted),
+          selection: TextSelection.collapsed(
+            offset: caret,
+            affinity: newValue.selection.affinity,
+          ),
+        );
+      }
+
+      if (replacementStart >= gallery.end || replacementEnd <= gallery.start) {
+        continue;
+      }
+      final coversWholeGallery =
+          replacementStart <= gallery.start && replacementEnd >= gallery.end;
+      if (!coversWholeGallery) return oldValue;
+    }
+    return newValue;
+  }
+}
 
 @immutable
 class ComposerImageGalleryBlock {
