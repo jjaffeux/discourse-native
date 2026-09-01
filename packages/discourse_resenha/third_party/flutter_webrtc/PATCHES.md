@@ -88,6 +88,15 @@ Files:
 
 Commit: `b401810ff43d3e20fe4bc41ece6fee33722dd60f`.
 
+## Provenance metadata
+
+The patch manifest itself is local review metadata and is not part of the
+published archive.
+
+Files:
+
+- `PATCHES.md`
+
 ## Verifying the review diff
 
 From the application repository root, run:

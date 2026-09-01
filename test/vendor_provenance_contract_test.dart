@@ -6,11 +6,13 @@ import 'package:flutter_test/flutter_test.dart';
 import '../tool/vendor_provenance_contract.dart';
 
 void main() {
-  test('discovers vendor configuration from its owning plugin', () async {
+  test('discovers vendor configurations from their owning packages', () async {
     final contracts = await loadVendorProvenanceContracts();
 
-    expect(contracts, hasLength(1));
-    final contract = contracts.single;
+    expect(contracts, hasLength(2));
+    final contract = contracts.singleWhere(
+      (candidate) => candidate.package == 'flutter_webrtc',
+    );
     expect(contract.name, 'Resenha flutter_webrtc');
     expect(contract.package, 'flutter_webrtc');
     expect(contract.version, '1.6.0');
@@ -27,6 +29,27 @@ void main() {
     expect(
       contract.vendorPath,
       endsWith('packages/discourse_resenha/third_party/flutter_webrtc'),
+    );
+
+    final videoPlayerContract = contracts.singleWhere(
+      (candidate) => candidate.package == 'video_player_avfoundation',
+    );
+    expect(
+      videoPlayerContract.name,
+      'Discourse Native video_player_avfoundation',
+    );
+    expect(videoPlayerContract.version, '2.11.1');
+    expect(
+      videoPlayerContract.catalog,
+      'packages/video_player_avfoundation/tool/vendor_contract.json',
+    );
+    expect(
+      videoPlayerContract.patchManifest,
+      endsWith('packages/video_player_avfoundation/PATCHES.md'),
+    );
+    expect(
+      videoPlayerContract.vendorPath,
+      endsWith('packages/video_player_avfoundation'),
     );
   });
 

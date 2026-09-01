@@ -20,6 +20,27 @@ const _resenhaOwnedDependencies = {
 
 void main() {
   group('profile package graphs', () {
+    test('the core app resolves the reviewed AVFoundation fork', () {
+      final pubspec = File(_corePubspecPath).readAsStringSync();
+      final lock = File(_coreLockPath).readAsStringSync();
+
+      expect(
+        _dependencyPath(
+          pubspec,
+          'dependency_overrides',
+          'video_player_avfoundation',
+        ),
+        'packages/video_player_avfoundation',
+      );
+      expect(
+        _dependencyPath(lock, 'packages', 'video_player_avfoundation'),
+        'packages/video_player_avfoundation',
+        reason:
+            'The checked-in core lock must resolve the reviewed fork, not '
+            'the hosted video_player_avfoundation archive.',
+      );
+    });
+
     test(
       'the core app declares no Resenha packages and resolves no media SDKs',
       () {
@@ -120,6 +141,17 @@ void main() {
               'enables Resenha must activate its reviewed WebRTC fork itself.',
         );
         expect(
+          _dependencyPath(
+            pubspec,
+            'dependency_overrides',
+            'video_player_avfoundation',
+          ),
+          '../../packages/video_player_avfoundation',
+          reason:
+              'Pub ignores transitive overrides, so the full application must '
+              'activate the reviewed AVFoundation fork itself.',
+        );
+        expect(
           lockedPackages,
           containsAll(_resenhaGraphPackages),
           reason:
@@ -136,6 +168,13 @@ void main() {
           reason:
               'The checked-in full lock must resolve the reviewed fork, not '
               'the hosted flutter_webrtc archive.',
+        );
+        expect(
+          _dependencyPath(lock, 'packages', 'video_player_avfoundation'),
+          '../../packages/video_player_avfoundation',
+          reason:
+              'The checked-in full lock must resolve the reviewed fork, not '
+              'the hosted video_player_avfoundation archive.',
         );
       },
     );
