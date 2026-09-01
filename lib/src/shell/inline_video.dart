@@ -3,7 +3,7 @@ import 'dart:convert' show htmlEscape;
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, immutable;
+    show TargetPlatform, defaultTargetPlatform, immutable, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:video_player/video_player.dart';
@@ -129,8 +129,15 @@ Widget? inlineVideoWidgetBuilder(dom.Element element, {String? siteUrl}) {
   return data == null ? null : InlineVideo(data: data, siteUrl: siteUrl);
 }
 
-typedef InlineVideoPlayerBuilder =
-    Widget Function(BuildContext context, InlineVideoData data);
+typedef InlineVideoPlayerBuilder = Widget Function(
+  BuildContext context,
+  InlineVideoData data,
+);
+
+@visibleForTesting
+typedef InlineVideoControllerBuilder = VideoPlayerController Function(
+  Uri source,
+);
 
 /// A lazy, app-owned shell around the platform video implementation.
 class InlineVideo extends StatefulWidget {
@@ -327,12 +334,16 @@ class InlineVideoNativeSurface extends StatefulWidget {
     required this.siteUrl,
     required this.credentials,
     required this.lifecycle,
+    this.controllerBuilder,
   });
 
   final InlineVideoData data;
   final String? siteUrl;
   final ApiCredentialReader? credentials;
   final SiteLifecycle? lifecycle;
+
+  @visibleForTesting
+  final InlineVideoControllerBuilder? controllerBuilder;
 
   @override
   State<InlineVideoNativeSurface> createState() =>
@@ -345,6 +356,7 @@ class _InlineVideoNativeSurfaceState extends State<InlineVideoNativeSurface>
   _VideoSourceResolution? _sourceResolution;
   Object? _error;
   int _generation = 0;
+  bool _fullscreenOpen = false;
 
   @override
   void initState() {
@@ -359,7 +371,8 @@ class _InlineVideoNativeSurfaceState extends State<InlineVideoNativeSurface>
     if (oldWidget.data.playbackIdentity != widget.data.playbackIdentity ||
         oldWidget.siteUrl != widget.siteUrl ||
         !identical(oldWidget.credentials, widget.credentials) ||
-        !identical(oldWidget.lifecycle, widget.lifecycle)) {
+        !identical(oldWidget.lifecycle, widget.lifecycle) ||
+        !identical(oldWidget.controllerBuilder, widget.controllerBuilder)) {
       unawaited(_initialize());
     }
   }
@@ -397,7 +410,9 @@ class _InlineVideoNativeSurfaceState extends State<InlineVideoNativeSurface>
         resolution.cancel();
       }
       if (!mounted || generation != _generation) return;
-      final controller = VideoPlayerController.networkUrl(source.url);
+      final controller =
+          widget.controllerBuilder?.call(source.url) ??
+          VideoPlayerController.networkUrl(source.url);
       _controller = controller;
       controller.addListener(_playerChanged);
       await controller.initialize();
@@ -462,6 +477,26 @@ class _InlineVideoNativeSurfaceState extends State<InlineVideoNativeSurface>
       }
     } on Object catch (error, stackTrace) {
       _failNative(controller, error, stackTrace, 'video.native.controls');
+    }
+  }
+
+  Future<void> _openFullscreen(VideoPlayerController controller) async {
+    if (_fullscreenOpen || !identical(_controller, controller)) return;
+    setState(() => _fullscreenOpen = true);
+    try {
+      await Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: 'inline-video-fullscreen'),
+          fullscreenDialog: true,
+          builder: (context) => _InlineVideoFullscreen(
+            data: widget.data,
+            controller: controller,
+            onTogglePlayback: () => unawaited(_togglePlayback(controller)),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _fullscreenOpen = false);
     }
   }
 
@@ -549,7 +584,9 @@ class _InlineVideoNativeSurfaceState extends State<InlineVideoNativeSurface>
               Center(
                 child: AspectRatio(
                   aspectRatio: playerRatio,
-                  child: VideoPlayer(controller),
+                  child: _fullscreenOpen
+                      ? const SizedBox.shrink()
+                      : VideoPlayer(controller),
                 ),
               ),
               Positioned(
@@ -564,40 +601,13 @@ class _InlineVideoNativeSurfaceState extends State<InlineVideoNativeSurface>
                       colors: [Colors.transparent, Color(0xDD000000)],
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        tooltip: value.isPlaying ? 'Pause' : 'Play',
-                        color: Colors.white,
-                        onPressed: () => unawaited(_togglePlayback(controller)),
-                        icon: Icon(
-                          value.isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                        ),
-                      ),
-                      Expanded(
-                        child: VideoProgressIndicator(
-                          controller,
-                          allowScrubbing: true,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          colors: const VideoProgressColors(
-                            playedColor: Colors.white,
-                            bufferedColor: Color(0x88FFFFFF),
-                            backgroundColor: Color(0x55FFFFFF),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${_duration(value.position)} / '
-                        '${_duration(value.duration)}',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.labelSmall?.copyWith(color: Colors.white),
-                      ),
-                      const SizedBox(width: 12),
-                    ],
+                  child: _NativeVideoControls(
+                    controller: controller,
+                    value: value,
+                    onTogglePlayback: () =>
+                        unawaited(_togglePlayback(controller)),
+                    onEnterFullscreen: () =>
+                        unawaited(_openFullscreen(controller)),
                   ),
                 ),
               ),
@@ -627,6 +637,139 @@ class _InlineVideoNativeSurfaceState extends State<InlineVideoNativeSurface>
     }
     super.dispose();
   }
+}
+
+class _InlineVideoFullscreen extends StatelessWidget {
+  const _InlineVideoFullscreen({
+    required this.data,
+    required this.controller,
+    required this.onTogglePlayback,
+  });
+
+  final InlineVideoData data;
+  final VideoPlayerController controller;
+  final VoidCallback onTogglePlayback;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    key: const ValueKey('inline-video-fullscreen-view'),
+    backgroundColor: Colors.black,
+    body: SafeArea(
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) {
+          final value = controller.value;
+          final ratio = value.aspectRatio.isFinite && value.aspectRatio > 0
+              ? value.aspectRatio
+              : data.aspectRatio;
+          return Semantics(
+            label: 'Full-screen video player: ${data.title}',
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Center(
+                  child: AspectRatio(
+                    aspectRatio: ratio,
+                    child: VideoPlayer(controller),
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: DecoratedBox(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Color(0xDD000000)],
+                      ),
+                    ),
+                    child: _NativeVideoControls(
+                      controller: controller,
+                      value: value,
+                      onTogglePlayback: onTogglePlayback,
+                      onExitFullscreen: Navigator.of(context).pop,
+                    ),
+                  ),
+                ),
+                if (value.isBuffering)
+                  const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    ),
+  );
+}
+
+class _NativeVideoControls extends StatelessWidget {
+  const _NativeVideoControls({
+    required this.controller,
+    required this.value,
+    required this.onTogglePlayback,
+    this.onEnterFullscreen,
+    this.onExitFullscreen,
+  }) : assert(onEnterFullscreen == null || onExitFullscreen == null);
+
+  final VideoPlayerController controller;
+  final VideoPlayerValue value;
+  final VoidCallback onTogglePlayback;
+  final VoidCallback? onEnterFullscreen;
+  final VoidCallback? onExitFullscreen;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      IconButton(
+        tooltip: value.isPlaying ? 'Pause' : 'Play',
+        color: Colors.white,
+        onPressed: onTogglePlayback,
+        icon: Icon(
+          value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+        ),
+      ),
+      Expanded(
+        child: VideoProgressIndicator(
+          controller,
+          allowScrubbing: true,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          colors: const VideoProgressColors(
+            playedColor: Colors.white,
+            bufferedColor: Color(0x88FFFFFF),
+            backgroundColor: Color(0x55FFFFFF),
+          ),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Text(
+        '${_duration(value.position)} / ${_duration(value.duration)}',
+        style: Theme.of(context).textTheme.labelSmall
+            ?.copyWith(color: Colors.white),
+      ),
+      if (onEnterFullscreen case final enter?)
+        IconButton(
+          key: const ValueKey('inline-video-fullscreen'),
+          tooltip: 'Enter full screen',
+          color: Colors.white,
+          onPressed: enter,
+          icon: const DIcon(DIcons.expand, size: 18, color: Colors.white),
+        )
+      else if (onExitFullscreen case final exit?)
+        IconButton(
+          key: const ValueKey('inline-video-fullscreen-close'),
+          tooltip: 'Exit full screen',
+          color: Colors.white,
+          onPressed: exit,
+          icon: const Icon(Icons.fullscreen_exit_rounded),
+        )
+      else
+        const SizedBox(width: 12),
+    ],
+  );
 }
 
 class InlineVideoWebViewSurface extends StatefulWidget {
