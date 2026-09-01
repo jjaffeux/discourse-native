@@ -2,8 +2,12 @@ import 'dart:ui'
     show PointerDeviceKind, SemanticsAction, SemanticsRole, Tristate;
 
 import 'package:discourse_native/src/models/sidebar.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_metrics.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -12,6 +16,11 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+
+import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 void main() {
   const first = ForumTabItem(
@@ -31,6 +40,58 @@ void main() {
   );
 
   group('tab presentation', () {
+    testWidgets('renders title shortcodes as site emoji', (tester) async {
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([instance('meta.example')]),
+        api: FakeDiscourseApi(
+          emojisBySite: const {
+            'https://meta.example': [
+              SiteEmoji(
+                name: 'magic_wand',
+                url: '/images/emoji/magic_wand.png',
+              ),
+            ],
+          },
+        ),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(controller.dispose);
+      installTestMediaPipeline(
+        client: MockClient((_) async => http.Response('', 404)),
+      );
+      await controller.ensureEmojiCatalog('https://meta.example');
+
+      await _pumpBar(
+        tester,
+        controller: controller,
+        items: const [
+          ForumTabItem(
+            id: 'topic-1',
+            title: ':magic_wand: Introducing the new Admin Design Wizard',
+            siteUrl: 'https://meta.example',
+          ),
+        ],
+        selectedId: 'topic-1',
+      );
+
+      final emoji = tester.widget<SiteEmojiImage>(
+        find.descendant(
+          of: find.byType(ForumTabsBar),
+          matching: find.byType(SiteEmojiImage),
+        ),
+      );
+      expect(emoji.siteUrl, 'https://meta.example');
+      expect(emoji.name, 'magic_wand');
+      expect(
+        find.bySemanticsLabel(
+          ':magic_wand: Introducing the new Admin Design Wizard',
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('matches shell geometry and places add after the final tab', (
       tester,
     ) async {
@@ -818,34 +879,37 @@ Future<void> _pumpBar(
   void Function(String id, String title)? onRename,
   double width = 500,
   ThemeData? theme,
+  ShellController? controller,
 }) async {
-  await tester.pumpWidget(
-    MaterialApp(
-      theme: theme ?? AppTheme.light,
-      home: Scaffold(
-        body: Align(
-          alignment: Alignment.topLeft,
-          child: SizedBox(
-            width: width,
-            child: Column(
-              children: [
-                ForumTabsBar(
-                  forumName: 'Discourse Meta',
-                  items: items,
-                  selectedId: selectedId,
-                  onAdd: addEnabled ? (onAdd ?? () {}) : null,
-                  onSelect: onSelect ?? (_) {},
-                  onClose: onClose ?? (_) {},
-                  onReorder: onReorder ?? (_, _) {},
-                  onCloseOthers: onCloseOthers ?? (_) {},
-                  onRename: onRename,
-                ),
-              ],
-            ),
+  Widget child = MaterialApp(
+    theme: theme ?? AppTheme.light,
+    home: Scaffold(
+      body: Align(
+        alignment: Alignment.topLeft,
+        child: SizedBox(
+          width: width,
+          child: Column(
+            children: [
+              ForumTabsBar(
+                forumName: 'Discourse Meta',
+                items: items,
+                selectedId: selectedId,
+                onAdd: addEnabled ? (onAdd ?? () {}) : null,
+                onSelect: onSelect ?? (_) {},
+                onClose: onClose ?? (_) {},
+                onReorder: onReorder ?? (_, _) {},
+                onCloseOthers: onCloseOthers ?? (_) {},
+                onRename: onRename,
+              ),
+            ],
           ),
         ),
       ),
     ),
   );
+  if (controller != null) {
+    child = ShellScope(controller: controller, child: child);
+  }
+  await tester.pumpWidget(child);
   await tester.pumpAndSettle();
 }

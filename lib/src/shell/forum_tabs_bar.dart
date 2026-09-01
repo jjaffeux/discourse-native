@@ -18,12 +18,14 @@ import 'avatar_image.dart';
 import 'emoji.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
+import 'site_emoji_text.dart';
 
 @immutable
 class ForumTabItem {
   const ForumTabItem({
     required this.id,
     required this.title,
+    this.siteUrl,
     this.icon,
     this.color,
     this.parentColor,
@@ -42,6 +44,7 @@ class ForumTabItem {
 
   final String id;
   final String title;
+  final String? siteUrl;
   final DIconData? icon;
   final Color? color;
   final Color? parentColor;
@@ -748,6 +751,21 @@ class _ForumTabState extends State<_ForumTab> {
       fontSize: DiscourseTypography.fontDown2,
       fontWeight: FontWeight.w400,
     );
+    final label = switch (widget.item.siteUrl) {
+      final siteUrl? => SiteEmojiText.plain(
+        widget.item.title,
+        siteUrl: siteUrl,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: labelStyle,
+      ),
+      null => Text(
+        widget.item.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: labelStyle,
+      ),
+    };
     return Padding(
       padding: const EdgeInsets.fromLTRB(9, 0, 5, 0),
       child: Row(
@@ -783,14 +801,7 @@ class _ForumTabState extends State<_ForumTab> {
                   )
                 : Row(
                     children: [
-                      Flexible(
-                        child: Text(
-                          widget.item.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: labelStyle,
-                        ),
-                      ),
+                      Flexible(child: label),
                       if (widget.item.labelSuffixBuilder case final builder?)
                         builder(context, 13),
                       if (widget.item.badge.dot &&
@@ -1201,6 +1212,7 @@ class CurrentForumTabsBar extends StatelessWidget {
                   return ForumTabItem(
                     id: tab.id,
                     title: destination.label,
+                    siteUrl: siteUrl,
                     icon: destination.icon,
                     color: destination.color,
                     parentColor: destination.parentColor,
@@ -1220,6 +1232,7 @@ class CurrentForumTabsBar extends StatelessWidget {
                 return ForumTabItem(
                   id: tab.id,
                   title: route.title,
+                  siteUrl: siteUrl,
                   icon: route.icon,
                   color: route.color,
                 );
