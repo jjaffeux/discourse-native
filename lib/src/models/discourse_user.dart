@@ -216,6 +216,40 @@ class DiscourseUser {
 
   String get displayName => (name?.isNotEmpty ?? false) ? name! : username;
 
+  DiscourseUser withDraftCount(int draftCount) => DiscourseUser(
+    username: username,
+    id: id,
+    name: name,
+    avatarUrl: avatarUrl,
+    status: status,
+    draftCount: draftCount,
+    canCreateTopic: canCreateTopic,
+    canCreateGroup: canCreateGroup,
+    canChangePostOwner: canChangePostOwner,
+    admin: admin,
+    staff: staff,
+    whisperer: whisperer,
+    canSendPrivateMessages: canSendPrivateMessages,
+    canInviteToForum: canInviteToForum,
+    groups: groups,
+    messageGroupNames: messageGroupNames,
+    sidebarCategoryIds: sidebarCategoryIds,
+    sidebarTags: sidebarTags,
+    displaySidebarTags: displaySidebarTags,
+    unifiedNewEnabled: unifiedNewEnabled,
+    sidebarShowCountOfNewItems: sidebarShowCountOfNewItems,
+    trackedCategoryIds: trackedCategoryIds,
+    watchedCategoryIds: watchedCategoryIds,
+    watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
+    doNotDisturbUntil: doNotDisturbUntil,
+    doNotDisturbChannelPosition: doNotDisturbChannelPosition,
+    groupedUnreadNotifications: groupedUnreadNotifications,
+    timezone: timezone,
+    hidePresence: hidePresence,
+    bookmarkAutoDeletePreference: bookmarkAutoDeletePreference,
+    plugins: plugins,
+  );
+
   DiscourseUser withStatus(UserStatus? status) => DiscourseUser(
     username: username,
     id: id,

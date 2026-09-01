@@ -579,6 +579,41 @@ void main() {
   });
 
   group('draft lifecycle', () {
+    testWidgets('refreshes after another client changes the draft count', (
+      tester,
+    ) async {
+      final fixture = await _pump(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.text('Drafts'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is TopicTitle &&
+              widget.title == 'Native :sparkles: drafts page',
+        ),
+        findsOneWidget,
+      );
+      expect(fixture.api.userDraftRequests, hasLength(1));
+
+      fixture.api.userDraftList = const [];
+      final tracker = FakeSiteTracker.built.single;
+      expect(tracker.pluginChannelCallbacks, contains('/user-drafts/7'));
+      tracker.deliverPluginMessage('/user-drafts/7', const {'draft_count': 0});
+      await tester.pumpAndSettle();
+
+      expect(find.text('No drafts yet'), findsOneWidget);
+      expect(fixture.api.userDraftRequests, hasLength(2));
+      final shell = ShellScope.read(tester.element(find.byType(DraftListView)));
+      expect(shell.currentInstance?.user?.draftCount, 0);
+      expect(shell.draftCountFor(_siteUrl), 0);
+    });
+
     testWidgets('resumes a supported draft in the composer', (tester) async {
       await _pump(tester);
       await tester.tap(

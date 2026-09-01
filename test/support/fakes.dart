@@ -762,7 +762,7 @@ class FakeDiscourseApi
   final Map<String, TopicTagSearch> topicTagSearches;
 
   final List<int> topicTagSearchLimits = [];
-  final List<UserDraft> userDraftList;
+  List<UserDraft> userDraftList;
   final Completer<void>? userDraftGate;
   final List<({String siteUrl, int offset, int limit})> userDraftRequests = [];
   final List<({String siteUrl, String draftKey, int sequence})>

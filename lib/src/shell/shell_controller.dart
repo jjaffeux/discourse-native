@@ -40,6 +40,7 @@ import '../models/forum_workspace.dart';
 import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
 import '../models/group_route.dart';
+import '../models/json.dart';
 import '../models/list_link.dart';
 import '../models/notification_totals.dart';
 import '../models/notification_type_counts.dart';
@@ -2467,6 +2468,7 @@ class ShellController extends FrameSafeNotifier
   final Map<String, String> _hidePresenceErrors = {};
   final Map<String, int> _hidePresenceVersions = {};
   final Map<String, int> _groupedUnreadNotificationVersions = {};
+  final Map<String, int> _draftCountVersions = {};
   final Map<String, Timer> _pluginNotificationFeedRefreshTimers = {};
 
   final Set<String> _sessionUsersRefreshed = {};
@@ -2849,6 +2851,19 @@ class ShellController extends FrameSafeNotifier
         }
         if (userId != null) {
           try {
+            tracker.watchPluginChannel(
+              '/user-drafts/$userId',
+              (data) => commit(() => _applyUserDraftsMessage(siteUrl, data)),
+            );
+          } catch (error, stackTrace) {
+            _reportOperationalError(
+              error,
+              stackTrace,
+              'messageBus.subscribeUserDrafts',
+              severity: DiagnosticSeverity.warning,
+            );
+          }
+          try {
             final user = _instanceAt(siteUrl)?.user;
             tracker.watchPluginChannel(
               '/do-not-disturb/$userId',
@@ -3009,6 +3024,7 @@ class ShellController extends FrameSafeNotifier
     final hidePresenceVersion = _hidePresenceVersions[siteUrl] ?? 0;
     final groupedUnreadNotificationVersion =
         _groupedUnreadNotificationVersions[siteUrl] ?? 0;
+    final draftCountVersion = _draftCountVersions[siteUrl] ?? 0;
     late final Future<DiscourseUser?> request;
     request =
         _readSessionUser(
@@ -3017,6 +3033,7 @@ class ShellController extends FrameSafeNotifier
           session,
           hidePresenceVersion,
           groupedUnreadNotificationVersion,
+          draftCountVersion,
         ).whenComplete(() {
           if (identical(_sessionUserRequests[siteUrl], request)) {
             final removed = _sessionUserRequests.remove(siteUrl);
@@ -3033,6 +3050,7 @@ class ShellController extends FrameSafeNotifier
     SiteLease lease,
     int hidePresenceVersion,
     int groupedUnreadNotificationVersion,
+    int draftCountVersion,
   ) async {
     if (!lease.isCurrent || _connectingSiteUrl == siteUrl) return null;
 
@@ -3083,6 +3101,8 @@ class ShellController extends FrameSafeNotifier
       final groupedCountsAreCurrent =
           (_groupedUnreadNotificationVersions[siteUrl] ?? 0) ==
           groupedUnreadNotificationVersion;
+      final draftCountIsCurrent =
+          (_draftCountVersions[siteUrl] ?? 0) == draftCountVersion;
       var reconciledUser = preserveConfirmedPresence
           ? withPreservedPlugins.withHidePresence(previousUser?.hidePresence)
           : withPreservedPlugins;
@@ -3093,6 +3113,9 @@ class ShellController extends FrameSafeNotifier
         reconciledUser = reconciledUser.withGroupedUnreadNotifications(
           previousUser.groupedUnreadNotifications,
         );
+      }
+      if (!accountChanged && !draftCountIsCurrent && previousUser != null) {
+        reconciledUser = reconciledUser.withDraftCount(previousUser.draftCount);
       }
       committedUser = reconciledUser;
       _sessionUsersRefreshed.add(siteUrl);
@@ -3139,6 +3162,35 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     NotificationTotals Function(NotificationTotals held) fold,
   ) => accountActivity.applyCounts(siteUrl, fold);
+
+  void _applyUserDraftsMessage(String siteUrl, Object? data) {
+    if (data is! Map<Object?, Object?>) return;
+    final count = jsonIntOrNull(data['draft_count']);
+    if (count == null || count < 0) return;
+
+    final instance = _instanceAt(siteUrl);
+    final user = instance?.user;
+    if (instance == null || user == null) return;
+
+    _draftCountVersions.update(
+      siteUrl,
+      (version) => version + 1,
+      ifAbsent: () => 1,
+    );
+
+    var current = instance;
+    if (user.draftCount != count) {
+      current = instance.copyWith(user: user.withDraftCount(count));
+      _replaceInstance(instance, current);
+      _notify();
+      instanceStore.save(List.of(_instances)).ignore();
+    }
+
+    final feed = draftList.feedFor(siteUrl);
+    if (!feed.loaded && !feed.loading) return;
+    draftList.invalidateTotalCount(siteUrl);
+    unawaited(draftList.load(current, refresh: true));
+  }
 
   void _seedGroupedUnreadNotifications(String siteUrl, DiscourseUser user) {
     final counts = user.groupedUnreadNotifications;
@@ -10147,6 +10199,7 @@ class ShellController extends FrameSafeNotifier
     _hidePresenceErrors.remove(siteUrl);
     _hidePresenceVersions.remove(siteUrl);
     _groupedUnreadNotificationVersions.remove(siteUrl);
+    _draftCountVersions.remove(siteUrl);
     _pluginNotificationFeedRefreshTimers.remove(siteUrl)?.cancel();
     _disposeTracking(siteUrl);
     _notify();
@@ -11049,6 +11102,7 @@ class ShellController extends FrameSafeNotifier
     _hidePresenceErrors.clear();
     _hidePresenceVersions.clear();
     _groupedUnreadNotificationVersions.clear();
+    _draftCountVersions.clear();
     for (final timer in _pluginNotificationFeedRefreshTimers.values) {
       timer.cancel();
     }
