@@ -62,9 +62,15 @@ void main() {
 
     final handle = find.byKey(const ValueKey('sidebar-resize-handle'));
     expect(tester.getSize(handle).width, 16);
+    final divider = find.descendant(
+      of: handle,
+      matching: find.byType(ColoredBox),
+    );
+    expect(divider, findsOneWidget);
+    expect(tester.getSize(divider).width, 1);
     expect(
-      find.descendant(of: handle, matching: find.byType(ColoredBox)),
-      findsNothing,
+      tester.widget<ColoredBox>(divider).color,
+      Theme.of(tester.element(divider)).shell.divider,
     );
     final data = tester.getSemantics(handle).getSemanticsData();
     expect(data.label, 'Resize sidebar');
