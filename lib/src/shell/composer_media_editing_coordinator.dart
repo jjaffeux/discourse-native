@@ -362,6 +362,22 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
     _composer.focus.requestFocus();
   }
 
+  void removeSelectedGallery() {
+    final gallery = _state.selectedGallery;
+    if (gallery == null || isDisposed) return;
+    _composer.text.releaseGalleryPointerEdit(gallery);
+    _setState(
+      selectedImage: _state.selectedImage,
+      selectedImageGallery: _state.selectedImageGallery,
+      selectedGallery: null,
+      dropGallery: _state.dropGallery,
+      dragging: _state.dragging,
+      pickingGalleryImages: _state.pickingGalleryImages,
+    );
+    _composer.removeGallery(gallery);
+    _composer.focus.requestFocus();
+  }
+
   Future<void> pickImagesForSelectedGallery(
     ComposerImagePicker pickImages,
   ) async {
@@ -548,8 +564,11 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
           );
           return KeyEventResult.handled;
         }
-        if (event.logicalKey == LogicalKeyboardKey.backspace ||
-            event.logicalKey == LogicalKeyboardKey.delete) {
+        if (event.logicalKey == LogicalKeyboardKey.backspace) {
+          removeSelectedGallery();
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.delete) {
           return KeyEventResult.handled;
         }
       }
