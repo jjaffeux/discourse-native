@@ -147,6 +147,16 @@ class InstanceSidebar extends StatelessWidget {
   Widget build(BuildContext context) => ShellSelector<_SidebarSnapshot>(
     select: (controller) {
       final instance = controller.currentInstance;
+      final currentContent = controller.currentContent;
+      var selectedDestinationId = controller.destinationId;
+      if (currentContent?.groupRoute != null) {
+        selectedDestinationId = 'groups';
+      } else if (currentContent?.isTopic == true &&
+          selectedDestinationId == 'drafts') {
+        // Reply drafts keep Drafts in their back stack, but the topic itself
+        // is not the Drafts route.
+        selectedDestinationId = null;
+      }
       final categorySection = instance == null
           ? null
           : controller.categorySidebarSectionFor(instance.url);
@@ -156,9 +166,7 @@ class InstanceSidebar extends StatelessWidget {
       return _SidebarSnapshot(
         siteUrl: instance?.url,
         name: instance?.title,
-        destinationId: controller.currentContent?.groupRoute != null
-            ? 'groups'
-            : controller.destinationId,
+        destinationId: selectedDestinationId,
         draftCount: instance?.user?.draftCount ?? 0,
         canCreateTopic: instance?.user?.canCreateTopic ?? false,
         presentationToken: instance == null

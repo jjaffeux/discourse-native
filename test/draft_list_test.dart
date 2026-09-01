@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/app_shortcuts.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
@@ -26,11 +27,13 @@ import 'package:flutter/material.dart'
         ConstrainedBox,
         FilledButton,
         Focus,
+        FontWeight,
         InkWell,
         MaterialApp,
         MouseRegion,
         Row,
         Size,
+        Text,
         Theme,
         ValueKey,
         WidgetState;
@@ -267,6 +270,31 @@ void main() {
   });
 
   group('draft-list entry points', () {
+    testWidgets('stops highlighting Drafts after opening a topic', (
+      tester,
+    ) async {
+      await _pump(tester);
+      final drafts = find.descendant(
+        of: find.byType(InstanceSidebar),
+        matching: find.text('Drafts'),
+      );
+
+      await tester.tap(drafts);
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Text>(drafts).style?.fontWeight, FontWeight.w600);
+
+      final shell = ShellScope.read(tester.element(find.byType(MaterialApp)));
+      shell.pushContent(
+        ContentRoute.topic(topicId: 42, slug: 'daily-log', title: 'Daily Log'),
+      );
+      await tester.pump();
+
+      expect(shell.destinationId, 'drafts');
+      expect(shell.currentContent?.isTopic, isTrue);
+      expect(tester.widget<Text>(drafts).style?.fontWeight, FontWeight.w400);
+    });
+
     testWidgets('show the count as plain sidebar trailing text', (
       tester,
     ) async {
