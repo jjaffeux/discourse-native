@@ -865,6 +865,14 @@ asterisks around a bold word while `controller.text` keeps every character. The
 markers stay visible on purpose — hiding them is where an editor starts lying
 about what will be posted.
 
+Atomic authoring components are moving to the lossless hybrid described in
+[`docs/composer-hybrid.md`](docs/composer-hybrid.md). It still keeps exact
+Markdown as the only payload, but projects each recognized inline or block
+component into one semantic atom whose visual geometry is independent of the
+source range. The existing field remains the fallback until the projected
+surface passes the interaction, IME, clipboard, history, accessibility and
+platform gates recorded there.
+
 Composer exit follows core's two-action contract. The header X is **Save and
 close** for reply, topic and message composers, flushing even an incomplete
 draft before disposal. The footer's **Discard** action closes an untouched

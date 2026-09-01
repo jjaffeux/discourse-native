@@ -11,6 +11,7 @@ import '../../shell/markdown_highlight.dart';
 import '../../theme/d_icons.dart';
 import '../chat/chat_preview_contract.dart';
 import 'local_date.dart';
+import 'local_date_composer_component.dart';
 import 'local_date_composer_editor.dart';
 import 'local_date_composer_pill.dart';
 import 'local_date_composer_sheet.dart';
@@ -30,6 +31,7 @@ class LocalDatesPlugin
         SitePlugin,
         ChatPreviewContribution,
         BookmarkReminderPlugin,
+        ComposerComponentPlugin,
         ComposerShortcutPlugin,
         ComposerSyntaxPlugin,
         ComposerToolbarPlugin,
@@ -61,7 +63,10 @@ class LocalDatesPlugin
   ComposerSyntaxKind get composerSyntaxKind => localDateComposerSyntaxKind;
 
   @override
-  ComposerSyntaxPolicy createComposerSyntaxPolicy(
+  ComposerSyntaxKind get composerComponentKind => localDateComposerSyntaxKind;
+
+  @override
+  LocalDateComposerSyntaxPolicy createComposerSyntaxPolicy(
     ComposerSyntaxPolicyContext context,
   ) {
     final initial = context.initialState;
@@ -72,6 +77,15 @@ class LocalDatesPlugin
       settingsReader: () => context.readState().siteSettings.localDatesSettings,
       accountTimezoneReader: () => context.readState().accountTimezone,
     );
+  }
+
+  @override
+  void registerComposerComponent(
+    ComposerSyntaxPolicyContext context,
+    ComposerComponentRegistrar registrar,
+  ) {
+    final policy = createComposerSyntaxPolicy(context);
+    registrar.add(localDateComposerComponent(policy));
   }
 
   @override
@@ -288,6 +302,19 @@ final class LocalDateComposerSyntaxPolicy implements ComposerSyntaxPolicy {
   String? get currentAccountTimezone =>
       accountTimezoneReader?.call() ?? accountTimezone;
 }
+
+ComposerComponent<LocalDateComposerBlock> localDateComposerComponent(
+  LocalDateComposerSyntaxPolicy policy,
+) => buildLocalDateComposerComponent(
+  kind: localDateComposerSyntaxKind,
+  environment: policy.environment,
+  formatter: policy.formatter,
+  accountTimezone: () => policy.currentAccountTimezone,
+  onEdit: (context, editor, component) =>
+      openLocalDateComposer(context, editor, policy, block: component.value),
+  onRemove: (context, editor, component) =>
+      removeLocalDateComposer(context, editor, component.value),
+);
 
 final class LocalDateComposerSyntaxProjection
     implements ComposerSyntaxProjection, LocalDateComposerProjectionData {

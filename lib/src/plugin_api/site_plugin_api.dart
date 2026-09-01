@@ -23,6 +23,7 @@ import 'plugin_data.dart';
 import 'plugin_icon_catalog.dart';
 
 export 'background_retention.dart';
+export 'composer_component.dart';
 export 'composer_syntax.dart';
 export 'emoji_usage.dart';
 export 'hashtag_kind.dart';

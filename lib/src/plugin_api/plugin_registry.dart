@@ -26,6 +26,51 @@ typedef _OwnedNotificationFeedDeclaration = ({
   PluginNotificationFeedSource source,
 });
 
+final class _OwnedComposerComponentRegistrar
+    implements ComposerComponentRegistrar {
+  _OwnedComposerComponentRegistrar({
+    required this.pluginName,
+    required this.kind,
+    required this.registrar,
+  });
+
+  final String pluginName;
+  final ComposerSyntaxKind kind;
+  final ComposerComponentRegistrar registrar;
+
+  void Function()? _forward;
+  bool _invalid = false;
+  bool _sealed = false;
+
+  @override
+  void add<T extends Object>(ComposerComponent<T> component) {
+    if (_sealed || _forward != null) {
+      _invalid = true;
+      throw StateError(
+        '$pluginName must register exactly one composer component for $kind.',
+      );
+    }
+    if (component.kind != kind) {
+      _invalid = true;
+      throw StateError(
+        '$pluginName returned composer component ${component.kind} for $kind.',
+      );
+    }
+    _forward = () => registrar.add<T>(component);
+  }
+
+  void seal() {
+    _sealed = true;
+    if (_invalid || _forward == null) {
+      throw StateError(
+        '$pluginName must register exactly one composer component for $kind.',
+      );
+    }
+  }
+
+  void forward() => _forward!();
+}
+
 PluginNotificationFeedSource _freezeNotificationFeedSource(
   PluginNotificationFeedSource source,
 ) {
@@ -84,6 +129,7 @@ final class PluginRegistry
     registry._validateComposerTargetOwners();
     registry._validateHashtagKinds();
     registry._validateComposerSyntaxOwners();
+    registry._validateComposerComponentOwners();
     registry._validateTopicRecommendationSources();
     registry._validateIconCatalogs();
     registry._validateNotificationTypes();
@@ -204,6 +250,29 @@ final class PluginRegistry
       if (previous != null) {
         throw ArgumentError(
           'Composer syntax $kind is claimed by both $previous and $pluginName.',
+        );
+      }
+      owners[kind] = pluginName;
+    }
+  }
+
+  void _validateComposerComponentOwners() {
+    final owners = <ComposerSyntaxKind, String>{};
+    for (final plugin in plugins.whereType<ComposerComponentPlugin>()) {
+      final pluginName = (plugin as SitePlugin).name;
+      final kind = plugin.composerComponentKind;
+      if (kind.owner != PluginId(pluginName) ||
+          kind.name.trim().isEmpty ||
+          kind.name.contains('/')) {
+        throw ArgumentError(
+          'Composer component $kind must be namespaced to $pluginName.',
+        );
+      }
+      final previous = owners[kind];
+      if (previous != null) {
+        throw ArgumentError(
+          'Composer component $kind is claimed by both $previous and '
+          '$pluginName.',
         );
       }
       owners[kind] = pluginName;
@@ -1262,6 +1331,26 @@ final class PluginRegistry
     for (final plugin in plugins.whereType<ComposerSyntaxPlugin>())
       _composerSyntaxPolicy(plugin, context),
   ]);
+
+  void registerComposerComponents(
+    ComposerSyntaxPolicyContext context,
+    ComposerComponentRegistrar registrar,
+  ) {
+    final registrations = <_OwnedComposerComponentRegistrar>[];
+    for (final plugin in plugins.whereType<ComposerComponentPlugin>()) {
+      final owned = _OwnedComposerComponentRegistrar(
+        pluginName: (plugin as SitePlugin).name,
+        kind: plugin.composerComponentKind,
+        registrar: registrar,
+      );
+      plugin.registerComposerComponent(context, owned);
+      owned.seal();
+      registrations.add(owned);
+    }
+    for (final registration in registrations) {
+      registration.forward();
+    }
+  }
 
   ComposerSyntaxPolicy _composerSyntaxPolicy(
     ComposerSyntaxPlugin plugin,
