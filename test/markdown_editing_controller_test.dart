@@ -184,6 +184,11 @@ void main() {
                   child: TextField(
                     controller: componentController,
                     maxLines: null,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    strutStyle: StrutStyle.fromTextStyle(
+                      Theme.of(context).textTheme.bodyMedium!,
+                      forceStrutHeight: false,
+                    ),
                   ),
                 ),
               ),
@@ -197,8 +202,9 @@ void main() {
       final caret = render.getLocalRectForCaret(
         TextPosition(offset: componentEnd(componentController)),
       );
+      final globalCaret = caret.shift(render.localToGlobal(Offset.zero));
       expect(
-        caret.top - tester.getSize(component).height,
+        globalCaret.top - tester.getRect(component).bottom,
         inInclusiveRange(-render.preferredLineHeight, 40),
       );
       expect(render.plainText.length, source.length);

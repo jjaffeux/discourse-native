@@ -1316,6 +1316,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
                       ? SystemMouseCursors.click
                       : null,
                   style: widget.textStyle,
+                  // TextField's forced default strut discards a WidgetSpan's
+                  // intrinsic height. Let every projected component define
+                  // its paragraph line so its visual and hit-test bounds agree.
+                  strutStyle: StrutStyle.fromTextStyle(
+                    widget.textStyle ?? DefaultTextStyle.of(context).style,
+                    forceStrutHeight: false,
+                  ),
                   // InputDecorator only gives the editable one text line when
                   // the TextField expands. The composer draws its hint separately
                   // so either viewport mode fills the available editor width.
@@ -1398,7 +1405,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     var image = _pointerDownQuote == null
         ? widget.composer.text.collapsedImageAtGlobalPosition(position)
         : null;
-    var gallery = _pointerDownQuote == null && image == null
+    final gallery = _pointerDownQuote == null && image == null
         ? widget.composer.text.collapsedGalleryAtGlobalPosition(position)
         : null;
     _pointerDownSyntax =
@@ -1422,14 +1429,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _pointerDownQuote = widget.composer.text.quoteAtOffset(offset);
       image = _pointerDownQuote == null
           ? widget.composer.text.collapsedImageAtOffset(offset)
-          : null;
-      final candidateGallery = _pointerDownQuote == null && image == null
-          ? widget.composer.text.galleryAtOffset(offset)
-          : null;
-      gallery =
-          candidateGallery != null &&
-              widget.composer.text.isGalleryCollapsed(candidateGallery)
-          ? candidateGallery
           : null;
       _pointerDownSyntax =
           _pointerDownQuote == null && image == null && gallery == null

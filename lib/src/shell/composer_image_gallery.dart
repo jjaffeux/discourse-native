@@ -37,7 +37,6 @@ class ComposerImageGalleryPreview extends StatelessWidget {
     this.onReorder,
     this.onReorderStarted,
     this.onReorderEnded,
-    this.onLayoutHeight,
   });
 
   final ComposerImageGalleryBlock gallery;
@@ -48,7 +47,6 @@ class ComposerImageGalleryPreview extends StatelessWidget {
   final void Function(ComposerImageBlock image, int newIndex)? onReorder;
   final ValueChanged<ComposerImageBlock>? onReorderStarted;
   final ValueChanged<ComposerImageBlock>? onReorderEnded;
-  final ValueChanged<double>? onLayoutHeight;
 
   static const double tileExtent = 80;
   static const double gap = 6;
@@ -124,12 +122,6 @@ class ComposerImageGalleryPreview extends StatelessWidget {
           mode: gallery.mode,
           gridColumns: gridColumns,
         );
-        final reportHeight = onLayoutHeight;
-        if (reportHeight != null) {
-          WidgetsBinding.instance.addPostFrameCallback(
-            (_) => reportHeight(height),
-          );
-        }
 
         return SizedBox(
           width: double.infinity,
