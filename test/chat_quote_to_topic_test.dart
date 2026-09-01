@@ -2,8 +2,10 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
@@ -14,8 +16,9 @@ const _user = DiscourseUser(id: 7, username: 'reader');
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  Future<ShellController> shell() async {
+  Future<ShellController> shell({bool openChannel = true}) async {
     const channel = ChatChannel(
       id: 9,
       title: 'Support chat',
@@ -51,7 +54,7 @@ void main() {
     );
     await controller.load();
     await pumpEventQueue();
-    expect(controller.openChatChannel(9), isTrue);
+    if (openChannel) expect(controller.openChatChannel(9), isTrue);
     return controller;
   }
 
@@ -85,5 +88,27 @@ void main() {
     expect(composer.raw, contains('[chat]first[/chat]'));
     expect(composer.raw, contains('My response'));
     expect(composer.raw, contains('[chat]second[/chat]'));
+  });
+
+  test('opens a topic draft from a modeless drawer channel', () async {
+    final controller = await shell(openChannel: false);
+    addTearDown(controller.dispose);
+    final chatShell = controller.pluginSession.require(chatShellService);
+
+    await chatShell.openShortcut(drawerAvailable: true);
+    expect(chatShell.openChannel(9), isTrue);
+    expect(chatShell.drawerActive, isTrue);
+    expect(chatShell.drawerCurrentContent?.id, 'chat-c-9');
+    expect(controller.currentContent?.id, 'latest');
+
+    expect(
+      await controller.openChatQuote(
+        _siteUrl,
+        9,
+        '[chat channel="Support chat"]\nDrawer quote\n[/chat]',
+      ),
+      isNull,
+    );
+    expect(controller.visibleComposer?.raw, contains('Drawer quote'));
   });
 }

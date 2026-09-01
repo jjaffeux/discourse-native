@@ -11,6 +11,7 @@ import '../../data/store.dart';
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/frame_safe_notifier.dart';
 import '../../models/bookmark.dart';
+import '../../models/composer_upload.dart';
 import '../../models/discourse_user.dart';
 import '../../models/json.dart';
 import '../../models/post_flag.dart';
@@ -40,6 +41,68 @@ typedef _ChatReactorsKey = ({
   String? filter,
 });
 typedef ChatNotificationsDelta = void Function(String siteUrl, int delta);
+
+/// The part of an unsent Chat message that can safely survive its composer
+/// widget being unmounted. Drawer collapse and close both remove the composer
+/// from the tree, while the Chat session itself remains alive.
+@immutable
+class ChatComposerDraft {
+  ChatComposerDraft({
+    required this.raw,
+    required Iterable<ComposerUploadResult> uploads,
+  }) : uploads = List.unmodifiable(uploads);
+
+  final String raw;
+  final List<ComposerUploadResult> uploads;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! ChatComposerDraft ||
+        other.raw != raw ||
+        other.uploads.length != uploads.length) {
+      return false;
+    }
+    for (var index = 0; index < uploads.length; index++) {
+      if (!_sameUpload(uploads[index], other.uploads[index])) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    raw,
+    Object.hashAll(
+      uploads.map(
+        (upload) => Object.hash(
+          upload.id,
+          upload.originalFilename,
+          upload.shortUrl,
+          upload.url,
+          upload.width,
+          upload.height,
+          upload.thumbnailWidth,
+          upload.thumbnailHeight,
+          upload.thumbnailUrl,
+        ),
+      ),
+    ),
+  );
+
+  static bool _sameUpload(
+    ComposerUploadResult first,
+    ComposerUploadResult second,
+  ) =>
+      first.id == second.id &&
+      first.originalFilename == second.originalFilename &&
+      first.shortUrl == second.shortUrl &&
+      first.url == second.url &&
+      first.width == second.width &&
+      first.height == second.height &&
+      first.thumbnailWidth == second.thumbnailWidth &&
+      first.thumbnailHeight == second.thumbnailHeight &&
+      first.thumbnailUrl == second.thumbnailUrl;
+}
 
 @immutable
 class ChatPinsState {
@@ -263,6 +326,7 @@ class ChatController extends FrameSafeNotifier {
     this.minimumWindowRefreshInterval = const Duration(seconds: 30),
     DateTime Function()? clock,
     ChatSendCoordinatorFactory? sendCoordinatorFactory,
+    ChatMessageContext? Function(String siteUrl)? messageContextFor,
   }) : assert(minimumWindowRefreshInterval >= Duration.zero),
        _requests = requests,
        _store = store,
@@ -281,6 +345,7 @@ class ChatController extends FrameSafeNotifier {
       onSent: _onOutgoingSent,
       hasUnsettledMessages: _hasUnsettledOutgoingMessages,
       reconcileSentEvent: _applySendMessage,
+      messageContextFor: messageContextFor ?? (_) => null,
       report: (error, stackTrace, operation, severity) =>
           _report(error, stackTrace, operation, severity: severity),
     );
@@ -520,6 +585,8 @@ class ChatController extends FrameSafeNotifier {
   final Map<_ChatReactorsKey, Object> _reactorRequests = {};
   final Map<_ChatReactorsKey, String> _reactorErrors = {};
   final Map<String, int> _bookmarkVersions = {};
+  final Map<String, FrameSafeValueNotifier<ChatComposerDraft?>>
+  _composerDraftRefs = {};
 
   static String _channelsKey(String siteUrl) => '$siteUrl~channels';
   static String _myThreadsKey(String siteUrl) => '$siteUrl~my-threads';
@@ -547,8 +614,92 @@ class ChatController extends FrameSafeNotifier {
   List<ChatChannel> directChannels(String siteUrl) =>
       _resolve(siteUrl, _directIds[siteUrl]);
 
+  /// Public channels in the web drawer's unread-first activity order.
+  List<ChatChannel> activitySortedPublicChannels(String siteUrl) {
+    final channels = [...publicChannels(siteUrl)];
+    final originalPositions = <int, int>{};
+    for (final channel in channels) {
+      originalPositions[channel.id] = originalPositions.length;
+    }
+    channels.sort((a, b) {
+      int urgent(ChatChannel channel) =>
+          channel.tracking.mentionCount +
+          channel.tracking.watchedThreadsUnreadCount;
+      int unread(ChatChannel channel) =>
+          channel.tracking.unreadCount +
+          channel.unreadThreadsCountSinceLastViewed;
+      int bySlug(ChatChannel first, ChatChannel second) {
+        final compared = (first.slug ?? first.title).toLowerCase().compareTo(
+          (second.slug ?? second.title).toLowerCase(),
+        );
+        return compared != 0
+            ? compared
+            : originalPositions[first.id]!.compareTo(
+                originalPositions[second.id]!,
+              );
+      }
+
+      final aUrgent = urgent(a);
+      final bUrgent = urgent(b);
+      if (aUrgent > 0 && bUrgent > 0) return bySlug(a, b);
+      if ((aUrgent > 0) != (bUrgent > 0)) return aUrgent > 0 ? -1 : 1;
+
+      final aUnread = unread(a);
+      final bUnread = unread(b);
+      if (aUnread > 0 && bUnread > 0) return bySlug(a, b);
+      if ((aUnread > 0) != (bUnread > 0)) return aUnread > 0 ? -1 : 1;
+      return bySlug(a, b);
+    });
+    return List.unmodifiable(channels);
+  }
+
   bool channelsLoaded(String siteUrl) =>
       _publicIds.containsKey(siteUrl) && _directIds.containsKey(siteUrl);
+
+  ChatComposerDraft? composerDraftFor(
+    String siteUrl,
+    ChatStreamTarget target,
+  ) => _composerDraftRefs[_targetKey(siteUrl, target)]?.value;
+
+  /// A target-scoped draft signal shared by every mounted presentation of the
+  /// same channel or thread. The drawer and full-page route can coexist while
+  /// one is offstage, so a snapshot-only lookup would leave one composer stale.
+  ValueListenable<ChatComposerDraft?> composerDraftListenableFor(
+    String siteUrl,
+    ChatStreamTarget target,
+  ) {
+    final key = _targetKey(siteUrl, target);
+    return _composerDraftRefs.putIfAbsent(
+      key,
+      () => FrameSafeValueNotifier<ChatComposerDraft?>(null),
+    );
+  }
+
+  /// Retains local-only drafts while their drawer or full-page view is absent.
+  /// Empty documents are removed so a successfully sent message cannot return
+  /// when the composer is mounted again.
+  void retainComposerDraft(
+    String siteUrl,
+    ChatStreamTarget target, {
+    required String raw,
+    required Iterable<ComposerUploadResult> uploads,
+  }) {
+    if (isDisposed) return;
+    final key = _targetKey(siteUrl, target);
+    final retainedUploads = List<ComposerUploadResult>.unmodifiable(uploads);
+    if (raw.isEmpty && retainedUploads.isEmpty) {
+      _composerDraftRefs[key]?.value = null;
+      return;
+    }
+    final next = ChatComposerDraft(raw: raw, uploads: retainedUploads);
+    _composerDraftRefs
+            .putIfAbsent(
+              key,
+              () => FrameSafeValueNotifier<ChatComposerDraft?>(null),
+            )
+            .value =
+        next;
+  }
 
   bool hasThreads(String siteUrl) => _hasThreads[siteUrl] ?? false;
 
@@ -1423,6 +1574,60 @@ class ChatController extends FrameSafeNotifier {
         if (!channel.membership.starred) channel,
     ];
     return List.unmodifiable(_sortDirectMessageActivity(channels));
+  }
+
+  /// All direct-message channels in the same activity order used by the web
+  /// drawer, before its 50-row display limit is applied.
+  List<ChatChannel> activitySortedDirectChannels(String siteUrl) =>
+      List.unmodifiable(
+        _sortDirectMessageActivity([...directChannels(siteUrl)]),
+      );
+
+  /// Starred drawer rows follow web's four buckets—active public, active DMs,
+  /// read public, read DMs—with urgency and last activity inside each bucket.
+  List<ChatChannel> activitySortedStarredChannels(String siteUrl) {
+    final channels = [...starredChannels(siteUrl)];
+    final originalPositions = <int, int>{};
+    for (final channel in channels) {
+      originalPositions[channel.id] = originalPositions.length;
+    }
+
+    int urgent(ChatChannel channel) => channel.isDirectMessage
+        ? channel.tracking.unreadCount +
+              channel.tracking.mentionCount +
+              channel.tracking.watchedThreadsUnreadCount
+        : channel.tracking.mentionCount +
+              channel.tracking.watchedThreadsUnreadCount;
+    int unread(ChatChannel channel) =>
+        channel.tracking.unreadCount +
+        channel.unreadThreadsCountSinceLastViewed;
+    int byActivity(ChatChannel a, ChatChannel b) {
+      final compared = _newestActivityFirst(a, b);
+      return compared != 0
+          ? compared
+          : originalPositions[a.id]!.compareTo(originalPositions[b.id]!);
+    }
+
+    channels.sort((a, b) {
+      final aUrgent = urgent(a);
+      final bUrgent = urgent(b);
+      final aUnread = unread(a);
+      final bUnread = unread(b);
+      final aHasActivity = aUrgent > 0 || aUnread > 0;
+      final bHasActivity = bUrgent > 0 || bUnread > 0;
+      if (aHasActivity != bHasActivity) return aHasActivity ? -1 : 1;
+      if (a.isDirectMessage != b.isDirectMessage) {
+        return a.isDirectMessage ? 1 : -1;
+      }
+      if (aHasActivity) {
+        if (aUrgent > 0 && bUrgent > 0) return byActivity(a, b);
+        if ((aUrgent > 0) != (bUrgent > 0)) return aUrgent > 0 ? -1 : 1;
+        if (aUnread > 0 && bUnread > 0) return byActivity(a, b);
+        if ((aUnread > 0) != (bUnread > 0)) return aUnread > 0 ? -1 : 1;
+      }
+      return byActivity(a, b);
+    });
+    return List.unmodifiable(channels);
   }
 
   List<ChatChannel> _sortDirectMessageActivity(List<ChatChannel> channels) {
@@ -5198,6 +5403,18 @@ class ChatController extends FrameSafeNotifier {
 
   void forget(String siteUrl) {
     _liveSync.forget(siteUrl);
+    final forgottenDraftRefs = <FrameSafeValueNotifier<ChatComposerDraft?>>[];
+    _composerDraftRefs.removeWhere((key, ref) {
+      if (!key.startsWith('$siteUrl~')) return false;
+      forgottenDraftRefs.add(ref);
+      return true;
+    });
+    // Detach first so a reentrant lookup cannot reuse an old account's ref.
+    // Existing widgets still receive the empty value during their removal
+    // frame and can safely detach their listeners afterwards.
+    for (final ref in forgottenDraftRefs) {
+      ref.value = null;
+    }
     _reactionWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
     _messageEditWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
     _messageDeletionWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
@@ -5334,6 +5551,10 @@ class ChatController extends FrameSafeNotifier {
     _reactorRequests.clear();
     _reactorErrors.clear();
     _bookmarkVersions.clear();
+    for (final ref in _composerDraftRefs.values) {
+      ref.dispose();
+    }
+    _composerDraftRefs.clear();
     for (final ref in _streamRefs.values) {
       ref.dispose();
     }

@@ -19,6 +19,7 @@ import 'chat_channel_star_button.dart';
 import 'chat_channel_view.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
+import 'chat_drawer.dart';
 import 'chat_header_button.dart';
 import 'chat_message.dart';
 import 'chat_route.dart';
@@ -35,10 +36,12 @@ class ChatThreadWorkspace extends StatelessWidget {
     super.key,
     required this.route,
     this.panelWidthStore,
+    this.showHeader = true,
   });
 
   final ChatRoute route;
   final ChatThreadPanelWidthStore? panelWidthStore;
+  final bool showHeader;
 
   @override
   Widget build(BuildContext context) {
@@ -56,17 +59,19 @@ class ChatThreadWorkspace extends StatelessWidget {
         return LayoutBuilder(
           builder: (context, constraints) {
             final expanded =
+                showHeader &&
                 ShellLayout.forWidth(MediaQuery.sizeOf(context).width) ==
                     ShellLayout.expanded &&
                 constraints.maxWidth >= _ChatThreadSplit.minimumTotalWidth;
             if (!expanded) {
               return Column(
                 children: [
-                  _ThreadHeader(
-                    siteUrl: siteUrl,
-                    target: target,
-                    leading: _HeaderAction.back,
-                  ),
+                  if (showHeader)
+                    _ThreadHeader(
+                      siteUrl: siteUrl,
+                      target: target,
+                      leading: _HeaderAction.back,
+                    ),
                   Expanded(
                     child: ChatThreadView(
                       siteUrl: siteUrl,
@@ -318,6 +323,7 @@ class ChatThreadView extends StatefulWidget {
 class _ChatThreadViewState extends State<ChatThreadView> {
   Object? _viewToken;
   bool _tickerEnabled = true;
+  bool _drawerSurface = false;
   ChatShellService? _shell;
   Listenable? _navigation;
   bool _opened = false;
@@ -340,7 +346,18 @@ class _ChatThreadViewState extends State<ChatThreadView> {
 
   bool get _viewerActive => _tickerEnabled && (_shell?.forumActive ?? false);
 
-  void _handleShellChanged() => _syncViewing();
+  void _handleShellChanged() {
+    final shell = _shell;
+    if (_drawerSurface && shell?.drawerActive != true) {
+      if (_selectingMessages || _selectedMessageIds.isNotEmpty) {
+        setState(() {
+          _selectingMessages = false;
+          _selectedMessageIds.clear();
+        });
+      }
+    }
+    _syncViewing();
+  }
 
   void _syncViewing() {
     if (_viewerActive) {
@@ -372,6 +389,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       _shell = shell..addListener(_handleShellChanged);
     }
     _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    _drawerSurface = ChatDrawerScope.isDrawer(context);
     _syncViewing();
 
     final navigation = shell.navigation;
@@ -388,6 +406,11 @@ class _ChatThreadViewState extends State<ChatThreadView> {
 
   bool _consumeNavigation() {
     final shell = PluginUiScope.require(context, chatShellService);
+    if (!mounted ||
+        !_tickerEnabled ||
+        (_drawerSurface && !shell.drawerActive)) {
+      return false;
+    }
     final pending = shell.navigation.take(
       siteUrl: widget.siteUrl,
       route: ChatRoute.thread(
@@ -395,7 +418,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
         threadId: widget.target.threadId,
       ),
     );
-    if (pending == null || !mounted) return false;
+    if (pending == null) return false;
     _opened = true;
     setState(() {
       if (pending.focusComposer) _focusComposerRequest++;
@@ -747,6 +770,13 @@ class _ThreadHeader extends StatelessWidget {
                 icon: const DIcon(DIcons.gear, size: 18),
                 variant: DButtonVariant.flat,
               ),
+            if (shell.fullPageChatActive && shell.drawerAvailable)
+              DButton.iconOnly(
+                tooltip: 'Close full-screen chat',
+                onPressed: () => unawaited(shell.openDrawerFromFullPage()),
+                icon: const DIcon(DIcons.circleMinus, size: 18),
+                variant: DButtonVariant.flat,
+              ),
             if (showClose)
               DButton.iconOnly(
                 tooltip: 'Close thread',
@@ -813,18 +843,84 @@ class _NotificationLevelButton extends StatelessWidget {
       value: current,
       options: _options,
       enabled: thread != null,
-      onSelected: (level) => unawaited(
-        PluginUiScope.require(
-          context,
-          chatControllerService,
-        ).updateThreadNotificationLevel(siteUrl, target, level),
-      ),
+      onSelected: (level) {
+        unawaited(
+          PluginUiScope.require(
+            context,
+            chatControllerService,
+          ).updateThreadNotificationLevel(siteUrl, target, level),
+        );
+        ChatDrawerOverflowActionScope.maybeCloseOf(context)?.call();
+      },
       builder: (context, openMenu) => DButton.iconOnly(
         tooltip: 'Thread notifications',
         onPressed: openMenu,
         icon: DIcon(_iconFor(current), size: 18),
         variant: DButtonVariant.flat,
       ),
+    );
+  }
+}
+
+class ChatThreadNotificationButton extends StatelessWidget
+    implements ChatDrawerNestedMenuAction {
+  const ChatThreadNotificationButton({
+    super.key,
+    required this.siteUrl,
+    required this.target,
+  });
+
+  final String siteUrl;
+  final ChatThreadTarget target;
+
+  @override
+  Widget build(BuildContext context) {
+    final chat = PluginUiScope.require(context, chatControllerService);
+    return ValueListenableBuilder<ChatThread?>(
+      valueListenable: chat.threadRef(siteUrl, target.threadId),
+      builder: (context, thread, _) => _NotificationLevelButton(
+        siteUrl: siteUrl,
+        target: target,
+        thread: thread,
+      ),
+    );
+  }
+}
+
+class ChatThreadSettingsButton extends StatelessWidget {
+  const ChatThreadSettingsButton({
+    super.key,
+    required this.siteUrl,
+    required this.target,
+  });
+
+  final String siteUrl;
+  final ChatThreadTarget target;
+
+  @override
+  Widget build(BuildContext context) {
+    final chat = PluginUiScope.require(context, chatControllerService);
+    return ValueListenableBuilder<ChatThread?>(
+      valueListenable: chat.threadRef(siteUrl, target.threadId),
+      builder: (context, thread, _) {
+        if (!chat.canEditThreadTitle(siteUrl, thread)) {
+          return const SizedBox.shrink();
+        }
+        return DButton.iconOnly(
+          tooltip: 'Thread settings',
+          onPressed: () => unawaited(
+            showChatThreadSettings(
+              context: context,
+              chat: chat,
+              siteUrl: siteUrl,
+              target: target,
+              thread: thread!,
+            ),
+          ),
+          icon: const DIcon(DIcons.gear, size: 18),
+          variant: DButtonVariant.flat,
+        );
+      },
     );
   }
 }

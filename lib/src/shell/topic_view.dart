@@ -129,6 +129,55 @@ RevealedOffset? getOffsetToRevealIfLaidOut(
   return viewport.getOffsetToReveal(target, alignment);
 }
 
+/// Returns the web-style horizontal eyeline used to choose the current post.
+///
+/// The eyeline stays near the top while reading, then travels toward the
+/// post-stream boundary over the final viewport of scroll. When trailing
+/// topic content is laid out, its height narrows that transition in the same
+/// way as Discourse web's document-bottom calculation.
+@visibleForTesting
+double topicContextEyeline({
+  required double viewportExtent,
+  required double scrollOffset,
+  required double maxScrollExtent,
+  required double? postStreamBottom,
+  required bool hasMore,
+}) {
+  if (!viewportExtent.isFinite || viewportExtent <= 0) return 0;
+
+  final maximumEyeline = math.max(0.0, viewportExtent - 0.5);
+  final topBoundary = math.min(1.0, maximumEyeline);
+  final bottomBoundary = (postStreamBottom ?? viewportExtent)
+      .clamp(topBoundary, maximumEyeline)
+      .toDouble();
+  if (hasMore) return topBoundary;
+
+  final maximumScroll = math.max(0.0, maxScrollExtent);
+  final remainingScroll = (maximumScroll - scrollOffset)
+      .clamp(0.0, maximumScroll)
+      .toDouble();
+  var scrollableArea = math.min(viewportExtent, maximumScroll);
+
+  if (postStreamBottom != null) {
+    final documentExtent = maximumScroll + viewportExtent;
+    final distanceToBottom = math.max(
+      0.0,
+      documentExtent - (scrollOffset + postStreamBottom),
+    );
+    // Native topic views do not always have the page footer that gives web a
+    // non-zero trailing region. In that case retain the intended one-viewport
+    // transition rather than pinning the eyeline to the stream bottom.
+    if (distanceToBottom > 0.5) {
+      scrollableArea = math.min(scrollableArea, distanceToBottom);
+    }
+  }
+
+  final progress = scrollableArea > 0
+      ? 1 - (remainingScroll / scrollableArea).clamp(0.0, 1.0)
+      : 1.0;
+  return topBoundary + progress * (bottomBoundary - topBoundary);
+}
+
 final class TopicPostIndexProjection {
   TopicPostIndexProjection(List<int> postIds) : _source = postIds {
     for (var index = 0; index < postIds.length; index++) {
@@ -150,7 +199,9 @@ final class TopicPostIndexProjection {
 }
 
 class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
+  final Object _visibleTopicContextOwner = Object();
   late final TopicViewportCoordinator _viewport;
+  int? _chatContextCurrentPostId;
   int _boundaryJumpRevision = 0;
   String? _recommendationsSiteUrl;
   bool _sidebarCollapsed = false;
@@ -459,6 +510,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     );
     if (!changed) return;
 
+    previousController?.clearVisibleTopicContext(_visibleTopicContextOwner);
+    controller.updateVisibleTopicContext(
+      owner: _visibleTopicContextOwner,
+      siteUrl: snapshot.siteUrl!,
+      topicId: snapshot.topicId!,
+      postIds: const [],
+    );
+
     if (_isScrollCaptureRecording) {
       _recordTopicScrollEvent('topic.controllers.sync', {
         'previousTopicId': previousIdentity?.$2,
@@ -472,6 +531,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _laidOutDayStarts = const [];
     _dayJumpToken = null;
     _postIndexProjection = null;
+    _chatContextCurrentPostId = null;
     _postContexts.clear();
     _retainedPostExtents.clear();
     _laidOutPostWidth = 0;
@@ -591,6 +651,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _controller?.clearVisibleTopicContext(_visibleTopicContextOwner);
     _sidebarRestoreGeneration++;
     _recommendationsTabRestoreGeneration++;
     _dayJumpToken = null;
@@ -972,6 +1033,71 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       break;
     }
 
+    final scrollPosition = _scroll!.position;
+    final contextEyeline = topicContextEyeline(
+      viewportExtent: scrollPosition.viewportDimension,
+      scrollOffset: scrollPosition.pixels,
+      maxScrollExtent: scrollPosition.maxScrollExtent,
+      postStreamBottom: snapshot.hasMore || snapshot.postIds.isEmpty
+          ? null
+          : _postViewportBounds(snapshot.postIds.last)?.bottom,
+      hasMore: snapshot.hasMore,
+    );
+    TopicViewportSeenPost? contextPost;
+    for (var childIndex = range.$1; childIndex <= range.$2; childIndex++) {
+      if (childIndex.isOdd) continue;
+      final itemIndex = childIndex ~/ 2;
+      final postIndex = itemIndex - leading;
+      if (postIndex < 0 || postIndex >= snapshot.postIds.length) continue;
+      final post = controller.store.read<Post>(
+        snapshot.siteUrl!,
+        snapshot.postIds[postIndex],
+      );
+      if (post == null) continue;
+      final bounds = _postViewportBounds(post.id);
+      if (bounds == null ||
+          contextEyeline < bounds.top - 0.5 ||
+          contextEyeline > bounds.bottom + 0.5) {
+        continue;
+      }
+      contextPost = (
+        postId: post.id,
+        postNumber: post.postNumber,
+        caughtUp: false,
+      );
+      break;
+    }
+
+    // Separators can briefly cross the eyeline. Like web, retain the prior
+    // current post until another post itself contains the line.
+    final previousContextPostId = _chatContextCurrentPostId;
+    if (contextPost == null &&
+        previousContextPostId != null &&
+        snapshot.postIds.contains(previousContextPostId)) {
+      final previous = controller.store.read<Post>(
+        snapshot.siteUrl!,
+        previousContextPostId,
+      );
+      if (previous != null) {
+        contextPost = (
+          postId: previous.id,
+          postNumber: previous.postNumber,
+          caughtUp: false,
+        );
+      }
+    }
+    contextPost ??= leadingPost;
+    _chatContextCurrentPostId = contextPost?.postId;
+
+    controller.updateVisibleTopicContext(
+      owner: _visibleTopicContextOwner,
+      siteUrl: snapshot.siteUrl!,
+      topicId: snapshot.topicId!,
+      postIds: contextPost == null
+          ? const []
+          : _chatContextPostIds(controller, snapshot, contextPost.postId),
+    );
+
     // A one-pixel glimpse of a very tall post is not evidence that it was
     // read. Advance receipts only through a post whose trailing edge reached
     // the viewport; a post taller than the screen qualifies when its end is
@@ -1024,6 +1150,38 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         'saveAfterScrollEnd': saveAnchor,
       });
     }
+  }
+
+  /// Matches web chat context: the current intersecting post and the nearest
+  /// non-hidden, non-deleted post on either side of it.
+  List<int> _chatContextPostIds(
+    ShellController controller,
+    TopicViewportSnapshot snapshot,
+    int currentPostId,
+  ) {
+    final currentIndex = snapshot.postIds.indexOf(currentPostId);
+    if (currentIndex < 0) return const [];
+
+    int? eligibleNeighbor(int from, int step) {
+      for (
+        var index = from;
+        index >= 0 && index < snapshot.postIds.length;
+        index += step
+      ) {
+        final post = controller.store.read<Post>(
+          snapshot.siteUrl!,
+          snapshot.postIds[index],
+        );
+        if (post != null && !post.hidden && !post.isDeleted) return post.id;
+      }
+      return null;
+    }
+
+    return [
+      ?eligibleNeighbor(currentIndex - 1, -1),
+      currentPostId,
+      ?eligibleNeighbor(currentIndex + 1, 1),
+    ];
   }
 
   void _onListLayoutChanged() {

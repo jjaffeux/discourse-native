@@ -1447,6 +1447,11 @@ final class PluginRegistry
         OwnedSidebarPanel(owner: _owner(plugin), panel: panel),
   ];
 
+  List<Listenable> sidebarPanelListenables(BuildContext context) => [
+    for (final plugin in plugins.whereType<SidebarPanelListenablePlugin>())
+      ?plugin.sidebarPanelListenable(_uiContext(context, plugin)),
+  ];
+
   List<PluginUserPreferenceSection> userPreferenceSections(
     BuildContext context,
     PluginUserPreferenceContext preferences,

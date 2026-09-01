@@ -60,6 +60,7 @@ final class ChatModule implements PluginModule {
         final siteState = bindings.require(corePluginSiteStatePort);
         final accountEvents = bindings.require(corePluginAccountEventsPort);
         final composerHost = bindings.require(corePluginComposerPort);
+        final navigation = bindings.require(corePluginNavigationPort);
         final chatApi = apiFactory?.call(transport) ?? ChatApiClient(transport);
         final gifs = dependencies.maybe(gifsPickerSessionService);
         final controller = ChatController(
@@ -82,6 +83,14 @@ final class ChatModule implements PluginModule {
                 (current) => current + delta,
               ),
           onSiteUnreachable: accountEvents.markSiteUnreachable,
+          messageContextFor: (siteUrl) {
+            final context = navigation.visibleTopicContext;
+            if (context == null || context.siteUrl != siteUrl) return null;
+            return (
+              topicId: context.topicId,
+              postIds: List.unmodifiable(context.postIds),
+            );
+          },
         );
         final conversations = ChatControllerConversationCapability(controller);
         final searchController = ChatSearchController(
@@ -92,7 +101,7 @@ final class ChatModule implements PluginModule {
         );
         final shell = ChatShellService(
           chat: controller,
-          host: bindings.require(corePluginNavigationPort),
+          host: navigation,
           composerHost: composerHost,
           store: store,
           postFlagCatalog: bindings.require(corePluginPostFlagCatalogPort),
@@ -163,6 +172,7 @@ final class _ChatSessionLifecycle extends PluginSessionLifecycle {
 
   @override
   void forget(String siteUrl) {
+    shell.forget(siteUrl);
     controller.forget(siteUrl);
     searchController.forget(siteUrl);
   }

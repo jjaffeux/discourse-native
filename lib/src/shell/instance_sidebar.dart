@@ -228,8 +228,12 @@ class _SidebarPanelBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
+    final registry = PluginScope.of(context).registry;
     return ListenableBuilder(
-      listenable: controller.accountActivity.totalsListenable,
+      listenable: Listenable.merge([
+        controller.accountActivity.totalsListenable,
+        ...registry.sidebarPanelListenables(context),
+      ]),
       builder: (context, _) => ShellSelector<_SidebarPanelSnapshot>(
         select: (controller) {
           final instance = controller.currentInstance;
@@ -363,7 +367,9 @@ class _SidebarPanelBody extends StatelessWidget {
                                     sidebar.sections.isEmpty) &&
                                 index == 0,
                             store: sectionStore,
-                            selectedId: sidebar.destinationId,
+                            selectedId:
+                                selectedPanel?.panel.selectedDestinationId ??
+                                sidebar.destinationId,
                             badgeFor: controller.sidebarBadgeFor,
                             onSelect: controller.selectDestination,
                           ),

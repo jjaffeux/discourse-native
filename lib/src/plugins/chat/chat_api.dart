@@ -218,6 +218,8 @@ abstract interface class ChatApi {
     int? threadId,
     String? stagedId,
     DateTime? clientCreatedAt,
+    int? contextTopicId,
+    List<int> contextPostIds = const [],
     String? clientId,
   });
 

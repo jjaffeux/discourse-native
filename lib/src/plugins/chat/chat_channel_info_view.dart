@@ -101,19 +101,27 @@ class _ChannelInfoTabs extends StatelessWidget {
     final theme = Theme.of(context);
     return Material(
       color: theme.colorScheme.surface,
-      child: Row(
-        key: const ValueKey('chat-channel-info-tabs'),
-        children: [
-          const SizedBox(width: 16),
-          _tab(context, ChatChannelInfoTab.settings, 'Settings'),
-          _tab(
-            context,
-            ChatChannelInfoTab.members,
-            channel.isCategoryChannel
-                ? 'Members (${channel.membershipsCount})'
-                : 'Members',
+      child: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+            child: Row(
+              key: const ValueKey('chat-channel-info-tabs'),
+              children: [
+                const SizedBox(width: 16),
+                _tab(context, ChatChannelInfoTab.settings, 'Settings'),
+                _tab(
+                  context,
+                  ChatChannelInfoTab.members,
+                  channel.isCategoryChannel
+                      ? 'Members (${channel.membershipsCount})'
+                      : 'Members',
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }

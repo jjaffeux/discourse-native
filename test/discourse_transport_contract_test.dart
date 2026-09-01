@@ -596,6 +596,8 @@ void main() {
           threadId: 17,
           stagedId: 'staged-123',
           clientCreatedAt: clientCreatedAt,
+          contextTopicId: 31,
+          contextPostIds: const [101, 102, 103],
         );
 
         expect(messageId, 42);
@@ -607,6 +609,8 @@ void main() {
           'thread_id': 17,
           'staged_id': 'staged-123',
           'client_created_at': '2026-08-11T14:15:16.123Z',
+          'context_topic_id': 31,
+          'context_post_ids': [101, 102, 103],
         });
       },
     );

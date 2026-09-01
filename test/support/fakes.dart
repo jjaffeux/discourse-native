@@ -1178,6 +1178,8 @@ class FakeDiscourseApi
       int? threadId,
       String? stagedId,
       DateTime? clientCreatedAt,
+      int? contextTopicId,
+      List<int> contextPostIds,
     })
   >
   chatMessagesSent = [];
@@ -3128,6 +3130,8 @@ class FakeDiscourseApi
     int? threadId,
     String? stagedId,
     DateTime? clientCreatedAt,
+    int? contextTopicId,
+    List<int> contextPostIds = const [],
     String? clientId,
   }) async {
     chatMessagesSent.add((
@@ -3138,6 +3142,8 @@ class FakeDiscourseApi
       threadId: threadId,
       stagedId: stagedId,
       clientCreatedAt: clientCreatedAt,
+      contextTopicId: contextTopicId,
+      contextPostIds: List.unmodifiable(contextPostIds),
     ));
     if (chatSendGate != null) await chatSendGate!.future;
     if (chatSendFailure != null) throw chatSendFailure!;

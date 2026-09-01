@@ -496,6 +496,7 @@ final class SidebarPanelContribution {
     required this.showSwitch,
     required this.onOpen,
     required this.onClose,
+    this.selectedDestinationId,
   });
 
   final String label;
@@ -515,12 +516,25 @@ final class SidebarPanelContribution {
   /// without exposing an unavailable navigation control.
   final bool showSwitch;
 
+  /// Optional plugin-owned selection while a modeless panel keeps the shell's
+  /// core destination active underneath it.
+  final String? selectedDestinationId;
+
   final VoidCallback onOpen;
   final VoidCallback onClose;
 }
 
 abstract interface class SidebarPanelPlugin {
   SidebarPanelContribution? sidebarPanel(BuildContext context);
+}
+
+/// Invalidates the policy returned by [SidebarPanelPlugin.sidebarPanel].
+///
+/// Keep this separate from [SidebarPlugin.sidebarListenable]: panel policy can
+/// change which owners are included, so the shell must rebuild before it can
+/// decide which section listenables belong in the tree.
+abstract interface class SidebarPanelListenablePlugin {
+  Listenable? sidebarPanelListenable(BuildContext context);
 }
 
 @immutable

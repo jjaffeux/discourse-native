@@ -11,6 +11,7 @@ typedef SidebarRowDecorationBuilder =
 @immutable
 class SidebarBadge {
   const SidebarBadge.count(this.count) : dot = false, urgent = false;
+  const SidebarBadge.urgentCount(this.count) : dot = false, urgent = true;
   const SidebarBadge.dot({this.urgent = false}) : count = 0, dot = true;
 
   static const SidebarBadge none = SidebarBadge.count(0);

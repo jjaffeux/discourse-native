@@ -21,8 +21,6 @@ import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
-import 'package:discourse_native/src/shell/notification_list.dart';
-import 'package:discourse_native/src/shell/open_link.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -30,6 +28,7 @@ import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
@@ -80,6 +79,7 @@ void main() {
   late FakeDiscourseApi api;
 
   setUp(() async {
+    SharedPreferences.setMockInitialValues(const {});
     api = FakeDiscourseApi(
       user: _user,
       totals: chatNotificationTotals(),
@@ -476,6 +476,23 @@ void main() {
 
     group('native URL routing', () {
       test(
+        'a direct Chat URL stays full-page when a drawer is available',
+        () async {
+          final chatShell = shell.pluginSession.require(chatShellService);
+          chatShell.updateDrawerAvailability(true);
+          expect(chatShell.drawerAvailable, isTrue);
+
+          expect(await shell.openChatUrl('$_site/chat/c/-/9/t/3/44'), isTrue);
+
+          expect(chatShell.drawerActive, isFalse);
+          expect(chatShell.fullPageChatActive, isTrue);
+          expect(chatShell.drawerContentStack, isEmpty);
+          expect(shell.currentContent?.id, 'chat-c-9-t-3');
+          expect(shell.chatNavigation.value?.messageId, 44);
+        },
+      );
+
+      test(
         'notification leaves Aggregate and reveals its chat thread',
         () async {
           shell.selectAggregate();
@@ -553,7 +570,7 @@ void main() {
           );
           channelGate.complete();
 
-          expect(await first, isFalse);
+          expect(await first, isTrue);
           expect(gated.currentContent?.id, 'latest');
           expect(gated.chatNavigation.value, isNull);
         },
@@ -672,61 +689,100 @@ void main() {
     });
 
     group('entry-point dispatch', () {
-      testWidgets('routes generic openLink to Chat before browser fallback', (
-        tester,
-      ) async {
-        bool? opened;
-        await tester.pumpWidget(
-          ShellScope(
-            controller: shell,
-            child: MaterialApp(
-              home: Builder(
-                builder: (context) => TextButton(
-                  onPressed: () async {
-                    opened = await openLink(context, '/chat/c/-/9/t/3/44');
-                  },
-                  child: const Text('Open'),
-                ),
-              ),
-            ),
-          ),
+      test(
+        'in-app Chat links use the drawer without replacing forum content',
+        () async {
+          final chatShell = shell.pluginSession.require(chatShellService);
+          chatShell.updateDrawerAvailability(true);
+          expect(chatShell.drawerAvailable, isTrue);
+          final underlyingRoutes = [
+            for (final route in shell.contentStack) route.id,
+          ];
+          final underlyingContentId = shell.currentContent?.id;
+          final opened = await shell.openPluginUrl(
+            '/chat/c/-/9/t/3/44',
+            origin: PluginLinkOrigin.inApp,
+          );
+
+          expect(opened, isTrue);
+          expect(chatShell.drawerActive, isTrue);
+          expect(chatShell.drawerCurrentContent?.id, 'chat-c-9-t-3');
+          expect(chatShell.fullPageChatActive, isFalse);
+          expect(shell.currentContent?.id, underlyingContentId);
+          expect(shell.contentStack.map((route) => route.id), underlyingRoutes);
+          expect(shell.chatNavigation.value?.messageId, 44);
+          chatShell.closeDrawer();
+        },
+      );
+
+      test('routes plugin links to Chat before browser fallback', () async {
+        final opened = await shell.openPluginUrl(
+          '/chat/c/-/9/t/3/44',
+          origin: PluginLinkOrigin.inApp,
         );
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
 
         expect(opened, isTrue);
         expect(shell.currentContent?.id, 'chat-c-9-t-3');
         expect(shell.chatNavigation.value?.messageId, 44);
       });
 
-      testWidgets('opens Chat notifications natively before browser fallback', (
-        tester,
-      ) async {
-        var opened = false;
-        await tester.pumpWidget(
-          ShellScope(
-            controller: shell,
-            child: MaterialApp(
-              home: Scaffold(
-                body: PluginNotificationsSection(
-                  siteUrl: _site,
-                  onOpened: () => opened = true,
-                  host: shell,
-                  source: chatNotificationFeed,
-                ),
-              ),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
+      test(
+        'opens Chat notifications natively before browser fallback',
+        () async {
+          expect(
+            await shell.openNotificationUrl('$_site/chat/c/-/9/t/3/44'),
+            isTrue,
+          );
+          expect(shell.currentContent?.id, 'chat-c-9-t-3');
+          expect(shell.chatNavigation.value?.messageId, 44);
+        },
+      );
 
-        await tester.tap(find.byType(NotificationRow));
-        await tester.pumpAndSettle();
+      test(
+        'a Chat notification opens its exact message in an available drawer',
+        () async {
+          final chatShell = shell.pluginSession.require(chatShellService);
+          chatShell.updateDrawerAvailability(true);
+          final underlyingRoutes = [
+            for (final route in shell.contentStack) route.id,
+          ];
+          final underlyingContentId = shell.currentContent?.id;
+          expect(
+            await shell.openNotificationUrl('$_site/chat/c/-/9/t/3/44'),
+            isTrue,
+          );
 
-        expect(opened, isTrue);
-        expect(api.markedRead, [51]);
-        expect(shell.currentContent?.id, 'chat-c-9-t-3');
-        expect(shell.chatNavigation.value?.messageId, 44);
+          expect(chatShell.drawerActive, isTrue);
+          expect(chatShell.drawerCurrentContent?.id, 'chat-c-9-t-3');
+          expect(chatShell.fullPageChatActive, isFalse);
+          expect(shell.currentContent?.id, underlyingContentId);
+          expect(shell.contentStack.map((route) => route.id), underlyingRoutes);
+          expect(shell.chatNavigation.value?.messageId, 44);
+          chatShell.closeDrawer();
+        },
+      );
+    });
+
+    group('drawer route history', () {
+      test('keeps the 10 most recent routes after the history overflows', () {
+        final chatShell = shell.pluginSession.require(chatShellService);
+        chatShell.updateDrawerAvailability(true);
+        expect(chatShell.drawerAvailable, isTrue);
+
+        for (var threadId = 1; threadId <= 12; threadId++) {
+          shell.openChatThread(
+            siteUrl: _site,
+            channelId: 9,
+            threadId: threadId,
+          );
+        }
+
+        expect(chatShell.drawerActive, isTrue);
+        expect(chatShell.drawerContentStack, hasLength(10));
+        expect(chatShell.drawerContentStack.map((route) => route.id), [
+          for (var threadId = 3; threadId <= 12; threadId++)
+            ChatRoute.thread(channelId: 9, threadId: threadId).routeId,
+        ]);
       });
     });
 

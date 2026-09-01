@@ -507,12 +507,20 @@ class _ComposerViewportOverlay extends StatelessWidget {
   const _ComposerViewportOverlay();
 
   @override
-  Widget build(BuildContext context) => ShellSelector<ComposerController?>(
-    select: (controller) => controller.visibleComposer,
-    builder: (context, composer, _) => composer == null
-        ? const SizedBox.shrink()
-        : FloatingComposerPanel(key: ObjectKey(composer), composer: composer),
-  );
+  Widget build(BuildContext context) {
+    final shell = ShellScope.read(context);
+    return ShellSelector<ComposerController?>(
+      select: (controller) => controller.visibleComposer,
+      builder: (context, composer, _) => composer == null
+          ? const SizedBox.shrink()
+          : FloatingComposerPanel(
+              key: ObjectKey(composer),
+              composer: composer,
+              onGeometryChanged: (bounds) =>
+                  shell.reportFloatingComposerBounds(composer, bounds),
+            ),
+    );
+  }
 }
 
 class _ForumBoundaryShell extends StatelessWidget {

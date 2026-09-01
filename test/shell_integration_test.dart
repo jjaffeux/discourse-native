@@ -46,6 +46,8 @@ import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
+import 'package:discourse_native/src/plugins/chat/chat_drawer.dart';
+import 'package:discourse_native/src/plugins/chat/chat_drawer_preferences_store.dart';
 import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
@@ -54,7 +56,9 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
@@ -17067,11 +17071,17 @@ void main() {
     const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
     const site = 'https://meta.discourse.org';
 
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+    tearDown(() => SharedPreferences.setMockInitialValues({}));
+
     final withChat = chatNotificationTotals();
     const withoutChat = NotificationTotals();
 
     SiteConfig chatConfig({
       bool searchEnabled = false,
+      bool publicChannelsEnabled = true,
+      bool threadsEnabled = true,
+      ChatPreferredIndex preferredIndex = ChatPreferredIndex.channels,
       int channelRetentionDays = 0,
       ChatSeparateSidebarMode separateSidebarMode =
           ChatSeparateSidebarMode.never,
@@ -17080,6 +17090,9 @@ void main() {
         chatSettingsDataKey,
         ChatSettings(
           searchEnabled: searchEnabled,
+          publicChannelsEnabled: publicChannelsEnabled,
+          threadsEnabled: threadsEnabled,
+          preferredIndex: preferredIndex,
           channelRetentionDays: channelRetentionDays,
           separateSidebarMode: separateSidebarMode,
         ),
@@ -17088,6 +17101,7 @@ void main() {
 
     DiscourseUser chatUser({
       bool? hasChatEnabled,
+      bool? canDirectMessage,
       ChatHeaderIndicatorPreference headerIndicatorPreference =
           ChatHeaderIndicatorPreference.allNew,
       ChatSeparateSidebarMode separateSidebarMode =
@@ -17100,6 +17114,7 @@ void main() {
         chatCurrentUserDataKey,
         ChatCurrentUser(
           hasChatEnabled: hasChatEnabled,
+          canDirectMessage: canDirectMessage,
           headerIndicatorPreference: headerIndicatorPreference,
           separateSidebarMode: separateSidebarMode,
           lastChannelId: lastChannelId,
@@ -17127,6 +17142,10 @@ void main() {
       bool canJoin = false,
       int membershipsCount = 0,
       int? lastRead,
+      bool threadingEnabled = false,
+      int watchedThreads = 0,
+      Map<int, DateTime> unreadThreadOverview = const {},
+      DateTime? lastMessageAt,
     }) => ChatChannel(
       id: id,
       title: title,
@@ -17149,7 +17168,14 @@ void main() {
         starred: starred,
         lastReadMessageId: lastRead,
       ),
-      tracking: ChatTracking(unreadCount: unread, mentionCount: mentions),
+      tracking: ChatTracking(
+        unreadCount: unread,
+        mentionCount: mentions,
+        watchedThreadsUnreadCount: watchedThreads,
+      ),
+      threadingEnabled: threadingEnabled,
+      unreadThreadOverview: unreadThreadOverview,
+      lastMessageAt: lastMessageAt,
     );
 
     ChatChannel dm(
@@ -17188,6 +17214,7 @@ void main() {
     ChatMessage msg(
       int id, {
       String cooked = '<p>Hello there</p>',
+      String raw = '',
       int author = 2,
       String username = 'sam',
       int minute = 0,
@@ -17198,6 +17225,7 @@ void main() {
       id: id,
       channelId: 9,
       cooked: cooked,
+      raw: raw,
       author: ChatMessageAuthor(id: author, username: username),
       createdAt: DateTime.utc(2026, 5, 5, 10, minute),
       uploads: uploads,
@@ -17234,10 +17262,16 @@ void main() {
       Completer<void>? channelGate,
       DiscourseUser? user = me,
       ChatPresence presence = const ChatPresence(),
+      bool hasThreads = false,
       SiteConfig config = const SiteConfig.unknown(),
       FakeForumTabStore? forumTabs,
       http.Client? mediaClient,
+      ChatPreferredDisplayMode preferredDisplayMode =
+          ChatPreferredDisplayMode.fullPage,
     }) async {
+      await const ChatDrawerPreferencesStore().writePreferredDisplayMode(
+        preferredDisplayMode,
+      );
       final authenticator = FakeAuthenticator();
       if (user != null) authenticator.keys[site] = 'meta-key';
       await pumpShell(
@@ -17252,6 +17286,7 @@ void main() {
                 site: ChatChannels(
                   public: public,
                   direct: direct,
+                  hasThreads: hasThreads,
                   presence: presence,
                 ),
               },
@@ -17259,6 +17294,10 @@ void main() {
               chatMessagesByKey: messages,
               siteConfigs:
                   config.chatSettings.searchEnabled ||
+                      !config.chatSettings.publicChannelsEnabled ||
+                      !config.chatSettings.threadsEnabled ||
+                      config.chatSettings.preferredIndex !=
+                          ChatPreferredIndex.channels ||
                       config.chatSettings.separateSidebarMode !=
                           ChatSeparateSidebarMode.never
                   ? {site: config}
@@ -17413,6 +17452,1584 @@ void main() {
         );
         expect(shell.currentContent?.id, ChatChannel.routeId(9));
         expect(shell.chat.channel(site, 9)?.membership.lastViewedAt, isNotNull);
+      });
+
+      testWidgets(
+        'opens a modeless desktop drawer without replacing the forum route',
+        (tester) async {
+          final api = FakeDiscourseApi(
+            totals: withChat,
+            user: me,
+            feeds: const {'/latest.json': []},
+            categoryList: const [
+              TopicCategory(id: 1, name: 'Support', color: '888888'),
+            ],
+            categoryLoadComplete: false,
+            chatChannelsBySite: {
+              site: ChatChannels(public: [channel(9)]),
+            },
+            chatMessagesByKey: {key(9): page(const [])},
+          );
+          await pumpChat(
+            tester,
+            api: api,
+            preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+          );
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          final forumRoute = shell.currentContent?.id;
+
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
+
+          expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
+          expect(find.byKey(ChatDrawerOverlay.expandedKey), findsOneWidget);
+          expect(
+            tester.getSize(find.byKey(ChatDrawerOverlay.expandedKey)),
+            const Size(400, 530),
+          );
+          expect(
+            find.descendant(
+              of: find.byKey(ChatDrawerOverlay.drawerKey),
+              matching: find.byType(ModalBarrier),
+            ),
+            findsNothing,
+          );
+          expect(shell.currentContent?.id, forumRoute);
+          expect(shortcut, findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('chat-drawer-channel-9')),
+            findsOneWidget,
+          );
+
+          await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+          await tester.pumpAndSettle();
+
+          expect(find.byType(ChatChannelView), findsOneWidget);
+          expect(shell.currentContent?.id, forumRoute);
+          expect(
+            shell.chat.channel(site, 9)?.membership.lastViewedAt,
+            isNotNull,
+          );
+          expect(find.byKey(ChatDrawerOverlay.overflowButtonKey), findsNothing);
+          expect(
+            find.byKey(ChatDrawerOverlay.fullPageButtonKey),
+            findsOneWidget,
+          );
+
+          final categoryRequests = api.categoryRequests.length;
+          await tester.tap(sidebarDestination('Topics'));
+          await tester.pumpAndSettle();
+
+          expect(api.categoryRequests.length, greaterThan(categoryRequests));
+          expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
+          expect(shell.currentContent?.id, forumRoute);
+        },
+      );
+
+      testWidgets(
+        'drawer rows keep muted urgency and expose web list actions',
+        (tester) async {
+          await pumpChat(
+            tester,
+            public: [channel(9, mentions: 100, muted: true)],
+            direct: [dm(12)],
+            user: chatUser(canDirectMessage: true),
+            preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+          );
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          final chatShell = shell.pluginSession.require(chatShellService);
+
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
+
+          final row = find.byKey(const ValueKey('chat-drawer-channel-9'));
+          expect(
+            find.descendant(of: row, matching: find.text('99+')),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(
+              of: row,
+              matching: find.byKey(
+                const ValueKey('chat-channel-menu-button-9'),
+              ),
+            ),
+            findsOneWidget,
+          );
+          final title = tester.widget<Text>(
+            find.descendant(of: row, matching: find.text('Bugs')),
+          );
+          expect(title.style?.color?.a, lessThan(1));
+
+          final browse = find.byKey(
+            const ValueKey('chat-drawer-browse-action'),
+          );
+          expect(browse, findsOneWidget);
+          await tester.tap(browse);
+          await tester.pumpAndSettle();
+          expect(chatShell.drawerCurrentContent?.id, ChatPlugin.browseRouteId);
+
+          chatShell.openDirectMessages();
+          await tester.pumpAndSettle();
+          final newMessage = find.byKey(
+            const ValueKey('chat-drawer-new-message-action'),
+          );
+          expect(newMessage, findsOneWidget);
+          await tester.tap(newMessage);
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('chat-new-direct-message-dialog')),
+            findsOneWidget,
+          );
+        },
+      );
+
+      testWidgets(
+        'a minimum-width channel header moves secondary actions into overflow',
+        (tester) async {
+          SharedPreferences.setMockInitialValues({});
+          addTearDown(() => SharedPreferences.setMockInitialValues({}));
+          await const ChatDrawerPreferencesStore().writeDrawerSize(
+            width: 250,
+            height: 530,
+          );
+          await pumpChat(
+            tester,
+            public: [channel(9)],
+            messages: {key(9): page(const [])},
+            config: chatConfig(searchEnabled: true),
+            preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+          );
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+          await tester.pumpAndSettle();
+
+          final header = find.byKey(ChatDrawerOverlay.headerKey);
+          expect(
+            tester.getSize(find.byKey(ChatDrawerOverlay.expandedKey)).width,
+            250,
+          );
+          expect(
+            find.descendant(of: header, matching: find.byTooltip('Back')),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(of: header, matching: find.text('Bugs')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(ChatDrawerOverlay.collapseButtonKey),
+            findsOneWidget,
+          );
+          expect(find.byKey(ChatDrawerOverlay.closeButtonKey), findsOneWidget);
+          expect(
+            find.byKey(ChatDrawerOverlay.overflowButtonKey),
+            findsOneWidget,
+          );
+          expect(
+            find
+                .byKey(const ValueKey('chat-channel-star-button'))
+                .hitTestable(),
+            findsNothing,
+          );
+          expect(
+            find
+                .byKey(const ValueKey('chat-channel-search-button'))
+                .hitTestable(),
+            findsNothing,
+          );
+          expect(
+            find.byKey(ChatDrawerOverlay.fullPageButtonKey).hitTestable(),
+            findsNothing,
+          );
+          expect(tester.takeException(), isNull);
+
+          await tester.tap(find.byKey(ChatDrawerOverlay.overflowButtonKey));
+          await tester.pumpAndSettle();
+
+          expect(
+            find
+                .byKey(const ValueKey('chat-channel-star-button'))
+                .hitTestable(),
+            findsOneWidget,
+          );
+          expect(
+            find
+                .byKey(const ValueKey('chat-channel-search-button'))
+                .hitTestable(),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(ChatDrawerOverlay.fullPageButtonKey).hitTestable(),
+            findsOneWidget,
+          );
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          expect(
+            find
+                .byKey(const ValueKey('chat-channel-star-button'))
+                .hitTestable(),
+            findsNothing,
+          );
+          expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
+
+          await tester.tap(find.byKey(ChatDrawerOverlay.overflowButtonKey));
+          await tester.pumpAndSettle();
+
+          await tester.tap(
+            find
+                .byKey(const ValueKey('chat-channel-search-button'))
+                .hitTestable(),
+          );
+          await tester.pumpAndSettle();
+
+          expect(
+            find.byKey(const ValueKey('chat-channel-search-field')),
+            findsOneWidget,
+          );
+          expect(
+            find
+                .byKey(const ValueKey('chat-channel-star-button'))
+                .hitTestable(),
+            findsNothing,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+
+      testWidgets('drawer state immediately updates separate sidebar policy', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {key(9): page(const [])},
+          user: chatUser(separateSidebarMode: ChatSeparateSidebarMode.always),
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+
+        expect(sidebarDestination('Topics'), findsOneWidget);
+        expect(sidebarDestination('Bugs'), findsNothing);
+
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
+        expect(sidebarDestination('Topics'), findsNothing);
+        expect(sidebarDestination('Bugs'), findsOneWidget);
+
+        await tester.tap(find.byKey(ChatDrawerOverlay.closeButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(sidebarDestination('Topics'), findsOneWidget);
+        expect(sidebarDestination('Bugs'), findsNothing);
+      });
+
+      testWidgets(
+        'the active drawer channel is selected in the forum sidebar',
+        (tester) async {
+          await pumpChat(
+            tester,
+            public: [channel(9, threadingEnabled: true)],
+            messages: {key(9): page(const [])},
+            preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+          );
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          final chatShell = shell.pluginSession.require(chatShellService);
+
+          Text sidebarLabel() =>
+              tester.widget<Text>(sidebarDestination('Bugs'));
+          expect(sidebarLabel().style?.fontWeight, FontWeight.w400);
+
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+          await tester.pumpAndSettle();
+
+          expect(sidebarLabel().style?.fontWeight, FontWeight.w600);
+
+          expect(
+            chatShell.openChannelInfo(siteUrl: site, channelId: 9),
+            isTrue,
+          );
+          await tester.pumpAndSettle();
+          expect(sidebarLabel().style?.fontWeight, FontWeight.w600);
+
+          expect(
+            chatShell.openChannelThreads(siteUrl: site, channelId: 9),
+            isTrue,
+          );
+          await tester.pumpAndSettle();
+          expect(sidebarLabel().style?.fontWeight, FontWeight.w600);
+
+          await tester.tap(find.byKey(ChatDrawerOverlay.collapseButtonKey));
+          await tester.pumpAndSettle();
+          expect(sidebarLabel().style?.fontWeight, FontWeight.w400);
+
+          await tester.tap(find.byKey(ChatDrawerOverlay.headerKey));
+          await tester.pumpAndSettle();
+          expect(sidebarLabel().style?.fontWeight, FontWeight.w600);
+
+          await tester.tap(find.byKey(ChatDrawerOverlay.closeButtonKey));
+          await tester.pumpAndSettle();
+
+          expect(sidebarLabel().style?.fontWeight, FontWeight.w400);
+        },
+      );
+
+      testWidgets('Alt arrows cycle channels and unread channels with wrap', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [
+            channel(9),
+            channel(10, title: 'Support', unread: 1),
+          ],
+          direct: [dm(12, title: 'hawk', unread: 1)],
+          messages: {
+            key(9): page(const []),
+            key(10): page(const []),
+            key(12): page(const []),
+          },
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final chatShell = shell.pluginSession.require(chatShellService);
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+        await tester.pumpAndSettle();
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+        await tester.pumpAndSettle();
+        expect(chatShell.drawerCurrentContent?.id, ChatChannel.routeId(10));
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+        await tester.pumpAndSettle();
+        expect(chatShell.drawerCurrentContent?.id, ChatChannel.routeId(9));
+
+        await tester.tap(find.byKey(const ValueKey('chat-composer')));
+        await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+        await tester.pumpAndSettle();
+        expect(
+          chatShell.drawerCurrentContent?.id,
+          ChatChannel.routeId(10),
+          reason: 'the web shortcut remains global while editing text',
+        );
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pump();
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+        await tester.pumpAndSettle();
+        expect(chatShell.drawerCurrentContent?.id, ChatChannel.routeId(12));
+      });
+
+      testWidgets('permission revocation closes an open drawer immediately', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {key(9): page(const [])},
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final chatShell = shell.pluginSession.require(chatShellService);
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+        await tester.pumpAndSettle();
+        final editor = tester.widget<EditableText>(
+          find.descendant(
+            of: find.byKey(const ValueKey('chat-composer')),
+            matching: find.byType(EditableText),
+          ),
+        );
+        await tester.enterText(
+          find.descendant(
+            of: find.byKey(const ValueKey('chat-composer')),
+            matching: find.byType(EditableText),
+          ),
+          'draft survives permission refresh',
+        );
+        expect(editor.focusNode.hasFocus, isTrue);
+        expect(chatShell.drawerActive, isTrue);
+
+        shell.accountActivity.applyCounts(site, (_) => withoutChat);
+        await chatShell.pluginTotalsLoaded(site, withoutChat, selected: true);
+        await tester.pumpAndSettle();
+
+        expect(chatShell.drawerActive, isFalse);
+        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
+        expect(shortcut, findsNothing);
+        expect(editor.focusNode.hasFocus, isFalse);
+        expect(editor.controller.text, 'draft survives permission refresh');
+      });
+
+      testWidgets('disconnect clears drawer history and viewing state', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {key(9): page(const [])},
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final chatShell = shell.pluginSession.require(chatShellService);
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+        await tester.pumpAndSettle();
+        expect(chatShell.drawerContentStack, isNotEmpty);
+        final tracker = FakeSiteTracker.built.single;
+        expect(tracker.pluginChannelCallbacks['/chat/9'], isNotEmpty);
+
+        await tester.tap(find.byKey(ChatDrawerOverlay.collapseButtonKey));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getSize(find.byKey(ChatDrawerOverlay.collapseButtonKey)).width,
+          lessThanOrEqualTo(1),
+        );
+        expect(tracker.pluginChannelCallbacks['/chat/9'], isNotEmpty);
+
+        await shell.disconnectCurrentInstance();
+        await tester.pumpAndSettle();
+
+        expect(chatShell.drawerActive, isFalse);
+        expect(chatShell.drawerContentStack, isEmpty);
+        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
+        expect(tracker.pluginChannelCallbacks['/chat/9'], isEmpty);
+      });
+
+      testWidgets(
+        'drawer Back follows route context and is absent on index routes',
+        (tester) async {
+          await pumpChat(
+            tester,
+            public: [channel(9, threadingEnabled: true)],
+            direct: [dm(12)],
+            user: chatUser(canDirectMessage: true),
+            preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+          );
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          final chatShell = shell.pluginSession.require(chatShellService);
+
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
+
+          expect(chatShell.openChannel(9), isTrue);
+          for (final openIndex in <void Function()>[
+            chatShell.openChannels,
+            chatShell.openStarredChannels,
+            chatShell.openDirectMessages,
+            chatShell.openMyThreads,
+            chatShell.openSearch,
+          ]) {
+            openIndex();
+            expect(chatShell.drawerCanGoBack, isFalse);
+            expect(chatShell.openChannel(9), isTrue);
+          }
+
+          chatShell.forget(site);
+          expect(chatShell.openChannel(9), isTrue);
+          expect(chatShell.drawerContentStack.map((route) => route.id), [
+            'chat-c-9',
+          ]);
+          expect(chatShell.drawerCanGoBack, isTrue);
+          chatShell.drawerBack();
+          expect(
+            chatShell.drawerCurrentContent?.id,
+            ChatPlugin.channelsRouteId,
+          );
+
+          chatShell.forget(site);
+          expect(chatShell.openChannel(12), isTrue);
+          chatShell.drawerBack();
+          expect(
+            chatShell.drawerCurrentContent?.id,
+            ChatPlugin.directMessagesRouteId,
+          );
+
+          chatShell.forget(site);
+          chatShell.openStarredChannels();
+          expect(chatShell.openChannel(9), isTrue);
+          chatShell.drawerBack();
+          expect(chatShell.drawerCurrentContent?.id, ChatPlugin.starredRouteId);
+
+          chatShell.forget(site);
+          chatShell.openSearch();
+          expect(chatShell.openChannel(9), isTrue);
+          chatShell.drawerBack();
+          expect(
+            chatShell.drawerCurrentContent?.id,
+            ChatPlugin.channelsRouteId,
+          );
+
+          chatShell.forget(site);
+          chatShell.openMyThreads();
+          expect(chatShell.openChannel(12), isTrue);
+          chatShell.drawerBack();
+          expect(
+            chatShell.drawerCurrentContent?.id,
+            ChatPlugin.directMessagesRouteId,
+          );
+
+          chatShell.forget(site);
+          chatShell.openStarredChannels();
+          chatShell.openBrowseChannels();
+          expect(chatShell.drawerCanGoBack, isTrue);
+          chatShell.drawerBack();
+          expect(
+            chatShell.drawerCurrentContent?.id,
+            ChatPlugin.channelsRouteId,
+          );
+
+          chatShell.forget(site);
+          expect(
+            chatShell.openChannelInfo(siteUrl: site, channelId: 9),
+            isTrue,
+          );
+          chatShell.drawerBack();
+          expect(chatShell.drawerCurrentContent?.id, 'chat-c-9');
+
+          chatShell.forget(site);
+          chatShell.openMyThreads();
+          expect(
+            chatShell.openChannelInfo(siteUrl: site, channelId: 9),
+            isTrue,
+          );
+          chatShell.drawerBack();
+          expect(chatShell.drawerCurrentContent?.id, 'chat-c-9');
+
+          chatShell.forget(site);
+          expect(
+            chatShell.openChannelThreads(siteUrl: site, channelId: 9),
+            isTrue,
+          );
+          chatShell.drawerBack();
+          expect(chatShell.drawerCurrentContent?.id, 'chat-c-9');
+
+          chatShell.forget(site);
+          chatShell.openSearch();
+          expect(
+            chatShell.openChannelThreads(siteUrl: site, channelId: 9),
+            isTrue,
+          );
+          chatShell.drawerBack();
+          expect(chatShell.drawerCurrentContent?.id, 'chat-c-9');
+
+          chatShell.forget(site);
+          chatShell.openThread(siteUrl: site, channelId: 9, threadId: 3);
+          chatShell.drawerBack();
+          expect(chatShell.drawerCurrentContent?.id, 'chat-c-9');
+
+          chatShell.forget(site);
+          chatShell.openMyThreads();
+          chatShell.openThread(siteUrl: site, channelId: 9, threadId: 3);
+          chatShell.drawerBack();
+          expect(
+            chatShell.drawerCurrentContent?.id,
+            ChatPlugin.myThreadsRouteId,
+          );
+
+          chatShell.forget(site);
+          expect(
+            chatShell.openChannelThreads(siteUrl: site, channelId: 9),
+            isTrue,
+          );
+          chatShell.openThread(siteUrl: site, channelId: 9, threadId: 3);
+          chatShell.drawerBack();
+          expect(
+            chatShell.drawerCurrentContent?.id,
+            ChatPlugin.channelThreadsRouteId(9),
+          );
+
+          chatShell.forget(site);
+          chatShell.openSearch();
+          chatShell.openThread(siteUrl: site, channelId: 9, threadId: 3);
+          chatShell.drawerBack();
+          expect(chatShell.drawerCurrentContent?.id, 'chat-c-9');
+          chatShell.closeDrawer();
+          await tester.pump();
+        },
+      );
+
+      testWidgets('drawer initial route honors the preferred Chat index', (
+        tester,
+      ) async {
+        Future<String?> openInitialRoute({
+          required SiteConfig config,
+          DiscourseUser? user,
+          List<ChatChannel> direct = const [],
+          bool hasThreads = false,
+          bool starred = false,
+        }) async {
+          await pumpChat(
+            tester,
+            public: [channel(9, starred: starred)],
+            direct: direct,
+            hasThreads: hasThreads,
+            user: user ?? chatUser(canDirectMessage: true),
+            config: config,
+            preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+          );
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          return shell.pluginSession
+              .require(chatShellService)
+              .drawerCurrentContent
+              ?.id;
+        }
+
+        expect(
+          await openInitialRoute(
+            config: chatConfig(preferredIndex: ChatPreferredIndex.myThreads),
+            hasThreads: true,
+            starred: true,
+          ),
+          ChatPlugin.starredRouteId,
+        );
+        expect(
+          await openInitialRoute(
+            config: chatConfig(preferredIndex: ChatPreferredIndex.myThreads),
+            hasThreads: true,
+          ),
+          ChatPlugin.myThreadsRouteId,
+        );
+        expect(
+          await openInitialRoute(
+            config: chatConfig(
+              preferredIndex: ChatPreferredIndex.directMessages,
+            ),
+            user: chatUser(canDirectMessage: false),
+            direct: [dm(12)],
+          ),
+          ChatPlugin.directMessagesRouteId,
+        );
+        expect(
+          await openInitialRoute(
+            config: chatConfig(preferredIndex: ChatPreferredIndex.myThreads),
+          ),
+          ChatPlugin.channelsRouteId,
+        );
+        expect(
+          await openInitialRoute(
+            config: chatConfig(publicChannelsEnabled: false),
+            user: chatUser(canDirectMessage: false),
+          ),
+          isNull,
+        );
+      });
+
+      testWidgets('disabled public and thread routes stay unavailable', (
+        tester,
+      ) async {
+        final config = chatConfig(
+          publicChannelsEnabled: false,
+          threadsEnabled: false,
+        );
+        await pumpChat(
+          tester,
+          public: [channel(9, threadingEnabled: true)],
+          direct: [dm(12)],
+          hasThreads: true,
+          user: chatUser(canDirectMessage: true),
+          config: config,
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        expect(sidebarDestination('Browse channels'), findsNothing);
+        expect(sidebarDestination('My threads'), findsNothing);
+        expect(sidebarDestination('Bugs'), findsNothing);
+
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final chatShell = shell.pluginSession.require(chatShellService);
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+        expect(
+          chatShell.drawerCurrentContent?.id,
+          ChatPlugin.directMessagesRouteId,
+        );
+        expect(
+          chatShell.openChannelThreads(siteUrl: site, channelId: 9),
+          isFalse,
+        );
+
+        chatShell.openBrowseChannels();
+        await tester.pumpAndSettle();
+        expect(find.text('Chat channels are not available.'), findsOneWidget);
+        chatShell.openMyThreads();
+        await tester.pumpAndSettle();
+        expect(find.text('Chat threads are not available.'), findsOneWidget);
+      });
+
+      testWidgets('collapse, close, and Escape retain the drawer route', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {key(9): page(const [])},
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('Back'));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('chat-drawer-channel-9')),
+          findsOneWidget,
+        );
+        await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(ChatDrawerOverlay.collapseButtonKey));
+        await tester.pumpAndSettle();
+        expect(find.byKey(ChatDrawerOverlay.collapsedKey), findsOneWidget);
+        expect(find.byType(ChatChannelView), findsNothing);
+        expect(find.byKey(ChatDrawerOverlay.fullPageButtonKey), findsNothing);
+        expect(
+          tester.getSize(find.byKey(ChatDrawerOverlay.collapseButtonKey)).width,
+          lessThanOrEqualTo(1),
+        );
+
+        final collapsedToggle = find.descendant(
+          of: find.byKey(ChatDrawerOverlay.collapseButtonKey),
+          matching: find.byType(FilledButton),
+        );
+        Focus.of(
+          tester.element(
+            find.descendant(of: collapsedToggle, matching: find.byType(DIcon)),
+          ),
+        ).requestFocus();
+        await tester.pumpAndSettle();
+        expect(
+          tester.getSize(find.byKey(ChatDrawerOverlay.collapseButtonKey)).width,
+          greaterThan(1),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(find.byType(ChatChannelView), findsOneWidget);
+
+        await tester.tap(find.byKey(ChatDrawerOverlay.closeButtonKey));
+        await tester.pumpAndSettle();
+        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
+
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+        expect(find.byType(ChatChannelView), findsOneWidget);
+
+        await tester.tap(find.byKey(const ValueKey('chat-composer')));
+        await tester.pump();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
+      });
+
+      testWidgets('collapse and close retain an in-progress message edit', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {
+            key(9): page([
+              msg(
+                41,
+                author: 7,
+                username: 'joffreyj',
+                raw: 'Original message',
+                cooked: '<p>Original message</p>',
+              ),
+            ]),
+          },
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+        await tester.pumpAndSettle();
+
+        final composer = find.byKey(const ValueKey('chat-composer'));
+        await tester.tap(composer);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('chat-composer-edit-cancel')),
+          findsOneWidget,
+        );
+
+        Finder editor() =>
+            find.descendant(of: composer, matching: find.byType(EditableText));
+        await tester.enterText(editor(), 'Modified while editing');
+        await tester.pump();
+
+        await tester.tap(find.byKey(ChatDrawerOverlay.collapseButtonKey));
+        await tester.pumpAndSettle();
+        expect(editor(), findsNothing);
+        await tester.tap(find.byKey(ChatDrawerOverlay.headerKey));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<EditableText>(editor()).controller.text,
+          'Modified while editing',
+        );
+
+        await tester.tap(find.byKey(ChatDrawerOverlay.closeButtonKey));
+        await tester.pumpAndSettle();
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('chat-composer-edit-cancel')),
+          findsOneWidget,
+        );
+        expect(
+          tester.widget<EditableText>(editor()).controller.text,
+          'Modified while editing',
+        );
+      });
+
+      testWidgets('Escape dismisses a modal before the drawer', (tester) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+
+        unawaited(
+          showDialog<void>(
+            context: tester.element(find.byKey(ChatDrawerOverlay.expandedKey)),
+            builder: (context) => const AlertDialog(
+              title: Text('Layered dialog'),
+              content: Text('Dismiss me first'),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Layered dialog'), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.text('Layered dialog'), findsNothing);
+        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
+      });
+
+      testWidgets('Escape closes scoped channel search before the drawer', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {key(9): page(const [])},
+          config: chatConfig(searchEnabled: true),
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-search-button')),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('chat-channel-search-field')),
+          findsOneWidget,
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('chat-channel-search-field')),
+          findsNothing,
+        );
+        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
+      });
+
+      testWidgets('closing the drawer resets scoped channel search', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {key(9): page(const [])},
+          config: chatConfig(searchEnabled: true),
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-search-button')),
+        );
+        await tester.pumpAndSettle();
+        final search = find.byKey(const ValueKey('chat-channel-search-field'));
+        await tester.enterText(search, 'stale query');
+
+        await tester.tap(find.byKey(ChatDrawerOverlay.closeButtonKey));
+        await tester.pumpAndSettle();
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ChatChannelView), findsOneWidget);
+        expect(search, findsNothing);
+        expect(
+          find.byKey(const ValueKey('chat-channel-search-button')),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets(
+        'footer exposes empty capable routes and leaves an emptied Starred list',
+        (tester) async {
+          await pumpChat(
+            tester,
+            public: [channel(9, starred: true)],
+            messages: {key(9): page(const [])},
+            user: chatUser(canDirectMessage: true),
+            preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+          );
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          final chatShell = shell.pluginSession.require(chatShellService);
+
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
+          expect(chatShell.drawerCurrentContent?.id, ChatPlugin.starredRouteId);
+          expect(find.byKey(ChatDrawerFooter.footerKey), findsOneWidget);
+          expect(find.byTooltip('DMs'), findsOneWidget);
+
+          expect(await shell.chat.updateChannelStarred(site, 9, false), isNull);
+          await tester.pumpAndSettle();
+
+          expect(
+            chatShell.drawerCurrentContent?.id,
+            ChatPlugin.channelsRouteId,
+          );
+          expect(find.text('You have no starred channels.'), findsNothing);
+
+          await tester.tap(
+            find.descendant(
+              of: find.byKey(ChatDrawerFooter.footerKey),
+              matching: find.byTooltip('DMs'),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            chatShell.drawerCurrentContent?.id,
+            ChatPlugin.directMessagesRouteId,
+          );
+          expect(find.text('You have no direct messages yet.'), findsOneWidget);
+          expect(find.byKey(ChatDrawerFooter.footerKey), findsOneWidget);
+
+          await tester.tap(
+            find.descendant(
+              of: find.byKey(ChatDrawerFooter.footerKey),
+              matching: find.byTooltip('Channels'),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+          await tester.pumpAndSettle();
+          expect(chatShell.drawerCurrentContent?.id, ChatChannel.routeId(9));
+          expect(chatShell.drawerActive, isTrue);
+          expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
+          expect(find.byType(ChatChannelView), findsOneWidget);
+          expect(find.byKey(ChatDrawerFooter.footerKey), findsNothing);
+        },
+      );
+
+      testWidgets(
+        'full-page round trip restores the exact forum and Chat routes',
+        (tester) async {
+          final api = FakeDiscourseApi(
+            totals: withChat,
+            user: me,
+            feeds: const {'/latest.json': []},
+            creatableFeedPaths: const {'/latest.json'},
+            chatChannelsBySite: {
+              site: ChatChannels(public: [channel(9)]),
+            },
+            chatMessagesByKey: {key(9): page(const [])},
+          );
+          await pumpChat(
+            tester,
+            api: api,
+            preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+          );
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          final forumRoute = shell.currentContent?.id;
+
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+          await tester.pumpAndSettle();
+          Finder editor() => find.descendant(
+            of: find.byKey(const ValueKey('chat-composer')),
+            matching: find.byType(EditableText),
+          );
+          await tester.enterText(editor(), 'draft before maximizing');
+          await tester.pump();
+          await tester.tap(find.byKey(ChatDrawerOverlay.fullPageButtonKey));
+          await tester.pumpAndSettle();
+
+          expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
+          expect(shell.currentContent?.id, 'chat-c-9');
+          expect(
+            find.byKey(const ValueKey('chat-close-full-page')),
+            findsOneWidget,
+          );
+          expect(
+            tester.widget<EditableText>(editor()).controller.text,
+            'draft before maximizing',
+          );
+
+          await tester.enterText(editor(), 'sent from full page');
+          await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+          await tester.pumpAndSettle();
+          expect(api.chatMessagesSent.single.message, 'sent from full page');
+          expect(
+            tester.widget<EditableText>(editor()).controller.text,
+            isEmpty,
+          );
+
+          await tester.tap(find.byKey(const ValueKey('chat-close-full-page')));
+          await tester.pumpAndSettle();
+
+          expect(shell.currentContent?.id, forumRoute);
+          expect(find.byKey(ChatDrawerOverlay.expandedKey), findsOneWidget);
+          expect(find.byType(ChatChannelView), findsOneWidget);
+          expect(
+            tester.widget<EditableText>(editor()).controller.text,
+            isEmpty,
+          );
+          expect(
+            (await SharedPreferences.getInstance()).getString(
+              ChatDrawerPreferencesStore.preferredDisplayModeStorageKey,
+            ),
+            'DRAWER_CHAT',
+          );
+        },
+      );
+
+      testWidgets(
+        'a compact layout forces full page without replacing the preference',
+        (tester) async {
+          await pumpChat(
+            tester,
+            size: phone,
+            public: [channel(9)],
+            messages: {key(9): page(const [])},
+            preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+          );
+
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
+
+          expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
+          expect(find.byType(ChatChannelView), findsOneWidget);
+          expect(
+            (await SharedPreferences.getInstance()).getString(
+              ChatDrawerPreferencesStore.preferredDisplayModeStorageKey,
+            ),
+            'DRAWER_CHAT',
+          );
+        },
+      );
+
+      testWidgets(
+        'a direct message link bypasses retained hidden drawer consumers',
+        (tester) async {
+          final target = msg(41, cooked: '<p>Exact target</p>');
+          final api = FakeDiscourseApi(
+            totals: withChat,
+            user: me,
+            feeds: const {'/latest.json': []},
+            chatChannelsBySite: {
+              site: ChatChannels(public: [channel(9)]),
+            },
+            chatMessagesByKey: {
+              key(9): page(const []),
+              FakeDiscourseApi.chatMessagesKey(9, targetMessageId: 41): (
+                messages: [target],
+                canLoadMorePast: false,
+                canLoadMoreFuture: false,
+                targetMessageId: 41,
+              ),
+            },
+          );
+          await pumpChat(
+            tester,
+            api: api,
+            preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+          );
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          final chatShell = shell.pluginSession.require(chatShellService);
+
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(ChatDrawerOverlay.closeButtonKey));
+          await tester.pumpAndSettle();
+
+          expect(
+            await chatShell.openPluginUrl(
+              '$site/chat/c/-/9/41',
+              origin: PluginLinkOrigin.direct,
+            ),
+            isTrue,
+          );
+          await tester.pumpAndSettle();
+
+          expect(chatShell.drawerActive, isFalse);
+          expect(shell.currentContent?.id, 'chat-c-9');
+          expect(
+            find.byKey(const ValueKey('chat-message-highlight')),
+            findsOneWidget,
+          );
+          expect(api.chatMessagesRequested.last.targetMessageId, 41);
+        },
+      );
+
+      testWidgets('shrinking an open drawer promotes its exact route', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {key(9): page(const [])},
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+        await tester.pumpAndSettle();
+
+        tester.view.physicalSize = phone;
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
+        expect(shell.currentContent?.id, 'chat-c-9');
+        expect(find.byType(ChatChannelView), findsOneWidget);
+        expect(
+          (await SharedPreferences.getInstance()).getString(
+            ChatDrawerPreferencesStore.preferredDisplayModeStorageKey,
+          ),
+          'DRAWER_CHAT',
+        );
+      });
+
+      testWidgets('the global minus shortcut opens and closes the drawer', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+        await tester.pumpAndSettle();
+        expect(find.byKey(ChatDrawerOverlay.expandedKey), findsOneWidget);
+
+        final collapseButton = find.descendant(
+          of: find.byKey(ChatDrawerOverlay.collapseButtonKey),
+          matching: find.byType(FilledButton),
+        );
+        Focus.of(
+          tester.element(
+            find.descendant(of: collapseButton, matching: find.byType(DIcon)),
+          ),
+        ).requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+        await tester.pumpAndSettle();
+        expect(find.byKey(ChatDrawerOverlay.expandedKey), findsOneWidget);
+
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pumpAndSettle();
+        expect(find.byKey(ChatDrawerOverlay.expandedKey), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+        await tester.pumpAndSettle();
+        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
+      });
+
+      testWidgets('the global minus shortcut restores drawer preference', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {key(9): page(const [])},
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(ChatDrawerOverlay.fullPageButtonKey));
+        await tester.pumpAndSettle();
+        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
+        expect(
+          find.byKey(const ValueKey('chat-close-full-page')),
+          findsOneWidget,
+        );
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pump();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(ChatDrawerOverlay.expandedKey), findsOneWidget);
+        expect(find.byType(ChatChannelView), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('chat-close-full-page')),
+          findsNothing,
+        );
+        expect(
+          (await SharedPreferences.getInstance()).getString(
+            ChatDrawerPreferencesStore.preferredDisplayModeStorageKey,
+          ),
+          'DRAWER_CHAT',
+        );
+      });
+
+      testWidgets('resizes from the top-start corner and persists the size', (
+        tester,
+      ) async {
+        SharedPreferences.setMockInitialValues({});
+        addTearDown(() => SharedPreferences.setMockInitialValues({}));
+        await const ChatDrawerPreferencesStore().writeDrawerSize(
+          width: 480,
+          height: 600,
+        );
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+
+        final drawer = find.byKey(ChatDrawerOverlay.expandedKey);
+        expect(tester.getSize(drawer), const Size(480, 600));
+
+        await tester.drag(
+          find.byKey(ChatDrawerOverlay.resizeHandleKey),
+          const Offset(-80, -70),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.getSize(drawer), const Size(560, 670));
+        final preferences = await SharedPreferences.getInstance();
+        expect(
+          preferences.getDouble(
+            ChatDrawerPreferencesStore.drawerWidthStorageKey,
+          ),
+          560,
+        );
+        expect(
+          preferences.getDouble(
+            ChatDrawerPreferencesStore.drawerHeightStorageKey,
+          ),
+          670,
+        );
+      });
+
+      testWidgets('keeps expanded and collapsed drawers above the safe area', (
+        tester,
+      ) async {
+        tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+        addTearDown(tester.view.resetViewPadding);
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+
+        final overlay = find.byKey(ChatDrawerOverlay.drawerKey);
+        final expanded = find.byKey(ChatDrawerOverlay.expandedKey);
+        final expectedInset =
+            tester.view.viewPadding.bottom / tester.view.devicePixelRatio;
+        expect(
+          tester.getRect(overlay).bottom - tester.getRect(expanded).bottom,
+          closeTo(expectedInset, 0.1),
+        );
+
+        await tester.tap(find.byKey(ChatDrawerOverlay.collapseButtonKey));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(overlay).bottom -
+              tester.getRect(find.byKey(ChatDrawerOverlay.collapsedKey)).bottom,
+          closeTo(expectedInset, 0.1),
+        );
+      });
+
+      testWidgets('a wide drawer keeps thread routes in one pane', (
+        tester,
+      ) async {
+        SharedPreferences.setMockInitialValues({});
+        addTearDown(() => SharedPreferences.setMockInitialValues({}));
+        await const ChatDrawerPreferencesStore().writeDrawerSize(
+          width: 700,
+          height: 600,
+        );
+        final threadedChannel = channel(9, threadingEnabled: true);
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          feeds: const {'/latest.json': []},
+          creatableFeedPaths: const {'/latest.json'},
+          chatChannelsBySite: {
+            site: ChatChannels(public: [threadedChannel]),
+          },
+          chatThreadsByKey: const {
+            '9~3': ChatThread(
+              id: 3,
+              channelId: 9,
+              status: 'open',
+              replyCount: 0,
+              title: 'Drawer thread',
+              originalMessage: ChatThreadOriginalMessage(
+                id: 30,
+                channelId: 9,
+                author: ChatMessageAuthor(id: 7, username: 'joffreyj'),
+              ),
+              membership: ChatThreadMembership(threadId: 3),
+            ),
+            '9~4': ChatThread(
+              id: 4,
+              channelId: 9,
+              status: 'open',
+              replyCount: 0,
+              title: 'Second drawer thread',
+              membership: ChatThreadMembership(threadId: 4),
+            ),
+          },
+          chatMessagesByKey: {
+            'thread-9-3': page(const []),
+            'thread-9-4': page(const []),
+          },
+        );
+        await pumpChat(
+          tester,
+          api: api,
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final chatShell = shell.pluginSession.require(chatShellService);
+
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+        chatShell.openThread(siteUrl: site, channelId: 9, threadId: 3);
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.getSize(find.byKey(ChatDrawerOverlay.expandedKey)).width,
+          700,
+        );
+        expect(find.byKey(const ValueKey('chat-channel-pane')), findsNothing);
+        expect(find.byKey(const ValueKey('chat-thread-pane')), findsNothing);
+        expect(find.byType(ChatThreadView), findsOneWidget);
+        expect(find.text('Drawer thread'), findsOneWidget);
+        expect(find.byTooltip('Thread notifications'), findsOneWidget);
+        expect(find.byTooltip('Thread settings'), findsOneWidget);
+
+        chatShell.openThread(siteUrl: site, channelId: 9, threadId: 4);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Second drawer thread'), findsOneWidget);
+        expect(
+          api.chatThreadMessagesRequested.map((request) => request.threadId),
+          contains(4),
+        );
+      });
+
+      testWidgets('a narrow drawer keeps thread notification selection alive', (
+        tester,
+      ) async {
+        final previousPlatform = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          SharedPreferences.setMockInitialValues({});
+          addTearDown(() => SharedPreferences.setMockInitialValues({}));
+          await const ChatDrawerPreferencesStore().writeDrawerSize(
+            width: 250,
+            height: 530,
+          );
+          final api = FakeDiscourseApi(
+            totals: withChat,
+            user: me,
+            feeds: const {'/latest.json': []},
+            chatChannelsBySite: {
+              site: ChatChannels(public: [channel(9, threadingEnabled: true)]),
+            },
+            chatThreadsByKey: const {
+              '9~3': ChatThread(
+                id: 3,
+                channelId: 9,
+                status: 'open',
+                replyCount: 0,
+                title: 'Narrow thread',
+                membership: ChatThreadMembership(
+                  threadId: 3,
+                  notificationLevel: ChatThreadNotificationLevel.normal,
+                ),
+              ),
+            },
+            chatMessagesByKey: {'thread-9-3': page(const [])},
+          );
+          await pumpChat(
+            tester,
+            api: api,
+            preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+          );
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          final chatShell = shell.pluginSession.require(chatShellService);
+
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
+          chatShell.openThread(siteUrl: site, channelId: 9, threadId: 3);
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(ChatDrawerOverlay.overflowButtonKey));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('Thread notifications'));
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('choice-menu-surface')),
+            findsOneWidget,
+          );
+
+          await tester.tap(find.text('Tracking'));
+          await tester.pumpAndSettle();
+
+          expect(
+            api.chatThreadNotificationLevelsUpdated.single.notificationLevel,
+            ChatThreadNotificationLevel.tracking,
+          );
+          expect(
+            find.byKey(const ValueKey('choice-menu-surface')),
+            findsNothing,
+          );
+          expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
+        } finally {
+          debugDefaultTargetPlatformOverride = previousPlatform;
+        }
+      });
+
+      testWidgets('avoids only the actual movable composer rectangle', (
+        tester,
+      ) async {
+        SharedPreferences.setMockInitialValues({});
+        addTearDown(() => SharedPreferences.setMockInitialValues({}));
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          feeds: const {'/latest.json': []},
+          creatableFeedPaths: const {'/latest.json'},
+          chatChannelsBySite: {
+            site: ChatChannels(public: [channel(9)]),
+          },
+        );
+        await pumpChat(
+          tester,
+          api: api,
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+
+        await shell.openNewTopic();
+        await tester.pumpAndSettle();
+
+        final composer = find.byType(ComposerPanel);
+        final drawer = find.byKey(ChatDrawerOverlay.expandedKey);
+        final overlay = find.byKey(ChatDrawerOverlay.drawerKey);
+        expect(composer, findsOneWidget);
+        expect(
+          tester.getRect(drawer).bottom,
+          closeTo(tester.getRect(composer).top, 1),
+        );
+
+        await tester.drag(
+          find.byKey(const ValueKey('composer-resize-right')),
+          const Offset(-1000, 0),
+        );
+        await tester.drag(
+          find.byKey(const ValueKey('composer-drag-handle')),
+          const Offset(-1000, 0),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.getRect(composer).right,
+          lessThan(tester.getRect(drawer).left),
+        );
+        expect(
+          tester.getRect(drawer).bottom,
+          closeTo(tester.getRect(overlay).bottom, 1),
+        );
       });
 
       testWidgets('disappears while chat is active on a compact shell', (
@@ -17590,7 +19207,7 @@ void main() {
               );
               expect(find.byKey(ChatHeaderButton.buttonKey), findsNothing);
 
-              shell.selectDestination(ChatPlugin.destination(channel(9)));
+              await tester.tap(sidebarDestination('Bugs'));
               await tester.pumpAndSettle();
 
               expect(shell.currentContent?.id, 'chat-c-9');

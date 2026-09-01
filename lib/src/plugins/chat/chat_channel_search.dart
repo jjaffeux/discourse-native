@@ -7,6 +7,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_notification_counter.dart';
 import 'chat_plugin_data.dart';
+import 'chat_route.dart';
 import 'chat_search_controller.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
@@ -74,10 +75,37 @@ class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
   late final TextEditingController _query;
   int _seenSelectionRevision = 0;
   bool _ready = false;
+  bool _tickerEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleHardwareKey);
+  }
+
+  bool _handleHardwareKey(KeyEvent event) {
+    if (!mounted || !_ready || event is! KeyDownEvent) return false;
+    if (event.logicalKey != LogicalKeyboardKey.escape ||
+        !_tickerEnabled ||
+        !_search.scopedState(widget.siteUrl, widget.channelId).open) {
+      return false;
+    }
+    final modalRoute = ModalRoute.of(context);
+    if (modalRoute != null && !modalRoute.isCurrent) return false;
+    final shell = PluginUiScope.require(context, chatShellService);
+    final routeId = shell.currentContent?.id;
+    final route = routeId == null ? null : ChatRoute.parse(routeId);
+    if (route?.channelId != widget.channelId || route?.isThread == true) {
+      return false;
+    }
+    _close();
+    return true;
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
     if (_ready) return;
     _search = PluginUiScope.require(context, chatSearchControllerService);
     final state = _search.scopedState(widget.siteUrl, widget.channelId);
@@ -88,6 +116,7 @@ class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
     _query.dispose();
     super.dispose();
   }

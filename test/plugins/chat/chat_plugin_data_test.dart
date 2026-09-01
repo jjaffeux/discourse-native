@@ -17,6 +17,9 @@ void main() {
         'chat_enabled': false,
         'chat_allow_uploads': false,
         'chat_search_enabled': true,
+        'enable_public_channels': false,
+        'chat_threads_enabled': false,
+        'chat_preferred_index': 'my_threads',
         'chat_channel_retention_days': 180,
         'chat_dm_retention_days': 30,
         'chat_max_direct_message_users': 35,
@@ -29,6 +32,9 @@ void main() {
           chatEnabled: false,
           uploadsEnabled: false,
           searchEnabled: true,
+          publicChannelsEnabled: false,
+          threadsEnabled: false,
+          preferredIndex: ChatPreferredIndex.myThreads,
           channelRetentionDays: 180,
           directMessageRetentionDays: 30,
           maximumDirectMessageUsers: 35,
@@ -123,6 +129,37 @@ void main() {
       }
     });
 
+    test('decodes every preferred-index wire value and defaults safely', () {
+      const cases = {
+        'channels': ChatPreferredIndex.channels,
+        'direct_messages': ChatPreferredIndex.directMessages,
+        'my_threads': ChatPreferredIndex.myThreads,
+      };
+      for (final entry in cases.entries) {
+        expect(
+          ChatSettings.fromSettings({
+            'chat_preferred_index': entry.key,
+          }).preferredIndex,
+          entry.value,
+        );
+      }
+
+      for (final malformed in [null, true, 7, 'unknown']) {
+        expect(
+          ChatSettings.fromSettings({
+            'chat_preferred_index': malformed,
+          }).preferredIndex,
+          ChatPreferredIndex.channels,
+        );
+      }
+      expect(
+        const ChatSettings(preferredIndex: ChatPreferredIndex.channels),
+        isNot(
+          const ChatSettings(preferredIndex: ChatPreferredIndex.directMessages),
+        ),
+      );
+    });
+
     test('uses safe defaults for absent and malformed sidebar modes', () {
       for (final malformed in [null, true, 7, 'sometimes', 'default']) {
         expect(
@@ -199,6 +236,7 @@ void main() {
             'directMessageRetentionDays': 14,
             'maximumDirectMessageUsers': 30,
             'separateSidebarMode': 'fullscreen',
+            'preferredIndex': 'direct_messages',
           },
         },
       }, extensions: _registry);
@@ -228,6 +266,7 @@ void main() {
           'directMessageRetentionDays': 14,
           'maximumDirectMessageUsers': 30,
           'separateSidebarMode': 'fullscreen',
+          'preferredIndex': 'direct_messages',
         },
       });
       expect(storedUser, isNot(contains('hasChatEnabled')));
@@ -275,6 +314,18 @@ void main() {
       }
     });
 
+    test('round-trips every preferred index through stored data', () {
+      for (final preferredIndex in ChatPreferredIndex.values) {
+        final settings = ChatSettings(preferredIndex: preferredIndex);
+        expect(
+          chatSettingsPersistenceCodec.decode(
+            chatSettingsPersistenceCodec.encode(settings),
+          ),
+          settings,
+        );
+      }
+    });
+
     test('migrates legacy flat values into namespaces', () {
       final config = SiteConfig.fromJson(const {
         'chatUploadsEnabled': false,
@@ -282,6 +333,7 @@ void main() {
         'chatChannelRetentionDays': 45,
         'chatDmRetentionDays': 7,
         'chatMaximumDirectMessageUsers': 12,
+        'chatPreferredIndex': 'my_threads',
       }, extensions: _registry);
       final user = DiscourseUser.fromJson(const {
         'username': 'sam',
@@ -299,6 +351,7 @@ void main() {
           channelRetentionDays: 45,
           directMessageRetentionDays: 7,
           maximumDirectMessageUsers: 12,
+          preferredIndex: ChatPreferredIndex.myThreads,
         ),
       );
       expect(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Rect;
 
 import 'package:flutter/foundation.dart';
 
@@ -60,6 +61,24 @@ abstract interface class PluginTopicListNavigationHost {
   void openTopicList(ContentRoute route);
 }
 
+/// The topic that remains visible behind a non-modal plugin surface.
+///
+/// This is intentionally a presentation snapshot rather than general topic
+/// access. Plugins can use it to associate a write with what the reader was
+/// looking at without receiving core topic or post records.
+@immutable
+final class PluginVisibleTopicContext {
+  PluginVisibleTopicContext({
+    required this.siteUrl,
+    required this.topicId,
+    required Iterable<int> postIds,
+  }) : postIds = List.unmodifiable(postIds);
+
+  final String siteUrl;
+  final int topicId;
+  final List<int> postIds;
+}
+
 abstract interface class PluginNavigationHost {
   /// Invalidates navigation-derived presentation snapshots without exposing
   /// the concrete shell notifier to the plugin.
@@ -72,6 +91,11 @@ abstract interface class PluginNavigationHost {
   ContentRoute? get currentContent;
   List<ContentRoute> get contentStack;
   NotificationTotals? get currentTotals;
+  PluginVisibleTopicContext? get visibleTopicContext;
+
+  /// The painted bounds of the shell's floating composer in global logical
+  /// coordinates, or null when no composer is visible.
+  Rect? get floatingComposerBounds;
 
   void selectInstance(int index);
   void pushContent(ContentRoute route);
@@ -97,8 +121,13 @@ abstract interface class PluginPaneRoutePolicy
   bool separatesPluginPane(String routeId);
 }
 
+enum PluginLinkOrigin { direct, inApp }
+
 abstract interface class PluginLinkHandler implements PluginSessionCapability {
-  Future<bool> openPluginUrl(String url);
+  Future<bool> openPluginUrl(
+    String url, {
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+  });
 }
 
 enum PluginRouteRetryResult { notHandled, failed, succeeded }

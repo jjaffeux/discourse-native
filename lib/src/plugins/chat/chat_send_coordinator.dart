@@ -19,6 +19,10 @@ import 'chat_stream_target.dart';
 typedef ChatSendCoordinatorFactory =
     ChatSendCoordinator Function(ChatSendCoordinatorHost host);
 
+typedef ChatMessageContext = ({int topicId, List<int> postIds});
+
+ChatMessageContext? _noChatMessageContext(String _) => null;
+
 /// The projection seam between send orchestration and chat timeline state.
 ///
 /// Keeping these operations as callbacks lets the coordinator own queue and
@@ -37,6 +41,7 @@ final class ChatSendCoordinatorHost {
     required this.hasUnsettledMessages,
     required this.reconcileSentEvent,
     required this.report,
+    this.messageContextFor = _noChatMessageContext,
   });
 
   final bool Function() isDisposed;
@@ -81,6 +86,7 @@ final class ChatSendCoordinatorHost {
     DiagnosticSeverity severity,
   )
   report;
+  final ChatMessageContext? Function(String siteUrl) messageContextFor;
 }
 
 /// Owns optimistic chat send staging and each stream's serialized send lane.
@@ -183,6 +189,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
       settled: settlement.future,
     );
     final key = _targetKey(siteUrl, target);
+    final context = _host.messageContextFor(siteUrl);
     final queue = _queues.putIfAbsent(
       key,
       () => _ChatSendQueue(siteUrl: siteUrl, target: target, key: key),
@@ -195,6 +202,12 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
         ]),
         settlement: settlement,
         lease: _requests.capture(siteUrl),
+        context: context == null
+            ? null
+            : (
+                topicId: context.topicId,
+                postIds: List.unmodifiable(context.postIds),
+              ),
       ),
     );
     _schedule(queue);
@@ -301,6 +314,8 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
         uploadIds: item.uploadIds,
         stagedId: local.stagedId,
         clientCreatedAt: local.createdAt,
+        contextTopicId: item.context?.topicId,
+        contextPostIds: item.context?.postIds ?? const [],
       );
       if (!_requestIsCurrent(item.lease, queue, item)) {
         item.complete(ChatSendResult.cancelled);
@@ -527,12 +542,14 @@ final class _QueuedChatSend {
     required this.uploadIds,
     required this.settlement,
     required this.lease,
+    required this.context,
   });
 
   final ChatMessage local;
   final List<int> uploadIds;
   final Completer<ChatSendResult> settlement;
   final PluginSiteLease lease;
+  final ChatMessageContext? context;
 
   void complete(ChatSendResult result) {
     if (!settlement.isCompleted) settlement.complete(result);

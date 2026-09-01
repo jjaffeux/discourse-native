@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show RenderEditable;
+import 'package:flutter/rendering.dart' show RenderBox, RenderEditable;
 import 'package:flutter/services.dart';
 
 import '../data/composer_geometry_store.dart';
@@ -318,10 +318,12 @@ class FloatingComposerPanel extends StatefulWidget {
     super.key,
     required this.composer,
     this.geometryStore = const ComposerGeometryStore(),
+    this.onGeometryChanged,
   });
 
   final ComposerController composer;
   final ComposerGeometryStore geometryStore;
+  final ValueChanged<Rect?>? onGeometryChanged;
 
   @override
   State<FloatingComposerPanel> createState() => _FloatingComposerPanelState();
@@ -339,18 +341,28 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
       _edgeHandleExtent + _composerPanelRadius;
   static const Duration _geometryRestoreDeadline = Duration(milliseconds: 100);
 
+  final GlobalKey _panelKey = GlobalKey();
+
   Size? _size;
   Offset? _position;
   ComposerGeometryPreference? _restoredPreference;
   bool _geometryLoaded = false;
   bool _geometryChanged = false;
   bool _minimized = false;
+  bool _geometryReportScheduled = false;
+  Rect? _reportedGeometry;
   Future<void> _pendingGeometryWrite = Future.value();
 
   @override
   void initState() {
     super.initState();
     unawaited(_restoreGeometry());
+  }
+
+  @override
+  void dispose() {
+    if (_reportedGeometry != null) widget.onGeometryChanged?.call(null);
+    super.dispose();
   }
 
   @override
@@ -363,6 +375,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
       final geometry = _minimized
           ? _minimizedGeometry(expandedGeometry, bounds)
           : expandedGeometry;
+      _scheduleGeometryReport();
 
       return Stack(
         clipBehavior: Clip.none,
@@ -383,6 +396,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                   width: geometry.size.width,
                   height: geometry.size.height,
                   child: ComposerPanel(
+                    key: _panelKey,
                     composer: widget.composer,
                     height: geometry.size.height,
                     minimized: _minimized,
@@ -489,6 +503,26 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
       );
     },
   );
+
+  void _scheduleGeometryReport() {
+    if (_geometryReportScheduled || widget.onGeometryChanged == null) return;
+    _geometryReportScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _geometryReportScheduled = false;
+      if (!mounted) return;
+      final renderObject = _panelKey.currentContext?.findRenderObject();
+      if (renderObject is! RenderBox ||
+          !renderObject.attached ||
+          !renderObject.hasSize) {
+        return;
+      }
+      final topLeft = renderObject.localToGlobal(Offset.zero);
+      final bounds = topLeft & renderObject.size;
+      if (_reportedGeometry == bounds) return;
+      _reportedGeometry = bounds;
+      widget.onGeometryChanged?.call(bounds);
+    });
+  }
 
   Widget _resizeHandle({
     required Key key,

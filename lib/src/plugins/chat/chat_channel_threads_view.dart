@@ -7,8 +7,10 @@ import '../../shell/content_reading_lane.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icons.dart';
 import 'chat_controller.dart';
+import 'chat_drawer.dart';
 import 'chat_my_threads_view.dart';
 import 'chat_services.dart';
+import 'chat_shell_service.dart';
 
 class ChatChannelThreadsView extends StatefulWidget {
   const ChatChannelThreadsView({
@@ -27,15 +29,42 @@ class ChatChannelThreadsView extends StatefulWidget {
 class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
   late final ChatController _chat;
   late final ScrollController _scroll;
+  ChatShellService? _shell;
   Object? _viewToken;
+  bool _viewStartScheduled = false;
   bool _ready = false;
+  bool _tickerEnabled = true;
+  bool _drawerSurface = false;
+
+  bool get _viewerActive =>
+      _ready &&
+      _tickerEnabled &&
+      !_drawerSurface &&
+      (_shell?.forumActive ?? false);
 
   @override
   void initState() {
     super.initState();
     _scroll = ScrollController()..addListener(_maybeLoadMore);
+  }
+
+  void _handleShellChanged() => _syncViewing();
+
+  void _syncViewing() {
+    if (!_viewerActive) {
+      if (_viewToken case final token?) {
+        _viewToken = null;
+        _chat.endViewingChannel(widget.siteUrl, widget.channelId, token);
+      }
+      return;
+    }
+    if (_viewToken != null || _viewStartScheduled) return;
+    _viewStartScheduled = true;
+    // Advancing lastViewedAt updates the channel record consumed by the
+    // sibling header, so wait until the current frame has finished building.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_ready) return;
+      _viewStartScheduled = false;
+      if (!mounted || !_viewerActive || _viewToken != null) return;
       _viewToken = _chat.beginViewingChannel(widget.siteUrl, widget.channelId);
     });
   }
@@ -43,14 +72,24 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_ready) return;
-    _chat = PluginUiScope.require(context, chatControllerService);
-    _ready = true;
-    unawaited(_chat.loadChannelThreads(widget.siteUrl, widget.channelId));
+    final shell = PluginUiScope.require(context, chatShellService);
+    if (!identical(shell, _shell)) {
+      _shell?.removeListener(_handleShellChanged);
+      _shell = shell..addListener(_handleShellChanged);
+    }
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    _drawerSurface = ChatDrawerScope.isDrawer(context);
+    if (!_ready) {
+      _chat = PluginUiScope.require(context, chatControllerService);
+      _ready = true;
+      unawaited(_chat.loadChannelThreads(widget.siteUrl, widget.channelId));
+    }
+    _syncViewing();
   }
 
   @override
   void dispose() {
+    _shell?.removeListener(_handleShellChanged);
     if (_viewToken case final token?) {
       _chat.endViewingChannel(widget.siteUrl, widget.channelId, token);
     }

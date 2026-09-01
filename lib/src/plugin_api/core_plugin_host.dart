@@ -134,12 +134,17 @@ final class OpenNewTopicComposerRequest {
     required this.sourceRouteId,
     required this.seed,
     this.initialCategoryId,
+    this.sourceStillCurrent,
   });
 
   final String siteUrl;
   final String sourceRouteId;
   final ComposerSeed seed;
   final int? initialCategoryId;
+
+  /// Optional plugin-owned source guard for modeless surfaces whose route is
+  /// independent of the shell route identified by [sourceRouteId].
+  final bool Function()? sourceStillCurrent;
 }
 
 enum OpenComposerResult { opened, unavailable, sourceChanged }
