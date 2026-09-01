@@ -614,7 +614,7 @@ class _DrawerHeader extends StatelessWidget {
       tooltip: 'Open full-screen chat',
       onPressed: onFullPage,
       variant: DButtonVariant.flat,
-      icon: const DIcon(DIcons.expand, size: 18),
+      icon: const DIcon(DIcons.discourseExpand, size: 18),
     );
 
     return LayoutBuilder(
