@@ -78,6 +78,49 @@ void main() {
       }
     });
 
+    testWidgets('keeps the selected border inside its paint bounds', (
+      tester,
+    ) async {
+      final gallery = parseComposerImageGalleries(_source).single;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: ComposerImageGalleryPreview(
+              gallery: gallery,
+              highlighted: true,
+              items: [
+                for (final image in gallery.images)
+                  ComposerImageGalleryItem(
+                    image: image,
+                    url: null,
+                    imageKey: GlobalKey(),
+                    highlighted: false,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final preview = find.byType(ComposerImageGalleryPreview);
+      final size = tester.getSize(preview);
+      final middle = size.height / 2;
+      expect(
+        preview,
+        paints
+          ..path(color: const Color(0x00000000))
+          ..path(
+            includes: [Offset(2, middle), Offset(size.width - 2, middle)],
+            excludes: [Offset(0.5, middle), Offset(size.width - 0.5, middle)],
+            color: Theme.of(tester.element(preview)).colorScheme.primary,
+            strokeWidth: 2.5,
+            style: PaintingStyle.stroke,
+          ),
+      );
+    });
+
     testWidgets('uses cover-sized artwork', (tester) async {
       final gallery = parseComposerImageGalleries(_source).single;
       final image = gallery.images.first;

@@ -327,14 +327,18 @@ class _GalleryBorder extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final strokeWidth = highlighted ? 2.5 : 1.5;
     final path = Path()
       ..addRRect(
-        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(8)),
+        RRect.fromRectAndRadius(
+          Offset.zero & size,
+          const Radius.circular(8),
+        ).deflate(strokeWidth / 2),
       );
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = highlighted ? 2.5 : 1.5;
+      ..strokeWidth = strokeWidth;
 
     if (highlighted) {
       canvas.drawPath(path, paint);
