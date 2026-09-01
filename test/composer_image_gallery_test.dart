@@ -531,9 +531,10 @@ void main() {
       );
       expect(render.plainText.length, source.length);
 
+      final editableRect = tester.getRect(find.byType(EditableText));
       final belowGallery = Offset(
         galleryRect.left + 24,
-        galleryRect.bottom + 24,
+        editableRect.bottom - 24,
       );
       expect(
         tester.getRect(find.byType(EditableText)).contains(belowGallery),
@@ -557,6 +558,105 @@ void main() {
         findsNothing,
       );
       expect(_composerEditable(tester).showCursor, isTrue);
+    });
+
+    testWidgets('refreshes a cached gallery projection after reassemble', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1450, 1110);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final composer = ComposerController(
+        _target,
+        resolveUploadUrls: (_) async => const {},
+      );
+      final source = _gallerySource(10);
+      composer.text.value = TextEditingValue(
+        text: source,
+        selection: TextSelection.collapsed(offset: source.length),
+      );
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore(),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      await shell.load();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 555),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final gallery = composer.text.galleryBlocks.single;
+      final galleryRect = tester.getRect(
+        find.byType(ComposerImageGalleryPreview),
+      );
+      final editable = find.byType(EditableText);
+      final render = tester.state<EditableTextState>(editable).renderEditable;
+      final caret = render.getLocalRectForCaret(
+        TextPosition(offset: gallery.end),
+      );
+      final globalCaret = caret.shift(render.localToGlobal(Offset.zero));
+      expect(globalCaret.top - galleryRect.bottom, inInclusiveRange(-8, 32));
+
+      final context = tester.element(editable);
+      final style = tester.widget<EditableText>(editable).style;
+      final before = composer.text.buildTextSpan(
+        context: context,
+        style: style,
+        withComposing: true,
+      );
+
+      final reassemble = tester.binding.reassembleApplication();
+      await tester.pump();
+      await reassemble;
+
+      final after = composer.text.buildTextSpan(
+        context: tester.element(editable),
+        style: tester.widget<EditableText>(editable).style,
+        withComposing: true,
+      );
+      expect(after, isNot(same(before)));
+
+      final belowGallery = Offset(
+        galleryRect.left + 24,
+        tester.getRect(editable).bottom - 24,
+      );
+      await tester.tapAt(belowGallery);
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        composer.text.selection,
+        TextSelection.collapsed(offset: gallery.end),
+      );
+      final caretAfterTap = render.getLocalRectForCaret(
+        TextPosition(offset: gallery.end),
+      );
+      final globalCaretAfterTap = caretAfterTap.shift(
+        render.localToGlobal(Offset.zero),
+      );
+      expect(
+        globalCaretAfterTap.top - galleryRect.bottom,
+        inInclusiveRange(-8, 32),
+      );
+      expect(
+        find.byKey(const ValueKey('composer-gallery-toolbar')),
+        findsNothing,
+      );
     });
 
     testWidgets('keeps wrapped rows scrollable in a narrow editor', (
