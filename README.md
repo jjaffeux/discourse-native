@@ -115,10 +115,13 @@ v1.5**. `basic_utils`' `rsaDecrypt` uses raw unpadded RSA and will not work;
 
 ### Counters
 
-The shell-wide numbers — the rail badge and the sidebar counts — come from one
-call to `/notifications/totals.json`, not from a request per section. It returns
-`unread_notifications`, `unread_personal_messages`, `unseen_reviewables`,
-`topic_tracking.{unread,new}` and `username`. Installed plugins register
+The account-wide numbers come from one call to `/notifications/totals.json`,
+not from a request per section. It returns `unread_notifications`,
+`unread_personal_messages`, `unseen_reviewables`, topic-tracking totals and
+`username`. Legacy New users receive separate `topic_tracking.{new,unread}`
+counts. Unified New users receive only `topic_tracking.new`, which is already
+the combined total; the Topics/Replies split comes from the per-topic tracking
+snapshot and stays current through MessageBus. Installed plugins register
 additional namespaced counters and own their wire keys; Chat, for example,
 registers `chat/notifications` backed by `chat_notifications`. Core-only builds
 do not interpret that field.
@@ -164,9 +167,8 @@ sees the section. Individual rows open native tag topic feeds, private-message
 tags use their account-scoped route, and **All tags** opens a native directory
 backed by `/tags.json`.
 
-Tag rows intentionally have no topic-count badge. Core's sidebar number is a
-personalized unread/new calculation from its per-topic tracking map, not the
-directory's total topic count; this client does not carry that full map.
+Tag rows use the personalized unread/new calculation from the per-topic
+tracking map, not the directory's total topic count.
 
 Per-topic unread state does *not* need a separate call — `/latest.json` is
 personalized when authenticated and each topic carries `unread_posts` and

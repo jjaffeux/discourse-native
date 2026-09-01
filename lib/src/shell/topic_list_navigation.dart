@@ -24,15 +24,18 @@ class TopicListNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       ShellSelector<_TopicListNavigationSnapshot>(
-        select: (controller) => (
-          mode: controller.currentTopicListMode,
-          signedIn: controller.currentInstance?.user != null,
-          unifiedNew:
-              controller.currentInstance?.user?.unifiedNewEnabled == true,
-          allCount: controller.newActivityCount,
-          topicCount: controller.newTopicCount,
-          replyCount: controller.newReplyCount,
-        ),
+        select: (controller) {
+          final counts = controller.topicListNewCounts;
+          return (
+            mode: controller.currentTopicListMode,
+            signedIn: controller.currentInstance?.user != null,
+            unifiedNew:
+                controller.currentInstance?.user?.unifiedNewEnabled == true,
+            allCount: counts.all,
+            topicCount: counts.topics,
+            replyCount: counts.replies,
+          );
+        },
         builder: (context, state, _) {
           if (!state.signedIn || state.mode == null) return child;
           return Column(

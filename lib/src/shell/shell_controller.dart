@@ -1549,7 +1549,7 @@ class ShellController extends FrameSafeNotifier
     final totals = currentTotals;
     if (destinationId == 'latest') {
       final count = currentInstance?.user?.unifiedNewEnabled == true
-          ? (totals?.topicTrackingNew ?? 0) + (totals?.topicTrackingUnread ?? 0)
+          ? newActivityCount
           : totals?.topicTrackingSidebarCount ?? 0;
       return SidebarBadge.count(count);
     }
@@ -1938,6 +1938,7 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _categorised = {};
   final Map<String, List<TopicCategory>> _categoriesBySite = {};
   final Map<String, TopicTrackingState> _topicTrackingBySite = {};
+  final Set<String> _topicTrackingSnapshotsLoaded = {};
   final Map<String, int> _topicTrackingRevisions = {};
   final Set<String> _topicTrackingLoads = {};
   final Map<String, List<Object?>> _topicTrackingPendingEvents = {};
@@ -2011,13 +2012,37 @@ class ShellController extends FrameSafeNotifier
     return TopicListMode.fromRoute(tab.currentContent);
   }
 
-  int get newTopicCount => currentTotals?.topicTrackingNew ?? 0;
+  ({int all, int topics, int replies}) get topicListNewCounts {
+    final instance = currentInstance;
+    final totals = currentTotals;
+    if (instance?.user?.unifiedNewEnabled == true) {
+      final tracking = _topicTrackingBySite[instance!.url];
+      if (tracking == null ||
+          !_topicTrackingSnapshotsLoaded.contains(instance.url)) {
+        return (all: totals?.topicTrackingNew ?? 0, topics: 0, replies: 0);
+      }
+      final counts = tracking.newActivityCounts;
+      final trackedTotal = counts.newTopics + counts.newReplies;
+      return (
+        all: trackedTotal,
+        topics: counts.newTopics,
+        replies: counts.newReplies,
+      );
+    }
 
-  int get newReplyCount => currentTotals?.topicTrackingUnread ?? 0;
+    final topics = totals?.topicTrackingNew ?? 0;
+    return (
+      all: topics,
+      topics: topics,
+      replies: totals?.topicTrackingUnread ?? 0,
+    );
+  }
 
-  int get newActivityCount => currentInstance?.user?.unifiedNewEnabled == true
-      ? newTopicCount + newReplyCount
-      : newTopicCount;
+  int get newTopicCount => topicListNewCounts.topics;
+
+  int get newReplyCount => topicListNewCounts.replies;
+
+  int get newActivityCount => topicListNewCounts.all;
 
   TopicListMode get defaultTopTopicListMode {
     final siteUrl = currentInstance?.url;
@@ -2858,6 +2883,7 @@ class ShellController extends FrameSafeNotifier
       }
       lease.commit(() {
         _topicTrackingBySite[siteUrl] = snapshot;
+        _topicTrackingSnapshotsLoaded.add(siteUrl);
         _topicTrackingRevisions.update(
           siteUrl,
           (value) => value + 1,
@@ -3035,6 +3061,7 @@ class ShellController extends FrameSafeNotifier
         if (accountChanged) {
           accountActivity.forget(siteUrl);
           _topicTrackingBySite.remove(siteUrl);
+          _topicTrackingSnapshotsLoaded.remove(siteUrl);
           _topicTrackingRevisions.remove(siteUrl);
           _topicTrackingLoads.remove(siteUrl);
           _topicTrackingPendingEvents.remove(siteUrl);
@@ -10034,6 +10061,7 @@ class ShellController extends FrameSafeNotifier
     _categorised.remove(siteUrl);
     _categoriesBySite.remove(siteUrl);
     _topicTrackingBySite.remove(siteUrl);
+    _topicTrackingSnapshotsLoaded.remove(siteUrl);
     _topicTrackingRevisions.remove(siteUrl);
     _topicTrackingLoads.remove(siteUrl);
     _topicTrackingPendingEvents.remove(siteUrl);
