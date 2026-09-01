@@ -540,6 +540,56 @@ void main() {
       await _closeComposerAfterAssertions(tester, shell);
     });
 
+    testWidgets('vertical arrows leave a selected projected component', (
+      tester,
+    ) async {
+      final shell = await _openComposer();
+      addTearDown(shell.dispose);
+      final composer = shell.visibleComposer!;
+      composer.text.value = const TextEditingValue(
+        text: _source,
+        selection: TextSelection.collapsed(offset: _source.length),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(body: ComposerPanel(composer: composer)),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final block = composer.text.pollBlocks.single;
+      final occurrence = composer.text.syntaxBlocks.singleWhere(
+        (candidate) => candidate.start == block.start,
+      );
+      composer.focus.requestFocus();
+      for (final (key, expectedOffset) in [
+        (LogicalKeyboardKey.arrowUp, block.start),
+        (LogicalKeyboardKey.arrowDown, composer.text.pollCaretAfter(block)),
+      ]) {
+        composer.text.selectPillForKeyboard(occurrence);
+        await tester.pump();
+        expect(composer.text.keyboardSelectedPoll, isNotNull);
+        expect(_composerEditable(tester).showCursor, isFalse);
+
+        await tester.sendKeyEvent(key);
+        await tester.pump();
+
+        expect(
+          composer.text.selection,
+          TextSelection.collapsed(offset: expectedOffset),
+        );
+        expect(composer.text.keyboardSelectedPoll, isNull);
+        expect(_composerEditable(tester).showCursor, isTrue);
+      }
+
+      await _closeComposerAfterAssertions(tester, shell);
+    });
+
     testWidgets('closing the composer during a poll edit is disposal-safe', (
       tester,
     ) async {
@@ -971,7 +1021,7 @@ void main() {
   });
 
   group('poll selection and editing guards', () {
-    testWidgets('a selected poll blocks non-navigation keys and text input', (
+    testWidgets('a selected poll blocks deletion keys and text input', (
       tester,
     ) async {
       final shell = await _openComposer();
@@ -1024,12 +1074,7 @@ void main() {
       }
 
       expectLocked();
-      for (final key in [
-        LogicalKeyboardKey.arrowUp,
-        LogicalKeyboardKey.arrowDown,
-        LogicalKeyboardKey.delete,
-        LogicalKeyboardKey.keyA,
-      ]) {
+      for (final key in [LogicalKeyboardKey.delete, LogicalKeyboardKey.keyA]) {
         expect(
           await tester.sendKeyEvent(
             key,

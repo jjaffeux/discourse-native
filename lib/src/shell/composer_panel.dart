@@ -1579,15 +1579,19 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final selectedPill = _keyboardSelectedPill;
     if (selectedPill != null) {
       final isArrowPress = event is KeyDownEvent || event is KeyRepeatEvent;
-      final isPlainHorizontalArrow =
+      final movesBefore =
           isArrowPress &&
           !hasModifier &&
           (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
-              event.logicalKey == LogicalKeyboardKey.arrowRight);
-      if (isPlainHorizontalArrow) {
-        final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+              event.logicalKey == LogicalKeyboardKey.arrowUp);
+      final movesAfter =
+          isArrowPress &&
+          !hasModifier &&
+          (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+              event.logicalKey == LogicalKeyboardKey.arrowDown);
+      if (movesBefore || movesAfter) {
         _clearKeyboardPillSelection();
-        if (moveLeft) {
+        if (movesBefore) {
           widget.composer.text.selection = TextSelection.collapsed(
             offset: _pillStart(selectedPill),
           );

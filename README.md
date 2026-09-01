@@ -894,7 +894,8 @@ into the field's string. So:
   `markdown_highlight_test.dart` fuzzes 2000 inputs against the invariant, and
   `markdown_editing_controller_test.dart` round-trips the caret for it.
 - **Atomic selection owns the cursor state.** Horizontal keyboard traversal
-  has three states: caret before, selected with no caret, and caret after. A
+  has three states: caret before, selected with no caret, and caret after;
+  Up and Down leave a selected component at the corresponding boundary. A
   block image or gallery reserves its height with transparent source characters,
   whose interior caret geometry is not a meaningful editor position. The
   controller therefore hides the cursor for every selected projection; neither

@@ -440,7 +440,7 @@ void main() {
   });
 
   group('image selection and editing', () {
-    testWidgets('arrow up after an upload selects the projected image', (
+    testWidgets('vertical arrows leave a selected projected image', (
       tester,
     ) async {
       final calls = <_PanelUploadCall>[];
@@ -511,6 +511,30 @@ void main() {
         tester.getSize(find.byTooltip('Save alt text')),
         const Size.square(44),
       );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+
+      expect(
+        composer.text.selection,
+        TextSelection.collapsed(offset: image.start),
+      );
+      expect(composer.text.keyboardSelectedImage, isNull);
+      expect(_composerEditable(tester).showCursor, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(composer.text.keyboardSelectedImage, isNotNull);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+
+      expect(
+        composer.text.selection,
+        TextSelection.collapsed(offset: image.end),
+      );
+      expect(composer.text.keyboardSelectedImage, isNull);
+      expect(_composerEditable(tester).showCursor, isTrue);
     });
 
     testWidgets('escape unselects an upload before closing the composer', (
