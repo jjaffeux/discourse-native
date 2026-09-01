@@ -594,16 +594,20 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
         return KeyEventResult.handled;
       }
       final isArrowPress = event is KeyDownEvent || event is KeyRepeatEvent;
-      final isPlainHorizontalArrow =
+      final movesBefore =
           isArrowPress &&
           !hasModifier &&
           (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
-              event.logicalKey == LogicalKeyboardKey.arrowRight);
-      if (isPlainHorizontalArrow) {
-        final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+              event.logicalKey == LogicalKeyboardKey.arrowUp);
+      final movesAfter =
+          isArrowPress &&
+          !hasModifier &&
+          (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+              event.logicalKey == LogicalKeyboardKey.arrowDown);
+      if (movesBefore || movesAfter) {
         clearKeyboardImageSelection();
         _composer.text.selection = TextSelection.collapsed(
-          offset: moveLeft ? selectedImage.start : selectedImage.end,
+          offset: movesBefore ? selectedImage.start : selectedImage.end,
         );
         return KeyEventResult.handled;
       }
