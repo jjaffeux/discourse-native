@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
@@ -26,6 +28,7 @@ final class DraftListController extends FrameSafeNotifier {
 
   final Map<String, DraftFeed> _feeds = {};
   final Map<String, Object> _requests = {};
+  final Map<String, DiscourseInstance> _pendingRefreshes = {};
   final Map<_DraftDeletionKey, Object> _deletions = {};
   // Draft keys deleted while a page request was in flight. That response was
   // produced against an older server state, so these keys outrank it.
@@ -64,7 +67,10 @@ final class DraftListController extends FrameSafeNotifier {
   Future<void> load(DiscourseInstance instance, {bool refresh = false}) async {
     if (isDisposed || !instance.isConnected) return;
     final siteUrl = instance.url;
-    if (_requests.containsKey(siteUrl)) return;
+    if (_requests.containsKey(siteUrl)) {
+      if (refresh) _pendingRefreshes[siteUrl] = instance;
+      return;
+    }
     final held = refresh ? const DraftFeed() : feedFor(siteUrl);
     if (!refresh && held.loaded && !held.hasMore) return;
 
@@ -123,6 +129,10 @@ final class DraftListController extends FrameSafeNotifier {
       if (!isDisposed && identical(_requests[siteUrl], request)) {
         _requests.remove(siteUrl);
         _deletedWhileLoading.remove(siteUrl);
+        final pending = _pendingRefreshes.remove(siteUrl);
+        if (pending != null) {
+          unawaited(load(pending, refresh: true));
+        }
       }
     }
   }
@@ -169,6 +179,7 @@ final class DraftListController extends FrameSafeNotifier {
   void forget(String siteUrl) {
     var changed = _feeds.remove(siteUrl) != null;
     changed = _requests.remove(siteUrl) != null || changed;
+    _pendingRefreshes.remove(siteUrl);
     _deletedWhileLoading.remove(siteUrl);
     final deletionsBefore = _deletions.length;
     _deletions.removeWhere((identity, _) => identity.siteUrl == siteUrl);
@@ -216,6 +227,7 @@ final class DraftListController extends FrameSafeNotifier {
   @override
   void dispose() {
     _requests.clear();
+    _pendingRefreshes.clear();
     _deletions.clear();
     _deletedWhileLoading.clear();
     super.dispose();

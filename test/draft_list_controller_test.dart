@@ -218,6 +218,30 @@ void main() {
   });
 
   group('stale page reconciliation', () {
+    test('queues a live refresh received while a page is in flight', () async {
+      final api = _GatedDraftsApi();
+      final controller = DraftListController(
+        api: api,
+        credentials: _ReadyApiKeys(),
+        lifecycle: SiteLifecycle(),
+      );
+      addTearDown(controller.dispose);
+
+      final initial = controller.load(_instance);
+      await pumpEventQueue();
+      await controller.load(_instance, refresh: true);
+
+      api.pages.single.complete(const [_draft]);
+      await initial;
+      await pumpEventQueue();
+      expect(api.pages, hasLength(2));
+
+      api.pages[1].complete(const []);
+      await pumpEventQueue();
+
+      expect(controller.feedFor(_siteUrl).drafts, isEmpty);
+    });
+
     test('keeps a draft deleted while a page is in flight', () async {
       final api = _GatedDraftsApi();
       final controller = DraftListController(
