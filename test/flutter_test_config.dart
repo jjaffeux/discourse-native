@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Gives every test an empty in-memory `shared_preferences` store.
 ///
 /// The shell mounts several stores whose reads nothing awaits — the sidebar
-/// and diagnostics panel widths, the stored sidebar sections, Resenha's device
+/// and diagnostics panel widths, the stored sidebar sections, Voice's device
 /// selection. Without a mock store those cross the real platform channel,
 /// whose reply lands whenever the host process gets to it: under full-suite
 /// load that is after the widget test's fake clock has stopped, so the

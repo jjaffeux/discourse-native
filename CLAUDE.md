@@ -11,16 +11,16 @@ Every change must pass exactly what CI runs:
 
 ```sh
 flutter pub get --enforce-lockfile
-(cd packages/discourse_resenha && flutter pub get --enforce-lockfile)
+(cd packages/discourse_voice && flutter pub get --enforce-lockfile)
 (cd profiles/full && flutter pub get --enforce-lockfile)
 
 dart format --output=none --set-exit-if-changed \
   lib test integration_test tool \
-  packages/discourse_resenha/lib \
-  packages/discourse_resenha/tool profiles/full/lib
+  packages/discourse_voice/lib \
+  packages/discourse_voice/tool profiles/full/lib
 flutter analyze
 flutter test --test-randomize-ordering-seed=random
-(cd packages/discourse_resenha && flutter analyze)
+(cd packages/discourse_voice && flutter analyze)
 (cd profiles/full && flutter analyze)
 ```
 
@@ -94,11 +94,11 @@ Requirements line with it.
 - `lib/src/models/` — JSON parsing and domain records.
 - `lib/src/shell/` — app frame, navigation, composer, rendering.
 - `lib/src/plugins/` — bundled features such as Chat, Poll, reactions,
-  Local Dates, GIFs, Assign, and Resenha; each is optional per site, but every
+  Local Dates, GIFs, Assign, and Voice; each is optional per site, but every
   app binary contains the complete module graph.
-- `packages/discourse_resenha/` — Resenha's native iOS CallKit bridge and the
+- `packages/discourse_voice/` — Voice's native iOS CallKit bridge and the
   vendored WebRTC fork; the Dart feature implementation lives in
-  `lib/src/plugins/resenha/`.
+  `lib/src/plugins/voice/`.
 - `profiles/full/` — compatibility application runners using the same bundled
   manifest as the repository-root app.
 - `lib/src/diagnostics/`, `lib/src/foundation/` — error capture, shared
@@ -118,10 +118,10 @@ Requirements line with it.
   transports),
   `plugins/chat/chat_message_timeline.dart` (how canonical chat-message ids are
   merged across pages, live arrivals, and the seam back to the present),
-  `plugins/resenha/resenha_diagnostics_report.dart` (how
-  ordinary and deep Resenha diagnostics are sanitized, de-duplicated, and
+  `plugins/voice/voice_diagnostics_report.dart` (how
+  ordinary and deep Voice diagnostics are sanitized, de-duplicated, and
   merged).
-- Application and Resenha tests live under `test/`. A change to `foo.dart`
+- Application and Voice tests live under `test/`. A change to `foo.dart`
   almost always has a `foo_test.dart` in its owning package to extend. Follow
   `docs/testing.md` for suite ownership, naming, assertions, async control,
   and cleanup.

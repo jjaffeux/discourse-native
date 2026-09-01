@@ -925,20 +925,20 @@ void main() {
 
       await api.pluginGetJson(
         siteUrl: 'https://example.com',
-        path: '/resenha/rooms.json?limit=20',
+        path: '/voice/rooms.json?limit=20',
         apiKey: 'secret',
       );
       await api.pluginWriteJson(
         siteUrl: 'https://example.com',
-        path: 'resenha/rooms/1.json',
+        path: 'voice/rooms/1.json',
         method: 'PUT',
         apiKey: 'secret',
         body: const {'name': 'Room'},
       );
 
       expect(requests.map((request) => request.url), [
-        Uri.parse('https://example.com/resenha/rooms.json?limit=20'),
-        Uri.parse('https://example.com/resenha/rooms/1.json'),
+        Uri.parse('https://example.com/voice/rooms.json?limit=20'),
+        Uri.parse('https://example.com/voice/rooms/1.json'),
       ]);
       expect(
         requests,

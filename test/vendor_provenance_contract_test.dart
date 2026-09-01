@@ -13,22 +13,22 @@ void main() {
     final contract = contracts.singleWhere(
       (candidate) => candidate.package == 'flutter_webrtc',
     );
-    expect(contract.name, 'Resenha flutter_webrtc');
+    expect(contract.name, 'Voice flutter_webrtc');
     expect(contract.package, 'flutter_webrtc');
     expect(contract.version, '1.6.0');
     expect(
       contract.catalog,
-      'packages/discourse_resenha/tool/vendor_contract.json',
+      'packages/discourse_voice/tool/vendor_contract.json',
     );
     expect(
       contract.patchManifest,
       endsWith(
-        'packages/discourse_resenha/third_party/flutter_webrtc/PATCHES.md',
+        'packages/discourse_voice/third_party/flutter_webrtc/PATCHES.md',
       ),
     );
     expect(
       contract.vendorPath,
-      endsWith('packages/discourse_resenha/third_party/flutter_webrtc'),
+      endsWith('packages/discourse_voice/third_party/flutter_webrtc'),
     );
 
     final videoPlayerContract = contracts.singleWhere(

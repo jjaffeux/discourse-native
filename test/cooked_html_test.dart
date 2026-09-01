@@ -652,7 +652,7 @@ void main() {
           type: 'room',
           slug: 'town-hall',
           id: 14,
-          href: '/resenha/r/town-hall',
+          href: '/voice/r/town-hall',
           styleType: 'icon',
           text: 'Town Hall',
         ),
@@ -661,7 +661,7 @@ void main() {
 
       final pill = tester.widget<HashtagPill>(find.byType(HashtagPill));
       expect(pill.label, 'Town Hall');
-      expect(pill.href, '/resenha/r/town-hall');
+      expect(pill.href, '/voice/r/town-hall');
       expect(find.dIcon(DIcons.microphoneLines), findsOneWidget);
       expect(find.dIcon(DIcons.tag), findsNothing);
     });
@@ -675,7 +675,7 @@ void main() {
             type: 'room',
             slug: 'town-hall',
             id: 14,
-            href: '/resenha/r/town-hall',
+            href: '/voice/r/town-hall',
             styleType: 'icon',
             icon: 'not-an-icon-this-app-has',
             text: 'Town Hall',
@@ -697,7 +697,7 @@ void main() {
           type: 'room',
           slug: 'town-hall',
           id: 14,
-          href: '/resenha/r/town-hall',
+          href: '/voice/r/town-hall',
           styleType: 'icon',
           text: 'Town Hall',
         ),
@@ -706,7 +706,7 @@ void main() {
 
       final pill = tester.widget<HashtagPill>(find.byType(HashtagPill));
       expect(pill.label, 'Town Hall');
-      expect(pill.href, '/resenha/r/town-hall');
+      expect(pill.href, '/voice/r/town-hall');
       expect(pill.presentation.type, 'room');
       expect(find.dIcon(DIcons.link), findsOneWidget);
       expect(find.dIcon(DIcons.tag), findsNothing);
@@ -747,7 +747,7 @@ void main() {
           type: ' room ',
           slug: 'town-hall',
           id: 14,
-          href: '/resenha/r/town-hall',
+          href: '/voice/r/town-hall',
           styleType: 'icon',
           text: 'Town Hall',
         ),

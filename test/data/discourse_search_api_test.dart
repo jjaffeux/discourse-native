@@ -502,7 +502,7 @@ void main() {
                     'slug': 'lounge',
                     'text': 'Lounge',
                     'id': 9,
-                    'relative_url': '/resenha/r/lounge',
+                    'relative_url': '/voice/r/lounge',
                     'style_type': 'icon',
                     'icon': 'microphone-lines',
                   },
@@ -532,7 +532,7 @@ void main() {
         ]);
         expect(found.map((f) => f.ref), ['bug', 'ux::tag', 'lounge']);
         expect(found.last.type, 'room');
-        expect(found.last.relativeUrl, '/resenha/r/lounge');
+        expect(found.last.relativeUrl, '/voice/r/lounge');
         expect(found.last.icon, 'microphone-lines');
       },
     );

@@ -308,20 +308,20 @@ void main() {
         final messages = <Object?>[];
 
         final subscription = tracker.watchPluginChannel(
-          '/resenha/rooms/index',
+          '/voice/rooms/index',
           messages.add,
           lastId: 144,
         );
-        expect(bus.lastIds['/resenha/rooms/index'], 144);
+        expect(bus.lastIds['/voice/rooms/index'], 144);
 
-        final retainedCallback = bus.retainedCallback('/resenha/rooms/index');
-        bus.deliver('/resenha/rooms/index', 'first');
+        final retainedCallback = bus.retainedCallback('/voice/rooms/index');
+        bus.deliver('/voice/rooms/index', 'first');
         subscription.cancel();
-        bus.deliver('/resenha/rooms/index', 'late');
+        bus.deliver('/voice/rooms/index', 'late');
         retainedCallback('already queued');
 
         expect(messages, ['first']);
-        expect(bus.activeSubscriptionCount('/resenha/rooms/index'), 0);
+        expect(bus.activeSubscriptionCount('/voice/rooms/index'), 0);
       });
 
       test('scoped handles expose only declared live channels', () async {
@@ -396,7 +396,7 @@ void main() {
           '/user-status',
           '/do-not-disturb/42',
           '/topic/7/reactions',
-          '/resenha/rooms/7',
+          '/voice/rooms/7',
           '/chatty/42',
         ]) {
           expect(
@@ -483,7 +483,7 @@ void main() {
           addTearDown(tracker.dispose);
           tracker.watchTopic(12, ['/topic/12'], (_, _) => topicCalls += 1);
           tracker.watchPluginChannel(
-            '/resenha/rooms/index',
+            '/voice/rooms/index',
             (_) => pluginCalls += 1,
           );
           final incomingCallback = bus.retainedCallback('/latest');
@@ -492,7 +492,7 @@ void main() {
             '/reviewable_counts/42',
           );
           final topicCallback = bus.retainedCallback('/topic/12');
-          final pluginCallback = bus.retainedCallback('/resenha/rooms/index');
+          final pluginCallback = bus.retainedCallback('/voice/rooms/index');
           tracker.incoming.notify({'topic_id': 7, 'message_type': 'new_topic'});
           expect(tracker.incoming.count('latest'), 1);
 

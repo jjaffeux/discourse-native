@@ -35,9 +35,9 @@ void main() {
     expect(draft.excerpt, same(excerpt));
   });
 
-  test('a Resenha transcript draft is labeled and resumable', () {
+  test('a Voice transcript draft is labeled and resumable', () {
     final draft = UserDraft.fromJson(const {
-      'draft_key': 'new_topic_resenha_7_1788170000000',
+      'draft_key': 'new_topic_voice_7_1788170000000',
       'sequence': 6,
       'data': {
         'reply': 'Transcript in progress',
@@ -47,7 +47,7 @@ void main() {
     });
 
     expect(draft.isNewTopic, isTrue);
-    expect(draft.isResenhaTranscript, isTrue);
+    expect(draft.isVoiceTranscript, isTrue);
     expect(draft.kindLabel, 'Call transcript draft');
     expect(draft.canResume, isTrue);
   });

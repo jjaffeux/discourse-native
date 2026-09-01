@@ -4,19 +4,15 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _corePubspecPath = 'pubspec.yaml';
 const _coreLockPath = 'pubspec.lock';
-const _resenhaPackagePath = 'packages/discourse_resenha';
+const _voicePackagePath = 'packages/discourse_voice';
 const _fullProfilePath = 'profiles/full';
 
-const _resenhaGraphPackages = {
-  'discourse_resenha',
+const _voiceGraphPackages = {
+  'discourse_voice',
   'flutter_webrtc',
   'livekit_client',
 };
-const _resenhaOwnedDependencies = {
-  ..._resenhaGraphPackages,
-  'logger',
-  'logging',
-};
+const _voiceOwnedDependencies = {..._voiceGraphPackages, 'logger', 'logging'};
 
 void main() {
   group('profile package graphs', () {
@@ -41,7 +37,7 @@ void main() {
       );
     });
 
-    test('the root app declares and resolves the complete Resenha graph', () {
+    test('the root app declares and resolves the complete Voice graph', () {
       final pubspec = File(_corePubspecPath).readAsStringSync();
       final declaredPackages = {
         ..._mappingKeys(pubspec, 'dependencies'),
@@ -53,39 +49,39 @@ void main() {
       );
 
       expect(
-        declaredPackages.intersection(_resenhaOwnedDependencies),
-        containsAll(_resenhaOwnedDependencies),
+        declaredPackages.intersection(_voiceOwnedDependencies),
+        containsAll(_voiceOwnedDependencies),
         reason:
-            'Every application build includes Resenha, its native bridge, '
+            'Every application build includes Voice, its native bridge, '
             'and both media SDKs.',
       );
       expect(
-        lockedPackages.intersection(_resenhaGraphPackages),
-        containsAll(_resenhaGraphPackages),
+        lockedPackages.intersection(_voiceGraphPackages),
+        containsAll(_voiceGraphPackages),
         reason:
             'The checked-in root lock must prove that ordinary builds '
-            'resolve Resenha and both media SDKs.',
+            'resolve Voice and both media SDKs.',
       );
       expect(
-        _dependencyPath(pubspec, 'dependencies', 'discourse_resenha'),
-        'packages/discourse_resenha',
+        _dependencyPath(pubspec, 'dependencies', 'discourse_voice'),
+        'packages/discourse_voice',
       );
       expect(
         _dependencyPath(pubspec, 'dependency_overrides', 'flutter_webrtc'),
-        'packages/discourse_resenha/third_party/flutter_webrtc',
+        'packages/discourse_voice/third_party/flutter_webrtc',
       );
     });
 
-    test('the Resenha child package is only the native iOS bridge', () {
-      const pubspecPath = '$_resenhaPackagePath/pubspec.yaml';
+    test('the Voice child package is only the native iOS bridge', () {
+      const pubspecPath = '$_voicePackagePath/pubspec.yaml';
       final pubspec = File(pubspecPath).readAsStringSync();
       final dependencies = _mappingKeys(pubspec, 'dependencies');
 
       expect(dependencies, {'flutter'});
 
-      final lock = File('$_resenhaPackagePath/pubspec.lock').readAsStringSync();
+      final lock = File('$_voicePackagePath/pubspec.lock').readAsStringSync();
       expect(
-        _mappingKeys(lock, 'packages').intersection(_resenhaGraphPackages),
+        _mappingKeys(lock, 'packages').intersection(_voiceGraphPackages),
         isEmpty,
         reason:
             'The native bridge must not depend back on the main package or '
@@ -94,7 +90,7 @@ void main() {
     });
 
     test(
-      'the compatibility application inherits the same locked Resenha graph',
+      'the compatibility application inherits the same locked Voice graph',
       () {
         const pubspecPath = '$_fullProfilePath/pubspec.yaml';
         const lockPath = '$_fullProfilePath/pubspec.lock';
@@ -104,17 +100,17 @@ void main() {
         final lockedPackages = _mappingKeys(lock, 'packages');
 
         expect(dependencies, contains('discourse_native'));
-        expect(dependencies, isNot(contains('discourse_resenha')));
+        expect(dependencies, isNot(contains('discourse_voice')));
         expect(
           _dependencyPath(pubspec, 'dependencies', 'discourse_native'),
           '../..',
         );
         expect(
           _dependencyPath(pubspec, 'dependency_overrides', 'flutter_webrtc'),
-          '../../packages/discourse_resenha/third_party/flutter_webrtc',
+          '../../packages/discourse_voice/third_party/flutter_webrtc',
           reason:
               'Pub ignores transitive overrides, so every application which '
-              'builds Resenha must activate its reviewed WebRTC fork itself.',
+              'builds Voice must activate its reviewed WebRTC fork itself.',
         );
         expect(
           _dependencyPath(
@@ -129,17 +125,17 @@ void main() {
         );
         expect(
           lockedPackages,
-          containsAll(_resenhaGraphPackages),
+          containsAll(_voiceGraphPackages),
           reason:
-              'Every application lock must resolve Resenha and both media SDKs.',
+              'Every application lock must resolve Voice and both media SDKs.',
         );
         expect(
-          _dependencyPath(lock, 'packages', 'discourse_resenha'),
-          '../../packages/discourse_resenha',
+          _dependencyPath(lock, 'packages', 'discourse_voice'),
+          '../../packages/discourse_voice',
         );
         expect(
           _dependencyPath(lock, 'packages', 'flutter_webrtc'),
-          '../../packages/discourse_resenha/third_party/flutter_webrtc',
+          '../../packages/discourse_voice/third_party/flutter_webrtc',
           reason:
               'The checked-in full lock must resolve the reviewed fork, not '
               'the hosted flutter_webrtc archive.',
@@ -156,15 +152,15 @@ void main() {
   });
 
   group('source and native ownership', () {
-    test('Resenha Dart sources are owned by the main application package', () {
+    test('Voice Dart sources are owned by the main application package', () {
       final sources = _filesUnder(
-        'lib/src/plugins/resenha',
+        'lib/src/plugins/voice',
         extension: '.dart',
       ).toList(growable: false);
 
       expect(sources, isNotEmpty);
       expect(
-        Directory('$_resenhaPackagePath/lib/src').existsSync(),
+        Directory('$_voicePackagePath/lib/src').existsSync(),
         isFalse,
         reason:
             'The native bridge must not contain a second copy of the Dart '
@@ -172,7 +168,7 @@ void main() {
       );
     });
 
-    test('every application entry point uses the Resenha manifest', () {
+    test('every application entry point uses the Voice manifest', () {
       final bundledManifest = File(
         'lib/src/plugins/bundled_plugin_manifest.dart',
       ).readAsStringSync();
@@ -181,17 +177,17 @@ void main() {
       ).readAsStringSync();
       final compatibilityTarget = File('lib/main_core.dart').readAsStringSync();
 
-      expect(bundledManifest, contains("import 'resenha/resenha_module.dart'"));
-      expect(bundledManifest, contains('resenhaModule'));
+      expect(bundledManifest, contains("import 'voice/voice_module.dart'"));
+      expect(bundledManifest, contains('voiceModule'));
       expect(fullManifest, contains('bundledPluginManifest'));
-      expect(fullManifest, isNot(contains('resenhaModule')));
+      expect(fullManifest, isNot(contains('voiceModule')));
       expect(compatibilityTarget, contains('bundledPluginManifest'));
       expect(compatibilityTarget, isNot(contains('corePluginManifest')));
     });
 
-    test('Resenha reaches Chat only through its declared contract edge', () {
+    test('Voice reaches Chat only through its declared contract edge', () {
       final module = File(
-        'lib/src/plugins/resenha/resenha_module.dart',
+        'lib/src/plugins/voice/voice_module.dart',
       ).readAsStringSync();
 
       expect(
@@ -207,7 +203,7 @@ void main() {
         r'''package:discourse_native/src/plugins/[^'"\s]+''',
       );
       for (final file in _filesUnder(
-        'lib/src/plugins/resenha',
+        'lib/src/plugins/voice',
         extension: '.dart',
       )) {
         for (final match in pluginImport.allMatches(file.readAsStringSync())) {
@@ -219,7 +215,7 @@ void main() {
         implementationImports,
         isEmpty,
         reason:
-            'Resenha may use Chat only through its '
+            'Voice may use Chat only through its '
             'approved contract.\n${implementationImports.join('\n')}',
       );
     });
@@ -227,8 +223,8 @@ void main() {
     test('CallKit and its channel are implemented only by the iOS plugin', () {
       const nativeMarkers = {
         'import CallKit',
-        'ResenhaCallKit',
-        'resenha_callkit',
+        'VoiceCallKit',
+        'voice_callkit',
         'CXProvider',
       };
       final coreViolations = _nativeMarkerOccurrences('ios', nativeMarkers);
@@ -241,24 +237,24 @@ void main() {
         [...coreViolations, ...fullRunnerViolations],
         isEmpty,
         reason:
-            'Application runners are shared infrastructure. Resenha native '
+            'Application runners are shared infrastructure. Voice native '
             'channels and CallKit behavior must live in its plugin package.',
       );
 
-      final resenhaPubspec = File(
-        '$_resenhaPackagePath/pubspec.yaml',
+      final voicePubspec = File(
+        '$_voicePackagePath/pubspec.yaml',
       ).readAsStringSync();
       expect(
-        _nestedScalar(resenhaPubspec, const [
+        _nestedScalar(voicePubspec, const [
           'flutter',
           'plugin',
           'platforms',
           'ios',
         ], 'pluginClass'),
-        'DiscourseResenhaPlugin',
+        'DiscourseVoicePlugin',
       );
 
-      final iosSources = _filesUnder('$_resenhaPackagePath/ios')
+      final iosSources = _filesUnder('$_voicePackagePath/ios')
           .where(
             (file) =>
                 const {'.swift', '.m', '.mm', '.h'}.contains(_extension(file)),
@@ -267,39 +263,39 @@ void main() {
       final combinedSource = iosSources
           .map((file) => file.readAsStringSync())
           .join('\n');
-      expect(combinedSource, contains('DiscourseResenhaPlugin'));
+      expect(combinedSource, contains('DiscourseVoicePlugin'));
       expect(combinedSource, contains('FlutterPlugin'));
       expect(combinedSource, contains('register(with'));
       for (final marker in nativeMarkers) {
         expect(
           combinedSource,
           contains(marker),
-          reason: '$marker must be owned by the Resenha iOS plugin.',
+          reason: '$marker must be owned by the Voice iOS plugin.',
         );
       }
 
       final podspec = File(
-        '$_resenhaPackagePath/ios/discourse_resenha.podspec',
+        '$_voicePackagePath/ios/discourse_voice.podspec',
       ).readAsStringSync();
       expect(
         podspec,
-        contains("'discourse_resenha/Sources/discourse_resenha/**/*'"),
+        contains("'discourse_voice/Sources/discourse_voice/**/*'"),
       );
       expect(podspec, contains("'AVFoundation', 'CallKit'"));
 
       final swiftPackage = File(
-        '$_resenhaPackagePath/ios/discourse_resenha/Package.swift',
+        '$_voicePackagePath/ios/discourse_voice/Package.swift',
       ).readAsStringSync();
-      expect(swiftPackage, contains('name: "discourse_resenha"'));
-      expect(swiftPackage, contains('name: "discourse-resenha"'));
+      expect(swiftPackage, contains('name: "discourse_voice"'));
+      expect(swiftPackage, contains('name: "discourse-voice"'));
       expect(swiftPackage, contains('.iOS("15.0")'));
     });
 
     test('the WebRTC fork and provenance tooling stay visibly third-party', () {
-      const vendorPath = '$_resenhaPackagePath/third_party/flutter_webrtc';
+      const vendorPath = '$_voicePackagePath/third_party/flutter_webrtc';
       final vendorPubspec = File('$vendorPath/pubspec.yaml');
       final vendorPatches = File('$vendorPath/PATCHES.md');
-      final contract = File('$_resenhaPackagePath/tool/vendor_contract.json');
+      final contract = File('$_voicePackagePath/tool/vendor_contract.json');
       final validator = File('tool/vendor_provenance_contract.dart');
 
       expect(vendorPubspec.existsSync(), isTrue);
@@ -324,7 +320,7 @@ void main() {
   });
 
   group('generated native registrants', () {
-    test('macOS registrants include Resenha media SDKs in every app', () {
+    test('macOS registrants include Voice media SDKs in every app', () {
       _expectAllRegistrantMarkers(
         paths: const [
           'macos/Flutter/GeneratedPluginRegistrant.swift',
@@ -340,7 +336,7 @@ void main() {
       );
     });
 
-    test('Linux registrants include Resenha media SDKs in every app', () {
+    test('Linux registrants include Voice media SDKs in every app', () {
       _expectAllRegistrantMarkers(
         paths: const [
           'linux/flutter/generated_plugins.cmake',
@@ -369,14 +365,14 @@ void main() {
       );
     });
 
-    test('iOS registration includes Resenha in every app graph', () {
+    test('iOS registration includes Voice in every app graph', () {
       _expectAllRegistrantMarkers(
         paths: const [
           'ios/Runner/GeneratedPluginRegistrant.m',
           '$_fullProfilePath/ios/Runner/GeneratedPluginRegistrant.m',
         ],
         markers: const {
-          'discourse_resenha': ['discourse_resenha', 'DiscourseResenhaPlugin'],
+          'discourse_voice': ['discourse_voice', 'DiscourseVoicePlugin'],
           'flutter_webrtc': ['flutter_webrtc', 'FlutterWebRTCPlugin'],
           'livekit_client': ['livekit_client', 'LiveKitPlugin'],
         },
@@ -398,14 +394,14 @@ void main() {
         File('$_fullProfilePath/pubspec.lock').readAsStringSync(),
         'packages',
       );
-      expect(coreLock, containsAll(_resenhaGraphPackages));
-      expect(fullLock, containsAll(_resenhaGraphPackages));
+      expect(coreLock, containsAll(_voiceGraphPackages));
+      expect(fullLock, containsAll(_voiceGraphPackages));
 
-      final resenhaPubspec = File(
-        '$_resenhaPackagePath/pubspec.yaml',
+      final voicePubspec = File(
+        '$_voicePackagePath/pubspec.yaml',
       ).readAsStringSync();
       expect(
-        _nestedScalar(resenhaPubspec, const [
+        _nestedScalar(voicePubspec, const [
           'flutter',
           'plugin',
           'platforms',

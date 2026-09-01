@@ -388,12 +388,12 @@ void main() {
       final installed = PluginInstaller.install(
         PluginManifest([
           _Module('chat', liveChannelScopes: {chat}),
-          _Module('resenha', liveChannelScopes: {chat}),
+          _Module('voice', liveChannelScopes: {chat}),
         ]),
       );
 
       expect(installed.liveChannelScopesFor(const PluginId('chat')), {chat});
-      expect(installed.liveChannelScopesFor(const PluginId('resenha')), {chat});
+      expect(installed.liveChannelScopesFor(const PluginId('voice')), {chat});
       expect(
         installed.liveChannelScopesFor(const PluginId('missing')),
         isEmpty,

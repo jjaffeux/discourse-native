@@ -13,7 +13,7 @@ const _pluginIdsByDirectory = <String, String>{
   'local_dates': 'discourse-local-dates',
   'poll': 'poll',
   'reactions': 'discourse-reactions',
-  'resenha': 'resenha',
+  'voice': 'voice',
 };
 
 const _approvedCrossFeatureContracts = <String, String>{
@@ -68,7 +68,7 @@ const _featureModuleEntrypoints = <String>{
   'local_dates/local_dates_module.dart',
   'poll/poll_module.dart',
   'reactions/reactions_module.dart',
-  'resenha/resenha_module.dart',
+  'voice/voice_module.dart',
 };
 
 const _publicPluginContractExports = <String>{
@@ -87,7 +87,7 @@ void main() {
     test('keep external plugin packages on the public host SDK', () {
       final violations = <String>[];
 
-      for (final file in _dartFilesUnder('packages/discourse_resenha/lib')) {
+      for (final file in _dartFilesUnder('packages/discourse_voice/lib')) {
         final source = file.readAsStringSync();
         if (source.contains('package:discourse_native/src/')) {
           violations.add(_workspacePath(file));
@@ -221,7 +221,7 @@ void main() {
         if (path.startsWith('lib/src/plugins/')) continue;
         final name = file.uri.pathSegments.last;
         if (name == 'chat_thread_panel_width_store.dart' ||
-            name.startsWith('resenha_') ||
+            name.startsWith('voice_') ||
             path.contains('/oneboxes/github/')) {
           misplacedImplementations.add(path);
         }
@@ -448,7 +448,7 @@ void main() {
       for (final path in const [
         'lib/src/plugins/assign/assignment_shell_extension.dart',
         'lib/src/plugins/chat/chat_shell_extension.dart',
-        'lib/src/plugins/resenha/resenha_shell_extension.dart',
+        'lib/src/plugins/voice/voice_shell_extension.dart',
       ]) {
         expect(File(path).existsSync(), isFalse, reason: path);
       }
@@ -456,7 +456,7 @@ void main() {
         File('lib/src/plugins/chat/chat_shell_service.dart').readAsStringSync(),
         isNot(contains('on ShellController')),
       );
-      expect(Directory('lib/src/plugins/resenha').existsSync(), isTrue);
+      expect(Directory('lib/src/plugins/voice').existsSync(), isTrue);
     });
   });
 
@@ -479,7 +479,7 @@ void main() {
         'gifsEnabled',
         'assignStatusesEnabled',
         'chatUploadsEnabled',
-        'ResenhaClientConfig',
+        'VoiceClientConfig',
       ]) {
         expect(
           siteConfig,

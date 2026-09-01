@@ -18,10 +18,10 @@
 @import device_info_plus;
 #endif
 
-#if __has_include(<discourse_resenha/DiscourseResenhaPlugin.h>)
-#import <discourse_resenha/DiscourseResenhaPlugin.h>
+#if __has_include(<discourse_voice/DiscourseVoicePlugin.h>)
+#import <discourse_voice/DiscourseVoicePlugin.h>
 #else
-@import discourse_resenha;
+@import discourse_voice;
 #endif
 
 #if __has_include(<file_selector_ios/FileSelectorPlugin.h>)
@@ -107,7 +107,7 @@
 + (void)registerWithRegistry:(NSObject<FlutterPluginRegistry>*)registry {
   [ConnectivityPlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"ConnectivityPlusPlugin"]];
   [FPPDeviceInfoPlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"FPPDeviceInfoPlusPlugin"]];
-  [DiscourseResenhaPlugin registerWithRegistrar:[registry registrarForPlugin:@"DiscourseResenhaPlugin"]];
+  [DiscourseVoicePlugin registerWithRegistrar:[registry registrarForPlugin:@"DiscourseVoicePlugin"]];
   [FileSelectorPlugin registerWithRegistrar:[registry registrarForPlugin:@"FileSelectorPlugin"]];
   [FlutterSecureStorageDarwinPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterSecureStorageDarwinPlugin"]];
   [FlutterTimezonePlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterTimezonePlugin"]];

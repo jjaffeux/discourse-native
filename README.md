@@ -4,7 +4,7 @@ An experimental native Discourse client, built with Flutter.
 
 The bundled feature system is documented in
 [Plugin architecture](docs/plugin-architecture.md). Every application build
-includes Resenha; site capabilities still decide whether its UI is active.
+includes Voice; site capabilities still decide whether its UI is active.
 
 Currently targets **iOS**, **macOS** and **Linux**. Android and Windows are
 planned; see [Adding a platform](#adding-a-platform).
@@ -32,7 +32,7 @@ flutter run -d <simulator-id>
 ```
 
 Run `flutter devices` to find the simulator id. The compatibility app under
-`profiles/full` uses the same bundled manifest and native Resenha graph as the
+`profiles/full` uses the same bundled manifest and native Voice graph as the
 repository-root app.
 
 ## Connecting a site
@@ -1190,7 +1190,7 @@ Adding a feature is a module under `lib/src/plugins/<name>/` owning
 its models, state, widgets, typed HTTP contract, and the narrow capability
 interfaces it actually contributes, plus an entry in
 `bundledPluginManifest`. Native platform registration may remain in a narrow
-bridge package, as Resenha's CallKit adapter does, while the application owns
+bridge package, as Voice's CallKit adapter does, while the application owns
 the feature module and its SDK dependencies so no build can omit it.
 `PluginRegistry` owns ordered UI dispatch, while
 `PluginSession` owns typed services and host-facing capabilities. Immutable
@@ -1834,7 +1834,7 @@ it draws with neutral art, so it remains readable and tappable rather than
 being discarded or masquerading as a tag. Its tap follows the ordinary
 `openLink` path: an installed plugin's `PluginLinkHandler` gets the first chance
 to open its route, followed by core routes and safe external navigation.
-Resenha uses that pair of contributions to own its room kind, microphone art,
+Voice uses that pair of contributions to own its room kind, microphone art,
 and room navigation; core does not dispatch on any of those literals.
 
 The initial `/categories.json` read paginates to twenty parents on a large or
@@ -2207,16 +2207,16 @@ are documented in [`docs/testing.md`](docs/testing.md).
 
 ```sh
 flutter pub get --enforce-lockfile
-(cd packages/discourse_resenha && flutter pub get --enforce-lockfile)
+(cd packages/discourse_voice && flutter pub get --enforce-lockfile)
 (cd profiles/full && flutter pub get --enforce-lockfile)
 
 dart format --output=none --set-exit-if-changed \
   lib test integration_test tool \
-  packages/discourse_resenha/lib \
-  packages/discourse_resenha/tool profiles/full/lib
+  packages/discourse_voice/lib \
+  packages/discourse_voice/tool profiles/full/lib
 flutter analyze
 flutter test --test-randomize-ordering-seed=random
-(cd packages/discourse_resenha && flutter analyze)
+(cd packages/discourse_voice && flutter analyze)
 (cd profiles/full && flutter analyze)
 ```
 
@@ -2261,10 +2261,10 @@ GitHub runs those network-dependent checks weekly and on manual dispatch via
 for pull requests: an upstream move or transient fetch failure should report in
 those workflows without making an unrelated PR flaky. The WebRTC check accepts
 only the file inventory in
-`packages/discourse_resenha/third_party/flutter_webrtc/PATCHES.md` after
+`packages/discourse_voice/third_party/flutter_webrtc/PATCHES.md` after
 verifying pub.dev's pinned archive SHA-256. Its package/version/path
-configuration sits beside Resenha in
-`packages/discourse_resenha/tool/vendor_contract.json`; the root provenance
+configuration sits beside Voice in
+`packages/discourse_voice/tool/vendor_contract.json`; the root provenance
 runner contains no WebRTC semantics.
 
 The integration test exercises platform keychain persistence on a real device.
@@ -2456,7 +2456,7 @@ lib/
       shell_controller.dart    all shell state (plain ChangeNotifier)
       shell_scope.dart         InheritedNotifier access
     theme/app_theme.dart       color schemes + ShellColors/CodeColors
-packages/discourse_resenha/    native CallKit bridge and reviewed WebRTC fork
+packages/discourse_voice/     native CallKit bridge and reviewed WebRTC fork
 profiles/full/                 compatibility app wrapper and release runners
 ios/                           root iOS runner (Xcode project)
 macos/                         root macOS runner (Xcode project)

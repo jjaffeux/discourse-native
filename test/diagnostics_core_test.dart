@@ -206,7 +206,7 @@ void main() {
         timestampUtc: timestamp,
         updatedAtUtc: timestamp,
         severity: DiagnosticSeverity.info,
-        source: 'resenha',
+        source: 'voice',
         name: 'peer.connected',
         component: 'mesh',
         message:
@@ -258,7 +258,7 @@ void main() {
         timestampUtc: timestamp,
         updatedAtUtc: timestamp,
         severity: DiagnosticSeverity.warning,
-        source: 'resenha',
+        source: 'voice',
         name: 'reconnect.scheduled',
         attributes: const {
           'attempt': 2,
@@ -367,11 +367,11 @@ void main() {
       const secret = 'CONTROLLER_LOG_SECRET_SENTINEL';
       final binding = DiagnosticsSink.install(controller);
       try {
-        await DiagnosticsSink.runOperation('resenha.join', () async {
+        await DiagnosticsSink.runOperation('voice.join', () async {
           await Future<void>.delayed(Duration.zero);
           DiagnosticsSink.current.recordLog(
             name: 'peer.connected',
-            source: 'resenha',
+            source: 'voice',
             component: 'mesh',
             message: 'connected',
             attributes: {
@@ -380,14 +380,14 @@ void main() {
               'accessToken': secret,
             },
           );
-        }, correlationId: 'resenha-call-42');
+        }, correlationId: 'voice-call-42');
       } finally {
         binding.close();
       }
 
       final log = controller.events.whereType<DiagnosticLogEvent>().single;
-      expect(log.operation, 'resenha.join');
-      expect(log.correlationId, 'resenha-call-42');
+      expect(log.operation, 'voice.join');
+      expect(log.correlationId, 'voice-call-42');
       expect(log.component, 'mesh');
       expect(log.attributes['accessToken'], '<redacted>');
 
@@ -403,7 +403,7 @@ void main() {
 
       controller.recordLog(
         name: 'peer.failed',
-        source: 'resenha',
+        source: 'voice',
         component: 'mesh',
         severity: DiagnosticSeverity.error,
         degraded: true,
@@ -415,7 +415,7 @@ void main() {
       final report = controller.buildJsonReport(controller.events);
       expect(report, contains('reported structured application logs'));
       expect(report, contains('peer.connected'));
-      expect(report, contains('resenha-call-42'));
+      expect(report, contains('voice-call-42'));
       expect(report, isNot(contains(secret)));
       expect(report, isNot(contains('reader:pass')));
 

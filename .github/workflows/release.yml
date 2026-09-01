@@ -153,7 +153,7 @@ jobs:
       - name: Resolve application and native bridge graphs
         run: |
           flutter pub get --enforce-lockfile
-          (cd packages/discourse_resenha && flutter pub get --enforce-lockfile)
+          (cd packages/discourse_voice && flutter pub get --enforce-lockfile)
           (cd profiles/full && flutter pub get --enforce-lockfile)
 
       # A broken canary that installs itself is worse than no canary.
@@ -161,7 +161,7 @@ jobs:
         run: |
           flutter analyze
           flutter test --test-randomize-ordering-seed=random
-          (cd packages/discourse_resenha && flutter analyze)
+          (cd packages/discourse_voice && flutter analyze)
           (cd profiles/full && flutter analyze)
 
       - name: Build

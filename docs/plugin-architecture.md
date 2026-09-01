@@ -2,7 +2,7 @@
 
 The application installs one immutable `PluginManifest` before creating its
 API or shell. Every application entry point installs the same complete bundled
-manifest, including Resenha. `profiles/full` remains as a compatibility wrapper
+manifest, including Voice. `profiles/full` remains as a compatibility wrapper
 for release tooling, and `lib/main_core.dart` remains as a compatibility target;
 neither removes features from the build.
 
@@ -109,7 +109,7 @@ Shared host layers never import or export a feature implementation under
 and the stable `lib/src/plugin_api` surface, while core discovers optional
 behavior through registries, session capabilities, services, and host ports.
 The root bundled manifest is the deliberate composition boundary and includes
-the complete feature set, including Resenha. Every bundled feature owns a
+the complete feature set, including Voice. Every bundled feature owns a
 production module and its service keys under
 `lib/src/plugins/<feature>/`; the bundled manifest imports only those module
 entrypoints. `plugin_dependency_boundary_test.dart` and
@@ -122,7 +122,7 @@ Core records hold immutable `PluginData` addressed by stable
 model codec; `SiteConfig` and `DiscourseUser` contain only core fields plus that
 opaque bag. Installed `SiteSettingsPlugin<T>` and `CurrentUserPlugin<T>`
 readers own their feature's wire keys and defaults. Poll, Assign, Chat,
-Reactions, GIFs, Local Dates, and Resenha therefore decode only when their
+Reactions, GIFs, Local Dates, and Voice therefore decode only when their
 modules are in a selected test manifest. Application manifests always include
 the complete feature graph; site payloads and settings still determine whether
 each feature is available for a particular instance.
@@ -172,7 +172,7 @@ API client, credentials, lifecycle lease, settings lookup, and catalog/picker
 assembly; topic and Chat composers receive only availability and a selected
 GIF. Chat similarly exposes an embedded thread-conversation capability. It
 owns paging, sending, read receipts, timeline merging, and live subscriptions,
-while Resenha retains only its room-to-thread association and room UI. The
+while Voice retains only its room-to-thread association and room UI. The
 viewing handle is released when that UI closes and pruned when its room leaves
 the directory, so hidden rooms retain no Chat subscription or read receipt.
 
@@ -298,8 +298,8 @@ transforms, and reconciliation. The runtime ports are capability-shaped:
 
 Chat and Reactions keep private stores inside their sessions. Poll and
 Reactions keep writes, optimistic state, credentials, and lifecycle guards in
-their plugin-owned controllers. Assign, Chat, Discourse AI, GIFs, and Resenha
-likewise use `PluginRequestHost`; Chat, Discourse AI, and Resenha subscribe
+their plugin-owned controllers. Assign, Chat, Discourse AI, GIFs, and Voice
+likewise use `PluginRequestHost`; Chat, Discourse AI, and Voice subscribe
 through `PluginChannelHost`. No plugin receives core's `Store`,
 `SiteLifecycle`, `SiteTracker`, credential reader, or concrete
 `ShellController`.
@@ -351,14 +351,14 @@ never invents a sentinel topic id for a plugin record.
 Sidebar destinations likewise carry only generic presentation and navigation
 state. Optional owners may contribute prefix and label-suffix builders that
 watch their own live records; Chat uses those hooks for presence avatars and
-user status. Resenha contributes its indented participant rows directly in
+user status. Voice contributes its indented participant rows directly in
 its section, so the core DTO has no Chat-user or voice-room child fields.
 
 The full manifest declares route and syntax ownership up front. Chat and
-Resenha own separate route namespaces; Poll and Local Dates declare their
+Voice own separate route namespaces; Poll and Local Dates declare their
 composer syntax ids. Local Dates owns cooked date markup, Chat owns its header
-action, and Resenha owns its global call overlay rather than being imported by
-core shell widgets. Closing a Resenha session is asynchronous: the plugin
+action, and Voice owns its global call overlay rather than being imported by
+core shell widgets. Closing a Voice session is asynchronous: the plugin
 lifecycle does not complete until its server leave, media, subscriptions,
 system call, CallKit, diagnostics, and audio-session teardown have settled.
 The native audio adapter serializes process-global operations and checks its
@@ -383,7 +383,7 @@ hand-written composer text into the same presentation. A server without an
 installed kind's data source simply filters that type from its answer. Cooked
 hashtag navigation remains ordinary link navigation: `openLink` first offers
 the URL to registered `PluginLinkHandler`s, then falls back to core routes and
-safe external navigation. Resenha therefore owns the `room` wire type, its
+safe external navigation. Voice therefore owns the `room` wire type, its
 microphone presentation, and its room-link handler; core contains none of that
 feature vocabulary.
 
@@ -403,9 +403,9 @@ transcript into a generic composer seed; core owns only the route-safe
 open-new-topic operation and has no transcript semantics or wording.
 
 The full manifest declares route and namespaced syntax ownership up front. Chat
-and Resenha own separate route namespaces; Poll and Local Dates declare syntax
+and Voice own separate route namespaces; Poll and Local Dates declare syntax
 kinds under their own module ids. Local Dates owns cooked date markup, Chat
-owns its header action and preview contribution point, and Resenha owns its
+owns its header action and preview contribution point, and Voice owns its
 global call overlay rather than being imported by core shell widgets. Optional
 AI, GIF, and Poll artwork lives beside those plugins; core's generated icon
 catalog no longer embeds it, and Chat owns the `d-chat` alias it contributes to
@@ -443,9 +443,9 @@ outstanding leases across modules, sites, and multiple claims for the same
 site. Releasing or tearing down one owner's lease cannot revoke another
 owner's claim. Session rollback and teardown synchronously revoke retained
 owner-scoped hosts, and forgetting a site invalidates every lease for that site
-even if a plugin hook fails. Resenha alone translates its voice-call state
+even if a plugin hook fails. Voice alone translates its voice-call state
 into a lease; core understands only generic background retention and does not
-acquire Resenha call semantics.
+acquire Voice call semantics.
 
 Diagnostics follows normal plugin registration as well. A diagnostics
 contributor registers a `DiagnosticsPlugin` capability for UI discovery and a
@@ -469,7 +469,7 @@ tracker host ports. There is no migration allowlist.
 
 ## Remaining shared presentation seams
 
-The user menu and Resenha top-level capability remain plugin-neutral registry
+The user menu and Voice top-level capability remain plugin-neutral registry
 interfaces. Moving those remaining surfaces to full UI contributions is
 intentionally deferred; core does not import a plugin type or wire key through
 these compatibility seams.
@@ -478,19 +478,19 @@ these compatibility seams.
 
 - The repository root owns the Flutter application and the complete bundled
   feature manifest. Its pubspec, lockfile, and native registrants always contain
-  Resenha, `flutter_webrtc`, and `livekit_client`. Both `lib/main.dart` and the
+  Voice, `flutter_webrtc`, and `livekit_client`. Both `lib/main.dart` and the
   legacy `lib/main_core.dart` target launch that manifest.
 - `packages/discourse_plugin_api` is a pure-Dart package containing the stable
   manifest, lifecycle, host-port, and service-key contracts.
 - `lib/discourse_plugin_sdk.dart` is the public Flutter host facade. It exposes
   the approved host contracts and UI primitives.
-- `lib/src/plugins/resenha` owns Resenha's Dart module, UI, media integration,
-  diagnostics, and tests. `packages/discourse_resenha` is deliberately narrower:
+- `lib/src/plugins/voice` owns Voice's Dart module, UI, media integration,
+  diagnostics, and tests. `packages/discourse_voice` is deliberately narrower:
   it owns the iOS CallKit Flutter plugin and reviewed
   `third_party/flutter_webrtc` fork, and depends only on Flutter so the root app
   can depend on it without a package cycle.
 - `profiles/full` is a compatibility application wrapper for release tooling.
-  It aliases `bundledPluginManifest`, inherits Resenha through the root package,
+  It aliases `bundledPluginManifest`, inherits Voice through the root package,
   and keeps independent iOS, macOS, and Linux runners. Its WebRTC override
   mirrors the root override because Pub ignores transitive overrides.
 

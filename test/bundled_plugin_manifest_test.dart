@@ -30,7 +30,7 @@ void main() {
       'discourse-ai',
       'discourse-assign',
       'chat',
-      'resenha',
+      'voice',
     ]);
 
     final localDates = installed.descriptors.singleWhere(
@@ -79,7 +79,7 @@ void main() {
       installed.registry.diagnosticsPlugins.map(
         (plugin) => plugin.diagnosticsId,
       ),
-      ['resenha'],
+      ['voice'],
     );
   });
 
@@ -99,7 +99,7 @@ void main() {
       installed.descriptors.map((descriptor) => descriptor.id.value),
       bundledPluginManifest.modules
           .map((module) => module.descriptor.id.value)
-          .where((id) => id != 'resenha'),
+          .where((id) => id != 'voice'),
     );
   });
 

@@ -7,7 +7,7 @@ class and by making a failure useful to diagnose.
 
 ## Suite boundaries
 
-- `test/` owns the application package, including Resenha. A production owner normally has one matching
+- `test/` owns the application package, including Voice. A production owner normally has one matching
   test file; cross-owner contracts use an explicitly named `*_boundary_test`
   or `*_contract_test` file.
 - `integration_test/` is reserved for behavior that needs a real platform,

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "name": "Voice flutter_webrtc",
+  "package": "flutter_webrtc",
+  "version": "1.6.0",
+  "vendorPath": "packages/discourse_voice/third_party/flutter_webrtc",
+  "patchManifest": "packages/discourse_voice/third_party/flutter_webrtc/PATCHES.md"
+}

@@ -29,21 +29,21 @@ jobs:
       - name: Resolve application and native bridge graphs
         run: |
           flutter pub get --enforce-lockfile
-          (cd packages/discourse_resenha && flutter pub get --enforce-lockfile)
+          (cd packages/discourse_voice && flutter pub get --enforce-lockfile)
           (cd profiles/full && flutter pub get --enforce-lockfile)
 
       - name: Check formatting
         run: |
           dart format --output=none --set-exit-if-changed \
             lib test integration_test tool \
-            packages/discourse_resenha/lib \
-            packages/discourse_resenha/tool \
+            packages/discourse_voice/lib \
+            packages/discourse_voice/tool \
             profiles/full/lib
 
       - name: Analyze
         run: |
           flutter analyze
-          (cd packages/discourse_resenha && flutter analyze)
+          (cd packages/discourse_voice && flutter analyze)
           (cd profiles/full && flutter analyze)
 
       - name: Test
@@ -100,7 +100,7 @@ jobs:
           ! grep -q 'not found' <<< "$core_dependencies"
           ! grep -q 'not found' <<< "$full_dependencies"
 
-          # Every application composition includes Resenha and both native
+          # Every application composition includes Voice and both native
           # media plugins.
           LC_ALL=C grep -aFq 'FlutterWebRTCPlugin' "$core"
           LC_ALL=C grep -aFq 'LiveKitPlugin' "$core"
@@ -109,7 +109,7 @@ jobs:
 
   apple-bundles:
     # Compile both application wrappers on Apple. Each must include the
-    # Resenha-owned CallKit bridge and media registrants.
+    # Voice-owned CallKit bridge and media registrants.
     needs: checks
     runs-on: macos-15
     timeout-minutes: 45
@@ -191,7 +191,7 @@ jobs:
           test -d profiles/full/build/ios/iphonesimulator/Runner.app
 
           # The package-owned channel is compiled into every app.
-          LC_ALL=C grep -aRqsF 'org.discourse.native/resenha_callkit' \
+          LC_ALL=C grep -aRqsF 'org.discourse.native/voice_callkit' \
             build/ios/iphonesimulator/Runner.app
-          LC_ALL=C grep -aRqsF 'org.discourse.native/resenha_callkit' \
+          LC_ALL=C grep -aRqsF 'org.discourse.native/voice_callkit' \
             profiles/full/build/ios/iphonesimulator/Runner.app

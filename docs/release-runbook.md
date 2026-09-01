@@ -7,7 +7,7 @@ the files under `/usr`, and users receive updates through `apt upgrade`.
 ## Distribution model
 
 The release workflow builds the production app from the `profiles/full`
-compatibility wrapper. It uses the same always-bundled Resenha graph as the
+compatibility wrapper. It uses the same always-bundled Voice graph as the
 root app, produces one amd64 `.deb`, and publishes it in two places:
 
 - a signed apt repository on the `gh-pages` branch, which is the normal install

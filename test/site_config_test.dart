@@ -233,7 +233,7 @@ void main() {
           enableAssignStatus: true,
         ),
         'poll_maximum_options': 37,
-        'resenha_enabled': true,
+        'voice_enabled': true,
       });
 
       expect(core.plugins.isEmpty, isTrue);

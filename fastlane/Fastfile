@@ -3,7 +3,7 @@ opt_out_usage
 APP_IDENTIFIER = "org.discourse.native"
 DEVELOPER_TEAM_ID = "6T3LU73T8S"
 PROJECT_ROOT = File.expand_path("..", __dir__)
-RESENHA_PACKAGE_ROOT = File.join(PROJECT_ROOT, "packages", "discourse_resenha")
+VOICE_PACKAGE_ROOT = File.join(PROJECT_ROOT, "packages", "discourse_voice")
 FULL_PROFILE_ROOT = File.join(PROJECT_ROOT, "profiles", "full")
 TESTFLIGHT_OUTPUT = File.join(PROJECT_ROOT, "build", "testflight")
 
@@ -79,14 +79,14 @@ private_lane :quality_checks do
       "test",
       "integration_test",
       "tool",
-      "packages/discourse_resenha/lib",
-      "packages/discourse_resenha/tool",
+      "packages/discourse_voice/lib",
+      "packages/discourse_voice/tool",
       "profiles/full/lib"
     )
     sh("flutter", "analyze")
     sh("flutter", "test")
   end
-  Dir.chdir(RESENHA_PACKAGE_ROOT) do
+  Dir.chdir(VOICE_PACKAGE_ROOT) do
     sh("flutter", "pub", "get", "--enforce-lockfile")
     sh("flutter", "analyze")
   end

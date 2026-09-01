@@ -269,7 +269,7 @@ void main() {
               'chatSearchEnabled': true,
               'chatChannelRetentionDays': 30,
               'chatDmRetentionDays': 7,
-              'resenha': {'enabled': true},
+              'voice': {'enabled': true},
             },
             'user': {
               'username': 'sam',
@@ -308,7 +308,7 @@ void main() {
         'gifs/site-settings',
         'discourse-assign/site-settings',
         'chat/site-settings',
-        'resenha/site-settings',
+        'voice/site-settings',
       });
       expect((user['plugins'] as Map<String, dynamic>).keys, {
         'poll/current-user',
@@ -317,7 +317,7 @@ void main() {
       });
       expect(config, isNot(contains('mainReaction')));
       expect(config, isNot(contains('pollMaximumOptions')));
-      expect(config, isNot(contains('resenha')));
+      expect(config, isNot(contains('voice')));
       expect(user, isNot(contains('canCreatePoll')));
       expect(user, isNot(contains('hasChatEnabled')));
       expect(
@@ -326,7 +326,7 @@ void main() {
         1,
       );
       expect(
-        ((config['plugins'] as Map<String, dynamic>)['resenha/site-settings']
+        ((config['plugins'] as Map<String, dynamic>)['voice/site-settings']
             as Map<String, dynamic>)['enabled'],
         isTrue,
       );

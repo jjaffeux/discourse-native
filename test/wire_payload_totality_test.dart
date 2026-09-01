@@ -48,9 +48,9 @@ import 'package:discourse_native/src/plugins/poll/poll_data.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics_models.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_models.dart';
-import 'package:discourse_native/src/plugins/resenha/resenha_settings.dart';
+import 'package:discourse_native/src/plugins/voice/voice_diagnostics_models.dart';
+import 'package:discourse_native/src/plugins/voice/voice_models.dart';
+import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _keys = [
@@ -581,34 +581,26 @@ void main() {
       );
       probe('AiTopicSummary', () => AiTopicSummary.fromJson(json), json);
 
+      probe('VoiceClientConfig', () => VoiceClientConfig.fromJson(json), json);
       probe(
-        'ResenhaClientConfig',
-        () => ResenhaClientConfig.fromJson(json),
-        json,
-      );
-      probe(
-        'ResenhaDiagnosticRecord',
-        () => ResenhaDiagnosticRecord.fromJson(loose),
+        'VoiceDiagnosticRecord',
+        () => VoiceDiagnosticRecord.fromJson(loose),
         loose,
       );
+      probe('VoiceParticipant', () => VoiceParticipant.fromJson(json), json);
+      probe('VoiceMembership', () => VoiceMembership.fromJson(json), json);
+      probe('VoiceRecording', () => VoiceRecording.fromJson(json), json);
+      probe('VoiceRoom', () => VoiceRoom.fromJson(json), json);
+      probe('VoiceDirectory', () => VoiceDirectory.fromJson(json), json);
+      probe('VoiceIceServer', () => VoiceIceServer.fromJson(json), json);
       probe(
-        'ResenhaParticipant',
-        () => ResenhaParticipant.fromJson(json),
-        json,
-      );
-      probe('ResenhaMembership', () => ResenhaMembership.fromJson(json), json);
-      probe('ResenhaRecording', () => ResenhaRecording.fromJson(json), json);
-      probe('ResenhaRoom', () => ResenhaRoom.fromJson(json), json);
-      probe('ResenhaDirectory', () => ResenhaDirectory.fromJson(json), json);
-      probe('ResenhaIceServer', () => ResenhaIceServer.fromJson(json), json);
-      probe(
-        'ResenhaIceConfiguration',
-        () => ResenhaIceConfiguration.fromJson(json),
+        'VoiceIceConfiguration',
+        () => VoiceIceConfiguration.fromJson(json),
         json,
       );
       probe(
-        'ResenhaLiveKitCredentials',
-        () => ResenhaLiveKitCredentials.fromJson(json),
+        'VoiceLiveKitCredentials',
+        () => VoiceLiveKitCredentials.fromJson(json),
         json,
       );
       final joinJson = <String, dynamic>{
@@ -617,16 +609,12 @@ void main() {
         'ice': json,
       };
       probe(
-        'ResenhaJoinResponse',
-        () => ResenhaJoinResponse.fromJson(joinJson),
+        'VoiceJoinResponse',
+        () => VoiceJoinResponse.fromJson(joinJson),
         joinJson,
       );
-      probe(
-        'ResenhaChatSession',
-        () => ResenhaChatSession.fromJson(json),
-        json,
-      );
-      probe('ResenhaRoomEvent', () => ResenhaRoomEvent.fromJson(json), json);
+      probe('VoiceChatSession', () => VoiceChatSession.fromJson(json), json);
+      probe('VoiceRoomEvent', () => VoiceRoomEvent.fromJson(json), json);
 
       probe('TopicLink', () => TopicLink.parse('$loose'), loose);
       probe('ListLink', () => ListLink.parse('$loose'), loose);

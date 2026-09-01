@@ -5,7 +5,7 @@ analyzer:
     - build/**
     - third_party/**
     # These have independent package configs or are reviewed vendor trees.
-    - packages/discourse_resenha/**
+    - packages/discourse_voice/**
     - packages/video_player_avfoundation/**
     - profiles/**
     - android/**

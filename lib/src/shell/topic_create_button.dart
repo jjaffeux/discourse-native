@@ -304,7 +304,7 @@ class _RecentDraftRow extends StatelessWidget {
   final VoidCallback onTap;
 
   DIconData get _icon {
-    if (draft.isResenhaTranscript) return DIcons.closedCaptioning;
+    if (draft.isVoiceTranscript) return DIcons.closedCaptioning;
     if (draft.isNewTopic) return DIcons.layerGroup;
     if (draft.key.startsWith('new_private_message')) return DIcons.envelope;
     return DIcons.reply;

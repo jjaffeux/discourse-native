@@ -176,11 +176,11 @@ void main() {
       expect(fixture.api.userDraftRequests, hasLength(1));
     });
 
-    testWidgets('marks a Resenha transcript with closed captions', (
+    testWidgets('marks a Voice transcript with closed captions', (
       tester,
     ) async {
       const transcript = UserDraft(
-        key: 'new_topic_resenha_7_1788170000000',
+        key: 'new_topic_voice_7_1788170000000',
         sequence: 6,
         data: ComposerDraft(
           reply: 'Transcript in progress',
@@ -194,7 +194,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final row = find.byKey(
-        const ValueKey('recent-draft-new_topic_resenha_7_1788170000000'),
+        const ValueKey('recent-draft-new_topic_voice_7_1788170000000'),
       );
       expect(row, findsOneWidget);
       expect(

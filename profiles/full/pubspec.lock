@@ -199,10 +199,10 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
-  discourse_resenha:
+  discourse_voice:
     dependency: transitive
     description:
-      path: "../../packages/discourse_resenha"
+      path: "../../packages/discourse_voice"
       relative: true
     source: path
     version: "1.0.0"
@@ -386,7 +386,7 @@ packages:
   flutter_webrtc:
     dependency: "direct overridden"
     description:
-      path: "../../packages/discourse_resenha/third_party/flutter_webrtc"
+      path: "../../packages/discourse_voice/third_party/flutter_webrtc"
       relative: true
     source: path
     version: "1.6.0"

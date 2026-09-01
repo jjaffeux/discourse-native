@@ -18,7 +18,7 @@ void main() {
 
   // Mounting the shell starts optional preference reads that nothing awaits:
   // the sidebar and diagnostics panel widths, the sidebar sections, and the
-  // Resenha device selection. Without an in-memory store they cross the real
+  // Voice device selection. Without an in-memory store they cross the real
   // platform channel, whose reply arrives whenever the host process gets to
   // it. Under full-suite load that is after the widget tests' fake clock has
   // stopped, so the awaits holding those stores' catch blocks never resume and

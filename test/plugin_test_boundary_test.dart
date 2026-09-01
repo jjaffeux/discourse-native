@@ -41,16 +41,14 @@ void main() {
     );
   });
 
-  test('Resenha tests are owned by the application suite', () {
+  test('Voice tests are owned by the application suite', () {
     final violations = <String>[];
     final tests = Directory('test')
         .listSync()
         .whereType<File>()
         .where(
-          (file) => file.path
-              .split(Platform.pathSeparator)
-              .last
-              .startsWith('resenha_'),
+          (file) =>
+              file.path.split(Platform.pathSeparator).last.startsWith('voice_'),
         )
         .toList(growable: false);
 
@@ -71,12 +69,12 @@ void main() {
     }
 
     expect(tests, isNotEmpty);
-    expect(Directory('packages/discourse_resenha/test').existsSync(), isFalse);
+    expect(Directory('packages/discourse_voice/test').existsSync(), isFalse);
     expect(
       violations,
       isEmpty,
       reason:
-          'Bundled Resenha tests use the application test graph and must not '
+          'Bundled Voice tests use the application test graph and must not '
           'reimplement the shared plugin transport.\n'
           '${violations.join('\n')}',
     );

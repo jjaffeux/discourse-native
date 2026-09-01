@@ -18,7 +18,7 @@ dependencies:
 # both reviewed forks explicitly in this application graph.
 dependency_overrides:
   flutter_webrtc:
-    path: ../../packages/discourse_resenha/third_party/flutter_webrtc
+    path: ../../packages/discourse_voice/third_party/flutter_webrtc
   video_player_avfoundation:
     path: ../../packages/video_player_avfoundation
 
