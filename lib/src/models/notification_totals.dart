@@ -193,11 +193,10 @@ class NotificationTotals {
   final NotificationTypeCounts groupedUnreadNotifications;
   final PluginNotificationCounters pluginCounters;
 
-  int get badge =>
-      unreadNotifications +
-      unreadPersonalMessages +
-      unseenReviewables +
-      pluginCounters.badge;
+  int get coreBadge =>
+      unreadNotifications + unreadPersonalMessages + unseenReviewables;
+
+  int get badge => coreBadge + pluginCounters.badge;
 
   @override
   bool operator ==(Object other) =>

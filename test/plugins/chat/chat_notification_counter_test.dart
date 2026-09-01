@@ -72,7 +72,7 @@ void main() {
     expect(heldUnavailable.hasChatEnabled, isFalse);
   });
 
-  test('available Chat totals contribute to the core badge', () {
+  test('available Chat totals contribute to the aggregate badge', () {
     expect(
       chatNotificationTotals(
         unreadNotifications: 3,

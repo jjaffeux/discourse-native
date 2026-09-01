@@ -133,7 +133,7 @@ class _UrgentBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: theme.discourse.success,
+        color: theme.colorScheme.primary,
         borderRadius: BorderRadius.circular(10),
         border: ringColor == null
             ? null
@@ -142,7 +142,7 @@ class _UrgentBadge extends StatelessWidget {
       child: Text(
         label,
         style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.surface,
+          color: Colors.white,
           fontSize: DiscourseTypography.fontDown3,
           height: 1,
           fontWeight: FontWeight.w700,
