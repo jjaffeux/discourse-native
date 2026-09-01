@@ -352,6 +352,47 @@ void main() {
       );
     });
 
+    testWidgets('keeps the trailing caret next to a long gallery', (
+      tester,
+    ) async {
+      final source = [
+        '[grid]',
+        for (var index = 0; index < 20; index++)
+          '![Image $index](upload://image$index)',
+        '[/grid]',
+        'After',
+      ].join('\n');
+      final controller = MarkdownEditingController(text: source);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: SizedBox(
+              width: 600,
+              child: TextField(controller: controller, maxLines: null),
+            ),
+          ),
+        ),
+      );
+
+      final gallery = controller.galleryBlocks.single;
+      final galleryBottom = tester
+          .getBottomLeft(find.byType(ComposerImageGalleryPreview))
+          .dy;
+      final render = tester
+          .state<EditableTextState>(find.byType(EditableText))
+          .renderEditable;
+      final caret = render
+          .getLocalRectForCaret(TextPosition(offset: gallery.end))
+          .shift(render.localToGlobal(Offset.zero));
+
+      expect(caret.top - galleryBottom, inInclusiveRange(0, 32));
+      expect(render.getPositionForPoint(caret.center).offset, gallery.end);
+      expect(render.plainText.length, source.length);
+    });
+
     testWidgets('maps gallery, image, and control positions to source blocks', (
       tester,
     ) async {
