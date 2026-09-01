@@ -18606,6 +18606,13 @@ void main() {
             findsOneWidget,
           );
           expect(
+            find.descendant(
+              of: find.byKey(const ValueKey('chat-close-full-page')),
+              matching: find.dIcon(DIcons.discourseCompress),
+            ),
+            findsOneWidget,
+          );
+          expect(
             tester.widget<EditableText>(editor()).controller.text,
             'draft before maximizing',
           );

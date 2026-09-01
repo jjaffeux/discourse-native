@@ -785,7 +785,7 @@ class _ThreadHeader extends StatelessWidget {
               DButton.iconOnly(
                 tooltip: 'Close full-screen chat',
                 onPressed: () => unawaited(shell.openDrawerFromFullPage()),
-                icon: const DIcon(DIcons.circleMinus, size: 18),
+                icon: const DIcon(DIcons.discourseCompress, size: 18),
                 variant: DButtonVariant.flat,
               ),
             if (showClose)
