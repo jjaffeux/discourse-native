@@ -1452,6 +1452,22 @@ void main() {
       );
       await tester.pump();
       expect(calls, hasLength(1));
+      expect(
+        find.byKey(const ValueKey('composer-gallery-toolbar')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<ComposerImageGalleryPreview>(
+              find.byType(ComposerImageGalleryPreview),
+            )
+            .highlighted,
+        isTrue,
+      );
+      expect(
+        composer.text.selection.extentOffset,
+        composer.text.galleryBlocks.single.end,
+      );
       calls.single.result.complete(
         const ComposerUploadResult(
           id: 74,
@@ -1469,6 +1485,14 @@ void main() {
         ['upload://inside', 'upload://dropped'],
       );
       expect(composer.standaloneImages, isEmpty);
+      expect(
+        find.byKey(const ValueKey('composer-gallery-toolbar')),
+        findsOneWidget,
+      );
+      expect(
+        composer.text.selection.extentOffset,
+        composer.text.galleryBlocks.single.end,
+      );
     });
   });
 }
