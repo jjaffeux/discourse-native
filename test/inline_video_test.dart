@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html_parser;
+import 'package:video_player/video_player.dart';
 
 void main() {
   group('InlineVideoData', () {
@@ -232,6 +233,76 @@ void main() {
     expect(disposals, 1);
   });
 
+  testWidgets('native controls keep playback active in a full-screen route', (
+    tester,
+  ) async {
+    final data = InlineVideoData.fromUpload(
+      url: '/uploads/demo.mp4',
+      title: 'Demo',
+      siteUrl: 'https://meta.discourse.org',
+    )!;
+    final controller = _FakeVideoPlayerController();
+    var controllerBuilds = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: InlineVideoNativeSurface(
+            data: data,
+            siteUrl: null,
+            credentials: null,
+            lifecycle: null,
+            controllerBuilder: (_) {
+              controllerBuilds++;
+              return controller;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    const fullscreenButton = ValueKey('inline-video-fullscreen');
+    expect(controllerBuilds, 1);
+    expect(controller.value.isPlaying, isTrue);
+    expect(
+      tester.widget<IconButton>(find.byKey(fullscreenButton)).tooltip,
+      'Enter full screen',
+    );
+
+    await tester.tap(find.byKey(fullscreenButton));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('inline-video-fullscreen-view')),
+      findsOneWidget,
+    );
+    expect(
+      find.bySemanticsLabel(RegExp('Full-screen video player: Demo')),
+      findsOneWidget,
+    );
+    expect(controllerBuilds, 1);
+    expect(controller.value.isPlaying, isTrue);
+    expect(find.byType(VideoPlayer), findsOneWidget);
+
+    const closeButton = ValueKey('inline-video-fullscreen-close');
+    expect(
+      tester.widget<IconButton>(find.byKey(closeButton)).tooltip,
+      'Exit full screen',
+    );
+    await tester.tap(find.byKey(closeButton));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('inline-video-fullscreen-view')),
+      findsNothing,
+    );
+    expect(find.byKey(fullscreenButton), findsOneWidget);
+    expect(controllerBuilds, 1);
+    expect(controller.value.isPlaying, isTrue);
+  });
+
   test('Linux document escapes attributes and locks down remote content', () {
     final html = buildInlineVideoHtml(
       Uri.parse('https://cdn.example.com/video.mp4?a=%22%3E%3Cscript%3E'),
@@ -283,5 +354,30 @@ class _DisposeSpyState extends State<_DisposeSpy> {
   void dispose() {
     widget.onDispose();
     super.dispose();
+  }
+}
+
+class _FakeVideoPlayerController extends VideoPlayerController {
+  _FakeVideoPlayerController()
+    : super.networkUrl(Uri.parse('https://cdn.example.com/demo.mp4')) {
+    value = const VideoPlayerValue(
+      duration: Duration(seconds: 20),
+      position: Duration(seconds: 7),
+      size: Size(1280, 720),
+      isInitialized: true,
+    );
+  }
+
+  @override
+  Future<void> initialize() async {}
+
+  @override
+  Future<void> play() async {
+    value = value.copyWith(isPlaying: true);
+  }
+
+  @override
+  Future<void> pause() async {
+    value = value.copyWith(isPlaying: false);
   }
 }

@@ -1985,7 +1985,8 @@ outside cooked HTML, while topics use either core's lazy
 [`inline_video.dart`](lib/src/shell/inline_video.dart) normalizes all three into
 the same lazy poster and accessible Play/Open actions. iOS and macOS use
 Flutter's official `video_player` AVFoundation backend and small Flutter
-controls. Linux reuses the existing WebKitGTK surface with an owned HTML5
+controls, including a full-screen route that keeps the current playback
+position. Linux reuses the existing WebKitGTK surface with an owned HTML5
 `<video>` document and native controls. This keeps Apple builds on Swift
 Package Manager and avoids shipping a second Linux media framework.
 
