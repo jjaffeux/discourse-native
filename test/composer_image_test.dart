@@ -260,37 +260,46 @@ void main() {
       expect(artwork.excludeFromSemantics, isTrue);
     });
 
-    testWidgets('reveals raw source only while the caret is inside the image', (
-      tester,
-    ) async {
-      final controller = MarkdownEditingController(text: _source);
-      addTearDown(controller.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark,
-          home: Scaffold(
-            body: TextField(controller: controller, maxLines: null),
+    testWidgets(
+      'range selection keeps the image while an interior caret reveals it',
+      (tester) async {
+        final controller = MarkdownEditingController(text: _source);
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark,
+            home: Scaffold(
+              body: TextField(controller: controller, maxLines: null),
+            ),
           ),
-        ),
-      );
-      final image = controller.imageBlocks.single;
-      expect(find.byType(ComposerImagePreview), findsOneWidget);
+        );
+        final image = controller.imageBlocks.single;
+        expect(find.byType(ComposerImagePreview), findsOneWidget);
 
-      controller.selection = TextSelection.collapsed(offset: image.start + 4);
-      await tester.pump();
+        controller.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: controller.text.length,
+        );
+        await tester.pump();
+        expect(find.byType(ComposerImagePreview), findsOneWidget);
+        expect(controller.isImageCollapsed(image), isTrue);
 
-      expect(find.byType(ComposerImagePreview), findsNothing);
-      expect(controller.isImageCollapsed(image), isFalse);
-      expect(controller.text, _source);
+        controller.selection = TextSelection.collapsed(offset: image.start + 4);
+        await tester.pump();
 
-      controller.selection = TextSelection.collapsed(offset: image.start);
-      await tester.pump();
-      expect(find.byType(ComposerImagePreview), findsOneWidget);
+        expect(find.byType(ComposerImagePreview), findsNothing);
+        expect(controller.isImageCollapsed(image), isFalse);
+        expect(controller.text, _source);
 
-      controller.selection = TextSelection.collapsed(offset: image.end);
-      await tester.pump();
-      expect(find.byType(ComposerImagePreview), findsOneWidget);
-    });
+        controller.selection = TextSelection.collapsed(offset: image.start);
+        await tester.pump();
+        expect(find.byType(ComposerImagePreview), findsOneWidget);
+
+        controller.selection = TextSelection.collapsed(offset: image.end);
+        await tester.pump();
+        expect(find.byType(ComposerImagePreview), findsOneWidget);
+      },
+    );
   });
 
   group('short URL resolution', () {

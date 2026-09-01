@@ -461,6 +461,19 @@ void main() {
       expect(
         pollBlockNeedsRawSource(
           block: block,
+          value: const TextEditingValue(
+            text: source,
+            selection: TextSelection(
+              baseOffset: 0,
+              extentOffset: source.length,
+            ),
+          ),
+        ),
+        isFalse,
+      );
+      expect(
+        pollBlockNeedsRawSource(
+          block: block,
           value: TextEditingValue(
             text: source,
             selection: TextSelection.collapsed(offset: block.start + 4),
@@ -485,7 +498,7 @@ void main() {
   });
 
   group('poll selection lifecycle', () {
-    test('clamps native range selection to a pointer-held poll end', () {
+    test('preserves native range selection across a pointer-held poll', () {
       final controller = MarkdownEditingController(
         text: source,
         syntaxPolicies: const [PollComposerSyntaxPolicy()],
@@ -493,22 +506,15 @@ void main() {
       addTearDown(controller.dispose);
       final projected = controller.pollBlocks.single;
       controller.keepPollCollapsedForPointerEdit(projected);
-
-      controller.selection = TextSelection(
-        baseOffset: projected.start + 1,
-        extentOffset: projected.end - 1,
-      );
-
-      expect(
-        controller.selection,
-        TextSelection.collapsed(offset: controller.pollCaretAfter(projected)),
-      );
-
-      controller.releasePollPointerEdit(projected);
       final range = TextSelection(
         baseOffset: projected.start + 1,
         extentOffset: projected.end - 1,
       );
+      controller.selection = range;
+
+      expect(controller.selection, range);
+
+      controller.releasePollPointerEdit(projected);
       controller.selection = range;
       expect(controller.selection, range);
     });

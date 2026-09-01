@@ -1292,17 +1292,14 @@ class MarkdownEditingController extends TextEditingController {
     bool suppressCollapsedCaret = false,
   }) {
     final selection = value.selection;
-    if (!selection.isValid) return false;
-    if (selection.isCollapsed) {
-      if (selection.extentOffset == image.start ||
-          selection.extentOffset == image.end) {
-        return false;
-      }
-      return !suppressCollapsedCaret &&
-          selection.extentOffset >= image.start &&
-          selection.extentOffset < image.end;
+    if (!selection.isValid || !selection.isCollapsed) return false;
+    if (selection.extentOffset == image.start ||
+        selection.extentOffset == image.end) {
+      return false;
     }
-    return selection.start < image.end && selection.end > image.start;
+    return !suppressCollapsedCaret &&
+        selection.extentOffset >= image.start &&
+        selection.extentOffset < image.end;
   }
 
   static bool _galleryNeedsRawSource(
@@ -1311,17 +1308,14 @@ class MarkdownEditingController extends TextEditingController {
     bool suppressCollapsedCaret = false,
   }) {
     final selection = value.selection;
-    if (!selection.isValid) return false;
-    if (selection.isCollapsed) {
-      if (selection.extentOffset == gallery.start ||
-          selection.extentOffset == gallery.end) {
-        return false;
-      }
-      return !suppressCollapsedCaret &&
-          selection.extentOffset > gallery.start &&
-          selection.extentOffset < gallery.end;
+    if (!selection.isValid || !selection.isCollapsed) return false;
+    if (selection.extentOffset == gallery.start ||
+        selection.extentOffset == gallery.end) {
+      return false;
     }
-    return selection.start < gallery.end && selection.end > gallery.start;
+    return !suppressCollapsedCaret &&
+        selection.extentOffset > gallery.start &&
+        selection.extentOffset < gallery.end;
   }
 
   void artworkArrived() {
@@ -1495,7 +1489,7 @@ class MarkdownEditingController extends TextEditingController {
       ];
 
   static int _revealedPill(List<MarkdownRun> runs, TextSelection selection) {
-    if (!selection.isValid) return -1;
+    if (!selection.isValid || !selection.isCollapsed) return -1;
 
     for (final run in runs) {
       final inside = run.has(Md.emoji)

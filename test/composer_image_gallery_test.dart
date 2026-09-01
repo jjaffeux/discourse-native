@@ -429,7 +429,7 @@ void main() {
       },
     );
 
-    testWidgets('reveals source while the caret is inside the gallery', (
+    testWidgets('selection keeps gallery while an interior caret reveals it', (
       tester,
     ) async {
       final controller = MarkdownEditingController(text: _source);
@@ -444,6 +444,16 @@ void main() {
       );
 
       final gallery = controller.galleryBlocks.single;
+      controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: controller.text.length,
+      );
+      await tester.pump();
+
+      expect(find.byType(ComposerImageGalleryPreview), findsOneWidget);
+      expect(find.byType(ComposerImagePreview), findsNothing);
+      expect(controller.isGalleryCollapsed(gallery), isTrue);
+
       controller.selection = TextSelection.collapsed(
         offset: gallery.contentStart,
       );
