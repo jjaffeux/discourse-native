@@ -87,6 +87,14 @@ dependencies:
   share_plus: ^12.0.2
   file_selector: ^1.1.0
 
+# The current AVFoundation implementation exposes an Apple type that is
+# deprecated only when its Objective-C module is imported by Swift. Keep the
+# warning workaround inside the reviewed package fork instead of weakening the
+# application's warning policy. See packages/video_player_avfoundation/PATCHES.md.
+dependency_overrides:
+  video_player_avfoundation:
+    path: packages/video_player_avfoundation
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

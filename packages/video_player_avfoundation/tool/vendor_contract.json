@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "name": "Discourse Native video_player_avfoundation",
+  "package": "video_player_avfoundation",
+  "version": "2.11.1",
+  "vendorPath": "packages/video_player_avfoundation",
+  "patchManifest": "packages/video_player_avfoundation/PATCHES.md"
+}
