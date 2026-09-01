@@ -1486,6 +1486,21 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   KeyEventResult _onEditorKeyEvent(FocusNode _, KeyEvent event) {
     final keyboard = HardwareKeyboard.instance;
+    final hasCommandModifier =
+        keyboard.isMetaPressed || keyboard.isControlPressed;
+    final isUndoOrRedo =
+        event is KeyDownEvent &&
+        ((hasCommandModifier && event.logicalKey == LogicalKeyboardKey.keyZ) ||
+            (keyboard.isControlPressed &&
+                event.logicalKey == LogicalKeyboardKey.keyY));
+    if (isUndoOrRedo &&
+        (_keyboardSelectedPill != null || _media.hasSelectedMediaProjection)) {
+      // UndoHistory must be able to install its exact recorded value. A
+      // selected projection makes _SelectedPillInputFormatter return the
+      // current value instead, which violates that contract. Leave projection
+      // mode before the shortcut reaches EditableText.
+      _clearKeyboardPillSelection();
+    }
     final hasModifier =
         keyboard.isMetaPressed ||
         keyboard.isControlPressed ||
@@ -1633,6 +1648,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   void _clearKeyboardPillSelection() {
     _media.clearKeyboardImageSelection();
+    _media.dismissGallery(requestFocus: false);
     widget.composer.text.clearKeyboardPillSelection();
   }
 

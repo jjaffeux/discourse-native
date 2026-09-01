@@ -1147,6 +1147,54 @@ void main() {
       },
     );
 
+    testWidgets('undo remains available while a poll pill is selected', (
+      tester,
+    ) async {
+      final shell = await _openComposer();
+      addTearDown(shell.dispose);
+      final composer = shell.visibleComposer!;
+      composer.text.value = const TextEditingValue(
+        text: '$_source!',
+        selection: TextSelection.collapsed(offset: _source.length + 1),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(body: ComposerPanel(composer: composer)),
+          ),
+        ),
+      );
+      composer.focus.requestFocus();
+      await tester.pump(const Duration(milliseconds: 600));
+
+      composer.text.value = const TextEditingValue(
+        text: '$_source!?',
+        selection: TextSelection.collapsed(offset: _source.length + 2),
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+
+      final poll = composer.text.pollBlocks.single;
+      composer.text.selection = TextSelection.collapsed(
+        offset: composer.text.pollCaretAfter(poll),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump();
+      expect(composer.text.keyboardSelectedPoll, isNotNull);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(composer.text.text, '$_source!');
+      expect(composer.text.keyboardSelectedPoll, isNull);
+      await _closeComposerAfterAssertions(tester, shell);
+    });
+
     testWidgets(
       'escape still closes the composer while a poll pill is selected',
       (tester) async {
