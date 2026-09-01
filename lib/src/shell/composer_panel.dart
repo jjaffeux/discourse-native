@@ -1021,8 +1021,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
   static const _menuGap = 4.0;
   static const _imageMenuPreferredWidth = 310.0;
   static const _imageMenuHeight = 98.0;
-  static const _galleryMenuPreferredWidth = 280.0;
-  static const _galleryMenuHeight = 52.0;
+  static const _galleryMenuButtonExtent = 44.0;
+  static const _galleryMenuContentWidth = _galleryMenuButtonExtent * 4;
+  static const _galleryMenuHeight = _galleryMenuButtonExtent;
 
   final GlobalKey _stackKey = GlobalKey();
   ComposerQuoteBlock? _pointerDownQuote;
@@ -1823,7 +1824,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
     final topLeft = stack.globalToLocal(rect.topLeft);
     final bottomRight = stack.globalToLocal(rect.bottomRight);
-    final width = math.min(_galleryMenuPreferredWidth, constraints.maxWidth);
+    final width = math.min(_galleryMenuContentWidth, constraints.maxWidth);
     const height = _galleryMenuHeight;
     final left = topLeft.dx.clamp(
       0.0,
@@ -1855,7 +1856,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       state.selectedGallery,
     );
     final galleryMenuWidth = math.min(
-      _galleryMenuPreferredWidth,
+      _galleryMenuContentWidth,
       constraints.maxWidth,
     );
     return Positioned.fill(
@@ -2406,7 +2407,7 @@ class _GalleryComposerMenu extends StatelessWidget {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SizedBox(
-                width: math.max(width, 220),
+                width: _ComposerEditorState._galleryMenuContentWidth,
                 height: _ComposerEditorState._galleryMenuHeight,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -2418,8 +2419,8 @@ class _GalleryComposerMenu extends StatelessWidget {
                       selectedIcon: const Icon(Icons.grid_view, size: 18),
                       tooltip: 'Grid gallery mode',
                       constraints: const BoxConstraints.tightFor(
-                        width: 44,
-                        height: 44,
+                        width: _ComposerEditorState._galleryMenuButtonExtent,
+                        height: _ComposerEditorState._galleryMenuButtonExtent,
                       ),
                       style: const ButtonStyle(
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -2433,8 +2434,8 @@ class _GalleryComposerMenu extends StatelessWidget {
                       selectedIcon: const Icon(Icons.view_carousel, size: 18),
                       tooltip: 'Carousel gallery mode',
                       constraints: const BoxConstraints.tightFor(
-                        width: 44,
-                        height: 44,
+                        width: _ComposerEditorState._galleryMenuButtonExtent,
+                        height: _ComposerEditorState._galleryMenuButtonExtent,
                       ),
                       style: const ButtonStyle(
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -2448,7 +2449,11 @@ class _GalleryComposerMenu extends StatelessWidget {
                       style: const ButtonStyle(
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.standard,
-                        fixedSize: WidgetStatePropertyAll(Size.square(44)),
+                        fixedSize: WidgetStatePropertyAll(
+                          Size.square(
+                            _ComposerEditorState._galleryMenuButtonExtent,
+                          ),
+                        ),
                       ),
                       icon: pickingImages
                           ? const SizedBox.square(
@@ -2494,8 +2499,8 @@ class _GalleryComposerMenu extends StatelessWidget {
                       icon: const Icon(Icons.grid_off_outlined, size: 18),
                       tooltip: 'Remove gallery, keep images',
                       constraints: const BoxConstraints.tightFor(
-                        width: 44,
-                        height: 44,
+                        width: _ComposerEditorState._galleryMenuButtonExtent,
+                        height: _ComposerEditorState._galleryMenuButtonExtent,
                       ),
                       style: const ButtonStyle(
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
